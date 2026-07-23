@@ -7,6 +7,7 @@ import {
   mkdir,
   open,
   readFile,
+  readdir,
   realpath,
   rename,
   stat,
@@ -53,7 +54,8 @@ export type ProcessManagerErrorCode =
   | 'PROJECT_SERVER_UNSUPPORTED'
   | 'PROJECT_SCRIPT_NOT_FOUND'
   | 'INVALID_PORT'
-  | 'INVALID_LOG_LIMIT';
+  | 'INVALID_LOG_LIMIT'
+  | 'PROCESS_STOP_TIMEOUT';
 
 export class ProcessManagerError extends Error {
   public readonly code: ProcessManagerErrorCode;
@@ -316,6 +318,8 @@ function isStoredProcess(value: unknown): value is StoredProcess {
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.projectId === 'string' &&
+    (candidate.workspaceId === undefined ||
+      typeof candidate.workspaceId === 'string') &&
     typeof candidate.kind === 'string' &&
     typeof candidate.status === 'string' &&
     typeof candidate.command === 'string' &&
@@ -328,7 +332,7 @@ function isStoredProcess(value: unknown): value is StoredProcess {
   );
 }
 
-function isProcessAlive(pid: number): boolean {
+function canSignalProcess(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -341,6 +345,24 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+function isProcessAlive(pid: number): boolean {
+  return canSignalProcess(pid);
+}
+
+function isProcessGroupAlive(pid: number): boolean {
+  if (process.platform === 'win32') {
+    return isProcessAlive(pid);
+  }
+
+  return canSignalProcess(-pid);
+}
+
+function isManagedProcessAlive(pid: number): boolean {
+  return process.platform === 'win32'
+    ? isProcessAlive(pid)
+    : isProcessGroupAlive(pid);
+}
+
 async function verifyProcessDirectory(
   storedProcess: StoredProcess,
 ): Promise<boolean> {
@@ -350,6 +372,13 @@ async function verifyProcessDirectory(
 
   if (process.platform !== 'linux') {
     return true;
+  }
+
+  // The process-group leader can exit while descendants keep running.
+  // The group remains the target created by the dashboard, although the
+  // leader no longer has a /proc/<pid>/cwd entry.
+  if (!isProcessAlive(storedProcess.pid)) {
+    return isProcessGroupAlive(storedProcess.pid);
   }
 
   try {
@@ -372,7 +401,7 @@ async function waitForProcessExit(
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    if (!isProcessAlive(pid)) {
+    if (!isManagedProcessAlive(pid)) {
       return true;
     }
 
@@ -381,7 +410,7 @@ async function waitForProcessExit(
     });
   }
 
-  return !isProcessAlive(pid);
+  return !isManagedProcessAlive(pid);
 }
 
 export class ProcessManager {
@@ -408,11 +437,12 @@ export class ProcessManager {
 
     if (
       storedProcess.status === 'running' ||
-      storedProcess.status === 'starting'
+      storedProcess.status === 'starting' ||
+      storedProcess.status === 'stopping'
     ) {
       const running =
         storedProcess.pid !== undefined &&
-        isProcessAlive(storedProcess.pid) &&
+        isManagedProcessAlive(storedProcess.pid) &&
         (await verifyProcessDirectory(storedProcess));
 
       if (!running) {
@@ -429,6 +459,51 @@ export class ProcessManager {
     }
 
     return storedProcess;
+  }
+
+  public async listProcesses(): Promise<ManagedProcess[]> {
+    const entries = await readdir(this.processDirectory, {
+      withFileTypes: true,
+    }).catch((error: unknown) => {
+      if (isErrnoException(error) && error.code === 'ENOENT') {
+        return [];
+      }
+
+      throw error;
+    });
+
+    const processes: ManagedProcess[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.server.json')) {
+        continue;
+      }
+
+      const contents = await readFile(
+        path.join(this.processDirectory, entry.name),
+        'utf8',
+      );
+
+      const parsed: unknown = JSON.parse(contents);
+
+      if (!isStoredProcess(parsed)) {
+        throw new Error(
+          `O arquivo de estado ${entry.name} possui formato inválido.`,
+        );
+      }
+
+      const managedProcess = await this.getServerProcess(
+        parsed.projectId,
+      );
+
+      if (managedProcess) {
+        processes.push(managedProcess);
+      }
+    }
+
+    return processes.sort((left, right) =>
+      left.projectId.localeCompare(right.projectId),
+    );
   }
 
   public async readServerLog(
@@ -586,6 +661,9 @@ export class ProcessManager {
     const managedProcess: StoredProcess = {
       id: `${project.id}:server`,
       projectId: project.id,
+      ...(project.workspaceId
+        ? { workspaceId: project.workspaceId }
+        : {}),
       kind: 'server',
       status: 'running',
       pid: child.pid,
@@ -614,7 +692,7 @@ export class ProcessManager {
       );
     }
 
-    if (!isProcessAlive(storedProcess.pid)) {
+    if (!isManagedProcessAlive(storedProcess.pid)) {
       const stoppedProcess: StoredProcess = {
         ...storedProcess,
         status: 'stopped',
@@ -653,7 +731,17 @@ export class ProcessManager {
     if (!exitedGracefully) {
       this.sendSignal(storedProcess.pid, 'SIGKILL');
 
-      await waitForProcessExit(storedProcess.pid, 2_000);
+      const exitedAfterKill = await waitForProcessExit(
+        storedProcess.pid,
+        2_000,
+      );
+
+      if (!exitedAfterKill) {
+        throw new ProcessManagerError(
+          'PROCESS_STOP_TIMEOUT',
+          'O grupo de processos continua ativo após a tentativa de encerramento.',
+        );
+      }
     }
 
     const stoppedProcess: StoredProcess = {

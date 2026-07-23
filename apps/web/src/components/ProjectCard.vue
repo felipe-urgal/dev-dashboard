@@ -180,7 +180,9 @@ const isRunning = computed(
     processStatus.value === 'starting',
 );
 
-const isStopping = computed(() => processStatus.value === 'stopping');
+const canStop = computed(
+  () => isRunning.value || processStatus.value === 'stopping',
+);
 
 const processUrl = computed<string | null>(() => {
   const port = managedProcess.value?.port;
@@ -392,17 +394,17 @@ onBeforeUnmount(() => {
         </button>
 
         <button
-          v-if="supportsServer && !isRunning"
+          v-if="supportsServer && !canStop"
           type="button"
           class="primary-small-button"
-          :disabled="executingAction || isStopping"
+          :disabled="executingAction"
           @click="handleStart"
         >
           {{ executingAction ? 'Iniciando...' : 'Iniciar' }}
         </button>
 
         <button
-          v-if="supportsServer && isRunning"
+          v-if="supportsServer && canStop"
           type="button"
           class="danger-small-button"
           :disabled="executingAction"
@@ -415,7 +417,7 @@ onBeforeUnmount(() => {
           v-if="processUrl"
           type="button"
           class="secondary-button"
-          :disabled="!isRunning"
+          :disabled="processStatus !== 'running'"
           @click="handleOpen"
         >
           Abrir

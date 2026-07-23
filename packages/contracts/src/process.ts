@@ -7,6 +7,7 @@ export type ManagedProcessStatus =
 export interface ManagedProcess {
   id: string;
   projectId: string;
+  workspaceId?: string;
   kind: ManagedProcessKind;
   status: ManagedProcessStatus;
   pid?: number;

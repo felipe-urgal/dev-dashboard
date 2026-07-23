@@ -30,6 +30,7 @@ function processErrorStatus(
 
     case 'PROCESS_ALREADY_RUNNING':
     case 'PROCESS_IDENTITY_MISMATCH':
+    case 'PROCESS_STOP_TIMEOUT':
       return 409;
 
     default:

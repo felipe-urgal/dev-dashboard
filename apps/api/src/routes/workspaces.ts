@@ -2,6 +2,8 @@ import type {
   FastifyPluginAsync
 } from "fastify";
 
+import path from "node:path";
+
 import {
   WorkspaceRepository,
   WorkspaceRepositoryError
@@ -10,6 +12,10 @@ import {
 import {
   scanWorkspace
 } from "@dev-dashboard/project-discovery";
+
+import {
+  ProcessManager
+} from "@dev-dashboard/process-manager";
 
 import {
   deleteWorkspaceScan,
@@ -28,6 +34,25 @@ interface WorkspaceParams {
 
 const workspaceRepository =
   new WorkspaceRepository();
+
+const processManager = new ProcessManager();
+
+function isPathInside(
+  parentPath: string,
+  candidatePath: string
+): boolean {
+  const relativePath = path.relative(
+    parentPath,
+    candidatePath
+  );
+
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith(`..${path.sep}`) &&
+      relativePath !== ".." &&
+      !path.isAbsolute(relativePath))
+  );
+}
 
 function resolveErrorStatus(
   error: WorkspaceRepositoryError
@@ -211,6 +236,42 @@ export const workspaceRoutes: FastifyPluginAsync =
       "/workspaces/:workspaceId",
       async (request, reply) => {
         try {
+          const workspace =
+            await workspaceRepository.find(
+              request.params.workspaceId
+            );
+
+          if (!workspace) {
+            return reply.code(404).send({
+              error: "WORKSPACE_NOT_FOUND",
+              message: "Workspace não encontrado."
+            });
+          }
+
+          const managedProcesses =
+            await processManager.listProcesses();
+
+          const activeProcess = managedProcesses.find(
+            (managedProcess) =>
+              (managedProcess.status === "running" ||
+                managedProcess.status === "starting" ||
+                managedProcess.status === "stopping") &&
+              (managedProcess.workspaceId === workspace.id ||
+                (managedProcess.cwd !== undefined &&
+                  isPathInside(
+                    workspace.path,
+                    managedProcess.cwd
+                  )))
+          );
+
+          if (activeProcess) {
+            return reply.code(409).send({
+              error: "WORKSPACE_PROCESS_RUNNING",
+              message:
+                "Pare os processos ativos antes de remover o workspace."
+            });
+          }
+
           await workspaceRepository.remove(
             request.params.workspaceId
           );
