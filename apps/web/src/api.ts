@@ -1,5 +1,6 @@
 import type {
-  Project
+  Project,
+  Workspace
 } from "@dev-dashboard/contracts";
 
 export interface HealthResponse {
@@ -26,6 +27,10 @@ interface ProjectsResponse {
   projects: Project[];
 }
 
+interface WorkspacesResponse {
+  workspaces: Workspace[];
+}
+
 interface ErrorResponse {
   error?: string;
   message?: string;
@@ -37,9 +42,10 @@ async function requestJson<T>(
 ): Promise<T> {
   const response = await fetch(input, init);
 
-  const payload: unknown = await response
-    .json()
-    .catch(() => null);
+  const payload: unknown =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => null);
 
   if (!response.ok) {
     const errorPayload =
@@ -68,20 +74,47 @@ export async function fetchProjects(): Promise<Project[]> {
   return response.projects;
 }
 
-export function scanWorkspace(input: {
-  id: string;
+export async function fetchWorkspaces(): Promise<Workspace[]> {
+  const response =
+    await requestJson<WorkspacesResponse>("/api/workspaces");
+
+  return response.workspaces;
+}
+
+export function createWorkspace(input: {
+  name: string;
   path: string;
-}): Promise<WorkspaceScanResponse> {
-  return requestJson<WorkspaceScanResponse>(
-    "/api/workspaces/scan",
+}): Promise<Workspace> {
+  return requestJson<Workspace>(
+    "/api/workspaces",
     {
       method: "POST",
-
       headers: {
         "Content-Type": "application/json"
       },
-
       body: JSON.stringify(input)
+    }
+  );
+}
+
+export function scanWorkspace(
+  workspaceId: string
+): Promise<WorkspaceScanResponse> {
+  return requestJson<WorkspaceScanResponse>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/scan`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function deleteWorkspace(
+  workspaceId: string
+): Promise<void> {
+  await requestJson<null>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}`,
+    {
+      method: "DELETE"
     }
   );
 }

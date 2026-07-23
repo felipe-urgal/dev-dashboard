@@ -8,27 +8,45 @@ import {
 import type {
   Project,
   ProjectCapability,
-  ProjectType
+  ProjectType,
+  Workspace
 } from "@dev-dashboard/contracts";
 
 import {
+  createWorkspace,
+  deleteWorkspace,
   fetchHealth,
   fetchProjects,
+  fetchWorkspaces,
   scanWorkspace
 } from "./api";
 
 const projects = ref<Project[]>([]);
-const workspaceId = ref("caiena");
-const workspacePath = ref(
-  "/home/ubunru/Caiena/Projetos"
-);
+const workspaces = ref<Workspace[]>([]);
+
+const selectedWorkspaceId = ref("");
+
+const newWorkspaceName = ref("");
+const newWorkspacePath = ref("");
 
 const apiConnected = ref(false);
 const loadingProjects = ref(true);
 const scanningWorkspace = ref(false);
+const creatingWorkspace = ref(false);
+const deletingWorkspace = ref(false);
+
 const errorMessage = ref("");
+const successMessage = ref("");
 const warningCount = ref(0);
 const lastScannedPath = ref("");
+
+const selectedWorkspace = computed(
+  () =>
+    workspaces.value.find(
+      (workspace) =>
+        workspace.id === selectedWorkspaceId.value
+    )
+);
 
 const railsProjects = computed(
   () =>
@@ -80,6 +98,11 @@ const capabilityLabels: Record<
   bundler: "Bundler"
 };
 
+function clearMessages(): void {
+  errorMessage.value = "";
+  successMessage.value = "";
+}
+
 function projectInitials(name: string): string {
   return name
     .replace(/^[._-]+/, "")
@@ -100,62 +123,179 @@ function capabilityLabel(
   return capabilityLabels[capability];
 }
 
-async function loadInitialData(): Promise<void> {
+async function scanSelectedWorkspace(): Promise<void> {
+  const workspace = selectedWorkspace.value;
+
+  if (!workspace) {
+    projects.value = [];
+    lastScannedPath.value = "";
+    return;
+  }
+
+  scanningWorkspace.value = true;
   loadingProjects.value = true;
-  errorMessage.value = "";
+  warningCount.value = 0;
+  clearMessages();
 
   try {
-    const [health, storedProjects] =
-      await Promise.all([
-        fetchHealth(),
-        fetchProjects()
-      ]);
+    const result = await scanWorkspace(workspace.id);
+
+    projects.value = result.projects;
+    warningCount.value = result.warnings.length;
+    lastScannedPath.value = result.workspacePath;
+    apiConnected.value = true;
+
+    successMessage.value =
+      `${result.projects.length} projeto(s) detectado(s).`;
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : "Não foi possível escanear o workspace.";
+  } finally {
+    scanningWorkspace.value = false;
+    loadingProjects.value = false;
+  }
+}
+
+async function loadInitialData(): Promise<void> {
+  loadingProjects.value = true;
+  clearMessages();
+
+  try {
+    const health = await fetchHealth();
 
     apiConnected.value = health.status === "ok";
-    projects.value = storedProjects;
+
+    const storedWorkspaces = await fetchWorkspaces();
+
+    workspaces.value = storedWorkspaces;
+
+    const firstWorkspace = storedWorkspaces[0];
+
+    if (firstWorkspace) {
+      selectedWorkspaceId.value = firstWorkspace.id;
+      await scanSelectedWorkspace();
+      return;
+    }
+
+    projects.value = await fetchProjects();
   } catch (error) {
     apiConnected.value = false;
 
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível carregar o dashboard";
+        : "Não foi possível carregar o dashboard.";
   } finally {
     loadingProjects.value = false;
   }
 }
 
-async function handleScan(): Promise<void> {
-  const id = workspaceId.value.trim();
-  const path = workspacePath.value.trim();
+async function handleWorkspaceSelection(
+  event: Event
+): Promise<void> {
+  const target = event.target as HTMLSelectElement;
 
-  if (!id || !path) {
+  selectedWorkspaceId.value = target.value;
+
+  await scanSelectedWorkspace();
+}
+
+async function handleCreateWorkspace(): Promise<void> {
+  const name = newWorkspaceName.value.trim();
+  const path = newWorkspacePath.value.trim();
+
+  clearMessages();
+
+  if (!name || !path) {
     errorMessage.value =
-      "Informe o identificador e o caminho do workspace.";
+      "Informe o nome e o caminho do workspace.";
 
     return;
   }
 
-  scanningWorkspace.value = true;
-  errorMessage.value = "";
+  creatingWorkspace.value = true;
 
   try {
-    const result = await scanWorkspace({
-      id,
+    const workspace = await createWorkspace({
+      name,
       path
     });
 
-    projects.value = result.projects;
-    warningCount.value = result.warnings.length;
-    lastScannedPath.value = result.workspacePath;
-    apiConnected.value = true;
+    workspaces.value = [
+      ...workspaces.value,
+      workspace
+    ].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+
+    selectedWorkspaceId.value = workspace.id;
+
+    newWorkspaceName.value = "";
+    newWorkspacePath.value = "";
+
+    successMessage.value =
+      `Workspace "${workspace.name}" cadastrado.`;
+
+    await scanSelectedWorkspace();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível escanear o workspace";
+        : "Não foi possível cadastrar o workspace.";
   } finally {
-    scanningWorkspace.value = false;
+    creatingWorkspace.value = false;
+  }
+}
+
+async function handleDeleteWorkspace(): Promise<void> {
+  const workspace = selectedWorkspace.value;
+
+  if (!workspace) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Remover o workspace "${workspace.name}" do dashboard? ` +
+      "Os arquivos locais não serão apagados."
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  deletingWorkspace.value = true;
+  clearMessages();
+
+  try {
+    await deleteWorkspace(workspace.id);
+
+    workspaces.value = workspaces.value.filter(
+      (item) => item.id !== workspace.id
+    );
+
+    projects.value = [];
+    warningCount.value = 0;
+    lastScannedPath.value = "";
+
+    const nextWorkspace = workspaces.value[0];
+
+    if (nextWorkspace) {
+      selectedWorkspaceId.value = nextWorkspace.id;
+      await scanSelectedWorkspace();
+    } else {
+      selectedWorkspaceId.value = "";
+      successMessage.value =
+        `Workspace "${workspace.name}" removido.`;
+    }
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : "Não foi possível remover o workspace.";
+  } finally {
+    deletingWorkspace.value = false;
   }
 }
 
@@ -217,23 +357,37 @@ onMounted(() => {
 
       <div class="sidebar-section">
         <span class="sidebar-label">
-          Workspace
+          Workspace ativo
         </span>
 
-        <div class="workspace-summary">
+        <div
+          v-if="selectedWorkspace"
+          class="workspace-summary"
+        >
           <span class="workspace-avatar">
-            C
+            {{
+              selectedWorkspace.name
+                .charAt(0)
+                .toUpperCase()
+            }}
           </span>
 
           <div>
             <strong>
-              {{ workspaceId || "Não selecionado" }}
+              {{ selectedWorkspace.name }}
             </strong>
 
             <span>
               {{ projects.length }} projetos
             </span>
           </div>
+        </div>
+
+        <div
+          v-else
+          class="workspace-summary-empty"
+        >
+          Nenhum workspace
         </div>
       </div>
 
@@ -300,23 +454,20 @@ onMounted(() => {
             </h2>
 
             <p>
-              Detecte aplicações Rails e Node, visualize
-              suas capacidades e prepare o ambiente para
-              gerenciar processos, Git, testes e logs.
+              Cadastre múltiplos workspaces, detecte
+              aplicações Rails e Node e prepare o ambiente
+              para gerenciar processos, Git, testes e logs.
             </p>
           </div>
 
-          <form
-            class="workspace-form"
-            @submit.prevent="handleScan"
-          >
+          <section class="workspace-panel">
             <div class="form-heading">
               <div>
                 <span class="section-kicker">
-                  Workspace
+                  Workspaces
                 </span>
 
-                <h3>Carregar projetos</h3>
+                <h3>Gerenciar projetos locais</h3>
               </div>
 
               <span class="local-badge">
@@ -324,38 +475,109 @@ onMounted(() => {
               </span>
             </div>
 
-            <label>
-              <span>Identificador</span>
+            <template v-if="workspaces.length > 0">
+              <label class="workspace-field">
+                <span>Workspace ativo</span>
 
-              <input
-                v-model="workspaceId"
-                autocomplete="off"
-                placeholder="caiena"
-              />
-            </label>
+                <select
+                  :value="selectedWorkspaceId"
+                  :disabled="scanningWorkspace"
+                  @change="handleWorkspaceSelection"
+                >
+                  <option
+                    v-for="workspace in workspaces"
+                    :key="workspace.id"
+                    :value="workspace.id"
+                  >
+                    {{ workspace.name }}
+                  </option>
+                </select>
+              </label>
 
-            <label>
-              <span>Caminho local</span>
+              <code
+                v-if="selectedWorkspace"
+                class="workspace-path"
+              >
+                {{ selectedWorkspace.path }}
+              </code>
 
-              <input
-                v-model="workspacePath"
-                autocomplete="off"
-                placeholder="/home/usuario/projetos"
-              />
-            </label>
+              <div class="workspace-actions">
+                <button
+                  class="primary-button"
+                  type="button"
+                  :disabled="scanningWorkspace"
+                  @click="scanSelectedWorkspace"
+                >
+                  {{
+                    scanningWorkspace
+                      ? "Escaneando..."
+                      : "Escanear novamente"
+                  }}
+                </button>
 
-            <button
-              class="primary-button"
-              type="submit"
-              :disabled="scanningWorkspace"
+                <button
+                  class="danger-button"
+                  type="button"
+                  :disabled="deletingWorkspace"
+                  @click="handleDeleteWorkspace"
+                >
+                  {{
+                    deletingWorkspace
+                      ? "Removendo..."
+                      : "Remover"
+                  }}
+                </button>
+              </div>
+
+              <div class="workspace-divider">
+                Adicionar outro workspace
+              </div>
+            </template>
+
+            <div
+              v-else
+              class="workspace-empty"
             >
-              {{
-                scanningWorkspace
-                  ? "Escaneando..."
-                  : "Escanear workspace"
-              }}
-            </button>
-          </form>
+              Nenhum workspace foi cadastrado.
+            </div>
+
+            <form
+              class="workspace-create-form"
+              @submit.prevent="handleCreateWorkspace"
+            >
+              <label class="workspace-field">
+                <span>Nome</span>
+
+                <input
+                  v-model="newWorkspaceName"
+                  autocomplete="off"
+                  placeholder="Projetos pessoais"
+                />
+              </label>
+
+              <label class="workspace-field">
+                <span>Caminho local</span>
+
+                <input
+                  v-model="newWorkspacePath"
+                  autocomplete="off"
+                  placeholder="/home/usuario/projetos"
+                />
+              </label>
+
+              <button
+                class="secondary-primary-button"
+                type="submit"
+                :disabled="creatingWorkspace"
+              >
+                {{
+                  creatingWorkspace
+                    ? "Cadastrando..."
+                    : "Adicionar workspace"
+                }}
+              </button>
+            </form>
+          </section>
         </div>
 
         <div
@@ -368,12 +590,19 @@ onMounted(() => {
         </div>
 
         <div
+          v-if="successMessage"
+          class="alert alert-success"
+          role="status"
+        >
+          <strong>Ação concluída.</strong>
+          <span>{{ successMessage }}</span>
+        </div>
+
+        <div
           v-if="warningCount > 0"
           class="alert alert-warning"
         >
-          <strong>
-            Scan concluído com avisos.
-          </strong>
+          <strong>Scan concluído com avisos.</strong>
 
           <span>
             {{ warningCount }}
@@ -457,7 +686,11 @@ onMounted(() => {
 
             <span class="section-count">
               {{ projects.length }}
-              {{ projects.length === 1 ? "projeto" : "projetos" }}
+              {{
+                projects.length === 1
+                  ? "projeto"
+                  : "projetos"
+              }}
             </span>
           </div>
 
@@ -479,7 +712,7 @@ onMounted(() => {
             <h3>Nenhum projeto carregado</h3>
 
             <p>
-              Informe uma pasta de workspace acima para
+              Cadastre ou selecione um workspace para
               detectar aplicações Rails e Node.
             </p>
           </div>
