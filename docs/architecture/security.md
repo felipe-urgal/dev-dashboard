@@ -184,6 +184,63 @@ Rotas devem usar schemas para validar:
 
 Erros internos não devem expor stacks completas ao navegador em produção.
 
+## Autenticação local
+
+No primeiro uso, o Dev Dashboard gera um token criptograficamente aleatório de
+32 bytes, representado por 64 caracteres hexadecimais.
+
+O token é persistido em:
+
+```text
+~/.config/dev-dashboard/api-token
+```
+
+As permissões pretendidas são:
+
+```text
+diretório de configuração: 0700
+arquivo do token:          0600
+```
+
+Rotas privadas exigem:
+
+```text
+X-Dev-Dashboard-Token
+```
+
+A comparação do token utiliza `timingSafeEqual` quando os valores possuem o
+mesmo comprimento.
+
+O endpoint de health check permanece público para permitir diagnóstico local.
+
+## Origem e CORS
+
+A API aceita explicitamente as origens locais do dashboard:
+
+```text
+http://127.0.0.1:5173
+http://localhost:5173
+```
+
+Requisições de navegador vindas de outras origens são rejeitadas.
+
+A política CORS:
+
+- possui lista fechada de origens;
+- permite apenas os métodos utilizados pela API;
+- permite `Content-Type` e `X-Dev-Dashboard-Token`;
+- não utiliza credenciais de navegador;
+- responde preflights válidos;
+- não adiciona headers CORS para origens externas.
+
+Requisições locais sem header `Origin`, como chamadas feitas por `curl`, ainda
+precisam apresentar o token nas rotas privadas.
+
+No desenvolvimento, o proxy do Vite adiciona o token à requisição encaminhada
+para a API. O token é lido no processo Node que executa o Vite e não deve ser
+exposto por variáveis prefixadas com `VITE_` nem incluído no código do
+navegador.
+
 ## Modelo de ameaça atual
 
 O modelo atual assume:
@@ -201,18 +258,21 @@ O dashboard não transforma um projeto não confiável em um projeto seguro.
 
 ## Riscos conhecidos
 
-### Ausência de autenticação local
+### Token acessível ao usuário local
 
-A API ainda não exige token.
+O token protege contra chamadas casuais de páginas externas e requisições sem
+autorização, mas não isola o dashboard de outros processos executados pela mesma
+conta de usuário.
 
-Embora esteja limitada a `127.0.0.1`, outra página ou processo local pode tentar enviar requisições à API.
+Um processo local com as mesmas permissões pode ler o arquivo do token.
 
-Antes de adicionar operações Git destrutivas, banco de dados ou terminal, devemos implementar:
+Antes de suportar múltiplos usuários ou acesso remoto, será necessário adotar:
 
-- token local;
-- validação de `Origin`;
-- política de CORS explícita;
-- proteção contra requisições forjadas.
+- autenticação por usuário;
+- autorização por ação;
+- gerenciamento de sessões;
+- isolamento de processos;
+- auditoria mais forte.
 
 ### Estado de projetos em memória
 

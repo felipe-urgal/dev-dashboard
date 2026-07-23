@@ -45,22 +45,25 @@ Critério de conclusão:
 
 ## Fase 1 — Consolidação da fundação
 
+Status: em andamento na branch `feat/local-security`.
+
 Objetivo: preparar a base para operações mais sensíveis.
 
 Entregas:
 
-- autenticação local por token;
-- validação de `Origin`;
-- política CORS explícita;
-- schemas de resposta;
-- tratamento global de erros;
-- testes da API;
-- testes do Process Manager;
-- limpeza e retenção de logs;
-- diagnóstico de ambiente;
-- script `dev-web`;
-- configuração de produção local;
-- frontend servido pela API no build final.
+- [x] autenticação local por token;
+- [x] validação de `Origin`;
+- [x] política CORS explícita;
+- [x] tratamento global de erros;
+- [x] testes das rotas protegidas;
+- [x] isolamento das configurações durante os testes;
+- [ ] schemas de resposta;
+- [ ] testes do Process Manager;
+- [ ] limpeza e retenção de logs;
+- [ ] diagnóstico de ambiente;
+- [ ] script `dev-web`;
+- [ ] configuração de produção local;
+- [ ] frontend servido pela API no build final.
 
 Critério de conclusão:
 
