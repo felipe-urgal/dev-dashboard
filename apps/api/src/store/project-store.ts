@@ -44,3 +44,13 @@ export function listProjects(): Project[] {
 export function deleteWorkspaceScan(workspaceId: string): void {
   workspaceScans.delete(workspaceId);
 }
+
+export function findProject(
+  projectId: string
+): Project | null {
+  return (
+    listProjects().find(
+      (project) => project.id === projectId
+    ) ?? null
+  );
+}

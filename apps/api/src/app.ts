@@ -11,6 +11,10 @@ import {
 } from "./routes/projects.js";
 
 import {
+  processRoutes
+} from "./routes/processes.js";
+
+import {
   workspaceRoutes
 } from "./routes/workspaces.js";
 
@@ -30,6 +34,10 @@ export function buildApp(): FastifyInstance {
   });
 
   app.register(projectRoutes, {
+    prefix: "/api"
+  });
+
+  app.register(processRoutes, {
     prefix: "/api"
   });
 
