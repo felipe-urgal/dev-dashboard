@@ -1,44 +1,59 @@
-import Fastify, {
-  type FastifyInstance
-} from "fastify";
+import Fastify, { type FastifyInstance } from 'fastify';
 
-import {
-  healthRoutes
-} from "./routes/health.js";
+import { healthRoutes } from './routes/health.js';
 
-import {
-  projectRoutes
-} from "./routes/projects.js";
+import { projectRoutes } from './routes/projects.js';
 
-import {
-  processRoutes
-} from "./routes/processes.js";
+import { processRoutes } from './routes/processes.js';
 
-import {
-  workspaceRoutes
-} from "./routes/workspaces.js";
+import { workspaceRoutes } from './routes/workspaces.js';
 
-export function buildApp(): FastifyInstance {
+import { LocalTokenStore } from '@dev-dashboard/core';
+
+import { registerLocalSecurity } from './security/local-security.js';
+
+import { registerApiErrorHandling } from './http/api-error.js';
+
+export interface BuildAppOptions {
+  localToken?: string;
+  allowedOrigins?: readonly string[];
+}
+
+export async function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
-      level: process.env.LOG_LEVEL ?? "info"
-    }
+      level: process.env.LOG_LEVEL ?? 'info',
+    },
+  });
+
+  registerApiErrorHandling(app);
+
+  const localToken =
+    options.localToken ?? (await new LocalTokenStore().getOrCreate());
+
+  await registerLocalSecurity(app, {
+    token: localToken,
+    ...(options.allowedOrigins
+      ? {
+          allowedOrigins: options.allowedOrigins,
+        }
+      : {}),
   });
 
   app.register(healthRoutes, {
-    prefix: "/api"
+    prefix: '/api',
   });
 
   app.register(workspaceRoutes, {
-    prefix: "/api"
+    prefix: '/api',
   });
 
   app.register(projectRoutes, {
-    prefix: "/api"
+    prefix: '/api',
   });
 
   app.register(processRoutes, {
-    prefix: "/api"
+    prefix: '/api',
   });
 
   return app;

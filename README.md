@@ -247,7 +247,34 @@ A API escuta somente em:
 
 Ela não deve ser exposta diretamente à internet ou à rede local.
 
-O backend aceita apenas operações previamente definidas. Caminhos, portas e entradas são validados antes da execução.
+No primeiro uso, a aplicação gera um token local em:
+
+```text
+~/.config/dev-dashboard/api-token
+```
+
+O arquivo é restrito ao usuário com permissão `0600`.
+
+Rotas privadas exigem o header:
+
+```text
+X-Dev-Dashboard-Token
+```
+
+Durante o desenvolvimento, o proxy do Vite lê o token local e adiciona esse
+header às chamadas para `/api`. O token não é incluído no bundle JavaScript do
+frontend.
+
+A API também:
+
+- aceita somente as origens locais configuradas;
+- usa uma política CORS explícita;
+- mantém o health check público;
+- padroniza erros de validação, autorização e falhas internas;
+- não retorna stack traces ou mensagens internas sensíveis;
+- aceita apenas operações previamente definidas.
+
+Caminhos, portas e entradas são validados antes da execução.
 
 Leia [`docs/architecture/security.md`](docs/architecture/security.md) antes de adicionar novos comandos ou integrações.
 

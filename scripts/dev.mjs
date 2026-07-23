@@ -12,14 +12,16 @@ const processDefinitions = [
     name: "api",
     args: [
       "run",
-      "dev:api"
+      "dev",
+      "--workspace=@dev-dashboard/api"
     ]
   },
   {
     name: "web",
     args: [
       "run",
-      "dev:web"
+      "dev",
+      "--workspace=@dev-dashboard/web"
     ]
   }
 ];

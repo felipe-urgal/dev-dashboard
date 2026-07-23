@@ -5,6 +5,8 @@ import {
   ProcessManagerError,
 } from '@dev-dashboard/process-manager';
 
+import { ApiError } from '../http/api-error.js';
+
 import { findProject } from '../store/project-store.js';
 
 interface ProjectParams {
@@ -21,35 +23,54 @@ interface ProcessLogQuery {
 
 const processManager = new ProcessManager();
 
-function processErrorStatus(
+function processManagerApiError(
   error: ProcessManagerError,
-): 400 | 404 | 409 {
+): ApiError {
   switch (error.code) {
     case 'PROCESS_NOT_FOUND':
-      return 404;
+      return new ApiError({
+        statusCode: 404,
+        code: error.code,
+        message: error.message,
+      });
 
     case 'PROCESS_ALREADY_RUNNING':
     case 'PROCESS_IDENTITY_MISMATCH':
     case 'PROCESS_STOP_TIMEOUT':
-      return 409;
+      return new ApiError({
+        statusCode: 409,
+        code: error.code,
+        message: error.message,
+      });
 
     default:
-      return 400;
+      return new ApiError({
+        statusCode: 400,
+        code: error.code,
+        message: error.message,
+      });
   }
+}
+
+function requireProject(projectId: string) {
+  const project = findProject(projectId);
+
+  if (!project) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'PROJECT_NOT_FOUND',
+      message: 'Projeto não encontrado.',
+    });
+  }
+
+  return project;
 }
 
 export const processRoutes: FastifyPluginAsync = async (app) => {
   app.get<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process', async (request, reply) => {
-    const project = findProject(request.params.projectId);
-
-    if (!project) {
-      return reply.code(404).send({
-        error: 'PROJECT_NOT_FOUND',
-        message: 'Projeto não encontrado.',
-      });
-    }
+  }>('/projects/:projectId/process', async (request) => {
+    const project = requireProject(request.params.projectId);
 
     const managedProcess = await processManager.getServerProcess(
       project.id,
@@ -80,15 +101,8 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
         },
       },
     },
-    async (request, reply) => {
-      const project = findProject(request.params.projectId);
-
-      if (!project) {
-        return reply.code(404).send({
-          error: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
+    async (request) => {
+      const project = requireProject(request.params.projectId);
 
       try {
         const log = await processManager.readServerLog(project.id, {
@@ -104,10 +118,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
         };
       } catch (error) {
         if (error instanceof ProcessManagerError) {
-          return reply.code(processErrorStatus(error)).send({
-            error: error.code,
-            message: error.message,
-          });
+          throw processManagerApiError(error);
         }
 
         throw error;
@@ -136,14 +147,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const project = findProject(request.params.projectId);
-
-      if (!project) {
-        return reply.code(404).send({
-          error: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
+      const project = requireProject(request.params.projectId);
 
       try {
         const managedProcess = await processManager.startServer(
@@ -162,10 +166,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
         });
       } catch (error) {
         if (error instanceof ProcessManagerError) {
-          return reply.code(processErrorStatus(error)).send({
-            error: error.code,
-            message: error.message,
-          });
+          throw processManagerApiError(error);
         }
 
         request.log.error(
@@ -176,12 +177,10 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
           'Server start failed',
         );
 
-        return reply.code(500).send({
-          error: 'PROCESS_START_FAILED',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível iniciar o servidor.',
+        throw new ApiError({
+          statusCode: 500,
+          code: 'PROCESS_START_FAILED',
+          message: 'Não foi possível iniciar o servidor.',
         });
       }
     },
@@ -189,15 +188,8 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process/stop', async (request, reply) => {
-    const project = findProject(request.params.projectId);
-
-    if (!project) {
-      return reply.code(404).send({
-        error: 'PROJECT_NOT_FOUND',
-        message: 'Projeto não encontrado.',
-      });
-    }
+  }>('/projects/:projectId/process/stop', async (request) => {
+    const project = requireProject(request.params.projectId);
 
     try {
       const managedProcess = await processManager.stopServer(
@@ -209,10 +201,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
       };
     } catch (error) {
       if (error instanceof ProcessManagerError) {
-        return reply.code(processErrorStatus(error)).send({
-          error: error.code,
-          message: error.message,
-        });
+        throw processManagerApiError(error);
       }
 
       throw error;

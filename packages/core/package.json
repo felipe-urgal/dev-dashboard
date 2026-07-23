@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import=tsx --test test/workspace-repository.test.ts"
+    "test": "node --import=tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@dev-dashboard/contracts": "0.1.0"

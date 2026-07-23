@@ -18,7 +18,9 @@
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",
     "predev": "npm run build:packages",
     "pretypecheck": "npm run build:packages",
-    "pretest": "npm run build:packages"
+    "pretest": "npm run build:packages",
+    "predev:api": "npm run build:packages",
+    "predev:web": "npm run build:packages"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
