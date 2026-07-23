@@ -5,23 +5,19 @@
     "outDir": "dist",
     "composite": true,
     "tsBuildInfoFile": "dist/.tsbuildinfo",
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
   "references": [
     {
       "path": "../../packages/contracts"
     },
     {
+      "path": "../../packages/core"
+    },
+    {
       "path": "../../packages/project-discovery"
     }
   ],
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }

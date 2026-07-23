@@ -1,10 +1,6 @@
-import type {
-  Project
-} from "@dev-dashboard/contracts";
+import type { Project } from '@dev-dashboard/contracts';
 
-import type {
-  WorkspaceScanResult
-} from "@dev-dashboard/project-discovery";
+import type { WorkspaceScanResult } from '@dev-dashboard/project-discovery';
 
 export interface StoredWorkspaceScan extends WorkspaceScanResult {
   scannedAt: string;
@@ -13,11 +9,11 @@ export interface StoredWorkspaceScan extends WorkspaceScanResult {
 const workspaceScans = new Map<string, StoredWorkspaceScan>();
 
 export function saveWorkspaceScan(
-  result: WorkspaceScanResult
+  result: WorkspaceScanResult,
 ): StoredWorkspaceScan {
   const storedScan: StoredWorkspaceScan = {
     ...result,
-    scannedAt: new Date().toISOString()
+    scannedAt: new Date().toISOString(),
   };
 
   workspaceScans.set(result.workspaceId, storedScan);
@@ -27,7 +23,7 @@ export function saveWorkspaceScan(
 
 export function listWorkspaceScans(): StoredWorkspaceScan[] {
   return [...workspaceScans.values()].sort((left, right) =>
-    left.workspaceId.localeCompare(right.workspaceId)
+    left.workspaceId.localeCompare(right.workspaceId),
   );
 }
 
@@ -41,6 +37,10 @@ export function listProjects(): Project[] {
   }
 
   return [...projectsById.values()].sort((left, right) =>
-    left.name.localeCompare(right.name)
+    left.name.localeCompare(right.name),
   );
+}
+
+export function deleteWorkspaceScan(workspaceId: string): void {
+  workspaceScans.delete(workspaceId);
 }
