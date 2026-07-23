@@ -69,7 +69,7 @@ Mais detalhes estão em [`docs/architecture/overview.md`](docs/architecture/over
 
 - Linux
 - Bash 4 ou superior
-- Node.js 20 ou superior
+- Node.js 20.19+ ou 22.12+
 - npm
 - Git
 
