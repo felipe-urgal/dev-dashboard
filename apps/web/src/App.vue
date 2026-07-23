@@ -1,16 +1,7 @@
 <script setup lang="ts">
-import {
-  computed,
-  onMounted,
-  ref
-} from "vue";
+import { computed, onMounted, ref } from 'vue';
 
-import type {
-  Project,
-  ProjectCapability,
-  ProjectType,
-  Workspace
-} from "@dev-dashboard/contracts";
+import type { Project, Workspace } from '@dev-dashboard/contracts';
 
 import {
   createWorkspace,
@@ -18,16 +9,18 @@ import {
   fetchHealth,
   fetchProjects,
   fetchWorkspaces,
-  scanWorkspace
-} from "./api";
+  scanWorkspace,
+} from './api';
+
+import ProjectCard from './components/ProjectCard.vue';
 
 const projects = ref<Project[]>([]);
 const workspaces = ref<Workspace[]>([]);
 
-const selectedWorkspaceId = ref("");
+const selectedWorkspaceId = ref('');
 
-const newWorkspaceName = ref("");
-const newWorkspacePath = ref("");
+const newWorkspaceName = ref('');
+const newWorkspacePath = ref('');
 
 const apiConnected = ref(false);
 const loadingProjects = ref(true);
@@ -35,92 +28,45 @@ const scanningWorkspace = ref(false);
 const creatingWorkspace = ref(false);
 const deletingWorkspace = ref(false);
 
-const errorMessage = ref("");
-const successMessage = ref("");
+const errorMessage = ref('');
+const successMessage = ref('');
 const warningCount = ref(0);
-const lastScannedPath = ref("");
+const lastScannedPath = ref('');
 
-const selectedWorkspace = computed(
-  () =>
-    workspaces.value.find(
-      (workspace) =>
-        workspace.id === selectedWorkspaceId.value
-    )
+const selectedWorkspace = computed(() =>
+  workspaces.value.find(
+    (workspace) => workspace.id === selectedWorkspaceId.value,
+  ),
 );
 
 const railsProjects = computed(
   () =>
-    projects.value.filter(
-      (project) => project.type === "rails"
-    ).length
+    projects.value.filter((project) => project.type === 'rails')
+      .length,
 );
 
 const nodeProjects = computed(
   () =>
-    projects.value.filter(
-      (project) => project.type === "node"
-    ).length
+    projects.value.filter((project) => project.type === 'node')
+      .length,
 );
 
 const gitProjects = computed(
   () =>
-    projects.value.filter(
-      (project) =>
-        project.capabilities.includes("git")
-    ).length
+    projects.value.filter((project) =>
+      project.capabilities.includes('git'),
+    ).length,
 );
 
-const sortedProjects = computed(
-  () =>
-    [...projects.value].sort((left, right) =>
-      left.name.localeCompare(right.name)
-    )
+const sortedProjects = computed(() =>
+  [...projects.value].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  ),
 );
-
-const projectTypeLabels: Record<ProjectType, string> = {
-  rails: "Rails",
-  node: "Node",
-  unknown: "Desconhecido"
-};
-
-const capabilityLabels: Record<
-  ProjectCapability,
-  string
-> = {
-  server: "Servidor",
-  git: "Git",
-  tests: "Testes",
-  database: "Banco",
-  scripts: "Scripts",
-  webpack: "Webpack",
-  sidekiq: "Sidekiq",
-  rake: "Rake",
-  bundler: "Bundler"
-};
 
 function clearMessages(): void {
-  errorMessage.value = "";
-  successMessage.value = "";
-}
-
-function projectInitials(name: string): string {
-  return name
-    .replace(/^[._-]+/, "")
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-}
-
-function typeLabel(type: ProjectType): string {
-  return projectTypeLabels[type];
-}
-
-function capabilityLabel(
-  capability: ProjectCapability
-): string {
-  return capabilityLabels[capability];
+  errorMessage.value = '';
+  successMessage.value = '';
 }
 
 async function scanSelectedWorkspace(): Promise<void> {
@@ -128,7 +74,7 @@ async function scanSelectedWorkspace(): Promise<void> {
 
   if (!workspace) {
     projects.value = [];
-    lastScannedPath.value = "";
+    lastScannedPath.value = '';
     return;
   }
 
@@ -145,13 +91,12 @@ async function scanSelectedWorkspace(): Promise<void> {
     lastScannedPath.value = result.workspacePath;
     apiConnected.value = true;
 
-    successMessage.value =
-      `${result.projects.length} projeto(s) detectado(s).`;
+    successMessage.value = `${result.projects.length} projeto(s) detectado(s).`;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível escanear o workspace.";
+        : 'Não foi possível escanear o workspace.';
   } finally {
     scanningWorkspace.value = false;
     loadingProjects.value = false;
@@ -165,7 +110,7 @@ async function loadInitialData(): Promise<void> {
   try {
     const health = await fetchHealth();
 
-    apiConnected.value = health.status === "ok";
+    apiConnected.value = health.status === 'ok';
 
     const storedWorkspaces = await fetchWorkspaces();
 
@@ -186,15 +131,13 @@ async function loadInitialData(): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível carregar o dashboard.";
+        : 'Não foi possível carregar o dashboard.';
   } finally {
     loadingProjects.value = false;
   }
 }
 
-async function handleWorkspaceSelection(
-  event: Event
-): Promise<void> {
+async function handleWorkspaceSelection(event: Event): Promise<void> {
   const target = event.target as HTMLSelectElement;
 
   selectedWorkspaceId.value = target.value;
@@ -209,8 +152,7 @@ async function handleCreateWorkspace(): Promise<void> {
   clearMessages();
 
   if (!name || !path) {
-    errorMessage.value =
-      "Informe o nome e o caminho do workspace.";
+    errorMessage.value = 'Informe o nome e o caminho do workspace.';
 
     return;
   }
@@ -220,30 +162,26 @@ async function handleCreateWorkspace(): Promise<void> {
   try {
     const workspace = await createWorkspace({
       name,
-      path
+      path,
     });
 
-    workspaces.value = [
-      ...workspaces.value,
-      workspace
-    ].sort((left, right) =>
-      left.name.localeCompare(right.name)
+    workspaces.value = [...workspaces.value, workspace].sort(
+      (left, right) => left.name.localeCompare(right.name),
     );
 
     selectedWorkspaceId.value = workspace.id;
 
-    newWorkspaceName.value = "";
-    newWorkspacePath.value = "";
+    newWorkspaceName.value = '';
+    newWorkspacePath.value = '';
 
-    successMessage.value =
-      `Workspace "${workspace.name}" cadastrado.`;
+    successMessage.value = `Workspace "${workspace.name}" cadastrado.`;
 
     await scanSelectedWorkspace();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível cadastrar o workspace.";
+        : 'Não foi possível cadastrar o workspace.';
   } finally {
     creatingWorkspace.value = false;
   }
@@ -258,7 +196,7 @@ async function handleDeleteWorkspace(): Promise<void> {
 
   const confirmed = window.confirm(
     `Remover o workspace "${workspace.name}" do dashboard? ` +
-      "Os arquivos locais não serão apagados."
+      'Os arquivos locais não serão apagados.',
   );
 
   if (!confirmed) {
@@ -272,12 +210,12 @@ async function handleDeleteWorkspace(): Promise<void> {
     await deleteWorkspace(workspace.id);
 
     workspaces.value = workspaces.value.filter(
-      (item) => item.id !== workspace.id
+      (item) => item.id !== workspace.id,
     );
 
     projects.value = [];
     warningCount.value = 0;
-    lastScannedPath.value = "";
+    lastScannedPath.value = '';
 
     const nextWorkspace = workspaces.value[0];
 
@@ -285,15 +223,14 @@ async function handleDeleteWorkspace(): Promise<void> {
       selectedWorkspaceId.value = nextWorkspace.id;
       await scanSelectedWorkspace();
     } else {
-      selectedWorkspaceId.value = "";
-      successMessage.value =
-        `Workspace "${workspace.name}" removido.`;
+      selectedWorkspaceId.value = '';
+      successMessage.value = `Workspace "${workspace.name}" removido.`;
     }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível remover o workspace.";
+        : 'Não foi possível remover o workspace.';
   } finally {
     deletingWorkspace.value = false;
   }
@@ -308,9 +245,7 @@ onMounted(() => {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">
-          DD
-        </div>
+        <div class="brand-mark">DD</div>
 
         <div>
           <strong>Dev Dashboard</strong>
@@ -318,10 +253,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <nav
-        class="navigation"
-        aria-label="Navegação principal"
-      >
+      <nav class="navigation" aria-label="Navegação principal">
         <a
           class="navigation-item navigation-item-active"
           href="#overview"
@@ -330,46 +262,28 @@ onMounted(() => {
           Visão geral
         </a>
 
-        <a
-          class="navigation-item"
-          href="#repositories"
-        >
+        <a class="navigation-item" href="#repositories">
           <span class="navigation-icon">◇</span>
           Repositórios
         </a>
 
-        <a
-          class="navigation-item"
-          href="#processes"
-        >
+        <a class="navigation-item" href="#processes">
           <span class="navigation-icon">▶</span>
           Processos
         </a>
 
-        <a
-          class="navigation-item"
-          href="#jobs"
-        >
+        <a class="navigation-item" href="#jobs">
           <span class="navigation-icon">≡</span>
           Jobs e logs
         </a>
       </nav>
 
       <div class="sidebar-section">
-        <span class="sidebar-label">
-          Workspace ativo
-        </span>
+        <span class="sidebar-label"> Workspace ativo </span>
 
-        <div
-          v-if="selectedWorkspace"
-          class="workspace-summary"
-        >
+        <div v-if="selectedWorkspace" class="workspace-summary">
           <span class="workspace-avatar">
-            {{
-              selectedWorkspace.name
-                .charAt(0)
-                .toUpperCase()
-            }}
+            {{ selectedWorkspace.name.charAt(0).toUpperCase() }}
           </span>
 
           <div>
@@ -377,16 +291,11 @@ onMounted(() => {
               {{ selectedWorkspace.name }}
             </strong>
 
-            <span>
-              {{ projects.length }} projetos
-            </span>
+            <span> {{ projects.length }} projetos </span>
           </div>
         </div>
 
-        <div
-          v-else
-          class="workspace-summary-empty"
-        >
+        <div v-else class="workspace-summary-empty">
           Nenhum workspace
         </div>
       </div>
@@ -395,13 +304,13 @@ onMounted(() => {
         <span
           class="connection-dot"
           :class="{
-            'connection-dot-online': apiConnected
+            'connection-dot-online': apiConnected,
           }"
         />
 
         <span>
           API
-          {{ apiConnected ? "conectada" : "desconectada" }}
+          {{ apiConnected ? 'conectada' : 'desconectada' }}
         </span>
       </div>
     </aside>
@@ -409,19 +318,13 @@ onMounted(() => {
     <main class="main-content">
       <header class="topbar">
         <div>
-          <span class="eyebrow">
-            Ambiente local
-          </span>
+          <span class="eyebrow"> Ambiente local </span>
 
           <h1>Visão geral</h1>
         </div>
 
         <div class="topbar-actions">
-          <button
-            class="command-button"
-            type="button"
-            disabled
-          >
+          <button class="command-button" type="button" disabled>
             Buscar ou executar
             <kbd>⌘ K</kbd>
           </button>
@@ -429,50 +332,41 @@ onMounted(() => {
           <div
             class="api-status"
             :class="{
-              'api-status-online': apiConnected
+              'api-status-online': apiConnected,
             }"
           >
             <span />
 
-            {{ apiConnected ? "Online" : "Offline" }}
+            {{ apiConnected ? 'Online' : 'Offline' }}
           </div>
         </div>
       </header>
 
-      <section
-        id="overview"
-        class="content"
-      >
+      <section id="overview" class="content">
         <div class="hero-grid">
           <div class="hero-copy">
             <span class="section-kicker">
               Central de desenvolvimento
             </span>
 
-            <h2>
-              Seus projetos locais em um único lugar.
-            </h2>
+            <h2>Seus projetos locais em um único lugar.</h2>
 
             <p>
-              Cadastre múltiplos workspaces, detecte
-              aplicações Rails e Node e prepare o ambiente
-              para gerenciar processos, Git, testes e logs.
+              Cadastre múltiplos workspaces, detecte aplicações Rails
+              e Node e prepare o ambiente para gerenciar processos,
+              Git, testes e logs.
             </p>
           </div>
 
           <section class="workspace-panel">
             <div class="form-heading">
               <div>
-                <span class="section-kicker">
-                  Workspaces
-                </span>
+                <span class="section-kicker"> Workspaces </span>
 
                 <h3>Gerenciar projetos locais</h3>
               </div>
 
-              <span class="local-badge">
-                Local only
-              </span>
+              <span class="local-badge"> Local only </span>
             </div>
 
             <template v-if="workspaces.length > 0">
@@ -494,10 +388,7 @@ onMounted(() => {
                 </select>
               </label>
 
-              <code
-                v-if="selectedWorkspace"
-                class="workspace-path"
-              >
+              <code v-if="selectedWorkspace" class="workspace-path">
                 {{ selectedWorkspace.path }}
               </code>
 
@@ -510,8 +401,8 @@ onMounted(() => {
                 >
                   {{
                     scanningWorkspace
-                      ? "Escaneando..."
-                      : "Escanear novamente"
+                      ? 'Escaneando...'
+                      : 'Escanear novamente'
                   }}
                 </button>
 
@@ -521,11 +412,7 @@ onMounted(() => {
                   :disabled="deletingWorkspace"
                   @click="handleDeleteWorkspace"
                 >
-                  {{
-                    deletingWorkspace
-                      ? "Removendo..."
-                      : "Remover"
-                  }}
+                  {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
                 </button>
               </div>
 
@@ -534,10 +421,7 @@ onMounted(() => {
               </div>
             </template>
 
-            <div
-              v-else
-              class="workspace-empty"
-            >
+            <div v-else class="workspace-empty">
               Nenhum workspace foi cadastrado.
             </div>
 
@@ -572,8 +456,8 @@ onMounted(() => {
               >
                 {{
                   creatingWorkspace
-                    ? "Cadastrando..."
-                    : "Adicionar workspace"
+                    ? 'Cadastrando...'
+                    : 'Adicionar workspace'
                 }}
               </button>
             </form>
@@ -598,10 +482,7 @@ onMounted(() => {
           <span>{{ successMessage }}</span>
         </div>
 
-        <div
-          v-if="warningCount > 0"
-          class="alert alert-warning"
-        >
+        <div v-if="warningCount > 0" class="alert alert-warning">
           <strong>Scan concluído com avisos.</strong>
 
           <span>
@@ -610,10 +491,7 @@ onMounted(() => {
           </span>
         </div>
 
-        <div
-          v-if="lastScannedPath"
-          class="scan-result"
-        >
+        <div v-if="lastScannedPath" class="scan-result">
           Workspace carregado:
           <code>{{ lastScannedPath }}</code>
         </div>
@@ -623,45 +501,31 @@ onMounted(() => {
           aria-label="Resumo dos projetos"
         >
           <article class="metric-card">
-            <span class="metric-label">
-              Repositórios
-            </span>
+            <span class="metric-label"> Repositórios </span>
 
             <strong>{{ projects.length }}</strong>
 
-            <span class="metric-detail">
-              projetos detectados
-            </span>
+            <span class="metric-detail"> projetos detectados </span>
           </article>
 
           <article class="metric-card">
-            <span class="metric-label">
-              Rails
-            </span>
+            <span class="metric-label"> Rails </span>
 
             <strong>{{ railsProjects }}</strong>
 
-            <span class="metric-detail">
-              aplicações Ruby
-            </span>
+            <span class="metric-detail"> aplicações Ruby </span>
           </article>
 
           <article class="metric-card">
-            <span class="metric-label">
-              Node
-            </span>
+            <span class="metric-label"> Node </span>
 
             <strong>{{ nodeProjects }}</strong>
 
-            <span class="metric-detail">
-              aplicações JavaScript
-            </span>
+            <span class="metric-detail"> aplicações JavaScript </span>
           </article>
 
           <article class="metric-card">
-            <span class="metric-label">
-              Git
-            </span>
+            <span class="metric-label"> Git </span>
 
             <strong>{{ gitProjects }}</strong>
 
@@ -671,33 +535,21 @@ onMounted(() => {
           </article>
         </section>
 
-        <section
-          id="repositories"
-          class="repositories-section"
-        >
+        <section id="repositories" class="repositories-section">
           <div class="section-heading">
             <div>
-              <span class="section-kicker">
-                Repositórios
-              </span>
+              <span class="section-kicker"> Repositórios </span>
 
               <h2>Projetos detectados</h2>
             </div>
 
             <span class="section-count">
               {{ projects.length }}
-              {{
-                projects.length === 1
-                  ? "projeto"
-                  : "projetos"
-              }}
+              {{ projects.length === 1 ? 'projeto' : 'projetos' }}
             </span>
           </div>
 
-          <div
-            v-if="loadingProjects"
-            class="empty-state"
-          >
+          <div v-if="loadingProjects" class="empty-state">
             <div class="empty-icon">•••</div>
             <h3>Carregando projetos</h3>
             <p>Consultando a API local.</p>
@@ -712,81 +564,17 @@ onMounted(() => {
             <h3>Nenhum projeto carregado</h3>
 
             <p>
-              Cadastre ou selecione um workspace para
-              detectar aplicações Rails e Node.
+              Cadastre ou selecione um workspace para detectar
+              aplicações Rails e Node.
             </p>
           </div>
 
-          <div
-            v-else
-            class="projects-grid"
-          >
-            <article
+          <div v-else class="projects-grid">
+            <ProjectCard
               v-for="project in sortedProjects"
               :key="project.id"
-              class="project-card"
-            >
-              <div class="project-card-header">
-                <div class="project-avatar">
-                  {{ projectInitials(project.name) }}
-                </div>
-
-                <div class="project-identity">
-                  <h3>{{ project.name }}</h3>
-
-                  <div class="project-meta">
-                    <span
-                      class="type-badge"
-                      :class="`type-badge-${project.type}`"
-                    >
-                      {{ typeLabel(project.type) }}
-                    </span>
-
-                    <span>
-                      {{ project.source }}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  class="icon-button"
-                  type="button"
-                  title="Mais ações"
-                  disabled
-                >
-                  •••
-                </button>
-              </div>
-
-              <code class="project-path">
-                {{ project.path }}
-              </code>
-
-              <div class="capabilities">
-                <span
-                  v-for="capability in project.capabilities"
-                  :key="capability"
-                  class="capability"
-                >
-                  {{ capabilityLabel(capability) }}
-                </span>
-              </div>
-
-              <div class="project-card-footer">
-                <span class="detected-status">
-                  <span />
-                  Detectado
-                </span>
-
-                <button
-                  type="button"
-                  class="secondary-button"
-                  disabled
-                >
-                  Abrir projeto
-                </button>
-              </div>
-            </article>
+              :project="project"
+            />
           </div>
         </section>
       </section>

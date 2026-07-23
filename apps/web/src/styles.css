@@ -951,3 +951,104 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+.process-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: #727b8d;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.process-status > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #697183;
+}
+
+.process-status-running,
+.process-status-starting {
+  color: #78d8ad;
+}
+
+.process-status-running > span,
+.process-status-starting > span {
+  background: #38c989;
+  box-shadow: 0 0 0 4px rgb(56 201 137 / 10%);
+}
+
+.process-status-stopping {
+  color: #ddbf7d;
+}
+
+.process-status-stopping > span {
+  background: #d5a84b;
+}
+
+.process-status-failed {
+  color: #e293a0;
+}
+
+.process-status-failed > span {
+  background: #d35c70;
+}
+
+.process-details {
+  display: flex;
+  gap: 12px;
+  color: #70798b;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 9px;
+}
+
+.project-error {
+  padding: 8px 9px;
+  border: 1px solid #713643;
+  border-radius: 7px;
+  color: #e9a1ad;
+  background: #281519;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.primary-small-button,
+.danger-small-button {
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.primary-small-button {
+  border: 1px solid #6067f4;
+  color: #ffffff;
+  background: #5158e8;
+}
+
+.primary-small-button:not(:disabled):hover {
+  background: #6067f4;
+}
+
+.danger-small-button {
+  border: 1px solid #673640;
+  color: #e2a0aa;
+  background: #28171b;
+}
+
+.danger-small-button:not(:disabled):hover {
+  border-color: #874550;
+  background: #351b21;
+}
