@@ -1,5 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 
+import type {
+  WorkspaceRepositoryErrorCode,
+} from '@dev-dashboard/core';
+
+import type {
+  ProcessManagerErrorCode,
+} from '@dev-dashboard/process-manager';
+
 export interface ApiErrorDetails {
   path?: string;
   message: string;
@@ -12,7 +20,15 @@ export type ApiErrorCode =
   | 'INTERNAL_ERROR'
   | 'NOT_FOUND'
   | 'UNAUTHORIZED'
-  | 'VALIDATION_ERROR';
+  | 'VALIDATION_ERROR'
+  | 'PROJECT_NOT_FOUND'
+  | 'PROCESS_START_FAILED'
+  | 'WORKSPACE_CREATION_FAILED'
+  | 'WORKSPACE_DISABLED'
+  | 'WORKSPACE_PROCESS_RUNNING'
+  | 'WORKSPACE_SCAN_FAILED'
+  | WorkspaceRepositoryErrorCode
+  | ProcessManagerErrorCode;
 
 export class ApiError extends Error {
   public readonly statusCode: number;

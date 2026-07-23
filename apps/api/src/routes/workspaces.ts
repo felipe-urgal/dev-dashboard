@@ -18,6 +18,10 @@ import {
 } from "@dev-dashboard/process-manager";
 
 import {
+  ApiError
+} from "../http/api-error.js";
+
+import {
   deleteWorkspaceScan,
   saveWorkspaceScan
 } from "../store/project-store.js";
@@ -54,18 +58,30 @@ function isPathInside(
   );
 }
 
-function resolveErrorStatus(
+function workspaceRepositoryApiError(
   error: WorkspaceRepositoryError
-): 400 | 404 | 409 {
+): ApiError {
   switch (error.code) {
     case "WORKSPACE_NOT_FOUND":
-      return 404;
+      return new ApiError({
+        statusCode: 404,
+        code: error.code,
+        message: error.message
+      });
 
     case "WORKSPACE_ALREADY_EXISTS":
-      return 409;
+      return new ApiError({
+        statusCode: 409,
+        code: error.code,
+        message: error.message
+      });
 
     default:
-      return 400;
+      return new ApiError({
+        statusCode: 400,
+        code: error.code,
+        message: error.message
+      });
   }
 }
 
@@ -131,18 +147,8 @@ export const workspaceRoutes: FastifyPluginAsync =
           if (
             error instanceof WorkspaceRepositoryError
           ) {
-            return reply
-              .code(resolveErrorStatus(error))
-              .send({
-                error: error.code,
-                message: error.message
-              });
+            throw workspaceRepositoryApiError(error);
           }
-
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Não foi possível cadastrar o workspace.";
 
           request.log.warn(
             {
@@ -152,9 +158,11 @@ export const workspaceRoutes: FastifyPluginAsync =
             "Workspace creation failed"
           );
 
-          return reply.code(400).send({
-            error: "WORKSPACE_CREATION_FAILED",
-            message
+          throw new ApiError({
+            statusCode: 400,
+            code: "WORKSPACE_CREATION_FAILED",
+            message:
+              "Não foi possível cadastrar o workspace. Verifique se o caminho existe e é acessível."
           });
         }
       }
@@ -181,22 +189,24 @@ export const workspaceRoutes: FastifyPluginAsync =
           }
         }
       },
-      async (request, reply) => {
+      async (request) => {
         const workspace =
           await workspaceRepository.find(
             request.params.workspaceId
           );
 
         if (!workspace) {
-          return reply.code(404).send({
-            error: "WORKSPACE_NOT_FOUND",
+          throw new ApiError({
+            statusCode: 404,
+            code: "WORKSPACE_NOT_FOUND",
             message: "Workspace não encontrado."
           });
         }
 
         if (!workspace.enabled) {
-          return reply.code(409).send({
-            error: "WORKSPACE_DISABLED",
+          throw new ApiError({
+            statusCode: 409,
+            code: "WORKSPACE_DISABLED",
             message: "O workspace está desabilitado."
           });
         }
@@ -208,11 +218,6 @@ export const workspaceRoutes: FastifyPluginAsync =
 
           return saveWorkspaceScan(result);
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Não foi possível escanear o workspace.";
-
           request.log.warn(
             {
               error,
@@ -222,9 +227,11 @@ export const workspaceRoutes: FastifyPluginAsync =
             "Workspace scan failed"
           );
 
-          return reply.code(400).send({
-            error: "WORKSPACE_SCAN_FAILED",
-            message
+          throw new ApiError({
+            statusCode: 400,
+            code: "WORKSPACE_SCAN_FAILED",
+            message:
+              "Não foi possível escanear o workspace."
           });
         }
       }
@@ -242,8 +249,9 @@ export const workspaceRoutes: FastifyPluginAsync =
             );
 
           if (!workspace) {
-            return reply.code(404).send({
-              error: "WORKSPACE_NOT_FOUND",
+            throw new ApiError({
+              statusCode: 404,
+              code: "WORKSPACE_NOT_FOUND",
               message: "Workspace não encontrado."
             });
           }
@@ -265,8 +273,9 @@ export const workspaceRoutes: FastifyPluginAsync =
           );
 
           if (activeProcess) {
-            return reply.code(409).send({
-              error: "WORKSPACE_PROCESS_RUNNING",
+            throw new ApiError({
+              statusCode: 409,
+              code: "WORKSPACE_PROCESS_RUNNING",
               message:
                 "Pare os processos ativos antes de remover o workspace."
             });
@@ -282,15 +291,14 @@ export const workspaceRoutes: FastifyPluginAsync =
 
           return reply.code(204).send();
         } catch (error) {
+          if (error instanceof ApiError) {
+            throw error;
+          }
+
           if (
             error instanceof WorkspaceRepositoryError
           ) {
-            return reply
-              .code(resolveErrorStatus(error))
-              .send({
-                error: error.code,
-                message: error.message
-              });
+            throw workspaceRepositoryApiError(error);
           }
 
           throw error;
