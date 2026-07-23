@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": [
+      "node"
+    ]
+  },
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/project-discovery"
+    },
+    {
+      "path": "../../packages/process-manager"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

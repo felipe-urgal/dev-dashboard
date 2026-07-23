@@ -1,0 +1,309 @@
+# Segurança
+
+## Contexto
+
+O Dev Dashboard possui acesso ao filesystem, aos runtimes de desenvolvimento e aos processos do computador local.
+
+Por isso, a API deve ser tratada como uma aplicação privilegiada, mesmo sendo utilizada apenas pelo próprio desenvolvedor.
+
+Uma vulnerabilidade pode permitir:
+
+- execução indevida de comandos;
+- encerramento de processos;
+- leitura de arquivos;
+- exposição de logs;
+- modificação de repositórios;
+- acesso a credenciais presentes no ambiente.
+
+## Princípios
+
+### Local por padrão
+
+A API deve escutar somente em:
+
+```text
+127.0.0.1
+```
+
+Ela não deve utilizar `0.0.0.0` por padrão.
+
+A aplicação não deve ser exposta diretamente:
+
+- à internet;
+- à rede Wi-Fi;
+- a uma VPN;
+- a containers externos;
+- a túneis públicos.
+
+### Catálogo fechado de ações
+
+O navegador não pode enviar um comando livre.
+
+Requisições devem representar operações conhecidas:
+
+```text
+iniciar servidor
+parar servidor
+consultar status
+ler logs
+executar testes
+consultar Git
+```
+
+A API decide internamente qual programa e quais argumentos serão utilizados.
+
+### Sem shell arbitrário
+
+Subprocessos devem ser criados preferencialmente com:
+
+```ts
+spawn(command, args, {
+  shell: false,
+});
+```
+
+Não devem ser montadas strings como:
+
+```ts
+exec(`${userInput}`);
+```
+
+Entradas do usuário nunca devem ser concatenadas em uma linha de shell.
+
+### Validação de caminhos
+
+Antes de cadastrar um workspace ou projeto:
+
+1. resolver o caminho real;
+2. verificar se é diretório;
+3. armazenar o caminho canônico;
+4. evitar duplicidades;
+5. restringir operações aos caminhos cadastrados.
+
+Operações futuras não devem aceitar um caminho arbitrário quando um identificador de workspace ou projeto for suficiente.
+
+### Identidade de processos
+
+Um PID pode ser reutilizado pelo sistema operacional.
+
+Antes de encerrar um processo, não basta verificar que o PID existe.
+
+No Linux, o Process Manager compara:
+
+```text
+/proc/<pid>/cwd
+```
+
+com o diretório esperado do projeto.
+
+Se não houver correspondência, o processo não deve ser encerrado.
+
+### Encerramento gradual
+
+A sequência padrão deve ser:
+
+1. enviar `SIGTERM`;
+2. aguardar o encerramento;
+3. usar `SIGKILL` somente quando necessário.
+
+Sempre que possível, o sinal deve ser enviado ao grupo de processos criado pelo dashboard.
+
+### Logs limitados
+
+A API não deve retornar arquivos inteiros sem limite.
+
+A leitura atual:
+
+- aceita apenas logs associados a processos gerenciados;
+- não recebe um caminho do navegador;
+- limita a quantidade máxima de bytes;
+- retorna preferencialmente o trecho final;
+- remove uma primeira linha possivelmente incompleta quando o trecho começa no meio do arquivo.
+
+O limite máximo atual é:
+
+```text
+262144 bytes
+```
+
+### Segredos
+
+Logs podem conter:
+
+- tokens;
+- URLs privadas;
+- parâmetros sensíveis;
+- credenciais;
+- dados pessoais.
+
+O dashboard não deve assumir que logs são públicos.
+
+Evoluções futuras devem incluir:
+
+- mascaramento de padrões sensíveis;
+- retenção configurável;
+- limpeza segura;
+- aviso ao exportar ou copiar logs.
+
+### Permissões de arquivos
+
+Diretórios de configuração e estado devem ser criados com acesso restrito ao usuário.
+
+Permissões pretendidas:
+
+```text
+diretórios: 0700
+arquivos:   0600
+```
+
+Caminhos atuais:
+
+```text
+~/.config/dev-dashboard
+~/.local/state/dev-dashboard
+```
+
+### Variáveis de ambiente
+
+Os processos filhos recebem atualmente o ambiente da API, além de variáveis necessárias para porta e host.
+
+Isso significa que segredos presentes no ambiente da API também podem ficar disponíveis aos projetos iniciados.
+
+Antes de suportar cenários multiusuário ou remotos, será necessário adotar uma política explícita de variáveis permitidas.
+
+### Validação HTTP
+
+Rotas devem usar schemas para validar:
+
+- corpo;
+- parâmetros;
+- query string;
+- tipos;
+- limites;
+- propriedades adicionais.
+
+Erros internos não devem expor stacks completas ao navegador em produção.
+
+## Modelo de ameaça atual
+
+O modelo atual assume:
+
+- um único usuário local confiável;
+- computador de desenvolvimento pessoal;
+- nenhum acesso remoto;
+- navegador local confiável;
+- workspaces cadastrados pelo próprio usuário;
+- projetos locais potencialmente não confiáveis.
+
+O último ponto é importante: iniciar um projeto executa código existente nesse repositório. Um projeto malicioso pode executar ações com as permissões do usuário.
+
+O dashboard não transforma um projeto não confiável em um projeto seguro.
+
+## Riscos conhecidos
+
+### Ausência de autenticação local
+
+A API ainda não exige token.
+
+Embora esteja limitada a `127.0.0.1`, outra página ou processo local pode tentar enviar requisições à API.
+
+Antes de adicionar operações Git destrutivas, banco de dados ou terminal, devemos implementar:
+
+- token local;
+- validação de `Origin`;
+- política de CORS explícita;
+- proteção contra requisições forjadas.
+
+### Estado de projetos em memória
+
+Os projetos descobertos permanecem atualmente na memória da API.
+
+Após reiniciar a API, é necessário escanear os workspaces novamente.
+
+Isso reduz alguns riscos de caminhos antigos, mas ainda exige validação cuidadosa ao executar ações.
+
+### Comandos definidos pelos projetos
+
+Projetos Node podem definir scripts como `dev`, `start` e `serve`.
+
+Executar esses scripts significa confiar no conteúdo do `package.json` e do repositório.
+
+A interface deve deixar claro qual comando será executado.
+
+### Processos fora do dashboard
+
+O gerenciador não deve encerrar automaticamente qualquer processo que ocupe uma porta.
+
+As operações devem permanecer vinculadas ao estado persistido e à identidade validada do processo.
+
+### Compatibilidade entre plataformas
+
+A validação por `/proc/<pid>/cwd` é específica do Linux.
+
+Em outras plataformas, a estratégia atual é menos forte.
+
+Suporte oficial a macOS ou Windows exigirá um mecanismo equivalente de identificação.
+
+## Requisitos antes de operações destrutivas
+
+Antes de implementar ações como:
+
+```text
+git reset
+git clean
+excluir branch
+db:drop
+db:reset
+restaurar snapshot
+apagar arquivos
+terminal arbitrário
+```
+
+devem existir:
+
+- autenticação local;
+- confirmação explícita;
+- descrição da ação;
+- visualização do comando;
+- trilha de auditoria;
+- classificação de risco;
+- testes automatizados;
+- tratamento de cancelamento.
+
+## Requisitos antes de acesso remoto
+
+O Dev Dashboard não deve receber acesso remoto somente alterando o host para `0.0.0.0`.
+
+Acesso remoto exigiria, no mínimo:
+
+- autenticação forte;
+- TLS;
+- autorização por ação;
+- proteção CSRF;
+- origem confiável;
+- isolamento de processos;
+- auditoria;
+- limitação de tentativas;
+- gerenciamento de sessões;
+- revisão completa do modelo de ameaça.
+
+Até que isso exista, acesso remoto permanece fora do escopo.
+
+## Checklist para novos endpoints
+
+Antes de adicionar uma rota, confirmar:
+
+- A operação é necessária?
+- Pode usar um identificador em vez de caminho?
+- O projeto ou workspace foi previamente autorizado?
+- A entrada possui schema?
+- Há limite de tamanho?
+- O comando é fechado?
+- `shell` está desabilitado?
+- O diretório de execução está definido?
+- A saída pode conter segredos?
+- A ação pode ser cancelada?
+- A ação é destrutiva?
+- É necessária confirmação?
+- O erro retornado é seguro?
+- Existe teste para o comportamento?
