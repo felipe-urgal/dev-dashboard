@@ -86,6 +86,42 @@ test(
 );
 
 test(
+  "creates one token during concurrent first use",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const stores = Array.from(
+      {
+        length: 16
+      },
+      () =>
+        new LocalTokenStore(
+          fixture.configDirectory
+        )
+    );
+
+    const tokens = await Promise.all(
+      stores.map((store) =>
+        store.getOrCreate()
+      )
+    );
+
+    assert.equal(
+      new Set(tokens).size,
+      1
+    );
+
+    assert.match(
+      tokens[0] ?? "",
+      /^[a-f0-9]{64}$/
+    );
+  }
+);
+
+
+test(
   "rejects an invalid token file",
   async (context) => {
     const fixture = await createFixture();

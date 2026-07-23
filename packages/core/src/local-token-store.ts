@@ -5,8 +5,10 @@ import {
 
 import {
   chmod,
+  link,
   mkdir,
   readFile,
+  rm,
   writeFile
 } from "node:fs/promises";
 
@@ -165,9 +167,19 @@ export class LocalTokenStore {
 
     const token = randomBytes(32).toString("hex");
 
+    const temporaryFile = path.join(
+      this.configDirectory,
+      [
+        `.${TOKEN_FILE_NAME}`,
+        process.pid,
+        randomBytes(8).toString("hex"),
+        "tmp"
+      ].join(".")
+    );
+
     try {
       await writeFile(
-        this.tokenFile,
+        temporaryFile,
         `${token}\n`,
         {
           encoding: "utf8",
@@ -176,13 +188,29 @@ export class LocalTokenStore {
         }
       );
 
-      return token;
-    } catch (error) {
-      if (isErrnoCode(error, "EEXIST")) {
-        return this.read();
-      }
+      try {
+        // O hard link publica somente um arquivo já
+        // completamente escrito e falha se outro
+        // processo venceu a corrida.
+        await link(
+          temporaryFile,
+          this.tokenFile
+        );
 
-      throw error;
+        await chmod(this.tokenFile, 0o600);
+
+        return token;
+      } catch (error) {
+        if (isErrnoCode(error, "EEXIST")) {
+          return await this.read();
+        }
+
+        throw error;
+      }
+    } finally {
+      await rm(temporaryFile, {
+        force: true
+      });
     }
   }
 }

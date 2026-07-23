@@ -115,6 +115,71 @@ function errorValidation(error: unknown): unknown {
   ).validation;
 }
 
+function errorStatusCode(
+  error: unknown
+): number | undefined {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("statusCode" in error)
+  ) {
+    return undefined;
+  }
+
+  const statusCode = (
+    error as {
+      statusCode?: unknown;
+    }
+  ).statusCode;
+
+  return typeof statusCode === "number"
+    ? statusCode
+    : undefined;
+}
+
+function clientErrorCode(
+  statusCode: number
+): ApiErrorCode {
+  switch (statusCode) {
+    case 401:
+      return "UNAUTHORIZED";
+
+    case 403:
+      return "FORBIDDEN";
+
+    case 404:
+      return "NOT_FOUND";
+
+    case 409:
+      return "CONFLICT";
+
+    default:
+      return "BAD_REQUEST";
+  }
+}
+
+function clientErrorMessage(
+  statusCode: number
+): string {
+  switch (statusCode) {
+    case 401:
+      return "Autenticação necessária.";
+
+    case 403:
+      return "A operação não é permitida.";
+
+    case 404:
+      return "Recurso não encontrado.";
+
+    case 409:
+      return "A requisição conflita com o estado atual.";
+
+    default:
+      return "A requisição não pôde ser processada.";
+  }
+}
+
+
 export function registerApiErrorHandling(app: FastifyInstance): void {
   app.setNotFoundHandler(async (_request, reply) => {
     return reply.code(404).send({
@@ -146,14 +211,29 @@ export function registerApiErrorHandling(app: FastifyInstance): void {
       });
     }
 
-    request.log.error(
-      {
-        error,
-      },
-      'Unhandled API error',
-    );
+const statusCode =
+  errorStatusCode(error);
 
-    return reply.code(500).send({
+if (
+  statusCode !== undefined &&
+  statusCode >= 400 &&
+  statusCode < 500
+) {
+  return reply.code(statusCode).send({
+    error: clientErrorCode(statusCode),
+    message:
+      clientErrorMessage(statusCode)
+  });
+}
+
+request.log.error(
+  {
+    err: error
+  },
+  "Unhandled API error"
+);
+
+return reply.code(500).send({
       error: 'INTERNAL_ERROR',
       message: 'Não foi possível concluir a operação.',
     });

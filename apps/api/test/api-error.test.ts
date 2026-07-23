@@ -53,6 +53,14 @@ async function buildTestApp() {
     })
   );
 
+  app.post(
+    "/api/json",
+    async () => ({
+      ok: true
+    })
+  );
+
+
   app.get(
     "/api/unexpected",
     async () => {
@@ -145,6 +153,36 @@ test(
     );
   }
 );
+
+test(
+  "preserves client status for malformed JSON",
+  async (context) => {
+    const app = await buildTestApp();
+
+    context.after(async () => {
+      await app.close();
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/json",
+      headers: {
+        "content-type":
+          "application/json"
+      },
+      payload: '{"name":'
+    });
+
+    assert.equal(response.statusCode, 400);
+
+    assert.deepEqual(response.json(), {
+      error: "BAD_REQUEST",
+      message:
+        "A requisição não pôde ser processada."
+    });
+  }
+);
+
 
 test(
   "hides unexpected internal error messages",
