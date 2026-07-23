@@ -1,10 +1,6 @@
-import {
-  spawn
-} from "node:child_process";
+import { spawn } from 'node:child_process';
 
-import {
-  createHash
-} from "node:crypto";
+import { createHash } from 'node:crypto';
 
 import {
   access,
@@ -13,23 +9,21 @@ import {
   readFile,
   realpath,
   rename,
-  writeFile
-} from "node:fs/promises";
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 
-import {
-  createServer
-} from "node:net";
+import { createServer } from 'node:net';
 
-import {
-  homedir
-} from "node:os";
+import { homedir } from 'node:os';
 
-import path from "node:path";
+import path from 'node:path';
 
 import type {
   ManagedProcess,
-  Project
-} from "@dev-dashboard/contracts";
+  ProcessLogSnapshot,
+  Project,
+} from '@dev-dashboard/contracts';
 
 interface StoredProcess extends ManagedProcess {
   command: string;
@@ -48,24 +42,26 @@ export interface StartServerOptions {
   port?: number;
 }
 
+export interface ReadServerLogOptions {
+  maxBytes?: number;
+}
+
 export type ProcessManagerErrorCode =
-  | "PROCESS_ALREADY_RUNNING"
-  | "PROCESS_NOT_FOUND"
-  | "PROCESS_IDENTITY_MISMATCH"
-  | "PROJECT_SERVER_UNSUPPORTED"
-  | "PROJECT_SCRIPT_NOT_FOUND"
-  | "INVALID_PORT";
+  | 'PROCESS_ALREADY_RUNNING'
+  | 'PROCESS_NOT_FOUND'
+  | 'PROCESS_IDENTITY_MISMATCH'
+  | 'PROJECT_SERVER_UNSUPPORTED'
+  | 'PROJECT_SCRIPT_NOT_FOUND'
+  | 'INVALID_PORT'
+  | 'INVALID_LOG_LIMIT';
 
 export class ProcessManagerError extends Error {
   public readonly code: ProcessManagerErrorCode;
 
-  public constructor(
-    code: ProcessManagerErrorCode,
-    message: string
-  ) {
+  public constructor(code: ProcessManagerErrorCode, message: string) {
     super(message);
 
-    this.name = "ProcessManagerError";
+    this.name = 'ProcessManagerError';
     this.code = code;
   }
 }
@@ -82,22 +78,13 @@ function resolveStateDirectory(): string {
     return path.resolve(configuredDirectory);
   }
 
-  const xdgStateHome =
-    process.env.XDG_STATE_HOME?.trim();
+  const xdgStateHome = process.env.XDG_STATE_HOME?.trim();
 
   if (xdgStateHome) {
-    return path.join(
-      path.resolve(xdgStateHome),
-      "dev-dashboard"
-    );
+    return path.join(path.resolve(xdgStateHome), 'dev-dashboard');
   }
 
-  return path.join(
-    homedir(),
-    ".local",
-    "state",
-    "dev-dashboard"
-  );
+  return path.join(homedir(), '.local', 'state', 'dev-dashboard');
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {
@@ -110,23 +97,16 @@ async function pathExists(targetPath: string): Promise<boolean> {
 }
 
 function isErrnoException(
-  error: unknown
+  error: unknown,
 ): error is NodeJS.ErrnoException {
-  return (
-    error instanceof Error &&
-    "code" in error
-  );
+  return error instanceof Error && 'code' in error;
 }
 
 function validatePort(port: number): void {
-  if (
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65_535
-  ) {
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new ProcessManagerError(
-      "INVALID_PORT",
-      `Porta inválida: ${port}`
+      'INVALID_PORT',
+      `Porta inválida: ${port}`,
     );
   }
 }
@@ -137,67 +117,62 @@ async function canListen(port: number): Promise<boolean> {
 
     server.unref();
 
-    server.once("error", () => {
+    server.once('error', () => {
       resolve(false);
     });
 
     server.listen(
       {
-        host: "127.0.0.1",
-        port
+        host: '127.0.0.1',
+        port,
       },
       () => {
         server.close(() => {
           resolve(true);
         });
-      }
+      },
     );
   });
 }
 
 async function findAvailablePort(
   initialPort = 3000,
-  finalPort = 3999
+  finalPort = 3999,
 ): Promise<number> {
-  for (
-    let port = initialPort;
-    port <= finalPort;
-    port += 1
-  ) {
+  for (let port = initialPort; port <= finalPort; port += 1) {
     if (await canListen(port)) {
       return port;
     }
   }
 
   throw new Error(
-    `Nenhuma porta livre encontrada entre ${initialPort} e ${finalPort}.`
+    `Nenhuma porta livre encontrada entre ${initialPort} e ${finalPort}.`,
   );
 }
 
 async function readPackageManifest(
-  projectPath: string
+  projectPath: string,
 ): Promise<PackageManifest | null> {
   try {
     const contents = await readFile(
-      path.join(projectPath, "package.json"),
-      "utf8"
+      path.join(projectPath, 'package.json'),
+      'utf8',
     );
 
     const parsed: unknown = JSON.parse(contents);
 
     if (
-      typeof parsed !== "object" ||
+      typeof parsed !== 'object' ||
       parsed === null ||
       Array.isArray(parsed)
     ) {
       return null;
     }
 
-    const candidate =
-      parsed as Record<string, unknown>;
+    const candidate = parsed as Record<string, unknown>;
 
     if (
-      typeof candidate.scripts !== "object" ||
+      typeof candidate.scripts !== 'object' ||
       candidate.scripts === null ||
       Array.isArray(candidate.scripts)
     ) {
@@ -207,12 +182,12 @@ async function readPackageManifest(
     const scripts = Object.fromEntries(
       Object.entries(candidate.scripts).filter(
         (entry): entry is [string, string] =>
-          typeof entry[1] === "string"
-      )
+          typeof entry[1] === 'string',
+      ),
     );
 
     return {
-      scripts
+      scripts,
     };
   } catch {
     return null;
@@ -220,159 +195,136 @@ async function readPackageManifest(
 }
 
 async function resolveNodePackageManager(
-  projectPath: string
+  projectPath: string,
 ): Promise<string> {
-  if (
-    await pathExists(
-      path.join(projectPath, "pnpm-lock.yaml")
-    )
-  ) {
-    return "pnpm";
+  if (await pathExists(path.join(projectPath, 'pnpm-lock.yaml'))) {
+    return 'pnpm';
+  }
+
+  if (await pathExists(path.join(projectPath, 'yarn.lock'))) {
+    return 'yarn';
   }
 
   if (
-    await pathExists(
-      path.join(projectPath, "yarn.lock")
-    )
+    (await pathExists(path.join(projectPath, 'bun.lock'))) ||
+    (await pathExists(path.join(projectPath, 'bun.lockb')))
   ) {
-    return "yarn";
+    return 'bun';
   }
 
-  if (
-    await pathExists(
-      path.join(projectPath, "bun.lock")
-    ) ||
-    await pathExists(
-      path.join(projectPath, "bun.lockb")
-    )
-  ) {
-    return "bun";
-  }
-
-  return "npm";
+  return 'npm';
 }
 
 async function resolveNodeCommand(
   project: Project,
-  port: number
+  port: number,
 ): Promise<ResolvedCommand> {
-  const manifest =
-    await readPackageManifest(project.path);
+  const manifest = await readPackageManifest(project.path);
 
   const scripts = manifest?.scripts ?? {};
 
-  const scriptName =
-    ["dev", "start", "serve"].find(
-      (candidate) => candidate in scripts
-    );
+  const scriptName = ['dev', 'start', 'serve'].find(
+    (candidate) => candidate in scripts,
+  );
 
   if (!scriptName) {
     throw new ProcessManagerError(
-      "PROJECT_SCRIPT_NOT_FOUND",
-      `Nenhum script dev, start ou serve foi encontrado em ${project.name}.`
+      'PROJECT_SCRIPT_NOT_FOUND',
+      `Nenhum script dev, start ou serve foi encontrado em ${project.name}.`,
     );
   }
 
-  const packageManager =
-    await resolveNodePackageManager(project.path);
+  const packageManager = await resolveNodePackageManager(
+    project.path,
+  );
 
   return {
     command: packageManager,
-    args: [
-      "run",
-      scriptName
-    ],
+    args: ['run', scriptName],
     env: {
       PORT: String(port),
-      HOST: "127.0.0.1"
-    }
+      HOST: '127.0.0.1',
+    },
   };
 }
 
 async function resolveRailsCommand(
   project: Project,
-  port: number
+  port: number,
 ): Promise<ResolvedCommand> {
-  const railsExecutable = path.join(
-    project.path,
-    "bin",
-    "rails"
-  );
+  const railsExecutable = path.join(project.path, 'bin', 'rails');
 
   if (await pathExists(railsExecutable)) {
     return {
       command: railsExecutable,
       args: [
-        "server",
-        "--binding",
-        "127.0.0.1",
-        "--port",
-        String(port)
+        'server',
+        '--binding',
+        '127.0.0.1',
+        '--port',
+        String(port),
       ],
-      env: {}
+      env: {},
     };
   }
 
   return {
-    command: "bundle",
+    command: 'bundle',
     args: [
-      "exec",
-      "rails",
-      "server",
-      "--binding",
-      "127.0.0.1",
-      "--port",
-      String(port)
+      'exec',
+      'rails',
+      'server',
+      '--binding',
+      '127.0.0.1',
+      '--port',
+      String(port),
     ],
-    env: {}
+    env: {},
   };
 }
 
 async function resolveServerCommand(
   project: Project,
-  port: number
+  port: number,
 ): Promise<ResolvedCommand> {
   switch (project.type) {
-    case "rails":
+    case 'rails':
       return await resolveRailsCommand(project, port);
 
-    case "node":
+    case 'node':
       return await resolveNodeCommand(project, port);
 
     default:
       throw new ProcessManagerError(
-        "PROJECT_SERVER_UNSUPPORTED",
-        `O projeto ${project.name} não possui servidor suportado.`
+        'PROJECT_SERVER_UNSUPPORTED',
+        `O projeto ${project.name} não possui servidor suportado.`,
       );
   }
 }
 
-function isStoredProcess(
-  value: unknown
-): value is StoredProcess {
+function isStoredProcess(value: unknown): value is StoredProcess {
   if (
-    typeof value !== "object" ||
+    typeof value !== 'object' ||
     value === null ||
     Array.isArray(value)
   ) {
     return false;
   }
 
-  const candidate =
-    value as Record<string, unknown>;
+  const candidate = value as Record<string, unknown>;
 
   return (
-    typeof candidate.id === "string" &&
-    typeof candidate.projectId === "string" &&
-    typeof candidate.kind === "string" &&
-    typeof candidate.status === "string" &&
-    typeof candidate.command === "string" &&
+    typeof candidate.id === 'string' &&
+    typeof candidate.projectId === 'string' &&
+    typeof candidate.kind === 'string' &&
+    typeof candidate.status === 'string' &&
+    typeof candidate.command === 'string' &&
     Array.isArray(candidate.args) &&
     candidate.args.every(
-      (argument) => typeof argument === "string"
+      (argument) => typeof argument === 'string',
     ) &&
-    typeof candidate.cwd === "string" &&
-    typeof candidate.logPath === "string"
+    typeof candidate.cwd === 'string' &&
+    typeof candidate.logPath === 'string'
   );
 }
 
@@ -381,10 +333,7 @@ function isProcessAlive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    if (
-      isErrnoException(error) &&
-      error.code === "EPERM"
-    ) {
+    if (isErrnoException(error) && error.code === 'EPERM') {
       return true;
     }
 
@@ -393,24 +342,22 @@ function isProcessAlive(pid: number): boolean {
 }
 
 async function verifyProcessDirectory(
-  storedProcess: StoredProcess
+  storedProcess: StoredProcess,
 ): Promise<boolean> {
   if (!storedProcess.pid) {
     return false;
   }
 
-  if (process.platform !== "linux") {
+  if (process.platform !== 'linux') {
     return true;
   }
 
   try {
     const processDirectory = await realpath(
-      `/proc/${storedProcess.pid}/cwd`
+      `/proc/${storedProcess.pid}/cwd`,
     );
 
-    const expectedDirectory = await realpath(
-      storedProcess.cwd
-    );
+    const expectedDirectory = await realpath(storedProcess.cwd);
 
     return processDirectory === expectedDirectory;
   } catch {
@@ -420,7 +367,7 @@ async function verifyProcessDirectory(
 
 async function waitForProcessExit(
   pid: number,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<boolean> {
   const startedAt = Date.now();
 
@@ -442,46 +389,37 @@ export class ProcessManager {
   private readonly processDirectory: string;
   private readonly logDirectory: string;
 
-  public constructor(
-    stateDirectory = resolveStateDirectory()
-  ) {
+  public constructor(stateDirectory = resolveStateDirectory()) {
     this.stateDirectory = stateDirectory;
 
-    this.processDirectory = path.join(
-      stateDirectory,
-      "processes"
-    );
+    this.processDirectory = path.join(stateDirectory, 'processes');
 
-    this.logDirectory = path.join(
-      stateDirectory,
-      "logs"
-    );
+    this.logDirectory = path.join(stateDirectory, 'logs');
   }
 
   public async getServerProcess(
-    projectId: string
+    projectId: string,
   ): Promise<ManagedProcess | null> {
-    const storedProcess =
-      await this.readStoredProcess(projectId);
+    const storedProcess = await this.readStoredProcess(projectId);
 
     if (!storedProcess) {
       return null;
     }
 
     if (
-      storedProcess.status === "running" ||
-      storedProcess.status === "starting"
+      storedProcess.status === 'running' ||
+      storedProcess.status === 'starting'
     ) {
       const running =
         storedProcess.pid !== undefined &&
         isProcessAlive(storedProcess.pid) &&
-        await verifyProcessDirectory(storedProcess);
+        (await verifyProcessDirectory(storedProcess));
 
       if (!running) {
         const stoppedProcess: StoredProcess = {
           ...storedProcess,
-          status: "stopped",
-          stoppedAt: new Date().toISOString()
+          status: 'stopped',
+          stoppedAt: new Date().toISOString(),
         };
 
         await this.writeStoredProcess(stoppedProcess);
@@ -493,81 +431,145 @@ export class ProcessManager {
     return storedProcess;
   }
 
-  public async startServer(
-    project: Project,
-    options: StartServerOptions = {}
-  ): Promise<ManagedProcess> {
-    const currentProcess =
-      await this.getServerProcess(project.id);
+  public async readServerLog(
+    projectId: string,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    const storedProcess = await this.readStoredProcess(projectId);
+
+    if (!storedProcess) {
+      throw new ProcessManagerError(
+        'PROCESS_NOT_FOUND',
+        'Nenhum processo gerenciado foi encontrado.',
+      );
+    }
+
+    const maxBytes = options.maxBytes ?? 65_536;
 
     if (
-      currentProcess?.status === "running" ||
-      currentProcess?.status === "starting"
+      !Number.isInteger(maxBytes) ||
+      maxBytes < 1 ||
+      maxBytes > 262_144
     ) {
       throw new ProcessManagerError(
-        "PROCESS_ALREADY_RUNNING",
-        `O servidor de ${project.name} já está em execução.`
+        'INVALID_LOG_LIMIT',
+        'O limite do log deve estar entre 1 e 262144 bytes.',
+      );
+    }
+
+    try {
+      const logStats = await stat(storedProcess.logPath);
+
+      const startPosition = Math.max(0, logStats.size - maxBytes);
+
+      const length = logStats.size - startPosition;
+      const buffer = Buffer.alloc(length);
+
+      const logHandle = await open(storedProcess.logPath, 'r');
+
+      try {
+        await logHandle.read(buffer, 0, length, startPosition);
+      } finally {
+        await logHandle.close();
+      }
+
+      let content = buffer.toString('utf8');
+      const truncated = startPosition > 0;
+
+      // Quando começamos no meio do arquivo, removemos
+      // a primeira linha possivelmente incompleta.
+      if (truncated) {
+        const firstLineBreak = content.indexOf('\n');
+
+        if (firstLineBreak >= 0) {
+          content = content.slice(firstLineBreak + 1);
+        }
+      }
+
+      return {
+        projectId,
+        processId: storedProcess.id,
+        content,
+        sizeBytes: logStats.size,
+        truncated,
+        updatedAt: logStats.mtime.toISOString(),
+        readAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (isErrnoException(error) && error.code === 'ENOENT') {
+        return {
+          projectId,
+          processId: storedProcess.id,
+          content: '',
+          sizeBytes: 0,
+          truncated: false,
+          readAt: new Date().toISOString(),
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  public async startServer(
+    project: Project,
+    options: StartServerOptions = {},
+  ): Promise<ManagedProcess> {
+    const currentProcess = await this.getServerProcess(project.id);
+
+    if (
+      currentProcess?.status === 'running' ||
+      currentProcess?.status === 'starting'
+    ) {
+      throw new ProcessManagerError(
+        'PROCESS_ALREADY_RUNNING',
+        `O servidor de ${project.name} já está em execução.`,
       );
     }
 
     const port =
-      options.port ??
-      project.port ??
-      await findAvailablePort();
+      options.port ?? project.port ?? (await findAvailablePort());
 
     validatePort(port);
 
-    const resolvedCommand =
-      await resolveServerCommand(project, port);
+    const resolvedCommand = await resolveServerCommand(project, port);
 
     await Promise.all([
       mkdir(this.processDirectory, {
         recursive: true,
-        mode: 0o700
+        mode: 0o700,
       }),
       mkdir(this.logDirectory, {
         recursive: true,
-        mode: 0o700
-      })
+        mode: 0o700,
+      }),
     ]);
 
     const logPath = path.join(
       this.logDirectory,
-      `${this.createProjectKey(project.id)}.server.log`
+      `${this.createProjectKey(project.id)}.server.log`,
     );
 
-    const logHandle = await open(
-      logPath,
-      "a",
-      0o600
-    );
+    const logHandle = await open(logPath, 'a', 0o600);
 
     let child: ReturnType<typeof spawn>;
 
     try {
-      child = spawn(
-        resolvedCommand.command,
-        resolvedCommand.args,
-        {
-          cwd: project.path,
-          detached: true,
-          shell: false,
-          windowsHide: true,
-          stdio: [
-            "ignore",
-            logHandle.fd,
-            logHandle.fd
-          ],
-          env: {
-            ...process.env,
-            ...resolvedCommand.env
-          }
-        }
-      );
+      child = spawn(resolvedCommand.command, resolvedCommand.args, {
+        cwd: project.path,
+        detached: true,
+        shell: false,
+        windowsHide: true,
+        stdio: ['ignore', logHandle.fd, logHandle.fd],
+        env: {
+          ...process.env,
+          ...resolvedCommand.env,
+        },
+      });
 
       await new Promise<void>((resolve, reject) => {
-        child.once("spawn", resolve);
-        child.once("error", reject);
+        child.once('spawn', resolve);
+        child.once('error', reject);
       });
     } finally {
       await logHandle.close();
@@ -575,7 +577,7 @@ export class ProcessManager {
 
     if (!child.pid) {
       throw new Error(
-        `Não foi possível obter o PID do servidor de ${project.name}.`
+        `Não foi possível obter o PID do servidor de ${project.name}.`,
       );
     }
 
@@ -584,15 +586,15 @@ export class ProcessManager {
     const managedProcess: StoredProcess = {
       id: `${project.id}:server`,
       projectId: project.id,
-      kind: "server",
-      status: "running",
+      kind: 'server',
+      status: 'running',
       pid: child.pid,
       port,
       command: resolvedCommand.command,
       args: resolvedCommand.args,
       cwd: project.path,
       logPath,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
     };
 
     await this.writeStoredProcess(managedProcess);
@@ -601,26 +603,22 @@ export class ProcessManager {
   }
 
   public async stopServer(
-    projectId: string
+    projectId: string,
   ): Promise<ManagedProcess> {
-    const storedProcess =
-      await this.readStoredProcess(projectId);
+    const storedProcess = await this.readStoredProcess(projectId);
 
-    if (
-      !storedProcess ||
-      storedProcess.pid === undefined
-    ) {
+    if (!storedProcess || storedProcess.pid === undefined) {
       throw new ProcessManagerError(
-        "PROCESS_NOT_FOUND",
-        "Nenhum processo gerenciado foi encontrado."
+        'PROCESS_NOT_FOUND',
+        'Nenhum processo gerenciado foi encontrado.',
       );
     }
 
     if (!isProcessAlive(storedProcess.pid)) {
       const stoppedProcess: StoredProcess = {
         ...storedProcess,
-        status: "stopped",
-        stoppedAt: new Date().toISOString()
+        status: 'stopped',
+        stoppedAt: new Date().toISOString(),
       };
 
       await this.writeStoredProcess(stoppedProcess);
@@ -633,39 +631,35 @@ export class ProcessManager {
 
     if (!processMatches) {
       throw new ProcessManagerError(
-        "PROCESS_IDENTITY_MISMATCH",
-        "O PID salvo pertence a outro processo e não será encerrado."
+        'PROCESS_IDENTITY_MISMATCH',
+        'O PID salvo pertence a outro processo e não será encerrado.',
       );
     }
 
     const stoppingProcess: StoredProcess = {
       ...storedProcess,
-      status: "stopping"
+      status: 'stopping',
     };
 
     await this.writeStoredProcess(stoppingProcess);
 
-    this.sendSignal(storedProcess.pid, "SIGTERM");
+    this.sendSignal(storedProcess.pid, 'SIGTERM');
 
-    const exitedGracefully =
-      await waitForProcessExit(
-        storedProcess.pid,
-        5_000
-      );
+    const exitedGracefully = await waitForProcessExit(
+      storedProcess.pid,
+      5_000,
+    );
 
     if (!exitedGracefully) {
-      this.sendSignal(storedProcess.pid, "SIGKILL");
+      this.sendSignal(storedProcess.pid, 'SIGKILL');
 
-      await waitForProcessExit(
-        storedProcess.pid,
-        2_000
-      );
+      await waitForProcessExit(storedProcess.pid, 2_000);
     }
 
     const stoppedProcess: StoredProcess = {
       ...storedProcess,
-      status: "stopped",
-      stoppedAt: new Date().toISOString()
+      status: 'stopped',
+      stoppedAt: new Date().toISOString(),
     };
 
     await this.writeStoredProcess(stoppedProcess);
@@ -673,22 +667,16 @@ export class ProcessManager {
     return stoppedProcess;
   }
 
-  private sendSignal(
-    pid: number,
-    signal: NodeJS.Signals
-  ): void {
+  private sendSignal(pid: number, signal: NodeJS.Signals): void {
     try {
-      if (process.platform === "win32") {
+      if (process.platform === 'win32') {
         process.kill(pid, signal);
         return;
       }
 
       process.kill(-pid, signal);
     } catch (error) {
-      if (
-        isErrnoException(error) &&
-        error.code === "ESRCH"
-      ) {
+      if (isErrnoException(error) && error.code === 'ESRCH') {
         return;
       }
 
@@ -696,53 +684,46 @@ export class ProcessManager {
     }
   }
 
-  private createProjectKey(
-    projectId: string
-  ): string {
+  private createProjectKey(projectId: string): string {
     const readable = projectId
-      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
       .slice(0, 80);
 
-    const hash = createHash("sha256")
+    const hash = createHash('sha256')
       .update(projectId)
-      .digest("hex")
+      .digest('hex')
       .slice(0, 8);
 
     return `${readable}-${hash}`;
   }
 
-  private resolveProcessFile(
-    projectId: string
-  ): string {
+  private resolveProcessFile(projectId: string): string {
     return path.join(
       this.processDirectory,
-      `${this.createProjectKey(projectId)}.server.json`
+      `${this.createProjectKey(projectId)}.server.json`,
     );
   }
 
   private async readStoredProcess(
-    projectId: string
+    projectId: string,
   ): Promise<StoredProcess | null> {
     try {
       const contents = await readFile(
         this.resolveProcessFile(projectId),
-        "utf8"
+        'utf8',
       );
 
       const parsed: unknown = JSON.parse(contents);
 
       if (!isStoredProcess(parsed)) {
         throw new Error(
-          "O arquivo de estado do processo possui formato inválido."
+          'O arquivo de estado do processo possui formato inválido.',
         );
       }
 
       return parsed;
     } catch (error) {
-      if (
-        isErrnoException(error) &&
-        error.code === "ENOENT"
-      ) {
+      if (isErrnoException(error) && error.code === 'ENOENT') {
         return null;
       }
 
@@ -751,33 +732,28 @@ export class ProcessManager {
   }
 
   private async writeStoredProcess(
-    managedProcess: StoredProcess
+    managedProcess: StoredProcess,
   ): Promise<void> {
     await mkdir(this.processDirectory, {
       recursive: true,
-      mode: 0o700
+      mode: 0o700,
     });
 
-    const processFile =
-      this.resolveProcessFile(
-        managedProcess.projectId
-      );
+    const processFile = this.resolveProcessFile(
+      managedProcess.projectId,
+    );
 
-    const temporaryFile =
-      `${processFile}.${process.pid}.tmp`;
+    const temporaryFile = `${processFile}.${process.pid}.tmp`;
 
     await writeFile(
       temporaryFile,
       `${JSON.stringify(managedProcess, null, 2)}\n`,
       {
-        encoding: "utf8",
-        mode: 0o600
-      }
+        encoding: 'utf8',
+        mode: 0o600,
+      },
     );
 
-    await rename(
-      temporaryFile,
-      processFile
-    );
+    await rename(temporaryFile, processFile);
   }
 }

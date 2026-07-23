@@ -5,7 +5,7 @@
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
 
   color: #edf1f7;
@@ -48,10 +48,7 @@ button:disabled {
 code,
 kbd {
   font-family:
-    "SFMono-Regular",
-    Consolas,
-    "Liberation Mono",
-    monospace;
+    'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 .app-shell {
@@ -93,12 +90,7 @@ kbd {
   border: 1px solid #575eff;
   border-radius: 11px;
   color: #dfe1ff;
-  background:
-    linear-gradient(
-      145deg,
-      #474cff,
-      #282d8b
-    );
+  background: linear-gradient(145deg, #474cff, #282d8b);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -344,16 +336,8 @@ kbd {
   border: 1px solid #232837;
   border-radius: 18px;
   background:
-    linear-gradient(
-      135deg,
-      rgb(68 74 255 / 13%),
-      transparent 42%
-    ),
-    linear-gradient(
-      180deg,
-      #131722,
-      #10131a
-    );
+    linear-gradient(135deg, rgb(68 74 255 / 13%), transparent 42%),
+    linear-gradient(180deg, #131722, #10131a);
 }
 
 .hero-copy h2 {
@@ -558,8 +542,7 @@ kbd {
 
 .projects-grid {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -570,11 +553,7 @@ kbd {
   border: 1px solid #232935;
   border-radius: 14px;
   background:
-    linear-gradient(
-      160deg,
-      rgb(79 86 255 / 5%),
-      transparent 42%
-    ),
+    linear-gradient(160deg, rgb(79 86 255 / 5%), transparent 42%),
     #10141b;
   transition:
     transform 160ms ease,
@@ -901,7 +880,7 @@ kbd {
 .workspace-divider::after {
   height: 1px;
   flex: 1;
-  content: "";
+  content: '';
   background: #252a34;
 }
 
@@ -1001,10 +980,7 @@ kbd {
   display: flex;
   gap: 12px;
   color: #70798b;
-  font-family:
-    "SFMono-Regular",
-    Consolas,
-    monospace;
+  font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 9px;
 }
 
@@ -1051,4 +1027,79 @@ kbd {
 .danger-small-button:not(:disabled):hover {
   border-color: #874550;
   background: #351b21;
+}
+
+.project-log-panel {
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  padding-top: 14px;
+  border-top: 1px solid #252b36;
+}
+
+.project-log-header,
+.project-log-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-log-header strong,
+.project-log-header span {
+  display: block;
+}
+
+.project-log-header strong {
+  color: #d9deea;
+  font-size: 11px;
+}
+
+.project-log-header span,
+.project-log-footer {
+  margin-top: 3px;
+  color: #687285;
+  font-size: 9px;
+}
+
+.project-log-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.log-action-button {
+  padding: 5px 7px;
+  border: 1px solid #303746;
+  border-radius: 6px;
+  color: #8e98aa;
+  background: #171c24;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.log-action-button:not(:disabled):hover {
+  color: #cbd1dc;
+  background: #202630;
+}
+
+.project-log-output {
+  min-height: 160px;
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #252b35;
+  border-radius: 9px;
+  color: #aab4c7;
+  background: #080a0e;
+  font-family:
+    'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.project-log-output code {
+  font: inherit;
 }

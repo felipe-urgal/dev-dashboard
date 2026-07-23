@@ -1,19 +1,17 @@
-export type { Workspace } from "./workspace.js";
+export type { Workspace } from './workspace.js';
 
 export type {
   Project,
   ProjectCapability,
   ProjectSource,
-  ProjectType
-} from "./project.js";
+  ProjectType,
+} from './project.js';
 
 export type {
   ManagedProcess,
   ManagedProcessKind,
-  ManagedProcessStatus
-} from "./process.js";
+  ManagedProcessStatus,
+  ProcessLogSnapshot,
+} from './process.js';
 
-export type {
-  Job,
-  JobStatus
-} from "./job.js";
+export type { Job, JobStatus } from './job.js';

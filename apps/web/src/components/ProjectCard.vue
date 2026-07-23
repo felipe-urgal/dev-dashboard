@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
-  ref
-} from "vue";
+  ref,
+} from 'vue';
 
 import type {
   ManagedProcess,
+  ProcessLogSnapshot,
   Project,
   ProjectCapability,
-  ProjectType
-} from "@dev-dashboard/contracts";
+  ProjectType,
+} from '@dev-dashboard/contracts';
 
 import {
   fetchProjectProcess,
+  fetchProjectProcessLog,
   startProjectProcess,
-  stopProjectProcess
-} from "../api";
+  stopProjectProcess,
+} from '../api';
 
 const props = defineProps<{
   project: Project;
@@ -26,103 +29,207 @@ const props = defineProps<{
 const managedProcess = ref<ManagedProcess | null>(null);
 const loadingStatus = ref(false);
 const executingAction = ref(false);
-const errorMessage = ref("");
+const errorMessage = ref('');
 
-let pollingTimer:
-  | ReturnType<typeof setInterval>
-  | undefined;
+const showLogs = ref(false);
+const loadingLogs = ref(false);
+const logSnapshot = ref<ProcessLogSnapshot | null>(null);
+const logErrorMessage = ref('');
+const logContainer = ref<HTMLElement | null>(null);
+const followLogs = ref(true);
+
+let logPollingTimer: ReturnType<typeof setInterval> | undefined;
+
+let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
 const projectTypeLabels: Record<ProjectType, string> = {
-  rails: "Rails",
-  node: "Node",
-  unknown: "Desconhecido"
+  rails: 'Rails',
+  node: 'Node',
+  unknown: 'Desconhecido',
 };
 
-const capabilityLabels: Record<
-  ProjectCapability,
-  string
-> = {
-  server: "Servidor",
-  git: "Git",
-  tests: "Testes",
-  database: "Banco",
-  scripts: "Scripts",
-  webpack: "Webpack",
-  sidekiq: "Sidekiq",
-  rake: "Rake",
-  bundler: "Bundler"
+const capabilityLabels: Record<ProjectCapability, string> = {
+  server: 'Servidor',
+  git: 'Git',
+  tests: 'Testes',
+  database: 'Banco',
+  scripts: 'Scripts',
+  webpack: 'Webpack',
+  sidekiq: 'Sidekiq',
+  rake: 'Rake',
+  bundler: 'Bundler',
 };
 
-const supportsServer = computed(
-  () => props.project.capabilities.includes("server")
+const hasManagedProcess = computed(
+  () => managedProcess.value !== null,
+);
+
+const formattedLogSize = computed(() => {
+  const size = logSnapshot.value?.sizeBytes ?? 0;
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+});
+
+async function scrollLogsToBottom(): Promise<void> {
+  if (!followLogs.value) {
+    return;
+  }
+
+  await nextTick();
+
+  const element = logContainer.value;
+
+  if (element) {
+    element.scrollTop = element.scrollHeight;
+  }
+}
+
+async function refreshLogs(): Promise<void> {
+  if (!hasManagedProcess.value) {
+    return;
+  }
+
+  loadingLogs.value = true;
+  logErrorMessage.value = '';
+
+  try {
+    logSnapshot.value = await fetchProjectProcessLog(
+      props.project.id,
+    );
+
+    await scrollLogsToBottom();
+  } catch (error) {
+    logErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar os logs.';
+  } finally {
+    loadingLogs.value = false;
+  }
+}
+
+function stopLogPolling(): void {
+  if (logPollingTimer) {
+    clearInterval(logPollingTimer);
+    logPollingTimer = undefined;
+  }
+}
+
+function startLogPolling(): void {
+  stopLogPolling();
+
+  logPollingTimer = setInterval(() => {
+    void refreshLogs();
+  }, 2_000);
+}
+
+async function toggleLogs(): Promise<void> {
+  showLogs.value = !showLogs.value;
+
+  if (showLogs.value) {
+    await refreshLogs();
+    startLogPolling();
+  } else {
+    stopLogPolling();
+  }
+}
+
+function handleLogScroll(): void {
+  const element = logContainer.value;
+
+  if (!element) {
+    return;
+  }
+
+  const distanceFromBottom =
+    element.scrollHeight - element.scrollTop - element.clientHeight;
+
+  followLogs.value = distanceFromBottom < 40;
+}
+
+function clearLogView(): void {
+  if (!logSnapshot.value) {
+    return;
+  }
+
+  logSnapshot.value = {
+    ...logSnapshot.value,
+    content: '',
+  };
+}
+
+const supportsServer = computed(() =>
+  props.project.capabilities.includes('server'),
 );
 
 const processStatus = computed(
-  () => managedProcess.value?.status ?? "stopped"
+  () => managedProcess.value?.status ?? 'stopped',
 );
 
 const isRunning = computed(
   () =>
-    processStatus.value === "running" ||
-    processStatus.value === "starting"
+    processStatus.value === 'running' ||
+    processStatus.value === 'starting',
 );
 
-const isStopping = computed(
-  () => processStatus.value === "stopping"
-);
+const isStopping = computed(() => processStatus.value === 'stopping');
 
-const processUrl = computed<string | null>(
-  () => {
-    const port = managedProcess.value?.port;
+const processUrl = computed<string | null>(() => {
+  const port = managedProcess.value?.port;
 
-    if (!port) {
-      return null;
-    }
-
-    return `http://127.0.0.1:${port}`;
+  if (!port) {
+    return null;
   }
-);
+
+  return `http://127.0.0.1:${port}`;
+});
 
 const statusLabel = computed(() => {
   if (!supportsServer.value) {
-    return "Sem servidor";
+    return 'Sem servidor';
   }
 
   if (loadingStatus.value) {
-    return "Verificando";
+    return 'Verificando';
   }
 
   switch (processStatus.value) {
-    case "starting":
-      return "Iniciando";
+    case 'starting':
+      return 'Iniciando';
 
-    case "running":
-      return "Executando";
+    case 'running':
+      return 'Executando';
 
-    case "stopping":
-      return "Encerrando";
+    case 'stopping':
+      return 'Encerrando';
 
-    case "failed":
-      return "Falhou";
+    case 'failed':
+      return 'Falhou';
 
     default:
-      return "Parado";
+      return 'Parado';
   }
 });
 
 function projectInitials(name: string): string {
   return name
-    .replace(/^[._-]+/, "")
+    .replace(/^[._-]+/, '')
     .split(/[-_\s]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
-    .join("");
+    .join('');
 }
 
-function capabilityLabel(
-  capability: ProjectCapability
-): string {
+function capabilityLabel(capability: ProjectCapability): string {
   return capabilityLabels[capability];
 }
 
@@ -134,13 +241,14 @@ async function refreshProcess(): Promise<void> {
   loadingStatus.value = true;
 
   try {
-    managedProcess.value =
-      await fetchProjectProcess(props.project.id);
+    managedProcess.value = await fetchProjectProcess(
+      props.project.id,
+    );
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível consultar o processo.";
+        : 'Não foi possível consultar o processo.';
   } finally {
     loadingStatus.value = false;
   }
@@ -148,16 +256,21 @@ async function refreshProcess(): Promise<void> {
 
 async function handleStart(): Promise<void> {
   executingAction.value = true;
-  errorMessage.value = "";
+  errorMessage.value = '';
 
   try {
-    managedProcess.value =
-      await startProjectProcess(props.project.id);
+    managedProcess.value = await startProjectProcess(
+      props.project.id,
+    );
+
+    if (showLogs.value) {
+      await refreshLogs();
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível iniciar o servidor.";
+        : 'Não foi possível iniciar o servidor.';
   } finally {
     executingAction.value = false;
   }
@@ -165,16 +278,15 @@ async function handleStart(): Promise<void> {
 
 async function handleStop(): Promise<void> {
   executingAction.value = true;
-  errorMessage.value = "";
+  errorMessage.value = '';
 
   try {
-    managedProcess.value =
-      await stopProjectProcess(props.project.id);
+    managedProcess.value = await stopProjectProcess(props.project.id);
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Não foi possível parar o servidor.";
+        : 'Não foi possível parar o servidor.';
   } finally {
     executingAction.value = false;
   }
@@ -185,11 +297,7 @@ function handleOpen(): void {
     return;
   }
 
-  window.open(
-    processUrl.value,
-    "_blank",
-    "noopener,noreferrer"
-  );
+  window.open(processUrl.value, '_blank', 'noopener,noreferrer');
 }
 
 onMounted(() => {
@@ -206,6 +314,7 @@ onBeforeUnmount(() => {
   if (pollingTimer) {
     clearInterval(pollingTimer);
   }
+  stopLogPolling();
 });
 </script>
 
@@ -254,10 +363,7 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
-    <div
-      v-if="managedProcess?.port"
-      class="process-details"
-    >
+    <div v-if="managedProcess?.port" class="process-details">
       <span>Porta {{ managedProcess.port }}</span>
 
       <span v-if="managedProcess.pid">
@@ -265,11 +371,7 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
-    <div
-      v-if="errorMessage"
-      class="project-error"
-      role="alert"
-    >
+    <div v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
     </div>
 
@@ -281,17 +383,22 @@ onBeforeUnmount(() => {
 
       <div class="project-actions">
         <button
+          v-if="hasManagedProcess"
+          type="button"
+          class="secondary-button"
+          @click="toggleLogs"
+        >
+          {{ showLogs ? 'Fechar logs' : 'Logs' }}
+        </button>
+
+        <button
           v-if="supportsServer && !isRunning"
           type="button"
           class="primary-small-button"
           :disabled="executingAction || isStopping"
           @click="handleStart"
         >
-          {{
-            executingAction
-              ? "Iniciando..."
-              : "Iniciar"
-          }}
+          {{ executingAction ? 'Iniciando...' : 'Iniciar' }}
         </button>
 
         <button
@@ -301,11 +408,7 @@ onBeforeUnmount(() => {
           :disabled="executingAction"
           @click="handleStop"
         >
-          {{
-            executingAction
-              ? "Parando..."
-              : "Parar"
-          }}
+          {{ executingAction ? 'Parando...' : 'Parar' }}
         </button>
 
         <button
@@ -319,5 +422,73 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+
+    <section v-if="showLogs" class="project-log-panel">
+      <header class="project-log-header">
+        <div>
+          <strong>Logs do servidor</strong>
+
+          <span v-if="logSnapshot">
+            {{ formattedLogSize }}
+            <template v-if="logSnapshot.truncated">
+              · trecho final
+            </template>
+          </span>
+        </div>
+
+        <div class="project-log-actions">
+          <button
+            type="button"
+            class="log-action-button"
+            :disabled="loadingLogs"
+            @click="refreshLogs"
+          >
+            Atualizar
+          </button>
+
+          <button
+            type="button"
+            class="log-action-button"
+            @click="clearLogView"
+          >
+            Limpar tela
+          </button>
+        </div>
+      </header>
+
+      <div v-if="logErrorMessage" class="project-error" role="alert">
+        {{ logErrorMessage }}
+      </div>
+
+      <pre
+        ref="logContainer"
+        class="project-log-output"
+        @scroll="handleLogScroll"
+      ><code>{{ logSnapshot?.content || "Nenhuma saída registrada." }}</code></pre>
+
+      <footer class="project-log-footer">
+        <span>
+          {{
+            loadingLogs
+              ? 'Atualizando...'
+              : followLogs
+                ? 'Acompanhando novas linhas'
+                : 'Rolagem automática pausada'
+          }}
+        </span>
+
+        <button
+          v-if="!followLogs"
+          type="button"
+          class="log-action-button"
+          @click="
+            followLogs = true;
+            scrollLogsToBottom();
+          "
+        >
+          Ir para o final
+        </button>
+      </footer>
+    </section>
   </article>
 </template>

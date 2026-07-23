@@ -1,16 +1,8 @@
 export type ManagedProcessKind =
-  | "server"
-  | "webpack"
-  | "worker"
-  | "test"
-  | "script";
+  'server' | 'webpack' | 'worker' | 'test' | 'script';
 
 export type ManagedProcessStatus =
-  | "starting"
-  | "running"
-  | "stopping"
-  | "stopped"
-  | "failed";
+  'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
 export interface ManagedProcess {
   id: string;
@@ -26,4 +18,14 @@ export interface ManagedProcess {
   startedAt?: string;
   stoppedAt?: string;
   exitCode?: number;
+}
+
+export interface ProcessLogSnapshot {
+  projectId: string;
+  processId: string;
+  content: string;
+  sizeBytes: number;
+  truncated: boolean;
+  updatedAt?: string;
+  readAt: string;
 }

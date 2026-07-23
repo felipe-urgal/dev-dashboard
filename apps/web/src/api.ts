@@ -1,5 +1,6 @@
 import type {
   ManagedProcess,
+  ProcessLogSnapshot,
   Project,
   Workspace,
 } from '@dev-dashboard/contracts';
@@ -35,6 +36,14 @@ interface WorkspacesResponse {
 interface ErrorResponse {
   error?: string;
   message?: string;
+}
+
+interface ProcessResponse {
+  process: ManagedProcess | null;
+}
+
+interface ProcessLogResponse {
+  log: ProcessLogSnapshot;
 }
 
 async function requestJson<T>(
@@ -116,10 +125,6 @@ export async function deleteWorkspace(
   );
 }
 
-interface ProcessResponse {
-  process: ManagedProcess | null;
-}
-
 export async function fetchProjectProcess(
   projectId: string,
 ): Promise<ManagedProcess | null> {
@@ -167,4 +172,19 @@ export async function stopProjectProcess(
   }
 
   return response.process;
+}
+
+export async function fetchProjectProcessLog(
+  projectId: string,
+  maxBytes = 65_536,
+): Promise<ProcessLogSnapshot> {
+  const parameters = new URLSearchParams({
+    maxBytes: String(maxBytes),
+  });
+
+  const response = await requestJson<ProcessLogResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs?${parameters}`,
+  );
+
+  return response.log;
 }
