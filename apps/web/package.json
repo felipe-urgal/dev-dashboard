@@ -10,7 +10,8 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@dev-dashboard/contracts": "0.1.0"
+    "@dev-dashboard/contracts": "0.1.0",
+    "@dev-dashboard/core": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

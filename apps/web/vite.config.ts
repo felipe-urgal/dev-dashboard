@@ -1,30 +1,40 @@
-import {
-  defineConfig
-} from "vite";
+import { defineConfig, type ProxyOptions } from 'vite';
 
-import vue from "@vitejs/plugin-vue";
+import vue from '@vitejs/plugin-vue';
 
-export default defineConfig({
-  plugins: [
-    vue()
-  ],
+import { LocalTokenStore } from '@dev-dashboard/core';
 
-  server: {
-    host: "127.0.0.1",
-    port: 5173,
-    strictPort: true,
+export default defineConfig(async () => {
+  const localToken = await new LocalTokenStore().getOrCreate();
 
-    proxy: {
-      "/api": {
-        target: "http://127.0.0.1:4343",
-        changeOrigin: false
-      }
-    }
-  },
+  const apiProxy: ProxyOptions = {
+    target: 'http://127.0.0.1:4343',
+    changeOrigin: false,
 
-  preview: {
-    host: "127.0.0.1",
-    port: 4173,
-    strictPort: true
-  }
+    configure(proxy) {
+      proxy.on('proxyReq', (proxyRequest) => {
+        proxyRequest.setHeader('X-Dev-Dashboard-Token', localToken);
+      });
+    },
+  };
+
+  return {
+    plugins: [vue()],
+
+    server: {
+      host: '127.0.0.1',
+      port: 5173,
+      strictPort: true,
+
+      proxy: {
+        '/api': apiProxy,
+      },
+    },
+
+    preview: {
+      host: '127.0.0.1',
+      port: 4173,
+      strictPort: true,
+    },
+  };
 });
