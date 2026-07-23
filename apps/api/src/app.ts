@@ -12,6 +12,8 @@ import { LocalTokenStore } from '@dev-dashboard/core';
 
 import { registerLocalSecurity } from './security/local-security.js';
 
+import { registerApiErrorHandling } from './http/api-error.js';
+
 export interface BuildAppOptions {
   localToken?: string;
   allowedOrigins?: readonly string[];
@@ -23,6 +25,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
       level: process.env.LOG_LEVEL ?? 'info',
     },
   });
+
+  registerApiErrorHandling(app);
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
