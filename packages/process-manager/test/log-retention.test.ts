@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 
+import { spawn } from "node:child_process";
+
 import {
   mkdir,
   mkdtemp,
+  realpath,
   rm,
   stat,
   utimes,
@@ -230,5 +233,149 @@ test(
     );
 
     assert.deepEqual(removed, []);
+  }
+);
+
+function waitForExit(pid: number, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+
+    const check = () => {
+      try {
+        process.kill(pid, 0);
+      } catch {
+        resolve();
+        return;
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 25);
+    };
+
+    check();
+  });
+}
+
+test(
+  "removes a process marked running whose PID has already died",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const child = spawn("node", ["-e", "process.exit(0)"], {
+      detached: true,
+      stdio: "ignore"
+    });
+
+    const pid = child.pid;
+
+    assert.ok(pid);
+
+    child.unref();
+
+    await waitForExit(pid as number, 2_000);
+
+    const { stateFilePath } = await writeStateFile(
+      fixture.processDirectory,
+      "dead.server.json",
+      {
+        id: "dead:server",
+        projectId: "dead-project",
+        kind: "server",
+        status: "running",
+        pid,
+        command: "npm",
+        args: ["run", "dev"],
+        cwd: fixture.stateDirectory,
+        logPath: path.join(
+          fixture.processDirectory,
+          "dead.server.json.log"
+        )
+      }
+    );
+
+    const eightDaysAgo = new Date(Date.now() - 8 * DAY_IN_MS);
+
+    await utimes(stateFilePath, eightDaysAgo, eightDaysAgo);
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.equal(removed.length, 1);
+    assert.equal(removed[0]?.projectId, "dead-project");
+  }
+);
+
+test(
+  "keeps a process that is genuinely running regardless of file age",
+  async (context) => {
+    const fixture = await createFixture();
+
+    let pid: number | undefined;
+
+    context.after(async () => {
+      if (pid !== undefined) {
+        try {
+          process.kill(-pid, "SIGKILL");
+        } catch {
+          // já encerrado
+        }
+      }
+
+      await fixture.cleanup();
+    });
+
+    const projectCwd = await realpath(fixture.stateDirectory);
+
+    const child = spawn(
+      "node",
+      ["-e", "setInterval(() => {}, 60000)"],
+      {
+        cwd: projectCwd,
+        detached: true,
+        stdio: "ignore"
+      }
+    );
+
+    pid = child.pid;
+
+    assert.ok(pid);
+
+    child.unref();
+
+    const { stateFilePath } = await writeStateFile(
+      fixture.processDirectory,
+      "alive.server.json",
+      {
+        id: "alive:server",
+        projectId: "alive-project",
+        kind: "server",
+        status: "running",
+        pid,
+        command: "npm",
+        args: ["run", "dev"],
+        cwd: projectCwd,
+        logPath: path.join(
+          fixture.processDirectory,
+          "alive.server.json.log"
+        )
+      }
+    );
+
+    const eightDaysAgo = new Date(Date.now() - 8 * DAY_IN_MS);
+
+    await utimes(stateFilePath, eightDaysAgo, eightDaysAgo);
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.equal(removed.length, 0);
   }
 );

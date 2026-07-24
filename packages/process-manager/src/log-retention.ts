@@ -1,7 +1,12 @@
 import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-import { isStoredProcess, type StoredProcess } from './process-manager.js';
+import {
+  isManagedProcessAlive,
+  isStoredProcess,
+  verifyProcessDirectory,
+  type StoredProcess,
+} from './process-manager.js';
 
 export interface SweepStaleProcessesOptions {
   maxAgeMs?: number;
@@ -43,10 +48,22 @@ async function isEligibleForRemoval(
   stateFilePath: string,
   maxAgeMs: number,
 ): Promise<boolean> {
+  let status = storedProcess.status;
+
   if (
-    storedProcess.status !== 'stopped' &&
-    storedProcess.status !== 'failed'
+    status === 'running' ||
+    status === 'starting' ||
+    status === 'stopping'
   ) {
+    const alive =
+      storedProcess.pid !== undefined &&
+      isManagedProcessAlive(storedProcess.pid) &&
+      (await verifyProcessDirectory(storedProcess));
+
+    status = alive ? status : 'stopped';
+  }
+
+  if (status !== 'stopped' && status !== 'failed') {
     return false;
   }
 
