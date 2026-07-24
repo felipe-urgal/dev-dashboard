@@ -28,6 +28,9 @@ export type ApiErrorCode =
   | 'WORKSPACE_DISABLED'
   | 'WORKSPACE_PROCESS_RUNNING'
   | 'WORKSPACE_SCAN_FAILED'
+  | 'DIRECTORY_OUTSIDE_ROOT'
+  | 'INVALID_DIRECTORY'
+  | 'PROJECT_FAVICON_NOT_FOUND'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

@@ -54,6 +54,16 @@ test(
       recursive: true
     });
 
+    await mkdir(
+      path.join(projectPath, "public"),
+      { recursive: true }
+    );
+
+    await writeFile(
+      path.join(projectPath, "public", "favicon.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+    );
+
     await writeFile(
       path.join(projectPath, "package.json"),
       JSON.stringify(
@@ -79,6 +89,12 @@ test(
     process.env.DEV_DASHBOARD_STATE_DIR =
       path.join(fixtureRoot, "state");
 
+    const previousDirectoryRoot =
+      process.env.DEV_DASHBOARD_DIRECTORY_ROOT;
+
+    process.env.DEV_DASHBOARD_DIRECTORY_ROOT =
+      fixtureRoot;
+
     const {
       buildApp
     } = await import("../src/app.js");
@@ -97,6 +113,13 @@ test(
           previousConfigDirectory;
       }
 
+      if (previousDirectoryRoot === undefined) {
+        delete process.env.DEV_DASHBOARD_DIRECTORY_ROOT;
+      } else {
+        process.env.DEV_DASHBOARD_DIRECTORY_ROOT =
+          previousDirectoryRoot;
+      }
+
       if (previousStateDirectory === undefined) {
         delete process.env.DEV_DASHBOARD_STATE_DIR;
       } else {
@@ -113,6 +136,34 @@ test(
     const headers = {
       "x-dev-dashboard-token": TOKEN
     };
+
+    await context.test(
+      "lists directories inside the configured root",
+      async () => {
+        const response = await app.inject({
+          method: "GET",
+          url: `/api/directories?path=${encodeURIComponent(fixtureRoot)}`,
+          headers
+        });
+
+        const body = response.json<{
+          currentPath: string;
+          directories: Array<{
+            name: string;
+            path: string;
+          }>;
+        }>();
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(body.currentPath, fixtureRoot);
+        assert.equal(
+          body.directories.some(
+            (directory) => directory.path === workspacePath
+          ),
+          true
+        );
+      }
+    );
 
     await context.test(
       "validates workspace payloads",
@@ -315,6 +366,18 @@ test(
         assert.equal(projectResponse.statusCode, 200);
         assert.equal(projectBody.project.id, projectId);
         assert.equal(projectBody.project.name, "sample-node");
+
+        const faviconResponse = await app.inject({
+          method: "GET",
+          url: `/api/projects/${projectId}/favicon`,
+          headers
+        });
+
+        assert.equal(faviconResponse.statusCode, 200);
+        assert.match(
+          String(faviconResponse.headers["content-type"]),
+          /image\/svg\+xml/
+        );
       }
     );
 
@@ -401,6 +464,21 @@ test(
         assert.equal(logsResponse.statusCode, 404);
         assert.equal(
           logsBody.error,
+          "PROCESS_NOT_FOUND"
+        );
+
+        const clearLogsResponse = await app.inject({
+          method: "DELETE",
+          url: `/api/projects/${projectId}/process/logs`,
+          headers
+        });
+
+        const clearLogsBody =
+          clearLogsResponse.json<JsonResponse>();
+
+        assert.equal(clearLogsResponse.statusCode, 404);
+        assert.equal(
+          clearLogsBody.error,
           "PROCESS_NOT_FOUND"
         );
 

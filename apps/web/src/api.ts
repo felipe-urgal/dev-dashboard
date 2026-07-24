@@ -71,6 +71,18 @@ interface ServerSettingsResponse {
   settings: ProjectServerSettings;
 }
 
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+}
+
+export interface DirectoryListing {
+  rootPath: string;
+  currentPath: string;
+  parentPath: string | null;
+  directories: DirectoryEntry[];
+}
+
 async function requestJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -256,6 +268,40 @@ export async function fetchProjectProcessLog(
 
   const response = await requestJson<ProcessLogResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/process/logs?${parameters}`,
+  );
+
+  return response.log;
+}
+export function projectFaviconUrl(
+  projectId: string,
+): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/favicon`;
+}
+
+export function fetchDirectories(
+  directoryPath?: string,
+): Promise<DirectoryListing> {
+  const parameters = new URLSearchParams();
+
+  if (directoryPath) {
+    parameters.set('path', directoryPath);
+  }
+
+  const query = parameters.toString();
+
+  return requestJson<DirectoryListing>(
+    `/api/directories${query ? `?${query}` : ''}`,
+  );
+}
+
+export async function clearProjectProcessLog(
+  projectId: string,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<ProcessLogResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs`,
+    {
+      method: 'DELETE',
+    },
   );
 
   return response.log;

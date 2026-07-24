@@ -1463,3 +1463,131 @@ a.secondary-button {
     flex: 1;
   }
 }
+.project-avatar {
+  overflow: hidden;
+}
+
+.project-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.workspace-path-picker-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.directory-picker-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+
+  overflow-y: auto;
+  padding: 24px;
+
+  background: rgb(4 6 10 / 78%);
+  backdrop-filter: blur(8px);
+}
+
+.directory-picker-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 48px);
+  min-height: 0;
+
+  padding: 20px;
+  overflow: hidden;
+
+  border: 1px solid #303747;
+  border-radius: 16px;
+  background: #10141b;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 45%);
+}
+
+.directory-picker-header,
+.directory-picker-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.directory-picker-header h3 {
+  margin: 5px 0 0;
+  font-size: 17px;
+}
+
+.directory-picker-path {
+  overflow: hidden;
+  padding: 10px;
+  border: 1px solid #252c38;
+  border-radius: 8px;
+  color: #8d98ad;
+  background: #0a0d12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-picker-list {
+  display: grid;
+  align-content: start;
+
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  border: 1px solid #252c38;
+  border-radius: 10px;
+  background: #0b0e13;
+}
+
+.directory-picker-item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 0;
+  border-bottom: 1px solid #1d232d;
+  color: #b7c0d1;
+  background: transparent;
+  text-align: left;
+}
+
+.directory-picker-item:hover {
+  background: #171c25;
+}
+
+.directory-picker-item span {
+  color: #737bff;
+}
+
+.directory-picker-empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  color: #70798b;
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .workspace-path-picker-field {
+    grid-template-columns: 1fr;
+  }
+
+  .directory-picker-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

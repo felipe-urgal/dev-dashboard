@@ -15,6 +15,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  clearProjectProcessLog,
   fetchProjectProcess,
   fetchProjectProcessLog,
   fetchProjectServerSettings,
@@ -308,15 +309,28 @@ function handleLogScroll(): void {
   followLogs.value = distanceFromBottom < 40;
 }
 
-function clearLogView(): void {
-  if (!logSnapshot.value) {
+async function clearLogView(): Promise<void> {
+  if (!hasManagedProcess.value) {
     return;
   }
 
-  logSnapshot.value = {
-    ...logSnapshot.value,
-    content: '',
-  };
+  loadingLogs.value = true;
+  logErrorMessage.value = '';
+
+  try {
+    logSnapshot.value = await clearProjectProcessLog(
+      props.project.id,
+    );
+    followLogs.value = true;
+    await scrollLogsToBottom();
+  } catch (error) {
+    logErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível limpar os logs.';
+  } finally {
+    loadingLogs.value = false;
+  }
 }
 
 async function handleStart(): Promise<void> {
@@ -406,7 +420,6 @@ onBeforeUnmount(() => {
     <header class="project-server-summary">
       <div>
         <span class="section-kicker">Servidor</span>
-        <strong>{{ statusLabel }}</strong>
       </div>
 
       <span
@@ -510,16 +523,6 @@ onBeforeUnmount(() => {
       >
         {{ executingAction ? 'Parando...' : 'Parar' }}
       </button>
-
-      <button
-        v-if="processUrl"
-        type="button"
-        class="secondary-button"
-        :disabled="processStatus !== 'running'"
-        @click="handleOpen"
-      >
-        Abrir
-      </button>
     </div>
 
     <section v-if="detailsMode && showLogs" class="project-log-panel">
@@ -547,6 +550,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="log-action-button"
+            :disabled="loadingLogs"
             @click="clearLogView"
           >
             Limpar tela

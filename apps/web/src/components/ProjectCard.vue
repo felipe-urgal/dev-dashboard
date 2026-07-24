@@ -3,11 +3,11 @@ import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import ProjectAvatar from './ProjectAvatar.vue';
 import ProjectServerPanel from './ProjectServerPanel.vue';
 
 import {
   capabilityLabel,
-  projectInitials,
   projectTypeLabels,
 } from '../utils/project-labels';
 
@@ -19,9 +19,7 @@ const props = defineProps<{
 <template>
   <article class="project-card">
     <div class="project-card-header">
-      <div class="project-avatar">
-        {{ projectInitials(project.name) }}
-      </div>
+      <ProjectAvatar :project="project" />
 
       <div class="project-identity">
         <h3>{{ project.name }}</h3>

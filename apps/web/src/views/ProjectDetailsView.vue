@@ -12,12 +12,12 @@ import {
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import ProjectAvatar from '../components/ProjectAvatar.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
 
 import {
   capabilityLabel,
-  projectInitials,
   projectTypeLabels,
 } from '../utils/project-labels';
 
@@ -103,9 +103,10 @@ watch(projectId, () => {
     <template v-else>
       <header class="project-details-hero">
         <div class="project-details-identity">
-          <div class="project-avatar project-details-avatar">
-            {{ projectInitials(project.name) }}
-          </div>
+          <ProjectAvatar
+            :project="project"
+            class="project-details-avatar"
+          />
 
           <div>
             <div class="project-details-badges">

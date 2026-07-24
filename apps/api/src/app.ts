@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 
+import { directoryRoutes } from './routes/directories.js';
+
 import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
@@ -41,6 +43,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(healthRoutes, {
+    prefix: '/api',
+  });
+
+  app.register(directoryRoutes, {
     prefix: '/api',
   });
 

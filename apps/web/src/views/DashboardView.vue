@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+
 import ProjectCard from '../components/ProjectCard.vue';
+import WorkspaceDirectoryPicker from '../components/WorkspaceDirectoryPicker.vue';
 import { dashboardStore } from '../stores/dashboard';
+
+const directoryPickerOpen = ref(false);
 
 const {
   projects,
@@ -120,11 +125,21 @@ const {
 
           <label class="workspace-field">
             <span>Caminho local</span>
-            <input
-              v-model="newWorkspacePath"
-              autocomplete="off"
-              placeholder="/home/usuario/projetos"
-            />
+            <div class="workspace-path-picker-field">
+              <input
+                v-model="newWorkspacePath"
+                autocomplete="off"
+                placeholder="/home/usuario/projetos"
+              />
+
+              <button
+                type="button"
+                class="secondary-button"
+                @click="directoryPickerOpen = true"
+              >
+                Escolher pasta
+              </button>
+            </div>
           </label>
 
           <button
@@ -229,5 +244,10 @@ const {
         />
       </div>
     </section>
+    <WorkspaceDirectoryPicker
+      v-model="newWorkspacePath"
+      :open="directoryPickerOpen"
+      @close="directoryPickerOpen = false"
+    />
   </section>
 </template>
