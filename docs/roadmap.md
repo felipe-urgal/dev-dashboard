@@ -57,7 +57,7 @@ Entregas:
 - [x] tratamento global de erros;
 - [x] testes das rotas protegidas;
 - [x] isolamento das configurações durante os testes;
-- [ ] schemas de resposta;
+- [x] schemas de resposta;
 - [ ] testes do Process Manager;
 - [ ] limpeza e retenção de logs;
 - [ ] diagnóstico de ambiente;

@@ -26,6 +26,12 @@ import {
   saveWorkspaceScan
 } from "../store/project-store.js";
 
+import {
+  projectResponseSchema,
+  workspaceResponseSchema,
+  workspaceScanWarningResponseSchema
+} from "../http/response-schemas.js";
+
 interface CreateWorkspaceBody {
   id?: string;
   name: string;
@@ -89,6 +95,23 @@ export const workspaceRoutes: FastifyPluginAsync =
   async (app) => {
     app.get(
       "/workspaces",
+      {
+        schema: {
+          response: {
+            200: {
+              type: "object",
+              additionalProperties: false,
+              required: ["workspaces"],
+              properties: {
+                workspaces: {
+                  type: "array",
+                  items: workspaceResponseSchema
+                }
+              }
+            }
+          }
+        }
+      },
       async () => ({
         workspaces:
           await workspaceRepository.list()
@@ -124,6 +147,9 @@ export const workspaceRoutes: FastifyPluginAsync =
                 minLength: 1
               }
             }
+          },
+          response: {
+            201: workspaceResponseSchema
           }
         }
       },
@@ -184,6 +210,32 @@ export const workspaceRoutes: FastifyPluginAsync =
               workspaceId: {
                 type: "string",
                 minLength: 1
+              }
+            }
+          },
+          response: {
+            200: {
+              type: "object",
+              additionalProperties: false,
+              required: [
+                "workspaceId",
+                "workspacePath",
+                "projects",
+                "warnings",
+                "scannedAt"
+              ],
+              properties: {
+                workspaceId: { type: "string" },
+                workspacePath: { type: "string" },
+                projects: {
+                  type: "array",
+                  items: projectResponseSchema
+                },
+                warnings: {
+                  type: "array",
+                  items: workspaceScanWarningResponseSchema
+                },
+                scannedAt: { type: "string" }
               }
             }
           }

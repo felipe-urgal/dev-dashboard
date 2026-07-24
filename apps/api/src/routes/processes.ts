@@ -9,6 +9,21 @@ import { ApiError } from '../http/api-error.js';
 
 import { findProject } from '../store/project-store.js';
 
+import {
+  managedProcessResponseSchema,
+  nullableManagedProcessResponseSchema,
+  processLogSnapshotResponseSchema,
+} from '../http/response-schemas.js';
+
+const processEnvelopeResponseSchema = (processSchema: object) => ({
+  type: 'object',
+  additionalProperties: false,
+  required: ['process'],
+  properties: {
+    process: processSchema,
+  },
+});
+
 interface ProjectParams {
   projectId: string;
 }
@@ -69,17 +84,29 @@ function requireProject(projectId: string) {
 export const processRoutes: FastifyPluginAsync = async (app) => {
   app.get<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process', async (request) => {
-    const project = requireProject(request.params.projectId);
+  }>(
+    '/projects/:projectId/process',
+    {
+      schema: {
+        response: {
+          200: processEnvelopeResponseSchema(
+            nullableManagedProcessResponseSchema,
+          ),
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(request.params.projectId);
 
-    const managedProcess = await processManager.getServerProcess(
-      project.id,
-    );
+      const managedProcess = await processManager.getServerProcess(
+        project.id,
+      );
 
-    return {
-      process: managedProcess,
-    };
-  });
+      return {
+        process: managedProcess,
+      };
+    },
+  );
 
   app.get<{
     Params: ProjectParams;
@@ -96,6 +123,16 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
               type: 'integer',
               minimum: 1,
               maximum: 262_144,
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['log'],
+            properties: {
+              log: processLogSnapshotResponseSchema,
             },
           },
         },
@@ -144,6 +181,11 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
             },
           },
         },
+        response: {
+          201: processEnvelopeResponseSchema(
+            managedProcessResponseSchema,
+          ),
+        },
       },
     },
     async (request, reply) => {
@@ -188,23 +230,35 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process/stop', async (request) => {
-    const project = requireProject(request.params.projectId);
+  }>(
+    '/projects/:projectId/process/stop',
+    {
+      schema: {
+        response: {
+          200: processEnvelopeResponseSchema(
+            managedProcessResponseSchema,
+          ),
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(request.params.projectId);
 
-    try {
-      const managedProcess = await processManager.stopServer(
-        project.id,
-      );
+      try {
+        const managedProcess = await processManager.stopServer(
+          project.id,
+        );
 
-      return {
-        process: managedProcess,
-      };
-    } catch (error) {
-      if (error instanceof ProcessManagerError) {
-        throw processManagerApiError(error);
+        return {
+          process: managedProcess,
+        };
+      } catch (error) {
+        if (error instanceof ProcessManagerError) {
+          throw processManagerApiError(error);
+        }
+
+        throw error;
       }
-
-      throw error;
-    }
-  });
+    },
+  );
 };
