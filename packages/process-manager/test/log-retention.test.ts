@@ -236,6 +236,43 @@ test(
   }
 );
 
+test(
+  "skips a corrupt state file and still removes a valid stale process",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    await writeFile(
+      path.join(fixture.processDirectory, "garbage.server.json"),
+      "isto não é json{{{"
+    );
+
+    const eightDaysAgo = new Date(
+      Date.now() - 8 * DAY_IN_MS
+    ).toISOString();
+
+    await writeStateFile(fixture.processDirectory, "old.server.json", {
+      id: "old:server",
+      projectId: "old-project",
+      kind: "server",
+      status: "stopped",
+      stoppedAt: eightDaysAgo,
+      command: "npm",
+      args: ["run", "dev"],
+      cwd: fixture.stateDirectory,
+      logPath: path.join(fixture.processDirectory, "old.server.json.log")
+    });
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.equal(removed.length, 1);
+    assert.equal(removed[0]?.projectId, "old-project");
+  }
+);
+
 function waitForExit(pid: number, timeoutMs: number): Promise<void> {
   return new Promise((resolve) => {
     const startedAt = Date.now();

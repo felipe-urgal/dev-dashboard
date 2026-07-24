@@ -21,7 +21,7 @@ const TOKEN = "e".repeat(64);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 test(
-  "POST /api/processes/cleanup removes stale process state and logs",
+  "POST /api/processes/cleanup",
   async (context) => {
     const fixtureRoot = await mkdtemp(
       path.join(tmpdir(), "dev-dashboard-api-cleanup-")
@@ -37,30 +37,10 @@ test(
 
     await mkdir(processDirectory, { recursive: true });
 
-    const eightDaysAgo = new Date(
-      Date.now() - 8 * DAY_IN_MS
-    ).toISOString();
-
-    await writeFile(
-      path.join(processDirectory, "stale.server.json"),
-      JSON.stringify({
-        id: "stale:server",
-        projectId: "stale-project",
-        kind: "server",
-        status: "stopped",
-        stoppedAt: eightDaysAgo,
-        command: "npm",
-        args: ["run", "dev"],
-        cwd: fixtureRoot,
-        logPath: path.join(processDirectory, "stale.server.json.log")
-      })
-    );
-
-    await writeFile(
-      path.join(processDirectory, "stale.server.json.log"),
-      "log antigo\n"
-    );
-
+    // O `ProcessManager` usado pelas rotas é um singleton de módulo cujo
+    // `stateDirectory` é fixado no primeiro `buildApp()` importado neste
+    // processo; por isso este arquivo constrói o app uma única vez e reusa
+    // a mesma fixture entre os subtestes, em vez de reimportar `app.js`.
     const { buildApp } = await import("../src/app.js");
 
     const app = await buildApp({ localToken: TOKEN });
@@ -77,18 +57,103 @@ test(
       await rm(fixtureRoot, { recursive: true, force: true });
     });
 
-    const response = await app.inject({
-      method: "POST",
-      url: "/api/processes/cleanup",
-      headers: { "x-dev-dashboard-token": TOKEN }
-    });
+    const headers = { "x-dev-dashboard-token": TOKEN };
 
-    const body = response.json<{
-      removed: Array<{ projectId: string }>;
-    }>();
+    await context.test(
+      "removes stale process state and logs",
+      async () => {
+        const eightDaysAgo = new Date(
+          Date.now() - 8 * DAY_IN_MS
+        ).toISOString();
 
-    assert.equal(response.statusCode, 200);
-    assert.equal(body.removed.length, 1);
-    assert.equal(body.removed[0]?.projectId, "stale-project");
+        await writeFile(
+          path.join(processDirectory, "stale.server.json"),
+          JSON.stringify({
+            id: "stale:server",
+            projectId: "stale-project",
+            kind: "server",
+            status: "stopped",
+            stoppedAt: eightDaysAgo,
+            command: "npm",
+            args: ["run", "dev"],
+            cwd: fixtureRoot,
+            logPath: path.join(
+              processDirectory,
+              "stale.server.json.log"
+            )
+          })
+        );
+
+        await writeFile(
+          path.join(processDirectory, "stale.server.json.log"),
+          "log antigo\n"
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/processes/cleanup",
+          headers
+        });
+
+        const body = response.json<{
+          removed: Array<{ projectId: string }>;
+        }>();
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(body.removed.length, 1);
+        assert.equal(body.removed[0]?.projectId, "stale-project");
+      }
+    );
+
+    await context.test(
+      "skips a corrupt state file and still removes a valid stale process",
+      async () => {
+        await writeFile(
+          path.join(processDirectory, "garbage.server.json"),
+          "isto não é json{{{"
+        );
+
+        const eightDaysAgo = new Date(
+          Date.now() - 8 * DAY_IN_MS
+        ).toISOString();
+
+        await writeFile(
+          path.join(processDirectory, "stale-2.server.json"),
+          JSON.stringify({
+            id: "stale-2:server",
+            projectId: "stale-project-2",
+            kind: "server",
+            status: "stopped",
+            stoppedAt: eightDaysAgo,
+            command: "npm",
+            args: ["run", "dev"],
+            cwd: fixtureRoot,
+            logPath: path.join(
+              processDirectory,
+              "stale-2.server.json.log"
+            )
+          })
+        );
+
+        await writeFile(
+          path.join(processDirectory, "stale-2.server.json.log"),
+          "log antigo\n"
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/processes/cleanup",
+          headers
+        });
+
+        const body = response.json<{
+          removed: Array<{ projectId: string }>;
+        }>();
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(body.removed.length, 1);
+        assert.equal(body.removed[0]?.projectId, "stale-project-2");
+      }
+    );
   }
 );

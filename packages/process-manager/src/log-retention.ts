@@ -99,25 +99,30 @@ export async function sweepStaleProcesses(
     }
 
     const stateFilePath = path.join(processDirectory, entry.name);
-    const contents = await readFile(stateFilePath, 'utf8');
-    const parsed: unknown = JSON.parse(contents);
 
-    if (!isStoredProcess(parsed)) {
-      continue;
+    try {
+      const contents = await readFile(stateFilePath, 'utf8');
+      const parsed: unknown = JSON.parse(contents);
+
+      if (!isStoredProcess(parsed)) {
+        continue;
+      }
+
+      if (!(await isEligibleForRemoval(parsed, stateFilePath, maxAgeMs))) {
+        continue;
+      }
+
+      await rm(stateFilePath, { force: true });
+      await rm(parsed.logPath, { force: true });
+
+      swept.push({
+        projectId: parsed.projectId,
+        logPath: parsed.logPath,
+        stateFilePath,
+      });
+    } catch {
+      // Um estado corrompido não deve interromper a limpeza dos demais.
     }
-
-    if (!(await isEligibleForRemoval(parsed, stateFilePath, maxAgeMs))) {
-      continue;
-    }
-
-    await rm(stateFilePath, { force: true });
-    await rm(parsed.logPath, { force: true });
-
-    swept.push({
-      projectId: parsed.projectId,
-      logPath: parsed.logPath,
-      stateFilePath,
-    });
   }
 
   return swept;
