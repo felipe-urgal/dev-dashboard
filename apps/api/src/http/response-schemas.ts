@@ -123,3 +123,24 @@ export const processLogSnapshotResponseSchema = {
     readAt: { type: "string" }
   }
 } as const;
+
+export const logRetentionSweepResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["removed"],
+  properties: {
+    removed: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["projectId", "logPath", "stateFilePath"],
+        properties: {
+          projectId: { type: "string" },
+          logPath: { type: "string" },
+          stateFilePath: { type: "string" }
+        }
+      }
+    }
+  }
+} as const;

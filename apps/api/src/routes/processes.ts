@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import {
   ProcessManager,
   ProcessManagerError,
+  sweepStaleProcesses,
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../http/api-error.js';
@@ -10,6 +11,7 @@ import { ApiError } from '../http/api-error.js';
 import { findProject } from '../store/project-store.js';
 
 import {
+  logRetentionSweepResponseSchema,
   managedProcessResponseSchema,
   nullableManagedProcessResponseSchema,
   processLogSnapshotResponseSchema,
@@ -260,5 +262,19 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
         throw error;
       }
     },
+  );
+
+  app.post(
+    '/processes/cleanup',
+    {
+      schema: {
+        response: {
+          200: logRetentionSweepResponseSchema,
+        },
+      },
+    },
+    async () => ({
+      removed: await sweepStaleProcesses(processManager.stateDirectory),
+    }),
   );
 };
