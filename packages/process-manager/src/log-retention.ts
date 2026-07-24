@@ -1,12 +1,18 @@
-import { readdir, readFile, rm, stat } from 'node:fs/promises';
+import {
+  readdir,
+  readFile,
+  rm,
+  stat,
+} from 'node:fs/promises';
+
 import path from 'node:path';
 
 import {
   isManagedProcessAlive,
   isStoredProcess,
-  verifyProcessDirectory,
   type StoredProcess,
-} from './process-manager.js';
+  verifyProcessDirectory,
+} from './process-state.js';
 
 export interface SweepStaleProcessesOptions {
   maxAgeMs?: number;
@@ -14,8 +20,6 @@ export interface SweepStaleProcessesOptions {
 
 export interface SweptProcess {
   projectId: string;
-  logPath: string;
-  stateFilePath: string;
 }
 
 const DEFAULT_RETENTION_DAYS = 7;
@@ -27,13 +31,29 @@ function isErrnoException(
   return error instanceof Error && 'code' in error;
 }
 
-function resolveMaxAgeMs(options?: SweepStaleProcessesOptions): number {
+function resolveMaxAgeMs(
+  options?: SweepStaleProcessesOptions,
+): number {
   if (options?.maxAgeMs !== undefined) {
+    if (
+      !Number.isFinite(options.maxAgeMs) ||
+      options.maxAgeMs <= 0
+    ) {
+      throw new Error(
+        'O período de retenção deve ser maior que zero.',
+      );
+    }
+
     return options.maxAgeMs;
   }
 
-  const raw = process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS;
-  const parsedDays = raw !== undefined ? Number.parseInt(raw, 10) : NaN;
+  const raw =
+    process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS;
+
+  const parsedDays =
+    raw !== undefined
+      ? Number.parseInt(raw, 10)
+      : Number.NaN;
 
   const days =
     Number.isInteger(parsedDays) && parsedDays > 0
@@ -67,11 +87,29 @@ async function isEligibleForRemoval(
     return false;
   }
 
-  const referenceTimestamp = storedProcess.stoppedAt
+  const stoppedTimestamp = storedProcess.stoppedAt
     ? new Date(storedProcess.stoppedAt).getTime()
+    : Number.NaN;
+
+  const referenceTimestamp = Number.isFinite(
+    stoppedTimestamp,
+  )
+    ? stoppedTimestamp
     : (await stat(stateFilePath)).mtimeMs;
 
   return Date.now() - referenceTimestamp > maxAgeMs;
+}
+
+function resolveManagedLogPath(
+  logDirectory: string,
+  stateFileName: string,
+): string {
+  const logFileName = stateFileName.replace(
+    /\.server\.json$/,
+    '.server.log',
+  );
+
+  return path.join(logDirectory, logFileName);
 }
 
 export async function sweepStaleProcesses(
@@ -79,12 +117,24 @@ export async function sweepStaleProcesses(
   options?: SweepStaleProcessesOptions,
 ): Promise<SweptProcess[]> {
   const maxAgeMs = resolveMaxAgeMs(options);
-  const processDirectory = path.join(stateDirectory, 'processes');
+
+  const processDirectory = path.join(
+    stateDirectory,
+    'processes',
+  );
+
+  const logDirectory = path.join(
+    stateDirectory,
+    'logs',
+  );
 
   const entries = await readdir(processDirectory, {
     withFileTypes: true,
   }).catch((error: unknown) => {
-    if (isErrnoException(error) && error.code === 'ENOENT') {
+    if (
+      isErrnoException(error) &&
+      error.code === 'ENOENT'
+    ) {
       return [];
     }
 
@@ -94,34 +144,59 @@ export async function sweepStaleProcesses(
   const swept: SweptProcess[] = [];
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.server.json')) {
+    if (
+      !entry.isFile() ||
+      !entry.name.endsWith('.server.json')
+    ) {
       continue;
     }
 
-    const stateFilePath = path.join(processDirectory, entry.name);
+    const stateFilePath = path.join(
+      processDirectory,
+      entry.name,
+    );
 
     try {
-      const contents = await readFile(stateFilePath, 'utf8');
+      const contents = await readFile(
+        stateFilePath,
+        'utf8',
+      );
+
       const parsed: unknown = JSON.parse(contents);
 
       if (!isStoredProcess(parsed)) {
         continue;
       }
 
-      if (!(await isEligibleForRemoval(parsed, stateFilePath, maxAgeMs))) {
+      if (
+        !(await isEligibleForRemoval(
+          parsed,
+          stateFilePath,
+          maxAgeMs,
+        ))
+      ) {
         continue;
       }
 
-      await rm(stateFilePath, { force: true });
-      await rm(parsed.logPath, { force: true });
+      const managedLogPath = resolveManagedLogPath(
+        logDirectory,
+        entry.name,
+      );
+
+      await rm(stateFilePath, {
+        force: true,
+      });
+
+      await rm(managedLogPath, {
+        force: true,
+      });
 
       swept.push({
         projectId: parsed.projectId,
-        logPath: parsed.logPath,
-        stateFilePath,
       });
     } catch {
-      // Um estado corrompido não deve interromper a limpeza dos demais.
+      // Um estado corrompido não deve interromper
+      // a limpeza dos demais.
     }
   }
 

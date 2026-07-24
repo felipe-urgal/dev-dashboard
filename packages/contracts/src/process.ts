@@ -12,6 +12,9 @@ export interface ManagedProcess {
   status: ManagedProcessStatus;
   pid?: number;
   port?: number;
+  host?: string;
+  url?: string;
+  urls?: string[];
   command?: string;
   args?: string[];
   cwd?: string;

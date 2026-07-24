@@ -27,6 +27,7 @@ import {
 } from "../store/project-store.js";
 
 import {
+  commonErrorResponseSchemas,
   projectResponseSchema,
   workspaceResponseSchema,
   workspaceScanWarningResponseSchema
@@ -108,7 +109,8 @@ export const workspaceRoutes: FastifyPluginAsync =
                   items: workspaceResponseSchema
                 }
               }
-            }
+            },
+            ...commonErrorResponseSchemas
           }
         }
       },
@@ -149,7 +151,8 @@ export const workspaceRoutes: FastifyPluginAsync =
             }
           },
           response: {
-            201: workspaceResponseSchema
+            201: workspaceResponseSchema,
+            ...commonErrorResponseSchemas
           }
         }
       },
@@ -237,7 +240,8 @@ export const workspaceRoutes: FastifyPluginAsync =
                 },
                 scannedAt: { type: "string" }
               }
-            }
+            },
+            ...commonErrorResponseSchemas
           }
         }
       },
@@ -293,6 +297,27 @@ export const workspaceRoutes: FastifyPluginAsync =
       Params: WorkspaceParams;
     }>(
       "/workspaces/:workspaceId",
+      {
+        schema: {
+          params: {
+            type: "object",
+            additionalProperties: false,
+            required: ["workspaceId"],
+            properties: {
+              workspaceId: {
+                type: "string",
+                minLength: 1
+              }
+            }
+          },
+          response: {
+            204: {
+              type: "null"
+            },
+            ...commonErrorResponseSchemas
+          }
+        }
+      },
       async (request, reply) => {
         try {
           const workspace =

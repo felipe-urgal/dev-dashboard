@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import {
   mkdir,
   mkdtemp,
+  readFile,
   realpath,
   rm,
   stat,
@@ -31,6 +32,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 interface Fixture {
   stateDirectory: string;
   processDirectory: string;
+  logDirectory: string;
   cleanup: () => Promise<void>;
 }
 
@@ -41,12 +43,17 @@ async function createFixture(): Promise<Fixture> {
 
   const stateDirectory = path.join(fixtureRoot, "state");
   const processDirectory = path.join(stateDirectory, "processes");
+  const logDirectory = path.join(stateDirectory, "logs");
 
-  await mkdir(processDirectory, { recursive: true });
+  await Promise.all([
+    mkdir(processDirectory, { recursive: true }),
+    mkdir(logDirectory, { recursive: true })
+  ]);
 
   return {
     stateDirectory,
     processDirectory,
+    logDirectory,
     cleanup: async () => {
       await rm(fixtureRoot, { recursive: true, force: true });
     }
@@ -54,15 +61,24 @@ async function createFixture(): Promise<Fixture> {
 }
 
 async function writeStateFile(
-  processDirectory: string,
+  fixture: Fixture,
   fileName: string,
   storedProcess: Record<string, unknown>
 ): Promise<{ stateFilePath: string; logPath: string }> {
-  const stateFilePath = path.join(processDirectory, fileName);
-  const logPath = path.join(processDirectory, `${fileName}.log`);
+  const stateFilePath = path.join(fixture.processDirectory, fileName);
+  const logPath = path.join(
+    fixture.logDirectory,
+    fileName.replace(/\.server\.json$/, ".server.log")
+  );
 
   await writeFile(logPath, "log de exemplo\n");
-  await writeFile(stateFilePath, JSON.stringify(storedProcess));
+  await writeFile(
+    stateFilePath,
+    JSON.stringify({
+      ...storedProcess,
+      logPath
+    })
+  );
 
   return { stateFilePath, logPath };
 }
@@ -79,7 +95,7 @@ test(
     ).toISOString();
 
     const { stateFilePath, logPath } = await writeStateFile(
-      fixture.processDirectory,
+      fixture,
       "old.server.json",
       {
         id: "old:server",
@@ -116,7 +132,7 @@ test(
     const oneDayAgo = new Date(Date.now() - DAY_IN_MS).toISOString();
 
     const { stateFilePath, logPath } = await writeStateFile(
-      fixture.processDirectory,
+      fixture,
       "recent.server.json",
       {
         id: "recent:server",
@@ -155,7 +171,7 @@ test(
       Date.now() - 8 * DAY_IN_MS
     ).toISOString();
 
-    await writeStateFile(fixture.processDirectory, "failed.server.json", {
+    await writeStateFile(fixture, "failed.server.json", {
       id: "failed:server",
       projectId: "failed-project",
       kind: "server",
@@ -187,7 +203,7 @@ test(
     context.after(fixture.cleanup);
 
     const { stateFilePath } = await writeStateFile(
-      fixture.processDirectory,
+      fixture,
       "no-timestamp.server.json",
       {
         id: "no-timestamp:server",
@@ -252,7 +268,7 @@ test(
       Date.now() - 8 * DAY_IN_MS
     ).toISOString();
 
-    await writeStateFile(fixture.processDirectory, "old.server.json", {
+    await writeStateFile(fixture, "old.server.json", {
       id: "old:server",
       projectId: "old-project",
       kind: "server",
@@ -318,7 +334,7 @@ test(
     await waitForExit(pid as number, 2_000);
 
     const { stateFilePath } = await writeStateFile(
-      fixture.processDirectory,
+      fixture,
       "dead.server.json",
       {
         id: "dead:server",
@@ -387,7 +403,7 @@ test(
     child.unref();
 
     const { stateFilePath } = await writeStateFile(
-      fixture.processDirectory,
+      fixture,
       "alive.server.json",
       {
         id: "alive:server",
@@ -414,5 +430,58 @@ test(
     });
 
     assert.equal(removed.length, 0);
+  }
+);
+
+test(
+  "never removes a log path outside the managed logs directory",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const protectedFile = path.join(
+      path.dirname(fixture.stateDirectory),
+      "protected.txt"
+    );
+
+    await writeFile(protectedFile, "não remover\n");
+
+    const eightDaysAgo = new Date(
+      Date.now() - 8 * DAY_IN_MS
+    ).toISOString();
+
+    const stateFilePath = path.join(
+      fixture.processDirectory,
+      "malicious.server.json"
+    );
+
+    await writeFile(
+      stateFilePath,
+      JSON.stringify({
+        id: "malicious:server",
+        projectId: "malicious-project",
+        kind: "server",
+        status: "stopped",
+        stoppedAt: eightDaysAgo,
+        command: "npm",
+        args: ["run", "dev"],
+        cwd: fixture.stateDirectory,
+        logPath: protectedFile
+      })
+    );
+
+    const removed = await sweepStaleProcesses(
+      fixture.stateDirectory,
+      {
+        maxAgeMs: 7 * DAY_IN_MS
+      }
+    );
+
+    assert.equal(removed.length, 1);
+    assert.equal(
+      await readFile(protectedFile, "utf8"),
+      "não remover\n"
+    );
   }
 );

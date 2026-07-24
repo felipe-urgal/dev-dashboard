@@ -1,37 +1,39 @@
 import type {
-  FastifyPluginAsync
-} from "fastify";
+  FastifyPluginAsync,
+} from 'fastify';
 
 import {
-  listProjects
-} from "../store/project-store.js";
+  listProjects,
+} from '../store/project-store.js';
 
 import {
-  projectResponseSchema
-} from "../http/response-schemas.js";
+  commonErrorResponseSchemas,
+  projectResponseSchema,
+} from '../http/response-schemas.js';
 
 export const projectRoutes: FastifyPluginAsync = async (app) => {
   app.get(
-    "/projects",
+    '/projects',
     {
       schema: {
         response: {
           200: {
-            type: "object",
+            type: 'object',
             additionalProperties: false,
-            required: ["projects"],
+            required: ['projects'],
             properties: {
               projects: {
-                type: "array",
-                items: projectResponseSchema
-              }
-            }
-          }
-        }
-      }
+                type: 'array',
+                items: projectResponseSchema,
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
     },
     async () => ({
-      projects: listProjects()
-    })
+      projects: listProjects(),
+    }),
   );
 };

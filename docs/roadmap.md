@@ -338,3 +338,22 @@ Escopo:
 - tratamento global de erros.
 
 Esse trabalho deve acontecer antes das operações Git e de banco.
+
+## Atualização — configuração de servidores locais
+
+A branch `feat/api-response-schemas` também consolida a configuração de
+servidores por projeto:
+
+- porta fixa opcional ou seleção automática por projeto;
+- validação de porta entre 1024 e 65535;
+- erro explícito quando uma porta configurada está ocupada;
+- binding dos servidores em `0.0.0.0`;
+- acesso simultâneo por `localhost` e pelos IPv4 locais da máquina;
+- argumentos de binding para Rails, Vite, Next, Nuxt e Astro;
+- variáveis `HOST` e `PORT` para outros projetos Node;
+- URLs acessíveis persistidas junto ao processo;
+- cleanup de logs sem confiar em caminhos persistidos;
+- schemas de erro compartilhados para respostas HTTP.
+
+Ao iniciar um projeto, seu servidor fica acessível na rede local. A API do Dev
+Dashboard continua restrita a `127.0.0.1`.

@@ -29,13 +29,17 @@ test(
 
     const stateDirectory = path.join(fixtureRoot, "state");
     const processDirectory = path.join(stateDirectory, "processes");
+    const logDirectory = path.join(stateDirectory, "logs");
 
     const previousStateDirectory =
       process.env.DEV_DASHBOARD_STATE_DIR;
 
     process.env.DEV_DASHBOARD_STATE_DIR = stateDirectory;
 
-    await mkdir(processDirectory, { recursive: true });
+    await Promise.all([
+      mkdir(processDirectory, { recursive: true }),
+      mkdir(logDirectory, { recursive: true })
+    ]);
 
     // O `ProcessManager` usado pelas rotas é um singleton de módulo cujo
     // `stateDirectory` é fixado no primeiro `buildApp()` importado neste
@@ -77,15 +81,12 @@ test(
             command: "npm",
             args: ["run", "dev"],
             cwd: fixtureRoot,
-            logPath: path.join(
-              processDirectory,
-              "stale.server.json.log"
-            )
+            logPath: path.join(logDirectory, "stale.server.log")
           })
         );
 
         await writeFile(
-          path.join(processDirectory, "stale.server.json.log"),
+          path.join(logDirectory, "stale.server.log"),
           "log antigo\n"
         );
 
@@ -97,11 +98,14 @@ test(
 
         const body = response.json<{
           removed: Array<{ projectId: string }>;
+          removedCount: number;
         }>();
 
         assert.equal(response.statusCode, 200);
         assert.equal(body.removed.length, 1);
+        assert.equal(body.removedCount, 1);
         assert.equal(body.removed[0]?.projectId, "stale-project");
+        assert.equal("logPath" in (body.removed[0] ?? {}), false);
       }
     );
 
@@ -128,15 +132,12 @@ test(
             command: "npm",
             args: ["run", "dev"],
             cwd: fixtureRoot,
-            logPath: path.join(
-              processDirectory,
-              "stale-2.server.json.log"
-            )
+            logPath: path.join(logDirectory, "stale-2.server.log")
           })
         );
 
         await writeFile(
-          path.join(processDirectory, "stale-2.server.json.log"),
+          path.join(logDirectory, "stale-2.server.log"),
           "log antigo\n"
         );
 
@@ -148,10 +149,12 @@ test(
 
         const body = response.json<{
           removed: Array<{ projectId: string }>;
+          removedCount: number;
         }>();
 
         assert.equal(response.statusCode, 200);
         assert.equal(body.removed.length, 1);
+        assert.equal(body.removedCount, 1);
         assert.equal(body.removed[0]?.projectId, "stale-project-2");
       }
     );

@@ -9,7 +9,7 @@ dev-clean() {
 
   local cleaned=0
   local retention_days="${DEV_DASHBOARD_LOG_RETENTION_DAYS:-7}"
-  [[ "$retention_days" =~ ^[0-9]+$ ]] || retention_days=7
+  [[ "$retention_days" =~ ^[1-9][0-9]*$ ]] || retention_days=7
 
   local pid_file
   for pid_file in "$DEV_RUN_DIR"/*.pid; do

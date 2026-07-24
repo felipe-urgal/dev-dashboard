@@ -14,4 +14,9 @@ export type {
   ProcessLogSnapshot,
 } from './process.js';
 
+export type {
+  ProjectServerSettings,
+  UpdateProjectServerSettingsInput,
+} from './server.js';
+
 export type { Job, JobStatus } from './job.js';

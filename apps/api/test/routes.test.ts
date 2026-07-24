@@ -302,6 +302,62 @@ test(
     );
 
     await context.test(
+      "persists project server port settings",
+      async () => {
+        const initialResponse = await app.inject({
+          method: "GET",
+          url: `/api/projects/${projectId}/server-settings`,
+          headers
+        });
+
+        const initialBody = initialResponse.json<{
+          settings: {
+            port?: number;
+          };
+        }>();
+
+        assert.equal(initialResponse.statusCode, 200);
+        assert.equal(initialBody.settings.port, undefined);
+
+        const saveResponse = await app.inject({
+          method: "PUT",
+          url: `/api/projects/${projectId}/server-settings`,
+          headers,
+          payload: {
+            port: 3_150
+          }
+        });
+
+        const saveBody = saveResponse.json<{
+          settings: {
+            port?: number;
+          };
+        }>();
+
+        assert.equal(saveResponse.statusCode, 200);
+        assert.equal(saveBody.settings.port, 3_150);
+
+        const clearResponse = await app.inject({
+          method: "PUT",
+          url: `/api/projects/${projectId}/server-settings`,
+          headers,
+          payload: {
+            port: null
+          }
+        });
+
+        const clearBody = clearResponse.json<{
+          settings: {
+            port?: number;
+          };
+        }>();
+
+        assert.equal(clearResponse.statusCode, 200);
+        assert.equal(clearBody.settings.port, undefined);
+      }
+    );
+
+    await context.test(
       "maps real ProcessManager errors",
       async () => {
         const statusResponse = await app.inject({

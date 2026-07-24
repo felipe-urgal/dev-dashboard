@@ -8,7 +8,6 @@ import {
   open,
   readFile,
   readdir,
-  realpath,
   rename,
   stat,
   writeFile,
@@ -16,7 +15,7 @@ import {
 
 import { createServer } from 'node:net';
 
-import { homedir } from 'node:os';
+import { homedir, networkInterfaces } from 'node:os';
 
 import path from 'node:path';
 
@@ -28,12 +27,13 @@ import type {
 
 import { sweepStaleProcesses } from './log-retention.js';
 
-export interface StoredProcess extends ManagedProcess {
-  command: string;
-  args: string[];
-  cwd: string;
-  logPath: string;
-}
+import {
+  isManagedProcessAlive,
+  isStoredProcess,
+  type StoredProcess,
+  verifyProcessDirectory,
+} from './process-state.js';
+
 
 interface ResolvedCommand {
   command: string;
@@ -56,6 +56,7 @@ export type ProcessManagerErrorCode =
   | 'PROJECT_SERVER_UNSUPPORTED'
   | 'PROJECT_SCRIPT_NOT_FOUND'
   | 'INVALID_PORT'
+  | 'PORT_NOT_AVAILABLE'
   | 'INVALID_LOG_LIMIT'
   | 'PROCESS_STOP_TIMEOUT';
 
@@ -107,15 +108,46 @@ function isErrnoException(
 }
 
 function validatePort(port: number): void {
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+  if (!Number.isInteger(port) || port < 1_024 || port > 65_535) {
     throw new ProcessManagerError(
       'INVALID_PORT',
-      `Porta inválida: ${port}`,
+      'A porta deve estar entre 1024 e 65535.',
     );
   }
 }
 
-async function canListen(port: number): Promise<boolean> {
+const SERVER_BIND_HOST = '0.0.0.0';
+
+function isIpv4Family(family: string | number): boolean {
+  return family === 'IPv4' || family === 4;
+}
+
+function listServerUrls(port: number): string[] {
+  const urls = new Set<string>([
+    `http://localhost:${port}`,
+  ]);
+
+  for (const addresses of Object.values(networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (
+        !isIpv4Family(address.family) ||
+        address.internal ||
+        address.address === '0.0.0.0'
+      ) {
+        continue;
+      }
+
+      urls.add(`http://${address.address}:${port}`);
+    }
+  }
+
+  return [...urls];
+}
+
+async function canListen(
+  host: string,
+  port: number,
+): Promise<boolean> {
   return await new Promise<boolean>((resolve) => {
     const server = createServer();
 
@@ -127,7 +159,7 @@ async function canListen(port: number): Promise<boolean> {
 
     server.listen(
       {
-        host: '127.0.0.1',
+        host,
         port,
       },
       () => {
@@ -140,11 +172,12 @@ async function canListen(port: number): Promise<boolean> {
 }
 
 async function findAvailablePort(
+  host: string,
   initialPort = 3000,
   finalPort = 3999,
 ): Promise<number> {
   for (let port = initialPort; port <= finalPort; port += 1) {
-    if (await canListen(port)) {
+    if (await canListen(host, port)) {
       return port;
     }
   }
@@ -221,6 +254,7 @@ async function resolveNodePackageManager(
 
 async function resolveNodeCommand(
   project: Project,
+  host: string,
   port: number,
 ): Promise<ResolvedCommand> {
   const manifest = await readPackageManifest(project.path);
@@ -242,18 +276,40 @@ async function resolveNodeCommand(
     project.path,
   );
 
+  const scriptCommand = scripts[scriptName] ?? '';
+  const args = ['run', scriptName];
+
+  if (/\b(vite|nuxt|astro)\b/i.test(scriptCommand)) {
+    args.push(
+      '--',
+      '--host',
+      host,
+      '--port',
+      String(port),
+    );
+  } else if (/\bnext\b/i.test(scriptCommand)) {
+    args.push(
+      '--',
+      '--hostname',
+      host,
+      '--port',
+      String(port),
+    );
+  }
+
   return {
     command: packageManager,
-    args: ['run', scriptName],
+    args,
     env: {
       PORT: String(port),
-      HOST: '127.0.0.1',
+      HOST: host,
     },
   };
 }
 
 async function resolveRailsCommand(
   project: Project,
+  host: string,
   port: number,
 ): Promise<ResolvedCommand> {
   const railsExecutable = path.join(project.path, 'bin', 'rails');
@@ -264,7 +320,7 @@ async function resolveRailsCommand(
       args: [
         'server',
         '--binding',
-        '127.0.0.1',
+        host,
         '--port',
         String(port),
       ],
@@ -279,7 +335,7 @@ async function resolveRailsCommand(
       'rails',
       'server',
       '--binding',
-      '127.0.0.1',
+      host,
       '--port',
       String(port),
     ],
@@ -289,110 +345,21 @@ async function resolveRailsCommand(
 
 async function resolveServerCommand(
   project: Project,
+  host: string,
   port: number,
 ): Promise<ResolvedCommand> {
   switch (project.type) {
     case 'rails':
-      return await resolveRailsCommand(project, port);
+      return await resolveRailsCommand(project, host, port);
 
     case 'node':
-      return await resolveNodeCommand(project, port);
+      return await resolveNodeCommand(project, host, port);
 
     default:
       throw new ProcessManagerError(
         'PROJECT_SERVER_UNSUPPORTED',
         `O projeto ${project.name} não possui servidor suportado.`,
       );
-  }
-}
-
-export function isStoredProcess(value: unknown): value is StoredProcess {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value)
-  ) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.projectId === 'string' &&
-    (candidate.workspaceId === undefined ||
-      typeof candidate.workspaceId === 'string') &&
-    typeof candidate.kind === 'string' &&
-    typeof candidate.status === 'string' &&
-    typeof candidate.command === 'string' &&
-    Array.isArray(candidate.args) &&
-    candidate.args.every(
-      (argument) => typeof argument === 'string',
-    ) &&
-    typeof candidate.cwd === 'string' &&
-    typeof candidate.logPath === 'string'
-  );
-}
-
-function canSignalProcess(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (isErrnoException(error) && error.code === 'EPERM') {
-      return true;
-    }
-
-    return false;
-  }
-}
-
-function isProcessAlive(pid: number): boolean {
-  return canSignalProcess(pid);
-}
-
-function isProcessGroupAlive(pid: number): boolean {
-  if (process.platform === 'win32') {
-    return isProcessAlive(pid);
-  }
-
-  return canSignalProcess(-pid);
-}
-
-export function isManagedProcessAlive(pid: number): boolean {
-  return process.platform === 'win32'
-    ? isProcessAlive(pid)
-    : isProcessGroupAlive(pid);
-}
-
-export async function verifyProcessDirectory(
-  storedProcess: StoredProcess,
-): Promise<boolean> {
-  if (!storedProcess.pid) {
-    return false;
-  }
-
-  if (process.platform !== 'linux') {
-    return true;
-  }
-
-  // The process-group leader can exit while descendants keep running.
-  // The group remains the target created by the dashboard, although the
-  // leader no longer has a /proc/<pid>/cwd entry.
-  if (!isProcessAlive(storedProcess.pid)) {
-    return isProcessGroupAlive(storedProcess.pid);
-  }
-
-  try {
-    const processDirectory = await realpath(
-      `/proc/${storedProcess.pid}/cwd`,
-    );
-
-    const expectedDirectory = await realpath(storedProcess.cwd);
-
-    return processDirectory === expectedDirectory;
-  } catch {
-    return false;
   }
 }
 
@@ -535,14 +502,16 @@ export class ProcessManager {
     }
 
     try {
-      const logStats = await stat(storedProcess.logPath);
+      const logPath = this.resolveLogFile(projectId);
+
+      const logStats = await stat(logPath);
 
       const startPosition = Math.max(0, logStats.size - maxBytes);
 
       const length = logStats.size - startPosition;
       const buffer = Buffer.alloc(length);
 
-      const logHandle = await open(storedProcess.logPath, 'r');
+      const logHandle = await open(logPath, 'r');
 
       try {
         await logHandle.read(buffer, 0, length, startPosition);
@@ -610,12 +579,28 @@ export class ProcessManager {
       );
     }
 
+    const requestedPort = options.port ?? project.port;
+
+    if (requestedPort !== undefined) {
+      validatePort(requestedPort);
+
+      if (!(await canListen(SERVER_BIND_HOST, requestedPort))) {
+        throw new ProcessManagerError(
+          'PORT_NOT_AVAILABLE',
+          `A porta ${requestedPort} não está disponível.`,
+        );
+      }
+    }
+
     const port =
-      options.port ?? project.port ?? (await findAvailablePort());
+      requestedPort ??
+      (await findAvailablePort(SERVER_BIND_HOST));
 
-    validatePort(port);
-
-    const resolvedCommand = await resolveServerCommand(project, port);
+    const resolvedCommand = await resolveServerCommand(
+      project,
+      SERVER_BIND_HOST,
+      port,
+    );
 
     await Promise.all([
       mkdir(this.processDirectory, {
@@ -628,10 +613,7 @@ export class ProcessManager {
       }),
     ]);
 
-    const logPath = path.join(
-      this.logDirectory,
-      `${this.createProjectKey(project.id)}.server.log`,
-    );
+    const logPath = this.resolveLogFile(project.id);
 
     const logHandle = await open(logPath, 'a', 0o600);
 
@@ -666,6 +648,9 @@ export class ProcessManager {
 
     child.unref();
 
+    const primaryUrl = `http://localhost:${port}`;
+    const urls = listServerUrls(port);
+
     const managedProcess: StoredProcess = {
       id: `${project.id}:server`,
       projectId: project.id,
@@ -676,6 +661,8 @@ export class ProcessManager {
       status: 'running',
       pid: child.pid,
       port,
+      url: primaryUrl,
+      urls,
       command: resolvedCommand.command,
       args: resolvedCommand.args,
       cwd: project.path,
@@ -791,6 +778,13 @@ export class ProcessManager {
       .slice(0, 8);
 
     return `${readable}-${hash}`;
+  }
+
+  private resolveLogFile(projectId: string): string {
+    return path.join(
+      this.logDirectory,
+      `${this.createProjectKey(projectId)}.server.log`,
+    );
   }
 
   private resolveProcessFile(projectId: string): string {

@@ -6,6 +6,7 @@ import type {
 
 import type {
   ProcessManagerErrorCode,
+  ProjectServerSettingsErrorCode,
 } from '@dev-dashboard/process-manager';
 
 export interface ApiErrorDetails {
@@ -28,7 +29,8 @@ export type ApiErrorCode =
   | 'WORKSPACE_PROCESS_RUNNING'
   | 'WORKSPACE_SCAN_FAILED'
   | WorkspaceRepositoryErrorCode
-  | ProcessManagerErrorCode;
+  | ProcessManagerErrorCode
+  | ProjectServerSettingsErrorCode;
 
 export class ApiError extends Error {
   public readonly statusCode: number;

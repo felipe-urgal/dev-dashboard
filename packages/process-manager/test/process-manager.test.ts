@@ -8,6 +8,8 @@ import {
   writeFile
 } from "node:fs/promises";
 
+import { createServer } from "node:net";
+
 import {
   tmpdir
 } from "node:os";
@@ -219,7 +221,11 @@ test(
     assert.equal(started.status, "running");
     assert.equal(started.projectId, fixture.project.id);
     assert.ok(started.pid && started.pid > 0);
-    assert.ok(started.port && started.port >= 1 && started.port <= 65_535);
+    assert.ok(started.port && started.port >= 1_024 && started.port <= 65_535);
+    const expectedUrl = `http://localhost:${started.port}`;
+
+    assert.equal(started.url, expectedUrl);
+    assert.ok(started.urls?.includes(expectedUrl));
     assert.equal(started.command, "npm");
 
     process.kill(started.pid as number, 0);
@@ -473,5 +479,54 @@ test(
     assert.equal(started.status, "running");
 
     await fixture.manager.stopServer(fixture.project.id);
+  }
+);
+
+test(
+  "rejects a configured port that is already occupied",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
+    });
+
+    context.after(fixture.cleanup);
+
+    const server = createServer();
+
+    context.after(async () => {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(
+        {
+          host: "127.0.0.1",
+          port: 0
+        },
+        () => resolve()
+      );
+    });
+
+    const address = server.address();
+
+    assert.ok(address && typeof address === "object");
+
+    await assert.rejects(
+      fixture.manager.startServer(
+        fixture.project,
+        {
+          port: address.port
+        }
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ProcessManagerError);
+        assert.equal(error.code, "PORT_NOT_AVAILABLE");
+        return true;
+      }
+    );
   }
 );
