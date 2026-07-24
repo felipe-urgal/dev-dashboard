@@ -26,7 +26,7 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
-interface StoredProcess extends ManagedProcess {
+export interface StoredProcess extends ManagedProcess {
   command: string;
   args: string[];
   cwd: string;
@@ -304,7 +304,7 @@ async function resolveServerCommand(
   }
 }
 
-function isStoredProcess(value: unknown): value is StoredProcess {
+export function isStoredProcess(value: unknown): value is StoredProcess {
   if (
     typeof value !== 'object' ||
     value === null ||
@@ -357,13 +357,13 @@ function isProcessGroupAlive(pid: number): boolean {
   return canSignalProcess(-pid);
 }
 
-function isManagedProcessAlive(pid: number): boolean {
+export function isManagedProcessAlive(pid: number): boolean {
   return process.platform === 'win32'
     ? isProcessAlive(pid)
     : isProcessGroupAlive(pid);
 }
 
-async function verifyProcessDirectory(
+export async function verifyProcessDirectory(
   storedProcess: StoredProcess,
 ): Promise<boolean> {
   if (!storedProcess.pid) {
@@ -414,7 +414,7 @@ async function waitForProcessExit(
 }
 
 export class ProcessManager {
-  private readonly stateDirectory: string;
+  public readonly stateDirectory: string;
   private readonly processDirectory: string;
   private readonly logDirectory: string;
 
