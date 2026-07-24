@@ -30,6 +30,10 @@ interface ProjectsResponse {
   projects: Project[];
 }
 
+interface ProjectResponse {
+  project: Project;
+}
+
 interface WorkspacesResponse {
   workspaces: Workspace[];
 }
@@ -37,6 +41,22 @@ interface WorkspacesResponse {
 interface ErrorResponse {
   error?: string;
   message?: string;
+}
+
+export class ApiRequestError extends Error {
+  public readonly status: number;
+  public readonly code: string | undefined;
+
+  public constructor(options: {
+    status: number;
+    code?: string;
+    message: string;
+  }) {
+    super(options.message);
+    this.name = 'ApiRequestError';
+    this.status = options.status;
+    this.code = options.code;
+  }
 }
 
 interface ProcessResponse {
@@ -49,6 +69,18 @@ interface ProcessLogResponse {
 
 interface ServerSettingsResponse {
   settings: ProjectServerSettings;
+}
+
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+}
+
+export interface DirectoryListing {
+  rootPath: string;
+  currentPath: string;
+  parentPath: string | null;
+  directories: DirectoryEntry[];
 }
 
 async function requestJson<T>(
@@ -68,10 +100,15 @@ async function requestJson<T>(
         ? (payload as ErrorResponse)
         : null;
 
-    throw new Error(
-      errorPayload?.message ??
+    throw new ApiRequestError({
+      status: response.status,
+      ...(errorPayload?.error
+        ? { code: errorPayload.error }
+        : {}),
+      message:
+        errorPayload?.message ??
         `A API respondeu com HTTP ${response.status}`,
-    );
+    });
   }
 
   return payload as T;
@@ -79,6 +116,16 @@ async function requestJson<T>(
 
 export function fetchHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>('/api/health');
+}
+
+export async function fetchProject(
+  projectId: string,
+): Promise<Project> {
+  const response = await requestJson<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}`,
+  );
+
+  return response.project;
 }
 
 export async function fetchProjects(): Promise<Project[]> {
@@ -221,6 +268,40 @@ export async function fetchProjectProcessLog(
 
   const response = await requestJson<ProcessLogResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/process/logs?${parameters}`,
+  );
+
+  return response.log;
+}
+export function projectFaviconUrl(
+  projectId: string,
+): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/favicon`;
+}
+
+export function fetchDirectories(
+  directoryPath?: string,
+): Promise<DirectoryListing> {
+  const parameters = new URLSearchParams();
+
+  if (directoryPath) {
+    parameters.set('path', directoryPath);
+  }
+
+  const query = parameters.toString();
+
+  return requestJson<DirectoryListing>(
+    `/api/directories${query ? `?${query}` : ''}`,
+  );
+}
+
+export async function clearProjectProcessLog(
+  projectId: string,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<ProcessLogResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs`,
+    {
+      method: 'DELETE',
+    },
   );
 
   return response.log;

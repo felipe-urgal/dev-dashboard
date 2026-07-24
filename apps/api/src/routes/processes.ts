@@ -324,6 +324,47 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  app.delete<{
+    Params: ProjectParams;
+  }>(
+    '/projects/:projectId/process/logs',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['log'],
+            properties: {
+              log: processLogSnapshotResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        request.params.projectId,
+      );
+
+      try {
+        return {
+          log: await processManager.clearServerLog(
+            project.id,
+          ),
+        };
+      } catch (error) {
+        if (error instanceof ProcessManagerError) {
+          throw processManagerApiError(error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
   app.post<{
     Params: ProjectParams;
     Body: StartProcessBody;

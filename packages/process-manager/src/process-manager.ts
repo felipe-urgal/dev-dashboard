@@ -10,6 +10,7 @@ import {
   readdir,
   rename,
   stat,
+  truncate,
   writeFile,
 } from 'node:fs/promises';
 
@@ -231,9 +232,11 @@ async function readPackageManifest(
   }
 }
 
+type NodePackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
+
 async function resolveNodePackageManager(
   projectPath: string,
-): Promise<string> {
+): Promise<NodePackageManager> {
   if (await pathExists(path.join(projectPath, 'pnpm-lock.yaml'))) {
     return 'pnpm';
   }
@@ -277,19 +280,17 @@ async function resolveNodeCommand(
   );
 
   const scriptCommand = scripts[scriptName] ?? '';
-  const args = ['run', scriptName];
+  const forwardedArgs: string[] = [];
 
   if (/\b(vite|nuxt|astro)\b/i.test(scriptCommand)) {
-    args.push(
-      '--',
+    forwardedArgs.push(
       '--host',
       host,
       '--port',
       String(port),
     );
   } else if (/\bnext\b/i.test(scriptCommand)) {
-    args.push(
-      '--',
+    forwardedArgs.push(
       '--hostname',
       host,
       '--port',
@@ -297,12 +298,35 @@ async function resolveNodeCommand(
     );
   }
 
+  // npm exige `--` para encaminhar opções ao script. pnpm, Yarn e
+  // Bun encaminham os argumentos diretamente; incluir `--` nesses
+  // gerenciadores faz frameworks como Next interpretarem a opção
+  // seguinte como o diretório do projeto.
+  const args = [
+    'run',
+    scriptName,
+    ...(forwardedArgs.length === 0
+      ? []
+      : packageManager === 'npm'
+        ? ['--', ...forwardedArgs]
+        : forwardedArgs),
+  ];
+
   return {
     command: packageManager,
     args,
     env: {
       PORT: String(port),
       HOST: host,
+      ...(packageManager === 'pnpm'
+        ? {
+            // O processo é destacado e não possui TTY. pnpm precisa
+            // receber uma confirmação não interativa quando decide
+            // recriar node_modules antes de executar predev/dev.
+            CI: 'true',
+            pnpm_config_confirmModulesPurge: 'false',
+          }
+        : {}),
     },
   };
 }
@@ -538,6 +562,50 @@ export class ProcessManager {
         content,
         sizeBytes: logStats.size,
         truncated,
+        updatedAt: logStats.mtime.toISOString(),
+        readAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      if (isErrnoException(error) && error.code === 'ENOENT') {
+        return {
+          projectId,
+          processId: storedProcess.id,
+          content: '',
+          sizeBytes: 0,
+          truncated: false,
+          readAt: new Date().toISOString(),
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  public async clearServerLog(
+    projectId: string,
+  ): Promise<ProcessLogSnapshot> {
+    const storedProcess = await this.readStoredProcess(projectId);
+
+    if (!storedProcess) {
+      throw new ProcessManagerError(
+        'PROCESS_NOT_FOUND',
+        'Nenhum processo gerenciado foi encontrado.',
+      );
+    }
+
+    const logPath = this.resolveLogFile(projectId);
+
+    try {
+      await truncate(logPath, 0);
+
+      const logStats = await stat(logPath);
+
+      return {
+        projectId,
+        processId: storedProcess.id,
+        content: '',
+        sizeBytes: 0,
+        truncated: false,
         updatedAt: logStats.mtime.toISOString(),
         readAt: new Date().toISOString(),
       };
