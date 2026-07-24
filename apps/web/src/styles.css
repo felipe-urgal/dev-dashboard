@@ -1201,3 +1201,265 @@ kbd {
     flex-direction: column;
   }
 }
+
+
+/* Project details routing */
+.brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.navigation-item-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+a.secondary-button {
+  text-decoration: none;
+}
+
+.project-server-panel {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+}
+
+.project-server-panel-compact {
+  padding-top: 13px;
+  border-top: 1px solid #20252f;
+}
+
+.project-server-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.project-server-summary strong {
+  display: block;
+  margin-top: 5px;
+  color: #dce1eb;
+  font-size: 12px;
+}
+
+.project-server-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.project-server-panel-details .project-log-output {
+  min-height: 300px;
+  max-height: 560px;
+}
+
+.details-back-link {
+  display: inline-flex;
+  margin-bottom: 18px;
+  color: #8d97aa;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.details-back-link:hover {
+  color: #d8deea;
+}
+
+.project-details-page {
+  scroll-behavior: smooth;
+}
+
+.project-details-hero {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid #272d3a;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgb(82 88 255 / 13%), transparent 48%),
+    #11151d;
+}
+
+.project-details-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.project-details-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 16px;
+  font-size: 15px;
+}
+
+.project-details-identity h2 {
+  margin: 8px 0 10px;
+  color: #f3f5fa;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.project-details-identity code {
+  display: block;
+  overflow: hidden;
+  max-width: 860px;
+  color: #7e899e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-details-badges {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7b8496;
+  font-size: 10px;
+}
+
+.project-details-capabilities {
+  padding-top: 18px;
+  border-top: 1px solid #282e3a;
+}
+
+.project-details-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 18px 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.project-details-tab {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  border: 1px solid #29303c;
+  border-radius: 8px;
+  color: #7f899c;
+  background: #121720;
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.project-details-tab-active,
+.project-details-tab:hover {
+  color: #dfe3ec;
+  border-color: #444d68;
+  background: #1a202b;
+}
+
+.project-details-tab-disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.project-details-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.34fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.details-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #242b37;
+  border-radius: 14px;
+  background: #10141b;
+}
+
+.details-card-heading {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 17px;
+}
+
+.details-card-heading h3 {
+  margin: 6px 0 0;
+  font-size: 16px;
+}
+
+.project-metadata-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.project-metadata-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #212732;
+}
+
+.project-metadata-list > div:last-child {
+  border-bottom: 0;
+}
+
+.project-metadata-list dt {
+  color: #697386;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.project-metadata-list dd {
+  margin: 0;
+  color: #cbd1dc;
+  font-size: 11px;
+  text-align: right;
+}
+
+.page-empty-state {
+  min-height: 420px;
+}
+
+.page-empty-state .primary-button {
+  margin-top: 18px;
+}
+
+@media (max-width: 980px) {
+  .project-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .project-details-hero {
+    padding: 20px;
+  }
+
+  .project-details-identity {
+    align-items: flex-start;
+  }
+
+  .project-details-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+
+  .project-server-actions {
+    justify-content: stretch;
+  }
+
+  .project-server-actions > * {
+    flex: 1;
+  }
+}

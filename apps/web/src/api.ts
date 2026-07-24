@@ -30,6 +30,10 @@ interface ProjectsResponse {
   projects: Project[];
 }
 
+interface ProjectResponse {
+  project: Project;
+}
+
 interface WorkspacesResponse {
   workspaces: Workspace[];
 }
@@ -37,6 +41,22 @@ interface WorkspacesResponse {
 interface ErrorResponse {
   error?: string;
   message?: string;
+}
+
+export class ApiRequestError extends Error {
+  public readonly status: number;
+  public readonly code: string | undefined;
+
+  public constructor(options: {
+    status: number;
+    code?: string;
+    message: string;
+  }) {
+    super(options.message);
+    this.name = 'ApiRequestError';
+    this.status = options.status;
+    this.code = options.code;
+  }
 }
 
 interface ProcessResponse {
@@ -68,10 +88,15 @@ async function requestJson<T>(
         ? (payload as ErrorResponse)
         : null;
 
-    throw new Error(
-      errorPayload?.message ??
+    throw new ApiRequestError({
+      status: response.status,
+      ...(errorPayload?.error
+        ? { code: errorPayload.error }
+        : {}),
+      message:
+        errorPayload?.message ??
         `A API respondeu com HTTP ${response.status}`,
-    );
+    });
   }
 
   return payload as T;
@@ -79,6 +104,16 @@ async function requestJson<T>(
 
 export function fetchHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>('/api/health');
+}
+
+export async function fetchProject(
+  projectId: string,
+): Promise<Project> {
+  const response = await requestJson<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}`,
+  );
+
+  return response.project;
 }
 
 export async function fetchProjects(): Promise<Project[]> {

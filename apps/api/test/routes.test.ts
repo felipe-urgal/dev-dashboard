@@ -298,6 +298,23 @@ test(
           projectsBody.projects?.length,
           1
         );
+
+        const projectResponse = await app.inject({
+          method: "GET",
+          url: `/api/projects/${projectId}`,
+          headers
+        });
+
+        const projectBody = projectResponse.json<{
+          project: {
+            id: string;
+            name: string;
+          };
+        }>();
+
+        assert.equal(projectResponse.statusCode, 200);
+        assert.equal(projectBody.project.id, projectId);
+        assert.equal(projectBody.project.name, "sample-node");
       }
     );
 
