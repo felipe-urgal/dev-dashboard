@@ -58,7 +58,7 @@ Entregas:
 - [x] testes das rotas protegidas;
 - [x] isolamento das configurações durante os testes;
 - [x] schemas de resposta;
-- [ ] testes do Process Manager;
+- [x] testes do Process Manager;
 - [ ] limpeza e retenção de logs;
 - [ ] diagnóstico de ambiente;
 - [ ] script `dev-web`;
