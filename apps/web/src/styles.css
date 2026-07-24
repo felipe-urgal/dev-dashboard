@@ -1103,3 +1103,101 @@ kbd {
 .project-log-output code {
   font: inherit;
 }
+
+.server-settings-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #272e3a;
+  border-radius: 9px;
+  background: #10151d;
+}
+
+.server-settings-heading,
+.server-settings-fields {
+  display: flex;
+  align-items: end;
+  gap: 9px;
+}
+
+.server-settings-heading {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.server-settings-heading strong,
+.server-settings-heading span {
+  display: block;
+}
+
+.server-settings-heading strong {
+  color: #d7dce7;
+  font-size: 11px;
+}
+
+.server-settings-heading span {
+  margin-top: 3px;
+  color: #727c8f;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+}
+
+.server-settings-fields label {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+}
+
+
+.server-settings-fields label > span {
+  color: #778195;
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.server-settings-fields input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #303847;
+  border-radius: 7px;
+  color: #cbd2df;
+  background: #151b24;
+  font-size: 10px;
+}
+
+.server-settings-fields input:disabled {
+  opacity: 0.55;
+}
+
+.settings-saved {
+  color: #76cda7 !important;
+}
+
+.server-access-note {
+  margin: 0;
+  color: #d4b976;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.process-details {
+  flex-wrap: wrap;
+}
+
+.process-details a {
+  color: #8fa8ff;
+  text-decoration: none;
+}
+
+.process-details a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 680px) {
+  .server-settings-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

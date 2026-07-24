@@ -4,7 +4,13 @@
 # ============================================================
 
 dev-clean() {
+  local quiet=false
+  [[ "$1" == "--quiet" ]] && quiet=true
+
   local cleaned=0
+  local retention_days="${DEV_DASHBOARD_LOG_RETENTION_DAYS:-7}"
+  [[ "$retention_days" =~ ^[1-9][0-9]*$ ]] || retention_days=7
+
   local pid_file
   for pid_file in "$DEV_RUN_DIR"/*.pid; do
     [ -f "$pid_file" ] || continue
@@ -16,7 +22,25 @@ dev-clean() {
       ((cleaned++))
     fi
   done
-  [ $cleaned -eq 0 ] && _dev_ok "Nenhum PID órfão encontrado."
+
+  local log_file
+  for log_file in "$DEV_RUN_DIR"/*.log; do
+    [ -f "$log_file" ] || continue
+    local id
+    id=$(basename "$log_file" .log)
+    local pid_file="$DEV_RUN_DIR/${id}.pid"
+    [ -f "$pid_file" ] && continue
+    if [ -z "$(find "$log_file" -mtime "+${retention_days}" 2>/dev/null)" ]; then
+      continue
+    fi
+    rm -f "$log_file"
+    _dev_warn "Removido log antigo: $(basename "$log_file")"
+    ((cleaned++))
+  done
+
+  if [ $cleaned -eq 0 ] && ! $quiet; then
+    _dev_ok "Nenhum PID ou log obsoleto encontrado."
+  fi
 }
 
 dev-stop() {

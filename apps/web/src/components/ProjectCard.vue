@@ -12,12 +12,15 @@ import type {
   ProcessLogSnapshot,
   Project,
   ProjectCapability,
+  ProjectServerSettings,
   ProjectType,
 } from '@dev-dashboard/contracts';
 
 import {
   fetchProjectProcess,
   fetchProjectProcessLog,
+  fetchProjectServerSettings,
+  saveProjectServerSettings,
   startProjectProcess,
   stopProjectProcess,
 } from '../api';
@@ -31,6 +34,12 @@ const loadingStatus = ref(false);
 const executingAction = ref(false);
 const errorMessage = ref('');
 
+const serverSettings = ref<ProjectServerSettings | null>(null);
+const selectedPort = ref<string | number>('');
+const loadingSettings = ref(false);
+const savingSettings = ref(false);
+const settingsMessage = ref('');
+
 const showLogs = ref(false);
 const loadingLogs = ref(false);
 const logSnapshot = ref<ProcessLogSnapshot | null>(null);
@@ -39,7 +48,6 @@ const logContainer = ref<HTMLElement | null>(null);
 const followLogs = ref(true);
 
 let logPollingTimer: ReturnType<typeof setInterval> | undefined;
-
 let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
 const projectTypeLabels: Record<ProjectType, string> = {
@@ -60,9 +68,55 @@ const capabilityLabels: Record<ProjectCapability, string> = {
   bundler: 'Bundler',
 };
 
+const supportsServer = computed(() =>
+  props.project.capabilities.includes('server'),
+);
+
 const hasManagedProcess = computed(
   () => managedProcess.value !== null,
 );
+
+const processStatus = computed(
+  () => managedProcess.value?.status ?? 'stopped',
+);
+
+const isRunning = computed(
+  () =>
+    processStatus.value === 'running' ||
+    processStatus.value === 'starting',
+);
+
+const canStop = computed(
+  () => isRunning.value || processStatus.value === 'stopping',
+);
+
+const processUrls = computed<string[]>(() => {
+  if (managedProcess.value?.urls?.length) {
+    return managedProcess.value.urls;
+  }
+
+  if (managedProcess.value?.url) {
+    return [managedProcess.value.url];
+  }
+
+  const port = managedProcess.value?.port;
+
+  return port
+    ? [`http://localhost:${port}`]
+    : [];
+});
+
+const processUrl = computed<string | null>(
+  () => processUrls.value[0] ?? null,
+);
+
+const settingsPortPreview = computed(() => {
+  const port = String(selectedPort.value ?? '').trim();
+
+  return port
+    ? `Porta fixa: ${port}`
+    : 'Porta automática';
+});
 
 const formattedLogSize = computed(() => {
   const size = logSnapshot.value?.sizeBytes ?? 0;
@@ -77,6 +131,150 @@ const formattedLogSize = computed(() => {
 
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 });
+
+const statusLabel = computed(() => {
+  if (!supportsServer.value) {
+    return 'Sem servidor';
+  }
+
+  if (loadingStatus.value) {
+    return 'Verificando';
+  }
+
+  switch (processStatus.value) {
+    case 'starting':
+      return 'Iniciando';
+    case 'running':
+      return 'Executando';
+    case 'stopping':
+      return 'Encerrando';
+    case 'failed':
+      return 'Falhou';
+    default:
+      return 'Parado';
+  }
+});
+
+function projectInitials(name: string): string {
+  return name
+    .replace(/^[._-]+/, '')
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+}
+
+function capabilityLabel(
+  capability: ProjectCapability,
+): string {
+  return capabilityLabels[capability];
+}
+
+function parseSelectedPort(): number | null {
+  const rawPort = String(selectedPort.value ?? '').trim();
+
+  if (!rawPort) {
+    return null;
+  }
+
+  const port = Number(rawPort);
+
+  if (
+    !Number.isInteger(port) ||
+    port < 1_024 ||
+    port > 65_535
+  ) {
+    throw new Error(
+      'A porta deve estar entre 1024 e 65535.',
+    );
+  }
+
+  return port;
+}
+
+async function refreshServerSettings(): Promise<void> {
+  if (!supportsServer.value) {
+    return;
+  }
+
+  loadingSettings.value = true;
+
+  try {
+    const settings =
+      await fetchProjectServerSettings(props.project.id);
+    serverSettings.value = settings;
+    selectedPort.value =
+      settings.port !== undefined
+        ? String(settings.port)
+        : '';
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar as configurações do servidor.';
+  } finally {
+    loadingSettings.value = false;
+  }
+}
+
+async function persistServerSettings(): Promise<ProjectServerSettings> {
+  const port = parseSelectedPort();
+
+  const settings = await saveProjectServerSettings(
+    props.project.id,
+    {
+      port,
+    },
+  );
+
+  serverSettings.value = settings;
+  selectedPort.value =
+    settings.port !== undefined
+      ? String(settings.port)
+      : '';
+
+  return settings;
+}
+
+async function handleSaveSettings(): Promise<void> {
+  savingSettings.value = true;
+  settingsMessage.value = '';
+  errorMessage.value = '';
+
+  try {
+    await persistServerSettings();
+    settingsMessage.value = 'Configuração salva.';
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível salvar a configuração.';
+  } finally {
+    savingSettings.value = false;
+  }
+}
+
+async function refreshProcess(): Promise<void> {
+  if (!supportsServer.value) {
+    return;
+  }
+
+  loadingStatus.value = true;
+
+  try {
+    managedProcess.value = await fetchProjectProcess(
+      props.project.id,
+    );
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível consultar o processo.';
+  } finally {
+    loadingStatus.value = false;
+  }
+}
 
 async function scrollLogsToBottom(): Promise<void> {
   if (!followLogs.value) {
@@ -150,7 +348,9 @@ function handleLogScroll(): void {
   }
 
   const distanceFromBottom =
-    element.scrollHeight - element.scrollTop - element.clientHeight;
+    element.scrollHeight -
+    element.scrollTop -
+    element.clientHeight;
 
   followLogs.value = distanceFromBottom < 40;
 }
@@ -166,103 +366,19 @@ function clearLogView(): void {
   };
 }
 
-const supportsServer = computed(() =>
-  props.project.capabilities.includes('server'),
-);
-
-const processStatus = computed(
-  () => managedProcess.value?.status ?? 'stopped',
-);
-
-const isRunning = computed(
-  () =>
-    processStatus.value === 'running' ||
-    processStatus.value === 'starting',
-);
-
-const canStop = computed(
-  () => isRunning.value || processStatus.value === 'stopping',
-);
-
-const processUrl = computed<string | null>(() => {
-  const port = managedProcess.value?.port;
-
-  if (!port) {
-    return null;
-  }
-
-  return `http://127.0.0.1:${port}`;
-});
-
-const statusLabel = computed(() => {
-  if (!supportsServer.value) {
-    return 'Sem servidor';
-  }
-
-  if (loadingStatus.value) {
-    return 'Verificando';
-  }
-
-  switch (processStatus.value) {
-    case 'starting':
-      return 'Iniciando';
-
-    case 'running':
-      return 'Executando';
-
-    case 'stopping':
-      return 'Encerrando';
-
-    case 'failed':
-      return 'Falhou';
-
-    default:
-      return 'Parado';
-  }
-});
-
-function projectInitials(name: string): string {
-  return name
-    .replace(/^[._-]+/, '')
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('');
-}
-
-function capabilityLabel(capability: ProjectCapability): string {
-  return capabilityLabels[capability];
-}
-
-async function refreshProcess(): Promise<void> {
-  if (!supportsServer.value) {
-    return;
-  }
-
-  loadingStatus.value = true;
-
-  try {
-    managedProcess.value = await fetchProjectProcess(
-      props.project.id,
-    );
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível consultar o processo.';
-  } finally {
-    loadingStatus.value = false;
-  }
-}
-
 async function handleStart(): Promise<void> {
   executingAction.value = true;
   errorMessage.value = '';
+  settingsMessage.value = '';
 
   try {
+    const settings = await persistServerSettings();
+
     managedProcess.value = await startProjectProcess(
       props.project.id,
+      {
+        port: settings.port ?? null,
+      },
     );
 
     if (showLogs.value) {
@@ -283,7 +399,9 @@ async function handleStop(): Promise<void> {
   errorMessage.value = '';
 
   try {
-    managedProcess.value = await stopProjectProcess(props.project.id);
+    managedProcess.value = await stopProjectProcess(
+      props.project.id,
+    );
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -299,11 +417,18 @@ function handleOpen(): void {
     return;
   }
 
-  window.open(processUrl.value, '_blank', 'noopener,noreferrer');
+  window.open(
+    processUrl.value,
+    '_blank',
+    'noopener,noreferrer',
+  );
 }
 
 onMounted(() => {
-  void refreshProcess();
+  void Promise.all([
+    refreshProcess(),
+    refreshServerSettings(),
+  ]);
 
   if (supportsServer.value) {
     pollingTimer = setInterval(() => {
@@ -316,6 +441,7 @@ onBeforeUnmount(() => {
   if (pollingTimer) {
     clearInterval(pollingTimer);
   }
+
   stopLogPolling();
 });
 </script>
@@ -365,12 +491,65 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
+    <section
+      v-if="supportsServer"
+      class="server-settings-panel"
+    >
+      <div class="server-settings-heading">
+        <div>
+          <strong>Servidor</strong>
+          <span>{{ settingsPortPreview }}</span>
+        </div>
+
+        <span v-if="settingsMessage" class="settings-saved">
+          {{ settingsMessage }}
+        </span>
+      </div>
+
+      <div class="server-settings-fields">
+
+        <label>
+          <span>Porta</span>
+          <input
+            v-model="selectedPort"
+            type="number"
+            min="1024"
+            max="65535"
+            inputmode="numeric"
+            placeholder="Automática"
+            :disabled="loadingSettings || canStop"
+          />
+        </label>
+
+        <button
+          type="button"
+          class="secondary-button"
+          :disabled="savingSettings || loadingSettings || canStop"
+          @click="handleSaveSettings"
+        >
+          {{ savingSettings ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+
+      <p class="server-access-note">
+        Ao iniciar, o servidor ficará disponível em localhost e nos IPs locais desta máquina.
+      </p>
+    </section>
+
     <div v-if="managedProcess?.port" class="process-details">
       <span>Porta {{ managedProcess.port }}</span>
-
       <span v-if="managedProcess.pid">
         PID {{ managedProcess.pid }}
       </span>
+      <a
+        v-for="url in processUrls"
+        :key="url"
+        :href="url"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {{ url }}
+      </a>
     </div>
 
     <div v-if="errorMessage" class="project-error" role="alert">
@@ -397,7 +576,7 @@ onBeforeUnmount(() => {
           v-if="supportsServer && !canStop"
           type="button"
           class="primary-small-button"
-          :disabled="executingAction"
+          :disabled="executingAction || loadingSettings"
           @click="handleStart"
         >
           {{ executingAction ? 'Iniciando...' : 'Iniciar' }}
@@ -466,7 +645,7 @@ onBeforeUnmount(() => {
         ref="logContainer"
         class="project-log-output"
         @scroll="handleLogScroll"
-      ><code>{{ logSnapshot?.content || "Nenhuma saída registrada." }}</code></pre>
+      ><code>{{ logSnapshot?.content || 'Nenhuma saída registrada.' }}</code></pre>
 
       <footer class="project-log-footer">
         <span>

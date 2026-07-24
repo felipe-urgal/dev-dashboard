@@ -40,7 +40,7 @@ fi
 export DEV_BASE="${DEV_BASE:-$HOME/Caiena/Projetos}"
 
 # Diretório temporário por usuário (evita conflitos multiusuário)
-export DEV_RUN_DIR="${TMPDIR:-/tmp}/dev-dashboard-${UID}"
+export DEV_RUN_DIR="${DEV_RUN_DIR:-${TMPDIR:-/tmp}/dev-dashboard-${UID}}"
 mkdir -p "$DEV_RUN_DIR"
 chmod 700 "$DEV_RUN_DIR"
 

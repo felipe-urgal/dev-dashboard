@@ -1,20 +1,49 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type {
+  FastifyPluginAsync,
+} from 'fastify';
 
 import {
   ProcessManager,
   ProcessManagerError,
+  ProjectServerSettingsError,
+  ProjectServerSettingsRepository,
+  sweepStaleProcesses,
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../http/api-error.js';
 
 import { findProject } from '../store/project-store.js';
 
+import {
+  commonErrorResponseSchemas,
+  logRetentionSweepResponseSchema,
+  managedProcessResponseSchema,
+  nullableManagedProcessResponseSchema,
+  processLogSnapshotResponseSchema,
+  projectServerSettingsResponseSchema,
+} from '../http/response-schemas.js';
+
+const processEnvelopeResponseSchema = (
+  processSchema: object,
+) => ({
+  type: 'object',
+  additionalProperties: false,
+  required: ['process'],
+  properties: {
+    process: processSchema,
+  },
+});
+
 interface ProjectParams {
   projectId: string;
 }
 
 interface StartProcessBody {
-  port?: number;
+  port?: number | null;
+}
+
+interface SaveServerSettingsBody {
+  port?: number | null;
 }
 
 interface ProcessLogQuery {
@@ -22,6 +51,9 @@ interface ProcessLogQuery {
 }
 
 const processManager = new ProcessManager();
+
+const serverSettingsRepository =
+  new ProjectServerSettingsRepository();
 
 function processManagerApiError(
   error: ProcessManagerError,
@@ -37,6 +69,7 @@ function processManagerApiError(
     case 'PROCESS_ALREADY_RUNNING':
     case 'PROCESS_IDENTITY_MISMATCH':
     case 'PROCESS_STOP_TIMEOUT':
+    case 'PORT_NOT_AVAILABLE':
       return new ApiError({
         statusCode: 409,
         code: error.code,
@@ -50,6 +83,16 @@ function processManagerApiError(
         message: error.message,
       });
   }
+}
+
+function serverSettingsApiError(
+  error: ProjectServerSettingsError,
+): ApiError {
+  return new ApiError({
+    statusCode: 400,
+    code: error.code,
+    message: error.message,
+  });
 }
 
 function requireProject(projectId: string) {
@@ -66,20 +109,158 @@ function requireProject(projectId: string) {
   return project;
 }
 
+const projectParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId'],
+  properties: {
+    projectId: {
+      type: 'string',
+      minLength: 1,
+    },
+  },
+} as const;
+
 export const processRoutes: FastifyPluginAsync = async (app) => {
   app.get<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process', async (request) => {
-    const project = requireProject(request.params.projectId);
+  }>(
+    '/projects/:projectId/server-settings',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['settings'],
+            properties: {
+              settings:
+                projectServerSettingsResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        request.params.projectId,
+      );
 
-    const managedProcess = await processManager.getServerProcess(
-      project.id,
-    );
+      return {
+        settings:
+          await serverSettingsRepository.find(
+            project.id,
+          ),
+      };
+    },
+  );
 
-    return {
-      process: managedProcess,
-    };
-  });
+  app.put<{
+    Params: ProjectParams;
+    Body: SaveServerSettingsBody;
+  }>(
+    '/projects/:projectId/server-settings',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            port: {
+              anyOf: [
+                {
+                  type: 'integer',
+                  minimum: 1_024,
+                  maximum: 65_535,
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['settings'],
+            properties: {
+              settings:
+                projectServerSettingsResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        request.params.projectId,
+      );
+
+      try {
+        const settings =
+          await serverSettingsRepository.save(
+            project.id,
+            {
+              ...(request.body.port !== undefined &&
+              request.body.port !== null
+                ? {
+                    port: request.body.port,
+                  }
+                : {}),
+            },
+          );
+
+        return {
+          settings,
+        };
+      } catch (error) {
+        if (
+          error instanceof ProjectServerSettingsError
+        ) {
+          throw serverSettingsApiError(error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+  }>(
+    '/projects/:projectId/process',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: processEnvelopeResponseSchema(
+            nullableManagedProcessResponseSchema,
+          ),
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        request.params.projectId,
+      );
+
+      const managedProcess =
+        await processManager.getServerProcess(
+          project.id,
+        );
+
+      return {
+        process: managedProcess,
+      };
+    },
+  );
 
   app.get<{
     Params: ProjectParams;
@@ -88,6 +269,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:projectId/process/logs',
     {
       schema: {
+        params: projectParamsSchema,
         querystring: {
           type: 'object',
           additionalProperties: false,
@@ -99,19 +281,35 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
             },
           },
         },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['log'],
+            properties: {
+              log: processLogSnapshotResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
       },
     },
     async (request) => {
-      const project = requireProject(request.params.projectId);
+      const project = requireProject(
+        request.params.projectId,
+      );
 
       try {
-        const log = await processManager.readServerLog(project.id, {
-          ...(request.query.maxBytes !== undefined
-            ? {
-                maxBytes: request.query.maxBytes,
-              }
-            : {}),
-        });
+        const log = await processManager.readServerLog(
+          project.id,
+          {
+            ...(request.query.maxBytes !== undefined
+              ? {
+                  maxBytes: request.query.maxBytes,
+                }
+              : {}),
+          },
+        );
 
         return {
           log,
@@ -133,33 +331,65 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     '/projects/:projectId/process/start',
     {
       schema: {
+        params: projectParamsSchema,
         body: {
           type: 'object',
           additionalProperties: false,
           properties: {
             port: {
-              type: 'integer',
-              minimum: 1,
-              maximum: 65_535,
+              anyOf: [
+                {
+                  type: 'integer',
+                  minimum: 1_024,
+                  maximum: 65_535,
+                },
+                {
+                  type: 'null',
+                },
+              ],
             },
           },
+        },
+        response: {
+          201: processEnvelopeResponseSchema(
+            managedProcessResponseSchema,
+          ),
+          ...commonErrorResponseSchemas,
         },
       },
     },
     async (request, reply) => {
-      const project = requireProject(request.params.projectId);
+      const project = requireProject(
+        request.params.projectId,
+      );
 
       try {
-        const managedProcess = await processManager.startServer(
-          project,
-          {
-            ...(request.body.port !== undefined
-              ? {
-                  port: request.body.port,
-                }
-              : {}),
-          },
-        );
+        let settings =
+          await serverSettingsRepository.find(
+            project.id,
+          );
+
+        if (request.body.port !== undefined) {
+          settings =
+            await serverSettingsRepository.save(
+              project.id,
+              request.body.port !== null
+                ? { port: request.body.port }
+                : {},
+            );
+        }
+
+        const managedProcess =
+          await processManager.startServer(
+            project,
+            {
+              ...(settings.port !== undefined
+                ? {
+                    port: settings.port,
+                  }
+                : {}),
+            },
+          );
 
         return reply.code(201).send({
           process: managedProcess,
@@ -169,9 +399,15 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
           throw processManagerApiError(error);
         }
 
+        if (
+          error instanceof ProjectServerSettingsError
+        ) {
+          throw serverSettingsApiError(error);
+        }
+
         request.log.error(
           {
-            error,
+            err: error,
             projectId: project.id,
           },
           'Server start failed',
@@ -180,7 +416,8 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
         throw new ApiError({
           statusCode: 500,
           code: 'PROCESS_START_FAILED',
-          message: 'Não foi possível iniciar o servidor.',
+          message:
+            'Não foi possível iniciar o servidor.',
         });
       }
     },
@@ -188,23 +425,62 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{
     Params: ProjectParams;
-  }>('/projects/:projectId/process/stop', async (request) => {
-    const project = requireProject(request.params.projectId);
+  }>(
+    '/projects/:projectId/process/stop',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: processEnvelopeResponseSchema(
+            managedProcessResponseSchema,
+          ),
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        request.params.projectId,
+      );
 
-    try {
-      const managedProcess = await processManager.stopServer(
-        project.id,
+      try {
+        const managedProcess =
+          await processManager.stopServer(
+            project.id,
+          );
+
+        return {
+          process: managedProcess,
+        };
+      } catch (error) {
+        if (error instanceof ProcessManagerError) {
+          throw processManagerApiError(error);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.post(
+    '/processes/cleanup',
+    {
+      schema: {
+        response: {
+          200: logRetentionSweepResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async () => {
+      const removed = await sweepStaleProcesses(
+        processManager.stateDirectory,
       );
 
       return {
-        process: managedProcess,
+        removed,
+        removedCount: removed.length,
       };
-    } catch (error) {
-      if (error instanceof ProcessManagerError) {
-        throw processManagerApiError(error);
-      }
-
-      throw error;
-    }
-  });
+    },
+  );
 };

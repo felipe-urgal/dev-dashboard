@@ -2,6 +2,7 @@ import type {
   ManagedProcess,
   ProcessLogSnapshot,
   Project,
+  ProjectServerSettings,
   Workspace,
 } from '@dev-dashboard/contracts';
 
@@ -44,6 +45,10 @@ interface ProcessResponse {
 
 interface ProcessLogResponse {
   log: ProcessLogSnapshot;
+}
+
+interface ServerSettingsResponse {
+  settings: ProjectServerSettings;
 }
 
 async function requestJson<T>(
@@ -137,7 +142,9 @@ export async function fetchProjectProcess(
 
 export async function startProjectProcess(
   projectId: string,
-  port?: number,
+  input: {
+    port?: number | null;
+  } = {},
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/process/start`,
@@ -146,7 +153,7 @@ export async function startProjectProcess(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(port !== undefined ? { port } : {}),
+      body: JSON.stringify(input),
     },
   );
 
@@ -155,6 +162,36 @@ export async function startProjectProcess(
   }
 
   return response.process;
+}
+
+export async function fetchProjectServerSettings(
+  projectId: string,
+): Promise<ProjectServerSettings> {
+  const response = await requestJson<ServerSettingsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/server-settings`,
+  );
+
+  return response.settings;
+}
+
+export async function saveProjectServerSettings(
+  projectId: string,
+  input: {
+    port: number | null;
+  },
+): Promise<ProjectServerSettings> {
+  const response = await requestJson<ServerSettingsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/server-settings`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  return response.settings;
 }
 
 export async function stopProjectProcess(
