@@ -12,3 +12,10 @@ export type {
   StartServerOptions,
   StoredProcess,
 } from './process-manager.js';
+
+export { sweepStaleProcesses } from './log-retention.js';
+
+export type {
+  SweepStaleProcessesOptions,
+  SweptProcess,
+} from './log-retention.js';

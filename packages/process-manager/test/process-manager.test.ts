@@ -438,3 +438,40 @@ test(
     assert.ok(detected?.stoppedAt);
   }
 );
+
+test(
+  "starts a server even when the log sweep finds a corrupted state file",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
+    });
+
+    let startedPid: number | undefined;
+
+    context.after(async () => {
+      killIfAlive(startedPid);
+      await fixture.cleanup();
+    });
+
+    const processDirectory = path.join(
+      fixture.stateDirectory,
+      "processes"
+    );
+
+    await mkdir(processDirectory, { recursive: true });
+
+    await writeFile(
+      path.join(processDirectory, "garbage.server.json"),
+      "isto não é json{{{"
+    );
+
+    const started = await fixture.manager.startServer(fixture.project);
+
+    startedPid = started.pid;
+
+    assert.equal(started.status, "running");
+
+    await fixture.manager.stopServer(fixture.project.id);
+  }
+);

@@ -26,6 +26,8 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
+import { sweepStaleProcesses } from './log-retention.js';
+
 export interface StoredProcess extends ManagedProcess {
   command: string;
   args: string[];
@@ -590,6 +592,12 @@ export class ProcessManager {
     project: Project,
     options: StartServerOptions = {},
   ): Promise<ManagedProcess> {
+    try {
+      await sweepStaleProcesses(this.stateDirectory);
+    } catch {
+      // A limpeza é best-effort: uma falha aqui nunca deve impedir o start.
+    }
+
     const currentProcess = await this.getServerProcess(project.id);
 
     if (
