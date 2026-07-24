@@ -3,6 +3,8 @@
 # SERVER START — Iniciar servidor
 # ============================================================
 _dev_start_server() {
+  dev-clean --quiet
+
   local project="$1"
   local cmd_base="$2"
   local pre_hook_func="$3"
