@@ -59,7 +59,7 @@ Entregas:
 - [x] isolamento das configurações durante os testes;
 - [x] schemas de resposta;
 - [x] testes do Process Manager;
-- [ ] limpeza e retenção de logs;
+- [x] limpeza e retenção de logs;
 - [ ] diagnóstico de ambiente;
 - [ ] script `dev-web`;
 - [ ] configuração de produção local;
