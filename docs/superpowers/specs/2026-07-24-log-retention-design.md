@@ -171,12 +171,18 @@ projeto gerenciado* — ver `CLAUDE.md`). Verificação manual com fixtures de
 
 ## Casos de borda cobertos
 
-- diretório de processos/logs inexistente (primeira execução, nada a
-  limpar);
-- log sem `.server.json` correspondente e vice-versa (arquivo órfão de
-  verdade);
+- diretório de processos inexistente (primeira execução, nada a limpar);
+- `.server.json` cujo `.server.log` correspondente já não existe (remoção
+  usa `force: true`, não falha por `ENOENT`);
 - `DEV_DASHBOARD_LOG_RETENTION_DAYS` inválido (não numérico) cai no padrão de
   7 dias em vez de quebrar.
+
+**Fora de escopo desta rodada:** um `.server.log` órfão sem `.server.json`
+correspondente (ex.: processo morreu entre gravar o log e gravar o estado)
+não é detectado — `sweepStaleProcesses` só itera `*.server.json` em
+`processes/`, e o log vive num diretório separado (`logs/`). Esse cenário é
+raro (janela de crash entre duas escritas) e fica para uma iteração futura se
+vier a se mostrar necessário.
 
 ## Fora de escopo (explicitamente adiado)
 
