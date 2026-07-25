@@ -1,4 +1,8 @@
 import { access, readFile } from 'node:fs/promises';
+
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 import net from 'node:net';
 import path from 'node:path';
 
@@ -10,14 +14,61 @@ import type {
   ProjectDatabaseSource,
 } from '@dev-dashboard/contracts';
 
-interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability'> {
+interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'startAvailable'> {
   databaseUrl?: string;
+  composeFile?: string;
+  composeService?: string;
 }
+
+type CommandRunner = (command: string, args: string[], options: { cwd: string }) => Promise<void>;
+
+const execFileAsync = promisify(execFile);
+const defaultCommandRunner: CommandRunner = async (command, args, options) => {
+  await execFileAsync(command, args, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+};
 
 const defaultPorts: Record<string, number> = {
   postgres: 5432, postgresql: 5432, mysql: 3306, mysql2: 3306,
   mariadb: 3306, mongodb: 27017, redis: 6379,
 };
+
+const composeFiles = ['compose.yml', 'compose.yaml', 'docker-compose.yml', 'docker-compose.yaml'];
+
+function composeDriverMatches(driver: string, service: string, image: string): boolean {
+  const value = `${service} ${image}`.toLowerCase();
+  const normalized = driver.toLowerCase();
+  if (['postgres', 'postgresql'].includes(normalized)) return /postgres|postgis/.test(value);
+  if (['mysql', 'mysql2', 'mariadb'].includes(normalized)) return /mysql|mariadb/.test(value);
+  if (normalized === 'mongodb') return /mongo/.test(value);
+  if (normalized === 'redis') return /redis/.test(value);
+  return false;
+}
+
+function findComposeService(contents: string, driver: string): string | null {
+  let inServices = false;
+  let currentService = '';
+  const candidates: Array<{ name: string; image: string }> = [];
+  for (const line of contents.split(/\r?\n/)) {
+    if (/^services:\s*(?:#.*)?$/.test(line)) { inServices = true; continue; }
+    if (inServices && /^\S/.test(line) && line.trim()) break;
+    if (!inServices) continue;
+    const serviceMatch = line.match(/^\s{2}([A-Za-z0-9][A-Za-z0-9_.-]*):\s*(?:#.*)?$/);
+    if (serviceMatch) {
+      currentService = serviceMatch[1] ?? '';
+      candidates.push({ name: currentService, image: '' });
+      continue;
+    }
+    const imageMatch = line.match(/^\s{4,}image:\s*["']?([^\s"'#]+)["']?/);
+    if (currentService && imageMatch) candidates[candidates.length - 1]!.image = imageMatch[1] ?? '';
+  }
+  return candidates.find(({ name, image }) => composeDriverMatches(driver, name, image))?.name ?? null;
+}
 
 async function exists(file: string): Promise<boolean> {
   try { await access(file); return true; } catch { return false; }
@@ -61,7 +112,11 @@ function fromUrl(id: string, environment: string, rawUrl: string, source: Projec
 }
 
 function interpolate(value: string, env: Record<string, string>): string {
-  return value.replace(/<%=\s*ENV(?:\.fetch\()?\[['"]([^'"]+)['"]\](?:,\s*['"]([^'"]*)['"])?\)?\s*%>/g, (_all, name: string, fallback?: string) => env[name] ?? fallback ?? '');
+  return value.replace(
+    /<%=\s*ENV(?:\[['"]([^'"]+)['"]\]|\.fetch\(\s*['"]([^'"]+)['"](?:\s*,\s*['"]([^'"]*)['"])?\s*\))\s*%>/g,
+    (_all, indexedName: string | undefined, fetchedName: string | undefined, fallback?: string) =>
+      env[indexedName ?? fetchedName ?? ''] ?? fallback ?? '',
+  );
 }
 
 function parseRails(contents: string, env: Record<string, string>): DetectedDatabase[] {
@@ -116,6 +171,10 @@ function fromEnv(values: Record<string, string>, detail: string): DetectedDataba
 
 async function checkReachability(host?: string, port?: number): Promise<DatabaseReachability> {
   if (!host || !port) return 'unknown';
+
+  const normalizedHost = host.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1'].includes(normalizedHost)) return 'unknown';
+
   return new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
     const finish = (value: DatabaseReachability) => { socket.destroy(); resolve(value); };
@@ -127,6 +186,8 @@ async function checkReachability(host?: string, port?: number): Promise<Database
 }
 
 export class DatabaseDetectionService {
+  public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
+
   public async detect(project: Project): Promise<DetectedDatabase[]> {
     const dotenvFiles = ['.env', '.env.local', '.env.development', '.env.test', '.env.production'];
     const env: Record<string, string> = {};
@@ -137,11 +198,15 @@ export class DatabaseDetectionService {
       const values = parseDotenv(contents); Object.assign(env, values); detected.push(...fromEnv(values, file));
     }
     const rails = await safeRead(project.path, 'config/database.yml');
-    if (rails !== null) detected.push(...parseRails(rails, { ...process.env, ...env } as Record<string, string>));
+    
+    // O processo da API pode conter credenciais alheias ao projeto. Apenas os
+    // arquivos de ambiente do próprio projeto participam da interpolação.
+    if (rails !== null) detected.push(...parseRails(rails, env));
     const prisma = await safeRead(project.path, 'prisma/schema.prisma');
     if (prisma) {
       for (const match of prisma.matchAll(/url\s*=\s*env\(["']([^"']+)["']\)/g)) {
-        const name = match[1] ?? ''; const value = env[name] ?? process.env[name];
+        const name = match[1] ?? ''; const value = env[name];
+
         if (value) { const item = fromUrl(`prisma-${name.toLowerCase()}`, 'development', value, 'prisma', `prisma/schema.prisma (${name})`); if (item) detected.push(item); }
       }
     }
@@ -151,17 +216,42 @@ export class DatabaseDetectionService {
         const item = fromEnv(env, file)[0]; if (item) detected.push({ ...item, id: `knex-${item.id}`, source: 'knex', sourceDetail: file }); break;
       }
     }
-    return [...new Map(detected.map((item) => [`${item.environment}:${item.databaseUrl ?? item.database ?? item.id}`, item])).values()];
+
+    const unique = [...new Map(detected.map((item) => [`${item.environment}:${item.databaseUrl ?? item.database ?? item.id}`, item])).values()];
+    for (const file of composeFiles) {
+      const contents = await safeRead(project.path, file);
+      if (contents === null) continue;
+      for (const item of unique) {
+        const service = findComposeService(contents, item.driver);
+        if (service) { item.composeFile = file; item.composeService = service; }
+      }
+      break;
+    }
+    return unique;
   }
 
   public async getOverview(project: Project, page = 1, pageSize = 20): Promise<ProjectDatabaseOverview> {
     const all = await this.detect(project);
     const selected = all.slice((page - 1) * pageSize, page * pageSize);
-    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, ...item }) => ({ ...item, reachability: await checkReachability(item.host, item.port) })));
+
+    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, composeFile, composeService, ...item }) => ({
+      ...item,
+      reachability: await checkReachability(item.host, item.port),
+      startAvailable: Boolean(composeFile && composeService),
+    })));
+
     return { supported: all.length > 0, environments, page, pageSize, total: all.length };
   }
 
   public async reveal(project: Project, environmentId: string): Promise<string | null> {
     return (await this.detect(project)).find((item) => item.id === environmentId)?.databaseUrl ?? null;
+  }
+
+  public async start(project: Project, environmentId: string): Promise<boolean> {
+    const item = (await this.detect(project)).find((candidate) => candidate.id === environmentId);
+    if (!item) return false;
+    if (!item.composeFile || !item.composeService) return false;
+    await this.runCommand('docker', ['compose', '-f', item.composeFile, 'up', '-d', item.composeService], { cwd: project.path });
+    return true;
   }
 }

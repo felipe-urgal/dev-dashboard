@@ -19,6 +19,7 @@ export interface ProjectDatabaseEnvironment {
   source: ProjectDatabaseSource;
   sourceDetail: string;
   reachability: DatabaseReachability;
+  startAvailable: boolean;
 }
 
 export interface ProjectDatabaseOverview {
@@ -32,4 +33,9 @@ export interface ProjectDatabaseOverview {
 export interface ProjectDatabaseSecret {
   environmentId: string;
   databaseUrl: string;
+}
+
+export interface ProjectDatabaseStartResult {
+  environmentId: string;
+  started: boolean;
 }
