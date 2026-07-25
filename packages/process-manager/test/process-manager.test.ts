@@ -581,7 +581,7 @@ test(
     const command = {
       id: "node-script-test",
       command: "node",
-      args: ["-e", "setTimeout(() => process.exit(0), 200)"]
+      args: ["-e", "setInterval(() => {}, 60_000)"]
     };
 
     const results = await Promise.allSettled([
@@ -605,7 +605,7 @@ test(
 
     const success = fulfilled[0];
     assert.ok(success && success.status === "fulfilled");
-    killIfAlive(success.value.pid);
+    await fixture.manager.stopTest(fixture.project.id);
   }
 );
 
