@@ -5,6 +5,8 @@ import type {
   ProjectServerSettings,
   ProjectGitOverview,
   ProjectTestOverview,
+  ProjectDatabaseOverview,
+  ProjectDatabaseSecret,
   Workspace,
 } from '@dev-dashboard/contracts';
 
@@ -396,4 +398,20 @@ export async function clearProjectTestLog(
     { method: 'DELETE' },
   );
   return response.log;
+}
+
+interface ProjectDatabaseResponse { database: ProjectDatabaseOverview; }
+interface ProjectDatabaseSecretResponse { secret: ProjectDatabaseSecret; }
+
+export async function fetchProjectDatabase(projectId: string, page = 1): Promise<ProjectDatabaseOverview> {
+  const query = new URLSearchParams({ page: String(page), pageSize: '20' });
+  const response = await requestJson<ProjectDatabaseResponse>(`/api/projects/${encodeURIComponent(projectId)}/database?${query}`);
+  return response.database;
+}
+
+export async function revealProjectDatabaseUrl(projectId: string, environmentId: string): Promise<ProjectDatabaseSecret> {
+  const response = await requestJson<ProjectDatabaseSecretResponse>(`/api/projects/${encodeURIComponent(projectId)}/database/${encodeURIComponent(environmentId)}/reveal`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+  });
+  return response.secret;
 }

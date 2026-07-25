@@ -8,3 +8,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 
 - `001-project-git.md` — implementação da visão Git somente leitura.
 - `002-project-tests.md` — implementação da visão de testes do projeto.
+- `003-project-database.md` — inspeção segura das configurações de banco de dados.

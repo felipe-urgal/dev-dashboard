@@ -34,3 +34,11 @@ export type {
   ProjectTestOverview,
   ProjectTestRunner,
 } from './test.js';
+
+export type {
+  DatabaseReachability,
+  ProjectDatabaseEnvironment,
+  ProjectDatabaseOverview,
+  ProjectDatabaseSecret,
+  ProjectDatabaseSource,
+} from './database.js';

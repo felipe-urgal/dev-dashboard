@@ -9,6 +9,7 @@ import { projectRoutes } from './routes/projects.js';
 import { processRoutes } from './routes/processes.js';
 
 import { testRoutes } from './routes/tests.js';
+import { databaseRoutes } from './routes/database.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -87,6 +88,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
+  });
+
+  app.register(databaseRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    databaseDetectionService: context.databaseDetectionService,
   });
 
   return app;

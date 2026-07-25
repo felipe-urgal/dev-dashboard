@@ -8,6 +8,7 @@ import {
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
+import { DatabaseDetectionService } from './services/database-detection-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -16,6 +17,7 @@ export interface AppContext {
   projectStore: ProjectStore;
   gitService: GitService;
   testDetectionService: TestDetectionService;
+  databaseDetectionService: DatabaseDetectionService;
 }
 
 export function createAppContext(): AppContext {
@@ -27,5 +29,6 @@ export function createAppContext(): AppContext {
     projectStore: new ProjectStore(),
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
+    databaseDetectionService: new DatabaseDetectionService(),
   };
 }

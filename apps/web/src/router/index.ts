@@ -47,6 +47,12 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/database',
+      name: 'project-database',
+      component: ProjectDetailsView,
+      meta: { eyebrow: 'Projeto local', title: 'Banco de dados do projeto' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,
