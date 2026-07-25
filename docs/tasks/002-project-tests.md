@@ -81,11 +81,39 @@ persistidos pelo próprio dashboard.
 - [x] detecção retorna comandos ordenados por prioridade;
 - [x] projeto sem testes exibe estado dedicado;
 - [x] `commandId` inválido resulta em `404 TEST_COMMAND_NOT_FOUND`;
-- [x] `startTest` bloqueia quando já há execução ativa;
+- [x] `startTest` bloqueia quando já há execução ativa e é serializado
+  contra chamadas concorrentes por `projectId:kind`;
 - [x] `stopTest` encerra o grupo de processo com TERM/KILL;
 - [x] servidores e testes coexistem sem sobrescrever estado;
 - [x] frontend limpa dados residuais ao trocar de projeto;
 - [x] typecheck, build e suíte de testes passam.
+
+### Ajustes após code review
+
+- Serialização de `startServer`/`startTest` via `withStartLock` para
+  eliminar a corrida entre requisições concorrentes que passavam pela
+  verificação antes de qualquer escrita.
+- Schemas completos (`body` e `querystring`) declarados em todas as
+  rotas de `apps/api/src/routes/tests.ts`, evitando payloads não
+  validados na fronteira privilegiada.
+- `TestDetectionService.invalidate` agora é chamado ao final do
+  `POST /api/workspaces/:id/scan` e pode ser forçado por
+  `GET /api/projects/:id/tests?refresh=true` (o botão **Atualizar** do
+  painel já usa `refresh: true`).
+- Detecção de pytest só é oferecida quando há sinal explícito de
+  Python (`pytest.ini`, `conftest.py`, `[tool.pytest]` no
+  `pyproject.toml` ou `pytest` em `requirements*.txt`).
+- Fallback `bundle exec rails test` quando o projeto Rails não versiona
+  `bin/rails`.
+- `getManagedProcess` agora usa exclusivamente o `exitCode` observado
+  para decidir entre `stopped` (0) e `failed` (≠0 ou desconhecido),
+  eliminando o caso em que um teste morto por sinal externo era
+  reportado como `stopped`.
+- Removido o ramo redundante `(kind === 'test' && exitCode === 0)` em
+  `recordChildExit`.
+- Removida a flag `--silent` divergente do label npm.
+- Polling do `ProjectTestsPanel` agora interrompe após 5 falhas
+  consecutivas e informa o usuário para tentar novamente manualmente.
 
 ## Testes automatizados
 

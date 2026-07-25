@@ -18,6 +18,8 @@ import type {
   ProcessManager,
 } from "@dev-dashboard/process-manager";
 
+import type { TestDetectionService } from "../services/test-detection-service.js";
+
 import {
   ApiError
 } from "../http/api-error.js";
@@ -37,6 +39,7 @@ interface WorkspaceRouteOptions extends FastifyPluginOptions {
   workspaceRepository: WorkspaceRepository;
   processManager: ProcessManager;
   projectStore: ProjectStore;
+  testDetectionService: TestDetectionService;
 }
 
 interface CreateWorkspaceBody {
@@ -100,6 +103,7 @@ export const workspaceRoutes: FastifyPluginAsync<
       workspaceRepository,
       processManager,
       projectStore,
+      testDetectionService,
     } = options;
     app.get(
       "/workspaces",
@@ -278,6 +282,8 @@ export const workspaceRoutes: FastifyPluginAsync<
           const result = await scanWorkspace(
             workspace
           );
+
+          testDetectionService.invalidate();
 
           return projectStore.saveWorkspaceScan(result);
         } catch (error) {

@@ -29,6 +29,8 @@ const errorMessage = ref('');
 
 let generation = 0;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let consecutiveFailures = 0;
+const MAX_POLL_FAILURES = 5;
 
 const runnerLabels: Record<ProjectTestRunner, string> = {
   vitest: 'Vitest',
@@ -98,12 +100,15 @@ function formatTimestamp(value: string | undefined): string {
   }).format(new Date(value));
 }
 
-async function loadOverview(): Promise<void> {
+async function loadOverview(refresh = false): Promise<void> {
   const requestGeneration = ++generation;
   loadingOverview.value = true;
   errorMessage.value = '';
+  consecutiveFailures = 0;
   try {
-    const result = await fetchProjectTests(props.project.id);
+    const result = await fetchProjectTests(props.project.id, {
+      refresh,
+    });
     if (requestGeneration === generation) overview.value = result;
   } catch (error) {
     if (requestGeneration === generation) {
@@ -117,18 +122,18 @@ async function loadOverview(): Promise<void> {
   }
 }
 
-async function refreshProcess(): Promise<void> {
+async function refreshProcess(): Promise<boolean> {
   const requestGeneration = generation;
   try {
     const result = await fetchProjectTestProcess(props.project.id);
-    if (requestGeneration !== generation) return;
+    if (requestGeneration !== generation) return true;
     managedProcess.value = result;
 
     if (result) {
       const log = await fetchProjectTestLog(props.project.id).catch(
         () => null,
       );
-      if (requestGeneration !== generation) return;
+      if (requestGeneration !== generation) return true;
       if (log) {
         logContent.value = log.content;
         logTruncated.value = log.truncated;
@@ -137,6 +142,8 @@ async function refreshProcess(): Promise<void> {
       logContent.value = '';
       logTruncated.value = false;
     }
+    consecutiveFailures = 0;
+    return true;
   } catch (error) {
     if (requestGeneration === generation) {
       errorMessage.value =
@@ -144,16 +151,27 @@ async function refreshProcess(): Promise<void> {
           ? error.message
           : 'Não foi possível atualizar o processo de testes.';
     }
+    return false;
   }
 }
 
 function schedulePolling(): void {
   clearPolling();
   pollTimer = setTimeout(async () => {
-    if (isRunning.value) {
-      await refreshProcess();
+    if (!isRunning.value) return;
+    const succeeded = await refreshProcess();
+    if (succeeded) {
+      consecutiveFailures = 0;
       schedulePolling();
+      return;
     }
+    consecutiveFailures += 1;
+    if (consecutiveFailures >= MAX_POLL_FAILURES) {
+      errorMessage.value =
+        'Interrompendo atualização automática após falhas consecutivas. Use Atualizar para tentar novamente.';
+      return;
+    }
+    schedulePolling();
   }, 1500);
 }
 
@@ -254,7 +272,7 @@ onBeforeUnmount(clearPolling);
         type="button"
         class="secondary-button"
         :disabled="loadingOverview"
-        @click="loadOverview"
+        @click="loadOverview(true)"
       >
         {{ loadingOverview ? 'Atualizando...' : 'Atualizar' }}
       </button>

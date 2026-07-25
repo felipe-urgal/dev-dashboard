@@ -32,6 +32,10 @@ interface TestLogQuery {
   maxBytes?: number;
 }
 
+interface TestOverviewQuery {
+  refresh?: boolean;
+}
+
 interface TestRouteOptions extends FastifyPluginOptions {
   processManager: ProcessManager;
   projectStore: ProjectStore;
@@ -55,6 +59,18 @@ const testCommandParamsSchema = {
     projectId: { type: 'string', minLength: 1 },
     commandId: { type: 'string', minLength: 1, maxLength: 80 },
   },
+} as const;
+
+const emptyBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {},
+} as const;
+
+const emptyQuerystringSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {},
 } as const;
 
 function processManagerApiError(
@@ -105,11 +121,18 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
 ) => {
   const { processManager, projectStore, testDetectionService } = options;
 
-  app.get<{ Params: ProjectParams }>(
+  app.get<{ Params: ProjectParams; Querystring: TestOverviewQuery }>(
     '/projects/:projectId/tests',
     {
       schema: {
         params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            refresh: { type: 'boolean' },
+          },
+        },
         response: {
           200: {
             type: 'object',
@@ -125,6 +148,9 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
+      if (request.query.refresh) {
+        testDetectionService.invalidate(project.id);
+      }
       const tests = await testDetectionService.getOverview(project);
       return { tests };
     },
@@ -135,6 +161,7 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
     {
       schema: {
         params: projectParamsSchema,
+        querystring: emptyQuerystringSchema,
         response: {
           200: {
             type: 'object',
@@ -207,6 +234,7 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
     {
       schema: {
         params: projectParamsSchema,
+        querystring: emptyQuerystringSchema,
         response: {
           200: {
             type: 'object',
@@ -239,6 +267,8 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
     {
       schema: {
         params: testCommandParamsSchema,
+        body: emptyBodySchema,
+        querystring: emptyQuerystringSchema,
         response: {
           201: {
             type: 'object',
@@ -294,6 +324,8 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
     {
       schema: {
         params: projectParamsSchema,
+        body: emptyBodySchema,
+        querystring: emptyQuerystringSchema,
         response: {
           200: {
             type: 'object',

@@ -320,9 +320,11 @@ interface ProjectTestsResponse { tests: ProjectTestOverview; }
 
 export async function fetchProjectTests(
   projectId: string,
+  options: { refresh?: boolean } = {},
 ): Promise<ProjectTestOverview> {
+  const query = options.refresh ? '?refresh=true' : '';
   const response = await requestJson<ProjectTestsResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/tests`,
+    `/api/projects/${encodeURIComponent(projectId)}/tests${query}`,
   );
   return response.tests;
 }

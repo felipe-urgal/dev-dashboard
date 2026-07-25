@@ -82,9 +82,6 @@ function commandForScript(
   packageManager: NodePackageManager,
   scriptName: string,
 ): { command: string; args: string[] } {
-  if (packageManager === 'npm') {
-    return { command: 'npm', args: ['run', scriptName, '--silent'] };
-  }
   return { command: packageManager, args: ['run', scriptName] };
 }
 
@@ -272,20 +269,36 @@ async function detectRailsCommands(
     });
   }
 
-  if (hasRails && binRailsExists && hasTestDir) {
-    commands.push({
-      id: 'rails-test',
-      runner: 'rails-test',
-      label: 'bin/rails test',
-      description: 'Executa a task de teste do Rails.',
-      origin: 'binary',
-      originDetail: 'bin/rails',
-      priority: 20,
-      resolved: {
-        command: path.join(project.path, 'bin', 'rails'),
-        args: ['test'],
-      },
-    });
+  if (hasRails && hasTestDir) {
+    commands.push(
+      binRailsExists
+        ? {
+            id: 'rails-test',
+            runner: 'rails-test',
+            label: 'bin/rails test',
+            description: 'Executa a task de teste do Rails.',
+            origin: 'binary',
+            originDetail: 'bin/rails',
+            priority: 20,
+            resolved: {
+              command: path.join(project.path, 'bin', 'rails'),
+              args: ['test'],
+            },
+          }
+        : {
+            id: 'rails-test',
+            runner: 'rails-test',
+            label: 'bundle exec rails test',
+            description: 'Executa a task de teste do Rails via bundle.',
+            origin: 'gemfile',
+            originDetail: 'Gemfile',
+            priority: 20,
+            resolved: {
+              command: 'bundle',
+              args: ['exec', 'rails', 'test'],
+            },
+          },
+    );
   } else if (hasTestDir && !hasRails) {
     commands.push({
       id: 'ruby-minitest',
@@ -308,16 +321,64 @@ async function detectRailsCommands(
 async function detectPythonCommands(
   project: Project,
 ): Promise<DetectedTestCommand[]> {
-  const hasPytestConfig =
-    (await pathExists(path.join(project.path, 'pytest.ini'))) ||
-    (await pathExists(path.join(project.path, 'pyproject.toml')));
-  const hasTestsDir = await pathExists(
-    path.join(project.path, 'tests'),
+  // Só oferece pytest se houver sinal explícito de Python + pytest.
+  const hasPytestIni = await pathExists(
+    path.join(project.path, 'pytest.ini'),
+  );
+  const hasConftest = await pathExists(
+    path.join(project.path, 'conftest.py'),
   );
 
-  if (!hasPytestConfig && !hasTestsDir) {
+  let pyprojectDeclaresPytest = false;
+  try {
+    const pyproject = await readFile(
+      path.join(project.path, 'pyproject.toml'),
+      'utf8',
+    );
+    pyprojectDeclaresPytest =
+      /\[tool\.pytest(\.[a-z_]+)?\]/i.test(pyproject) ||
+      /(^|\s)pytest(\s*[><=~!]|\s*$)/im.test(pyproject);
+  } catch {
+    // pyproject.toml ausente ou ilegível
+  }
+
+  let requirementsDeclaresPytest = false;
+  for (const candidate of [
+    'requirements.txt',
+    'requirements-dev.txt',
+    'dev-requirements.txt',
+  ]) {
+    try {
+      const contents = await readFile(
+        path.join(project.path, candidate),
+        'utf8',
+      );
+      if (/(^|\s)pytest(\s|$|[><=~!])/im.test(contents)) {
+        requirementsDeclaresPytest = true;
+        break;
+      }
+    } catch {
+      // arquivo ausente
+    }
+  }
+
+  const supported =
+    hasPytestIni ||
+    hasConftest ||
+    pyprojectDeclaresPytest ||
+    requirementsDeclaresPytest;
+
+  if (!supported) {
     return [];
   }
+
+  const originDetail = hasPytestIni
+    ? 'pytest.ini'
+    : hasConftest
+      ? 'conftest.py'
+      : pyprojectDeclaresPytest
+        ? 'pyproject.toml'
+        : 'requirements*.txt';
 
   return [
     {
@@ -325,8 +386,10 @@ async function detectPythonCommands(
       runner: 'pytest',
       label: 'pytest',
       description: 'Executa o pytest na raiz do projeto.',
-      origin: hasPytestConfig ? 'python-config' : 'directory',
-      originDetail: hasPytestConfig ? 'pytest.ini/pyproject.toml' : 'tests/',
+      origin: hasPytestIni || pyprojectDeclaresPytest
+        ? 'python-config'
+        : 'directory',
+      originDetail,
       priority: 40,
       resolved: { command: 'pytest', args: [] },
     },

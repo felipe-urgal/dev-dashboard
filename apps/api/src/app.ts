@@ -65,6 +65,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     workspaceRepository: context.workspaceRepository,
     processManager: context.processManager,
     projectStore: context.projectStore,
+    testDetectionService: context.testDetectionService,
   });
 
   app.register(projectRoutes, {

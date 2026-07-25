@@ -474,6 +474,28 @@ export class ProcessManager {
       promise: Promise<ObservedExit>;
     }
   >();
+  private readonly startLocks = new Map<string, Promise<unknown>>();
+
+  private async withStartLock<T>(
+    projectId: string,
+    kind: ManagedKind,
+    action: () => Promise<T>,
+  ): Promise<T> {
+    const key = `${projectId}:${kind}`;
+    const previous = this.startLocks.get(key) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(action);
+    this.startLocks.set(
+      key,
+      current.catch(() => undefined),
+    );
+    try {
+      return await current;
+    } finally {
+      if (this.startLocks.get(key) === current) {
+        this.startLocks.delete(key);
+      }
+    }
+  }
 
   public constructor(stateDirectory = resolveStateDirectory()) {
     this.stateDirectory = stateDirectory;
@@ -516,13 +538,6 @@ export class ProcessManager {
         (await verifyProcessDirectory(storedProcess));
 
       if (!running) {
-        const terminalStatus: 'stopped' | 'failed' =
-          storedProcess.status === 'stopping'
-            ? 'stopped'
-            : kind === 'test'
-              ? 'stopped'
-              : 'failed';
-
         const observedExit =
           storedProcess.pid !== undefined
             ? await this.waitForObservedExit(
@@ -534,11 +549,11 @@ export class ProcessManager {
         const exitCode = observedExit?.exitCode;
 
         const finalStatus: 'stopped' | 'failed' =
-          kind === 'test'
-            ? typeof exitCode === 'number' && exitCode !== 0 && storedProcess.status !== 'stopping'
-              ? 'failed'
-              : terminalStatus
-            : terminalStatus;
+          storedProcess.status === 'stopping'
+            ? 'stopped'
+            : exitCode === 0
+              ? 'stopped'
+              : 'failed';
 
         const finishedProcess = terminalProcess(
           storedProcess,
@@ -793,9 +808,18 @@ export class ProcessManager {
     }
   }
 
-  public async startServer(
+  public startServer(
     project: Project,
     options: StartServerOptions = {},
+  ): Promise<ManagedProcess> {
+    return this.withStartLock(project.id, 'server', () =>
+      this.startServerLocked(project, options),
+    );
+  }
+
+  private async startServerLocked(
+    project: Project,
+    options: StartServerOptions,
   ): Promise<ManagedProcess> {
     try {
       await sweepStaleProcesses(this.stateDirectory);
@@ -1140,8 +1164,7 @@ export class ProcessManager {
 
     const status =
       currentProcess.status === 'stopping' ||
-      (currentProcess.status === 'running' && exitCode === 0) ||
-      (kind === 'test' && exitCode === 0)
+      (currentProcess.status === 'running' && exitCode === 0)
         ? 'stopped'
         : 'failed';
 
@@ -1254,7 +1277,16 @@ export class ProcessManager {
     await rename(temporaryFile, processFile);
   }
 
-  public async startTest(
+  public startTest(
+    project: Project,
+    command: { id: string; command: string; args: string[] },
+  ): Promise<ManagedProcess> {
+    return this.withStartLock(project.id, 'test', () =>
+      this.startTestLocked(project, command),
+    );
+  }
+
+  private async startTestLocked(
     project: Project,
     command: { id: string; command: string; args: string[] },
   ): Promise<ManagedProcess> {

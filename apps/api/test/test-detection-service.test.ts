@@ -73,6 +73,74 @@ test('detects rspec from Gemfile', async () => {
   }
 });
 
+test('does not suggest pytest when there is no python signal', async () => {
+  const project = await makeProject('node', {
+    'pyproject.toml': '[build-system]\nrequires = ["setuptools"]\n',
+    'tests/example.test.js': '',
+  });
+  try {
+    const overview = await new TestDetectionService().getOverview(project);
+    const pytest = overview.commands.find((command) => command.runner === 'pytest');
+    assert.equal(pytest, undefined);
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('suggests pytest when pyproject declares it', async () => {
+  const project = await makeProject('unknown', {
+    'pyproject.toml': '[tool.pytest.ini_options]\naddopts = "-q"\n',
+    'conftest.py': '',
+  });
+  try {
+    const overview = await new TestDetectionService().getOverview(project);
+    assert.equal(
+      overview.commands.some((command) => command.runner === 'pytest'),
+      true,
+    );
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('falls back to bundle exec rails test when bin/rails is missing', async () => {
+  const project = await makeProject('rails', {
+    Gemfile: "gem 'rails'\n",
+    'test/models/example_test.rb': '',
+  });
+  try {
+    const overview = await new TestDetectionService().getOverview(project);
+    const railsTest = overview.commands.find((command) => command.runner === 'rails-test');
+    assert.ok(railsTest);
+    assert.equal(railsTest?.label, 'bundle exec rails test');
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('invalidate refreshes the cached detection', async () => {
+  const project = await makeProject('node', {
+    'package.json': JSON.stringify({ name: 'demo' }),
+  });
+  try {
+    const service = new TestDetectionService();
+    const before = await service.getOverview(project);
+    assert.equal(before.supported, false);
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(
+      path.join(project.path, 'package.json'),
+      JSON.stringify({ name: 'demo', scripts: { test: 'vitest run' } }),
+    );
+    const cachedStill = await service.getOverview(project);
+    assert.equal(cachedStill.supported, false);
+    service.invalidate(project.id);
+    const fresh = await service.getOverview(project);
+    assert.equal(fresh.supported, true);
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
 test('resolveCommand returns null for unknown ids', async () => {
   const project = await makeProject('node', {
     'package.json': JSON.stringify({
