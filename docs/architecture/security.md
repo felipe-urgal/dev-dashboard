@@ -70,6 +70,10 @@ exec(`${userInput}`);
 
 Entradas do usuário nunca devem ser concatenadas em uma linha de shell.
 
+Na execução do catálogo, o navegador envia somente o identificador atual da ação. A API redetecta o catálogo, reconstrói programa e argumentos a partir da origem reconhecida e seleciona npm, pnpm ou Yarn por um único lockfile. Lockfiles ambíguos ou ausentes são recusados. Ações mutáveis exigem token aleatório de confirmação vinculado ao projeto e ao identificador, válido por um minuto e consumido na primeira tentativa; ações destrutivas permanecem bloqueadas.
+
+Existe no máximo uma execução de catálogo ativa por projeto. O processo usa o caminho canônico do `ProjectStore` como `cwd`, grupo próprio sem `shell`, logs `0600` e encerramento gradual. Antes de sinalizar no Linux, a API compara `/proc/<pid>/cwd` com o projeto esperado.
+
 ### Validação de caminhos
 
 Antes de cadastrar um workspace ou projeto:

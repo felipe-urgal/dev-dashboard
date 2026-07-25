@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { Project, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
-import { fetchProjectScripts } from '../api';
+import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionStatus } from '@dev-dashboard/contracts';
+import { cancelScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -11,11 +11,14 @@ const search = ref('');
 const origin = ref<ProjectScriptOrigin | ''>('');
 const risk = ref<ProjectScriptRisk | ''>('');
 const page = ref(1);
+const execution = ref<ScriptExecution | null>(null);
+const executionLog = ref('');
 let generation = 0;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const originLabels: Record<ProjectScriptOrigin, string> = { 'package-script': 'package.json', 'rails-task': 'Tarefa Rails', bin: 'Executável bin/' };
 const riskLabels: Record<ProjectScriptRisk, string> = { 'read-only': 'Somente leitura', mutable: 'Mutável', destructive: 'Destrutivo' };
+const executionStatusLabels: Record<ScriptExecutionStatus, string> = { running: 'Em execução', succeeded: 'Concluída', failed: 'Falhou', cancelled: 'Cancelada' };
 
 async function load(): Promise<void> {
   const current = generation; const projectId = props.project.id;
@@ -32,14 +35,37 @@ async function load(): Promise<void> {
   } finally { if (current === generation) loading.value = false; }
 }
 
-watch(() => props.project.id, () => { generation += 1; catalog.value = null; page.value = 1; void load(); }, { immediate: true });
+async function run(item: ProjectScript): Promise<void> {
+  const projectId = props.project.id; const current = generation;
+  if (item.risk !== 'read-only' && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente.`)) return;
+  errorMessage.value = '';
+  try {
+    const confirmation = item.risk === 'read-only' ? undefined : await prepareScriptExecution(projectId, item.id);
+    const started = await startScriptExecution(projectId, item.id, confirmation?.token);
+    execution.value = started;
+    let currentExecution: ScriptExecution = started;
+    while (currentExecution.status === 'running' && current === generation && projectId === props.project.id) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      const [nextExecution, log] = await Promise.all([fetchScriptExecution(projectId, started.id), fetchScriptExecutionLog(projectId, started.id)]);
+      if (current !== generation) return; currentExecution = nextExecution; execution.value = nextExecution; executionLog.value = log.content;
+    }
+  } catch (error) { if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.'; }
+}
+
+async function cancel(): Promise<void> {
+  if (!execution.value) return;
+  try { execution.value = await cancelScriptExecution(props.project.id, execution.value.id); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar.'; }
+}
+
+watch(() => props.project.id, () => { generation += 1; catalog.value = null; execution.value = null; executionLog.value = ''; page.value = 1; void load(); }, { immediate: true });
 watch([origin, risk], () => { page.value = 1; void load(); });
 watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => void load(), 250); });
 </script>
 
 <template>
   <section class="project-scripts-panel">
-    <header class="scripts-panel-header"><div><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Inspecione ações reconhecidas. A execução ainda não está disponível.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></header>
+    <header class="scripts-panel-header"><div><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Execute somente ações reconhecidas pela API, com confirmação proporcional ao risco.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></header>
+    <aside v-if="execution" class="scripts-empty" aria-live="polite"><strong>{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</strong><button v-if="execution.status === 'running'" class="secondary-button" type="button" @click="cancel">Cancelar</button><pre v-if="executionLog">{{ executionLog }}</pre></aside>
     <div class="scripts-filters">
       <input v-model="search" type="search" placeholder="Buscar por nome, descrição ou comando" aria-label="Buscar scripts">
       <select v-model="origin" aria-label="Filtrar por origem"><option value="">Todas as origens</option><option value="package-script">package.json</option><option value="rails-task">Tarefas Rails</option><option value="bin">Executáveis bin/</option></select>
@@ -52,7 +78,7 @@ watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer)
       <article v-for="item in catalog?.items" :key="item.id" class="script-card">
         <header><div><span>{{ originLabels[item.origin] }}</span><h4>{{ item.name }}</h4></div><span class="script-risk" :class="`script-risk-${item.risk}`">{{ riskLabels[item.risk] }}</span></header>
         <p>{{ item.description }}</p><code>{{ item.command }}</code>
-        <footer><small v-if="!item.enabled">Ação destrutiva bloqueada</small><button class="secondary-button" type="button" disabled>Executar</button></footer>
+        <footer><small v-if="!item.enabled">Ação destrutiva bloqueada</small><button class="secondary-button" type="button" :disabled="!item.enabled || execution?.status === 'running'" @click="run(item)">Executar</button></footer>
       </article>
     </div>
     <nav v-if="catalog && catalog.totalPages > 1" class="scripts-pagination"><button class="secondary-button" :disabled="page <= 1" @click="page -= 1; load()">Anterior</button><span>Página {{ catalog.page }} de {{ catalog.totalPages }} · {{ catalog.total }} itens</span><button class="secondary-button" :disabled="page >= catalog.totalPages" @click="page += 1; load()">Próxima</button></nav>

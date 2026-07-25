@@ -30,6 +30,15 @@ test('aplica filtros e paginação em ordem reproduzível', async () => {
   } finally { await rm(project.path, { recursive: true, force: true }); }
 });
 
+test('localiza uma ação além da primeira página do catálogo', async () => {
+  const scripts = Object.fromEntries(Array.from({ length: 101 }, (_, index) => [`script-${String(index).padStart(3, '0')}`, 'echo seguro']));
+  const project = await fixture(scripts);
+  try {
+    const action = await new ScriptDetectionService().findAction(project, 'package-script:script-100');
+    assert.equal(action?.name, 'script-100');
+  } finally { await rm(project.path, { recursive: true, force: true }); }
+});
+
 test('inclui apenas executáveis conhecidos de bin', async () => {
   const project = await fixture({});
   try {

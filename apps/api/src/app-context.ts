@@ -10,6 +10,7 @@ import { GitService } from './services/git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
+import { ScriptExecutionService } from './services/script-execution-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -20,9 +21,11 @@ export interface AppContext {
   testDetectionService: TestDetectionService;
   databaseDetectionService: DatabaseDetectionService;
   scriptDetectionService: ScriptDetectionService;
+  scriptExecutionService: ScriptExecutionService;
 }
 
 export function createAppContext(): AppContext {
+  const scriptDetectionService = new ScriptDetectionService();
   return {
     workspaceRepository: new WorkspaceRepository(),
     processManager: new ProcessManager(),
@@ -32,6 +35,7 @@ export function createAppContext(): AppContext {
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
     databaseDetectionService: new DatabaseDetectionService(),
-    scriptDetectionService: new ScriptDetectionService(),
+    scriptDetectionService,
+    scriptExecutionService: new ScriptExecutionService(scriptDetectionService),
   };
 }

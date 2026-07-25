@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
 
 interface Manifest { scripts?: Record<string, unknown> }
-interface CatalogOptions { page?: number; pageSize?: number; search?: string; origin?: ProjectScriptOrigin; risk?: ProjectScriptRisk }
+export interface CatalogOptions { page?: number; pageSize?: number; search?: string; origin?: ProjectScriptOrigin; risk?: ProjectScriptRisk }
 
 const DESTRUCTIVE_PATTERN = /(^|[:_-])(drop|reset|destroy|delete|clean|truncate|purge)([:_-]|$)/i;
 const READ_ONLY_PATTERN = /(^|[:_-])(check|lint|test|spec|typecheck|audit|status|list|routes)([:_-]|$)/i;
@@ -74,12 +74,22 @@ async function railsTasks(project: Project): Promise<ProjectScript[]> {
 }
 
 export class ScriptDetectionService {
+  public async findAction(project: Project, actionId: string): Promise<ProjectScript | undefined> {
+    const detected = await this.detectActions(project);
+    return detected.find((item) => item.id === actionId);
+  }
+
   public async getCatalog(project: Project, options: CatalogOptions = {}): Promise<ProjectScriptCatalog> {
     const page = options.page ?? 1; const pageSize = options.pageSize ?? 20;
     const search = options.search?.trim().toLocaleLowerCase('pt-BR') ?? '';
-    const detected = [...await nodeScripts(project), ...await railsTasks(project), ...await knownBins(project)];
-    const unique = [...new Map(detected.map((item) => [item.id, item])).values()].filter((item) => !options.origin || item.origin === options.origin).filter((item) => !options.risk || item.risk === options.risk).filter((item) => !search || `${item.name} ${item.description} ${item.command}`.toLocaleLowerCase('pt-BR').includes(search)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const detected = await this.detectActions(project);
+    const unique = detected.filter((item) => !options.origin || item.origin === options.origin).filter((item) => !options.risk || item.risk === options.risk).filter((item) => !search || `${item.name} ${item.description} ${item.command}`.toLocaleLowerCase('pt-BR').includes(search));
     const total = unique.length;
     return { items: unique.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total, totalPages: total === 0 ? 0 : Math.ceil(total / pageSize) };
+  }
+
+  private async detectActions(project: Project): Promise<ProjectScript[]> {
+    const detected = [...await nodeScripts(project), ...await railsTasks(project), ...await knownBins(project)];
+    return [...new Map(detected.map((item) => [item.id, item])).values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 }

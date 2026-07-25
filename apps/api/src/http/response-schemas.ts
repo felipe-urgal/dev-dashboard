@@ -57,6 +57,45 @@ export const projectScriptCatalogResponseSchema = {
   },
 } as const;
 
+export const scriptExecutionResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'projectId', 'actionId', 'actionName', 'risk', 'status', 'startedAt'],
+  properties: {
+    id: { type: 'string' },
+    projectId: { type: 'string' },
+    actionId: { type: 'string' },
+    actionName: { type: 'string' },
+    risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] },
+    status: { type: 'string', enum: ['running', 'succeeded', 'failed', 'cancelled'] },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    exitCode: { type: 'integer' },
+  },
+} as const;
+
+export const scriptExecutionLogResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['executionId', 'content', 'truncated'],
+  properties: {
+    executionId: { type: 'string' },
+    content: { type: 'string' },
+    truncated: { type: 'boolean' },
+  },
+} as const;
+
+export const scriptExecutionConfirmationResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'actionId', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    actionId: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
 export const workspaceResponseSchema = {
   type: 'object',
   additionalProperties: false,
