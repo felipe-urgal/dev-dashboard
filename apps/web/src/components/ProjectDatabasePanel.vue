@@ -39,7 +39,10 @@ async function start(id: string): Promise<void> {
   errorMessage.value = '';
   try {
     await startProjectDatabase(props.project.id, id);
-    if (current === generation) await loadDatabase();
+    if (current === generation) {
+      starting.value = { ...starting.value, [id]: false };
+      await loadDatabase();
+    }
   } catch (error) {
     if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o banco.';
   } finally {

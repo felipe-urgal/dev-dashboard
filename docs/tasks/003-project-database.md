@@ -24,6 +24,8 @@ projetos Rails e Node.
   compatível em um arquivo Docker Compose conhecido do projeto;
 - estado dedicado quando nenhuma configuração é reconhecida;
 - invalidação das respostas assíncronas ao trocar de projeto.
+- limpeza do estado de inicialização antes de atualizar a detecção, evitando
+  que o botão permaneça desabilitado enquanto o serviço ainda fica disponível.
 
 ## Decisões de segurança
 
