@@ -75,15 +75,21 @@ async function railsTasks(project: Project): Promise<ProjectScript[]> {
 
 export class ScriptDetectionService {
   public async findAction(project: Project, actionId: string): Promise<ProjectScript | undefined> {
-    const catalog = await this.getCatalog(project, { page: 1, pageSize: 100 });
-    return catalog.items.find((item) => item.id === actionId);
+    const detected = await this.detectActions(project);
+    return detected.find((item) => item.id === actionId);
   }
+
   public async getCatalog(project: Project, options: CatalogOptions = {}): Promise<ProjectScriptCatalog> {
     const page = options.page ?? 1; const pageSize = options.pageSize ?? 20;
     const search = options.search?.trim().toLocaleLowerCase('pt-BR') ?? '';
-    const detected = [...await nodeScripts(project), ...await railsTasks(project), ...await knownBins(project)];
-    const unique = [...new Map(detected.map((item) => [item.id, item])).values()].filter((item) => !options.origin || item.origin === options.origin).filter((item) => !options.risk || item.risk === options.risk).filter((item) => !search || `${item.name} ${item.description} ${item.command}`.toLocaleLowerCase('pt-BR').includes(search)).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    const detected = await this.detectActions(project);
+    const unique = detected.filter((item) => !options.origin || item.origin === options.origin).filter((item) => !options.risk || item.risk === options.risk).filter((item) => !search || `${item.name} ${item.description} ${item.command}`.toLocaleLowerCase('pt-BR').includes(search));
     const total = unique.length;
     return { items: unique.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total, totalPages: total === 0 ? 0 : Math.ceil(total / pageSize) };
+  }
+
+  private async detectActions(project: Project): Promise<ProjectScript[]> {
+    const detected = [...await nodeScripts(project), ...await railsTasks(project), ...await knownBins(project)];
+    return [...new Map(detected.map((item) => [item.id, item])).values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }
 }

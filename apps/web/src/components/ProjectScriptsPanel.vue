@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution } from '@dev-dashboard/contracts';
+import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionStatus } from '@dev-dashboard/contracts';
 import { cancelScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
 
 const props = defineProps<{ project: Project }>();
@@ -18,6 +18,7 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const originLabels: Record<ProjectScriptOrigin, string> = { 'package-script': 'package.json', 'rails-task': 'Tarefa Rails', bin: 'Executável bin/' };
 const riskLabels: Record<ProjectScriptRisk, string> = { 'read-only': 'Somente leitura', mutable: 'Mutável', destructive: 'Destrutivo' };
+const executionStatusLabels: Record<ScriptExecutionStatus, string> = { running: 'Em execução', succeeded: 'Concluída', failed: 'Falhou', cancelled: 'Cancelada' };
 
 async function load(): Promise<void> {
   const current = generation; const projectId = props.project.id;
@@ -64,7 +65,7 @@ watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer)
 <template>
   <section class="project-scripts-panel">
     <header class="scripts-panel-header"><div><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Execute somente ações reconhecidas pela API, com confirmação proporcional ao risco.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></header>
-    <aside v-if="execution" class="scripts-empty" aria-live="polite"><strong>{{ execution.actionName }} · {{ execution.status }}</strong><button v-if="execution.status === 'running'" class="secondary-button" type="button" @click="cancel">Cancelar</button><pre v-if="executionLog">{{ executionLog }}</pre></aside>
+    <aside v-if="execution" class="scripts-empty" aria-live="polite"><strong>{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</strong><button v-if="execution.status === 'running'" class="secondary-button" type="button" @click="cancel">Cancelar</button><pre v-if="executionLog">{{ executionLog }}</pre></aside>
     <div class="scripts-filters">
       <input v-model="search" type="search" placeholder="Buscar por nome, descrição ou comando" aria-label="Buscar scripts">
       <select v-model="origin" aria-label="Filtrar por origem"><option value="">Todas as origens</option><option value="package-script">package.json</option><option value="rails-task">Tarefas Rails</option><option value="bin">Executáveis bin/</option></select>

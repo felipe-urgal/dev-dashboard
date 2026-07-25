@@ -27,6 +27,8 @@ Cada execução expõe estado e trecho limitado de log, aceita cancelamento grad
 - [x] confirmação vinculada para ação mutável;
 - [x] rejeição de ID manipulado e lockfiles ambíguos;
 - [x] rejeição de confirmação reutilizada e de concorrência durante a detecção;
+- [x] localização por ID considera o catálogo completo, inclusive após os primeiros 100 itens;
+- [x] estados de execução são apresentados em português brasileiro na UI;
 - [x] contratos, API e UI tipados;
 - [x] typecheck, build e testes passam.
 
