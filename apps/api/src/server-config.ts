@@ -10,6 +10,7 @@ export interface ServerConfig {
   localOrigin: string;
   staticDashboardEnabled: boolean;
   frontendDirectory?: string;
+  browserBootstrapToken?: string;
 }
 
 export function parseApiPort(value: string | undefined): number {
@@ -42,8 +43,15 @@ export async function readServerConfig(
     throw new Error('DEV_DASHBOARD_LOCAL_DISTRIBUTION deve ser 1 quando informada.');
   }
   const frontendDirectory = await resolveWebDist(environment.DEV_DASHBOARD_WEB_DIST, cwd);
+  const browserBootstrapToken = environment.DEV_DASHBOARD_BROWSER_BOOTSTRAP;
   if (staticDashboardEnabled && !frontendDirectory) {
     throw new Error('DEV_DASHBOARD_WEB_DIST é obrigatória no modo de distribuição local.');
+  }
+  if (staticDashboardEnabled && !browserBootstrapToken) {
+    throw new Error('DEV_DASHBOARD_BROWSER_BOOTSTRAP é obrigatória no modo de distribuição local.');
+  }
+  if (browserBootstrapToken && !/^[a-f0-9]{64}$/.test(browserBootstrapToken)) {
+    throw new Error('DEV_DASHBOARD_BROWSER_BOOTSTRAP deve conter 64 caracteres hexadecimais.');
   }
   return {
     host: API_HOST,
@@ -51,5 +59,6 @@ export async function readServerConfig(
     localOrigin: `http://${API_HOST}:${port}`,
     staticDashboardEnabled,
     ...(frontendDirectory ? { frontendDirectory } : {}),
+    ...(browserBootstrapToken ? { browserBootstrapToken } : {}),
   };
 }

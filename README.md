@@ -126,15 +126,16 @@ Para diagnosticar, compilar e iniciar somente a API com o frontend estático:
 npm run dev-web
 ```
 
-A URL final é `http://127.0.0.1:4343`. Diferentemente de `npm run dev`, não há processo Vite nem segunda porta. O comando funciona fora da raiz, encaminha `SIGINT`/`SIGTERM` e força o encerramento somente após três segundos.
+O comando imprime uma URL temporária com uma capacidade de bootstrap no fragmento. Abra essa URL, em vez de digitar somente a origem, para iniciar ou renovar a sessão do navegador. O fragmento não é enviado ao servidor ao carregar a página: o frontend o move para `sessionStorage`, remove-o da barra de endereço e o apresenta apenas ao endpoint de sessão. Diferentemente de `npm run dev`, não há processo Vite nem segunda porta. O comando funciona fora da raiz, encaminha `SIGINT`/`SIGTERM` e força o encerramento somente após três segundos.
 
 Variáveis aceitas pela API:
 
 - `DEV_DASHBOARD_API_PORT` — porta inteira, padrão `4343`;
 - `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` — ativa explicitamente o frontend estático;
 - `DEV_DASHBOARD_WEB_DIST` — diretório do build, resolvido de forma canônica.
+- `DEV_DASHBOARD_BROWSER_BOOTSTRAP` — capacidade efêmera de 32 bytes, gerada automaticamente pelo `dev-web` e obrigatória no modo distribuído.
 
-O host não é configurável e permanece `127.0.0.1`. No navegador, a API emite uma sessão curta em cookie `HttpOnly` e `SameSite=Strict`; o token persistente não entra no HTML ou bundle. Clientes locais não navegador continuam usando `X-Dev-Dashboard-Token`.
+O host não é configurável e permanece `127.0.0.1`. No navegador, a API só emite uma sessão curta em cookie `HttpOnly` e `SameSite=Strict` após validar a capacidade efêmera ou o token local; origem e JSON continuam sendo defesas adicionais. O token persistente não entra no HTML ou bundle. Clientes locais não navegador continuam usando `X-Dev-Dashboard-Token`.
 
 Se a inicialização falhar, libere a porta configurada, execute `npm install` e confira se o build contém `index.html` e todos os assets referenciados. O próprio `dev-web` reconstrói esses artefatos e recusa builds inválidos ou que contenham credenciais.
 

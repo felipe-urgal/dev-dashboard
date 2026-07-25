@@ -17,6 +17,7 @@ test('orquestrador aborta antes do build quando o diagnóstico falha', async () 
 test('orquestrador constrói e inicia somente a API distribuída', async () => {
   const calls = [];
   const code = await orchestrate({ rootDirectory: '/repo', diagnoseEnvironment: async () => [],
+    createBootstrapToken: () => 'e'.repeat(64),
     fileChecker: async () => undefined,
     buildScanner: async () => undefined,
     runner: async (command, args, options) => { calls.push({ command, args, options }); return { code: calls.length === 2 ? 7 : 0 }; },
@@ -25,6 +26,7 @@ test('orquestrador constrói e inicia somente a API distribuída', async () => {
   assert.deepEqual(calls[0].args, ['run', 'build']);
   assert.match(calls[1].args[0], /apps\/api\/dist\/server\.js$/);
   assert.equal(calls[1].options.env.DEV_DASHBOARD_LOCAL_DISTRIBUTION, '1');
+  assert.equal(calls[1].options.env.DEV_DASHBOARD_BROWSER_BOOTSTRAP, 'e'.repeat(64));
   assert.equal(code, 7);
 });
 

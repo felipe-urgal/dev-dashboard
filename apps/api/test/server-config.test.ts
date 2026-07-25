@@ -15,6 +15,8 @@ test('diretório estático é absoluto mesmo antes de existir', async () => {
 
 test('configuração mantém host fixo e exige diretório no modo local', async () => {
   await assert.rejects(readServerConfig({ DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1' }, '/repo'), /WEB_DIST/);
+  await assert.rejects(readServerConfig({ DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1', DEV_DASHBOARD_WEB_DIST: 'dist' }, '/repo'), /BROWSER_BOOTSTRAP/);
+  await assert.rejects(readServerConfig({ DEV_DASHBOARD_BROWSER_BOOTSTRAP: 'fraco' }, '/repo'), /64 caracteres/);
   const config = await readServerConfig({ DEV_DASHBOARD_API_PORT: '5000' }, '/repo');
   assert.equal(config.host, '127.0.0.1');
   assert.equal(config.localOrigin, 'http://127.0.0.1:5000');

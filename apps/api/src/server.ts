@@ -5,6 +5,9 @@ const config = await readServerConfig();
 const app = await buildApp({
   staticDashboardEnabled: config.staticDashboardEnabled,
   localOrigin: config.localOrigin,
+  ...(config.browserBootstrapToken
+    ? { browserBootstrapToken: config.browserBootstrapToken }
+    : {}),
   ...(config.frontendDirectory ? { frontendDirectory: config.frontendDirectory } : {}),
 });
 const port = config.port;

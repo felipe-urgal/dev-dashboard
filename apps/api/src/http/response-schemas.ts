@@ -39,6 +39,10 @@ export const commonErrorResponseSchemas = {
   500: apiErrorResponseSchema,
 } as const;
 
+export const emptyResponseSchema = {
+  type: 'null',
+} as const;
+
 export const projectScriptCatalogResponseSchema = {
   type: 'object',
   additionalProperties: false,

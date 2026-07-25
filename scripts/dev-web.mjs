@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { access, readFile, readdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -64,9 +65,18 @@ export async function orchestrate(options = {}) {
   const webDist = path.join(root, 'apps/web/dist');
   await checker(webDist);
   await (options.buildScanner ?? assertBuildHasNoCredentials)(webDist);
+  const browserBootstrap = (options.createBootstrapToken ?? (() => randomBytes(32).toString('hex')))();
+  const port = process.env.DEV_DASHBOARD_API_PORT ?? '4343';
+  console.info(`Abra o dashboard por esta URL:\nhttp://127.0.0.1:${port}/#bootstrap=${browserBootstrap}`);
   const server = await runner(process.execPath, [path.join(root, 'apps/api/dist/server.js')], {
     cwd: root,
-    env: { ...process.env, DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1', DEV_DASHBOARD_WEB_DIST: webDist }, forwardSignals: true,
+    env: {
+      ...process.env,
+      DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
+      DEV_DASHBOARD_WEB_DIST: webDist,
+      DEV_DASHBOARD_BROWSER_BOOTSTRAP: browserBootstrap,
+    },
+    forwardSignals: true,
   });
   return server.code;
 }

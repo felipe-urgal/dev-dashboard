@@ -215,9 +215,9 @@ O endpoint de health check permanece público para permitir diagnóstico local.
 
 ## Origem e CORS
 
-Na distribuição local, navegador e API compartilham a origem exata correspondente à porta efetiva. Um `POST /api/auth/browser-session`, restrito a JSON e a essa origem, emite cookie assinado `HttpOnly`, `SameSite=Strict` e com vida limitada. O endpoint nunca retorna o token persistente. A origem é uma defesa adicional, não a autenticação: rotas privadas exigem cookie válido ou o header local.
+Na distribuição local, navegador e API compartilham a origem exata correspondente à porta efetiva. O `dev-web` gera 32 bytes aleatórios por execução e imprime uma URL cujo fragmento contém essa capacidade efêmera. O frontend a guarda somente em `sessionStorage`, remove o fragmento da barra de endereço e a apresenta a `POST /api/auth/browser-session`. O endpoint valida a capacidade — ou o token persistente para clientes locais autorizados — antes de emitir cookie assinado `HttpOnly`, `SameSite=Strict` e com vida limitada. Ele nunca retorna o token persistente. A origem e o tipo JSON são defesas adicionais, não autenticação.
 
-Métodos mutáveis autenticados por cookie também exigem `Origin` exata para mitigar CSRF. Origem ausente ou externa não pode fazer bootstrap; origens externas são rejeitadas mesmo com cookie ou header válido. O modelo assume que sites externos podem induzir requisições ao loopback, mas não conseguem ler o cookie `HttpOnly` nem o token no arquivo `0600`.
+O endpoint de bootstrap não faz parte dos caminhos públicos: falsificar `Origin` em outro processo local não concede sessão sem uma das capacidades. Métodos mutáveis autenticados por cookie também exigem `Origin` exata para mitigar CSRF. A origem efetiva do modo distribuído integra explicitamente a allowlist, inclusive em porta personalizada; origem ausente ou externa não pode fazer bootstrap, e origens externas são rejeitadas mesmo com cookie ou header válido. O modelo assume que sites externos podem induzir requisições ao loopback, mas não conseguem ler o cookie `HttpOnly`, a capacidade no `sessionStorage` nem o token no arquivo `0600`.
 
 A API aceita explicitamente as origens locais do dashboard:
 

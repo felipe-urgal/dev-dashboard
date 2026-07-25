@@ -99,9 +99,32 @@ async function requestJson<T>(
 }
 
 let bootstrapPromise: Promise<void> | undefined;
+
+const BOOTSTRAP_STORAGE_KEY = 'dev-dashboard-browser-bootstrap';
+
+function readBrowserBootstrap(): string | null {
+  const parameters = new URLSearchParams(window.location.hash.slice(1));
+  const received = parameters.get('bootstrap');
+
+  if (received) {
+    window.sessionStorage.setItem(BOOTSTRAP_STORAGE_KEY, received);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    return received;
+  }
+
+  return window.sessionStorage.getItem(BOOTSTRAP_STORAGE_KEY);
+}
+
 async function bootstrapBrowserSession(): Promise<void> {
+  const bootstrap = readBrowserBootstrap();
   bootstrapPromise ??= fetch('/api/auth/browser-session', {
-    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(bootstrap ? { 'X-Dev-Dashboard-Browser-Bootstrap': bootstrap } : {}),
+    },
+    body: '{}',
   }).then((response) => { if (!response.ok) throw new Error('Não foi possível iniciar a sessão segura do navegador.'); })
     .finally(() => { bootstrapPromise = undefined; });
   return bootstrapPromise;

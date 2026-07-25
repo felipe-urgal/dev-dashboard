@@ -5,12 +5,20 @@ import type {
 } from "fastify";
 
 import {
+  apiErrorResponseSchema,
+  emptyResponseSchema,
+} from '../http/response-schemas.js';
+
+import {
   secureTokenEqual
 } from "@dev-dashboard/core";
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const LOCAL_TOKEN_HEADER =
   "x-dev-dashboard-token";
+
+export const BROWSER_BOOTSTRAP_HEADER =
+  'x-dev-dashboard-browser-bootstrap';
 
 export const DEFAULT_ALLOWED_ORIGINS = [
   "http://127.0.0.1:5173",
@@ -22,11 +30,11 @@ export const DEFAULT_ALLOWED_ORIGINS = [
 export interface LocalSecurityOptions {
   token: string;
   sessionSecret?: string;
+  browserBootstrapToken?: string;
   localOrigin?: string;
   sessionTtlSeconds?: number;
   now?: () => number;
   allowedOrigins?: readonly string[];
-  publicPaths?: readonly string[];
 }
 
 const SESSION_COOKIE = 'dev_dashboard_session';
@@ -71,17 +79,22 @@ export async function registerLocalSecurity(
     options.allowedOrigins ??
       DEFAULT_ALLOWED_ORIGINS
   );
-
-  const publicPaths = new Set(
-    options.publicPaths ?? ["/api/health", '/api/auth/browser-session']
-  );
   const localOrigin = options.localOrigin ?? 'http://127.0.0.1:4343';
+  allowedOrigins.add(localOrigin);
   const sessionSecret = options.sessionSecret ?? options.token;
+  const browserBootstrapToken = options.browserBootstrapToken ?? randomBytes(32).toString('hex');
   const ttl = options.sessionTtlSeconds ?? 900;
   const now = options.now ?? (() => Math.floor(Date.now() / 1000));
 
   app.post('/api/auth/browser-session', {
-    schema: { body: { type: 'object', additionalProperties: false } },
+    schema: {
+      body: { type: 'object', additionalProperties: false },
+      response: {
+        204: emptyResponseSchema,
+        401: apiErrorResponseSchema,
+        403: apiErrorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     if (request.headers.origin !== localOrigin || request.headers['content-type']?.split(';')[0] !== 'application/json') {
       return reply.code(403).send({ error: 'BOOTSTRAP_NOT_ALLOWED', message: 'Bootstrap de navegador não permitido.' });
@@ -123,7 +136,28 @@ export async function registerLocalSecurity(
         return;
       }
 
-      if (publicPaths.has(path)) {
+      if (path === '/api/health') {
+        return;
+      }
+
+      if (path === '/api/auth/browser-session') {
+        const bootstrapCandidate = headerToken(
+          request.headers[BROWSER_BOOTSTRAP_HEADER]
+        );
+        const candidateToken = headerToken(
+          request.headers[LOCAL_TOKEN_HEADER]
+        );
+
+        if (
+          !secureTokenEqual(bootstrapCandidate, browserBootstrapToken) &&
+          !secureTokenEqual(candidateToken, options.token)
+        ) {
+          return reply.code(401).send({
+            error: 'INVALID_BROWSER_BOOTSTRAP',
+            message: 'A capacidade de bootstrap está ausente ou é inválida.',
+          });
+        }
+
         return;
       }
 

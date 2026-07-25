@@ -34,6 +34,7 @@ export interface BuildAppOptions {
   staticDashboardEnabled?: boolean;
   localOrigin?: string;
   sessionSecret?: string;
+  browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
   now?: () => number;
 }
@@ -55,6 +56,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await registerLocalSecurity(app, {
     token: localToken,
     sessionSecret: options.sessionSecret ?? localToken,
+    ...(options.browserBootstrapToken
+      ? { browserBootstrapToken: options.browserBootstrapToken }
+      : {}),
     localOrigin: options.localOrigin ?? 'http://127.0.0.1:4343',
     ...(options.sessionTtlSeconds ? { sessionTtlSeconds: options.sessionTtlSeconds } : {}),
     ...(options.now ? { now: options.now } : {}),
