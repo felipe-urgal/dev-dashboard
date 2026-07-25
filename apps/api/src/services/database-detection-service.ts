@@ -22,6 +22,15 @@ interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachabilit
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string }) => Promise<void>;
 
+export type DatabaseStartFailureReason = 'compose-unavailable' | 'daemon-unavailable' | 'permission-denied' | 'command-failed';
+
+export class DatabaseStartError extends Error {
+  public constructor(public readonly reason: DatabaseStartFailureReason, options?: ErrorOptions) {
+    super('Falha ao iniciar o serviço de banco de dados.', options);
+    this.name = 'DatabaseStartError';
+  }
+}
+
 const execFileAsync = promisify(execFile);
 const defaultCommandRunner: CommandRunner = async (command, args, options) => {
   await execFileAsync(command, args, {
@@ -32,6 +41,31 @@ const defaultCommandRunner: CommandRunner = async (command, args, options) => {
     windowsHide: true,
   });
 };
+
+function commandFailureText(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const failure = error as { code?: unknown; message?: unknown; stderr?: unknown; stdout?: unknown };
+  return [failure.code, failure.message, failure.stderr, failure.stdout]
+    .filter((value): value is string | number => typeof value === 'string' || typeof value === 'number')
+    .join(' ')
+    .toLowerCase();
+}
+
+function composePluginUnavailable(error: unknown): boolean {
+  const text = commandFailureText(error);
+  return text.includes('enoent')
+    || text.includes("'compose' is not a docker command")
+    || text.includes('unknown command "compose"')
+    || text.includes('unknown shorthand flag:');
+}
+
+function startFailureReason(error: unknown): DatabaseStartFailureReason {
+  const text = commandFailureText(error);
+  if (text.includes('permission denied') || text.includes('permission denied while trying to connect')) return 'permission-denied';
+  if (text.includes('cannot connect to the docker daemon') || text.includes('is the docker daemon running')) return 'daemon-unavailable';
+  if (text.includes('enoent') || text.includes('not found') || composePluginUnavailable(error)) return 'compose-unavailable';
+  return 'command-failed';
+}
 
 const defaultPorts: Record<string, number> = {
   postgres: 5432, postgresql: 5432, mysql: 3306, mysql2: 3306,
@@ -251,7 +285,18 @@ export class DatabaseDetectionService {
     const item = (await this.detect(project)).find((candidate) => candidate.id === environmentId);
     if (!item) return false;
     if (!item.composeFile || !item.composeService) return false;
-    await this.runCommand('docker', ['compose', '-f', item.composeFile, 'up', '-d', item.composeService], { cwd: project.path });
+    const composeArgs = ['-f', item.composeFile, 'up', '-d', item.composeService];
+    try {
+      await this.runCommand('docker', ['compose', ...composeArgs], { cwd: project.path });
+    } catch (error) {
+      if (!composePluginUnavailable(error)) throw new DatabaseStartError(startFailureReason(error), { cause: error });
+
+      try {
+        await this.runCommand('docker-compose', composeArgs, { cwd: project.path });
+      } catch (fallbackError) {
+        throw new DatabaseStartError(startFailureReason(fallbackError), { cause: fallbackError });
+      }
+    }
     return true;
   }
 }

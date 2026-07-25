@@ -87,3 +87,38 @@ test('não oferece inicialização sem serviço Compose compatível', async () =
   assert.equal(overview.environments[0]?.startAvailable, false);
   assert.equal(await service.start(project, overview.environments[0]!.id), false);
 });
+
+test('usa docker-compose legado quando o plugin Compose não está disponível', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+    'compose.yml': 'services:\n  banco:\n    image: postgres:17\n',
+  });
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(async (command, args) => {
+    calls.push({ command, args });
+    if (command === 'docker') {
+      throw Object.assign(new Error("'compose' is not a docker command"), { stderr: "docker: 'compose' is not a docker command." });
+    }
+  });
+
+  assert.equal(await service.start(project, 'dotenv--env'), true);
+  assert.deepEqual(calls, [
+    { command: 'docker', args: ['compose', '-f', 'compose.yml', 'up', '-d', 'banco'] },
+    { command: 'docker-compose', args: ['-f', 'compose.yml', 'up', '-d', 'banco'] },
+  ]);
+});
+
+test('não repete a inicialização quando o Docker Compose falha por outro motivo', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+    'compose.yml': 'services:\n  banco:\n    image: postgres:17\n',
+  });
+  const calls: string[] = [];
+  const service = new DatabaseDetectionService(async (command) => {
+    calls.push(command);
+    throw Object.assign(new Error('daemon indisponível'), { stderr: 'Cannot connect to the Docker daemon. Is the docker daemon running?' });
+  });
+
+  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'daemon-unavailable' });
+  assert.deepEqual(calls, ['docker']);
+});

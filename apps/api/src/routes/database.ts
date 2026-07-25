@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas, projectDatabaseOverviewResponseSchema } from '../http/response-schemas.js';
-import type { DatabaseDetectionService } from '../services/database-detection-service.js';
+import { DatabaseStartError, type DatabaseDetectionService } from '../services/database-detection-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions { projectStore: ProjectStore; databaseDetectionService: DatabaseDetectionService }
@@ -71,7 +71,17 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
     } catch (error) {
       if (error instanceof ApiError) throw error;
       request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId }, 'Database service start failed');
-      throw new ApiError({ statusCode: 500, code: 'DATABASE_START_FAILED', message: 'Não foi possível iniciar o serviço de banco de dados.' });
+      const messages = {
+        'compose-unavailable': 'Docker Compose não está instalado ou disponível no PATH da API.',
+        'daemon-unavailable': 'O Docker não está em execução. Inicie o serviço e tente novamente.',
+        'permission-denied': 'A API não tem permissão para acessar o Docker. Verifique as permissões do usuário.',
+        'command-failed': 'O Docker Compose não conseguiu iniciar o serviço de banco de dados. Consulte o log da API.',
+      } as const;
+      throw new ApiError({
+        statusCode: 500,
+        code: 'DATABASE_START_FAILED',
+        message: error instanceof DatabaseStartError ? messages[error.reason] : messages['command-failed'],
+      });
     }
   });
 };
