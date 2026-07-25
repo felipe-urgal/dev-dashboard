@@ -116,6 +116,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     scriptDetectionService: context.scriptDetectionService,
+    scriptExecutionService: context.scriptExecutionService,
   });
 
   if (options.staticDashboardEnabled) {

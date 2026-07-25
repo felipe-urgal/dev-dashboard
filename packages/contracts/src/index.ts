@@ -49,4 +49,8 @@ export type {
   ProjectScriptCatalog,
   ProjectScriptOrigin,
   ProjectScriptRisk,
+  ScriptExecution,
+  ScriptExecutionConfirmation,
+  ScriptExecutionLog,
+  ScriptExecutionStatus,
 } from './script.js';

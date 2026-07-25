@@ -154,8 +154,7 @@ Dependência:
 
 ## Fase 5 — Testes e scripts
 
-Status: parcialmente entregue; testes podem ser executados e scripts possuem
-catálogo somente leitura.
+Status: entregue; testes e itens reconhecidos do catálogo podem ser executados com logs e cancelamento.
 
 Objetivo: executar e acompanhar automações dos projetos.
 
@@ -166,8 +165,8 @@ Entregas:
 - [ ] arquivo específico;
 - [ ] cobertura;
 - [x] catálogo de scripts do `package.json`;
-- [ ] execução de scripts do `package.json`;
-- [ ] seleção de package manager para scripts;
+- [x] execução de scripts do `package.json`;
+- [x] seleção de package manager para scripts;
 - [x] jobs em memória representados por processos gerenciados;
 - [x] cancelamento;
 - [x] logs por polling durante a execução;

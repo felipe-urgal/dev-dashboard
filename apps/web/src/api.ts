@@ -9,10 +9,16 @@ import type {
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
   ProjectScriptCatalog,
+  ScriptExecution,
+  ScriptExecutionConfirmation,
+  ScriptExecutionLog,
   Workspace,
 } from '@dev-dashboard/contracts';
 
 interface ScriptCatalogResponse { catalog: ProjectScriptCatalog }
+interface ScriptExecutionResponse { execution: ScriptExecution }
+interface ScriptExecutionLogResponse { log: ScriptExecutionLog }
+interface ScriptExecutionConfirmationResponse { confirmation: ScriptExecutionConfirmation }
 
 export interface HealthResponse {
   status: string;
@@ -169,6 +175,24 @@ export function fetchHealth(): Promise<HealthResponse> {
 export async function fetchProjectScripts(projectId: string, query: URLSearchParams): Promise<ProjectScriptCatalog> {
   const response = await requestJson<ScriptCatalogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts?${query.toString()}`);
   return response.catalog;
+}
+
+export async function prepareScriptExecution(projectId: string, actionId: string): Promise<ScriptExecutionConfirmation> {
+  const response = await requestJson<ScriptExecutionConfirmationResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/confirmations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionId }) });
+  return response.confirmation;
+}
+export async function startScriptExecution(projectId: string, actionId: string, confirmationToken?: string): Promise<ScriptExecution> {
+  const response = await requestJson<ScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionId, ...(confirmationToken ? { confirmationToken } : {}) }) });
+  return response.execution;
+}
+export async function fetchScriptExecution(projectId: string, executionId: string): Promise<ScriptExecution> {
+  const response = await requestJson<ScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}`); return response.execution;
+}
+export async function fetchScriptExecutionLog(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
+  const response = await requestJson<ScriptExecutionLogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/log`); return response.log;
+}
+export async function cancelScriptExecution(projectId: string, executionId: string): Promise<ScriptExecution> {
+  const response = await requestJson<ScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); return response.execution;
 }
 
 export async function fetchProject(

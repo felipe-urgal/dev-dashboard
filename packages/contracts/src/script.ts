@@ -18,3 +18,29 @@ export interface ProjectScriptCatalog {
   total: number;
   totalPages: number;
 }
+
+export type ScriptExecutionStatus = 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+export interface ScriptExecution {
+  id: string;
+  projectId: string;
+  actionId: string;
+  actionName: string;
+  risk: ProjectScriptRisk;
+  status: ScriptExecutionStatus;
+  startedAt: string;
+  finishedAt?: string;
+  exitCode?: number;
+}
+
+export interface ScriptExecutionLog {
+  executionId: string;
+  content: string;
+  truncated: boolean;
+}
+
+export interface ScriptExecutionConfirmation {
+  token: string;
+  actionId: string;
+  expiresAt: string;
+}
