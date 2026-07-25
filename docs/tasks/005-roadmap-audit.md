@@ -84,6 +84,21 @@ diagnóstico reproduzível do ambiente web.
   eliminando a corrida em que o estado terminal era persistido antes do
   `exitCode` ficar disponível sob carga na CI.
 
+## QA e code review
+
+- revisão do fluxo confirmou que `SIGTERM` continua sendo enviado ao grupo
+  inteiro e que `SIGKILL` só é usado quando o grupo não desaparece no prazo;
+- após `SIGKILL`, o evento de saída do filho é aceito como confirmação para não
+  depender da remoção imediata de entradas transitórias do grupo pelo sistema
+  operacional;
+- a suíte do Process Manager passou em três execuções consecutivas, com 32
+  testes aprovados em cada rodada;
+- a suíte completa passou também com Node.js 24, a mesma versão usada no
+  workflow de CI;
+- o diagnóstico foi executado com Node.js 24 e manteve os dois testes aprovados;
+- não foram encontrados novos problemas bloqueantes ou alterações adicionais
+  necessárias no escopo da task.
+
 ## Próxima atividade
 
 Descrita em `docs/tasks/NEXT.md`.
