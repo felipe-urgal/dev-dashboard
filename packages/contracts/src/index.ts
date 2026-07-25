@@ -43,3 +43,10 @@ export type {
   ProjectDatabaseStartResult,
   ProjectDatabaseSource,
 } from './database.js';
+
+export type {
+  ProjectScript,
+  ProjectScriptCatalog,
+  ProjectScriptOrigin,
+  ProjectScriptRisk,
+} from './script.js';

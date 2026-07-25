@@ -9,6 +9,7 @@ import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
+import { ScriptDetectionService } from './services/script-detection-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -18,6 +19,7 @@ export interface AppContext {
   gitService: GitService;
   testDetectionService: TestDetectionService;
   databaseDetectionService: DatabaseDetectionService;
+  scriptDetectionService: ScriptDetectionService;
 }
 
 export function createAppContext(): AppContext {
@@ -30,5 +32,6 @@ export function createAppContext(): AppContext {
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
     databaseDetectionService: new DatabaseDetectionService(),
+    scriptDetectionService: new ScriptDetectionService(),
   };
 }

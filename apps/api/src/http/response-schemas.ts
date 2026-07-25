@@ -39,6 +39,20 @@ export const commonErrorResponseSchemas = {
   500: apiErrorResponseSchema,
 } as const;
 
+export const projectScriptCatalogResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
+  properties: {
+    items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'name', 'description', 'command', 'origin', 'risk', 'enabled'], properties: {
+      id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, command: { type: 'string' },
+      origin: { type: 'string', enum: ['package-script', 'rails-task', 'bin'] },
+      risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] }, enabled: { type: 'boolean' },
+    } } },
+    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' },
+  },
+} as const;
+
 export const workspaceResponseSchema = {
   type: 'object',
   additionalProperties: false,

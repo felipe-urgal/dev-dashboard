@@ -10,6 +10,7 @@ import { processRoutes } from './routes/processes.js';
 
 import { testRoutes } from './routes/tests.js';
 import { databaseRoutes } from './routes/database.js';
+import { scriptRoutes } from './routes/scripts.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -94,6 +95,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     databaseDetectionService: context.databaseDetectionService,
+  });
+
+  app.register(scriptRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    scriptDetectionService: context.scriptDetectionService,
   });
 
   return app;
