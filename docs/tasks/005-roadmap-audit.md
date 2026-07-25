@@ -73,11 +73,16 @@ diagnóstico reproduzível do ambiente web.
 - testes unitários do diagnóstico: 2 aprovados;
 - `npm run typecheck`: aprovado;
 - `npm run build`: aprovado;
-- `npm test`: os testes novos e os workspaces API, web, core e descoberta
-  passaram; a suíte completa permanece vermelha no ambiente por quatro casos
-  preexistentes do Process Manager (três `PROCESS_STOP_TIMEOUT` no encerramento
-  de grupos reais e uma corrida ao observar `exitCode`), sem relação com os
-  arquivos de produção desta entrega.
+- `npm test`: aprovado após estabilizar a observação do encerramento de processos.
+
+## Ajuste após CI
+
+- a espera pelo evento de saída do filho passou a participar do encerramento
+  gerenciado. Isso evita interpretar um processo já encerrado como ativo quando
+  o grupo ainda contém uma entrada transitória no sistema operacional;
+- o prazo para consumir o evento de saída aumentou de 100 ms para 1 segundo,
+  eliminando a corrida em que o estado terminal era persistido antes do
+  `exitCode` ficar disponível sob carga na CI.
 
 ## Próxima atividade
 

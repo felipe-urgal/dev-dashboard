@@ -1007,7 +1007,9 @@ export class ProcessManager {
 
     this.sendSignal(storedProcess.pid, 'SIGTERM');
 
-    const exitedGracefully = await waitForProcessExit(
+    const exitedGracefully = await this.waitForManagedExit(
+      projectId,
+      kind,
       storedProcess.pid,
       5_000,
     );
@@ -1015,9 +1017,12 @@ export class ProcessManager {
     if (!exitedGracefully) {
       this.sendSignal(storedProcess.pid, 'SIGKILL');
 
-      const exitedAfterKill = await waitForProcessExit(
+      const exitedAfterKill = await this.waitForManagedExit(
+        projectId,
+        kind,
         storedProcess.pid,
         2_000,
+        true,
       );
 
       if (!exitedAfterKill) {
@@ -1093,7 +1098,7 @@ export class ProcessManager {
     projectId: string,
     kind: ManagedKind,
     pid: number,
-    timeoutMs = 100,
+    timeoutMs = 1_000,
   ): Promise<ObservedExit | undefined> {
     const key = `${projectId}:${kind}`;
     const existing = this.observedExits.get(key);
@@ -1114,6 +1119,29 @@ export class ProcessManager {
         setTimeout(() => resolve(undefined), timeoutMs);
       }),
     ]);
+  }
+
+  private async waitForManagedExit(
+    projectId: string,
+    kind: ManagedKind,
+    pid: number,
+    timeoutMs: number,
+    acceptObservedExit = false,
+  ): Promise<boolean> {
+    const observedExit = this.waitForObservedExit(
+      projectId,
+      kind,
+      pid,
+      timeoutMs,
+    ).then((observation) =>
+      observation !== undefined
+        ? acceptObservedExit || !isManagedProcessAlive(pid)
+        : false,
+    );
+
+    const groupExit = waitForProcessExit(pid, timeoutMs);
+
+    return await Promise.race([observedExit, groupExit]);
   }
 
   private clearObservedExit(
