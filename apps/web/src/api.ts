@@ -4,6 +4,7 @@ import type {
   Project,
   ProjectServerSettings,
   ProjectGitOverview,
+  ProjectTestOverview,
   Workspace,
 } from '@dev-dashboard/contracts';
 
@@ -313,4 +314,72 @@ interface ProjectGitResponse { git: ProjectGitOverview; }
 export async function fetchProjectGit(projectId: string): Promise<ProjectGitOverview> {
   const response = await requestJson<ProjectGitResponse>(`/api/projects/${encodeURIComponent(projectId)}/git`);
   return response.git;
+}
+
+interface ProjectTestsResponse { tests: ProjectTestOverview; }
+
+export async function fetchProjectTests(
+  projectId: string,
+): Promise<ProjectTestOverview> {
+  const response = await requestJson<ProjectTestsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests`,
+  );
+  return response.tests;
+}
+
+export async function fetchProjectTestProcess(
+  projectId: string,
+): Promise<ManagedProcess | null> {
+  const response = await requestJson<ProcessResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process`,
+  );
+  return response.process;
+}
+
+export async function startProjectTest(
+  projectId: string,
+  commandId: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<ProcessResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/start`,
+    { method: 'POST' },
+  );
+  if (!response.process) {
+    throw new Error('A API não retornou o processo iniciado.');
+  }
+  return response.process;
+}
+
+export async function stopProjectTest(
+  projectId: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<ProcessResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/stop`,
+    { method: 'POST' },
+  );
+  if (!response.process) {
+    throw new Error('A API não retornou o processo interrompido.');
+  }
+  return response.process;
+}
+
+export async function fetchProjectTestLog(
+  projectId: string,
+  maxBytes = 65_536,
+): Promise<ProcessLogSnapshot> {
+  const parameters = new URLSearchParams({ maxBytes: String(maxBytes) });
+  const response = await requestJson<ProcessLogResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/logs?${parameters}`,
+  );
+  return response.log;
+}
+
+export async function clearProjectTestLog(
+  projectId: string,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<ProcessLogResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/logs`,
+    { method: 'DELETE' },
+  );
+  return response.log;
 }

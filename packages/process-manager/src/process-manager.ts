@@ -29,6 +29,8 @@ import type {
 
 import { sweepStaleProcesses } from './log-retention.js';
 
+type ManagedKind = 'server' | 'test';
+
 import {
   isManagedProcessAlive,
   isStoredProcess,
@@ -481,10 +483,23 @@ export class ProcessManager {
     this.logDirectory = path.join(stateDirectory, 'logs');
   }
 
-  public async getServerProcess(
+  public getServerProcess(
     projectId: string,
   ): Promise<ManagedProcess | null> {
-    const storedProcess = await this.readStoredProcess(projectId);
+    return this.getManagedProcess(projectId, 'server');
+  }
+
+  public getTestProcess(
+    projectId: string,
+  ): Promise<ManagedProcess | null> {
+    return this.getManagedProcess(projectId, 'test');
+  }
+
+  private async getManagedProcess(
+    projectId: string,
+    kind: ManagedKind,
+  ): Promise<ManagedProcess | null> {
+    const storedProcess = await this.readStoredProcess(projectId, kind);
 
     if (!storedProcess) {
       return null;
@@ -501,36 +516,47 @@ export class ProcessManager {
         (await verifyProcessDirectory(storedProcess));
 
       if (!running) {
-        const terminalStatus =
+        const terminalStatus: 'stopped' | 'failed' =
           storedProcess.status === 'stopping'
             ? 'stopped'
-            : 'failed';
+            : kind === 'test'
+              ? 'stopped'
+              : 'failed';
 
         const observedExit =
           storedProcess.pid !== undefined
             ? await this.waitForObservedExit(
                 projectId,
+                kind,
                 storedProcess.pid,
               )
             : undefined;
         const exitCode = observedExit?.exitCode;
 
+        const finalStatus: 'stopped' | 'failed' =
+          kind === 'test'
+            ? typeof exitCode === 'number' && exitCode !== 0 && storedProcess.status !== 'stopping'
+              ? 'failed'
+              : terminalStatus
+            : terminalStatus;
+
         const finishedProcess = terminalProcess(
           storedProcess,
-          terminalStatus,
+          finalStatus,
           exitCode,
         );
 
         await this.writeStoredProcess(finishedProcess);
 
         if (storedProcess.pid !== undefined) {
-          this.clearObservedExit(projectId, storedProcess.pid);
+          this.clearObservedExit(projectId, kind, storedProcess.pid);
         }
 
         return finishedProcess;
       }
 
       if (
+        kind === 'server' &&
         storedProcess.status === 'starting' &&
         storedProcess.port !== undefined &&
         (await canConnect('127.0.0.1', storedProcess.port))
@@ -578,7 +604,10 @@ export class ProcessManager {
     const processes: ManagedProcess[] = [];
 
     for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.server.json')) {
+      if (
+        !entry.isFile() ||
+        !/\.(server|test)\.json$/.test(entry.name)
+      ) {
         continue;
       }
 
@@ -595,8 +624,9 @@ export class ProcessManager {
         );
       }
 
-      const managedProcess = await this.getServerProcess(
+      const managedProcess = await this.getManagedProcess(
         parsed.projectId,
+        parsed.kind as ManagedKind,
       );
 
       if (managedProcess) {
@@ -609,11 +639,26 @@ export class ProcessManager {
     );
   }
 
-  public async readServerLog(
+  public readServerLog(
     projectId: string,
     options: ReadServerLogOptions = {},
   ): Promise<ProcessLogSnapshot> {
-    const storedProcess = await this.readStoredProcess(projectId);
+    return this.readLog(projectId, 'server', options);
+  }
+
+  public readTestLog(
+    projectId: string,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    return this.readLog(projectId, 'test', options);
+  }
+
+  private async readLog(
+    projectId: string,
+    kind: ManagedKind,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    const storedProcess = await this.readStoredProcess(projectId, kind);
 
     if (!storedProcess) {
       throw new ProcessManagerError(
@@ -636,7 +681,7 @@ export class ProcessManager {
     }
 
     try {
-      const logPath = this.resolveLogFile(projectId);
+      const logPath = this.resolveLogFile(projectId, kind);
 
       const logStats = await stat(logPath);
 
@@ -691,10 +736,23 @@ export class ProcessManager {
     }
   }
 
-  public async clearServerLog(
+  public clearServerLog(
     projectId: string,
   ): Promise<ProcessLogSnapshot> {
-    const storedProcess = await this.readStoredProcess(projectId);
+    return this.clearLog(projectId, 'server');
+  }
+
+  public clearTestLog(
+    projectId: string,
+  ): Promise<ProcessLogSnapshot> {
+    return this.clearLog(projectId, 'test');
+  }
+
+  private async clearLog(
+    projectId: string,
+    kind: ManagedKind,
+  ): Promise<ProcessLogSnapshot> {
+    const storedProcess = await this.readStoredProcess(projectId, kind);
 
     if (!storedProcess) {
       throw new ProcessManagerError(
@@ -703,7 +761,7 @@ export class ProcessManager {
       );
     }
 
-    const logPath = this.resolveLogFile(projectId);
+    const logPath = this.resolveLogFile(projectId, kind);
 
     try {
       await truncate(logPath, 0);
@@ -792,7 +850,7 @@ export class ProcessManager {
       }),
     ]);
 
-    const logPath = this.resolveLogFile(project.id);
+    const logPath = this.resolveLogFile(project.id, 'server');
 
     const logHandle = await open(logPath, 'a', 0o600);
 
@@ -865,10 +923,23 @@ export class ProcessManager {
     return managedProcess;
   }
 
-  public async stopServer(
+  public stopServer(
     projectId: string,
   ): Promise<ManagedProcess> {
-    const storedProcess = await this.readStoredProcess(projectId);
+    return this.stopManagedProcess(projectId, 'server');
+  }
+
+  public stopTest(
+    projectId: string,
+  ): Promise<ManagedProcess> {
+    return this.stopManagedProcess(projectId, 'test');
+  }
+
+  private async stopManagedProcess(
+    projectId: string,
+    kind: ManagedKind,
+  ): Promise<ManagedProcess> {
+    const storedProcess = await this.readStoredProcess(projectId, kind);
 
     if (!storedProcess) {
       throw new ProcessManagerError(
@@ -955,7 +1026,9 @@ export class ProcessManager {
 
     const pid = managedProcess.pid as number;
 
-    this.exitWaiters.set(managedProcess.projectId, {
+    const key = `${managedProcess.projectId}:${managedProcess.kind}`;
+
+    this.exitWaiters.set(key, {
       pid,
       promise: exitPromise,
     });
@@ -972,14 +1045,12 @@ export class ProcessManager {
         ...(exitCode !== undefined ? { exitCode } : {}),
       };
 
-      this.observedExits.set(
-        managedProcess.projectId,
-        observation,
-      );
+      this.observedExits.set(key, observation);
       resolveExit(observation);
 
       void this.recordChildExit(
         managedProcess.projectId,
+        managedProcess.kind as ManagedKind,
         pid,
         exitCode,
       ).catch(() => undefined);
@@ -995,16 +1066,18 @@ export class ProcessManager {
 
   private async waitForObservedExit(
     projectId: string,
+    kind: ManagedKind,
     pid: number,
     timeoutMs = 100,
   ): Promise<ObservedExit | undefined> {
-    const existing = this.observedExits.get(projectId);
+    const key = `${projectId}:${kind}`;
+    const existing = this.observedExits.get(key);
 
     if (existing?.pid === pid) {
       return existing;
     }
 
-    const waiter = this.exitWaiters.get(projectId);
+    const waiter = this.exitWaiters.get(key);
 
     if (!waiter || waiter.pid !== pid) {
       return undefined;
@@ -1018,25 +1091,31 @@ export class ProcessManager {
     ]);
   }
 
-  private clearObservedExit(projectId: string, pid: number): void {
-    if (this.observedExits.get(projectId)?.pid === pid) {
-      this.observedExits.delete(projectId);
+  private clearObservedExit(
+    projectId: string,
+    kind: ManagedKind,
+    pid: number,
+  ): void {
+    const key = `${projectId}:${kind}`;
+    if (this.observedExits.get(key)?.pid === pid) {
+      this.observedExits.delete(key);
     }
 
-    if (this.exitWaiters.get(projectId)?.pid === pid) {
-      this.exitWaiters.delete(projectId);
+    if (this.exitWaiters.get(key)?.pid === pid) {
+      this.exitWaiters.delete(key);
     }
   }
 
   private async recordChildExit(
     projectId: string,
+    kind: ManagedKind,
     pid: number,
     exitCode?: number | null,
   ): Promise<void> {
-    const currentProcess = await this.readStoredProcess(projectId);
+    const currentProcess = await this.readStoredProcess(projectId, kind);
 
     if (!currentProcess) {
-      this.clearObservedExit(projectId, pid);
+      this.clearObservedExit(projectId, kind, pid);
       return;
     }
 
@@ -1055,13 +1134,14 @@ export class ProcessManager {
         });
       }
 
-      this.clearObservedExit(projectId, pid);
+      this.clearObservedExit(projectId, kind, pid);
       return;
     }
 
     const status =
       currentProcess.status === 'stopping' ||
-      (currentProcess.status === 'running' && exitCode === 0)
+      (currentProcess.status === 'running' && exitCode === 0) ||
+      (kind === 'test' && exitCode === 0)
         ? 'stopped'
         : 'failed';
 
@@ -1069,7 +1149,7 @@ export class ProcessManager {
       terminalProcess(currentProcess, status, exitCode),
     );
 
-    this.clearObservedExit(projectId, pid);
+    this.clearObservedExit(projectId, kind, pid);
   }
 
   private sendSignal(pid: number, signal: NodeJS.Signals): void {
@@ -1102,26 +1182,30 @@ export class ProcessManager {
     return `${readable}-${hash}`;
   }
 
-  private resolveLogFile(projectId: string): string {
+  private resolveLogFile(projectId: string, kind: ManagedKind): string {
     return path.join(
       this.logDirectory,
-      `${this.createProjectKey(projectId)}.server.log`,
+      `${this.createProjectKey(projectId)}.${kind}.log`,
     );
   }
 
-  private resolveProcessFile(projectId: string): string {
+  private resolveProcessFile(
+    projectId: string,
+    kind: ManagedKind,
+  ): string {
     return path.join(
       this.processDirectory,
-      `${this.createProjectKey(projectId)}.server.json`,
+      `${this.createProjectKey(projectId)}.${kind}.json`,
     );
   }
 
   private async readStoredProcess(
     projectId: string,
+    kind: ManagedKind,
   ): Promise<StoredProcess | null> {
     try {
       const contents = await readFile(
-        this.resolveProcessFile(projectId),
+        this.resolveProcessFile(projectId, kind),
         'utf8',
       );
 
@@ -1153,6 +1237,7 @@ export class ProcessManager {
 
     const processFile = this.resolveProcessFile(
       managedProcess.projectId,
+      managedProcess.kind as ManagedKind,
     );
 
     const temporaryFile = `${processFile}.${process.pid}.tmp`;
@@ -1167,5 +1252,106 @@ export class ProcessManager {
     );
 
     await rename(temporaryFile, processFile);
+  }
+
+  public async startTest(
+    project: Project,
+    command: { id: string; command: string; args: string[] },
+  ): Promise<ManagedProcess> {
+    try {
+      await sweepStaleProcesses(this.stateDirectory);
+    } catch {
+      // best-effort
+    }
+
+    const currentProcess = await this.getTestProcess(project.id);
+
+    if (
+      currentProcess?.status === 'running' ||
+      currentProcess?.status === 'starting' ||
+      currentProcess?.status === 'stopping'
+    ) {
+      throw new ProcessManagerError(
+        'PROCESS_ALREADY_RUNNING',
+        `Já existe uma execução de testes em andamento para ${project.name}.`,
+      );
+    }
+
+    await Promise.all([
+      mkdir(this.processDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+      mkdir(this.logDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+    ]);
+
+    const logPath = this.resolveLogFile(project.id, 'test');
+
+    const logHandle = await open(logPath, 'a', 0o600);
+
+    let child: ReturnType<typeof spawn>;
+
+    try {
+      child = spawn(command.command, command.args, {
+        cwd: project.path,
+        detached: true,
+        shell: false,
+        windowsHide: true,
+        stdio: ['ignore', logHandle.fd, logHandle.fd],
+        env: {
+          ...process.env,
+          CI: 'true',
+        },
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        child.once('spawn', resolve);
+        child.once('error', reject);
+      });
+    } finally {
+      await logHandle.close();
+    }
+
+    if (!child.pid) {
+      throw new Error(
+        `Não foi possível obter o PID da execução de testes de ${project.name}.`,
+      );
+    }
+
+    const managedProcess: StoredProcess = {
+      id: `${project.id}:test:${command.id}`,
+      projectId: project.id,
+      ...(project.workspaceId
+        ? { workspaceId: project.workspaceId }
+        : {}),
+      kind: 'test',
+      status: 'running',
+      pid: child.pid,
+      command: command.command,
+      args: command.args,
+      cwd: project.path,
+      logPath,
+      startedAt: new Date().toISOString(),
+    };
+
+    try {
+      await this.writeStoredProcess(managedProcess);
+    } catch (error) {
+      try {
+        this.sendSignal(child.pid, 'SIGKILL');
+      } catch {
+        // preserva o erro original
+      }
+
+      throw error;
+    }
+
+    this.observeChild(child, managedProcess);
+    child.unref();
+
+    return managedProcess;
   }
 }

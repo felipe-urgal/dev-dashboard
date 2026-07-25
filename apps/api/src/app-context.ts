@@ -7,6 +7,7 @@ import {
 
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
+import { TestDetectionService } from './services/test-detection-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -14,6 +15,7 @@ export interface AppContext {
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
   gitService: GitService;
+  testDetectionService: TestDetectionService;
 }
 
 export function createAppContext(): AppContext {
@@ -24,5 +26,6 @@ export function createAppContext(): AppContext {
       new ProjectServerSettingsRepository(),
     projectStore: new ProjectStore(),
     gitService: new GitService(),
+    testDetectionService: new TestDetectionService(),
   };
 }

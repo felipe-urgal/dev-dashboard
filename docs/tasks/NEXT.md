@@ -1,67 +1,48 @@
-# Próxima atividade — 002: Visão de testes do projeto
+# Próxima atividade — 003: Visão de banco de dados do projeto
 
 ## Objetivo
 
-Criar a aba `/projects/:projectId/tests` para detectar como cada projeto executa testes, apresentar os comandos disponíveis e permitir uma primeira execução controlada com logs e resultado persistidos pelo dashboard.
+Criar a aba `/projects/:projectId/database` para inspecionar as
+configurações de banco de dados detectadas em cada projeto (Rails e
+Node) e permitir ações somente leitura sobre elas.
 
-## Escopo funcional
+## Escopo funcional proposto
 
-- detectar runners por arquivos e scripts: Vitest, Jest, Node Test Runner, RSpec, Rails test, Minitest e pytest quando aplicável;
-- listar comandos detectados e a origem de cada detecção;
-- indicar quando nenhum runner for reconhecido;
-- executar um comando de teste previamente detectado, sem aceitar shell arbitrário enviado pelo navegador;
-- mostrar estados `idle`, `starting`, `running`, `passed`, `failed`, `stopped`;
-- exibir duração, exit code, início e término;
-- streaming/polling de logs com limpeza persistente;
-- permitir interrupção do processo de testes;
-- impedir duas execuções simultâneas para o mesmo projeto;
-- manter servidores e testes como processos independentes;
-- layout responsivo e recarga direta da URL.
-
-## Arquitetura planejada
-
-- contratos `ProjectTestCommand`, `ProjectTestOverview` e processo de teste;
-- serviço de detecção somente no backend;
-- comandos construídos a partir de uma lista permitida e dados já descobertos no projeto;
-- integração com `ProcessManager` usando `kind: 'test'`;
-- rotas previstas:
-  - `GET /api/projects/:projectId/tests`;
-  - `GET /api/projects/:projectId/tests/process`;
-  - `POST /api/projects/:projectId/tests/:commandId/start`;
-  - `POST /api/projects/:projectId/tests/process/stop`;
-  - `GET /api/projects/:projectId/tests/process/logs`;
-  - `DELETE /api/projects/:projectId/tests/process/logs`.
+- detectar arquivos de configuração conhecidos:
+  `config/database.yml` (Rails), `.env`/`.env.local` com variáveis
+  `DATABASE_URL` ou `DB_*`, `prisma/schema.prisma`, `knexfile.*`;
+- listar os ambientes disponíveis (development, test, production) com
+  driver, host, porta e nome do banco;
+- indicar se cada ambiente é acessível a partir da máquina local (ping
+  TCP na porta configurada);
+- oferecer ações somente leitura: copiar `DATABASE_URL`, abrir o cliente
+  configurado (`psql`/`mysql`) via link `dev-dashboard://`;
+- mascarar senhas por padrão, com botão explícito para revelar;
+- estado dedicado para projetos sem configuração reconhecida.
 
 ## Segurança
 
-- nenhum comando ou caminho arbitrário no payload;
-- `commandId` precisa existir na detecção atual do projeto;
-- execução sem shell intermediário;
-- cwd sempre obtido pelo `ProjectStore`;
-- limites de log e retenção iguais aos processos de servidor;
-- erros sem exposição de caminhos internos desnecessários.
-
-## Testes automatizados esperados
-
-- detecção de cada runner suportado;
-- projeto sem testes;
-- prioridade quando há mais de um runner;
-- start, stop, sucesso e falha;
-- bloqueio de comando desconhecido;
-- projeto inexistente;
-- processo concorrente;
-- limpeza e retenção de logs;
-- schemas HTTP;
-- troca de projeto no frontend sem estado residual.
-
-## QA manual esperado
-
-Validar pelo menos um projeto Node e um Rails, incluindo execução com sucesso, falha intencional, interrupção, logs, recarga da rota e tentativa de iniciar duas vezes.
+- nenhum comando arbitrário de banco pode ser executado pelo backend;
+- valores sensíveis (senhas, tokens) só saem do backend quando o
+  frontend pede explicitamente e nunca via schema de resposta padrão;
+- leitura de arquivos limitada à raiz do projeto;
+- resposta paginada quando houver muitos ambientes.
 
 ## Fora do escopo inicial
 
-- seleção de arquivo ou teste individual;
-- cobertura de código;
-- modo watch;
-- edição de comandos personalizados;
-- integração com CI remoto.
+- execução de queries;
+- criação/reset de bancos;
+- gestão de migrações;
+- edição das configurações a partir do dashboard.
+
+## Testes automatizados esperados
+
+- detecção de `config/database.yml` com múltiplos ambientes;
+- detecção de `.env` com `DATABASE_URL`;
+- projeto sem configuração;
+- resposta sem vazamento de senha por padrão.
+
+## Observação
+
+O plano detalhado deve ser refinado antes do início da implementação;
+esta é a próxima entrega priorizada após a Visão de testes (task 002).

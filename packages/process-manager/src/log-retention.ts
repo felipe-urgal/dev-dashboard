@@ -100,13 +100,16 @@ async function isEligibleForRemoval(
   return Date.now() - referenceTimestamp > maxAgeMs;
 }
 
+const MANAGED_STATE_SUFFIX_PATTERN =
+  /\.(server|test)\.json$/;
+
 function resolveManagedLogPath(
   logDirectory: string,
   stateFileName: string,
 ): string {
   const logFileName = stateFileName.replace(
-    /\.server\.json$/,
-    '.server.log',
+    /\.(server|test)\.json$/,
+    (_match, kind: string) => `.${kind}.log`,
   );
 
   return path.join(logDirectory, logFileName);
@@ -146,7 +149,7 @@ export async function sweepStaleProcesses(
   for (const entry of entries) {
     if (
       !entry.isFile() ||
-      !entry.name.endsWith('.server.json')
+      !MANAGED_STATE_SUFFIX_PATTERN.test(entry.name)
     ) {
       continue;
     }
