@@ -17,6 +17,7 @@ import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
+import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
 
 import {
@@ -38,6 +39,7 @@ const projectId = computed(() => {
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
+const isScriptsRoute = computed(() => route.name === 'project-scripts');
 
 const workspace = computed(() => {
   const workspaceId = project.value?.workspaceId;
@@ -145,13 +147,13 @@ watch(projectId, () => {
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
         <RouterLink
           class="project-details-tab"
-          :class="{ 'project-details-tab-active': !isGitRoute && !isTestsRoute && !isDatabaseRoute }"
+          :class="{ 'project-details-tab-active': !isGitRoute && !isTestsRoute && !isDatabaseRoute && !isScriptsRoute }"
           :to="{ name: 'project-details', params: { projectId: project.id } }"
         >
           Visão geral
         </RouterLink>
-        <a v-if="!isGitRoute && !isTestsRoute && !isDatabaseRoute" class="project-details-tab" href="#server">Servidor</a>
-        <a v-if="!isGitRoute && !isTestsRoute && !isDatabaseRoute" class="project-details-tab" href="#logs">Logs</a>
+        <a v-if="!isGitRoute && !isTestsRoute && !isDatabaseRoute && !isScriptsRoute" class="project-details-tab" href="#server">Servidor</a>
+        <a v-if="!isGitRoute && !isTestsRoute && !isDatabaseRoute && !isScriptsRoute" class="project-details-tab" href="#logs">Logs</a>
         <RouterLink
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isGitRoute }"
@@ -167,11 +169,13 @@ watch(projectId, () => {
           Testes
         </RouterLink>
         <RouterLink class="project-details-tab" :class="{ 'project-details-tab-active': isDatabaseRoute }" :to="{ name: 'project-database', params: { projectId: project.id } }">Banco de dados</RouterLink>
+        <RouterLink class="project-details-tab" :class="{ 'project-details-tab-active': isScriptsRoute }" :to="{ name: 'project-scripts', params: { projectId: project.id } }">Scripts</RouterLink>
       </nav>
 
       <ProjectGitPanel v-if="isGitRoute" :key="`git-${project.id}`" :project="project" />
       <ProjectTestsPanel v-else-if="isTestsRoute" :key="`tests-${project.id}`" :project="project" />
       <ProjectDatabasePanel v-else-if="isDatabaseRoute" :key="`database-${project.id}`" :project="project" />
+      <ProjectScriptsPanel v-else-if="isScriptsRoute" :key="`scripts-${project.id}`" :project="project" />
 
       <div v-else class="project-details-grid">
         <section id="overview" class="details-card">

@@ -8,8 +8,11 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
+  ProjectScriptCatalog,
   Workspace,
 } from '@dev-dashboard/contracts';
+
+interface ScriptCatalogResponse { catalog: ProjectScriptCatalog }
 
 export interface HealthResponse {
   status: string;
@@ -121,6 +124,11 @@ async function requestJson<T>(
 
 export function fetchHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>('/api/health');
+}
+
+export async function fetchProjectScripts(projectId: string, query: URLSearchParams): Promise<ProjectScriptCatalog> {
+  const response = await requestJson<ScriptCatalogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts?${query.toString()}`);
+  return response.catalog;
 }
 
 export async function fetchProject(

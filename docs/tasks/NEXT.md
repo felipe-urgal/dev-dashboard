@@ -1,37 +1,32 @@
-# Próxima atividade — 004: Scripts e tarefas do projeto
+# Próxima atividade — 005: Execução segura de scripts
 
 ## Objetivo
 
-Criar a aba `/projects/:projectId/scripts` para reunir scripts Node e tarefas
-Rails reconhecidas em um catálogo seguro, antes de permitir sua execução.
+Permitir a execução das ações não destrutivas do catálogo de scripts por meio do
+gerenciador de processos, sem aceitar comandos ou argumentos livres do navegador.
 
 ## Plano detalhado
 
-1. Criar contratos para script, origem, classificação de risco e catálogo.
-2. Detectar scripts do `package.json`, tarefas públicas de `bin/rails -T` e
-   executáveis conhecidos em `bin/`, sem aceitar comandos enviados pelo browser.
-3. Separar inicialmente ações somente leitura das mutáveis e manter as
-   destrutivas desabilitadas.
-4. Expor `GET /api/projects/:projectId/scripts` com paginação, schemas completos
-   e projeto resolvido exclusivamente pelo `ProjectStore`.
-5. Criar a aba web com busca, filtros por origem e risco, descrição do comando e
-   estado vazio.
-6. Invalidar estado assíncrono ao alternar projetos e adicionar testes de
-   detecção, paginação e ausência de comandos arbitrários.
+1. Resolver cada item novamente no backend a partir de `projectId` e `scriptId`.
+2. Detectar npm, pnpm, Yarn ou Bun por lockfile para scripts Node.
+3. Criar o kind de processo `script` com estado, logs limitados, cancelamento e limpeza.
+4. Recusar ações classificadas como destrutivas e exigir confirmação explícita para mutáveis.
+5. Expor endpoints de iniciar, consultar, parar e ler logs com schemas completos.
+6. Habilitar as ações na aba, mostrar progresso e invalidar polling ao trocar de projeto.
+7. Adicionar testes de catálogo fechado, identidade do processo, concorrência e cancelamento.
 
 ## Fora do escopo inicial
 
-- execução de scripts e tarefas;
 - argumentos personalizados;
-- tarefas destrutivas de banco ou filesystem;
 - terminal interativo;
-- gerenciamento de bancos por Docker ou Docker Compose, reservado para o
-  roadmap futuro.
+- execução de ações destrutivas;
+- múltiplos scripts simultâneos no mesmo projeto;
+- histórico persistente de jobs.
 
 ## Critérios de aceite
 
-- catálogo reproduzível e ordenado;
-- nenhum conteúdo do projeto é executado durante a detecção Node;
-- schemas descartam detalhes internos de resolução;
-- UI responsiva com estados de carregamento, erro e vazio;
+- nenhuma linha de comando ou caminho é aceito do navegador;
+- ações destrutivas sempre retornam erro controlado;
+- processo e logs permanecem vinculados ao projeto autorizado;
+- UI comunica confirmação, execução, sucesso, falha e cancelamento;
 - `npm run typecheck`, `npm run build` e `npm test` passam.

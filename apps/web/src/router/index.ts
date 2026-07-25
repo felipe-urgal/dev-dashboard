@@ -53,6 +53,12 @@ export const router = createRouter({
       meta: { eyebrow: 'Projeto local', title: 'Banco de dados do projeto' },
     },
     {
+      path: '/projects/:projectId/scripts',
+      name: 'project-scripts',
+      component: ProjectDetailsView,
+      meta: { eyebrow: 'Projeto local', title: 'Scripts e tarefas do projeto' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,
