@@ -15,6 +15,8 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Detecção automática de portas disponíveis
 - Persistência segura de PIDs e metadados dos processos
 - Visualização de logs no navegador
+- Visão Git somente leitura, execução de testes e catálogo seguro de scripts
+- Inspeção de configurações e disponibilidade de bancos locais
 - Interface de terminal existente
 - API local em Fastify
 - Dashboard web em Vue 3
@@ -115,6 +117,16 @@ npm run dev:web
 ```
 
 Use `Ctrl+C` para encerrar os processos de desenvolvimento.
+
+Para verificar os requisitos sem iniciar serviços nem alterar o ambiente:
+
+```bash
+npm run doctor
+```
+
+O diagnóstico valida Node.js, npm, Git, dependências e disponibilidade das
+portas locais. Uma porta ocupada é apenas um aviso, pois pode indicar outra
+instância legítima do dashboard.
 
 ## Validação
 
@@ -333,6 +345,7 @@ Implementação Bash original do dashboard de terminal.
 npm run dev
 npm run dev:api
 npm run dev:web
+npm run doctor
 npm run typecheck
 npm run build
 npm test
@@ -372,17 +385,12 @@ A fundação web já permite:
 
 ## Próximos passos
 
-- status Git por projeto;
-- visualização de arquivos alterados;
-- branches, pull, push, commit e stash;
-- execução de testes Rails e Node;
-- scripts do `package.json`;
-- operações de banco Rails;
-- jobs e eventos em tempo real;
-- command palette;
-- página de detalhes do projeto;
-- autenticação local da API;
-- documentação e testes adicionais.
+- servir o frontend compilado pela API e disponibilizar o comando `dev-web`;
+- executar com segurança o catálogo de scripts e tarefas;
+- completar as operações Git mutáveis com confirmação e auditoria;
+- adicionar histórico persistente de jobs e eventos em tempo real;
+- consolidar páginas globais, configurações e command palette;
+- ampliar testes de componentes e testes ponta a ponta.
 
 Consulte [`docs/roadmap.md`](docs/roadmap.md) para acompanhar as fases planejadas.
 

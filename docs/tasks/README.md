@@ -10,3 +10,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `002-project-tests.md` — implementação da visão de testes do projeto.
 - `003-project-database.md` — inspeção e inicialização segura de serviços locais de banco via systemd, com autorização polkit compatível com a API destacada.
 - `004-project-scripts.md` — catálogo seguro e somente leitura de scripts Node, tarefas Rails e executáveis conhecidos, com encerramento do grupo da detecção Rails no timeout.
+- `005-roadmap-audit.md` — reconciliação do roadmap com o produto atual e diagnóstico não destrutivo do ambiente web.

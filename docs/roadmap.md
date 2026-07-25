@@ -45,7 +45,8 @@ Critério de conclusão:
 
 ## Fase 1 — Consolidação da fundação
 
-Status: em andamento na branch `feat/local-security`.
+Status: em andamento. A segurança e a confiabilidade do núcleo estão concluídas;
+a distribuição local do build final é a próxima entrega.
 
 Objetivo: preparar a base para operações mais sensíveis.
 
@@ -60,7 +61,7 @@ Entregas:
 - [x] schemas de resposta;
 - [x] testes do Process Manager;
 - [x] limpeza e retenção de logs;
-- [ ] diagnóstico de ambiente;
+- [x] diagnóstico de ambiente;
 - [ ] script `dev-web`;
 - [ ] configuração de produção local;
 - [ ] frontend servido pela API no build final.
@@ -74,22 +75,24 @@ Critério de conclusão:
 
 ## Fase 2 — App shell e navegação
 
+Status: parcialmente entregue.
+
 Objetivo: transformar a tela inicial em uma aplicação escalável.
 
 Entregas:
 
-- Vue Router;
-- layout principal;
-- páginas de visão geral e repositórios;
-- página de processos;
-- página de jobs e logs;
-- configurações;
-- painel de atividade;
-- estados vazios;
-- loading skeletons;
-- sistema de notificações;
-- componentes reutilizáveis;
-- design tokens.
+- [x] Vue Router;
+- [x] layout principal;
+- [x] visão geral com workspaces e repositórios;
+- [ ] página global de processos;
+- [ ] página de jobs e logs;
+- [ ] configurações;
+- [ ] painel de atividade;
+- [x] estados vazios nos fluxos existentes;
+- [ ] loading skeletons consistentes;
+- [ ] sistema de notificações;
+- [x] componentes reutilizáveis iniciais;
+- [x] design tokens iniciais.
 
 Critério de conclusão:
 
@@ -99,20 +102,22 @@ Critério de conclusão:
 
 ## Fase 3 — Detalhe do projeto
 
+Status: parcialmente entregue.
+
 Objetivo: centralizar o contexto operacional de cada repositório.
 
 Entregas:
 
-- rota `/projects/:id`;
-- cabeçalho do projeto;
-- abas por capacidade;
-- visão geral;
-- servidor;
-- logs;
-- metadados;
-- processos associados;
-- comandos conhecidos;
-- histórico recente.
+- [x] rota `/projects/:id`;
+- [x] cabeçalho do projeto;
+- [x] abas por capacidade;
+- [x] visão geral;
+- [x] servidor;
+- [x] logs;
+- [x] metadados;
+- [x] processos associados de servidor e teste;
+- [x] comandos conhecidos de testes e scripts;
+- [ ] histórico recente unificado.
 
 Critério de conclusão:
 
@@ -120,22 +125,24 @@ Critério de conclusão:
 
 ## Fase 4 — Git
 
+Status: parcialmente entregue; consultas são somente leitura.
+
 Objetivo: trazer o fluxo Git cotidiano com segurança.
 
 Entregas:
 
-- status;
-- branch atual;
-- arquivos alterados;
-- commits recentes;
-- criação e troca de branch;
-- pull;
-- push;
-- commit;
-- stash;
-- diff resumido;
-- confirmação para ações destrutivas;
-- histórico de operações.
+- [x] status;
+- [x] branch atual;
+- [x] arquivos alterados;
+- [x] commits recentes;
+- [ ] criação e troca de branch;
+- [ ] pull;
+- [ ] push;
+- [ ] commit;
+- [ ] stash;
+- [ ] diff resumido;
+- [ ] confirmação para ações destrutivas;
+- [ ] histórico de operações.
 
 Critério de conclusão:
 
@@ -147,20 +154,24 @@ Dependência:
 
 ## Fase 5 — Testes e scripts
 
+Status: parcialmente entregue; testes podem ser executados e scripts possuem
+catálogo somente leitura.
+
 Objetivo: executar e acompanhar automações dos projetos.
 
 Entregas:
 
-- testes Rails;
-- testes Node;
-- arquivo específico;
-- cobertura;
-- scripts do `package.json`;
-- seleção de package manager;
-- jobs;
-- cancelamento;
-- logs em tempo real;
-- histórico de resultados.
+- [x] testes Rails;
+- [x] testes Node;
+- [ ] arquivo específico;
+- [ ] cobertura;
+- [x] catálogo de scripts do `package.json`;
+- [ ] execução de scripts do `package.json`;
+- [ ] seleção de package manager para scripts;
+- [x] jobs em memória representados por processos gerenciados;
+- [x] cancelamento;
+- [x] logs por polling durante a execução;
+- [ ] histórico persistente de resultados.
 
 Critério de conclusão:
 
@@ -262,19 +273,19 @@ Não deve existir plugin arbitrário remoto sem revisão do modelo de ameaça.
 
 ## Backlog técnico
 
-- testes completos do Process Manager;
-- testes das rotas Fastify;
+- [x] testes do Process Manager para o escopo atual;
+- [x] testes das rotas Fastify para o escopo atual;
 - testes dos componentes Vue;
 - Playwright;
 - lint e formatação;
-- CI;
+- [x] CI;
 - release automatizado;
 - changelog;
 - licença;
 - migração de configuração;
 - versionamento de estado;
 - mascaramento de segredos;
-- rotação de logs;
+- [x] rotação e retenção de logs;
 - suporte a múltiplos bancos;
 - detecção de monorepos;
 - scans recursivos opcionais;
