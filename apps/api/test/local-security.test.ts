@@ -203,3 +203,43 @@ test(
     );
   }
 );
+
+test(
+  "allows preview origin and PUT preflight for server settings",
+  async (context) => {
+    const app = await buildTestApp();
+
+    context.after(async () => {
+      await app.close();
+    });
+
+    const previewOrigin = "http://127.0.0.1:4173";
+
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/api/private",
+      headers: {
+        origin: previewOrigin,
+        "access-control-request-method": "PUT",
+        "access-control-request-headers":
+          "content-type,x-dev-dashboard-token"
+      }
+    });
+
+    assert.equal(response.statusCode, 204);
+    assert.equal(
+      response.headers[
+        "access-control-allow-origin"
+      ],
+      previewOrigin
+    );
+    assert.match(
+      String(
+        response.headers[
+          "access-control-allow-methods"
+        ]
+      ),
+      /PUT/
+    );
+  }
+);

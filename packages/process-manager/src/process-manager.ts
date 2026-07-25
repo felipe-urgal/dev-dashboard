@@ -14,7 +14,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 
-import { createServer } from 'node:net';
+import { createConnection, createServer } from 'node:net';
 
 import { homedir, networkInterfaces } from 'node:os';
 
@@ -22,6 +22,7 @@ import path from 'node:path';
 
 import type {
   ManagedProcess,
+  ManagedProcessStatus,
   ProcessLogSnapshot,
   Project,
 } from '@dev-dashboard/contracts';
@@ -74,6 +75,11 @@ export class ProcessManagerError extends Error {
 
 interface PackageManifest {
   scripts?: Record<string, string>;
+}
+
+interface ObservedExit {
+  pid: number;
+  exitCode?: number | null;
 }
 
 function resolveStateDirectory(): string {
@@ -143,6 +149,54 @@ function listServerUrls(port: number): string[] {
   }
 
   return [...urls];
+}
+
+async function canConnect(
+  host: string,
+  port: number,
+  timeoutMs = 250,
+): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    const socket = createConnection({ host, port });
+    let settled = false;
+
+    const finish = (connected: boolean): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      socket.destroy();
+      resolve(connected);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
+}
+
+function terminalProcess(
+  storedProcess: StoredProcess,
+  status: Extract<ManagedProcessStatus, 'stopped' | 'failed'>,
+  exitCode?: number | null,
+): StoredProcess {
+  const {
+    pid: _pid,
+    exitCode: _previousExitCode,
+    stoppedAt: _previousStoppedAt,
+    ...rest
+  } = storedProcess;
+
+  return {
+    ...rest,
+    status,
+    stoppedAt: new Date().toISOString(),
+    ...(exitCode !== undefined && exitCode !== null
+      ? { exitCode }
+      : {}),
+  };
 }
 
 async function canListen(
@@ -410,6 +464,14 @@ export class ProcessManager {
   public readonly stateDirectory: string;
   private readonly processDirectory: string;
   private readonly logDirectory: string;
+  private readonly observedExits = new Map<string, ObservedExit>();
+  private readonly exitWaiters = new Map<
+    string,
+    {
+      pid: number;
+      promise: Promise<ObservedExit>;
+    }
+  >();
 
   public constructor(stateDirectory = resolveStateDirectory()) {
     this.stateDirectory = stateDirectory;
@@ -439,16 +501,64 @@ export class ProcessManager {
         (await verifyProcessDirectory(storedProcess));
 
       if (!running) {
-        const stoppedProcess: StoredProcess = {
+        const terminalStatus =
+          storedProcess.status === 'stopping'
+            ? 'stopped'
+            : 'failed';
+
+        const observedExit =
+          storedProcess.pid !== undefined
+            ? await this.waitForObservedExit(
+                projectId,
+                storedProcess.pid,
+              )
+            : undefined;
+        const exitCode = observedExit?.exitCode;
+
+        const finishedProcess = terminalProcess(
+          storedProcess,
+          terminalStatus,
+          exitCode,
+        );
+
+        await this.writeStoredProcess(finishedProcess);
+
+        if (storedProcess.pid !== undefined) {
+          this.clearObservedExit(projectId, storedProcess.pid);
+        }
+
+        return finishedProcess;
+      }
+
+      if (
+        storedProcess.status === 'starting' &&
+        storedProcess.port !== undefined &&
+        (await canConnect('127.0.0.1', storedProcess.port))
+      ) {
+        const runningProcess: StoredProcess = {
           ...storedProcess,
-          status: 'stopped',
-          stoppedAt: new Date().toISOString(),
+          status: 'running',
         };
 
-        await this.writeStoredProcess(stoppedProcess);
+        await this.writeStoredProcess(runningProcess);
 
-        return stoppedProcess;
+        return runningProcess;
       }
+    }
+
+    if (
+      (storedProcess.status === 'stopped' ||
+        storedProcess.status === 'failed') &&
+      storedProcess.pid !== undefined
+    ) {
+      const normalizedProcess = terminalProcess(
+        storedProcess,
+        storedProcess.status,
+        storedProcess.exitCode,
+      );
+
+      await this.writeStoredProcess(normalizedProcess);
+      return normalizedProcess;
     }
 
     return storedProcess;
@@ -639,7 +749,8 @@ export class ProcessManager {
 
     if (
       currentProcess?.status === 'running' ||
-      currentProcess?.status === 'starting'
+      currentProcess?.status === 'starting' ||
+      currentProcess?.status === 'stopping'
     ) {
       throw new ProcessManagerError(
         'PROCESS_ALREADY_RUNNING',
@@ -714,8 +825,6 @@ export class ProcessManager {
       );
     }
 
-    child.unref();
-
     const primaryUrl = `http://localhost:${port}`;
     const urls = listServerUrls(port);
 
@@ -726,7 +835,7 @@ export class ProcessManager {
         ? { workspaceId: project.workspaceId }
         : {}),
       kind: 'server',
-      status: 'running',
+      status: 'starting',
       pid: child.pid,
       port,
       url: primaryUrl,
@@ -738,7 +847,20 @@ export class ProcessManager {
       startedAt: new Date().toISOString(),
     };
 
-    await this.writeStoredProcess(managedProcess);
+    try {
+      await this.writeStoredProcess(managedProcess);
+    } catch (error) {
+      try {
+        this.sendSignal(child.pid, 'SIGKILL');
+      } catch {
+        // A falha de persistência original deve ser preservada.
+      }
+
+      throw error;
+    }
+
+    this.observeChild(child, managedProcess);
+    child.unref();
 
     return managedProcess;
   }
@@ -748,19 +870,22 @@ export class ProcessManager {
   ): Promise<ManagedProcess> {
     const storedProcess = await this.readStoredProcess(projectId);
 
-    if (!storedProcess || storedProcess.pid === undefined) {
+    if (!storedProcess) {
       throw new ProcessManagerError(
         'PROCESS_NOT_FOUND',
         'Nenhum processo gerenciado foi encontrado.',
       );
     }
 
+    if (storedProcess.pid === undefined) {
+      return storedProcess;
+    }
+
     if (!isManagedProcessAlive(storedProcess.pid)) {
-      const stoppedProcess: StoredProcess = {
-        ...storedProcess,
-        status: 'stopped',
-        stoppedAt: new Date().toISOString(),
-      };
+      const stoppedProcess = terminalProcess(
+        storedProcess,
+        'stopped',
+      );
 
       await this.writeStoredProcess(stoppedProcess);
 
@@ -807,15 +932,144 @@ export class ProcessManager {
       }
     }
 
-    const stoppedProcess: StoredProcess = {
-      ...storedProcess,
-      status: 'stopped',
-      stoppedAt: new Date().toISOString(),
-    };
+    const stoppedProcess = terminalProcess(
+      storedProcess,
+      'stopped',
+    );
 
     await this.writeStoredProcess(stoppedProcess);
 
     return stoppedProcess;
+  }
+
+  private observeChild(
+    child: ReturnType<typeof spawn>,
+    managedProcess: StoredProcess,
+  ): void {
+    let recorded = false;
+    let resolveExit!: (observation: ObservedExit) => void;
+
+    const exitPromise = new Promise<ObservedExit>((resolve) => {
+      resolveExit = resolve;
+    });
+
+    const pid = managedProcess.pid as number;
+
+    this.exitWaiters.set(managedProcess.projectId, {
+      pid,
+      promise: exitPromise,
+    });
+
+    const record = (exitCode?: number | null): void => {
+      if (recorded) {
+        return;
+      }
+
+      recorded = true;
+
+      const observation: ObservedExit = {
+        pid,
+        ...(exitCode !== undefined ? { exitCode } : {}),
+      };
+
+      this.observedExits.set(
+        managedProcess.projectId,
+        observation,
+      );
+      resolveExit(observation);
+
+      void this.recordChildExit(
+        managedProcess.projectId,
+        pid,
+        exitCode,
+      ).catch(() => undefined);
+    };
+
+    child.once('exit', (code) => record(code));
+    child.once('error', () => record(undefined));
+
+    if (child.exitCode !== null || child.signalCode !== null) {
+      record(child.exitCode);
+    }
+  }
+
+  private async waitForObservedExit(
+    projectId: string,
+    pid: number,
+    timeoutMs = 100,
+  ): Promise<ObservedExit | undefined> {
+    const existing = this.observedExits.get(projectId);
+
+    if (existing?.pid === pid) {
+      return existing;
+    }
+
+    const waiter = this.exitWaiters.get(projectId);
+
+    if (!waiter || waiter.pid !== pid) {
+      return undefined;
+    }
+
+    return await Promise.race([
+      waiter.promise,
+      new Promise<undefined>((resolve) => {
+        setTimeout(() => resolve(undefined), timeoutMs);
+      }),
+    ]);
+  }
+
+  private clearObservedExit(projectId: string, pid: number): void {
+    if (this.observedExits.get(projectId)?.pid === pid) {
+      this.observedExits.delete(projectId);
+    }
+
+    if (this.exitWaiters.get(projectId)?.pid === pid) {
+      this.exitWaiters.delete(projectId);
+    }
+  }
+
+  private async recordChildExit(
+    projectId: string,
+    pid: number,
+    exitCode?: number | null,
+  ): Promise<void> {
+    const currentProcess = await this.readStoredProcess(projectId);
+
+    if (!currentProcess) {
+      this.clearObservedExit(projectId, pid);
+      return;
+    }
+
+    if (currentProcess.pid !== pid) {
+      if (
+        currentProcess.pid === undefined &&
+        (currentProcess.status === 'stopped' ||
+          currentProcess.status === 'failed') &&
+        currentProcess.exitCode === undefined &&
+        exitCode !== undefined &&
+        exitCode !== null
+      ) {
+        await this.writeStoredProcess({
+          ...currentProcess,
+          exitCode,
+        });
+      }
+
+      this.clearObservedExit(projectId, pid);
+      return;
+    }
+
+    const status =
+      currentProcess.status === 'stopping' ||
+      (currentProcess.status === 'running' && exitCode === 0)
+        ? 'stopped'
+        : 'failed';
+
+    await this.writeStoredProcess(
+      terminalProcess(currentProcess, status, exitCode),
+    );
+
+    this.clearObservedExit(projectId, pid);
   }
 
   private sendSignal(pid: number, signal: NodeJS.Signals): void {

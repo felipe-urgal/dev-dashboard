@@ -1591,3 +1591,22 @@ a.secondary-button {
     flex-direction: column;
   }
 }
+
+.project-server-summary-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 680px) {
+  .project-server-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-server-summary-actions {
+    justify-content: space-between;
+  }
+}

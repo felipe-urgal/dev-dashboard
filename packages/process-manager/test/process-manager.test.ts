@@ -88,6 +88,49 @@ function killIfAlive(pid: number | undefined): void {
   }
 }
 
+async function configureHttpServer(
+  fixture: Fixture,
+): Promise<void> {
+  await Promise.all([
+    writeFile(
+      path.join(fixture.project.path, "server.js"),
+      [
+        "const http = require('node:http');",
+        "const port = Number(process.env.PORT);",
+        "const host = process.env.HOST || '127.0.0.1';",
+        "http.createServer((_request, response) => response.end('ok')).listen(port, host);",
+        ""
+      ].join("\n")
+    ),
+    writeFile(
+      path.join(fixture.project.path, "package.json"),
+      JSON.stringify({
+        name: "fixture",
+        scripts: { dev: "node server.js" }
+      })
+    )
+  ]);
+}
+
+async function waitForStatus(
+  fixture: Fixture,
+  status: string,
+): Promise<Awaited<ReturnType<ProcessManager["getServerProcess"]>>> {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const managedProcess = await fixture.manager.getServerProcess(
+      fixture.project.id
+    );
+
+    if (managedProcess?.status === status) {
+      return managedProcess;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw new Error(`O processo não alcançou o estado ${status}.`);
+}
+
 test(
   "returns null when no process was ever started for a project",
   async (context) => {
@@ -207,6 +250,8 @@ test(
       scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
     });
 
+    await configureHttpServer(fixture);
+
     let startedPid: number | undefined;
 
     context.after(async () => {
@@ -218,7 +263,7 @@ test(
 
     startedPid = started.pid;
 
-    assert.equal(started.status, "running");
+    assert.equal(started.status, "starting");
     assert.equal(started.projectId, fixture.project.id);
     assert.ok(started.pid && started.pid > 0);
     assert.ok(started.port && started.port >= 1_024 && started.port <= 65_535);
@@ -239,9 +284,7 @@ test(
       }
     );
 
-    const running = await fixture.manager.getServerProcess(
-      fixture.project.id
-    );
+    const running = await waitForStatus(fixture, "running");
 
     assert.equal(running?.status, "running");
     assert.equal(running?.pid, started.pid);
@@ -410,7 +453,7 @@ test(
 );
 
 test(
-  "detects a process that is no longer alive and marks it stopped",
+  "detects a process that exits during startup and marks it failed",
   async (context) => {
     const fixture = await createFixture({
       name: "fixture",
@@ -440,8 +483,51 @@ test(
       fixture.project.id
     );
 
-    assert.equal(detected?.status, "stopped");
+    assert.equal(detected?.status, "failed");
+    assert.equal(detected?.pid, undefined);
+    assert.equal(detected?.exitCode, 0);
     assert.ok(detected?.stoppedAt);
+  }
+);
+
+test(
+  "records a non-zero exit after the server was running",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node server.js" }
+    });
+
+    await writeFile(
+      path.join(fixture.project.path, "server.js"),
+      [
+        "const http = require('node:http');",
+        "const server = http.createServer((_request, response) => response.end('ok'));",
+        "server.listen(Number(process.env.PORT), process.env.HOST, () => {",
+        "  setTimeout(() => process.exit(7), 500);",
+        "});",
+        ""
+      ].join("\n")
+    );
+
+    let startedPid: number | undefined;
+
+    context.after(async () => {
+      killIfAlive(startedPid);
+      await fixture.cleanup();
+    });
+
+    const started = await fixture.manager.startServer(fixture.project);
+    startedPid = started.pid;
+
+    const running = await waitForStatus(fixture, "running");
+    assert.equal(running?.status, "running");
+
+    const failed = await waitForStatus(fixture, "failed");
+
+    assert.equal(failed?.exitCode, 7);
+    assert.equal(failed?.pid, undefined);
+    assert.ok(failed?.stoppedAt);
   }
 );
 
@@ -476,7 +562,7 @@ test(
 
     startedPid = started.pid;
 
-    assert.equal(started.status, "running");
+    assert.equal(started.status, "starting");
 
     await fixture.manager.stopServer(fixture.project.id);
   }
