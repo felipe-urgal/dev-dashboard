@@ -281,14 +281,18 @@ export const projectGitOverviewResponseSchema = {
 
 export const projectDatabaseEnvironmentResponseSchema = {
   type: 'object', additionalProperties: false,
+
   required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'startAvailable'],
+    
   properties: {
     id: { type: 'string' }, environment: { type: 'string' }, driver: { type: 'string' },
     host: { type: 'string' }, port: { type: 'integer' }, database: { type: 'string' }, username: { type: 'string' },
     passwordConfigured: { type: 'boolean' }, maskedUrl: { type: 'string' },
     source: { type: 'string', enum: ['rails-database-yml', 'dotenv', 'prisma', 'knex'] },
     sourceDetail: { type: 'string' }, reachability: { type: 'string', enum: ['reachable', 'unreachable', 'unknown'] },
+
     startAvailable: { type: 'boolean' },
+
   },
 } as const;
 

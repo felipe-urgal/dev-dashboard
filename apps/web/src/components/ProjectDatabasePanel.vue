@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import type { Project, ProjectDatabaseOverview } from '@dev-dashboard/contracts';
+  
 import { fetchProjectDatabase, revealProjectDatabaseUrl, startProjectDatabase } from '../api';
 
 const props = defineProps<{ project: Project }>();
@@ -24,6 +25,7 @@ async function loadDatabase(targetPage = page.value): Promise<void> {
 
 async function reveal(id: string): Promise<void> {
   if (revealed.value[id]) { const next = { ...revealed.value }; delete next[id]; revealed.value = next; return; }
+  
   const current = generation;
   try {
     const secret = await revealProjectDatabaseUrl(props.project.id, id);
@@ -51,6 +53,7 @@ async function start(id: string): Promise<void> {
 }
 function clientUrl(id: string, driver: string): string { return `dev-dashboard://database/open?projectId=${encodeURIComponent(props.project.id)}&environmentId=${encodeURIComponent(id)}&driver=${encodeURIComponent(driver)}`; }
 watch(() => props.project.id, () => { generation++; overview.value = null; revealed.value = {}; starting.value = {}; page.value = 1; void loadDatabase(1); }, { immediate: true });
+
 </script>
 
 <template>

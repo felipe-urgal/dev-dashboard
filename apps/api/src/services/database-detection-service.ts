@@ -1,6 +1,8 @@
 import { access, readFile } from 'node:fs/promises';
+
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+
 import net from 'node:net';
 import path from 'node:path';
 
@@ -169,8 +171,10 @@ function fromEnv(values: Record<string, string>, detail: string): DetectedDataba
 
 async function checkReachability(host?: string, port?: number): Promise<DatabaseReachability> {
   if (!host || !port) return 'unknown';
+
   const normalizedHost = host.toLowerCase().replace(/^\[|\]$/g, '');
   if (!['localhost', '127.0.0.1', '::1'].includes(normalizedHost)) return 'unknown';
+
   return new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
     const finish = (value: DatabaseReachability) => { socket.destroy(); resolve(value); };
@@ -194,6 +198,7 @@ export class DatabaseDetectionService {
       const values = parseDotenv(contents); Object.assign(env, values); detected.push(...fromEnv(values, file));
     }
     const rails = await safeRead(project.path, 'config/database.yml');
+    
     // O processo da API pode conter credenciais alheias ao projeto. Apenas os
     // arquivos de ambiente do próprio projeto participam da interpolação.
     if (rails !== null) detected.push(...parseRails(rails, env));
@@ -201,6 +206,7 @@ export class DatabaseDetectionService {
     if (prisma) {
       for (const match of prisma.matchAll(/url\s*=\s*env\(["']([^"']+)["']\)/g)) {
         const name = match[1] ?? ''; const value = env[name];
+
         if (value) { const item = fromUrl(`prisma-${name.toLowerCase()}`, 'development', value, 'prisma', `prisma/schema.prisma (${name})`); if (item) detected.push(item); }
       }
     }
@@ -210,6 +216,7 @@ export class DatabaseDetectionService {
         const item = fromEnv(env, file)[0]; if (item) detected.push({ ...item, id: `knex-${item.id}`, source: 'knex', sourceDetail: file }); break;
       }
     }
+
     const unique = [...new Map(detected.map((item) => [`${item.environment}:${item.databaseUrl ?? item.database ?? item.id}`, item])).values()];
     for (const file of composeFiles) {
       const contents = await safeRead(project.path, file);
@@ -226,11 +233,13 @@ export class DatabaseDetectionService {
   public async getOverview(project: Project, page = 1, pageSize = 20): Promise<ProjectDatabaseOverview> {
     const all = await this.detect(project);
     const selected = all.slice((page - 1) * pageSize, page * pageSize);
+
     const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, composeFile, composeService, ...item }) => ({
       ...item,
       reachability: await checkReachability(item.host, item.port),
       startAvailable: Boolean(composeFile && composeService),
     })));
+
     return { supported: all.length > 0, environments, page, pageSize, total: all.length };
   }
 
