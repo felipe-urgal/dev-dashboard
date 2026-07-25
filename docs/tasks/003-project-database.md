@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementada, aguardando code review e QA.
+Implementada, revisada e validada por QA automatizado.
 
 ## Objetivo
 
@@ -26,6 +26,10 @@ projetos Rails e Node.
 - invalidação das respostas assíncronas ao trocar de projeto.
 - limpeza do estado de inicialização antes de atualizar a detecção, evitando
   que o botão permaneça desabilitado enquanto o serviço ainda fica disponível.
+- compatibilidade com instalações que oferecem somente o executável legado
+  `docker-compose`, sem repetir a ação quando o plugin moderno falha por um
+  problema operacional;
+- mensagens acionáveis para Compose ausente, daemon parado e falta de permissão.
 
 ## Decisões de segurança
 
@@ -55,6 +59,19 @@ projetos Rails e Node.
 - host remoto não sondado pela verificação de conectividade.
 - detecção e inicialização do serviço Compose compatível;
 - ausência da ação quando não existe serviço compatível.
+- fallback controlado para `docker-compose` legado;
+- ausência de segunda tentativa quando o daemon está indisponível.
+
+## QA e code review
+
+- revisão confirmou que arquivo, serviço e diretório de execução continuam
+  resolvidos exclusivamente no backend, sem entrada livre do navegador;
+- o fallback é usado apenas quando o plugin `docker compose` não existe, para
+  evitar executar duas vezes um serviço que falhou por outra causa;
+- typecheck, build e testes da API foram executados após a correção; a suíte
+  completa também foi executada, mas três testes de encerramento real do
+  `process-manager`, fora deste escopo, encontraram processos persistentes no
+  ambiente de QA (`PROCESS_STOP_TIMEOUT`).
 
 ## Limitações conhecidas
 
