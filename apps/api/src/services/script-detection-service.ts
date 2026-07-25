@@ -43,9 +43,20 @@ async function knownBins(project: Project): Promise<ProjectScript[]> {
 
 function listRailsTasks(projectPath: string): Promise<string> {
   return new Promise((resolve) => {
-    const child = spawn(path.join(projectPath, 'bin', 'rails'), ['-T'], { cwd: projectPath, shell: false, env: { ...process.env, RAILS_ENV: 'development' }, stdio: ['ignore', 'pipe', 'ignore'] });
+    const detached = process.platform !== 'win32';
+    const child = spawn(path.join(projectPath, 'bin', 'rails'), ['-T'], { cwd: projectPath, detached, shell: false, env: { ...process.env, RAILS_ENV: 'development' }, stdio: ['ignore', 'pipe', 'ignore'] });
     let output = '';
-    const timer = setTimeout(() => child.kill('SIGKILL'), 5_000);
+    const timer = setTimeout(() => {
+      if (detached && child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+          return;
+        } catch {
+          // O processo pode ter encerrado entre o timeout e o envio do sinal.
+        }
+      }
+      child.kill('SIGKILL');
+    }, 5_000);
     child.stdout.on('data', (chunk: Buffer) => { if (output.length < 262_144) output += chunk.toString('utf8'); });
     child.on('error', () => { clearTimeout(timer); resolve(''); });
     child.on('close', () => { clearTimeout(timer); resolve(output); });

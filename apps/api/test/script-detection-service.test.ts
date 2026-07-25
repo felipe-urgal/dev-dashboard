@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -40,4 +40,32 @@ test('inclui apenas executáveis conhecidos de bin', async () => {
     assert.equal(catalog.items.some((item) => item.name === 'bin/setup'), true);
     assert.equal(catalog.items.some((item) => item.name.includes('comando-livre')), false);
   } finally { await rm(project.path, { recursive: true, force: true }); }
+});
+
+test('encerra todo o grupo do Rails quando a listagem atinge o timeout', { timeout: 8_000, skip: process.platform === 'win32' }, async () => {
+  const project = await fixture({});
+  const rails = path.join(project.path, 'bin', 'rails');
+  let descendantPid: number | undefined;
+  try {
+    project.type = 'rails';
+    await mkdir(path.dirname(rails));
+    await writeFile(rails, '#!/bin/sh\nsleep 30 &\necho "$!" > descendant.pid\nwait\n');
+    await chmod(rails, 0o755);
+
+    const startedAt = Date.now();
+    await new ScriptDetectionService().getCatalog(project);
+    assert.ok(Date.now() - startedAt < 7_000, 'a detecção deve retornar logo após o timeout');
+
+    descendantPid = Number.parseInt(await readFile(path.join(project.path, 'descendant.pid'), 'utf8'), 10);
+    const descendantState = await readFile(`/proc/${descendantPid}/stat`, 'utf8').then(
+      (stat) => stat.slice(stat.lastIndexOf(') ') + 2, stat.lastIndexOf(') ') + 3),
+      (error: NodeJS.ErrnoException) => error.code === 'ENOENT' ? undefined : Promise.reject(error),
+    );
+    assert.ok(descendantState === undefined || descendantState === 'Z', 'o descendente não pode permanecer em execução');
+  } finally {
+    if (descendantPid !== undefined) {
+      try { process.kill(descendantPid, 'SIGKILL'); } catch { /* O grupo já foi encerrado como esperado. */ }
+    }
+    await rm(project.path, { recursive: true, force: true });
+  }
 });

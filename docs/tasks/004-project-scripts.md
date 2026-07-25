@@ -23,7 +23,7 @@ somente leitura de scripts Node, tarefas Rails públicas e executáveis conhecid
 
 1. A rota recebe somente o identificador e filtros limitados; o caminho vem do `ProjectStore`.
 2. Scripts Node são analisados como JSON e nunca executados durante a detecção.
-3. A consulta Rails usa argumentos fixos, `shell: false`, `cwd` do projeto, limite de saída e timeout.
+3. A consulta Rails usa argumentos fixos, `shell: false`, `cwd` do projeto, limite de saída e timeout; no Linux, roda em um grupo isolado que é encerrado por inteiro ao expirar o prazo.
 4. Executáveis de `bin/` pertencem a uma lista fechada; nomes arbitrários são ignorados.
 5. Detalhes internos de resolução não existem no contrato público e o schema enumera todos os campos.
 6. Esta entrega não oferece endpoint de execução e mantém todos os botões desabilitados.
@@ -34,10 +34,11 @@ somente leitura de scripts Node, tarefas Rails públicas e executáveis conhecid
 - classificação destrutiva desabilita o item;
 - filtros, paginação e ordenação são reproduzíveis;
 - executáveis não reconhecidos de `bin/` ficam fora do catálogo.
+- o timeout da consulta Rails encerra também processos descendentes que herdaram seus streams.
 
 ## Limitações conhecidas
 
-- `bin/rails -T` carrega o ambiente do projeto e pode executar inicializadores; por isso possui timeout, mas projetos locais continuam potencialmente não confiáveis;
+- `bin/rails -T` carrega o ambiente do projeto e pode executar inicializadores; por isso possui timeout com encerramento do grupo no Linux, mas projetos locais continuam potencialmente não confiáveis;
 - a classificação de risco é conservadora e baseada no nome da ação;
 - o preview Node usa `npm run`; seleção do gerenciador será necessária antes de executar;
 - execução, argumentos, histórico e logs permanecem fora desta entrega.
