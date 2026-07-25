@@ -40,5 +40,6 @@ export type {
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
+  ProjectDatabaseStartResult,
   ProjectDatabaseSource,
 } from './database.js';

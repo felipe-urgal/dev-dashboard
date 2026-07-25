@@ -44,4 +44,34 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
     if (!databaseUrl) throw new ApiError({ statusCode: 404, code: 'DATABASE_ENVIRONMENT_NOT_FOUND', message: 'Configuração de banco não encontrada.' });
     return { secret: { environmentId: request.params.environmentId, databaseUrl } };
   });
+
+  app.post<{ Params: SecretParams }>('/projects/:projectId/database/:environmentId/start', {
+    schema: {
+      params: { type: 'object', additionalProperties: false, required: ['projectId', 'environmentId'], properties: { projectId: { type: 'string', minLength: 1 }, environmentId: { type: 'string', minLength: 1, maxLength: 120 } } },
+      body: { type: 'object', additionalProperties: false, properties: {} }, querystring: emptyQuery,
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['start'],
+          properties: {
+            start: {
+              type: 'object', additionalProperties: false, required: ['environmentId', 'started'],
+              properties: { environmentId: { type: 'string' }, started: { type: 'boolean' } },
+            },
+          },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const project = requireProject(options.projectStore, request.params.projectId);
+    try {
+      const started = await options.databaseDetectionService.start(project, request.params.environmentId);
+      if (!started) throw new ApiError({ statusCode: 409, code: 'DATABASE_START_NOT_AVAILABLE', message: 'Não há um serviço Docker Compose reconhecido para este banco.' });
+      return { start: { environmentId: request.params.environmentId, started: true } };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId }, 'Database service start failed');
+      throw new ApiError({ statusCode: 500, code: 'DATABASE_START_FAILED', message: 'Não foi possível iniciar o serviço de banco de dados.' });
+    }
+  });
 };

@@ -35,6 +35,8 @@ export type ApiErrorCode =
   | 'TEST_COMMAND_NOT_FOUND'
   | 'TEST_START_FAILED'
   | 'DATABASE_ENVIRONMENT_NOT_FOUND'
+  | 'DATABASE_START_NOT_AVAILABLE'
+  | 'DATABASE_START_FAILED'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

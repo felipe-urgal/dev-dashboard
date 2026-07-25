@@ -31,3 +31,59 @@ test('retorna estado vazio para projeto sem configuração', async () => {
   const overview = await new DatabaseDetectionService().getOverview(await fixture({ 'package.json': '{}' }));
   assert.equal(overview.supported, false); assert.equal(overview.total, 0);
 });
+
+test('interpola ENV.fetch do Rails sem consultar o ambiente da API', async () => {
+  const variable = 'DEV_DASHBOARD_TEST_DATABASE_URL';
+  process.env[variable] = 'postgresql://api:segredo@localhost/vazamento';
+  try {
+    const project = await fixture({
+      'config/database.yml': `development:\n  url: <%= ENV.fetch("${variable}", "postgresql://local@localhost/app") %>\n`,
+    });
+    const service = new DatabaseDetectionService();
+    const overview = await service.getOverview(project);
+
+    assert.equal(overview.environments[0]?.database, 'app');
+    assert.doesNotMatch(JSON.stringify(overview), /vazamento|segredo/);
+    assert.equal(await service.reveal(project, 'rails-development'), 'postgresql://local@localhost/app');
+  } finally {
+    delete process.env[variable];
+  }
+});
+
+test('não testa conectividade de hosts remotos definidos pelo projeto', async () => {
+  const project = await fixture({ '.env': 'DATABASE_URL=postgresql://user@192.0.2.10:5432/example\n' });
+  const overview = await new DatabaseDetectionService().getOverview(project);
+  assert.equal(overview.environments[0]?.reachability, 'unknown');
+});
+
+test('oferece e inicia somente o serviço Docker Compose reconhecido', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+    'compose.yml': 'services:\n  web:\n    image: node:24\n  banco:\n    image: postgres:17\n',
+  });
+  const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
+  const service = new DatabaseDetectionService(async (command, args, options) => {
+    calls.push({ command, args, cwd: options.cwd });
+  });
+
+  const overview = await service.getOverview(project);
+  assert.equal(overview.environments[0]?.startAvailable, true);
+  assert.equal(await service.start(project, overview.environments[0]!.id), true);
+  assert.deepEqual(calls, [{
+    command: 'docker',
+    args: ['compose', '-f', 'compose.yml', 'up', '-d', 'banco'],
+    cwd: project.path,
+  }]);
+});
+
+test('não oferece inicialização sem serviço Compose compatível', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+    'compose.yml': 'services:\n  web:\n    image: node:24\n',
+  });
+  const service = new DatabaseDetectionService(async () => assert.fail('não deveria executar comandos'));
+  const overview = await service.getOverview(project);
+
+  assert.equal(overview.environments[0]?.startAvailable, false);
+  assert.equal(await service.start(project, overview.environments[0]!.id), false);
+});
