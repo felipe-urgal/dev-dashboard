@@ -344,7 +344,13 @@ export async function startProjectTest(
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/start`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    }
   );
   if (!response.process) {
     throw new Error('A API não retornou o processo iniciado.');
@@ -357,7 +363,13 @@ export async function stopProjectTest(
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/process/stop`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    }
   );
   if (!response.process) {
     throw new Error('A API não retornou o processo interrompido.');
