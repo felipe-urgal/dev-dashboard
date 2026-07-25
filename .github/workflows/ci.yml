@@ -31,12 +31,15 @@ jobs:
         run: |
           python <<'PY'
           from pathlib import Path
-          from textwrap import dedent
 
           workflow = Path('.github/workflows/agent-fix-pr7.yml').read_text()
           marker = "python <<'PY'\n"
-          script = workflow.split(marker, 1)[1].split('\n          PY', 1)[0]
-          exec(compile(dedent(script), 'agent-fix-pr7', 'exec'))
+          raw_script = workflow.split(marker, 1)[1].split('\n          PY', 1)[0]
+          script = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in raw_script.splitlines()
+          )
+          exec(compile(script, 'agent-fix-pr7', 'exec'))
           PY
 
       - name: Install dependencies
