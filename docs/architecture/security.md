@@ -215,6 +215,10 @@ O endpoint de health check permanece público para permitir diagnóstico local.
 
 ## Origem e CORS
 
+Na distribuição local, navegador e API compartilham a origem exata correspondente à porta efetiva. Um `POST /api/auth/browser-session`, restrito a JSON e a essa origem, emite cookie assinado `HttpOnly`, `SameSite=Strict` e com vida limitada. O endpoint nunca retorna o token persistente. A origem é uma defesa adicional, não a autenticação: rotas privadas exigem cookie válido ou o header local.
+
+Métodos mutáveis autenticados por cookie também exigem `Origin` exata para mitigar CSRF. Origem ausente ou externa não pode fazer bootstrap; origens externas são rejeitadas mesmo com cookie ou header válido. O modelo assume que sites externos podem induzir requisições ao loopback, mas não conseguem ler o cookie `HttpOnly` nem o token no arquivo `0600`.
+
 A API aceita explicitamente as origens locais do dashboard:
 
 ```text

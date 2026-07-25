@@ -118,6 +118,26 @@ npm run dev:web
 
 Use `Ctrl+C` para encerrar os processos de desenvolvimento.
 
+## Distribuição local
+
+Para diagnosticar, compilar e iniciar somente a API com o frontend estático:
+
+```bash
+npm run dev-web
+```
+
+A URL final é `http://127.0.0.1:4343`. Diferentemente de `npm run dev`, não há processo Vite nem segunda porta. O comando funciona fora da raiz, encaminha `SIGINT`/`SIGTERM` e força o encerramento somente após três segundos.
+
+Variáveis aceitas pela API:
+
+- `DEV_DASHBOARD_API_PORT` — porta inteira, padrão `4343`;
+- `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1` — ativa explicitamente o frontend estático;
+- `DEV_DASHBOARD_WEB_DIST` — diretório do build, resolvido de forma canônica.
+
+O host não é configurável e permanece `127.0.0.1`. No navegador, a API emite uma sessão curta em cookie `HttpOnly` e `SameSite=Strict`; o token persistente não entra no HTML ou bundle. Clientes locais não navegador continuam usando `X-Dev-Dashboard-Token`.
+
+Se a inicialização falhar, libere a porta configurada, execute `npm install` e confira se o build contém `index.html` e todos os assets referenciados. O próprio `dev-web` reconstrói esses artefatos e recusa builds inválidos ou que contenham credenciais.
+
 Para verificar os requisitos sem iniciar serviços nem alterar o ambiente:
 
 ```bash

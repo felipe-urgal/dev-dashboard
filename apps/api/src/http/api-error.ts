@@ -191,13 +191,15 @@ function clientErrorMessage(
 }
 
 
-export function registerApiErrorHandling(app: FastifyInstance): void {
-  app.setNotFoundHandler(async (_request, reply) => {
-    return reply.code(404).send({
-      error: 'NOT_FOUND',
-      message: 'Endpoint não encontrado.',
+export function registerApiErrorHandling(app: FastifyInstance, options: { registerNotFound?: boolean } = {}): void {
+  if (options.registerNotFound !== false) {
+    app.setNotFoundHandler(async (_request, reply) => {
+      return reply.code(404).send({
+        error: 'NOT_FOUND',
+        message: 'Endpoint não encontrado.',
+      });
     });
-  });
+  }
 
   app.setErrorHandler(async (error, request, reply) => {
     if (error instanceof ApiError) {

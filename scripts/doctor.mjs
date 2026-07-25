@@ -64,6 +64,7 @@ export async function diagnose(options = {}) {
   const portChecker = options.portChecker ?? checkPort;
   const fileChecker = options.fileChecker ?? access;
   const results = [];
+  const distribution = options.mode === 'distribution';
 
   results.push(
     supportsNodeVersion(nodeVersion)
@@ -91,13 +92,21 @@ export async function diagnose(options = {}) {
     results.push(result('error', 'Dependências', 'execute npm install na raiz'));
   }
 
-  for (const [label, port] of [['API', 4343], ['Web', 5173]]) {
+  const configuredPort = Number.parseInt(options.apiPort ?? process.env.DEV_DASHBOARD_API_PORT ?? '4343', 10);
+  for (const [label, port] of distribution ? [['Dashboard', configuredPort]] : [['API', 4343], ['Web', 5173]]) {
     const available = await portChecker('127.0.0.1', port);
     results.push(
       available
         ? result('ok', `Porta ${label}`, `127.0.0.1:${port} disponível`)
         : result('warning', `Porta ${label}`, `127.0.0.1:${port} já está em uso`),
     );
+  }
+
+  if (distribution) {
+    for (const [label, relativePath] of [['API compilada', 'apps/api/dist/server.js'], ['Frontend compilado', 'apps/web/dist/index.html']]) {
+      try { await fileChecker(pathToUrl(rootDirectory, relativePath)); results.push(result('ok', label, relativePath)); }
+      catch { results.push(result('warning', label, `${relativePath} será criado pelo build`)); }
+    }
   }
 
   try {
@@ -108,6 +117,10 @@ export async function diagnose(options = {}) {
   }
 
   return results;
+}
+
+function pathToUrl(root, relativePath) {
+  return new URL(`file://${root.replace(/\/$/, '')}/${relativePath}`);
 }
 
 export async function main() {

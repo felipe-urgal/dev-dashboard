@@ -95,7 +95,24 @@ async function requestJson<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(input, init);
+  return requestJsonAttempt<T>(input, init, true);
+}
+
+let bootstrapPromise: Promise<void> | undefined;
+async function bootstrapBrowserSession(): Promise<void> {
+  bootstrapPromise ??= fetch('/api/auth/browser-session', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}',
+  }).then((response) => { if (!response.ok) throw new Error('Não foi possível iniciar a sessão segura do navegador.'); })
+    .finally(() => { bootstrapPromise = undefined; });
+  return bootstrapPromise;
+}
+
+async function requestJsonAttempt<T>(input: RequestInfo | URL, init: RequestInit | undefined, mayRenew: boolean): Promise<T> {
+  let response = await fetch(input, { ...init, credentials: 'same-origin' });
+  if (response.status === 401 && mayRenew) {
+    await bootstrapBrowserSession();
+    response = await fetch(input, { ...init, credentials: 'same-origin' });
+  }
 
   const payload: unknown =
     response.status === 204

@@ -1,24 +1,13 @@
 import { buildApp } from './app.js';
+import { readServerConfig } from './server-config.js';
 
-const DEFAULT_PORT = 4343;
-const HOST = '127.0.0.1';
-
-function resolvePort(value: string | undefined): number {
-  if (!value) {
-    return DEFAULT_PORT;
-  }
-
-  const port = Number.parseInt(value, 10);
-
-  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`DEV_DASHBOARD_API_PORT inválida: ${value}`);
-  }
-
-  return port;
-}
-
-const app = await buildApp();
-const port = resolvePort(process.env.DEV_DASHBOARD_API_PORT);
+const config = await readServerConfig();
+const app = await buildApp({
+  staticDashboardEnabled: config.staticDashboardEnabled,
+  localOrigin: config.localOrigin,
+  ...(config.frontendDirectory ? { frontendDirectory: config.frontendDirectory } : {}),
+});
+const port = config.port;
 
 async function shutdown(signal: string): Promise<void> {
   app.log.info(
@@ -53,7 +42,7 @@ process.once('SIGTERM', () => {
 
 try {
   const address = await app.listen({
-    host: HOST,
+    host: config.host,
     port,
   });
 

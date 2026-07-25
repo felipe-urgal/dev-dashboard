@@ -243,3 +243,30 @@ test(
     );
   }
 );
+
+test('bootstrap exige origem exata e autentica por cookie HttpOnly', async (context) => {
+  const app = await buildTestApp(); context.after(async () => app.close());
+  const denied = await app.inject({ method: 'POST', url: '/api/auth/browser-session', headers: { origin: 'https://example.com', 'content-type': 'application/json' }, payload: {} });
+  assert.equal(denied.statusCode, 403);
+  const bootstrap = await app.inject({ method: 'POST', url: '/api/auth/browser-session', headers: { origin: 'http://127.0.0.1:4343', 'content-type': 'application/json' }, payload: {} });
+  assert.equal(bootstrap.statusCode, 204);
+  const cookie = String(bootstrap.headers['set-cookie']).split(';')[0];
+  assert.match(String(bootstrap.headers['set-cookie']), /HttpOnly.*SameSite=Strict/);
+  assert.equal((await app.inject({ url: '/api/private', headers: { cookie } })).statusCode, 200);
+});
+
+test('cookie não autoriza mutação sem Origin e sessão expirada pode ser renovada', async (context) => {
+  let current = 1000;
+  const app = Fastify({ logger: false });
+  await registerLocalSecurity(app, { token: TOKEN, localOrigin: 'http://127.0.0.1:4343', sessionTtlSeconds: 10, now: () => current });
+  app.post('/api/private', async () => ({ ok: true })); app.get('/api/private', async () => ({ ok: true }));
+  context.after(async () => app.close());
+  const create = () => app.inject({ method: 'POST', url: '/api/auth/browser-session', headers: { origin: 'http://127.0.0.1:4343', 'content-type': 'application/json' }, payload: {} });
+  let cookie = String((await create()).headers['set-cookie']).split(';')[0];
+  assert.equal((await app.inject({ method: 'POST', url: '/api/private', headers: { cookie } })).statusCode, 403);
+  current = 1011;
+  const expired = await app.inject({ url: '/api/private', headers: { cookie } });
+  assert.equal(expired.statusCode, 401); assert.equal(expired.json().error, 'SESSION_EXPIRED');
+  cookie = String((await create()).headers['set-cookie']).split(';')[0];
+  assert.equal((await app.inject({ url: '/api/private', headers: { cookie } })).statusCode, 200);
+});
