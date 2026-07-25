@@ -17,6 +17,7 @@ import type {
 
 interface ScriptCatalogResponse { catalog: ProjectScriptCatalog }
 interface ScriptExecutionResponse { execution: ScriptExecution }
+interface LatestScriptExecutionResponse { execution: ScriptExecution | null }
 interface ScriptExecutionLogResponse { log: ScriptExecutionLog }
 interface ScriptExecutionConfirmationResponse { confirmation: ScriptExecutionConfirmation }
 
@@ -187,6 +188,9 @@ export async function startScriptExecution(projectId: string, actionId: string, 
 }
 export async function fetchScriptExecution(projectId: string, executionId: string): Promise<ScriptExecution> {
   const response = await requestJson<ScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}`); return response.execution;
+}
+export async function fetchLatestScriptExecution(projectId: string): Promise<ScriptExecution | null> {
+  const response = await requestJson<LatestScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/latest`); return response.execution;
 }
 export async function fetchScriptExecutionLog(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
   const response = await requestJson<ScriptExecutionLogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/log`); return response.log;

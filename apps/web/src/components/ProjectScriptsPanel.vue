@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionStatus } from '@dev-dashboard/contracts';
-import { cancelScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
+import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -14,6 +14,7 @@ const page = ref(1);
 const execution = ref<ScriptExecution | null>(null);
 const executionLog = ref('');
 let generation = 0;
+let executionGeneration = 0;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const originLabels: Record<ProjectScriptOrigin, string> = { 'package-script': 'package.json', 'rails-task': 'Tarefa Rails', bin: 'Executável bin/' };
@@ -38,18 +39,40 @@ async function load(): Promise<void> {
 async function run(item: ProjectScript): Promise<void> {
   const projectId = props.project.id; const current = generation;
   if (item.risk !== 'read-only' && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente.`)) return;
+  const currentExecution = ++executionGeneration;
   errorMessage.value = '';
   try {
     const confirmation = item.risk === 'read-only' ? undefined : await prepareScriptExecution(projectId, item.id);
     const started = await startScriptExecution(projectId, item.id, confirmation?.token);
     execution.value = started;
-    let currentExecution: ScriptExecution = started;
-    while (currentExecution.status === 'running' && current === generation && projectId === props.project.id) {
-      await new Promise((resolve) => setTimeout(resolve, 750));
-      const [nextExecution, log] = await Promise.all([fetchScriptExecution(projectId, started.id), fetchScriptExecutionLog(projectId, started.id)]);
-      if (current !== generation) return; currentExecution = nextExecution; execution.value = nextExecution; executionLog.value = log.content;
-    }
-  } catch (error) { if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.'; }
+    await followExecution(started, projectId, current, currentExecution);
+  } catch (error) { if (current === generation && currentExecution === executionGeneration) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.'; }
+}
+
+async function followExecution(initial: ScriptExecution, projectId: string, current: number, currentExecutionGeneration: number): Promise<void> {
+  let currentExecution = initial;
+  while (current === generation && currentExecutionGeneration === executionGeneration && projectId === props.project.id) {
+    const log = await fetchScriptExecutionLog(projectId, initial.id);
+    if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
+    executionLog.value = log.content;
+    if (currentExecution.status !== 'running') return;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+    currentExecution = await fetchScriptExecution(projectId, initial.id);
+    if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
+    execution.value = currentExecution;
+  }
+}
+
+async function restoreExecution(projectId: string, current: number): Promise<void> {
+  const currentExecution = ++executionGeneration;
+  try {
+    const latest = await fetchLatestScriptExecution(projectId);
+    if (current !== generation || currentExecution !== executionGeneration || projectId !== props.project.id || !latest) return;
+    execution.value = latest;
+    await followExecution(latest, projectId, current, currentExecution);
+  } catch (error) {
+    if (current === generation && currentExecution === executionGeneration) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível recuperar a última execução.';
+  }
 }
 
 async function cancel(): Promise<void> {
@@ -57,9 +80,10 @@ async function cancel(): Promise<void> {
   try { execution.value = await cancelScriptExecution(props.project.id, execution.value.id); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar.'; }
 }
 
-watch(() => props.project.id, () => { generation += 1; catalog.value = null; execution.value = null; executionLog.value = ''; page.value = 1; void load(); }, { immediate: true });
+watch(() => props.project.id, () => { generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; execution.value = null; executionLog.value = ''; page.value = 1; void load(); void restoreExecution(projectId, current); }, { immediate: true });
 watch([origin, risk], () => { page.value = 1; void load(); });
 watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => void load(), 250); });
+onUnmounted(() => { generation += 1; executionGeneration += 1; if (searchTimer) clearTimeout(searchTimer); });
 </script>
 
 <template>

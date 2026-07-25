@@ -201,6 +201,15 @@ export class ScriptExecutionService {
     return { ...record.execution };
   }
 
+  public latest(projectId: string): ScriptExecution | null {
+    const records = Array.from(this.executions.values());
+    for (let index = records.length - 1; index >= 0; index -= 1) {
+      const execution = records[index]?.execution;
+      if (execution?.projectId === projectId) return { ...execution };
+    }
+    return null;
+  }
+
   public async log(
     projectId: string,
     executionId: string,

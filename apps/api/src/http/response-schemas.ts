@@ -74,6 +74,17 @@ export const scriptExecutionResponseSchema = {
   },
 } as const;
 
+export const latestScriptExecutionResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['execution'],
+  properties: {
+    execution: {
+      anyOf: [scriptExecutionResponseSchema, { type: 'null' }],
+    },
+  },
+} as const;
+
 export const scriptExecutionLogResponseSchema = {
   type: 'object',
   additionalProperties: false,

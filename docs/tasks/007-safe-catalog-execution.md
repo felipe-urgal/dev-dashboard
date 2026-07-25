@@ -10,6 +10,8 @@ O catálogo somente leitura passou a executar scripts Node, tarefas Rails e exec
 
 Cada execução expõe estado e trecho limitado de log, aceita cancelamento gradual e bloqueia concorrência no mesmo projeto. A UI confirma ações mutáveis, mantém destrutivas desabilitadas, acompanha progresso e logs e invalida o polling ao trocar de projeto.
 
+Uma correção posterior passou a recuperar a execução mais recente ao reabrir a aba de scripts. Assim, o estado e o log continuam visíveis após navegar para outra página, e uma execução ainda ativa volta a ser acompanhada sem manter o polling do componente desmontado. A restauração também é invalidada quando uma execução nova começa, evitando que uma resposta antiga sobrescreva o acompanhamento atual.
+
 ## Decisões de segurança
 
 - IDs são validados contra o catálogo atual; entradas manipuladas são recusadas.
@@ -29,6 +31,7 @@ Cada execução expõe estado e trecho limitado de log, aceita cancelamento grad
 - [x] rejeição de confirmação reutilizada e de concorrência durante a detecção;
 - [x] localização por ID considera o catálogo completo, inclusive após os primeiros 100 itens;
 - [x] estados de execução são apresentados em português brasileiro na UI;
+- [x] última execução é restaurada ao sair da página e voltar;
 - [x] contratos, API e UI tipados;
 - [x] typecheck, build e testes passam.
 
