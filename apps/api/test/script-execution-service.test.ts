@@ -21,6 +21,8 @@ test('executa item atual da allowlist sem shell e disponibiliza log', async (t) 
   let current = started;
   for (let attempt = 0; attempt < 50 && current.status === 'running'; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 20)); current = service.get(project.id, started.id); }
   assert.equal(current.status, 'succeeded'); assert.match((await service.log(project.id, started.id)).content, /123/);
+  assert.deepEqual(service.latest(project.id), current);
+  assert.equal(service.latest('outro-projeto'), null);
 });
 
 test('exige confirmação vinculada para ação mutável', async (t) => {

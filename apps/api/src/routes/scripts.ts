@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import type { ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
 import { ApiError } from '../http/api-error.js';
-import { commonErrorResponseSchemas, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
+import { commonErrorResponseSchemas, latestScriptExecutionResponseSchema, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
 import type { ScriptDetectionService } from '../services/script-detection-service.js';
 import { ScriptExecutionError, type ScriptExecutionService } from '../services/script-execution-service.js';
 import type { ProjectStore } from '../store/project-store.js';
@@ -52,6 +52,15 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (app, options) =>
     const project = options.projectStore.findProject(request.params.projectId);
     if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
     try { return reply.code(201).send({ execution: await options.scriptExecutionService.start(project, request.body.actionId, request.body.confirmationToken) }); } catch (error) { translate(error); }
+  });
+
+  app.get<{ Params: Params }>('/projects/:projectId/scripts/executions/latest', { schema: {
+    params: { type: 'object', additionalProperties: false, required: ['projectId'], properties: { projectId: { type: 'string', minLength: 1 } } },
+    response: { 200: latestScriptExecutionResponseSchema, ...commonErrorResponseSchemas },
+  } }, async (request) => {
+    const project = options.projectStore.findProject(request.params.projectId);
+    if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+    return { execution: options.scriptExecutionService.latest(project.id) };
   });
 
   app.get<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId', { schema: { params: executionParamsSchema, response: { 200: { type: 'object', additionalProperties: false, required: ['execution'], properties: { execution: scriptExecutionResponseSchema } }, ...commonErrorResponseSchemas } } }, async (request) => {
