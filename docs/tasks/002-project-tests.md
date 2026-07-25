@@ -114,6 +114,9 @@ persistidos pelo próprio dashboard.
 - Removida a flag `--silent` divergente do label npm.
 - Polling do `ProjectTestsPanel` agora interrompe após 5 falhas
   consecutivas e informa o usuário para tentar novamente manualmente.
+- As chamadas web para iniciar e interromper testes agora enviam um objeto
+  JSON vazio, conforme o schema explícito das rotas, em vez de um corpo
+  ausente que o Fastify rejeitava com `VALIDATION_ERROR`.
 
 ## Testes automatizados
 
@@ -122,6 +125,8 @@ persistidos pelo próprio dashboard.
   - projeto sem runners;
   - detecção de RSpec via Gemfile + `spec/`;
   - `resolveCommand` retornando `null` para id desconhecido.
+- `apps/web/test/test-process-api.test.ts` cobre o corpo JSON exigido pelas
+  rotas de início e interrupção de testes.
 
 ## QA manual esperado
 

@@ -100,40 +100,49 @@ function formatTimestamp(value: string | undefined): string {
   }).format(new Date(value));
 }
 
+function isCurrentProjectRequest(
+  projectId: string,
+  requestGeneration: number,
+): boolean {
+  return props.project.id === projectId && generation === requestGeneration;
+}
+
 async function loadOverview(refresh = false): Promise<void> {
-  const requestGeneration = ++generation;
+  const projectId = props.project.id;
+  const requestGeneration = generation;
   loadingOverview.value = true;
   errorMessage.value = '';
   consecutiveFailures = 0;
   try {
-    const result = await fetchProjectTests(props.project.id, {
-      refresh,
-    });
-    if (requestGeneration === generation) overview.value = result;
+    const result = await fetchProjectTests(projectId, { refresh });
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      overview.value = result;
+    }
   } catch (error) {
-    if (requestGeneration === generation) {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
       errorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível carregar os comandos de teste.';
     }
   } finally {
-    if (requestGeneration === generation) loadingOverview.value = false;
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      loadingOverview.value = false;
+    }
   }
 }
 
 async function refreshProcess(): Promise<boolean> {
+  const projectId = props.project.id;
   const requestGeneration = generation;
   try {
-    const result = await fetchProjectTestProcess(props.project.id);
-    if (requestGeneration !== generation) return true;
+    const result = await fetchProjectTestProcess(projectId);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return true;
     managedProcess.value = result;
 
     if (result) {
-      const log = await fetchProjectTestLog(props.project.id).catch(
-        () => null,
-      );
-      if (requestGeneration !== generation) return true;
+      const log = await fetchProjectTestLog(projectId).catch(() => null);
+      if (!isCurrentProjectRequest(projectId, requestGeneration)) return true;
       if (log) {
         logContent.value = log.content;
         logTruncated.value = log.truncated;
@@ -145,7 +154,7 @@ async function refreshProcess(): Promise<boolean> {
     consecutiveFailures = 0;
     return true;
   } catch (error) {
-    if (requestGeneration === generation) {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -183,63 +192,87 @@ function clearPolling(): void {
 }
 
 async function handleStart(commandId: string): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
   startingCommandId.value = commandId;
   errorMessage.value = '';
   try {
-    const result = await startProjectTest(props.project.id, commandId);
+    const result = await startProjectTest(projectId, commandId);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
     managedProcess.value = result;
     logContent.value = '';
     logTruncated.value = false;
     schedulePolling();
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível iniciar os testes.';
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível iniciar os testes.';
+    }
   } finally {
-    startingCommandId.value = null;
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      startingCommandId.value = null;
+    }
   }
 }
 
 async function handleStop(): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
   stopping.value = true;
   errorMessage.value = '';
   try {
-    const result = await stopProjectTest(props.project.id);
+    const result = await stopProjectTest(projectId);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
     managedProcess.value = result;
     await refreshProcess();
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível interromper os testes.';
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível interromper os testes.';
+    }
   } finally {
-    stopping.value = false;
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      stopping.value = false;
+    }
   }
 }
 
 async function handleClearLogs(): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
   errorMessage.value = '';
   try {
-    const log = await clearProjectTestLog(props.project.id);
+    const log = await clearProjectTestLog(projectId);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
     logContent.value = log.content;
     logTruncated.value = log.truncated;
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível limpar o log.';
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível limpar o log.';
+    }
   }
 }
 
 watch(
   () => props.project.id,
   () => {
+    generation += 1;
     clearPolling();
+    consecutiveFailures = 0;
     overview.value = null;
     managedProcess.value = null;
     logContent.value = '';
     logTruncated.value = false;
+    startingCommandId.value = null;
+    stopping.value = false;
+    errorMessage.value = '';
     void loadOverview();
     void refreshProcess();
   },

@@ -484,14 +484,15 @@ export class ProcessManager {
     const key = `${projectId}:${kind}`;
     const previous = this.startLocks.get(key) ?? Promise.resolve();
     const current = previous.catch(() => undefined).then(action);
-    this.startLocks.set(
-      key,
-      current.catch(() => undefined),
+    const tail = current.then(
+      () => undefined,
+      () => undefined,
     );
+    this.startLocks.set(key, tail);
     try {
       return await current;
     } finally {
-      if (this.startLocks.get(key) === current) {
+      if (this.startLocks.get(key) === tail) {
         this.startLocks.delete(key);
       }
     }
@@ -551,7 +552,7 @@ export class ProcessManager {
         const finalStatus: 'stopped' | 'failed' =
           storedProcess.status === 'stopping'
             ? 'stopped'
-            : exitCode === 0
+            : kind === 'test' && exitCode === 0
               ? 'stopped'
               : 'failed';
 
