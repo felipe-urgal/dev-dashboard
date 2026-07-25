@@ -1,44 +1,35 @@
-# Próxima atividade — 006: Distribuição local do dashboard web
+# Próxima atividade — 007: Execução segura do catálogo
 
 ## Objetivo
 
-Concluir a fundação operacional com um único comando `dev-web` que valide,
-construa e inicie o dashboard local, servindo o frontend compilado pela API sem
-depender do Vite.
+Permitir executar itens do catálogo já detectado sem aceitar comandos arbitrários, com processo observável, cancelável e confirmação proporcional ao risco.
 
 ## Plano detalhado
 
-1. Definir como a API localizará `apps/web/dist` em instalação e desenvolvimento.
-2. Servir assets imutáveis e o fallback da SPA somente fora do namespace `/api`.
-3. Preservar a autenticação local sem gravar o token no bundle nem confiar
-   apenas em CORS; documentar o fluxo e cobri-lo com testes de origem/CSRF.
-4. Criar `dev-web` com validação prévia, build, inicialização em
-   `127.0.0.1` e encerramento previsível por sinal.
-5. Adicionar configuração explícita para porta, diretório do frontend e modo de
-   desenvolvimento/produção, sempre com defaults locais seguros.
-6. Cobrir assets, fallback de rotas do Vue, ausência do build, namespace da API
-   e autenticação com testes da aplicação Fastify.
-7. Atualizar instalação, operação e troubleshooting na documentação.
+1. Definir contratos de ação, execução, estado, risco e trechos de log.
+2. Criar allowlist fechada que reconstrói comando e argumentos no servidor a partir do identificador catalogado.
+3. Selecionar npm, pnpm, Yarn ou Bundler pelo lockfile, rejeitando ambiguidades inseguras e ausência do gerenciador.
+4. Classificar ações em risco baixo, médio e alto; exigir confirmação explícita e vinculada à ação para os níveis previstos.
+5. Integrar ao Process Manager sem `shell: true`, sempre com `cwd` canônico fornecido pelo `ProjectStore`.
+6. Persistir metadados mínimos, limitar logs e permitir cancelamento com `SIGTERM`, tolerância e `SIGKILL` somente quando necessário.
+7. Impedir concorrência incompatível por projeto e tratar PID reutilizado e estado obsoleto.
+8. Expor rotas com schemas explícitos, IDs em vez de caminhos/comandos e códigos de erro estáveis.
+9. Implementar UI de confirmação, progresso, cancelamento e logs, invalidando estado ao trocar de projeto.
+10. Cobrir allowlist, lockfiles, confirmação, concorrência, cancelamento, limites de log e rejeição de entradas manipuladas.
+11. Atualizar arquitetura, segurança, README e registro da task.
 
 ## Fora do escopo
 
-- instalação como serviço do sistema;
-- acesso remoto ou bind em `0.0.0.0`;
-- TLS, múltiplos usuários ou login;
-- empacotadores nativos para desktop;
-- execução do catálogo de scripts, que volta à sequência após esta fundação.
+- terminal arbitrário no navegador;
+- execução remota ou multiusuário;
+- elevação de privilégio genérica;
+- pipelines distribuídos ou histórico permanente completo.
 
 ## Critérios de aceite
 
-- uma instalação limpa pode rodar diagnóstico, build e dashboard por um comando;
-- o navegador usa somente a origem da API no modo local de produção;
-- recarregar uma sub-rota do Vue retorna a aplicação;
-- rotas privadas continuam inacessíveis a origens externas e clientes sem autorização;
-- o token não aparece nos arquivos de `apps/web/dist`;
-- `npm run typecheck`, `npm run build` e `npm test` passam.
-
-## Atividade seguinte preservada
-
-Depois desta entrega, a execução segura do catálogo será retomada como task 007,
-mantendo o escopo já planejado: catálogo fechado, seleção de gerenciador por
-lockfile, processos canceláveis, logs e confirmação por risco.
+- nenhuma string livre do navegador chega a `spawn`;
+- cada execução corresponde a item atual da allowlist e usa o gerenciador determinado por lockfile;
+- ações de risco exigem confirmação adequada e não reutilizável;
+- processos podem ser cancelados e seus logs permanecem limitados;
+- API e UI tratam concorrência, expiração e troca de projeto;
+- typecheck, build e testes passam.

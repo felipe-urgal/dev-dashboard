@@ -342,6 +342,8 @@ npm run dev
 
 inicia API e frontend.
 
+Para uso local sem Vite, `npm run dev-web` executa diagnóstico e build, valida `apps/web/dist` e inicia somente a API compilada em `http://127.0.0.1:4343`. O comando gera e imprime uma URL com capacidade efêmera no fragmento para autenticar o bootstrap da sessão; origem HTTP isoladamente não concede acesso. A API serve assets versionados com cache imutável, HTML sem cache prolongado e fallback Vue somente fora de `/api`. Porta e diretório podem ser definidos por `DEV_DASHBOARD_API_PORT` e `DEV_DASHBOARD_WEB_DIST`; o modo exige `DEV_DASHBOARD_LOCAL_DISTRIBUTION=1`. O bind permanece fixo no loopback.
+
 Comandos de validação:
 
 ```bash

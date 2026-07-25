@@ -19,6 +19,7 @@ import { LocalTokenStore } from '@dev-dashboard/core';
 import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
+import { registerStaticDashboard } from './http/static-dashboard.js';
 
 import {
   createAppContext,
@@ -29,6 +30,13 @@ export interface BuildAppOptions {
   localToken?: string;
   allowedOrigins?: readonly string[];
   context?: AppContext;
+  frontendDirectory?: string;
+  staticDashboardEnabled?: boolean;
+  localOrigin?: string;
+  sessionSecret?: string;
+  browserBootstrapToken?: string;
+  sessionTtlSeconds?: number;
+  now?: () => number;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -38,7 +46,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     },
   });
 
-  registerApiErrorHandling(app);
+  registerApiErrorHandling(app, { registerNotFound: !options.staticDashboardEnabled });
 
   const context = options.context ?? createAppContext();
 
@@ -47,6 +55,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   await registerLocalSecurity(app, {
     token: localToken,
+    sessionSecret: options.sessionSecret ?? localToken,
+    ...(options.browserBootstrapToken
+      ? { browserBootstrapToken: options.browserBootstrapToken }
+      : {}),
+    localOrigin: options.localOrigin ?? 'http://127.0.0.1:4343',
+    ...(options.sessionTtlSeconds ? { sessionTtlSeconds: options.sessionTtlSeconds } : {}),
+    ...(options.now ? { now: options.now } : {}),
     ...(options.allowedOrigins
       ? {
           allowedOrigins: options.allowedOrigins,
@@ -102,6 +117,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     scriptDetectionService: context.scriptDetectionService,
   });
+
+  if (options.staticDashboardEnabled) {
+    if (!options.frontendDirectory) throw new Error('O diretório do frontend é obrigatório para distribuição local.');
+    await registerStaticDashboard(app, options.frontendDirectory);
+  }
 
   return app;
 }

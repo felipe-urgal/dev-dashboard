@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev-web": "node scripts/dev-web.mjs",
     "dev:api": "npm run dev --workspace=@dev-dashboard/api",
     "dev:web": "npm run dev --workspace=@dev-dashboard/web",
     "doctor": "node scripts/doctor.mjs",
