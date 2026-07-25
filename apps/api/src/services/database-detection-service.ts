@@ -16,13 +16,11 @@ import type {
 
 interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'startAvailable'> {
   databaseUrl?: string;
-  composeFile?: string;
-  composeService?: string;
 }
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string }) => Promise<void>;
 
-export type DatabaseStartFailureReason = 'compose-unavailable' | 'daemon-unavailable' | 'permission-denied' | 'command-failed';
+export type DatabaseStartFailureReason = 'systemctl-unavailable' | 'authorization-unavailable' | 'permission-denied' | 'command-failed';
 
 export class DatabaseStartError extends Error {
   public constructor(public readonly reason: DatabaseStartFailureReason, options?: ErrorOptions) {
@@ -51,19 +49,12 @@ function commandFailureText(error: unknown): string {
     .toLowerCase();
 }
 
-function composePluginUnavailable(error: unknown): boolean {
-  const text = commandFailureText(error);
-  return text.includes('enoent')
-    || text.includes("'compose' is not a docker command")
-    || text.includes('unknown command "compose"')
-    || text.includes('unknown shorthand flag:');
-}
-
 function startFailureReason(error: unknown): DatabaseStartFailureReason {
   const text = commandFailureText(error);
-  if (text.includes('permission denied') || text.includes('permission denied while trying to connect')) return 'permission-denied';
-  if (text.includes('cannot connect to the docker daemon') || text.includes('is the docker daemon running')) return 'daemon-unavailable';
-  if (text.includes('enoent') || text.includes('not found') || composePluginUnavailable(error)) return 'compose-unavailable';
+  if (text.includes('spawn pkexec enoent') || text.includes('pkexec: command not found')) return 'authorization-unavailable';
+  if (text.includes('authentication agent') || text.includes('authentication dialog was dismissed')) return 'authorization-unavailable';
+  if (text.includes('permission denied') || text.includes('not permitted') || text.includes('not authorized')) return 'permission-denied';
+  if (text.includes('systemctl: command not found') || text.includes('failed to execute systemctl')) return 'systemctl-unavailable';
   return 'command-failed';
 }
 
@@ -72,36 +63,20 @@ const defaultPorts: Record<string, number> = {
   mariadb: 3306, mongodb: 27017, redis: 6379,
 };
 
-const composeFiles = ['compose.yml', 'compose.yaml', 'docker-compose.yml', 'docker-compose.yaml'];
+const systemdServices: Record<string, string> = {
+  mariadb: 'mariadb.service',
+  mongodb: 'mongod.service',
+  mysql: 'mysql.service',
+  mysql2: 'mysql.service',
+  postgres: 'postgresql.service',
+  postgresql: 'postgresql.service',
+  redis: 'redis-server.service',
+};
 
-function composeDriverMatches(driver: string, service: string, image: string): boolean {
-  const value = `${service} ${image}`.toLowerCase();
-  const normalized = driver.toLowerCase();
-  if (['postgres', 'postgresql'].includes(normalized)) return /postgres|postgis/.test(value);
-  if (['mysql', 'mysql2', 'mariadb'].includes(normalized)) return /mysql|mariadb/.test(value);
-  if (normalized === 'mongodb') return /mongo/.test(value);
-  if (normalized === 'redis') return /redis/.test(value);
-  return false;
-}
-
-function findComposeService(contents: string, driver: string): string | null {
-  let inServices = false;
-  let currentService = '';
-  const candidates: Array<{ name: string; image: string }> = [];
-  for (const line of contents.split(/\r?\n/)) {
-    if (/^services:\s*(?:#.*)?$/.test(line)) { inServices = true; continue; }
-    if (inServices && /^\S/.test(line) && line.trim()) break;
-    if (!inServices) continue;
-    const serviceMatch = line.match(/^\s{2}([A-Za-z0-9][A-Za-z0-9_.-]*):\s*(?:#.*)?$/);
-    if (serviceMatch) {
-      currentService = serviceMatch[1] ?? '';
-      candidates.push({ name: currentService, image: '' });
-      continue;
-    }
-    const imageMatch = line.match(/^\s{4,}image:\s*["']?([^\s"'#]+)["']?/);
-    if (currentService && imageMatch) candidates[candidates.length - 1]!.image = imageMatch[1] ?? '';
-  }
-  return candidates.find(({ name, image }) => composeDriverMatches(driver, name, image))?.name ?? null;
+function localSystemdService(item: DetectedDatabase): string | null {
+  const host = item.host?.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host && !['localhost', '127.0.0.1', '::1'].includes(host)) return null;
+  return systemdServices[item.driver.toLowerCase()] ?? null;
 }
 
 async function exists(file: string): Promise<boolean> {
@@ -251,27 +226,17 @@ export class DatabaseDetectionService {
       }
     }
 
-    const unique = [...new Map(detected.map((item) => [`${item.environment}:${item.databaseUrl ?? item.database ?? item.id}`, item])).values()];
-    for (const file of composeFiles) {
-      const contents = await safeRead(project.path, file);
-      if (contents === null) continue;
-      for (const item of unique) {
-        const service = findComposeService(contents, item.driver);
-        if (service) { item.composeFile = file; item.composeService = service; }
-      }
-      break;
-    }
-    return unique;
+    return [...new Map(detected.map((item) => [`${item.environment}:${item.databaseUrl ?? item.database ?? item.id}`, item])).values()];
   }
 
   public async getOverview(project: Project, page = 1, pageSize = 20): Promise<ProjectDatabaseOverview> {
     const all = await this.detect(project);
     const selected = all.slice((page - 1) * pageSize, page * pageSize);
 
-    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, composeFile, composeService, ...item }) => ({
+    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, ...item }) => ({
       ...item,
       reachability: await checkReachability(item.host, item.port),
-      startAvailable: Boolean(composeFile && composeService),
+      startAvailable: localSystemdService(item) !== null,
     })));
 
     return { supported: all.length > 0, environments, page, pageSize, total: all.length };
@@ -284,18 +249,15 @@ export class DatabaseDetectionService {
   public async start(project: Project, environmentId: string): Promise<boolean> {
     const item = (await this.detect(project)).find((candidate) => candidate.id === environmentId);
     if (!item) return false;
-    if (!item.composeFile || !item.composeService) return false;
-    const composeArgs = ['-f', item.composeFile, 'up', '-d', item.composeService];
+    const service = localSystemdService(item);
+    if (!service) return false;
     try {
-      await this.runCommand('docker', ['compose', ...composeArgs], { cwd: project.path });
+      // A API roda em uma sessão destacada. O agente polkit da sessão do usuário
+      // pode autenticar esta ação sem depender do ticket sudo de um terminal.
+      // O agente interno fica desabilitado para nunca bloquear a API em um prompt.
+      await this.runCommand('pkexec', ['--disable-internal-agent', 'systemctl', 'start', service], { cwd: project.path });
     } catch (error) {
-      if (!composePluginUnavailable(error)) throw new DatabaseStartError(startFailureReason(error), { cause: error });
-
-      try {
-        await this.runCommand('docker-compose', composeArgs, { cwd: project.path });
-      } catch (fallbackError) {
-        throw new DatabaseStartError(startFailureReason(fallbackError), { cause: fallbackError });
-      }
+      throw new DatabaseStartError(startFailureReason(error), { cause: error });
     }
     return true;
   }

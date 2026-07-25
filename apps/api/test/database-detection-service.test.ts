@@ -56,10 +56,9 @@ test('não testa conectividade de hosts remotos definidos pelo projeto', async (
   assert.equal(overview.environments[0]?.reachability, 'unknown');
 });
 
-test('oferece e inicia somente o serviço Docker Compose reconhecido', async () => {
+test('oferece e inicia o serviço systemd correspondente ao banco local', async () => {
   const project = await fixture({
     '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
-    'compose.yml': 'services:\n  web:\n    image: node:24\n  banco:\n    image: postgres:17\n',
   });
   const calls: Array<{ command: string; args: string[]; cwd: string }> = [];
   const service = new DatabaseDetectionService(async (command, args, options) => {
@@ -70,55 +69,57 @@ test('oferece e inicia somente o serviço Docker Compose reconhecido', async () 
   assert.equal(overview.environments[0]?.startAvailable, true);
   assert.equal(await service.start(project, overview.environments[0]!.id), true);
   assert.deepEqual(calls, [{
-    command: 'docker',
-    args: ['compose', '-f', 'compose.yml', 'up', '-d', 'banco'],
+    command: 'pkexec',
+    args: ['--disable-internal-agent', 'systemctl', 'start', 'postgresql.service'],
     cwd: project.path,
   }]);
 });
 
-test('não oferece inicialização sem serviço Compose compatível', async () => {
+test('seleciona o serviço mysql a partir do adapter mysql2', async () => {
   const project = await fixture({
-    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
-    'compose.yml': 'services:\n  web:\n    image: node:24\n',
+    'config/database.yml': 'development:\n  adapter: mysql2\n  host: localhost\n  database: example\n',
+  });
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(async (command, args) => { calls.push({ command, args }); });
+  const overview = await service.getOverview(project);
+
+  assert.equal(overview.environments[0]?.startAvailable, true);
+  assert.equal(await service.start(project, overview.environments[0]!.id), true);
+  assert.deepEqual(calls, [{ command: 'pkexec', args: ['--disable-internal-agent', 'systemctl', 'start', 'mysql.service'] }]);
+});
+
+test('não oferece inicialização local para host remoto', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@192.0.2.10:5432/example\n',
   });
   const service = new DatabaseDetectionService(async () => assert.fail('não deveria executar comandos'));
   const overview = await service.getOverview(project);
 
   assert.equal(overview.environments[0]?.startAvailable, false);
-  assert.equal(await service.start(project, overview.environments[0]!.id), false);
+  assert.equal(await service.start(project, 'dotenv--env'), false);
 });
 
-test('usa docker-compose legado quando o plugin Compose não está disponível', async () => {
+test('informa quando não há agente polkit disponível na sessão', async () => {
   const project = await fixture({
     '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
-    'compose.yml': 'services:\n  banco:\n    image: postgres:17\n',
-  });
-  const calls: Array<{ command: string; args: string[] }> = [];
-  const service = new DatabaseDetectionService(async (command, args) => {
-    calls.push({ command, args });
-    if (command === 'docker') {
-      throw Object.assign(new Error("'compose' is not a docker command"), { stderr: "docker: 'compose' is not a docker command." });
-    }
-  });
-
-  assert.equal(await service.start(project, 'dotenv--env'), true);
-  assert.deepEqual(calls, [
-    { command: 'docker', args: ['compose', '-f', 'compose.yml', 'up', '-d', 'banco'] },
-    { command: 'docker-compose', args: ['-f', 'compose.yml', 'up', '-d', 'banco'] },
-  ]);
-});
-
-test('não repete a inicialização quando o Docker Compose falha por outro motivo', async () => {
-  const project = await fixture({
-    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
-    'compose.yml': 'services:\n  banco:\n    image: postgres:17\n',
   });
   const calls: string[] = [];
   const service = new DatabaseDetectionService(async (command) => {
     calls.push(command);
-    throw Object.assign(new Error('daemon indisponível'), { stderr: 'Cannot connect to the Docker daemon. Is the docker daemon running?' });
+    throw Object.assign(new Error('autorização indisponível'), { stderr: 'No authentication agent found.' });
   });
 
-  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'daemon-unavailable' });
-  assert.deepEqual(calls, ['docker']);
+  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'authorization-unavailable' });
+  assert.deepEqual(calls, ['pkexec']);
+});
+
+test('informa quando a autorização polkit é negada', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+  });
+  const service = new DatabaseDetectionService(async () => {
+    throw Object.assign(new Error('autorização negada'), { stderr: 'Not authorized' });
+  });
+
+  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'permission-denied' });
 });

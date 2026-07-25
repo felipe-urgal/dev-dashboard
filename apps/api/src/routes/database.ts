@@ -66,16 +66,16 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
     const project = requireProject(options.projectStore, request.params.projectId);
     try {
       const started = await options.databaseDetectionService.start(project, request.params.environmentId);
-      if (!started) throw new ApiError({ statusCode: 409, code: 'DATABASE_START_NOT_AVAILABLE', message: 'Não há um serviço Docker Compose reconhecido para este banco.' });
+      if (!started) throw new ApiError({ statusCode: 409, code: 'DATABASE_START_NOT_AVAILABLE', message: 'Não há um serviço local reconhecido para este banco.' });
       return { start: { environmentId: request.params.environmentId, started: true } };
     } catch (error) {
       if (error instanceof ApiError) throw error;
       request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId }, 'Database service start failed');
       const messages = {
-        'compose-unavailable': 'Docker Compose não está instalado ou disponível no PATH da API.',
-        'daemon-unavailable': 'O Docker não está em execução. Inicie o serviço e tente novamente.',
-        'permission-denied': 'A API não tem permissão para acessar o Docker. Verifique as permissões do usuário.',
-        'command-failed': 'O Docker Compose não conseguiu iniciar o serviço de banco de dados. Consulte o log da API.',
+        'systemctl-unavailable': 'O systemctl não está instalado ou disponível para iniciar o serviço local.',
+        'authorization-unavailable': 'Não há um agente de autenticação polkit disponível na sessão. Inicie um agente polkit e tente novamente.',
+        'permission-denied': 'A autorização para iniciar o serviço local de banco foi negada.',
+        'command-failed': 'O systemctl não conseguiu iniciar o serviço local de banco de dados. Consulte o log da API.',
       } as const;
       throw new ApiError({
         statusCode: 500,
