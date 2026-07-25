@@ -31,6 +31,7 @@ export type ApiErrorCode =
   | 'DIRECTORY_OUTSIDE_ROOT'
   | 'INVALID_DIRECTORY'
   | 'PROJECT_FAVICON_NOT_FOUND'
+  | 'GIT_COMMAND_FAILED'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

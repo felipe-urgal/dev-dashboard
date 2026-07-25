@@ -221,3 +221,26 @@ export const logRetentionSweepResponseSchema = {
     },
   },
 } as const;
+
+export const gitCommitResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['hash', 'shortHash', 'subject', 'authorName', 'authorEmail', 'authoredAt'],
+  properties: { hash: { type: 'string' }, shortHash: { type: 'string' }, subject: { type: 'string' }, authorName: { type: 'string' }, authorEmail: { type: 'string' }, authoredAt: { type: 'string' } },
+} as const;
+
+export const gitFileChangeResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['path', 'indexStatus', 'worktreeStatus', 'status'],
+  properties: {
+    path: { type: 'string' }, previousPath: { type: 'string' }, indexStatus: { type: 'string' }, worktreeStatus: { type: 'string' },
+    status: { type: 'string', enum: ['added', 'modified', 'deleted', 'renamed', 'copied', 'untracked', 'conflicted', 'type-changed'] },
+  },
+} as const;
+
+export const projectGitOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['repository', 'detached', 'ahead', 'behind', 'clean', 'files', 'recentCommits'],
+  properties: {
+    repository: { type: 'boolean' }, branch: { type: 'string' }, detached: { type: 'boolean' }, upstream: { type: 'string' }, ahead: { type: 'integer', minimum: 0 }, behind: { type: 'integer', minimum: 0 }, clean: { type: 'boolean' }, files: { type: 'array', items: gitFileChangeResponseSchema }, latestCommit: gitCommitResponseSchema, recentCommits: { type: 'array', items: gitCommitResponseSchema },
+  },
+} as const;

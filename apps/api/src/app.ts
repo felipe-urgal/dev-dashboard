@@ -68,6 +68,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitService: context.gitService,
   });
 
   app.register(processRoutes, {

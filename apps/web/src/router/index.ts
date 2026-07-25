@@ -29,6 +29,15 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/git',
+      name: 'project-git',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Git do projeto',
+      },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,

@@ -3,6 +3,7 @@ import type {
   ProcessLogSnapshot,
   Project,
   ProjectServerSettings,
+  ProjectGitOverview,
   Workspace,
 } from '@dev-dashboard/contracts';
 
@@ -305,4 +306,11 @@ export async function clearProjectProcessLog(
   );
 
   return response.log;
+}
+
+
+interface ProjectGitResponse { git: ProjectGitOverview; }
+export async function fetchProjectGit(projectId: string): Promise<ProjectGitOverview> {
+  const response = await requestJson<ProjectGitResponse>(`/api/projects/${encodeURIComponent(projectId)}/git`);
+  return response.git;
 }

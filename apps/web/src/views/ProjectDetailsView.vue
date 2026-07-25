@@ -14,6 +14,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import ProjectAvatar from '../components/ProjectAvatar.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
+import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
 
 import {
@@ -31,6 +32,8 @@ const projectId = computed(() => {
   const value = route.params.projectId;
   return Array.isArray(value) ? value[0] ?? '' : String(value ?? '');
 });
+
+const isGitRoute = computed(() => route.name === 'project-git');
 
 const workspace = computed(() => {
   const workspaceId = project.value?.workspaceId;
@@ -136,16 +139,28 @@ watch(projectId, () => {
       </header>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
-        <a class="project-details-tab project-details-tab-active" href="#overview">
+        <RouterLink
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': !isGitRoute }"
+          :to="{ name: 'project-details', params: { projectId: project.id } }"
+        >
           Visão geral
-        </a>
-        <a class="project-details-tab" href="#server">Servidor</a>
-        <a class="project-details-tab" href="#logs">Logs</a>
-        <span class="project-details-tab project-details-tab-disabled">Git</span>
+        </RouterLink>
+        <a v-if="!isGitRoute" class="project-details-tab" href="#server">Servidor</a>
+        <a v-if="!isGitRoute" class="project-details-tab" href="#logs">Logs</a>
+        <RouterLink
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isGitRoute }"
+          :to="{ name: 'project-git', params: { projectId: project.id } }"
+        >
+          Git
+        </RouterLink>
         <span class="project-details-tab project-details-tab-disabled">Testes</span>
       </nav>
 
-      <div class="project-details-grid">
+      <ProjectGitPanel v-if="isGitRoute" :key="project.id" :project="project" />
+
+      <div v-else class="project-details-grid">
         <section id="overview" class="details-card">
           <div class="details-card-heading">
             <div>
