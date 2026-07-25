@@ -73,8 +73,8 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
       request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId }, 'Database service start failed');
       const messages = {
         'systemctl-unavailable': 'O systemctl não está instalado ou disponível para iniciar o serviço local.',
-        'sudo-auth-required': 'O sudo precisa de autorização. Execute sudo -v no terminal e tente novamente.',
-        'permission-denied': 'O usuário da API não tem permissão para iniciar o serviço local de banco.',
+        'authorization-unavailable': 'Não há um agente de autenticação polkit disponível na sessão. Inicie um agente polkit e tente novamente.',
+        'permission-denied': 'A autorização para iniciar o serviço local de banco foi negada.',
         'command-failed': 'O systemctl não conseguiu iniciar o serviço local de banco de dados. Consulte o log da API.',
       } as const;
       throw new ApiError({

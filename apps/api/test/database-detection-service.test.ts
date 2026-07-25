@@ -69,8 +69,8 @@ test('oferece e inicia o serviço systemd correspondente ao banco local', async 
   assert.equal(overview.environments[0]?.startAvailable, true);
   assert.equal(await service.start(project, overview.environments[0]!.id), true);
   assert.deepEqual(calls, [{
-    command: 'sudo',
-    args: ['-n', 'systemctl', 'start', 'postgresql.service'],
+    command: 'pkexec',
+    args: ['--disable-internal-agent', 'systemctl', 'start', 'postgresql.service'],
     cwd: project.path,
   }]);
 });
@@ -85,7 +85,7 @@ test('seleciona o serviço mysql a partir do adapter mysql2', async () => {
 
   assert.equal(overview.environments[0]?.startAvailable, true);
   assert.equal(await service.start(project, overview.environments[0]!.id), true);
-  assert.deepEqual(calls, [{ command: 'sudo', args: ['-n', 'systemctl', 'start', 'mysql.service'] }]);
+  assert.deepEqual(calls, [{ command: 'pkexec', args: ['--disable-internal-agent', 'systemctl', 'start', 'mysql.service'] }]);
 });
 
 test('não oferece inicialização local para host remoto', async () => {
@@ -99,16 +99,27 @@ test('não oferece inicialização local para host remoto', async () => {
   assert.equal(await service.start(project, 'dotenv--env'), false);
 });
 
-test('informa quando o sudo precisa ser autorizado no terminal', async () => {
+test('informa quando não há agente polkit disponível na sessão', async () => {
   const project = await fixture({
     '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
   });
   const calls: string[] = [];
   const service = new DatabaseDetectionService(async (command) => {
     calls.push(command);
-    throw Object.assign(new Error('sudo indisponível'), { stderr: 'sudo: a password is required' });
+    throw Object.assign(new Error('autorização indisponível'), { stderr: 'No authentication agent found.' });
   });
 
-  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'sudo-auth-required' });
-  assert.deepEqual(calls, ['sudo']);
+  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'authorization-unavailable' });
+  assert.deepEqual(calls, ['pkexec']);
+});
+
+test('informa quando a autorização polkit é negada', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+  });
+  const service = new DatabaseDetectionService(async () => {
+    throw Object.assign(new Error('autorização negada'), { stderr: 'Not authorized' });
+  });
+
+  await assert.rejects(() => service.start(project, 'dotenv--env'), { reason: 'permission-denied' });
 });

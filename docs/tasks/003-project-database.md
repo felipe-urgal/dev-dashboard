@@ -21,15 +21,15 @@ projetos Rails e Node.
 - ações para ocultar/revelar, copiar a URL e abrir o protocolo
   `dev-dashboard://` com identificadores estruturados;
 - ação para iniciar o serviço local do banco indisponível por meio de
-  `sudo -n systemctl start`, conforme o driver detectado;
+  `pkexec systemctl start`, conforme o driver detectado;
 - estado dedicado quando nenhuma configuração é reconhecida;
 - invalidação das respostas assíncronas ao trocar de projeto;
 - limpeza do estado de inicialização antes de atualizar a detecção, evitando
   que o botão permaneça desabilitado enquanto o serviço ainda fica disponível.
 - catálogo fechado de unidades systemd para PostgreSQL, MySQL/MariaDB, MongoDB
   e Redis;
-- mensagens acionáveis para `systemctl` ausente, autorização prévia do `sudo`
-  e falta de permissão.
+- mensagens acionáveis para `systemctl` ausente, agente polkit indisponível e
+  falta de permissão.
 
 ## Decisões de segurança
 
@@ -46,10 +46,12 @@ projetos Rails e Node.
    projeto referencie e revele segredos externos aos seus próprios arquivos.
 7. A verificação TCP aceita apenas endereços de loopback; hosts remotos ficam
    com estado não verificado para impedir que projetos provoquem varreduras de rede.
-8. A inicialização usa exclusivamente `sudo -n systemctl start <unidade>` sem
-   shell, com a unidade escolhida em um catálogo fechado pelo driver. O modo
-   não interativo impede que a API fique bloqueada esperando senha; quando
-   necessário, o usuário autoriza o sudo antes com `sudo -v` no terminal.
+8. A inicialização usa exclusivamente
+   `pkexec --disable-internal-agent systemctl start <unidade>` sem shell, com a
+   unidade escolhida em um catálogo fechado pelo driver. A autorização é feita
+   pelo agente polkit da sessão do usuário, inclusive quando a API está em uma
+   sessão de processos destacada. O agente textual interno permanece
+   desabilitado para que a API nunca bloqueie esperando entrada no terminal.
 9. Bancos configurados em hosts remotos nunca disponibilizam a ação de iniciar
    um serviço da máquina local.
 
@@ -63,12 +65,15 @@ projetos Rails e Node.
 - host remoto não sondado pela verificação de conectividade;
 - seleção e inicialização dos serviços locais de PostgreSQL e MySQL;
 - ausência da ação para banco remoto;
-- classificação da falha quando o `sudo` exige autorização.
+- classificação das falhas quando o agente polkit está indisponível ou nega a
+  autorização.
 
 ## QA e code review
 
 - revisão confirmou que unidade, argumentos e diretório de execução continuam
   resolvidos exclusivamente no backend, sem entrada livre do navegador;
+- revisão posterior substituiu o ticket `sudo` vinculado ao terminal por
+  autorização polkit compatível com a sessão destacada usada por `npm run dev`;
 - Docker foi removido desta entrega: suporte a containers permanece reservado
   para uma atividade futura do roadmap;
 - typecheck, build e testes da API foram executados após a correção; a suíte
@@ -83,7 +88,8 @@ projetos Rails e Node.
 - `knexfile` não é executado por segurança; os dados são associados apenas
   quando também existem variáveis `DB_*` reconhecidas;
 - a inicialização automática atual é específica de distribuições Linux com
-  systemd e requer autorização de `sudo` válida ou regra local equivalente;
+  systemd e requer `pkexec` e um agente de autenticação polkit disponível na
+  sessão do usuário;
 - nomes de unidades podem variar entre distribuições; o catálogo inicial usa
   `postgresql.service`, `mysql.service`, `mariadb.service`, `mongod.service` e
   `redis-server.service`;

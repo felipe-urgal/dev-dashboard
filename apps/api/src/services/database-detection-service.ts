@@ -20,7 +20,7 @@ interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachabilit
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string }) => Promise<void>;
 
-export type DatabaseStartFailureReason = 'systemctl-unavailable' | 'sudo-auth-required' | 'permission-denied' | 'command-failed';
+export type DatabaseStartFailureReason = 'systemctl-unavailable' | 'authorization-unavailable' | 'permission-denied' | 'command-failed';
 
 export class DatabaseStartError extends Error {
   public constructor(public readonly reason: DatabaseStartFailureReason, options?: ErrorOptions) {
@@ -51,7 +51,8 @@ function commandFailureText(error: unknown): string {
 
 function startFailureReason(error: unknown): DatabaseStartFailureReason {
   const text = commandFailureText(error);
-  if (text.includes('a password is required') || text.includes('no tty present') || text.includes('a terminal is required')) return 'sudo-auth-required';
+  if (text.includes('spawn pkexec enoent') || text.includes('pkexec: command not found')) return 'authorization-unavailable';
+  if (text.includes('authentication agent') || text.includes('authentication dialog was dismissed')) return 'authorization-unavailable';
   if (text.includes('permission denied') || text.includes('not permitted') || text.includes('not authorized')) return 'permission-denied';
   if (text.includes('systemctl: command not found') || text.includes('failed to execute systemctl')) return 'systemctl-unavailable';
   return 'command-failed';
@@ -251,9 +252,10 @@ export class DatabaseDetectionService {
     const service = localSystemdService(item);
     if (!service) return false;
     try {
-      // O modo não interativo evita que a API fique presa esperando uma senha.
-      // O usuário pode autorizar o sudo previamente no terminal com `sudo -v`.
-      await this.runCommand('sudo', ['-n', 'systemctl', 'start', service], { cwd: project.path });
+      // A API roda em uma sessão destacada. O agente polkit da sessão do usuário
+      // pode autenticar esta ação sem depender do ticket sudo de um terminal.
+      // O agente interno fica desabilitado para nunca bloquear a API em um prompt.
+      await this.runCommand('pkexec', ['--disable-internal-agent', 'systemctl', 'start', service], { cwd: project.path });
     } catch (error) {
       throw new DatabaseStartError(startFailureReason(error), { cause: error });
     }
