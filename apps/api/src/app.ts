@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 
 import { directoryRoutes } from './routes/directories.js';
 
@@ -16,9 +16,15 @@ import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
 
+import {
+  createAppContext,
+  type AppContext,
+} from './app-context.js';
+
 export interface BuildAppOptions {
   localToken?: string;
   allowedOrigins?: readonly string[];
+  context?: AppContext;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -29,6 +35,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   registerApiErrorHandling(app);
+
+  const context = options.context ?? createAppContext();
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());
@@ -52,14 +60,22 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   app.register(workspaceRoutes, {
     prefix: '/api',
+    workspaceRepository: context.workspaceRepository,
+    processManager: context.processManager,
+    projectStore: context.projectStore,
   });
 
   app.register(projectRoutes, {
     prefix: '/api',
+    projectStore: context.projectStore,
   });
 
   app.register(processRoutes, {
     prefix: '/api',
+    processManager: context.processManager,
+    serverSettingsRepository:
+      context.serverSettingsRepository,
+    projectStore: context.projectStore,
   });
 
   return app;

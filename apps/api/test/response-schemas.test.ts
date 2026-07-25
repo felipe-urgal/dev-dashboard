@@ -83,12 +83,15 @@ test(
 
     const { buildApp } = await import("../src/app.js");
 
-    const { saveWorkspaceScan } = await import(
-      "../src/store/project-store.js"
+    const { createAppContext } = await import(
+      "../src/app-context.js"
     );
 
+    const appContext = createAppContext();
+
     const app = await buildApp({
-      localToken: TOKEN
+      localToken: TOKEN,
+      context: appContext
     });
 
     context.after(async () => {
@@ -148,7 +151,7 @@ test(
     await context.test(
       "strips unexpected properties from the project list",
       async () => {
-        saveWorkspaceScan({
+        appContext.projectStore.saveWorkspaceScan({
           workspaceId: pollutedWorkspaceId,
           workspacePath: fixtureRoot,
           projects: [
@@ -233,7 +236,7 @@ test(
     await context.test(
       "strips unexpected properties when stopping an already-stopped process",
       async () => {
-        saveWorkspaceScan({
+        appContext.projectStore.saveWorkspaceScan({
           workspaceId: pollutedWorkspaceId,
           workspacePath: fixtureRoot,
           projects: [

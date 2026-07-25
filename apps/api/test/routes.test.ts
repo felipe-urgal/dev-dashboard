@@ -166,6 +166,73 @@ test(
     );
 
     await context.test(
+      "returns controlled errors for invalid directory paths",
+      async () => {
+        const missingPath = path.join(
+          fixtureRoot,
+          "missing-directory"
+        );
+
+        const missingResponse = await app.inject({
+          method: "GET",
+          url: `/api/directories?path=${encodeURIComponent(missingPath)}`,
+          headers
+        });
+
+        assert.equal(missingResponse.statusCode, 400);
+        assert.equal(
+          missingResponse.json<JsonResponse>().error,
+          "INVALID_DIRECTORY"
+        );
+
+        const outsideResponse = await app.inject({
+          method: "GET",
+          url: `/api/directories?path=${encodeURIComponent(tmpdir())}`,
+          headers
+        });
+
+        assert.equal(outsideResponse.statusCode, 403);
+        assert.equal(
+          outsideResponse.json<JsonResponse>().error,
+          "DIRECTORY_OUTSIDE_ROOT"
+        );
+      }
+    );
+
+    await context.test(
+      "returns a controlled error when the configured root is invalid",
+      async () => {
+        const configuredRoot =
+          process.env.DEV_DASHBOARD_DIRECTORY_ROOT;
+
+        process.env.DEV_DASHBOARD_DIRECTORY_ROOT = path.join(
+          fixtureRoot,
+          "missing-root"
+        );
+
+        try {
+          const response = await app.inject({
+            method: "GET",
+            url: "/api/directories",
+            headers
+          });
+
+          assert.equal(response.statusCode, 400);
+          assert.equal(
+            response.json<JsonResponse>().error,
+            "INVALID_DIRECTORY"
+          );
+        } finally {
+          if (configuredRoot === undefined) {
+            delete process.env.DEV_DASHBOARD_DIRECTORY_ROOT;
+          } else {
+            process.env.DEV_DASHBOARD_DIRECTORY_ROOT = configuredRoot;
+          }
+        }
+      }
+    );
+
+    await context.test(
       "validates workspace payloads",
       async () => {
         const response = await app.inject({

@@ -1,29 +1,29 @@
 import type {
-  FastifyPluginAsync
+  FastifyPluginAsync,
+  FastifyPluginOptions
 } from "fastify";
 
 import path from "node:path";
 
 import {
-  WorkspaceRepository,
-  WorkspaceRepositoryError
+  WorkspaceRepositoryError,
+  type WorkspaceRepository,
 } from "@dev-dashboard/core";
 
 import {
   scanWorkspace
 } from "@dev-dashboard/project-discovery";
 
-import {
-  ProcessManager
+import type {
+  ProcessManager,
 } from "@dev-dashboard/process-manager";
 
 import {
   ApiError
 } from "../http/api-error.js";
 
-import {
-  deleteWorkspaceScan,
-  saveWorkspaceScan
+import type {
+  ProjectStore,
 } from "../store/project-store.js";
 
 import {
@@ -32,6 +32,12 @@ import {
   workspaceResponseSchema,
   workspaceScanWarningResponseSchema
 } from "../http/response-schemas.js";
+
+interface WorkspaceRouteOptions extends FastifyPluginOptions {
+  workspaceRepository: WorkspaceRepository;
+  processManager: ProcessManager;
+  projectStore: ProjectStore;
+}
 
 interface CreateWorkspaceBody {
   id?: string;
@@ -42,11 +48,6 @@ interface CreateWorkspaceBody {
 interface WorkspaceParams {
   workspaceId: string;
 }
-
-const workspaceRepository =
-  new WorkspaceRepository();
-
-const processManager = new ProcessManager();
 
 function isPathInside(
   parentPath: string,
@@ -92,8 +93,14 @@ function workspaceRepositoryApiError(
   }
 }
 
-export const workspaceRoutes: FastifyPluginAsync =
-  async (app) => {
+export const workspaceRoutes: FastifyPluginAsync<
+  WorkspaceRouteOptions
+> = async (app, options) => {
+    const {
+      workspaceRepository,
+      processManager,
+      projectStore,
+    } = options;
     app.get(
       "/workspaces",
       {
@@ -272,7 +279,7 @@ export const workspaceRoutes: FastifyPluginAsync =
             workspace
           );
 
-          return saveWorkspaceScan(result);
+          return projectStore.saveWorkspaceScan(result);
         } catch (error) {
           request.log.warn(
             {
@@ -362,7 +369,7 @@ export const workspaceRoutes: FastifyPluginAsync =
             request.params.workspaceId
           );
 
-          deleteWorkspaceScan(
+          projectStore.deleteWorkspaceScan(
             request.params.workspaceId
           );
 

@@ -28,6 +28,31 @@ function configuredRoot(): string {
   );
 }
 
+function invalidDirectory(message: string): ApiError {
+  return new ApiError({
+    statusCode: 400,
+    code: 'INVALID_DIRECTORY',
+    message,
+  });
+}
+
+async function resolveConfiguredRoot(): Promise<string> {
+  try {
+    const rootPath = await realpath(configuredRoot());
+    const rootStats = await stat(rootPath);
+
+    if (!rootStats.isDirectory()) {
+      throw new Error('not-directory');
+    }
+
+    return rootPath;
+  } catch {
+    throw invalidDirectory(
+      'A pasta raiz configurada não existe ou não é acessível.',
+    );
+  }
+}
+
 function isInside(rootPath: string, candidatePath: string): boolean {
   const relative = path.relative(rootPath, candidatePath);
 
@@ -94,7 +119,7 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request) => {
-      const rootPath = await realpath(configuredRoot());
+      const rootPath = await resolveConfiguredRoot();
       const requestedPath = request.query.path
         ? path.resolve(request.query.path)
         : rootPath;
@@ -109,11 +134,9 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
           throw new Error('not-directory');
         }
       } catch {
-        throw new ApiError({
-          statusCode: 400,
-          code: 'INVALID_DIRECTORY',
-          message: 'O diretório selecionado não existe ou não é acessível.',
-        });
+        throw invalidDirectory(
+          'O diretório selecionado não existe ou não é acessível.',
+        );
       }
 
       if (!isInside(rootPath, currentPath)) {
@@ -126,6 +149,10 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
 
       const entries = await readdir(currentPath, {
         withFileTypes: true,
+      }).catch(() => {
+        throw invalidDirectory(
+          'O diretório selecionado não pode ser listado.',
+        );
       });
 
       const directories: Array<{

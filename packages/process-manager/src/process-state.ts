@@ -4,6 +4,8 @@ import {
 
 import type {
   ManagedProcess,
+  ManagedProcessKind,
+  ManagedProcessStatus,
 } from '@dev-dashboard/contracts';
 
 export interface StoredProcess extends ManagedProcess {
@@ -13,10 +15,63 @@ export interface StoredProcess extends ManagedProcess {
   logPath: string;
 }
 
+const managedProcessKinds = new Set<ManagedProcessKind>([
+  'server',
+  'webpack',
+  'worker',
+  'test',
+  'script',
+]);
+
+const managedProcessStatuses = new Set<ManagedProcessStatus>([
+  'starting',
+  'running',
+  'stopping',
+  'stopped',
+  'failed',
+]);
+
 function isErrnoException(
   error: unknown,
 ): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || typeof value === 'string';
+}
+
+function isOptionalTimestamp(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'string' && Number.isFinite(Date.parse(value)))
+  );
+}
+
+function isOptionalPositiveInteger(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'number' &&
+      Number.isSafeInteger(value) &&
+      value > 0)
+  );
+}
+
+function isOptionalPort(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= 1_024 &&
+      value <= 65_535)
+  );
+}
+
+function isOptionalExitCode(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (typeof value === 'number' && Number.isInteger(value))
+  );
 }
 
 export function isStoredProcess(
@@ -34,31 +89,40 @@ export function isStoredProcess(
 
   return (
     typeof candidate.id === 'string' &&
+    candidate.id.length > 0 &&
     typeof candidate.projectId === 'string' &&
-    (candidate.workspaceId === undefined ||
-      typeof candidate.workspaceId === 'string') &&
+    candidate.projectId.length > 0 &&
+    isOptionalString(candidate.workspaceId) &&
     typeof candidate.kind === 'string' &&
+    managedProcessKinds.has(
+      candidate.kind as ManagedProcessKind,
+    ) &&
     typeof candidate.status === 'string' &&
-    (candidate.pid === undefined ||
-      typeof candidate.pid === 'number') &&
-    (candidate.port === undefined ||
-      typeof candidate.port === 'number') &&
-    (candidate.host === undefined ||
-      typeof candidate.host === 'string') &&
-    (candidate.url === undefined ||
-      typeof candidate.url === 'string') &&
+    managedProcessStatuses.has(
+      candidate.status as ManagedProcessStatus,
+    ) &&
+    isOptionalPositiveInteger(candidate.pid) &&
+    isOptionalPort(candidate.port) &&
+    isOptionalString(candidate.host) &&
+    isOptionalString(candidate.url) &&
     (candidate.urls === undefined ||
       (Array.isArray(candidate.urls) &&
         candidate.urls.every(
-          (url) => typeof url === 'string',
+          (url) => typeof url === 'string' && url.length > 0,
         ))) &&
     typeof candidate.command === 'string' &&
+    candidate.command.length > 0 &&
     Array.isArray(candidate.args) &&
     candidate.args.every(
       (argument) => typeof argument === 'string',
     ) &&
     typeof candidate.cwd === 'string' &&
-    typeof candidate.logPath === 'string'
+    candidate.cwd.length > 0 &&
+    typeof candidate.logPath === 'string' &&
+    candidate.logPath.length > 0 &&
+    isOptionalTimestamp(candidate.startedAt) &&
+    isOptionalTimestamp(candidate.stoppedAt) &&
+    isOptionalExitCode(candidate.exitCode)
   );
 }
 

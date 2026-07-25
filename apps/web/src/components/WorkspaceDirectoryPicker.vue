@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  nextTick,
   onBeforeUnmount,
   ref,
   watch,
@@ -9,6 +10,8 @@ import {
   fetchDirectories,
   type DirectoryListing,
 } from '../api';
+
+import { RequestGeneration } from '../utils/request-generation';
 
 const props = defineProps<{
   open: boolean;
@@ -23,28 +26,69 @@ const emit = defineEmits<{
 const listing = ref<DirectoryListing | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
+const closeButton = ref<HTMLButtonElement | null>(null);
+
+const directoryRequests = new RequestGeneration();
+let previousBodyOverflow = '';
+let previouslyFocusedElement: HTMLElement | null = null;
+let pageStateCaptured = false;
 
 async function loadDirectory(
   directoryPath?: string,
 ): Promise<void> {
+  const requestGeneration = directoryRequests.invalidate();
   loading.value = true;
   errorMessage.value = '';
 
   try {
-    listing.value = await fetchDirectories(directoryPath);
+    const nextListing = await fetchDirectories(directoryPath);
+
+    if (directoryRequests.isCurrent(requestGeneration)) {
+      listing.value = nextListing;
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível listar os diretórios.';
+    if (directoryRequests.isCurrent(requestGeneration)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível listar os diretórios.';
+    }
   } finally {
-    loading.value = false;
+    if (directoryRequests.isCurrent(requestGeneration)) {
+      loading.value = false;
+    }
   }
 }
 
+function restorePageState(): void {
+  if (!pageStateCaptured) {
+    return;
+  }
+
+  pageStateCaptured = false;
+  document.body.style.overflow = previousBodyOverflow;
+  document.removeEventListener('keydown', handleKeydown);
+
+  const focusTarget = previouslyFocusedElement;
+  previouslyFocusedElement = null;
+
+  void nextTick(() => {
+    focusTarget?.focus();
+  });
+}
+
 function closeDirectoryPicker(): void {
-  document.body.style.overflow = '';
+  directoryRequests.invalidate();
+  loading.value = false;
+  restorePageState();
   emit('close');
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeDirectoryPicker();
+  }
 }
 
 function selectCurrentDirectory(): void {
@@ -58,22 +102,33 @@ function selectCurrentDirectory(): void {
 
 watch(
   () => props.open,
-  (open) => {
-    document.body.style.overflow = open
-      ? 'hidden'
-      : '';
-
+  async (open) => {
     if (open) {
-      void loadDirectory(
-        props.modelValue || undefined,
-      );
+      previouslyFocusedElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      previousBodyOverflow = document.body.style.overflow;
+      pageStateCaptured = true;
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', handleKeydown);
+
+      void loadDirectory(props.modelValue || undefined);
+
+      await nextTick();
+      closeButton.value?.focus();
+      return;
     }
+
+    directoryRequests.invalidate();
+    restorePageState();
   },
   { immediate: true },
 );
 
 onBeforeUnmount(() => {
-  document.body.style.overflow = '';
+  directoryRequests.invalidate();
+  restorePageState();
 });
 </script>
 
@@ -90,6 +145,7 @@ onBeforeUnmount(() => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="directory-picker-title"
+        :aria-busy="loading"
       >
         <header class="directory-picker-header">
           <div>
@@ -98,6 +154,7 @@ onBeforeUnmount(() => {
           </div>
 
           <button
+            ref="closeButton"
             type="button"
             class="log-action-button"
             @click="closeDirectoryPicker"
@@ -145,6 +202,7 @@ onBeforeUnmount(() => {
               :key="directory.path"
               type="button"
               class="directory-picker-item"
+              :disabled="loading"
               @click="loadDirectory(directory.path)"
             >
               <span>▸</span>

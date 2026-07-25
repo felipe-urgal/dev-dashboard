@@ -12,12 +12,10 @@ import path from 'node:path';
 
 import type {
   FastifyPluginAsync,
+  FastifyPluginOptions,
 } from 'fastify';
 
-import {
-  findProject,
-  listProjects,
-} from '../store/project-store.js';
+import type { ProjectStore } from '../store/project-store.js';
 
 import { ApiError } from '../http/api-error.js';
 
@@ -140,7 +138,14 @@ const projectParamsSchema = {
   },
 } as const;
 
-export const projectRoutes: FastifyPluginAsync = async (app) => {
+interface ProjectRouteOptions extends FastifyPluginOptions {
+  projectStore: ProjectStore;
+}
+
+export const projectRoutes: FastifyPluginAsync<
+  ProjectRouteOptions
+> = async (app, options) => {
+  const { projectStore } = options;
   app.get(
     '/projects',
     {
@@ -162,7 +167,7 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async () => ({
-      projects: listProjects(),
+      projects: projectStore.listProjects(),
     }),
   );
   app.get<{
@@ -175,7 +180,9 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request, reply) => {
-      const project = findProject(request.params.projectId);
+      const project = projectStore.findProject(
+        request.params.projectId,
+      );
 
       if (!project) {
         throw new ApiError({
@@ -225,7 +232,9 @@ export const projectRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (request) => {
-      const project = findProject(request.params.projectId);
+      const project = projectStore.findProject(
+        request.params.projectId,
+      );
 
       if (!project) {
         throw new ApiError({

@@ -99,7 +99,9 @@ Responsabilidades:
 - solicitar ações à API;
 - mostrar erros de forma compreensível;
 - acompanhar processos;
-- exibir logs.
+- exibir logs;
+- descartar respostas assíncronas obsoletas ao trocar de projeto;
+- impedir sobreposição das consultas periódicas de processo e logs.
 
 O frontend não deve executar comandos locais nem acessar diretamente o filesystem.
 
@@ -130,6 +132,11 @@ Responsabilidades:
 - manter a API limitada a `127.0.0.1`.
 
 A API atua como fronteira de segurança entre o navegador e o sistema operacional.
+
+Cada instância criada por `buildApp()` recebe um contexto próprio com repositório de
+workspaces, store de projetos, gerenciador de processos e configurações de servidor.
+As rotas recebem essas dependências explicitamente, o que evita estado global entre
+instâncias e permite substituí-las por implementações isoladas nos testes.
 
 ## Contratos compartilhados
 
@@ -294,9 +301,15 @@ Process Manager escolhe um comando permitido
         ↓
 Processo é iniciado sem shell
         ↓
-PID, porta, comando e log são persistidos
+Estado starting, PID, porta, comando e log são persistidos
         ↓
-Frontend consulta o estado
+Process Manager confirma que a porta está aceitando conexões
+        ↓
+Estado passa para running
+        ↓
+Saída inesperada é persistida como failed com exitCode
+        ↓
+Frontend consulta o estado sem reutilizar PID ou URLs obsoletos
 ```
 
 ## Fluxo de encerramento

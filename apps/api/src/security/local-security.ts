@@ -13,7 +13,9 @@ export const LOCAL_TOKEN_HEADER =
 
 export const DEFAULT_ALLOWED_ORIGINS = [
   "http://127.0.0.1:5173",
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "http://127.0.0.1:4173",
+  "http://localhost:4173"
 ] as const;
 
 export interface LocalSecurityOptions {
@@ -52,6 +54,7 @@ export async function registerLocalSecurity(
     methods: [
       "GET",
       "POST",
+      "PUT",
       "DELETE",
       "OPTIONS"
     ],
@@ -77,11 +80,12 @@ export async function registerLocalSecurity(
         return;
       }
 
-      const origin = request.headers.origin;
+      const originHeader = request.headers.origin;
+      const origin = headerToken(originHeader);
 
       if (
-        origin !== undefined &&
-        !allowedOrigins.has(origin)
+        originHeader !== undefined &&
+        (origin === undefined || !allowedOrigins.has(origin))
       ) {
         return reply.code(403).send({
           error: "ORIGIN_NOT_ALLOWED",

@@ -3,8 +3,8 @@ import {
   computed,
   nextTick,
   onBeforeUnmount,
-  onMounted,
   ref,
+  watch,
 } from 'vue';
 
 import type {
@@ -23,6 +23,13 @@ import {
   startProjectProcess,
   stopProjectProcess,
 } from '../api';
+
+import {
+  RequestGate,
+  RequestGeneration,
+} from '../utils/request-generation';
+
+import { parseServerPort } from '../utils/server-settings';
 
 const props = withDefaults(
   defineProps<{
@@ -54,8 +61,13 @@ const logErrorMessage = ref('');
 const logContainer = ref<HTMLElement | null>(null);
 const followLogs = ref(true);
 
-let logPollingTimer: ReturnType<typeof setInterval> | undefined;
-let pollingTimer: ReturnType<typeof setInterval> | undefined;
+let processPollingTimer: ReturnType<typeof setTimeout> | undefined;
+let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
+const projectRequests = new RequestGeneration();
+const logRequests = new RequestGeneration();
+const processRequestGate = new RequestGate();
+const logRequestGate = new RequestGate();
+let clearingLog = false;
 
 const supportsServer = computed(() =>
   props.project.capabilities.includes('server'),
@@ -82,6 +94,10 @@ const canStop = computed(
 );
 
 const processUrls = computed<string[]>(() => {
+  if (processStatus.value !== 'running') {
+    return [];
+  }
+
   if (managedProcess.value?.urls?.length) {
     return managedProcess.value.urls;
   }
@@ -94,10 +110,6 @@ const processUrls = computed<string[]>(() => {
 
   return port ? [`http://localhost:${port}`] : [];
 });
-
-const processUrl = computed<string | null>(
-  () => processUrls.value[0] ?? null,
-);
 
 const settingsPortPreview = computed(() => {
   const port = String(selectedPort.value ?? '').trim();
@@ -123,7 +135,7 @@ const statusLabel = computed(() => {
     return 'Sem servidor';
   }
 
-  if (loadingStatus.value) {
+  if (loadingStatus.value && !managedProcess.value) {
     return 'Verificando';
   }
 
@@ -141,20 +153,14 @@ const statusLabel = computed(() => {
   }
 });
 
-function parseSelectedPort(): number | null {
-  const rawPort = String(selectedPort.value ?? '').trim();
-
-  if (!rawPort) {
-    return null;
-  }
-
-  const port = Number(rawPort);
-
-  if (!Number.isInteger(port) || port < 1_024 || port > 65_535) {
-    throw new Error('A porta deve estar entre 1024 e 65535.');
-  }
-
-  return port;
+function isCurrentProject(
+  projectId: string,
+  generation: number,
+): boolean {
+  return (
+    props.project.id === projectId &&
+    projectRequests.isCurrent(generation)
+  );
 }
 
 async function refreshServerSettings(): Promise<void> {
@@ -162,31 +168,46 @@ async function refreshServerSettings(): Promise<void> {
     return;
   }
 
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
   loadingSettings.value = true;
 
   try {
-    const settings = await fetchProjectServerSettings(
-      props.project.id,
-    );
+    const settings = await fetchProjectServerSettings(projectId);
+
+    if (!isCurrentProject(projectId, generation)) {
+      return;
+    }
+
     serverSettings.value = settings;
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar as configurações do servidor.';
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar as configurações do servidor.';
+    }
   } finally {
-    loadingSettings.value = false;
+    if (isCurrentProject(projectId, generation)) {
+      loadingSettings.value = false;
+    }
   }
 }
 
-async function persistServerSettings(): Promise<ProjectServerSettings> {
-  const port = parseSelectedPort();
-  const settings = await saveProjectServerSettings(
-    props.project.id,
-    { port },
-  );
+async function persistServerSettings(
+  projectId: string,
+  generation: number,
+): Promise<ProjectServerSettings> {
+  const port = parseServerPort(selectedPort.value);
+  const settings = await saveProjectServerSettings(projectId, {
+    port,
+  });
+
+  if (!isCurrentProject(projectId, generation)) {
+    throw new Error('O projeto ativo mudou durante a operação.');
+  }
 
   serverSettings.value = settings;
   selectedPort.value =
@@ -196,20 +217,29 @@ async function persistServerSettings(): Promise<ProjectServerSettings> {
 }
 
 async function handleSaveSettings(): Promise<void> {
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
   savingSettings.value = true;
   settingsMessage.value = '';
   errorMessage.value = '';
 
   try {
-    await persistServerSettings();
-    settingsMessage.value = 'Configuração salva.';
+    await persistServerSettings(projectId, generation);
+
+    if (isCurrentProject(projectId, generation)) {
+      settingsMessage.value = 'Configuração salva.';
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível salvar a configuração.';
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar a configuração.';
+    }
   } finally {
-    savingSettings.value = false;
+    if (isCurrentProject(projectId, generation)) {
+      savingSettings.value = false;
+    }
   }
 }
 
@@ -218,19 +248,37 @@ async function refreshProcess(): Promise<void> {
     return;
   }
 
+  const requestToken = processRequestGate.begin(
+    'process-request',
+  );
+
+  if (!requestToken) {
+    return;
+  }
+
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
   loadingStatus.value = true;
 
   try {
-    managedProcess.value = await fetchProjectProcess(
-      props.project.id,
-    );
+    const nextProcess = await fetchProjectProcess(projectId);
+
+    if (isCurrentProject(projectId, generation)) {
+      managedProcess.value = nextProcess;
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível consultar o processo.';
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível consultar o processo.';
+    }
   } finally {
-    loadingStatus.value = false;
+    if (processRequestGate.finish(requestToken)) {
+      if (isCurrentProject(projectId, generation)) {
+        loadingStatus.value = false;
+      }
+    }
   }
 }
 
@@ -248,40 +296,103 @@ async function scrollLogsToBottom(): Promise<void> {
 }
 
 async function refreshLogs(): Promise<void> {
-  if (!hasManagedProcess.value) {
+  if (!hasManagedProcess.value || clearingLog) {
     return;
   }
 
+  const requestToken = logRequestGate.begin('log-request');
+
+  if (!requestToken) {
+    return;
+  }
+
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
+  const requestLogGeneration = logRequests.capture();
   loadingLogs.value = true;
   logErrorMessage.value = '';
 
   try {
-    logSnapshot.value = await fetchProjectProcessLog(
-      props.project.id,
-    );
-    await scrollLogsToBottom();
+    const snapshot = await fetchProjectProcessLog(projectId);
+
+    if (
+      isCurrentProject(projectId, generation) &&
+      logRequests.isCurrent(requestLogGeneration)
+    ) {
+      logSnapshot.value = snapshot;
+      await scrollLogsToBottom();
+    }
   } catch (error) {
-    logErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar os logs.';
+    if (
+      isCurrentProject(projectId, generation) &&
+      logRequests.isCurrent(requestLogGeneration)
+    ) {
+      logErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os logs.';
+    }
   } finally {
-    loadingLogs.value = false;
+    if (logRequestGate.finish(requestToken)) {
+      if (isCurrentProject(projectId, generation) && !clearingLog) {
+        loadingLogs.value = false;
+      }
+    }
   }
 }
 
 function stopLogPolling(): void {
   if (logPollingTimer) {
-    clearInterval(logPollingTimer);
+    clearTimeout(logPollingTimer);
     logPollingTimer = undefined;
   }
 }
 
-function startLogPolling(): void {
+function scheduleLogPolling(): void {
   stopLogPolling();
-  logPollingTimer = setInterval(() => {
-    void refreshLogs();
+
+  if (!showLogs.value) {
+    return;
+  }
+
+  const generation = projectRequests.capture();
+  logPollingTimer = setTimeout(async () => {
+    await refreshLogs();
+
+    if (projectRequests.isCurrent(generation) && showLogs.value) {
+      scheduleLogPolling();
+    }
   }, 2_000);
+}
+
+function stopProcessPolling(): void {
+  if (processPollingTimer) {
+    clearTimeout(processPollingTimer);
+    processPollingTimer = undefined;
+  }
+}
+
+function scheduleProcessPolling(): void {
+  stopProcessPolling();
+
+  if (!supportsServer.value) {
+    return;
+  }
+
+  const generation = projectRequests.capture();
+  const delay =
+    processStatus.value === 'starting' ||
+    processStatus.value === 'stopping'
+      ? 1_000
+      : 5_000;
+
+  processPollingTimer = setTimeout(async () => {
+    await refreshProcess();
+
+    if (projectRequests.isCurrent(generation) && supportsServer.value) {
+      scheduleProcessPolling();
+    }
+  }, delay);
 }
 
 async function toggleLogs(): Promise<void> {
@@ -289,7 +400,7 @@ async function toggleLogs(): Promise<void> {
 
   if (showLogs.value) {
     await refreshLogs();
-    startLogPolling();
+    scheduleLogPolling();
   } else {
     stopLogPolling();
   }
@@ -310,104 +421,180 @@ function handleLogScroll(): void {
 }
 
 async function clearLogView(): Promise<void> {
-  if (!hasManagedProcess.value) {
+  if (!hasManagedProcess.value || clearingLog) {
     return;
   }
 
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
+  const clearGeneration = logRequests.invalidate();
+  logRequestGate.invalidate();
+
+  clearingLog = true;
   loadingLogs.value = true;
   logErrorMessage.value = '';
+  stopLogPolling();
 
   try {
-    logSnapshot.value = await clearProjectProcessLog(
-      props.project.id,
-    );
-    followLogs.value = true;
-    await scrollLogsToBottom();
+    const snapshot = await clearProjectProcessLog(projectId);
+
+    if (
+      isCurrentProject(projectId, generation) &&
+      logRequests.isCurrent(clearGeneration)
+    ) {
+      logSnapshot.value = snapshot;
+      followLogs.value = true;
+      await scrollLogsToBottom();
+    }
   } catch (error) {
-    logErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível limpar os logs.';
+    if (isCurrentProject(projectId, generation)) {
+      logErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível limpar os logs.';
+    }
   } finally {
-    loadingLogs.value = false;
+    if (isCurrentProject(projectId, generation)) {
+      clearingLog = false;
+      loadingLogs.value = false;
+
+      if (showLogs.value) {
+        scheduleLogPolling();
+      }
+    }
   }
 }
 
 async function handleStart(): Promise<void> {
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
   executingAction.value = true;
   errorMessage.value = '';
   settingsMessage.value = '';
 
   try {
-    const settings = await persistServerSettings();
-    managedProcess.value = await startProjectProcess(
-      props.project.id,
+    const settings = await persistServerSettings(
+      projectId,
+      generation,
+    );
+    const nextProcess = await startProjectProcess(
+      projectId,
       { port: settings.port ?? null },
     );
 
+    if (!isCurrentProject(projectId, generation)) {
+      return;
+    }
+
+    managedProcess.value = nextProcess;
+    scheduleProcessPolling();
+
     if (showLogs.value) {
       await refreshLogs();
-      startLogPolling();
+      scheduleLogPolling();
     }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível iniciar o servidor.';
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível iniciar o servidor.';
+    }
   } finally {
-    executingAction.value = false;
+    if (isCurrentProject(projectId, generation)) {
+      executingAction.value = false;
+    }
   }
 }
 
 async function handleStop(): Promise<void> {
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
   executingAction.value = true;
   errorMessage.value = '';
 
   try {
-    managedProcess.value = await stopProjectProcess(
-      props.project.id,
-    );
+    const nextProcess = await stopProjectProcess(projectId);
+
+    if (isCurrentProject(projectId, generation)) {
+      managedProcess.value = nextProcess;
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível parar o servidor.';
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível parar o servidor.';
+    }
   } finally {
-    executingAction.value = false;
+    if (isCurrentProject(projectId, generation)) {
+      executingAction.value = false;
+    }
   }
 }
 
-function handleOpen(): void {
-  if (!processUrl.value) {
+function resetPanelState(): void {
+  stopProcessPolling();
+  stopLogPolling();
+  projectRequests.invalidate();
+  logRequests.invalidate();
+  processRequestGate.invalidate();
+  logRequestGate.invalidate();
+  clearingLog = false;
+
+  managedProcess.value = null;
+  loadingStatus.value = false;
+  executingAction.value = false;
+  errorMessage.value = '';
+  serverSettings.value = null;
+  selectedPort.value = '';
+  loadingSettings.value = false;
+  savingSettings.value = false;
+  settingsMessage.value = '';
+  showLogs.value = props.defaultLogsOpen;
+  loadingLogs.value = false;
+  logSnapshot.value = null;
+  logErrorMessage.value = '';
+  followLogs.value = true;
+}
+
+async function initializeProject(): Promise<void> {
+  resetPanelState();
+  const generation = projectRequests.capture();
+
+  if (!supportsServer.value) {
     return;
   }
 
-  window.open(processUrl.value, '_blank', 'noopener,noreferrer');
-}
-
-onMounted(async () => {
   await Promise.all([
     refreshProcess(),
     refreshServerSettings(),
   ]);
 
-  if (supportsServer.value) {
-    pollingTimer = setInterval(() => {
-      void refreshProcess();
-    }, 5_000);
+  if (!projectRequests.isCurrent(generation)) {
+    return;
   }
+
+  scheduleProcessPolling();
 
   if (showLogs.value && hasManagedProcess.value) {
     await refreshLogs();
-    startLogPolling();
+    scheduleLogPolling();
   }
-});
+}
+
+watch(
+  () => props.project.id,
+  () => {
+    void initializeProject();
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
-  if (pollingTimer) {
-    clearInterval(pollingTimer);
-  }
-
+  projectRequests.invalidate();
+  logRequests.invalidate();
+  stopProcessPolling();
   stopLogPolling();
 });
 </script>
@@ -422,13 +609,40 @@ onBeforeUnmount(() => {
         <span class="section-kicker">Servidor</span>
       </div>
 
-      <span
-        class="process-status"
-        :class="`process-status-${processStatus}`"
-      >
-        <span />
-        {{ statusLabel }}
-      </span>
+      <div class="project-server-summary-actions">
+        <span
+          class="process-status"
+          :class="`process-status-${processStatus}`"
+          aria-live="polite"
+        >
+          <span />
+          {{ statusLabel }}
+        </span>
+
+        <button
+          v-if="supportsServer && !canStop"
+          type="button"
+          class="primary-small-button"
+          :disabled="executingAction || loadingSettings"
+          @click="handleStart"
+        >
+          {{ executingAction ? 'Iniciando...' : 'Iniciar' }}
+        </button>
+
+        <button
+          v-if="supportsServer && canStop"
+          type="button"
+          class="danger-small-button"
+          :disabled="executingAction || processStatus === 'stopping'"
+          @click="handleStop"
+        >
+          {{
+            executingAction || processStatus === 'stopping'
+              ? 'Parando...'
+              : 'Parar'
+          }}
+        </button>
+      </div>
     </header>
 
     <section
@@ -479,6 +693,9 @@ onBeforeUnmount(() => {
     <div v-if="managedProcess?.port" class="process-details">
       <span>Porta {{ managedProcess.port }}</span>
       <span v-if="managedProcess.pid">PID {{ managedProcess.pid }}</span>
+      <span v-if="managedProcess.exitCode !== undefined">
+        Saída {{ managedProcess.exitCode }}
+      </span>
       <a
         v-for="url in processUrls"
         :key="url"
@@ -494,34 +711,16 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
-    <div class="project-server-actions">
+    <div
+      v-if="detailsMode && hasManagedProcess"
+      class="project-server-actions"
+    >
       <button
-        v-if="detailsMode && hasManagedProcess"
         type="button"
         class="secondary-button"
         @click="toggleLogs"
       >
         {{ showLogs ? 'Fechar logs' : 'Logs' }}
-      </button>
-
-      <button
-        v-if="supportsServer && !canStop"
-        type="button"
-        class="primary-small-button"
-        :disabled="executingAction || loadingSettings"
-        @click="handleStart"
-      >
-        {{ executingAction ? 'Iniciando...' : 'Iniciar' }}
-      </button>
-
-      <button
-        v-if="supportsServer && canStop"
-        type="button"
-        class="danger-small-button"
-        :disabled="executingAction"
-        @click="handleStop"
-      >
-        {{ executingAction ? 'Parando...' : 'Parar' }}
       </button>
     </div>
 

@@ -1,18 +1,19 @@
 import type {
   FastifyPluginAsync,
+  FastifyPluginOptions,
 } from 'fastify';
 
 import {
-  ProcessManager,
   ProcessManagerError,
   ProjectServerSettingsError,
-  ProjectServerSettingsRepository,
   sweepStaleProcesses,
+  type ProcessManager,
+  type ProjectServerSettingsRepository,
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../http/api-error.js';
 
-import { findProject } from '../store/project-store.js';
+import type { ProjectStore } from '../store/project-store.js';
 
 import {
   commonErrorResponseSchemas,
@@ -34,6 +35,12 @@ const processEnvelopeResponseSchema = (
   },
 });
 
+interface ProcessRouteOptions extends FastifyPluginOptions {
+  processManager: ProcessManager;
+  serverSettingsRepository: ProjectServerSettingsRepository;
+  projectStore: ProjectStore;
+}
+
 interface ProjectParams {
   projectId: string;
 }
@@ -49,11 +56,6 @@ interface SaveServerSettingsBody {
 interface ProcessLogQuery {
   maxBytes?: number;
 }
-
-const processManager = new ProcessManager();
-
-const serverSettingsRepository =
-  new ProjectServerSettingsRepository();
 
 function processManagerApiError(
   error: ProcessManagerError,
@@ -95,8 +97,11 @@ function serverSettingsApiError(
   });
 }
 
-function requireProject(projectId: string) {
-  const project = findProject(projectId);
+function requireProject(
+  projectStore: ProjectStore,
+  projectId: string,
+) {
+  const project = projectStore.findProject(projectId);
 
   if (!project) {
     throw new ApiError({
@@ -121,7 +126,14 @@ const projectParamsSchema = {
   },
 } as const;
 
-export const processRoutes: FastifyPluginAsync = async (app) => {
+export const processRoutes: FastifyPluginAsync<
+  ProcessRouteOptions
+> = async (app, options) => {
+  const {
+    processManager,
+    serverSettingsRepository,
+    projectStore,
+  } = options;
   app.get<{
     Params: ProjectParams;
   }>(
@@ -145,6 +157,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -199,6 +212,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -248,6 +262,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -296,6 +311,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -346,6 +362,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -401,6 +418,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request, reply) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
@@ -481,6 +499,7 @@ export const processRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const project = requireProject(
+        projectStore,
         request.params.projectId,
       );
 
