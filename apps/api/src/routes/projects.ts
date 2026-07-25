@@ -16,12 +16,14 @@ import type {
 } from 'fastify';
 
 import type { ProjectStore } from '../store/project-store.js';
+import type { GitService } from '../services/git-service.js';
 
 import { ApiError } from '../http/api-error.js';
 
 import {
   commonErrorResponseSchemas,
   projectResponseSchema,
+  projectGitOverviewResponseSchema,
 } from '../http/response-schemas.js';
 
 interface ProjectParams {
@@ -140,12 +142,13 @@ const projectParamsSchema = {
 
 interface ProjectRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitService: GitService;
 }
 
 export const projectRoutes: FastifyPluginAsync<
   ProjectRouteOptions
 > = async (app, options) => {
-  const { projectStore } = options;
+  const { projectStore, gitService } = options;
   app.get(
     '/projects',
     {
@@ -208,6 +211,40 @@ export const projectRoutes: FastifyPluginAsync<
         .header('Cache-Control', 'private, max-age=300')
         .type(faviconContentType(faviconPath))
         .send(createReadStream(faviconPath));
+    },
+  );
+
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/git',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['git'],
+            properties: { git: projectGitOverviewResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) {
+        throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      }
+      try {
+        return { git: await gitService.getOverview(project.path) };
+      } catch (error) {
+        throw new ApiError({
+          statusCode: 500,
+          code: 'GIT_COMMAND_FAILED',
+          message: error instanceof Error ? error.message : 'Não foi possível consultar o repositório Git.',
+        });
+      }
     },
   );
 

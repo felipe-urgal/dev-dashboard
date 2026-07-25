@@ -6,12 +6,14 @@ import {
 } from '@dev-dashboard/process-manager';
 
 import { ProjectStore } from './store/project-store.js';
+import { GitService } from './services/git-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
+  gitService: GitService;
 }
 
 export function createAppContext(): AppContext {
@@ -21,5 +23,6 @@ export function createAppContext(): AppContext {
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
     projectStore: new ProjectStore(),
+    gitService: new GitService(),
   };
 }

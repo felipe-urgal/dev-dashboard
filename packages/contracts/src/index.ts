@@ -20,3 +20,10 @@ export type {
 } from './server.js';
 
 export type { Job, JobStatus } from './job.js';
+
+export type {
+  GitCommit,
+  GitFileChange,
+  GitFileStatus,
+  ProjectGitOverview,
+} from './git.js';

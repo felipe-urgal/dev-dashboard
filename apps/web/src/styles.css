@@ -1610,3 +1610,32 @@ a.secondary-button {
     justify-content: space-between;
   }
 }
+
+/* Project Git */
+.project-git-panel { display: grid; gap: 18px; padding: 22px; border: 1px solid #242b37; border-radius: 14px; background: #10141b; }
+.git-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.git-panel-header h3 { margin: 6px 0 4px; font-size: 20px; }
+.git-panel-header p { margin: 0; color: #778195; font-size: 11px; }
+.git-metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.git-metrics-grid article { display: grid; gap: 6px; padding: 15px; border: 1px solid #262d39; border-radius: 10px; background: #0c1016; }
+.git-metrics-grid span { color: #697386; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.git-metrics-grid strong { overflow: hidden; color: #e1e5ed; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.git-metrics-grid small { color: #667084; font-size: 9px; }
+.git-section { padding-top: 18px; border-top: 1px solid #252b36; }
+.git-file-list, .git-commit-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid #252c38; border-radius: 10px; overflow: hidden; }
+.git-file-list li { display: grid; grid-template-columns: 105px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #202630; }
+.git-file-list li:last-child, .git-commit-list li:last-child { border-bottom: 0; }
+.git-file-list code { overflow: hidden; color: #b8c1d1; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.git-file-list small { color: #626c7d; font-family: monospace; }
+.git-status-badge { padding: 4px 7px; border-radius: 999px; color: #aeb7c8; background: #252b35; font-size: 8px; font-weight: 800; text-align: center; text-transform: uppercase; }
+.git-status-added, .git-status-untracked { color: #8ed5ae; background: #173125; }
+.git-status-deleted, .git-status-conflicted { color: #e59ba7; background: #351a20; }
+.git-status-renamed, .git-status-copied { color: #aeb8ff; background: #24294d; }
+.git-commit-list li { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: start; padding: 11px 12px; border-bottom: 1px solid #202630; }
+.git-commit-list code { color: #8fa8ff; font-size: 10px; }
+.git-commit-list strong, .git-commit-list span { display: block; }
+.git-commit-list strong { overflow: hidden; color: #d6dce7; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.git-commit-list span { margin-top: 4px; color: #657084; font-size: 9px; }
+.git-empty-state, .git-empty-inline { display: grid; gap: 7px; place-items: center; min-height: 150px; padding: 24px; border: 1px dashed #303744; border-radius: 10px; color: #778195; font-size: 11px; text-align: center; }
+.git-empty-inline { min-height: 90px; }
+@media (max-width: 720px) { .git-metrics-grid { grid-template-columns: 1fr; } .git-panel-header { align-items: stretch; flex-direction: column; } .git-file-list li { grid-template-columns: 1fr auto; } .git-file-list code { grid-column: 1 / -1; grid-row: 2; } }
