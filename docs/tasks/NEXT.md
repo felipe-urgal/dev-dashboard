@@ -1,48 +1,35 @@
-# Próxima atividade — 003: Visão de banco de dados do projeto
+# Próxima atividade — 004: Scripts e tarefas do projeto
 
 ## Objetivo
 
-Criar a aba `/projects/:projectId/database` para inspecionar as
-configurações de banco de dados detectadas em cada projeto (Rails e
-Node) e permitir ações somente leitura sobre elas.
+Criar a aba `/projects/:projectId/scripts` para reunir scripts Node e tarefas
+Rails reconhecidas em um catálogo seguro, antes de permitir sua execução.
 
-## Escopo funcional proposto
+## Plano detalhado
 
-- detectar arquivos de configuração conhecidos:
-  `config/database.yml` (Rails), `.env`/`.env.local` com variáveis
-  `DATABASE_URL` ou `DB_*`, `prisma/schema.prisma`, `knexfile.*`;
-- listar os ambientes disponíveis (development, test, production) com
-  driver, host, porta e nome do banco;
-- indicar se cada ambiente é acessível a partir da máquina local (ping
-  TCP na porta configurada);
-- oferecer ações somente leitura: copiar `DATABASE_URL`, abrir o cliente
-  configurado (`psql`/`mysql`) via link `dev-dashboard://`;
-- mascarar senhas por padrão, com botão explícito para revelar;
-- estado dedicado para projetos sem configuração reconhecida.
-
-## Segurança
-
-- nenhum comando arbitrário de banco pode ser executado pelo backend;
-- valores sensíveis (senhas, tokens) só saem do backend quando o
-  frontend pede explicitamente e nunca via schema de resposta padrão;
-- leitura de arquivos limitada à raiz do projeto;
-- resposta paginada quando houver muitos ambientes.
+1. Criar contratos para script, origem, classificação de risco e catálogo.
+2. Detectar scripts do `package.json`, tarefas públicas de `bin/rails -T` e
+   executáveis conhecidos em `bin/`, sem aceitar comandos enviados pelo browser.
+3. Separar inicialmente ações somente leitura das mutáveis e manter as
+   destrutivas desabilitadas.
+4. Expor `GET /api/projects/:projectId/scripts` com paginação, schemas completos
+   e projeto resolvido exclusivamente pelo `ProjectStore`.
+5. Criar a aba web com busca, filtros por origem e risco, descrição do comando e
+   estado vazio.
+6. Invalidar estado assíncrono ao alternar projetos e adicionar testes de
+   detecção, paginação e ausência de comandos arbitrários.
 
 ## Fora do escopo inicial
 
-- execução de queries;
-- criação/reset de bancos;
-- gestão de migrações;
-- edição das configurações a partir do dashboard.
+- execução de scripts e tarefas;
+- argumentos personalizados;
+- tarefas destrutivas de banco ou filesystem;
+- terminal interativo.
 
-## Testes automatizados esperados
+## Critérios de aceite
 
-- detecção de `config/database.yml` com múltiplos ambientes;
-- detecção de `.env` com `DATABASE_URL`;
-- projeto sem configuração;
-- resposta sem vazamento de senha por padrão.
-
-## Observação
-
-O plano detalhado deve ser refinado antes do início da implementação;
-esta é a próxima entrega priorizada após a Visão de testes (task 002).
+- catálogo reproduzível e ordenado;
+- nenhum conteúdo do projeto é executado durante a detecção Node;
+- schemas descartam detalhes internos de resolução;
+- UI responsiva com estados de carregamento, erro e vazio;
+- `npm run typecheck`, `npm run build` e `npm test` passam.

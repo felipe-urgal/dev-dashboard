@@ -1,0 +1,47 @@
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
+import { ApiError } from '../http/api-error.js';
+import { commonErrorResponseSchemas, projectDatabaseOverviewResponseSchema } from '../http/response-schemas.js';
+import type { DatabaseDetectionService } from '../services/database-detection-service.js';
+import type { ProjectStore } from '../store/project-store.js';
+
+interface Options extends FastifyPluginOptions { projectStore: ProjectStore; databaseDetectionService: DatabaseDetectionService }
+interface Params { projectId: string }
+interface SecretParams extends Params { environmentId: string }
+interface Query { page?: number; pageSize?: number }
+
+const paramsSchema = { type: 'object', additionalProperties: false, required: ['projectId'], properties: { projectId: { type: 'string', minLength: 1 } } } as const;
+const emptyQuery = { type: 'object', additionalProperties: false, properties: {} } as const;
+const requireProject = (store: ProjectStore, id: string) => {
+  const project = store.findProject(id);
+  if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+  return project;
+};
+
+export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) => {
+  app.get<{ Params: Params; Querystring: Query }>('/projects/:projectId/database', {
+    schema: { params: paramsSchema, querystring: { type: 'object', additionalProperties: false, properties: { page: { type: 'integer', minimum: 1, maximum: 10000 }, pageSize: { type: 'integer', minimum: 1, maximum: 50 } } }, response: { 200: { type: 'object', additionalProperties: false, required: ['database'], properties: { database: projectDatabaseOverviewResponseSchema } }, ...commonErrorResponseSchemas } },
+  }, async (request) => ({ database: await options.databaseDetectionService.getOverview(requireProject(options.projectStore, request.params.projectId), request.query.page, request.query.pageSize) }));
+
+  app.post<{ Params: SecretParams }>('/projects/:projectId/database/:environmentId/reveal', {
+    schema: {
+      params: { type: 'object', additionalProperties: false, required: ['projectId', 'environmentId'], properties: { projectId: { type: 'string', minLength: 1 }, environmentId: { type: 'string', minLength: 1, maxLength: 120 } } },
+      body: { type: 'object', additionalProperties: false, properties: {} }, querystring: emptyQuery,
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['secret'],
+          properties: {
+            secret: {
+              type: 'object', additionalProperties: false, required: ['environmentId', 'databaseUrl'],
+              properties: { environmentId: { type: 'string' }, databaseUrl: { type: 'string' } },
+            },
+          },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const databaseUrl = await options.databaseDetectionService.reveal(requireProject(options.projectStore, request.params.projectId), request.params.environmentId);
+    if (!databaseUrl) throw new ApiError({ statusCode: 404, code: 'DATABASE_ENVIRONMENT_NOT_FOUND', message: 'Configuração de banco não encontrada.' });
+    return { secret: { environmentId: request.params.environmentId, databaseUrl } };
+  });
+};

@@ -34,6 +34,7 @@ export type ApiErrorCode =
   | 'GIT_COMMAND_FAILED'
   | 'TEST_COMMAND_NOT_FOUND'
   | 'TEST_START_FAILED'
+  | 'DATABASE_ENVIRONMENT_NOT_FOUND'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

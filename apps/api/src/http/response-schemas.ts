@@ -278,3 +278,24 @@ export const projectGitOverviewResponseSchema = {
     repository: { type: 'boolean' }, branch: { type: 'string' }, detached: { type: 'boolean' }, upstream: { type: 'string' }, ahead: { type: 'integer', minimum: 0 }, behind: { type: 'integer', minimum: 0 }, clean: { type: 'boolean' }, files: { type: 'array', items: gitFileChangeResponseSchema }, latestCommit: gitCommitResponseSchema, recentCommits: { type: 'array', items: gitCommitResponseSchema },
   },
 } as const;
+
+export const projectDatabaseEnvironmentResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability'],
+  properties: {
+    id: { type: 'string' }, environment: { type: 'string' }, driver: { type: 'string' },
+    host: { type: 'string' }, port: { type: 'integer' }, database: { type: 'string' }, username: { type: 'string' },
+    passwordConfigured: { type: 'boolean' }, maskedUrl: { type: 'string' },
+    source: { type: 'string', enum: ['rails-database-yml', 'dotenv', 'prisma', 'knex'] },
+    sourceDetail: { type: 'string' }, reachability: { type: 'string', enum: ['reachable', 'unreachable', 'unknown'] },
+  },
+} as const;
+
+export const projectDatabaseOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'environments', 'page', 'pageSize', 'total'],
+  properties: {
+    supported: { type: 'boolean' }, environments: { type: 'array', items: projectDatabaseEnvironmentResponseSchema },
+    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' },
+  },
+} as const;
