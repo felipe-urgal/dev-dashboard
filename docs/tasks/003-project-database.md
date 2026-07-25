@@ -20,16 +20,16 @@ projetos Rails e Node.
 - endpoint `POST .../:environmentId/reveal` para revelação explícita;
 - ações para ocultar/revelar, copiar a URL e abrir o protocolo
   `dev-dashboard://` com identificadores estruturados;
-- ação para iniciar um serviço de banco indisponível quando houver um serviço
-  compatível em um arquivo Docker Compose conhecido do projeto;
+- ação para iniciar o serviço local do banco indisponível por meio de
+  `sudo -n systemctl start`, conforme o driver detectado;
 - estado dedicado quando nenhuma configuração é reconhecida;
-- invalidação das respostas assíncronas ao trocar de projeto.
+- invalidação das respostas assíncronas ao trocar de projeto;
 - limpeza do estado de inicialização antes de atualizar a detecção, evitando
   que o botão permaneça desabilitado enquanto o serviço ainda fica disponível.
-- compatibilidade com instalações que oferecem somente o executável legado
-  `docker-compose`, sem repetir a ação quando o plugin moderno falha por um
-  problema operacional;
-- mensagens acionáveis para Compose ausente, daemon parado e falta de permissão.
+- catálogo fechado de unidades systemd para PostgreSQL, MySQL/MariaDB, MongoDB
+  e Redis;
+- mensagens acionáveis para `systemctl` ausente, autorização prévia do `sudo`
+  e falta de permissão.
 
 ## Decisões de segurança
 
@@ -46,30 +46,33 @@ projetos Rails e Node.
    projeto referencie e revele segredos externos aos seus próprios arquivos.
 7. A verificação TCP aceita apenas endereços de loopback; hosts remotos ficam
    com estado não verificado para impedir que projetos provoquem varreduras de rede.
-8. A inicialização usa exclusivamente `docker compose up -d` sem shell, com
-   arquivo de uma lista fechada e nome de serviço validado e detectado pela API.
+8. A inicialização usa exclusivamente `sudo -n systemctl start <unidade>` sem
+   shell, com a unidade escolhida em um catálogo fechado pelo driver. O modo
+   não interativo impede que a API fique bloqueada esperando senha; quando
+   necessário, o usuário autoriza o sudo antes com `sudo -v` no terminal.
+9. Bancos configurados em hosts remotos nunca disponibilizam a ação de iniciar
+   um serviço da máquina local.
 
 ## Testes automatizados
 
 - múltiplos ambientes em `database.yml`;
 - `DATABASE_URL` em `.env`;
 - ausência de configuração reconhecida;
-- senha ausente da visão padrão e disponível somente na revelação explícita.
+- senha ausente da visão padrão e disponível somente na revelação explícita;
 - interpolação de `ENV.fetch` sem leitura do ambiente da API;
-- host remoto não sondado pela verificação de conectividade.
-- detecção e inicialização do serviço Compose compatível;
-- ausência da ação quando não existe serviço compatível.
-- fallback controlado para `docker-compose` legado;
-- ausência de segunda tentativa quando o daemon está indisponível.
+- host remoto não sondado pela verificação de conectividade;
+- seleção e inicialização dos serviços locais de PostgreSQL e MySQL;
+- ausência da ação para banco remoto;
+- classificação da falha quando o `sudo` exige autorização.
 
 ## QA e code review
 
-- revisão confirmou que arquivo, serviço e diretório de execução continuam
+- revisão confirmou que unidade, argumentos e diretório de execução continuam
   resolvidos exclusivamente no backend, sem entrada livre do navegador;
-- o fallback é usado apenas quando o plugin `docker compose` não existe, para
-  evitar executar duas vezes um serviço que falhou por outra causa;
+- Docker foi removido desta entrega: suporte a containers permanece reservado
+  para uma atividade futura do roadmap;
 - typecheck, build e testes da API foram executados após a correção; a suíte
-  completa também foi executada, mas três testes de encerramento real do
+  completa também foi executada, mas dois testes de encerramento real do
   `process-manager`, fora deste escopo, encontraram processos persistentes no
   ambiente de QA (`PROCESS_STOP_TIMEOUT`).
 
@@ -79,8 +82,11 @@ projetos Rails e Node.
   `default`, mas não é um interpretador YAML/ERB completo;
 - `knexfile` não é executado por segurança; os dados são associados apenas
   quando também existem variáveis `DB_*` reconhecidas;
-- a inicialização automática requer Docker Compose e um serviço cuja imagem ou
-  nome identifique PostgreSQL, MySQL/MariaDB, MongoDB ou Redis;
+- a inicialização automática atual é específica de distribuições Linux com
+  systemd e requer autorização de `sudo` válida ou regra local equivalente;
+- nomes de unidades podem variar entre distribuições; o catálogo inicial usa
+  `postgresql.service`, `mysql.service`, `mariadb.service`, `mongod.service` e
+  `redis-server.service`;
 - o handler do protocolo `dev-dashboard://` ainda precisa ser implementado;
 - a acessibilidade TCP não comprova autenticação nem existência do banco.
 

@@ -24,7 +24,9 @@ Rails reconhecidas em um catálogo seguro, antes de permitir sua execução.
 - execução de scripts e tarefas;
 - argumentos personalizados;
 - tarefas destrutivas de banco ou filesystem;
-- terminal interativo.
+- terminal interativo;
+- gerenciamento de bancos por Docker ou Docker Compose, reservado para o
+  roadmap futuro.
 
 ## Critérios de aceite
 
