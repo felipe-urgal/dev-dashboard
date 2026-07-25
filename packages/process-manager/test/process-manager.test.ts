@@ -569,6 +569,47 @@ test(
 );
 
 test(
+  "serializes concurrent startTest invocations",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { test: "node -e \"process.exit(0)\"" }
+    });
+
+    context.after(fixture.cleanup);
+
+    const command = {
+      id: "node-script-test",
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    const results = await Promise.allSettled([
+      fixture.manager.startTest(fixture.project, command),
+      fixture.manager.startTest(fixture.project, command)
+    ]);
+
+    const fulfilled = results.filter((entry) => entry.status === "fulfilled");
+    const rejected = results.filter((entry) => entry.status === "rejected");
+
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+
+    const rejection = rejected[0];
+    assert.ok(rejection && rejection.status === "rejected");
+    assert.ok(rejection.reason instanceof ProcessManagerError);
+    assert.equal(
+      (rejection.reason as ProcessManagerError).code,
+      "PROCESS_ALREADY_RUNNING"
+    );
+
+    const success = fulfilled[0];
+    assert.ok(success && success.status === "fulfilled");
+    await fixture.manager.stopTest(fixture.project.id);
+  }
+);
+
+test(
   "rejects a configured port that is already occupied",
   async (context) => {
     const fixture = await createFixture({

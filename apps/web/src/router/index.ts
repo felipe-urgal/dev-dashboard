@@ -38,6 +38,15 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/tests',
+      name: 'project-tests',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Testes do projeto',
+      },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,

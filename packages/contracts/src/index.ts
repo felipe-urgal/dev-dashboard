@@ -27,3 +27,10 @@ export type {
   GitFileStatus,
   ProjectGitOverview,
 } from './git.js';
+
+export type {
+  ProjectTestCommand,
+  ProjectTestOrigin,
+  ProjectTestOverview,
+  ProjectTestRunner,
+} from './test.js';

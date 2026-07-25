@@ -7,3 +7,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 ## Status
 
 - `001-project-git.md` — implementação da visão Git somente leitura.
+- `002-project-tests.md` — implementação da visão de testes do projeto.

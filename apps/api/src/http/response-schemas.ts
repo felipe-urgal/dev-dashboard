@@ -237,6 +237,40 @@ export const gitFileChangeResponseSchema = {
   },
 } as const;
 
+export const projectTestCommandResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'runner', 'label', 'description', 'origin', 'priority'],
+  properties: {
+    id: { type: 'string' },
+    runner: {
+      type: 'string',
+      enum: ['vitest', 'jest', 'node-test', 'rspec', 'rails-test', 'minitest', 'pytest'],
+    },
+    label: { type: 'string' },
+    description: { type: 'string' },
+    origin: {
+      type: 'string',
+      enum: ['package-script', 'binary', 'gemfile', 'directory', 'python-config'],
+    },
+    originDetail: { type: 'string' },
+    priority: { type: 'integer' },
+  },
+} as const;
+
+export const projectTestOverviewResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['supported', 'commands'],
+  properties: {
+    supported: { type: 'boolean' },
+    commands: {
+      type: 'array',
+      items: projectTestCommandResponseSchema,
+    },
+  },
+} as const;
+
 export const projectGitOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['repository', 'detached', 'ahead', 'behind', 'clean', 'files', 'recentCommits'],

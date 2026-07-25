@@ -8,6 +8,8 @@ import { projectRoutes } from './routes/projects.js';
 
 import { processRoutes } from './routes/processes.js';
 
+import { testRoutes } from './routes/tests.js';
+
 import { workspaceRoutes } from './routes/workspaces.js';
 
 import { LocalTokenStore } from '@dev-dashboard/core';
@@ -63,6 +65,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     workspaceRepository: context.workspaceRepository,
     processManager: context.processManager,
     projectStore: context.projectStore,
+    testDetectionService: context.testDetectionService,
   });
 
   app.register(projectRoutes, {
@@ -77,6 +80,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     serverSettingsRepository:
       context.serverSettingsRepository,
     projectStore: context.projectStore,
+  });
+
+  app.register(testRoutes, {
+    prefix: '/api',
+    processManager: context.processManager,
+    projectStore: context.projectStore,
+    testDetectionService: context.testDetectionService,
   });
 
   return app;
