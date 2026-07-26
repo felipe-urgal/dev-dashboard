@@ -192,6 +192,11 @@ parte deste horizonte.
   `detect_projects` em workspaces grandes;
 - [ ] suíte própria de smoke para helpers Bash não interativos
   (ex.: `bats-core` para `git-*`/`_dev_*` puros);
+- [ ] revisão dirigida do `npm audit` (a instalação atual sinaliza
+  vulnerabilidades altas em dependências transitivas — devDeps novas
+  como `vitest`/`jsdom`): abrir uma task específica para inventariar,
+  decidir upgrades seguros e evitar `npm audit fix --force`, que pode
+  subir major de dependências nossas com breaking changes;
 - [x] testes de API e Process Manager;
 - [x] CI em push e pull request.
 
