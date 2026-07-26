@@ -25,6 +25,16 @@ Jobs e logs
 Configurações
 ```
 
+> Status em 26/07/2026: apenas **Repositórios** e o detalhe do projeto
+> estão implementados. **Visão geral** existe como landing do dashboard,
+> mas sem os widgets consolidados descritos abaixo. **Processos**,
+> **Jobs e logs**, **Configurações** e a **command palette** deste
+> documento ainda são aspiracionais — cada um está mapeado a uma entrega
+> específica em [`../roadmap.md`](../roadmap.md) (Horizonte 1: painel
+> global de atividade e página global de processos; Horizonte 2:
+> configurações/notificações e command palette). Trate esta arquitetura
+> como visão de destino, não como inventário do que já existe.
+
 ### Visão geral
 
 Resumo operacional do ambiente.
