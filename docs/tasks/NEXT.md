@@ -1,53 +1,51 @@
-# Próxima atividade — 013: Base de testes da interface
+# Próxima atividade — 014: Página global de processos
 
 ## Contexto
 
-A task 012 encerrou o painel de atividade unificado, incluindo a view Vue
-`/activity`, sem introduzir montagem de componentes nos testes — os casos
-cobertos são de query builder, formatadores e caminho de rota, com
-`fetch` estubado. O roadmap prioriza inaugurar a camada de testes de
-componentes montados como próximo passo antes de abrir novas superfícies
-mutáveis.
+Com o painel de atividade unificado (task 012) e a base de testes de UI
+(task 013) entregues, o próximo passo do Horizonte 1 do roadmap é uma
+página global de processos: leitura consolidada dos servidores e testes
+gerenciados, com filtros fechados e limpeza segura de estados elegíveis.
 
 ## Objetivo
 
-Introduzir `@vue/test-utils` + jsdom no monorepo com o mínimo de
-dependências e usar essa infraestrutura para cobrir os estados
-vazio/carregando/erro/sucesso da `ActivityView` recém-entregue, servindo
-de modelo para as próximas telas.
+Expor `/processes` mostrando todos os `ManagedProcess` conhecidos pelo
+`ProcessManager` (servidores e testes), com origem, projeto e estado,
+sem executar qualquer comando novo. Reaproveitar as regras já validadas
+para acesso a logs e para a operação de limpeza existente
+(`POST /api/processes/cleanup`).
 
 ## Plano detalhado
 
-1. Adicionar `@vue/test-utils` e `jsdom` como devDeps de
-   `apps/web`, ajustar `apps/web/tsconfig.test.json` para incluir a
-   pasta `src/views` e utilitários necessários, e configurar
-   `--experimental-vm-modules`/`jsdom` no runner de testes atual.
-2. Criar `apps/web/test/activity-view.test.ts` cobrindo:
-   - estado vazio (sem workspaces/projetos e API retornando lista
-     vazia);
-   - estado carregando (promise pendente);
-   - estado de erro (fetch lançando `ApiRequestError`);
-   - estado de sucesso (lista renderizada com filtros e paginação
-     acessíveis por labels).
-3. Extrair fixtures reutilizáveis para atividades em
-   `apps/web/test/support/activity-fixtures.ts`.
-4. Documentar em `docs/architecture/overview.md` a nova camada de teste
-   e o padrão de estubagem de `fetch`.
-5. Atualizar `docs/roadmap.md` marcando o item "testes de componentes
-   Vue" e o backlog de qualidade.
+1. Adicionar (se necessário) uma rota `GET /api/processes` que devolva
+   `ManagedProcess[]` já filtrados pelos workspaces cadastrados,
+   reaproveitando a autorização das rotas privadas existentes; nenhuma
+   estrutura nova de persistência.
+2. Criar `apps/web/src/views/ProcessesView.vue` com filtros por
+   workspace, projeto e tipo (`server`/`test`), estados
+   vazio/carregando/erro/sucesso e link para o detalhe do projeto.
+3. Reusar o botão de limpeza (`cleanup`) existente para estados
+   elegíveis, com confirmação; nunca sinalizar processos externos ao
+   dashboard.
+4. Rota `/processes` no `router` e item na sidebar substituindo o
+   placeholder "Processos".
+5. Testes montados cobrindo os quatro estados, reaproveitando o padrão
+   de estubagem de `fetch` da `ActivityView`.
+6. Atualizar `README.md`, `docs/roadmap.md` (marcar item concluído) e
+   registrar a task 014.
 
 ## Fora do escopo
 
-- Playwright / smoke E2E (fica para a task seguinte).
-- Testar componentes fora da `ActivityView` além do necessário para o
-  padrão inicial.
-- Adicionar frameworks paralelos (Vitest, Cypress) — reaproveitar o
-  `node --test` já em uso.
+- Killar processos externos ou expor caminhos arbitrários.
+- Novo transporte (SSE/WebSocket) — a página é somente leitura com
+  refresh manual/periódico simples.
+- Migrar histórico de testes para persistência (segue no Horizonte 2).
 
 ## Critérios de aceite
 
-- suíte `apps/web` sobe jsdom e monta a `ActivityView` sem tocar em
-  rede real;
-- pelo menos quatro testes independentes cobrem os quatro estados;
-- `npm run typecheck`, `npm run build` e `npm test` passam;
-- documentação do padrão atualizada.
+- listar servidores e testes ativos sem varrer todos os projetos
+  manualmente;
+- filtros fechados e paginação suave (ou lista limitada por natureza);
+- limpeza segura reaproveitando a operação já existente;
+- testes montados nos quatro estados;
+- `npm run typecheck`, `npm run build` e `npm test` passam.

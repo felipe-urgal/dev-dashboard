@@ -179,7 +179,7 @@ parte deste horizonte.
 
 ### Qualidade
 
-- [ ] testes de componentes Vue;
+- [x] testes de componentes Vue (base entregue na task 013 com vitest + jsdom + @vue/test-utils; expansão para outras views é incremental);
 - [ ] Playwright/smoke E2E;
 - [ ] lint e formatação automatizados (ESLint + Prettier padronizados
   entre `apps/` e `packages/`);

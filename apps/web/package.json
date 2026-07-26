@@ -8,7 +8,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json --noEmit && node --import=tsx --test test/*.test.ts"
+    "test": "tsc -p tsconfig.test.json --noEmit && vitest run"
   },
   "dependencies": {
     "@dev-dashboard/contracts": "0.1.0",
@@ -17,9 +17,13 @@
     "vue-router": "5.2.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^26.1.1",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "jsdom": "^25.0.1",
     "vite": "^8.1.5",
+    "vitest": "^4.1.10",
     "vue-tsc": "3.3.8"
   }
 }

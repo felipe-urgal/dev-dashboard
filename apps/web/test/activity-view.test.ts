@@ -1,0 +1,127 @@
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, test } from 'vitest';
+
+import { mount, RouterLinkStub, flushPromises } from '@vue/test-utils';
+
+import type { ActivityList, Project, Workspace } from '@dev-dashboard/contracts';
+
+import ActivityView from '../src/views/ActivityView.vue';
+import { ApiRequestError } from '../src/api';
+import {
+  makeActivityList,
+  makeProject,
+  makeScriptActivity,
+  makeServerActivity,
+  makeWorkspace,
+} from './support/activity-fixtures.js';
+
+interface Deferred<T> { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void }
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolveFn, rejectFn) => {
+    resolve = resolveFn;
+    reject = rejectFn;
+  });
+  return { promise, resolve, reject };
+}
+
+interface MountArgs {
+  workspaces?: () => Promise<Workspace[]>;
+  projects?: () => Promise<Project[]>;
+  activities: () => Promise<ActivityList>;
+}
+
+async function mountView(args: MountArgs) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname === '/api/workspaces') {
+      const workspaces = await (args.workspaces ?? (async () => [makeWorkspace()]))();
+      return new Response(JSON.stringify({ workspaces }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects') {
+      const projects = await (args.projects ?? (async () => [makeProject()]))();
+      return new Response(JSON.stringify({ projects }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/activities') {
+      try {
+        const activities = await args.activities();
+        return new Response(JSON.stringify({ activities }), { status: 200, headers: { 'content-type': 'application/json' } });
+      } catch (error) {
+        if (error instanceof ApiRequestError) {
+          return new Response(JSON.stringify({ error: error.code, message: error.message }), {
+            status: error.status, headers: { 'content-type': 'application/json' },
+          });
+        }
+        throw error;
+      }
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ActivityView, { global: { stubs: { RouterLink: RouterLinkStub } } });
+  return { wrapper, restore: () => { globalThis.fetch = originalFetch; } };
+}
+
+let cleanup: (() => void) | undefined;
+beforeEach(() => { cleanup = undefined; });
+afterEach(() => { cleanup?.(); });
+
+test('mostra estado de carregamento enquanto a lista de atividades está pendente', async () => {
+  const pending = deferred<ActivityList>();
+  const { wrapper, restore } = await mountView({ activities: () => pending.promise });
+  cleanup = restore;
+
+  await flushPromises();
+  assert.match(wrapper.text(), /Carregando atividades/);
+
+  pending.resolve(makeActivityList([]));
+  await flushPromises();
+});
+
+test('mostra estado vazio quando não há atividades e nenhuma falha ocorreu', async () => {
+  const { wrapper, restore } = await mountView({ activities: async () => makeActivityList([]) });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Nenhuma atividade encontrada/);
+});
+
+test('renderiza as atividades recebidas com origem e estado formatados', async () => {
+  const { wrapper, restore } = await mountView({
+    activities: async () => makeActivityList([
+      makeScriptActivity({ label: 'Rodar migração', status: 'failed' }),
+      makeServerActivity({ label: 'Servidor local', status: 'running' }),
+    ]),
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  const text = wrapper.text();
+  assert.match(text, /Rodar migração/);
+  assert.match(text, /Servidor local/);
+  assert.match(text, /Falhou/);
+  assert.match(text, /Em execução/);
+  assert.equal(wrapper.findAll('.activity-item').length, 2);
+
+  const origins = wrapper.findAll('.activity-item-origin').map((node) => node.text());
+  assert.deepEqual(origins, ['Catálogo', 'Servidor']);
+});
+
+test('mostra a mensagem de erro quando o carregamento das atividades falha', async () => {
+  const { wrapper, restore } = await mountView({
+    activities: async () => {
+      throw new ApiRequestError({ status: 500, message: 'A API está fora do ar.' });
+    },
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /A API está fora do ar/);
+  assert.equal(wrapper.findAll('.activity-item').length, 0);
+});
