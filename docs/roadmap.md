@@ -46,7 +46,7 @@ compromissos de versão.
 ### Git — leitura entregue, mutações pendentes
 
 - [x] status, branch, arquivos alterados e commits recentes;
-- [ ] diff por arquivo e diff resumido;
+- [x] diff por arquivo e diff resumido (task 015, com truncamento em 262 KiB e mascaramento de segredos);
 - [ ] criação/troca de branch, pull e push;
 - [ ] commit e stash;
 - [ ] confirmação por risco e histórico das mutações.
@@ -136,6 +136,28 @@ todos os projetos.
 
 Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
 um terminal genérico disfarçado.
+
+### Revisão de design e reforma de layout
+
+Antes de mais telas novas, revisitar o design como um todo antes de tocar em
+CSS. Duas etapas separadas para não misturar decisão com implementação:
+
+1. **Revisão de design** — auditar o produto como usuário: hierarquia da
+   informação, densidade, vocabulário visual (cores, tipografia, espaços,
+   badges), consistência entre `/`, `/activity`, `/processes` e detalhe do
+   projeto, e alinhamento com `docs/design/information-architecture.md`.
+   Registrar decisões em documento próprio (`docs/design/redesign-2026.md`
+   ou similar), incluindo o que fica, o que muda e o que espera evidência
+   antes de mudar. Nenhuma alteração de código nesta etapa.
+2. **Reforma de layout** — implementar as decisões da revisão: substituir
+   `styles.css` por camadas coerentes (tokens, componentes, layouts),
+   revisar app shell (sidebar/topbar), padronizar cards e listas,
+   introduzir tema claro/escuro e densidade ajustável. Migrar tela por
+   tela para não quebrar o produto.
+
+Critério de saída de cada etapa: (1) documento aprovado com decisões
+concretas; (2) telas atualizadas passando pelos testes montados
+existentes sem regressão funcional.
 
 ## Horizonte 3 — projetos maiores e integrações
 

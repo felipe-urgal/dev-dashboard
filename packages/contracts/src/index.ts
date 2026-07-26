@@ -23,7 +23,11 @@ export type { Job, JobStatus } from './job.js';
 
 export type {
   GitCommit,
+  GitDiffFile,
+  GitDiffScope,
+  GitDiffSnapshot,
   GitFileChange,
+  GitFileDiff,
   GitFileStatus,
   ProjectGitOverview,
 } from './git.js';

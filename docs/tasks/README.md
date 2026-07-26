@@ -21,3 +21,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `012-unified-activity-panel.md` — painel de atividade unificado completo: contrato `Activity`, `ActivityService` agregador, rota `GET /api/activities`, view Vue `/activity` com filtros e paginação, e helpers testáveis.
 - `013-ui-test-baseline.md` — inaugura a camada de testes de componentes montados no frontend (`vitest` + jsdom + `@vue/test-utils`), com quatro casos cobrindo os estados vazio/carregando/erro/sucesso da `ActivityView`.
 - `014-global-processes-page.md` — página global `/processes` listando servidores e testes gerenciados, com filtros fechados, limpeza segura de estados obsoletos e a nova rota `GET /api/processes`.
+- `015-git-diff-read-only.md` — diff Git somente leitura (resumido e por arquivo) com truncamento em 262 KiB, mascaramento de segredos e validação de path contra o diretório do projeto.

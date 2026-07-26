@@ -1,6 +1,17 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { GitCommit, GitFileChange, GitFileStatus, ProjectGitOverview } from '@dev-dashboard/contracts';
+import path from 'node:path';
+import type { GitCommit, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, ProjectGitOverview } from '@dev-dashboard/contracts';
+import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
+
+export const GIT_DIFF_FILE_LIMIT = 262_144;
+
+export class GitDiffError extends Error {
+  public constructor(public readonly code: 'GIT_NOT_REPOSITORY' | 'GIT_DIFF_PATH_OUTSIDE_PROJECT' | 'GIT_DIFF_PATH_INVALID', message: string) {
+    super(message);
+    this.name = 'GitDiffError';
+  }
+}
 const execFileAsync = promisify(execFile);
 const LOG_SEPARATOR = '\u001f';
 const RECORD_SEPARATOR = '\u001e';
@@ -40,6 +51,78 @@ function parseCommits(output: string): GitCommit[] {
     return { hash, shortHash, subject, authorName, authorEmail, authoredAt };
   });
 }
+const EMPTY_TREE_HASH = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+async function resolveDiffBase(projectPath: string, scope: GitDiffScope): Promise<string | null> {
+  if (scope === 'worktree') return null;
+  try {
+    await runGit(projectPath, ['rev-parse', '--verify', '--quiet', 'HEAD']);
+    return 'HEAD';
+  } catch {
+    return EMPTY_TREE_HASH;
+  }
+}
+
+function gitDiffArgs(scope: GitDiffScope, base: string | null, extra: readonly string[] = []): string[] {
+  if (scope === 'index') return ['diff', '--cached', ...(base ? [base] : []), ...extra];
+  if (scope === 'combined') return ['diff', ...(base ? [base] : []), ...extra];
+  return ['diff', ...extra];
+}
+
+function parseNumstat(output: string, statusByPath: Map<string, GitFileChange>): GitDiffFile[] {
+  const files: GitDiffFile[] = [];
+  const records = output.split('\0');
+  let index = 0;
+  while (index < records.length) {
+    const record = records[index];
+    index += 1;
+    if (!record) continue;
+    const fields = record.split('\t');
+    const additionsRaw = fields[0] ?? '0';
+    const deletionsRaw = fields[1] ?? '0';
+    const pathPart = fields.slice(2).join('\t');
+    const binary = additionsRaw === '-' && deletionsRaw === '-';
+    const additions = binary ? 0 : Number.parseInt(additionsRaw, 10) || 0;
+    const deletions = binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0;
+
+    let filePath = pathPart;
+    let previousPath: string | undefined;
+    if (!filePath) {
+      previousPath = records[index] ?? '';
+      index += 1;
+      filePath = records[index] ?? '';
+      index += 1;
+      if (!filePath) continue;
+    }
+
+    const change = statusByPath.get(filePath);
+    const effectivePreviousPath = previousPath || change?.previousPath;
+    const effectiveStatus = change?.status ?? (previousPath ? 'renamed' : 'modified');
+    files.push({
+      path: filePath,
+      ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
+      status: effectiveStatus,
+      additions,
+      deletions,
+      binary,
+    });
+  }
+  return files;
+}
+
+function ensurePathInsideProject(projectPath: string, requested: string): string {
+  if (!requested || requested.includes('\0')) {
+    throw new GitDiffError('GIT_DIFF_PATH_INVALID', 'Caminho inválido para diff.');
+  }
+  const normalizedProject = path.resolve(projectPath);
+  const resolved = path.resolve(normalizedProject, requested);
+  const relative = path.relative(normalizedProject, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new GitDiffError('GIT_DIFF_PATH_OUTSIDE_PROJECT', 'Caminho fora do projeto.');
+  }
+  return relative || '.';
+}
+
 export class GitService {
   public async getOverview(projectPath: string): Promise<ProjectGitOverview> {
     try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [] }; }
@@ -47,5 +130,61 @@ export class GitService {
     let commits: GitCommit[] = [];
     try { commits = parseCommits(await runGit(projectPath, ['log', '-n', '20', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s${LOG_SEPARATOR}%an${LOG_SEPARATOR}%ae${LOG_SEPARATOR}%aI${RECORD_SEPARATOR}`])); } catch { /* repositório sem commits */ }
     return { repository: true, ...(status.branch ? { branch: status.branch } : {}), detached: status.detached, ...(status.upstream ? { upstream: status.upstream } : {}), ahead: status.ahead, behind: status.behind, clean: status.files.length === 0, files: status.files, ...(commits[0] ? { latestCommit: commits[0] } : {}), recentCommits: commits };
+  }
+
+  public async getDiffSnapshot(projectPath: string, scope: GitDiffScope = 'combined'): Promise<GitDiffSnapshot> {
+    try {
+      await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+    } catch {
+      return { repository: false, scope, files: [] };
+    }
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const statusByPath = new Map<string, GitFileChange>();
+    for (const file of status.files) statusByPath.set(file.path, file);
+    const base = await resolveDiffBase(projectPath, scope);
+    const numstat = await runGit(projectPath, [...gitDiffArgs(scope, base, ['--numstat', '-z'])]);
+    const files = parseNumstat(numstat, statusByPath);
+    return { repository: true, scope, files };
+  }
+
+  public async getFileDiff(projectPath: string, requestedPath: string, scope: GitDiffScope = 'combined'): Promise<GitFileDiff> {
+    try {
+      await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+    } catch {
+      throw new GitDiffError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+    }
+    const safePath = ensurePathInsideProject(projectPath, requestedPath);
+    const statusOutput = await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']);
+    const status = parseStatus(statusOutput);
+    const change = status.files.find((file) => file.path === safePath);
+
+    let raw = '';
+    let binary = false;
+    const base = await resolveDiffBase(projectPath, scope);
+    try {
+      raw = await runGit(projectPath, [...gitDiffArgs(scope, base, ['--', safePath])]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/binary files? .* differ/i.test(message)) {
+        binary = true;
+      } else {
+        throw error;
+      }
+    }
+    if (!binary && /^Binary files /m.test(raw)) binary = true;
+
+    const truncated = raw.length > GIT_DIFF_FILE_LIMIT;
+    const trimmed = truncated ? raw.slice(0, GIT_DIFF_FILE_LIMIT) : raw;
+    const masked = maskSensitiveLogContent(trimmed);
+    return {
+      path: safePath,
+      scope,
+      status: change?.status ?? 'modified',
+      binary,
+      content: binary ? '' : masked.content,
+      truncated,
+      masked: masked.masked,
+      redactionCount: masked.redactionCount,
+    };
   }
 }

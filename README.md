@@ -393,6 +393,8 @@ GET    /api/projects
 GET    /api/projects/:projectId
 GET    /api/projects/:projectId/favicon
 GET    /api/projects/:projectId/git
+GET    /api/projects/:projectId/git/diff
+GET    /api/projects/:projectId/git/diff/file
 
 GET    /api/projects/:projectId/server-settings
 PUT    /api/projects/:projectId/server-settings
