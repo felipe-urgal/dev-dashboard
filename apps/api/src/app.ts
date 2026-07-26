@@ -11,6 +11,7 @@ import { processRoutes } from './routes/processes.js';
 import { testRoutes } from './routes/tests.js';
 import { databaseRoutes } from './routes/database.js';
 import { scriptRoutes } from './routes/scripts.js';
+import { activityRoutes } from './routes/activities.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -120,6 +121,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     scriptDetectionService: context.scriptDetectionService,
     scriptExecutionService: context.scriptExecutionService,
+  });
+
+  app.register(activityRoutes, {
+    prefix: '/api',
+    activityService: context.activityService,
   });
 
   if (options.staticDashboardEnabled) {

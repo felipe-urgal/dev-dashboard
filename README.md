@@ -424,6 +424,8 @@ GET    /api/projects/:projectId/scripts/executions/:executionId
 GET    /api/projects/:projectId/scripts/executions/:executionId/log
 GET    /api/projects/:projectId/scripts/executions/:executionId/events
 POST   /api/projects/:projectId/scripts/executions/:executionId/cancel
+
+GET    /api/activities
 ```
 
 ## Estado atual
