@@ -107,6 +107,9 @@ test('renderiza as atividades recebidas com origem e estado formatados', async (
   assert.match(text, /Falhou/);
   assert.match(text, /Em execução/);
   assert.equal(wrapper.findAll('.activity-item').length, 2);
+
+  const origins = wrapper.findAll('.activity-item-origin').map((node) => node.text());
+  assert.deepEqual(origins, ['Catálogo', 'Servidor']);
 });
 
 test('mostra a mensagem de erro quando o carregamento das atividades falha', async () => {
