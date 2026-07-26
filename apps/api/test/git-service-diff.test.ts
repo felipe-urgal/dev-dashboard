@@ -84,6 +84,39 @@ test('getFileDiff rejeita path fora do projeto', async (context) => {
   );
 });
 
+test('getDiffSnapshot em repositório sem commits compara contra a árvore vazia', async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-git-empty-'));
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await git(root, ['init', '-q', '-b', 'main']);
+  await git(root, ['config', 'user.email', 'dev@example.com']);
+  await git(root, ['config', 'user.name', 'Dev']);
+  await writeFile(path.join(root, 'first.md'), 'olá\n');
+  await git(root, ['add', 'first.md']);
+
+  const service = new GitService();
+  const snapshot = await service.getDiffSnapshot(root, 'combined');
+  assert.equal(snapshot.repository, true);
+  const paths = snapshot.files.map((file) => file.path);
+  assert.ok(paths.includes('first.md'), `esperava first.md no snapshot, obteve ${JSON.stringify(paths)}`);
+
+  const fileDiff = await service.getFileDiff(root, 'first.md', 'combined');
+  assert.equal(fileDiff.binary, false);
+  assert.match(fileDiff.content, /\+olá/);
+});
+
+test('getDiffSnapshot detecta renomes e preserva previousPath', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await git(root, ['mv', 'src/app.ts', 'src/renamed.ts']);
+
+  const service = new GitService();
+  const snapshot = await service.getDiffSnapshot(root, 'combined');
+  const renamed = snapshot.files.find((file) => file.path === 'src/renamed.ts');
+  assert.ok(renamed, `esperava src/renamed.ts em ${JSON.stringify(snapshot.files.map((f) => f.path))}`);
+  assert.equal(renamed!.previousPath, 'src/app.ts');
+  assert.equal(renamed!.status, 'renamed');
+});
+
 test('getDiffSnapshot para diretório não git retorna repository=false', async (context) => {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-nongit-'));
   context.after(async () => { await rm(root, { recursive: true, force: true }); });

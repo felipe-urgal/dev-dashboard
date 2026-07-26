@@ -49,34 +49,40 @@ async function loadGit(): Promise<void> {
 
 async function loadDiff(): Promise<void> {
   diffController?.abort();
-  diffController = new AbortController();
+  const local = new AbortController();
+  diffController = local;
   loadingDiff.value = true;
   diffErrorMessage.value = '';
   try {
-    diff.value = await fetchProjectGitDiff(props.project.id, 'combined', diffController.signal);
+    const result = await fetchProjectGitDiff(props.project.id, 'combined', local.signal);
+    if (local.signal.aborted) return;
+    diff.value = result;
   } catch (error) {
-    if (diffController?.signal.aborted) return;
+    if (local.signal.aborted) return;
     diffErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar o diff.';
     diff.value = null;
   } finally {
-    if (!diffController?.signal.aborted) loadingDiff.value = false;
+    if (!local.signal.aborted) loadingDiff.value = false;
   }
 }
 
 async function loadFileDiff(filePath: string): Promise<void> {
   fileController?.abort();
-  fileController = new AbortController();
+  const local = new AbortController();
+  fileController = local;
   selectedFile.value = filePath;
   loadingFile.value = true;
   fileErrorMessage.value = '';
   try {
-    fileDiff.value = await fetchProjectGitFileDiff(props.project.id, filePath, 'combined', fileController.signal);
+    const result = await fetchProjectGitFileDiff(props.project.id, filePath, 'combined', local.signal);
+    if (local.signal.aborted) return;
+    fileDiff.value = result;
   } catch (error) {
-    if (fileController?.signal.aborted) return;
+    if (local.signal.aborted) return;
     fileErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar o diff do arquivo.';
     fileDiff.value = null;
   } finally {
-    if (!fileController?.signal.aborted) loadingFile.value = false;
+    if (!local.signal.aborted) loadingFile.value = false;
   }
 }
 

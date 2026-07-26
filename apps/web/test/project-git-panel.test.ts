@@ -114,6 +114,52 @@ test('carrega o diff do arquivo selecionado e sinaliza mascaramento', async () =
   assert.match(wrapper.find('.git-diff-content').text(), /const value = 42/);
 });
 
+test('atualiza consecutivas mantêm o resultado da mais recente sem interferência da anterior', async () => {
+  let call = 0;
+  const originalFetch = globalThis.fetch;
+  const firstBlocker: { resolve: (value?: unknown) => void } = { resolve: () => {} };
+  const firstReleased = new Promise((resolve) => { firstBlocker.resolve = resolve; });
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      call += 1;
+      const currentCall = call;
+      if (currentCall === 1) {
+        await firstReleased;
+        if ((init?.signal as AbortSignal | undefined)?.aborted) {
+          return new Response(JSON.stringify({ error: 'AbortError', message: 'aborted' }), { status: 499 });
+        }
+        return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({ diff: baseDiff }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    firstBlocker.resolve();
+  };
+
+  await flushPromises();
+  await (wrapper.vm as unknown as { loadDiff: () => Promise<void> }).loadDiff();
+  await flushPromises();
+
+  firstBlocker.resolve();
+  await flushPromises();
+  await flushPromises();
+
+  const buttons = wrapper.findAll('.git-diff-file-button');
+  assert.equal(buttons.length, baseDiff.files.length);
+  assert.equal(wrapper.find('.project-error').exists(), false);
+});
+
 test('mostra erro quando a chamada de diff falha', async () => {
   const { wrapper, restore } = await mountPanel({
     overview: async () => baseOverview,

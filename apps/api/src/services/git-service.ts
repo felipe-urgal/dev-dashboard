@@ -51,27 +51,57 @@ function parseCommits(output: string): GitCommit[] {
     return { hash, shortHash, subject, authorName, authorEmail, authoredAt };
   });
 }
-function gitDiffArgs(scope: GitDiffScope, extra: readonly string[] = []): string[] {
-  if (scope === 'index') return ['diff', '--cached', ...extra];
-  if (scope === 'combined') return ['diff', 'HEAD', ...extra];
+const EMPTY_TREE_HASH = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+async function resolveDiffBase(projectPath: string, scope: GitDiffScope): Promise<string | null> {
+  if (scope === 'worktree') return null;
+  try {
+    await runGit(projectPath, ['rev-parse', '--verify', '--quiet', 'HEAD']);
+    return 'HEAD';
+  } catch {
+    return EMPTY_TREE_HASH;
+  }
+}
+
+function gitDiffArgs(scope: GitDiffScope, base: string | null, extra: readonly string[] = []): string[] {
+  if (scope === 'index') return ['diff', '--cached', ...(base ? [base] : []), ...extra];
+  if (scope === 'combined') return ['diff', ...(base ? [base] : []), ...extra];
   return ['diff', ...extra];
 }
 
 function parseNumstat(output: string, statusByPath: Map<string, GitFileChange>): GitDiffFile[] {
   const files: GitDiffFile[] = [];
-  const records = output.split('\0').filter(Boolean);
-  for (const record of records) {
-    const [additionsRaw = '0', deletionsRaw = '0', ...rest] = record.split('\t');
+  const records = output.split('\0');
+  let index = 0;
+  while (index < records.length) {
+    const record = records[index];
+    index += 1;
+    if (!record) continue;
+    const fields = record.split('\t');
+    const additionsRaw = fields[0] ?? '0';
+    const deletionsRaw = fields[1] ?? '0';
+    const pathPart = fields.slice(2).join('\t');
     const binary = additionsRaw === '-' && deletionsRaw === '-';
     const additions = binary ? 0 : Number.parseInt(additionsRaw, 10) || 0;
     const deletions = binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0;
-    const filePath = rest.join('\t').trim();
-    if (!filePath) continue;
+
+    let filePath = pathPart;
+    let previousPath: string | undefined;
+    if (!filePath) {
+      previousPath = records[index] ?? '';
+      index += 1;
+      filePath = records[index] ?? '';
+      index += 1;
+      if (!filePath) continue;
+    }
+
     const change = statusByPath.get(filePath);
+    const effectivePreviousPath = previousPath || change?.previousPath;
+    const effectiveStatus = change?.status ?? (previousPath ? 'renamed' : 'modified');
     files.push({
       path: filePath,
-      ...(change?.previousPath ? { previousPath: change.previousPath } : {}),
-      status: change?.status ?? 'modified',
+      ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
+      status: effectiveStatus,
       additions,
       deletions,
       binary,
@@ -111,7 +141,8 @@ export class GitService {
     const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
     const statusByPath = new Map<string, GitFileChange>();
     for (const file of status.files) statusByPath.set(file.path, file);
-    const numstat = await runGit(projectPath, [...gitDiffArgs(scope, ['--numstat', '-z'])]);
+    const base = await resolveDiffBase(projectPath, scope);
+    const numstat = await runGit(projectPath, [...gitDiffArgs(scope, base, ['--numstat', '-z'])]);
     const files = parseNumstat(numstat, statusByPath);
     return { repository: true, scope, files };
   }
@@ -129,8 +160,9 @@ export class GitService {
 
     let raw = '';
     let binary = false;
+    const base = await resolveDiffBase(projectPath, scope);
     try {
-      raw = await runGit(projectPath, [...gitDiffArgs(scope, ['--', safePath])]);
+      raw = await runGit(projectPath, [...gitDiffArgs(scope, base, ['--', safePath])]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/binary files? .* differ/i.test(message)) {
