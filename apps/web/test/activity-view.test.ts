@@ -62,7 +62,13 @@ async function mountView(args: MountArgs) {
   }) as typeof fetch;
 
   const wrapper = mount(ActivityView, { global: { stubs: { RouterLink: RouterLinkStub } } });
-  return { wrapper, restore: () => { globalThis.fetch = originalFetch; } };
+  return {
+    wrapper,
+    restore: () => {
+      wrapper.unmount();
+      globalThis.fetch = originalFetch;
+    },
+  };
 }
 
 let cleanup: (() => void) | undefined;

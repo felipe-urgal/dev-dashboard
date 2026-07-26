@@ -88,10 +88,14 @@ onMounted(() => {
           Repositórios
         </RouterLink>
 
-        <span class="navigation-item navigation-item-disabled">
+        <RouterLink
+          class="navigation-item"
+          :class="{ 'navigation-item-active': route.name === 'processes' }"
+          :to="{ name: 'processes' }"
+        >
           <span class="navigation-icon">▶</span>
           Processos
-        </span>
+        </RouterLink>
 
         <RouterLink
           class="navigation-item"

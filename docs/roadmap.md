@@ -37,8 +37,8 @@ compromissos de versão.
 - [x] detalhe com abas de visão geral, Git, testes, banco e scripts;
 - [x] servidor, configuração de porta, URLs, logs e limpeza;
 - [x] estados vazios e componentes reutilizáveis iniciais;
-- [ ] painel global de atividade;
-- [ ] página global de processos/jobs;
+- [x] painel global de atividade (task 012);
+- [x] página global de processos (task 014);
 - [ ] configurações globais;
 - [ ] loading skeletons, notificações e acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.
@@ -192,6 +192,11 @@ parte deste horizonte.
   `detect_projects` em workspaces grandes;
 - [ ] suíte própria de smoke para helpers Bash não interativos
   (ex.: `bats-core` para `git-*`/`_dev_*` puros);
+- [ ] revisão dirigida do `npm audit` (a instalação atual sinaliza
+  vulnerabilidades altas em dependências transitivas — devDeps novas
+  como `vitest`/`jsdom`): abrir uma task específica para inventariar,
+  decidir upgrades seguros e evitar `npm audit fix --force`, que pode
+  subir major de dependências nossas com breaking changes;
 - [x] testes de API e Process Manager;
 - [x] CI em push e pull request.
 

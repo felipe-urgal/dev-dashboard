@@ -1,51 +1,56 @@
-# Próxima atividade — 014: Página global de processos
+# Próxima atividade — 015: Git leitura profunda (diff por arquivo)
 
 ## Contexto
 
-Com o painel de atividade unificado (task 012) e a base de testes de UI
-(task 013) entregues, o próximo passo do Horizonte 1 do roadmap é uma
-página global de processos: leitura consolidada dos servidores e testes
-gerenciados, com filtros fechados e limpeza segura de estados elegíveis.
+Com o painel de atividade (012), a base de testes de UI (013) e a
+página global de processos (014) entregues, o Horizonte 1 do roadmap
+está fechado. O Horizonte 2 começa por Git, e a primeira etapa é diff
+por arquivo (somente leitura, sem mutação).
 
 ## Objetivo
 
-Expor `/processes` mostrando todos os `ManagedProcess` conhecidos pelo
-`ProcessManager` (servidores e testes), com origem, projeto e estado,
-sem executar qualquer comando novo. Reaproveitar as regras já validadas
-para acesso a logs e para a operação de limpeza existente
-(`POST /api/processes/cleanup`).
+Expor `GET /api/projects/:projectId/git/diff` retornando o diff
+resumido do repositório e o diff textual por arquivo, respeitando os
+mesmos limites de tamanho e mascaramento já aplicados a logs. Consumir
+em uma aba nova (ou expandir a aba Git existente) mostrando lista de
+arquivos alterados e visualização do diff selecionado. Nenhuma
+mutação nesta entrega.
 
 ## Plano detalhado
 
-1. Adicionar (se necessário) uma rota `GET /api/processes` que devolva
-   `ManagedProcess[]` já filtrados pelos workspaces cadastrados,
-   reaproveitando a autorização das rotas privadas existentes; nenhuma
-   estrutura nova de persistência.
-2. Criar `apps/web/src/views/ProcessesView.vue` com filtros por
-   workspace, projeto e tipo (`server`/`test`), estados
-   vazio/carregando/erro/sucesso e link para o detalhe do projeto.
-3. Reusar o botão de limpeza (`cleanup`) existente para estados
-   elegíveis, com confirmação; nunca sinalizar processos externos ao
-   dashboard.
-4. Rota `/processes` no `router` e item na sidebar substituindo o
-   placeholder "Processos".
-5. Testes montados cobrindo os quatro estados, reaproveitando o padrão
-   de estubagem de `fetch` da `ActivityView`.
-6. Atualizar `README.md`, `docs/roadmap.md` (marcar item concluído) e
-   registrar a task 014.
+1. Estender `GitService` em `apps/api/src/services/git-service.ts` com
+   um método `diff(project)` que roda `git diff --numstat` +
+   `git diff -- <path>` por arquivo sob demanda, com limite máximo por
+   arquivo (mesmo `LOG_LIMIT` já usado em execução de scripts).
+2. Novo contrato em `packages/contracts/src/git.ts`: `GitDiffFile` (path,
+   status, additions, deletions), `GitDiffSnapshot` (files[],
+   truncated), `GitFileDiff` (path, content, truncated, masked).
+3. Rota `GET /api/projects/:projectId/git/diff` (lista) e
+   `GET /api/projects/:projectId/git/diff/file?path=` (conteúdo por
+   arquivo com path validado dentro do projeto).
+4. Cliente em `apps/web/src/api.ts` com `AbortSignal`.
+5. Painel Git da view do projeto ganha lista de arquivos com contagem
+   de linhas e área que carrega o diff sob demanda ao selecionar.
+6. Aplicar o mesmo mascaramento já usado por logs se detectar padrão
+   de segredo no diff.
+7. Testes: contrato, `git-service` (repositório efêmero), rota com
+   path traversal proibido, teste montado do painel para os estados
+   vazio/carregando/erro/sucesso.
+8. Atualizar README e roadmap marcando "diff por arquivo e diff
+   resumido".
 
 ## Fora do escopo
 
-- Killar processos externos ou expor caminhos arbitrários.
-- Novo transporte (SSE/WebSocket) — a página é somente leitura com
-  refresh manual/periódico simples.
-- Migrar histórico de testes para persistência (segue no Horizonte 2).
+- Qualquer mutação Git (commit, stash, branch, pull/push) — fica para
+  entregas posteriores.
+- Diff em três vias (merge conflicts).
+- Blame / histórico por linha.
 
 ## Critérios de aceite
 
-- listar servidores e testes ativos sem varrer todos os projetos
-  manualmente;
-- filtros fechados e paginação suave (ou lista limitada por natureza);
-- limpeza segura reaproveitando a operação já existente;
-- testes montados nos quatro estados;
+- endpoint recusa `path` que escape do diretório do projeto;
+- diff maior que o limite é truncado com sinalização explícita;
+- painel Git mostra a lista de arquivos e o diff selecionado sem
+  fazer pooling contínuo;
+- testes de contrato, serviço, rota e componente passam;
 - `npm run typecheck`, `npm run build` e `npm test` passam.
