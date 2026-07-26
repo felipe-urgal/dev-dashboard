@@ -150,10 +150,12 @@ function ensurePathInsideProject(projectPath: string, requested: string): string
 }
 
 async function assertWorkingTreeClean(projectPath: string): Promise<void> {
-  const output = await runGit(projectPath, ['status', '--porcelain=v2', '-z', '--untracked-files=no']);
-  const dirty = output.split('\0').some((record) => record.startsWith('1 ') || record.startsWith('2 ') || record.startsWith('u '));
+  const output = await runGit(projectPath, ['status', '--porcelain=v2', '-z', '--untracked-files=all']);
+  const dirty = output.split('\0').some((record) =>
+    record.startsWith('1 ') || record.startsWith('2 ') || record.startsWith('u ') || record.startsWith('? '),
+  );
   if (dirty) {
-    throw new GitMutationError('GIT_WORKING_TREE_DIRTY', 'A árvore de trabalho tem alterações não commitadas.');
+    throw new GitMutationError('GIT_WORKING_TREE_DIRTY', 'A árvore de trabalho tem alterações não commitadas ou arquivos não rastreados.');
   }
 }
 

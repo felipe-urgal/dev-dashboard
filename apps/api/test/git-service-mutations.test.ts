@@ -79,6 +79,18 @@ test('createBranch em branch já existente falha com GIT_BRANCH_EXISTS', async (
   );
 });
 
+test('createBranch com arquivo não rastreado presente falha com GIT_WORKING_TREE_DIRTY', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'novo.txt'), 'ainda não rastreado\n');
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'create-branch', 'feature/w');
+  await assert.rejects(
+    () => service.createBranch(root, 'p1', 'feature/w', confirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_WORKING_TREE_DIRTY',
+  );
+});
+
 test('switchBranch em árvore suja falha com GIT_WORKING_TREE_DIRTY', async (context) => {
   const root = await makeRepo();
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
