@@ -11,6 +11,7 @@ import { TestDetectionService } from './services/test-detection-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
+import { ActivityService } from './services/activity-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -22,20 +23,25 @@ export interface AppContext {
   databaseDetectionService: DatabaseDetectionService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
+  activityService: ActivityService;
 }
 
 export function createAppContext(): AppContext {
   const scriptDetectionService = new ScriptDetectionService();
+  const processManager = new ProcessManager();
+  const projectStore = new ProjectStore();
+  const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
   return {
     workspaceRepository: new WorkspaceRepository(),
-    processManager: new ProcessManager(),
+    processManager,
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
-    projectStore: new ProjectStore(),
+    projectStore,
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
     databaseDetectionService: new DatabaseDetectionService(),
     scriptDetectionService,
-    scriptExecutionService: new ScriptExecutionService(scriptDetectionService),
+    scriptExecutionService,
+    activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
   };
 }

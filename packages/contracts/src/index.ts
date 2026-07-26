@@ -45,6 +45,19 @@ export type {
 } from './database.js';
 
 export type {
+  Activity,
+  ActivityBase,
+  ActivityList,
+  ActivityOrigin,
+  ActivityStatus,
+  ProcessActivityReference,
+  ScriptActivity,
+  ScriptActivityReference,
+  ServerActivity,
+  TestActivity,
+} from './activity.js';
+
+export type {
   ProjectScript,
   ProjectScriptCatalog,
   ProjectScriptOrigin,
