@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { access, mkdir, open, readlink, stat } from 'node:fs/promises';
+import { access, mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,7 @@ import type {
   ScriptExecution,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
+  ScriptExecutionHistory,
 } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
@@ -49,6 +50,12 @@ type NodeManager = 'npm' | 'pnpm' | 'yarn';
 
 const LOG_LIMIT = 262_144;
 const CONFIRMATION_TTL_MS = 60_000;
+const HISTORY_VERSION = 1;
+const DEFAULT_HISTORY_LIMIT = 200;
+const DEFAULT_RETENTION_DAYS = 7;
+const EXECUTION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+interface StoredExecution { version: 1; execution: ScriptExecution }
 
 async function exists(target: string): Promise<boolean> {
   try {
@@ -133,7 +140,11 @@ export class ScriptExecutionService {
   private readonly executions = new Map<string, RunningExecution>();
   private readonly activeProjects = new Set<string>();
   private readonly confirmations = new Map<string, StoredConfirmation>();
+  private readonly pendingWrites = new Map<string, Promise<void>>();
   private readonly stateDirectory: string;
+  private readonly ready: Promise<void>;
+  private readonly historyLimit: number;
+  private readonly retentionMs: number;
 
   public constructor(
     private readonly detection: ScriptDetectionService,
@@ -142,6 +153,9 @@ export class ScriptExecutionService {
       path.join(homedir(), '.local', 'state', 'dev-dashboard'),
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'scripts');
+    this.historyLimit = this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT);
+    this.retentionMs = this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000;
+    this.ready = this.restore();
   }
 
   public async prepareConfirmation(
@@ -175,6 +189,7 @@ export class ScriptExecutionService {
     actionId: string,
     confirmationToken?: string,
   ): Promise<ScriptExecution> {
+    await this.ready;
     if (this.activeProjects.has(project.id)) {
       throw new ScriptExecutionError(
         'SCRIPT_ALREADY_RUNNING',
@@ -197,12 +212,16 @@ export class ScriptExecutionService {
     }
   }
 
-  public get(projectId: string, executionId: string): ScriptExecution {
+  public async get(projectId: string, executionId: string): Promise<ScriptExecution> {
+    await this.ready;
     const record = this.findExecution(projectId, executionId);
+    await this.waitForPersistence(executionId);
     return { ...record.execution };
   }
 
-  public latest(projectId: string): ScriptExecution | null {
+  public async latest(projectId: string): Promise<ScriptExecution | null> {
+    await this.ready;
+    await this.waitForAllPersistence();
     const records = Array.from(this.executions.values());
     for (let index = records.length - 1; index >= 0; index -= 1) {
       const execution = records[index]?.execution;
@@ -211,10 +230,28 @@ export class ScriptExecutionService {
     return null;
   }
 
+  public async history(projectId: string, page = 1, pageSize = 20): Promise<ScriptExecutionHistory> {
+    await this.ready;
+    await this.waitForAllPersistence();
+    const items = Array.from(this.executions.values())
+      .map((record) => record.execution)
+      .filter((execution) => execution.projectId === projectId)
+      .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
+    const total = items.length;
+    return {
+      items: items.slice((page - 1) * pageSize, page * pageSize).map((item) => ({ ...item })),
+      page,
+      pageSize,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
+    };
+  }
+
   public async log(
     projectId: string,
     executionId: string,
   ): Promise<ScriptExecutionLog> {
+    await this.ready;
     const record = this.findExecution(projectId, executionId);
     const size = (await stat(record.logPath)).size;
     const start = Math.max(0, size - LOG_LIMIT);
@@ -244,6 +281,7 @@ export class ScriptExecutionService {
     projectId: string,
     executionId: string,
   ): Promise<ScriptExecution> {
+    await this.ready;
     const record = this.findExecution(projectId, executionId);
     if (record.execution.status !== 'running' || !record.child?.pid) {
       return { ...record.execution };
@@ -339,6 +377,7 @@ export class ScriptExecutionService {
       logPath,
     };
     this.executions.set(id, record);
+    await this.persist(execution);
 
     try {
       record.child = spawn(resolved.command, resolved.args, {
@@ -348,7 +387,9 @@ export class ScriptExecutionService {
         stdio: ['ignore', handle.fd, handle.fd],
       });
     } catch (error) {
-      this.executions.delete(id);
+      execution.status = 'failed';
+      execution.finishedAt = new Date().toISOString();
+      await this.persist(execution);
       await handle.close();
       throw error;
     }
@@ -363,6 +404,7 @@ export class ScriptExecutionService {
       if (exitCode !== undefined && exitCode !== null) execution.exitCode = exitCode;
       this.activeProjects.delete(project.id);
       void handle.close();
+      this.schedulePersistence(execution);
     };
     record.child.once('error', () => finish('failed'));
     record.child.once('close', (code, signal) =>
@@ -390,5 +432,100 @@ export class ScriptExecutionService {
     } catch {
       // O processo pode ter encerrado entre a verificação e o sinal.
     }
+  }
+
+  private statePath(id: string): string { return path.join(this.stateDirectory, `${id}.json`); }
+
+  private async persist(execution: ScriptExecution): Promise<void> {
+    const stored: StoredExecution = {
+      version: HISTORY_VERSION,
+      execution: { ...execution },
+    };
+    await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
+    const target = this.statePath(execution.id);
+    const temporary = `${target}.${randomUUID()}.tmp`;
+    await writeFile(temporary, JSON.stringify(stored), { mode: 0o600 });
+    await rename(temporary, target);
+  }
+
+  private schedulePersistence(execution: ScriptExecution): void {
+    const previous = this.pendingWrites.get(execution.id) ?? Promise.resolve();
+    const pending = previous
+      .then(() => this.persist(execution))
+      .then(() => this.pruneHistory());
+    this.pendingWrites.set(execution.id, pending);
+    // O erro continua observável pelas leituras, mas não vira rejeição não tratada no listener.
+    void pending.catch(() => undefined);
+    void pending.finally(() => {
+      if (this.pendingWrites.get(execution.id) === pending) {
+        this.pendingWrites.delete(execution.id);
+      }
+    }).catch(() => undefined);
+  }
+
+  private async waitForPersistence(executionId: string): Promise<void> {
+    await this.pendingWrites.get(executionId);
+  }
+
+  private async waitForAllPersistence(): Promise<void> {
+    await Promise.all(this.pendingWrites.values());
+  }
+
+  private async pruneHistory(): Promise<void> {
+    const terminal = Array.from(this.executions.values())
+      .filter((record) => record.execution.status !== 'running')
+      .sort((left, right) => right.execution.startedAt.localeCompare(left.execution.startedAt));
+    for (const record of terminal.slice(this.historyLimit)) {
+      this.executions.delete(record.execution.id);
+      await this.removeStored(record.execution.id);
+    }
+  }
+
+  private async restore(): Promise<void> {
+    await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
+    const names = await readdir(this.stateDirectory).catch(() => [] as string[]);
+    const restored: ScriptExecution[] = [];
+    for (const name of names.filter((item) => EXECUTION_ID_PATTERN.test(item.slice(0, -5)) && item.endsWith('.json'))) {
+      try {
+        const parsed = JSON.parse(await readFile(path.join(this.stateDirectory, name), 'utf8')) as Partial<StoredExecution>;
+        const execution = parsed.execution;
+        if (parsed.version !== HISTORY_VERSION || !this.validExecution(execution) || name !== `${execution.id}.json`) continue;
+        if (Date.now() - Date.parse(execution.finishedAt ?? execution.startedAt) > this.retentionMs) {
+          await this.removeStored(execution.id); continue;
+        }
+        if (execution.status === 'running') {
+          execution.status = 'failed';
+          execution.finishedAt = new Date().toISOString();
+          await this.persist(execution);
+        }
+        restored.push(execution);
+      } catch { /* Um registro corrompido não impede a recuperação dos demais. */ }
+    }
+    restored.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+    const kept = restored.slice(-this.historyLimit);
+    for (const execution of restored.slice(0, -this.historyLimit)) await this.removeStored(execution.id);
+    for (const execution of kept) this.executions.set(execution.id, { execution, projectPath: '', logPath: path.join(this.stateDirectory, `${execution.id}.log`) });
+  }
+
+  private async removeStored(id: string): Promise<void> {
+    await Promise.all([rm(this.statePath(id), { force: true }), rm(path.join(this.stateDirectory, `${id}.log`), { force: true })]);
+  }
+
+  private validExecution(value: unknown): value is ScriptExecution {
+    if (!value || typeof value !== 'object') return false;
+    const item = value as Record<string, unknown>;
+    return typeof item.id === 'string' && EXECUTION_ID_PATTERN.test(item.id)
+      && typeof item.projectId === 'string' && item.projectId.length > 0
+      && typeof item.actionId === 'string' && item.actionId.length > 0
+      && typeof item.actionName === 'string' && item.actionName.length > 0
+      && ['read-only', 'mutable', 'destructive'].includes(String(item.risk))
+      && ['running', 'succeeded', 'failed', 'cancelled'].includes(String(item.status))
+      && typeof item.startedAt === 'string' && Number.isFinite(Date.parse(item.startedAt))
+      && (item.finishedAt === undefined || (typeof item.finishedAt === 'string' && Number.isFinite(Date.parse(item.finishedAt))))
+      && (item.exitCode === undefined || Number.isInteger(item.exitCode));
+  }
+
+  private readPositiveInteger(raw: string | undefined, fallback: number): number {
+    const value = Number(raw); return Number.isSafeInteger(value) && value > 0 ? value : fallback;
   }
 }

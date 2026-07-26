@@ -152,6 +152,12 @@ A retenção padrão de processos terminais é de sete dias, configurável por
 `DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
 do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.
 
+O histórico do catálogo persiste arquivos versionados por UUID, com limite padrão
+de 200 registros. A restauração ignora entradas corrompidas e converte estados
+ativos órfãos em falha terminal, sem reutilizar ou sinalizar o PID anterior. A
+listagem aceita somente ID do projeto e paginação limitada; caminhos de JSON e log
+são sempre derivados internamente.
+
 ### Permissões de arquivos
 
 Diretórios de configuração e estado devem ser criados com acesso restrito ao usuário.

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import type { ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
 import { ApiError } from '../http/api-error.js';
-import { commonErrorResponseSchemas, latestScriptExecutionResponseSchema, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
+import { commonErrorResponseSchemas, latestScriptExecutionResponseSchema, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionHistoryResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
 import type { ScriptDetectionService } from '../services/script-detection-service.js';
 import { ScriptExecutionError, type ScriptExecutionService } from '../services/script-execution-service.js';
 import type { ProjectStore } from '../store/project-store.js';
@@ -60,11 +60,21 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (app, options) =>
   } }, async (request) => {
     const project = options.projectStore.findProject(request.params.projectId);
     if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
-    return { execution: options.scriptExecutionService.latest(project.id) };
+    return { execution: await options.scriptExecutionService.latest(project.id) };
+  });
+
+  app.get<{ Params: Params; Querystring: { page?: number; pageSize?: number } }>('/projects/:projectId/scripts/executions', { schema: {
+    params: { type: 'object', additionalProperties: false, required: ['projectId'], properties: { projectId: { type: 'string', minLength: 1 } } },
+    querystring: { type: 'object', additionalProperties: false, properties: { page: { type: 'integer', minimum: 1, default: 1 }, pageSize: { type: 'integer', minimum: 1, maximum: 50, default: 20 } } },
+    response: { 200: { type: 'object', additionalProperties: false, required: ['history'], properties: { history: scriptExecutionHistoryResponseSchema } }, ...commonErrorResponseSchemas },
+  } }, async (request) => {
+    const project = options.projectStore.findProject(request.params.projectId);
+    if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+    return { history: await options.scriptExecutionService.history(project.id, request.query.page, request.query.pageSize) };
   });
 
   app.get<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId', { schema: { params: executionParamsSchema, response: { 200: { type: 'object', additionalProperties: false, required: ['execution'], properties: { execution: scriptExecutionResponseSchema } }, ...commonErrorResponseSchemas } } }, async (request) => {
-    try { return { execution: options.scriptExecutionService.get(request.params.projectId, request.params.executionId) }; } catch (error) { translate(error); }
+    try { return { execution: await options.scriptExecutionService.get(request.params.projectId, request.params.executionId) }; } catch (error) { translate(error); }
   });
   app.get<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId/log', { schema: { params: executionParamsSchema, response: { 200: { type: 'object', additionalProperties: false, required: ['log'], properties: { log: scriptExecutionLogResponseSchema } }, ...commonErrorResponseSchemas } } }, async (request) => {
     try { return { log: await options.scriptExecutionService.log(request.params.projectId, request.params.executionId) }; } catch (error) { translate(error); }

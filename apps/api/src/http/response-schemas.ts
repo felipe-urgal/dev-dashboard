@@ -85,6 +85,15 @@ export const latestScriptExecutionResponseSchema = {
   },
 } as const;
 
+export const scriptExecutionHistoryResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
+  properties: {
+    items: { type: 'array', items: scriptExecutionResponseSchema },
+    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' },
+  },
+} as const;
+
 export const scriptExecutionLogResponseSchema = {
   type: 'object',
   additionalProperties: false,

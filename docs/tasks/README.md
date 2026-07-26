@@ -14,3 +14,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `006-local-web-distribution.md` — distribuição local em origem única, frontend estático, sessão segura de navegador e comando `dev-web`.
 - `007-safe-catalog-execution.md` — execução segura e cancelável dos itens reconhecidos do catálogo, com confirmação por risco, logs limitados e restauração da última execução ao voltar para a página.
 - `008-log-protection-retention.md` — mascaramento central de credenciais nas três fontes de logs, metadados explícitos na API, avisos na UI e consolidação da retenção local limitada.
+- `009-execution-history.md` — persistência versionada e limitada do histórico do catálogo, reconciliação segura após reinício, paginação por IDs e consulta no painel.

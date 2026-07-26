@@ -10,6 +10,7 @@ import type {
   ProjectDatabaseStartResult,
   ProjectScriptCatalog,
   ScriptExecution,
+  ScriptExecutionHistory,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   Workspace,
@@ -18,6 +19,7 @@ import type {
 interface ScriptCatalogResponse { catalog: ProjectScriptCatalog }
 interface ScriptExecutionResponse { execution: ScriptExecution }
 interface LatestScriptExecutionResponse { execution: ScriptExecution | null }
+interface ScriptExecutionHistoryResponse { history: ScriptExecutionHistory }
 interface ScriptExecutionLogResponse { log: ScriptExecutionLog }
 interface ScriptExecutionConfirmationResponse { confirmation: ScriptExecutionConfirmation }
 
@@ -191,6 +193,9 @@ export async function fetchScriptExecution(projectId: string, executionId: strin
 }
 export async function fetchLatestScriptExecution(projectId: string): Promise<ScriptExecution | null> {
   const response = await requestJson<LatestScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/latest`); return response.execution;
+}
+export async function fetchScriptExecutionHistory(projectId: string, page = 1): Promise<ScriptExecutionHistory> {
+  const response = await requestJson<ScriptExecutionHistoryResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions?page=${page}&pageSize=10`); return response.history;
 }
 export async function fetchScriptExecutionLog(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
   const response = await requestJson<ScriptExecutionLogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/log`); return response.log;
