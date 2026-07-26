@@ -124,6 +124,15 @@ todos os projetos.
    autorizadas em suas telas.
 5. **Configurações e notificações:** preferências de UI, retenção dentro de
    limites seguros e avisos locais de conclusão.
+6. **Paridade CLI→Web seletiva:** trazer, uma por vez e com política de risco
+   proporcional, capacidades hoje exclusivas do Bash — `git-save`
+   (add+commit rápido com confirmação), `git-pr` (rascunho via GitHub CLI,
+   apenas depois de revisar o modelo de autorização), snapshot/restore de
+   banco reconhecido, `dev-kill-port` e `dev-clean` como ações de manutenção
+   no painel de processos, e abrir editor/terminal via adaptadores locais
+   conhecidos. Integrações IA (`dev-claude`, `dev-ai-*`) permanecem
+   opcionais e isoladas em um painel próprio, sem virar dependência do
+   fluxo principal.
 
 Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
 um terminal genérico disfarçado.
@@ -151,6 +160,18 @@ e integrações revogáveis.
   semânticas diferentes;
 - migração e backup versionados do estado local.
 
+### Produtividade no navegador
+
+- favoritos e recentes por workspace, sem sincronização remota;
+- perfis de ambiente reutilizáveis, sem armazenar valores secretos no
+  frontend;
+- notificações locais opt-in (Notification API) ao terminar execuções
+  longas de catálogo, testes ou build;
+- exportação de log com o mesmo mascaramento aplicado na tela, respeitando
+  o limite de leitura já existente;
+- health checks declarativos por projeto, restritos a tipos fechados
+  (HTTP GET em `127.0.0.1`, comando reconhecido do catálogo).
+
 Plugins remotos arbitrários, shell livre e exposição da API na rede não fazem
 parte deste horizonte.
 
@@ -160,8 +181,17 @@ parte deste horizonte.
 
 - [ ] testes de componentes Vue;
 - [ ] Playwright/smoke E2E;
-- [ ] lint e formatação automatizados;
+- [ ] lint e formatação automatizados (ESLint + Prettier padronizados
+  entre `apps/` e `packages/`);
 - [ ] medição de cobertura com metas por camada;
+- [ ] doc da API gerada a partir dos JSON Schemas do Fastify e verificada
+  contra as rotas registradas;
+- [ ] changelog e release automatizados (ex.: changesets ou
+  release-please), inclusive tag de versão da API;
+- [ ] cache de detecção inicial no CLI Bash para reduzir custo de
+  `detect_projects` em workspaces grandes;
+- [ ] suíte própria de smoke para helpers Bash não interativos
+  (ex.: `bats-core` para `git-*`/`_dev_*` puros);
 - [x] testes de API e Process Manager;
 - [x] CI em push e pull request.
 
