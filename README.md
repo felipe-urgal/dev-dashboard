@@ -374,8 +374,15 @@ npm test
 
 ## API atual
 
+Todas as rotas abaixo, exceto o health check e o bootstrap de sessão, são
+privadas. O navegador usa a sessão local; clientes não navegador usam o header
+de token.
+
 ```text
 GET    /api/health
+POST   /api/auth/browser-session
+
+GET    /api/directories
 
 GET    /api/workspaces
 POST   /api/workspaces
@@ -383,35 +390,76 @@ POST   /api/workspaces/:workspaceId/scan
 DELETE /api/workspaces/:workspaceId
 
 GET    /api/projects
+GET    /api/projects/:projectId
+GET    /api/projects/:projectId/favicon
+GET    /api/projects/:projectId/git
+
+GET    /api/projects/:projectId/server-settings
+PUT    /api/projects/:projectId/server-settings
 
 GET    /api/projects/:projectId/process
 POST   /api/projects/:projectId/process/start
 POST   /api/projects/:projectId/process/stop
 GET    /api/projects/:projectId/process/logs
+DELETE /api/projects/:projectId/process/logs
+POST   /api/processes/cleanup
+
+GET    /api/projects/:projectId/tests
+GET    /api/projects/:projectId/tests/process
+POST   /api/projects/:projectId/tests/:commandId/start
+POST   /api/projects/:projectId/tests/process/stop
+GET    /api/projects/:projectId/tests/process/logs
+DELETE /api/projects/:projectId/tests/process/logs
+
+GET    /api/projects/:projectId/database
+POST   /api/projects/:projectId/database/:environmentId/reveal
+POST   /api/projects/:projectId/database/:environmentId/start
+
+GET    /api/projects/:projectId/scripts
+POST   /api/projects/:projectId/scripts/confirmations
+GET    /api/projects/:projectId/scripts/executions
+POST   /api/projects/:projectId/scripts/executions
+GET    /api/projects/:projectId/scripts/executions/latest
+GET    /api/projects/:projectId/scripts/executions/:executionId
+GET    /api/projects/:projectId/scripts/executions/:executionId/log
+GET    /api/projects/:projectId/scripts/executions/:executionId/events
+POST   /api/projects/:projectId/scripts/executions/:executionId/cancel
 ```
 
 ## Estado atual
 
-A fundação web já permite:
+A interface web já permite:
 
 1. cadastrar workspaces;
 2. persistir configurações;
 3. detectar projetos Rails e Node;
 4. visualizar projetos no navegador;
-5. iniciar e parar servidores;
-6. consultar porta e PID;
-7. abrir a aplicação;
-8. acompanhar logs;
-9. continuar utilizando o CLI existente.
+5. iniciar, configurar e parar servidores;
+6. abrir URLs e acompanhar logs protegidos;
+7. consultar Git em modo somente leitura;
+8. detectar e executar testes reconhecidos;
+9. inspecionar bancos locais e iniciar serviços reconhecidos;
+10. consultar e executar com segurança scripts e tarefas catalogados;
+11. cancelar execuções e consultar seu histórico persistente;
+12. acompanhar execuções do catálogo em tempo real por SSE;
+13. continuar utilizando o CLI existente de forma independente.
+
+Ainda não existem páginas globais de atividade/processos, ações Git mutáveis,
+testes de componentes Vue ou testes ponta a ponta. O histórico persistente e os
+eventos em tempo real cobrem o catálogo; testes e servidores ainda mantêm seus
+próprios estados.
 
 ## Próximos passos
 
-- completar as operações Git mutáveis com confirmação e auditoria;
 - consolidar o painel de atividade entre execuções, testes e processos;
-- consolidar páginas globais, configurações e command palette;
-- ampliar testes de componentes e testes ponta a ponta.
+- criar testes de componentes e um smoke test ponta a ponta;
+- adicionar uma página global de processos;
+- evoluir Git em etapas, começando por diff somente leitura;
+- depois ampliar testes focados, ferramentas Rails e command palette.
 
-Consulte [`docs/roadmap.md`](docs/roadmap.md) para acompanhar as fases planejadas.
+Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
+para a auditoria completa, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
+próxima entrega e [`docs/roadmap.md`](docs/roadmap.md) para os horizontes futuros.
 
 ## Licença
 
