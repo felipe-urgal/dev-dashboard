@@ -15,7 +15,7 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Detecção automática de portas disponíveis
 - Persistência segura de PIDs e metadados dos processos
 - Visualização de logs no navegador
-- Visão Git somente leitura, execução de testes e catálogo seguro de scripts com histórico persistente
+- Visão Git somente leitura, execução de testes e catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Inspeção de configurações e disponibilidade de bancos locais
 - Interface de terminal existente
 - API local em Fastify
@@ -406,10 +406,8 @@ A fundação web já permite:
 
 ## Próximos passos
 
-- servir o frontend compilado pela API e disponibilizar o comando `dev-web`;
-- mascarar segredos nos logs de processos gerenciados;
 - completar as operações Git mutáveis com confirmação e auditoria;
-- adicionar histórico persistente de jobs e eventos em tempo real;
+- consolidar o painel de atividade entre execuções, testes e processos;
 - consolidar páginas globais, configurações e command palette;
 - ampliar testes de componentes e testes ponta a ponta.
 

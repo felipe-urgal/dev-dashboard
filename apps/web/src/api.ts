@@ -10,6 +10,7 @@ import type {
   ProjectDatabaseStartResult,
   ProjectScriptCatalog,
   ScriptExecution,
+  ScriptExecutionEvent,
   ScriptExecutionHistory,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
@@ -200,6 +201,43 @@ export async function fetchScriptExecutionHistory(projectId: string, page = 1): 
 export async function fetchScriptExecutionLog(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
   const response = await requestJson<ScriptExecutionLogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/log`); return response.log;
 }
+export function followScriptExecutionEvents(
+  projectId: string,
+  executionId: string,
+  onEvent: (event: ScriptExecutionEvent) => void,
+): { close: () => void; done: Promise<void> } {
+  const controller = new AbortController();
+  const done = (async () => {
+    let response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/events`, {
+      credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
+    });
+    if (response.status === 401) {
+      await bootstrapBrowserSession();
+      response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/events`, {
+        credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
+      });
+    }
+    if (!response.ok || !response.body) throw new Error(`Não foi possível acompanhar a execução (HTTP ${response.status}).`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { value, done: ended } = await reader.read();
+      if (ended) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() ?? '';
+      for (const frame of frames) {
+        const data = frame.split('\n').find((line) => line.startsWith('data: '))?.slice(6);
+        if (data) onEvent(JSON.parse(data) as ScriptExecutionEvent);
+      }
+    }
+  })().catch((error: unknown) => {
+    if (!controller.signal.aborted) throw error;
+  });
+  return { close: () => controller.abort(), done };
+}
+
 export async function cancelScriptExecution(projectId: string, executionId: string): Promise<ScriptExecution> {
   const response = await requestJson<ScriptExecutionResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); return response.execution;
 }

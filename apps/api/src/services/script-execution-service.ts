@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { once } from 'node:events';
+import type { Writable } from 'node:stream';
 import { access, mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -11,6 +14,7 @@ import type {
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   ScriptExecutionHistory,
+  ScriptExecutionEvent,
 } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
@@ -23,7 +27,8 @@ export type ScriptExecutionErrorCode =
   | 'SCRIPT_ALREADY_RUNNING'
   | 'SCRIPT_EXECUTION_NOT_FOUND'
   | 'SCRIPT_MANAGER_AMBIGUOUS'
-  | 'SCRIPT_MANAGER_NOT_FOUND';
+  | 'SCRIPT_MANAGER_NOT_FOUND'
+  | 'SCRIPT_SUBSCRIBER_LIMIT';
 
 export class ScriptExecutionError extends Error {
   public constructor(
@@ -40,6 +45,7 @@ interface RunningExecution {
   projectPath: string;
   logPath: string;
   child?: ChildProcess;
+  logFlush?: Promise<void>;
 }
 
 interface StoredConfirmation extends ScriptExecutionConfirmation {
@@ -58,10 +64,20 @@ const EXECUTION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 
 interface StoredExecution { version: 1; execution: ScriptExecution }
 
+const MAX_EXECUTION_SUBSCRIBERS = 5;
+const MAX_TOTAL_SUBSCRIBERS = 20;
+const EVENT_THROTTLE_MS = 200;
+
+interface ExecutionSubscriber {
+  send: (event: ScriptExecutionEvent) => void;
+  close: () => void;
+}
+
 export interface ScriptExecutionServiceOptions {
   historyLimit?: number;
   retentionMs?: number;
   sweepIntervalMs?: number;
+  createLogStream?: (logPath: string) => Writable;
 }
 
 async function exists(target: string): Promise<boolean> {
@@ -148,11 +164,14 @@ export class ScriptExecutionService {
   private readonly activeProjects = new Set<string>();
   private readonly confirmations = new Map<string, StoredConfirmation>();
   private readonly pendingWrites = new Map<string, Promise<void>>();
+  private readonly subscribers = new Map<string, Set<ExecutionSubscriber>>();
+  private readonly eventTimers = new Map<string, NodeJS.Timeout>();
   private readonly stateDirectory: string;
   private readonly ready: Promise<void>;
   private readonly historyLimit: number;
   private readonly retentionMs: number;
   private readonly retentionTimer: NodeJS.Timeout;
+  private readonly createLogStream: (logPath: string) => Writable;
 
   public constructor(
     private readonly detection: ScriptDetectionService,
@@ -164,6 +183,8 @@ export class ScriptExecutionService {
     this.stateDirectory = path.resolve(stateDirectory, 'scripts');
     this.historyLimit = this.positiveOption(options.historyLimit, this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT));
     this.retentionMs = this.positiveOption(options.retentionMs, this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000);
+    this.createLogStream = options.createLogStream ?? ((logPath) =>
+      createWriteStream(logPath, { flags: 'w', mode: 0o600 }));
     this.ready = this.restore();
     this.retentionTimer = setInterval(() => {
       void this.ready.then(() => this.pruneHistory()).catch(() => undefined);
@@ -173,6 +194,36 @@ export class ScriptExecutionService {
 
   public close(): void {
     clearInterval(this.retentionTimer);
+    for (const timer of this.eventTimers.values()) clearTimeout(timer);
+    for (const subscribers of this.subscribers.values()) {
+      for (const subscriber of subscribers) subscriber.close();
+    }
+    this.eventTimers.clear();
+    this.subscribers.clear();
+  }
+
+  public async subscribe(projectId: string, executionId: string, subscriber: ExecutionSubscriber): Promise<() => void> {
+    const execution = await this.get(projectId, executionId);
+    const current = this.subscribers.get(executionId) ?? new Set<ExecutionSubscriber>();
+    const total = Array.from(this.subscribers.values()).reduce((sum, items) => sum + items.size, 0);
+    if (current.size >= MAX_EXECUTION_SUBSCRIBERS || total >= MAX_TOTAL_SUBSCRIBERS) {
+      throw new ScriptExecutionError('SCRIPT_SUBSCRIBER_LIMIT', 'O limite de acompanhamentos simultâneos foi atingido.');
+    }
+    current.add(subscriber);
+    this.subscribers.set(executionId, current);
+    try {
+      subscriber.send({ type: 'state', execution });
+      subscriber.send({ type: 'log', log: await this.log(projectId, executionId) });
+    } catch (error) {
+      current.delete(subscriber);
+      if (current.size === 0) this.subscribers.delete(executionId);
+      throw error;
+    }
+    if (execution.status !== 'running') queueMicrotask(subscriber.close);
+    return () => {
+      current.delete(subscriber);
+      if (current.size === 0) this.subscribers.delete(executionId);
+    };
   }
 
   public async prepareConfirmation(
@@ -232,6 +283,7 @@ export class ScriptExecutionService {
   public async get(projectId: string, executionId: string): Promise<ScriptExecution> {
     await this.ready;
     const record = this.findExecution(projectId, executionId);
+    await record.logFlush;
     await this.waitForPersistence(executionId);
     return { ...record.execution };
   }
@@ -378,7 +430,8 @@ export class ScriptExecutionService {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const id = randomUUID();
     const logPath = path.join(this.stateDirectory, `${id}.log`);
-    const handle = await open(logPath, 'w', 0o600);
+    const output = this.createLogStream(logPath);
+    await once(output, 'open');
     const execution: ScriptExecution = {
       id,
       projectId: project.id,
@@ -396,22 +449,35 @@ export class ScriptExecutionService {
     this.executions.set(id, record);
     await this.persist(execution);
 
+    let finish: (
+      status: ScriptExecution['status'],
+      exitCode?: number | null,
+    ) => void = () => undefined;
+    const outputSettled = new Promise<void>((resolve) => {
+      output.once('close', resolve);
+      output.once('error', resolve);
+    });
+
     try {
       record.child = spawn(resolved.command, resolved.args, {
         cwd: project.path,
         shell: false,
         detached: process.platform !== 'win32',
-        stdio: ['ignore', handle.fd, handle.fd],
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
+      record.child.stdout?.pipe(output, { end: false });
+      record.child.stderr?.pipe(output, { end: false });
+      record.child.stdout?.on('data', () => this.scheduleLogEvent(record));
+      record.child.stderr?.on('data', () => this.scheduleLogEvent(record));
     } catch (error) {
       execution.status = 'failed';
       execution.finishedAt = new Date().toISOString();
       await this.persist(execution);
-      await handle.close();
+      await new Promise<void>((resolve) => output.end(resolve));
       throw error;
     }
 
-    const finish = (
+    finish = (
       status: ScriptExecution['status'],
       exitCode?: number | null,
     ): void => {
@@ -420,9 +486,20 @@ export class ScriptExecutionService {
       execution.finishedAt = new Date().toISOString();
       if (exitCode !== undefined && exitCode !== null) execution.exitCode = exitCode;
       this.activeProjects.delete(project.id);
-      void handle.close();
       this.schedulePersistence(execution);
+      record.logFlush = outputSettled;
+      if (!output.destroyed) output.end();
+      void record.logFlush.then(() => {
+        this.scheduleLogEvent(record, true);
+        this.emit(record, { type: 'state', execution: { ...execution } });
+      });
     };
+    // Erros de escrita podem ocorrer depois de `open`; eles não devem escapar
+    // como eventos sem listener nem deixar a espera pelo log pendente.
+    output.on('error', () => {
+      finish('failed');
+      this.signal(record, 'SIGTERM');
+    });
     record.child.once('error', () => finish('failed'));
     record.child.once('close', (code, signal) =>
       finish(signal ? 'cancelled' : code === 0 ? 'succeeded' : 'failed', code),
@@ -449,6 +526,29 @@ export class ScriptExecutionService {
     } catch {
       // O processo pode ter encerrado entre a verificação e o sinal.
     }
+  }
+
+  private emit(record: RunningExecution, event: ScriptExecutionEvent): void {
+    for (const subscriber of this.subscribers.get(record.execution.id) ?? []) subscriber.send(event);
+    if (event.type === 'state' && event.execution.status !== 'running') {
+      const subscribers = this.subscribers.get(record.execution.id);
+      if (subscribers) queueMicrotask(() => { for (const subscriber of subscribers) subscriber.close(); });
+    }
+  }
+
+  private scheduleLogEvent(record: RunningExecution, immediate = false): void {
+    if (!this.subscribers.has(record.execution.id)) return;
+    const existing = this.eventTimers.get(record.execution.id);
+    if (existing && !immediate) return;
+    if (existing) clearTimeout(existing);
+    const publish = (): void => {
+      this.eventTimers.delete(record.execution.id);
+      void this.log(record.execution.projectId, record.execution.id)
+        .then((log) => this.emit(record, { type: 'log', log }))
+        .catch(() => undefined);
+    };
+    if (immediate) queueMicrotask(publish);
+    else this.eventTimers.set(record.execution.id, setTimeout(publish, EVENT_THROTTLE_MS));
   }
 
   private statePath(id: string): string { return path.join(this.stateDirectory, `${id}.json`); }

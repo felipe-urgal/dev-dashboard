@@ -54,3 +54,7 @@ export interface ScriptExecutionConfirmation {
   actionId: string;
   expiresAt: string;
 }
+
+export type ScriptExecutionEvent =
+  | { type: 'state'; execution: ScriptExecution }
+  | { type: 'log'; log: ScriptExecutionLog };

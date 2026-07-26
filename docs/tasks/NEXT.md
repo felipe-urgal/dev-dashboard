@@ -1,32 +1,33 @@
-# Próxima atividade — 010: Eventos de execução em tempo real
+# Próxima atividade — 011: Painel de atividade unificado
 
 ## Objetivo
 
-Substituir o polling da execução ativa por um canal local autenticado de eventos, mantendo recuperação determinística por estado persistido.
+Consolidar em uma visão somente leitura as atividades recentes e ativas já reconhecidas pelo dashboard, sem criar execução arbitrária nem duplicar a persistência de cada domínio.
 
 ## Plano detalhado
 
-1. Definir contratos fechados para eventos de estado e atualização de log.
-2. Escolher SSE autenticado na mesma origem e documentar reconexão e expiração.
-3. Expor eventos somente por projeto e ID de execução reconhecidos.
-4. Aplicar limites de frequência, tamanho e quantidade de assinantes.
-5. Encerrar assinaturas ao trocar projeto, concluir execução ou desconectar.
-6. Manter detalhe e histórico HTTP como fonte de recuperação após lacunas.
-7. Integrar o painel sem polling periódico de execução ativa.
-8. Cobrir autenticação, reconexão, isolamento entre projetos e cleanup.
-9. Atualizar arquitetura, segurança, README e registro da task.
+1. Definir um contrato fechado de item de atividade com origem, projeto, estado, instante e referência interna.
+2. Agregar execuções do catálogo, testes e processos gerenciados por identificadores existentes.
+3. Expor listagem paginada com filtros limitados por projeto, origem e estado.
+4. Não persistir caminhos, comandos livres ou cópias de logs no agregador.
+5. Criar uma página global de atividade com estados vazios, erro e paginação.
+6. Direcionar cada item para o detalhe seguro já existente em seu domínio.
+7. Invalidar respostas ao trocar filtros e impedir sobreposição de consultas.
+8. Cobrir isolamento entre workspaces, paginação, serialização e navegação.
+9. Atualizar arquitetura, segurança, README, roadmap e registro da task.
 
 ## Fora do escopo
 
-- WebSocket genérico;
-- eventos de comandos arbitrários;
-- acesso remoto;
-- fila durável distribuída.
+- reexecução automática;
+- fila distribuída;
+- auditoria multiusuário;
+- comandos ou caminhos fornecidos pelo navegador;
+- unificação física dos arquivos de estado.
 
 ## Critérios de aceite
 
-- acompanhamento ativo não depende de polling;
-- eventos não atravessam projetos ou sessões;
-- conexões e buffers possuem limites explícitos;
-- reconexão recupera o estado por endpoints existentes;
+- atividades recentes podem ser consultadas em uma única visão;
+- agregação não amplia acesso a logs, processos ou projetos;
+- paginação e filtros possuem limites explícitos;
+- links preservam a autorização e o contexto do projeto;
 - typecheck, build e testes passam.

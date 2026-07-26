@@ -207,9 +207,9 @@ Objetivo: substituir polling onde houver benefício.
 Entregas:
 
 - modelo persistente de jobs;
-- Server-Sent Events;
+- [x] Server-Sent Events para execuções do catálogo;
 - eventos de processo;
-- eventos de log;
+- [x] eventos de estado e log do catálogo;
 - progresso;
 - cancelamento;
 - histórico;
@@ -217,7 +217,7 @@ Entregas:
 
 Critério de conclusão:
 
-- ações longas atualizarem a UI sem polling contínuo.
+- execuções reconhecidas do catálogo atualizarem a UI sem polling contínuo; demais domínios serão migrados incrementalmente.
 
 ## Fase 8 — Command palette e produtividade
 
