@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref, watch } from 'vue';
-import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionStatus } from '@dev-dashboard/contracts';
-import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
+import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionHistory, ScriptExecutionStatus } from '@dev-dashboard/contracts';
+import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -12,6 +12,7 @@ const origin = ref<ProjectScriptOrigin | ''>('');
 const risk = ref<ProjectScriptRisk | ''>('');
 const page = ref(1);
 const execution = ref<ScriptExecution | null>(null);
+const history = ref<ScriptExecutionHistory | null>(null);
 const executionLog = ref('');
 const maskedLogEntries = ref(0);
 const startingActionId = ref<string | null>(null);
@@ -51,6 +52,7 @@ async function run(item: ProjectScript): Promise<void> {
     execution.value = started;
     startingActionId.value = null;
     await followExecution(started, projectId, current, currentExecution);
+    await loadHistory(projectId, current);
   } catch (error) { if (current === generation && currentExecution === executionGeneration) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.'; }
   finally { if (current === generation && currentExecution === executionGeneration) startingActionId.value = null; }
 }
@@ -82,12 +84,27 @@ async function restoreExecution(projectId: string, current: number): Promise<voi
   }
 }
 
+async function loadHistory(projectId = props.project.id, current = generation): Promise<void> {
+  try {
+    const result = await fetchScriptExecutionHistory(projectId);
+    if (current === generation && projectId === props.project.id) history.value = result;
+  } catch (error) {
+    if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar o histórico.';
+  }
+}
+
+async function selectHistory(item: ScriptExecution): Promise<void> {
+  const currentExecution = ++executionGeneration; const current = generation; const projectId = props.project.id;
+  execution.value = item; executionLog.value = ''; maskedLogEntries.value = 0;
+  await followExecution(item, projectId, current, currentExecution);
+}
+
 async function cancel(): Promise<void> {
   if (!execution.value) return;
   try { execution.value = await cancelScriptExecution(props.project.id, execution.value.id); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar.'; }
 }
 
-watch(() => props.project.id, () => { generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; void load(); void restoreExecution(projectId, current); }, { immediate: true });
+watch(() => props.project.id, () => { generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; history.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; void load(); void loadHistory(projectId, current); void restoreExecution(projectId, current); }, { immediate: true });
 watch([origin, risk], () => { page.value = 1; void load(); });
 watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => void load(), 250); });
 onUnmounted(() => { generation += 1; executionGeneration += 1; if (searchTimer) clearTimeout(searchTimer); });
@@ -97,6 +114,7 @@ onUnmounted(() => { generation += 1; executionGeneration += 1; if (searchTimer) 
   <section class="project-scripts-panel">
     <header class="scripts-panel-header"><div><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Execute somente ações reconhecidas pela API, com confirmação proporcional ao risco.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></header>
     <aside v-if="execution" class="scripts-empty" aria-live="polite"><strong>{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</strong><button v-if="execution.status === 'running'" class="secondary-button" type="button" @click="cancel">Cancelar</button><span v-if="maskedLogEntries" class="project-log-redaction-warning">{{ maskedLogEntries }} ocorrência(s) sensível(is) mascarada(s).</span><pre v-if="executionLog">{{ executionLog }}</pre></aside>
+    <section v-if="history?.items.length" class="scripts-empty" aria-label="Histórico de execuções"><strong>Execuções recentes</strong><span v-if="execution?.status === 'running'">Conclua ou cancele a execução ativa para consultar outro registro.</span><button v-for="item in history.items" :key="item.id" class="secondary-button" type="button" :disabled="execution?.status === 'running'" @click="selectHistory(item)">{{ item.actionName }} · {{ executionStatusLabels[item.status] }} · {{ new Date(item.startedAt).toLocaleString('pt-BR') }}</button></section>
     <div class="scripts-filters">
       <input v-model="search" type="search" placeholder="Buscar por nome, descrição ou comando" aria-label="Buscar scripts">
       <select v-model="origin" aria-label="Filtrar por origem"><option value="">Todas as origens</option><option value="package-script">package.json</option><option value="rails-task">Tarefas Rails</option><option value="bin">Executáveis bin/</option></select>

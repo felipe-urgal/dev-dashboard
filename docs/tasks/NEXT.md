@@ -1,31 +1,32 @@
-# Próxima atividade — 009: Persistência do histórico de execuções
+# Próxima atividade — 010: Eventos de execução em tempo real
 
 ## Objetivo
 
-Persistir um histórico limitado das execuções reconhecidas para que estado, resultado e logs protegidos possam ser recuperados após reiniciar a API.
+Substituir o polling da execução ativa por um canal local autenticado de eventos, mantendo recuperação determinística por estado persistido.
 
 ## Plano detalhado
 
-1. Definir contratos de resumo, detalhe e paginação do histórico.
-2. Modelar armazenamento versionado no diretório de estado com permissões restritas.
-3. Restaurar registros terminais e reconciliar com segurança processos interrompidos.
-4. Aplicar limites de idade e quantidade compatíveis com a política de logs.
-5. Expor listagem e detalhe somente por IDs, com schemas explícitos.
-6. Integrar o histórico ao painel de scripts sem polling de registros terminais.
-7. Cobrir migração, corrupção parcial, concorrência, paginação e limpeza.
-8. Atualizar arquitetura, segurança, README e registro da task.
+1. Definir contratos fechados para eventos de estado e atualização de log.
+2. Escolher SSE autenticado na mesma origem e documentar reconexão e expiração.
+3. Expor eventos somente por projeto e ID de execução reconhecidos.
+4. Aplicar limites de frequência, tamanho e quantidade de assinantes.
+5. Encerrar assinaturas ao trocar projeto, concluir execução ou desconectar.
+6. Manter detalhe e histórico HTTP como fonte de recuperação após lacunas.
+7. Integrar o painel sem polling periódico de execução ativa.
+8. Cobrir autenticação, reconexão, isolamento entre projetos e cleanup.
+9. Atualizar arquitetura, segurança, README e registro da task.
 
 ## Fora do escopo
 
-- sincronização remota;
-- histórico multiusuário;
-- reexecução automática;
-- exportação irrestrita de logs.
+- WebSocket genérico;
+- eventos de comandos arbitrários;
+- acesso remoto;
+- fila durável distribuída.
 
 ## Critérios de aceite
 
-- execuções recentes sobrevivem ao reinício da API;
-- registros ativos órfãos são reconciliados sem sinalizar PIDs desconhecidos;
-- histórico e logs respeitam limites seguros;
-- nenhuma rota aceita caminho ou comando;
+- acompanhamento ativo não depende de polling;
+- eventos não atravessam projetos ou sessões;
+- conexões e buffers possuem limites explícitos;
+- reconexão recupera o estado por endpoints existentes;
 - typecheck, build e testes passam.

@@ -50,6 +50,7 @@ export type {
   ProjectScriptOrigin,
   ProjectScriptRisk,
   ScriptExecution,
+  ScriptExecutionHistory,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   ScriptExecutionStatus,

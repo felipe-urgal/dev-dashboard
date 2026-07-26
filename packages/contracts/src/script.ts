@@ -33,6 +33,14 @@ export interface ScriptExecution {
   exitCode?: number;
 }
 
+export interface ScriptExecutionHistory {
+  items: ScriptExecution[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface ScriptExecutionLog {
   executionId: string;
   content: string;

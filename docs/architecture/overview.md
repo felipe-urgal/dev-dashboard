@@ -221,7 +221,7 @@ O gerenciador não aceita strings de shell arbitrárias.
 
 ## Execução do catálogo
 
-O catálogo de scripts é redetectado no momento da execução. O identificador recebido pela API precisa corresponder a um script `package.json`, tarefa Rails ou executável `bin/` da allowlist atual; comando e argumentos nunca vêm do navegador. A execução possui estado e log limitados, pode ser cancelada e impede duas ações simultâneas no mesmo projeto. O frontend acompanha estado e logs por polling e invalida esse acompanhamento ao trocar de projeto.
+O catálogo de scripts é redetectado no momento da execução. O identificador recebido pela API precisa corresponder a um script `package.json`, tarefa Rails ou executável `bin/` da allowlist atual; comando e argumentos nunca vêm do navegador. A execução possui estado e log limitados, pode ser cancelada e impede duas ações simultâneas no mesmo projeto. O histórico versionado persiste somente o contrato público, é limitado por idade e quantidade e reconcilia uma execução órfã como falha sem sinalizar seu antigo PID. O frontend faz polling apenas da execução ativa, consulta registros terminais sob demanda e invalida o acompanhamento ao trocar de projeto.
 
 ## Persistência
 
