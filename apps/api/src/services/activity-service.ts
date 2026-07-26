@@ -23,6 +23,7 @@ export interface ActivityQuery {
 }
 
 const HISTORY_PAGE_SIZE = 100;
+const HISTORY_MAX_PAGES = 50;
 
 function mapScriptStatus(status: ScriptExecutionStatus): ActivityStatus {
   return status;
@@ -36,7 +37,8 @@ function mapProcessStatus(process: ManagedProcess): ActivityStatus {
     case 'stopping':
       return 'running';
     case 'stopped':
-      if (process.exitCode === 0 || process.exitCode === undefined) return 'succeeded';
+      if (process.exitCode === 0) return 'succeeded';
+      if (process.exitCode === undefined) return 'cancelled';
       return 'failed';
     case 'failed':
       return 'failed';
@@ -78,8 +80,13 @@ export class ActivityService {
 
     if (!query.origin || query.origin === 'script') {
       for (const project of eligibleProjects) {
-        const history = await this.scriptExecutionService.history(project.id, 1, HISTORY_PAGE_SIZE);
-        for (const execution of history.items) {
+        const executions: ScriptExecution[] = [];
+        for (let pageIndex = 1; pageIndex <= HISTORY_MAX_PAGES; pageIndex += 1) {
+          const history = await this.scriptExecutionService.history(project.id, pageIndex, HISTORY_PAGE_SIZE);
+          executions.push(...history.items);
+          if (pageIndex >= history.totalPages || history.items.length === 0) break;
+        }
+        for (const execution of executions) {
           activities.push({
             id: `script:${execution.id}`,
             projectId: execution.projectId,

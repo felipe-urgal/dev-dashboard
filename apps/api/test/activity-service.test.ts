@@ -6,7 +6,7 @@ import type { ManagedProcess, Project, ScriptExecution, ScriptExecutionHistory }
 import { ProjectStore } from '../src/store/project-store.js';
 import { ActivityService } from '../src/services/activity-service.js';
 
-type ScriptStub = { history: (projectId: string) => Promise<ScriptExecutionHistory> };
+type ScriptStub = { history: (projectId: string, page: number, pageSize: number) => Promise<ScriptExecutionHistory> };
 type ProcessStub = { listProcesses: () => Promise<ManagedProcess[]> };
 
 function buildProjects(): Project[] {
@@ -49,9 +49,12 @@ function managed(id: string, projectId: string, kind: 'server' | 'test', started
 function makeService(scripts: Record<string, ScriptExecution[]>, processes: ManagedProcess[], projects: Project[]) {
   const store = primeStore(projects);
   const scriptStub: ScriptStub = {
-    async history(projectId) {
-      const items = scripts[projectId] ?? [];
-      return { items, page: 1, pageSize: 100, total: items.length, totalPages: items.length === 0 ? 0 : 1 };
+    async history(projectId, page, pageSize) {
+      const all = scripts[projectId] ?? [];
+      const total = all.length;
+      const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+      const start = (page - 1) * pageSize;
+      return { items: all.slice(start, start + pageSize), page, pageSize, total, totalPages };
     },
   };
   const processStub: ProcessStub = { async listProcesses() { return processes; } };
@@ -118,13 +121,14 @@ test('ignores processes and scripts from unknown projects', async () => {
   assert.equal(result.items[0]?.projectId, 'p1');
 });
 
-test('maps stopped-with-zero-exit as succeeded and non-zero as failed', async () => {
+test('maps stopped processes to succeeded, failed or cancelled by exit code presence', async () => {
   const projects = buildProjects();
   const service = makeService(
     {},
     [
       managed('ok', 'p1', 'server', '2026-07-26T10:00:00Z', { status: 'stopped', exitCode: 0, stoppedAt: '2026-07-26T10:05:00Z' }),
       managed('bad', 'p2', 'server', '2026-07-26T09:00:00Z', { status: 'stopped', exitCode: 137, stoppedAt: '2026-07-26T09:05:00Z' }),
+      managed('user', 'p1', 'test', '2026-07-26T08:00:00Z', { status: 'stopped', stoppedAt: '2026-07-26T08:05:00Z' }),
     ],
     projects,
   );
@@ -132,4 +136,26 @@ test('maps stopped-with-zero-exit as succeeded and non-zero as failed', async ()
   const statusById = new Map(result.items.map((item) => [item.id, item.status]));
   assert.equal(statusById.get('server:ok'), 'succeeded');
   assert.equal(statusById.get('server:bad'), 'failed');
+  assert.equal(statusById.get('test:user'), 'cancelled');
+});
+
+test('paginates across the entire script history, not only the first internal page', async () => {
+  const projects = buildProjects();
+  const executions = Array.from({ length: 150 }, (_, index) => {
+    const sequence = String(index + 1).padStart(3, '0');
+    const minute = String(index % 60).padStart(2, '0');
+    const hour = String(Math.floor(index / 60)).padStart(2, '0');
+    return script(`e${sequence}`, 'p1', `2026-07-25T${hour}:${minute}:00Z`);
+  });
+  const service = makeService({ p1: executions }, [], projects);
+
+  const firstPage = await service.list({ pageSize: 100 });
+  assert.equal(firstPage.total, 150);
+  assert.equal(firstPage.totalPages, 2);
+  assert.equal(firstPage.items.length, 100);
+  assert.equal(firstPage.items[0]?.id, 'script:e150');
+
+  const secondPage = await service.list({ pageSize: 100, page: 2 });
+  assert.equal(secondPage.items.length, 50);
+  assert.equal(secondPage.items[secondPage.items.length - 1]?.id, 'script:e001');
 });
