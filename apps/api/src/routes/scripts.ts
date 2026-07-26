@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
-import type { ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
+import type { ProjectScriptOrigin, ProjectScriptRisk, ScriptExecutionEvent } from '@dev-dashboard/contracts';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas, latestScriptExecutionResponseSchema, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionHistoryResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
 import type { ScriptDetectionService } from '../services/script-detection-service.js';
@@ -13,6 +13,24 @@ interface ExecutionParams extends Params { executionId: string }
 interface Options extends FastifyPluginOptions { projectStore: ProjectStore; scriptDetectionService: ScriptDetectionService; scriptExecutionService: ScriptExecutionService }
 
 const executionParamsSchema = { type: 'object', additionalProperties: false, required: ['projectId', 'executionId'], properties: { projectId: { type: 'string', minLength: 1 }, executionId: { type: 'string', minLength: 1 } } } as const;
+
+function serializeEvent(event: ScriptExecutionEvent): string {
+  if (event.type === 'state') {
+    const execution = event.execution;
+    return JSON.stringify({ type: 'state', execution: {
+      id: execution.id, projectId: execution.projectId, actionId: execution.actionId,
+      actionName: execution.actionName, risk: execution.risk, status: execution.status,
+      startedAt: execution.startedAt,
+      ...(execution.finishedAt !== undefined ? { finishedAt: execution.finishedAt } : {}),
+      ...(execution.exitCode !== undefined ? { exitCode: execution.exitCode } : {}),
+    } });
+  }
+  const log = event.log;
+  return JSON.stringify({ type: 'log', log: {
+    executionId: log.executionId, content: log.content, truncated: log.truncated,
+    masked: log.masked, redactionCount: log.redactionCount,
+  } });
+}
 
 function translate(error: unknown): never {
   if (!(error instanceof ScriptExecutionError)) throw error;
@@ -100,7 +118,7 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (app, options) =>
     try {
       unsubscribe = await options.scriptExecutionService.subscribe(request.params.projectId, request.params.executionId, {
         send: (event) => {
-          const frame = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+          const frame = `event: ${event.type}\ndata: ${serializeEvent(event)}\n\n`;
           if (connected) write(frame);
           else pending.push(frame);
         },

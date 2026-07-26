@@ -47,6 +47,8 @@ A revisão posterior à primeira implementação encontrou três condições de 
 
 Também foi corrigida a recuperação do frontend: falhas reais de leitura do stream encerravam o acompanhamento em vez de entrar no fluxo de reconexão. O painel agora informa a recuperação, usa espera exponencial limitada a cinco segundos e, antes de cada nova conexão, consulta novamente estado e log pelos endpoints HTTP. Falhas durante o bootstrap de uma assinatura removem imediatamente a reserva do assinante para não consumir os limites da instância.
 
+Uma segunda revisão reforçou as duas fronteiras assíncronas da entrega. Erros tardios do arquivo de log agora possuem tratamento durante toda a vida do stream, encerram a execução como falha, sinalizam o processo filho e liberam de forma controlada a espera pelo flush. Além disso, os frames SSE são montados com projeções explícitas equivalentes aos schemas públicos de execução e log, descartando propriedades persistidas que não pertençam ao contrato antes do envio ao navegador.
+
 ## Limitações
 
 Os eventos cobrem somente as execuções reconhecidas do catálogo. Processos de servidor e testes ainda usam seus mecanismos atuais. SSE não é uma fila durável: clientes que perdem eventos recuperam o snapshot atual e o histórico por HTTP.

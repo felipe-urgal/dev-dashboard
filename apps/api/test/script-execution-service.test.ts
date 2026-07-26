@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import type { Project, ScriptExecutionEvent } from '@dev-dashboard/contracts';
 import { ScriptDetectionService } from '../src/services/script-detection-service.js';
@@ -182,4 +183,29 @@ test('publica logs durante saída contínua sem adiar até o encerramento', asyn
   assert.equal((await service.get(project.id, started.id)).status, 'running');
   await closed;
   assert.match((await service.log(project.id, started.id)).content, /tick-60/);
+});
+
+test('trata erro assíncrono do stream de log como falha da execução', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dashboard-script-stream-'));
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({
+    scripts: { lint: `node -e "setTimeout(() => {}, 500)"` },
+  }));
+  await writeFile(path.join(root, 'package-lock.json'), '{}');
+  const project = { id: 'projeto-1', name: 'Projeto', path: root, type: 'node', capabilities: [] } as Project;
+  let output: PassThrough | undefined;
+  const service = new ScriptExecutionService(new ScriptDetectionService(), root, {
+    createLogStream: () => {
+      output = new PassThrough();
+      queueMicrotask(() => output?.emit('open', 1));
+      return output;
+    },
+  });
+  t.after(() => { service.close(); return rm(root, { recursive: true, force: true }); });
+
+  const started = await service.start(project, 'package-script:lint');
+  output?.emit('error', new Error('sem espaço disponível'));
+
+  const current = await service.get(project.id, started.id);
+  assert.equal(current.status, 'failed');
+  assert.ok(current.finishedAt);
 });

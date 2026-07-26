@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { once } from 'node:events';
+import type { Writable } from 'node:stream';
 import { access, mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -76,6 +77,7 @@ export interface ScriptExecutionServiceOptions {
   historyLimit?: number;
   retentionMs?: number;
   sweepIntervalMs?: number;
+  createLogStream?: (logPath: string) => Writable;
 }
 
 async function exists(target: string): Promise<boolean> {
@@ -169,6 +171,7 @@ export class ScriptExecutionService {
   private readonly historyLimit: number;
   private readonly retentionMs: number;
   private readonly retentionTimer: NodeJS.Timeout;
+  private readonly createLogStream: (logPath: string) => Writable;
 
   public constructor(
     private readonly detection: ScriptDetectionService,
@@ -180,6 +183,8 @@ export class ScriptExecutionService {
     this.stateDirectory = path.resolve(stateDirectory, 'scripts');
     this.historyLimit = this.positiveOption(options.historyLimit, this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT));
     this.retentionMs = this.positiveOption(options.retentionMs, this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000);
+    this.createLogStream = options.createLogStream ?? ((logPath) =>
+      createWriteStream(logPath, { flags: 'w', mode: 0o600 }));
     this.ready = this.restore();
     this.retentionTimer = setInterval(() => {
       void this.ready.then(() => this.pruneHistory()).catch(() => undefined);
@@ -425,7 +430,7 @@ export class ScriptExecutionService {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const id = randomUUID();
     const logPath = path.join(this.stateDirectory, `${id}.log`);
-    const output = createWriteStream(logPath, { flags: 'w', mode: 0o600 });
+    const output = this.createLogStream(logPath);
     await once(output, 'open');
     const execution: ScriptExecution = {
       id,
@@ -443,6 +448,15 @@ export class ScriptExecutionService {
     };
     this.executions.set(id, record);
     await this.persist(execution);
+
+    let finish: (
+      status: ScriptExecution['status'],
+      exitCode?: number | null,
+    ) => void = () => undefined;
+    const outputSettled = new Promise<void>((resolve) => {
+      output.once('close', resolve);
+      output.once('error', resolve);
+    });
 
     try {
       record.child = spawn(resolved.command, resolved.args, {
@@ -463,7 +477,7 @@ export class ScriptExecutionService {
       throw error;
     }
 
-    const finish = (
+    finish = (
       status: ScriptExecution['status'],
       exitCode?: number | null,
     ): void => {
@@ -473,12 +487,19 @@ export class ScriptExecutionService {
       if (exitCode !== undefined && exitCode !== null) execution.exitCode = exitCode;
       this.activeProjects.delete(project.id);
       this.schedulePersistence(execution);
-      record.logFlush = new Promise<void>((resolve) => output.end(resolve));
+      record.logFlush = outputSettled;
+      if (!output.destroyed) output.end();
       void record.logFlush.then(() => {
         this.scheduleLogEvent(record, true);
         this.emit(record, { type: 'state', execution: { ...execution } });
       });
     };
+    // Erros de escrita podem ocorrer depois de `open`; eles não devem escapar
+    // como eventos sem listener nem deixar a espera pelo log pendente.
+    output.on('error', () => {
+      finish('failed');
+      this.signal(record, 'SIGTERM');
+    });
     record.child.once('error', () => finish('failed'));
     record.child.once('close', (code, signal) =>
       finish(signal ? 'cancelled' : code === 0 ? 'succeeded' : 'failed', code),
