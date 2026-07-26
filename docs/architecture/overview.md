@@ -221,7 +221,7 @@ O gerenciador não aceita strings de shell arbitrárias.
 
 ## Execução do catálogo
 
-O catálogo de scripts é redetectado no momento da execução. O identificador recebido pela API precisa corresponder a um script `package.json`, tarefa Rails ou executável `bin/` da allowlist atual; comando e argumentos nunca vêm do navegador. A execução possui estado e log limitados, pode ser cancelada e impede duas ações simultâneas no mesmo projeto. O histórico versionado persiste somente o contrato público, é limitado por idade e quantidade e reconcilia uma execução órfã como falha sem sinalizar seu antigo PID. O frontend faz polling apenas da execução ativa, consulta registros terminais sob demanda e invalida o acompanhamento ao trocar de projeto.
+O catálogo de scripts é redetectado no momento da execução. O identificador recebido pela API precisa corresponder a um script `package.json`, tarefa Rails ou executável `bin/` da allowlist atual; comando e argumentos nunca vêm do navegador. A execução possui estado e log limitados, pode ser cancelada e impede duas ações simultâneas no mesmo projeto. O histórico versionado persiste somente o contrato público, é limitado por idade e quantidade e reconcilia uma execução órfã como falha sem sinalizar seu antigo PID. Durante uma execução ativa, a API publica snapshots limitados de estado e log por SSE autenticado. O frontend recupera detalhe e log por HTTP antes de cada conexão ou reconexão, consulta registros terminais sob demanda e encerra o stream ao trocar de projeto.
 
 ## Persistência
 
@@ -378,7 +378,7 @@ A arquitetura deverá incorporar:
 - status Git;
 - executor de operações Git;
 - jobs;
-- eventos Server-Sent Events;
+- painel de atividade unificado;
 - execução de testes;
 - scripts Node;
 - operações Rails;

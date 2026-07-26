@@ -44,6 +44,7 @@ export type ApiErrorCode =
   | 'SCRIPT_EXECUTION_NOT_FOUND'
   | 'SCRIPT_MANAGER_AMBIGUOUS'
   | 'SCRIPT_MANAGER_NOT_FOUND'
+  | 'SCRIPT_SUBSCRIBER_LIMIT'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

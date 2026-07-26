@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, ScriptExecutionEvent } from '@dev-dashboard/contracts';
 import { ScriptDetectionService } from '../src/services/script-detection-service.js';
 import { ScriptExecutionError, ScriptExecutionService } from '../src/services/script-execution-service.js';
 
@@ -126,4 +126,60 @@ test('remove por idade enquanto a API permanece ativa', async (t) => {
     () => service.get(project.id, started.id),
     (error: unknown) => error instanceof ScriptExecutionError && error.code === 'SCRIPT_EXECUTION_NOT_FOUND',
   );
+});
+
+test('publica estado e log somente para assinantes da execução reconhecida', async (t) => {
+  const { root, project, service } = await fixture(
+    `node -e "console.log('evento seguro'); setTimeout(() => {}, 80)"`,
+  );
+  t.after(() => { service.close(); return rm(root, { recursive: true, force: true }); });
+  const started = await service.start(project, 'package-script:lint');
+  const events: ScriptExecutionEvent[] = [];
+  const closed = new Promise<void>((resolve) => {
+    void service.subscribe(project.id, started.id, { send: (event) => events.push(event), close: resolve });
+  });
+  await closed;
+  assert.equal(events[0]?.type, 'state');
+  assert.equal(events.some((event) => event.type === 'log'), true);
+  assert.equal(events.some((event) => event.type === 'state' && 'execution' in event && event.execution.status === 'succeeded'), true);
+  await assert.rejects(
+    () => service.subscribe('outro-projeto', started.id, { send: () => undefined, close: () => undefined }),
+    (error: unknown) => error instanceof ScriptExecutionError && error.code === 'SCRIPT_EXECUTION_NOT_FOUND',
+  );
+});
+
+test('limita assinantes simultâneos por execução', async (t) => {
+  const { root, project, service } = await fixture(`node -e "setTimeout(() => {}, 500)"`);
+  t.after(() => { service.close(); return rm(root, { recursive: true, force: true }); });
+  const started = await service.start(project, 'package-script:lint');
+  const subscriptions = await Promise.all(Array.from({ length: 5 }, () =>
+    service.subscribe(project.id, started.id, { send: () => undefined, close: () => undefined }),
+  ));
+  await assert.rejects(
+    () => service.subscribe(project.id, started.id, { send: () => undefined, close: () => undefined }),
+    (error: unknown) => error instanceof ScriptExecutionError && error.code === 'SCRIPT_SUBSCRIBER_LIMIT',
+  );
+  for (const unsubscribe of subscriptions) unsubscribe();
+});
+
+test('publica logs durante saída contínua sem adiar até o encerramento', async (t) => {
+  const { root, project, service } = await fixture(
+    `node -e "let n = 0; const timer = setInterval(() => { console.log('tick-' + (++n)); if (n === 60) clearInterval(timer) }, 20)"`,
+  );
+  t.after(() => { service.close(); return rm(root, { recursive: true, force: true }); });
+  const started = await service.start(project, 'package-script:lint');
+  const events: ScriptExecutionEvent[] = [];
+  const closed = new Promise<void>((resolve) => {
+    void service.subscribe(project.id, started.id, { send: (event) => events.push(event), close: resolve });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(
+    events.some((event) => event.type === 'log' && event.log.content.includes('tick-')),
+    true,
+    'a janela de frequência deve publicar mesmo quando a saída não para',
+  );
+  assert.equal((await service.get(project.id, started.id)).status, 'running');
+  await closed;
+  assert.match((await service.log(project.id, started.id)).content, /tick-60/);
 });

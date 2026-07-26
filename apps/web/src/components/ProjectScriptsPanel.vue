@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref, watch } from 'vue';
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionHistory, ScriptExecutionStatus } from '@dev-dashboard/contracts';
-import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, prepareScriptExecution, startScriptExecution } from '../api';
+import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, followScriptExecutionEvents, prepareScriptExecution, startScriptExecution } from '../api';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -19,10 +19,12 @@ const startingActionId = ref<string | null>(null);
 let generation = 0;
 let executionGeneration = 0;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let closeExecutionEvents: (() => void) | null = null;
 
 const originLabels: Record<ProjectScriptOrigin, string> = { 'package-script': 'package.json', 'rails-task': 'Tarefa Rails', bin: 'Executável bin/' };
 const riskLabels: Record<ProjectScriptRisk, string> = { 'read-only': 'Somente leitura', mutable: 'Mutável', destructive: 'Destrutivo' };
 const executionStatusLabels: Record<ScriptExecutionStatus, string> = { running: 'Em execução', succeeded: 'Concluída', failed: 'Falhou', cancelled: 'Cancelada' };
+const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
 async function load(): Promise<void> {
   const current = generation; const projectId = props.project.id;
@@ -59,19 +61,53 @@ async function run(item: ProjectScript): Promise<void> {
 
 async function followExecution(initial: ScriptExecution, projectId: string, current: number, currentExecutionGeneration: number): Promise<void> {
   let currentExecution = initial;
+  let reconnectDelay = 500;
+  closeExecutionEvents?.();
+  closeExecutionEvents = null;
   while (current === generation && currentExecutionGeneration === executionGeneration && projectId === props.project.id) {
-    const log = await fetchScriptExecutionLog(projectId, initial.id);
+    const [recoveredExecution, recoveredLog] = await Promise.all([
+      fetchScriptExecution(projectId, initial.id),
+      fetchScriptExecutionLog(projectId, initial.id),
+    ]);
     if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
-    executionLog.value = log.content;
-    maskedLogEntries.value = log.redactionCount;
+    currentExecution = recoveredExecution;
+    execution.value = recoveredExecution;
+    executionLog.value = recoveredLog.content;
+    maskedLogEntries.value = recoveredLog.redactionCount;
+    if (errorMessage.value === realtimeRecoveryMessage) errorMessage.value = '';
     if (currentExecution.status !== 'running') return;
-    await new Promise((resolve) => setTimeout(resolve, 750));
-    currentExecution = await fetchScriptExecution(projectId, initial.id);
-    if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
-    execution.value = currentExecution;
+
+    const stream = followScriptExecutionEvents(projectId, initial.id, (event) => {
+      if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
+      if (event.type === 'state') {
+        currentExecution = event.execution;
+        execution.value = event.execution;
+      } else {
+        executionLog.value = event.log.content;
+        maskedLogEntries.value = event.log.redactionCount;
+      }
+    });
+    closeExecutionEvents = stream.close;
+    try {
+      await stream.done;
+    } catch {
+      if (current === generation && currentExecutionGeneration === executionGeneration) {
+        errorMessage.value = realtimeRecoveryMessage;
+      }
+    }
+    if (closeExecutionEvents === stream.close) closeExecutionEvents = null;
+    if (currentExecution.status !== 'running') {
+      const finalLog = await fetchScriptExecutionLog(projectId, initial.id);
+      if (current === generation && currentExecutionGeneration === executionGeneration) {
+        executionLog.value = finalLog.content;
+        maskedLogEntries.value = finalLog.redactionCount;
+      }
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+    reconnectDelay = Math.min(reconnectDelay * 2, 5_000);
   }
 }
-
 async function restoreExecution(projectId: string, current: number): Promise<void> {
   const currentExecution = ++executionGeneration;
   try {
@@ -104,10 +140,10 @@ async function cancel(): Promise<void> {
   try { execution.value = await cancelScriptExecution(props.project.id, execution.value.id); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar.'; }
 }
 
-watch(() => props.project.id, () => { generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; history.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; void load(); void loadHistory(projectId, current); void restoreExecution(projectId, current); }, { immediate: true });
+watch(() => props.project.id, () => { closeExecutionEvents?.(); closeExecutionEvents = null; generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; history.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; void load(); void loadHistory(projectId, current); void restoreExecution(projectId, current); }, { immediate: true });
 watch([origin, risk], () => { page.value = 1; void load(); });
 watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => void load(), 250); });
-onUnmounted(() => { generation += 1; executionGeneration += 1; if (searchTimer) clearTimeout(searchTimer); });
+onUnmounted(() => { closeExecutionEvents?.(); closeExecutionEvents = null; generation += 1; executionGeneration += 1; if (searchTimer) clearTimeout(searchTimer); });
 </script>
 
 <template>

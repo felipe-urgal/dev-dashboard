@@ -152,6 +152,8 @@ A retenção padrão de processos terminais é de sete dias, configurável por
 `DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
 do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.
 
+O stream SSE do catálogo exige a mesma autenticação das demais rotas privadas e aceita somente IDs reconhecidos de projeto e execução. Cada execução admite cinco assinantes e a instância admite vinte; atualizações de log são agrupadas a cada 200 ms, permanecem sob o limite de leitura e são mascaradas. A assinatura termina na conclusão, desconexão ou parada da API. Heartbeats não carregam dados do projeto, e lacunas são recuperadas pelos endpoints HTTP persistidos.
+
 O histórico do catálogo persiste arquivos versionados por UUID, com limite padrão
 de 200 registros. A restauração ignora entradas corrompidas e converte estados
 ativos órfãos em falha terminal, sem reutilizar ou sinalizar o PID anterior. A

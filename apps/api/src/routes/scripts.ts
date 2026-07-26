@@ -16,7 +16,7 @@ const executionParamsSchema = { type: 'object', additionalProperties: false, req
 
 function translate(error: unknown): never {
   if (!(error instanceof ScriptExecutionError)) throw error;
-  const statuses: Record<string, number> = { SCRIPT_NOT_FOUND: 404, SCRIPT_EXECUTION_NOT_FOUND: 404, SCRIPT_DISABLED: 409, SCRIPT_CONFIRMATION_REQUIRED: 409, SCRIPT_ALREADY_RUNNING: 409, SCRIPT_MANAGER_AMBIGUOUS: 409, SCRIPT_MANAGER_NOT_FOUND: 409 };
+  const statuses: Record<string, number> = { SCRIPT_NOT_FOUND: 404, SCRIPT_EXECUTION_NOT_FOUND: 404, SCRIPT_DISABLED: 409, SCRIPT_CONFIRMATION_REQUIRED: 409, SCRIPT_ALREADY_RUNNING: 409, SCRIPT_MANAGER_AMBIGUOUS: 409, SCRIPT_MANAGER_NOT_FOUND: 409, SCRIPT_SUBSCRIBER_LIMIT: 429 };
   throw new ApiError({ statusCode: statuses[error.code] ?? 500, code: error.code, message: error.message });
 }
 
@@ -78,6 +78,51 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (app, options) =>
   });
   app.get<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId/log', { schema: { params: executionParamsSchema, response: { 200: { type: 'object', additionalProperties: false, required: ['log'], properties: { log: scriptExecutionLogResponseSchema } }, ...commonErrorResponseSchemas } } }, async (request) => {
     try { return { log: await options.scriptExecutionService.log(request.params.projectId, request.params.executionId) }; } catch (error) { translate(error); }
+  });
+  app.get<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId/events', {
+    schema: { params: executionParamsSchema },
+  }, async (request, reply) => {
+    let unsubscribe = (): void => undefined;
+    let heartbeat: NodeJS.Timeout | undefined;
+    let connected = false;
+    let closeRequested = false;
+    const pending: string[] = [];
+    const close = (): void => {
+      if (!connected) { closeRequested = true; return; }
+      if (heartbeat) clearInterval(heartbeat);
+      unsubscribe();
+      if (!reply.raw.writableEnded) reply.raw.end();
+    };
+    const write = (frame: string): void => {
+      // Não acumulamos snapshots quando o consumidor deixa de acompanhar o ritmo.
+      if (!reply.raw.write(frame)) close();
+    };
+    try {
+      unsubscribe = await options.scriptExecutionService.subscribe(request.params.projectId, request.params.executionId, {
+        send: (event) => {
+          const frame = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+          if (connected) write(frame);
+          else pending.push(frame);
+        },
+        close,
+      });
+    } catch (error) {
+      translate(error);
+    }
+    // A autenticação e os limites são validados antes de assumir a resposta contínua.
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    connected = true;
+    for (const frame of pending) write(frame);
+    heartbeat = setInterval(() => write(': acompanhamento ativo\n\n'), 15_000);
+    heartbeat.unref();
+    reply.raw.once('close', close);
+    if (closeRequested) close();
   });
   app.post<{ Params: ExecutionParams }>('/projects/:projectId/scripts/executions/:executionId/cancel', { schema: { params: executionParamsSchema, body: { type: 'object', additionalProperties: false, maxProperties: 0 }, response: { 200: { type: 'object', additionalProperties: false, required: ['execution'], properties: { execution: scriptExecutionResponseSchema } }, ...commonErrorResponseSchemas } } }, async (request) => {
     try { return { execution: await options.scriptExecutionService.cancel(request.params.projectId, request.params.executionId) }; } catch (error) { translate(error); }
