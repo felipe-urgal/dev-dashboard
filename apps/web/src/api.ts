@@ -5,6 +5,8 @@ import type {
   GitDiffScope,
   GitDiffSnapshot,
   GitFileDiff,
+  GitMutationConfirmation,
+  GitMutationOperation,
   ManagedProcess,
   ProcessLogSnapshot,
   Project,
@@ -465,6 +467,33 @@ export async function fetchProjectGitFileDiff(projectId: string, filePath: strin
     init,
   );
   return response.file;
+}
+
+interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
+interface GitBranchMutationResponse { branch: { branch: string } }
+
+export async function prepareProjectGitMutation(projectId: string, operation: GitMutationOperation, target: string): Promise<GitMutationConfirmation> {
+  const response = await requestJson<GitMutationConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/mutations/confirmations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, target }) },
+  );
+  return response.confirmation;
+}
+
+export async function createProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function switchProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/switch`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+  );
+  return response.branch.branch;
 }
 
 interface ProjectTestsResponse { tests: ProjectTestOverview; }

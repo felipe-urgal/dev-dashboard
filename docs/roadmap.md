@@ -47,7 +47,7 @@ compromissos de versão.
 
 - [x] status, branch, arquivos alterados e commits recentes;
 - [x] diff por arquivo e diff resumido (task 015, com truncamento em 262 KiB e mascaramento de segredos);
-- [ ] criação/troca de branch, pull e push;
+- [ ] criação/troca de branch, pull e push (criar e trocar branch entregues na task 016 com confirmação e validação de árvore limpa; pull/push pendentes);
 - [ ] commit e stash;
 - [ ] confirmação por risco e histórico das mutações.
 

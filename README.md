@@ -395,6 +395,9 @@ GET    /api/projects/:projectId/favicon
 GET    /api/projects/:projectId/git
 GET    /api/projects/:projectId/git/diff
 GET    /api/projects/:projectId/git/diff/file
+POST   /api/projects/:projectId/git/mutations/confirmations
+POST   /api/projects/:projectId/git/branches
+POST   /api/projects/:projectId/git/switch
 
 GET    /api/projects/:projectId/server-settings
 PUT    /api/projects/:projectId/server-settings

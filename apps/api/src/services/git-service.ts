@@ -1,16 +1,42 @@
 import { execFile } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import type { GitCommit, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, ProjectGitOverview } from '@dev-dashboard/contracts';
+import type { GitCommit, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, GitMutationConfirmation, GitMutationOperation, ProjectGitOverview } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 export const GIT_DIFF_FILE_LIMIT = 262_144;
+export const GIT_MUTATION_CONFIRMATION_TTL_MS = 60_000;
+export const GIT_BRANCH_NAME_PATTERN = /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 
 export class GitDiffError extends Error {
   public constructor(public readonly code: 'GIT_NOT_REPOSITORY' | 'GIT_DIFF_PATH_OUTSIDE_PROJECT' | 'GIT_DIFF_PATH_INVALID', message: string) {
     super(message);
     this.name = 'GitDiffError';
   }
+}
+
+export type GitMutationErrorCode =
+  | 'GIT_NOT_REPOSITORY'
+  | 'GIT_BRANCH_INVALID'
+  | 'GIT_BRANCH_EXISTS'
+  | 'GIT_BRANCH_NOT_FOUND'
+  | 'GIT_WORKING_TREE_DIRTY'
+  | 'GIT_MUTATION_CONFIRMATION_REQUIRED';
+
+export class GitMutationError extends Error {
+  public constructor(public readonly code: GitMutationErrorCode, message: string) {
+    super(message);
+    this.name = 'GitMutationError';
+  }
+}
+
+interface StoredMutationConfirmation {
+  token: string;
+  projectId: string;
+  operation: GitMutationOperation;
+  target: string;
+  expiresAt: number;
 }
 const execFileAsync = promisify(execFile);
 const LOG_SEPARATOR = '\u001f';
@@ -123,7 +149,31 @@ function ensurePathInsideProject(projectPath: string, requested: string): string
   return relative || '.';
 }
 
+async function assertWorkingTreeClean(projectPath: string): Promise<void> {
+  const output = await runGit(projectPath, ['status', '--porcelain=v2', '-z', '--untracked-files=no']);
+  const dirty = output.split('\0').some((record) => record.startsWith('1 ') || record.startsWith('2 ') || record.startsWith('u '));
+  if (dirty) {
+    throw new GitMutationError('GIT_WORKING_TREE_DIRTY', 'A árvore de trabalho tem alterações não commitadas.');
+  }
+}
+
+async function requireRepository(projectPath: string): Promise<void> {
+  try {
+    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+  } catch {
+    throw new GitMutationError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+  }
+}
+
+function validateBranchName(name: string): void {
+  if (!name || name.length > 200 || !GIT_BRANCH_NAME_PATTERN.test(name)) {
+    throw new GitMutationError('GIT_BRANCH_INVALID', 'Nome de branch inválido.');
+  }
+}
+
 export class GitService {
+  private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
+
   public async getOverview(projectPath: string): Promise<ProjectGitOverview> {
     try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [] }; }
     const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
@@ -186,5 +236,68 @@ export class GitService {
       masked: masked.masked,
       redactionCount: masked.redactionCount,
     };
+  }
+
+  public prepareMutationConfirmation(projectId: string, operation: GitMutationOperation, target: string): GitMutationConfirmation {
+    validateBranchName(target);
+    this.pruneExpiredMutations();
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
+    this.mutationConfirmations.set(token, { token, projectId, operation, target, expiresAt });
+    return { token, operation, target, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
+  private consumeMutationConfirmation(projectId: string, operation: GitMutationOperation, target: string, token: string | undefined): void {
+    this.pruneExpiredMutations();
+    const record = token ? this.mutationConfirmations.get(token) : undefined;
+    if (!record || record.projectId !== projectId || record.operation !== operation || record.target !== target) {
+      throw new GitMutationError('GIT_MUTATION_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
+    }
+    this.mutationConfirmations.delete(token!);
+  }
+
+  private pruneExpiredMutations(): void {
+    const now = Date.now();
+    for (const [token, record] of this.mutationConfirmations) {
+      if (record.expiresAt <= now) this.mutationConfirmations.delete(token);
+    }
+  }
+
+  public async createBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<{ branch: string }> {
+    validateBranchName(name);
+    await requireRepository(projectPath);
+    this.consumeMutationConfirmation(projectId, 'create-branch', name, confirmationToken);
+    try {
+      await runGit(projectPath, ['show-ref', '--verify', '--quiet', `refs/heads/${name}`]);
+      throw new GitMutationError('GIT_BRANCH_EXISTS', 'Já existe um branch com esse nome.');
+    } catch (error) {
+      if (error instanceof GitMutationError) throw error;
+      // show-ref falha quando o branch não existe — é o caminho esperado
+    }
+    await assertWorkingTreeClean(projectPath);
+    try {
+      await runGit(projectPath, ['switch', '--create', name]);
+    } catch (error) {
+      throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao criar branch.');
+    }
+    return { branch: name };
+  }
+
+  public async switchBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<{ branch: string }> {
+    validateBranchName(name);
+    await requireRepository(projectPath);
+    this.consumeMutationConfirmation(projectId, 'switch-branch', name, confirmationToken);
+    try {
+      await runGit(projectPath, ['show-ref', '--verify', '--quiet', `refs/heads/${name}`]);
+    } catch {
+      throw new GitMutationError('GIT_BRANCH_NOT_FOUND', 'Branch não encontrado.');
+    }
+    await assertWorkingTreeClean(projectPath);
+    try {
+      await runGit(projectPath, ['switch', name]);
+    } catch (error) {
+      throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao trocar de branch.');
+    }
+    return { branch: name };
   }
 }

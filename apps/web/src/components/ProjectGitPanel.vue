@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { GitDiffSnapshot, GitFileDiff, GitFileStatus, Project, ProjectGitOverview } from '@dev-dashboard/contracts';
-import { fetchProjectGit, fetchProjectGitDiff, fetchProjectGitFileDiff } from '../api';
+import {
+  createProjectGitBranch,
+  fetchProjectGit,
+  fetchProjectGitDiff,
+  fetchProjectGitFileDiff,
+  prepareProjectGitMutation,
+  switchProjectGitBranch,
+} from '../api';
 
 const props = defineProps<{ project: Project }>();
 const overview = ref<ProjectGitOverview | null>(null);
@@ -17,6 +24,12 @@ const fileErrorMessage = ref('');
 let generation = 0;
 let diffController: AbortController | undefined;
 let fileController: AbortController | undefined;
+
+const mutationRunning = ref(false);
+const mutationMessage = ref('');
+const mutationErrorMessage = ref('');
+const createBranchName = ref('');
+const switchBranchName = ref('');
 
 const statusLabels: Record<GitFileStatus, string> = {
   added: 'Adicionado', modified: 'Modificado', deleted: 'Removido', renamed: 'Renomeado', copied: 'Copiado', untracked: 'Não rastreado', conflicted: 'Conflito', 'type-changed': 'Tipo alterado',
@@ -86,6 +99,41 @@ async function loadFileDiff(filePath: string): Promise<void> {
   }
 }
 
+async function runMutation(operation: 'create-branch' | 'switch-branch', target: string): Promise<void> {
+  if (mutationRunning.value) return;
+  const trimmed = target.trim();
+  if (!trimmed) {
+    mutationErrorMessage.value = 'Informe o nome do branch.';
+    return;
+  }
+  const confirmationText = operation === 'create-branch'
+    ? `Criar o branch "${trimmed}" a partir do HEAD atual? A árvore de trabalho não pode ter alterações não commitadas.`
+    : `Trocar para o branch "${trimmed}"? A árvore de trabalho não pode ter alterações não commitadas.`;
+  const confirmed = typeof window === 'undefined' || window.confirm(confirmationText);
+  if (!confirmed) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitMutation(props.project.id, operation, trimmed);
+    const branch = operation === 'create-branch'
+      ? await createProjectGitBranch(props.project.id, trimmed, confirmation.token)
+      : await switchProjectGitBranch(props.project.id, trimmed, confirmation.token);
+    mutationMessage.value = operation === 'create-branch'
+      ? `Branch "${branch}" criado a partir do HEAD.`
+      : `Agora no branch "${branch}".`;
+    if (operation === 'create-branch') createBranchName.value = '';
+    else switchBranchName.value = '';
+    await loadGit();
+    await loadDiff();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 watch(() => props.project.id, () => {
   overview.value = null;
   diff.value = null;
@@ -127,6 +175,34 @@ onBeforeUnmount(() => {
         <article><span>Estado</span><strong>{{ overview.clean ? 'Limpo' : 'Alterado' }}</strong><small>{{ overview.files.length }} arquivo(s)</small></article>
         <article><span>Sincronização</span><strong>↑ {{ overview.ahead }} · ↓ {{ overview.behind }}</strong><small>ahead / behind</small></article>
       </div>
+
+      <section class="git-section">
+        <div class="details-card-heading">
+          <div><span class="section-kicker">Branches</span><h3>Criar e trocar branch</h3></div>
+        </div>
+        <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">{{ mutationMessage }}</p>
+        <p v-if="mutationErrorMessage" class="project-error" role="alert">{{ mutationErrorMessage }}</p>
+        <div class="git-mutation-forms">
+          <form @submit.prevent="runMutation('create-branch', createBranchName)">
+            <label>
+              <span>Novo branch a partir do HEAD</span>
+              <input v-model="createBranchName" type="text" maxlength="200" placeholder="feature/nome" :disabled="mutationRunning" />
+            </label>
+            <button type="submit" class="secondary-button" :disabled="mutationRunning || !createBranchName.trim()">
+              {{ mutationRunning ? 'Aguarde…' : 'Criar branch' }}
+            </button>
+          </form>
+          <form @submit.prevent="runMutation('switch-branch', switchBranchName)">
+            <label>
+              <span>Trocar para branch existente</span>
+              <input v-model="switchBranchName" type="text" maxlength="200" placeholder="main" :disabled="mutationRunning" />
+            </label>
+            <button type="submit" class="secondary-button" :disabled="mutationRunning || !switchBranchName.trim()">
+              {{ mutationRunning ? 'Aguarde…' : 'Trocar branch' }}
+            </button>
+          </form>
+        </div>
+      </section>
 
       <section class="git-section">
         <div class="details-card-heading"><div><span class="section-kicker">Working tree</span><h3>Alterações</h3></div></div>

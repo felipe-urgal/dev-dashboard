@@ -20,6 +20,15 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
+export type GitMutationOperation = 'create-branch' | 'switch-branch';
+
+export interface GitMutationConfirmation {
+  token: string;
+  operation: GitMutationOperation;
+  target: string;
+  expiresAt: string;
+}
+
 export interface GitFileDiff {
   path: string;
   scope: GitDiffScope;

@@ -160,6 +160,92 @@ test('atualiza consecutivas mantêm o resultado da mais recente sem interferênc
   assert.equal(wrapper.find('.project-error').exists(), false);
 });
 
+test('cria branch enviando confirmação antes da mutação e mostra sucesso', async () => {
+  const calls: Array<{ url: string; body?: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url: url.pathname, body });
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      return new Response(JSON.stringify({ confirmation: { token: 't'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/branches')) {
+      return new Response(JSON.stringify({ branch: { branch: (body as { name: string }).name } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const forms = wrapper.findAll('.git-mutation-forms form');
+  await forms[0]!.find('input').setValue('feature/x');
+  await forms[0]!.trigger('submit.prevent');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  const paths = calls.map((call) => call.url);
+  const confirmationIndex = paths.indexOf('/api/projects/p1/git/mutations/confirmations');
+  const mutationIndex = paths.indexOf('/api/projects/p1/git/branches');
+  assert.ok(confirmationIndex >= 0, 'esperava chamada de confirmação');
+  assert.ok(mutationIndex > confirmationIndex, 'confirmação precisa vir antes da mutação');
+  assert.equal((calls[mutationIndex]!.body as { name: string; confirmationToken: string }).confirmationToken, 't'.repeat(64));
+  assert.match(wrapper.find('.git-mutation-success').text(), /Branch "feature\/x" criado/);
+});
+
+test('mutação Git respeita cancelamento do usuário no confirm do navegador', async () => {
+  let mutationCalled = false;
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => false;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.includes('/git/mutations') || url.pathname.endsWith('/git/branches') || url.pathname.endsWith('/git/switch')) {
+      mutationCalled = true;
+      return new Response('unexpected', { status: 500 });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const forms = wrapper.findAll('.git-mutation-forms form');
+  await forms[1]!.find('input').setValue('main');
+  await forms[1]!.trigger('submit.prevent');
+  await flushPromises();
+
+  assert.equal(mutationCalled, false, 'nenhuma chamada de mutação deveria ter ocorrido quando o confirm é recusado');
+});
+
 test('mostra erro quando a chamada de diff falha', async () => {
   const { wrapper, restore } = await mountPanel({
     overview: async () => baseOverview,
