@@ -45,6 +45,12 @@ aceitar segmentos sensíveis delimitados por `_` ou `-`, como em
 termo é apenas um sufixo alfanumérico, como `mytoken`. Um teste de regressão cobre
 os nomes compostos mais frequentes.
 
+Após uma falha intermitente no CI durante o encerramento de um servidor, a
+persistência do estado passou a gerar um arquivo temporário exclusivo por
+escrita. Assim, atualizações concorrentes do observador de saída e da operação
+de parada não truncam o mesmo arquivo temporário antes do `rename` atômico nem
+expõem JSON parcial ao leitor.
+
 ## Segurança
 
 - nenhuma rota nova aceita caminho;

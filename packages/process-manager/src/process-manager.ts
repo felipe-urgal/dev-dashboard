@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import {
   access,
@@ -1303,7 +1303,8 @@ export class ProcessManager {
       managedProcess.kind as ManagedKind,
     );
 
-    const temporaryFile = `${processFile}.${process.pid}.tmp`;
+    const temporaryFile =
+      `${processFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
 
     await writeFile(
       temporaryFile,
