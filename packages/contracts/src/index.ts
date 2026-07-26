@@ -29,6 +29,8 @@ export type {
   GitFileChange,
   GitFileDiff,
   GitFileStatus,
+  GitMutationConfirmation,
+  GitMutationOperation,
   ProjectGitOverview,
 } from './git.js';
 

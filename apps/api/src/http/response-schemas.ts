@@ -446,6 +446,23 @@ export const gitDiffSnapshotResponseSchema = {
   },
 } as const;
 
+export const gitMutationConfirmationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['token', 'operation', 'target', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    operation: { type: 'string', enum: ['create-branch', 'switch-branch'] },
+    target: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+export const gitBranchMutationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['branch'],
+  properties: { branch: { type: 'string' } },
+} as const;
+
 export const gitFileDiffResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['path', 'scope', 'status', 'binary', 'content', 'truncated', 'masked', 'redactionCount'],

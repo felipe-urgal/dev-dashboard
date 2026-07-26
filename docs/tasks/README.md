@@ -22,3 +22,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `013-ui-test-baseline.md` — inaugura a camada de testes de componentes montados no frontend (`vitest` + jsdom + `@vue/test-utils`), com quatro casos cobrindo os estados vazio/carregando/erro/sucesso da `ActivityView`.
 - `014-global-processes-page.md` — página global `/processes` listando servidores e testes gerenciados, com filtros fechados, limpeza segura de estados obsoletos e a nova rota `GET /api/processes`.
 - `015-git-diff-read-only.md` — diff Git somente leitura (resumido e por arquivo) com truncamento em 262 KiB, mascaramento de segredos e validação de path contra o diretório do projeto.
+- `016-git-branch-mutations.md` — primeira mutação Git: criar branch a partir do HEAD e trocar de branch, com confirmação obrigatória, validação de nome e recusa quando a árvore de trabalho está suja.

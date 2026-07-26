@@ -1709,3 +1709,11 @@ a.secondary-button {
 .git-diff-viewer { display: grid; gap: 8px; min-height: 200px; padding: 14px; border: 1px solid #262d39; border-radius: 10px; background: #0c1016; }
 .git-diff-content { overflow: auto; max-height: 480px; padding: 12px; margin: 0; border-radius: 8px; background: #080b0f; color: #cbd2df; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.5; white-space: pre; }
 @media (max-width: 900px) { .git-diff-layout { grid-template-columns: 1fr; } .git-diff-files { max-height: 240px; } }
+
+/* Mutações Git */
+.git-mutation-forms { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.git-mutation-forms form { display: grid; gap: 10px; padding: 14px; border: 1px solid #262d39; border-radius: 10px; background: #0c1016; }
+.git-mutation-forms label { display: grid; gap: 5px; color: #778195; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.git-mutation-forms input { padding: 9px 11px; border: 1px solid #2a3240; border-radius: 8px; color: #cbd2df; background: #0a0d12; font: inherit; font-size: 11px; }
+.git-mutation-success { padding: 9px 11px; border: 1px solid #244830; border-radius: 8px; color: #8ed5ae; background: #14251c; font-size: 11px; }
+@media (max-width: 720px) { .git-mutation-forms { grid-template-columns: 1fr; } }

@@ -16,14 +16,16 @@ import type {
 } from 'fastify';
 
 import type { ProjectStore } from '../store/project-store.js';
-import { GitDiffError, type GitService } from '../services/git-service.js';
+import { GitDiffError, GitMutationError, type GitService } from '../services/git-service.js';
 
 import { ApiError } from '../http/api-error.js';
 
 import {
   commonErrorResponseSchemas,
+  gitBranchMutationResponseSchema,
   gitDiffSnapshotResponseSchema,
   gitFileDiffResponseSchema,
+  gitMutationConfirmationResponseSchema,
   projectResponseSchema,
   projectGitOverviewResponseSchema,
 } from '../http/response-schemas.js';
@@ -324,6 +326,122 @@ export const projectRoutes: FastifyPluginAsync<
           statusCode: 500, code: 'GIT_COMMAND_FAILED',
           message: error instanceof Error ? error.message : 'Não foi possível carregar o diff do arquivo.',
         });
+      }
+    },
+  );
+
+  const mutationConfirmationBodySchema = {
+    type: 'object', additionalProperties: false, required: ['operation', 'target'],
+    properties: {
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch'] },
+      target: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  } as const;
+
+  const mutationBodySchema = {
+    type: 'object', additionalProperties: false, required: ['name', 'confirmationToken'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 200 },
+      confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+    },
+  } as const;
+
+  function translateMutationError(error: unknown): never {
+    if (error instanceof GitMutationError) {
+      const statuses: Record<string, number> = {
+        GIT_NOT_REPOSITORY: 400,
+        GIT_BRANCH_INVALID: 400,
+        GIT_BRANCH_EXISTS: 409,
+        GIT_BRANCH_NOT_FOUND: 404,
+        GIT_WORKING_TREE_DIRTY: 409,
+        GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
+      };
+      throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
+    }
+    throw new ApiError({
+      statusCode: 500, code: 'GIT_COMMAND_FAILED',
+      message: error instanceof Error ? error.message : 'Não foi possível concluir a operação Git.',
+    });
+  }
+
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch'; target: string } }>(
+    '/projects/:projectId/git/mutations/confirmations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: mutationConfirmationBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['confirmation'],
+            properties: { confirmation: gitMutationConfirmationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send({
+          confirmation: gitService.prepareMutationConfirmation(project.id, request.body.operation, request.body.target),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { name: string; confirmationToken: string } }>(
+    '/projects/:projectId/git/branches',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: mutationBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['branch'],
+            properties: { branch: gitBranchMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send({
+          branch: await gitService.createBranch(project.path, project.id, request.body.name, request.body.confirmationToken),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { name: string; confirmationToken: string } }>(
+    '/projects/:projectId/git/switch',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: mutationBodySchema,
+        response: {
+          200: {
+            type: 'object', additionalProperties: false, required: ['branch'],
+            properties: { branch: gitBranchMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return { branch: await gitService.switchBranch(project.path, project.id, request.body.name, request.body.confirmationToken) };
+      } catch (error) {
+        translateMutationError(error);
       }
     },
   );

@@ -1,60 +1,56 @@
-# Próxima atividade — 016: Git — criar e trocar branch (mutação mínima)
+# Próxima atividade — 017: Revisão de design do produto (etapa 1 da reforma)
 
 ## Contexto
 
-Com o diff Git somente leitura entregue (task 015), a próxima etapa do
-Horizonte 2 é iniciar as operações mutáveis Git, começando pelo par
-mais previsível: criar branch a partir de HEAD e trocar de branch. Cada
-mutação exige política de risco proporcional e histórico próprio, como
-descrito no roadmap.
+O usuário pediu no roadmap para revisitar o design antes de continuar
+adicionando telas. A subseção "Revisão de design e reforma de layout"
+do Horizonte 2 divide o trabalho em duas etapas para não misturar
+decisão com implementação; esta task cobre a etapa 1 (auditoria e
+decisões), sem mexer em código.
 
 ## Objetivo
 
-Expor operações mutáveis Git de baixo risco (criar branch, trocar
-branch) na API e na aba Git da view do projeto, com confirmação
-proporcional, sem admitir strings arbitrárias no shell e sem afetar
-processos externos.
+Auditar o produto web atual (`/`, `/activity`, `/processes`, detalhe
+do projeto com suas abas) do ponto de vista de arquitetura de
+informação, hierarquia, densidade, vocabulário visual e consistência
+entre telas. Registrar decisões em documento próprio para orientar a
+reforma de layout que vem em seguida.
 
 ## Plano detalhado
 
-1. Novos códigos `ApiErrorCode` para as falhas específicas
-   (`GIT_BRANCH_EXISTS`, `GIT_BRANCH_INVALID`, `GIT_WORKING_TREE_DIRTY`,
-   `GIT_BRANCH_NOT_FOUND`).
-2. `GitService.createBranch(project, name)` — valida nome via regex
-   fechada (`^(?!/)(?!.*//)[A-Za-z0-9._/-]+(?<!/)$`) e chama
-   `git switch --create <name>` a partir do HEAD atual; falha limpa
-   quando a árvore está suja.
-3. `GitService.switchBranch(project, name)` — valida nome e chama
-   `git switch <name>`; falha com `GIT_WORKING_TREE_DIRTY` se houver
-   alterações não commitadas.
-4. Rotas novas:
-   - `POST /api/projects/:projectId/git/branches` (body `{ name }`).
-   - `POST /api/projects/:projectId/git/switch` (body `{ name }`).
-   Ambas exigem confirmação prévia via `POST
-   /api/projects/:projectId/git/mutations/confirmations` (mesmo padrão
-   já usado em scripts).
-5. Cliente + painel Git ganham botões "Criar branch" e "Trocar
-   branch", cada um com prompt de confirmação e feedback visual.
-6. Testes:
-   - `git-service` com repositório efêmero (criar/trocar, nome
-     inválido, árvore suja).
-   - rotas (autorização, path validado, confirmação obrigatória).
-   - painel Vue (estado antes/depois do sucesso, erro).
-7. Atualizar `README`, roadmap (marcar "criação/troca de branch,
-   pull e push" parcialmente) e registrar a task 016.
+1. Percorrer cada tela do frontend e o `docs/design/information-architecture.md`,
+   listando o que está implementado hoje, o que está inconsistente e o
+   que ficou aspiracional.
+2. Auditar `apps/web/src/styles.css` catalogando tokens implícitos:
+   paleta de cores, tipografia, espaços, raios, sombras, badges.
+   Anotar duplicações e nomes ad hoc.
+3. Definir vocabulário visual proposto: paleta neutra + accents (o
+   projeto é uma ferramenta profissional local), tipografia, escala de
+   espaço (4/8px), densidade padrão vs. compacta, tema claro/escuro.
+4. Definir padrões de layout: app shell, densidade dos cards de
+   projeto, listas e tabelas, formulários, breadcrumbs, empty states,
+   toasts/mensagens de sucesso/erro.
+5. Marcar quais decisões afetam contratos de componentes (props/slots)
+   para que a etapa 2 já saiba onde tocar.
+6. Escrever `docs/design/redesign-2026.md` com: contexto, princípios,
+   diretrizes de tokens, padrões de componente, roteiro de migração
+   tela-por-tela, e o que fica **fora** do escopo desta reforma.
+7. Atualizar `docs/design/information-architecture.md` apontando para
+   o novo documento e anotando itens que serão substituídos.
 
 ## Fora do escopo
 
-- `pull`, `push`, `commit`, `stash` — próximas subtasks do Horizonte 2.
-- Excluir branch — precisa de política adicional; fica para etapa
-  posterior.
-- Rebase, merge, cherry-pick.
+- Escrever CSS ou tocar em componentes — vem na task 018.
+- Redesign de identidade visual (logo, marca) — não é o problema atual.
+- Trocar frameworks (Tailwind, UnoCSS etc.) sem justificativa
+  concreta; a decisão sobre framework fica documentada como parte da
+  etapa 1 se ficar clara.
 
 ## Critérios de aceite
 
-- criar e trocar branch com nomes válidos funcionam; nomes inválidos
-  ou operação em árvore suja falham com código dedicado;
-- confirmação obrigatória; sem confirmação a mutação é recusada com
-  409;
-- testes de serviço, rota e componente montados passam;
-- `npm run typecheck`, `npm run build` e `npm test` verdes.
+- documento `docs/design/redesign-2026.md` publicado com princípios,
+  tokens, padrões e roteiro;
+- `docs/design/information-architecture.md` atualizado apontando o que
+  o novo documento substitui;
+- roadmap atualizado marcando "revisão de design" como concluída e a
+  reforma como próxima entrega.
