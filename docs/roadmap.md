@@ -37,8 +37,8 @@ compromissos de versão.
 - [x] detalhe com abas de visão geral, Git, testes, banco e scripts;
 - [x] servidor, configuração de porta, URLs, logs e limpeza;
 - [x] estados vazios e componentes reutilizáveis iniciais;
-- [ ] painel global de atividade;
-- [ ] página global de processos/jobs;
+- [x] painel global de atividade (task 012);
+- [x] página global de processos (task 014);
 - [ ] configurações globais;
 - [ ] loading skeletons, notificações e acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.

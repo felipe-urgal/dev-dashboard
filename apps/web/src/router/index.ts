@@ -6,6 +6,7 @@ import {
 import ActivityView from '../views/ActivityView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import NotFoundView from '../views/NotFoundView.vue';
+import ProcessesView from '../views/ProcessesView.vue';
 import ProjectDetailsView from '../views/ProjectDetailsView.vue';
 
 export const router = createRouter({
@@ -27,6 +28,15 @@ export const router = createRouter({
       meta: {
         eyebrow: 'Ambiente local',
         title: 'Painel de atividade',
+      },
+    },
+    {
+      path: '/processes',
+      name: 'processes',
+      component: ProcessesView,
+      meta: {
+        eyebrow: 'Ambiente local',
+        title: 'Processos gerenciados',
       },
     },
     {

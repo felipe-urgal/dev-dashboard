@@ -402,6 +402,7 @@ POST   /api/projects/:projectId/process/start
 POST   /api/projects/:projectId/process/stop
 GET    /api/projects/:projectId/process/logs
 DELETE /api/projects/:projectId/process/logs
+GET    /api/processes
 POST   /api/processes/cleanup
 
 GET    /api/projects/:projectId/tests

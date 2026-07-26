@@ -570,6 +570,40 @@ export function buildActivityQuery(query: ActivityQuery): string {
   return parameters.toString();
 }
 
+export interface ProcessesQuery {
+  workspaceId?: string;
+  projectId?: string;
+  kind?: 'server' | 'test';
+  signal?: AbortSignal;
+}
+
+interface ProcessesResponse { processes: ManagedProcess[] }
+
+export function buildProcessesQuery(query: ProcessesQuery): string {
+  const parameters = new URLSearchParams();
+  if (query.workspaceId) parameters.set('workspaceId', query.workspaceId);
+  if (query.projectId) parameters.set('projectId', query.projectId);
+  if (query.kind) parameters.set('kind', query.kind);
+  return parameters.toString();
+}
+
+export async function fetchManagedProcesses(query: ProcessesQuery = {}): Promise<ManagedProcess[]> {
+  const search = buildProcessesQuery(query);
+  const url = `/api/processes${search ? `?${search}` : ''}`;
+  const init: RequestInit = query.signal ? { signal: query.signal } : {};
+  const response = await requestJson<ProcessesResponse>(url, init);
+  return response.processes;
+}
+
+interface CleanupResponse { removed: unknown[]; removedCount: number }
+
+export async function cleanupManagedProcesses(): Promise<number> {
+  const response = await requestJson<CleanupResponse>('/api/processes/cleanup', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+  });
+  return response.removedCount;
+}
+
 export async function fetchActivities(query: ActivityQuery = {}): Promise<ActivityList> {
   const search = buildActivityQuery(query);
   const url = `/api/activities${search ? `?${search}` : ''}`;

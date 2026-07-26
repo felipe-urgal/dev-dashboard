@@ -1694,3 +1694,6 @@ a.secondary-button {
 .activity-pagination button { padding: 8px 14px; border: 1px solid #2a3240; border-radius: 8px; color: #cbd2df; background: #0a0d12; font: inherit; font-size: 10px; cursor: pointer; }
 .activity-pagination button:disabled { color: #495265; cursor: not-allowed; }
 @media (max-width: 720px) { .activity-filters { grid-template-columns: 1fr 1fr; } }
+
+.processes-cleanup-button { padding: 9px 14px; border: 1px solid #2a3240; border-radius: 8px; color: #cbd2df; background: #0a0d12; font: inherit; font-size: 11px; cursor: pointer; }
+.processes-cleanup-button:disabled { color: #495265; cursor: not-allowed; }
