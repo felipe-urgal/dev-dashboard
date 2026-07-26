@@ -37,6 +37,8 @@ export interface ScriptExecutionLog {
   executionId: string;
   content: string;
   truncated: boolean;
+  masked: boolean;
+  redactionCount: number;
 }
 
 export interface ScriptExecutionConfirmation {

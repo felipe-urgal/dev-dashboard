@@ -215,6 +215,7 @@ Responsabilidades:
 - encerrar grupos de processos;
 - armazenar logs;
 - fornecer trechos limitados de logs.
+- mascarar credenciais conhecidas antes de devolver logs às interfaces.
 
 O gerenciador não aceita strings de shell arbitrárias.
 

@@ -142,12 +142,15 @@ Logs podem conter:
 
 O dashboard não deve assumir que logs são públicos.
 
-Evoluções futuras devem incluir:
+Antes de responder, os leitores de servidor, teste e catálogo mascaram
+atribuições sensíveis conhecidas, credenciais em URLs, autenticação Bearer e
+prefixos de tokens reconhecidos. A resposta explicita a quantidade de
+substituições e a interface apresenta um aviso. O arquivo local original não é
+reescrito e permanece protegido por permissão `0600`.
 
-- mascaramento de padrões sensíveis;
-- retenção configurável;
-- limpeza segura;
-- aviso ao exportar ou copiar logs.
+A retenção padrão de processos terminais é de sete dias, configurável por
+`DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
+do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.
 
 ### Permissões de arquivos
 

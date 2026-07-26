@@ -1,33 +1,31 @@
-# Próxima atividade — 008: Proteção e retenção de logs
+# Próxima atividade — 009: Persistência do histórico de execuções
 
 ## Objetivo
 
-Reduzir a exposição de credenciais nos logs gerenciados e tornar sua retenção explícita, observável e configurável com limites seguros.
+Persistir um histórico limitado das execuções reconhecidas para que estado, resultado e logs protegidos possam ser recuperados após reiniciar a API.
 
 ## Plano detalhado
 
-1. Definir contratos para política, metadados de retenção e conteúdo mascarado.
-2. Inventariar todos os produtores e leitores de logs de servidor, teste e catálogo.
-3. Implementar mascaramento conservador de tokens, credenciais em URLs e variáveis sensíveis conhecidas.
-4. Preservar contexto útil sem retornar o valor original e indicar quando houve mascaramento.
-5. Aplicar limites seguros de tamanho, idade e quantidade com defaults fechados.
-6. Integrar limpeza ao ciclo de vida do Process Manager sem aceitar caminhos do navegador.
-7. Expor configuração e limpeza por IDs, schemas explícitos e confirmação para remoção.
-8. Apresentar avisos, retenção e conteúdo mascarado na UI.
-9. Cobrir falsos positivos críticos, limites, rotação, concorrência e entradas malformadas.
-10. Atualizar arquitetura, segurança, README e registro da task.
+1. Definir contratos de resumo, detalhe e paginação do histórico.
+2. Modelar armazenamento versionado no diretório de estado com permissões restritas.
+3. Restaurar registros terminais e reconciliar com segurança processos interrompidos.
+4. Aplicar limites de idade e quantidade compatíveis com a política de logs.
+5. Expor listagem e detalhe somente por IDs, com schemas explícitos.
+6. Integrar o histórico ao painel de scripts sem polling de registros terminais.
+7. Cobrir migração, corrupção parcial, concorrência, paginação e limpeza.
+8. Atualizar arquitetura, segurança, README e registro da task.
 
 ## Fora do escopo
 
-- cofre de segredos;
-- exportação de logs sem limite;
-- armazenamento remoto;
-- auditoria multiusuário.
+- sincronização remota;
+- histórico multiusuário;
+- reexecução automática;
+- exportação irrestrita de logs.
 
 ## Critérios de aceite
 
-- padrões sensíveis conhecidos não aparecem nas respostas da API;
-- mascaramento é aplicado de forma central aos três tipos de processo;
-- retenção possui defaults limitados e limpeza segura;
-- nenhuma rota aceita caminho de log;
+- execuções recentes sobrevivem ao reinício da API;
+- registros ativos órfãos são reconciliados sem sinalizar PIDs desconhecidos;
+- histórico e logs respeitam limites seguros;
+- nenhuma rota aceita caminho ou comando;
 - typecheck, build e testes passam.

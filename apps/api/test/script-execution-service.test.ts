@@ -25,6 +25,25 @@ test('executa item atual da allowlist sem shell e disponibiliza log', async (t) 
   assert.equal(service.latest('outro-projeto'), null);
 });
 
+test('mascara credenciais no log antes de devolvê-lo', async (t) => {
+  const { root, project, service } = await fixture(
+    `node -e "console.log('token=segredo-do-projeto')"`,
+  );
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const started = await service.start(project, 'package-script:lint');
+  let current = started;
+  for (let attempt = 0; attempt < 50 && current.status === 'running'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    current = service.get(project.id, started.id);
+  }
+
+  const log = await service.log(project.id, started.id);
+  assert.equal(log.content.includes('segredo-do-projeto'), false);
+  assert.equal(log.masked, true);
+  assert.ok(log.redactionCount >= 1);
+});
+
 test('exige confirmação vinculada para ação mutável', async (t) => {
   const { root, project, service } = await fixture(); t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(() => service.start(project, 'package-script:build'), (error: unknown) => error instanceof ScriptExecutionError && error.code === 'SCRIPT_CONFIRMATION_REQUIRED');
