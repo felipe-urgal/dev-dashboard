@@ -3,6 +3,7 @@ import {
   createWebHistory,
 } from 'vue-router';
 
+import ActivityView from '../views/ActivityView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import NotFoundView from '../views/NotFoundView.vue';
 import ProjectDetailsView from '../views/ProjectDetailsView.vue';
@@ -17,6 +18,15 @@ export const router = createRouter({
       meta: {
         eyebrow: 'Ambiente local',
         title: 'Visão geral',
+      },
+    },
+    {
+      path: '/activity',
+      name: 'activity',
+      component: ActivityView,
+      meta: {
+        eyebrow: 'Ambiente local',
+        title: 'Painel de atividade',
       },
     },
     {

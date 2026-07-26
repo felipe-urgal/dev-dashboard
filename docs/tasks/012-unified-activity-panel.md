@@ -1,9 +1,10 @@
-# Task 012 — Painel de atividade unificado (parte 1: API)
+# Task 012 — Painel de atividade unificado
 
 ## Status
 
-Em andamento — parte 1 (contratos + API + testes) entregue nesta branch. A
-página `/activity` no frontend e o teste de componente ficam para a parte 2.
+Concluída. Parte 1 (contratos + serviço agregador + rota
+`GET /api/activities`) mergeada no PR #23. Parte 2 (view Vue `/activity`,
+cliente, navegação, helpers testáveis) entregue nesta branch.
 
 ## Objetivo
 
@@ -38,13 +39,37 @@ para um novo armazenamento.
   `succeeded`/`failed`.
 - README atualizado com a nova rota.
 
-## Fora do escopo desta parte
+## Escopo entregue (parte 2)
 
-- Página `/activity` no Vue, teste de componente montado, cliente `api.ts`
-  do frontend e navegação — parte 2.
+- Cliente `fetchActivities(query)` e helper `buildActivityQuery` em
+  `apps/web/src/api.ts`, com `AbortSignal` opcional propagado do
+  componente.
+- View `apps/web/src/views/ActivityView.vue` com filtros por workspace,
+  projeto, origem e status; paginação; estados de erro, carregando e
+  vazio; aviso de que a retenção varia por origem; link de cada item
+  para a sub-rota segura já existente do projeto.
+- Registro da rota `/activity` em `apps/web/src/router/index.ts` e
+  entrada na navegação lateral (`apps/web/src/App.vue`), substituindo o
+  placeholder "Jobs e logs".
+- Helpers puros em `apps/web/src/utils/activity-format.ts`
+  (`statusLabel`, `statusToneClass`, `originLabel`,
+  `activityDetailPath`, `formatInstant`) reutilizados pela view e
+  cobertos por teste unitário.
+- Descarte de respostas obsoletas via `RequestGeneration` já existente,
+  combinado com `AbortController` para requisições ainda em voo ao
+  trocar filtros ou desmontar a view.
+- Testes em `apps/web/test/activity.test.ts`: query builder, todos os
+  formatadores, mapeamento de rota por origem e um caso end-to-end de
+  `fetchActivities` com `fetch` estubado (sem montar componente Vue).
+
+## Fora do escopo
+
 - Persistência ou retenção nova para testes e servidores.
 - SSE global, WebSocket ou fila de eventos.
 - Reexecução, cancelamento ou qualquer ação mutável pelo painel.
+- Teste de componente montado com Vue Test Utils: reservado para a
+  próxima task, dedicada a inaugurar `@vue/test-utils` + jsdom no
+  monorepo sem inflar dependências junto com esta entrega.
 
 ## Verificação
 
@@ -56,8 +81,7 @@ npm test
 
 ## Sequência posterior
 
-Parte 2 (próxima branch): view Vue `/activity`, cliente no
-`apps/web/src/api.ts`, entrada no `router`, teste de componente montado
-para estados vazio/carregando/erro/sucesso, e atualização do
-`docs/tasks/NEXT.md` apontando para a página global de processos (task
-014) na sequência descrita no roadmap.
+Próxima entrega (task 013): inaugurar a camada de testes montados no
+frontend (`@vue/test-utils` + jsdom) cobrindo os estados
+vazio/carregando/erro/sucesso da `ActivityView` e dos painéis já
+existentes; em seguida a página global de processos (task 014).

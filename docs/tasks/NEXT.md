@@ -1,58 +1,53 @@
-# Próxima atividade — 012 (parte 2): Página `/activity` no frontend
+# Próxima atividade — 013: Base de testes da interface
 
 ## Contexto
 
-A parte 1 da task 012 já entregou o contrato `Activity`, o `ActivityService`
-agregador e a rota `GET /api/activities` com filtros, paginação e testes.
-Falta agora a superfície no navegador que consome essa API sem duplicar
-fonte de verdade.
-
-Detalhes completos da parte 1 e do que continua fora do escopo estão em
-`docs/tasks/012-unified-activity-panel.md`.
+A task 012 encerrou o painel de atividade unificado, incluindo a view Vue
+`/activity`, sem introduzir montagem de componentes nos testes — os casos
+cobertos são de query builder, formatadores e caminho de rota, com
+`fetch` estubado. O roadmap prioriza inaugurar a camada de testes de
+componentes montados como próximo passo antes de abrir novas superfícies
+mutáveis.
 
 ## Objetivo
 
-Consumir `GET /api/activities` em uma página global `/activity` que
-respeita paginação, filtros fechados, estados vazio/carregando/erro e a
-diferença de retenção entre origens (`script` tem histórico persistente;
-`test` e `server` refletem apenas o estado gerenciado atual).
+Introduzir `@vue/test-utils` + jsdom no monorepo com o mínimo de
+dependências e usar essa infraestrutura para cobrir os estados
+vazio/carregando/erro/sucesso da `ActivityView` recém-entregue, servindo
+de modelo para as próximas telas.
 
 ## Plano detalhado
 
-1. Adicionar cliente `fetchActivities(query)` em `apps/web/src/api.ts`
-   com `AbortController` compartilhado, para descartar respostas obsoletas
-   ao trocar filtros ou navegar.
-2. Criar `apps/web/src/views/ActivityView.vue` com filtros por workspace,
-   projeto, origem, status; paginação; e link de cada item para a sub-rota
-   segura já existente do projeto (`/projects/:projectId`). Referências
-   expiradas devem apresentar indisponibilidade sem tentar recuperar
-   arquivo diretamente.
-3. Registrar `/activity` no `apps/web/src/router/index.ts` e adicionar
-   entrada de navegação no shell atual.
-4. Aviso visível de que a durabilidade varia por origem, inaugurando o
-   padrão de comunicação de retenção que aparecerá em outras telas.
-5. Teste de componente montado (Vue Test Utils) cobrindo estado vazio,
-   carregando, erro e sucesso — inaugurando a camada de testes de UI
-   priorizada no roadmap.
-6. Atualizar `README.md`, `docs/architecture/overview.md` e o registro da
-   task 012 apontando a parte 2 como concluída.
-7. Substituir este `NEXT.md` pela próxima task após a parte 2 encerrar
-   (esperado: 013 — base de testes da UI, ou 014 — página global de
-   processos, conforme "Sequência posterior esperada" do roadmap).
+1. Adicionar `@vue/test-utils` e `jsdom` como devDeps de
+   `apps/web`, ajustar `apps/web/tsconfig.test.json` para incluir a
+   pasta `src/views` e utilitários necessários, e configurar
+   `--experimental-vm-modules`/`jsdom` no runner de testes atual.
+2. Criar `apps/web/test/activity-view.test.ts` cobrindo:
+   - estado vazio (sem workspaces/projetos e API retornando lista
+     vazia);
+   - estado carregando (promise pendente);
+   - estado de erro (fetch lançando `ApiRequestError`);
+   - estado de sucesso (lista renderizada com filtros e paginação
+     acessíveis por labels).
+3. Extrair fixtures reutilizáveis para atividades em
+   `apps/web/test/support/activity-fixtures.ts`.
+4. Documentar em `docs/architecture/overview.md` a nova camada de teste
+   e o padrão de estubagem de `fetch`.
+5. Atualizar `docs/roadmap.md` marcando o item "testes de componentes
+   Vue" e o backlog de qualidade.
+
+## Fora do escopo
+
+- Playwright / smoke E2E (fica para a task seguinte).
+- Testar componentes fora da `ActivityView` além do necessário para o
+  padrão inicial.
+- Adicionar frameworks paralelos (Vitest, Cypress) — reaproveitar o
+  `node --test` já em uso.
 
 ## Critérios de aceite
 
-- página `/activity` navega, filtra e pagina sem chamadas paralelas
-  concorrentes vazando resultado obsoleto para a tela;
-- não há execução, cancelamento ou leitura de log a partir do painel;
-- aviso de retenção diferencial visível;
-- teste de componente cobre os quatro estados;
-- `npm run typecheck`, `npm run build` e `npm test` passam.
-
-## Riscos a validar antes da implementação
-
-- dependência de biblioteca de montagem Vue sem ampliar desnecessariamente
-  as dependências de teste (preferir `@vue/test-utils` + `jsdom`);
-- comportamento quando um workspace é removido durante a consulta —
-  a API já descarta esses projetos, mas a UI precisa apresentar o vazio
-  resultante sem loop de refetch.
+- suíte `apps/web` sobe jsdom e monta a `ActivityView` sem tocar em
+  rede real;
+- pelo menos quatro testes independentes cobrem os quatro estados;
+- `npm run typecheck`, `npm run build` e `npm test` passam;
+- documentação do padrão atualizada.
