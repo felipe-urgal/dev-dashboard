@@ -11,6 +11,7 @@ import type {
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
 } from '@dev-dashboard/contracts';
+import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ScriptDetectionService } from './script-detection-service.js';
 
@@ -229,7 +230,14 @@ export class ScriptExecutionService {
       const firstLineEnd = content.indexOf('\n');
       content = firstLineEnd >= 0 ? content.slice(firstLineEnd + 1) : '';
     }
-    return { executionId, content, truncated: start > 0 };
+    const maskedContent = maskSensitiveLogContent(content);
+    return {
+      executionId,
+      content: maskedContent.content,
+      truncated: start > 0,
+      masked: maskedContent.masked,
+      redactionCount: maskedContent.redactionCount,
+    };
   }
 
   public async cancel(

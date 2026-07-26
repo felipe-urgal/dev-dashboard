@@ -28,6 +28,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { sweepStaleProcesses } from './log-retention.js';
+import { maskSensitiveLogContent } from './log-protection.js';
 
 type ManagedKind = 'server' | 'test';
 
@@ -727,10 +728,14 @@ export class ProcessManager {
         }
       }
 
+      const maskedContent = maskSensitiveLogContent(content);
+
       return {
         projectId,
         processId: storedProcess.id,
-        content,
+        content: maskedContent.content,
+        masked: maskedContent.masked,
+        redactionCount: maskedContent.redactionCount,
         sizeBytes: logStats.size,
         truncated,
         updatedAt: logStats.mtime.toISOString(),
@@ -744,6 +749,8 @@ export class ProcessManager {
           content: '',
           sizeBytes: 0,
           truncated: false,
+          masked: false,
+          redactionCount: 0,
           readAt: new Date().toISOString(),
         };
       }
@@ -790,6 +797,8 @@ export class ProcessManager {
         content: '',
         sizeBytes: 0,
         truncated: false,
+        masked: false,
+        redactionCount: 0,
         updatedAt: logStats.mtime.toISOString(),
         readAt: new Date().toISOString(),
       };
@@ -801,6 +810,8 @@ export class ProcessManager {
           content: '',
           sizeBytes: 0,
           truncated: false,
+          masked: false,
+          redactionCount: 0,
           readAt: new Date().toISOString(),
         };
       }

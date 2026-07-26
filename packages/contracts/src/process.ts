@@ -30,6 +30,8 @@ export interface ProcessLogSnapshot {
   content: string;
   sizeBytes: number;
   truncated: boolean;
+  masked: boolean;
+  redactionCount: number;
   updatedAt?: string;
   readAt: string;
 }

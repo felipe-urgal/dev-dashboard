@@ -761,6 +761,15 @@ onBeforeUnmount(() => {
         {{ logErrorMessage }}
       </div>
 
+      <div
+        v-if="logSnapshot?.masked"
+        class="project-log-redaction-warning"
+        role="status"
+      >
+        {{ logSnapshot.redactionCount }} ocorrência(s) sensível(is) foram
+        mascarada(s) nesta visualização.
+      </div>
+
       <pre
         ref="logContainer"
         class="project-log-output"

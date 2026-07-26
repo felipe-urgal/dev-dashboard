@@ -31,6 +31,13 @@ export type {
 
 export { sweepStaleProcesses } from './log-retention.js';
 
+export {
+  LOG_MASK,
+  maskSensitiveLogContent,
+} from './log-protection.js';
+
+export type { MaskedLogContent } from './log-protection.js';
+
 export type {
   SweepStaleProcessesOptions,
   SweptProcess,

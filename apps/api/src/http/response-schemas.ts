@@ -88,11 +88,13 @@ export const latestScriptExecutionResponseSchema = {
 export const scriptExecutionLogResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['executionId', 'content', 'truncated'],
+  required: ['executionId', 'content', 'truncated', 'masked', 'redactionCount'],
   properties: {
     executionId: { type: 'string' },
     content: { type: 'string' },
     truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
   },
 } as const;
 
@@ -243,6 +245,8 @@ export const processLogSnapshotResponseSchema = {
     'content',
     'sizeBytes',
     'truncated',
+    'masked',
+    'redactionCount',
     'readAt',
   ],
   properties: {
@@ -251,6 +255,8 @@ export const processLogSnapshotResponseSchema = {
     content: { type: 'string' },
     sizeBytes: { type: 'integer' },
     truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
     updatedAt: { type: 'string' },
     readAt: { type: 'string' },
   },
