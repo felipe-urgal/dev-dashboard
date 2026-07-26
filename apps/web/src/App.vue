@@ -93,10 +93,14 @@ onMounted(() => {
           Processos
         </span>
 
-        <span class="navigation-item navigation-item-disabled">
+        <RouterLink
+          class="navigation-item"
+          :class="{ 'navigation-item-active': route.name === 'activity' }"
+          :to="{ name: 'activity' }"
+        >
           <span class="navigation-icon">≡</span>
-          Jobs e logs
-        </span>
+          Atividade
+        </RouterLink>
       </nav>
 
       <div class="sidebar-section">
