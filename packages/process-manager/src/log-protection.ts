@@ -7,7 +7,7 @@ export interface MaskedLogContent {
 }
 
 const SENSITIVE_ASSIGNMENT =
-  /(?<![A-Za-z0-9_])(["']?)(api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret|token)\1(\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi;
+  /(?<![A-Za-z0-9_])(["']?)((?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret|token))\1(\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi;
 const BEARER_TOKEN = /\b(Bearer\s+)([^\s,"'};]+)/gi;
 const CREDENTIAL_URL =
   /\b([a-z][a-z0-9+.-]*:\/\/[^\s\/:@]+:)([^\s\/@]+)(@)/gi;

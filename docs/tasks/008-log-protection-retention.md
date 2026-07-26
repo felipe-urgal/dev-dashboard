@@ -39,6 +39,12 @@ agora comprova que o segredo não cruza a fronteira do serviço. A revisão tamb
 ajustou a idempotência: conteúdo que já contém o marcador não é contado novamente
 como uma nova substituição.
 
+Na revisão do PR, o limite de reconhecimento das chaves também foi ajustado para
+aceitar segmentos sensíveis delimitados por `_` ou `-`, como em
+`DATABASE_PASSWORD`, `JWT_SECRET` e `NPM_TOKEN`, sem transformar nomes em que o
+termo é apenas um sufixo alfanumérico, como `mytoken`. Um teste de regressão cobre
+os nomes compostos mais frequentes.
+
 ## Segurança
 
 - nenhuma rota nova aceita caminho;
