@@ -46,7 +46,13 @@ async function mountView(args: MountArgs) {
   }) as typeof fetch;
 
   const wrapper = mount(ProcessesView, { global: { stubs: { RouterLink: RouterLinkStub } } });
-  return { wrapper, restore: () => { globalThis.fetch = originalFetch; } };
+  return {
+    wrapper,
+    restore: () => {
+      wrapper.unmount();
+      globalThis.fetch = originalFetch;
+    },
+  };
 }
 
 let cleanup: (() => void) | undefined;
@@ -92,6 +98,24 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
   assert.deepEqual(kinds, ['Servidor', 'Testes']);
   const statuses = wrapper.findAll('.activity-status').map((node) => node.text());
   assert.deepEqual(statuses, ['Em execução', 'Parado']);
+});
+
+test('congela a duração de processos terminais em stoppedAt na renderização', async () => {
+  const { wrapper, restore } = await mountView({
+    processes: async () => [
+      { id: 'tst-1', projectId: 'p1', workspaceId: 'w1', kind: 'test', status: 'stopped', startedAt: '2026-07-26T08:00:00Z', stoppedAt: '2026-07-26T08:05:00Z' },
+      { id: 'srv-1', projectId: 'p1', workspaceId: 'w1', kind: 'server', status: 'failed', startedAt: '2026-07-26T08:00:00Z', stoppedAt: '2026-07-26T08:02:30Z' },
+    ],
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  const durations = wrapper.findAll('.activity-item-meta').map((node) => node.text());
+  const first = durations[0] ?? '';
+  const second = durations[1] ?? '';
+  assert.match(first, /duração 5m 0s/);
+  assert.match(second, /duração 2m 30s/);
 });
 
 test('mostra a mensagem de erro quando o carregamento falha', async () => {

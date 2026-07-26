@@ -1,5 +1,7 @@
 import type { ManagedProcess, ManagedProcessKind, ManagedProcessStatus } from '@dev-dashboard/contracts';
 
+const TERMINAL_STATUSES: readonly ManagedProcessStatus[] = ['stopped', 'failed'];
+
 export function kindLabel(kind: ManagedProcessKind): string {
   switch (kind) {
     case 'server': return 'Servidor';
@@ -33,6 +35,18 @@ export function processDetailPath(process: ManagedProcess): string {
   const base = `/projects/${encodeURIComponent(process.projectId)}`;
   if (process.kind === 'test') return `${base}/tests`;
   return base;
+}
+
+function isTerminalStatus(status: ManagedProcessStatus | undefined): boolean {
+  return status !== undefined && TERMINAL_STATUSES.includes(status);
+}
+
+export function processDurationReference(process: ManagedProcess, nowMs: number): number {
+  if (isTerminalStatus(process.status) && process.stoppedAt) {
+    const stoppedMs = new Date(process.stoppedAt).getTime();
+    if (!Number.isNaN(stoppedMs)) return stoppedMs;
+  }
+  return nowMs;
 }
 
 export function formatDuration(startedAtIso: string | undefined, referenceMs: number): string {

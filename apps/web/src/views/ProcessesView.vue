@@ -15,6 +15,7 @@ import {
   formatDuration,
   kindLabel,
   processDetailPath,
+  processDurationReference,
   processStatusLabel,
   processStatusToneClass,
 } from '../utils/process-format';
@@ -103,7 +104,7 @@ async function loadProcesses(): Promise<void> {
 async function runCleanup(): Promise<void> {
   if (cleanupRunning.value) return;
   const confirmed = typeof window === 'undefined' || window.confirm(
-    'Remover estados de processos obsoletos (arquivos de PID cujo processo não existe mais)? Nenhum processo em execução será interrompido.',
+    'Remover registros de estados terminais (parado ou falho) que já ultrapassaram a janela de retenção configurada? Processos em execução e estados terminais recentes não são afetados.',
   );
   if (!confirmed) return;
   cleanupRunning.value = true;
@@ -155,7 +156,9 @@ onBeforeUnmount(() => {
         <h2>Processos gerenciados</h2>
         <p class="section-description">
           Servidores e execuções de testes iniciados pelo dashboard. A limpeza remove apenas
-          registros obsoletos cujo processo já não existe — nada em execução é interrompido.
+          registros de estados terminais (parado ou falho) que já ultrapassaram a janela de
+          retenção configurada — nada em execução é interrompido, e estados terminais recentes
+          continuam visíveis até vencerem a retenção.
         </p>
       </div>
       <button type="button" class="processes-cleanup-button" :disabled="cleanupRunning" @click="runCleanup">
@@ -218,7 +221,7 @@ onBeforeUnmount(() => {
             </span>
             <span v-if="process.pid">PID {{ process.pid }}</span>
             <span v-if="process.port">porta {{ process.port }}</span>
-            <span>duração {{ formatDuration(process.startedAt, now) }}</span>
+            <span>duração {{ formatDuration(process.startedAt, processDurationReference(process, now)) }}</span>
           </div>
         </div>
       </li>

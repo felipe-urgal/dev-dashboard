@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
+import type { ManagedProcess } from '@dev-dashboard/contracts';
+
 import {
   formatDuration,
   kindLabel,
   processDetailPath,
+  processDurationReference,
   processStatusLabel,
   processStatusToneClass,
 } from '../src/utils/process-format.js';
@@ -38,4 +41,27 @@ test('formatDuration formata segundos, minutos e horas relativos ao instante de 
   assert.equal(formatDuration('2026-07-26T09:57:15Z', reference), '2m 45s');
   assert.equal(formatDuration('2026-07-26T07:30:00Z', reference), '2h 30m');
   assert.equal(formatDuration(undefined, reference), '—');
+});
+
+test('processDurationReference congela a duração de processos terminais em stoppedAt', () => {
+  const now = new Date('2026-07-26T10:00:00Z').getTime();
+  const base: Omit<ManagedProcess, 'status'> = {
+    id: 'p', projectId: 'p1', kind: 'server',
+    startedAt: '2026-07-26T08:00:00Z',
+    stoppedAt: '2026-07-26T08:05:00Z',
+  };
+
+  const stopped: ManagedProcess = { ...base, status: 'stopped' };
+  assert.equal(processDurationReference(stopped, now), new Date('2026-07-26T08:05:00Z').getTime());
+  assert.equal(formatDuration(stopped.startedAt, processDurationReference(stopped, now)), '5m 0s');
+
+  const failed: ManagedProcess = { ...base, status: 'failed' };
+  assert.equal(formatDuration(failed.startedAt, processDurationReference(failed, now)), '5m 0s');
+
+  const running: ManagedProcess = { ...base, status: 'running' };
+  assert.equal(processDurationReference(running, now), now);
+
+  const { stoppedAt: _stopped, ...withoutStoppedAt } = base;
+  const stoppedWithoutStoppedAt: ManagedProcess = { ...withoutStoppedAt, status: 'stopped' };
+  assert.equal(processDurationReference(stoppedWithoutStoppedAt, now), now);
 });
