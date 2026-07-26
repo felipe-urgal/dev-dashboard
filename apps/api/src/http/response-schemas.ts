@@ -420,6 +420,47 @@ const processActivityResponseSchema = (origin: 'test' | 'server') => ({
   },
 }) as const;
 
+const gitFileStatusEnum = ['added', 'modified', 'deleted', 'renamed', 'copied', 'untracked', 'conflicted', 'type-changed'] as const;
+
+export const gitDiffSnapshotResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['repository', 'scope', 'files'],
+  properties: {
+    repository: { type: 'boolean' },
+    scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
+    files: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['path', 'status', 'additions', 'deletions', 'binary'],
+        properties: {
+          path: { type: 'string' },
+          previousPath: { type: 'string' },
+          status: { type: 'string', enum: gitFileStatusEnum },
+          additions: { type: 'integer', minimum: 0 },
+          deletions: { type: 'integer', minimum: 0 },
+          binary: { type: 'boolean' },
+        },
+      },
+    },
+  },
+} as const;
+
+export const gitFileDiffResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['path', 'scope', 'status', 'binary', 'content', 'truncated', 'masked', 'redactionCount'],
+  properties: {
+    path: { type: 'string' },
+    scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
+    status: { type: 'string', enum: gitFileStatusEnum },
+    binary: { type: 'boolean' },
+    content: { type: 'string' },
+    truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 export const activityListResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['items', 'page', 'pageSize', 'total', 'totalPages'],

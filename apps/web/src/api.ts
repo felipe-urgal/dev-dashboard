@@ -2,6 +2,9 @@ import type {
   ActivityList,
   ActivityOrigin,
   ActivityStatus,
+  GitDiffScope,
+  GitDiffSnapshot,
+  GitFileDiff,
   ManagedProcess,
   ProcessLogSnapshot,
   Project,
@@ -439,6 +442,29 @@ interface ProjectGitResponse { git: ProjectGitOverview; }
 export async function fetchProjectGit(projectId: string): Promise<ProjectGitOverview> {
   const response = await requestJson<ProjectGitResponse>(`/api/projects/${encodeURIComponent(projectId)}/git`);
   return response.git;
+}
+
+interface ProjectGitDiffResponse { diff: GitDiffSnapshot }
+interface ProjectGitFileDiffResponse { file: GitFileDiff }
+
+export async function fetchProjectGitDiff(projectId: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitDiffSnapshot> {
+  const query = new URLSearchParams({ scope });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitDiffResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/diff?${query}`,
+    init,
+  );
+  return response.diff;
+}
+
+export async function fetchProjectGitFileDiff(projectId: string, filePath: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitFileDiff> {
+  const query = new URLSearchParams({ path: filePath, scope });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitFileDiffResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/diff/file?${query}`,
+    init,
+  );
+  return response.file;
 }
 
 interface ProjectTestsResponse { tests: ProjectTestOverview; }

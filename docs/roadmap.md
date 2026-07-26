@@ -46,7 +46,7 @@ compromissos de versão.
 ### Git — leitura entregue, mutações pendentes
 
 - [x] status, branch, arquivos alterados e commits recentes;
-- [ ] diff por arquivo e diff resumido;
+- [x] diff por arquivo e diff resumido (task 015, com truncamento em 262 KiB e mascaramento de segredos);
 - [ ] criação/troca de branch, pull e push;
 - [ ] commit e stash;
 - [ ] confirmação por risco e histórico das mutações.
