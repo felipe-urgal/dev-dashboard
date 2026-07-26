@@ -35,7 +35,8 @@ const originFilter = ref<'' | ActivityOrigin>('');
 const statusFilter = ref<'' | ActivityStatus>('');
 
 const loading = ref(false);
-const errorMessage = ref('');
+const referenceErrorMessage = ref('');
+const activityErrorMessage = ref('');
 
 const generation = new RequestGeneration();
 let controller: AbortController | undefined;
@@ -57,8 +58,11 @@ async function loadReferenceData(): Promise<void> {
       name: project.name,
       ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
     }));
+    referenceErrorMessage.value = '';
   } catch (error) {
-    errorMessage.value = error instanceof ApiRequestError ? error.message : 'Não foi possível carregar workspaces e projetos.';
+    referenceErrorMessage.value = error instanceof ApiRequestError
+      ? error.message
+      : 'Não foi possível carregar workspaces e projetos.';
   }
 }
 
@@ -67,7 +71,7 @@ async function loadActivities(): Promise<void> {
   controller = new AbortController();
   const token = generation.invalidate();
   loading.value = true;
-  errorMessage.value = '';
+  activityErrorMessage.value = '';
 
   const query: ActivityQuery = { page: page.value, pageSize: pageSize.value, signal: controller.signal };
   if (workspaceFilter.value) query.workspaceId = workspaceFilter.value;
@@ -86,7 +90,9 @@ async function loadActivities(): Promise<void> {
   } catch (error) {
     if (controller?.signal.aborted) return;
     if (!generation.isCurrent(token)) return;
-    errorMessage.value = error instanceof ApiRequestError ? error.message : 'Não foi possível carregar as atividades.';
+    activityErrorMessage.value = error instanceof ApiRequestError
+      ? error.message
+      : 'Não foi possível carregar as atividades.';
     items.value = [];
     total.value = 0;
     totalPages.value = 0;
@@ -182,11 +188,12 @@ onBeforeUnmount(() => {
       </label>
     </div>
 
-    <p v-if="errorMessage" class="activity-error" role="alert">{{ errorMessage }}</p>
+    <p v-if="referenceErrorMessage" class="activity-error" role="alert">{{ referenceErrorMessage }}</p>
+    <p v-if="activityErrorMessage" class="activity-error" role="alert">{{ activityErrorMessage }}</p>
 
     <div v-if="loading && !hasItems" class="activity-empty" aria-live="polite">Carregando atividades…</div>
 
-    <div v-else-if="!hasItems && !errorMessage" class="activity-empty">
+    <div v-else-if="!hasItems && !activityErrorMessage && !referenceErrorMessage" class="activity-empty">
       Nenhuma atividade encontrada para os filtros escolhidos.
     </div>
 
