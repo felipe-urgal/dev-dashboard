@@ -16,7 +16,7 @@ A listagem paginada aceita somente o identificador do projeto, página e tamanho
 - escritas usam arquivo temporário exclusivo e `rename` atômico;
 - o estado persistido contém apenas o contrato público, sem caminho, PID ou comando livre;
 - retenção padrão de sete dias e limite padrão de 200 registros, configurável por `DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT`;
-- registros fora da idade ou quantidade permitida têm JSON e log removidos;
+- registros fora da idade ou quantidade permitida têm JSON e log removidos, inclusive por uma varredura horária enquanto a API permanece ativa;
 - o limite de quantidade também é aplicado durante a execução da API, sem depender de um reinício;
 - a restauração nunca sinaliza processos e converte órfãos para falha terminal;
 - logs restaurados passam pelo mesmo limite e mascaramento das leituras em memória.
@@ -45,6 +45,11 @@ depois dessas gravações, e o painel recarrega o histórico quando o acompanham
 termina. A validação da restauração foi endurecida para UUIDs e campos opcionais
 válidos, reduzindo a superfície aceita de arquivos manipulados no diretório de
 estado.
+
+Na revisão do PR, a retenção por idade passou a participar da limpeza executada
+durante toda a vida da API, e não apenas da restauração inicial. A seleção de um
+registro terminal também fica bloqueada enquanto houver execução ativa, para não
+interromper seu polling nem ocultar a ação de cancelamento.
 
 ## Limitações
 

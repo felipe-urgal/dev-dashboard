@@ -49,6 +49,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerApiErrorHandling(app, { registerNotFound: !options.staticDashboardEnabled });
 
   const context = options.context ?? createAppContext();
+  app.addHook('onClose', async () => {
+    context.scriptExecutionService.close();
+  });
 
   const localToken =
     options.localToken ?? (await new LocalTokenStore().getOrCreate());

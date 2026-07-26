@@ -53,9 +53,16 @@ const CONFIRMATION_TTL_MS = 60_000;
 const HISTORY_VERSION = 1;
 const DEFAULT_HISTORY_LIMIT = 200;
 const DEFAULT_RETENTION_DAYS = 7;
+const MAX_RETENTION_SWEEP_INTERVAL_MS = 3_600_000;
 const EXECUTION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface StoredExecution { version: 1; execution: ScriptExecution }
+
+export interface ScriptExecutionServiceOptions {
+  historyLimit?: number;
+  retentionMs?: number;
+  sweepIntervalMs?: number;
+}
 
 async function exists(target: string): Promise<boolean> {
   try {
@@ -145,17 +152,27 @@ export class ScriptExecutionService {
   private readonly ready: Promise<void>;
   private readonly historyLimit: number;
   private readonly retentionMs: number;
+  private readonly retentionTimer: NodeJS.Timeout;
 
   public constructor(
     private readonly detection: ScriptDetectionService,
     stateDirectory =
       process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
       path.join(homedir(), '.local', 'state', 'dev-dashboard'),
+    options: ScriptExecutionServiceOptions = {},
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'scripts');
-    this.historyLimit = this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT);
-    this.retentionMs = this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000;
+    this.historyLimit = this.positiveOption(options.historyLimit, this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT));
+    this.retentionMs = this.positiveOption(options.retentionMs, this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000);
     this.ready = this.restore();
+    this.retentionTimer = setInterval(() => {
+      void this.ready.then(() => this.pruneHistory()).catch(() => undefined);
+    }, this.positiveOption(options.sweepIntervalMs, Math.min(this.retentionMs, MAX_RETENTION_SWEEP_INTERVAL_MS)));
+    this.retentionTimer.unref();
+  }
+
+  public close(): void {
+    clearInterval(this.retentionTimer);
   }
 
   public async prepareConfirmation(
@@ -472,10 +489,18 @@ export class ScriptExecutionService {
   }
 
   private async pruneHistory(): Promise<void> {
+    const now = Date.now();
     const terminal = Array.from(this.executions.values())
       .filter((record) => record.execution.status !== 'running')
       .sort((left, right) => right.execution.startedAt.localeCompare(left.execution.startedAt));
-    for (const record of terminal.slice(this.historyLimit)) {
+    const expired = terminal.filter((record) =>
+      now - Date.parse(record.execution.finishedAt ?? record.execution.startedAt) > this.retentionMs,
+    );
+    const overLimit = terminal.slice(this.historyLimit);
+    const removable = new Map(
+      [...expired, ...overLimit].map((record) => [record.execution.id, record]),
+    );
+    for (const record of removable.values()) {
       this.executions.delete(record.execution.id);
       await this.removeStored(record.execution.id);
     }
@@ -527,5 +552,9 @@ export class ScriptExecutionService {
 
   private readPositiveInteger(raw: string | undefined, fallback: number): number {
     const value = Number(raw); return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+  }
+
+  private positiveOption(value: number | undefined, fallback: number): number {
+    return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value! : fallback;
   }
 }
