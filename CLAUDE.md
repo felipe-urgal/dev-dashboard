@@ -101,8 +101,10 @@ npm workspaces, definidos no `package.json` raiz (`apps/*`, `packages/*`):
 - **`packages/process-manager`** — equivalente TS de `lib/server/core/start.sh`: escolhe comandos
   conhecidos, inicia sem `shell: true`, rastreia PID/porta, verifica a identidade do processo via
   `/proc/<pid>/cwd` antes de sinalizar, TERM depois KILL.
-- **`packages/shell-adapter`** — criado (`package.json`/`tsconfig.json` existem) mas `src/` está
-  atualmente vazio; ainda não implementado.
+
+Não existe hoje um adaptador compartilhado entre o CLI e o monorepo. O Bash em `lib/` e a API
+continuam independentes; uma eventual extração precisa de decisão arquitetural e modelo de ameaça
+próprios, em vez de um pacote placeholder.
 
 Narrativa completa, diagramas e sequências de fluxo de dados: `docs/architecture/overview.md`.
 

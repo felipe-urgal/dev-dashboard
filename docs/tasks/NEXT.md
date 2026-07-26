@@ -1,33 +1,84 @@
-# Próxima atividade — 011: Painel de atividade unificado
+# Próxima atividade — 012: Painel de atividade unificado
 
 ## Objetivo
 
-Consolidar em uma visão somente leitura as atividades recentes e ativas já reconhecidas pelo dashboard, sem criar execução arbitrária nem duplicar a persistência de cada domínio.
+Criar uma visão global, somente leitura, das atividades reconhecidas pelo
+dashboard, agregando referências aos estados já pertencentes a execuções do
+catálogo, testes e servidores sem copiar logs, comandos, PIDs ou caminhos para
+um novo armazenamento.
+
+## Premissas confirmadas pela auditoria
+
+- o catálogo possui histórico persistente e paginado;
+- testes e servidores possuem estado gerenciado próprio, mas não histórico
+  equivalente ao catálogo;
+- os três domínios têm ciclos de vida diferentes e não devem fingir a mesma
+  durabilidade;
+- a primeira versão deve informar a origem e a disponibilidade real do detalhe,
+  em vez de preencher dados inexistentes;
+- a visão é uma projeção. A fonte de verdade continua em cada domínio.
 
 ## Plano detalhado
 
-1. Definir um contrato fechado de item de atividade com origem, projeto, estado, instante e referência interna.
-2. Agregar execuções do catálogo, testes e processos gerenciados por identificadores existentes.
-3. Expor listagem paginada com filtros limitados por projeto, origem e estado.
-4. Não persistir caminhos, comandos livres ou cópias de logs no agregador.
-5. Criar uma página global de atividade com estados vazios, erro e paginação.
-6. Direcionar cada item para o detalhe seguro já existente em seu domínio.
-7. Invalidar respostas ao trocar filtros e impedir sobreposição de consultas.
-8. Cobrir isolamento entre workspaces, paginação, serialização e navegação.
-9. Atualizar arquitetura, segurança, README, roadmap e registro da task.
+1. Definir em `packages/contracts` uma união discriminada e fechada para
+   atividade de `script`, `test` e `server`, com ID opaco, projeto, workspace,
+   origem, estado normalizado, instante e referência interna tipada.
+2. Documentar a correspondência entre estados dos três domínios, incluindo
+   estados sem instante terminal e itens que deixam de existir após limpeza.
+3. Implementar um serviço agregador sem persistência própria. Ele consultará
+   somente stores e serviços já autorizados e descartará projetos que não
+   pertençam aos workspaces atuais.
+4. Expor `GET /api/activities` com schemas explícitos e filtros fechados por
+   `workspaceId`, `projectId`, `origin`, `status`, `page` e `pageSize`.
+5. Aplicar limites de página, ordenação determinística e cursor/critério de
+   desempate documentado. Não aceitar caminho, comando, texto livre ou ID de
+   log.
+6. Criar página global `/activity` com filtros, paginação, estado vazio, erro,
+   carregamento e aviso de que a retenção varia por origem.
+7. Direcionar cada item para a sub-rota segura do projeto. Quando o detalhe já
+   tiver expirado, manter metadados mínimos e apresentar indisponibilidade sem
+   tentar recuperar arquivo diretamente.
+8. Aplicar cancelamento por `AbortController` e geração de requisição ao trocar
+   filtros ou navegar, evitando sobreposição e respostas obsoletas.
+9. Cobrir contrato, serialização, isolamento entre workspaces, filtros,
+   paginação, ordenação, referências expiradas e utilitários do frontend.
+10. Adicionar pelo menos um teste de componente montado para estados vazio,
+    carregando, erro e sucesso, inaugurando a camada de testes de UI priorizada
+    na auditoria.
+11. Atualizar README, arquitetura, segurança, roadmap e registro da task com o
+    comportamento efetivamente entregue.
 
 ## Fora do escopo
 
-- reexecução automática;
-- fila distribuída;
+- persistência ou retenção nova para testes e servidores;
+- cópia ou busca global no conteúdo de logs;
+- SSE global, WebSocket ou fila de eventos;
+- reexecução, cancelamento ou qualquer ação mutável pelo painel;
 - auditoria multiusuário;
-- comandos ou caminhos fornecidos pelo navegador;
-- unificação física dos arquivos de estado.
+- filtros de texto livre;
+- comandos e caminhos fornecidos pelo navegador.
 
 ## Critérios de aceite
 
-- atividades recentes podem ser consultadas em uma única visão;
-- agregação não amplia acesso a logs, processos ou projetos;
-- paginação e filtros possuem limites explícitos;
-- links preservam a autorização e o contexto do projeto;
-- typecheck, build e testes passam.
+- atividades disponíveis aparecem em uma única visão e identificam sua origem;
+- a UI não promete histórico que o domínio de origem não persiste;
+- agregação não amplia acesso a projeto, processo ou log;
+- filtros e paginação possuem limites e schemas explícitos;
+- ordenação é estável e respostas obsoletas não alteram a tela;
+- cada link preserva o contexto e usa apenas rotas autorizadas existentes;
+- há cobertura de API, domínio e ao menos um componente Vue;
+- `npm run typecheck`, `npm run build` e `npm test` passam.
+
+## Riscos a validar antes da implementação
+
+- custo de listar históricos de vários projetos sem leitura ilimitada do disco;
+- semântica de data para processos restaurados ou ainda ativos;
+- paginação correta ao combinar fontes com retenções distintas;
+- dependência de uma biblioteca de montagem Vue sem ampliar desnecessariamente
+  as dependências de teste;
+- comportamento quando um workspace é removido durante a consulta.
+
+## Sequência posterior esperada
+
+Após esta entrega: testes de componentes e smoke E2E adicionais, página global
+de processos e, só então, diff Git somente leitura.

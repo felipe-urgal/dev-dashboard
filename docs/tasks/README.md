@@ -17,3 +17,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `009-execution-history.md` — persistência versionada e limitada do histórico do catálogo, reconciliação segura após reinício, paginação por IDs e consulta no painel.
 
 - `010-realtime-execution-events.md` — acompanhamento SSE autenticado e limitado das execuções do catálogo, com recuperação determinística por HTTP.
+- `011-product-audit-and-planning.md` — auditoria integral do produto e da documentação, reconciliação do roadmap e priorização das próximas entregas.

@@ -1,10 +1,12 @@
 # Roadmap
 
-## Objetivo
+## Objetivo e regras
 
-Este roadmap organiza a evolução do Dev Dashboard sem interromper o CLI existente.
+O Dev Dashboard evolui sem interromper o CLI Bash. Toda entrega web deve manter
+a API em `127.0.0.1`, usar catálogo fechado de ações, receber apenas IDs e
+valores validados do navegador e preservar schemas explícitos de resposta.
 
-Cada fase deve entregar valor utilizável e manter:
+Antes de concluir uma entrega:
 
 ```bash
 npm run typecheck
@@ -12,358 +14,194 @@ npm run build
 npm test
 ```
 
-aprovados.
-
-## Fase 0 — Fundação arquitetural
-
-Status: concluída na branch `feat/web-foundation`.
-
-Entregas:
-
-- estrutura de monorepo;
-- npm workspaces;
-- TypeScript compartilhado;
-- contratos de domínio;
-- API Fastify;
-- aplicação Vue;
-- descoberta de projetos;
-- workspaces persistentes;
-- gerenciamento de processos;
-- logs no navegador;
-- comando único de desenvolvimento;
-- testes iniciais;
-- documentação da fundação.
-
-Critério de conclusão:
-
-- cadastrar workspace;
-- detectar projetos;
-- iniciar servidor;
-- acompanhar logs;
-- parar servidor;
-- continuar utilizando o CLI.
-
-## Fase 1 — Consolidação da fundação
-
-Status: em andamento. A segurança e a confiabilidade do núcleo estão concluídas;
-a distribuição local do build final é a próxima entrega.
-
-Objetivo: preparar a base para operações mais sensíveis.
-
-Entregas:
-
-- [x] autenticação local por token;
-- [x] validação de `Origin`;
-- [x] política CORS explícita;
-- [x] tratamento global de erros;
-- [x] testes das rotas protegidas;
-- [x] isolamento das configurações durante os testes;
-- [x] schemas de resposta;
-- [x] testes do Process Manager;
-- [x] limpeza e retenção de logs;
-- [x] diagnóstico de ambiente;
-- [ ] script `dev-web`;
-- [ ] configuração de produção local;
-- [ ] frontend servido pela API no build final.
-
-Critério de conclusão:
-
-- navegador e API iniciados por um comando de instalação;
-- rotas protegidas;
-- processos cobertos por testes;
-- build local independente do servidor Vite.
-
-## Fase 2 — App shell e navegação
-
-Status: parcialmente entregue.
-
-Objetivo: transformar a tela inicial em uma aplicação escalável.
-
-Entregas:
-
-- [x] Vue Router;
-- [x] layout principal;
-- [x] visão geral com workspaces e repositórios;
-- [ ] página global de processos;
-- [ ] página de jobs e logs;
-- [ ] configurações;
-- [ ] painel de atividade;
-- [x] estados vazios nos fluxos existentes;
-- [ ] loading skeletons consistentes;
-- [ ] sistema de notificações;
-- [x] componentes reutilizáveis iniciais;
-- [x] design tokens iniciais.
-
-Critério de conclusão:
-
-- navegação por URL;
-- telas separadas;
-- experiência consistente em desktop e tablet.
-
-## Fase 3 — Detalhe do projeto
-
-Status: parcialmente entregue.
-
-Objetivo: centralizar o contexto operacional de cada repositório.
-
-Entregas:
-
-- [x] rota `/projects/:id`;
-- [x] cabeçalho do projeto;
-- [x] abas por capacidade;
-- [x] visão geral;
-- [x] servidor;
-- [x] logs;
-- [x] metadados;
-- [x] processos associados de servidor e teste;
-- [x] comandos conhecidos de testes e scripts;
-- [ ] histórico recente unificado.
-
-Critério de conclusão:
-
-- abrir um projeto e controlar suas principais funções sem voltar à home.
-
-## Fase 4 — Git
-
-Status: parcialmente entregue; consultas são somente leitura.
-
-Objetivo: trazer o fluxo Git cotidiano com segurança.
-
-Entregas:
-
-- [x] status;
-- [x] branch atual;
-- [x] arquivos alterados;
-- [x] commits recentes;
-- [ ] criação e troca de branch;
-- [ ] pull;
-- [ ] push;
-- [ ] commit;
-- [ ] stash;
-- [ ] diff resumido;
-- [ ] confirmação para ações destrutivas;
-- [ ] histórico de operações.
-
-Critério de conclusão:
-
-- executar o fluxo diário sem abrir outro terminal para operações comuns.
-
-Dependência:
-
-- autenticação local concluída.
-
-## Fase 5 — Testes e scripts
-
-Status: entregue; testes e itens reconhecidos do catálogo podem ser executados com logs e cancelamento.
-
-Objetivo: executar e acompanhar automações dos projetos.
-
-Entregas:
-
-- [x] testes Rails;
-- [x] testes Node;
-- [ ] arquivo específico;
-- [ ] cobertura;
-- [x] catálogo de scripts do `package.json`;
-- [x] execução de scripts do `package.json`;
-- [x] seleção de package manager para scripts;
-- [x] jobs em memória representados por processos gerenciados;
-- [x] cancelamento;
-- [x] logs por polling durante a execução;
-- [ ] histórico persistente de resultados.
-
-Critério de conclusão:
-
-- iniciar uma suíte, acompanhar e consultar o resultado pelo navegador.
-
-## Fase 6 — Ferramentas Rails
-
-Objetivo: alcançar paridade relevante com o CLI Rails.
-
-Entregas:
-
-- migrations;
-- status de migrations;
-- rollback;
-- seed;
-- prepare;
-- Rake tasks;
-- Bundler;
-- Sidekiq;
-- Webpack;
-- routes;
-- generators;
-- credenciais;
-- confirmações para operações de risco.
-
-Critério de conclusão:
-
-- as operações Rails mais frequentes estarem disponíveis no projeto.
-
-## Fase 7 — Eventos e jobs em tempo real
-
-Objetivo: substituir polling onde houver benefício.
-
-Entregas:
-
-- modelo persistente de jobs;
-- [x] Server-Sent Events para execuções do catálogo;
-- eventos de processo;
-- [x] eventos de estado e log do catálogo;
-- progresso;
-- cancelamento;
-- histórico;
-- painel de atividade.
-
-Critério de conclusão:
-
-- execuções reconhecidas do catálogo atualizarem a UI sem polling contínuo; demais domínios serão migrados incrementalmente.
-
-## Fase 8 — Command palette e produtividade
-
-Objetivo: recuperar a velocidade do terminal dentro do navegador.
-
-Entregas:
-
-- `Ctrl+K` e `Cmd+K`;
-- busca de projetos;
-- troca de workspace;
-- ações por contexto;
-- recentes;
-- favoritos;
-- atalhos configuráveis;
-- navegação por teclado.
-
-Critério de conclusão:
-
-- executar ações frequentes sem navegar por múltiplas telas.
-
-## Fase 9 — Integrações
-
-Possibilidades:
-
-- GitHub CLI;
-- abertura no editor;
-- Docker Compose;
-- notificações desktop;
-- health checks configuráveis;
-- perfis de ambiente;
-- importação de repositórios;
-- clonagem;
-- templates de comandos.
-
-Cada integração deve ser avaliada pelo modelo de segurança.
-
-## Fase 10 — Extensibilidade
-
-Objetivo: permitir recursos adicionais sem ampliar continuamente o núcleo.
-
-Possibilidades:
-
-- manifesto de plugin;
-- capacidades declarativas;
-- ações customizadas controladas;
-- extensões por projeto;
-- adaptadores;
-- temas;
-- painéis adicionais.
-
-Não deve existir plugin arbitrário remoto sem revisão do modelo de ameaça.
-
-## Backlog técnico
-
-- [x] testes do Process Manager para o escopo atual;
-- [x] testes das rotas Fastify para o escopo atual;
-- testes dos componentes Vue;
-- Playwright;
-- lint e formatação;
-- [x] CI;
-- release automatizado;
-- changelog;
-- licença;
-- migração de configuração;
-- versionamento de estado;
-- mascaramento de segredos;
-- [x] rotação e retenção de logs;
-- suporte a múltiplos bancos;
-- detecção de monorepos;
-- scans recursivos opcionais;
-- symlinks;
+Este documento registra capacidades e prioridade. O plano executável da próxima
+entrega fica em `docs/tasks/NEXT.md`; ideias nos horizontes posteriores não são
+compromissos de versão.
+
+## Estado consolidado em 26/07/2026
+
+### Fundação e distribuição local — concluídas
+
+- [x] monorepo, workspaces npm e contratos TypeScript;
+- [x] descoberta de projetos Rails e Node em workspaces persistentes;
+- [x] gerenciamento seguro de servidores, portas, estado e logs;
+- [x] autenticação local, origem/CORS, erros e schemas de resposta;
+- [x] frontend estático servido pela API em origem única;
+- [x] sessão segura de navegador e comando `npm run dev-web`;
+- [x] diagnóstico não destrutivo, CI, typecheck, build e testes;
+- [x] retenção, limite de leitura e mascaramento de logs.
+
+### App shell e detalhe do projeto — parcialmente concluídos
+
+- [x] Vue Router, layout, dashboard, workspaces e projetos;
+- [x] detalhe com abas de visão geral, Git, testes, banco e scripts;
+- [x] servidor, configuração de porta, URLs, logs e limpeza;
+- [x] estados vazios e componentes reutilizáveis iniciais;
+- [ ] painel global de atividade;
+- [ ] página global de processos/jobs;
+- [ ] configurações globais;
+- [ ] loading skeletons, notificações e acessibilidade auditada;
+- [ ] navegação otimizada para tablet validada por E2E.
+
+### Git — leitura entregue, mutações pendentes
+
+- [x] status, branch, arquivos alterados e commits recentes;
+- [ ] diff por arquivo e diff resumido;
+- [ ] criação/troca de branch, pull e push;
+- [ ] commit e stash;
+- [ ] confirmação por risco e histórico das mutações.
+
+### Testes e catálogo — parcialmente concluídos
+
+- [x] detecção e execução de suítes Rails e Node;
+- [x] processo, cancelamento e logs de testes;
+- [x] catálogo de scripts Node, tarefas Rails e executáveis conhecidos;
+- [x] execução segura, confirmação, cancelamento e logs;
+- [x] histórico persistente e paginado do catálogo;
+- [x] SSE autenticado das execuções do catálogo;
+- [ ] arquivo/caso específico e relatório de cobertura;
+- [ ] histórico persistente e eventos para testes;
+- [ ] modelo global de atividade sem duplicar fontes de verdade.
+
+### Banco e ferramentas Rails — inspeção inicial entregue
+
+- [x] detecção de configurações, disponibilidade e segredo sob demanda;
+- [x] inicialização segura de serviço local reconhecido;
+- [ ] migrations status e routes no web;
+- [ ] migrate, rollback, seed e prepare com política de risco;
+- [ ] Bundler, Sidekiq, Webpack, generators e credenciais;
+- [ ] suporte validado a múltiplos bancos.
+
+### CLI Bash — mantido e funcional
+
+- [x] menus com `gum` e fallback puro;
+- [x] operações Git, Rails, Node, processos, banco e testes;
+- [ ] cache da detecção inicial;
+- [ ] estratégia deliberada para compartilhar regras com o web;
+- [ ] suíte própria de testes para helpers não interativos.
+
+## Horizonte 1 — coerência operacional
+
+### 1. Painel de atividade unificado
+
+Projeção somente leitura de catálogo, testes e servidores, com origem,
+durabilidade e navegação explícitas. Não cria um segundo histórico. Plano:
+`docs/tasks/NEXT.md`.
+
+Critério de saída: consultar atividades sem ampliar acesso a logs ou caminhos e
+sem esconder diferenças de retenção entre os domínios.
+
+### 2. Base de testes da interface
+
+- testes montados dos componentes críticos;
+- smoke E2E de workspace → projeto → execução → log;
+- matriz de estados vazio, loading, erro, sucesso e troca de projeto;
+- auditoria inicial de teclado e foco.
+
+Critério de saída: os fluxos privilegiados principais deixam de depender apenas
+de QA manual.
+
+### 3. Página global de processos
+
+- servidores e testes ativos;
+- filtros fechados por workspace, projeto e tipo;
+- links para o contexto do projeto;
+- limpeza segura de estados e logs elegíveis;
+- nenhuma execução arbitrária ou caminho exposto.
+
+Critério de saída: identificar e encerrar um processo gerenciado sem percorrer
+todos os projetos.
+
+## Horizonte 2 — produtividade diária
+
+1. **Git em etapas:** diff somente leitura; depois branch; pull/push; commit e
+   stash, cada mutação com confirmação e histórico.
+2. **Testes focados:** arquivo/caso reconhecido, cobertura e histórico
+   persistente antes de migrar seus eventos para SSE.
+3. **Rails de baixo risco:** migrations status, routes e diagnóstico Bundler;
+   depois operações mutáveis com confirmação proporcional.
+4. **Command palette:** busca e navegação por teclado, restrita a ações já
+   autorizadas em suas telas.
+5. **Configurações e notificações:** preferências de UI, retenção dentro de
+   limites seguros e avisos locais de conclusão.
+
+Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
+um terminal genérico disfarçado.
+
+## Horizonte 3 — projetos maiores e integrações
+
+- detecção de monorepos e scan recursivo opt-in, limitado por profundidade,
+  quantidade, timeout e diretórios ignorados;
+- Docker Compose por serviços declarados e allowlist;
+- health checks configuráveis por tipos fechados;
+- abertura no editor por adaptadores locais conhecidos;
+- favoritos, recentes e perfis de ambiente sem valores secretos no frontend;
+- GitHub CLI somente após revisão do modelo de autorização.
+
+Critério de saída: atender repositórios complexos mantendo descoberta previsível
+e integrações revogáveis.
+
+## Horizonte 4 — extensibilidade e portabilidade
+
+- manifesto declarativo de extensões e capacidades;
+- adaptadores versionados e revisados;
+- temas e painéis adicionais sem execução remota;
 - compatibilidade macOS;
-- compatibilidade Windows.
+- estratégia separada para Windows, onde processos, sinais e filesystem têm
+  semânticas diferentes;
+- migração e backup versionados do estado local.
+
+Plugins remotos arbitrários, shell livre e exposição da API na rede não fazem
+parte deste horizonte.
+
+## Backlog de engenharia
+
+### Qualidade
+
+- [ ] testes de componentes Vue;
+- [ ] Playwright/smoke E2E;
+- [ ] lint e formatação automatizados;
+- [ ] medição de cobertura com metas por camada;
+- [x] testes de API e Process Manager;
+- [x] CI em push e pull request.
+
+### Operação e governança
+
+- [ ] release automatizado e changelog;
+- [ ] licença;
+- [ ] documentação da API gerada ou verificada contra as rotas;
+- [ ] política geral de migração/backup do estado;
+- [ ] matriz de suporte de sistemas e runtimes;
+- [x] diagnóstico local;
+- [x] logs com retenção e proteção de conteúdo.
+
+### Descoberta e compatibilidade
+
+- [ ] monorepos e scans recursivos opcionais;
+- [ ] política explícita para symlinks;
+- [ ] macOS;
+- [ ] Windows.
 
 ## Critérios de priorização
 
-As tarefas devem ser priorizadas por:
-
-1. segurança;
-2. confiabilidade;
+1. segurança e isolamento local;
+2. confiabilidade e observabilidade;
 3. valor diário;
-4. redução de tarefas repetitivas;
-5. reaproveitamento entre CLI e web;
-6. qualidade da experiência;
-7. extensibilidade.
+4. cobertura automatizada do risco introduzido;
+5. redução de tarefas repetitivas;
+6. consistência entre interfaces sem acoplamento prematuro;
+7. acessibilidade e qualidade da experiência;
+8. extensibilidade.
 
-## Estratégia de branches
+## Estratégia de entrega
 
-Sugestão inicial:
-
-```text
-feat/web-foundation
-feat/local-security
-feat/app-shell
-feat/project-details
-feat/git-status
-feat/git-actions
-feat/test-runner
-feat/rails-tools
-feat/jobs-and-events
-feat/command-palette
-```
-
-Cada branch deve:
-
-- partir da `main` atualizada;
-- possuir escopo coerente;
-- incluir testes;
-- atualizar documentação quando necessário;
-- passar pelas validações;
-- evitar mudanças não relacionadas.
-
-## Próxima branch recomendada
-
-Após o merge da fundação:
+Cada branch deve partir da base atual, ter um escopo coerente, documentar sua
+task numerada, adicionar testes proporcionais e atualizar `NEXT.md`. A próxima
+branch recomendada é:
 
 ```text
-feat/local-security
+feat/unified-activity-panel
 ```
 
-Escopo:
-
-- token local;
-- proteção de origem;
-- CORS;
-- testes de API;
-- schemas de resposta;
-- tratamento global de erros.
-
-Esse trabalho deve acontecer antes das operações Git e de banco.
-
-## Atualização — configuração de servidores locais
-
-A branch `feat/api-response-schemas` também consolida a configuração de
-servidores por projeto:
-
-- porta fixa opcional ou seleção automática por projeto;
-- validação de porta entre 1024 e 65535;
-- erro explícito quando uma porta configurada está ocupada;
-- binding dos servidores em `0.0.0.0`;
-- acesso simultâneo por `localhost` e pelos IPv4 locais da máquina;
-- argumentos de binding para Rails, Vite, Next, Nuxt e Astro;
-- variáveis `HOST` e `PORT` para outros projetos Node;
-- URLs acessíveis persistidas junto ao processo;
-- cleanup de logs sem confiar em caminhos persistidos;
-- schemas de erro compartilhados para respostas HTTP.
-
-Ao iniciar um projeto, seu servidor fica acessível na rede local. A API do Dev
-Dashboard continua restrita a `127.0.0.1`.
+Operações mutáveis devem ser pequenas e revisáveis: não agrupar várias ações
+Git/Rails privilegiadas em uma única entrega.

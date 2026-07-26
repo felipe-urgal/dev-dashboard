@@ -43,7 +43,6 @@ packages/
   core/              # Configuração de workspaces, token local
   project-discovery/ # Detecção de projetos (Rails / Node)
   process-manager/   # Ciclo de vida de processos (server / test)
-  shell-adapter/     # Placeholder ainda não implementado
 lib/           # CLI bash original (carregado pelo ~/.bashrc)
 docs/
   architecture/  # overview.md, security.md
