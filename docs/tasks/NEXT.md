@@ -1,63 +1,57 @@
-# Próxima atividade — 027: Testes de arquivo/caso específico
+# Próxima atividade — 028: Histórico persistente de execuções de teste
 
 ## Contexto
 
-A série "Git em etapas" do Horizonte 2 está concluída (branch na task 016,
-pull/push na 025, commit/stash na 026). O roadmap aponta "testes focados"
-como a próxima frente: hoje o catálogo de testes
-(`packages/contracts/src/test.ts`, `TestDetectionService`) só reconhece
-comandos de suíte inteira (`vitest`, `jest`, `rspec`, `rails-test`, etc.);
-não há como rodar um arquivo ou caso específico, nem relatório de cobertura,
-nem histórico persistente equivalente ao já existente para o catálogo de
-scripts (`ScriptExecutionService`, tasks 007-010).
+A task 027 entregou execução de arquivo específico, reaproveitando o
+`ProcessManager.startTest` existente (um único "slot" de teste por projeto,
+sem histórico — cada nova execução substitui o estado da anterior). O
+roadmap lista "histórico persistente e eventos para testes" como o próximo
+passo desta frente, "antes de migrar para SSE". O catálogo de scripts já tem
+esse padrão pronto desde as tasks 009-010
+(`ScriptExecutionService`, persistência versionada e limitada, paginação por
+IDs) — a ideia aqui é replicar a mesma abordagem para execuções de teste, não
+inventar um modelo novo.
 
 ## Objetivo
 
-Permitir executar um arquivo de teste específico (e, quando o runner
-suportar de forma simples, um caso/describe nomeado) reconhecido pela
-detecção existente, com o mesmo padrão de segurança do catálogo de scripts:
-catálogo fechado, sem shell arbitrário, execução cancelável, logs limitados
-e mascarados.
+Persistir um histórico limitado das execuções de teste (suíte inteira ou
+arquivo específico) por projeto, sobrevivendo a reinícios da API, com
+paginação e consulta pelo painel de testes — sem duplicar o modelo de
+atividade unificado nem migrar para eventos em tempo real ainda.
 
 ## Plano detalhado
 
-1. Estender `ProjectTestCommand`/`TestDetectionService` para expor, quando o
-   runner suportar (`vitest`, `jest`, `rspec`, `rails-test`, `minitest`,
-   `pytest`), uma forma de compor o comando com um caminho de arquivo
-   validado contra o diretório do projeto — reaproveitando a validação de
-   path já usada no diff Git (`ensurePathInsideProject`, task 015) como
-   referência.
-2. Decidir e documentar, por runner, a sintaxe suportada para "arquivo
-   específico" e se um nome de caso/describe é aceito nesta etapa ou fica
-   para uma entrega seguinte (evitar tentar suportar sintaxe arbitrária de
-   todos os runners de uma vez).
-3. Reaproveitar o motor de execução já existente para o catálogo de scripts
-   (processo sem shell, cancelamento, log limitado e mascarado) em vez de
-   duplicar um segundo executor.
-4. Expor rota(s) privadas para listar arquivos de teste elegíveis de um
-   projeto e para iniciar a execução de um arquivo específico, seguindo o
-   catálogo fechado de ações já estabelecido.
-5. Adicionar ao painel de testes do detalhe do projeto uma forma de escolher
-   um arquivo e disparar sua execução, com log e cancelamento como as demais
-   execuções.
-6. Cobrir com testes de serviço (composição do comando por runner, rejeição
-   de path fora do projeto) e de rota; ao menos um teste montado do painel.
+1. Estudar `ScriptExecutionService` (`apps/api/src/services/script-execution-service.ts`,
+   tasks 007-010) como referência direta: formato de persistência, limite de
+   histórico, reconciliação após reinício, paginação por IDs.
+2. Decidir se o histórico de teste é um serviço próprio ou uma extensão do
+   `ProcessManager` existente — hoje `ProcessManager` só rastreia o processo
+   atual (`getTestProcess`/`startTest`), sem lista de execuções passadas;
+   registrar isso é uma mudança de modelo, não só um campo novo.
+3. Persistir metadados suficientes por execução: comando/arquivo alvo,
+   início/fim, exit code, status — reaproveitando o mascaramento de log já
+   existente para a leitura do conteúdo salvo.
+4. Expor rota(s) de listagem paginada do histórico por projeto.
+5. Adicionar ao painel de testes uma lista do histórico recente, distinta da
+   execução atual já exibida.
+6. Cobrir com testes de serviço (persistência, reconciliação após reinício,
+   paginação) e de rota; ao menos um teste montado do painel.
 
 ## Fora do escopo
 
-- Relatório de cobertura (fica para uma entrega seguinte desta mesma série).
-- Histórico persistente e eventos SSE para execuções de teste (a infra já
-  existe para o catálogo de scripts; migrar/generalizar é decisão
-  arquitetural própria, não uma extensão implícita desta task).
-- Suporte a sintaxe de caso/describe para todos os runners — só os que
-  tiverem uma forma simples e seringa de expressar isso na CLI.
-- Watch mode ou execução contínua.
+- Eventos SSE para execuções de teste (migração explicitamente posterior ao
+  histórico persistente, por decisão do próprio roadmap).
+- Relatório de cobertura.
+- Sintaxe de caso/describe.
+- Unificar este histórico com o painel de atividade global — mantém-se como
+  consulta própria do painel de testes por enquanto, evitando duplicar fontes
+  de verdade sem uma decisão explícita do modelo global (item separado no
+  roadmap).
 
 ## Critérios de aceite
 
-- é possível escolher um arquivo de teste reconhecido e executá-lo
-  isoladamente, com cancelamento e log como as demais execuções;
-- um caminho fora do projeto ou não reconhecido pela detecção é recusado
-  antes de qualquer execução;
+- o histórico de execuções de teste sobrevive a um reinício da API;
+- é possível consultar execuções anteriores (suíte ou arquivo) paginadas por
+  projeto, sem afetar a exibição da execução em andamento;
 - `npm run typecheck`, `npm run build` e `npm test` passam com os novos
   testes de API e de componente.

@@ -331,7 +331,7 @@ export const gitStashEntryResponseSchema = {
 export const projectTestCommandResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'runner', 'label', 'description', 'origin', 'priority'],
+  required: ['id', 'runner', 'label', 'description', 'origin', 'priority', 'supportsFileTarget'],
   properties: {
     id: { type: 'string' },
     runner: {
@@ -346,6 +346,16 @@ export const projectTestCommandResponseSchema = {
     },
     originDetail: { type: 'string' },
     priority: { type: 'integer' },
+    supportsFileTarget: { type: 'boolean' },
+  },
+} as const;
+
+export const projectTestFileResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['path'],
+  properties: {
+    path: { type: 'string' },
   },
 } as const;
 

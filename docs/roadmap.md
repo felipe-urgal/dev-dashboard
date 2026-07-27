@@ -59,7 +59,7 @@ compromissos de versão.
 - [x] execução segura, confirmação, cancelamento e logs;
 - [x] histórico persistente e paginado do catálogo;
 - [x] SSE autenticado das execuções do catálogo;
-- [ ] arquivo/caso específico e relatório de cobertura;
+- [x] arquivo específico (task 027; sem caso/describe nomeado e sem relatório de cobertura, ambos pendentes);
 - [ ] histórico persistente e eventos para testes;
 - [ ] modelo global de atividade sem duplicar fontes de verdade.
 

@@ -3,16 +3,19 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type {
   ManagedProcess,
   Project,
+  ProjectTestFile,
   ProjectTestOverview,
   ProjectTestRunner,
 } from '@dev-dashboard/contracts';
 
 import {
   clearProjectTestLog,
+  fetchProjectTestFiles,
   fetchProjectTestLog,
   fetchProjectTestProcess,
   fetchProjectTests,
   startProjectTest,
+  startProjectTestFile,
   stopProjectTest,
 } from '../api';
 import Card from './Card.vue';
@@ -27,6 +30,12 @@ const loadingOverview = ref(false);
 const startingCommandId = ref<string | null>(null);
 const stopping = ref(false);
 const errorMessage = ref('');
+
+const openFilePickerCommandId = ref<string | null>(null);
+const loadingFilesCommandId = ref<string | null>(null);
+const testFiles = ref<ProjectTestFile[]>([]);
+const selectedFilePath = ref('');
+const fileErrorMessage = ref('');
 
 let generation = 0;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -218,6 +227,59 @@ async function handleStart(commandId: string): Promise<void> {
   }
 }
 
+async function toggleFilePicker(commandId: string): Promise<void> {
+  if (openFilePickerCommandId.value === commandId) {
+    openFilePickerCommandId.value = null;
+    return;
+  }
+  const projectId = props.project.id;
+  openFilePickerCommandId.value = commandId;
+  selectedFilePath.value = '';
+  fileErrorMessage.value = '';
+  loadingFilesCommandId.value = commandId;
+  testFiles.value = [];
+  try {
+    const files = await fetchProjectTestFiles(projectId, commandId);
+    if (projectId !== props.project.id || openFilePickerCommandId.value !== commandId) return;
+    testFiles.value = files;
+  } catch (error) {
+    if (projectId === props.project.id && openFilePickerCommandId.value === commandId) {
+      fileErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível listar os arquivos de teste.';
+    }
+  } finally {
+    if (loadingFilesCommandId.value === commandId) {
+      loadingFilesCommandId.value = null;
+    }
+  }
+}
+
+async function handleStartFile(commandId: string): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
+  const filePath = selectedFilePath.value;
+  if (!filePath) return;
+  startingCommandId.value = commandId;
+  errorMessage.value = '';
+  fileErrorMessage.value = '';
+  try {
+    const result = await startProjectTestFile(projectId, commandId, filePath);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+    managedProcess.value = result;
+    logContent.value = '';
+    logTruncated.value = false;
+    openFilePickerCommandId.value = null;
+    schedulePolling();
+  } catch (error) {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      fileErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o arquivo de teste.';
+    }
+  } finally {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      startingCommandId.value = null;
+    }
+  }
+}
+
 async function handleStop(): Promise<void> {
   const projectId = props.project.id;
   const requestGeneration = generation;
@@ -274,6 +336,11 @@ watch(
     startingCommandId.value = null;
     stopping.value = false;
     errorMessage.value = '';
+    openFilePickerCommandId.value = null;
+    loadingFilesCommandId.value = null;
+    testFiles.value = [];
+    selectedFilePath.value = '';
+    fileErrorMessage.value = '';
     void loadOverview();
     void refreshProcess();
   },
@@ -340,14 +407,48 @@ onBeforeUnmount(clearPolling);
             <p>{{ command.description }}</p>
             <small>Origem: {{ command.origin }}<span v-if="command.originDetail"> · {{ command.originDetail }}</span></small>
           </div>
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="isRunning || startingCommandId !== null"
-            @click="handleStart(command.id)"
+          <div class="tests-command-actions">
+            <button
+              type="button"
+              class="primary-button"
+              :disabled="isRunning || startingCommandId !== null"
+              @click="handleStart(command.id)"
+            >
+              {{ startingCommandId === command.id ? 'Iniciando...' : 'Executar' }}
+            </button>
+            <button
+              v-if="command.supportsFileTarget"
+              type="button"
+              class="secondary-button"
+              :disabled="isRunning || startingCommandId !== null"
+              @click="toggleFilePicker(command.id)"
+            >
+              {{ openFilePickerCommandId === command.id ? 'Fechar' : 'Executar arquivo' }}
+            </button>
+          </div>
+
+          <div
+            v-if="command.supportsFileTarget && openFilePickerCommandId === command.id"
+            class="tests-file-picker"
           >
-            {{ startingCommandId === command.id ? 'Iniciando...' : 'Executar' }}
-          </button>
+            <p v-if="fileErrorMessage" class="project-error" role="alert">{{ fileErrorMessage }}</p>
+            <p v-else-if="loadingFilesCommandId === command.id" class="tests-log-empty">Carregando arquivos…</p>
+            <p v-else-if="testFiles.length === 0" class="tests-log-empty">Nenhum arquivo de teste encontrado.</p>
+            <template v-else>
+              <select v-model="selectedFilePath">
+                <option value="" disabled>Selecione um arquivo</option>
+                <option v-for="file in testFiles" :key="file.path" :value="file.path">{{ file.path }}</option>
+              </select>
+              <button
+                type="button"
+                class="primary-button"
+                :disabled="isRunning || startingCommandId !== null || !selectedFilePath"
+                @click="handleStartFile(command.id)"
+              >
+                {{ startingCommandId === command.id ? 'Iniciando...' : 'Executar arquivo selecionado' }}
+              </button>
+            </template>
+          </div>
         </li>
       </ul>
     </div>
@@ -393,6 +494,9 @@ onBeforeUnmount(clearPolling);
 .tests-command-item { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--color-border, #d5d5dc); border-radius: 8px; flex-wrap: wrap; }
 .tests-command-item p { margin: 0.25rem 0; color: var(--color-text-muted, #6b6b74); }
 .tests-command-label { margin-left: 0.5rem; font-family: ui-monospace, monospace; font-size: 0.9em; }
+.tests-command-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tests-file-picker { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; flex-basis: 100%; width: 100%; padding-top: 0.5rem; border-top: 1px solid var(--color-border, #d5d5dc); }
+.tests-file-picker select { flex: 1 1 220px; min-width: 180px; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--color-border, #d5d5dc); }
 .tests-run-details dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem 1rem; margin: 0.5rem 0 1rem; }
 .tests-run-details dt { font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted, #6b6b74); }
 .tests-run-details dd { margin: 0; }

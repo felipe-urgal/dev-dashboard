@@ -38,6 +38,7 @@ export type {
 
 export type {
   ProjectTestCommand,
+  ProjectTestFile,
   ProjectTestOrigin,
   ProjectTestOverview,
   ProjectTestRunner,

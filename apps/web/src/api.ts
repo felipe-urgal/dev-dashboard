@@ -14,6 +14,7 @@ import type {
   Project,
   ProjectServerSettings,
   ProjectGitOverview,
+  ProjectTestFile,
   ProjectTestOverview,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
@@ -622,6 +623,37 @@ export async function clearProjectTestLog(
     { method: 'DELETE' },
   );
   return response.log;
+}
+
+interface ProjectTestFilesResponse { files: ProjectTestFile[] }
+
+export async function fetchProjectTestFiles(
+  projectId: string,
+  commandId: string,
+): Promise<ProjectTestFile[]> {
+  const response = await requestJson<ProjectTestFilesResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files`,
+  );
+  return response.files;
+}
+
+export async function startProjectTestFile(
+  projectId: string,
+  commandId: string,
+  path: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<ProcessResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files/start`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    },
+  );
+  if (!response.process) {
+    throw new Error('A API não retornou o processo iniciado.');
+  }
+  return response.process;
 }
 
 interface ProjectDatabaseResponse { database: ProjectDatabaseOverview; }

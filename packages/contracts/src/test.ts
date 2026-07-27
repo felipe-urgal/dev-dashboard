@@ -22,9 +22,14 @@ export interface ProjectTestCommand {
   origin: ProjectTestOrigin;
   originDetail?: string;
   priority: number;
+  supportsFileTarget: boolean;
 }
 
 export interface ProjectTestOverview {
   supported: boolean;
   commands: ProjectTestCommand[];
+}
+
+export interface ProjectTestFile {
+  path: string;
 }
