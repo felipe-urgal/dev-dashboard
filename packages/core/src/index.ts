@@ -13,6 +13,8 @@ export {
   WorkspaceRepositoryError
 } from "./workspace-repository.js";
 
+export { RetentionSettingsRepository, RETENTION_SETTINGS_LIMITS } from './retention-settings-repository.js';
+
 export type {
   CreateWorkspaceInput,
   WorkspaceRepositoryErrorCode

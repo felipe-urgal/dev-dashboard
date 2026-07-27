@@ -17,6 +17,10 @@ A revisão encontrou uma divergência de acessibilidade: o diálogo declarava
 do overlay. A paleta agora mantém a navegação por `Tab` dentro dos controles do
 diálogo e continua devolvendo o foco ao elemento que a abriu.
 
+A revisão seguinte, na task 035, também impediu ações de servidor enquanto a
+consulta de estado ainda está pendente ou falhou. Estado desconhecido não é mais
+interpretado como processo parado.
+
 ## Inventário e escopo entregue
 
 - **Navegação/leitura:** páginas globais, projetos e áreas do projeto continuam

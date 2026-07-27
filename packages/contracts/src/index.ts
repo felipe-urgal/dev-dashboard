@@ -1,6 +1,12 @@
 export type { Workspace } from './workspace.js';
 
 export type {
+  RetentionSettings,
+  RetentionSettingsLimits,
+  RetentionSettingsSnapshot,
+} from './settings.js';
+
+export type {
   Project,
   ProjectCapability,
   ProjectSource,

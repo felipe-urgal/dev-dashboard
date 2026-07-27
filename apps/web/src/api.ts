@@ -34,6 +34,8 @@ import type {
   TestExecutionEvent,
   TestExecutionHistory,
   Workspace,
+  RetentionSettings,
+  RetentionSettingsSnapshot,
 } from '@dev-dashboard/contracts';
 
 interface ScriptCatalogResponse { catalog: ProjectScriptCatalog }
@@ -824,4 +826,14 @@ export async function fetchActivities(query: ActivityQuery = {}): Promise<Activi
   const init: RequestInit = query.signal ? { signal: query.signal } : {};
   const response = await requestJson<ActivityListResponse>(url, init);
   return response.activities;
+}
+
+export function fetchRetentionSettings(): Promise<RetentionSettingsSnapshot> {
+  return requestJson<RetentionSettingsSnapshot>('/api/settings/retention');
+}
+
+export function updateRetentionSettings(values: RetentionSettings): Promise<RetentionSettingsSnapshot> {
+  return requestJson<RetentionSettingsSnapshot>('/api/settings/retention', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values),
+  });
 }

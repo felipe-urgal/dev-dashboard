@@ -1,4 +1,4 @@
-import { WorkspaceRepository } from '@dev-dashboard/core';
+import { RetentionSettingsRepository, WorkspaceRepository } from '@dev-dashboard/core';
 
 import {
   ProcessManager,
@@ -18,6 +18,7 @@ import { ActivityService } from './services/activity-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
+  retentionSettingsRepository: RetentionSettingsRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -33,12 +34,14 @@ export interface AppContext {
 }
 
 export function createAppContext(): AppContext {
+  const retentionSettingsRepository = new RetentionSettingsRepository();
   const scriptDetectionService = new ScriptDetectionService();
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
   return {
     workspaceRepository: new WorkspaceRepository(),
+    retentionSettingsRepository,
     processManager,
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
