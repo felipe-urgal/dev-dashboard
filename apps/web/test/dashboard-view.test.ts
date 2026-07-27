@@ -76,9 +76,16 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('compõe hero, workspace, métricas e repositórios com Card', () => {
+  it('compõe os três protótipos, workspace e repositórios com Card', async () => {
     const wrapper = mountView();
-    expect(wrapper.find('.hero-copy').classes()).toContain('dd-card');
+    expect(wrapper.findAll('[role="tab"]')).toHaveLength(3);
+    expect(wrapper.get('.orbital-hero').text()).toContain('em órbita');
+
+    await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
+    expect(wrapper.get('.terminal-hero').text()).toContain('ZERO RUÍDO');
+
+    await wrapper.findAll('[role="tab"]')[2]!.trigger('click');
+    expect(wrapper.get('.aurora-hero').text()).toContain('criar sem atrito');
     expect(wrapper.find('.workspace-panel').classes()).toContain('dd-card');
     expect(wrapper.findAll('.metric-card')).toHaveLength(4);
     expect(wrapper.find('.repositories-section').classes()).toContain('dd-card');

@@ -1,4 +1,4 @@
-# Próxima atividade — 030: Migrations status e routes (Rails, somente leitura)
+# Próxima atividade — 031: Migrations status e routes (Rails, somente leitura)
 
 ## Contexto
 
