@@ -1,57 +1,63 @@
-# Próxima atividade — 030: Migrations status e routes (Rails, somente leitura)
+# Próxima atividade — 031: Migrations mutáveis (migrate, rollback, seed, prepare)
 
 ## Contexto
 
-A série "testes focados" está concluída (arquivo específico na task 027,
-histórico persistente na 028, eventos SSE na 029). O roadmap passa agora
-para "Rails de baixo risco": hoje `DatabaseDetectionService` e
-`ProjectDatabasePanel.vue` cobrem detecção de configuração, disponibilidade
-e inicialização segura de serviço local, mas não expõem nada específico do
-Rails em si (migrations pendentes, rotas declaradas). Esta task cobre só a
-parte somente-leitura; operações mutáveis (`migrate`, `rollback`, `seed`,
-`prepare`) ficam para uma entrega seguinte com política de risco própria.
+A task 030 entregou a parte somente-leitura de Rails: status de migrations e
+lista de rotas, sem executar nenhuma mutação. O roadmap prevê agora a
+contraparte mutável — `migrate`, `rollback`, `seed` e `db:prepare` — com
+política de risco proporcional, no mesmo padrão de confirmação já usado
+pelas mutações Git (`GitMutationOperation`, tasks 016/025/026) e pelo
+catálogo de scripts (`ProjectScriptRisk`, `ScriptExecutionConfirmation`).
 
 ## Objetivo
 
-Mostrar, no detalhe de um projeto Rails, o status de migrations (pendentes
-vs. aplicadas) e a lista de rotas declaradas (`bin/rails routes`), sem
-executar nenhuma mutação — apenas leitura de comandos read-only já
-conhecidos, no mesmo padrão de segurança do restante do produto (catálogo
-fechado, sem shell arbitrário).
+Permitir rodar `db:migrate`, `db:rollback`, `db:seed` e `db:prepare` a partir
+do painel de banco de um projeto Rails, com confirmação obrigatória antes de
+qualquer execução, catálogo fechado de comandos (sem shell arbitrário) e
+histórico/registro compatível com o resto do produto.
 
 ## Plano detalhado
 
-1. Detectar comandos de leitura conhecidos por projeto Rails: status de
-   migrations (`bin/rails db:migrate:status` ou `bundle exec rails
-   db:migrate:status`, mesma lógica de preferência bin/bundle já usada em
-   `database-detection-service.ts` e `test-detection-service.ts`) e rotas
-   (`bin/rails routes` ou `bundle exec rails routes`).
-2. Executar esses comandos como leitura pontual (não como processo
-   gerenciado de longa duração — não é um servidor nem uma suíte de teste),
-   parseando a saída para uma estrutura tipada (lista de migrations com
-   versão/nome/status; lista de rotas com verbo/path/controller#action).
-3. Expor rota(s) privadas somente leitura em `apps/api/src/routes/database.ts`
-   (ou um arquivo dedicado, se a mistura de responsabilidades ficar grande).
-4. Adicionar ao `ProjectDatabasePanel.vue` (ou um painel Rails dedicado) uma
-   seção com o status de migrations e uma lista/busca simples de rotas.
-5. Cobrir com testes de serviço (parsing da saída de migrations e de rotas,
-   incluindo saída vazia/sem Rails) e de rota; ao menos um teste montado do
-   painel.
+1. Definir o catálogo fechado de operações mutáveis em
+   `RailsInspectionService` (ou um novo `RailsMutationService`, se a mistura
+   de responsabilidades ficar grande): `migrate` (`db:migrate`, sem versão
+   específica nesta entrega), `rollback` (`db:rollback`, sempre um passo —
+   `STEP=1` — sem parametrização de quantidade), `seed` (`db:seed`) e
+   `prepare` (`db:prepare`). Reaproveitar a resolução bin/bundle já usada na
+   task 030.
+2. Modelar confirmação seguindo o formato de `GitMutationConfirmation`
+   (token de curta duração, operação, alvo — aqui o ambiente/banco
+   detectado — e expiração), em vez de inventar um mecanismo novo.
+3. Rotas privadas: `POST /api/projects/:projectId/rails/migrate/confirm` (ou
+   reaproveitar o padrão de confirmação de scripts, se fizer mais sentido
+   depois de comparar os dois formatos existentes) seguida de
+   `POST /api/projects/:projectId/rails/migrate`, e o equivalente para
+   rollback/seed/prepare.
+4. Reaproveitar `ProcessManager` para a execução em si (não é leitura
+   pontual como a task 030 — pode ter saída longa em bancos grandes), no
+   mesmo "slot" de processo de banco do projeto, com log e cancelamento.
+5. Atualizar `ProjectDatabasePanel.vue`: ações de migrate/rollback/seed/
+   prepare com confirmação explícita (modal ou passo intermediário, não um
+   único clique), desabilitadas quando a operação já está em andamento, e
+   atualização do status de migrations (task 030) após a conclusão.
+6. Testes de serviço (catálogo de operações, confirmação expirada/reutilizada
+   como as de Git, rejeição sem confirmação prévia), testes de rota, e ao
+   menos um teste montado do painel cobrindo o fluxo de confirmação.
 
 ## Fora do escopo
 
-- `migrate`, `rollback`, `seed`, `prepare` ou qualquer mutação no banco —
-  ficam para a entrega seguinte, com confirmação proporcional ao risco.
+- Seleção de versão específica para migrate/rollback (ex. `VERSION=`) ou
+  rollback de mais de um passo.
 - Diagnóstico de Bundler, Sidekiq, Webpack, generators ou credenciais.
 - Suporte a múltiplos bancos por projeto.
-- Execução de migrations pendentes a partir da UI.
+- Qualquer execução em ambiente de produção (o catálogo assume
+  desenvolvimento/teste local, coerente com o restante do produto).
 
 ## Critérios de aceite
 
-- o detalhe de um projeto Rails mostra migrations pendentes/aplicadas e a
-  lista de rotas sem executar nenhuma mutação;
-- projetos sem Rails ou sem `bin/rails` continuam funcionando sem erro,
-  apenas sem a seção (mesmo padrão de "não suportado" já usado em testes e
-  banco);
+- é possível rodar migrate/rollback/seed/prepare em um projeto Rails a
+  partir do painel, com confirmação obrigatória antes de cada execução;
+- nenhuma operação executa sem confirmação válida e não expirada;
+- projetos sem Rails ou sem `bin/rails` continuam sem a seção, sem erro;
 - `npm run typecheck`, `npm run build` e `npm test` passam com os novos
   testes de API e de componente.
