@@ -92,6 +92,12 @@ export function createDashboardStore(
     ),
   );
 
+  const knownProjects = computed(() =>
+    Object.values(projectIndex.value).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    ),
+  );
+
   function clearMessages(): void {
     errorMessage.value = '';
     successMessage.value = '';
@@ -469,6 +475,7 @@ export function createDashboardStore(
     nodeProjects,
     gitProjects,
     sortedProjects,
+    knownProjects,
     ensureDashboardLoaded,
     ensureProject,
     scanSelectedWorkspace,

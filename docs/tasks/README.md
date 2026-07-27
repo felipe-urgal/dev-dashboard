@@ -36,3 +36,7 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `027-test-focused-execution.md` — execução de um arquivo de teste específico (Vitest, Jest, node:test, RSpec, Rails Test e pytest), reaproveitando o motor de execução existente do catálogo de testes.
 - `028-test-execution-history.md` — histórico persistente e paginado das execuções de teste por projeto, sobrevivendo a reinícios da API, reconciliado a partir do snapshot único mantido pelo `ProcessManager`.
 - `029-test-execution-events.md` — eventos SSE autenticados para a execução de teste em andamento (estado + log), substituindo o polling do painel pelo mesmo padrão de reconexão com backoff do catálogo de scripts.
+- `030-rails-migrations-routes.md` — inspeção Rails somente leitura de migrations e rotas reconhecidas.
+- `031-rails-migrations-mutable.md` — operações Rails de migrations com catálogo fechado e confirmação obrigatória.
+- `032-bundler-diagnostics.md` — diagnóstico Bundler somente leitura para projetos Rails.
+- `033-command-palette-navigation.md` — primeira fatia da command palette, com busca e navegação client-side por teclado.
