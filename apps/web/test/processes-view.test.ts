@@ -96,7 +96,7 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
   assert.match(text, /porta 3000/);
   const kinds = wrapper.findAll('.activity-item-origin').map((node) => node.text());
   assert.deepEqual(kinds, ['Servidor', 'Testes']);
-  const statuses = wrapper.findAll('.activity-status').map((node) => node.text());
+  const statuses = wrapper.findAll('.dd-status-badge').map((node) => node.text());
   assert.deepEqual(statuses, ['Em execução', 'Parado']);
 });
 

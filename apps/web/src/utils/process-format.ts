@@ -22,15 +22,6 @@ export function processStatusLabel(status: ManagedProcessStatus): string {
   }
 }
 
-export function processStatusToneClass(status: ManagedProcessStatus): string {
-  switch (status) {
-    case 'starting': case 'stopping': return 'activity-status-running';
-    case 'running': return 'activity-status-succeeded';
-    case 'stopped': return 'activity-status-cancelled';
-    case 'failed': return 'activity-status-failed';
-  }
-}
-
 export function processDetailPath(process: ManagedProcess): string {
   const base = `/projects/${encodeURIComponent(process.projectId)}`;
   if (process.kind === 'test') return `${base}/tests`;

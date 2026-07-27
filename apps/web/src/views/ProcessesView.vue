@@ -17,8 +17,9 @@ import {
   processDetailPath,
   processDurationReference,
   processStatusLabel,
-  processStatusToneClass,
 } from '../utils/process-format';
+import { processToneFor } from '../utils/status-tones';
+import StatusBadge from '../components/StatusBadge.vue';
 import { RequestGeneration } from '../utils/request-generation';
 
 interface ProjectOption { id: string; name: string; workspaceId?: string }
@@ -216,9 +217,7 @@ onBeforeUnmount(() => {
             <span class="activity-item-origin">{{ kindLabel(process.kind) }}</span>
           </div>
           <div class="activity-item-meta">
-            <span class="activity-status" :class="processStatusToneClass(process.status)">
-              {{ processStatusLabel(process.status) }}
-            </span>
+            <StatusBadge :tone="processToneFor(process.status)">{{ processStatusLabel(process.status) }}</StatusBadge>
             <span v-if="process.pid">PID {{ process.pid }}</span>
             <span v-if="process.port">porta {{ process.port }}</span>
             <span>duração {{ formatDuration(process.startedAt, processDurationReference(process, now)) }}</span>

@@ -210,9 +210,11 @@ existentes):
    decorativo do card) está alinhada ao princípio "informação acima
    de decoração" documentado acima; padding e conteúdo internos
    seguem iguais.
-3. Extrair `<StatusBadge>` e migrar `ActivityView`, `ProcessesView`,
-   `ProjectGitPanel` (badges de arquivo/commit/mutação),
-   `ProjectDatabasePanel`, `ProjectScriptsPanel`.
+3. **Entregue na task 019.** Extrair `<StatusBadge>` e migrar
+   `ActivityView`, `ProcessesView`, `ProjectGitPanel`,
+   `ProjectDatabasePanel`, `ProjectScriptsPanel`. Cinco famílias de
+   classes ad hoc (`activity-status-*`, `git-status-*`,
+   `script-risk-*`, `database-status-*`) removidas do CSS legado.
 4. Migrar painéis de detalhe do projeto para `<Card>` (Git, Server,
    Tests, Database, Scripts).
 5. Migrar `DashboardView` (hero, workspace panel, lista de projetos).

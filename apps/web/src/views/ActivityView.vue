@@ -15,8 +15,9 @@ import {
   formatInstant,
   originLabel,
   statusLabel,
-  statusToneClass,
 } from '../utils/activity-format';
+import { activityToneFor } from '../utils/status-tones';
+import StatusBadge from '../components/StatusBadge.vue';
 import { RequestGeneration } from '../utils/request-generation';
 
 interface ProjectOption { id: string; name: string; workspaceId?: string }
@@ -207,7 +208,7 @@ onBeforeUnmount(() => {
             <span class="activity-item-origin">{{ originLabel(activity.origin) }}</span>
           </div>
           <div class="activity-item-meta">
-            <span class="activity-status" :class="statusToneClass(activity.status)">{{ statusLabel(activity.status) }}</span>
+            <StatusBadge :tone="activityToneFor(activity.status)">{{ statusLabel(activity.status) }}</StatusBadge>
             <span>Início: {{ formatInstant(activity.startedAt) }}</span>
             <span v-if="activity.finishedAt">Fim: {{ formatInstant(activity.finishedAt) }}</span>
           </div>

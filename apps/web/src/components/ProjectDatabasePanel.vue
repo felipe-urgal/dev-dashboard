@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue';
 import type { Project, ProjectDatabaseOverview } from '@dev-dashboard/contracts';
   
 import { fetchProjectDatabase, revealProjectDatabaseUrl, startProjectDatabase } from '../api';
+import { dbReachabilityToneFor } from '../utils/status-tones';
+import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 const overview = ref<ProjectDatabaseOverview | null>(null);
@@ -64,7 +66,7 @@ watch(() => props.project.id, () => { generation++; overview.value = null; revea
     <div v-else-if="overview && !overview.supported" class="database-empty-state"><strong>Nenhuma configuração reconhecida.</strong><span>Procuramos por database.yml, arquivos .env, Prisma e knexfile.</span></div>
     <div v-else-if="overview" class="database-list">
       <article v-for="item in overview.environments" :key="item.id" class="database-card">
-        <header><div><span class="database-environment">{{ item.environment }}</span><h4>{{ item.database ?? 'Banco não informado' }}</h4></div><span class="database-status" :class="`database-status-${item.reachability}`">{{ reachabilityLabels[item.reachability] }}</span></header>
+        <header><div><span class="database-environment">{{ item.environment }}</span><h4>{{ item.database ?? 'Banco não informado' }}</h4></div><StatusBadge :tone="dbReachabilityToneFor(item.reachability)">{{ reachabilityLabels[item.reachability] }}</StatusBadge></header>
         <dl><div><dt>Driver</dt><dd>{{ item.driver }}</dd></div><div><dt>Servidor</dt><dd>{{ item.host ? `${item.host}${item.port ? `:${item.port}` : ''}` : 'Não informado' }}</dd></div><div><dt>Usuário</dt><dd>{{ item.username ?? 'Não informado' }}</dd></div><div><dt>Origem</dt><dd>{{ item.sourceDetail }}</dd></div></dl>
         <code v-if="item.maskedUrl || revealed[item.id]" class="database-url">{{ revealed[item.id] ?? item.maskedUrl }}</code>
         <footer><button v-if="item.reachability === 'unreachable'" class="primary-button" type="button" :disabled="starting[item.id] || !item.startAvailable" :title="item.startAvailable ? 'Iniciar o serviço local com systemctl' : 'Driver local sem serviço systemd reconhecido'" @click="start(item.id)">{{ starting[item.id] ? 'Iniciando...' : item.startAvailable ? 'Iniciar banco local' : 'Início não configurado' }}</button><button v-if="item.passwordConfigured" class="secondary-button" type="button" @click="reveal(item.id)">{{ revealed[item.id] ? 'Ocultar senha' : 'Revelar senha' }}</button><button v-if="revealed[item.id] || (!item.passwordConfigured && item.maskedUrl)" class="secondary-button" type="button" @click="copy(revealed[item.id] ?? item.maskedUrl ?? '')">Copiar URL</button><a class="secondary-button link-button" :href="clientUrl(item.id, item.driver)">Abrir cliente</a></footer>

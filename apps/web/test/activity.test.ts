@@ -8,8 +8,8 @@ import {
   activityDetailPath,
   originLabel,
   statusLabel,
-  statusToneClass,
 } from '../src/utils/activity-format.js';
+import { activityToneFor } from '../src/utils/status-tones.js';
 
 test('buildActivityQuery omits empty fields and encodes provided ones', () => {
   assert.equal(buildActivityQuery({}), '');
@@ -37,8 +37,11 @@ test('status and origin formatters cover every discriminated variant', () => {
   assert.equal(statusLabel('cancelled'), 'Cancelada');
   assert.equal(statusLabel('unknown'), 'Desconhecida');
 
-  assert.equal(statusToneClass('failed'), 'activity-status-failed');
-  assert.equal(statusToneClass('cancelled'), 'activity-status-cancelled');
+  assert.equal(activityToneFor('failed'), 'danger');
+  assert.equal(activityToneFor('cancelled'), 'warning');
+  assert.equal(activityToneFor('running'), 'info');
+  assert.equal(activityToneFor('succeeded'), 'success');
+  assert.equal(activityToneFor('unknown'), 'neutral');
 
   assert.equal(originLabel('script'), 'Catálogo');
   assert.equal(originLabel('test'), 'Testes');
