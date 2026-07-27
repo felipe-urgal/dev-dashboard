@@ -11,6 +11,7 @@ import {
 } from '../api';
 import { gitFileToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
+import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
 const overview = ref<ProjectGitOverview | null>(null);
@@ -152,17 +153,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="project-git-panel">
-    <header class="git-panel-header">
-      <div>
+  <Card padded class="project-detail-card">
+    <template #header>
+      <div class="project-panel-heading">
         <span class="section-kicker">Controle de versão</span>
         <h3>Git</h3>
         <p>{{ summary }}</p>
       </div>
+    </template>
+    <template #actions>
       <button type="button" class="secondary-button" :disabled="loading" @click="loadGit">
         {{ loading ? 'Atualizando...' : 'Atualizar' }}
       </button>
-    </header>
+    </template>
 
     <div v-if="errorMessage" class="project-error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="loading && !overview" class="git-empty-state">Consultando repositório...</div>
@@ -278,5 +281,5 @@ onBeforeUnmount(() => {
         </ol>
       </section>
     </template>
-  </section>
+  </Card>
 </template>

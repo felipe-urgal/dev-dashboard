@@ -1225,29 +1225,21 @@ a.secondary-button {
   text-decoration: none;
 }
 
-.project-server-panel {
+.dd-card.project-detail-card {
   display: grid;
-  gap: 13px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
-.project-server-panel-compact {
-  padding-top: 13px;
-  border-top: 1px solid #20252f;
+.project-panel-heading h3 {
+  margin: var(--space-1) 0;
+  font-size: var(--font-lg);
 }
 
-.project-server-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.project-server-summary strong {
-  display: block;
-  margin-top: 5px;
-  color: #dce1eb;
-  font-size: 12px;
+.project-panel-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .project-server-actions {
@@ -1258,7 +1250,7 @@ a.secondary-button {
   gap: 7px;
 }
 
-.project-server-panel-details .project-log-output {
+.project-server-card-details .project-log-output {
   min-height: 300px;
   max-height: 560px;
 }
@@ -1612,10 +1604,6 @@ a.secondary-button {
 }
 
 /* Project Git */
-.project-git-panel { display: grid; gap: 18px; padding: 22px; border: 1px solid #242b37; border-radius: 14px; background: #10141b; }
-.git-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.git-panel-header h3 { margin: 6px 0 4px; font-size: 20px; }
-.git-panel-header p { margin: 0; color: #778195; font-size: 11px; }
 .git-metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .git-metrics-grid article { display: grid; gap: 6px; padding: 15px; border: 1px solid #262d39; border-radius: 10px; background: #0c1016; }
 .git-metrics-grid span { color: #697386; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -1634,13 +1622,9 @@ a.secondary-button {
 .git-commit-list span { margin-top: 4px; color: #657084; font-size: 9px; }
 .git-empty-state, .git-empty-inline { display: grid; gap: 7px; place-items: center; min-height: 150px; padding: 24px; border: 1px dashed #303744; border-radius: 10px; color: #778195; font-size: 11px; text-align: center; }
 .git-empty-inline { min-height: 90px; }
-@media (max-width: 720px) { .git-metrics-grid { grid-template-columns: 1fr; } .git-panel-header { align-items: stretch; flex-direction: column; } .git-file-list li { grid-template-columns: 1fr auto; } .git-file-list code { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 720px) { .git-metrics-grid { grid-template-columns: 1fr; } .git-file-list li { grid-template-columns: 1fr auto; } .git-file-list code { grid-column: 1 / -1; grid-row: 2; } }
 
 /* Banco de dados do projeto */
-.project-database-panel { display: grid; gap: 18px; padding: 22px; border: 1px solid #242b37; border-radius: 14px; background: #10141b; }
-.database-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.database-panel-header h3 { margin: 6px 0 4px; font-size: 20px; }
-.database-panel-header p { margin: 0; color: #778195; font-size: 11px; }
 .database-empty-state { display: grid; gap: 7px; place-items: center; min-height: 180px; padding: 24px; border: 1px dashed #303744; border-radius: 10px; color: #778195; font-size: 11px; text-align: center; }
 .database-list { display: grid; gap: 12px; }
 .database-card { display: grid; gap: 14px; padding: 16px; border: 1px solid #262d39; border-radius: 11px; background: #0c1016; }
@@ -1651,15 +1635,13 @@ a.secondary-button {
 .database-card dl div { min-width: 0; }.database-card dt { color: #697386; font-size: 8px; font-weight: 800; text-transform: uppercase; }.database-card dd { overflow: hidden; margin: 4px 0 0; color: #c2cad8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .database-url { overflow-x: auto; padding: 11px; border-radius: 7px; color: #aeb8c8; background: #080b0f; font-size: 10px; white-space: nowrap; }
 .database-card footer { justify-content: flex-end; }.database-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; color: #778195; font-size: 10px; }
-@media (max-width: 720px) { .database-panel-header { align-items: stretch; flex-direction: column; }.database-card dl { grid-template-columns: repeat(2, 1fr); }.database-card footer { align-items: stretch; flex-direction: column; } }
+@media (max-width: 720px) { .database-card dl { grid-template-columns: repeat(2, 1fr); }.database-card footer { align-items: stretch; flex-direction: column; } }
 
 /* Scripts e tarefas */
-.project-scripts-panel { display: grid; gap: 18px; padding: 22px; border: 1px solid #242b37; border-radius: 14px; background: #10141b; }
-.scripts-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }.scripts-panel-header h3 { margin: 6px 0 4px; font-size: 20px; }.scripts-panel-header p { margin: 0; color: #778195; font-size: 11px; }
 .scripts-filters { display: grid; grid-template-columns: minmax(220px, 1fr) 190px 170px; gap: 10px; }.scripts-filters input, .scripts-filters select { min-width: 0; padding: 10px 12px; border: 1px solid #2a3240; border-radius: 8px; color: #cbd2df; background: #0a0d12; font: inherit; font-size: 10px; }
 .scripts-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }.script-card { display: grid; gap: 12px; padding: 16px; border: 1px solid #262d39; border-radius: 11px; background: #0c1016; }.script-card header, .script-card footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }.script-card header div > span { color: #687386; font-size: 8px; font-weight: 800; text-transform: uppercase; }.script-card h4 { margin: 5px 0 0; color: #e1e5ed; font-size: 14px; }.script-card p { margin: 0; color: #788397; font-size: 10px; }.script-card code { overflow-x: auto; padding: 10px; border-radius: 7px; color: #aeb8c8; background: #080b0f; font-size: 10px; white-space: nowrap; }.script-card footer { align-items: center; }.script-card footer small { color: #df98a4; font-size: 9px; }
 .scripts-empty { display: grid; gap: 7px; min-height: 160px; place-items: center; align-content: center; padding: 24px; border: 1px dashed #303744; border-radius: 10px; color: #778195; font-size: 11px; text-align: center; }.scripts-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; color: #778195; font-size: 10px; }
-@media (max-width: 760px) { .scripts-panel-header { align-items: stretch; flex-direction: column; }.scripts-filters, .scripts-list { grid-template-columns: 1fr; }.scripts-pagination { flex-wrap: wrap; } }
+@media (max-width: 760px) { .scripts-filters, .scripts-list { grid-template-columns: 1fr; }.scripts-pagination { flex-wrap: wrap; } }
 .project-log-redaction-warning { padding: 9px 11px; border: 1px solid #584b24; border-radius: 7px; color: #e0ca82; background: #2c2614; font-size: 10px; }
 
 /* Painel de atividade */

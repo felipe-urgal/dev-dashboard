@@ -215,8 +215,11 @@ existentes):
    `ProjectDatabasePanel`, `ProjectScriptsPanel`. Cinco famílias de
    classes ad hoc (`activity-status-*`, `git-status-*`,
    `script-risk-*`, `database-status-*`) removidas do CSS legado.
-4. Migrar painéis de detalhe do projeto para `<Card>` (Git, Server,
-   Tests, Database, Scripts).
+4. **Entregue na task 020.** Migrar painéis de detalhe do projeto para
+   `<Card>` (Git, Server, Tests, Database, Scripts). A uniformização
+   aplica padding de 20 px e raio de 10 px no lugar das variações
+   legadas de 22 px e 14 px; a superfície e o contorno passam a vir
+   exclusivamente dos tokens de `<Card>`.
 5. Migrar `DashboardView` (hero, workspace panel, lista de projetos).
 6. Introduzir `data-density` e `data-theme` na sidebar.
 7. Remover CSS legado desabilitado do `styles.css` original.

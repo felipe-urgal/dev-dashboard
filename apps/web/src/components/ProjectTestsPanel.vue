@@ -15,6 +15,7 @@ import {
   startProjectTest,
   stopProjectTest,
 } from '../api';
+import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
 
@@ -291,9 +292,9 @@ onBeforeUnmount(clearPolling);
 </script>
 
 <template>
-  <section class="project-tests-panel">
-    <header class="tests-panel-header">
-      <div>
+  <Card padded class="project-detail-card">
+    <template #header>
+      <div class="project-panel-heading">
         <span class="section-kicker">Qualidade</span>
         <h3>Testes</h3>
         <p>
@@ -301,6 +302,8 @@ onBeforeUnmount(clearPolling);
           <span v-if="duration"> · {{ duration }}</span>
         </p>
       </div>
+    </template>
+    <template #actions>
       <button
         type="button"
         class="secondary-button"
@@ -309,7 +312,7 @@ onBeforeUnmount(clearPolling);
       >
         {{ loadingOverview ? 'Atualizando...' : 'Atualizar' }}
       </button>
-    </header>
+    </template>
 
     <div v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
@@ -382,12 +385,10 @@ onBeforeUnmount(clearPolling);
 </span>{{ logContent }}</pre>
       <p v-else class="tests-log-empty">Sem saída registrada ainda.</p>
     </div>
-  </section>
+  </Card>
 </template>
 
 <style scoped>
-.project-tests-panel { display: flex; flex-direction: column; gap: 1rem; }
-.tests-panel-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .tests-commands ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .tests-command-item { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--color-border, #d5d5dc); border-radius: 8px; flex-wrap: wrap; }
 .tests-command-item p { margin: 0.25rem 0; color: var(--color-text-muted, #6b6b74); }

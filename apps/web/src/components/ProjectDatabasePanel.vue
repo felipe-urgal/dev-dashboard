@@ -5,6 +5,7 @@ import type { Project, ProjectDatabaseOverview } from '@dev-dashboard/contracts'
 import { fetchProjectDatabase, revealProjectDatabaseUrl, startProjectDatabase } from '../api';
 import { dbReachabilityToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
+import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
 const overview = ref<ProjectDatabaseOverview | null>(null);
@@ -59,8 +60,9 @@ watch(() => props.project.id, () => { generation++; overview.value = null; revea
 </script>
 
 <template>
-  <section class="project-database-panel">
-    <header class="database-panel-header"><div><span class="section-kicker">Infraestrutura local</span><h3>Banco de dados</h3><p>Configurações reconhecidas, com credenciais mascaradas por padrão.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="loadDatabase()">{{ loading ? 'Atualizando...' : 'Atualizar' }}</button></header>
+  <Card padded class="project-detail-card">
+    <template #header><div class="project-panel-heading"><span class="section-kicker">Infraestrutura local</span><h3>Banco de dados</h3><p>Configurações reconhecidas, com credenciais mascaradas por padrão.</p></div></template>
+    <template #actions><button class="secondary-button" type="button" :disabled="loading" @click="loadDatabase()">{{ loading ? 'Atualizando...' : 'Atualizar' }}</button></template>
     <div v-if="errorMessage" class="project-error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="loading && !overview" class="database-empty-state">Detectando configurações...</div>
     <div v-else-if="overview && !overview.supported" class="database-empty-state"><strong>Nenhuma configuração reconhecida.</strong><span>Procuramos por database.yml, arquivos .env, Prisma e knexfile.</span></div>
@@ -73,5 +75,5 @@ watch(() => props.project.id, () => { generation++; overview.value = null; revea
       </article>
       <nav v-if="pages > 1" class="database-pagination" aria-label="Paginação dos ambientes"><button class="secondary-button" :disabled="page <= 1 || loading" @click="loadDatabase(page - 1)">Anterior</button><span>Página {{ page }} de {{ pages }}</span><button class="secondary-button" :disabled="page >= pages || loading" @click="loadDatabase(page + 1)">Próxima</button></nav>
     </div>
-  </section>
+  </Card>
 </template>
