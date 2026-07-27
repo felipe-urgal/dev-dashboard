@@ -543,6 +543,43 @@ export const gitFileDiffResponseSchema = {
   },
 } as const;
 
+export const railsMigrationEntryResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['version', 'name', 'status'],
+  properties: {
+    version: { type: 'string' }, name: { type: 'string' },
+    status: { type: 'string', enum: ['up', 'down'] },
+  },
+} as const;
+
+export const railsMigrationsOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'migrations'],
+  properties: {
+    supported: { type: 'boolean' },
+    database: { type: 'string' },
+    migrations: { type: 'array', items: railsMigrationEntryResponseSchema },
+  },
+} as const;
+
+export const railsRouteEntryResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['verb', 'path', 'controllerAction'],
+  properties: {
+    name: { type: 'string' }, verb: { type: 'string' },
+    path: { type: 'string' }, controllerAction: { type: 'string' },
+  },
+} as const;
+
+export const railsRoutesOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'routes'],
+  properties: {
+    supported: { type: 'boolean' },
+    routes: { type: 'array', items: railsRouteEntryResponseSchema },
+  },
+} as const;
+
 export const activityListResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['items', 'page', 'pageSize', 'total', 'totalPages'],

@@ -58,6 +58,14 @@ export type {
 } from './database.js';
 
 export type {
+  RailsMigrationEntry,
+  RailsMigrationStatus,
+  RailsMigrationsOverview,
+  RailsRouteEntry,
+  RailsRoutesOverview,
+} from './rails.js';
+
+export type {
   Activity,
   ActivityBase,
   ActivityList,

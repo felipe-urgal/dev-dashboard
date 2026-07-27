@@ -1218,6 +1218,22 @@ a.secondary-button {
 .database-card footer { justify-content: flex-end; }.database-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; color: var(--text-muted); font-size: 10px; }
 @media (max-width: 720px) { .database-card dl { grid-template-columns: repeat(2, 1fr); }.database-card footer { align-items: stretch; flex-direction: column; } }
 
+/* Migrations e rotas Rails (somente leitura) */
+.migrations-panel, .routes-panel { display: grid; gap: 12px; }
+.migrations-summary { margin: 0; color: var(--text-muted); font-size: 11px; }
+.migrations-summary strong { color: var(--text); font-size: 13px; }
+.migrations-table, .routes-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.migrations-table th, .routes-table th { padding: 8px 10px; color: var(--text-muted); font-size: 9px; font-weight: 800; text-align: left; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.migrations-table td, .routes-table td { padding: 8px 10px; overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.migrations-table tbody tr:last-child td, .routes-table tbody tr:last-child td { border-bottom: none; }
+.route-search { width: 100%; padding: 9px 12px; color: var(--text); background: var(--surface-0); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; }
+.route-verb { display: inline-block; padding: 2px 7px; color: var(--text-muted); font-size: 9px; font-weight: 800; letter-spacing: .04em; background: var(--surface-2); border-radius: 999px; }
+.route-verb-get { color: var(--success-text); background: var(--success-surface); }
+.route-verb-post { color: var(--info-text); background: var(--info-surface); }
+.route-verb-put, .route-verb-patch { color: var(--warning-text); background: var(--warning-surface); }
+.route-verb-delete { color: var(--danger-text); background: var(--danger-surface); }
+@media (max-width: 720px) { .migrations-table, .routes-table { display: block; overflow-x: auto; } }
+
 /* Scripts e tarefas */
 .scripts-filters { display: grid; grid-template-columns: minmax(220px, 1fr) 190px 170px; gap: 10px; }.scripts-filters input, .scripts-filters select { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface-0); font: inherit; font-size: 10px; }
 .scripts-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }.script-card { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-1); }.script-card header, .script-card footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }.script-card header div > span { color: var(--text-muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }.script-card h4 { margin: 5px 0 0; color: var(--text); font-size: 14px; }.script-card p { margin: 0; color: var(--text-muted); font-size: 10px; }.script-card code { overflow-x: auto; padding: 10px; border-radius: 7px; color: var(--text); background: var(--surface-0); font-size: 10px; white-space: nowrap; }.script-card footer { align-items: center; }.script-card footer small { color: var(--danger-text); font-size: 9px; }

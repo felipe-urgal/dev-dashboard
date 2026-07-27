@@ -19,6 +19,8 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
+  RailsMigrationsOverview,
+  RailsRoutesOverview,
   ProjectScriptCatalog,
   ScriptExecution,
   ScriptExecutionEvent,
@@ -714,6 +716,19 @@ export async function startProjectDatabase(projectId: string, environmentId: str
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
   });
   return response.start;
+}
+
+interface ProjectRailsMigrationsResponse { migrations: RailsMigrationsOverview; }
+interface ProjectRailsRoutesResponse { routes: RailsRoutesOverview; }
+
+export async function fetchProjectRailsMigrations(projectId: string): Promise<RailsMigrationsOverview> {
+  const response = await requestJson<ProjectRailsMigrationsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/migrations`);
+  return response.migrations;
+}
+
+export async function fetchProjectRailsRoutes(projectId: string): Promise<RailsRoutesOverview> {
+  const response = await requestJson<ProjectRailsRoutesResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/routes`);
+  return response.routes;
 }
 
 export interface ActivityQuery {

@@ -4,6 +4,7 @@ import type {
   GitFileStatus,
   ManagedProcessStatus,
   ProjectScriptRisk,
+  RailsMigrationStatus,
 } from '@dev-dashboard/contracts';
 
 import type { StatusBadgeTone } from '../components/status-badge-types';
@@ -63,4 +64,8 @@ export function dbReachabilityToneFor(state: DatabaseReachability): StatusBadgeT
     case 'unreachable': return 'danger';
     default: return 'neutral';
   }
+}
+
+export function railsMigrationToneFor(status: RailsMigrationStatus): StatusBadgeTone {
+  return status === 'up' ? 'success' : 'warning';
 }
