@@ -1,55 +1,52 @@
-# Próxima atividade — 019: `<StatusBadge>` compartilhado
+# Próxima atividade — 020: Migrar painéis de detalhe do projeto para `<Card>`
 
 ## Contexto
 
-A task 018 estabeleceu o esqueleto de tokens e o primeiro componente
-compartilhado (`<Card>`). Próximo passo da reforma (passo 3 do
-roteiro em `docs/design/redesign-2026.md`): unificar as badges
-espalhadas por vertical (`activity-status-*`, `git-status-*`,
-`script-risk-*`, `database-status-*`) em um único
-`<StatusBadge tone="…" />` usando os pares
-`--<status>-surface` / `--<status>-text` do `tokens.css`.
+Com tokens (018) e `<StatusBadge>` (019) prontos, o próximo passo da
+reforma (passo 4 do roteiro em `docs/design/redesign-2026.md`) é
+migrar os cinco painéis internos da página de detalhes do projeto
+para o `<Card>` compartilhado, unificando cabeçalho, padding e
+superfícies.
 
 ## Objetivo
 
-Introduzir um componente `<StatusBadge>` com um contrato único de
-`tone` e usá-lo em `ActivityView`, `ProcessesView`, `ProjectGitPanel`
-(status de arquivo e status de mutação), `ProjectScriptsPanel` (risk
-badge) e `ProjectDatabasePanel` (reachability badge). Nenhuma
-mudança de layout — só o vocabulário visual das badges converge para
-os tokens.
+Que cada painel (`ProjectServerPanel`, `ProjectGitPanel`,
+`ProjectTestsPanel`, `ProjectDatabasePanel`, `ProjectScriptsPanel`)
+componha sobre `<Card>` — cabeçalho com `header` + `actions` via
+slots, corpo no default. Remover do `styles.css` legado as
+declarações duplicadas de cada `.project-*-panel`, mantendo apenas o
+que é específico do conteúdo interno de cada painel.
 
 ## Plano detalhado
 
-1. Criar `apps/web/src/components/StatusBadge.vue` com prop
-   `tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral'`,
-   opcional `size: 'sm' | 'md'` (default `sm`, para chips), slot
-   default para o texto. Estilos scoped usando
-   `var(--<tone>-surface)` e `var(--<tone>-text)`.
-2. Adicionar helpers de mapeamento por domínio em
-   `apps/web/src/utils/status-tones.ts` (ex.:
-   `activityToneFor(status)`, `processToneFor(status)`,
-   `gitFileToneFor(status)`, `riskToneFor(risk)`,
-   `dbReachabilityToneFor(state)`), retornando o `tone` genérico.
-3. Substituir `<span class="activity-status activity-status-…">`
-   pelas invocações de `<StatusBadge :tone="…">` em cada view/panel
-   listado acima.
-4. Remover as classes `activity-status-*`, `git-status-*`,
-   `script-risk-*`, `database-status-*` do `styles.css` legado.
-5. Testes montados atualizados para checar `.dd-status-badge` com o
-   `tone` esperado em vez das classes antigas.
-6. Atualizar `redesign-2026.md` marcando o passo 3 como concluído.
+1. Refatorar cada painel para envolver o corpo em
+   `<Card padded>` e mover o cabeçalho atual para os slots `header`
+   e `actions`.
+2. Remover regras `.project-server-panel`, `.project-git-panel`,
+   `.project-tests-panel`, `.project-database-panel`,
+   `.project-scripts-panel` que só duplicam superfície/padding — o
+   `<Card>` já entrega isso.
+3. Os cabeçalhos ad hoc (`git-panel-header`, `tests-panel-header`,
+   `scripts-panel-header`, `database-panel-header`) viram slot
+   `header` + slot `actions`; suas classes específicas somem do
+   `styles.css`.
+4. Testes montados existentes seguem verdes; adicionar 1 caso por
+   painel checando que renderiza dentro de `<Card>` (ex.
+   `wrapper.get('.dd-card')`).
+5. Comparação visual antes/depois em ambiente rodando; documentar
+   qualquer diferença esperada em `redesign-2026.md`.
 
 ## Fora do escopo
 
-- Migrar cards internos dos painéis para `<Card>` (task 020+).
-- Trocar padrões de formulário / mensagens (mais adiante).
-- Componente de ícone dedicado (segue sendo emoji unicode em fonte).
+- Reformular `<StatusBadge>` (já entregue).
+- Padrões de formulário, mensagens e empty state — passos 5+ do
+  roteiro.
+- Toggle de tema / densidade.
 
 ## Critérios de aceite
 
-- `StatusBadge` existe e é usado por todas as telas listadas;
-- nenhuma classe `activity-status-*`, `git-status-*`,
-  `script-risk-*`, `database-status-*` sobrevive em `styles.css`;
-- suíte `apps/web` mantém-se verde (testes atuais adaptados);
-- `npm run typecheck`, `npm run build` e `npm test` verdes.
+- os cinco painéis passam a compor sobre `<Card>`;
+- classes duplicadas removidas do `styles.css`;
+- suíte `apps/web` verde com casos adicionais checando `<Card>` em
+  cada painel;
+- `npm run typecheck`, `npm run build`, `npm test` verdes.

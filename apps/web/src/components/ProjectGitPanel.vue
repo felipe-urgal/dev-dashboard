@@ -9,6 +9,8 @@ import {
   prepareProjectGitMutation,
   switchProjectGitBranch,
 } from '../api';
+import { gitFileToneFor } from '../utils/status-tones';
+import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 const overview = ref<ProjectGitOverview | null>(null);
@@ -209,7 +211,7 @@ onBeforeUnmount(() => {
         <div v-if="overview.files.length === 0" class="git-empty-inline">Nenhuma alteração local.</div>
         <ul v-else class="git-file-list">
           <li v-for="file in overview.files" :key="`${file.path}-${file.previousPath ?? ''}`">
-            <span class="git-status-badge" :class="`git-status-${file.status}`">{{ statusLabels[file.status] }}</span>
+            <StatusBadge :tone="gitFileToneFor(file.status)">{{ statusLabels[file.status] }}</StatusBadge>
             <code><template v-if="file.previousPath">{{ file.previousPath }} → </template>{{ file.path }}</code>
             <small>{{ file.indexStatus }}/{{ file.worktreeStatus }}</small>
           </li>
@@ -238,7 +240,7 @@ onBeforeUnmount(() => {
                 :class="{ 'git-diff-file-button-active': selectedFile === file.path }"
                 @click="loadFileDiff(file.path)"
               >
-                <span class="git-status-badge" :class="`git-status-${file.status}`">{{ statusLabels[file.status] }}</span>
+                <StatusBadge :tone="gitFileToneFor(file.status)">{{ statusLabels[file.status] }}</StatusBadge>
                 <code>{{ file.path }}</code>
                 <small v-if="!file.binary">+{{ file.additions }} / −{{ file.deletions }}</small>
                 <small v-else>binário</small>

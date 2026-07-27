@@ -9,8 +9,8 @@ import {
   processDetailPath,
   processDurationReference,
   processStatusLabel,
-  processStatusToneClass,
 } from '../src/utils/process-format.js';
+import { processToneFor } from '../src/utils/status-tones.js';
 
 test('labels cobrem todos os kinds e status suportados', () => {
   assert.equal(kindLabel('server'), 'Servidor');
@@ -21,9 +21,11 @@ test('labels cobrem todos os kinds e status suportados', () => {
   assert.equal(processStatusLabel('stopping'), 'Encerrando');
   assert.equal(processStatusLabel('stopped'), 'Parado');
   assert.equal(processStatusLabel('failed'), 'Falhou');
-  assert.equal(processStatusToneClass('running'), 'activity-status-succeeded');
-  assert.equal(processStatusToneClass('failed'), 'activity-status-failed');
-  assert.equal(processStatusToneClass('stopped'), 'activity-status-cancelled');
+  assert.equal(processToneFor('running'), 'success');
+  assert.equal(processToneFor('failed'), 'danger');
+  assert.equal(processToneFor('stopped'), 'warning');
+  assert.equal(processToneFor('starting'), 'info');
+  assert.equal(processToneFor('stopping'), 'info');
 });
 
 test('processDetailPath aponta test para /tests e demais kinds para a raiz do projeto', () => {

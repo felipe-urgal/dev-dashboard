@@ -2,6 +2,8 @@
 import { onUnmounted, ref, watch } from 'vue';
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionHistory, ScriptExecutionStatus } from '@dev-dashboard/contracts';
 import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, followScriptExecutionEvents, prepareScriptExecution, startScriptExecution } from '../api';
+import { riskToneFor } from '../utils/status-tones';
+import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -161,7 +163,7 @@ onUnmounted(() => { closeExecutionEvents?.(); closeExecutionEvents = null; gener
     <div v-else-if="catalog?.items.length === 0" class="scripts-empty"><strong>Nenhuma ação encontrada</strong><span>Ajuste os filtros ou confirme se o projeto possui scripts reconhecidos.</span></div>
     <div v-else class="scripts-list">
       <article v-for="item in catalog?.items" :key="item.id" class="script-card">
-        <header><div><span>{{ originLabels[item.origin] }}</span><h4>{{ item.name }}</h4></div><span class="script-risk" :class="`script-risk-${item.risk}`">{{ riskLabels[item.risk] }}</span></header>
+        <header><div><span>{{ originLabels[item.origin] }}</span><h4>{{ item.name }}</h4></div><StatusBadge :tone="riskToneFor(item.risk)">{{ riskLabels[item.risk] }}</StatusBadge></header>
         <p>{{ item.description }}</p><code>{{ item.command }}</code>
         <footer><small v-if="!item.enabled">Ação destrutiva bloqueada</small><button class="secondary-button" type="button" :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'" @click="run(item)">{{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}</button></footer>
       </article>

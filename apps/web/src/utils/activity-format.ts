@@ -10,16 +10,6 @@ export function statusLabel(status: ActivityStatus): string {
   }
 }
 
-export function statusToneClass(status: ActivityStatus): string {
-  switch (status) {
-    case 'running': return 'activity-status-running';
-    case 'succeeded': return 'activity-status-succeeded';
-    case 'failed': return 'activity-status-failed';
-    case 'cancelled': return 'activity-status-cancelled';
-    default: return 'activity-status-unknown';
-  }
-}
-
 export function originLabel(origin: ActivityOrigin): string {
   switch (origin) {
     case 'script': return 'Catálogo';
