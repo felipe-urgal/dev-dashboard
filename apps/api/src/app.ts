@@ -11,6 +11,7 @@ import { processRoutes } from './routes/processes.js';
 import { testRoutes } from './routes/tests.js';
 import { databaseRoutes } from './routes/database.js';
 import { railsRoutes } from './routes/rails.js';
+import { bundlerRoutes } from './routes/bundler.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 
@@ -123,6 +124,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
+  });
+
+  app.register(bundlerRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    bundlerInspectionService: context.bundlerInspectionService,
   });
 
   app.register(scriptRoutes, {

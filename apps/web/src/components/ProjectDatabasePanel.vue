@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { Project, ProjectDatabaseOverview, RailsMigrationMutationOperation, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
+import type { BundlerOverview, Project, ProjectDatabaseOverview, RailsMigrationMutationOperation, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
 
-import { fetchProjectDatabase, fetchProjectRailsMigrations, fetchProjectRailsRoutes, prepareProjectRailsMutation, revealProjectDatabaseUrl, runProjectRailsMutation, startProjectDatabase } from '../api';
+import { fetchProjectBundler, fetchProjectDatabase, fetchProjectRailsMigrations, fetchProjectRailsRoutes, prepareProjectRailsMutation, revealProjectDatabaseUrl, runProjectRailsMutation, startProjectDatabase } from '../api';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
@@ -29,6 +29,11 @@ const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
 const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
 const mutationOutput = ref('');
+
+const bundler = ref<BundlerOverview | null>(null);
+const bundlerLoading = ref(false);
+const bundlerErrorMessage = ref('');
+const outdatedFilter = ref('');
 
 const pages = computed(() => Math.max(1, Math.ceil((overview.value?.total ?? 0) / (overview.value?.pageSize ?? 20))));
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
@@ -60,6 +65,13 @@ const filteredRoutes = computed(() => {
     route.verb.toLowerCase().includes(query));
 });
 
+const filteredOutdatedGems = computed(() => {
+  const list = bundler.value?.outdated ?? [];
+  const query = outdatedFilter.value.trim().toLowerCase();
+  if (!query) return list;
+  return list.filter((gem) => gem.name.toLowerCase().includes(query));
+});
+
 async function loadDatabase(targetPage = page.value): Promise<void> {
   const current = ++generation; loading.value = true; errorMessage.value = '';
   try { const result = await fetchProjectDatabase(props.project.id, targetPage); if (current === generation) { overview.value = result; page.value = targetPage; } }
@@ -81,6 +93,14 @@ async function loadRoutes(): Promise<void> {
   try { routes.value = await fetchProjectRailsRoutes(props.project.id); }
   catch (error) { routesErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar as rotas.'; }
   finally { routesLoading.value = false; }
+}
+
+async function loadBundler(): Promise<void> {
+  if (!isRailsProject.value) return;
+  bundlerLoading.value = true; bundlerErrorMessage.value = '';
+  try { bundler.value = await fetchProjectBundler(props.project.id); }
+  catch (error) { bundlerErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar o Bundler.'; }
+  finally { bundlerLoading.value = false; }
 }
 
 async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
@@ -139,9 +159,11 @@ watch(() => props.project.id, () => {
   generation++; overview.value = null; revealed.value = {}; starting.value = {}; page.value = 1;
   migrations.value = null; routes.value = null; routeFilter.value = '';
   mutationRunning.value = ''; mutationMessage.value = ''; mutationErrorMessage.value = ''; mutationOutput.value = '';
+  bundler.value = null; outdatedFilter.value = '';
   void loadDatabase(1);
   void loadMigrations();
   void loadRoutes();
+  void loadBundler();
 }, { immediate: true });
 
 </script>
@@ -219,6 +241,38 @@ watch(() => props.project.id, () => {
           </tr>
         </tbody>
       </table>
+    </div>
+  </Card>
+
+  <Card v-if="isRailsProject" padded class="project-detail-card bundler-card">
+    <template #header><div class="project-panel-heading"><span class="section-kicker">Rails · somente leitura</span><h3>Dependências (Bundler)</h3><p>Resultado de <code>bundle check</code> e <code>bundle outdated</code>, sem instalar ou atualizar gems.</p></div></template>
+    <template #actions><button class="secondary-button" type="button" :disabled="bundlerLoading" @click="loadBundler">{{ bundlerLoading ? 'Atualizando...' : 'Atualizar' }}</button></template>
+    <div v-if="bundlerErrorMessage" class="project-error" role="alert">{{ bundlerErrorMessage }}</div>
+    <div v-else-if="bundlerLoading && !bundler" class="database-empty-state">Consultando o Bundler...</div>
+    <div v-else-if="bundler && !bundler.supported" class="database-empty-state"><strong>Diagnóstico Bundler indisponível.</strong><span>Não encontramos um <code>Gemfile</code> neste projeto.</span></div>
+    <div v-else-if="bundler" class="bundler-panel">
+      <p v-if="bundler.check" class="bundler-check" :class="bundler.check.satisfied ? 'bundler-check-ok' : 'bundler-check-fail'">
+        <StatusBadge :tone="bundler.check.satisfied ? 'success' : 'danger'">{{ bundler.check.satisfied ? 'Satisfeito' : 'Pendente' }}</StatusBadge>
+        <code>bundle check</code>
+      </p>
+      <pre v-if="bundler.check && !bundler.check.satisfied" class="bundler-check-message">{{ bundler.check.message }}</pre>
+
+      <template v-if="bundler.outdated.length > 0">
+        <input v-model="outdatedFilter" class="route-search" type="search" placeholder="Buscar gem desatualizada…" aria-label="Buscar gems desatualizadas" />
+        <p v-if="filteredOutdatedGems.length === 0" class="database-empty-state">Nenhuma gem corresponde à busca.</p>
+        <table v-else class="bundler-outdated-table">
+          <thead><tr><th>Gem</th><th>Instalada</th><th>Mais nova</th><th>Requisitada</th></tr></thead>
+          <tbody>
+            <tr v-for="gem in filteredOutdatedGems" :key="gem.name">
+              <td><code>{{ gem.name }}</code></td>
+              <td>{{ gem.installed }}</td>
+              <td>{{ gem.newest }}</td>
+              <td>{{ gem.requested ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+      <p v-else class="database-empty-state">Nenhuma gem desatualizada encontrada.</p>
     </div>
   </Card>
 </template>

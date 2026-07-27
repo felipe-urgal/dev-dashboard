@@ -3,7 +3,7 @@ import { afterEach, beforeEach, test } from 'vitest';
 
 import { mount, flushPromises } from '@vue/test-utils';
 
-import type { ProjectDatabaseOverview, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
+import type { BundlerOverview, ProjectDatabaseOverview, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
 
 import ProjectDatabasePanel from '../src/components/ProjectDatabasePanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
@@ -27,6 +27,15 @@ const routesOverview: RailsRoutesOverview = {
   ],
 };
 
+const bundlerOverview: BundlerOverview = {
+  supported: true,
+  check: { satisfied: true, message: '' },
+  outdated: [
+    { name: 'puma', installed: '6.4.0', newest: '6.4.2', requested: '~> 6.4' },
+    { name: 'rails', installed: '7.1.3', newest: '7.1.4' },
+  ],
+};
+
 let cleanup: (() => void) | undefined;
 beforeEach(() => { cleanup = undefined; });
 afterEach(() => { cleanup?.(); });
@@ -43,6 +52,9 @@ function mockFetchFor(project: 'rails' | 'node', onMutationCall?: (pathname: str
     }
     if (url.pathname.endsWith('/rails/routes')) {
       return new Response(JSON.stringify({ routes: project === 'rails' ? routesOverview : { supported: false, routes: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/bundler')) {
+      return new Response(JSON.stringify({ bundler: project === 'rails' ? bundlerOverview : { supported: false, outdated: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/rails/migrations/confirmations')) {
       onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
@@ -116,7 +128,7 @@ test('roda migrate após confirmação e recarrega o status', async () => {
   assert.match(wrapper.text(), /migrating/);
 });
 
-test('projeto Node não exibe seções de migrations/rotas do Rails', async () => {
+test('projeto Node não exibe seções de migrations/rotas/bundler do Rails', async () => {
   const originalFetch = mockFetchFor('node');
   const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });
   cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
@@ -125,4 +137,26 @@ test('projeto Node não exibe seções de migrations/rotas do Rails', async () =
 
   assert.ok(!wrapper.text().includes('Migrations'));
   assert.ok(!wrapper.text().includes('Rotas'));
+  assert.ok(!wrapper.text().includes('Dependências (Bundler)'));
+});
+
+test('mostra diagnóstico Bundler com gems desatualizadas e filtro', async () => {
+  const originalFetch = mockFetchFor('rails');
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Satisfeito/);
+  assert.match(wrapper.text(), /puma/);
+  assert.match(wrapper.text(), /rails/);
+
+  const outdatedInputs = wrapper.findAll('input[type="search"]');
+  const bundlerInput = outdatedInputs.find((input) => input.attributes('placeholder')?.includes('gem desatualizada'));
+  assert.ok(bundlerInput);
+  await bundlerInput!.setValue('puma');
+  await flushPromises();
+
+  assert.ok(wrapper.text().includes('6.4.2'));
+  assert.ok(!wrapper.text().includes('7.1.4'));
 });

@@ -19,6 +19,7 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
+  BundlerOverview,
   RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
   RailsMigrationMutationResult,
@@ -751,6 +752,13 @@ export async function runProjectRailsMutation(projectId: string, operation: Rail
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, confirmationToken }) },
   );
   return response.result;
+}
+
+interface ProjectBundlerResponse { bundler: BundlerOverview; }
+
+export async function fetchProjectBundler(projectId: string): Promise<BundlerOverview> {
+  const response = await requestJson<ProjectBundlerResponse>(`/api/projects/${encodeURIComponent(projectId)}/bundler`);
+  return response.bundler;
 }
 
 export interface ActivityQuery {

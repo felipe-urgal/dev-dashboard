@@ -58,6 +58,12 @@ export type {
 } from './database.js';
 
 export type {
+  BundlerCheckResult,
+  BundlerOutdatedGem,
+  BundlerOverview,
+} from './bundler.js';
+
+export type {
   RailsMigrationEntry,
   RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
