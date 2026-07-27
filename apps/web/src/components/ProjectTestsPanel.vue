@@ -6,11 +6,13 @@ import type {
   ProjectTestFile,
   ProjectTestOverview,
   ProjectTestRunner,
+  TestExecutionRecord,
 } from '@dev-dashboard/contracts';
 
 import {
   clearProjectTestLog,
   fetchProjectTestFiles,
+  fetchProjectTestHistory,
   fetchProjectTestLog,
   fetchProjectTestProcess,
   fetchProjectTests,
@@ -36,6 +38,13 @@ const loadingFilesCommandId = ref<string | null>(null);
 const testFiles = ref<ProjectTestFile[]>([]);
 const selectedFilePath = ref('');
 const fileErrorMessage = ref('');
+
+const historyItems = ref<TestExecutionRecord[]>([]);
+const historyPage = ref(1);
+const historyTotalPages = ref(0);
+const loadingHistory = ref(false);
+const historyErrorMessage = ref('');
+const HISTORY_PAGE_SIZE = 10;
 
 let generation = 0;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -280,6 +289,28 @@ async function handleStartFile(commandId: string): Promise<void> {
   }
 }
 
+async function loadHistory(page = historyPage.value): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
+  loadingHistory.value = true;
+  historyErrorMessage.value = '';
+  try {
+    const result = await fetchProjectTestHistory(projectId, page, HISTORY_PAGE_SIZE);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+    historyItems.value = result.items;
+    historyPage.value = result.page;
+    historyTotalPages.value = result.totalPages;
+  } catch (error) {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      historyErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar o histórico de execuções.';
+    }
+  } finally {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      loadingHistory.value = false;
+    }
+  }
+}
+
 async function handleStop(): Promise<void> {
   const projectId = props.project.id;
   const requestGeneration = generation;
@@ -341,8 +372,13 @@ watch(
     testFiles.value = [];
     selectedFilePath.value = '';
     fileErrorMessage.value = '';
+    historyItems.value = [];
+    historyPage.value = 1;
+    historyTotalPages.value = 0;
+    historyErrorMessage.value = '';
     void loadOverview();
     void refreshProcess();
+    void loadHistory(1);
   },
   { immediate: true },
 );
@@ -352,6 +388,7 @@ watch(isRunning, (running) => {
     schedulePolling();
   } else {
     clearPolling();
+    void loadHistory(1);
   }
 });
 
@@ -486,6 +523,39 @@ onBeforeUnmount(clearPolling);
 </span>{{ logContent }}</pre>
       <p v-else class="tests-log-empty">Sem saída registrada ainda.</p>
     </div>
+
+    <div class="tests-history">
+      <div class="tests-history-heading">
+        <h4>Histórico de execuções</h4>
+        <button type="button" class="secondary-button" :disabled="loadingHistory" @click="loadHistory()">
+          {{ loadingHistory ? 'Atualizando...' : 'Atualizar' }}
+        </button>
+      </div>
+
+      <p v-if="historyErrorMessage" class="project-error" role="alert">{{ historyErrorMessage }}</p>
+      <p v-else-if="historyItems.length === 0" class="tests-log-empty">Nenhuma execução registrada ainda.</p>
+      <ul v-else class="tests-history-list">
+        <li v-for="item in historyItems" :key="item.id">
+          <div>
+            <strong>{{ item.commandId }}</strong>
+            <span v-if="item.targetFile" class="tests-command-label">{{ item.targetFile }}</span>
+          </div>
+          <span class="tests-history-status" :class="`tests-history-status-${item.status}`">{{ item.status }}</span>
+          <span>{{ formatTimestamp(item.startedAt) }}</span>
+          <span>{{ item.exitCode ?? '—' }}</span>
+        </li>
+      </ul>
+
+      <div v-if="historyTotalPages > 1" class="tests-history-pagination">
+        <button type="button" class="secondary-button" :disabled="loadingHistory || historyPage <= 1" @click="loadHistory(historyPage - 1)">
+          Anterior
+        </button>
+        <span>Página {{ historyPage }} de {{ historyTotalPages }}</span>
+        <button type="button" class="secondary-button" :disabled="loadingHistory || historyPage >= historyTotalPages" @click="loadHistory(historyPage + 1)">
+          Próxima
+        </button>
+      </div>
+    </div>
   </Card>
 </template>
 
@@ -504,4 +574,15 @@ onBeforeUnmount(clearPolling);
 .tests-log-output { background: var(--color-surface-alt, #1a1a20); color: #f2f2f5; padding: 0.75rem; border-radius: 8px; overflow: auto; max-height: 320px; white-space: pre; font-family: ui-monospace, monospace; font-size: 0.85rem; }
 .tests-log-truncated { color: #f5c17a; }
 .tests-log-empty { color: var(--color-text-muted, #6b6b74); font-style: italic; }
+.tests-history { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border, #d5d5dc); }
+.tests-history-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+.tests-history-heading h4 { margin: 0; }
+.tests-history-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.tests-history-list li { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--color-border, #d5d5dc); border-radius: 8px; flex-wrap: wrap; font-size: 0.85rem; }
+.tests-history-list li > div { flex: 1 1 160px; }
+.tests-history-status { text-transform: capitalize; }
+.tests-history-status-failed { color: #d9534f; }
+.tests-history-status-stopped { color: var(--color-text-muted, #6b6b74); }
+.tests-history-status-running, .tests-history-status-starting, .tests-history-status-stopping { color: #f5c17a; }
+.tests-history-pagination { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem; }
 </style>

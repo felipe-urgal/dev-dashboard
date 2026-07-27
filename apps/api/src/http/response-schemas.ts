@@ -359,6 +359,35 @@ export const projectTestFileResponseSchema = {
   },
 } as const;
 
+export const testExecutionRecordResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'projectId', 'commandId', 'status', 'startedAt'],
+  properties: {
+    id: { type: 'string' },
+    projectId: { type: 'string' },
+    commandId: { type: 'string' },
+    targetFile: { type: 'string' },
+    status: { type: 'string', enum: ['starting', 'running', 'stopping', 'stopped', 'failed'] },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    exitCode: { type: 'integer' },
+  },
+} as const;
+
+export const testExecutionHistoryResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
+  properties: {
+    items: { type: 'array', items: testExecutionRecordResponseSchema },
+    page: { type: 'integer' },
+    pageSize: { type: 'integer' },
+    total: { type: 'integer' },
+    totalPages: { type: 'integer' },
+  },
+} as const;
+
 export const projectTestOverviewResponseSchema = {
   type: 'object',
   additionalProperties: false,

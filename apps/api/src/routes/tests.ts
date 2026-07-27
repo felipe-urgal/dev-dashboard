@@ -11,6 +11,7 @@ import {
 import { ApiError } from '../http/api-error.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { TestFileError, type TestDetectionService } from '../services/test-detection-service.js';
+import type { TestExecutionHistoryService } from '../services/test-execution-history-service.js';
 
 import {
   commonErrorResponseSchemas,
@@ -19,6 +20,7 @@ import {
   processLogSnapshotResponseSchema,
   projectTestFileResponseSchema,
   projectTestOverviewResponseSchema,
+  testExecutionHistoryResponseSchema,
 } from '../http/response-schemas.js';
 
 interface ProjectParams {
@@ -41,10 +43,16 @@ interface TestOverviewQuery {
   refresh?: boolean;
 }
 
+interface TestHistoryQuery {
+  page?: number;
+  pageSize?: number;
+}
+
 interface TestRouteOptions extends FastifyPluginOptions {
   processManager: ProcessManager;
   projectStore: ProjectStore;
   testDetectionService: TestDetectionService;
+  testExecutionHistoryService: TestExecutionHistoryService;
 }
 
 const projectParamsSchema = {
@@ -136,7 +144,7 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
   app,
   options,
 ) => {
-  const { processManager, projectStore, testDetectionService } = options;
+  const { processManager, projectStore, testDetectionService, testExecutionHistoryService } = options;
 
   app.get<{ Params: ProjectParams; Querystring: TestOverviewQuery }>(
     '/projects/:projectId/tests',
@@ -313,11 +321,13 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
       }
 
       try {
+        await testExecutionHistoryService.reconcile(project.id);
         const managedProcess = await processManager.startTest(project, {
           id: request.params.commandId,
           command: resolved.command,
           args: resolved.args,
         });
+        await testExecutionHistoryService.recordStart(project.id, managedProcess);
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -425,11 +435,13 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
       }
 
       try {
+        await testExecutionHistoryService.reconcile(project.id);
         const managedProcess = await processManager.startTest(project, {
           id: `${request.params.commandId}:file`,
           command: resolved.command,
           args: resolved.args,
         });
+        await testExecutionHistoryService.recordStart(project.id, managedProcess);
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -477,6 +489,41 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
         }
         throw error;
       }
+    },
+  );
+
+  app.get<{ Params: ProjectParams; Querystring: TestHistoryQuery }>(
+    '/projects/:projectId/tests/history',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            page: { type: 'integer', minimum: 1 },
+            pageSize: { type: 'integer', minimum: 1, maximum: 100 },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['history'],
+            properties: { history: testExecutionHistoryResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const history = await testExecutionHistoryService.history(
+        project.id,
+        request.query.page,
+        request.query.pageSize,
+      );
+      return { history };
     },
   );
 };

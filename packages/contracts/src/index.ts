@@ -42,6 +42,9 @@ export type {
   ProjectTestOrigin,
   ProjectTestOverview,
   ProjectTestRunner,
+  TestExecutionHistory,
+  TestExecutionRecord,
+  TestExecutionStatus,
 } from './test.js';
 
 export type {

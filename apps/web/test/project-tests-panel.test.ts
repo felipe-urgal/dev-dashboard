@@ -133,3 +133,83 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
 
   assert.match(wrapper.text(), /Comando de teste não encontrado/);
 });
+
+test('exibe o histórico de execuções retornado pela API', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/tests')) {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/process')) {
+      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/history')) {
+      return new Response(JSON.stringify({
+        history: {
+          items: [
+            { id: 'exec-1', projectId: 'p1', commandId: 'node-script-test', targetFile: 'src/app.test.ts', status: 'stopped', startedAt: '2026-07-27T10:00:00Z', finishedAt: '2026-07-27T10:00:05Z', exitCode: 0 },
+          ],
+          page: 1, pageSize: 10, total: 1, totalPages: 1,
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Histórico de execuções/);
+  const items = wrapper.findAll('.tests-history-list li');
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.text(), /node-script-test/);
+  assert.match(items[0]!.text(), /src\/app\.test\.ts/);
+});
+
+test('pagina o histórico ao clicar em Próxima', async () => {
+  const calls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    calls.push(url.search);
+    if (url.pathname.endsWith('/tests')) {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/process')) {
+      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/history')) {
+      const page = Number(url.searchParams.get('page') ?? '1');
+      return new Response(JSON.stringify({
+        history: {
+          items: [{ id: `exec-${page}`, projectId: 'p1', commandId: 'node-script-test', status: 'stopped', startedAt: '2026-07-27T10:00:00Z' }],
+          page, pageSize: 10, total: 15, totalPages: 2,
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Página 1 de 2/);
+  const nextButton = wrapper.findAll('button').find((button) => button.text() === 'Próxima');
+  await nextButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Página 2 de 2/);
+  assert.ok(calls.some((search) => search.includes('page=2')));
+});

@@ -25,6 +25,7 @@ import type {
   ScriptExecutionHistory,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
+  TestExecutionHistory,
   Workspace,
 } from '@dev-dashboard/contracts';
 
@@ -654,6 +655,20 @@ export async function startProjectTestFile(
     throw new Error('A API não retornou o processo iniciado.');
   }
   return response.process;
+}
+
+interface TestExecutionHistoryResponse { history: TestExecutionHistory }
+
+export async function fetchProjectTestHistory(
+  projectId: string,
+  page = 1,
+  pageSize = 10,
+): Promise<TestExecutionHistory> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const response = await requestJson<TestExecutionHistoryResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/history?${query}`,
+  );
+  return response.history;
 }
 
 interface ProjectDatabaseResponse { database: ProjectDatabaseOverview; }
