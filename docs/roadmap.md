@@ -142,13 +142,11 @@ um terminal genérico disfarçado.
 Antes de mais telas novas, revisitar o design como um todo antes de tocar em
 CSS. Duas etapas separadas para não misturar decisão com implementação:
 
-1. **Revisão de design** — auditar o produto como usuário: hierarquia da
-   informação, densidade, vocabulário visual (cores, tipografia, espaços,
-   badges), consistência entre `/`, `/activity`, `/processes` e detalhe do
-   projeto, e alinhamento com `docs/design/information-architecture.md`.
-   Registrar decisões em documento próprio (`docs/design/redesign-2026.md`
-   ou similar), incluindo o que fica, o que muda e o que espera evidência
-   antes de mudar. Nenhuma alteração de código nesta etapa.
+1. **Revisão de design** — entregue na task 017. Decisões
+   registradas em [`design/redesign-2026.md`](./design/redesign-2026.md)
+   (princípios, tokens de cor/tipografia/espaço, padrões de
+   card/badge/formulário/empty, densidade, tema, framework de estilo,
+   roteiro da etapa 2). Nenhum código alterado nesta etapa.
 2. **Reforma de layout** — implementar as decisões da revisão: substituir
    `styles.css` por camadas coerentes (tokens, componentes, layouts),
    revisar app shell (sidebar/topbar), padronizar cards e listas,
