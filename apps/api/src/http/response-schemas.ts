@@ -580,6 +580,28 @@ export const railsRoutesOverviewResponseSchema = {
   },
 } as const;
 
+export const bundlerOutdatedGemResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['name', 'installed', 'newest'],
+  properties: {
+    name: { type: 'string' }, installed: { type: 'string' }, newest: { type: 'string' },
+    requested: { type: 'string' },
+  },
+} as const;
+
+export const bundlerOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'outdated'],
+  properties: {
+    supported: { type: 'boolean' },
+    check: {
+      type: 'object', additionalProperties: false, required: ['satisfied', 'message'],
+      properties: { satisfied: { type: 'boolean' }, message: { type: 'string' } },
+    },
+    outdated: { type: 'array', items: bundlerOutdatedGemResponseSchema },
+  },
+} as const;
+
 export const railsMigrationMutationConfirmationResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['token', 'operation', 'expiresAt'],

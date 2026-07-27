@@ -11,6 +11,7 @@ import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { RailsInspectionService } from './services/rails-inspection-service.js';
+import { BundlerInspectionService } from './services/bundler-inspection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
@@ -25,6 +26,7 @@ export interface AppContext {
   testExecutionHistoryService: TestExecutionHistoryService;
   databaseDetectionService: DatabaseDetectionService;
   railsInspectionService: RailsInspectionService;
+  bundlerInspectionService: BundlerInspectionService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
@@ -46,6 +48,7 @@ export function createAppContext(): AppContext {
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService: new DatabaseDetectionService(),
     railsInspectionService: new RailsInspectionService(),
+    bundlerInspectionService: new BundlerInspectionService(),
     scriptDetectionService,
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),

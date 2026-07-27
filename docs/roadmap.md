@@ -69,7 +69,8 @@ compromissos de versão.
 - [x] inicialização segura de serviço local reconhecido;
 - [x] migrations status e routes no web (task 030, somente leitura);
 - [x] migrate, rollback, seed e prepare com política de risco (task 031);
-- [ ] Bundler, Sidekiq, Webpack, generators e credenciais;
+- [x] diagnóstico Bundler — check e outdated, somente leitura (task 032);
+- [ ] Sidekiq, Webpack, generators e credenciais;
 - [ ] suporte validado a múltiplos bancos.
 
 ### CLI Bash — mantido e funcional
