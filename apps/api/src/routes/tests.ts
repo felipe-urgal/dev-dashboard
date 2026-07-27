@@ -10,13 +10,14 @@ import {
 
 import { ApiError } from '../http/api-error.js';
 import type { ProjectStore } from '../store/project-store.js';
-import type { TestDetectionService } from '../services/test-detection-service.js';
+import { TestFileError, type TestDetectionService } from '../services/test-detection-service.js';
 
 import {
   commonErrorResponseSchemas,
   managedProcessResponseSchema,
   nullableManagedProcessResponseSchema,
   processLogSnapshotResponseSchema,
+  projectTestFileResponseSchema,
   projectTestOverviewResponseSchema,
 } from '../http/response-schemas.js';
 
@@ -26,6 +27,10 @@ interface ProjectParams {
 
 interface TestCommandParams extends ProjectParams {
   commandId: string;
+}
+
+interface TestFileStartBody {
+  path: string;
 }
 
 interface TestLogQuery {
@@ -98,6 +103,18 @@ function processManagerApiError(
         message: error.message,
       });
   }
+}
+
+function testFileApiError(error: TestFileError): ApiError {
+  const statuses: Record<string, number> = {
+    TEST_FILE_TARGET_UNSUPPORTED: 400,
+    TEST_FILE_NOT_FOUND: 404,
+  };
+  return new ApiError({
+    statusCode: statuses[error.code] ?? 400,
+    code: error.code,
+    message: error.message,
+  });
 }
 
 function requireProject(
@@ -314,6 +331,118 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
           statusCode: 500,
           code: 'TEST_START_FAILED',
           message: 'Não foi possível iniciar a execução dos testes.',
+        });
+      }
+    },
+  );
+
+  app.get<{ Params: TestCommandParams }>(
+    '/projects/:projectId/tests/:commandId/files',
+    {
+      schema: {
+        params: testCommandParamsSchema,
+        querystring: emptyQuerystringSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['files'],
+            properties: {
+              files: { type: 'array', items: projectTestFileResponseSchema },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const files = await testDetectionService.listTestFiles(
+        project,
+        request.params.commandId,
+      );
+
+      if (!files) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'TEST_COMMAND_NOT_FOUND',
+          message: 'Comando de teste não encontrado para este projeto.',
+        });
+      }
+
+      return { files };
+    },
+  );
+
+  app.post<{ Params: TestCommandParams; Body: TestFileStartBody }>(
+    '/projects/:projectId/tests/:commandId/files/start',
+    {
+      schema: {
+        params: testCommandParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['path'],
+          properties: {
+            path: { type: 'string', minLength: 1, maxLength: 2048 },
+          },
+        },
+        querystring: emptyQuerystringSchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['process'],
+            properties: { process: managedProcessResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(projectStore, request.params.projectId);
+
+      let resolved;
+      try {
+        resolved = await testDetectionService.resolveFileCommand(
+          project,
+          request.params.commandId,
+          request.body.path,
+        );
+      } catch (error) {
+        if (error instanceof TestFileError) {
+          throw testFileApiError(error);
+        }
+        throw error;
+      }
+
+      if (!resolved) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'TEST_COMMAND_NOT_FOUND',
+          message: 'Comando de teste não encontrado para este projeto.',
+        });
+      }
+
+      try {
+        const managedProcess = await processManager.startTest(project, {
+          id: `${request.params.commandId}:file`,
+          command: resolved.command,
+          args: resolved.args,
+        });
+        return reply.code(201).send({ process: managedProcess });
+      } catch (error) {
+        if (error instanceof ProcessManagerError) {
+          throw processManagerApiError(error);
+        }
+        request.log.error(
+          { err: error, projectId: project.id },
+          'Test file start failed',
+        );
+        throw new ApiError({
+          statusCode: 500,
+          code: 'TEST_START_FAILED',
+          message: 'Não foi possível iniciar a execução do arquivo de teste.',
         });
       }
     },

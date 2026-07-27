@@ -33,3 +33,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `024-e2e-smoke.md` — base de smoke E2E com Playwright em origem única, fixtures determinísticas e sem estado pessoal, cobrindo navegação, tema/densidade, responsividade e um baseline visual da sidebar.
 - `025-git-pull-push.md` — pull (fast-forward apenas) e push do branch atual com a mesma política de confirmação e validação de árvore limpa das mutações de branch, incluindo publicação do branch em "origin" no primeiro push.
 - `026-git-commit-stash.md` — commit (staged ou "incluir todas as alterações") e stash (guardar/restaurar o mais recente) com a mesma política de confirmação das demais mutações Git, fechando a série "Git em etapas" do roadmap.
+- `027-test-focused-execution.md` — execução de um arquivo de teste específico (Vitest, Jest, node:test, RSpec, Rails Test e pytest), reaproveitando o motor de execução existente do catálogo de testes.

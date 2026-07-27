@@ -1,12 +1,22 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
   Project,
   ProjectTestCommand,
+  ProjectTestFile,
   ProjectTestOverview,
   ProjectTestRunner,
 } from '@dev-dashboard/contracts';
+
+export type TestFileErrorCode = 'TEST_FILE_TARGET_UNSUPPORTED' | 'TEST_FILE_NOT_FOUND';
+
+export class TestFileError extends Error {
+  public constructor(public readonly code: TestFileErrorCode, message: string) {
+    super(message);
+    this.name = 'TestFileError';
+  }
+}
 
 type NodePackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
@@ -90,7 +100,7 @@ interface ResolvedCommand {
   args: string[];
 }
 
-interface DetectedTestCommand extends ProjectTestCommand {
+interface DetectedTestCommand extends Omit<ProjectTestCommand, 'supportsFileTarget'> {
   resolved: ResolvedCommand;
 }
 
@@ -396,6 +406,90 @@ async function detectPythonCommands(
   ];
 }
 
+const FILE_TARGET_PATTERNS: Partial<Record<ProjectTestRunner, RegExp>> = {
+  vitest: /\.(test|spec)\.[tj]sx?$/i,
+  jest: /\.(test|spec)\.[tj]sx?$/i,
+  'node-test': /\.(test|spec)\.[tj]sx?$/i,
+  rspec: /_spec\.rb$/i,
+  'rails-test': /_test\.rb$/i,
+  pytest: /^(test_.*|.*_test)\.py$/i,
+};
+
+const IGNORED_TEST_SCAN_DIRECTORIES = new Set([
+  '.git',
+  '.idea',
+  '.vscode',
+  'coverage',
+  'dist',
+  'node_modules',
+  'tmp',
+  'vendor',
+  'log',
+]);
+
+const MAX_TEST_FILES = 500;
+const MAX_TEST_SCAN_DEPTH = 8;
+
+async function findTestFiles(
+  projectPath: string,
+  pattern: RegExp,
+): Promise<string[]> {
+  const results: string[] = [];
+
+  async function walk(currentDirectory: string, relativeDirectory: string, depth: number): Promise<void> {
+    if (results.length >= MAX_TEST_FILES || depth > MAX_TEST_SCAN_DEPTH) {
+      return;
+    }
+
+    let entries;
+    try {
+      entries = await readdir(currentDirectory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (results.length >= MAX_TEST_FILES) return;
+      if (entry.name.startsWith('.')) continue;
+
+      const relativePath = relativeDirectory ? `${relativeDirectory}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        if (IGNORED_TEST_SCAN_DIRECTORIES.has(entry.name)) continue;
+        await walk(path.join(currentDirectory, entry.name), relativePath, depth + 1);
+      } else if (entry.isFile() && pattern.test(entry.name)) {
+        results.push(relativePath);
+      }
+    }
+  }
+
+  await walk(projectPath, '', 0);
+  return results.sort((left, right) => left.localeCompare(right));
+}
+
+function ensureTestPathInsideProject(projectPath: string, requested: string): string {
+  if (!requested || requested.includes('\0')) {
+    throw new TestFileError('TEST_FILE_NOT_FOUND', 'Caminho de arquivo de teste inválido.');
+  }
+  const normalizedProject = path.resolve(projectPath);
+  const resolved = path.resolve(normalizedProject, requested);
+  const relative = path.relative(normalizedProject, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new TestFileError('TEST_FILE_NOT_FOUND', 'Caminho de arquivo de teste fora do projeto.');
+  }
+  return relative;
+}
+
+const NPM_SCRIPT_RUNNERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
+
+function composeFileCommand(resolved: ResolvedCommand, filePath: string): ResolvedCommand {
+  const isPackageScriptInvocation = NPM_SCRIPT_RUNNERS.has(resolved.command) && resolved.args[0] === 'run';
+  if (isPackageScriptInvocation) {
+    return { command: resolved.command, args: [...resolved.args, '--', filePath] };
+  }
+  return { command: resolved.command, args: [...resolved.args, filePath] };
+}
+
 export class TestDetectionService {
   private readonly cache = new Map<string, DetectedTestCommand[]>();
 
@@ -415,7 +509,10 @@ export class TestDetectionService {
     return {
       supported: commands.length > 0,
       commands: commands
-        .map(({ resolved: _resolved, ...rest }) => rest)
+        .map(({ resolved: _resolved, ...rest }) => ({
+          ...rest,
+          supportsFileTarget: Boolean(FILE_TARGET_PATTERNS[rest.runner]),
+        }))
         .sort((left, right) => left.priority - right.priority),
     };
   }
@@ -427,6 +524,43 @@ export class TestDetectionService {
     const commands = await this.detect(project);
     const command = commands.find((entry) => entry.id === commandId);
     return command ? command.resolved : null;
+  }
+
+  public async listTestFiles(
+    project: Project,
+    commandId: string,
+  ): Promise<ProjectTestFile[] | null> {
+    const commands = await this.detect(project);
+    const command = commands.find((entry) => entry.id === commandId);
+    if (!command) return null;
+
+    const pattern = FILE_TARGET_PATTERNS[command.runner];
+    if (!pattern) return [];
+
+    const files = await findTestFiles(project.path, pattern);
+    return files.map((filePath) => ({ path: filePath }));
+  }
+
+  public async resolveFileCommand(
+    project: Project,
+    commandId: string,
+    filePath: string,
+  ): Promise<ResolvedCommand | null> {
+    const commands = await this.detect(project);
+    const command = commands.find((entry) => entry.id === commandId);
+    if (!command) return null;
+
+    const pattern = FILE_TARGET_PATTERNS[command.runner];
+    if (!pattern) {
+      throw new TestFileError('TEST_FILE_TARGET_UNSUPPORTED', 'Este comando não suporta executar um arquivo específico.');
+    }
+
+    const safePath = ensureTestPathInsideProject(project.path, filePath);
+    if (!pattern.test(path.basename(safePath))) {
+      throw new TestFileError('TEST_FILE_NOT_FOUND', 'O arquivo informado não corresponde a um arquivo de teste reconhecido.');
+    }
+
+    return composeFileCommand(command.resolved, safePath);
   }
 
   private async detect(
