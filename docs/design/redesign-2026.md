@@ -222,7 +222,9 @@ existentes):
    exclusivamente dos tokens de `<Card>`.
 5. **Entregue na task 021.** Migrar `DashboardView` (hero, workspace panel, métricas e lista de projetos) para `<Card>`, `<StatusBadge>` e tokens compartilhados.
 6. **Entregue na task 022.** Introduzir `data-density` e `data-theme` na sidebar.
-7. Remover CSS legado desabilitado do `styles.css` original.
+7. **Entregue na task 023.** Remover CSS legado desabilitado do
+   `styles.css` original, separar as regras ativas nas camadas planejadas
+   e impedir por teste a volta das famílias removidas e de cores literais.
 
 ## Fora do escopo (documentado para não voltar)
 

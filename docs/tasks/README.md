@@ -29,3 +29,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `020-project-detail-cards.md` — migração dos cinco painéis de detalhe do projeto para `<Card>`, com cabeçalhos por slots e remoção das superfícies duplicadas.
 - `021-dashboard-cards.md` — migração do hero, workspace, métricas e lista de projetos do dashboard principal para `<Card>`, `<StatusBadge>` e tokens compartilhados.
 - `022-theme-density.md` — preferências persistentes de tema e densidade, controles acessíveis e migração visual da sidebar para tokens.
+- `023-css-consolidation.md` — consolidação final do CSS legado em camadas, migração de cores ativas para tokens e guardas automatizadas da arquitetura visual.
