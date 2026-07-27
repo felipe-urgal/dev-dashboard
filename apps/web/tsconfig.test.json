@@ -11,6 +11,7 @@
     "src/api.ts",
     "src/stores/dashboard.ts",
     "src/utils/**/*.ts",
+    "src/components/**/*.vue",
     "src/views/**/*.vue",
     "test/**/*.ts"
   ],

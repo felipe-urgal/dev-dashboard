@@ -28,3 +28,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `019-status-badge.md` — componente `<StatusBadge>` compartilhado alimentado pelos tokens de status, com mapeadores por domínio e remoção das cinco famílias de classes ad hoc do CSS legado.
 - `020-project-detail-cards.md` — migração dos cinco painéis de detalhe do projeto para `<Card>`, com cabeçalhos por slots e remoção das superfícies duplicadas.
 - `021-dashboard-cards.md` — migração do hero, workspace, métricas e lista de projetos do dashboard principal para `<Card>`, `<StatusBadge>` e tokens compartilhados.
+- `022-theme-density.md` — preferências persistentes de tema e densidade, controles acessíveis e migração visual da sidebar para tokens.

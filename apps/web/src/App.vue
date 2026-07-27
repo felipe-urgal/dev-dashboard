@@ -11,6 +11,7 @@ import {
 } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
+import VisualPreferences from './components/VisualPreferences.vue';
 
 const route = useRoute();
 
@@ -125,6 +126,8 @@ onMounted(() => {
           Nenhum workspace
         </div>
       </div>
+
+      <VisualPreferences />
 
       <div class="sidebar-footer">
         <span
