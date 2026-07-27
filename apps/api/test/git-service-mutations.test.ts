@@ -30,14 +30,18 @@ async function currentBranch(cwd: string): Promise<string> {
   return stdout.trim();
 }
 
+async function configureIdentity(cwd: string): Promise<void> {
+  await git(cwd, ['config', 'user.email', 'dev@example.com']);
+  await git(cwd, ['config', 'user.name', 'Dev']);
+}
+
 async function makeOriginAndClone(): Promise<{ root: string; origin: string; clone: string }> {
   const root = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-git-sync-'));
   const origin = path.join(root, 'origin.git');
   const clone = path.join(root, 'clone');
   await execFileAsync('git', ['init', '-q', '--bare', '-b', 'main', origin]);
   await execFileAsync('git', ['clone', '-q', origin, clone]);
-  await git(clone, ['config', 'user.email', 'dev@example.com']);
-  await git(clone, ['config', 'user.name', 'Dev']);
+  await configureIdentity(clone);
   await writeFile(path.join(clone, 'README.md'), 'v1\n');
   await git(clone, ['add', '.']);
   await git(clone, ['commit', '-q', '-m', 'init']);
@@ -172,6 +176,7 @@ test('push rejeitado pelo remoto quando o clone está desatualizado falha com GI
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
   const staleClone = path.join(root, 'stale-clone');
   await execFileAsync('git', ['clone', '-q', path.join(root, 'origin.git'), staleClone]);
+  await configureIdentity(staleClone);
   await writeFile(path.join(clone, 'README.md'), 'v2\n');
   await git(clone, ['commit', '-q', '-am', 'v2']);
   await git(clone, ['push', '-q']);
@@ -202,6 +207,7 @@ test('pull avança em fast-forward após confirmação', async (context) => {
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
   const secondClone = path.join(root, 'second-clone');
   await execFileAsync('git', ['clone', '-q', origin, secondClone]);
+  await configureIdentity(secondClone);
   await writeFile(path.join(clone, 'README.md'), 'v2\n');
   await git(clone, ['commit', '-q', '-am', 'v2']);
   await git(clone, ['push', '-q']);
@@ -242,6 +248,7 @@ test('pull com histórico divergente falha com GIT_PULL_DIVERGED', async (contex
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
   const secondClone = path.join(root, 'second-clone');
   await execFileAsync('git', ['clone', '-q', path.join(root, 'origin.git'), secondClone]);
+  await configureIdentity(secondClone);
 
   await writeFile(path.join(clone, 'README.md'), 'do origin\n');
   await git(clone, ['commit', '-q', '-am', 'origin segue']);
