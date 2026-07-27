@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import type { GitCommit, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, GitMutationConfirmation, GitMutationOperation, ProjectGitOverview } from '@dev-dashboard/contracts';
+import type { GitCommit, GitCommitResult, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, GitMutationConfirmation, GitMutationOperation, GitStashEntry, ProjectGitOverview } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 export const GIT_DIFF_FILE_LIMIT = 262_144;
@@ -30,7 +30,15 @@ export type GitMutationErrorCode =
   | 'GIT_PULL_FAILED'
   | 'GIT_PUSH_REJECTED'
   | 'GIT_PUSH_FAILED'
-  | 'GIT_REMOTE_UNAVAILABLE';
+  | 'GIT_REMOTE_UNAVAILABLE'
+  | 'GIT_COMMIT_MESSAGE_INVALID'
+  | 'GIT_NOTHING_TO_COMMIT'
+  | 'GIT_COMMIT_FAILED'
+  | 'GIT_NOTHING_TO_STASH'
+  | 'GIT_STASH_PUSH_FAILED'
+  | 'GIT_STASH_EMPTY'
+  | 'GIT_STASH_CONFLICT'
+  | 'GIT_STASH_POP_FAILED';
 
 export class GitMutationError extends Error {
   public constructor(public readonly code: GitMutationErrorCode, message: string) {
@@ -52,6 +60,12 @@ const RECORD_SEPARATOR = '\u001e';
 async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
   const result = await execFileAsync('git', [...args], { cwd: projectPath, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', LC_ALL: 'C' } });
   return result.stdout;
+}
+
+function commandFailureText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const withOutput = error as Error & { stdout?: string; stderr?: string };
+  return [withOutput.message, withOutput.stdout, withOutput.stderr].filter(Boolean).join('\n');
 }
 function statusFromCode(code: string): GitFileStatus {
   if (code.includes('U') || code === 'AA' || code === 'DD') return 'conflicted';
@@ -191,16 +205,38 @@ async function requireOriginRemote(projectPath: string): Promise<void> {
   }
 }
 
+const COMMIT_MESSAGE_MAX_LENGTH = 500;
+
+function validateCommitMessage(message: string): void {
+  if (!message || message.trim().length === 0 || message.length > COMMIT_MESSAGE_MAX_LENGTH) {
+    throw new GitMutationError('GIT_COMMIT_MESSAGE_INVALID', 'Mensagem de commit inválida.');
+  }
+}
+
+async function listStashEntries(projectPath: string): Promise<GitStashEntry[]> {
+  let output = '';
+  try {
+    output = await runGit(projectPath, ['stash', 'list', `--format=%gd${LOG_SEPARATOR}%s${LOG_SEPARATOR}%cI`]);
+  } catch {
+    return [];
+  }
+  return output.split('\n').filter(Boolean).map((line) => {
+    const [ref = '', message = '', date = ''] = line.split(LOG_SEPARATOR);
+    const match = /stash@\{(\d+)\}/.exec(ref);
+    return { index: match?.[1] ? Number(match[1]) : 0, message, createdAt: date };
+  });
+}
 
 export class GitService {
   private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
 
   public async getOverview(projectPath: string): Promise<ProjectGitOverview> {
-    try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [] }; }
+    try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [], stashes: [] }; }
     const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
     let commits: GitCommit[] = [];
     try { commits = parseCommits(await runGit(projectPath, ['log', '-n', '20', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s${LOG_SEPARATOR}%an${LOG_SEPARATOR}%ae${LOG_SEPARATOR}%aI${RECORD_SEPARATOR}`])); } catch { /* repositório sem commits */ }
-    return { repository: true, ...(status.branch ? { branch: status.branch } : {}), detached: status.detached, ...(status.upstream ? { upstream: status.upstream } : {}), ahead: status.ahead, behind: status.behind, clean: status.files.length === 0, files: status.files, ...(commits[0] ? { latestCommit: commits[0] } : {}), recentCommits: commits };
+    const stashes = await listStashEntries(projectPath);
+    return { repository: true, ...(status.branch ? { branch: status.branch } : {}), detached: status.detached, ...(status.upstream ? { upstream: status.upstream } : {}), ahead: status.ahead, behind: status.behind, clean: status.files.length === 0, files: status.files, ...(commits[0] ? { latestCommit: commits[0] } : {}), recentCommits: commits, stashes };
   }
 
   public async getDiffSnapshot(projectPath: string, scope: GitDiffScope = 'combined'): Promise<GitDiffSnapshot> {
@@ -337,14 +373,14 @@ export class GitService {
     try {
       await runGit(projectPath, ['pull', '--ff-only']);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (/not possible to fast-forward/i.test(message)) {
+      const details = commandFailureText(error);
+      if (/not possible to fast-forward/i.test(details)) {
         throw new GitMutationError('GIT_PULL_DIVERGED', 'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.');
       }
-      if (REMOTE_UNAVAILABLE_PATTERN.test(message)) {
+      if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
         throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
       }
-      throw new GitMutationError('GIT_PULL_FAILED', message);
+      throw new GitMutationError('GIT_PULL_FAILED', details);
     }
     return { branch };
   }
@@ -365,15 +401,87 @@ export class GitService {
         await runGit(projectPath, ['push', '--set-upstream', 'origin', branch]);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (/\[rejected\]|non-fast-forward|fetch first/i.test(message)) {
+      const details = commandFailureText(error);
+      if (/\[rejected\]|non-fast-forward|fetch first/i.test(details)) {
         throw new GitMutationError('GIT_PUSH_REJECTED', 'O remoto tem commits que o branch local não possui; faça pull antes de enviar.');
       }
-      if (REMOTE_UNAVAILABLE_PATTERN.test(message)) {
+      if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
         throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
       }
-      throw new GitMutationError('GIT_PUSH_FAILED', message);
+      throw new GitMutationError('GIT_PUSH_FAILED', details);
     }
     return { branch };
+  }
+
+  public async commit(projectPath: string, projectId: string, message: string, includeAllChanges: boolean, confirmationToken?: string): Promise<GitCommitResult> {
+    validateCommitMessage(message);
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const branch = status.branch ?? 'HEAD';
+    this.consumeMutationConfirmation(projectId, 'commit', branch, confirmationToken);
+    if (includeAllChanges) {
+      await runGit(projectPath, ['add', '--update']);
+    }
+    const staged = await runGit(projectPath, ['diff', '--cached', '--name-only', '-z']);
+    if (!staged.trim()) {
+      throw new GitMutationError('GIT_NOTHING_TO_COMMIT', 'Não há alterações staged para commitar.');
+    }
+    try {
+      await runGit(projectPath, ['commit', '-m', message]);
+    } catch (error) {
+      throw new GitMutationError('GIT_COMMIT_FAILED', error instanceof Error ? error.message : 'Falha ao commitar.');
+    }
+    const log = await runGit(projectPath, ['log', '-1', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s`]);
+    const [hash = '', shortHash = '', subject = ''] = log.trim().split(LOG_SEPARATOR);
+    return { hash, shortHash, subject };
+  }
+
+  public async stashPush(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ stash: GitStashEntry }> {
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const branch = status.branch ?? 'HEAD';
+    this.consumeMutationConfirmation(projectId, 'stash-push', branch, confirmationToken);
+    const hasTrackedChanges = status.files.some((file) => file.status !== 'untracked');
+    if (!hasTrackedChanges) {
+      throw new GitMutationError('GIT_NOTHING_TO_STASH', 'Não há alterações rastreadas para guardar no stash.');
+    }
+    try {
+      await runGit(projectPath, ['stash', 'push']);
+    } catch (error) {
+      throw new GitMutationError('GIT_STASH_PUSH_FAILED', error instanceof Error ? error.message : 'Falha ao guardar o stash.');
+    }
+    const created = (await listStashEntries(projectPath))[0];
+    if (!created) {
+      throw new GitMutationError('GIT_STASH_PUSH_FAILED', 'Stash criado mas não encontrado na listagem.');
+    }
+    return { stash: created };
+  }
+
+  public async stashPop(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ popped: GitStashEntry }> {
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const branch = status.branch ?? 'HEAD';
+    this.consumeMutationConfirmation(projectId, 'stash-pop', branch, confirmationToken);
+    const top = (await listStashEntries(projectPath))[0];
+    if (!top) {
+      throw new GitMutationError('GIT_STASH_EMPTY', 'Não há nenhum stash para restaurar.');
+    }
+    await assertWorkingTreeClean(projectPath);
+    const beforeHead = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
+    try {
+      await runGit(projectPath, ['stash', 'pop']);
+    } catch (error) {
+      try {
+        await runGit(projectPath, ['reset', '--hard', beforeHead]);
+      } catch {
+        // A árvore de trabalho é restaurada em melhor esforço; o erro original do pop é o relevante.
+      }
+      const details = commandFailureText(error);
+      if (/conflict/i.test(details)) {
+        throw new GitMutationError('GIT_STASH_CONFLICT', 'Não foi possível restaurar o stash sem conflitos; a árvore de trabalho foi mantida limpa e o stash foi preservado.');
+      }
+      throw new GitMutationError('GIT_STASH_POP_FAILED', details);
+    }
+    return { popped: top };
   }
 }

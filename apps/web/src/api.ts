@@ -2,11 +2,13 @@ import type {
   ActivityList,
   ActivityOrigin,
   ActivityStatus,
+  GitCommitResult,
   GitDiffScope,
   GitDiffSnapshot,
   GitFileDiff,
   GitMutationConfirmation,
   GitMutationOperation,
+  GitStashEntry,
   ManagedProcess,
   ProcessLogSnapshot,
   Project,
@@ -510,6 +512,34 @@ export async function pushProjectGitBranch(projectId: string, confirmationToken:
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
   );
   return response.branch.branch;
+}
+
+interface GitCommitMutationResponse { commit: GitCommitResult }
+interface GitStashPushResponse { stash: GitStashEntry }
+interface GitStashPopResponse { popped: GitStashEntry }
+
+export async function commitProjectGit(projectId: string, message: string, includeAllChanges: boolean, confirmationToken: string): Promise<GitCommitResult> {
+  const response = await requestJson<GitCommitMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/commit`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, includeAllChanges, confirmationToken }) },
+  );
+  return response.commit;
+}
+
+export async function stashPushProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
+  const response = await requestJson<GitStashPushResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/stash`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.stash;
+}
+
+export async function stashPopProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
+  const response = await requestJson<GitStashPopResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/stash/pop`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.popped;
 }
 
 interface ProjectTestsResponse { tests: ProjectTestOverview; }

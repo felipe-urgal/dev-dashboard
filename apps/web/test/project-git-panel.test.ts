@@ -51,6 +51,7 @@ const baseOverview: ProjectGitOverview = {
     { path: 'src/app.ts', indexStatus: 'M', worktreeStatus: '.', status: 'modified' },
   ],
   recentCommits: [],
+  stashes: [],
 };
 
 const baseDiff: GitDiffSnapshot = {
@@ -331,6 +332,140 @@ test('push exibe a mensagem de erro específica quando o remoto rejeita', async 
   await flushPromises();
 
   assert.match(wrapper.find('.project-error').text(), /faça pull antes de enviar/);
+});
+
+test('commit envia a mensagem digitada e mostra sucesso', async () => {
+  const calls: Array<{ url: string; body?: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url: url.pathname, body });
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      return new Response(JSON.stringify({ confirmation: { token: 'c'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/commit')) {
+      return new Response(JSON.stringify({ commit: { hash: 'abc123', shortHash: 'abc123', subject: (body as { message: string }).message } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.git-commit-form input[type="text"]').setValue('ajusta layout');
+  await wrapper.find('.git-commit-form').trigger('submit.prevent');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  const commitCall = calls.find((call) => call.url.endsWith('/git/commit'));
+  assert.equal((commitCall!.body as { message: string; includeAllChanges: boolean }).message, 'ajusta layout');
+  assert.equal((commitCall!.body as { message: string; includeAllChanges: boolean }).includeAllChanges, false);
+  assert.match(wrapper.find('.git-mutation-success').text(), /ajusta layout/);
+});
+
+test('commit exibe erro quando não há nada staged', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      return new Response(JSON.stringify({ confirmation: { token: 'd'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/commit')) {
+      return new Response(JSON.stringify({ error: 'GIT_NOTHING_TO_COMMIT', message: 'Não há alterações staged para commitar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.git-commit-form input[type="text"]').setValue('nada staged');
+  await wrapper.find('.git-commit-form').trigger('submit.prevent');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.find('.project-error').text(), /Não há alterações staged/);
+});
+
+test('stash empilha e restaura mostrando a lista atualizada', async () => {
+  let stashed = false;
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      const overview: ProjectGitOverview = stashed
+        ? { ...baseOverview, stashes: [{ index: 0, message: 'WIP on main: guardado', createdAt: new Date().toISOString() }] }
+        : baseOverview;
+      return new Response(JSON.stringify({ git: overview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      return new Response(JSON.stringify({ confirmation: { token: 'e'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/stash')) {
+      stashed = true;
+      return new Response(JSON.stringify({ stash: { index: 0, message: 'WIP on main: guardado', createdAt: new Date().toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Nenhum stash guardado/);
+
+  const buttons = wrapper.findAll('button');
+  const stashButton = buttons.find((button) => button.text().includes('Guardar alterações'));
+  await stashButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.find('.git-mutation-success').text(), /guardado/);
+  assert.equal(wrapper.findAll('.git-stash-list li').length, 1);
 });
 
 test('mostra erro quando a chamada de diff falha', async () => {

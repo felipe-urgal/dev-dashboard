@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -275,4 +275,141 @@ test('pull em HEAD destacado falha com GIT_DETACHED_HEAD', async (context) => {
     () => service.pull(clone, 'p1', 'x'.repeat(64)),
     (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_DETACHED_HEAD',
   );
+});
+
+test('commit registra as alterações staged após confirmação', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  await git(root, ['add', '.']);
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'commit', 'main');
+  const result = await service.commit(root, 'p1', 'atualiza README', false, confirmation.token);
+  assert.equal(result.subject, 'atualiza README');
+  const { stdout } = await execFileAsync('git', ['log', '-1', '--format=%s'], { cwd: root });
+  assert.equal(stdout.trim(), 'atualiza README');
+});
+
+test('commit com includeAllChanges adiciona modificações rastreadas automaticamente', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'commit', 'main');
+  const result = await service.commit(root, 'p1', 'inclui tudo', true, confirmation.token);
+  assert.equal(result.subject, 'inclui tudo');
+});
+
+test('commit sem nada staged falha com GIT_NOTHING_TO_COMMIT', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'commit', 'main');
+  await assert.rejects(
+    () => service.commit(root, 'p1', 'nada para commitar', false, confirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_NOTHING_TO_COMMIT',
+  );
+});
+
+test('commit com mensagem vazia falha com GIT_COMMIT_MESSAGE_INVALID antes de tocar no repositório', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  await assert.rejects(
+    () => service.commit(root, 'p1', '   ', false, 'x'.repeat(64)),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_COMMIT_MESSAGE_INVALID',
+  );
+});
+
+test('commit sem confirmação é recusado', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  await git(root, ['add', '.']);
+  const service = new GitService();
+  await assert.rejects(
+    () => service.commit(root, 'p1', 'sem confirmação', false),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+  );
+});
+
+test('stashPush guarda alterações rastreadas e stashPop as restaura', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  const service = new GitService();
+
+  const pushConfirmation = service.prepareMutationConfirmation('p1', 'stash-push', 'main');
+  const pushed = await service.stashPush(root, 'p1', pushConfirmation.token);
+  assert.equal(pushed.stash.index, 0);
+  const afterPush = await readFile(path.join(root, 'README.md'), 'utf8');
+  assert.equal(afterPush, 'v1\n');
+
+  const popConfirmation = service.prepareMutationConfirmation('p1', 'stash-pop', 'main');
+  const popped = await service.stashPop(root, 'p1', popConfirmation.token);
+  assert.equal(popped.popped.index, 0);
+  const afterPop = await readFile(path.join(root, 'README.md'), 'utf8');
+  assert.equal(afterPop, 'v2\n');
+});
+
+test('stashPush sem alterações rastreadas falha com GIT_NOTHING_TO_STASH', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'novo.txt'), 'apenas não rastreado\n');
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'stash-push', 'main');
+  await assert.rejects(
+    () => service.stashPush(root, 'p1', confirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_NOTHING_TO_STASH',
+  );
+});
+
+test('stashPop sem nenhum stash falha com GIT_STASH_EMPTY', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'stash-pop', 'main');
+  await assert.rejects(
+    () => service.stashPop(root, 'p1', confirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_STASH_EMPTY',
+  );
+});
+
+test('stashPop com árvore de trabalho suja falha com GIT_WORKING_TREE_DIRTY', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  const service = new GitService();
+  const pushConfirmation = service.prepareMutationConfirmation('p1', 'stash-push', 'main');
+  await service.stashPush(root, 'p1', pushConfirmation.token);
+  await writeFile(path.join(root, 'outro.txt'), 'não rastreado\n');
+  const popConfirmation = service.prepareMutationConfirmation('p1', 'stash-pop', 'main');
+  await assert.rejects(
+    () => service.stashPop(root, 'p1', popConfirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_WORKING_TREE_DIRTY',
+  );
+});
+
+test('stashPop com conflito falha com GIT_STASH_CONFLICT e preserva o stash', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'stash\n');
+  const service = new GitService();
+  const pushConfirmation = service.prepareMutationConfirmation('p1', 'stash-push', 'main');
+  await service.stashPush(root, 'p1', pushConfirmation.token);
+
+  await writeFile(path.join(root, 'README.md'), 'conflitante\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'muda README de outro jeito']);
+
+  const popConfirmation = service.prepareMutationConfirmation('p1', 'stash-pop', 'main');
+  await assert.rejects(
+    () => service.stashPop(root, 'p1', popConfirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_STASH_CONFLICT',
+  );
+
+  const status = await execFileAsync('git', ['status', '--porcelain'], { cwd: root });
+  assert.equal(status.stdout.trim(), '', 'a árvore de trabalho deveria voltar a ficar limpa');
+  const stashList = await execFileAsync('git', ['stash', 'list'], { cwd: root });
+  assert.match(stashList.stdout, /stash@\{0\}/);
 });
