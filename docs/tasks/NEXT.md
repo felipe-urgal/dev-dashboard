@@ -1,34 +1,34 @@
-# Próxima atividade — 022: Tema e densidade na navegação global
+# Próxima atividade — 023: Consolidação do CSS legado
 
 ## Contexto
 
-Tokens e componentes compartilhados já cobrem cards, badges, painéis de projeto e o dashboard principal. O passo 6 do roteiro em `docs/design/redesign-2026.md` prevê tornar tema e densidade preferências reais e iniciar sua aplicação pelo shell global, hoje ainda preso aos valores escuros e espaçamentos legados.
+Os passos 1 a 6 da reforma de design já introduziram tokens, componentes compartilhados, cards de projeto e dashboard, status, tema e densidade. O `styles.css` ainda reúne regras antigas desabilitadas ou duplicadas e cores literais para áreas que já possuem substitutos, impedindo o critério de saída da etapa 2.
 
 ## Objetivo
 
-Introduzir controles persistentes de tema e densidade na sidebar, aplicando `data-theme` e `data-density` ao elemento raiz sem alterar a arquitetura de navegação ou os fluxos das views.
+Executar o passo 7 do roteiro em `docs/design/redesign-2026.md`: remover CSS legado sem uso, consolidar as regras restantes nas camadas planejadas e reduzir exceções locais sem provocar regressão funcional ou visual.
 
 ## Plano detalhado
 
-1. Criar um módulo pequeno e testável de preferências visuais, com valores fechados (`dark|light` e `comfortable|compact`), defaults seguros e leitura tolerante a valores inválidos do `localStorage`.
-2. Aplicar as preferências no `<html>` antes ou durante a montagem da aplicação, evitando flash inconsistente sempre que o bootstrap permitir.
-3. Adicionar controles acessíveis na sidebar, com rótulos em português, estado selecionado explícito e operação por teclado.
-4. Migrar cores, superfícies, contornos e tipografia da sidebar para tokens, mantendo suas regras estruturais e breakpoints atuais.
-5. Definir os ajustes de espaçamento de `data-density='compact'` somente para o shell e padrões compartilhados que suportem a redução sem quebrar conteúdo.
-6. Adicionar testes unitários da persistência/normalização e testes montados dos controles, incluindo restauração após nova montagem.
-7. Validar visualmente os dois temas e as duas densidades em desktop e largura estreita; documentar diferenças e limitações reais.
+1. Inventariar seletores de `apps/web/src/styles.css` contra templates Vue e separar regras ativas, duplicadas e comprovadamente órfãs.
+2. Remover primeiro seletores órfãos e duplicações já substituídas por `<Card>`, `<StatusBadge>` e tokens, em lotes verificáveis.
+3. Popular as camadas base, layout, components e utilities sob `apps/web/src/styles/`, preservando a ordem de cascata explicitamente.
+4. Migrar cores e medidas ativas restantes para tokens existentes; criar token novo somente quando houver uso compartilhado demonstrado.
+5. Manter no `styles.css` apenas imports e exceções documentadas, respeitando o limite definido no critério de saída do redesign.
+6. Adicionar verificações automatizadas para seletores estruturais críticos e para impedir a reintrodução das famílias legadas removidas.
+7. Validar todas as rotas em temas claro e escuro, densidades cômoda e compacta, desktop e largura estreita; registrar diferenças reais.
 
 ## Fora do escopo
 
-- Redesenho da arquitetura de informação ou dos ícones da navegação.
+- Novos componentes ou fluxos de produto.
+- Rebranding ou alteração da arquitetura da navegação.
 - Drawer móvel completo.
-- Preferência sincronizada pela API.
-- Remoção final de todo o CSS legado.
+- Biblioteca externa de estilos.
 
 ## Critérios de aceite
 
-- tema e densidade persistem entre sessões e sempre resultam em atributos válidos no `<html>`;
-- sidebar não contém novas cores ou superfícies ad hoc;
-- controles possuem rótulo, foco e estado selecionado perceptíveis sem depender apenas de cor;
-- tema claro e modo compacto não quebram as rotas principais;
+- nenhum seletor removido permanece referenciado por templates ou testes;
+- `styles.css` contém somente imports e no máximo 100 linhas de exceções justificadas;
+- componentes ativos não dependem de famílias visuais legadas já substituídas;
+- temas, densidades e breakpoints preservam as rotas principais;
 - `npm run typecheck`, `npm run build` e `npm test` passam.

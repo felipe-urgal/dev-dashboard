@@ -1,18 +1,9 @@
 :root {
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
-
-  color: #edf1f7;
-  background: #090b10;
+  font-family: var(--font-family);
+  color: var(--text);
+  background: var(--surface-0);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  color-scheme: dark;
 }
 
 * {
@@ -22,7 +13,7 @@
 html {
   min-width: 320px;
   min-height: 100%;
-  background: #090b10;
+  background: var(--surface-0);
 }
 
 body {
@@ -55,13 +46,7 @@ kbd {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
   min-height: 100vh;
-  background:
-    radial-gradient(
-      circle at 70% -20%,
-      rgb(86 89 255 / 10%),
-      transparent 34%
-    ),
-    #090b10;
+  background: var(--surface-0);
 }
 
 .sidebar {
@@ -70,16 +55,16 @@ kbd {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 20px 16px;
-  border-right: 1px solid #20242d;
-  background: rgb(12 15 21 / 94%);
+  padding: var(--space-5) var(--space-4);
+  border-right: 1px solid var(--border);
+  background: var(--surface-1);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 8px 24px;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-6);
 }
 
 .brand-mark {
@@ -87,14 +72,14 @@ kbd {
   width: 38px;
   height: 38px;
   place-items: center;
-  border: 1px solid #575eff;
-  border-radius: 11px;
-  color: #dfe1ff;
-  background: linear-gradient(145deg, #474cff, #282d8b);
-  font-size: 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--info-text);
+  background: var(--accent-soft);
+  font-size: var(--font-sm);
   font-weight: 800;
   letter-spacing: 0.04em;
-  box-shadow: 0 8px 28px rgb(71 76 255 / 22%);
+  box-shadow: var(--shadow-1);
 }
 
 .brand strong,
@@ -103,28 +88,28 @@ kbd {
 }
 
 .brand strong {
-  font-size: 14px;
+  font-size: var(--font-md);
 }
 
 .brand span {
   margin-top: 3px;
-  color: #737b8c;
-  font-size: 11px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .navigation {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .navigation-item {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 11px;
-  border-radius: 9px;
-  color: #9098a9;
-  font-size: 13px;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-md);
   font-weight: 550;
   text-decoration: none;
   transition:
@@ -133,33 +118,33 @@ kbd {
 }
 
 .navigation-item:hover {
-  color: #e9edf6;
-  background: #171b23;
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .navigation-item-active {
-  color: #ffffff;
-  background: #1c202a;
-  box-shadow: inset 0 0 0 1px #292f3b;
+  color: var(--text);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .navigation-icon {
   display: inline-grid;
   width: 20px;
   place-items: center;
-  color: #7d84ff;
+  color: var(--accent);
 }
 
 .sidebar-section {
-  margin-top: 28px;
-  padding: 0 8px;
+  margin-top: var(--space-8);
+  padding: 0 var(--space-2);
 }
 
 .sidebar-label {
   display: block;
   margin-bottom: 10px;
-  color: #5f6777;
-  font-size: 10px;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -168,7 +153,7 @@ kbd {
 .workspace-summary {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .workspace-summary strong,
@@ -179,15 +164,15 @@ kbd {
 .workspace-summary strong {
   max-width: 150px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workspace-summary span {
   margin-top: 3px;
-  color: #697183;
-  font-size: 11px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .workspace-avatar {
@@ -195,34 +180,108 @@ kbd {
   width: 30px;
   height: 30px;
   place-items: center;
-  border-radius: 8px;
-  color: #b8bcff;
-  background: #252a55;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  color: var(--info-text);
+  background: var(--info-surface);
+  font-size: var(--font-sm);
   font-weight: 800;
 }
 
 .sidebar-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: auto;
-  padding: 12px 8px 0;
-  border-top: 1px solid #1e222b;
-  color: #6d7585;
-  font-size: 11px;
+  padding: var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
 }
 
 .connection-dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: #7b3340;
+  background: var(--danger-text);
 }
 
 .connection-dot-online {
-  background: #38c989;
-  box-shadow: 0 0 0 4px rgb(56 201 137 / 10%);
+  background: var(--success-text);
+  box-shadow: 0 0 0 4px var(--success-surface);
+}
+
+.visual-preferences {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: auto;
+  padding: var(--space-5) var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.preference-group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.preference-group .sidebar-label {
+  margin: 0;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.segmented-control button {
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.segmented-control button[aria-pressed='true'] {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.segmented-control button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[data-density='compact'] .sidebar {
+  padding-block: var(--space-3);
+}
+
+[data-density='compact'] .brand {
+  padding-bottom: var(--space-3);
+}
+
+[data-density='compact'] .navigation-item {
+  padding-block: var(--space-2);
+}
+
+[data-density='compact'] .sidebar-section {
+  margin-top: var(--space-4);
+}
+
+[data-density='compact'] .visual-preferences {
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+}
+
+[data-density='compact'] .segmented-control button {
+  padding-block: var(--space-1);
 }
 
 .main-content {
