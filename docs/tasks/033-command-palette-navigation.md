@@ -43,9 +43,9 @@ atual sem executar ações privilegiadas.
 - A lista contém projetos que o store já conhece. A paleta não dispara scans
   adicionais, preservando o requisito de não criar requisições só para a
   busca.
-- Não há busca fuzzy, favoritos, recentes nem captura permanente do foco. O
-  usuário pode sair do diálogo com `Tab`, deliberadamente, sem um trap de
-  teclado.
+- Não há busca fuzzy, favoritos nem recentes. A revisão da task 034 corrigiu o
+  comportamento modal: `Tab` agora permanece dentro da paleta enquanto ela
+  está aberta.
 
 ## Verificação
 

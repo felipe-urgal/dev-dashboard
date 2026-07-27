@@ -1,59 +1,54 @@
-# Próxima atividade — 034: Command palette (ações autorizadas)
+# Próxima atividade — 035: Configurações seguras de retenção
 
 ## Contexto
 
-A task 033 estabeleceu a paleta global para navegação, incluindo busca,
-teclado, foco e roteamento. A segunda fatia deve cumprir a parte restante do
-item do Horizonte 2: localizar ações já autorizadas nas telas, sem transformar
-a paleta em uma entrada para shell arbitrário ou enfraquecer confirmações.
+A paleta encerrou o item de produtividade por teclado do Horizonte 2. O próximo
+item do roadmap reúne configurações e notificações. A primeira fatia deve
+começar pela preferência operacional de maior impacto já prevista pelo produto:
+retenção de logs e históricos dentro de limites seguros, sem permitir caminhos
+ou valores arbitrários.
 
 ## Objetivo
 
-Exibir, quando um projeto estiver aberto, ações que já existem e são
-permitidas naquele contexto (por exemplo iniciar/parar servidor e abrir uma
-área que contém testes ou scripts), mantendo exatamente as mesmas regras de
-capacidade, risco, confirmação e execução da tela de origem.
+Permitir consultar e ajustar, em uma tela de configurações, a retenção local de
+logs e históricos usando limites fechados e persistência segura, mantendo os
+valores efetivos visíveis e auditáveis.
 
 ## Plano detalhado
 
-1. Inventariar ações existentes por tela e classificá-las como navegação,
-   leitura, mutação reversível ou mutação sensível; documentar quais entram
-   nesta primeira fatia executável.
-2. Extrair descritores tipados de ação para que tela e paleta compartilhem
-   rótulo, disponibilidade e risco sem duplicar regras de capacidade.
-3. Começar pelo menor conjunto seguro: ações de processo já fechadas pelo
-   backend e atalhos que apenas abrem a área correta. Não aceitar comando,
-   argumento, caminho ou `cwd` digitado na paleta.
-4. Para qualquer mutação, reutilizar o fluxo de confirmação da tela de
-   origem. A paleta deve mostrar visualmente o nível de risco e nunca executar
-   uma ação sensível só com um `Enter` acidental.
-5. Manter estados de carregamento, sucesso e erro compreensíveis; fechar a
-   paleta somente quando isso não esconder o resultado necessário.
-6. Cobrir disponibilidade por capacidade, bloqueio de ações indisponíveis,
-   confirmação, execução e erro com testes montados; acrescentar um smoke E2E
-   de uma ação segura.
+1. Inventariar as variáveis e padrões atuais de retenção dos gerenciadores de
+   processo, catálogo e testes, eliminando divergências antes de expor a UI.
+2. Definir contrato explícito com valores efetivos, mínimos, máximos e padrões;
+   preferir presets fechados quando reduzirem risco e complexidade.
+3. Persistir a configuração no diretório privado do dashboard com escrita
+   atômica, permissões `0700`/`0600` e validação também na leitura.
+4. Adicionar rotas autenticadas de leitura e atualização com schemas completos,
+   sem aceitar caminhos e sem disparar limpeza destrutiva implicitamente.
+5. Criar a tela de configurações e ligá-la à navegação principal e à paleta,
+   deixando claro quando uma mudança passa a valer.
+6. Cobrir defaults, limites, arquivo inválido, persistência, autenticação,
+   serialização e estados montados da UI; acrescentar smoke E2E somente se a
+   fixture puder isolar integralmente a configuração.
 
 ## Segurança
 
-- Ler `docs/architecture/security.md` antes de alterar qualquer rota.
-- Preferir as rotas existentes. Se uma rota nova for inevitável, declarar
-  schemas completos, exigir token e resolver projeto/caminho exclusivamente
-  pelo `ProjectStore`.
-- A paleta envia apenas identificadores pertencentes a catálogos fechados;
-  nunca strings de shell, argumentos livres ou caminhos absolutos.
-- Confirmações atuais continuam obrigatórias e com o mesmo escopo/TTL.
+- Ler `docs/architecture/security.md` antes de criar as rotas.
+- Aceitar somente números/presets limitados; nunca caminho, glob ou comando.
+- Derivar todos os arquivos do diretório de estado interno.
+- Não apagar logs como efeito colateral de salvar preferências.
+- Não enfraquecer os limites máximos de leitura ou a política de mascaramento.
 
 ## Fora do escopo
 
-- Shell/terminal embutido ou comandos personalizados.
-- Ações administrativas de workspace.
-- Recentes, favoritos ou busca fuzzy.
-- Relaxar confirmações para tornar a interação mais rápida.
+- Notificações do sistema operacional.
+- Limpeza manual em massa.
+- Escolha de diretório de logs/estado.
+- Configurações remotas ou multiusuário.
 
 ## Critérios de aceite
 
-- somente ações válidas para o projeto/contexto aparecem;
-- ações mutáveis preservam a confirmação e deixam o risco explícito;
-- nenhuma entrada livre alcança processo, filesystem ou shell;
-- teclado e leitores de tela distinguem destinos de navegação e ações;
-- `npm run typecheck`, `npm run build`, `npm test` e o smoke E2E passam.
+- valores efetivos e limites aparecem de forma compreensível;
+- valores inválidos são recusados na API e na UI;
+- persistência é atômica e privada;
+- nenhuma entrada controla caminhos ou comandos;
+- `npm run typecheck`, `npm run build` e `npm test` passam.
