@@ -332,3 +332,67 @@
   padding: 34px 32px 80px;
 }
 
+
+/* Aplicação da direção Aurora ao shell completo */
+.aurora-shell {
+  position: relative;
+  grid-template-columns: 272px minmax(0, 1fr);
+  overflow: clip;
+  background:
+    radial-gradient(circle at 88% 7%, rgb(89 110 205 / 12%), transparent 31%),
+    radial-gradient(circle at 38% 92%, rgb(47 151 145 / 7%), transparent 26%),
+    var(--surface-0);
+}
+.aurora-shell-light { position: fixed; z-index: 0; width: 440px; height: 440px; border-radius: 50%; pointer-events: none; filter: blur(110px); opacity: .13; }
+.aurora-shell-light-one { top: -260px; left: 48%; background: rgb(116 90 255); }
+.aurora-shell-light-two { right: -280px; bottom: -180px; background: rgb(70 214 202); }
+.aurora-shell .sidebar {
+  z-index: 20;
+  margin: 14px 0 14px 14px;
+  height: calc(100vh - 28px);
+  padding: 22px 16px;
+  border: 1px solid rgb(160 174 232 / 12%);
+  border-radius: 24px;
+  background: linear-gradient(155deg, rgb(255 255 255 / 5%), transparent 34%), rgb(15 18 28 / 82%);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(24px);
+}
+.aurora-shell .brand { padding: 3px 8px 28px; }
+.aurora-shell .brand-mark { width: 42px; height: 42px; border-color: rgb(175 185 255 / 28%); border-radius: 14px; color: rgb(216 221 255); background: linear-gradient(145deg, rgb(134 107 255 / 34%), rgb(71 199 198 / 18%)); box-shadow: inset 0 1px rgb(255 255 255 / 16%), 0 12px 28px rgb(61 69 151 / 22%); font-size: 16px; }
+.aurora-shell .brand strong { font-size: 13px; letter-spacing: -.02em; }
+.aurora-shell .brand span { color: rgb(119 130 156); font-size: 9px; }
+.aurora-shell .navigation { gap: 6px; }
+.aurora-shell .navigation-item { position: relative; padding: 11px 13px; border: 1px solid transparent; border-radius: 12px; font-size: 11px; }
+.aurora-shell .navigation-item:hover { border-color: rgb(160 174 232 / 10%); background: rgb(255 255 255 / 4%); }
+.aurora-shell .navigation-item-active { border-color: rgb(169 183 255 / 18%); background: linear-gradient(90deg, rgb(113 101 220 / 18%), rgb(83 174 189 / 7%)); box-shadow: inset 3px 0 rgb(162 174 255 / 70%); }
+.aurora-shell .navigation-icon { color: rgb(153 166 236); }
+.aurora-shell .sidebar-section { padding: 15px 12px; border: 1px solid rgb(160 174 232 / 9%); border-radius: 14px; background: rgb(255 255 255 / 2%); }
+.aurora-shell .workspace-avatar { border-radius: 10px; color: rgb(201 209 255); background: linear-gradient(145deg, rgb(115 105 221 / 24%), rgb(77 176 187 / 14%)); }
+.aurora-shell .visual-preferences { border-top-color: rgb(160 174 232 / 10%); }
+.aurora-shell .segmented-control { border-color: rgb(160 174 232 / 12%); border-radius: 11px; background: rgb(7 9 16 / 38%); }
+.aurora-shell .segmented-control button[aria-pressed='true'] { border-color: rgb(176 188 255 / 15%); border-radius: 8px; background: rgb(121 111 221 / 15%); }
+.aurora-shell .sidebar-footer { border-top-color: rgb(160 174 232 / 10%); }
+.aurora-shell .main-content { position: relative; z-index: 1; }
+.aurora-shell .topbar { min-height: 86px; margin: 0 22px; padding: 17px 10px 13px 24px; border-bottom-color: rgb(160 174 232 / 10%); background: rgb(10 13 21 / 56%); backdrop-filter: blur(24px); }
+.aurora-shell .topbar h1 { font-size: 22px; }
+.topbar-context { padding: 7px 10px; border: 1px solid rgb(160 174 232 / 12%); border-radius: 999px; color: rgb(151 162 198); background: rgb(255 255 255 / 3%); font-size: 9px; }
+.aurora-shell .command-button { border-color: rgb(160 174 232 / 12%); border-radius: 12px; background: rgb(255 255 255 / 4%); }
+.aurora-shell .api-status { padding: 8px 10px; border: 1px solid rgb(160 174 232 / 10%); border-radius: 999px; background: rgb(255 255 255 / 3%); }
+.aurora-shell .content { width: min(1500px, 100%); padding: 28px 38px 90px; }
+@media (max-width: 900px) {
+  .aurora-shell { grid-template-columns: 210px minmax(0, 1fr); }
+  .aurora-shell .sidebar { margin: 8px 0 8px 8px; height: calc(100vh - 16px); border-radius: 18px; }
+  .aurora-shell .topbar { margin-inline: 12px; }
+  .topbar-context { display: none; }
+  .aurora-shell .content { padding-inline: 20px; }
+}
+@media (max-width: 680px) {
+  .aurora-shell { display: block; }
+  .aurora-shell .sidebar { position: relative; width: auto; height: auto; margin: 8px; }
+  .aurora-shell .navigation { grid-template-columns: repeat(2, 1fr); }
+  .aurora-shell .sidebar-section, .aurora-shell .visual-preferences, .aurora-shell .sidebar-footer { display: none; }
+  .aurora-shell .brand { padding-bottom: 16px; }
+  .aurora-shell .topbar { position: relative; margin: 0 8px; padding-inline: 10px; }
+  .aurora-shell .command-button { display: none; }
+  .aurora-shell .content { padding: 18px 12px 70px; }
+}

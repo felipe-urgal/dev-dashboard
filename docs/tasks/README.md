@@ -37,4 +37,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `028-test-execution-history.md` — histórico persistente e paginado das execuções de teste por projeto, sobrevivendo a reinícios da API, reconciliado a partir do snapshot único mantido pelo `ProcessManager`.
 - `029-test-execution-events.md` — eventos SSE autenticados para a execução de teste em andamento (estado + log), substituindo o polling do painel pelo mesmo padrão de reconexão com backoff do catálogo de scripts.
 
-- `030-home-futurista.md` — laboratório da nova home com três protótipos selecionáveis: Órbita, Terminal e Aurora, preservando as ações reais do dashboard.
+- `030-home-futurista.md` — adoção integral do modelo Aurora na home e no shell: sidebar, topbar, conteúdo, controles e responsividade.

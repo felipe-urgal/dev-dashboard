@@ -53,14 +53,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell aurora-shell">
+    <div class="aurora-shell-light aurora-shell-light-one" aria-hidden="true" />
+    <div class="aurora-shell-light aurora-shell-light-two" aria-hidden="true" />
     <aside class="sidebar">
       <RouterLink class="brand brand-link" to="/">
-        <div class="brand-mark">DD</div>
+        <div class="brand-mark">✦</div>
 
         <div>
           <strong>Dev Dashboard</strong>
-          <span>Local workspace</span>
+          <span>Ambiente local</span>
         </div>
       </RouterLink>
 
@@ -151,6 +153,7 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
+          <span class="topbar-context">✦ Fluxo Aurora</span>
           <button class="command-button" type="button" disabled>
             Buscar ou executar
             <kbd>⌘ K</kbd>
