@@ -1,56 +1,55 @@
-# Próxima atividade — 018: Esqueleto de tokens + componente `<Card>` compartilhado
+# Próxima atividade — 019: `<StatusBadge>` compartilhado
 
 ## Contexto
 
-A task 017 registrou as decisões da reforma de design em
-`docs/design/redesign-2026.md`. Esta task começa a implementá-las por
-duas peças isoladas e mensuráveis — introduzir o esqueleto de camadas
-CSS com tokens, e extrair o primeiro componente compartilhado
-(`<Card>`) — sem regressão visual.
+A task 018 estabeleceu o esqueleto de tokens e o primeiro componente
+compartilhado (`<Card>`). Próximo passo da reforma (passo 3 do
+roteiro em `docs/design/redesign-2026.md`): unificar as badges
+espalhadas por vertical (`activity-status-*`, `git-status-*`,
+`script-risk-*`, `database-status-*`) em um único
+`<StatusBadge tone="…" />` usando os pares
+`--<status>-surface` / `--<status>-text` do `tokens.css`.
 
 ## Objetivo
 
-Preparar o terreno da reforma: divisão de `styles.css` em camadas,
-arquivo de tokens com as variáveis definidas no redesign, e um
-componente `<Card>` reutilizável migrando o painel de projeto mais
-simples (Dashboard `ProjectCard`) como prova de conceito. Nenhuma
-outra tela muda visualmente.
+Introduzir um componente `<StatusBadge>` com um contrato único de
+`tone` e usá-lo em `ActivityView`, `ProcessesView`, `ProjectGitPanel`
+(status de arquivo e status de mutação), `ProjectScriptsPanel` (risk
+badge) e `ProjectDatabasePanel` (reachability badge). Nenhuma
+mudança de layout — só o vocabulário visual das badges converge para
+os tokens.
 
 ## Plano detalhado
 
-1. Criar `apps/web/src/styles/` com `tokens.css`, `reset.css`,
-   `base.css`, `layout.css`, `components.css`, `utilities.css` e um
-   `index.css` que faz o `@import` de todos. Atualizar `main.ts` para
-   importar `styles/index.css` **antes** de `styles.css` legado.
-2. Popular `tokens.css` com as variáveis do redesign, cobrindo tema
-   escuro (default) e claro (via `[data-theme='light']`). Não usar
-   ainda em componentes.
-3. Criar `apps/web/src/components/Card.vue` com slots `default`,
-   `header`, `actions`, seguindo o padrão descrito em
-   `redesign-2026.md#padrões-de-componente`.
-4. Migrar `ProjectCard` (apenas o container externo — o conteúdo
-   interno segue igual) para usar `<Card>`.
-5. Migrar o teste montado existente (se houver) e adicionar um novo
-   caso mínimo para o `<Card>` cobrindo os três slots.
-6. Comparar `DashboardView` antes/depois em ambiente rodando; nenhuma
-   diferença visual esperada.
-7. Atualizar `redesign-2026.md` marcando passo 1 e 2 do roteiro como
-   concluídos.
+1. Criar `apps/web/src/components/StatusBadge.vue` com prop
+   `tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral'`,
+   opcional `size: 'sm' | 'md'` (default `sm`, para chips), slot
+   default para o texto. Estilos scoped usando
+   `var(--<tone>-surface)` e `var(--<tone>-text)`.
+2. Adicionar helpers de mapeamento por domínio em
+   `apps/web/src/utils/status-tones.ts` (ex.:
+   `activityToneFor(status)`, `processToneFor(status)`,
+   `gitFileToneFor(status)`, `riskToneFor(risk)`,
+   `dbReachabilityToneFor(state)`), retornando o `tone` genérico.
+3. Substituir `<span class="activity-status activity-status-…">`
+   pelas invocações de `<StatusBadge :tone="…">` em cada view/panel
+   listado acima.
+4. Remover as classes `activity-status-*`, `git-status-*`,
+   `script-risk-*`, `database-status-*` do `styles.css` legado.
+5. Testes montados atualizados para checar `.dd-status-badge` com o
+   `tone` esperado em vez das classes antigas.
+6. Atualizar `redesign-2026.md` marcando o passo 3 como concluído.
 
 ## Fora do escopo
 
-- Migrar `<StatusBadge>` e demais painéis (fica para tasks 019+).
-- Introduzir `data-density` / `data-theme` na sidebar (fica para
-  depois da migração dos componentes principais).
-- Remover CSS legado — só é removido quando **todas** as instâncias
-  antigas do padrão migrarem.
+- Migrar cards internos dos painéis para `<Card>` (task 020+).
+- Trocar padrões de formulário / mensagens (mais adiante).
+- Componente de ícone dedicado (segue sendo emoji unicode em fonte).
 
 ## Critérios de aceite
 
-- `apps/web/src/styles/` existe com o esqueleto documentado e
-  `tokens.css` populado;
-- `Card.vue` existe e é usado por `ProjectCard` sem regressão visual
-  perceptível no `DashboardView`;
-- suíte `apps/web` mantém-se verde (testes montados existentes
-  passam);
+- `StatusBadge` existe e é usado por todas as telas listadas;
+- nenhuma classe `activity-status-*`, `git-status-*`,
+  `script-risk-*`, `database-status-*` sobrevive em `styles.css`;
+- suíte `apps/web` mantém-se verde (testes atuais adaptados);
 - `npm run typecheck`, `npm run build` e `npm test` verdes.

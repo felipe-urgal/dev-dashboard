@@ -202,9 +202,14 @@ como derrapada.
 Ordem sugerida (uma PR por passo, cada uma verde nos testes montados
 existentes):
 
-1. Introduzir `styles/tokens.css` e o esqueleto de camadas, com
-   `styles.css` ainda contendo o CSS legado. Nenhuma mudança visual.
-2. Extrair `<Card>` compartilhado e migrar `ProjectCard`.
+1. **Entregue na task 018.** Introduzir `styles/tokens.css` e o
+   esqueleto de camadas, com `styles.css` ainda contendo o CSS
+   legado.
+2. **Entregue na task 018.** Extrair `<Card>` compartilhado e migrar
+   `ProjectCard`. A leve mudança visual (perda do gradiente
+   decorativo do card) está alinhada ao princípio "informação acima
+   de decoração" documentado acima; padding e conteúdo internos
+   seguem iguais.
 3. Extrair `<StatusBadge>` e migrar `ActivityView`, `ProcessesView`,
    `ProjectGitPanel` (badges de arquivo/commit/mutação),
    `ProjectDatabasePanel`, `ProjectScriptsPanel`.

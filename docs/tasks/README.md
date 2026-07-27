@@ -24,3 +24,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `015-git-diff-read-only.md` — diff Git somente leitura (resumido e por arquivo) com truncamento em 262 KiB, mascaramento de segredos e validação de path contra o diretório do projeto.
 - `016-git-branch-mutations.md` — primeira mutação Git: criar branch a partir do HEAD e trocar de branch, com confirmação obrigatória, validação de nome e recusa quando a árvore de trabalho está suja.
 - `017-design-review.md` — etapa 1 da reforma de design: auditoria do vocabulário visual atual e decisões registradas em `docs/design/redesign-2026.md` (tokens, padrões de componente, densidade, tema, roteiro da etapa 2). Só documentação.
+- `018-tokens-and-card.md` — etapa 2 da reforma: esqueleto de camadas CSS com `apps/web/src/styles/tokens.css`, componente `<Card>` compartilhado e migração do `ProjectCard` como prova de conceito.
