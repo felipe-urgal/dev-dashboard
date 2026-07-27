@@ -116,4 +116,65 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     });
     assert.equal(response.statusCode, 401);
   });
+
+  await context.test('push em repositório sem remoto retorna 409 GIT_REMOTE_NOT_CONFIGURED', async () => {
+    await git(repoPath, ['switch', 'main']);
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'push', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/push', headers,
+      payload: JSON.stringify({ confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_REMOTE_NOT_CONFIGURED');
+  });
+
+  await context.test('pull sem upstream retorna 409 GIT_NO_UPSTREAM', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'pull', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/pull', headers,
+      payload: JSON.stringify({ confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_NO_UPSTREAM');
+  });
+
+  await context.test('pull/push sem confirmação retornam 409 GIT_MUTATION_CONFIRMATION_REQUIRED', async () => {
+    const pullResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/pull', headers,
+      payload: JSON.stringify({ confirmationToken: 'z'.repeat(64) }),
+    });
+    assert.equal(pullResponse.statusCode, 409);
+    assert.equal(pullResponse.json<ErrorResponse>().error, 'GIT_MUTATION_CONFIRMATION_REQUIRED');
+
+    const pushResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/push', headers,
+      payload: JSON.stringify({ confirmationToken: 'z'.repeat(64) }),
+    });
+    assert.equal(pushResponse.statusCode, 409);
+    assert.equal(pushResponse.json<ErrorResponse>().error, 'GIT_MUTATION_CONFIRMATION_REQUIRED');
+  });
+
+  await context.test('pull/push em projeto desconhecido retornam 404', async () => {
+    const pullResponse = await app.inject({
+      method: 'POST', url: '/api/projects/ghost/git/pull', headers,
+      payload: JSON.stringify({ confirmationToken: 'z'.repeat(64) }),
+    });
+    assert.equal(pullResponse.statusCode, 404);
+    assert.equal(pullResponse.json<ErrorResponse>().error, 'PROJECT_NOT_FOUND');
+
+    const pushResponse = await app.inject({
+      method: 'POST', url: '/api/projects/ghost/git/push', headers,
+      payload: JSON.stringify({ confirmationToken: 'z'.repeat(64) }),
+    });
+    assert.equal(pushResponse.statusCode, 404);
+    assert.equal(pushResponse.json<ErrorResponse>().error, 'PROJECT_NOT_FOUND');
+  });
 });

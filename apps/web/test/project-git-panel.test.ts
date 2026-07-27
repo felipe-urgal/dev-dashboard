@@ -246,6 +246,93 @@ test('mutação Git respeita cancelamento do usuário no confirm do navegador', 
   assert.equal(mutationCalled, false, 'nenhuma chamada de mutação deveria ter ocorrido quando o confirm é recusado');
 });
 
+test('pull envia confirmação com o branch atual e mostra sucesso', async () => {
+  const calls: Array<{ url: string; body?: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url: url.pathname, body });
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      return new Response(JSON.stringify({ confirmation: { token: 'p'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/pull')) {
+      return new Response(JSON.stringify({ branch: { branch: baseOverview.branch } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const buttons = wrapper.findAll('button');
+  const pullButton = buttons.find((button) => button.text().includes('Pull'));
+  await pullButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  const confirmationCall = calls.find((call) => call.url.endsWith('/git/mutations/confirmations'));
+  assert.equal((confirmationCall!.body as { operation: string; target: string }).operation, 'pull');
+  assert.equal((confirmationCall!.body as { operation: string; target: string }).target, 'main');
+  assert.match(wrapper.find('.git-mutation-success').text(), /Pull concluído no branch "main"/);
+});
+
+test('push exibe a mensagem de erro específica quando o remoto rejeita', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      return new Response(JSON.stringify({ confirmation: { token: 's'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/push')) {
+      return new Response(JSON.stringify({ error: 'GIT_PUSH_REJECTED', message: 'O remoto tem commits que o branch local não possui; faça pull antes de enviar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const buttons = wrapper.findAll('button');
+  const pushButton = buttons.find((button) => button.text().includes('Push'));
+  await pushButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.find('.project-error').text(), /faça pull antes de enviar/);
+});
+
 test('mostra erro quando a chamada de diff falha', async () => {
   const { wrapper, restore } = await mountPanel({
     overview: async () => baseOverview,
