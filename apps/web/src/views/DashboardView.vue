@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+import Card from '../components/Card.vue';
 import ProjectCard from '../components/ProjectCard.vue';
+import StatusBadge from '../components/StatusBadge.vue';
 import WorkspaceDirectoryPicker from '../components/WorkspaceDirectoryPicker.vue';
 import { dashboardStore } from '../stores/dashboard';
 
@@ -36,7 +38,7 @@ const {
 <template>
   <section id="overview" class="content">
     <div class="hero-grid">
-      <div class="hero-copy">
+      <Card class="hero-copy">
         <span class="section-kicker">Central de desenvolvimento</span>
         <h2>Seus projetos locais em um único lugar.</h2>
         <p>
@@ -44,16 +46,18 @@ const {
           e Node e prepare o ambiente para gerenciar processos,
           Git, testes e logs.
         </p>
-      </div>
+      </Card>
 
-      <section class="workspace-panel">
-        <div class="form-heading">
+      <Card class="workspace-panel">
+        <template #header>
           <div>
             <span class="section-kicker">Workspaces</span>
             <h3>Gerenciar projetos locais</h3>
           </div>
-          <span class="local-badge">Local only</span>
-        </div>
+        </template>
+        <template #actions>
+          <StatusBadge tone="neutral">Somente local</StatusBadge>
+        </template>
 
         <template v-if="workspaces.length > 0">
           <label class="workspace-field">
@@ -154,7 +158,7 @@ const {
             }}
           </button>
         </form>
-      </section>
+      </Card>
     </div>
 
     <div v-if="errorMessage" class="alert alert-error" role="alert">
@@ -180,43 +184,45 @@ const {
     </div>
 
     <section class="metrics-grid" aria-label="Resumo dos projetos">
-      <article class="metric-card">
+      <Card tag="article" class="metric-card">
         <span class="metric-label">Repositórios</span>
         <strong>{{ projects.length }}</strong>
         <span class="metric-detail">projetos detectados</span>
-      </article>
+      </Card>
 
-      <article class="metric-card">
+      <Card tag="article" class="metric-card">
         <span class="metric-label">Rails</span>
         <strong>{{ railsProjects }}</strong>
         <span class="metric-detail">aplicações Ruby</span>
-      </article>
+      </Card>
 
-      <article class="metric-card">
+      <Card tag="article" class="metric-card">
         <span class="metric-label">Node</span>
         <strong>{{ nodeProjects }}</strong>
         <span class="metric-detail">aplicações JavaScript</span>
-      </article>
+      </Card>
 
-      <article class="metric-card">
+      <Card tag="article" class="metric-card">
         <span class="metric-label">Git</span>
         <strong>{{ gitProjects }}</strong>
         <span class="metric-detail">repositórios versionados</span>
-      </article>
+      </Card>
     </section>
 
-    <section id="repositories" class="repositories-section">
-      <div class="section-heading">
+    <Card id="repositories" class="repositories-section">
+      <template #header>
         <div>
           <span class="section-kicker">Repositórios</span>
           <h2>Projetos detectados</h2>
         </div>
 
+      </template>
+      <template #actions>
         <span class="section-count">
           {{ projects.length }}
           {{ projects.length === 1 ? 'projeto' : 'projetos' }}
         </span>
-      </div>
+      </template>
 
       <div v-if="loadingProjects" class="empty-state">
         <div class="empty-icon">•••</div>
@@ -243,7 +249,7 @@ const {
           :project="project"
         />
       </div>
-    </section>
+    </Card>
     <WorkspaceDirectoryPicker
       v-model="newWorkspacePath"
       :open="directoryPickerOpen"
