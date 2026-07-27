@@ -39,12 +39,24 @@ test.describe('navegação principal', () => {
     await gotoBootstrapped(page, '/processes');
     await page.keyboard.press('ControlOrMeta+KeyK');
 
-    const search = page.getByRole('searchbox', { name: 'Buscar navegação' });
+    const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
     await expect(search).toBeFocused();
     await search.fill('sample-node-app');
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
     await expect(page.getByRole('heading', { level: 2, name: 'sample-node-app' })).toBeVisible();
+  });
+
+  test('paleta inicia o servidor somente após confirmação explícita', async ({ page }) => {
+    await gotoBootstrapped(page, '/');
+    await page.getByRole('link', { name: 'Ver detalhes' }).click();
+    await page.keyboard.press('ControlOrMeta+KeyK');
+    const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
+    await search.fill('iniciar servidor');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Confirmar ação')).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('status').filter({ hasText: 'Servidor iniciado com sucesso.' })).toBeVisible();
   });
 });

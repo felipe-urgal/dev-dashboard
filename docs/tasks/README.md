@@ -40,3 +40,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `031-rails-migrations-mutable.md` — operações Rails de migrations com catálogo fechado e confirmação obrigatória.
 - `032-bundler-diagnostics.md` — diagnóstico Bundler somente leitura para projetos Rails.
 - `033-command-palette-navigation.md` — primeira fatia da command palette, com busca e navegação client-side por teclado.
+- `034-command-palette-actions.md` — ações autorizadas de servidor na command palette, com disponibilidade por capacidade/estado, risco explícito, confirmação em duas etapas e correção do ciclo de foco modal.

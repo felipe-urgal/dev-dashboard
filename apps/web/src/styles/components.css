@@ -1265,11 +1265,14 @@ a.secondary-button {
 .command-palette-search input { min-width: 0; padding: 4px 0; border: 0; outline: 0; color: var(--text); background: transparent; font: inherit; font-size: 14px; }
 .command-palette-search kbd, .command-palette footer { color: var(--text-dim); font-size: 9px; }
 .command-palette-list { overflow-y: auto; max-height: min(55vh, 430px); margin: 0; padding: 8px; list-style: none; }
-.command-palette-item { display: grid; grid-template-columns: 90px minmax(120px, 1fr) minmax(0, 1.5fr); align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1px solid transparent; border-radius: 9px; color: var(--text); background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.command-palette-item { display: grid; grid-template-columns: 90px minmax(120px, 1fr) minmax(0, 1.5fr) auto; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: 1px solid transparent; border-radius: 9px; color: var(--text); background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .command-palette-item-active, .command-palette-item:focus-visible { border-color: var(--accent); outline: none; background: var(--accent-soft); }
 .command-palette-item-group { color: var(--info-text); font-size: 8px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .command-palette-item strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .command-palette-item small { overflow: hidden; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.command-palette-item-kind { color: var(--text-muted); font-size: 9px; font-weight: 700; white-space: nowrap; }
+.command-palette-risk-atencao { color: var(--danger); }
+.command-palette-feedback { margin: 0; padding: 10px 14px; border-top: 1px solid var(--border); color: var(--text); font-size: 11px; }
 .command-palette-empty { padding: 36px 18px; margin: 0; color: var(--text-muted); font-size: 11px; text-align: center; }
 .command-palette footer { padding: 9px 16px; border-top: 1px solid var(--border); text-align: right; }
 @media (max-width: 600px) { .command-palette-backdrop { padding-top: 30px; }.command-palette-item { grid-template-columns: 1fr; gap: 3px; }.command-palette-item-group { order: 2; }.command-palette-item small { order: 3; } }
