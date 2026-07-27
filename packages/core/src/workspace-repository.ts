@@ -11,15 +11,13 @@ import {
   writeFile
 } from "node:fs/promises";
 
-import {
-  homedir
-} from "node:os";
-
 import path from "node:path";
 
 import type {
   Workspace
 } from "@dev-dashboard/contracts";
+
+import { resolveConfigDirectory } from "./config-directory.js";
 
 interface DashboardConfig {
   version: 1;
@@ -56,31 +54,6 @@ const DEFAULT_CONFIG: DashboardConfig = {
   version: 1,
   workspaces: []
 };
-
-function resolveConfigDirectory(): string {
-  const configuredDirectory =
-    process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
-
-  if (configuredDirectory) {
-    return path.resolve(configuredDirectory);
-  }
-
-  const xdgConfigHome =
-    process.env.XDG_CONFIG_HOME?.trim();
-
-  if (xdgConfigHome) {
-    return path.join(
-      path.resolve(xdgConfigHome),
-      "dev-dashboard"
-    );
-  }
-
-  return path.join(
-    homedir(),
-    ".config",
-    "dev-dashboard"
-  );
-}
 
 function slugify(value: string): string {
   const result = value

@@ -12,11 +12,9 @@ import {
   writeFile
 } from "node:fs/promises";
 
-import {
-  homedir
-} from "node:os";
-
 import path from "node:path";
+
+import { resolveConfigDirectory } from "./config-directory.js";
 
 const TOKEN_FILE_NAME = "api-token";
 const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
@@ -36,31 +34,6 @@ export class LocalTokenStoreError extends Error {
     this.name = "LocalTokenStoreError";
     this.code = code;
   }
-}
-
-function resolveConfigDirectory(): string {
-  const configuredDirectory =
-    process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
-
-  if (configuredDirectory) {
-    return path.resolve(configuredDirectory);
-  }
-
-  const xdgConfigHome =
-    process.env.XDG_CONFIG_HOME?.trim();
-
-  if (xdgConfigHome) {
-    return path.join(
-      path.resolve(xdgConfigHome),
-      "dev-dashboard"
-    );
-  }
-
-  return path.join(
-    homedir(),
-    ".config",
-    "dev-dashboard"
-  );
 }
 
 function isErrnoCode(

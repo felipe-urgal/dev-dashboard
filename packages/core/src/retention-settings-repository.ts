@@ -1,9 +1,10 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
 
 import type { RetentionSettings, RetentionSettingsLimits, RetentionSettingsSnapshot } from '@dev-dashboard/contracts';
+
+import { resolveConfigDirectory } from './config-directory.js';
 
 export const RETENTION_SETTINGS_LIMITS: RetentionSettingsLimits = {
   retentionDays: { minimum: 1, maximum: 365, default: 7 },
@@ -21,13 +22,6 @@ function defaultValues(): RetentionSettings {
     scriptHistoryLimit: environmentValue('DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT', 'scriptHistoryLimit'),
     testHistoryLimit: environmentValue('DEV_DASHBOARD_TEST_HISTORY_LIMIT', 'testHistoryLimit'),
   };
-}
-
-function resolveConfigDirectory(): string {
-  const configured = process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
-  if (configured) return path.resolve(configured);
-  const xdg = process.env.XDG_CONFIG_HOME?.trim();
-  return xdg ? path.join(path.resolve(xdg), 'dev-dashboard') : path.join(homedir(), '.config', 'dev-dashboard');
 }
 
 function isValidValue(value: unknown, key: keyof RetentionSettings): value is number {
