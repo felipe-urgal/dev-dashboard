@@ -34,4 +34,17 @@ test.describe('navegação principal', () => {
     await gotoBootstrapped(page, '/rota-que-nao-existe');
     await expect(page.getByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeVisible();
   });
+
+  test('paleta global encontra e abre um projeto', async ({ page }) => {
+    await gotoBootstrapped(page, '/processes');
+    await page.keyboard.press('ControlOrMeta+KeyK');
+
+    const search = page.getByRole('searchbox', { name: 'Buscar navegação' });
+    await expect(search).toBeFocused();
+    await search.fill('sample-node-app');
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
+    await expect(page.getByRole('heading', { level: 2, name: 'sample-node-app' })).toBeVisible();
+  });
 });

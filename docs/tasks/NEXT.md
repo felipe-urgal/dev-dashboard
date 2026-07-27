@@ -1,64 +1,59 @@
-# Próxima atividade — 033: Command palette (navegação, primeira fatia)
+# Próxima atividade — 034: Command palette (ações autorizadas)
 
 ## Contexto
 
-Com a task 032, a frente "Rails de baixo risco" do Horizonte 2 está
-concluída (migrations status/routes, operações mutáveis, diagnóstico
-Bundler — Sidekiq/Webpack/generators/credenciais ficam como itens
-separados, sem escopo definido ainda). O próximo item do roadmap
-(`docs/roadmap.md`, Horizonte 2) é o command palette: "busca e navegação
-por teclado, restrita a ações já autorizadas em suas telas".
-
-Este é um recurso maior — vale entregar em fatias. Esta task cobre só
-**navegação** (workspaces, projetos, páginas globais); busca por
-ações/comandos executáveis (rodar teste, iniciar servidor, etc.) fica para
-uma entrega seguinte, depois que o padrão de navegação estiver validado.
+A task 033 estabeleceu a paleta global para navegação, incluindo busca,
+teclado, foco e roteamento. A segunda fatia deve cumprir a parte restante do
+item do Horizonte 2: localizar ações já autorizadas nas telas, sem transformar
+a paleta em uma entrada para shell arbitrário ou enfraquecer confirmações.
 
 ## Objetivo
 
-Um atalho de teclado global (`Cmd/Ctrl+K`) abre uma paleta de busca que
-permite navegar rapidamente para: qualquer projeto detectado (por nome ou
-caminho), as páginas globais (Visão geral, Atividade, Processos,
-Configurações se existir) e as abas do projeto atualmente aberto (Git,
-Testes, Banco, Scripts). Sem executar nenhuma ação — apenas roteamento
-client-side para rotas já existentes.
+Exibir, quando um projeto estiver aberto, ações que já existem e são
+permitidas naquele contexto (por exemplo iniciar/parar servidor e abrir uma
+área que contém testes ou scripts), mantendo exatamente as mesmas regras de
+capacidade, risco, confirmação e execução da tela de origem.
 
 ## Plano detalhado
 
-1. Componente `CommandPalette.vue` (overlay modal, fecha com `Esc` ou clique
-   fora), montado uma vez no shell principal (`App.vue`), não por página.
-2. Fonte de dados: reaproveitar o estado já carregado no
-   `dashboardStore` (workspaces e projetos já detectados) — sem nova
-   chamada à API só para a paleta. Filtro incremental client-side por
-   substring (nome/caminho do projeto), sem busca fuzzy sofisticada nesta
-   primeira fatia.
-3. Navegação por teclado dentro da lista (setas para cima/baixo, `Enter`
-   para selecionar, respeitando o item já em foco visualmente) — auditoria
-   de foco/teclado já é um item do roadmap ("Base de testes da interface"),
-   então validar que o padrão aqui é acessível (foco visível, sem trap de
-   teclado) desde já, em vez de deixar para depois.
-4. Registrar o atalho global sem conflitar com atalhos nativos do navegador
-   nem com campos de texto focados (não abrir a paleta se o usuário estiver
-   digitando em um input/textarea).
-5. Testes montados do componente (abre/fecha, filtro por texto, navegação
-   por teclado, seleção navega para a rota esperada) e um teste E2E de
-   smoke cobrindo abrir a paleta e navegar até um projeto.
+1. Inventariar ações existentes por tela e classificá-las como navegação,
+   leitura, mutação reversível ou mutação sensível; documentar quais entram
+   nesta primeira fatia executável.
+2. Extrair descritores tipados de ação para que tela e paleta compartilhem
+   rótulo, disponibilidade e risco sem duplicar regras de capacidade.
+3. Começar pelo menor conjunto seguro: ações de processo já fechadas pelo
+   backend e atalhos que apenas abrem a área correta. Não aceitar comando,
+   argumento, caminho ou `cwd` digitado na paleta.
+4. Para qualquer mutação, reutilizar o fluxo de confirmação da tela de
+   origem. A paleta deve mostrar visualmente o nível de risco e nunca executar
+   uma ação sensível só com um `Enter` acidental.
+5. Manter estados de carregamento, sucesso e erro compreensíveis; fechar a
+   paleta somente quando isso não esconder o resultado necessário.
+6. Cobrir disponibilidade por capacidade, bloqueio de ações indisponíveis,
+   confirmação, execução e erro com testes montados; acrescentar um smoke E2E
+   de uma ação segura.
+
+## Segurança
+
+- Ler `docs/architecture/security.md` antes de alterar qualquer rota.
+- Preferir as rotas existentes. Se uma rota nova for inevitável, declarar
+  schemas completos, exigir token e resolver projeto/caminho exclusivamente
+  pelo `ProjectStore`.
+- A paleta envia apenas identificadores pertencentes a catálogos fechados;
+  nunca strings de shell, argumentos livres ou caminhos absolutos.
+- Confirmações atuais continuam obrigatórias e com o mesmo escopo/TTL.
 
 ## Fora do escopo
 
-- Busca ou execução de ações/comandos (rodar teste, iniciar servidor,
-  commit, etc.) — fatia seguinte, e precisa decidir como refletir risco
-  (read-only vs. mutável) dentro da paleta antes de implementar.
-- Histórico de itens recentes/favoritos na paleta.
-- Busca fuzzy ou ranqueamento sofisticado de resultados.
-- Atalhos de teclado adicionais além do `Cmd/Ctrl+K` de abertura.
+- Shell/terminal embutido ou comandos personalizados.
+- Ações administrativas de workspace.
+- Recentes, favoritos ou busca fuzzy.
+- Relaxar confirmações para tornar a interação mais rápida.
 
 ## Critérios de aceite
 
-- `Cmd/Ctrl+K` abre a paleta de qualquer tela (exceto com um campo de texto
-  focado); `Esc` fecha;
-- busca por nome/caminho encontra projetos e navega para o detalhe correto
-  ao selecionar;
-- navegação por teclado (setas + Enter) funciona sem exigir o mouse;
-- `npm run typecheck`, `npm run build` e `npm test` passam com os novos
-  testes de componente e ao menos um smoke E2E da paleta.
+- somente ações válidas para o projeto/contexto aparecem;
+- ações mutáveis preservam a confirmação e deixam o risco explícito;
+- nenhuma entrada livre alcança processo, filesystem ou shell;
+- teclado e leitores de tela distinguem destinos de navegação e ações;
+- `npm run typecheck`, `npm run build`, `npm test` e o smoke E2E passam.

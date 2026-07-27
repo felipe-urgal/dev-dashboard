@@ -2,6 +2,7 @@
 import {
   computed,
   onMounted,
+  ref,
 } from 'vue';
 
 import {
@@ -12,6 +13,9 @@ import {
 
 import { dashboardStore } from './stores/dashboard';
 import VisualPreferences from './components/VisualPreferences.vue';
+import CommandPalette from './components/CommandPalette.vue';
+
+const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 
 const route = useRoute();
 
@@ -151,8 +155,8 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
-          <button class="command-button" type="button" disabled>
-            Buscar ou executar
+          <button class="command-button" type="button" @click="commandPalette?.show()">
+            Navegação rápida
             <kbd>⌘ K</kbd>
           </button>
 
@@ -170,5 +174,11 @@ onMounted(() => {
 
       <RouterView />
     </main>
+
+    <CommandPalette
+      ref="commandPalette"
+      :projects="dashboardStore.knownProjects.value"
+      :workspaces="dashboardStore.workspaces.value"
+    />
   </div>
 </template>
