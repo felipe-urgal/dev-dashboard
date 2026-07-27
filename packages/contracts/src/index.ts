@@ -59,6 +59,9 @@ export type {
 
 export type {
   RailsMigrationEntry,
+  RailsMigrationMutationConfirmation,
+  RailsMigrationMutationOperation,
+  RailsMigrationMutationResult,
   RailsMigrationStatus,
   RailsMigrationsOverview,
   RailsRouteEntry,

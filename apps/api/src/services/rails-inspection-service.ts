@@ -1,11 +1,16 @@
+import { randomBytes } from 'node:crypto';
 import { access } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   Project,
   RailsMigrationEntry,
+  RailsMigrationMutationConfirmation,
+  RailsMigrationMutationOperation,
+  RailsMigrationMutationResult,
   RailsMigrationsOverview,
   RailsRouteEntry,
   RailsRoutesOverview,
@@ -15,19 +20,45 @@ type CommandRunner = (
   command: string,
   args: string[],
   options: { cwd: string },
-) => Promise<{ stdout: string }>;
+) => Promise<{ stdout: string; stderr?: string }>;
 
 const execFileAsync = promisify(execFile);
 const defaultCommandRunner: CommandRunner = async (command, args, options) => {
-  const { stdout } = await execFileAsync(command, args, {
+  const { stdout, stderr } = await execFileAsync(command, args, {
     cwd: options.cwd,
     encoding: 'utf8',
     maxBuffer: 5 * 1024 * 1024,
     timeout: 20_000,
     windowsHide: true,
   });
-  return { stdout };
+  return { stdout, stderr };
 };
+
+export type RailsMutationErrorCode = 'RAILS_MUTATION_UNSUPPORTED' | 'RAILS_MUTATION_CONFIRMATION_REQUIRED';
+
+export class RailsMutationError extends Error {
+  public constructor(public readonly code: RailsMutationErrorCode, message: string) {
+    super(message);
+    this.name = 'RailsMutationError';
+  }
+}
+
+const MUTATION_CONFIRMATION_TTL_MS = 60_000;
+const MUTATION_OUTPUT_LIMIT = 262_144;
+
+const MUTATION_ARGS: Record<RailsMigrationMutationOperation, string[]> = {
+  migrate: ['db:migrate'],
+  rollback: ['db:rollback', 'STEP=1'],
+  seed: ['db:seed'],
+  prepare: ['db:prepare'],
+};
+
+interface StoredMutationConfirmation {
+  token: string;
+  projectId: string;
+  operation: RailsMigrationMutationOperation;
+  expiresAt: number;
+}
 
 interface RailsCommand {
   command: string;
@@ -106,6 +137,8 @@ function parseRoutes(output: string): RailsRouteEntry[] {
 }
 
 export class RailsInspectionService {
+  private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
+
   public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
 
   public async getMigrationsOverview(project: Project): Promise<RailsMigrationsOverview> {
@@ -137,6 +170,83 @@ export class RailsInspectionService {
       return { supported: true, routes: parseRoutes(stdout) };
     } catch {
       return { supported: false, routes: [] };
+    }
+  }
+
+  public async prepareMutationConfirmation(
+    project: Project,
+    operation: RailsMigrationMutationOperation,
+  ): Promise<RailsMigrationMutationConfirmation> {
+    if (!(await resolveRailsCommand(project))) {
+      throw new RailsMutationError('RAILS_MUTATION_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+    }
+    this.pruneExpiredConfirmations();
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + MUTATION_CONFIRMATION_TTL_MS;
+    this.mutationConfirmations.set(token, { token, projectId: project.id, operation, expiresAt });
+    return { token, operation, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
+  public async runMutation(
+    project: Project,
+    operation: RailsMigrationMutationOperation,
+    confirmationToken: string | undefined,
+  ): Promise<RailsMigrationMutationResult> {
+    this.consumeMutationConfirmation(project.id, operation, confirmationToken);
+
+    const railsCommand = await resolveRailsCommand(project);
+    if (!railsCommand) {
+      throw new RailsMutationError('RAILS_MUTATION_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+    }
+
+    let succeeded = true;
+    let rawOutput = '';
+    try {
+      const { stdout, stderr } = await this.runCommand(
+        railsCommand.command,
+        [...railsCommand.args, ...MUTATION_ARGS[operation]],
+        { cwd: project.path },
+      );
+      rawOutput = [stdout, stderr].filter(Boolean).join('\n');
+    } catch (error) {
+      succeeded = false;
+      const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+      rawOutput = [failure.stdout, failure.stderr]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .join('\n') || (typeof failure.message === 'string' ? failure.message : 'Falha ao executar o comando.');
+    }
+
+    const truncated = rawOutput.length > MUTATION_OUTPUT_LIMIT;
+    const trimmed = truncated ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT) : rawOutput;
+    const masked = maskSensitiveLogContent(trimmed);
+
+    return {
+      operation,
+      succeeded,
+      output: masked.content,
+      truncated,
+      masked: masked.masked,
+      redactionCount: masked.redactionCount,
+    };
+  }
+
+  private consumeMutationConfirmation(
+    projectId: string,
+    operation: RailsMigrationMutationOperation,
+    token: string | undefined,
+  ): void {
+    this.pruneExpiredConfirmations();
+    const record = token ? this.mutationConfirmations.get(token) : undefined;
+    if (!record || record.projectId !== projectId || record.operation !== operation) {
+      throw new RailsMutationError('RAILS_MUTATION_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
+    }
+    this.mutationConfirmations.delete(token!);
+  }
+
+  private pruneExpiredConfirmations(): void {
+    const now = Date.now();
+    for (const [token, record] of this.mutationConfirmations) {
+      if (record.expiresAt <= now) this.mutationConfirmations.delete(token);
     }
   }
 }

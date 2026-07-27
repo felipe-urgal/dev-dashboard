@@ -580,6 +580,29 @@ export const railsRoutesOverviewResponseSchema = {
   },
 } as const;
 
+export const railsMigrationMutationConfirmationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['token', 'operation', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    operation: { type: 'string', enum: ['migrate', 'rollback', 'seed', 'prepare'] },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+export const railsMigrationMutationResultResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['operation', 'succeeded', 'output', 'truncated', 'masked', 'redactionCount'],
+  properties: {
+    operation: { type: 'string', enum: ['migrate', 'rollback', 'seed', 'prepare'] },
+    succeeded: { type: 'boolean' },
+    output: { type: 'string' },
+    truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 export const activityListResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['items', 'page', 'pageSize', 'total', 'totalPages'],

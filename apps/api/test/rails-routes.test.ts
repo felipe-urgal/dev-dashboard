@@ -10,6 +10,8 @@ const TOKEN = 'r'.repeat(64);
 
 interface MigrationsResponse { migrations: { supported: boolean; migrations: Array<{ version: string; name: string; status: string }> } }
 interface RoutesResponse { routes: { supported: boolean; routes: Array<{ name?: string; verb: string; path: string; controllerAction: string }> } }
+interface ConfirmationResponse { confirmation: { token: string; operation: string; expiresAt: string } }
+interface MutationResultResponse { result: { operation: string; succeeded: boolean; output: string } }
 interface ErrorResponse { error?: string }
 
 test('rotas de inspeção Rails (migrations e routes)', async (context) => {
@@ -35,9 +37,12 @@ test('rotas de inspeção Rails (migrations e routes)', async (context) => {
         stdout: 'database: sample_development\n\n Status   Migration ID    Migration Name\n--------------------------------------------------\n   up     20200101010101  Create users\n',
       };
     }
-    return {
-      stdout: '                                     users GET    /users(.:format)           users#index\n',
-    };
+    if (args.includes('routes')) {
+      return {
+        stdout: '                                     users GET    /users(.:format)           users#index\n',
+      };
+    }
+    return { stdout: `executando ${args.join(' ')}\n` };
   });
 
   const project: Project = {
@@ -85,5 +90,35 @@ test('rotas de inspeção Rails (migrations e routes)', async (context) => {
   await context.test('rota exige autenticação', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/routes' });
     assert.equal(response.statusCode, 401);
+  });
+
+  const jsonHeaders = { ...headers, 'content-type': 'application/json' };
+
+  await context.test('prepara confirmação e executa migrate', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/migrations/confirmations', headers: jsonHeaders,
+      payload: JSON.stringify({ operation: 'migrate' }),
+    });
+    assert.equal(confirmationResponse.statusCode, 201);
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    assert.equal(confirmation.operation, 'migrate');
+
+    const mutationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/migrations/mutations', headers: jsonHeaders,
+      payload: JSON.stringify({ operation: 'migrate', confirmationToken: confirmation.token }),
+    });
+    assert.equal(mutationResponse.statusCode, 200);
+    const { result } = mutationResponse.json<MutationResultResponse>();
+    assert.equal(result.succeeded, true);
+    assert.match(result.output, /db:migrate/);
+  });
+
+  await context.test('rejeita mutação sem confirmação prévia', async () => {
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/migrations/mutations', headers: jsonHeaders,
+      payload: JSON.stringify({ operation: 'seed', confirmationToken: 's'.repeat(64) }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'RAILS_MUTATION_CONFIRMATION_REQUIRED');
   });
 });

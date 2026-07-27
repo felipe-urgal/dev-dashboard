@@ -68,7 +68,7 @@ compromissos de versão.
 - [x] detecção de configurações, disponibilidade e segredo sob demanda;
 - [x] inicialização segura de serviço local reconhecido;
 - [x] migrations status e routes no web (task 030, somente leitura);
-- [ ] migrate, rollback, seed e prepare com política de risco;
+- [x] migrate, rollback, seed e prepare com política de risco (task 031);
 - [ ] Bundler, Sidekiq, Webpack, generators e credenciais;
 - [ ] suporte validado a múltiplos bancos.
 

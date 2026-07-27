@@ -1,63 +1,66 @@
-# Próxima atividade — 031: Migrations mutáveis (migrate, rollback, seed, prepare)
+# Próxima atividade — 032: Diagnóstico Bundler (somente leitura)
 
 ## Contexto
 
-A task 030 entregou a parte somente-leitura de Rails: status de migrations e
-lista de rotas, sem executar nenhuma mutação. O roadmap prevê agora a
-contraparte mutável — `migrate`, `rollback`, `seed` e `db:prepare` — com
-política de risco proporcional, no mesmo padrão de confirmação já usado
-pelas mutações Git (`GitMutationOperation`, tasks 016/025/026) e pelo
-catálogo de scripts (`ProjectScriptRisk`, `ScriptExecutionConfirmation`).
+Com a task 031, a frente "Rails de baixo risco" cobre detecção de banco,
+inicialização de serviço local, status de migrations, rotas e operações
+mutáveis de banco com confirmação. O roadmap ainda lista, na mesma frente,
+"diagnóstico Bundler" como pendente (`docs/roadmap.md`, seção "Banco e
+ferramentas Rails"). Hoje não há nenhuma visão sobre o estado das gems de um
+projeto Rails/Ruby — se o `Gemfile.lock` está desatualizado, se há gems
+desatualizadas ou se `bundle check` aponta problema de instalação.
 
 ## Objetivo
 
-Permitir rodar `db:migrate`, `db:rollback`, `db:seed` e `db:prepare` a partir
-do painel de banco de um projeto Rails, com confirmação obrigatória antes de
-qualquer execução, catálogo fechado de comandos (sem shell arbitrário) e
-histórico/registro compatível com o resto do produto.
+Mostrar, no detalhe de um projeto Rails (ou qualquer projeto com Gemfile),
+um diagnóstico somente leitura do Bundler: se o bundle está instalado e
+consistente (`bundle check`) e quais gems estão desatualizadas
+(`bundle outdated`), sem instalar, atualizar ou modificar nada.
 
 ## Plano detalhado
 
-1. Definir o catálogo fechado de operações mutáveis em
-   `RailsInspectionService` (ou um novo `RailsMutationService`, se a mistura
-   de responsabilidades ficar grande): `migrate` (`db:migrate`, sem versão
-   específica nesta entrega), `rollback` (`db:rollback`, sempre um passo —
-   `STEP=1` — sem parametrização de quantidade), `seed` (`db:seed`) e
-   `prepare` (`db:prepare`). Reaproveitar a resolução bin/bundle já usada na
-   task 030.
-2. Modelar confirmação seguindo o formato de `GitMutationConfirmation`
-   (token de curta duração, operação, alvo — aqui o ambiente/banco
-   detectado — e expiração), em vez de inventar um mecanismo novo.
-3. Rotas privadas: `POST /api/projects/:projectId/rails/migrate/confirm` (ou
-   reaproveitar o padrão de confirmação de scripts, se fizer mais sentido
-   depois de comparar os dois formatos existentes) seguida de
-   `POST /api/projects/:projectId/rails/migrate`, e o equivalente para
-   rollback/seed/prepare.
-4. Reaproveitar `ProcessManager` para a execução em si (não é leitura
-   pontual como a task 030 — pode ter saída longa em bancos grandes), no
-   mesmo "slot" de processo de banco do projeto, com log e cancelamento.
-5. Atualizar `ProjectDatabasePanel.vue`: ações de migrate/rollback/seed/
-   prepare com confirmação explícita (modal ou passo intermediário, não um
-   único clique), desabilitadas quando a operação já está em andamento, e
-   atualização do status de migrations (task 030) após a conclusão.
-6. Testes de serviço (catálogo de operações, confirmação expirada/reutilizada
-   como as de Git, rejeição sem confirmação prévia), testes de rota, e ao
-   menos um teste montado do painel cobrindo o fluxo de confirmação.
+1. Detectar projetos com `Gemfile` (não restrito a `type: 'rails'`, já que
+   Bundler também é usado por gems/bibliotecas Ruby puras) e resolver o
+   comando (`bundle`, sempre disponível via Gemfile — não há variante
+   bin/binstub aqui como em `bin/rails`).
+2. Rodar `bundle check` (saída curta: instalado e satisfeito, ou lista de
+   dependências faltando) e `bundle outdated` (lista de gems com versão
+   atual/mais nova) como leitura pontual, reaproveitando o padrão de
+   `RailsInspectionService` (execução via `execFile`, sem processo
+   gerenciado, timeout curto). Ambos os comandos podem demorar em projetos
+   grandes (`bundle outdated` resolve a árvore de dependências) — considerar
+   um timeout mais generoso que o das outras leituras desta service (ex.
+   30-45s) e comunicar claramente na UI quando expira.
+3. Parsear a saída de `bundle outdated` (formato texto padrão: uma linha por
+   gem desatualizada, com nome, versão instalada, versão mais nova e,
+   opcionalmente, se é uma major/minor/patch) para uma estrutura tipada.
+   Avaliar se existe uma flag de saída mais estruturada (`--parseable` ou
+   similar) antes de escrever um parser de texto livre novo.
+4. Expor rota privada somente leitura (ex.
+   `GET /api/projects/:projectId/bundler`), reaproveitando o padrão de
+   projeto-não-suportado já usado em testes/banco/migrations.
+5. Adicionar um painel (ou seção dentro de um painel existente, a decidir
+   olhando para onde faz mais sentido na navegação atual — banco, scripts,
+   ou uma aba nova) mostrando o resultado de `bundle check` e a lista de
+   gems desatualizadas, com busca simples se a lista for grande.
+6. Testes de serviço (parsing de `bundle outdated` com gems desatualizadas e
+   com nenhuma pendência, projeto sem Gemfile, timeout/falha do comando
+   degradando graciosamente), teste de rota, e ao menos um teste montado do
+   painel.
 
 ## Fora do escopo
 
-- Seleção de versão específica para migrate/rollback (ex. `VERSION=`) ou
-  rollback de mais de um passo.
-- Diagnóstico de Bundler, Sidekiq, Webpack, generators ou credenciais.
-- Suporte a múltiplos bancos por projeto.
-- Qualquer execução em ambiente de produção (o catálogo assume
-  desenvolvimento/teste local, coerente com o restante do produto).
+- `bundle update`, `bundle install` ou qualquer mutação de dependências.
+- Sidekiq, Webpack ou generators (itens separados na mesma linha do
+  roadmap, cada um merece sua própria investigação de escopo).
+- Auditoria de segurança de dependências (`bundle audit` ou equivalente) —
+  pode ser uma entrega futura relacionada, mas não faz parte desta.
+- Diagnóstico de gems por múltiplos Gemfiles/gemsets no mesmo projeto.
 
 ## Critérios de aceite
 
-- é possível rodar migrate/rollback/seed/prepare em um projeto Rails a
-  partir do painel, com confirmação obrigatória antes de cada execução;
-- nenhuma operação executa sem confirmação válida e não expirada;
-- projetos sem Rails ou sem `bin/rails` continuam sem a seção, sem erro;
+- o detalhe de um projeto com Gemfile mostra o resultado de `bundle check`
+  e a lista de gems desatualizadas, sem executar nenhuma mutação;
+- projetos sem Gemfile continuam funcionando sem erro, apenas sem a seção;
 - `npm run typecheck`, `npm run build` e `npm test` passam com os novos
   testes de API e de componente.
