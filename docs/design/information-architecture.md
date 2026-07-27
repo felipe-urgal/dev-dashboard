@@ -25,15 +25,20 @@ Jobs e logs
 Configurações
 ```
 
-> Status em 26/07/2026: apenas **Repositórios** e o detalhe do projeto
-> estão implementados. **Visão geral** existe como landing do dashboard,
-> mas sem os widgets consolidados descritos abaixo. **Processos**,
-> **Jobs e logs**, **Configurações** e a **command palette** deste
-> documento ainda são aspiracionais — cada um está mapeado a uma entrega
-> específica em [`../roadmap.md`](../roadmap.md) (Horizonte 1: painel
-> global de atividade e página global de processos; Horizonte 2:
-> configurações/notificações e command palette). Trate esta arquitetura
-> como visão de destino, não como inventário do que já existe.
+> Status atualizado após tasks 012/014: **Repositórios**, detalhe do
+> projeto, **Atividade** (`/activity`) e **Processos** (`/processes`)
+> estão implementados. **Visão geral** existe como landing, mas sem os
+> widgets consolidados descritos abaixo. **Jobs e logs**,
+> **Configurações** e **command palette** seguem aspiracionais —
+> mapeados no Horizonte 2 do [`../roadmap.md`](../roadmap.md).
+>
+> Vocabulário visual (cores, tipografia, densidade, componentes de
+> card/badge/formulário) está sendo reformulado em
+> [`redesign-2026.md`](./redesign-2026.md). Este documento continua
+> descrevendo **a estrutura da informação e navegação**; o novo
+> substitui a camada visual (paletas, tokens, padrões de card).
+> Quando os dois divergirem sobre aparência, o `redesign-2026.md`
+> prevalece.
 
 ### Visão geral
 
