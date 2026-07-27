@@ -3,6 +3,7 @@ import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import Card from './Card.vue';
 import ProjectAvatar from './ProjectAvatar.vue';
 import ProjectServerPanel from './ProjectServerPanel.vue';
 
@@ -17,7 +18,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <article class="project-card">
+  <Card tag="article" :padded="false" interactive class="project-card">
     <div class="project-card-header">
       <ProjectAvatar :project="project" />
 
@@ -67,5 +68,5 @@ const props = defineProps<{
         Ver detalhes
       </RouterLink>
     </div>
-  </article>
+  </Card>
 </template>
