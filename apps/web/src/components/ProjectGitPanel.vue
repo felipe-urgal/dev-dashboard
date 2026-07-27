@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import type { GitDiffSnapshot, GitFileDiff, GitFileStatus, Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 import {
+  commitProjectGit,
   createProjectGitBranch,
   fetchProjectGit,
   fetchProjectGitDiff,
@@ -9,6 +10,8 @@ import {
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
+  stashPopProjectGit,
+  stashPushProjectGit,
   switchProjectGitBranch,
 } from '../api';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -35,6 +38,8 @@ const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
 const createBranchName = ref('');
 const switchBranchName = ref('');
+const commitMessage = ref('');
+const commitIncludeAllChanges = ref(false);
 
 const statusLabels: Record<GitFileStatus, string> = {
   added: 'Adicionado', modified: 'Modificado', deleted: 'Removido', renamed: 'Renomeado', copied: 'Copiado', untracked: 'Não rastreado', conflicted: 'Conflito', 'type-changed': 'Tipo alterado',
@@ -172,6 +177,72 @@ async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
   }
 }
 
+function currentBranchOrHead(): string {
+  return overview.value?.detached ? 'HEAD' : (overview.value?.branch ?? 'HEAD');
+}
+
+async function runCommit(): Promise<void> {
+  if (mutationRunning.value) return;
+  const message = commitMessage.value.trim();
+  if (!message) {
+    mutationErrorMessage.value = 'Informe uma mensagem de commit.';
+    return;
+  }
+  const includeAllChanges = commitIncludeAllChanges.value;
+  const confirmationText = includeAllChanges
+    ? `Commitar todas as alterações rastreadas com a mensagem "${message}"?`
+    : `Commitar as alterações já staged com a mensagem "${message}"?`;
+  const confirmed = typeof window === 'undefined' || window.confirm(confirmationText);
+  if (!confirmed) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitMutation(props.project.id, 'commit', currentBranchOrHead());
+    const result = await commitProjectGit(props.project.id, message, includeAllChanges, confirmation.token);
+    mutationMessage.value = `Commit "${result.shortHash}" criado: ${result.subject}`;
+    commitMessage.value = '';
+    commitIncludeAllChanges.value = false;
+    await loadGit();
+    await loadDiff();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir o commit.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
+async function runStash(operation: 'stash-push' | 'stash-pop'): Promise<void> {
+  if (mutationRunning.value) return;
+  const topStash = overview.value?.stashes[0];
+  const confirmationText = operation === 'stash-push'
+    ? 'Guardar as alterações rastreadas no stash?'
+    : `Restaurar o stash mais recente ("${topStash?.message ?? ''}")?`;
+  const confirmed = typeof window === 'undefined' || window.confirm(confirmationText);
+  if (!confirmed) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitMutation(props.project.id, operation, currentBranchOrHead());
+    if (operation === 'stash-push') {
+      const stash = await stashPushProjectGit(props.project.id, confirmation.token);
+      mutationMessage.value = `Alterações guardadas no stash: ${stash.message}`;
+    } else {
+      const popped = await stashPopProjectGit(props.project.id, confirmation.token);
+      mutationMessage.value = `Stash restaurado: ${popped.message}`;
+    }
+    await loadGit();
+    await loadDiff();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 watch(() => props.project.id, () => {
   overview.value = null;
   diff.value = null;
@@ -267,6 +338,57 @@ onBeforeUnmount(() => {
             @click="runSyncMutation('push')"
           >
             {{ mutationRunning ? 'Aguarde…' : 'Push' }}
+          </button>
+        </div>
+      </section>
+
+      <section class="git-section">
+        <div class="details-card-heading">
+          <div><span class="section-kicker">Commit</span><h3>Registrar alterações</h3></div>
+        </div>
+        <form class="git-commit-form" @submit.prevent="runCommit">
+          <label>
+            <span>Mensagem do commit</span>
+            <input v-model="commitMessage" type="text" maxlength="500" placeholder="Descreva a alteração" :disabled="mutationRunning" />
+          </label>
+          <label class="git-commit-checkbox">
+            <input v-model="commitIncludeAllChanges" type="checkbox" :disabled="mutationRunning" />
+            <span>Incluir todas as alterações rastreadas (equivalente a "commit -a")</span>
+          </label>
+          <button type="submit" class="secondary-button" :disabled="mutationRunning || !commitMessage.trim()">
+            {{ mutationRunning ? 'Aguarde…' : 'Commitar' }}
+          </button>
+        </form>
+      </section>
+
+      <section class="git-section">
+        <div class="details-card-heading">
+          <div><span class="section-kicker">Stash</span><h3>Guardar e restaurar alterações</h3></div>
+        </div>
+        <div v-if="overview.stashes.length === 0" class="git-empty-inline">Nenhum stash guardado.</div>
+        <ul v-else class="git-stash-list">
+          <li v-for="entry in overview.stashes" :key="entry.index">
+            <code>stash@{{ '{' }}{{ entry.index }}{{ '}' }}</code>
+            <span>{{ entry.message }}</span>
+            <small>{{ formatDate(entry.createdAt) }}</small>
+          </li>
+        </ul>
+        <div class="git-mutation-forms">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="mutationRunning"
+            @click="runStash('stash-push')"
+          >
+            {{ mutationRunning ? 'Aguarde…' : 'Guardar alterações' }}
+          </button>
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="mutationRunning || overview.stashes.length === 0"
+            @click="runStash('stash-pop')"
+          >
+            {{ mutationRunning ? 'Aguarde…' : 'Restaurar o mais recente' }}
           </button>
         </div>
       </section>

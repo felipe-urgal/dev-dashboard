@@ -177,4 +177,79 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     assert.equal(pushResponse.statusCode, 404);
     assert.equal(pushResponse.json<ErrorResponse>().error, 'PROJECT_NOT_FOUND');
   });
+
+  await context.test('commit sem nada staged retorna 409 GIT_NOTHING_TO_COMMIT', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'commit', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/commit', headers,
+      payload: JSON.stringify({ message: 'nada staged', confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_NOTHING_TO_COMMIT');
+  });
+
+  await context.test('commit com alterações staged retorna 201', async () => {
+    await writeFile(path.join(repoPath, 'README.md'), 'via rota\n');
+    await git(repoPath, ['add', '.']);
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'commit', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/commit', headers,
+      payload: JSON.stringify({ message: 'commit via rota', confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 201);
+    interface CommitResponse { commit: { hash: string; shortHash: string; subject: string } }
+    assert.equal(response.json<CommitResponse>().commit.subject, 'commit via rota');
+  });
+
+  await context.test('stash: empilhar e restaurar via rota', async () => {
+    await writeFile(path.join(repoPath, 'README.md'), 'stash via rota\n');
+
+    const pushConfirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'stash-push', target: 'main' }),
+    });
+    const { confirmation: pushConfirmation } = pushConfirmationResponse.json<ConfirmationResponse>();
+    const pushResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/stash', headers,
+      payload: JSON.stringify({ confirmationToken: pushConfirmation.token }),
+    });
+    assert.equal(pushResponse.statusCode, 201);
+    interface StashPushResponse { stash: { index: number; message: string; createdAt: string } }
+    assert.equal(pushResponse.json<StashPushResponse>().stash.index, 0);
+
+    const popConfirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'stash-pop', target: 'main' }),
+    });
+    const { confirmation: popConfirmation } = popConfirmationResponse.json<ConfirmationResponse>();
+    const popResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/stash/pop', headers,
+      payload: JSON.stringify({ confirmationToken: popConfirmation.token }),
+    });
+    assert.equal(popResponse.statusCode, 200);
+    interface StashPopResponse { popped: { index: number; message: string; createdAt: string } }
+    assert.equal(popResponse.json<StashPopResponse>().popped.index, 0);
+  });
+
+  await context.test('stash pop sem stash disponível retorna 404 GIT_STASH_EMPTY', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'stash-pop', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/stash/pop', headers,
+      payload: JSON.stringify({ confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_STASH_EMPTY');
+  });
 });

@@ -1,60 +1,63 @@
-# Próxima atividade — 026: Git commit e stash
+# Próxima atividade — 027: Testes de arquivo/caso específico
 
 ## Contexto
 
-A task 025 entregou pull e push do branch atual com confirmação e validação
-de árvore de trabalho. O roadmap (Horizonte 2, "Git em etapas") lista commit
-e stash como a última mutação desta série, antes de avançar para outras
-frentes (testes focados, Rails de baixo risco, command palette).
+A série "Git em etapas" do Horizonte 2 está concluída (branch na task 016,
+pull/push na 025, commit/stash na 026). O roadmap aponta "testes focados"
+como a próxima frente: hoje o catálogo de testes
+(`packages/contracts/src/test.ts`, `TestDetectionService`) só reconhece
+comandos de suíte inteira (`vitest`, `jest`, `rspec`, `rails-test`, etc.);
+não há como rodar um arquivo ou caso específico, nem relatório de cobertura,
+nem histórico persistente equivalente ao já existente para o catálogo de
+scripts (`ScriptExecutionService`, tasks 007-010).
 
 ## Objetivo
 
-Permitir commitar as alterações da árvore de trabalho e empilhar/desempilhar
-um stash a partir do detalhe do projeto, com a mesma política de confirmação
-já usada nas demais mutações Git, sem editor de mensagem de commit livre além
-de um campo de texto simples e sem seleção parcial de hunks.
+Permitir executar um arquivo de teste específico (e, quando o runner
+suportar de forma simples, um caso/describe nomeado) reconhecido pela
+detecção existente, com o mesmo padrão de segurança do catálogo de scripts:
+catálogo fechado, sem shell arbitrário, execução cancelável, logs limitados
+e mascarados.
 
 ## Plano detalhado
 
-1. Modelar no contrato compartilhado a entrada de commit (mensagem obrigatória,
-   limite de tamanho) e a listagem de stashes (`GitStashEntry` com índice,
-   mensagem e data), reaproveitando `GitMutationConfirmation` para a
-   confirmação de cada mutação.
-2. Implementar em `GitService`: `commit` (exige pelo menos um arquivo staged
-   ou a opção explícita de incluir todas as alterações rastreadas; recusa
-   árvore sem nenhuma alteração), `stashPush` e `stashPop`, tratando de forma
-   explícita: nada para commitar, nenhum stash disponível, e conflito ao
-   aplicar um stash.
-3. Expor rotas privadas em `apps/api/src/routes/projects.ts` seguindo o
-   catálogo fechado de ações e a confirmação por risco já usada nas mutações
-   anteriores.
-4. Adicionar os controles na aba Git do detalhe do projeto
-   (`ProjectGitPanel.vue`): formulário de commit (mensagem + toggle "incluir
-   todas as alterações") e uma lista simples de stashes com ações empilhar/
-   desempilhar.
-5. Cobrir com testes de `GitService` (sucesso, árvore limpa sem nada a
-   commitar, conflito ao popar stash) e testes de rota; ao menos um teste
-   montado do painel para o novo fluxo.
-6. Atualizar `docs/roadmap.md` marcando a linha "commit e stash" como
-   concluída ao final da task.
+1. Estender `ProjectTestCommand`/`TestDetectionService` para expor, quando o
+   runner suportar (`vitest`, `jest`, `rspec`, `rails-test`, `minitest`,
+   `pytest`), uma forma de compor o comando com um caminho de arquivo
+   validado contra o diretório do projeto — reaproveitando a validação de
+   path já usada no diff Git (`ensurePathInsideProject`, task 015) como
+   referência.
+2. Decidir e documentar, por runner, a sintaxe suportada para "arquivo
+   específico" e se um nome de caso/describe é aceito nesta etapa ou fica
+   para uma entrega seguinte (evitar tentar suportar sintaxe arbitrária de
+   todos os runners de uma vez).
+3. Reaproveitar o motor de execução já existente para o catálogo de scripts
+   (processo sem shell, cancelamento, log limitado e mascarado) em vez de
+   duplicar um segundo executor.
+4. Expor rota(s) privadas para listar arquivos de teste elegíveis de um
+   projeto e para iniciar a execução de um arquivo específico, seguindo o
+   catálogo fechado de ações já estabelecido.
+5. Adicionar ao painel de testes do detalhe do projeto uma forma de escolher
+   um arquivo e disparar sua execução, com log e cancelamento como as demais
+   execuções.
+6. Cobrir com testes de serviço (composição do comando por runner, rejeição
+   de path fora do projeto) e de rota; ao menos um teste montado do painel.
 
 ## Fora do escopo
 
-- Seleção parcial de hunks ou arquivos individuais no commit (todo commit é
-  "tudo staged" ou "todas as alterações rastreadas").
-- Edição de mensagens de commits já existentes (amend, rebase interativo).
-- Múltiplos stashes nomeados com mensagens customizadas além da padrão do
-  Git.
-- Resolução assistida de conflitos ao aplicar um stash — um conflito recusa a
-  operação com uma mensagem específica, sem tentar mesclar automaticamente.
+- Relatório de cobertura (fica para uma entrega seguinte desta mesma série).
+- Histórico persistente e eventos SSE para execuções de teste (a infra já
+  existe para o catálogo de scripts; migrar/generalizar é decisão
+  arquitetural própria, não uma extensão implícita desta task).
+- Suporte a sintaxe de caso/describe para todos os runners — só os que
+  tiverem uma forma simples e seringa de expressar isso na CLI.
+- Watch mode ou execução contínua.
 
 ## Critérios de aceite
 
-- commit e stash exigem confirmação explícita, como as demais mutações Git já
-  entregues;
-- commit sem nada staged/alterado é recusado com uma mensagem específica, não
-  como falha genérica;
-- stash pop com conflito é recusado sem deixar a árvore de trabalho em estado
-  parcialmente mesclado;
+- é possível escolher um arquivo de teste reconhecido e executá-lo
+  isoladamente, com cancelamento e log como as demais execuções;
+- um caminho fora do projeto ou não reconhecido pela detecção é recusado
+  antes de qualquer execução;
 - `npm run typecheck`, `npm run build` e `npm test` passam com os novos
   testes de API e de componente.

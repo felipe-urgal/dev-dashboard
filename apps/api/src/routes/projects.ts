@@ -23,9 +23,12 @@ import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
   gitBranchMutationResponseSchema,
+  gitCommitMutationResponseSchema,
   gitDiffSnapshotResponseSchema,
   gitFileDiffResponseSchema,
   gitMutationConfirmationResponseSchema,
+  gitStashPopResponseSchema,
+  gitStashPushResponseSchema,
   projectResponseSchema,
   projectGitOverviewResponseSchema,
 } from '../http/response-schemas.js';
@@ -333,7 +336,7 @@ export const projectRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push'] },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'stash-push', 'stash-pop'] },
       target: { type: 'string', minLength: 1, maxLength: 200 },
     },
   } as const;
@@ -349,6 +352,15 @@ export const projectRoutes: FastifyPluginAsync<
   const syncMutationBodySchema = {
     type: 'object', additionalProperties: false, required: ['confirmationToken'],
     properties: {
+      confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+    },
+  } as const;
+
+  const commitBodySchema = {
+    type: 'object', additionalProperties: false, required: ['message', 'confirmationToken'],
+    properties: {
+      message: { type: 'string', minLength: 1, maxLength: 500 },
+      includeAllChanges: { type: 'boolean' },
       confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
     },
   } as const;
@@ -370,6 +382,14 @@ export const projectRoutes: FastifyPluginAsync<
         GIT_REMOTE_UNAVAILABLE: 502,
         GIT_PULL_FAILED: 500,
         GIT_PUSH_FAILED: 500,
+        GIT_COMMIT_MESSAGE_INVALID: 400,
+        GIT_NOTHING_TO_COMMIT: 409,
+        GIT_COMMIT_FAILED: 500,
+        GIT_NOTHING_TO_STASH: 409,
+        GIT_STASH_PUSH_FAILED: 500,
+        GIT_STASH_EMPTY: 404,
+        GIT_STASH_CONFLICT: 409,
+        GIT_STASH_POP_FAILED: 500,
       };
       throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
     }
@@ -379,7 +399,7 @@ export const projectRoutes: FastifyPluginAsync<
     });
   }
 
-  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push'; target: string } }>(
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'stash-push' | 'stash-pop'; target: string } }>(
     '/projects/:projectId/git/mutations/confirmations',
     {
       schema: {
@@ -507,6 +527,80 @@ export const projectRoutes: FastifyPluginAsync<
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
         return { branch: await gitService.push(project.path, project.id, request.body.confirmationToken) };
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { message: string; includeAllChanges?: boolean; confirmationToken: string } }>(
+    '/projects/:projectId/git/commit',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: commitBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['commit'],
+            properties: { commit: gitCommitMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send({
+          commit: await gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { confirmationToken: string } }>(
+    '/projects/:projectId/git/stash',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: syncMutationBodySchema,
+        response: {
+          201: gitStashPushResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send(await gitService.stashPush(project.path, project.id, request.body.confirmationToken));
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { confirmationToken: string } }>(
+    '/projects/:projectId/git/stash/pop',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: syncMutationBodySchema,
+        response: {
+          200: gitStashPopResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return await gitService.stashPop(project.path, project.id, request.body.confirmationToken);
       } catch (error) {
         translateMutationError(error);
       }

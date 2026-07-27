@@ -320,6 +320,14 @@ export const gitFileChangeResponseSchema = {
   },
 } as const;
 
+export const gitStashEntryResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['index', 'message', 'createdAt'],
+  properties: {
+    index: { type: 'integer', minimum: 0 }, message: { type: 'string' }, createdAt: { type: 'string' },
+  },
+} as const;
+
 export const projectTestCommandResponseSchema = {
   type: 'object',
   additionalProperties: false,
@@ -356,9 +364,9 @@ export const projectTestOverviewResponseSchema = {
 
 export const projectGitOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['repository', 'detached', 'ahead', 'behind', 'clean', 'files', 'recentCommits'],
+  required: ['repository', 'detached', 'ahead', 'behind', 'clean', 'files', 'recentCommits', 'stashes'],
   properties: {
-    repository: { type: 'boolean' }, branch: { type: 'string' }, detached: { type: 'boolean' }, upstream: { type: 'string' }, ahead: { type: 'integer', minimum: 0 }, behind: { type: 'integer', minimum: 0 }, clean: { type: 'boolean' }, files: { type: 'array', items: gitFileChangeResponseSchema }, latestCommit: gitCommitResponseSchema, recentCommits: { type: 'array', items: gitCommitResponseSchema },
+    repository: { type: 'boolean' }, branch: { type: 'string' }, detached: { type: 'boolean' }, upstream: { type: 'string' }, ahead: { type: 'integer', minimum: 0 }, behind: { type: 'integer', minimum: 0 }, clean: { type: 'boolean' }, files: { type: 'array', items: gitFileChangeResponseSchema }, latestCommit: gitCommitResponseSchema, recentCommits: { type: 'array', items: gitCommitResponseSchema }, stashes: { type: 'array', items: gitStashEntryResponseSchema },
   },
 } as const;
 
@@ -451,7 +459,7 @@ export const gitMutationConfirmationResponseSchema = {
   required: ['token', 'operation', 'target', 'expiresAt'],
   properties: {
     token: { type: 'string' },
-    operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push'] },
+    operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'stash-push', 'stash-pop'] },
     target: { type: 'string' },
     expiresAt: { type: 'string' },
   },
@@ -461,6 +469,24 @@ export const gitBranchMutationResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['branch'],
   properties: { branch: { type: 'string' } },
+} as const;
+
+export const gitCommitMutationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['hash', 'shortHash', 'subject'],
+  properties: { hash: { type: 'string' }, shortHash: { type: 'string' }, subject: { type: 'string' } },
+} as const;
+
+export const gitStashPushResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['stash'],
+  properties: { stash: gitStashEntryResponseSchema },
+} as const;
+
+export const gitStashPopResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['popped'],
+  properties: { popped: gitStashEntryResponseSchema },
 } as const;
 
 export const gitFileDiffResponseSchema = {
