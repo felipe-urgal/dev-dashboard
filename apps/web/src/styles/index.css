@@ -1,3 +1,6 @@
-/* Camadas do redesign 2026. As camadas base (reset, base, layout, components, utilities) serão populadas na medida em que os componentes migrarem para os tokens. Enquanto isso, o styles.css legado continua servindo o resto do produto. */
-
+/* Ordem explícita da cascata do redesign 2026. */
 @import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './utilities.css';

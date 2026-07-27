@@ -1,34 +1,46 @@
-# Próxima atividade — 023: Consolidação do CSS legado
+# Próxima atividade — 024: Smoke E2E visual e responsivo
 
 ## Contexto
 
-Os passos 1 a 6 da reforma de design já introduziram tokens, componentes compartilhados, cards de projeto e dashboard, status, tema e densidade. O `styles.css` ainda reúne regras antigas desabilitadas ou duplicadas e cores literais para áreas que já possuem substitutos, impedindo o critério de saída da etapa 2.
+A reforma visual foi concluída em sete entregas incrementais e a task 023
+consolidou a cascata em camadas. A validação atual cobre componentes montados e
+contratos estáticos de CSS, mas ainda não abre o produto em um navegador real.
+O backlog de qualidade também mantém Playwright/smoke E2E como pendência.
 
 ## Objetivo
 
-Executar o passo 7 do roteiro em `docs/design/redesign-2026.md`: remover CSS legado sem uso, consolidar as regras restantes nas camadas planejadas e reduzir exceções locais sem provocar regressão funcional ou visual.
+Criar uma base pequena e reproduzível de smoke E2E para verificar que as rotas
+principais renderizam e que tema, densidade e breakpoints continuam operáveis
+em navegador real.
 
 ## Plano detalhado
 
-1. Inventariar seletores de `apps/web/src/styles.css` contra templates Vue e separar regras ativas, duplicadas e comprovadamente órfãs.
-2. Remover primeiro seletores órfãos e duplicações já substituídas por `<Card>`, `<StatusBadge>` e tokens, em lotes verificáveis.
-3. Popular as camadas base, layout, components e utilities sob `apps/web/src/styles/`, preservando a ordem de cascata explicitamente.
-4. Migrar cores e medidas ativas restantes para tokens existentes; criar token novo somente quando houver uso compartilhado demonstrado.
-5. Manter no `styles.css` apenas imports e exceções documentadas, respeitando o limite definido no critério de saída do redesign.
-6. Adicionar verificações automatizadas para seletores estruturais críticos e para impedir a reintrodução das famílias legadas removidas.
-7. Validar todas as rotas em temas claro e escuro, densidades cômoda e compacta, desktop e largura estreita; registrar diferenças reais.
+1. Definir a menor configuração de Playwright compatível com o monorepo e com
+   a origem única usada na distribuição local.
+2. Criar fixtures determinísticas para evitar dependência de projetos reais,
+   processos locais ou estado pessoal do desenvolvedor.
+3. Cobrir dashboard, detalhes de projeto, processos e atividade com ao menos um
+   smoke de navegação e renderização por rota.
+4. Exercitar as combinações claro/escuro e cômoda/compacta, validando os
+   atributos no elemento raiz e sua persistência após recarga.
+5. Executar um cenário desktop e um estreito, verificando ausência de overflow
+   horizontal e acesso aos controles globais.
+6. Adicionar capturas estáveis somente para superfícies determinísticas, com
+   política documentada para atualização dos baselines.
+7. Integrar o smoke aos scripts e à CI sem duplicar os testes unitários do web.
 
 ## Fora do escopo
 
-- Novos componentes ou fluxos de produto.
-- Rebranding ou alteração da arquitetura da navegação.
-- Drawer móvel completo.
-- Biblioteca externa de estilos.
+- Cobertura E2E exaustiva de mutações ou processos do sistema operacional.
+- Testes contra projetos reais do diretório pessoal.
+- Redesign adicional ou drawer móvel completo.
+- Suporte simultâneo a todos os motores de navegador na primeira entrega.
 
 ## Critérios de aceite
 
-- nenhum seletor removido permanece referenciado por templates ou testes;
-- `styles.css` contém somente imports e no máximo 100 linhas de exceções justificadas;
-- componentes ativos não dependem de famílias visuais legadas já substituídas;
-- temas, densidades e breakpoints preservam as rotas principais;
-- `npm run typecheck`, `npm run build` e `npm test` passam.
+- smoke executável localmente por um comando documentado;
+- fixtures não acessam estado ou segredos pessoais;
+- rotas principais abrem sem erro em desktop e largura estreita;
+- preferências visuais persistem em navegador real;
+- ao menos um baseline visual determinístico protege a cascata consolidada;
+- `npm run typecheck`, `npm run build`, `npm test` e o novo smoke passam.
