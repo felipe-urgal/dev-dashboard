@@ -92,7 +92,7 @@ npm workspaces, definidos no `package.json` raiz (`apps/*`, `packages/*`):
 - **`packages/contracts`** — apenas tipos TS compartilhados (`Workspace`, `Project`,
   `ManagedProcess`, `ProcessLogSnapshot`, `Job`); sem lógica de infraestrutura, sem dependência de
   Fastify ou Vue.
-- **`packages/core`** — persistência da configuração de workspaces
+- **`packages/core`** — persistência da configuração de workspaces e da retenção limitada
   (`~/.config/dev-dashboard/config.json`, respeita `DEV_DASHBOARD_CONFIG_DIR`/`XDG_CONFIG_HOME`) e
   o armazenamento do token local da API; sem dependência de Fastify ou Vue.
 - **`packages/project-discovery`** — o equivalente TS da lógica de `lib/projects/detect.sh`:

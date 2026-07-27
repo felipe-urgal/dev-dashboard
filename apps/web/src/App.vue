@@ -110,6 +110,11 @@ onMounted(() => {
           <span class="navigation-icon">≡</span>
           Atividade
         </RouterLink>
+
+        <RouterLink class="navigation-item" :class="{ 'navigation-item-active': route.name === 'settings' }" :to="{ name: 'settings' }">
+          <span class="navigation-icon">⚙</span>
+          Configurações
+        </RouterLink>
       </nav>
 
       <div class="sidebar-section">

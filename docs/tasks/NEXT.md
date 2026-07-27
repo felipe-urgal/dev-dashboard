@@ -1,54 +1,45 @@
-# Próxima atividade — 035: Configurações seguras de retenção
+# Próxima atividade — 036: Avisos locais de conclusão
 
 ## Contexto
 
-A paleta encerrou o item de produtividade por teclado do Horizonte 2. O próximo
-item do roadmap reúne configurações e notificações. A primeira fatia deve
-começar pela preferência operacional de maior impacto já prevista pelo produto:
-retenção de logs e históricos dentro de limites seguros, sem permitir caminhos
-ou valores arbitrários.
+A task 035 inaugurou a tela de configurações com retenção limitada e persistida.
+O item seguinte do Horizonte 2 é avisar conclusões de operações demoradas sem
+transformar a API em um emissor remoto nem exigir permissões do sistema operacional.
 
 ## Objetivo
 
-Permitir consultar e ajustar, em uma tela de configurações, a retenção local de
-logs e históricos usando limites fechados e persistência segura, mantendo os
-valores efetivos visíveis e auditáveis.
+Criar notificações visuais locais, acessíveis e limitadas para conclusões de testes,
+scripts e processos acompanhados pelo dashboard.
 
 ## Plano detalhado
 
-1. Inventariar as variáveis e padrões atuais de retenção dos gerenciadores de
-   processo, catálogo e testes, eliminando divergências antes de expor a UI.
-2. Definir contrato explícito com valores efetivos, mínimos, máximos e padrões;
-   preferir presets fechados quando reduzirem risco e complexidade.
-3. Persistir a configuração no diretório privado do dashboard com escrita
-   atômica, permissões `0700`/`0600` e validação também na leitura.
-4. Adicionar rotas autenticadas de leitura e atualização com schemas completos,
-   sem aceitar caminhos e sem disparar limpeza destrutiva implicitamente.
-5. Criar a tela de configurações e ligá-la à navegação principal e à paleta,
-   deixando claro quando uma mudança passa a valer.
-6. Cobrir defaults, limites, arquivo inválido, persistência, autenticação,
-   serialização e estados montados da UI; acrescentar smoke E2E somente se a
-   fixture puder isolar integralmente a configuração.
+1. Inventariar feedbacks atuais e eventos SSE já disponíveis, evitando polling ou
+   um segundo canal de eventos.
+2. Definir um store client-side limitado e deduplicado, sem persistir logs, caminhos
+   ou conteúdo sensível.
+3. Criar região `aria-live` e central de avisos com estado vazio, leitura e descarte.
+4. Publicar somente transições terminais observadas na sessão atual e vincular cada
+   aviso à tela autorizada correspondente.
+5. Cobrir deduplicação, limite, acessibilidade, troca de projeto e reconexão SSE com
+   testes montados; atualizar o smoke de navegação se a fixture for determinística.
 
 ## Segurança
 
-- Ler `docs/architecture/security.md` antes de criar as rotas.
-- Aceitar somente números/presets limitados; nunca caminho, glob ou comando.
-- Derivar todos os arquivos do diretório de estado interno.
-- Não apagar logs como efeito colateral de salvar preferências.
-- Não enfraquecer os limites máximos de leitura ou a política de mascaramento.
+- Não incluir conteúdo de log, comando, caminho ou segredo no aviso.
+- Não adicionar endpoint nem persistência nesta fatia.
+- Não solicitar permissão de notificação do sistema operacional.
+- Tratar eventos recuperados após reconexão sem notificá-los repetidamente.
 
 ## Fora do escopo
 
-- Notificações do sistema operacional.
-- Limpeza manual em massa.
-- Escolha de diretório de logs/estado.
-- Configurações remotas ou multiusuário.
+- Push, e-mail, webhook e notificações nativas do sistema.
+- Histórico de auditoria novo.
+- Configuração remota ou multiusuário.
 
 ## Critérios de aceite
 
-- valores efetivos e limites aparecem de forma compreensível;
-- valores inválidos são recusados na API e na UI;
-- persistência é atômica e privada;
-- nenhuma entrada controla caminhos ou comandos;
+- conclusões novas geram um único aviso compreensível;
+- avisos são navegáveis e anunciados por tecnologia assistiva;
+- payload sensível não é armazenado nem exibido;
+- a lista possui limite fechado e pode ser limpa;
 - `npm run typecheck`, `npm run build` e `npm test` passam.

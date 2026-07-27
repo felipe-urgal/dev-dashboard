@@ -85,7 +85,7 @@ export class TestExecutionHistoryService {
   public constructor(
     private readonly processManager: Pick<ProcessManager, 'getTestProcess' | 'readTestLog'>,
     stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() || path.join(homedir(), '.local', 'state', 'dev-dashboard'),
-    historyLimit = DEFAULT_HISTORY_LIMIT,
+    historyLimit = readHistoryLimit(),
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'tests-history');
     this.historyLimit = historyLimit;
@@ -278,4 +278,9 @@ export class TestExecutionHistoryService {
     await writeFile(temporary, JSON.stringify(stored), { mode: 0o600 });
     await rename(temporary, target);
   }
+}
+
+function readHistoryLimit(): number {
+  const parsed = Number.parseInt(process.env.DEV_DASHBOARD_TEST_HISTORY_LIMIT ?? '', 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_HISTORY_LIMIT;
 }

@@ -151,6 +151,9 @@ reescrito e permanece protegido por permissão `0600`.
 A retenção padrão de processos terminais é de sete dias, configurável por
 `DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
 do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.
+Os valores também podem ser persistidos por `PUT /api/settings/retention` dentro
+de limites fechados. O arquivo privado não contém caminhos, sua gravação não
+dispara limpeza e a política passa a valer de forma uniforme após reiniciar a API.
 
 O stream SSE do catálogo exige a mesma autenticação das demais rotas privadas e aceita somente IDs reconhecidos de projeto e execução. Cada execução admite cinco assinantes e a instância admite vinte; atualizações de log são agrupadas a cada 200 ms, permanecem sob o limite de leitura e são mascaradas. A assinatura termina na conclusão, desconexão ou parada da API. Heartbeats não carregam dados do projeto, e lacunas são recuperadas pelos endpoints HTTP persistidos.
 

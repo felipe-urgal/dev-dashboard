@@ -14,6 +14,7 @@ import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
+import { settingsRoutes } from './routes/settings.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -142,6 +143,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(activityRoutes, {
     prefix: '/api',
     activityService: context.activityService,
+  });
+
+  app.register(settingsRoutes, {
+    prefix: '/api',
+    retentionSettingsRepository: context.retentionSettingsRepository,
   });
 
   if (options.staticDashboardEnabled) {

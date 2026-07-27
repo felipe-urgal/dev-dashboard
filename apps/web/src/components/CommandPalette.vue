@@ -53,7 +53,7 @@ const query = ref('');
 const activeIndex = ref(0);
 const searchInput = ref<HTMLInputElement>();
 const dialog = ref<HTMLElement>();
-const projectProcess = ref<Awaited<ReturnType<typeof fetchProjectProcess>>>(null);
+const projectProcess = ref<Awaited<ReturnType<typeof fetchProjectProcess>> | undefined>();
 const loadingActions = ref(false);
 const executingAction = ref(false);
 const pendingActionId = ref<string>();
@@ -71,6 +71,7 @@ const items = computed<PaletteItem[]>(() => {
     navigationItem('pagina-visao-geral', 'Páginas', 'Visão geral', 'Dashboard e repositórios', { name: 'dashboard', hash: '#overview' }),
     navigationItem('pagina-atividade', 'Páginas', 'Atividade', 'Histórico unificado', { name: 'activity' }),
     navigationItem('pagina-processos', 'Páginas', 'Processos', 'Processos gerenciados', { name: 'processes' }),
+    navigationItem('pagina-configuracoes', 'Páginas', 'Configurações', 'Retenção local', { name: 'settings' }),
   ];
 
   const workspaceItems = props.workspaces.map((workspace) =>
@@ -114,7 +115,7 @@ const items = computed<PaletteItem[]>(() => {
       )
     : [];
 
-  const actionItems: ActionPaletteItem[] = project
+  const actionItems: ActionPaletteItem[] = project && projectProcess.value !== undefined
     ? projectCommandActions(project, projectProcess.value).map((action) => ({
         ...action,
         group: 'Ações do projeto',
@@ -165,7 +166,7 @@ function show(): void {
 
 async function loadProjectActions(): Promise<void> {
   const project = currentProject.value;
-  projectProcess.value = null;
+  projectProcess.value = undefined;
   if (!project?.capabilities.includes('server')) return;
   const projectId = project.id;
   loadingActions.value = true;

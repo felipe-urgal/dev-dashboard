@@ -95,6 +95,7 @@ Responsabilidades:
 
 - apresentar workspaces;
 - apresentar projetos detectados;
+- ajustar retenção local dentro de limites fechados;
 - exibir estados;
 - solicitar ações à API;
 - mostrar erros de forma compreensível;
@@ -129,6 +130,7 @@ Responsabilidades:
 - iniciar e parar processos;
 - fornecer logs;
 - traduzir erros internos em respostas HTTP;
+- persistir preferências de retenção sem aceitar caminhos;
 - manter a API limitada a `127.0.0.1`.
 
 A API atua como fronteira de segurança entre o navegador e o sistema operacional.

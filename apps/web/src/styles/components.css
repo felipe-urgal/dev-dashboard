@@ -1277,6 +1277,13 @@ a.secondary-button {
 .command-palette footer { padding: 9px 16px; border-top: 1px solid var(--border); text-align: right; }
 @media (max-width: 600px) { .command-palette-backdrop { padding-top: 30px; }.command-palette-item { grid-template-columns: 1fr; gap: 3px; }.command-palette-item-group { order: 2; }.command-palette-item small { order: 3; } }
 
+.settings-page { max-width: 760px; }
+.settings-form { display: grid; gap: 18px; margin-top: 22px; }
+.settings-form label { display: grid; gap: 6px; color: var(--text); font-size: 12px; font-weight: 700; }
+.settings-form input { max-width: 220px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface-raised); }
+.settings-form small, .settings-notice { color: var(--text-muted); font-size: 10px; font-weight: 400; }
+.settings-notice { padding: 12px; border: 1px solid var(--warning-border); border-radius: 8px; background: var(--warning-surface); }
+
 /* Painel de atividade */
 .section-description { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; max-width: 60ch; }
 .activity-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
