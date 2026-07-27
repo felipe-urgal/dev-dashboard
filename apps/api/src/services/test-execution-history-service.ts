@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import type {
   ManagedProcess,
+  TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
   TestExecutionStatus,
@@ -15,6 +16,27 @@ const HISTORY_VERSION = 1;
 const DEFAULT_HISTORY_LIMIT = 50;
 const OPEN_STATUSES: readonly TestExecutionStatus[] = ['starting', 'running', 'stopping'];
 const FILE_SUFFIX = ':file';
+
+const SUBSCRIBER_LIMIT_PER_PROJECT = 5;
+const SUBSCRIBER_LIMIT_TOTAL = 20;
+const POLL_INTERVAL_MS = 500;
+
+export type TestExecutionSubscriptionErrorCode = 'TEST_EXECUTION_NOT_FOUND' | 'TEST_EXECUTION_SUBSCRIBER_LIMIT';
+
+export class TestExecutionSubscriptionError extends Error {
+  public constructor(
+    public readonly code: TestExecutionSubscriptionErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'TestExecutionSubscriptionError';
+  }
+}
+
+export interface TestExecutionSubscriber {
+  send: (event: TestExecutionEvent) => void;
+  close: () => void;
+}
 
 interface StoredHistory { version: 1; items: TestExecutionRecord[] }
 
@@ -55,14 +77,124 @@ function sanitizeProjectId(projectId: string): string {
 export class TestExecutionHistoryService {
   private readonly stateDirectory: string;
   private readonly historyLimit: number;
+  private readonly subscribers = new Map<string, Set<TestExecutionSubscriber>>();
+  private readonly pollTimers = new Map<string, NodeJS.Timeout>();
+  private readonly lastSentStatus = new Map<string, TestExecutionStatus>();
+  private readonly lastSentLog = new Map<string, string>();
 
   public constructor(
-    private readonly processManager: Pick<ProcessManager, 'getTestProcess'>,
+    private readonly processManager: Pick<ProcessManager, 'getTestProcess' | 'readTestLog'>,
     stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() || path.join(homedir(), '.local', 'state', 'dev-dashboard'),
     historyLimit = DEFAULT_HISTORY_LIMIT,
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'tests-history');
     this.historyLimit = historyLimit;
+  }
+
+  public close(): void {
+    for (const timer of this.pollTimers.values()) clearInterval(timer);
+    this.pollTimers.clear();
+    for (const subscribers of this.subscribers.values()) {
+      for (const subscriber of subscribers) subscriber.close();
+    }
+    this.subscribers.clear();
+    this.lastSentStatus.clear();
+    this.lastSentLog.clear();
+  }
+
+  public async subscribe(projectId: string, subscriber: TestExecutionSubscriber): Promise<() => void> {
+    const current = await this.processManager.getTestProcess(projectId);
+    if (!current) {
+      throw new TestExecutionSubscriptionError('TEST_EXECUTION_NOT_FOUND', 'Não há execução de teste em andamento para este projeto.');
+    }
+
+    const projectSubscribers = this.subscribers.get(projectId) ?? new Set<TestExecutionSubscriber>();
+    const totalSubscribers = Array.from(this.subscribers.values()).reduce((sum, set) => sum + set.size, 0);
+    if (projectSubscribers.size >= SUBSCRIBER_LIMIT_PER_PROJECT || totalSubscribers >= SUBSCRIBER_LIMIT_TOTAL) {
+      throw new TestExecutionSubscriptionError('TEST_EXECUTION_SUBSCRIBER_LIMIT', 'O limite de acompanhamentos simultâneos foi atingido.');
+    }
+    projectSubscribers.add(subscriber);
+    this.subscribers.set(projectId, projectSubscribers);
+
+    subscriber.send({ type: 'state', process: current });
+    this.lastSentStatus.set(projectId, current.status);
+    const log = await this.processManager.readTestLog(projectId).catch(() => null);
+    if (log) {
+      subscriber.send({ type: 'log', log });
+      this.lastSentLog.set(projectId, log.content);
+    }
+
+    this.ensurePolling(projectId);
+
+    return () => {
+      const set = this.subscribers.get(projectId);
+      if (!set?.delete(subscriber)) return;
+      if (set.size === 0) {
+        this.subscribers.delete(projectId);
+        this.stopPolling(projectId);
+      }
+    };
+  }
+
+  private ensurePolling(projectId: string): void {
+    if (this.pollTimers.has(projectId)) return;
+    // Sem unref(): a assinatura precisa manter o laço de eventos vivo enquanto
+    // houver acompanhamento ativo (o listener HTTP do servidor já cumpre esse
+    // papel em produção, mas a chamada explícita evita depender disso).
+    const timer = setInterval(() => { void this.pollOnce(projectId); }, POLL_INTERVAL_MS);
+    this.pollTimers.set(projectId, timer);
+  }
+
+  private stopPolling(projectId: string): void {
+    const timer = this.pollTimers.get(projectId);
+    if (timer) clearInterval(timer);
+    this.pollTimers.delete(projectId);
+    this.lastSentStatus.delete(projectId);
+    this.lastSentLog.delete(projectId);
+  }
+
+  private emitToSubscribers(projectId: string, event: TestExecutionEvent): void {
+    for (const subscriber of this.subscribers.get(projectId) ?? []) subscriber.send(event);
+  }
+
+  private closeSubscribers(projectId: string): void {
+    const subscribers = this.subscribers.get(projectId);
+    this.stopPolling(projectId);
+    this.subscribers.delete(projectId);
+    if (subscribers) {
+      for (const subscriber of subscribers) subscriber.close();
+    }
+  }
+
+  private async pollOnce(projectId: string): Promise<void> {
+    const subscribers = this.subscribers.get(projectId);
+    if (!subscribers || subscribers.size === 0) {
+      this.stopPolling(projectId);
+      return;
+    }
+
+    const current = await this.processManager.getTestProcess(projectId).catch(() => null);
+    if (!current) {
+      await this.reconcile(projectId);
+      this.closeSubscribers(projectId);
+      return;
+    }
+
+    if (this.lastSentStatus.get(projectId) !== current.status) {
+      this.lastSentStatus.set(projectId, current.status);
+      this.emitToSubscribers(projectId, { type: 'state', process: current });
+    }
+
+    const log = await this.processManager.readTestLog(projectId).catch(() => null);
+    if (log && log.content !== this.lastSentLog.get(projectId)) {
+      this.lastSentLog.set(projectId, log.content);
+      this.emitToSubscribers(projectId, { type: 'log', log });
+    }
+
+    if (!OPEN_STATUSES.includes(current.status)) {
+      await this.reconcile(projectId);
+      this.closeSubscribers(projectId);
+    }
   }
 
   public async reconcile(projectId: string): Promise<void> {

@@ -1,3 +1,5 @@
+import type { ManagedProcess, ProcessLogSnapshot } from './process.js';
+
 export type ProjectTestRunner =
   | 'vitest'
   | 'jest'
@@ -54,3 +56,7 @@ export interface TestExecutionHistory {
   total: number;
   totalPages: number;
 }
+
+export type TestExecutionEvent =
+  | { type: 'state'; process: ManagedProcess }
+  | { type: 'log'; log: ProcessLogSnapshot };

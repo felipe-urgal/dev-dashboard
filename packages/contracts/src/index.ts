@@ -42,6 +42,7 @@ export type {
   ProjectTestOrigin,
   ProjectTestOverview,
   ProjectTestRunner,
+  TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,
   TestExecutionStatus,

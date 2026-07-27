@@ -52,6 +52,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const context = options.context ?? createAppContext();
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
+    context.testExecutionHistoryService.close();
   });
 
   const localToken =
