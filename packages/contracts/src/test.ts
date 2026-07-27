@@ -33,3 +33,24 @@ export interface ProjectTestOverview {
 export interface ProjectTestFile {
   path: string;
 }
+
+export type TestExecutionStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
+
+export interface TestExecutionRecord {
+  id: string;
+  projectId: string;
+  commandId: string;
+  targetFile?: string;
+  status: TestExecutionStatus;
+  startedAt: string;
+  finishedAt?: string;
+  exitCode?: number;
+}
+
+export interface TestExecutionHistory {
+  items: TestExecutionRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}

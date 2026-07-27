@@ -108,6 +108,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
+    testExecutionHistoryService: context.testExecutionHistoryService,
   });
 
   app.register(databaseRoutes, {

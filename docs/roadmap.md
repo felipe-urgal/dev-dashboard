@@ -60,7 +60,7 @@ compromissos de versão.
 - [x] histórico persistente e paginado do catálogo;
 - [x] SSE autenticado das execuções do catálogo;
 - [x] arquivo específico (task 027; sem caso/describe nomeado e sem relatório de cobertura, ambos pendentes);
-- [ ] histórico persistente e eventos para testes;
+- [x] histórico persistente para testes (task 028; eventos SSE pendentes);
 - [ ] modelo global de atividade sem duplicar fontes de verdade.
 
 ### Banco e ferramentas Rails — inspeção inicial entregue

@@ -8,6 +8,7 @@ import {
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
+import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
@@ -20,6 +21,7 @@ export interface AppContext {
   projectStore: ProjectStore;
   gitService: GitService;
   testDetectionService: TestDetectionService;
+  testExecutionHistoryService: TestExecutionHistoryService;
   databaseDetectionService: DatabaseDetectionService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
@@ -39,6 +41,7 @@ export function createAppContext(): AppContext {
     projectStore,
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
+    testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService: new DatabaseDetectionService(),
     scriptDetectionService,
     scriptExecutionService,

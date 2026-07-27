@@ -12,6 +12,16 @@ interface OverviewResponse { tests: { commands: Array<{ id: string; supportsFile
 interface FilesResponse { files: Array<{ path: string }> }
 interface ProcessResponse { process: { command: string; args: string[] } }
 interface ErrorResponse { error?: string; message?: string }
+interface HistoryResponse {
+  history: {
+    items: Array<{ commandId: string; targetFile?: string; status: string }>;
+    total: number;
+  };
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 test('rotas de arquivo específico de teste', async (context) => {
   const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-test-file-routes-'));
@@ -104,5 +114,21 @@ test('rotas de arquivo específico de teste', async (context) => {
       method: 'GET', url: `/api/projects/p1/tests/${commandId}/files`,
     });
     assert.equal(response.statusCode, 401);
+  });
+
+  await context.test('histórico registra a execução do arquivo e sobrevive à reconciliação', async () => {
+    let history: HistoryResponse['history'] | undefined;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const response = await app.inject({ method: 'GET', url: '/api/projects/p1/tests/history', headers });
+      assert.equal(response.statusCode, 200);
+      history = response.json<HistoryResponse>().history;
+      if (history.items[0]?.status !== 'running' && history.items[0]?.status !== 'starting') break;
+      await sleep(100);
+    }
+    assert.ok(history);
+    assert.equal(history!.total, 1);
+    assert.equal(history!.items[0]!.commandId, commandId);
+    assert.equal(history!.items[0]!.targetFile, 'src/app.test.ts');
+    assert.ok(['stopped', 'failed'].includes(history!.items[0]!.status));
   });
 });

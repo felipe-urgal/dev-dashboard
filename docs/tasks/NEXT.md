@@ -1,57 +1,57 @@
-# Próxima atividade — 028: Histórico persistente de execuções de teste
+# Próxima atividade — 029: Eventos em tempo real para execuções de teste
 
 ## Contexto
 
-A task 027 entregou execução de arquivo específico, reaproveitando o
-`ProcessManager.startTest` existente (um único "slot" de teste por projeto,
-sem histórico — cada nova execução substitui o estado da anterior). O
-roadmap lista "histórico persistente e eventos para testes" como o próximo
-passo desta frente, "antes de migrar para SSE". O catálogo de scripts já tem
-esse padrão pronto desde as tasks 009-010
-(`ScriptExecutionService`, persistência versionada e limitada, paginação por
-IDs) — a ideia aqui é replicar a mesma abordagem para execuções de teste, não
-inventar um modelo novo.
+A task 028 entregou histórico persistente de execuções de teste, mas a
+atualização continua dependendo de polling (o painel já faz isso a cada
+1.5s enquanto uma execução está em andamento). O catálogo de scripts já
+resolveu o mesmo problema na task 010 com SSE autenticado
+(`ScriptExecutionService.subscribe`, rota
+`GET /projects/:projectId/scripts/executions/:executionId/events`,
+`followScriptExecutionEvents` no `api.ts` do frontend) — o roadmap lista
+isso como o passo seguinte explicitamente posterior ao histórico
+persistente ("antes de migrar seus eventos para SSE").
 
 ## Objetivo
 
-Persistir um histórico limitado das execuções de teste (suíte inteira ou
-arquivo específico) por projeto, sobrevivendo a reinícios da API, com
-paginação e consulta pelo painel de testes — sem duplicar o modelo de
-atividade unificado nem migrar para eventos em tempo real ainda.
+Substituir o polling do painel de testes por eventos SSE autenticados para
+a execução em andamento (estado + log), reaproveitando o padrão já
+validado do catálogo de scripts em vez de desenhar um mecanismo novo.
 
 ## Plano detalhado
 
-1. Estudar `ScriptExecutionService` (`apps/api/src/services/script-execution-service.ts`,
-   tasks 007-010) como referência direta: formato de persistência, limite de
-   histórico, reconciliação após reinício, paginação por IDs.
-2. Decidir se o histórico de teste é um serviço próprio ou uma extensão do
-   `ProcessManager` existente — hoje `ProcessManager` só rastreia o processo
-   atual (`getTestProcess`/`startTest`), sem lista de execuções passadas;
-   registrar isso é uma mudança de modelo, não só um campo novo.
-3. Persistir metadados suficientes por execução: comando/arquivo alvo,
-   início/fim, exit code, status — reaproveitando o mascaramento de log já
-   existente para a leitura do conteúdo salvo.
-4. Expor rota(s) de listagem paginada do histórico por projeto.
-5. Adicionar ao painel de testes uma lista do histórico recente, distinta da
-   execução atual já exibida.
-6. Cobrir com testes de serviço (persistência, reconciliação após reinício,
-   paginação) e de rota; ao menos um teste montado do painel.
+1. Estudar o par cliente/servidor já existente: `ScriptExecutionService.subscribe`
+   (limite de assinantes por execução e total, throttle de eventos de log) e
+   `followScriptExecutionEvents` (parsing de `text/event-stream`, reconexão
+   em 401 via bootstrap de sessão).
+2. Adaptar `TestExecutionHistoryService` (ou um serviço companheiro) para
+   expor assinatura por execução, já que hoje ele só lê o snapshot atual do
+   `ProcessManager` sob demanda — precisa de um jeito de notificar
+   mudanças de estado/log sem reintroduzir spawn próprio (o processo
+   continua gerenciado pelo `ProcessManager`).
+3. Expor uma rota SSE equivalente para testes, com os mesmos limites de
+   assinantes simultâneos e autenticação de sessão de navegador.
+4. Trocar o polling do `ProjectTestsPanel.vue` pela assinatura SSE enquanto
+   uma execução está em andamento, mantendo o polling como fallback se a
+   conexão cair (mesmo padrão de resiliência do catálogo de scripts).
+5. Cobrir com testes de serviço e de rota (limite de assinantes, eventos de
+   estado e log) e ao menos um teste montado do painel para o novo fluxo.
 
 ## Fora do escopo
 
-- Eventos SSE para execuções de teste (migração explicitamente posterior ao
-  histórico persistente, por decisão do próprio roadmap).
 - Relatório de cobertura.
 - Sintaxe de caso/describe.
-- Unificar este histórico com o painel de atividade global — mantém-se como
-  consulta própria do painel de testes por enquanto, evitando duplicar fontes
-  de verdade sem uma decisão explícita do modelo global (item separado no
-  roadmap).
+- Unificação do histórico de testes com o painel de atividade global.
+- Portar o histórico de scripts para o mesmo serviço de testes ou
+  vice-versa — cada catálogo mantém seu próprio armazenamento.
 
 ## Critérios de aceite
 
-- o histórico de execuções de teste sobrevive a um reinício da API;
-- é possível consultar execuções anteriores (suíte ou arquivo) paginadas por
-  projeto, sem afetar a exibição da execução em andamento;
+- o painel de testes reflete o progresso de uma execução em andamento sem
+  esperar o intervalo de polling;
+- a conexão SSE respeita os mesmos limites de assinantes simultâneos já
+  aplicados ao catálogo de scripts;
+- perda de conexão não deixa o painel travado — cai de volta para consulta
+  pontual;
 - `npm run typecheck`, `npm run build` e `npm test` passam com os novos
   testes de API e de componente.
