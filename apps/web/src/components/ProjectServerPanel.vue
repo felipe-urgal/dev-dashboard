@@ -30,6 +30,7 @@ import {
 } from '../utils/request-generation';
 
 import { parseServerPort } from '../utils/server-settings';
+import Card from './Card.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -600,15 +601,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section
-    class="project-server-panel"
-    :class="`project-server-panel-${mode}`"
-  >
-    <header class="project-server-summary">
-      <div>
+  <Card padded class="project-detail-card" :class="`project-server-card-${mode}`">
+    <template #header>
+      <div class="project-panel-heading">
         <span class="section-kicker">Servidor</span>
       </div>
-
+    </template>
+    <template #actions>
       <div class="project-server-summary-actions">
         <span
           class="process-status"
@@ -643,7 +642,7 @@ onBeforeUnmount(() => {
           }}
         </button>
       </div>
-    </header>
+    </template>
 
     <section
       v-if="detailsMode && supportsServer"
@@ -800,5 +799,5 @@ onBeforeUnmount(() => {
         </button>
       </footer>
     </section>
-  </section>
+  </Card>
 </template>

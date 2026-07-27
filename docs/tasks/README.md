@@ -26,3 +26,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `017-design-review.md` — etapa 1 da reforma de design: auditoria do vocabulário visual atual e decisões registradas em `docs/design/redesign-2026.md` (tokens, padrões de componente, densidade, tema, roteiro da etapa 2). Só documentação.
 - `018-tokens-and-card.md` — etapa 2 da reforma: esqueleto de camadas CSS com `apps/web/src/styles/tokens.css`, componente `<Card>` compartilhado e migração do `ProjectCard` como prova de conceito.
 - `019-status-badge.md` — componente `<StatusBadge>` compartilhado alimentado pelos tokens de status, com mapeadores por domínio e remoção das cinco famílias de classes ad hoc do CSS legado.
+- `020-project-detail-cards.md` — migração dos cinco painéis de detalhe do projeto para `<Card>`, com cabeçalhos por slots e remoção das superfícies duplicadas.

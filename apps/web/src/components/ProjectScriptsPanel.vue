@@ -4,6 +4,7 @@ import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin,
 import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, followScriptExecutionEvents, prepareScriptExecution, startScriptExecution } from '../api';
 import { riskToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
+import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
@@ -149,8 +150,9 @@ onUnmounted(() => { closeExecutionEvents?.(); closeExecutionEvents = null; gener
 </script>
 
 <template>
-  <section class="project-scripts-panel">
-    <header class="scripts-panel-header"><div><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Execute somente ações reconhecidas pela API, com confirmação proporcional ao risco.</p></div><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></header>
+  <Card padded class="project-detail-card">
+    <template #header><div class="project-panel-heading"><span class="section-kicker">Catálogo seguro</span><h3>Scripts e tarefas</h3><p>Execute somente ações reconhecidas pela API, com confirmação proporcional ao risco.</p></div></template>
+    <template #actions><button class="secondary-button" type="button" :disabled="loading" @click="load">Atualizar</button></template>
     <aside v-if="execution" class="scripts-empty" aria-live="polite"><strong>{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</strong><button v-if="execution.status === 'running'" class="secondary-button" type="button" @click="cancel">Cancelar</button><span v-if="maskedLogEntries" class="project-log-redaction-warning">{{ maskedLogEntries }} ocorrência(s) sensível(is) mascarada(s).</span><pre v-if="executionLog">{{ executionLog }}</pre></aside>
     <section v-if="history?.items.length" class="scripts-empty" aria-label="Histórico de execuções"><strong>Execuções recentes</strong><span v-if="execution?.status === 'running'">Conclua ou cancele a execução ativa para consultar outro registro.</span><button v-for="item in history.items" :key="item.id" class="secondary-button" type="button" :disabled="execution?.status === 'running'" @click="selectHistory(item)">{{ item.actionName }} · {{ executionStatusLabels[item.status] }} · {{ new Date(item.startedAt).toLocaleString('pt-BR') }}</button></section>
     <div class="scripts-filters">
@@ -169,5 +171,5 @@ onUnmounted(() => { closeExecutionEvents?.(); closeExecutionEvents = null; gener
       </article>
     </div>
     <nav v-if="catalog && catalog.totalPages > 1" class="scripts-pagination"><button class="secondary-button" :disabled="page <= 1" @click="page -= 1; load()">Anterior</button><span>Página {{ catalog.page }} de {{ catalog.totalPages }} · {{ catalog.total }} itens</span><button class="secondary-button" :disabled="page >= catalog.totalPages" @click="page += 1; load()">Próxima</button></nav>
-  </section>
+  </Card>
 </template>
