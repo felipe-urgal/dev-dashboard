@@ -220,7 +220,7 @@ existentes):
    aplica padding de 20 px e raio de 10 px no lugar das variações
    legadas de 22 px e 14 px; a superfície e o contorno passam a vir
    exclusivamente dos tokens de `<Card>`.
-5. Migrar `DashboardView` (hero, workspace panel, lista de projetos).
+5. **Entregue na task 021.** Migrar `DashboardView` (hero, workspace panel, métricas e lista de projetos) para `<Card>`, `<StatusBadge>` e tokens compartilhados.
 6. Introduzir `data-density` e `data-theme` na sidebar.
 7. Remover CSS legado desabilitado do `styles.css` original.
 
