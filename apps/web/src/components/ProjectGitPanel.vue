@@ -7,6 +7,8 @@ import {
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
   prepareProjectGitMutation,
+  pullProjectGitBranch,
+  pushProjectGitBranch,
   switchProjectGitBranch,
 } from '../api';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -137,6 +139,39 @@ async function runMutation(operation: 'create-branch' | 'switch-branch', target:
   }
 }
 
+async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
+  if (mutationRunning.value) return;
+  const branch = overview.value?.branch;
+  if (!branch) {
+    mutationErrorMessage.value = 'Não é possível determinar o branch atual.';
+    return;
+  }
+  const confirmationText = operation === 'pull'
+    ? `Fazer pull do branch "${branch}"? A árvore de trabalho não pode ter alterações não commitadas e o pull só avança em fast-forward.`
+    : `Enviar os commits do branch "${branch}" para o remoto "origin"?`;
+  const confirmed = typeof window === 'undefined' || window.confirm(confirmationText);
+  if (!confirmed) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitMutation(props.project.id, operation, branch);
+    const result = operation === 'pull'
+      ? await pullProjectGitBranch(props.project.id, confirmation.token)
+      : await pushProjectGitBranch(props.project.id, confirmation.token);
+    mutationMessage.value = operation === 'pull'
+      ? `Pull concluído no branch "${result}".`
+      : `Push concluído no branch "${result}".`;
+    await loadGit();
+    await loadDiff();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 watch(() => props.project.id, () => {
   overview.value = null;
   diff.value = null;
@@ -206,6 +241,33 @@ onBeforeUnmount(() => {
               {{ mutationRunning ? 'Aguarde…' : 'Trocar branch' }}
             </button>
           </form>
+        </div>
+      </section>
+
+      <section class="git-section">
+        <div class="details-card-heading">
+          <div><span class="section-kicker">Remoto</span><h3>Sincronizar com origin</h3></div>
+        </div>
+        <p v-if="!overview.upstream && !overview.detached" class="git-empty-inline">
+          Sem upstream configurado — o push inicial publica o branch em "origin".
+        </p>
+        <div class="git-mutation-forms">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="mutationRunning || overview.detached || !overview.branch"
+            @click="runSyncMutation('pull')"
+          >
+            {{ mutationRunning ? 'Aguarde…' : 'Pull (fast-forward)' }}
+          </button>
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="mutationRunning || overview.detached || !overview.branch"
+            @click="runSyncMutation('push')"
+          >
+            {{ mutationRunning ? 'Aguarde…' : 'Push' }}
+          </button>
         </div>
       </section>
 

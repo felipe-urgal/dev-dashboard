@@ -20,7 +20,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'switch-branch';
+export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'pull' | 'push';
 
 export interface GitMutationConfirmation {
   token: string;

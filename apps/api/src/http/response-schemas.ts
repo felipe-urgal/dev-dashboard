@@ -451,7 +451,7 @@ export const gitMutationConfirmationResponseSchema = {
   required: ['token', 'operation', 'target', 'expiresAt'],
   properties: {
     token: { type: 'string' },
-    operation: { type: 'string', enum: ['create-branch', 'switch-branch'] },
+    operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push'] },
     target: { type: 'string' },
     expiresAt: { type: 'string' },
   },

@@ -22,7 +22,15 @@ export type GitMutationErrorCode =
   | 'GIT_BRANCH_EXISTS'
   | 'GIT_BRANCH_NOT_FOUND'
   | 'GIT_WORKING_TREE_DIRTY'
-  | 'GIT_MUTATION_CONFIRMATION_REQUIRED';
+  | 'GIT_MUTATION_CONFIRMATION_REQUIRED'
+  | 'GIT_DETACHED_HEAD'
+  | 'GIT_NO_UPSTREAM'
+  | 'GIT_REMOTE_NOT_CONFIGURED'
+  | 'GIT_PULL_DIVERGED'
+  | 'GIT_PULL_FAILED'
+  | 'GIT_PUSH_REJECTED'
+  | 'GIT_PUSH_FAILED'
+  | 'GIT_REMOTE_UNAVAILABLE';
 
 export class GitMutationError extends Error {
   public constructor(public readonly code: GitMutationErrorCode, message: string) {
@@ -173,6 +181,17 @@ function validateBranchName(name: string): void {
   }
 }
 
+const REMOTE_UNAVAILABLE_PATTERN = /could not resolve host|connection (refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
+
+async function requireOriginRemote(projectPath: string): Promise<void> {
+  try {
+    await runGit(projectPath, ['remote', 'get-url', 'origin']);
+  } catch {
+    throw new GitMutationError('GIT_REMOTE_NOT_CONFIGURED', 'Nenhum remoto "origin" configurado para este projeto.');
+  }
+}
+
+
 export class GitService {
   private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
 
@@ -301,5 +320,60 @@ export class GitService {
       throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao trocar de branch.');
     }
     return { branch: name };
+  }
+
+  public async pull(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ branch: string }> {
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    if (status.detached || !status.branch) {
+      throw new GitMutationError('GIT_DETACHED_HEAD', 'Não é possível fazer pull em um HEAD destacado.');
+    }
+    const branch = status.branch;
+    this.consumeMutationConfirmation(projectId, 'pull', branch, confirmationToken);
+    if (!status.upstream) {
+      throw new GitMutationError('GIT_NO_UPSTREAM', 'O branch atual não tem upstream configurado.');
+    }
+    await assertWorkingTreeClean(projectPath);
+    try {
+      await runGit(projectPath, ['pull', '--ff-only']);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not possible to fast-forward/i.test(message)) {
+        throw new GitMutationError('GIT_PULL_DIVERGED', 'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.');
+      }
+      if (REMOTE_UNAVAILABLE_PATTERN.test(message)) {
+        throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
+      }
+      throw new GitMutationError('GIT_PULL_FAILED', message);
+    }
+    return { branch };
+  }
+
+  public async push(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ branch: string }> {
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    if (status.detached || !status.branch) {
+      throw new GitMutationError('GIT_DETACHED_HEAD', 'Não é possível fazer push em um HEAD destacado.');
+    }
+    const branch = status.branch;
+    this.consumeMutationConfirmation(projectId, 'push', branch, confirmationToken);
+    await requireOriginRemote(projectPath);
+    try {
+      if (status.upstream) {
+        await runGit(projectPath, ['push']);
+      } else {
+        await runGit(projectPath, ['push', '--set-upstream', 'origin', branch]);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/\[rejected\]|non-fast-forward|fetch first/i.test(message)) {
+        throw new GitMutationError('GIT_PUSH_REJECTED', 'O remoto tem commits que o branch local não possui; faça pull antes de enviar.');
+      }
+      if (REMOTE_UNAVAILABLE_PATTERN.test(message)) {
+        throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
+      }
+      throw new GitMutationError('GIT_PUSH_FAILED', message);
+    }
+    return { branch };
   }
 }

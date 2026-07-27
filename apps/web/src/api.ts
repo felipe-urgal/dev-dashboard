@@ -496,6 +496,22 @@ export async function switchProjectGitBranch(projectId: string, name: string, co
   return response.branch.branch;
 }
 
+export async function pullProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function pushProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/push`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
 interface ProjectTestsResponse { tests: ProjectTestOverview; }
 
 export async function fetchProjectTests(
