@@ -16,6 +16,7 @@ import {
   fetchProjectTestLog,
   fetchProjectTestProcess,
   fetchProjectTests,
+  followTestExecutionEvents,
   startProjectTest,
   startProjectTestFile,
   stopProjectTest,
@@ -47,9 +48,8 @@ const historyErrorMessage = ref('');
 const HISTORY_PAGE_SIZE = 10;
 
 let generation = 0;
-let pollTimer: ReturnType<typeof setTimeout> | null = null;
-let consecutiveFailures = 0;
-const MAX_POLL_FAILURES = 5;
+let closeExecutionEvents: (() => void) | null = null;
+const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
 const runnerLabels: Record<ProjectTestRunner, string> = {
   vitest: 'Vitest',
@@ -131,7 +131,6 @@ async function loadOverview(refresh = false): Promise<void> {
   const requestGeneration = generation;
   loadingOverview.value = true;
   errorMessage.value = '';
-  consecutiveFailures = 0;
   try {
     const result = await fetchProjectTests(projectId, { refresh });
     if (isCurrentProjectRequest(projectId, requestGeneration)) {
@@ -170,7 +169,7 @@ async function refreshProcess(): Promise<boolean> {
       logContent.value = '';
       logTruncated.value = false;
     }
-    consecutiveFailures = 0;
+    if (errorMessage.value === realtimeRecoveryMessage) errorMessage.value = '';
     return true;
   } catch (error) {
     if (isCurrentProjectRequest(projectId, requestGeneration)) {
@@ -183,30 +182,54 @@ async function refreshProcess(): Promise<boolean> {
   }
 }
 
-function schedulePolling(): void {
-  clearPolling();
-  pollTimer = setTimeout(async () => {
-    if (!isRunning.value) return;
-    const succeeded = await refreshProcess();
-    if (succeeded) {
-      consecutiveFailures = 0;
-      schedulePolling();
-      return;
-    }
-    consecutiveFailures += 1;
-    if (consecutiveFailures >= MAX_POLL_FAILURES) {
-      errorMessage.value =
-        'Interrompendo atualização automática após falhas consecutivas. Use Atualizar para tentar novamente.';
-      return;
-    }
-    schedulePolling();
-  }, 1500);
-}
+async function followProcess(): Promise<void> {
+  const projectId = props.project.id;
+  const requestGeneration = generation;
+  closeExecutionEvents?.();
+  closeExecutionEvents = null;
+  let reconnectDelay = 500;
 
-function clearPolling(): void {
-  if (pollTimer !== null) {
-    clearTimeout(pollTimer);
-    pollTimer = null;
+  while (isCurrentProjectRequest(projectId, requestGeneration)) {
+    const succeeded = await refreshProcess();
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+    if (!succeeded) {
+      await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+      reconnectDelay = Math.min(reconnectDelay * 2, 5_000);
+      continue;
+    }
+    if (!isRunning.value) {
+      void loadHistory(1);
+      return;
+    }
+
+    const stream = followTestExecutionEvents(projectId, (event) => {
+      if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+      if (event.type === 'state') {
+        managedProcess.value = event.process;
+      } else {
+        logContent.value = event.log.content;
+        logTruncated.value = event.log.truncated;
+      }
+    });
+    closeExecutionEvents = stream.close;
+    try {
+      await stream.done;
+      reconnectDelay = 500;
+    } catch {
+      if (isCurrentProjectRequest(projectId, requestGeneration)) {
+        errorMessage.value = realtimeRecoveryMessage;
+      }
+    }
+    if (closeExecutionEvents === stream.close) closeExecutionEvents = null;
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+
+    if (!isRunning.value) {
+      await refreshProcess();
+      void loadHistory(1);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+    reconnectDelay = Math.min(reconnectDelay * 2, 5_000);
   }
 }
 
@@ -221,7 +244,7 @@ async function handleStart(commandId: string): Promise<void> {
     managedProcess.value = result;
     logContent.value = '';
     logTruncated.value = false;
-    schedulePolling();
+    void followProcess();
   } catch (error) {
     if (isCurrentProjectRequest(projectId, requestGeneration)) {
       errorMessage.value =
@@ -277,7 +300,7 @@ async function handleStartFile(commandId: string): Promise<void> {
     logContent.value = '';
     logTruncated.value = false;
     openFilePickerCommandId.value = null;
-    schedulePolling();
+    void followProcess();
   } catch (error) {
     if (isCurrentProjectRequest(projectId, requestGeneration)) {
       fileErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o arquivo de teste.';
@@ -358,8 +381,8 @@ watch(
   () => props.project.id,
   () => {
     generation += 1;
-    clearPolling();
-    consecutiveFailures = 0;
+    closeExecutionEvents?.();
+    closeExecutionEvents = null;
     overview.value = null;
     managedProcess.value = null;
     logContent.value = '';
@@ -377,22 +400,16 @@ watch(
     historyTotalPages.value = 0;
     historyErrorMessage.value = '';
     void loadOverview();
-    void refreshProcess();
+    void followProcess();
     void loadHistory(1);
   },
   { immediate: true },
 );
 
-watch(isRunning, (running) => {
-  if (running) {
-    schedulePolling();
-  } else {
-    clearPolling();
-    void loadHistory(1);
-  }
+onBeforeUnmount(() => {
+  closeExecutionEvents?.();
+  closeExecutionEvents = null;
 });
-
-onBeforeUnmount(clearPolling);
 </script>
 
 <template>

@@ -55,6 +55,7 @@ test('exibe o botão "Executar arquivo" quando o comando suporta arquivo especí
 
 test('lista arquivos ao abrir o seletor e inicia a execução do arquivo escolhido', async () => {
   const calls: string[] = [];
+  let currentProcess: Record<string, unknown> | null = null;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
@@ -63,13 +64,14 @@ test('lista arquivos ao abrir o seletor e inicia a execução do arquivo escolhi
       return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/files')) {
       return new Response(JSON.stringify({ files: [{ path: 'src/app.test.ts' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/files/start')) {
-      return new Response(JSON.stringify({ process: { id: 'node-script-test:file', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'] } }), { status: 201, headers: { 'content-type': 'application/json' } });
+      currentProcess = { id: 'node-script-test:file', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'] };
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -212,4 +214,59 @@ test('pagina o histórico ao clicar em Próxima', async () => {
 
   assert.match(wrapper.text(), /Página 2 de 2/);
   assert.ok(calls.some((search) => search.includes('page=2')));
+});
+
+function sseResponse(frames: string[]): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const frame of frames) controller.enqueue(encoder.encode(frame));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+
+test('acompanha a execução em andamento via SSE e atualiza estado e log em tempo real', async () => {
+  const originalFetch = globalThis.fetch;
+  let currentProcess: Record<string, unknown> = {
+    id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
+    command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+  };
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/tests')) {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/process/events')) {
+      currentProcess = { ...currentProcess, status: 'stopped', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 0 };
+      return sseResponse([
+        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
+        `event: log\ndata: ${JSON.stringify({ type: 'log', log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } })}\n\n`,
+      ]);
+    }
+    if (url.pathname.endsWith('/tests/process/logs')) {
+      return new Response(JSON.stringify({ log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/process')) {
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/history')) {
+      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  for (let attempt = 0; attempt < 20 && !wrapper.text().includes('Concluído com sucesso'); attempt += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.match(wrapper.text(), /Concluído com sucesso/);
+  assert.match(wrapper.text(), /saída via SSE/);
 });

@@ -8,10 +8,12 @@ import {
   type ProcessManager,
 } from '@dev-dashboard/process-manager';
 
+import type { TestExecutionEvent } from '@dev-dashboard/contracts';
+
 import { ApiError } from '../http/api-error.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { TestFileError, type TestDetectionService } from '../services/test-detection-service.js';
-import type { TestExecutionHistoryService } from '../services/test-execution-history-service.js';
+import { TestExecutionSubscriptionError, type TestExecutionHistoryService } from '../services/test-execution-history-service.js';
 
 import {
   commonErrorResponseSchemas,
@@ -122,6 +124,58 @@ function testFileApiError(error: TestFileError): ApiError {
     statusCode: statuses[error.code] ?? 400,
     code: error.code,
     message: error.message,
+  });
+}
+
+function testExecutionSubscriptionApiError(error: TestExecutionSubscriptionError): ApiError {
+  const statuses: Record<string, number> = {
+    TEST_EXECUTION_NOT_FOUND: 404,
+    TEST_EXECUTION_SUBSCRIBER_LIMIT: 429,
+  };
+  return new ApiError({
+    statusCode: statuses[error.code] ?? 400,
+    code: error.code,
+    message: error.message,
+  });
+}
+
+function serializeTestExecutionEvent(event: TestExecutionEvent): string {
+  if (event.type === 'state') {
+    const managedProcess = event.process;
+    return JSON.stringify({
+      type: 'state',
+      process: {
+        id: managedProcess.id,
+        projectId: managedProcess.projectId,
+        ...(managedProcess.workspaceId !== undefined ? { workspaceId: managedProcess.workspaceId } : {}),
+        kind: managedProcess.kind,
+        status: managedProcess.status,
+        ...(managedProcess.pid !== undefined ? { pid: managedProcess.pid } : {}),
+        ...(managedProcess.port !== undefined ? { port: managedProcess.port } : {}),
+        ...(managedProcess.url !== undefined ? { url: managedProcess.url } : {}),
+        ...(managedProcess.urls !== undefined ? { urls: managedProcess.urls } : {}),
+        ...(managedProcess.command !== undefined ? { command: managedProcess.command } : {}),
+        ...(managedProcess.args !== undefined ? { args: managedProcess.args } : {}),
+        ...(managedProcess.startedAt !== undefined ? { startedAt: managedProcess.startedAt } : {}),
+        ...(managedProcess.stoppedAt !== undefined ? { stoppedAt: managedProcess.stoppedAt } : {}),
+        ...(managedProcess.exitCode !== undefined ? { exitCode: managedProcess.exitCode } : {}),
+      },
+    });
+  }
+  const log = event.log;
+  return JSON.stringify({
+    type: 'log',
+    log: {
+      projectId: log.projectId,
+      processId: log.processId,
+      content: log.content,
+      sizeBytes: log.sizeBytes,
+      truncated: log.truncated,
+      masked: log.masked,
+      redactionCount: log.redactionCount,
+      readAt: log.readAt,
+      ...(log.updatedAt !== undefined ? { updatedAt: log.updatedAt } : {}),
+    },
   });
 }
 
@@ -524,6 +578,65 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
         request.query.pageSize,
       );
       return { history };
+    },
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/tests/process/events',
+    {
+      schema: {
+        params: projectParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(projectStore, request.params.projectId);
+
+      let unsubscribe = (): void => undefined;
+      let heartbeat: NodeJS.Timeout | undefined;
+      let connected = false;
+      let closeRequested = false;
+      const pending: string[] = [];
+      const close = (): void => {
+        if (!connected) { closeRequested = true; return; }
+        if (heartbeat) clearInterval(heartbeat);
+        unsubscribe();
+        if (!reply.raw.writableEnded) reply.raw.end();
+      };
+      const write = (frame: string): void => {
+        // Não acumulamos snapshots quando o consumidor deixa de acompanhar o ritmo.
+        if (!reply.raw.write(frame)) close();
+      };
+
+      try {
+        unsubscribe = await testExecutionHistoryService.subscribe(project.id, {
+          send: (event) => {
+            const frame = `event: ${event.type}\ndata: ${serializeTestExecutionEvent(event)}\n\n`;
+            if (connected) write(frame);
+            else pending.push(frame);
+          },
+          close,
+        });
+      } catch (error) {
+        if (error instanceof TestExecutionSubscriptionError) {
+          throw testExecutionSubscriptionApiError(error);
+        }
+        throw error;
+      }
+
+      // A autenticação e os limites são validados antes de assumir a resposta contínua.
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+      connected = true;
+      for (const frame of pending) write(frame);
+      heartbeat = setInterval(() => write(': acompanhamento ativo\n\n'), 15_000);
+      heartbeat.unref();
+      reply.raw.once('close', close);
+      if (closeRequested) close();
     },
   );
 };

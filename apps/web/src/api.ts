@@ -25,6 +25,7 @@ import type {
   ScriptExecutionHistory,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
+  TestExecutionEvent,
   TestExecutionHistory,
   Workspace,
 } from '@dev-dashboard/contracts';
@@ -213,19 +214,18 @@ export async function fetchScriptExecutionHistory(projectId: string, page = 1): 
 export async function fetchScriptExecutionLog(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
   const response = await requestJson<ScriptExecutionLogResponse>(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/log`); return response.log;
 }
-export function followScriptExecutionEvents(
-  projectId: string,
-  executionId: string,
-  onEvent: (event: ScriptExecutionEvent) => void,
+function followEventStream<T>(
+  url: string,
+  onEvent: (event: T) => void,
 ): { close: () => void; done: Promise<void> } {
   const controller = new AbortController();
   const done = (async () => {
-    let response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/events`, {
+    let response = await fetch(url, {
       credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
     });
     if (response.status === 401) {
       await bootstrapBrowserSession();
-      response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/events`, {
+      response = await fetch(url, {
         credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
       });
     }
@@ -241,13 +241,34 @@ export function followScriptExecutionEvents(
       buffer = frames.pop() ?? '';
       for (const frame of frames) {
         const data = frame.split('\n').find((line) => line.startsWith('data: '))?.slice(6);
-        if (data) onEvent(JSON.parse(data) as ScriptExecutionEvent);
+        if (data) onEvent(JSON.parse(data) as T);
       }
     }
   })().catch((error: unknown) => {
     if (!controller.signal.aborted) throw error;
   });
   return { close: () => controller.abort(), done };
+}
+
+export function followScriptExecutionEvents(
+  projectId: string,
+  executionId: string,
+  onEvent: (event: ScriptExecutionEvent) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream(
+    `/api/projects/${encodeURIComponent(projectId)}/scripts/executions/${encodeURIComponent(executionId)}/events`,
+    onEvent,
+  );
+}
+
+export function followTestExecutionEvents(
+  projectId: string,
+  onEvent: (event: TestExecutionEvent) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/process/events`,
+    onEvent,
+  );
 }
 
 export async function cancelScriptExecution(projectId: string, executionId: string): Promise<ScriptExecution> {
