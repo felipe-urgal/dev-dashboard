@@ -15,6 +15,7 @@
     "doctor": "node scripts/doctor.mjs",
     "build": "npm run build:packages && npm run build:apps",
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
+    "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager",
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",

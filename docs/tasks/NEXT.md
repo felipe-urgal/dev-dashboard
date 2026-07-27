@@ -1,46 +1,51 @@
-# Próxima atividade — 024: Smoke E2E visual e responsivo
+# Próxima atividade — 025: Git pull e push
 
 ## Contexto
 
-A reforma visual foi concluída em sete entregas incrementais e a task 023
-consolidou a cascata em camadas. A validação atual cobre componentes montados e
-contratos estáticos de CSS, mas ainda não abre o produto em um navegador real.
-O backlog de qualidade também mantém Playwright/smoke E2E como pendência.
+A task 016 entregou criar e trocar de branch com confirmação obrigatória e
+validação de árvore limpa. O roadmap (Horizonte 2, "Git em etapas") lista pull
+e push como a próxima mutação, antes de avançar para commit e stash.
 
 ## Objetivo
 
-Criar uma base pequena e reproduzível de smoke E2E para verificar que as rotas
-principais renderizam e que tema, densidade e breakpoints continuam operáveis
-em navegador real.
+Permitir pull e push do branch atual a partir do detalhe do projeto, com a
+mesma política de confirmação e validação de árvore de trabalho já usada nas
+mutações de branch, sem introduzir um terminal genérico disfarçado.
 
 ## Plano detalhado
 
-1. Definir a menor configuração de Playwright compatível com o monorepo e com
-   a origem única usada na distribuição local.
-2. Criar fixtures determinísticas para evitar dependência de projetos reais,
-   processos locais ou estado pessoal do desenvolvedor.
-3. Cobrir dashboard, detalhes de projeto, processos e atividade com ao menos um
-   smoke de navegação e renderização por rota.
-4. Exercitar as combinações claro/escuro e cômoda/compacta, validando os
-   atributos no elemento raiz e sua persistência após recarga.
-5. Executar um cenário desktop e um estreito, verificando ausência de overflow
-   horizontal e acesso aos controles globais.
-6. Adicionar capturas estáveis somente para superfícies determinísticas, com
-   política documentada para atualização dos baselines.
-7. Integrar o smoke aos scripts e à CI sem duplicar os testes unitários do web.
+1. Modelar as respostas e erros de `git pull`/`git push` no contrato
+   compartilhado, reaproveitando o formato de confirmação já existente em
+   `GitMutationConfirmation`.
+2. Implementar os métodos correspondentes em `GitService`
+   (`apps/api/src/services/git-service.ts`), tratando de forma explícita:
+   remoto/upstream ausente, divergência que exige merge/rebase manual,
+   autenticação de remoto indisponível e árvore de trabalho suja.
+3. Expor rotas privadas em `apps/api/src/routes/projects.ts` (ou arquivo
+   dedicado de Git) seguindo o catálogo fechado de ações e a confirmação por
+   risco já usada em `016-git-branch-mutations.md`.
+4. Adicionar os controles na aba Git do detalhe do projeto
+   (`ProjectDetailsView`/painel de Git), reaproveitando `<Card>` e
+   `<StatusBadge>` da reforma visual.
+5. Registrar a mutação no histórico de atividade unificado, na mesma linha das
+   mutações de branch.
+6. Cobrir com testes de API (sucesso, divergência, remoto ausente) e ao menos
+   um teste montado do painel de Git para o novo fluxo.
 
 ## Fora do escopo
 
-- Cobertura E2E exaustiva de mutações ou processos do sistema operacional.
-- Testes contra projetos reais do diretório pessoal.
-- Redesign adicional ou drawer móvel completo.
-- Suporte simultâneo a todos os motores de navegador na primeira entrega.
+- Configuração de múltiplos remotos ou autenticação de credenciais no
+  navegador.
+- Resolução de conflitos de merge assistida.
+- Commit e stash (próxima entrega da série).
+- Rebase interativo.
 
 ## Critérios de aceite
 
-- smoke executável localmente por um comando documentado;
-- fixtures não acessam estado ou segredos pessoais;
-- rotas principais abrem sem erro em desktop e largura estreita;
-- preferências visuais persistem em navegador real;
-- ao menos um baseline visual determinístico protege a cascata consolidada;
-- `npm run typecheck`, `npm run build`, `npm test` e o novo smoke passam.
+- pull e push exigem confirmação explícita e recusam árvore suja, como as
+  mutações de branch já entregues;
+- erros de remoto/divergência aparecem como mensagens específicas, não como
+  falha genérica;
+- a mutação aparece no histórico de atividade;
+- `npm run typecheck`, `npm run build` e `npm test` passam com os novos
+  testes de API e de componente.

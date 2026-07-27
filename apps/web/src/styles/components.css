@@ -94,6 +94,7 @@
 
 .scan-result code {
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .metrics-grid {
@@ -388,7 +389,7 @@
 
   .metrics-grid,
   .projects-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
