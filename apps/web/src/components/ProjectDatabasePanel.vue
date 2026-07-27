@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { Project, ProjectDatabaseOverview, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
+import type { Project, ProjectDatabaseOverview, RailsMigrationMutationOperation, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
 
-import { fetchProjectDatabase, fetchProjectRailsMigrations, fetchProjectRailsRoutes, revealProjectDatabaseUrl, startProjectDatabase } from '../api';
+import { fetchProjectDatabase, fetchProjectRailsMigrations, fetchProjectRailsRoutes, prepareProjectRailsMutation, revealProjectDatabaseUrl, runProjectRailsMutation, startProjectDatabase } from '../api';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
@@ -25,9 +25,26 @@ const routesLoading = ref(false);
 const routesErrorMessage = ref('');
 const routeFilter = ref('');
 
+const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
+const mutationMessage = ref('');
+const mutationErrorMessage = ref('');
+const mutationOutput = ref('');
+
 const pages = computed(() => Math.max(1, Math.ceil((overview.value?.total ?? 0) / (overview.value?.pageSize ?? 20))));
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
 const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
+const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
+  migrate: 'Rodar migrations pendentes (db:migrate)',
+  rollback: 'Desfazer a última migration (db:rollback, 1 passo)',
+  seed: 'Rodar seeds (db:seed)',
+  prepare: 'Preparar o banco (db:prepare)',
+};
+const mutationConfirmationText: Record<RailsMigrationMutationOperation, string> = {
+  migrate: 'Rodar todas as migrations pendentes neste banco?',
+  rollback: 'Desfazer a última migration aplicada (um passo)? Isso pode apagar dados dessa migration.',
+  seed: 'Rodar db:seed neste banco? Scripts de seed podem criar ou alterar dados.',
+  prepare: 'Rodar db:prepare neste banco? Isso pode criar o banco e carregar o schema mais recente.',
+};
 
 const isRailsProject = computed(() => props.project.type === 'rails');
 const pendingMigrationsCount = computed(() => migrations.value?.migrations.filter((item) => item.status === 'down').length ?? 0);
@@ -66,6 +83,29 @@ async function loadRoutes(): Promise<void> {
   finally { routesLoading.value = false; }
 }
 
+async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
+  if (mutationRunning.value) return;
+  const confirmed = typeof window === 'undefined' || window.confirm(mutationConfirmationText[operation]);
+  if (!confirmed) return;
+
+  mutationRunning.value = operation;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  mutationOutput.value = '';
+  try {
+    const confirmation = await prepareProjectRailsMutation(props.project.id, operation);
+    const result = await runProjectRailsMutation(props.project.id, operation, confirmation.token);
+    mutationOutput.value = result.output;
+    if (result.succeeded) mutationMessage.value = `${mutationLabels[operation]} concluído.`;
+    else mutationErrorMessage.value = `${mutationLabels[operation]} falhou. Veja a saída abaixo.`;
+    await loadMigrations();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+  } finally {
+    mutationRunning.value = '';
+  }
+}
+
 async function reveal(id: string): Promise<void> {
   if (revealed.value[id]) { const next = { ...revealed.value }; delete next[id]; revealed.value = next; return; }
 
@@ -98,6 +138,7 @@ function clientUrl(id: string, driver: string): string { return `dev-dashboard:/
 watch(() => props.project.id, () => {
   generation++; overview.value = null; revealed.value = {}; starting.value = {}; page.value = 1;
   migrations.value = null; routes.value = null; routeFilter.value = '';
+  mutationRunning.value = ''; mutationMessage.value = ''; mutationErrorMessage.value = ''; mutationOutput.value = '';
   void loadDatabase(1);
   void loadMigrations();
   void loadRoutes();
@@ -141,6 +182,19 @@ watch(() => props.project.id, () => {
           </tr>
         </tbody>
       </table>
+
+      <div class="migrations-mutations">
+        <p class="migrations-mutations-kicker">Operações — cada uma pede confirmação antes de executar.</p>
+        <div class="migrations-mutations-actions">
+          <button class="secondary-button" type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate...' : 'Rodar migrate' }}</button>
+          <button class="secondary-button" type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo...' : 'Rollback (1 passo)' }}</button>
+          <button class="secondary-button" type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed...' : 'Rodar seed' }}</button>
+          <button class="secondary-button" type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando...' : 'db:prepare' }}</button>
+        </div>
+        <p v-if="mutationErrorMessage" class="project-error" role="alert">{{ mutationErrorMessage }}</p>
+        <p v-else-if="mutationMessage" class="migrations-mutations-success">{{ mutationMessage }}</p>
+        <pre v-if="mutationOutput" class="migrations-mutation-output">{{ mutationOutput }}</pre>
+      </div>
     </div>
   </Card>
 

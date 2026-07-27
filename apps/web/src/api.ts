@@ -19,6 +19,9 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
+  RailsMigrationMutationConfirmation,
+  RailsMigrationMutationOperation,
+  RailsMigrationMutationResult,
   RailsMigrationsOverview,
   RailsRoutesOverview,
   ProjectScriptCatalog,
@@ -729,6 +732,25 @@ export async function fetchProjectRailsMigrations(projectId: string): Promise<Ra
 export async function fetchProjectRailsRoutes(projectId: string): Promise<RailsRoutesOverview> {
   const response = await requestJson<ProjectRailsRoutesResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/routes`);
   return response.routes;
+}
+
+interface RailsMutationConfirmationResponse { confirmation: RailsMigrationMutationConfirmation }
+interface RailsMutationResultResponse { result: RailsMigrationMutationResult }
+
+export async function prepareProjectRailsMutation(projectId: string, operation: RailsMigrationMutationOperation): Promise<RailsMigrationMutationConfirmation> {
+  const response = await requestJson<RailsMutationConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/confirmations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation }) },
+  );
+  return response.confirmation;
+}
+
+export async function runProjectRailsMutation(projectId: string, operation: RailsMigrationMutationOperation, confirmationToken: string): Promise<RailsMigrationMutationResult> {
+  const response = await requestJson<RailsMutationResultResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/mutations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, confirmationToken }) },
+  );
+  return response.result;
 }
 
 export interface ActivityQuery {

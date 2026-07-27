@@ -31,9 +31,9 @@ let cleanup: (() => void) | undefined;
 beforeEach(() => { cleanup = undefined; });
 afterEach(() => { cleanup?.(); });
 
-function mockFetchFor(project: 'rails' | 'node') {
+function mockFetchFor(project: 'rails' | 'node', onMutationCall?: (pathname: string, body: unknown) => void) {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname.endsWith('/database')) {
       return new Response(JSON.stringify({ database: emptyDatabase }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -43,6 +43,14 @@ function mockFetchFor(project: 'rails' | 'node') {
     }
     if (url.pathname.endsWith('/rails/routes')) {
       return new Response(JSON.stringify({ routes: project === 'rails' ? routesOverview : { supported: false, routes: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/rails/migrations/confirmations')) {
+      onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
+      return new Response(JSON.stringify({ confirmation: { token: 't'.repeat(64), operation: 'migrate', expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/rails/migrations/mutations')) {
+      onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
+      return new Response(JSON.stringify({ result: { operation: 'migrate', succeeded: true, output: '== migrating ==', truncated: false, masked: false, redactionCount: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -75,6 +83,37 @@ test('filtra rotas pela busca', async () => {
 
   assert.ok(wrapper.text().includes('users#create'));
   assert.ok(!wrapper.text().includes('users#index'));
+});
+
+test('roda migrate após confirmação e recarrega o status', async () => {
+  const calls: Array<{ pathname: string; body: unknown }> = [];
+  const originalFetch = mockFetchFor('rails', (pathname, body) => calls.push({ pathname, body }));
+  const originalConfirm = globalThis.window?.confirm;
+  if (globalThis.window) globalThis.window.confirm = () => true;
+
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    if (globalThis.window && originalConfirm) globalThis.window.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const migrateButton = wrapper.findAll('button').find((button) => button.text() === 'Rodar migrate');
+  assert.ok(migrateButton);
+  await migrateButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls.map((call) => call.pathname), [
+    '/api/projects/p1/rails/migrations/confirmations',
+    '/api/projects/p1/rails/migrations/mutations',
+  ]);
+  assert.equal((calls[0]!.body as { operation: string }).operation, 'migrate');
+  assert.equal((calls[1]!.body as { confirmationToken: string }).confirmationToken, 't'.repeat(64));
+  assert.match(wrapper.text(), /concluído/);
+  assert.match(wrapper.text(), /migrating/);
 });
 
 test('projeto Node não exibe seções de migrations/rotas do Rails', async () => {
