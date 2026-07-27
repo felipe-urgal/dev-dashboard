@@ -30,3 +30,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `021-dashboard-cards.md` — migração do hero, workspace, métricas e lista de projetos do dashboard principal para `<Card>`, `<StatusBadge>` e tokens compartilhados.
 - `022-theme-density.md` — preferências persistentes de tema e densidade, controles acessíveis e migração visual da sidebar para tokens.
 - `023-css-consolidation.md` — consolidação final do CSS legado em camadas, migração de cores ativas para tokens e guardas automatizadas da arquitetura visual.
+- `024-e2e-smoke.md` — base de smoke E2E com Playwright em origem única, fixtures determinísticas e sem estado pessoal, cobrindo navegação, tema/densidade, responsividade e um baseline visual da sidebar.
