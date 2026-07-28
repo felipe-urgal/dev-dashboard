@@ -4,14 +4,12 @@
     minmax(0, 1.2fr)
     minmax(340px, 0.8fr);
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .hero-copy {
   display: flex;
-  min-height: 280px;
   flex-direction: column;
-  justify-content: flex-end;
 }
 
 .hero-copy h2 {
@@ -383,7 +381,6 @@
   }
 
   .hero-copy {
-    min-height: 230px;
     padding: 25px;
   }
 
