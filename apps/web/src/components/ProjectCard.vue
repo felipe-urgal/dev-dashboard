@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import {
+  ArrowRightIcon,
+} from '@heroicons/vue/24/outline';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -28,6 +31,14 @@ const statusDotClass = computed(() => {
     ? 'project-status-dot-running'
     : 'project-status-dot-stopped';
 });
+
+const statusLabel = computed(() => {
+  if (!supportsServer.value) {
+    return 'Sem servidor';
+  }
+
+  return isRunning.value ? 'Em execução' : 'Parado';
+});
 </script>
 
 <template>
@@ -47,20 +58,26 @@ const statusDotClass = computed(() => {
       <div class="project-row-identity">
         <div class="project-row-heading">
           <div class="project-row-title">
-            <span
-              class="project-status-dot"
-              :class="statusDotClass"
-              aria-hidden="true"
-            />
             <h3>{{ project.name }}</h3>
           </div>
 
-          <span
-            class="type-badge"
-            :class="`type-badge-${project.type}`"
-          >
-            {{ projectTypeLabels[project.type] }}
-          </span>
+          <div class="project-row-badges">
+            <span class="project-status">
+              <span
+                class="project-status-dot"
+                :class="statusDotClass"
+                aria-hidden="true"
+              />
+              {{ statusLabel }}
+            </span>
+
+            <span
+              class="type-badge"
+              :class="`type-badge-${project.type}`"
+            >
+              {{ projectTypeLabels[project.type] }}
+            </span>
+          </div>
         </div>
 
         <code class="project-path">{{ project.path }}</code>
@@ -80,7 +97,10 @@ const statusDotClass = computed(() => {
         </div>
       </div>
 
-      <span class="project-row-arrow" aria-hidden="true">→</span>
+      <span class="project-row-action" aria-hidden="true">
+        <span>Abrir</span>
+        <ArrowRightIcon />
+      </span>
     </RouterLink>
   </li>
 </template>
