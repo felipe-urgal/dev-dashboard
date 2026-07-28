@@ -256,17 +256,14 @@
 .capabilities {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px 0;
+  color: var(--text-dim);
+  font-size: 10px;
 }
 
-.capability {
-  padding: 4px 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  font-size: 9px;
-  font-weight: 700;
+.capability:not(:last-child)::after {
+  content: '\00b7';
+  margin: 0 6px;
 }
 
 .project-card-footer {
