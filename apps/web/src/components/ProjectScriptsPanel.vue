@@ -4,6 +4,7 @@ import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin,
 import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, followScriptExecutionEvents, prepareScriptExecution, startScriptExecution } from '../api';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { riskToneFor } from '../utils/status-tones';
+import { noticeCenterStore } from '../stores/notice-center';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
 
@@ -25,6 +26,7 @@ useAutoDismiss(errorMessage, '');
 
 let generation = 0;
 let executionGeneration = 0;
+let hasObservedRunning = false;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let closeExecutionEvents: (() => void) | null = null;
 
@@ -147,9 +149,27 @@ async function cancel(): Promise<void> {
   try { execution.value = await cancelScriptExecution(props.project.id, execution.value.id); } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Não foi possível cancelar.'; }
 }
 
-watch(() => props.project.id, () => { closeExecutionEvents?.(); closeExecutionEvents = null; generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; history.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; void load(); void loadHistory(projectId, current); void restoreExecution(projectId, current); }, { immediate: true });
+watch(() => props.project.id, () => { closeExecutionEvents?.(); closeExecutionEvents = null; generation += 1; executionGeneration += 1; const current = generation; const projectId = props.project.id; catalog.value = null; history.value = null; execution.value = null; executionLog.value = ''; maskedLogEntries.value = 0; startingActionId.value = null; page.value = 1; hasObservedRunning = false; void load(); void loadHistory(projectId, current); void restoreExecution(projectId, current); }, { immediate: true });
 watch([origin, risk], () => { page.value = 1; void load(); });
 watch(search, () => { page.value = 1; if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => void load(), 250); });
+watch(execution, (exec) => {
+  if (!exec) return;
+  if (exec.status === 'running') {
+    hasObservedRunning = true;
+    return;
+  }
+  if (!hasObservedRunning) return;
+
+  noticeCenterStore.publishTerminalNotice({
+    origin: 'script',
+    dedupeKey: `script:${exec.id}:${exec.status}`,
+    outcome: exec.status,
+    projectId: props.project.id,
+    projectName: props.project.name,
+    label: exec.actionName,
+    routeTo: { name: 'project-scripts', params: { projectId: props.project.id } },
+  });
+});
 onUnmounted(() => { closeExecutionEvents?.(); closeExecutionEvents = null; generation += 1; executionGeneration += 1; if (searchTimer) clearTimeout(searchTimer); });
 </script>
 
