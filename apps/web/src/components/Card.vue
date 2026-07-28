@@ -3,12 +3,14 @@ interface Props {
   tag?: keyof HTMLElementTagNameMap;
   padded?: boolean;
   interactive?: boolean;
+  bordered?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   tag: 'section',
   padded: true,
   interactive: false,
+  bordered: true,
 });
 </script>
 
@@ -19,6 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
     :class="{
       'dd-card-padded': props.padded,
       'dd-card-interactive': props.interactive,
+      'dd-card-borderless': !props.bordered,
     }"
   >
     <header v-if="$slots.header || $slots.actions" class="dd-card-header">
@@ -41,6 +44,7 @@ const props = withDefaults(defineProps<Props>(), {
   color: var(--text);
 }
 .dd-card-padded { padding: var(--space-5); }
+.dd-card-borderless { border: none; background: none; }
 .dd-card-interactive { transition: border-color 160ms ease, transform 160ms ease; }
 .dd-card-interactive:hover { border-color: var(--border-strong); }
 .dd-card-header {

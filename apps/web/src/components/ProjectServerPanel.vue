@@ -601,7 +601,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Card padded class="project-detail-card" :class="`project-server-card-${mode}`">
+  <Card
+    padded
+    :bordered="false"
+    class="project-detail-card"
+    :class="`project-server-card-${mode}`"
+  >
     <template #header>
       <div class="project-panel-heading">
         <span class="section-kicker">Servidor</span>
