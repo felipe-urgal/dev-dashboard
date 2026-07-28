@@ -23,6 +23,7 @@ import {
   projectCommandActions,
   type ProjectCommandAction,
 } from '../utils/project-command-actions';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 
 const props = defineProps<{
   projects: Project[];
@@ -60,6 +61,8 @@ const loadingActions = ref(false);
 const executingAction = ref(false);
 const pendingActionId = ref<string>();
 const feedback = ref('');
+
+useAutoDismiss(feedback, '');
 let previousFocus: HTMLElement | null = null;
 
 const currentProject = computed(() => {

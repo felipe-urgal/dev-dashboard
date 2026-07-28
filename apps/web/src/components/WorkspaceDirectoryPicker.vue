@@ -11,6 +11,7 @@ import {
   type DirectoryListing,
 } from '../api';
 
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { RequestGeneration } from '../utils/request-generation';
 
 const props = defineProps<{
@@ -27,6 +28,8 @@ const listing = ref<DirectoryListing | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
 const closeButton = ref<HTMLButtonElement | null>(null);
+
+useAutoDismiss(errorMessage, '');
 
 const directoryRequests = new RequestGeneration();
 let previousBodyOverflow = '';

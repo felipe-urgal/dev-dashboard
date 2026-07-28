@@ -21,6 +21,7 @@ import {
   type ProcessesQuery,
 } from '../api';
 import StatusBadge from '../components/StatusBadge.vue';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import {
   formatDuration,
   kindLabel,
@@ -67,6 +68,10 @@ const cleanupMessage = ref('');
 const cleanupFailed = ref(false);
 const cleanupRunning = ref(false);
 const now = ref(Date.now());
+
+useAutoDismiss(referenceErrorMessage, '');
+useAutoDismiss(processesErrorMessage, '');
+useAutoDismiss(cleanupMessage, '');
 
 const generation = new RequestGeneration();
 let controller: AbortController | undefined;

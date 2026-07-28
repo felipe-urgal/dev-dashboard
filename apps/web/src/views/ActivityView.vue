@@ -31,6 +31,7 @@ import {
   type ActivityQuery,
 } from '../api';
 import StatusBadge from '../components/StatusBadge.vue';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import {
   activityDetailPath,
   formatInstant,
@@ -81,6 +82,9 @@ const referenceErrorMessage = ref('');
 const activityErrorMessage = ref('');
 const lastUpdatedAt = ref('');
 const now = ref(Date.now());
+
+useAutoDismiss(referenceErrorMessage, '');
+useAutoDismiss(activityErrorMessage, '');
 
 const generation = new RequestGeneration();
 let controller: AbortController | undefined;

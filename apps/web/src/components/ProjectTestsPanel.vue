@@ -21,6 +21,7 @@ import {
   startProjectTestFile,
   stopProjectTest,
 } from '../api';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -46,6 +47,10 @@ const historyTotalPages = ref(0);
 const loadingHistory = ref(false);
 const historyErrorMessage = ref('');
 const HISTORY_PAGE_SIZE = 10;
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(fileErrorMessage, '');
+useAutoDismiss(historyErrorMessage, '');
 
 let generation = 0;
 let closeExecutionEvents: (() => void) | null = null;

@@ -1,8 +1,21 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import {
+  ArrowPathIcon,
+  BeakerIcon,
+  ClockIcon,
+  CodeBracketIcon,
+  DocumentTextIcon,
+  ExclamationTriangleIcon,
+} from '@heroicons/vue/24/outline';
+import {
+  computed,
+  onMounted,
+  reactive,
+  ref,
+} from 'vue';
 import type { RetentionSettings, RetentionSettingsSnapshot } from '@dev-dashboard/contracts';
-import Card from '../components/Card.vue';
 import { fetchRetentionSettings, updateRetentionSettings } from '../api';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 
 const snapshot = ref<RetentionSettingsSnapshot>();
 const form = reactive<RetentionSettings>({ retentionDays: 7, scriptHistoryLimit: 200, testHistoryLimit: 50 });
@@ -12,6 +25,21 @@ const error = ref('');
 const feedback = ref('');
 
 function fill(values: RetentionSettings): void { Object.assign(form, values); }
+
+const hasChanges = computed(() => {
+  const values = snapshot.value?.values;
+  return Boolean(
+    values
+    && (
+      values.retentionDays !== form.retentionDays
+      || values.scriptHistoryLimit !== form.scriptHistoryLimit
+      || values.testHistoryLimit !== form.testHistoryLimit
+    )
+  );
+});
+
+useAutoDismiss(error, '');
+useAutoDismiss(feedback, '');
 
 async function load(): Promise<void> {
   loading.value = true; error.value = '';
@@ -24,6 +52,7 @@ async function save(): Promise<void> {
   saving.value = true; error.value = ''; feedback.value = '';
   try {
     snapshot.value = await updateRetentionSettings({ ...form });
+    fill(snapshot.value.values);
     feedback.value = 'Configurações salvas. Reinicie a API para aplicar os novos valores aos gerenciadores.';
   } catch (cause) { error.value = cause instanceof Error ? cause.message : 'Não foi possível salvar as configurações.'; }
   finally { saving.value = false; }
@@ -34,27 +63,144 @@ onMounted(() => void load());
 
 <template>
   <section class="settings-page">
-    <Card title="Retenção local" eyebrow="Armazenamento seguro">
-      <p>Defina por quanto tempo estados e logs terminais permanecem locais e quantos registros cada histórico conserva.</p>
-      <p v-if="loading" role="status">Carregando configurações…</p>
-      <form v-else-if="snapshot" class="settings-form" @submit.prevent="save">
-        <label>Retenção de logs (dias)
-          <input v-model.number="form.retentionDays" type="number" step="1" required :min="snapshot.limits.retentionDays.minimum" :max="snapshot.limits.retentionDays.maximum">
-          <small>Entre {{ snapshot.limits.retentionDays.minimum }} e {{ snapshot.limits.retentionDays.maximum }} dias.</small>
+    <header class="settings-heading">
+      <div>
+        <span class="section-kicker">Ambiente local</span>
+        <h2>Configurações</h2>
+        <p class="section-description">
+          Defina por quanto tempo estados e logs terminais permanecem locais e quantos registros cada histórico conserva.
+        </p>
+      </div>
+
+      <div class="settings-save">
+        <button
+          class="primary-button settings-save-button"
+          type="submit"
+          form="retention-settings"
+          :disabled="loading || saving || !snapshot || !hasChanges"
+        >
+          {{ saving ? 'Salvando…' : 'Salvar alterações' }}
+        </button>
+        <span>{{ hasChanges ? 'Você tem alterações não salvas.' : 'Configurações atualizadas.' }}</span>
+      </div>
+    </header>
+
+    <p v-if="loading" class="settings-loading" role="status">Carregando configurações…</p>
+
+    <form
+      v-else-if="snapshot"
+      id="retention-settings"
+      class="settings-form"
+      @submit.prevent="save"
+    >
+      <section class="settings-panel" aria-labelledby="local-files-title">
+        <header class="settings-section-heading">
+          <DocumentTextIcon aria-hidden="true" />
+          <div>
+            <h3 id="local-files-title">Arquivos locais</h3>
+            <p>Defina por quanto tempo os arquivos de logs permanecem armazenados localmente.</p>
+          </div>
+        </header>
+
+        <label class="settings-row">
+          <span class="settings-row-copy">
+            <strong>Retenção de logs</strong>
+            <span>Tempo que os arquivos de logs permanecem no disco local.</span>
+            <small>Entre {{ snapshot.limits.retentionDays.minimum }} e {{ snapshot.limits.retentionDays.maximum }} dias.</small>
+          </span>
+          <span class="settings-number-control">
+            <input
+              v-model.number="form.retentionDays"
+              type="number"
+              step="1"
+              required
+              :min="snapshot.limits.retentionDays.minimum"
+              :max="snapshot.limits.retentionDays.maximum"
+            >
+            <span>dia{{ form.retentionDays === 1 ? '' : 's' }}</span>
+          </span>
         </label>
-        <label>Histórico de scripts
-          <input v-model.number="form.scriptHistoryLimit" type="number" step="1" required :min="snapshot.limits.scriptHistoryLimit.minimum" :max="snapshot.limits.scriptHistoryLimit.maximum">
-          <small>Entre {{ snapshot.limits.scriptHistoryLimit.minimum }} e {{ snapshot.limits.scriptHistoryLimit.maximum }} registros.</small>
-        </label>
-        <label>Histórico de testes
-          <input v-model.number="form.testHistoryLimit" type="number" step="1" required :min="snapshot.limits.testHistoryLimit.minimum" :max="snapshot.limits.testHistoryLimit.maximum">
-          <small>Entre {{ snapshot.limits.testHistoryLimit.minimum }} e {{ snapshot.limits.testHistoryLimit.maximum }} registros.</small>
-        </label>
-        <p class="settings-notice">Salvar não remove arquivos. Os novos valores passam a valer após reiniciar a API.</p>
-        <button class="primary-button" type="submit" :disabled="saving">{{ saving ? 'Salvando…' : 'Salvar configurações' }}</button>
-      </form>
-      <p v-if="error" class="error-message" role="alert">{{ error }}</p>
-      <p v-if="feedback" class="success-message" role="status">{{ feedback }}</p>
-    </Card>
+
+        <div class="settings-section-divider" />
+
+        <header class="settings-section-heading">
+          <ClockIcon aria-hidden="true" />
+          <div>
+            <h3>Limites do histórico</h3>
+            <p>Defina a quantidade máxima de registros mantidos em cada histórico.</p>
+          </div>
+        </header>
+
+        <div class="settings-row-group">
+          <label class="settings-row">
+            <span class="settings-row-copy">
+              <strong>Histórico de scripts</strong>
+              <span>Quantidade máxima de registros mantidos no histórico de scripts.</span>
+              <small>Entre {{ snapshot.limits.scriptHistoryLimit.minimum }} e {{ snapshot.limits.scriptHistoryLimit.maximum }} registros.</small>
+            </span>
+            <span class="settings-number-control">
+              <input
+                v-model.number="form.scriptHistoryLimit"
+                type="number"
+                step="1"
+                required
+                :min="snapshot.limits.scriptHistoryLimit.minimum"
+                :max="snapshot.limits.scriptHistoryLimit.maximum"
+              >
+              <span>registros</span>
+            </span>
+          </label>
+
+          <label class="settings-row">
+            <span class="settings-row-copy">
+              <strong>Histórico de testes</strong>
+              <span>Quantidade máxima de registros mantidos no histórico de testes.</span>
+              <small>Entre {{ snapshot.limits.testHistoryLimit.minimum }} e {{ snapshot.limits.testHistoryLimit.maximum }} registros.</small>
+            </span>
+            <span class="settings-number-control">
+              <input
+                v-model.number="form.testHistoryLimit"
+                type="number"
+                step="1"
+                required
+                :min="snapshot.limits.testHistoryLimit.minimum"
+                :max="snapshot.limits.testHistoryLimit.maximum"
+              >
+              <span>registros</span>
+            </span>
+          </label>
+        </div>
+
+        <aside class="settings-notice">
+          <ExclamationTriangleIcon aria-hidden="true" />
+          <span>
+            <strong>Atenção: salvar não remove arquivos.</strong>
+            Os novos valores passam a valer após reiniciar a API.
+          </span>
+        </aside>
+
+        <dl class="settings-summary">
+          <div>
+            <DocumentTextIcon aria-hidden="true" />
+            <div><dt>Logs</dt><dd>{{ form.retentionDays }} dia{{ form.retentionDays === 1 ? '' : 's' }}</dd></div>
+          </div>
+          <div>
+            <CodeBracketIcon aria-hidden="true" />
+            <div><dt>Scripts</dt><dd>{{ form.scriptHistoryLimit }} registros</dd></div>
+          </div>
+          <div>
+            <BeakerIcon aria-hidden="true" />
+            <div><dt>Testes</dt><dd>{{ form.testHistoryLimit }} registros</dd></div>
+          </div>
+          <div>
+            <ArrowPathIcon aria-hidden="true" />
+            <div><dt>Reinício necessário</dt><dd>Sim</dd></div>
+          </div>
+        </dl>
+      </section>
+
+      <p v-if="error" class="alert alert-error settings-feedback" role="alert">{{ error }}</p>
+      <p v-if="feedback" class="alert alert-success settings-feedback" role="status">{{ feedback }}</p>
+    </form>
   </section>
 </template>

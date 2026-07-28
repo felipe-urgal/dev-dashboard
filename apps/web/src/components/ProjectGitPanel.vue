@@ -14,6 +14,7 @@ import {
   stashPushProjectGit,
   switchProjectGitBranch,
 } from '../api';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
@@ -40,6 +41,12 @@ const createBranchName = ref('');
 const switchBranchName = ref('');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(diffErrorMessage, '');
+useAutoDismiss(fileErrorMessage, '');
+useAutoDismiss(mutationMessage, '');
+useAutoDismiss(mutationErrorMessage, '');
 
 const statusLabels: Record<GitFileStatus, string> = {
   added: 'Adicionado', modified: 'Modificado', deleted: 'Removido', renamed: 'Renomeado', copied: 'Copiado', untracked: 'Não rastreado', conflicted: 'Conflito', 'type-changed': 'Tipo alterado',

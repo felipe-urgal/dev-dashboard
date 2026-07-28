@@ -44,3 +44,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `035-safe-retention-settings.md` — configurações autenticadas e limitadas de retenção, persistência privada, tela dedicada e correção do estado desconhecido da paleta.
 - `036-processes-page-refresh.md` — reforma visual da página global de processos, filtros e resumo por estado, com limpeza manual imediata de todos os finalizados e preservação dos processos ativos.
 - `037-activity-page-refresh.md` — reforma visual do painel global de atividade, com resumo correto antes da paginação, busca, agrupamento por data e tabela responsiva.
+- `038-settings-page-refresh.md` — reforma visual de Configurações, estado de alterações pendentes e descarte automático dos alertas transitórios do frontend.
