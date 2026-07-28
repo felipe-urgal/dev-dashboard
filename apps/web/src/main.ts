@@ -5,6 +5,7 @@ import {
 import App from './App.vue';
 import { router } from './router';
 import './styles.css';
+import './project-details-redesign.css';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
