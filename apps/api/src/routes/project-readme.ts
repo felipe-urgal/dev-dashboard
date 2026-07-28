@@ -1,3 +1,5 @@
+import type { Dirent } from 'node:fs';
+
 import {
   readdir,
   readFile,
@@ -69,7 +71,7 @@ async function findReadme(projectPath: string): Promise<{
   filename: string;
   content: string;
 } | null> {
-  let entries;
+  let entries: Dirent[];
 
   try {
     entries = await readdir(projectPath, { withFileTypes: true });
