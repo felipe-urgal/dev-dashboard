@@ -1607,7 +1607,7 @@ a.secondary-button {
 
 .activity-project-cell {
   display: grid;
-  gap: 4px;
+  gap: 9px;
 }
 
 .activity-project-cell strong {
