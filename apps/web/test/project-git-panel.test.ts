@@ -419,6 +419,96 @@ test('commit exibe erro quando não há nada staged', async () => {
   assert.match(wrapper.find('.project-error').text(), /Não há alterações staged/);
 });
 
+test('salvar tudo envia a confirmação da operação save e mostra o assunto prefixado', async () => {
+  const calls: Array<{ url: string; body?: unknown }> = [];
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ url: url.pathname, body });
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: { ...baseOverview, branch: 'feature/tela' } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      return new Response(JSON.stringify({ confirmation: { token: 'f'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/save')) {
+      return new Response(JSON.stringify({ commit: { hash: 'def456', shortHash: 'def456', subject: `feat: ${(body as { message: string }).message}` } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.find('.git-save-form').text(), /prefixo "feat:"/);
+
+  await wrapper.find('.git-save-form input[type="text"]').setValue('nova tela');
+  await wrapper.find('.git-save-form').trigger('submit.prevent');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  const confirmationCall = calls.find((call) => call.url.endsWith('/git/mutations/confirmations'));
+  assert.equal((confirmationCall!.body as { operation: string; target: string }).operation, 'save');
+  assert.equal((confirmationCall!.body as { operation: string; target: string }).target, 'feature/tela');
+  const saveCall = calls.find((call) => call.url.endsWith('/git/save'));
+  assert.equal((saveCall!.body as { message: string; confirmationToken: string }).message, 'nova tela');
+  assert.equal((saveCall!.body as { message: string; confirmationToken: string }).confirmationToken, 'f'.repeat(64));
+  assert.match(wrapper.find('.git-mutation-success').text(), /feat: nova tela/);
+});
+
+test('salvar tudo exibe erro quando a API recusa por árvore limpa', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/git')) {
+      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/diff')) {
+      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/mutations/confirmations')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      return new Response(JSON.stringify({ confirmation: { token: 'g'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/git/save')) {
+      return new Response(JSON.stringify({ error: 'GIT_NOTHING_TO_COMMIT', message: 'Não há alterações na árvore de trabalho para salvar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    globalThis.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.git-save-form input[type="text"]').setValue('nada para salvar');
+  await wrapper.find('.git-save-form').trigger('submit.prevent');
+  await flushPromises();
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.find('.project-error').text(), /Não há alterações na árvore de trabalho/);
+});
+
 test('stash empilha e restaura mostrando a lista atualizada', async () => {
   let stashed = false;
   const originalFetch = globalThis.fetch;

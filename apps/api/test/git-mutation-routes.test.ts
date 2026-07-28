@@ -252,4 +252,44 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     assert.equal(response.statusCode, 404);
     assert.equal(response.json<ErrorResponse>().error, 'GIT_STASH_EMPTY');
   });
+
+  await context.test('save via rota prepara tudo e aplica o prefixo do branch', async () => {
+    await git(repoPath, ['switch', '-q', '-c', 'fix/ajuste-rota']);
+    await writeFile(path.join(repoPath, 'novo-save.txt'), 'não rastreado\n');
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'save', target: 'fix/ajuste-rota' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/save', headers,
+      payload: JSON.stringify({ message: 'salva tudo via rota', confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 201);
+    interface SaveResponse { commit: { hash: string; shortHash: string; subject: string } }
+    assert.equal(response.json<SaveResponse>().commit.subject, 'fix: salva tudo via rota');
+  });
+
+  await context.test('save com árvore limpa retorna 409 GIT_NOTHING_TO_COMMIT', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'save', target: 'fix/ajuste-rota' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/save', headers,
+      payload: JSON.stringify({ message: 'nada para salvar', confirmationToken: confirmation.token }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_NOTHING_TO_COMMIT');
+  });
+
+  await context.test('save sem confirmação retorna 409 GIT_MUTATION_CONFIRMATION_REQUIRED', async () => {
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/save', headers,
+      payload: JSON.stringify({ message: 'sem confirmação', confirmationToken: 'z'.repeat(64) }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'GIT_MUTATION_CONFIRMATION_REQUIRED');
+  });
 });

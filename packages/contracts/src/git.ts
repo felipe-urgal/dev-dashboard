@@ -21,7 +21,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'stash-push' | 'stash-pop';
+export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
 
 export interface GitMutationConfirmation {
   token: string;

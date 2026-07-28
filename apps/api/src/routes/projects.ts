@@ -336,7 +336,7 @@ export const projectRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'stash-push', 'stash-pop'] },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop'] },
       target: { type: 'string', minLength: 1, maxLength: 200 },
     },
   } as const;
@@ -352,6 +352,14 @@ export const projectRoutes: FastifyPluginAsync<
   const syncMutationBodySchema = {
     type: 'object', additionalProperties: false, required: ['confirmationToken'],
     properties: {
+      confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+    },
+  } as const;
+
+  const saveBodySchema = {
+    type: 'object', additionalProperties: false, required: ['message', 'confirmationToken'],
+    properties: {
+      message: { type: 'string', minLength: 1, maxLength: 500 },
       confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
     },
   } as const;
@@ -399,7 +407,7 @@ export const projectRoutes: FastifyPluginAsync<
     });
   }
 
-  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'stash-push' | 'stash-pop'; target: string } }>(
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop'; target: string } }>(
     '/projects/:projectId/git/mutations/confirmations',
     {
       schema: {
@@ -554,6 +562,34 @@ export const projectRoutes: FastifyPluginAsync<
       try {
         return reply.code(201).send({
           commit: await gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { message: string; confirmationToken: string } }>(
+    '/projects/:projectId/git/save',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: saveBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['commit'],
+            properties: { commit: gitCommitMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send({
+          commit: await gitService.save(project.path, project.id, request.body.message, request.body.confirmationToken),
         });
       } catch (error) {
         translateMutationError(error);
