@@ -57,6 +57,7 @@ async function mountNoticeCenter(): Promise<{ wrapper: ReturnType<typeof mount>;
 
   const wrapper = mount(NoticeCenter, {
     global: { plugins: [router] },
+    attachTo: document.body,
   });
   return { wrapper, router };
 }
@@ -132,6 +133,24 @@ describe('central de avisos', () => {
 
     await wrapper.find('.notice-bell-button').trigger('click');
     expect(wrapper.find('.notice-item-dismiss').attributes('aria-label')).toBe('Descartar aviso');
-    expect(wrapper.find('.notice-panel-footer button').text()).toBe('Limpar tudo');
+    expect(wrapper.find('.notice-panel-footer button').attributes('aria-label')).toBe('Limpar todos os avisos');
+  });
+
+  it('move o foco para o painel ao abrir e devolve ao sino ao fechar com Escape', async () => {
+    const { wrapper } = await mountNoticeCenter();
+
+    await wrapper.find('.notice-bell-button').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const panel = wrapper.find('.notice-panel');
+    expect(panel.exists()).toBe(true);
+    expect(document.activeElement).toBe(panel.element);
+
+    await panel.trigger('keydown', { key: 'Escape' });
+
+    expect(wrapper.find('.notice-panel').exists()).toBe(false);
+    expect(document.activeElement).toBe(wrapper.find('.notice-bell-button').element);
+
+    wrapper.unmount();
   });
 });

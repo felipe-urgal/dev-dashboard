@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { BellIcon, XMarkIcon } from '@heroicons/vue/24/outline';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { noticeCenterStore, type Notice, type NoticeOrigin, type NoticeOutcome } from '../stores/notice-center';
 
 const router = useRouter();
 const root = ref<HTMLElement>();
+const bellButton = ref<HTMLButtonElement>();
+const panel = ref<HTMLElement>();
 const open = ref(false);
 
 const { notices, unreadCount, markRead, dismiss, clearAll } = noticeCenterStore;
@@ -35,11 +37,22 @@ function noticeText(notice: Notice): string {
 }
 
 function toggle(): void {
-  open.value = !open.value;
+  if (open.value) {
+    close({ restoreFocus: false });
+    return;
+  }
+  open.value = true;
+  void nextTick(() => {
+    panel.value?.focus();
+  });
 }
 
-function close(): void {
+function close(options: { restoreFocus?: boolean } = {}): void {
+  if (!open.value) return;
   open.value = false;
+  if (options.restoreFocus ?? true) {
+    bellButton.value?.focus();
+  }
 }
 
 function selectNotice(notice: Notice): void {
@@ -60,6 +73,13 @@ function handleDocumentClick(event: MouseEvent): void {
   }
 }
 
+function handlePanelKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.stopPropagation();
+    close();
+  }
+}
+
 onMounted(() => {
   document.addEventListener('mousedown', handleDocumentClick);
 });
@@ -72,6 +92,7 @@ onBeforeUnmount(() => {
 <template>
   <div ref="root" class="notice-center">
     <button
+      ref="bellButton"
       type="button"
       class="notice-bell-button"
       :aria-label="bellLabel"
@@ -82,7 +103,13 @@ onBeforeUnmount(() => {
       <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
     </button>
 
-    <div v-if="open" class="notice-panel">
+    <div
+      v-if="open"
+      ref="panel"
+      class="notice-panel"
+      tabindex="-1"
+      @keydown="handlePanelKeydown"
+    >
       <aside aria-live="polite" role="status" class="notice-panel-body">
         <p v-if="notices.length === 0" class="notice-empty">Nenhum aviso no momento.</p>
         <ul v-else role="list" class="notice-list">
@@ -103,7 +130,13 @@ onBeforeUnmount(() => {
       </aside>
 
       <footer class="notice-panel-footer">
-        <button type="button" class="secondary-button" :disabled="notices.length === 0" @click="clearAll">
+        <button
+          type="button"
+          class="secondary-button"
+          aria-label="Limpar todos os avisos"
+          :disabled="notices.length === 0"
+          @click="clearAll"
+        >
           Limpar tudo
         </button>
       </footer>
