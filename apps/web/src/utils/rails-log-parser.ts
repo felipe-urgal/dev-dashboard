@@ -20,21 +20,21 @@ export interface RailsRequestLogGroup {
   kind: 'request';
   id: string;
   requestId: string;
-  method?: string;
-  path?: string;
-  remoteAddress?: string;
-  startedAt?: string;
-  controller?: string;
-  action?: string;
-  format?: string;
-  parameters?: string;
-  status?: number;
-  durationMs?: number;
-  viewDurationMs?: number;
-  activeRecordDurationMs?: number;
-  queryCount?: number;
-  cachedQueries?: number;
-  gcDurationMs?: number;
+  method: string | undefined;
+  path: string | undefined;
+  remoteAddress: string | undefined;
+  startedAt: string | undefined;
+  controller: string | undefined;
+  action: string | undefined;
+  format: string | undefined;
+  parameters: string | undefined;
+  status: number | undefined;
+  durationMs: number | undefined;
+  viewDurationMs: number | undefined;
+  activeRecordDurationMs: number | undefined;
+  queryCount: number | undefined;
+  cachedQueries: number | undefined;
+  gcDurationMs: number | undefined;
   lines: RailsLogLine[];
   sqlLines: RailsLogLine[];
   renderLines: RailsLogLine[];
@@ -60,8 +60,8 @@ export interface RailsLogSummary {
   clientErrors: number;
   serverErrors: number;
   totalQueries: number;
-  averageDurationMs?: number;
-  slowestDurationMs?: number;
+  averageDurationMs: number | undefined;
+  slowestDurationMs: number | undefined;
 }
 
 export interface ParsedRailsLog {
@@ -115,6 +115,21 @@ function createRequestGroup(requestId: string, index: number): RailsRequestLogGr
     kind: 'request',
     id: `request-${requestId}-${index}`,
     requestId,
+    method: undefined,
+    path: undefined,
+    remoteAddress: undefined,
+    startedAt: undefined,
+    controller: undefined,
+    action: undefined,
+    format: undefined,
+    parameters: undefined,
+    status: undefined,
+    durationMs: undefined,
+    viewDurationMs: undefined,
+    activeRecordDurationMs: undefined,
+    queryCount: undefined,
+    cachedQueries: undefined,
+    gcDurationMs: undefined,
     lines: [],
     sqlLines: [],
     renderLines: [],
