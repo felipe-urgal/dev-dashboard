@@ -103,4 +103,31 @@ describe('dashboard principal', () => {
     await nextTick();
     expect(wrapper.get('.project-stub').text()).toBe('Favorito');
   });
+
+  it('filtra projetos por busca e tecnologia e permite limpar os filtros', async () => {
+    dashboardStore.projects.value = [
+      project,
+      {
+        ...project,
+        id: 'p2',
+        name: 'Painel Rails',
+        path: '/projetos/painel-rails',
+        type: 'rails',
+      },
+    ];
+    const wrapper = mountView();
+
+    await wrapper.get('.project-search input').setValue('painel');
+    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
+    expect(wrapper.get('.project-stub').text()).toBe('Painel Rails');
+
+    await wrapper.get('.project-type-filters button:nth-child(2)').trigger('click');
+    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
+
+    await wrapper.get('.project-type-filters button:nth-child(3)').trigger('click');
+    expect(wrapper.text()).toContain('Nenhum projeto encontrado');
+
+    await wrapper.get('.empty-state-filtered .secondary-button').trigger('click');
+    expect(wrapper.findAll('.project-stub')).toHaveLength(2);
+  });
 });

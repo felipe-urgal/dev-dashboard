@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import {
+  computed,
+  ref,
+} from 'vue';
+import {
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
+
+import type { ProjectType } from '@dev-dashboard/contracts';
+
 import Card from '../components/Card.vue';
 import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
@@ -21,6 +32,53 @@ const {
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(successMessage, '');
 useAutoDismiss(warningCount, 0);
+
+type ProjectFilter = 'all' | ProjectType;
+
+const projectSearch = ref('');
+const projectFilter = ref<ProjectFilter>('all');
+
+const projectTypeFilters: Array<{
+  value: ProjectFilter;
+  label: string;
+}> = [
+  { value: 'all', label: 'Todos' },
+  { value: 'rails', label: 'Rails' },
+  { value: 'node', label: 'Node' },
+];
+
+const normalizedProjectSearch = computed(() =>
+  projectSearch.value.trim().toLocaleLowerCase('pt-BR'),
+);
+
+const filteredProjects = computed(() =>
+  sortedProjects.value.filter((project) => {
+    const matchesType =
+      projectFilter.value === 'all' ||
+      project.type === projectFilter.value;
+    const matchesSearch =
+      normalizedProjectSearch.value.length === 0 ||
+      project.name
+        .toLocaleLowerCase('pt-BR')
+        .includes(normalizedProjectSearch.value) ||
+      project.path
+        .toLocaleLowerCase('pt-BR')
+        .includes(normalizedProjectSearch.value);
+
+    return matchesType && matchesSearch;
+  }),
+);
+
+const hasActiveProjectFilters = computed(
+  () =>
+    projectFilter.value !== 'all' ||
+    normalizedProjectSearch.value.length > 0,
+);
+
+function clearProjectFilters(): void {
+  projectSearch.value = '';
+  projectFilter.value = 'all';
+}
 </script>
 
 <template>
@@ -113,6 +171,45 @@ useAutoDismiss(warningCount, 0);
         </span>
       </template>
 
+      <div
+        v-if="!loadingProjects && sortedProjects.length > 0"
+        class="projects-toolbar"
+      >
+        <div class="project-search">
+          <label class="sr-only" for="project-search-input">
+            Buscar projetos
+          </label>
+          <MagnifyingGlassIcon aria-hidden="true" />
+          <input
+            id="project-search-input"
+            v-model="projectSearch"
+            type="search"
+            placeholder="Buscar por nome ou caminho"
+          />
+          <button
+            v-if="projectSearch"
+            type="button"
+            aria-label="Limpar busca"
+            @click="projectSearch = ''"
+          >
+              <XMarkIcon aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="project-type-filters" aria-label="Filtrar por tecnologia">
+          <button
+            v-for="filter in projectTypeFilters"
+            :key="filter.value"
+            type="button"
+            :class="{ active: projectFilter === filter.value }"
+            :aria-pressed="projectFilter === filter.value"
+            @click="projectFilter = filter.value"
+          >
+            {{ filter.label }}
+          </button>
+        </div>
+      </div>
+
       <div v-if="loadingProjects" class="empty-state">
         <div class="empty-icon">•••</div>
         <h3>Carregando projetos</h3>
@@ -131,9 +228,26 @@ useAutoDismiss(warningCount, 0);
         </p>
       </div>
 
+      <div
+        v-else-if="filteredProjects.length === 0"
+        class="empty-state empty-state-filtered"
+      >
+        <MagnifyingGlassIcon class="empty-state-icon" aria-hidden="true" />
+        <h3>Nenhum projeto encontrado</h3>
+        <p>Tente outro nome ou remova os filtros aplicados.</p>
+        <button
+          v-if="hasActiveProjectFilters"
+          type="button"
+          class="secondary-button"
+          @click="clearProjectFilters"
+        >
+          Limpar filtros
+        </button>
+      </div>
+
       <ul v-else class="projects-list">
         <ProjectCard
-          v-for="project in sortedProjects"
+          v-for="project in filteredProjects"
           :key="project.id"
           :project="project"
         />
