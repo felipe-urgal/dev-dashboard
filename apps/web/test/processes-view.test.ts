@@ -17,11 +17,15 @@ function deferred<T>() {
 
 interface MountArgs {
   processes: () => Promise<ManagedProcess[]>;
+  cleanup?: () => Promise<number>;
 }
 
 async function mountView(args: MountArgs) {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname === '/api/workspaces') {
       return new Response(JSON.stringify({ workspaces: [makeWorkspace()] }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -29,7 +33,23 @@ async function mountView(args: MountArgs) {
     if (url.pathname === '/api/projects') {
       return new Response(JSON.stringify({ projects: [makeProject()] }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
-    if (url.pathname === '/api/processes') {
+    if (
+      url.pathname === '/api/processes/cleanup' &&
+      init?.method === 'POST'
+    ) {
+      const removedCount = await args.cleanup?.() ?? 0;
+      return new Response(
+        JSON.stringify({ removed: [], removedCount }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+    if (
+      url.pathname === '/api/processes' &&
+      (!init?.method || init.method === 'GET')
+    ) {
       try {
         const processes = await args.processes();
         return new Response(JSON.stringify({ processes }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -92,12 +112,12 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
 
   const text = wrapper.text();
   assert.match(text, /sample-node/);
-  assert.match(text, /PID 4242/);
   assert.match(text, /porta 3000/);
-  const kinds = wrapper.findAll('.activity-item-origin').map((node) => node.text());
+  const kinds = wrapper.findAll('.processes-kind-badge').map((node) => node.text());
   assert.deepEqual(kinds, ['Servidor', 'Testes']);
   const statuses = wrapper.findAll('.dd-status-badge').map((node) => node.text());
   assert.deepEqual(statuses, ['Em execução', 'Parado']);
+  assert.equal(wrapper.find('.processes-summary').text().includes('2'), true);
 });
 
 test('congela a duração de processos terminais em stoppedAt na renderização', async () => {
@@ -111,11 +131,13 @@ test('congela a duração de processos terminais em stoppedAt na renderização'
   await flushPromises();
   await flushPromises();
 
-  const durations = wrapper.findAll('.activity-item-meta').map((node) => node.text());
+  const durations = wrapper
+    .findAll('td[data-label="Duração"]')
+    .map((node) => node.text());
   const first = durations[0] ?? '';
   const second = durations[1] ?? '';
-  assert.match(first, /duração 5m 0s/);
-  assert.match(second, /duração 2m 30s/);
+  assert.match(first, /5m 0s/);
+  assert.match(second, /2m 30s/);
 });
 
 test('mostra a mensagem de erro quando o carregamento falha', async () => {
@@ -127,5 +149,77 @@ test('mostra a mensagem de erro quando o carregamento falha', async () => {
   await flushPromises();
 
   assert.match(wrapper.text(), /API indisponível/);
-  assert.equal(wrapper.findAll('.activity-item').length, 0);
+  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 0);
+});
+
+test('limpa todos os processos finalizados e preserva os ativos', async () => {
+  let currentProcesses: ManagedProcess[] = [
+    {
+      id: 'srv-1',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      kind: 'server',
+      status: 'running',
+      pid: 4242,
+      port: 3000,
+      startedAt: '2026-07-26T09:00:00Z',
+    },
+    {
+      id: 'tst-stopped',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      kind: 'test',
+      status: 'stopped',
+      startedAt: '2026-07-26T08:00:00Z',
+      stoppedAt: '2026-07-26T08:05:00Z',
+    },
+    {
+      id: 'tst-failed',
+      projectId: 'p1',
+      workspaceId: 'w1',
+      kind: 'test',
+      status: 'failed',
+      startedAt: '2026-07-26T07:00:00Z',
+      stoppedAt: '2026-07-26T07:02:00Z',
+    },
+  ];
+  let cleanupCalls = 0;
+  const originalConfirm = window.confirm;
+  window.confirm = () => true;
+
+  const { wrapper, restore } = await mountView({
+    processes: async () => currentProcesses,
+    cleanup: async () => {
+      cleanupCalls += 1;
+      currentProcesses = currentProcesses.filter(
+        (process) => process.status === 'running',
+      );
+      return 2;
+    },
+  });
+  cleanup = () => {
+    window.confirm = originalConfirm;
+    restore();
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(
+    wrapper.findAll('.processes-table tbody tr').length,
+    3,
+  );
+  await wrapper.get('.processes-cleanup-button').trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(cleanupCalls, 1);
+  assert.equal(
+    wrapper.findAll('.processes-table tbody tr').length,
+    1,
+  );
+  assert.match(
+    wrapper.text(),
+    /2 processos finalizados removidos/,
+  );
+  assert.match(wrapper.text(), /Em execução/);
 });

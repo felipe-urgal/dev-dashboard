@@ -16,6 +16,7 @@ import {
 
 export interface SweepStaleProcessesOptions {
   maxAgeMs?: number;
+  removeAllTerminal?: boolean;
 }
 
 export interface SweptProcess {
@@ -67,6 +68,7 @@ async function isEligibleForRemoval(
   storedProcess: StoredProcess,
   stateFilePath: string,
   maxAgeMs: number,
+  removeAllTerminal: boolean,
 ): Promise<boolean> {
   let status = storedProcess.status;
 
@@ -85,6 +87,10 @@ async function isEligibleForRemoval(
 
   if (status !== 'stopped' && status !== 'failed') {
     return false;
+  }
+
+  if (removeAllTerminal) {
+    return true;
   }
 
   const stoppedTimestamp = storedProcess.stoppedAt
@@ -120,6 +126,8 @@ export async function sweepStaleProcesses(
   options?: SweepStaleProcessesOptions,
 ): Promise<SweptProcess[]> {
   const maxAgeMs = resolveMaxAgeMs(options);
+  const removeAllTerminal =
+    options?.removeAllTerminal === true;
 
   const processDirectory = path.join(
     stateDirectory,
@@ -176,6 +184,7 @@ export async function sweepStaleProcesses(
           parsed,
           stateFilePath,
           maxAgeMs,
+          removeAllTerminal,
         ))
       ) {
         continue;
