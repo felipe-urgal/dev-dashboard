@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { gotoBootstrapped } from '../fixtures/navigate';
 
 test('captura a aba de servidor para revisão visual', async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.setViewportSize({ width: 1672, height: 941 });
   await gotoBootstrapped(page, '/');
 
   await page.getByRole('button', { name: 'Claro', exact: true }).click();
@@ -23,6 +23,5 @@ test('captura a aba de servidor para revisão visual', async ({ page }) => {
 
   await page.screenshot({
     path: 'e2e/.runtime/server-dashboard.png',
-    fullPage: true,
   });
 });
