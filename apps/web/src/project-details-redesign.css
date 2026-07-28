@@ -18,7 +18,22 @@
   background: var(--surface-2) !important;
 }
 
+.project-details-tabs {
+  margin: 0 0 18px !important;
+}
+
 .server-log-preview-card .server-log-preview {
   min-height: 118px !important;
   max-height: 150px !important;
+}
+
+@media (min-width: 721px) {
+  .project-details-page {
+    gap: 0 !important;
+    margin-top: -32px;
+  }
+
+  .project-details-hero {
+    min-height: 142px !important;
+  }
 }
