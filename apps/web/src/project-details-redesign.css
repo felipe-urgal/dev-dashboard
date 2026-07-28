@@ -22,6 +22,30 @@
   margin: 0 0 18px !important;
 }
 
+.server-config-card .server-card-header p,
+.server-status-card .server-card-header p,
+.server-activity-card .server-card-header p {
+  display: none !important;
+}
+
+.server-config-card .server-card-header,
+.server-status-card .server-card-header,
+.server-activity-card .server-card-header {
+  padding-top: 14px !important;
+  padding-bottom: 12px !important;
+}
+
+.server-config-card .server-config-footer {
+  padding-top: 10px !important;
+  padding-bottom: 14px !important;
+}
+
+.server-status-card .server-status-actions {
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+  padding-bottom: 12px !important;
+}
+
 .server-log-preview-card .server-log-preview {
   min-height: 118px !important;
   max-height: 150px !important;
