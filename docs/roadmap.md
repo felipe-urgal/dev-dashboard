@@ -39,7 +39,8 @@ compromissos de versão.
 - [x] estados vazios e componentes reutilizáveis iniciais;
 - [x] painel global de atividade (task 012);
 - [x] página global de processos (task 014);
-- [ ] configurações globais;
+- [x] command palette de navegação e ações (tasks 033 e 034);
+- [x] configurações globais — tema, densidade (task 022) e retenção (task 035);
 - [ ] loading skeletons, notificações e acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.
 
@@ -122,7 +123,7 @@ todos os projetos.
 3. **Rails de baixo risco:** migrations status, routes e diagnóstico Bundler;
    depois operações mutáveis com confirmação proporcional.
 4. **Command palette:** busca e navegação por teclado, restrita a ações já
-   autorizadas em suas telas.
+   autorizadas em suas telas — concluída (tasks 033 e 034).
 5. **Configurações e notificações:** preferências de UI e retenção dentro de
    limites seguros concluídas; avisos locais de conclusão são a próxima fatia.
 6. **Paridade CLI→Web seletiva:** trazer, uma por vez e com política de risco
@@ -253,11 +254,8 @@ parte deste horizonte.
 
 Cada branch deve partir da base atual, ter um escopo coerente, documentar sua
 task numerada, adicionar testes proporcionais e atualizar `NEXT.md`. A próxima
-branch recomendada é:
-
-```text
-feat/unified-activity-panel
-```
+branch recomendada é a da task 036 (avisos locais de conclusão), detalhada em
+[`docs/tasks/NEXT.md`](./tasks/NEXT.md).
 
 Operações mutáveis devem ser pequenas e revisáveis: não agrupar várias ações
 Git/Rails privilegiadas em uma única entrega.

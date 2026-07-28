@@ -374,20 +374,17 @@ Não devemos reescrever todo o CLI antes que a nova arquitetura comprove seu val
 
 ## Próximos componentes
 
-A arquitetura deverá incorporar:
+Componentes já incorporados à arquitetura: repositório de projetos persistentes,
+status e operações Git (leitura e mutações com confirmação), painel de atividade
+unificado, execução de testes, scripts Node, operações Rails de baixo risco,
+autenticação local, command palette e histórico de execuções (scripts e testes).
 
-- repositório de projetos persistentes;
-- status Git;
-- executor de operações Git;
-- jobs;
-- painel de atividade unificado;
-- execução de testes;
-- scripts Node;
-- operações Rails;
-- adaptador para abrir editor e navegador;
-- autenticação local;
-- command palette;
-- histórico de ações.
+Ainda faltam:
+
+- avisos locais de conclusão de operações demoradas (task 036, ver
+  `docs/tasks/NEXT.md`);
+- adaptador para abrir editor e navegador local;
+- jobs/histórico de ações unificado entre Git, Rails e processos.
 
 ## Critérios para novos módulos
 
