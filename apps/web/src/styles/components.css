@@ -96,7 +96,7 @@
 }
 
 .repositories-section {
-  margin-top: var(--space-8);
+  margin-top: var(--space-4);
 }
 
 .repositories-section .dd-card-header {
@@ -1382,7 +1382,7 @@ a.secondary-button {
 
 .settings-page {
   display: grid;
-  gap: 24px;
+  gap: 8px;
 }
 
 .settings-heading {
@@ -1707,7 +1707,7 @@ a.secondary-button {
 .section-description { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; max-width: 60ch; }
 .activity-page {
   display: grid;
-  gap: 24px;
+  gap: 8px;
 }
 
 .activity-heading {
@@ -2387,14 +2387,14 @@ a.secondary-button {
 /* Processos gerenciados */
 .processes-page {
   display: grid;
-  gap: 24px;
+  gap: 8px;
 }
 
 .processes-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 32px;
+  gap: 24px;
 }
 
 .processes-heading h2 {
