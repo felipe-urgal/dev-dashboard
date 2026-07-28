@@ -25,6 +25,7 @@ import {
 import { dashboardStore } from './stores/dashboard';
 import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
+import NoticeCenter from './components/NoticeCenter.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
@@ -200,6 +201,8 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
+          <NoticeCenter />
+
           <VisualPreferences />
 
           <button class="command-button" type="button" @click="commandPalette?.show()">
