@@ -21,11 +21,13 @@ for (const viewport of VIEWPORTS) {
       }));
       expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-      // Abaixo de 760px a navegação lateral recolhe (sem substituto por drawer,
-      // fora do escopo desta task); o controle de tema, na topbar, continua
-      // acessível em qualquer largura.
       if (viewport.width > 760) {
         await expect(page.getByRole('link', { name: 'Processos' })).toBeVisible();
+      } else {
+        await page.getByRole('button', { name: 'Abrir navegação' }).click();
+        await expect(page.getByRole('link', { name: 'Visão geral' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Processos' })).toBeVisible();
+        await page.getByRole('button', { name: 'Fechar navegação' }).last().click();
       }
       await expect(page.getByRole('group', { name: 'Tema' })).toBeVisible();
     });

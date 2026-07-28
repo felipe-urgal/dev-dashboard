@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  MoonIcon,
+  SunIcon,
+} from '@heroicons/vue/24/outline';
 import { ref } from 'vue';
 
 import {
@@ -26,9 +30,11 @@ function selectTheme(value: Theme): void {
     aria-label="Tema"
   >
     <button type="button" :aria-pressed="theme === 'dark'" @click="selectTheme('dark')">
+      <MoonIcon aria-hidden="true" />
       Escuro
     </button>
     <button type="button" :aria-pressed="theme === 'light'" @click="selectTheme('light')">
+      <SunIcon aria-hidden="true" />
       Claro
     </button>
   </div>
