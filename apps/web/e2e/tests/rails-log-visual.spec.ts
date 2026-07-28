@@ -24,6 +24,9 @@ const logContent = [
 
 test('captura o visualizador estruturado de logs Rails', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dev-dashboard:theme', 'light');
+  });
 
   await page.route('**/api/projects/*/process', async (route) => {
     const projectId = new URL(route.request().url()).pathname.split('/')[3] ?? 'visual-project';
