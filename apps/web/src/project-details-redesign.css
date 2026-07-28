@@ -1,0 +1,24 @@
+/*
+ * Normalizações do novo shell de detalhes.
+ * Estas regras removem estilos legados globais que ainda tratavam as abas
+ * como botões e mantinham o link de retorno acima do cabeçalho do projeto.
+ */
+.project-details-page > .details-back-link {
+  display: none !important;
+}
+
+.project-details-tabs .project-details-tab {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.project-details-tabs .project-details-tab:hover {
+  background: var(--surface-2) !important;
+}
+
+.server-log-preview-card .server-log-preview {
+  min-height: 118px !important;
+  max-height: 150px !important;
+}
