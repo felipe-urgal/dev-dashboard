@@ -6,6 +6,8 @@ test('captura a aba de servidor para revisão visual', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await gotoBootstrapped(page, '/');
 
+  await page.getByRole('button', { name: 'Claro', exact: true }).click();
+
   const projectHeading = page.getByRole('heading', {
     level: 3,
     name: 'sample-node-app',
