@@ -79,7 +79,7 @@ async function loadProject(): Promise<void> {
 
   try {
     const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
-    if (projectId.value !== requestedProjectId) return;
+    if (projectId.value !== requestedProjectId || !loadedProject) return;
 
     project.value = loadedProject;
 
