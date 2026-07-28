@@ -78,7 +78,7 @@ async function findReadme(projectPath: string): Promise<{
   } catch (error) {
     throw new ApiError({
       statusCode: 500,
-      code: 'PROJECT_README_DIRECTORY_FAILED',
+      code: 'INTERNAL_ERROR',
       message:
         error instanceof Error
           ? error.message
@@ -115,7 +115,7 @@ async function findReadme(projectPath: string): Promise<{
   if (readmeStats.size > maxReadmeSize) {
     throw new ApiError({
       statusCode: 413,
-      code: 'PROJECT_README_TOO_LARGE',
+      code: 'BAD_REQUEST',
       message: 'O README do projeto ultrapassa o limite de 512 KB.',
     });
   }
