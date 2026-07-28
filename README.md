@@ -15,13 +15,19 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Detecção automática de portas disponíveis
 - Persistência segura de PIDs e metadados dos processos
 - Visualização de logs no navegador
-- Visão Git somente leitura, execução de testes e catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
+- Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (criar/trocar branch, pull, push, commit, stash)
+- Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
+- Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
+- Migrations e routes do Rails somente leitura, com migrate/rollback/seed/prepare mutáveis sob confirmação, e diagnóstico Bundler somente leitura
 - Inspeção de configurações e disponibilidade de bancos locais
+- Painel global de atividade e página global de processos
+- Command palette (`Cmd/Ctrl+K`) para busca e navegação
+- Preferências de tema, densidade e retenção configuráveis pela interface
 - Interface de terminal existente
 - API local em Fastify
 - Dashboard web em Vue 3
 - Contratos TypeScript compartilhados
-- Testes automatizados da fundação
+- Testes automatizados (unitários, componentes Vue e smoke E2E)
 
 ## Arquitetura
 
@@ -398,6 +404,18 @@ GET    /api/projects/:projectId/git/diff/file
 POST   /api/projects/:projectId/git/mutations/confirmations
 POST   /api/projects/:projectId/git/branches
 POST   /api/projects/:projectId/git/switch
+POST   /api/projects/:projectId/git/pull
+POST   /api/projects/:projectId/git/push
+POST   /api/projects/:projectId/git/commit
+POST   /api/projects/:projectId/git/stash
+POST   /api/projects/:projectId/git/stash/pop
+
+GET    /api/projects/:projectId/rails/migrations
+GET    /api/projects/:projectId/rails/routes
+POST   /api/projects/:projectId/rails/migrations/confirmations
+POST   /api/projects/:projectId/rails/migrations/mutations
+
+GET    /api/projects/:projectId/bundler
 
 GET    /api/projects/:projectId/server-settings
 PUT    /api/projects/:projectId/server-settings
@@ -413,9 +431,13 @@ POST   /api/processes/cleanup
 GET    /api/projects/:projectId/tests
 GET    /api/projects/:projectId/tests/process
 POST   /api/projects/:projectId/tests/:commandId/start
+GET    /api/projects/:projectId/tests/:commandId/files
+POST   /api/projects/:projectId/tests/:commandId/files/start
 POST   /api/projects/:projectId/tests/process/stop
 GET    /api/projects/:projectId/tests/process/logs
 DELETE /api/projects/:projectId/tests/process/logs
+GET    /api/projects/:projectId/tests/process/events
+GET    /api/projects/:projectId/tests/history
 
 GET    /api/projects/:projectId/database
 POST   /api/projects/:projectId/database/:environmentId/reveal
@@ -432,6 +454,9 @@ GET    /api/projects/:projectId/scripts/executions/:executionId/events
 POST   /api/projects/:projectId/scripts/executions/:executionId/cancel
 
 GET    /api/activities
+
+GET    /api/settings/retention
+PUT    /api/settings/retention
 ```
 
 ## Estado atual
@@ -444,29 +469,31 @@ A interface web já permite:
 4. visualizar projetos no navegador;
 5. iniciar, configurar e parar servidores;
 6. abrir URLs e acompanhar logs protegidos;
-7. consultar Git em modo somente leitura;
-8. detectar e executar testes reconhecidos;
+7. consultar Git (status, diff, branches, commits) e executar mutações com
+   confirmação (criar/trocar branch, pull, push, commit, stash);
+8. detectar e executar testes reconhecidos, incluindo um arquivo específico;
 9. inspecionar bancos locais e iniciar serviços reconhecidos;
 10. consultar e executar com segurança scripts e tarefas catalogados;
-11. cancelar execuções e consultar seu histórico persistente;
-12. acompanhar execuções do catálogo em tempo real por SSE;
-13. continuar utilizando o CLI existente de forma independente.
+11. cancelar execuções e consultar seu histórico persistente (scripts e testes);
+12. acompanhar execuções do catálogo e de testes em tempo real por SSE;
+13. consultar migrations e routes do Rails, executar migrate/rollback/seed/prepare
+    com confirmação e diagnosticar Bundler somente leitura;
+14. acompanhar um painel global de atividade e uma página global de processos;
+15. navegar por uma command palette (`Cmd/Ctrl+K`);
+16. ajustar preferências de tema, densidade e retenção;
+17. continuar utilizando o CLI existente de forma independente.
 
-Ainda não existem páginas globais de atividade/processos, ações Git mutáveis,
-testes de componentes Vue ou testes ponta a ponta. O histórico persistente e os
-eventos em tempo real cobrem o catálogo; testes e servidores ainda mantêm seus
-próprios estados.
+A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
+smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-- consolidar o painel de atividade entre execuções, testes e processos;
-- criar testes de componentes e um smoke test ponta a ponta;
-- adicionar uma página global de processos;
-- evoluir Git em etapas, começando por diff somente leitura;
-- depois ampliar testes focados, ferramentas Rails e command palette.
+A próxima entrega planejada é avisos locais de conclusão para operações
+demoradas (testes, scripts e processos), sem criar um segundo canal de eventos
+nem persistir conteúdo sensível.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
-para a auditoria completa, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
+para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
 próxima entrega e [`docs/roadmap.md`](docs/roadmap.md) para os horizontes futuros.
 
 ## Licença
