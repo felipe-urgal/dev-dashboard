@@ -45,3 +45,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `036-processes-page-refresh.md` — reforma visual da página global de processos, filtros e resumo por estado, com limpeza manual imediata de todos os finalizados e preservação dos processos ativos.
 - `037-activity-page-refresh.md` — reforma visual do painel global de atividade, com resumo correto antes da paginação, busca, agrupamento por data e tabela responsiva.
 - `038-settings-page-refresh.md` — reforma visual de Configurações, estado de alterações pendentes e descarte automático dos alertas transitórios do frontend.
+- `039-global-shell-refresh.md` — reforma da sidebar e topbar, navegação principal com Visão geral e drawer funcional em telas pequenas.

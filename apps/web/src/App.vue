@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import {
+  Bars3Icon,
+  Cog6ToothIcon,
+  HomeIcon,
+  MagnifyingGlassIcon,
+  PlayCircleIcon,
+  PlusIcon,
+  QueueListIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
+import {
   computed,
   onMounted,
   ref,
+  watch,
 } from 'vue';
 
 import {
@@ -18,6 +29,7 @@ import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 const workspaceManagerOpen = ref(false);
+const sidebarOpen = ref(false);
 
 const route = useRoute();
 
@@ -32,6 +44,13 @@ function handleWorkspaceSwitch(event: Event): void {
   const target = event.target as HTMLSelectElement;
   void switchWorkspace(target.value);
 }
+
+watch(
+  () => route.fullPath,
+  () => {
+    sidebarOpen.value = false;
+  },
+);
 
 const pageTitle = computed(() =>
   typeof route.meta.title === 'string'
@@ -52,7 +71,19 @@ onMounted(() => {
 
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
+    <button
+      v-if="sidebarOpen"
+      class="sidebar-backdrop"
+      type="button"
+      aria-label="Fechar navegação"
+      @click="sidebarOpen = false"
+    />
+
+    <aside
+      id="primary-sidebar"
+      class="sidebar"
+      :class="{ 'sidebar-open': sidebarOpen }"
+    >
       <RouterLink class="brand brand-link" to="/">
         <div class="brand-mark">DD</div>
 
@@ -62,9 +93,37 @@ onMounted(() => {
         </div>
       </RouterLink>
 
+      <button
+        class="sidebar-close-button"
+        type="button"
+        aria-label="Fechar navegação"
+        @click="sidebarOpen = false"
+      >
+        <XMarkIcon aria-hidden="true" />
+      </button>
+
       <div class="sidebar-section">
-        <div class="sidebar-section-heading">
-          <span class="sidebar-label"> Workspace ativo </span>
+        <span class="sidebar-label">Workspace ativo</span>
+        <div class="sidebar-workspace-row">
+          <select
+            v-if="workspaces.length > 0"
+            class="sidebar-workspace-select"
+            :value="selectedWorkspaceId"
+            aria-label="Trocar workspace ativo"
+            @change="handleWorkspaceSwitch"
+          >
+            <option
+              v-for="workspace in workspaces"
+              :key="workspace.id"
+              :value="workspace.id"
+            >
+              {{ workspace.name }}
+            </option>
+          </select>
+
+          <div v-else class="workspace-summary-empty">
+            Nenhum workspace
+          </div>
 
           <button
             type="button"
@@ -72,38 +131,29 @@ onMounted(() => {
             aria-label="Adicionar workspace"
             @click="workspaceManagerOpen = true"
           >
-            +
+            <PlusIcon aria-hidden="true" />
           </button>
-        </div>
-
-        <select
-          v-if="workspaces.length > 0"
-          class="sidebar-workspace-select"
-          :value="selectedWorkspaceId"
-          aria-label="Trocar workspace ativo"
-          @change="handleWorkspaceSwitch"
-        >
-          <option
-            v-for="workspace in workspaces"
-            :key="workspace.id"
-            :value="workspace.id"
-          >
-            {{ workspace.name }}
-          </option>
-        </select>
-
-        <div v-else class="workspace-summary-empty">
-          Nenhum workspace
         </div>
       </div>
 
       <nav class="navigation" aria-label="Navegação principal">
+        <span class="sidebar-label navigation-label">Navegação</span>
+
+        <RouterLink
+          class="navigation-item"
+          :class="{ 'navigation-item-active': route.name === 'dashboard' }"
+          :to="{ name: 'dashboard' }"
+        >
+          <HomeIcon class="navigation-icon" aria-hidden="true" />
+          Visão geral
+        </RouterLink>
+
         <RouterLink
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'processes' }"
           :to="{ name: 'processes' }"
         >
-          <span class="navigation-icon">▶</span>
+          <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
           Processos
         </RouterLink>
 
@@ -112,33 +162,39 @@ onMounted(() => {
           :class="{ 'navigation-item-active': route.name === 'activity' }"
           :to="{ name: 'activity' }"
         >
-          <span class="navigation-icon">≡</span>
+          <QueueListIcon class="navigation-icon" aria-hidden="true" />
           Atividade
         </RouterLink>
 
         <RouterLink class="navigation-item" :class="{ 'navigation-item-active': route.name === 'settings' }" :to="{ name: 'settings' }">
-          <span class="navigation-icon">⚙</span>
+          <Cog6ToothIcon class="navigation-icon" aria-hidden="true" />
           Configurações
         </RouterLink>
       </nav>
 
       <div class="sidebar-footer">
-        <span
-          class="connection-dot"
-          :class="{
-            'connection-dot-online': apiConnected,
-          }"
-        />
-
+        <span class="connection-dot" :class="{ 'connection-dot-online': apiConnected }" />
         <span>
-          API {{ apiConnected ? 'conectada' : 'desconectada' }}
+          <strong>API {{ apiConnected ? 'conectada' : 'desconectada' }}</strong>
+          <small>Ambiente local</small>
         </span>
       </div>
     </aside>
 
     <main class="main-content">
       <header class="topbar">
-        <div>
+        <button
+          class="topbar-menu-button"
+          type="button"
+          aria-label="Abrir navegação"
+          aria-controls="primary-sidebar"
+          :aria-expanded="sidebarOpen"
+          @click="sidebarOpen = true"
+        >
+          <Bars3Icon aria-hidden="true" />
+        </button>
+
+        <div class="topbar-heading">
           <span class="eyebrow">{{ pageEyebrow }}</span>
           <h1>{{ pageTitle }}</h1>
         </div>
@@ -147,9 +203,12 @@ onMounted(() => {
           <VisualPreferences />
 
           <button class="command-button" type="button" @click="commandPalette?.show()">
-            Navegação rápida
+            <MagnifyingGlassIcon aria-hidden="true" />
+            <span>Navegação rápida</span>
             <kbd>⌘ K</kbd>
           </button>
+
+          <span class="topbar-divider" aria-hidden="true" />
 
           <div
             class="api-status"
