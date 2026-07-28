@@ -213,6 +213,22 @@ function validateCommitMessage(message: string): void {
   }
 }
 
+// Espelha _git_branch_prefix do CLI bash (lib/git/helpers.sh): o tipo é o trecho do branch antes da primeira "/".
+export const SAVE_PREFIX_BY_BRANCH_TYPE: Readonly<Record<string, string>> = {
+  feature: 'feat',
+  fix: 'fix',
+  refactor: 'refactor',
+  chore: 'chore',
+  docs: 'docs',
+  hotfix: 'fix',
+};
+
+export function resolveSavePrefix(branch: string | undefined): string {
+  if (!branch) return '';
+  const type = branch.split('/')[0] ?? '';
+  return SAVE_PREFIX_BY_BRANCH_TYPE[type] ?? '';
+}
+
 async function listStashEntries(projectPath: string): Promise<GitStashEntry[]> {
   let output = '';
   try {
@@ -434,6 +450,33 @@ export class GitService {
     const log = await runGit(projectPath, ['log', '-1', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s`]);
     const [hash = '', shortHash = '', subject = ''] = log.trim().split(LOG_SEPARATOR);
     return { hash, shortHash, subject };
+  }
+
+  public async save(projectPath: string, projectId: string, message: string, confirmationToken?: string): Promise<GitCommitResult> {
+    validateCommitMessage(message);
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const branch = status.branch ?? 'HEAD';
+    this.consumeMutationConfirmation(projectId, 'save', branch, confirmationToken);
+    if (status.files.length === 0) {
+      throw new GitMutationError('GIT_NOTHING_TO_COMMIT', 'Não há alterações na árvore de trabalho para salvar.');
+    }
+    const prefix = status.detached ? '' : resolveSavePrefix(status.branch);
+    const subject = prefix ? `${prefix}: ${message}` : message;
+    validateCommitMessage(subject);
+    await runGit(projectPath, ['add', '--all']);
+    const staged = await runGit(projectPath, ['diff', '--cached', '--name-only', '-z']);
+    if (!staged.trim()) {
+      throw new GitMutationError('GIT_NOTHING_TO_COMMIT', 'Não há alterações na árvore de trabalho para salvar.');
+    }
+    try {
+      await runGit(projectPath, ['commit', '-m', subject]);
+    } catch (error) {
+      throw new GitMutationError('GIT_COMMIT_FAILED', error instanceof Error ? error.message : 'Falha ao commitar.');
+    }
+    const log = await runGit(projectPath, ['log', '-1', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s`]);
+    const [hash = '', shortHash = '', committedSubject = ''] = log.trim().split(LOG_SEPARATOR);
+    return { hash, shortHash, subject: committedSubject };
   }
 
   public async stashPush(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ stash: GitStashEntry }> {

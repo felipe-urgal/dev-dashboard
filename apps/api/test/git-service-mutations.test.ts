@@ -333,6 +333,66 @@ test('commit sem confirmação é recusado', async (context) => {
   );
 });
 
+test('save prepara todas as alterações (incluindo não rastreadas) e aplica o prefixo do branch', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await git(root, ['switch', '-q', '-c', 'feature/nova-tela']);
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  await writeFile(path.join(root, 'novo.txt'), 'ainda não rastreado\n');
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'save', 'feature/nova-tela');
+  const result = await service.save(root, 'p1', 'adiciona tela', confirmation.token);
+  assert.equal(result.subject, 'feat: adiciona tela');
+  const status = await execFileAsync('git', ['status', '--porcelain'], { cwd: root });
+  assert.equal(status.stdout.trim(), '', 'a árvore de trabalho deveria ficar limpa após o save');
+  const files = await execFileAsync('git', ['show', '--name-only', '--format=', 'HEAD'], { cwd: root });
+  assert.match(files.stdout, /novo\.txt/);
+});
+
+test('save em branch sem tipo conhecido commita sem prefixo', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'README.md'), 'v2\n');
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'save', 'main');
+  const result = await service.save(root, 'p1', 'ajusta docs', confirmation.token);
+  assert.equal(result.subject, 'ajusta docs');
+});
+
+test('save sem nenhuma alteração falha com GIT_NOTHING_TO_COMMIT', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'save', 'main');
+  await assert.rejects(
+    () => service.save(root, 'p1', 'nada para salvar', confirmation.token),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_NOTHING_TO_COMMIT',
+  );
+});
+
+test('save sem confirmação é recusado antes de preparar qualquer arquivo', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'novo.txt'), 'não rastreado\n');
+  const service = new GitService();
+  await assert.rejects(
+    () => service.save(root, 'p1', 'sem confirmação'),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+  );
+  const status = await execFileAsync('git', ['status', '--porcelain'], { cwd: root });
+  assert.match(status.stdout, /\?\? novo\.txt/, 'o arquivo não deveria ter sido staged');
+});
+
+test('save com mensagem vazia falha com GIT_COMMIT_MESSAGE_INVALID antes de tocar no repositório', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  await assert.rejects(
+    () => service.save(root, 'p1', '   ', 'x'.repeat(64)),
+    (error: unknown) => error instanceof GitMutationError && error.code === 'GIT_COMMIT_MESSAGE_INVALID',
+  );
+});
+
 test('stashPush guarda alterações rastreadas e stashPop as restaura', async (context) => {
   const root = await makeRepo();
   context.after(async () => { await rm(root, { recursive: true, force: true }); });

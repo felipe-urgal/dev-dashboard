@@ -129,7 +129,8 @@ todos os projetos.
    040).
 6. **Paridade CLI→Web seletiva:** trazer, uma por vez e com política de risco
    proporcional, capacidades hoje exclusivas do Bash — `git-save`
-   (add+commit rápido com confirmação), `git-pr` (rascunho via GitHub CLI,
+   (add+commit rápido com confirmação — concluído, task 041), `git-pr`
+   (rascunho via GitHub CLI,
    apenas depois de revisar o modelo de autorização), snapshot/restore de
    banco reconhecido, `dev-kill-port` e `dev-clean` como ações de manutenção
    no painel de processos, e abrir editor/terminal via adaptadores locais

@@ -10,6 +10,7 @@ import {
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
+  saveProjectGit,
   stashPopProjectGit,
   stashPushProjectGit,
   switchProjectGitBranch,
@@ -41,6 +42,7 @@ const createBranchName = ref('');
 const switchBranchName = ref('');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
+const saveMessage = ref('');
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(diffErrorMessage, '');
@@ -186,6 +188,42 @@ async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
 
 function currentBranchOrHead(): string {
   return overview.value?.detached ? 'HEAD' : (overview.value?.branch ?? 'HEAD');
+}
+
+// Espelho do prefixo aplicado pela API (resolveSavePrefix), apenas para pré-visualização — o servidor é a autoridade.
+const savePrefixByBranchType: Record<string, string> = { feature: 'feat', fix: 'fix', refactor: 'refactor', chore: 'chore', docs: 'docs', hotfix: 'fix' };
+const savePrefix = computed(() => {
+  if (!overview.value || overview.value.detached || !overview.value.branch) return '';
+  return savePrefixByBranchType[overview.value.branch.split('/')[0] ?? ''] ?? '';
+});
+
+async function runSave(): Promise<void> {
+  if (mutationRunning.value) return;
+  const message = saveMessage.value.trim();
+  if (!message) {
+    mutationErrorMessage.value = 'Informe uma mensagem de commit.';
+    return;
+  }
+  const finalMessage = savePrefix.value ? `${savePrefix.value}: ${message}` : message;
+  const confirmationText = `Preparar todas as alterações (incluindo arquivos não rastreados) e commitar com a mensagem "${finalMessage}"?`;
+  const confirmed = typeof window === 'undefined' || window.confirm(confirmationText);
+  if (!confirmed) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitMutation(props.project.id, 'save', currentBranchOrHead());
+    const result = await saveProjectGit(props.project.id, message, confirmation.token);
+    mutationMessage.value = `Commit "${result.shortHash}" criado: ${result.subject}`;
+    saveMessage.value = '';
+    await loadGit();
+    await loadDiff();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir o commit rápido.';
+  } finally {
+    mutationRunning.value = false;
+  }
 }
 
 async function runCommit(): Promise<void> {
@@ -364,6 +402,26 @@ onBeforeUnmount(() => {
           </label>
           <button type="submit" class="secondary-button" :disabled="mutationRunning || !commitMessage.trim()">
             {{ mutationRunning ? 'Aguarde…' : 'Commitar' }}
+          </button>
+        </form>
+      </section>
+
+      <section class="git-section">
+        <div class="details-card-heading">
+          <div><span class="section-kicker">Commit rápido</span><h3>Salvar tudo (git-save)</h3></div>
+        </div>
+        <form class="git-commit-form git-save-form" @submit.prevent="runSave">
+          <label>
+            <span>Mensagem do commit</span>
+            <input v-model="saveMessage" type="text" maxlength="500" placeholder="Descreva a alteração" :disabled="mutationRunning" />
+          </label>
+          <p class="git-empty-inline">
+            Prepara todas as alterações, incluindo arquivos não rastreados, e commita
+            <template v-if="savePrefix"> com o prefixo "{{ savePrefix }}:" derivado do branch atual.</template>
+            <template v-else> sem prefixo — o branch atual não define um tipo conhecido.</template>
+          </p>
+          <button type="submit" class="secondary-button" :disabled="mutationRunning || !saveMessage.trim()">
+            {{ mutationRunning ? 'Aguarde…' : 'Salvar tudo' }}
           </button>
         </form>
       </section>

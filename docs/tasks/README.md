@@ -47,3 +47,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `038-settings-page-refresh.md` — reforma visual de Configurações, estado de alterações pendentes e descarte automático dos alertas transitórios do frontend.
 - `039-global-shell-refresh.md` — reforma da sidebar e topbar, navegação principal com Visão geral e drawer funcional em telas pequenas.
 - `040-avisos-locais.md` — central de avisos locais na topbar para conclusões de testes, scripts e servidores, com região aria-live, deduplicação por execução, limite fechado e sem persistência.
+- `041-git-save-panel.md` — commit rápido "salvar tudo" no painel Git (equivalente ao `git-save` do CLI), preparando todas as alterações e commitando com prefixo derivado do branch, sob a mesma confirmação em duas etapas das demais mutações Git.
