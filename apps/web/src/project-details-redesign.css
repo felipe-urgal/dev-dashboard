@@ -3,6 +3,10 @@
  * Estas regras removem estilos legados globais que ainda tratavam as abas
  * como botões e mantinham o link de retorno acima do cabeçalho do projeto.
  */
+.project-details-page {
+  margin-top: 12px;
+}
+
 .project-details-page > .details-back-link {
   display: none !important;
 }
@@ -54,7 +58,7 @@
 @media (min-width: 721px) {
   .project-details-page {
     gap: 0 !important;
-    margin-top: -32px;
+    margin-top: 20px;
   }
 
   .project-details-hero {
