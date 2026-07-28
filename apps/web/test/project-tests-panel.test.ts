@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, test } from 'vitest';
+import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import { mount, flushPromises } from '@vue/test-utils';
 
@@ -7,6 +7,18 @@ import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+
+const publishedNotices = new Map<string, Record<string, unknown>>();
+vi.mock('../src/stores/notice-center', () => ({
+  noticeCenterStore: {
+    publishTerminalNotice: vi.fn((input: Record<string, unknown>) => {
+      const dedupeKey = input.dedupeKey as string;
+      if (!publishedNotices.has(dedupeKey)) {
+        publishedNotices.set(dedupeKey, input);
+      }
+    }),
+  },
+}));
 
 const baseOverview: ProjectTestOverview = {
   supported: true,
@@ -25,7 +37,10 @@ const baseOverview: ProjectTestOverview = {
 };
 
 let cleanup: (() => void) | undefined;
-beforeEach(() => { cleanup = undefined; });
+beforeEach(() => {
+  cleanup = undefined;
+  publishedNotices.clear();
+});
 afterEach(() => { cleanup?.(); });
 
 test('exibe o botão "Executar arquivo" quando o comando suporta arquivo específico', async () => {
@@ -269,4 +284,152 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
 
   assert.match(wrapper.text(), /Concluído com sucesso/);
   assert.match(wrapper.text(), /saída via SSE/);
+});
+
+test('publica aviso ao receber estado terminal após passar por running', async () => {
+  const { noticeCenterStore } = await import('../src/stores/notice-center');
+
+  const originalFetch = globalThis.fetch;
+  let currentProcess: Record<string, unknown> | null = null;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname === '/api/projects/p1/tests') {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
+      currentProcess = { id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z' };
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/process/events') {
+      currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
+      return sseResponse([
+        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
+      ]);
+    }
+    if (url.pathname === '/api/projects/p1/tests/process') {
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/history') {
+      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const startButton = wrapper.findAll('button').find((button) => button.text() === 'Executar');
+  await startButton!.trigger('click');
+  await flushPromises();
+
+  for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.equal(publishedNotices.size, 1, 'deve ter publicado com um dedupeKey único');
+  const call = Array.from(publishedNotices.values())[0]! as Record<string, unknown>;
+  assert.equal(call.origin, 'test');
+  assert.equal(call.outcome, 'failed');
+  assert.equal(call.projectId, 'p1');
+  assert.equal(call.label, 'npm run test');
+  assert.equal((call.routeTo as Record<string, unknown>).name, 'project-tests');
+  assert.deepEqual((call.routeTo as Record<string, unknown>).params, { projectId: 'p1' });
+});
+
+test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', async () => {
+  const originalFetch = globalThis.fetch;
+  let eventStreamCallCount = 0;
+  let currentProcess: Record<string, unknown> | null = null;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname === '/api/projects/p1/tests') {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
+      currentProcess = { id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z' };
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/process/events') {
+      eventStreamCallCount += 1;
+      currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
+      return sseResponse([
+        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
+      ]);
+    }
+    if (url.pathname === '/api/projects/p1/tests/process') {
+      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/history') {
+      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  const startButton = wrapper.findAll('button').find((button) => button.text() === 'Executar');
+  await startButton!.trigger('click');
+  await flushPromises();
+
+  for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  const noticesAfterFirstTerminal = publishedNotices.size;
+  assert.equal(noticesAfterFirstTerminal, 1, 'deve ter publicado com um dedupeKey único');
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.equal(publishedNotices.size, noticesAfterFirstTerminal, 'não deve publicar novas chaves mesmo após reconexões');
+});
+
+test('não publica aviso quando processo já chega parado na primeira renderização', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname === '/api/projects/p1/tests') {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/process') {
+      return new Response(JSON.stringify({
+        process: {
+          id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'stopped',
+          command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T09:00:00Z', stoppedAt: '2026-07-27T09:00:05Z', exitCode: 0,
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname === '/api/projects/p1/tests/history') {
+      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await flushPromises();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.equal(publishedNotices.size, 0, 'não deve ter publicado aviso para processo já parado');
 });

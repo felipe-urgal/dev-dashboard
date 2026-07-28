@@ -22,6 +22,7 @@ import {
   stopProjectTest,
 } from '../api';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { noticeCenterStore } from '../stores/notice-center';
 import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -52,6 +53,8 @@ useAutoDismiss(errorMessage, '');
 useAutoDismiss(fileErrorMessage, '');
 useAutoDismiss(historyErrorMessage, '');
 
+let hasObservedRunning = false;
+let lastStartedCommandId: string | null = null;
 let generation = 0;
 let closeExecutionEvents: (() => void) | null = null;
 const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
@@ -242,6 +245,7 @@ async function handleStart(commandId: string): Promise<void> {
   const projectId = props.project.id;
   const requestGeneration = generation;
   startingCommandId.value = commandId;
+  lastStartedCommandId = commandId;
   errorMessage.value = '';
   try {
     const result = await startProjectTest(projectId, commandId);
@@ -296,6 +300,7 @@ async function handleStartFile(commandId: string): Promise<void> {
   const filePath = selectedFilePath.value;
   if (!filePath) return;
   startingCommandId.value = commandId;
+  lastStartedCommandId = commandId;
   errorMessage.value = '';
   fileErrorMessage.value = '';
   try {
@@ -382,12 +387,39 @@ async function handleClearLogs(): Promise<void> {
   }
 }
 
+watch(managedProcess, (proc) => {
+  if (!proc) return;
+  if (proc.status === 'starting' || proc.status === 'running' || proc.status === 'stopping') {
+    hasObservedRunning = true;
+    return;
+  }
+  if (!hasObservedRunning) return;
+  if (proc.status !== 'stopped' && proc.status !== 'failed') return;
+
+  const effectiveCommandId = startingCommandId.value || lastStartedCommandId;
+  const commandLabel = overview.value?.commands.find(
+    (c) => c.id === effectiveCommandId,
+  )?.label ?? 'Testes';
+
+  noticeCenterStore.publishTerminalNotice({
+    origin: 'test',
+    dedupeKey: `test:${proc.id}:${proc.status}`,
+    outcome: proc.status,
+    projectId: props.project.id,
+    projectName: props.project.name,
+    label: commandLabel,
+    routeTo: { name: 'project-tests', params: { projectId: props.project.id } },
+  });
+});
+
 watch(
   () => props.project.id,
   () => {
     generation += 1;
     closeExecutionEvents?.();
     closeExecutionEvents = null;
+    hasObservedRunning = false;
+    lastStartedCommandId = null;
     overview.value = null;
     managedProcess.value = null;
     logContent.value = '';

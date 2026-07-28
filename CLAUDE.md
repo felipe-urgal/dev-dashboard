@@ -66,6 +66,9 @@ npm run dev:web    # só o web
 npm run typecheck  # tsc --build em todos os workspaces
 npm run build      # packages primeiro, depois apps (veja abaixo)
 npm test           # --workspaces --if-present
+npm run test:e2e   # build + Playwright smoke em apps/web/e2e
+npm run doctor     # valida Node/npm/Git/dependências/portas sem iniciar nada
+npm run dev-web    # builda e serve API + frontend estático numa porta só (distribuição local)
 ```
 
 `build`, `typecheck`, `dev`, `dev:api` e `dev:web` têm todos um script `pre*` que roda
@@ -74,24 +77,49 @@ ordem) — os apps importam a saída compilada em `dist/` desses packages, não 
 diretamente, então um `dist/` desatualizado depois de editar um package é uma fonte comum de
 confusão.
 
-`.github/workflows/ci.yml` roda `typecheck` → `build` → `test` em todo push/PR (Node 24).
+`.github/workflows/ci.yml` roda `typecheck` → `build` → `test` em todo push/PR (Node 24). O
+`engines` do `package.json` raiz exige Node `^20.19.0 || >=22.12.0`.
+
+### Rodando um teste específico
+
+Cada workspace usa o runner nativo do Node (`node --test`) com `tsx` para carregar `.ts`, exceto
+`apps/web` (Vitest + Playwright):
+
+```bash
+# um pacote (apps/api, packages/core, packages/process-manager, packages/project-discovery)
+npm run build --workspace=@dev-dashboard/contracts  # dependências primeiro, se necessário
+node --import=tsx --test apps/api/test/processes.test.ts
+
+# apps/web — testes unitários/componentes (Vitest)
+npm run test --workspace=@dev-dashboard/web -- run caminho/do/arquivo.spec.ts
+
+# apps/web — smoke E2E (Playwright), a partir de apps/web/
+npx playwright test --config=e2e/playwright.config.ts caminho/do/arquivo.spec.ts
+```
 
 ## Monorepo do dashboard web (`apps/`, `packages/`)
 
 npm workspaces, definidos no `package.json` raiz (`apps/*`, `packages/*`):
 
 - **`apps/api`** — Fastify + JSON Schema, escuta somente em `127.0.0.1`. Rotas em
-  `apps/api/src/routes/{health,workspaces,projects,processes}.ts`; normalização de erros em
-  `apps/api/src/http/api-error.ts`; schemas de resposta compartilhados em
-  `apps/api/src/http/response-schemas.ts`; validação de token/CORS em
+  `apps/api/src/routes/{health,workspaces,projects,processes}.ts`; cada rota declara `params`,
+  `body`, `querystring` e `response` explicitamente. Erros passam por `ApiError`/`ApiErrorCode` em
+  `apps/api/src/http/api-error.ts` — um novo tipo de erro precisa entrar nessa união; schemas de
+  resposta compartilhados em `apps/api/src/http/response-schemas.ts`; validação de token/CORS em
   `apps/api/src/security/local-security.ts`; cache em memória de projetos descobertos em
-  `apps/api/src/store/project-store.ts`.
-- **`apps/web`** — SFCs Vue 3 + Vite, comunica com a API via `fetch` (`apps/web/src/api.ts`). Não
-  deve executar comandos locais nem acessar o filesystem diretamente — isso é responsabilidade da
-  API.
+  `apps/api/src/store/project-store.ts`. Processos gerenciados têm `kind` `'server'` ou `'test'`
+  (`packages/process-manager`) — adicionar um novo `kind` exige generalizar `resolveLogFile`,
+  `resolveProcessFile`, os mapas `observedExits`/`exitWaiters` e o regex de
+  `sweepStaleProcesses`.
+- **`apps/web`** — SFCs Vue 3 + Vite, comunica com a API via `fetch` (`apps/web/src/api.ts`,
+  `requestJson` centraliza o tratamento de erro). Não deve executar comandos locais nem acessar o
+  filesystem diretamente — isso é responsabilidade da API. Ao trocar de projeto selecionado, painéis
+  precisam invalidar seu próprio estado (padrão `generation`, ver `ProjectGitPanel.vue` /
+  `ProjectTestsPanel.vue`). Rotas em `apps/web/src/router/index.ts`; `ProjectDetailsView` reaproveita
+  o mesmo componente para as sub-rotas (`project-details`, `project-git`, `project-tests`).
 - **`packages/contracts`** — apenas tipos TS compartilhados (`Workspace`, `Project`,
   `ManagedProcess`, `ProcessLogSnapshot`, `Job`); sem lógica de infraestrutura, sem dependência de
-  Fastify ou Vue.
+  Fastify ou Vue, e sem novas dependências — é intencionalmente só-tipos.
 - **`packages/core`** — persistência da configuração de workspaces e da retenção limitada
   (`~/.config/dev-dashboard/config.json`, respeita `DEV_DASHBOARD_CONFIG_DIR`/`XDG_CONFIG_HOME`) e
   o armazenamento do token local da API; sem dependência de Fastify ou Vue.
@@ -107,6 +135,14 @@ continuam independentes; uma eventual extração precisa de decisão arquitetura
 próprios, em vez de um pacote placeholder.
 
 Narrativa completa, diagramas e sequências de fluxo de dados: `docs/architecture/overview.md`.
+
+### Documentação de tasks
+
+Cada entrega funcional do dashboard web tem um arquivo numerado em `docs/tasks/NNN-*.md`. Ao
+concluir uma task: atualize esse arquivo com o resultado real (status, arquivos, decisões,
+limitações), substitua `docs/tasks/NEXT.md` pelo plano detalhado da próxima entrega, e atualize
+`docs/tasks/README.md` com a nova entrada. Leia `docs/tasks/NEXT.md` antes de começar um trabalho
+novo nessa parte do repositório.
 
 ## Modelo de segurança da API
 
