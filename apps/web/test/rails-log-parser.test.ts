@@ -49,9 +49,10 @@ describe('rails-log-parser', () => {
   });
 
   it('resume os requests por faixa de status', () => {
+    const failedRequestId = '11f65a70-6cd9-44b4-832a-8b1fd8b898d6';
     const parsed = parseRailsLog([
       railsLog,
-      `[another-request-00000000] Completed 500 Internal Server Error in 12ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)`,
+      `[${failedRequestId}] Completed 500 Internal Server Error in 12ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)`,
     ].join('\n'));
 
     expect(parsed.summary.totalRequests).toBe(2);
