@@ -20,7 +20,7 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations e routes do Rails somente leitura, com migrate/rollback/seed/prepare mutáveis sob confirmação, e diagnóstico Bundler somente leitura
 - Inspeção de configurações e disponibilidade de bancos locais
-- Painel global de atividade e página global de processos com limpeza segura de finalizados
+- Painel global de atividade com resumo, busca e histórico; página global de processos com limpeza segura de finalizados
 - Command palette (`Cmd/Ctrl+K`) para busca e navegação
 - Preferências de tema, densidade e retenção configuráveis pela interface
 - Interface de terminal existente

@@ -645,7 +645,7 @@ export const railsMigrationMutationResultResponseSchema = {
 
 export const activityListResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
+  required: ['items', 'page', 'pageSize', 'total', 'totalPages', 'summary'],
   properties: {
     items: {
       type: 'array',
@@ -659,5 +659,16 @@ export const activityListResponseSchema = {
     },
     page: { type: 'integer' }, pageSize: { type: 'integer' },
     total: { type: 'integer' }, totalPages: { type: 'integer' },
+    summary: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['running', 'succeeded', 'failed', 'total'],
+      properties: {
+        running: { type: 'integer', minimum: 0 },
+        succeeded: { type: 'integer', minimum: 0 },
+        failed: { type: 'integer', minimum: 0 },
+        total: { type: 'integer', minimum: 0 },
+      },
+    },
   },
 } as const;

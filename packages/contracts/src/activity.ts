@@ -43,10 +43,18 @@ export interface ServerActivity extends ActivityBase {
 
 export type Activity = ScriptActivity | TestActivity | ServerActivity;
 
+export interface ActivitySummary {
+  running: number;
+  succeeded: number;
+  failed: number;
+  total: number;
+}
+
 export interface ActivityList {
   items: Activity[];
   page: number;
   pageSize: number;
   total: number;
   totalPages: number;
+  summary: ActivitySummary;
 }

@@ -54,12 +54,19 @@ export function makeServerActivity(overrides: Partial<Activity> = {}): Activity 
 }
 
 export function makeActivityList(items: Activity[], overrides: Partial<ActivityList> = {}): ActivityList {
+  const summary = {
+    running: items.filter((item) => item.status === 'running').length,
+    succeeded: items.filter((item) => item.status === 'succeeded').length,
+    failed: items.filter((item) => item.status === 'failed').length,
+    total: items.length,
+  };
   return {
     items,
     page: 1,
     pageSize: 20,
     total: items.length,
     totalPages: items.length === 0 ? 0 : 1,
+    summary,
     ...overrides,
   };
 }

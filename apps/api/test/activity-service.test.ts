@@ -76,6 +76,12 @@ test('aggregates script and process activities sorted by most recent', async () 
   assert.equal(result.items[0]?.origin, 'script');
   assert.equal(result.items[0]?.workspaceId, 'w1');
   assert.equal(result.items[1]?.origin, 'server');
+  assert.deepEqual(result.summary, {
+    running: 1,
+    succeeded: 1,
+    failed: 0,
+    total: 2,
+  });
 });
 
 test('filters by workspaceId, origin, status and paginates', async () => {
@@ -98,6 +104,12 @@ test('filters by workspaceId, origin, status and paginates', async () => {
   const failedOnly = await service.list({ status: 'failed' });
   assert.equal(failedOnly.total, 1);
   assert.equal(failedOnly.items[0]?.status, 'failed');
+  assert.deepEqual(failedOnly.summary, {
+    running: 1,
+    succeeded: 2,
+    failed: 1,
+    total: 4,
+  });
 
   const scriptsOnly = await service.list({ origin: 'script' });
   assert.equal(scriptsOnly.items.every((item) => item.origin === 'script'), true);
@@ -107,6 +119,45 @@ test('filters by workspaceId, origin, status and paginates', async () => {
   assert.equal(paged.page, 2);
   assert.equal(paged.totalPages, 2);
   assert.equal(paged.items.length, 2);
+});
+
+test('busca por atividade ou projeto antes de resumir e paginar', async () => {
+  const projects = buildProjects();
+  const service = makeService(
+    {
+      p1: [
+        script('build', 'p1', '2026-07-26T09:00:00Z', {
+          status: 'succeeded',
+        }),
+      ],
+      p2: [
+        script('deploy', 'p2', '2026-07-26T08:00:00Z', {
+          status: 'failed',
+        }),
+      ],
+    },
+    [managed('srv', 'p2', 'server', '2026-07-26T10:00:00Z')],
+    projects,
+  );
+
+  const byActivity = await service.list({ search: 'BUILD' });
+  assert.deepEqual(
+    byActivity.items.map((item) => item.id),
+    ['script:build'],
+  );
+  assert.equal(byActivity.summary.total, 1);
+
+  const byProject = await service.list({ search: 'beta' });
+  assert.deepEqual(
+    byProject.items.map((item) => item.projectId),
+    ['p2', 'p2'],
+  );
+  assert.deepEqual(byProject.summary, {
+    running: 1,
+    succeeded: 0,
+    failed: 1,
+    total: 2,
+  });
 });
 
 test('ignores processes and scripts from unknown projects', async () => {

@@ -116,6 +116,11 @@ test('renderiza as atividades recebidas com origem e estado formatados', async (
 
   const origins = wrapper.findAll('.activity-item-origin').map((node) => node.text());
   assert.deepEqual(origins, ['Catálogo', 'Servidor']);
+  const summary = wrapper.findAll('.activity-summary dd').map((node) => node.text());
+  assert.deepEqual(summary, ['1', '0', '1', '2']);
+  assert.match(wrapper.find('.activity-project-cell').text(), /sample-node/);
+  assert.match(wrapper.find('.activity-project-cell').text(), /Workspace principal/);
+  assert.equal(wrapper.findAll('.activity-open-button').length, 2);
 });
 
 test('mostra a mensagem de erro quando o carregamento das atividades falha', async () => {
