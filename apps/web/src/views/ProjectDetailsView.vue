@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import {
   computed,
+  onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
 
 import {
-  BeakerIcon,
-  BookOpenIcon,
-  CircleStackIcon,
-  CommandLineIcon,
-  DocumentTextIcon,
-  ServerStackIcon,
+  ClipboardDocumentIcon,
+  CodeBracketIcon,
+  FolderIcon,
   ShareIcon,
+  Squares2X2Icon,
 } from '@heroicons/vue/24/outline';
 
 import {
@@ -22,6 +21,7 @@ import {
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { fetchProjectGit } from '../api';
 import ProjectAvatar from '../components/ProjectAvatar.vue';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
@@ -31,17 +31,16 @@ import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
-
-import {
-  capabilityLabel,
-  projectTypeLabels,
-} from '../utils/project-labels';
+import { projectTypeLabels } from '../utils/project-labels';
 
 const route = useRoute();
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
+const gitBranch = ref('');
+const pathCopied = ref(false);
+let copiedMessageTimer: ReturnType<typeof setTimeout> | undefined;
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -65,20 +64,62 @@ const workspace = computed(() => {
   ) ?? null;
 });
 
+const projectSourceLabel = computed(() => {
+  if (project.value?.source === 'workspace') return 'Workspace';
+  if (project.value?.source === 'standalone') return 'Projeto avulso';
+  return 'Origem local';
+});
+
 async function loadProject(): Promise<void> {
+  const requestedProjectId = projectId.value;
   loading.value = true;
   errorMessage.value = '';
   project.value = null;
+  gitBranch.value = '';
 
   try {
-    project.value = await dashboardStore.ensureProject(projectId.value);
+    const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
+    if (projectId.value !== requestedProjectId) return;
+
+    project.value = loadedProject;
+
+    if (loadedProject.capabilities.includes('git')) {
+      try {
+        const git = await fetchProjectGit(loadedProject.id);
+        if (projectId.value === requestedProjectId) {
+          gitBranch.value = git.branch ?? '';
+        }
+      } catch {
+        gitBranch.value = '';
+      }
+    }
   } catch (error) {
-    errorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o projeto.';
+    if (projectId.value === requestedProjectId) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o projeto.';
+    }
   } finally {
-    loading.value = false;
+    if (projectId.value === requestedProjectId) {
+      loading.value = false;
+    }
+  }
+}
+
+async function copyProjectPath(): Promise<void> {
+  if (!project.value) return;
+
+  try {
+    await navigator.clipboard.writeText(project.value.path);
+    pathCopied.value = true;
+
+    if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
+    copiedMessageTimer = setTimeout(() => {
+      pathCopied.value = false;
+    }, 2_000);
+  } catch {
+    pathCopied.value = false;
   }
 }
 
@@ -86,6 +127,10 @@ watch(projectId, () => {
   void loadProject();
 }, {
   immediate: true,
+});
+
+onBeforeUnmount(() => {
+  if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
 });
 </script>
 
@@ -124,37 +169,69 @@ watch(projectId, () => {
 
     <template v-else>
       <header class="project-details-hero">
-        <div class="project-details-identity">
-          <ProjectAvatar
-            :project="project"
-            class="project-details-avatar"
-          />
+        <div class="project-details-main">
+          <div class="project-details-identity">
+            <ProjectAvatar
+              :project="project"
+              class="project-details-avatar"
+            />
 
-          <div class="project-details-copy">
-            <div class="project-details-badges">
-              <span
-                class="type-badge"
-                :class="`type-badge-${project.type}`"
-              >
-                {{ projectTypeLabels[project.type] }}
-              </span>
-              <span>{{ workspace?.name ?? project.source }}</span>
+            <div class="project-details-copy">
+              <div class="project-title-row">
+                <h2>{{ project.name }}</h2>
+                <span
+                  class="type-badge"
+                  :class="`type-badge-${project.type}`"
+                >
+                  {{ projectTypeLabels[project.type] }}
+                </span>
+              </div>
+              <code>{{ project.path }}</code>
             </div>
+          </div>
 
-            <h2>{{ project.name }}</h2>
-            <code>{{ project.path }}</code>
+          <div class="project-details-metadata" aria-label="Metadados do projeto">
+            <span>
+              <FolderIcon aria-hidden="true" />
+              {{ workspace?.name ?? 'Sem workspace' }}
+            </span>
+            <span v-if="gitBranch">
+              <ShareIcon aria-hidden="true" />
+              {{ gitBranch }}
+            </span>
+            <span>
+              <CodeBracketIcon aria-hidden="true" />
+              {{ projectSourceLabel }}
+            </span>
+            <span>
+              <Squares2X2Icon aria-hidden="true" />
+              {{ project.capabilities.length }} capacidades
+            </span>
           </div>
         </div>
 
-        <div class="project-details-capabilities" aria-label="Capacidades">
-          <span
-            v-for="capability in project.capabilities"
-            :key="capability"
-            class="project-capability-chip"
+        <div class="project-details-actions">
+          <button type="button" @click="copyProjectPath">
+            <ClipboardDocumentIcon aria-hidden="true" />
+            {{ pathCopied ? 'Caminho copiado' : 'Copiar caminho' }}
+          </button>
+
+          <RouterLink
+            v-if="project.capabilities.includes('git')"
+            :to="{ name: 'project-git', params: { projectId: project.id } }"
           >
-            <span aria-hidden="true" />
-            {{ capabilityLabel(capability) }}
-          </span>
+            <ShareIcon aria-hidden="true" />
+            Abrir Git
+          </RouterLink>
+
+          <RouterLink
+            v-if="project.capabilities.includes('scripts')"
+            class="project-primary-action"
+            :to="{ name: 'project-scripts', params: { projectId: project.id } }"
+          >
+            <CodeBracketIcon aria-hidden="true" />
+            Executar script
+          </RouterLink>
         </div>
       </header>
 
@@ -164,7 +241,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isReadmeRoute }"
           :to="{ name: 'project-details', params: { projectId: project.id } }"
         >
-          <BookOpenIcon aria-hidden="true" />
           README
         </RouterLink>
 
@@ -173,7 +249,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isServerRoute }"
           :to="{ name: 'project-server', params: { projectId: project.id } }"
         >
-          <ServerStackIcon aria-hidden="true" />
           Servidor
         </RouterLink>
 
@@ -182,7 +257,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isLogsRoute }"
           :to="{ name: 'project-logs', params: { projectId: project.id } }"
         >
-          <DocumentTextIcon aria-hidden="true" />
           Logs
         </RouterLink>
 
@@ -191,7 +265,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isGitRoute }"
           :to="{ name: 'project-git', params: { projectId: project.id } }"
         >
-          <ShareIcon aria-hidden="true" />
           Git
         </RouterLink>
 
@@ -200,7 +273,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isTestsRoute }"
           :to="{ name: 'project-tests', params: { projectId: project.id } }"
         >
-          <BeakerIcon aria-hidden="true" />
           Testes
         </RouterLink>
 
@@ -212,7 +284,6 @@ watch(projectId, () => {
             params: { projectId: project.id },
           }"
         >
-          <CircleStackIcon aria-hidden="true" />
           Banco de dados
         </RouterLink>
 
@@ -221,7 +292,6 @@ watch(projectId, () => {
           :class="{ 'project-details-tab-active': isScriptsRoute }"
           :to="{ name: 'project-scripts', params: { projectId: project.id } }"
         >
-          <CommandLineIcon aria-hidden="true" />
           Scripts
         </RouterLink>
       </nav>
@@ -263,7 +333,6 @@ watch(projectId, () => {
                 params: { projectId: project.id },
               }"
             >
-              <ServerStackIcon aria-hidden="true" />
               Gerenciar servidor
               <span aria-hidden="true">→</span>
             </RouterLink>
@@ -273,7 +342,6 @@ watch(projectId, () => {
                 params: { projectId: project.id },
               }"
             >
-              <DocumentTextIcon aria-hidden="true" />
               Acompanhar logs
               <span aria-hidden="true">→</span>
             </RouterLink>
@@ -283,7 +351,6 @@ watch(projectId, () => {
                 params: { projectId: project.id },
               }"
             >
-              <ShareIcon aria-hidden="true" />
               Abrir Git
               <span aria-hidden="true">→</span>
             </RouterLink>
@@ -291,23 +358,11 @@ watch(projectId, () => {
         </aside>
       </div>
 
-      <section v-else-if="isServerRoute" class="project-server-view">
-        <div class="project-section-intro">
-          <div>
-            <span class="section-kicker">Execução</span>
-            <h3>Servidor do projeto</h3>
-          </div>
-          <p>
-            Configure a porta, inicie ou pare o processo e acesse os endereços
-            locais da aplicação.
-          </p>
-        </div>
-
-        <ProjectServerPanel
-          :key="`server-${project.id}`"
-          :project="project"
-        />
-      </section>
+      <ProjectServerPanel
+        v-else-if="isServerRoute"
+        :key="`server-${project.id}`"
+        :project="project"
+      />
 
       <ProjectLogsPanel
         v-else-if="isLogsRoute"
@@ -345,22 +400,26 @@ watch(projectId, () => {
 <style scoped>
 .project-details-page {
   display: grid;
-  gap: var(--space-4);
+  gap: 14px;
 }
 
 .project-details-hero {
   display: flex;
-  min-height: 150px;
+  min-height: 136px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-6);
-  padding: clamp(22px, 3vw, 34px);
+  padding: 22px 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at 0 0, var(--accent-soft), transparent 42%),
-    var(--surface-1);
-  box-shadow: 0 18px 45px rgb(0 0 0 / 4%);
+  background: var(--surface-1);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 3.5%);
+}
+
+.project-details-main {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
 }
 
 .project-details-identity {
@@ -376,16 +435,28 @@ watch(projectId, () => {
   gap: 7px;
 }
 
-.project-details-copy h2 {
+.project-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.project-title-row h2 {
+  overflow: hidden;
   margin: 0;
   color: var(--text);
-  font-size: clamp(25px, 3vw, 36px);
+  font-size: clamp(26px, 3vw, 34px);
   line-height: 1;
   letter-spacing: -0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-details-copy code {
+  display: block;
   overflow: hidden;
+  max-width: min(640px, 58vw);
   color: var(--text-dim);
   font-size: var(--font-xs);
   text-overflow: ellipsis;
@@ -399,42 +470,78 @@ watch(projectId, () => {
   font-size: 15px;
 }
 
-.project-details-badges {
+.project-details-metadata {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 7px 18px;
+  padding-left: 80px;
   color: var(--text-dim);
   font-size: 10px;
 }
 
-.project-details-capabilities {
-  display: flex;
-  max-width: 560px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
-}
-
-.project-capability-chip {
+.project-details-metadata span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  background: var(--surface-1);
-  font-size: 10px;
-  font-weight: var(--font-weight-strong);
-  white-space: nowrap;
+  min-width: 0;
 }
 
-.project-capability-chip > span {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--success-text);
-  box-shadow: 0 0 0 3px var(--success-surface);
+.project-details-metadata svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.project-details-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.project-details-actions button,
+.project-details-actions a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font: inherit;
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.project-details-actions button:hover,
+.project-details-actions a:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.project-details-actions .project-primary-action {
+  border-color: var(--accent);
+  color: white;
+  background: var(--accent);
+}
+
+.project-details-actions svg {
+  width: 16px;
+  height: 16px;
 }
 
 .project-details-tabs {
@@ -443,7 +550,7 @@ watch(projectId, () => {
   align-items: stretch;
   gap: 4px;
   overflow-x: auto;
-  padding: 0 2px;
+  padding: 0 4px;
   border-bottom: 1px solid var(--border);
   scrollbar-width: thin;
 }
@@ -451,13 +558,12 @@ watch(projectId, () => {
 .project-details-tab {
   position: relative;
   display: inline-flex;
-  min-height: 48px;
+  min-height: 43px;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
   padding: 0 14px;
   color: var(--text-muted);
-  font-size: var(--font-xs);
+  font-size: 11px;
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   transition:
@@ -489,12 +595,6 @@ watch(projectId, () => {
   background: var(--accent);
 }
 
-.project-details-tab svg {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 auto;
-}
-
 .project-readme-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
@@ -508,12 +608,11 @@ watch(projectId, () => {
 }
 
 .project-summary-card,
-.project-quick-links-card,
-.project-section-intro {
+.project-quick-links-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: 0 14px 34px rgb(0 0 0 / 4%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 3.5%);
 }
 
 .project-summary-card,
@@ -567,7 +666,7 @@ watch(projectId, () => {
 
 .project-quick-links-card a {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 14px;
+  grid-template-columns: minmax(0, 1fr) 14px;
   align-items: center;
   gap: 8px;
   min-height: 42px;
@@ -586,48 +685,18 @@ watch(projectId, () => {
   color: var(--text);
 }
 
-.project-quick-links-card svg {
-  width: 16px;
-  height: 16px;
-}
-
-.project-section-intro {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-6);
-  margin-bottom: var(--space-4);
-  padding: var(--space-5);
-}
-
-.project-section-intro h3 {
-  margin: 5px 0 0;
-  color: var(--text);
-  font-size: var(--font-lg);
-}
-
-.project-section-intro p {
-  max-width: 560px;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
-  line-height: 1.65;
-}
-
-.project-server-view :deep(.project-server-actions),
-.project-server-view :deep(.project-log-panel) {
-  display: none;
-}
-
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .project-details-hero {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .project-details-capabilities {
-    max-width: none;
+  .project-details-actions {
     justify-content: flex-start;
+  }
+
+  .project-details-copy code {
+    max-width: 75vw;
   }
 
   .project-readme-layout {
@@ -642,6 +711,7 @@ watch(projectId, () => {
 @media (max-width: 720px) {
   .project-details-hero {
     min-height: 0;
+    padding: 18px;
   }
 
   .project-details-identity {
@@ -653,8 +723,30 @@ watch(projectId, () => {
     height: 52px;
   }
 
+  .project-title-row {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 7px;
+  }
+
+  .project-title-row h2 {
+    font-size: 26px;
+  }
+
   .project-details-copy code {
-    max-width: 65vw;
+    max-width: 62vw;
+  }
+
+  .project-details-metadata {
+    padding-left: 0;
+  }
+
+  .project-details-actions {
+    width: 100%;
+  }
+
+  .project-details-actions > * {
+    flex: 1 1 140px;
   }
 
   .project-details-tab {
@@ -663,11 +755,6 @@ watch(projectId, () => {
 
   .project-readme-sidebar {
     grid-template-columns: 1fr;
-  }
-
-  .project-section-intro {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }
 </style>
