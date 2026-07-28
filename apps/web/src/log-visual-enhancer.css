@@ -1,14 +1,24 @@
 .project-log-raw-lines .enhanced-log-request {
+  position: relative;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 48px 72px;
+  grid-template-columns: 58px minmax(0, 1fr) 72px 72px;
   align-items: center;
   gap: 10px;
   margin: 3px 0;
-  padding: 6px 8px;
+  padding: 7px 9px;
   border: 1px solid rgb(255 255 255 / 7%);
   border-radius: 7px;
   background: rgb(255 255 255 / 2.5%);
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
+
+.project-log-raw-lines .enhanced-log-request-error {
+  border-color: rgb(248 113 113 / 58%);
+  border-left: 4px solid #f87171;
+  background: linear-gradient(90deg, rgb(127 29 29 / 34%), rgb(127 29 29 / 8%));
+  box-shadow: 0 0 0 1px rgb(248 113 113 / 8%), 0 8px 24px rgb(127 29 29 / 12%);
+}
+
 .enhanced-log-method,
 .enhanced-log-http,
 .enhanced-sql-operation,
@@ -22,35 +32,115 @@
   font-weight: 800;
   letter-spacing: .05em;
 }
+
 .enhanced-log-method { min-width: 45px; padding: 3px 6px; color: #b7d0ff; background: rgb(70 118 220 / 20%); }
 .enhanced-log-method-post { color: #9ce6c0; background: rgb(32 154 95 / 20%); }
+.enhanced-log-method-put,
+.enhanced-log-method-patch { color: #f3ce83; background: rgb(190 119 20 / 20%); }
 .enhanced-log-method-delete { color: #ffabab; background: rgb(220 60 60 / 20%); }
 .enhanced-log-path { min-width: 0; overflow: hidden; color: #dce5f4; text-overflow: ellipsis; white-space: nowrap; }
-.enhanced-log-http { padding: 3px 6px; color: #a4e6b7; background: rgb(39 167 78 / 18%); }
-.enhanced-log-http-4xx { color: #ffd08a; background: rgb(211 132 26 / 20%); }
-.enhanced-log-http-5xx { color: #ffaaaa; background: rgb(210 51 51 / 20%); }
+.enhanced-log-http { min-width: 38px; padding: 3px 6px; color: #a4e6b7; background: rgb(39 167 78 / 18%); }
+.enhanced-log-http-4xx { color: #ffe0a3; background: rgb(211 132 26 / 26%); }
+.enhanced-log-http-5xx { color: #fff; background: rgb(220 38 38 / 72%); box-shadow: 0 0 12px rgb(220 38 38 / 32%); }
 .enhanced-log-duration { justify-self: end; color: #92a0b4; font-variant-numeric: tabular-nums; }
 .enhanced-log-slow { color: #ffbf69 !important; font-weight: 700; }
 .enhanced-log-boot { color: #94a8c5 !important; }
 .enhanced-log-success { color: #9de0ad !important; }
 .enhanced-log-build { color: #a8bde8 !important; }
-.enhanced-log-error { color: #ff9e9e !important; background: rgb(180 35 35 / 10%); }
 .enhanced-log-warning { color: #f2c778 !important; }
+
+.project-log-raw-lines .enhanced-log-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  margin: 5px 0;
+  padding: 9px 11px;
+  border: 1px solid rgb(248 113 113 / 52%);
+  border-left: 4px solid #f87171;
+  border-radius: 7px;
+  color: #fecaca !important;
+  background: linear-gradient(90deg, rgb(127 29 29 / 38%), rgb(127 29 29 / 10%));
+  box-shadow: 0 8px 24px rgb(127 29 29 / 14%);
+  white-space: pre-wrap;
+}
+
+.enhanced-log-error-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: #dc2626;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.enhanced-log-error-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 
 .rails-sql-lines code[data-log-enhanced='true'] {
   display: grid;
-  gap: 5px;
-  padding: 9px 10px !important;
+  gap: 7px;
+  padding: 10px 11px !important;
   border-bottom: 1px solid rgb(255 255 255 / 6%);
+  transition: background 140ms ease, box-shadow 140ms ease;
 }
+
 .enhanced-sql-header { display: flex; align-items: center; gap: 8px; }
 .enhanced-sql-header strong { color: #dbe5f5; font-size: 11px; }
-.enhanced-sql-operation { min-width: 48px; padding: 3px 6px; color: #a8c4ff; background: rgb(64 101 196 / 23%); }
-.enhanced-sql-insert, .enhanced-sql-update { color: #f3ce83; background: rgb(190 119 20 / 20%); }
-.enhanced-sql-delete, .enhanced-sql-rollback { color: #ffaaaa; background: rgb(200 52 52 / 20%); }
+.enhanced-sql-operation { min-width: 48px; padding: 3px 6px; color: #bcd0ff; background: rgb(64 101 196 / 28%); }
+.enhanced-sql-insert,
+.enhanced-sql-update { color: #f8d893; background: rgb(190 119 20 / 24%); }
+.enhanced-sql-delete,
+.enhanced-sql-rollback { color: #ffc2c2; background: rgb(200 52 52 / 28%); }
 .enhanced-sql-duration { margin-left: auto; color: #8fa0b6; font-variant-numeric: tabular-nums; }
-.enhanced-sql-statement { display: block; overflow: hidden; color: #9eabc0; font-size: 10px; line-height: 1.55; text-overflow: ellipsis; white-space: nowrap; }
-.rails-sql-lines code[data-log-enhanced='true']:hover .enhanced-sql-statement { overflow: visible; color: #c8d2e1; white-space: pre-wrap; }
+.enhanced-sql-statement {
+  display: block;
+  overflow: hidden;
+  color: #aab6c8;
+  font-size: 10px;
+  line-height: 1.65;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rails-sql-lines code[data-log-enhanced='true']:hover .enhanced-sql-statement,
+.rails-sql-lines code.enhanced-search-match .enhanced-sql-statement {
+  overflow: visible;
+  color: #d4dce8;
+  white-space: pre-wrap;
+}
+
+.sql-token-keyword {
+  color: #82aaff;
+  font-weight: 800;
+}
+
+.sql-token-function {
+  color: #c792ea;
+  font-weight: 750;
+}
+
+.sql-token-identifier {
+  color: #c3e88d;
+}
+
+.sql-token-string {
+  color: #ecc48d;
+}
+
+.sql-token-number {
+  color: #f78c6c;
+}
+
+.sql-token-operator {
+  color: #89ddff;
+}
 
 .rails-request-details details:nth-of-type(2) .rails-detail-lines code[data-log-enhanced='true'] {
   display: grid;
@@ -60,15 +150,99 @@
   padding: 7px 10px !important;
   border-bottom: 1px solid rgb(255 255 255 / 5%);
 }
+
 .enhanced-render-phase { min-width: 62px; padding: 3px 6px; color: #b7c8ee; background: rgb(75 104 171 / 20%); }
 .enhanced-render-phase.done { color: #9eddb0; background: rgb(39 150 76 / 18%); }
 .enhanced-render-template { min-width: 0; overflow: hidden; color: #bdc8d8; text-overflow: ellipsis; white-space: nowrap; }
 .enhanced-render-duration { color: #8f9db0; font-variant-numeric: tabular-nums; }
 .enhanced-detail-summary { position: sticky; top: 0; z-index: 1; }
 
+.rails-request-card.enhanced-request-error-card {
+  position: relative;
+  border-color: rgb(248 113 113 / 62%) !important;
+  border-left: 5px solid #ef4444 !important;
+  background: linear-gradient(100deg, rgb(127 29 29 / 25%), rgb(15 23 42 / 18%)) !important;
+  box-shadow: 0 0 0 1px rgb(248 113 113 / 9%), 0 14px 35px rgb(127 29 29 / 16%);
+}
+
+.rails-request-card.enhanced-request-error-card::before {
+  content: 'ERRO';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: #dc2626;
+  box-shadow: 0 0 14px rgb(220 38 38 / 38%);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.rails-request-card.enhanced-request-error-card .rails-request-header {
+  padding-right: 76px;
+}
+
+.rails-request-card.enhanced-request-error-card .rails-error-lines {
+  border: 1px solid rgb(248 113 113 / 35%);
+  border-radius: 7px;
+  background: rgb(127 29 29 / 26%);
+}
+
+.log-search-highlight {
+  margin: 0 1px;
+  padding: 0 2px;
+  border-radius: 3px;
+  color: #111827;
+  background: #fde047;
+  box-shadow: 0 0 0 1px rgb(250 204 21 / 45%), 0 0 12px rgb(250 204 21 / 24%);
+  font: inherit;
+}
+
+.enhanced-search-match,
+.rails-request-card.enhanced-search-result-card {
+  outline: 1px solid rgb(250 204 21 / 58%);
+  outline-offset: -1px;
+  background-color: rgb(250 204 21 / 5%) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .enhanced-log-request-error,
+  .rails-request-card.enhanced-request-error-card {
+    animation: log-error-attention 420ms ease-out 1;
+  }
+}
+
+@keyframes log-error-attention {
+  from { box-shadow: 0 0 0 3px rgb(248 113 113 / 32%); }
+  to { box-shadow: 0 0 0 1px rgb(248 113 113 / 8%), 0 14px 35px rgb(127 29 29 / 16%); }
+}
+
 @media (max-width: 800px) {
-  .project-log-raw-lines .enhanced-log-request { grid-template-columns: 50px minmax(0, 1fr) 44px; }
-  .enhanced-log-duration { grid-column: 2 / -1; justify-self: start; }
-  .rails-request-details details:nth-of-type(2) .rails-detail-lines code[data-log-enhanced='true'] { grid-template-columns: 64px minmax(0, 1fr); }
+  .project-log-raw-lines .enhanced-log-request {
+    grid-template-columns: 50px minmax(0, 1fr) 68px;
+  }
+
+  .enhanced-log-duration {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+
+  .rails-request-details details:nth-of-type(2) .rails-detail-lines code[data-log-enhanced='true'] {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
   .enhanced-render-duration { grid-column: 2; }
+
+  .rails-request-card.enhanced-request-error-card::before {
+    position: static;
+    display: inline-flex;
+    margin: 8px 10px 0;
+  }
+
+  .rails-request-card.enhanced-request-error-card .rails-request-header {
+    padding-right: inherit;
+  }
 }
