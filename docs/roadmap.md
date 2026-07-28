@@ -124,8 +124,9 @@ todos os projetos.
    depois operações mutáveis com confirmação proporcional.
 4. **Command palette:** busca e navegação por teclado, restrita a ações já
    autorizadas em suas telas — concluída (tasks 033 e 034).
-5. **Configurações e notificações:** preferências de UI e retenção dentro de
-   limites seguros concluídas; avisos locais de conclusão são a próxima fatia.
+5. **Configurações e notificações:** preferências de UI, retenção dentro de
+   limites seguros e avisos locais de conclusão — concluído (tasks 022, 035 e
+   040).
 6. **Paridade CLI→Web seletiva:** trazer, uma por vez e com política de risco
    proporcional, capacidades hoje exclusivas do Bash — `git-save`
    (add+commit rápido com confirmação), `git-pr` (rascunho via GitHub CLI,
