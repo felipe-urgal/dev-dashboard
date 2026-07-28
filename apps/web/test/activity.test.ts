@@ -18,6 +18,7 @@ test('buildActivityQuery omits empty fields and encodes provided ones', () => {
     projectId: 'p1',
     origin: 'script',
     status: 'failed',
+    search: 'build css',
     page: 2,
     pageSize: 30,
   });
@@ -26,6 +27,7 @@ test('buildActivityQuery omits empty fields and encodes provided ones', () => {
   assert.equal(params.get('projectId'), 'p1');
   assert.equal(params.get('origin'), 'script');
   assert.equal(params.get('status'), 'failed');
+  assert.equal(params.get('search'), 'build css');
   assert.equal(params.get('page'), '2');
   assert.equal(params.get('pageSize'), '30');
 });
@@ -75,6 +77,7 @@ test('fetchActivities forwards filters and returns the activities payload', asyn
         { id: 'server:1', projectId: 'p1', label: 'srv', origin: 'server', status: 'running', startedAt: '2026-07-26T10:00:00Z', reference: { processId: 'proc' } },
       ],
       page: 1, pageSize: 20, total: 1, totalPages: 1,
+      summary: { running: 1, succeeded: 0, failed: 0, total: 1 },
     },
   };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -86,6 +89,7 @@ test('fetchActivities forwards filters and returns the activities payload', asyn
     const result = await fetchActivities({ workspaceId: 'w1', origin: 'server', page: 1, pageSize: 20 });
     assert.equal(result.items.length, 1);
     assert.equal(result.items[0]?.origin, 'server');
+    assert.equal(result.summary.running, 1);
     assert.equal(calls.length, 1);
     const url = new URL(calls[0]!, 'http://localhost');
     assert.equal(url.pathname, '/api/activities');

@@ -768,6 +768,7 @@ export interface ActivityQuery {
   projectId?: string;
   origin?: ActivityOrigin;
   status?: ActivityStatus;
+  search?: string;
   page?: number;
   pageSize?: number;
   signal?: AbortSignal;
@@ -781,6 +782,7 @@ export function buildActivityQuery(query: ActivityQuery): string {
   if (query.projectId) parameters.set('projectId', query.projectId);
   if (query.origin) parameters.set('origin', query.origin);
   if (query.status) parameters.set('status', query.status);
+  if (query.search) parameters.set('search', query.search);
   if (query.page !== undefined) parameters.set('page', String(query.page));
   if (query.pageSize !== undefined) parameters.set('pageSize', String(query.pageSize));
   return parameters.toString();

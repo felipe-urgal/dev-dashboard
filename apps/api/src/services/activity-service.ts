@@ -18,6 +18,7 @@ export interface ActivityQuery {
   projectId?: string;
   origin?: ActivityOrigin;
   status?: ActivityStatus;
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -130,9 +131,25 @@ export class ActivityService {
       }
     }
 
-    const filtered = query.status
-      ? activities.filter((activity) => activity.status === query.status)
+    const search = query.search?.trim().toLocaleLowerCase('pt-BR') ?? '';
+    const searched = search
+      ? activities.filter((activity) => {
+        const projectName = projectsById.get(activity.projectId)?.name ?? '';
+        return [activity.label, activity.projectId, projectName]
+          .some((value) => value.toLocaleLowerCase('pt-BR').includes(search));
+      })
       : activities;
+
+    const filtered = query.status
+      ? searched.filter((activity) => activity.status === query.status)
+      : searched;
+
+    const summary = {
+      running: searched.filter((activity) => activity.status === 'running').length,
+      succeeded: searched.filter((activity) => activity.status === 'succeeded').length,
+      failed: searched.filter((activity) => activity.status === 'failed').length,
+      total: searched.length,
+    };
 
     filtered.sort((left, right) => {
       const timeCompare = right.startedAt.localeCompare(left.startedAt);
@@ -145,6 +162,6 @@ export class ActivityService {
     const start = (page - 1) * pageSize;
     const items = filtered.slice(start, start + pageSize);
 
-    return { items, page, pageSize, total, totalPages };
+    return { items, page, pageSize, total, totalPages, summary };
   }
 }

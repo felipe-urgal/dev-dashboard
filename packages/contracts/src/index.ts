@@ -86,6 +86,7 @@ export type {
   ActivityList,
   ActivityOrigin,
   ActivityStatus,
+  ActivitySummary,
   ProcessActivityReference,
   ScriptActivity,
   ScriptActivityReference,

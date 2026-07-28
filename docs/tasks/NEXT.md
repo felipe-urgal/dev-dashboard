@@ -1,12 +1,12 @@
-# Próxima atividade — 037: Avisos locais de conclusão
+# Próxima atividade — 038: Avisos locais de conclusão
 
 ## Contexto
 
 A task 035 inaugurou a tela de configurações com retenção limitada e
-persistida. Após a reforma da página de processos na task 036, o item
-seguinte do Horizonte 2 é avisar conclusões de operações demoradas sem
-transformar a API em um emissor remoto nem exigir permissões do sistema
-operacional.
+persistida. Após as reformas das páginas de processos e atividade nas
+tasks 036 e 037, o item seguinte do Horizonte 2 é avisar conclusões de
+operações demoradas sem transformar a API em um emissor remoto nem
+exigir permissões do sistema operacional.
 
 ## Objetivo
 

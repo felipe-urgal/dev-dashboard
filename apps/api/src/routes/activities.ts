@@ -10,6 +10,7 @@ interface Query {
   projectId?: string;
   origin?: ActivityOrigin;
   status?: ActivityStatus;
+  search?: string;
   page?: number;
   pageSize?: number;
 }
@@ -29,6 +30,7 @@ export const activityRoutes: FastifyPluginAsync<Options> = async (app, options) 
           projectId: { type: 'string', minLength: 1, maxLength: 200 },
           origin: { type: 'string', enum: ['script', 'test', 'server'] },
           status: { type: 'string', enum: ['running', 'succeeded', 'failed', 'cancelled', 'unknown'] },
+          search: { type: 'string', maxLength: 200 },
           page: { type: 'integer', minimum: 1, default: 1 },
           pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
         },
