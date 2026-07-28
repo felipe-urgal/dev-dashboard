@@ -1,7 +1,7 @@
 interface SqlExplanation {
   description: string;
   expectedReturn: string;
-  mainTable?: string;
+  mainTable?: string | undefined;
   relatedTables: string[];
 }
 
@@ -291,20 +291,15 @@ function enhanceSqlLine(line: HTMLElement): void {
   if (!statement) return;
 
   const key = explanationKey(statement);
-  const parent = line.parentElement;
-  if (!parent) return;
-
-  const existing = parent.querySelector<HTMLElement>(
-    `.${EXPLANATION_CLASS}[data-sql-explanation-key="${key}"]`,
-  );
-  if (existing) return;
-
-  let anchor: Element = line;
-  if (line.nextElementSibling?.classList.contains('rails-detail-source')) {
-    anchor = line.nextElementSibling;
+  const adjacent = line.nextElementSibling;
+  if (
+    adjacent?.classList.contains(EXPLANATION_CLASS) &&
+    (adjacent as HTMLElement).dataset.sqlExplanationKey === key
+  ) {
+    return;
   }
 
-  anchor.insertAdjacentElement('afterend', buildExplanation(statement));
+  line.insertAdjacentElement('afterend', buildExplanation(statement));
 }
 
 function enhance(root: ParentNode = document): void {
