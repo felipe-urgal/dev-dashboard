@@ -62,7 +62,7 @@ onMounted(() => void load());
 </script>
 
 <template>
-  <section class="settings-page">
+  <section class="content settings-page">
     <header class="settings-heading">
       <div>
         <span class="section-kicker">Ambiente local</span>
