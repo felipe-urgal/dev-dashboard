@@ -2,6 +2,7 @@
 import { onUnmounted, ref, watch } from 'vue';
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk, ScriptExecution, ScriptExecutionHistory, ScriptExecutionStatus } from '@dev-dashboard/contracts';
 import { cancelScriptExecution, fetchLatestScriptExecution, fetchProjectScripts, fetchScriptExecution, fetchScriptExecutionHistory, fetchScriptExecutionLog, followScriptExecutionEvents, prepareScriptExecution, startScriptExecution } from '../api';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { riskToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
@@ -19,6 +20,9 @@ const history = ref<ScriptExecutionHistory | null>(null);
 const executionLog = ref('');
 const maskedLogEntries = ref(0);
 const startingActionId = ref<string | null>(null);
+
+useAutoDismiss(errorMessage, '');
+
 let generation = 0;
 let executionGeneration = 0;
 let searchTimer: ReturnType<typeof setTimeout> | null = null;

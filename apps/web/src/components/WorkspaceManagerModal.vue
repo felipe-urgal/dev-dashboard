@@ -7,6 +7,7 @@ import {
 } from 'vue';
 
 import { dashboardStore } from '../stores/dashboard';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import WorkspaceDirectoryPicker from './WorkspaceDirectoryPicker.vue';
 
 const props = defineProps<{
@@ -25,6 +26,9 @@ const {
   successMessage,
   handleCreateWorkspace,
 } = dashboardStore;
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(successMessage, '');
 
 const directoryPickerOpen = ref(false);
 const closeButton = ref<HTMLButtonElement | null>(null);

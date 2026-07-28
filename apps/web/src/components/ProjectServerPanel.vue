@@ -22,6 +22,7 @@ import {
   stopProjectProcess,
 } from '../api';
 
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
 import {
@@ -69,6 +70,10 @@ const logSnapshot = ref<ProcessLogSnapshot | null>(null);
 const logErrorMessage = ref('');
 const logContainer = ref<HTMLElement | null>(null);
 const followLogs = ref(true);
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(settingsMessage, '');
+useAutoDismiss(logErrorMessage, '');
 
 let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
 const projectRequests = new RequestGeneration();

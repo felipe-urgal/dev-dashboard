@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Card from '../components/Card.vue';
 import ProjectCard from '../components/ProjectCard.vue';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { dashboardStore } from '../stores/dashboard';
 
 const {
@@ -16,6 +17,10 @@ const {
   scanSelectedWorkspace,
   handleDeleteWorkspace,
 } = dashboardStore;
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(successMessage, '');
+useAutoDismiss(warningCount, 0);
 </script>
 
 <template>

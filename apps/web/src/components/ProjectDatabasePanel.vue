@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { BundlerOverview, Project, ProjectDatabaseOverview, RailsMigrationMutationOperation, RailsMigrationsOverview, RailsRoutesOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectBundler, fetchProjectDatabase, fetchProjectRailsMigrations, fetchProjectRailsRoutes, prepareProjectRailsMutation, revealProjectDatabaseUrl, runProjectRailsMutation, startProjectDatabase } from '../api';
+import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 import Card from './Card.vue';
@@ -34,6 +35,13 @@ const bundler = ref<BundlerOverview | null>(null);
 const bundlerLoading = ref(false);
 const bundlerErrorMessage = ref('');
 const outdatedFilter = ref('');
+
+useAutoDismiss(errorMessage, '');
+useAutoDismiss(migrationsErrorMessage, '');
+useAutoDismiss(routesErrorMessage, '');
+useAutoDismiss(mutationMessage, '');
+useAutoDismiss(mutationErrorMessage, '');
+useAutoDismiss(bundlerErrorMessage, '');
 
 const pages = computed(() => Math.max(1, Math.ceil((overview.value?.total ?? 0) / (overview.value?.pageSize ?? 20))));
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
