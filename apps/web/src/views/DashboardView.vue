@@ -6,66 +6,93 @@ import { dashboardStore } from '../stores/dashboard';
 const {
   projects,
   loadingProjects,
+  scanningWorkspace,
+  deletingWorkspace,
   errorMessage,
   successMessage,
   warningCount,
   lastScannedPath,
-  railsProjects,
-  nodeProjects,
-  gitProjects,
   sortedProjects,
+  scanSelectedWorkspace,
+  handleDeleteWorkspace,
 } = dashboardStore;
 </script>
 
 <template>
   <section id="overview" class="content">
     <div v-if="errorMessage" class="alert alert-error" role="alert">
-      <strong>Não foi possível concluir a ação.</strong>
-      <span>{{ errorMessage }}</span>
+      <div class="alert-body">
+        <strong>Não foi possível concluir a ação.</strong>
+        <span>{{ errorMessage }}</span>
+      </div>
+      <button
+        type="button"
+        class="alert-dismiss"
+        aria-label="Fechar aviso"
+        @click="errorMessage = ''"
+      >
+        ×
+      </button>
     </div>
 
     <div v-if="successMessage" class="alert alert-success" role="status">
-      <strong>Ação concluída.</strong>
-      <span>{{ successMessage }}</span>
+      <div class="alert-body">
+        <strong>Ação concluída.</strong>
+        <span>{{ successMessage }}</span>
+      </div>
+      <button
+        type="button"
+        class="alert-dismiss"
+        aria-label="Fechar aviso"
+        @click="successMessage = ''"
+      >
+        ×
+      </button>
     </div>
 
     <div v-if="warningCount > 0" class="alert alert-warning">
-      <strong>Scan concluído com avisos.</strong>
-      <span>
-        {{ warningCount }} diretório(s) não puderam ser analisados.
-      </span>
+      <div class="alert-body">
+        <strong>Scan concluído com avisos.</strong>
+        <span>
+          {{ warningCount }} diretório(s) não puderam ser analisados.
+        </span>
+      </div>
+      <button
+        type="button"
+        class="alert-dismiss"
+        aria-label="Fechar aviso"
+        @click="warningCount = 0"
+      >
+        ×
+      </button>
     </div>
 
     <div v-if="lastScannedPath" class="scan-result">
-      Workspace carregado:
-      <code>{{ lastScannedPath }}</code>
+      <span>
+        Workspace carregado:
+        <code>{{ lastScannedPath }}</code>
+      </span>
+
+      <div class="workspace-actions">
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="scanningWorkspace"
+          @click="scanSelectedWorkspace"
+        >
+          {{ scanningWorkspace ? 'Escaneando...' : 'Escanear novamente' }}
+        </button>
+
+        <button
+          class="danger-button"
+          type="button"
+          :disabled="deletingWorkspace"
+          @click="handleDeleteWorkspace"
+        >
+          {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
+        </button>
+      </div>
     </div>
-
-    <section class="metrics-grid" aria-label="Resumo dos projetos">
-      <Card tag="article" class="metric-card">
-        <span class="metric-label">Repositórios</span>
-        <strong>{{ projects.length }}</strong>
-        <span class="metric-detail">projetos detectados</span>
-      </Card>
-
-      <Card tag="article" class="metric-card">
-        <span class="metric-label">Rails</span>
-        <strong>{{ railsProjects }}</strong>
-        <span class="metric-detail">aplicações Ruby</span>
-      </Card>
-
-      <Card tag="article" class="metric-card">
-        <span class="metric-label">Node</span>
-        <strong>{{ nodeProjects }}</strong>
-        <span class="metric-detail">aplicações JavaScript</span>
-      </Card>
-
-      <Card tag="article" class="metric-card">
-        <span class="metric-label">Git</span>
-        <strong>{{ gitProjects }}</strong>
-        <span class="metric-detail">repositórios versionados</span>
-      </Card>
-    </section>
 
     <Card id="repositories" class="repositories-section">
       <template #header>

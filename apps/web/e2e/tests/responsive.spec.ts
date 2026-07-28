@@ -22,8 +22,8 @@ for (const viewport of VIEWPORTS) {
       expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
       // Abaixo de 760px a navegação lateral recolhe (sem substituto por drawer,
-      // fora do escopo desta task); os controles de tema/densidade continuam
-      // acessíveis em qualquer largura.
+      // fora do escopo desta task); o controle de tema, na topbar, continua
+      // acessível em qualquer largura.
       if (viewport.width > 760) {
         await expect(page.getByRole('link', { name: 'Processos' })).toBeVisible();
       }

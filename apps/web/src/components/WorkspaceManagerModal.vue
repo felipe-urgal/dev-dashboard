@@ -18,15 +18,12 @@ const emit = defineEmits<{
 }>();
 
 const {
-  selectedWorkspace,
   newWorkspaceName,
   newWorkspacePath,
-  scanningWorkspace,
   creatingWorkspace,
-  deletingWorkspace,
-  scanSelectedWorkspace,
+  errorMessage,
+  successMessage,
   handleCreateWorkspace,
-  handleDeleteWorkspace,
 } = dashboardStore;
 
 const directoryPickerOpen = ref(false);
@@ -96,7 +93,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="modal-backdrop"
+      class="modal-backdrop modal-backdrop-center"
       role="presentation"
       @click.self="closeModal"
     >
@@ -109,7 +106,7 @@ onBeforeUnmount(() => {
         <header class="modal-header">
           <div>
             <span class="section-kicker">Workspaces</span>
-            <h3 id="workspace-manager-title">Gerenciar workspaces</h3>
+            <h3 id="workspace-manager-title">Adicionar workspace</h3>
           </div>
 
           <button
@@ -122,34 +119,34 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
-        <template v-if="selectedWorkspace">
-          <code class="modal-path">{{ selectedWorkspace.path }}</code>
-
-          <div class="workspace-actions">
-            <button
-              class="primary-button"
-              type="button"
-              :disabled="scanningWorkspace"
-              @click="scanSelectedWorkspace"
-            >
-              {{ scanningWorkspace ? 'Escaneando...' : 'Escanear novamente' }}
-            </button>
-
-            <button
-              class="danger-button"
-              type="button"
-              :disabled="deletingWorkspace"
-              @click="handleDeleteWorkspace"
-            >
-              {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
-            </button>
+        <div v-if="errorMessage" class="alert alert-error" role="alert">
+          <div class="alert-body">
+            <strong>Não foi possível concluir a ação.</strong>
+            <span>{{ errorMessage }}</span>
           </div>
+          <button
+            type="button"
+            class="alert-dismiss"
+            aria-label="Fechar aviso"
+            @click="errorMessage = ''"
+          >
+            ×
+          </button>
+        </div>
 
-          <div class="workspace-divider">Adicionar outro workspace</div>
-        </template>
-
-        <div v-else class="workspace-empty">
-          Nenhum workspace foi cadastrado.
+        <div v-if="successMessage" class="alert alert-success" role="status">
+          <div class="alert-body">
+            <strong>Ação concluída.</strong>
+            <span>{{ successMessage }}</span>
+          </div>
+          <button
+            type="button"
+            class="alert-dismiss"
+            aria-label="Fechar aviso"
+            @click="successMessage = ''"
+          >
+            ×
+          </button>
         </div>
 
         <form

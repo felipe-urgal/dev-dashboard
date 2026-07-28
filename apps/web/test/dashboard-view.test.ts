@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Project, Workspace } from '@dev-dashboard/contracts';
 
+const actions = vi.hoisted(() => ({
+  escanear: vi.fn(),
+  remover: vi.fn(),
+}));
+
 vi.mock('../src/stores/dashboard', async () => {
   const { computed, ref } = await import('vue');
   const projects = ref<Project[]>([]);
@@ -16,15 +21,16 @@ vi.mock('../src/stores/dashboard', async () => {
       workspaces,
       selectedWorkspaceId,
       loadingProjects: ref(false),
+      scanningWorkspace: ref(false),
+      deletingWorkspace: ref(false),
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
       lastScannedPath: ref(''),
       selectedWorkspace: computed(() => workspaces.value.find((item) => item.id === selectedWorkspaceId.value)),
-      railsProjects: computed(() => projects.value.filter((item) => item.type === 'rails').length),
-      nodeProjects: computed(() => projects.value.filter((item) => item.type === 'node').length),
-      gitProjects: computed(() => projects.value.filter((item) => item.capabilities.includes('git')).length),
       sortedProjects: computed(() => [...projects.value].sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name))),
+      scanSelectedWorkspace: actions.escanear,
+      handleDeleteWorkspace: actions.remover,
     },
   };
 });
@@ -48,19 +54,21 @@ function mountView() {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   dashboardStore.projects.value = [];
   dashboardStore.workspaces.value = [];
   dashboardStore.selectedWorkspaceId.value = '';
   dashboardStore.loadingProjects.value = false;
+  dashboardStore.lastScannedPath.value = '';
 });
 
 describe('dashboard principal', () => {
-  it('compõe métricas e repositórios com Card, sem hero nem formulário de workspace', () => {
+  it('não renderiza hero nem formulário de workspace, só repositórios em Card', () => {
     const wrapper = mountView();
     expect(wrapper.find('.hero-copy').exists()).toBe(false);
     expect(wrapper.find('.workspace-panel').exists()).toBe(false);
     expect(wrapper.find('.workspace-create-form').exists()).toBe(false);
-    expect(wrapper.findAll('.metric-card')).toHaveLength(4);
+    expect(wrapper.find('.metrics-grid').exists()).toBe(false);
     expect(wrapper.find('.repositories-section').classes()).toContain('dd-card');
   });
 
@@ -69,6 +77,17 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
     expect(wrapper.find('.projects-list').exists()).toBe(true);
     expect(wrapper.find('.projects-grid').exists()).toBe(false);
+  });
+
+  it('aciona escanear/remover a partir da linha de workspace carregado', async () => {
+    dashboardStore.lastScannedPath.value = '/home/ubunru/Caiena/Projetos';
+    const wrapper = mountView();
+
+    await wrapper.get('.secondary-button').trigger('click');
+    await wrapper.get('.danger-button').trigger('click');
+
+    expect(actions.escanear).toHaveBeenCalledOnce();
+    expect(actions.remover).toHaveBeenCalledOnce();
   });
 
   it('mantém os estados de carregamento, vazio e projetos favoritos', async () => {

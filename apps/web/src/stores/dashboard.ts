@@ -67,25 +67,6 @@ export function createDashboardStore(
     ),
   );
 
-  const railsProjects = computed(
-    () =>
-      projects.value.filter((project) => project.type === 'rails')
-        .length,
-  );
-
-  const nodeProjects = computed(
-    () =>
-      projects.value.filter((project) => project.type === 'node')
-        .length,
-  );
-
-  const gitProjects = computed(
-    () =>
-      projects.value.filter((project) =>
-        project.capabilities.includes('git'),
-      ).length,
-  );
-
   const sortedProjects = computed(() =>
     [...projects.value].sort((left, right) =>
       left.name.localeCompare(right.name),
@@ -470,9 +451,6 @@ export function createDashboardStore(
     warningCount,
     lastScannedPath,
     selectedWorkspace,
-    railsProjects,
-    nodeProjects,
-    gitProjects,
     sortedProjects,
     knownProjects,
     ensureDashboardLoaded,

@@ -218,7 +218,6 @@ watch(projectId, () => {
             <ProjectServerPanel
               :key="project.id"
               :project="project"
-              mode="details"
               :default-logs-open="true"
             />
           </div>

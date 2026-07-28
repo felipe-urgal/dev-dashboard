@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import ProjectAvatar from './ProjectAvatar.vue';
-import ProjectServerPanel from './ProjectServerPanel.vue';
 
 import {
   capabilityLabel,
@@ -14,6 +15,19 @@ import {
 const props = defineProps<{
   project: Project;
 }>();
+
+const { managedProcess, supportsServer, isRunning } =
+  useProjectProcessStatus(() => props.project);
+
+const statusDotClass = computed(() => {
+  if (!supportsServer.value) {
+    return 'project-status-dot-neutral';
+  }
+
+  return isRunning.value
+    ? 'project-status-dot-running'
+    : 'project-status-dot-stopped';
+});
 </script>
 
 <template>
@@ -32,19 +46,26 @@ const props = defineProps<{
 
       <div class="project-row-identity">
         <div class="project-row-heading">
-          <h3>{{ project.name }}</h3>
+          <div class="project-row-title">
+            <span
+              class="project-status-dot"
+              :class="statusDotClass"
+              aria-hidden="true"
+            />
+            <h3>{{ project.name }}</h3>
+          </div>
+
           <span
             class="type-badge"
             :class="`type-badge-${project.type}`"
           >
             {{ projectTypeLabels[project.type] }}
           </span>
-          <span class="project-row-source">{{ project.source }}</span>
         </div>
 
         <code class="project-path">{{ project.path }}</code>
 
-        <div class="capabilities">
+        <div class="project-row-meta">
           <span
             v-for="capability in project.capabilities"
             :key="capability"
@@ -52,14 +73,12 @@ const props = defineProps<{
           >
             {{ capabilityLabel(capability) }}
           </span>
+
+          <span v-if="managedProcess?.port">
+            Porta {{ managedProcess.port }}
+          </span>
         </div>
       </div>
-
-      <ProjectServerPanel
-        :project="props.project"
-        mode="compact"
-        :show-actions="false"
-      />
 
       <span class="project-row-arrow" aria-hidden="true">→</span>
     </RouterLink>
