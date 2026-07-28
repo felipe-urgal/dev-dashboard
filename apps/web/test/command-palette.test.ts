@@ -12,7 +12,10 @@ const api = vi.hoisted(() => ({
   stopProjectProcess: vi.fn(),
 }));
 
-vi.mock('../src/api', () => api);
+vi.mock('../src/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/api')>();
+  return { ...actual, ...api };
+});
 
 const wrappers: VueWrapper[] = [];
 

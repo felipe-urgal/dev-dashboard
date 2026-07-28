@@ -5,14 +5,13 @@ import { gotoBootstrapped } from '../fixtures/navigate';
 async function rootAttributes(page: Page) {
   return page.evaluate(() => ({
     theme: document.documentElement.dataset.theme,
-    density: document.documentElement.dataset.density,
   }));
 }
 
-test.describe('tema e densidade', () => {
-  test('padrão é escuro e cômodo', async ({ page }) => {
+test.describe('tema', () => {
+  test('padrão é escuro', async ({ page }) => {
     await gotoBootstrapped(page, '/');
-    await expect.poll(() => rootAttributes(page)).toEqual({ theme: 'dark', density: 'comfortable' });
+    await expect.poll(() => rootAttributes(page)).toEqual({ theme: 'dark' });
   });
 
   for (const [label, theme] of [
@@ -31,25 +30,6 @@ test.describe('tema e densidade', () => {
 
       await page.reload();
       await expect.poll(() => rootAttributes(page)).toMatchObject({ theme });
-    });
-  }
-
-  for (const [label, density] of [
-    ['Cômoda', 'comfortable'],
-    ['Compacta', 'compact'],
-  ] as const) {
-    test(`troca de densidade para ${density} aplica e persiste após recarregar`, async ({ page }) => {
-      await gotoBootstrapped(page, '/');
-
-      await page
-        .getByRole('group', { name: 'Densidade' })
-        .getByRole('button', { name: label })
-        .click();
-
-      await expect.poll(() => rootAttributes(page)).toMatchObject({ density });
-
-      await page.reload();
-      await expect.poll(() => rootAttributes(page)).toMatchObject({ density });
     });
   }
 });

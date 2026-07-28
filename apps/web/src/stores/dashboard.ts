@@ -67,25 +67,6 @@ export function createDashboardStore(
     ),
   );
 
-  const railsProjects = computed(
-    () =>
-      projects.value.filter((project) => project.type === 'rails')
-        .length,
-  );
-
-  const nodeProjects = computed(
-    () =>
-      projects.value.filter((project) => project.type === 'node')
-        .length,
-  );
-
-  const gitProjects = computed(
-    () =>
-      projects.value.filter((project) =>
-        project.capabilities.includes('git'),
-      ).length,
-  );
-
   const sortedProjects = computed(() =>
     [...projects.value].sort((left, right) =>
       left.name.localeCompare(right.name),
@@ -335,9 +316,8 @@ export function createDashboardStore(
     return null;
   }
 
-  async function handleWorkspaceSelection(event: Event): Promise<void> {
-    const target = event.target as HTMLSelectElement;
-    activateWorkspace(target.value);
+  async function switchWorkspace(workspaceId: string): Promise<void> {
+    activateWorkspace(workspaceId);
     await scanSelectedWorkspace();
   }
 
@@ -471,15 +451,12 @@ export function createDashboardStore(
     warningCount,
     lastScannedPath,
     selectedWorkspace,
-    railsProjects,
-    nodeProjects,
-    gitProjects,
     sortedProjects,
     knownProjects,
     ensureDashboardLoaded,
     ensureProject,
     scanSelectedWorkspace,
-    handleWorkspaceSelection,
+    switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
   };

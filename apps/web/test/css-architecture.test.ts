@@ -31,7 +31,7 @@ describe('arquitetura de CSS', () => {
     }
 
     for (const seletor of [
-      '.projects-grid',
+      '.projects-list',
       '.project-details-grid',
       '.activity-list',
       '.git-diff-layout',

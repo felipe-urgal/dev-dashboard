@@ -14,16 +14,24 @@ import {
 import { dashboardStore } from './stores/dashboard';
 import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
+import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
+const workspaceManagerOpen = ref(false);
 
 const route = useRoute();
 
 const {
   apiConnected,
-  projects,
-  selectedWorkspace,
+  workspaces,
+  selectedWorkspaceId,
+  switchWorkspace,
 } = dashboardStore;
+
+function handleWorkspaceSwitch(event: Event): void {
+  const target = event.target as HTMLSelectElement;
+  void switchWorkspace(target.value);
+}
 
 const pageTitle = computed(() =>
   typeof route.meta.title === 'string'
@@ -36,20 +44,6 @@ const pageEyebrow = computed(() =>
     ? route.meta.eyebrow
     : 'Ambiente local',
 );
-
-function dashboardNavigationActive(
-  section: 'overview' | 'repositories',
-): boolean {
-  if (route.name !== 'dashboard') {
-    return false;
-  }
-
-  if (section === 'repositories') {
-    return route.hash === '#repositories';
-  }
-
-  return route.hash !== '#repositories';
-}
 
 onMounted(() => {
   void dashboardStore.ensureDashboardLoaded();
@@ -68,31 +62,42 @@ onMounted(() => {
         </div>
       </RouterLink>
 
+      <div class="sidebar-section">
+        <div class="sidebar-section-heading">
+          <span class="sidebar-label"> Workspace ativo </span>
+
+          <button
+            type="button"
+            class="sidebar-workspace-add-icon"
+            aria-label="Adicionar workspace"
+            @click="workspaceManagerOpen = true"
+          >
+            +
+          </button>
+        </div>
+
+        <select
+          v-if="workspaces.length > 0"
+          class="sidebar-workspace-select"
+          :value="selectedWorkspaceId"
+          aria-label="Trocar workspace ativo"
+          @change="handleWorkspaceSwitch"
+        >
+          <option
+            v-for="workspace in workspaces"
+            :key="workspace.id"
+            :value="workspace.id"
+          >
+            {{ workspace.name }}
+          </option>
+        </select>
+
+        <div v-else class="workspace-summary-empty">
+          Nenhum workspace
+        </div>
+      </div>
+
       <nav class="navigation" aria-label="Navegação principal">
-        <RouterLink
-          class="navigation-item"
-          :class="{
-            'navigation-item-active':
-              dashboardNavigationActive('overview'),
-          }"
-          :to="{ name: 'dashboard', hash: '#overview' }"
-        >
-          <span class="navigation-icon">⌂</span>
-          Visão geral
-        </RouterLink>
-
-        <RouterLink
-          class="navigation-item"
-          :class="{
-            'navigation-item-active':
-              dashboardNavigationActive('repositories'),
-          }"
-          :to="{ name: 'dashboard', hash: '#repositories' }"
-        >
-          <span class="navigation-icon">◇</span>
-          Repositórios
-        </RouterLink>
-
         <RouterLink
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'processes' }"
@@ -117,27 +122,6 @@ onMounted(() => {
         </RouterLink>
       </nav>
 
-      <div class="sidebar-section">
-        <span class="sidebar-label"> Workspace ativo </span>
-
-        <div v-if="selectedWorkspace" class="workspace-summary">
-          <span class="workspace-avatar">
-            {{ selectedWorkspace.name.charAt(0).toUpperCase() }}
-          </span>
-
-          <div>
-            <strong>{{ selectedWorkspace.name }}</strong>
-            <span>{{ projects.length }} projetos</span>
-          </div>
-        </div>
-
-        <div v-else class="workspace-summary-empty">
-          Nenhum workspace
-        </div>
-      </div>
-
-      <VisualPreferences />
-
       <div class="sidebar-footer">
         <span
           class="connection-dot"
@@ -160,6 +144,8 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
+          <VisualPreferences />
+
           <button class="command-button" type="button" @click="commandPalette?.show()">
             Navegação rápida
             <kbd>⌘ K</kbd>
@@ -184,6 +170,11 @@ onMounted(() => {
       ref="commandPalette"
       :projects="dashboardStore.knownProjects.value"
       :workspaces="dashboardStore.workspaces.value"
+    />
+
+    <WorkspaceManagerModal
+      :open="workspaceManagerOpen"
+      @close="workspaceManagerOpen = false"
     />
   </div>
 </template>

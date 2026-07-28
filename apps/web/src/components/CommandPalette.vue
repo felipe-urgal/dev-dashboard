@@ -18,6 +18,7 @@ import {
   startProjectProcess,
   stopProjectProcess,
 } from '../api';
+import { dashboardStore } from '../stores/dashboard';
 import {
   projectCommandActions,
   type ProjectCommandAction,
@@ -36,6 +37,7 @@ interface NavigationPaletteItem {
   searchText: string;
   to: RouteLocationRaw;
   kind: 'navigation';
+  workspaceId?: string;
 }
 
 interface ActionPaletteItem extends ProjectCommandAction {
@@ -81,6 +83,7 @@ const items = computed<PaletteItem[]>(() => {
       workspace.name,
       workspace.path,
       { name: 'dashboard', hash: '#repositories' },
+      workspace.id,
     ),
   );
 
@@ -143,8 +146,18 @@ function navigationItem(
   label: string,
   description: string,
   to: RouteLocationRaw,
+  workspaceId?: string,
 ): NavigationPaletteItem {
-  return { id, group, label, description, to, kind: 'navigation', searchText: normalize(`${label} ${description}`) };
+  return {
+    id,
+    group,
+    label,
+    description,
+    to,
+    kind: 'navigation',
+    searchText: normalize(`${label} ${description}`),
+    ...(workspaceId ? { workspaceId } : {}),
+  };
 }
 
 function isTextEntry(target: EventTarget | null): boolean {
@@ -236,6 +249,11 @@ function handleQuery(): void {
 async function select(item: PaletteItem): Promise<void> {
   if (item.kind === 'navigation') {
     close();
+
+    if (item.workspaceId) {
+      await dashboardStore.switchWorkspace(item.workspaceId);
+    }
+
     await router.push(item.to);
     return;
   }

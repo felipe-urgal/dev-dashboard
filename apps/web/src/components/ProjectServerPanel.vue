@@ -8,7 +8,6 @@ import {
 } from 'vue';
 
 import type {
-  ManagedProcess,
   ProcessLogSnapshot,
   Project,
   ProjectServerSettings,
@@ -16,13 +15,14 @@ import type {
 
 import {
   clearProjectProcessLog,
-  fetchProjectProcess,
   fetchProjectProcessLog,
   fetchProjectServerSettings,
   saveProjectServerSettings,
   startProjectProcess,
   stopProjectProcess,
 } from '../api';
+
+import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
 import {
   RequestGate,
@@ -35,19 +35,27 @@ import Card from './Card.vue';
 const props = withDefaults(
   defineProps<{
     project: Project;
-    mode?: 'compact' | 'details';
     defaultLogsOpen?: boolean;
   }>(),
   {
-    mode: 'compact',
     defaultLogsOpen: false,
   },
 );
 
-const managedProcess = ref<ManagedProcess | null>(null);
-const loadingStatus = ref(false);
+const {
+  managedProcess,
+  loadingStatus,
+  errorMessage,
+  supportsServer,
+  processStatus,
+  isRunning,
+  canStop,
+  hasManagedProcess,
+  statusLabel,
+  scheduleProcessPolling,
+} = useProjectProcessStatus(() => props.project);
+
 const executingAction = ref(false);
-const errorMessage = ref('');
 
 const serverSettings = ref<ProjectServerSettings | null>(null);
 const selectedPort = ref<string | number>('');
@@ -62,37 +70,11 @@ const logErrorMessage = ref('');
 const logContainer = ref<HTMLElement | null>(null);
 const followLogs = ref(true);
 
-let processPollingTimer: ReturnType<typeof setTimeout> | undefined;
 let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
 const projectRequests = new RequestGeneration();
 const logRequests = new RequestGeneration();
-const processRequestGate = new RequestGate();
 const logRequestGate = new RequestGate();
 let clearingLog = false;
-
-const supportsServer = computed(() =>
-  props.project.capabilities.includes('server'),
-);
-
-const detailsMode = computed(() => props.mode === 'details');
-
-const hasManagedProcess = computed(
-  () => managedProcess.value !== null,
-);
-
-const processStatus = computed(
-  () => managedProcess.value?.status ?? 'stopped',
-);
-
-const isRunning = computed(
-  () =>
-    processStatus.value === 'running' ||
-    processStatus.value === 'starting',
-);
-
-const canStop = computed(
-  () => isRunning.value || processStatus.value === 'stopping',
-);
 
 const processUrls = computed<string[]>(() => {
   if (processStatus.value !== 'running') {
@@ -129,29 +111,6 @@ const formattedLogSize = computed(() => {
   }
 
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
-});
-
-const statusLabel = computed(() => {
-  if (!supportsServer.value) {
-    return 'Sem servidor';
-  }
-
-  if (loadingStatus.value && !managedProcess.value) {
-    return 'Verificando';
-  }
-
-  switch (processStatus.value) {
-    case 'starting':
-      return 'Iniciando';
-    case 'running':
-      return 'Executando';
-    case 'stopping':
-      return 'Encerrando';
-    case 'failed':
-      return 'Falhou';
-    default:
-      return 'Parado';
-  }
 });
 
 function isCurrentProject(
@@ -244,45 +203,6 @@ async function handleSaveSettings(): Promise<void> {
   }
 }
 
-async function refreshProcess(): Promise<void> {
-  if (!supportsServer.value) {
-    return;
-  }
-
-  const requestToken = processRequestGate.begin(
-    'process-request',
-  );
-
-  if (!requestToken) {
-    return;
-  }
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  loadingStatus.value = true;
-
-  try {
-    const nextProcess = await fetchProjectProcess(projectId);
-
-    if (isCurrentProject(projectId, generation)) {
-      managedProcess.value = nextProcess;
-    }
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível consultar o processo.';
-    }
-  } finally {
-    if (processRequestGate.finish(requestToken)) {
-      if (isCurrentProject(projectId, generation)) {
-        loadingStatus.value = false;
-      }
-    }
-  }
-}
-
 async function scrollLogsToBottom(): Promise<void> {
   if (!followLogs.value) {
     return;
@@ -364,36 +284,6 @@ function scheduleLogPolling(): void {
       scheduleLogPolling();
     }
   }, 2_000);
-}
-
-function stopProcessPolling(): void {
-  if (processPollingTimer) {
-    clearTimeout(processPollingTimer);
-    processPollingTimer = undefined;
-  }
-}
-
-function scheduleProcessPolling(): void {
-  stopProcessPolling();
-
-  if (!supportsServer.value) {
-    return;
-  }
-
-  const generation = projectRequests.capture();
-  const delay =
-    processStatus.value === 'starting' ||
-    processStatus.value === 'stopping'
-      ? 1_000
-      : 5_000;
-
-  processPollingTimer = setTimeout(async () => {
-    await refreshProcess();
-
-    if (projectRequests.isCurrent(generation) && supportsServer.value) {
-      scheduleProcessPolling();
-    }
-  }, delay);
 }
 
 async function toggleLogs(): Promise<void> {
@@ -535,18 +425,13 @@ async function handleStop(): Promise<void> {
 }
 
 function resetPanelState(): void {
-  stopProcessPolling();
   stopLogPolling();
   projectRequests.invalidate();
   logRequests.invalidate();
-  processRequestGate.invalidate();
   logRequestGate.invalidate();
   clearingLog = false;
 
-  managedProcess.value = null;
-  loadingStatus.value = false;
   executingAction.value = false;
-  errorMessage.value = '';
   serverSettings.value = null;
   selectedPort.value = '';
   loadingSettings.value = false;
@@ -567,16 +452,11 @@ async function initializeProject(): Promise<void> {
     return;
   }
 
-  await Promise.all([
-    refreshProcess(),
-    refreshServerSettings(),
-  ]);
+  await refreshServerSettings();
 
   if (!projectRequests.isCurrent(generation)) {
     return;
   }
-
-  scheduleProcessPolling();
 
   if (showLogs.value && hasManagedProcess.value) {
     await refreshLogs();
@@ -595,13 +475,16 @@ watch(
 onBeforeUnmount(() => {
   projectRequests.invalidate();
   logRequests.invalidate();
-  stopProcessPolling();
   stopLogPolling();
 });
 </script>
 
 <template>
-  <Card padded class="project-detail-card" :class="`project-server-card-${mode}`">
+  <Card
+    padded
+    :bordered="false"
+    class="project-detail-card"
+  >
     <template #header>
       <div class="project-panel-heading">
         <span class="section-kicker">Servidor</span>
@@ -645,7 +528,7 @@ onBeforeUnmount(() => {
     </template>
 
     <section
-      v-if="detailsMode && supportsServer"
+      v-if="supportsServer"
       class="server-settings-panel"
     >
       <div class="server-settings-heading">
@@ -711,7 +594,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      v-if="detailsMode && hasManagedProcess"
+      v-if="hasManagedProcess"
       class="project-server-actions"
     >
       <button
@@ -723,7 +606,7 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <section v-if="detailsMode && showLogs" class="project-log-panel">
+    <section v-if="showLogs" class="project-log-panel">
       <header class="project-log-header">
         <div>
           <strong>Logs do servidor</strong>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
-import Card from './Card.vue';
+import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import ProjectAvatar from './ProjectAvatar.vue';
-import ProjectServerPanel from './ProjectServerPanel.vue';
 
 import {
   capabilityLabel,
@@ -15,58 +15,72 @@ import {
 const props = defineProps<{
   project: Project;
 }>();
+
+const { managedProcess, supportsServer, isRunning } =
+  useProjectProcessStatus(() => props.project);
+
+const statusDotClass = computed(() => {
+  if (!supportsServer.value) {
+    return 'project-status-dot-neutral';
+  }
+
+  return isRunning.value
+    ? 'project-status-dot-running'
+    : 'project-status-dot-stopped';
+});
 </script>
 
 <template>
-  <Card tag="article" :padded="false" interactive class="project-card">
-    <div class="project-card-header">
+  <li class="project-row">
+    <RouterLink
+      class="project-row-link"
+      :aria-label="`Ver detalhes de ${project.name}`"
+      :to="{
+        name: 'project-details',
+        params: {
+          projectId: project.id,
+        },
+      }"
+    >
       <ProjectAvatar :project="project" />
 
-      <div class="project-identity">
-        <h3>{{ project.name }}</h3>
-        <div class="project-meta">
+      <div class="project-row-identity">
+        <div class="project-row-heading">
+          <div class="project-row-title">
+            <span
+              class="project-status-dot"
+              :class="statusDotClass"
+              aria-hidden="true"
+            />
+            <h3>{{ project.name }}</h3>
+          </div>
+
           <span
             class="type-badge"
             :class="`type-badge-${project.type}`"
           >
             {{ projectTypeLabels[project.type] }}
           </span>
-          <span>{{ project.source }}</span>
+        </div>
+
+        <code class="project-path">{{ project.path }}</code>
+
+        <div class="project-row-meta">
+          <span
+            v-for="capability in project.capabilities"
+            :key="capability"
+            class="capability"
+          >
+            {{ capabilityLabel(capability) }}
+          </span>
+
+          <span v-if="managedProcess?.port">
+            Porta {{ managedProcess.port }}
+          </span>
         </div>
       </div>
-    </div>
 
-    <code class="project-path">{{ project.path }}</code>
-
-    <div class="capabilities">
-      <span
-        v-for="capability in project.capabilities"
-        :key="capability"
-        class="capability"
-      >
-        {{ capabilityLabel(capability) }}
-      </span>
-    </div>
-
-    <ProjectServerPanel :project="props.project" mode="compact" />
-
-    <div class="project-card-footer">
-      <span class="detected-status">
-        <span />
-        Detectado
-      </span>
-
-      <RouterLink
-        class="secondary-button link-button"
-        :to="{
-          name: 'project-details',
-          params: {
-            projectId: project.id,
-          },
-        }"
-      >
-        Ver detalhes
-      </RouterLink>
-    </div>
-  </Card>
+      <span class="project-row-arrow" aria-hidden="true">→</span>
+    </RouterLink>
+  </li>
 </template>

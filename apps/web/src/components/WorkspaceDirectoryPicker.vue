@@ -136,18 +136,18 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="directory-picker-backdrop"
+      class="modal-backdrop"
       role="presentation"
       @click.self="closeDirectoryPicker"
     >
       <section
-        class="directory-picker-dialog"
+        class="modal-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="directory-picker-title"
         :aria-busy="loading"
       >
-        <header class="directory-picker-header">
+        <header class="modal-header">
           <div>
             <span class="section-kicker">Workspace</span>
             <h3 id="directory-picker-title">Escolher pasta</h3>
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
           </button>
         </header>
 
-        <code v-if="listing" class="directory-picker-path">
+        <code v-if="listing" class="modal-path">
           {{ listing.currentPath }}
         </code>
 
@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
           {{ errorMessage }}
         </div>
 
-        <div class="directory-picker-toolbar">
+        <div class="modal-toolbar">
           <button
             type="button"
             class="secondary-button"

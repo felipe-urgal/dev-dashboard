@@ -24,7 +24,7 @@ test.describe('navegação principal', () => {
     await gotoBootstrapped(page, '/');
     await expect(page.getByRole('heading', { level: 3, name: 'sample-node-app' })).toBeVisible();
 
-    await page.getByRole('link', { name: 'Ver detalhes' }).click();
+    await page.getByRole('link', { name: 'Ver detalhes de sample-node-app' }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Detalhes do projeto' })).toBeVisible();
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
@@ -50,7 +50,7 @@ test.describe('navegação principal', () => {
 
   test('paleta inicia o servidor somente após confirmação explícita', async ({ page }) => {
     await gotoBootstrapped(page, '/');
-    await page.getByRole('link', { name: 'Ver detalhes' }).click();
+    await page.getByRole('link', { name: 'Ver detalhes de sample-node-app' }).click();
     await page.keyboard.press('ControlOrMeta+KeyK');
     const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
     await search.fill('iniciar servidor');

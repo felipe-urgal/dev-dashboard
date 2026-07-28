@@ -1,0 +1,88 @@
+import { mount, type VueWrapper } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const actions = vi.hoisted(() => ({
+  criar: vi.fn(),
+}));
+
+vi.mock('../src/stores/dashboard', async () => {
+  const { ref } = await import('vue');
+
+  return {
+    dashboardStore: {
+      newWorkspaceName: ref(''),
+      newWorkspacePath: ref(''),
+      creatingWorkspace: ref(false),
+      errorMessage: ref(''),
+      successMessage: ref(''),
+      handleCreateWorkspace: actions.criar,
+    },
+  };
+});
+
+import { dashboardStore } from '../src/stores/dashboard';
+import WorkspaceManagerModal from '../src/components/WorkspaceManagerModal.vue';
+
+const wrappers: VueWrapper[] = [];
+
+function mountModal(open = true) {
+  const wrapper = mount(WorkspaceManagerModal, {
+    attachTo: document.body,
+    props: { open },
+    global: {
+      stubs: {
+        WorkspaceDirectoryPicker: true,
+      },
+    },
+  });
+  wrappers.push(wrapper);
+  return wrapper;
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  dashboardStore.newWorkspaceName.value = '';
+  dashboardStore.newWorkspacePath.value = '';
+  dashboardStore.creatingWorkspace.value = false;
+  dashboardStore.errorMessage.value = '';
+  dashboardStore.successMessage.value = '';
+});
+
+afterEach(() => {
+  for (const wrapper of wrappers.splice(0)) wrapper.unmount();
+  document.body.innerHTML = '';
+});
+
+describe('WorkspaceManagerModal', () => {
+  it('não renderiza o diálogo quando fechado', () => {
+    mountModal(false);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('cadastra um novo workspace pelo formulário', () => {
+    mountModal();
+
+    document.querySelector('form')?.dispatchEvent(
+      new Event('submit', { cancelable: true }),
+    );
+
+    expect(actions.criar).toHaveBeenCalledOnce();
+  });
+
+  it('mostra erro de validação dentro do próprio modal', () => {
+    dashboardStore.errorMessage.value = 'Informe o nome e o caminho do workspace.';
+    mountModal();
+
+    expect(document.querySelector('.alert-error')?.textContent).toContain(
+      'Informe o nome e o caminho do workspace.',
+    );
+  });
+
+  it('emite close ao clicar em Fechar', () => {
+    const wrapper = mountModal();
+
+    document.querySelector<HTMLButtonElement>('.log-action-button')?.click();
+
+    expect(wrapper.emitted('close')).toHaveLength(1);
+  });
+});
