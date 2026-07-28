@@ -54,6 +54,7 @@ test.describe('navegação principal', () => {
     await page.keyboard.press('ControlOrMeta+KeyK');
     const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
     await search.fill('iniciar servidor');
+    await expect(page.getByRole('option', { name: /Iniciar servidor/ })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByText('Confirmar ação')).toBeVisible();
     await page.keyboard.press('Enter');
