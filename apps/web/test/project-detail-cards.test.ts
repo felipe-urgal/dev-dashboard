@@ -13,8 +13,25 @@ const fetchProjectProcess = vi.fn().mockResolvedValue(null);
 
 vi.mock('../src/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/api')>()),
+  fetchActivities: vi.fn().mockResolvedValue({
+    items: [],
+    page: 1,
+    pageSize: 4,
+    total: 0,
+    totalPages: 0,
+    summary: { running: 0, succeeded: 0, failed: 0, total: 0 },
+  }),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
-  fetchProjectProcessLog: vi.fn().mockResolvedValue(null),
+  fetchProjectProcessLog: vi.fn().mockResolvedValue({
+    projectId: 'projeto-card',
+    processId: 'proc-1',
+    content: '',
+    sizeBytes: 0,
+    truncated: false,
+    masked: false,
+    redactionCount: 0,
+    readAt: new Date(0).toISOString(),
+  }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({}),
   fetchProjectTests: vi.fn().mockResolvedValue({ supported: false, commands: [] }),
   fetchProjectTestProcess: vi.fn().mockResolvedValue(null),
@@ -46,12 +63,39 @@ const project: Project = {
   capabilities: ['server', 'tests', 'scripts'],
 };
 
+const routerLinkStub = {
+  props: ['to'],
+  template: '<a><slot /></a>',
+};
+
+function mountServerPanel() {
+  return mount(ProjectServerPanel, {
+    props: { project },
+    global: {
+      stubs: {
+        RouterLink: routerLinkStub,
+      },
+    },
+  });
+}
+
 describe('cards dos painéis de detalhe', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
+  it('renderiza o painel operacional do servidor', async () => {
+    const wrapper = mountServerPanel();
+    await flushPromises();
+
+    expect(wrapper.find('.server-dashboard').exists()).toBe(true);
+    expect(wrapper.find('.server-config-card').exists()).toBe(true);
+    expect(wrapper.find('.server-status-card').exists()).toBe(true);
+    expect(wrapper.find('.server-log-preview-card').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
   it.each([
-    ['servidor', ProjectServerPanel],
     ['Git', ProjectGitPanel],
     ['testes', ProjectTestsPanel],
     ['banco de dados', ProjectDatabasePanel],
@@ -87,7 +131,7 @@ describe('cards dos painéis de detalhe', () => {
         .mockResolvedValueOnce(running)
         .mockResolvedValueOnce(failed);
 
-      const wrapper = mount(ProjectServerPanel, { props: { project } });
+      const wrapper = mountServerPanel();
       await flushPromises();
 
       expect(publishTerminalNotice).not.toHaveBeenCalled();
@@ -105,7 +149,7 @@ describe('cards dos painéis de detalhe', () => {
         projectId: project.id,
         projectName: project.name,
         label: project.name,
-        routeTo: { name: 'project-details', params: { projectId: project.id } },
+        routeTo: { name: 'project-server', params: { projectId: project.id } },
       });
 
       wrapper.unmount();
@@ -114,7 +158,7 @@ describe('cards dos painéis de detalhe', () => {
     it('não publica aviso quando o processo já chega parado sem nunca ter sido observado rodando', async () => {
       fetchProjectProcess.mockResolvedValueOnce(null);
 
-      const wrapper = mount(ProjectServerPanel, { props: { project } });
+      const wrapper = mountServerPanel();
       await flushPromises();
 
       expect(publishTerminalNotice).not.toHaveBeenCalled();
