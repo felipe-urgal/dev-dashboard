@@ -25,6 +25,8 @@ import {
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
+import { noticeCenterStore } from '../stores/notice-center';
+
 import {
   RequestGate,
   RequestGeneration,
@@ -80,6 +82,7 @@ const projectRequests = new RequestGeneration();
 const logRequests = new RequestGeneration();
 const logRequestGate = new RequestGate();
 let clearingLog = false;
+let hasObservedRunning = false;
 
 const processUrls = computed<string[]>(() => {
   if (processStatus.value !== 'running') {
@@ -476,6 +479,37 @@ watch(
   },
   { immediate: true },
 );
+
+// `ProjectServerPanel` é sempre renderizado com `:key="project.id"` em
+// `ProjectDetailsView.vue`, então o Vue destrói e recria a instância ao
+// trocar de projeto — não é preciso um watch adicional para zerar
+// `hasObservedRunning`, a variável local já nasce `false` a cada montagem.
+watch(processStatus, (status) => {
+  if (status === 'starting' || status === 'running' || status === 'stopping') {
+    hasObservedRunning = true;
+    return;
+  }
+
+  if (!hasObservedRunning) {
+    return;
+  }
+
+  if (status !== 'stopped' && status !== 'failed') {
+    return;
+  }
+
+  const proc = managedProcess.value;
+
+  noticeCenterStore.publishTerminalNotice({
+    origin: 'server',
+    dedupeKey: `server:${proc?.id ?? props.project.id}:${status}`,
+    outcome: status,
+    projectId: props.project.id,
+    projectName: props.project.name,
+    label: props.project.name,
+    routeTo: { name: 'project-details', params: { projectId: props.project.id } },
+  });
+});
 
 onBeforeUnmount(() => {
   projectRequests.invalidate();
