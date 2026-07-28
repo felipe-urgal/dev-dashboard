@@ -3,7 +3,7 @@ import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import { mount, flushPromises } from '@vue/test-utils';
 
-import type { ProjectScriptCatalog, ScriptExecution } from '@dev-dashboard/contracts';
+import type { ProjectScriptCatalog, ScriptExecution, ScriptExecutionEvent } from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
   publishTerminalNotice: vi.fn(),
@@ -45,6 +45,74 @@ const baseCatalog: ProjectScriptCatalog = {
   totalPages: 1,
 };
 
+const emptyHistory = { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 };
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function sseResponse(events: ScriptExecutionEvent[]): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  });
+}
+
+interface FetchScenario {
+  latestExecution: ScriptExecution | null;
+  executionsById?: Record<string, ScriptExecution>;
+  sseEvents?: ScriptExecutionEvent[];
+}
+
+function installFetchMock(scenario: FetchScenario): () => void {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const path = url.pathname;
+
+    if (path.endsWith('/scripts/executions/latest')) {
+      return jsonResponse({ execution: scenario.latestExecution });
+    }
+    if (path.endsWith('/log')) {
+      return jsonResponse({
+        log: { executionId: 'exec', content: 'saída', truncated: false, masked: false, redactionCount: 0 },
+      });
+    }
+    if (path.endsWith('/events')) {
+      return sseResponse(scenario.sseEvents ?? []);
+    }
+    const executionMatch = path.match(/\/scripts\/executions\/([^/]+)$/);
+    if (executionMatch) {
+      const execution = scenario.executionsById?.[executionMatch[1]!];
+      if (execution) return jsonResponse({ execution });
+      return new Response('not found', { status: 404 });
+    }
+    if (path.endsWith('/scripts/executions')) {
+      return jsonResponse({ history: emptyHistory });
+    }
+    if (path.endsWith('/scripts')) {
+      return jsonResponse({ catalog: baseCatalog });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  return () => {
+    globalThis.fetch = originalFetch;
+  };
+}
+
 let cleanup: (() => void) | undefined;
 
 beforeEach(() => {
@@ -57,34 +125,12 @@ afterEach(() => {
 });
 
 test('montagem básica renderiza catálogo sem erros', async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/scripts')) {
-      return new Response(JSON.stringify({ catalog: baseCatalog }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/execution')) {
-      return new Response(JSON.stringify({ execution: null }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/history')) {
-      return new Response(
-        JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
+  const restoreFetch = installFetchMock({ latestExecution: null });
 
   const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
   cleanup = () => {
     wrapper.unmount();
-    globalThis.fetch = originalFetch;
+    restoreFetch();
   };
 
   await flushPromises();
@@ -96,61 +142,8 @@ test('montagem básica renderiza catálogo sem erros', async () => {
   assert.match(wrapper.text(), /npm run build/);
 });
 
-test('transição de running para succeeded publica aviso', async () => {
-  const originalFetch = globalThis.fetch;
-  let currentExecution: ScriptExecution | null = null;
-  let statePhase = 'initial'; // initial -> running -> succeeded
-
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/scripts')) {
-      return new Response(JSON.stringify({ catalog: baseCatalog }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/execution')) {
-      return new Response(JSON.stringify({ execution: currentExecution }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/execution/logs')) {
-      return new Response(
-        JSON.stringify({
-          log: {
-            executionId: currentExecution?.id || 'exec-123',
-            content: 'test output',
-            truncated: false,
-            masked: false,
-            redactionCount: 0,
-          },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }
-    if (url.pathname.endsWith('/scripts/history')) {
-      return new Response(
-        JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-
-  // Load initial state with no execution
-  await flushPromises();
-  await flushPromises();
-
-  // Simulate execution starting
-  statePhase = 'running';
-  currentExecution = {
+test('transição de running para succeeded via SSE publica aviso uma única vez', async () => {
+  const runningExecution: ScriptExecution = {
     id: 'exec-123',
     projectId: 'p1',
     actionId: 'npm-run-test',
@@ -159,25 +152,33 @@ test('transição de running para succeeded publica aviso', async () => {
     risk: 'read-only',
     startedAt: '2026-07-28T10:00:00Z',
   };
-  // Manually trigger the watch by updating the ref
-  (wrapper.vm as any).execution = currentExecution;
-  await wrapper.vm.$nextTick();
-  await flushPromises();
-
-  // Simulate execution completing
-  statePhase = 'succeeded';
-  currentExecution = {
-    ...currentExecution,
+  const succeededExecution: ScriptExecution = {
+    ...runningExecution,
     status: 'succeeded',
     finishedAt: '2026-07-28T10:00:05Z',
+    exitCode: 0,
   };
-  (wrapper.vm as any).execution = currentExecution;
-  await wrapper.vm.$nextTick();
+
+  const restoreFetch = installFetchMock({
+    latestExecution: runningExecution,
+    executionsById: { 'exec-123': runningExecution },
+    sseEvents: [{ type: 'state', execution: succeededExecution }],
+  });
+
+  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    restoreFetch();
+  };
+
+  await flushPromises();
+  await flushPromises();
   await flushPromises();
 
   assert.equal(mocks.publishTerminalNotice.mock.calls.length, 1);
   const call = mocks.publishTerminalNotice.mock.calls[0]![0];
   assert.equal(call.origin, 'script');
+  assert.equal(call.dedupeKey, 'script:exec-123:succeeded');
   assert.equal(call.outcome, 'succeeded');
   assert.equal(call.projectId, 'p1');
   assert.equal(call.projectName, 'sample-node');
@@ -186,7 +187,6 @@ test('transição de running para succeeded publica aviso', async () => {
 });
 
 test('execução que chega terminal sem nunca ter sido observada running não gera aviso', async () => {
-  const originalFetch = globalThis.fetch;
   const terminalExecution: ScriptExecution = {
     id: 'exec-456',
     projectId: 'p1',
@@ -199,51 +199,23 @@ test('execução que chega terminal sem nunca ter sido observada running não ge
     exitCode: 1,
   };
 
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/scripts')) {
-      return new Response(JSON.stringify({ catalog: baseCatalog }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/execution')) {
-      return new Response(JSON.stringify({ execution: terminalExecution }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (url.pathname.endsWith('/scripts/execution/logs')) {
-      return new Response(
-        JSON.stringify({
-          log: {
-            executionId: 'exec-456',
-            content: 'build failed',
-            truncated: false,
-            masked: false,
-            redactionCount: 0,
-          },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }
-    if (url.pathname.endsWith('/scripts/history')) {
-      return new Response(
-        JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
+  const restoreFetch = installFetchMock({
+    latestExecution: terminalExecution,
+    executionsById: { 'exec-456': terminalExecution },
+  });
 
   const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
   cleanup = () => {
     wrapper.unmount();
-    globalThis.fetch = originalFetch;
+    restoreFetch();
   };
 
   await flushPromises();
   await flushPromises();
+  await flushPromises();
 
+  // Prova de que a execução terminal chegou ao componente (não um 404 mascarado):
+  // o aside de execução exibe "npm run build · Falhou".
+  assert.match(wrapper.text(), /npm run build · Falhou/);
   assert.equal(mocks.publishTerminalNotice.mock.calls.length, 0);
 });
