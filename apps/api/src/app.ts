@@ -5,6 +5,7 @@ import { directoryRoutes } from './routes/directories.js';
 import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
+import { projectReadmeRoutes } from './routes/project-readme.js';
 
 import { processRoutes } from './routes/processes.js';
 
@@ -97,6 +98,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
+  });
+
+  app.register(projectReadmeRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
   });
 
   app.register(processRoutes, {
