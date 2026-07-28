@@ -64,14 +64,6 @@ jobs:
       - name: Smoke E2E
         run: npm run test:e2e
 
-      - name: Upload server dashboard screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-dashboard-screenshot
-          path: apps/web/e2e/.runtime/server-dashboard.png
-          retention-days: 1
-
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
