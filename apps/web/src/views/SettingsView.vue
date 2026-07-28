@@ -39,15 +39,15 @@ onMounted(() => void load());
       <p v-if="loading" role="status">Carregando configurações…</p>
       <form v-else-if="snapshot" class="settings-form" @submit.prevent="save">
         <label>Retenção de logs (dias)
-          <input v-model.number="form.retentionDays" type="number" required :min="snapshot.limits.retentionDays.minimum" :max="snapshot.limits.retentionDays.maximum">
+          <input v-model.number="form.retentionDays" type="number" step="1" required :min="snapshot.limits.retentionDays.minimum" :max="snapshot.limits.retentionDays.maximum">
           <small>Entre {{ snapshot.limits.retentionDays.minimum }} e {{ snapshot.limits.retentionDays.maximum }} dias.</small>
         </label>
         <label>Histórico de scripts
-          <input v-model.number="form.scriptHistoryLimit" type="number" required :min="snapshot.limits.scriptHistoryLimit.minimum" :max="snapshot.limits.scriptHistoryLimit.maximum">
+          <input v-model.number="form.scriptHistoryLimit" type="number" step="1" required :min="snapshot.limits.scriptHistoryLimit.minimum" :max="snapshot.limits.scriptHistoryLimit.maximum">
           <small>Entre {{ snapshot.limits.scriptHistoryLimit.minimum }} e {{ snapshot.limits.scriptHistoryLimit.maximum }} registros.</small>
         </label>
         <label>Histórico de testes
-          <input v-model.number="form.testHistoryLimit" type="number" required :min="snapshot.limits.testHistoryLimit.minimum" :max="snapshot.limits.testHistoryLimit.maximum">
+          <input v-model.number="form.testHistoryLimit" type="number" step="1" required :min="snapshot.limits.testHistoryLimit.minimum" :max="snapshot.limits.testHistoryLimit.maximum">
           <small>Entre {{ snapshot.limits.testHistoryLimit.minimum }} e {{ snapshot.limits.testHistoryLimit.maximum }} registros.</small>
         </label>
         <p class="settings-notice">Salvar não remove arquivos. Os novos valores passam a valer após reiniciar a API.</p>
