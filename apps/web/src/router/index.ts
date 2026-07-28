@@ -50,7 +50,7 @@ export const router = createRouter({
       component: ProjectDetailsView,
       meta: {
         eyebrow: 'Projeto local',
-        title: 'README do projeto',
+        title: 'Detalhes do projeto',
       },
     },
     {
