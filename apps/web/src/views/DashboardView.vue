@@ -1,166 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-
 import Card from '../components/Card.vue';
 import ProjectCard from '../components/ProjectCard.vue';
-import StatusBadge from '../components/StatusBadge.vue';
-import WorkspaceDirectoryPicker from '../components/WorkspaceDirectoryPicker.vue';
 import { dashboardStore } from '../stores/dashboard';
-
-const directoryPickerOpen = ref(false);
 
 const {
   projects,
-  workspaces,
-  selectedWorkspaceId,
-  newWorkspaceName,
-  newWorkspacePath,
   loadingProjects,
-  scanningWorkspace,
-  creatingWorkspace,
-  deletingWorkspace,
   errorMessage,
   successMessage,
   warningCount,
   lastScannedPath,
-  selectedWorkspace,
   railsProjects,
   nodeProjects,
   gitProjects,
   sortedProjects,
-  scanSelectedWorkspace,
-  handleWorkspaceSelection,
-  handleCreateWorkspace,
-  handleDeleteWorkspace,
 } = dashboardStore;
 </script>
 
 <template>
   <section id="overview" class="content">
-    <div class="hero-grid">
-      <Card class="hero-copy">
-        <span class="section-kicker">Central de desenvolvimento</span>
-        <h2>Seus projetos locais em um único lugar.</h2>
-        <p>
-          Cadastre múltiplos workspaces, detecte aplicações Rails
-          e Node e prepare o ambiente para gerenciar processos,
-          Git, testes e logs.
-        </p>
-      </Card>
-
-      <Card class="workspace-panel">
-        <template #header>
-          <div>
-            <span class="section-kicker">Workspaces</span>
-            <h3>Gerenciar projetos locais</h3>
-          </div>
-        </template>
-        <template #actions>
-          <StatusBadge tone="neutral">Somente local</StatusBadge>
-        </template>
-
-        <template v-if="workspaces.length > 0">
-          <label class="workspace-field">
-            <span>Workspace ativo</span>
-            <select
-              :value="selectedWorkspaceId"
-              :disabled="scanningWorkspace"
-              @change="handleWorkspaceSelection"
-            >
-              <option
-                v-for="workspace in workspaces"
-                :key="workspace.id"
-                :value="workspace.id"
-              >
-                {{ workspace.name }}
-              </option>
-            </select>
-          </label>
-
-          <code v-if="selectedWorkspace" class="workspace-path">
-            {{ selectedWorkspace.path }}
-          </code>
-
-          <div class="workspace-actions">
-            <button
-              class="primary-button"
-              type="button"
-              :disabled="scanningWorkspace"
-              @click="scanSelectedWorkspace"
-            >
-              {{
-                scanningWorkspace
-                  ? 'Escaneando...'
-                  : 'Escanear novamente'
-              }}
-            </button>
-
-            <button
-              class="danger-button"
-              type="button"
-              :disabled="deletingWorkspace"
-              @click="handleDeleteWorkspace"
-            >
-              {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
-            </button>
-          </div>
-
-          <div class="workspace-divider">
-            Adicionar outro workspace
-          </div>
-        </template>
-
-        <div v-else class="workspace-empty">
-          Nenhum workspace foi cadastrado.
-        </div>
-
-        <form
-          class="workspace-create-form"
-          @submit.prevent="handleCreateWorkspace"
-        >
-          <label class="workspace-field">
-            <span>Nome</span>
-            <input
-              v-model="newWorkspaceName"
-              autocomplete="off"
-              placeholder="Projetos pessoais"
-            />
-          </label>
-
-          <label class="workspace-field">
-            <span>Caminho local</span>
-            <div class="workspace-path-picker-field">
-              <input
-                v-model="newWorkspacePath"
-                autocomplete="off"
-                placeholder="/home/usuario/projetos"
-              />
-
-              <button
-                type="button"
-                class="secondary-button"
-                @click="directoryPickerOpen = true"
-              >
-                Escolher pasta
-              </button>
-            </div>
-          </label>
-
-          <button
-            class="secondary-primary-button"
-            type="submit"
-            :disabled="creatingWorkspace"
-          >
-            {{
-              creatingWorkspace
-                ? 'Cadastrando...'
-                : 'Adicionar workspace'
-            }}
-          </button>
-        </form>
-      </Card>
-    </div>
-
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <strong>Não foi possível concluir a ação.</strong>
       <span>{{ errorMessage }}</span>
@@ -215,7 +73,6 @@ const {
           <span class="section-kicker">Repositórios</span>
           <h2>Projetos detectados</h2>
         </div>
-
       </template>
       <template #actions>
         <span class="section-count">
@@ -237,23 +94,18 @@ const {
         <div class="empty-icon">◇</div>
         <h3>Nenhum projeto carregado</h3>
         <p>
-          Cadastre ou selecione um workspace para detectar
-          aplicações Rails e Node.
+          Cadastre ou selecione um workspace na barra lateral para
+          detectar aplicações Rails e Node.
         </p>
       </div>
 
-      <div v-else class="projects-grid">
+      <ul v-else class="projects-list">
         <ProjectCard
           v-for="project in sortedProjects"
           :key="project.id"
           :project="project"
         />
-      </div>
+      </ul>
     </Card>
-    <WorkspaceDirectoryPicker
-      v-model="newWorkspacePath"
-      :open="directoryPickerOpen"
-      @close="directoryPickerOpen = false"
-    />
   </section>
 </template>

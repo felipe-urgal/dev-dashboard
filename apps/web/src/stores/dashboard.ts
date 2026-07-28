@@ -335,9 +335,8 @@ export function createDashboardStore(
     return null;
   }
 
-  async function handleWorkspaceSelection(event: Event): Promise<void> {
-    const target = event.target as HTMLSelectElement;
-    activateWorkspace(target.value);
+  async function switchWorkspace(workspaceId: string): Promise<void> {
+    activateWorkspace(workspaceId);
     await scanSelectedWorkspace();
   }
 
@@ -479,7 +478,7 @@ export function createDashboardStore(
     ensureDashboardLoaded,
     ensureProject,
     scanSelectedWorkspace,
-    handleWorkspaceSelection,
+    switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
   };

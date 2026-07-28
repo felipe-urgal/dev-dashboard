@@ -37,10 +37,12 @@ const props = withDefaults(
     project: Project;
     mode?: 'compact' | 'details';
     defaultLogsOpen?: boolean;
+    showActions?: boolean;
   }>(),
   {
     mode: 'compact',
     defaultLogsOpen: false,
+    showActions: true,
   },
 );
 
@@ -624,7 +626,7 @@ onBeforeUnmount(() => {
         </span>
 
         <button
-          v-if="supportsServer && !canStop"
+          v-if="showActions && supportsServer && !canStop"
           type="button"
           class="primary-small-button"
           :disabled="executingAction || loadingSettings"
@@ -634,7 +636,7 @@ onBeforeUnmount(() => {
         </button>
 
         <button
-          v-if="supportsServer && canStop"
+          v-if="showActions && supportsServer && canStop"
           type="button"
           class="danger-small-button"
           :disabled="executingAction || processStatus === 'stopping'"

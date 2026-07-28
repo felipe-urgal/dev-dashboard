@@ -14,16 +14,26 @@ import {
 import { dashboardStore } from './stores/dashboard';
 import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
+import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
+const workspaceManagerOpen = ref(false);
 
 const route = useRoute();
 
 const {
   apiConnected,
   projects,
+  workspaces,
+  selectedWorkspaceId,
   selectedWorkspace,
+  switchWorkspace,
 } = dashboardStore;
+
+function handleWorkspaceSwitch(event: Event): void {
+  const target = event.target as HTMLSelectElement;
+  void switchWorkspace(target.value);
+}
 
 const pageTitle = computed(() =>
   typeof route.meta.title === 'string'
@@ -134,6 +144,30 @@ onMounted(() => {
         <div v-else class="workspace-summary-empty">
           Nenhum workspace
         </div>
+
+        <select
+          v-if="workspaces.length > 1"
+          class="sidebar-workspace-select"
+          :value="selectedWorkspaceId"
+          aria-label="Trocar workspace ativo"
+          @change="handleWorkspaceSwitch"
+        >
+          <option
+            v-for="workspace in workspaces"
+            :key="workspace.id"
+            :value="workspace.id"
+          >
+            {{ workspace.name }}
+          </option>
+        </select>
+
+        <button
+          type="button"
+          class="sidebar-workspace-add"
+          @click="workspaceManagerOpen = true"
+        >
+          + Adicionar workspace
+        </button>
       </div>
 
       <VisualPreferences />
@@ -184,6 +218,11 @@ onMounted(() => {
       ref="commandPalette"
       :projects="dashboardStore.knownProjects.value"
       :workspaces="dashboardStore.workspaces.value"
+    />
+
+    <WorkspaceManagerModal
+      :open="workspaceManagerOpen"
+      @close="workspaceManagerOpen = false"
     />
   </div>
 </template>
