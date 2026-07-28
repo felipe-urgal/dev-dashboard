@@ -158,5 +158,49 @@ test(
         assert.equal(body.removed[0]?.projectId, "stale-project-2");
       }
     );
+
+    await context.test(
+      "removes recent terminal states without waiting for retention",
+      async () => {
+        const oneMinuteAgo = new Date(
+          Date.now() - 60_000
+        ).toISOString();
+
+        await writeFile(
+          path.join(processDirectory, "recent.test.json"),
+          JSON.stringify({
+            id: "recent:test",
+            projectId: "recent-project",
+            kind: "test",
+            status: "failed",
+            stoppedAt: oneMinuteAgo,
+            command: "npm",
+            args: ["test"],
+            cwd: fixtureRoot,
+            logPath: path.join(logDirectory, "recent.test.log")
+          })
+        );
+
+        await writeFile(
+          path.join(logDirectory, "recent.test.log"),
+          "falha recente\n"
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/processes/cleanup",
+          headers
+        });
+
+        const body = response.json<{
+          removed: Array<{ projectId: string }>;
+          removedCount: number;
+        }>();
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(body.removedCount, 1);
+        assert.equal(body.removed[0]?.projectId, "recent-project");
+      }
+    );
   }
 );

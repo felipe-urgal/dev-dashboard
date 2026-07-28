@@ -161,6 +161,47 @@ test(
 );
 
 test(
+  "removes a recent stopped process when all terminal states are requested",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const oneMinuteAgo = new Date(
+      Date.now() - 60_000
+    ).toISOString();
+
+    const { stateFilePath, logPath } = await writeStateFile(
+      fixture,
+      "recent-terminal.server.json",
+      {
+        id: "recent-terminal:server",
+        projectId: "recent-terminal-project",
+        kind: "server",
+        status: "stopped",
+        stoppedAt: oneMinuteAgo,
+        command: "npm",
+        args: ["run", "dev"],
+        cwd: fixture.stateDirectory
+      }
+    );
+
+    const removed = await sweepStaleProcesses(
+      fixture.stateDirectory,
+      {
+        removeAllTerminal: true
+      }
+    );
+
+    assert.deepEqual(removed, [
+      { projectId: "recent-terminal-project" }
+    ]);
+    await assert.rejects(stat(stateFilePath));
+    await assert.rejects(stat(logPath));
+  }
+);
+
+test(
   "removes a failed process older than the retention window",
   async (context) => {
     const fixture = await createFixture();
@@ -366,7 +407,7 @@ test(
 );
 
 test(
-  "keeps a process that is genuinely running regardless of file age",
+  "keeps a process that is genuinely running when all terminal states are requested",
   async (context) => {
     const fixture = await createFixture();
 
@@ -426,7 +467,7 @@ test(
     await utimes(stateFilePath, eightDaysAgo, eightDaysAgo);
 
     const removed = await sweepStaleProcesses(fixture.stateDirectory, {
-      maxAgeMs: 7 * DAY_IN_MS
+      removeAllTerminal: true
     });
 
     assert.equal(removed.length, 0);

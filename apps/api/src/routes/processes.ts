@@ -586,6 +586,9 @@ export const processRoutes: FastifyPluginAsync<
     async () => {
       const removed = await sweepStaleProcesses(
         processManager.stateDirectory,
+        {
+          removeAllTerminal: true,
+        },
       );
 
       return {
