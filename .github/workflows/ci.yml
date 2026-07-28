@@ -31,17 +31,7 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        run: |
-          set -o pipefail
-          npm run typecheck 2>&1 | tee typecheck.log
-
-      - name: Upload typecheck diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-diagnostics
-          path: typecheck.log
-          retention-days: 1
+        run: npm run typecheck
 
       - name: Build
         run: npm run build
@@ -72,17 +62,7 @@ jobs:
         working-directory: apps/web
 
       - name: Smoke E2E
-        run: |
-          set -o pipefail
-          npm run test:e2e 2>&1 | tee e2e.log
-
-      - name: Upload E2E diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-diagnostics
-          path: e2e.log
-          retention-days: 1
+        run: npm run test:e2e
 
       - name: Upload Playwright report
         if: failure()
