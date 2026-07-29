@@ -1,0 +1,84 @@
+html[data-theme='dark'] body .tests-dashboard .tests-log-shell .tests-log-output {
+  --test-log-background: #0d1117;
+  --test-log-gutter: #161b22;
+  --test-log-border: #30363d;
+  --test-log-text: #c9d1d9;
+  --test-log-muted: #8b949e;
+  --test-log-row-alt: #0f141b;
+  --test-log-progress-surface: #121d2f;
+  --test-log-success-surface: #12261a;
+  --test-log-warning-surface: #2b2310;
+  --test-log-danger-surface: #2c1719;
+  --test-log-scroll-thumb: #6e7681;
+  color-scheme: dark;
+}
+
+html[data-theme='light'] body .tests-dashboard .tests-log-shell .tests-log-output {
+  --test-log-background: #ffffff;
+  --test-log-gutter: #f6f8fa;
+  --test-log-border: #d0d7de;
+  --test-log-text: #24292f;
+  --test-log-muted: #57606a;
+  --test-log-row-alt: #f8fafc;
+  --test-log-progress-surface: #ddf4ff;
+  --test-log-success-surface: #dafbe1;
+  --test-log-warning-surface: #fff8c5;
+  --test-log-danger-surface: #ffebe9;
+  --test-log-scroll-thumb: #8c959f;
+  color-scheme: light;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output {
+  background-color: var(--test-log-background);
+  color: var(--test-log-text);
+  scrollbar-color: var(--test-log-scroll-thumb) var(--test-log-gutter);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output::-webkit-scrollbar-track,
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output::-webkit-scrollbar-corner {
+  background-color: var(--test-log-gutter);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output::-webkit-scrollbar-thumb {
+  border-color: var(--test-log-gutter);
+  background-color: var(--test-log-scroll-thumb);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines {
+  background-color: transparent;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines li {
+  background-color: transparent;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-default:nth-child(odd) {
+  background-color: var(--test-log-row-alt);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-visual-progress,
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-muted {
+  background-color: var(--test-log-progress-surface);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-success {
+  background-color: var(--test-log-success-surface);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-warning {
+  background-color: var(--test-log-warning-surface);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-error {
+  background-color: var(--test-log-danger-surface);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines li > span {
+  border-right-color: var(--test-log-border);
+  background-color: var(--test-log-gutter);
+  color: var(--test-log-muted);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines code {
+  color: var(--test-log-text);
+}
