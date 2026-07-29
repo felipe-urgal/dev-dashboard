@@ -40,5 +40,7 @@ export type { MaskedLogContent } from './log-protection.js';
 
 export type {
   SweepStaleProcessesOptions,
+  SweptEntry,
+  SweptOrphanLog,
   SweptProcess,
 } from './log-retention.js';

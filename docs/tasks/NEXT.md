@@ -1,69 +1,67 @@
-# Próxima atividade — 042: manutenção de processos (dev-clean / dev-kill-port)
+# Próxima atividade — 043: git-pr no painel Git
 
 ## Contexto
 
-A task 041 abriu a "paridade CLI→Web seletiva" do Horizonte 2 com o
-`git-save` no painel Git. O mesmo item do roadmap lista `dev-clean` e
-`dev-kill-port` como ações de manutenção no painel de processos — hoje
-exclusivas do CLI bash (`lib/server/`): `dev-clean` varre arquivos de PID
-obsoletos cujo processo não existe mais, e `dev-kill-port` libera uma porta
-ocupada.
+A "paridade CLI→Web seletiva" do Horizonte 2 já trouxe `git-save` (task
+041) e a lacuna real de `dev-clean` (task 042, logs órfãos). `dev-kill-port`
+foi avaliado e adiado na 042 por conflitar com a validação obrigatória de
+identidade de processo (`docs/architecture/security.md`). O próximo item
+do mesmo ponto do roadmap ainda pendente é `git-pr`: hoje exclusivo do CLI
+bash (`lib/git/`), abre a criação de pull request a partir do branch atual.
 
 ## Objetivo
 
-Oferecer na página global de processos (`/processes`) ações de manutenção
-equivalentes, começando pela fatia de menor risco: limpeza de estado
-obsoleto do lado da API (equivalente ao `dev-clean`), e avaliar com cuidado
-o desbloqueio de porta (equivalente ao `dev-kill-port`) sob a política de
-operações destrutivas.
+Levar ao painel Git do dashboard web uma ação equivalente a `git-pr`:
+publicar o branch atual em `origin` (reaproveitando o push da task 025
+quando ainda não publicado) e abrir a URL de criação de PR do provedor
+remoto (GitHub/GitLab) com base e branch já preenchidos — sem chamar a API
+do provedor nem exigir token de terceiros.
 
 ## Plano sugerido
 
-1. Estudar `lib/server/core/` (`dev-clean`, `dev-kill-port`) e o que o
-   `ProcessManager` já cobre (`sweepStaleProcesses`, limpeza manual da task
-   036) para não duplicar capacidade existente — a fatia pode se resumir a
-   expor lacunas reais, não a reimplementar o que já há.
-2. Para a limpeza: mapear estados obsoletos que a varredura atual não
-   alcança (ex. arquivos de log/estado órfãos no diretório gerenciado) e
-   expor uma ação fechada de manutenção com resposta explícita do que foi
-   removido.
-3. Para o kill-port: **ler primeiro** "Requisitos antes de operações
-   destrutivas" em `docs/architecture/security.md`. O modelo atual proíbe
-   encerrar processos que o dashboard não iniciou; qualquer versão web
-   precisa se restringir a processos gerenciados cuja identidade foi
-   validada (`/proc/<pid>/cwd`) — nunca um PID arbitrário dono da porta. Se
-   isso esvaziar a utilidade da ação, registrar a decisão e reduzir o
-   escopo a diagnóstico (mostrar quem ocupa a porta) em vez de mutação.
-4. Confirmação em duas etapas para qualquer mutação, seguindo o padrão de
-   token consumível das mutações Git.
-5. Testes de serviço, rota e componente cobrindo sucesso, recusa e o caso
-   de identidade divergente.
+1. Estudar `lib/git/` para `git-pr` (provavelmente compõe a URL a partir do
+   remote `origin` e do branch atual) e o suporte a push já existente
+   (`GitService`/rotas de `apps/api/src/routes/git*.ts`, task 025) para não
+   duplicar a etapa de publicação do branch.
+2. Detectar o provedor a partir da URL do remote `origin` (GitHub e GitLab
+   pelo menos) e compor a URL de "novo PR/MR" comparando o branch atual
+   contra o branch padrão do repositório. Decidir o que fazer quando o
+   remote não é reconhecido (provavelmente recusar com erro claro em vez de
+   adivinhar um formato genérico).
+3. Definir se a API deve apenas retornar a URL composta (o navegador abre
+   em nova aba) ou se cabe algum efeito colateral no servidor — dado que
+   isso é só leitura/composição de URL, não deveria exigir o mesmo
+   token de confirmação de mutação usado por save/commit/push, mas o push
+   prévio (quando o branch ainda não foi publicado) continua exigindo.
+4. Painel Git: novo botão/seção "Abrir pull request", reaproveitando o
+   fluxo de push existente quando necessário antes de abrir a URL.
+5. Testes de serviço (composição de URL para GitHub e GitLab, remote não
+   reconhecido, branch igual ao padrão), de rota e de componente.
 
 ## Segurança
 
-- Nenhum PID ou caminho vindo do navegador: apenas IDs de processos
-  gerenciados e ações do catálogo fechado.
-- Identidade de processo validada antes de qualquer sinal; TERM antes de
-  KILL.
-- Caminhos de limpeza derivados exclusivamente do diretório de estado
-  gerenciado.
-- Confirmação explícita e mensagem descrevendo exatamente o que será
-  removido/encerrado.
+- Nenhuma chamada à API do provedor remoto (GitHub/GitLab) nem token de
+  terceiros — apenas composição de URL a partir do remote já configurado
+  localmente.
+- A publicação do branch (quando necessária) reaproveita a mesma validação
+  e confirmação já existentes para push (task 025); nenhuma nova superfície
+  de mutação além dessa.
+- URL composta não deve vazar credenciais eventualmente embutidas na URL do
+  remote (ex. `https://user:token@host/...`).
 
 ## Fora do escopo
 
-- Encerrar processos arbitrários que ocupam uma porta (fora do modelo de
-  ameaça atual).
-- `git-pr` e snapshot/restore de banco (fatias próprias do mesmo item do
-  roadmap).
-- Abrir editor/terminal via adaptadores locais.
+- Integração com a API do GitHub/GitLab (criar o PR de fato, listar
+  revisores, etc.) — abrir a URL de composição no navegador é a fatia
+  proposta.
+- Snapshot/restore de banco (fatia própria do mesmo item do roadmap).
+- `dev-kill-port` (mutação ou diagnóstico) — decisão registrada na task 042.
 
 ## Critérios de aceite
 
-- ações de manutenção disponíveis na página de processos com confirmação e
-  feedback do que foi feito;
-- nenhuma string arbitrária, PID ou caminho do navegador chega a
-  `spawn`/sinalização;
-- decisão registrada (task + security.md se necessário) caso o kill-port
-  seja reduzido ou adiado;
+- ação disponível no painel Git com feedback claro quando o remote não é
+  reconhecido;
+- nenhuma credencial de remote exposta na URL composta;
+- decisão registrada sobre exigência (ou não) de confirmação em duas
+  etapas para a composição da URL, distinta do push que a antecede;
 - `npm run typecheck`, `npm run build` e `npm test` passam.

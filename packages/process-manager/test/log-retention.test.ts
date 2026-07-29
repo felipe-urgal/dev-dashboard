@@ -330,6 +330,111 @@ test(
   }
 );
 
+test(
+  "removes an orphaned log older than the retention window",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const orphanLogPath = path.join(
+      fixture.logDirectory,
+      "orphan.server.log"
+    );
+
+    await writeFile(orphanLogPath, "log órfão\n");
+
+    const eightDaysAgo = new Date(Date.now() - 8 * DAY_IN_MS);
+
+    await utimes(orphanLogPath, eightDaysAgo, eightDaysAgo);
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.deepEqual(removed, [{ logFile: "orphan.server.log" }]);
+    await assert.rejects(stat(orphanLogPath));
+  }
+);
+
+test(
+  "keeps a recent orphaned log within the retention window",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const orphanLogPath = path.join(
+      fixture.logDirectory,
+      "orphan.server.log"
+    );
+
+    await writeFile(orphanLogPath, "log órfão recente\n");
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.deepEqual(removed, []);
+    await stat(orphanLogPath);
+  }
+);
+
+test(
+  "removes a recent orphaned log when all terminal states are requested",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const orphanLogPath = path.join(
+      fixture.logDirectory,
+      "orphan.test.log"
+    );
+
+    await writeFile(orphanLogPath, "log órfão de teste\n");
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      removeAllTerminal: true
+    });
+
+    assert.deepEqual(removed, [{ logFile: "orphan.test.log" }]);
+    await assert.rejects(stat(orphanLogPath));
+  }
+);
+
+test(
+  "keeps a log that still has a matching state file, even if invalid",
+  async (context) => {
+    const fixture = await createFixture();
+
+    context.after(fixture.cleanup);
+
+    const logPath = path.join(
+      fixture.logDirectory,
+      "garbage.server.log"
+    );
+
+    await writeFile(logPath, "log de estado corrompido\n");
+
+    await writeFile(
+      path.join(fixture.processDirectory, "garbage.server.json"),
+      "isto não é json{{{"
+    );
+
+    const eightDaysAgo = new Date(Date.now() - 8 * DAY_IN_MS);
+
+    await utimes(logPath, eightDaysAgo, eightDaysAgo);
+
+    const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+      maxAgeMs: 7 * DAY_IN_MS
+    });
+
+    assert.deepEqual(removed, []);
+    await stat(logPath);
+  }
+);
+
 function waitForExit(pid: number, timeoutMs: number): Promise<void> {
   return new Promise((resolve) => {
     const startedAt = Date.now();
