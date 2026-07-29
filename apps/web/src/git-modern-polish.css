@@ -37,3 +37,53 @@
   border-radius: 999px;
   background: var(--border-strong);
 }
+
+.git-modern-panel .git-subtabs button[data-heroicon-ready='true']::before {
+  display: none;
+}
+
+.git-tab-heroicon,
+.git-server-heroicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: currentColor;
+  font-style: normal;
+}
+
+.git-tab-heroicon,
+.git-tab-heroicon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.git-tab-heroicon-svg,
+.git-server-heroicon-svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+}
+
+.git-server-heroicon,
+.git-server-heroicon-svg {
+  width: 20px;
+  height: 20px;
+}
+
+.git-server-heroicon {
+  color: var(--text-muted);
+}
+
+.git-server-indicator.is-running .git-server-heroicon {
+  color: var(--success-text);
+}
+
+.git-server-indicator.is-starting .git-server-heroicon,
+.git-server-indicator.is-stopping .git-server-heroicon {
+  color: var(--warning-text);
+}
+
+.git-server-indicator.is-failed .git-server-heroicon {
+  color: var(--danger-text);
+}
