@@ -8,6 +8,7 @@ const FIELD_SEPARATOR = '\u001f';
 const RECORD_SEPARATOR = '\u001e';
 const PATCH_LIMIT = 320_000;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
+const HISTORY_REFERENCE_PATTERN = /^(?!-)[^\u0000-\u001f\u007f]{1,250}$/;
 
 export type GitCommitFileStatus =
   | 'added'
@@ -50,6 +51,7 @@ export interface GitCommitHistoryEntry {
   authorName: string;
   authorEmail: string;
   authoredAt: string;
+  parentCount: number;
 }
 
 export interface GitCommitHistoryPage {
@@ -113,6 +115,7 @@ function parseHistory(output: string): GitCommitHistoryEntry[] {
         authorName = '',
         authorEmail = '',
         authoredAt = '',
+        parents = '',
       ] = record.split(FIELD_SEPARATOR);
       return {
         hash,
@@ -121,6 +124,7 @@ function parseHistory(output: string): GitCommitHistoryEntry[] {
         authorName,
         authorEmail,
         authoredAt,
+        parentCount: parents.trim() ? parents.trim().split(/\s+/).length : 0,
       };
     });
 }
@@ -190,8 +194,43 @@ function parseNumstat(
   return files;
 }
 
-export async function listCurrentBranchCommits(
+async function resolveHistoryReference(
   projectPath: string,
+  requestedReference?: string,
+): Promise<{ label: string; revision: string; exists: boolean }> {
+  const currentBranch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
+  const requested = requestedReference?.trim() ?? '';
+  const revision = requested || 'HEAD';
+  const label = requested || currentBranch || 'HEAD destacado';
+
+  if (requested && !HISTORY_REFERENCE_PATTERN.test(requested)) {
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_INVALID',
+      'Referência Git inválida para consultar o histórico.',
+    );
+  }
+
+  try {
+    await runGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      '--end-of-options',
+      `${revision}^{commit}`,
+    ]);
+    return { label, revision, exists: true };
+  } catch {
+    if (!requested) return { label, revision, exists: false };
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_NOT_FOUND',
+      `A referência Git "${requested}" não foi encontrada.`,
+    );
+  }
+}
+
+export async function listBranchCommits(
+  projectPath: string,
+  requestedReference: string | undefined,
   requestedPage = 1,
   requestedPageSize = 10,
 ): Promise<GitCommitHistoryPage> {
@@ -199,13 +238,11 @@ export async function listCurrentBranchCommits(
 
   const page = Math.max(1, Math.floor(requestedPage));
   const pageSize = Math.min(10, Math.max(1, Math.floor(requestedPageSize)));
-  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim() || 'HEAD destacado';
+  const reference = await resolveHistoryReference(projectPath, requestedReference);
 
-  try {
-    await runGit(projectPath, ['rev-parse', '--verify', 'HEAD']);
-  } catch {
+  if (!reference.exists) {
     return {
-      branch,
+      branch: reference.label,
       page: 1,
       pageSize,
       total: 0,
@@ -215,7 +252,7 @@ export async function listCurrentBranchCommits(
   }
 
   const total = Number.parseInt(
-    (await runGit(projectPath, ['rev-list', '--count', 'HEAD'])).trim(),
+    (await runGit(projectPath, ['rev-list', '--count', reference.revision])).trim(),
     10,
   ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
@@ -223,20 +260,34 @@ export async function listCurrentBranchCommits(
   const skip = (effectivePage - 1) * pageSize;
   const output = await runGit(projectPath, [
     'log',
-    'HEAD',
     `--skip=${skip}`,
     `-n${pageSize}`,
-    `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${RECORD_SEPARATOR}`,
+    `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`,
+    reference.revision,
+    '--',
   ]);
 
   return {
-    branch,
+    branch: reference.label,
     page: effectivePage,
     pageSize,
     total,
     totalPages,
     commits: parseHistory(output),
   };
+}
+
+export async function listCurrentBranchCommits(
+  projectPath: string,
+  requestedPage = 1,
+  requestedPageSize = 10,
+): Promise<GitCommitHistoryPage> {
+  return listBranchCommits(
+    projectPath,
+    undefined,
+    requestedPage,
+    requestedPageSize,
+  );
 }
 
 export async function inspectGitCommit(
