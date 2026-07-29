@@ -4,20 +4,37 @@ import type {
 } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
+import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { ProjectStore } from '../store/project-store.js';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
+  listCurrentBranchCommits,
 } from '../services/git-commit-details-service.js';
 
 interface GitCommitDetailsRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
 }
 
-interface CommitParams {
+interface ProjectParams {
   projectId: string;
+}
+
+interface CommitParams extends ProjectParams {
   commitHash: string;
 }
+
+interface HistoryQuery {
+  page?: number;
+  pageSize?: number;
+}
+
+const projectParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId'],
+  properties: { projectId: { type: 'string', minLength: 1 } },
+} as const;
 
 const paramsSchema = {
   type: 'object',
@@ -31,6 +48,57 @@ const paramsSchema = {
       maxLength: 40,
       pattern: '^[0-9a-fA-F]+$',
     },
+  },
+} as const;
+
+const historyQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    page: { type: 'integer', minimum: 1, default: 1 },
+    pageSize: { type: 'integer', minimum: 1, maximum: 10, default: 10 },
+  },
+} as const;
+
+const commitSummarySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'hash',
+    'shortHash',
+    'subject',
+    'authorName',
+    'authorEmail',
+    'authoredAt',
+  ],
+  properties: {
+    hash: { type: 'string' },
+    shortHash: { type: 'string' },
+    subject: { type: 'string' },
+    authorName: { type: 'string' },
+    authorEmail: { type: 'string' },
+    authoredAt: { type: 'string' },
+  },
+} as const;
+
+const historySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'branch',
+    'page',
+    'pageSize',
+    'total',
+    'totalPages',
+    'commits',
+  ],
+  properties: {
+    branch: { type: 'string' },
+    page: { type: 'integer', minimum: 1 },
+    pageSize: { type: 'integer', minimum: 1, maximum: 10 },
+    total: { type: 'integer', minimum: 0 },
+    totalPages: { type: 'integer', minimum: 0 },
+    commits: { type: 'array', items: commitSummarySchema },
   },
 } as const;
 
@@ -95,9 +163,77 @@ const responseSchema = {
   },
 } as const;
 
+function translateCommitError(error: unknown): never {
+  if (error instanceof GitCommitDetailsError) {
+    const code = error.code === 'GIT_COMMIT_INVALID'
+      ? 'GIT_REFERENCE_INVALID'
+      : error.code === 'GIT_COMMIT_NOT_FOUND'
+        ? 'GIT_REFERENCE_NOT_FOUND'
+        : 'GIT_NOT_REPOSITORY';
+    throw new ApiError({
+      statusCode: error.code === 'GIT_COMMIT_NOT_FOUND' ? 404 : 400,
+      code,
+      message: error.message,
+    });
+  }
+
+  throw new ApiError({
+    statusCode: 500,
+    code: 'GIT_COMMAND_FAILED',
+    message: error instanceof Error
+      ? error.message
+      : 'Não foi possível consultar o histórico Git.',
+  });
+}
+
 export const gitCommitDetailsRoutes: FastifyPluginAsync<
   GitCommitDetailsRouteOptions
 > = async (app, options) => {
+  function projectFor(projectId: string) {
+    const project = options.projectStore.findProject(projectId);
+    if (!project) {
+      throw new ApiError({
+        statusCode: 404,
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Projeto não encontrado.',
+      });
+    }
+    return project;
+  }
+
+  app.get<{ Params: ProjectParams; Querystring: HistoryQuery }>(
+    '/projects/:projectId/git/commits',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: historyQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['history'],
+            properties: { history: historySchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          history: await listCurrentBranchCommits(
+            project.path,
+            request.query.page ?? 1,
+            request.query.pageSize ?? 10,
+          ),
+        };
+      } catch (error) {
+        translateCommitError(error);
+      }
+    },
+  );
+
   app.get<{ Params: CommitParams }>(
     '/projects/:projectId/git/commits/:commitHash',
     {
@@ -105,44 +241,18 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
         params: paramsSchema,
         response: {
           200: responseSchema,
+          ...commonErrorResponseSchemas,
         },
       },
     },
     async (request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
-      if (!project) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
-
+      const project = projectFor(request.params.projectId);
       try {
         return {
           detail: await inspectGitCommit(project.path, request.params.commitHash),
         };
       } catch (error) {
-        if (error instanceof GitCommitDetailsError) {
-          const code = error.code === 'GIT_COMMIT_INVALID'
-            ? 'GIT_REFERENCE_INVALID'
-            : error.code === 'GIT_COMMIT_NOT_FOUND'
-              ? 'GIT_REFERENCE_NOT_FOUND'
-              : 'GIT_NOT_REPOSITORY';
-          throw new ApiError({
-            statusCode: error.code === 'GIT_COMMIT_NOT_FOUND' ? 404 : 400,
-            code,
-            message: error.message,
-          });
-        }
-
-        throw new ApiError({
-          statusCode: 500,
-          code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error
-            ? error.message
-            : 'Não foi possível inspecionar o commit.',
-        });
+        translateCommitError(error);
       }
     },
   );
