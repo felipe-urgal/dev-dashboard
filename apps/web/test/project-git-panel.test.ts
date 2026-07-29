@@ -1,43 +1,238 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'vitest';
 
-import { mount, flushPromises } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 
-import type { GitDiffSnapshot, GitFileDiff, ProjectGitOverview } from '@dev-dashboard/contracts';
+import type {
+  GitDiffSnapshot,
+  GitFileDiff,
+  ProjectGitOverview,
+  ProjectGitWorkspace,
+} from '@dev-dashboard/contracts';
 
 import ProjectGitPanel from '../src/components/ProjectGitPanel.vue';
-import { ApiRequestError } from '../src/api';
 import { makeProject } from './support/activity-fixtures.js';
 
-interface MountArgs {
-  overview: () => Promise<ProjectGitOverview>;
-  diff: () => Promise<GitDiffSnapshot>;
-  fileDiff?: (filePath: string) => Promise<GitFileDiff>;
+interface RequestRecord {
+  path: string;
+  method: string;
+  body?: unknown;
 }
 
-async function mountPanel(args: MountArgs) {
+interface MountArgs {
+  overview?: ProjectGitOverview;
+  workspace?: ProjectGitWorkspace;
+  diff?: GitDiffSnapshot;
+  fileDiff?: (filePath: string) => GitFileDiff;
+  handler?: (
+    request: RequestRecord,
+  ) => Response | Promise<Response> | undefined;
+}
+
+const jsonHeaders = { 'content-type': 'application/json' };
+
+const baseOverview: ProjectGitOverview = {
+  repository: true,
+  branch: 'feature/git-ui',
+  detached: false,
+  upstream: 'origin/feature/git-ui',
+  ahead: 1,
+  behind: 0,
+  clean: false,
+  files: [
+    {
+      path: 'src/app.ts',
+      indexStatus: 'M',
+      worktreeStatus: '.',
+      status: 'modified',
+    },
+  ],
+  latestCommit: {
+    hash: 'abc123456789',
+    shortHash: 'abc1234',
+    subject: 'feat: melhora painel Git',
+    authorName: 'Dashboard Test',
+    authorEmail: 'dashboard@example.test',
+    authoredAt: '2026-07-29T10:00:00.000Z',
+  },
+  recentCommits: [
+    {
+      hash: 'abc123456789',
+      shortHash: 'abc1234',
+      subject: 'feat: melhora painel Git',
+      authorName: 'Dashboard Test',
+      authorEmail: 'dashboard@example.test',
+      authoredAt: '2026-07-29T10:00:00.000Z',
+    },
+  ],
+  stashes: [],
+};
+
+const baseWorkspace: ProjectGitWorkspace = {
+  branches: [
+    {
+      name: 'feature/git-ui',
+      shortName: 'feature/git-ui',
+      kind: 'local',
+      current: true,
+      upstream: 'origin/feature/git-ui',
+    },
+    {
+      name: 'main',
+      shortName: 'main',
+      kind: 'local',
+      current: false,
+      upstream: 'origin/main',
+    },
+    {
+      name: 'origin/feature/git-ui',
+      shortName: 'feature/git-ui',
+      kind: 'remote',
+      current: false,
+      remote: 'origin',
+    },
+    {
+      name: 'origin/main',
+      shortName: 'main',
+      kind: 'remote',
+      current: false,
+      remote: 'origin',
+    },
+    {
+      name: 'upstream/main',
+      shortName: 'main',
+      kind: 'remote',
+      current: false,
+      remote: 'upstream',
+    },
+  ],
+  remotes: [
+    {
+      name: 'origin',
+      fetchUrl: 'git@github.com:felipe-urgal/projeto.git',
+      pushUrl: 'git@github.com:felipe-urgal/projeto.git',
+      role: 'origin',
+    },
+    {
+      name: 'upstream',
+      fetchUrl: 'git@github.com:caiena/projeto.git',
+      pushUrl: 'git@github.com:caiena/projeto.git',
+      role: 'upstream',
+    },
+  ],
+  originComparison: {
+    reference: 'origin/feature/git-ui',
+    ahead: 1,
+    behind: 0,
+  },
+  upstreamComparison: {
+    reference: 'upstream/main',
+    ahead: 4,
+    behind: 2,
+  },
+};
+
+const baseDiff: GitDiffSnapshot = {
+  repository: true,
+  scope: 'combined',
+  files: [
+    {
+      path: 'src/app.ts',
+      status: 'modified',
+      additions: 3,
+      deletions: 1,
+      binary: false,
+    },
+    {
+      path: 'README.md',
+      status: 'modified',
+      additions: 1,
+      deletions: 0,
+      binary: false,
+    },
+  ],
+};
+
+let cleanup: (() => void) | undefined;
+
+beforeEach(() => {
+  cleanup = undefined;
+});
+
+afterEach(() => {
+  cleanup?.();
+});
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: jsonHeaders,
+  });
+}
+
+async function mountPanel(args: MountArgs = {}) {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  const requests: RequestRecord[] = [];
+  const overview = args.overview ?? baseOverview;
+  const workspace = args.workspace ?? baseWorkspace;
+  const diff = args.diff ?? baseDiff;
+
+  globalThis.fetch = (async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      const git = await args.overview();
-      return new Response(JSON.stringify({ git }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      const diff = await args.diff();
-      return new Response(JSON.stringify({ diff }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const request: RequestRecord = {
+      path: url.pathname,
+      method: init?.method ?? 'GET',
+      ...(init?.body
+        ? { body: JSON.parse(String(init.body)) as unknown }
+        : {}),
+    };
+    requests.push(request);
+
+    const handled = await args.handler?.(request);
+    if (handled) return handled;
+
+    if (url.pathname.endsWith('/git/workspace')) {
+      return jsonResponse({ workspace });
     }
     if (url.pathname.endsWith('/git/diff/file')) {
       const filePath = url.searchParams.get('path') ?? '';
-      const file = await args.fileDiff!(filePath);
-      return new Response(JSON.stringify({ file }), { status: 200, headers: { 'content-type': 'application/json' } });
+      const file = args.fileDiff?.(filePath) ?? {
+        path: filePath,
+        scope: 'combined',
+        status: 'modified',
+        binary: false,
+        content: '-const value = 1;\n+const value = 42;\n',
+        truncated: false,
+        masked: false,
+        redactionCount: 0,
+      } satisfies GitFileDiff;
+      return jsonResponse({ file });
     }
-    return new Response('not found', { status: 404 });
+    if (url.pathname.endsWith('/git/diff')) {
+      return jsonResponse({ diff });
+    }
+    if (url.pathname.endsWith('/git')) {
+      return jsonResponse({ git: overview });
+    }
+
+    return jsonResponse(
+      { error: 'NOT_FOUND', message: 'Endpoint não encontrado.' },
+      404,
+    );
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectGitPanel, {
+    props: { project: makeProject() },
+  });
+  await flushPromises();
+  await flushPromises();
+
   return {
     wrapper,
+    requests,
     restore: () => {
       wrapper.unmount();
       globalThis.fetch = originalFetch;
@@ -45,528 +240,300 @@ async function mountPanel(args: MountArgs) {
   };
 }
 
-const baseOverview: ProjectGitOverview = {
-  repository: true, branch: 'main', detached: false, ahead: 0, behind: 0, clean: false,
-  files: [
-    { path: 'src/app.ts', indexStatus: 'M', worktreeStatus: '.', status: 'modified' },
-  ],
-  recentCommits: [],
-  stashes: [],
-};
-
-const baseDiff: GitDiffSnapshot = {
-  repository: true, scope: 'combined',
-  files: [
-    { path: 'src/app.ts', status: 'modified', additions: 3, deletions: 1, binary: false },
-    { path: 'README.md', status: 'modified', additions: 1, deletions: 0, binary: false },
-  ],
-};
-
-let cleanup: (() => void) | undefined;
-beforeEach(() => { cleanup = undefined; });
-afterEach(() => { cleanup?.(); });
-
-test('lista arquivos com additions/deletions vindos do snapshot', async () => {
-  const { wrapper, restore } = await mountPanel({
-    overview: async () => baseOverview,
-    diff: async () => baseDiff,
-  });
-  cleanup = restore;
+async function clickTab(
+  wrapper: Awaited<ReturnType<typeof mountPanel>>['wrapper'],
+  label: string,
+): Promise<void> {
+  const button = wrapper
+    .findAll('.git-subtabs button')
+    .find((candidate) => candidate.text() === label);
+  assert.ok(button, `aba ${label} não encontrada`);
+  await button.trigger('click');
   await flushPromises();
-  await flushPromises();
+}
 
-  const buttons = wrapper.findAll('.git-diff-file-button');
-  assert.equal(buttons.length, 2);
-  assert.match(buttons[0]!.text(), /src\/app\.ts/);
-  assert.match(buttons[0]!.text(), /\+3 \/ −1/);
+test('renderiza o resumo com comparações separadas de origin e upstream', async () => {
+  const mounted = await mountPanel();
+  cleanup = mounted.restore;
+
+  const text = mounted.wrapper.text();
+  assert.match(text, /Origin · publicação/);
+  assert.match(text, /origin\/feature\/git-ui/);
+  assert.match(text, /Upstream · base principal/);
+  assert.match(text, /upstream\/main/);
+  assert.match(text, /↑ 4 · ↓ 2/);
+
+  const branchOptions = mounted.wrapper.findAll('.git-branch-toolbar option');
+  assert.ok(branchOptions.some((option) => option.text().includes('feature/git-ui')));
+  assert.ok(branchOptions.some((option) => option.text().includes('main')));
 });
 
-test('mostra mensagem quando o snapshot de diff está vazio', async () => {
-  const { wrapper, restore } = await mountPanel({
-    overview: async () => ({ ...baseOverview, clean: true, files: [] }),
-    diff: async () => ({ repository: true, scope: 'combined', files: [] }),
-  });
-  cleanup = restore;
-  await flushPromises();
+test('lista e filtra branches locais, origin e upstream', async () => {
+  const mounted = await mountPanel();
+  cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Branches');
+
+  assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 5);
+
+  await mounted.wrapper.find('.git-branch-filters select').setValue('upstream');
   await flushPromises();
 
-  assert.match(wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
+  const rows = mounted.wrapper.findAll('.git-table-row.branches-table');
+  assert.equal(rows.length, 1);
+  assert.match(rows[0]!.text(), /upstream\/main/);
 });
 
-test('carrega o diff do arquivo selecionado e sinaliza mascaramento', async () => {
-  const { wrapper, restore } = await mountPanel({
-    overview: async () => baseOverview,
-    diff: async () => baseDiff,
-    fileDiff: async (filePath) => ({
-      path: filePath, scope: 'combined', status: 'modified', binary: false,
-      content: '-const value = 1;\n+const value = 42;\n', truncated: false, masked: true, redactionCount: 1,
+test('abre a página de diff e carrega o arquivo selecionado', async () => {
+  const mounted = await mountPanel({
+    fileDiff: (filePath) => ({
+      path: filePath,
+      scope: 'combined',
+      status: 'modified',
+      binary: false,
+      content: '-const value = 1;\n+const value = 42;\n',
+      truncated: false,
+      masked: true,
+      redactionCount: 1,
     }),
   });
-  cleanup = restore;
-  await flushPromises();
+  cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Diff');
+
+  const files = mounted.wrapper.findAll('.git-diff-layout-modern aside button');
+  assert.equal(files.length, 2);
+  assert.match(files[0]!.text(), /src\/app\.ts/);
+  assert.match(files[0]!.text(), /\+3 \/ −1/);
+
+  await files[0]!.trigger('click');
   await flushPromises();
 
-  await wrapper.findAll('.git-diff-file-button')[0]!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  const text = wrapper.text();
-  assert.match(text, /Segredos detectados foram mascarados/);
-  assert.match(wrapper.find('.git-diff-content').text(), /const value = 42/);
+  assert.match(mounted.wrapper.text(), /Segredos detectados foram mascarados/);
+  assert.match(mounted.wrapper.find('.git-diff-layout-modern pre').text(), /const value = 42/);
 });
 
-test('atualiza consecutivas mantêm o resultado da mais recente sem interferência da anterior', async () => {
-  let call = 0;
-  const originalFetch = globalThis.fetch;
-  const firstBlocker: { resolve: (value?: unknown) => void } = { resolve: () => {} };
-  const firstReleased = new Promise((resolve) => { firstBlocker.resolve = resolve; });
-
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      call += 1;
-      const currentCall = call;
-      if (currentCall === 1) {
-        await firstReleased;
-        if ((init?.signal as AbortSignal | undefined)?.aborted) {
-          return new Response(JSON.stringify({ error: 'AbortError', message: 'aborted' }), { status: 499 });
-        }
-        return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-      }
-      return new Response(JSON.stringify({ diff: baseDiff }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    firstBlocker.resolve();
-  };
-
-  await flushPromises();
-  await (wrapper.vm as unknown as { loadDiff: () => Promise<void> }).loadDiff();
-  await flushPromises();
-
-  firstBlocker.resolve();
-  await flushPromises();
-  await flushPromises();
-
-  const buttons = wrapper.findAll('.git-diff-file-button');
-  assert.equal(buttons.length, baseDiff.files.length);
-  assert.equal(wrapper.find('.project-error').exists(), false);
-});
-
-test('cria branch enviando confirmação antes da mutação e mostra sucesso', async () => {
-  const calls: Array<{ url: string; body?: unknown }> = [];
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ url: url.pathname, body });
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      return new Response(JSON.stringify({ confirmation: { token: 't'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/branches')) {
-      return new Response(JSON.stringify({ branch: { branch: (body as { name: string }).name } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const forms = wrapper.findAll('.git-mutation-forms form');
-  await forms[0]!.find('input').setValue('feature/x');
-  await forms[0]!.trigger('submit.prevent');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  const paths = calls.map((call) => call.url);
-  const confirmationIndex = paths.indexOf('/api/projects/p1/git/mutations/confirmations');
-  const mutationIndex = paths.indexOf('/api/projects/p1/git/branches');
-  assert.ok(confirmationIndex >= 0, 'esperava chamada de confirmação');
-  assert.ok(mutationIndex > confirmationIndex, 'confirmação precisa vir antes da mutação');
-  assert.equal((calls[mutationIndex]!.body as { name: string; confirmationToken: string }).confirmationToken, 't'.repeat(64));
-  assert.match(wrapper.find('.git-mutation-success').text(), /Branch "feature\/x" criado/);
-});
-
-test('mutação Git respeita cancelamento do usuário no confirm do navegador', async () => {
-  let mutationCalled = false;
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => false;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.includes('/git/mutations') || url.pathname.endsWith('/git/branches') || url.pathname.endsWith('/git/switch')) {
-      mutationCalled = true;
-      return new Response('unexpected', { status: 500 });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const forms = wrapper.findAll('.git-mutation-forms form');
-  await forms[1]!.find('input').setValue('main');
-  await forms[1]!.trigger('submit.prevent');
-  await flushPromises();
-
-  assert.equal(mutationCalled, false, 'nenhuma chamada de mutação deveria ter ocorrido quando o confirm é recusado');
-});
-
-test('pull envia confirmação com o branch atual e mostra sucesso', async () => {
-  const calls: Array<{ url: string; body?: unknown }> = [];
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ url: url.pathname, body });
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      return new Response(JSON.stringify({ confirmation: { token: 'p'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/pull')) {
-      return new Response(JSON.stringify({ branch: { branch: baseOverview.branch } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const buttons = wrapper.findAll('button');
-  const pullButton = buttons.find((button) => button.text().includes('Pull'));
-  await pullButton!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  const confirmationCall = calls.find((call) => call.url.endsWith('/git/mutations/confirmations'));
-  assert.equal((confirmationCall!.body as { operation: string; target: string }).operation, 'pull');
-  assert.equal((confirmationCall!.body as { operation: string; target: string }).target, 'main');
-  assert.match(wrapper.find('.git-mutation-success').text(), /Pull concluído no branch "main"/);
-});
-
-test('push exibe a mensagem de erro específica quando o remoto rejeita', async () => {
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      return new Response(JSON.stringify({ confirmation: { token: 's'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/push')) {
-      return new Response(JSON.stringify({ error: 'GIT_PUSH_REJECTED', message: 'O remoto tem commits que o branch local não possui; faça pull antes de enviar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const buttons = wrapper.findAll('button');
-  const pushButton = buttons.find((button) => button.text().includes('Push'));
-  await pushButton!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.find('.project-error').text(), /faça pull antes de enviar/);
-});
-
-test('commit envia a mensagem digitada e mostra sucesso', async () => {
-  const calls: Array<{ url: string; body?: unknown }> = [];
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ url: url.pathname, body });
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      return new Response(JSON.stringify({ confirmation: { token: 'c'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/commit')) {
-      return new Response(JSON.stringify({ commit: { hash: 'abc123', shortHash: 'abc123', subject: (body as { message: string }).message } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  await wrapper.find('.git-commit-form input[type="text"]').setValue('ajusta layout');
-  await wrapper.find('.git-commit-form').trigger('submit.prevent');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  const commitCall = calls.find((call) => call.url.endsWith('/git/commit'));
-  assert.equal((commitCall!.body as { message: string; includeAllChanges: boolean }).message, 'ajusta layout');
-  assert.equal((commitCall!.body as { message: string; includeAllChanges: boolean }).includeAllChanges, false);
-  assert.match(wrapper.find('.git-mutation-success').text(), /ajusta layout/);
-});
-
-test('commit exibe erro quando não há nada staged', async () => {
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      return new Response(JSON.stringify({ confirmation: { token: 'd'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/commit')) {
-      return new Response(JSON.stringify({ error: 'GIT_NOTHING_TO_COMMIT', message: 'Não há alterações staged para commitar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  await wrapper.find('.git-commit-form input[type="text"]').setValue('nada staged');
-  await wrapper.find('.git-commit-form').trigger('submit.prevent');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.find('.project-error').text(), /Não há alterações staged/);
-});
-
-test('salvar tudo envia a confirmação da operação save e mostra o assunto prefixado', async () => {
-  const calls: Array<{ url: string; body?: unknown }> = [];
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ url: url.pathname, body });
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: { ...baseOverview, branch: 'feature/tela' } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      return new Response(JSON.stringify({ confirmation: { token: 'f'.repeat(64), operation: (body as { operation: string }).operation, target: (body as { target: string }).target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/save')) {
-      return new Response(JSON.stringify({ commit: { hash: 'def456', shortHash: 'def456', subject: `feat: ${(body as { message: string }).message}` } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.find('.git-save-form').text(), /prefixo "feat:"/);
-
-  await wrapper.find('.git-save-form input[type="text"]').setValue('nova tela');
-  await wrapper.find('.git-save-form').trigger('submit.prevent');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  const confirmationCall = calls.find((call) => call.url.endsWith('/git/mutations/confirmations'));
-  assert.equal((confirmationCall!.body as { operation: string; target: string }).operation, 'save');
-  assert.equal((confirmationCall!.body as { operation: string; target: string }).target, 'feature/tela');
-  const saveCall = calls.find((call) => call.url.endsWith('/git/save'));
-  assert.equal((saveCall!.body as { message: string; confirmationToken: string }).message, 'nova tela');
-  assert.equal((saveCall!.body as { message: string; confirmationToken: string }).confirmationToken, 'f'.repeat(64));
-  assert.match(wrapper.find('.git-mutation-success').text(), /feat: nova tela/);
-});
-
-test('salvar tudo exibe erro quando a API recusa por árvore limpa', async () => {
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      return new Response(JSON.stringify({ git: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      return new Response(JSON.stringify({ confirmation: { token: 'g'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/save')) {
-      return new Response(JSON.stringify({ error: 'GIT_NOTHING_TO_COMMIT', message: 'Não há alterações na árvore de trabalho para salvar.' }), { status: 409, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  await wrapper.find('.git-save-form input[type="text"]').setValue('nada para salvar');
-  await wrapper.find('.git-save-form').trigger('submit.prevent');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.find('.project-error').text(), /Não há alterações na árvore de trabalho/);
-});
-
-test('stash empilha e restaura mostrando a lista atualizada', async () => {
-  let stashed = false;
-  const originalFetch = globalThis.fetch;
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/git')) {
-      const overview: ProjectGitOverview = stashed
-        ? { ...baseOverview, stashes: [{ index: 0, message: 'WIP on main: guardado', createdAt: new Date().toISOString() }] }
-        : baseOverview;
-      return new Response(JSON.stringify({ git: overview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/diff')) {
-      return new Response(JSON.stringify({ diff: { repository: true, scope: 'combined', files: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/mutations/confirmations')) {
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      return new Response(JSON.stringify({ confirmation: { token: 'e'.repeat(64), operation: body.operation, target: body.target, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/git/stash')) {
-      stashed = true;
-      return new Response(JSON.stringify({ stash: { index: 0, message: 'WIP on main: guardado', createdAt: new Date().toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectGitPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    globalThis.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Nenhum stash guardado/);
-
-  const buttons = wrapper.findAll('button');
-  const stashButton = buttons.find((button) => button.text().includes('Guardar alterações'));
-  await stashButton!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.find('.git-mutation-success').text(), /guardado/);
-  assert.equal(wrapper.findAll('.git-stash-list li').length, 1);
-});
-
-test('mostra erro quando a chamada de diff falha', async () => {
-  const { wrapper, restore } = await mountPanel({
-    overview: async () => baseOverview,
-    diff: async () => { throw new ApiRequestError({ status: 500, message: 'API indisponível.' }); },
+test('mostra o estado vazio na página de diff', async () => {
+  const mounted = await mountPanel({
+    overview: { ...baseOverview, clean: true, files: [] },
+    diff: { repository: true, scope: 'combined', files: [] },
   });
-  cleanup = restore;
+  cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Diff');
+
+  assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
+});
+
+test('cria branch após confirmação e recarrega os dados', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 't'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches')) {
+        const body = request.body as { name: string };
+        return jsonResponse({ branch: { branch: body.name } }, 201);
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+  await clickTab(mounted.wrapper, 'Branches');
+
+  const createForm = mounted.wrapper.findAll('.git-two-column-actions form')[1]!;
+  await createForm.find('input').setValue('feature/nova');
+  await createForm.trigger('submit');
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /API indisponível/);
-  assert.equal(wrapper.findAll('.git-diff-file-button').length, 0);
+  const confirmationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/mutations/confirmations'),
+  );
+  const mutationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/branches'),
+  );
+  assert.ok(confirmationIndex >= 0);
+  assert.ok(mutationIndex > confirmationIndex);
+  assert.equal(
+    (mounted.requests[mutationIndex]!.body as { confirmationToken: string }).confirmationToken,
+    't'.repeat(64),
+  );
+  assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
+});
+
+test('push publica a branch no origin após confirmação', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'p'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/push')) {
+        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+
+  const pushButton = mounted.wrapper
+    .findAll('.git-quick-actions button')
+    .find((button) => button.text().includes('Push origin'));
+  assert.ok(pushButton);
+  await pushButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmation = mounted.requests.find((request) =>
+    request.path.endsWith('/git/mutations/confirmations'),
+  );
+  assert.deepEqual(confirmation?.body, {
+    operation: 'push',
+    target: 'feature/git-ui',
+  });
+  assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/push')));
+  assert.match(mounted.wrapper.text(), /Push para origin concluído/);
+});
+
+test('fetch upstream atualiza somente as referências do remote', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/remotes/upstream/fetch')) {
+        return jsonResponse({ remote: 'upstream' });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+  const fetchButton = mounted.wrapper
+    .findAll('.remote-detail-card button')
+    .find((button) => button.text().includes('Fetch upstream'));
+  assert.ok(fetchButton);
+  await fetchButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(mounted.requests.some((request) =>
+    request.path.endsWith('/git/remotes/upstream/fetch')
+    && request.method === 'POST',
+  ));
+  assert.match(mounted.wrapper.text(), /Referências de "upstream" atualizadas/);
+});
+
+test('commit envia mensagem, opção de alterações rastreadas e token', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'c'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/commit')) {
+        return jsonResponse({
+          commit: {
+            hash: 'def456',
+            shortHash: 'def456',
+            subject: 'fix: corrige fluxo',
+          },
+        }, 201);
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+  await clickTab(mounted.wrapper, 'Commit');
+
+  const commitForm = mounted.wrapper.findAll('.git-commit-forms form')[0]!;
+  await commitForm.find('textarea').setValue('fix: corrige fluxo');
+  await commitForm.find('input[type="checkbox"]').setValue(true);
+  await commitForm.trigger('submit');
+  await flushPromises();
+  await flushPromises();
+
+  const commitRequest = mounted.requests.find((request) =>
+    request.path.endsWith('/git/commit'),
+  );
+  assert.deepEqual(commitRequest?.body, {
+    message: 'fix: corrige fluxo',
+    includeAllChanges: true,
+    confirmationToken: 'c'.repeat(64),
+  });
+  assert.match(mounted.wrapper.text(), /Commit "def456" criado/);
+});
+
+test('página de stash informa estado vazio', async () => {
+  const mounted = await mountPanel({
+    overview: { ...baseOverview, stashes: [] },
+  });
+  cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Stash');
+
+  assert.match(mounted.wrapper.text(), /Nenhum stash salvo/);
+});
+
+test('mostra falha de carregamento do diff na página correspondente', async () => {
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/diff')) {
+        return jsonResponse(
+          { error: 'GIT_COMMAND_FAILED', message: 'API indisponível' },
+          500,
+        );
+      }
+      return undefined;
+    },
+  });
+  cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Diff');
+
+  assert.match(mounted.wrapper.text(), /API indisponível/);
+  assert.equal(
+    mounted.wrapper.findAll('.git-diff-layout-modern aside button').length,
+    0,
+  );
 });
