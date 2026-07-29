@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
+  listCurrentBranchCommits,
 } from '../src/services/git-commit-details-service.js';
 
 const execFileAsync = promisify(execFile);
@@ -51,6 +52,41 @@ test('retorna metadados, arquivos e patch de um commit', async () => {
     assert.equal(detail.deletions, 0);
     assert.match(detail.patch, /\+\# Projeto/);
     assert.equal(detail.truncated, false);
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
+});
+
+test('pagina dez commits e limita o histórico à branch atual', async () => {
+  const repository = await createRepository();
+  try {
+    const currentBranch = await run(repository.directory, ['branch', '--show-current']);
+    for (let index = 1; index <= 14; index += 1) {
+      const fileName = `commit-${index}.txt`;
+      await writeFile(path.join(repository.directory, fileName), `${index}\n`, 'utf8');
+      await run(repository.directory, ['add', fileName]);
+      await run(repository.directory, ['commit', '-m', `commit ${index}`]);
+    }
+
+    const firstPage = await listCurrentBranchCommits(repository.directory, 1, 10);
+    const secondPage = await listCurrentBranchCommits(repository.directory, 2, 10);
+    assert.equal(firstPage.branch, currentBranch);
+    assert.equal(firstPage.total, 15);
+    assert.equal(firstPage.totalPages, 2);
+    assert.equal(firstPage.commits.length, 10);
+    assert.equal(firstPage.commits[0]?.subject, 'commit 14');
+    assert.equal(secondPage.commits.length, 5);
+    assert.equal(secondPage.commits.at(-1)?.subject, 'feat: cria projeto');
+
+    await run(repository.directory, ['switch', '--create', 'feature/isolada']);
+    await writeFile(path.join(repository.directory, 'feature-only.txt'), 'feature\n', 'utf8');
+    await run(repository.directory, ['add', 'feature-only.txt']);
+    await run(repository.directory, ['commit', '-m', 'commit exclusivo da feature']);
+    await run(repository.directory, ['switch', currentBranch]);
+
+    const mainHistory = await listCurrentBranchCommits(repository.directory, 1, 10);
+    assert.equal(mainHistory.total, 15);
+    assert.ok(mainHistory.commits.every((commit) => commit.subject !== 'commit exclusivo da feature'));
   } finally {
     await rm(repository.directory, { recursive: true, force: true });
   }
