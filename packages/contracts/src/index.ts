@@ -89,14 +89,20 @@ export type {
 } from './bundler.js';
 
 export type {
+  RailsMigrationDetail,
   RailsMigrationEntry,
   RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
   RailsMigrationMutationResult,
   RailsMigrationStatus,
   RailsMigrationsOverview,
+  RailsModelsOverview,
   RailsRouteEntry,
   RailsRoutesOverview,
+  RailsSchemaColumn,
+  RailsSchemaForeignKey,
+  RailsSchemaIndex,
+  RailsSchemaTable,
 } from './rails.js';
 
 export type {
