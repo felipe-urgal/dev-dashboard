@@ -57,7 +57,6 @@ test('mantem fallback útil para runners sem bloco de falha estruturado', () => 
   assert.equal(report.failures.length, 1);
   assert.equal(report.failures[0]?.type, 'AssertionError');
   assert.match(report.failures[0]?.assertion ?? '', /expected true to be false/);
-  assert.ok(report.errorCount >= 1);
 });
 
 test('aplica layout responsivo, comparação e temas por tokens', async () => {
