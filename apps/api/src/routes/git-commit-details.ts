@@ -244,8 +244,12 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
             request.query.page ?? 1,
             request.query.pageSize ?? 10,
             {
-              search: request.query.search,
-              author: request.query.author,
+              ...(request.query.search !== undefined
+                ? { search: request.query.search }
+                : {}),
+              ...(request.query.author !== undefined
+                ? { author: request.query.author }
+                : {}),
               kind: request.query.kind ?? 'all',
             },
           ),
