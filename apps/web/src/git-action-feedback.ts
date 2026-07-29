@@ -7,6 +7,8 @@ import {
 
 type ActionTone = 'running' | 'success' | 'error';
 
+type CompatibleTimer = number | ReturnType<typeof setTimeout>;
+
 interface PendingTrigger {
   element: HTMLElement;
   label: string;
@@ -18,7 +20,7 @@ interface ActionSession {
   label: string;
   activeRequests: number;
   failed: boolean;
-  settleTimer: ReturnType<typeof window.setTimeout> | undefined;
+  settleTimer: CompatibleTimer | undefined;
   toast: HTMLElement;
 }
 
