@@ -49,6 +49,7 @@ function actionElement(event: Event): HTMLElement | null {
 }
 
 function rememberTrigger(event: Event): void {
+  if (activeSession) return;
   const element = actionElement(event);
   if (!element || !element.closest('.git-modern-panel')) return;
   pendingTrigger = {
