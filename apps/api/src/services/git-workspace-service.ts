@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 
 import type {
   GitBranch,
+  GitCommit,
   GitRemote,
   GitTrackingComparison,
   ProjectGitWorkspace,
@@ -122,13 +123,45 @@ async function listRemotes(projectPath: string): Promise<GitRemote[]> {
   });
 }
 
+function trackingCounts(value: string): { ahead: number; behind: number } {
+  const aheadMatch = /ahead (\d+)/.exec(value);
+  const behindMatch = /behind (\d+)/.exec(value);
+  return {
+    ahead: aheadMatch?.[1] ? Number.parseInt(aheadMatch[1], 10) : 0,
+    behind: behindMatch?.[1] ? Number.parseInt(behindMatch[1], 10) : 0,
+  };
+}
+
+function normalizeAuthorEmail(value: string): string {
+  return value.trim().replace(/^</, '').replace(/>$/, '');
+}
+
+function latestCommitFromFields(fields: {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+}): GitCommit | undefined {
+  if (!fields.hash) return undefined;
+  return {
+    hash: fields.hash,
+    shortHash: fields.shortHash || fields.hash.slice(0, 7),
+    subject: fields.subject,
+    authorName: fields.authorName,
+    authorEmail: normalizeAuthorEmail(fields.authorEmail),
+    authoredAt: fields.authoredAt,
+  };
+}
+
 async function listBranches(projectPath: string): Promise<GitBranch[]> {
   let output = '';
 
   try {
     output = await runGit(projectPath, [
       'for-each-ref',
-      `--format=%(refname)${FIELD_SEPARATOR}%(refname:short)${FIELD_SEPARATOR}%(upstream:short)${FIELD_SEPARATOR}%(HEAD)`,
+      `--format=%(refname)${FIELD_SEPARATOR}%(refname:short)${FIELD_SEPARATOR}%(upstream:short)${FIELD_SEPARATOR}%(upstream:track)${FIELD_SEPARATOR}%(HEAD)${FIELD_SEPARATOR}%(objectname)${FIELD_SEPARATOR}%(objectname:short)${FIELD_SEPARATOR}%(subject)${FIELD_SEPARATOR}%(authorname)${FIELD_SEPARATOR}%(authoremail)${FIELD_SEPARATOR}%(authordate:iso-strict)`,
       'refs/heads',
       'refs/remotes',
     ]);
@@ -139,8 +172,30 @@ async function listBranches(projectPath: string): Promise<GitBranch[]> {
   const branches = output
     .split('\n')
     .map((line): GitBranch | null => {
-      const [refName = '', shortRef = '', upstream = '', head = ''] = line.split(FIELD_SEPARATOR);
+      const [
+        refName = '',
+        shortRef = '',
+        upstream = '',
+        tracking = '',
+        head = '',
+        hash = '',
+        shortHash = '',
+        subject = '',
+        authorName = '',
+        authorEmail = '',
+        authoredAt = '',
+      ] = line.split(FIELD_SEPARATOR);
       if (!refName || !shortRef || refName.endsWith('/HEAD')) return null;
+
+      const counts = trackingCounts(tracking);
+      const latestCommit = latestCommitFromFields({
+        hash,
+        shortHash,
+        subject,
+        authorName,
+        authorEmail,
+        authoredAt,
+      });
 
       if (refName.startsWith('refs/heads/')) {
         return {
@@ -149,6 +204,8 @@ async function listBranches(projectPath: string): Promise<GitBranch[]> {
           kind: 'local',
           current: head.trim() === '*',
           ...(upstream ? { upstream } : {}),
+          ...counts,
+          ...(latestCommit ? { latestCommit } : {}),
         };
       }
 
@@ -164,6 +221,9 @@ async function listBranches(projectPath: string): Promise<GitBranch[]> {
         kind: 'remote',
         current: false,
         ...(remote ? { remote } : {}),
+        ahead: 0,
+        behind: 0,
+        ...(latestCommit ? { latestCommit } : {}),
       };
     })
     .filter((branch): branch is GitBranch => branch !== null);

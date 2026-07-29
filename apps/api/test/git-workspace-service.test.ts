@@ -14,7 +14,7 @@ async function git(cwd: string, ...args: string[]): Promise<void> {
   await exec('git', args, { cwd });
 }
 
-test('lists local, origin and upstream branches with separate comparisons', async () => {
+test('lists local, origin and upstream branches with commit and tracking details', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-workspace-'));
   const local = path.join(root, 'local');
   const origin = path.join(root, 'origin.git');
@@ -46,12 +46,26 @@ test('lists local, origin and upstream branches with separate comparisons', asyn
 
     assert.equal(workspace.remotes.find((remote) => remote.name === 'origin')?.role, 'origin');
     assert.equal(workspace.remotes.find((remote) => remote.name === 'upstream')?.role, 'upstream');
-    assert.ok(workspace.branches.some((branch) =>
+
+    const current = workspace.branches.find((branch) =>
       branch.kind === 'local'
-      && branch.name === 'feature/git-workspace'
-      && branch.current,
-    ));
-    assert.ok(workspace.branches.some((branch) => branch.name === 'origin/feature/git-workspace'));
+      && branch.name === 'feature/git-workspace',
+    );
+    assert.equal(current?.current, true);
+    assert.equal(current?.upstream, 'origin/feature/git-workspace');
+    assert.equal(current?.ahead, 0);
+    assert.equal(current?.behind, 0);
+    assert.equal(current?.latestCommit?.subject, 'feature commit');
+    assert.equal(current?.latestCommit?.authorName, 'Dashboard Test');
+    assert.equal(current?.latestCommit?.authorEmail, 'dashboard@example.test');
+
+    const originFeature = workspace.branches.find((branch) =>
+      branch.name === 'origin/feature/git-workspace',
+    );
+    assert.equal(originFeature?.latestCommit?.subject, 'feature commit');
+    assert.equal(originFeature?.ahead, 0);
+    assert.equal(originFeature?.behind, 0);
+
     assert.ok(workspace.branches.some((branch) => branch.name === 'upstream/main'));
     assert.deepEqual(workspace.originComparison, {
       reference: 'origin/feature/git-workspace',

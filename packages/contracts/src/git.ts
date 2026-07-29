@@ -19,6 +19,9 @@ export interface GitBranch {
   current: boolean;
   remote?: string;
   upstream?: string;
+  ahead: number;
+  behind: number;
+  latestCommit?: GitCommit;
 }
 
 export interface GitTrackingComparison {
@@ -53,7 +56,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
+export type GitMutationOperation = 'create-branch' | 'track-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
 
 export interface GitMutationConfirmation {
   token: string;

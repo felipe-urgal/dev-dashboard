@@ -1,4 +1,7 @@
-import type { ProjectGitWorkspace } from '@dev-dashboard/contracts';
+import type {
+  GitMutationConfirmation,
+  ProjectGitWorkspace,
+} from '@dev-dashboard/contracts';
 
 import { ApiRequestError } from '../api';
 
@@ -9,6 +12,16 @@ interface ErrorResponse {
 
 interface GitWorkspaceResponse {
   workspace: ProjectGitWorkspace;
+}
+
+interface GitTrackingConfirmationResponse {
+  confirmation: GitMutationConfirmation;
+}
+
+interface GitBranchMutationResponse {
+  branch: {
+    branch: string;
+  };
 }
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
@@ -60,4 +73,41 @@ export async function fetchProjectGitRemote(
   );
 
   return response.remote;
+}
+
+export async function prepareProjectGitTrackingBranch(
+  projectId: string,
+  remoteBranch: string,
+): Promise<GitMutationConfirmation> {
+  const response = await requestJson<GitTrackingConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/track/confirmations`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ remoteBranch }),
+    },
+  );
+
+  return response.confirmation;
+}
+
+export async function trackProjectGitBranch(
+  projectId: string,
+  remoteBranch: string,
+  confirmationToken: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/track`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ remoteBranch, confirmationToken }),
+    },
+  );
+
+  return response.branch.branch;
 }
