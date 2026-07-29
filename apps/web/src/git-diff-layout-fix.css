@@ -1,0 +1,53 @@
+.git-diff-viewer,
+.git-diff-unified,
+.git-diff-split {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.git-diff-unified,
+.git-diff-split {
+  width: 100%;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.git-diff-split {
+  overflow-x: hidden !important;
+}
+
+.git-diff-split-row,
+.git-diff-split-meta {
+  width: 100%;
+  min-width: 0 !important;
+}
+
+.git-diff-side-cell {
+  grid-template-columns: 48px 22px minmax(0, 1fr) !important;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.git-diff-side-cell code,
+.git-diff-split-meta code {
+  min-width: 0 !important;
+  max-width: 100%;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.git-diff-split-meta code {
+  padding-right: 12px;
+}
+
+.git-diff-line-number,
+.git-diff-line-prefix {
+  align-self: stretch;
+}
+
+@media (max-width: 760px) {
+  .git-diff-side-cell {
+    grid-template-columns: 40px 18px minmax(0, 1fr) !important;
+  }
+}
