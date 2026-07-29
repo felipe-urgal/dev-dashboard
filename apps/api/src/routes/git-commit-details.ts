@@ -10,6 +10,7 @@ import {
   GitCommitDetailsError,
   inspectGitCommit,
   listBranchCommits,
+  type GitCommitHistoryKind,
 } from '../services/git-commit-details-service.js';
 
 interface GitCommitDetailsRouteOptions extends FastifyPluginOptions {
@@ -28,6 +29,9 @@ interface HistoryQuery {
   ref?: string;
   page?: number;
   pageSize?: number;
+  search?: string;
+  author?: string;
+  kind?: GitCommitHistoryKind;
 }
 
 const projectParamsSchema = {
@@ -64,6 +68,9 @@ const historyQuerySchema = {
     },
     page: { type: 'integer', minimum: 1, default: 1 },
     pageSize: { type: 'integer', minimum: 1, maximum: 10, default: 10 },
+    search: { type: 'string', maxLength: 200 },
+    author: { type: 'string', maxLength: 320 },
+    kind: { type: 'string', enum: ['all', 'regular', 'merge'], default: 'all' },
   },
 } as const;
 
@@ -236,6 +243,11 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
             request.query.ref,
             request.query.page ?? 1,
             request.query.pageSize ?? 10,
+            {
+              search: request.query.search,
+              author: request.query.author,
+              kind: request.query.kind ?? 'all',
+            },
           ),
         };
       } catch (error) {
