@@ -1,4 +1,5 @@
 import {
+  access,
   readdir,
   readFile,
   rm,
@@ -22,6 +23,12 @@ export interface SweepStaleProcessesOptions {
 export interface SweptProcess {
   projectId: string;
 }
+
+export interface SweptOrphanLog {
+  logFile: string;
+}
+
+export type SweptEntry = SweptProcess | SweptOrphanLog;
 
 const DEFAULT_RETENTION_DAYS = 7;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -124,7 +131,7 @@ function resolveManagedLogPath(
 export async function sweepStaleProcesses(
   stateDirectory: string,
   options?: SweepStaleProcessesOptions,
-): Promise<SweptProcess[]> {
+): Promise<SweptEntry[]> {
   const maxAgeMs = resolveMaxAgeMs(options);
   const removeAllTerminal =
     options?.removeAllTerminal === true;
@@ -210,6 +217,91 @@ export async function sweepStaleProcesses(
       // Um estado corrompido não deve interromper
       // a limpeza dos demais.
     }
+  }
+
+  const sweptOrphanLogs = await sweepOrphanLogs(
+    processDirectory,
+    logDirectory,
+    maxAgeMs,
+    removeAllTerminal,
+  );
+
+  return [...swept, ...sweptOrphanLogs];
+}
+
+const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test)\.log$/;
+
+function resolveManagedStateFileName(
+  logFileName: string,
+): string {
+  return logFileName.replace(
+    MANAGED_LOG_SUFFIX_PATTERN,
+    (_match, kind: string) => `.${kind}.json`,
+  );
+}
+
+async function sweepOrphanLogs(
+  processDirectory: string,
+  logDirectory: string,
+  maxAgeMs: number,
+  removeAllTerminal: boolean,
+): Promise<SweptOrphanLog[]> {
+  const logEntries = await readdir(logDirectory, {
+    withFileTypes: true,
+  }).catch((error: unknown) => {
+    if (
+      isErrnoException(error) &&
+      error.code === 'ENOENT'
+    ) {
+      return [];
+    }
+
+    throw error;
+  });
+
+  const swept: SweptOrphanLog[] = [];
+
+  for (const entry of logEntries) {
+    if (
+      !entry.isFile() ||
+      !MANAGED_LOG_SUFFIX_PATTERN.test(entry.name)
+    ) {
+      continue;
+    }
+
+    const logFilePath = path.join(
+      logDirectory,
+      entry.name,
+    );
+
+    const stateFilePath = path.join(
+      processDirectory,
+      resolveManagedStateFileName(entry.name),
+    );
+
+    try {
+      await access(stateFilePath);
+      // Ainda existe um estado correspondente: o log não é órfão.
+      continue;
+    } catch {
+      // Sem estado correspondente: candidato a órfão.
+    }
+
+    if (!removeAllTerminal) {
+      const logStats = await stat(logFilePath);
+
+      if (Date.now() - logStats.mtimeMs <= maxAgeMs) {
+        continue;
+      }
+    }
+
+    await rm(logFilePath, {
+      force: true,
+    });
+
+    swept.push({
+      logFile: entry.name,
+    });
   }
 
   return swept;

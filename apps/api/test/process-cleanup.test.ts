@@ -202,5 +202,31 @@ test(
         assert.equal(body.removed[0]?.projectId, "recent-project");
       }
     );
+
+    await context.test(
+      "removes an orphaned log without a matching state file",
+      async () => {
+        await writeFile(
+          path.join(logDirectory, "orphan.server.log"),
+          "log sem estado correspondente\n"
+        );
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/processes/cleanup",
+          headers
+        });
+
+        const body = response.json<{
+          removed: Array<{ projectId?: string; logFile?: string }>;
+          removedCount: number;
+        }>();
+
+        assert.equal(response.statusCode, 200);
+        assert.equal(body.removedCount, 1);
+        assert.equal(body.removed[0]?.logFile, "orphan.server.log");
+        assert.equal(body.removed[0]?.projectId, undefined);
+      }
+    );
   }
 );

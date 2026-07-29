@@ -310,9 +310,9 @@ export const logRetentionSweepResponseSchema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['projectId'],
         properties: {
           projectId: { type: 'string' },
+          logFile: { type: 'string' },
         },
       },
     },
