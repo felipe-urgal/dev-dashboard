@@ -52,6 +52,16 @@ export type {
 } from './git.js';
 
 export type {
+  GitStashConfirmation,
+  GitStashCreateInput,
+  GitStashDetail,
+  GitStashFile,
+  GitStashMutationResult,
+  GitStashOperation,
+  GitStashSummary,
+} from './git-stash.js';
+
+export type {
   ProjectTestCommand,
   ProjectTestFile,
   ProjectTestOrigin,
