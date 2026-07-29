@@ -129,17 +129,18 @@ Não fazem parte da primeira versão:
 
 ## Direção de longo prazo
 
-O Dev Dashboard poderá evoluir para uma plataforma local extensível com:
+Já entregue no dashboard web (ver [`../roadmap.md`](../roadmap.md) para o
+detalhamento por task): status e operações Git (leitura e mutações com
+confirmação), execução de testes, scripts Node, banco e tarefas Rails de
+baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette
+e notificações locais.
 
-- status e operações Git;
-- execução de testes;
-- scripts Node;
-- banco e tarefas Rails;
-- processos auxiliares;
-- histórico de jobs;
-- command palette;
-- notificações;
-- GitHub CLI;
+O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
+extensível com:
+
+- histórico de jobs unificado (Git, Rails e processos numa única linha do
+  tempo);
+- GitHub CLI (`git-pr` e além);
 - Docker Compose;
 - plugins;
 - perfis de workspace;
