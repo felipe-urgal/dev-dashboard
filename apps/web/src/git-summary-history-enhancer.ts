@@ -53,7 +53,7 @@ interface SummaryState {
   commits: GitCommitSummary[];
   selectedHash: string;
   search: string;
-  request?: AbortController;
+  request: AbortController | undefined;
 }
 
 const stateBySection = new WeakMap<HTMLElement, SummaryState>();
@@ -456,6 +456,7 @@ function buildHistory(section: HTMLElement, projectId: string): void {
     commits: [],
     selectedHash: '',
     search: '',
+    request: undefined,
   };
   stateBySection.set(section, state);
 
