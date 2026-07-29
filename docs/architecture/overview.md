@@ -218,6 +218,9 @@ Responsabilidades:
 - armazenar logs;
 - fornecer trechos limitados de logs.
 - mascarar credenciais conhecidas antes de devolver logs às interfaces.
+- varrer e remover estado/log terminal fora da janela de retenção
+  (`sweepStaleProcesses`), incluindo logs órfãos sem arquivo de estado
+  correspondente (task 042).
 
 O gerenciador não aceita strings de shell arbitrárias.
 
@@ -375,16 +378,24 @@ Não devemos reescrever todo o CLI antes que a nova arquitetura comprove seu val
 ## Próximos componentes
 
 Componentes já incorporados à arquitetura: repositório de projetos persistentes,
-status e operações Git (leitura e mutações com confirmação), painel de atividade
-unificado, execução de testes, scripts Node, operações Rails de baixo risco,
-autenticação local, command palette e histórico de execuções (scripts e testes).
+status e operações Git (leitura e mutações com confirmação, incluindo
+`git-save` — task 041), painel de atividade unificado, avisos locais de
+conclusão (task 040), execução de testes, scripts Node, operações Rails de
+baixo risco, autenticação local, command palette, histórico de execuções
+(scripts e testes) e limpeza de estado/log obsoleto do Process Manager —
+incluindo logs órfãos sem estado correspondente (task 042).
 
 Ainda faltam:
 
-- avisos locais de conclusão de operações demoradas (task 036, ver
+- `git-pr` (compor e abrir a URL de criação de PR/MR a partir do remote
+  `origin`, sem chamar API de provedor — próxima entrega, ver
   `docs/tasks/NEXT.md`);
 - adaptador para abrir editor e navegador local;
 - jobs/histórico de ações unificado entre Git, Rails e processos.
+
+`dev-kill-port` do CLI foi avaliado e adiado (task 042): encerra qualquer
+PID dono de uma porta sem validar sua identidade, o que conflita com a
+seção "Identidade de processos" abaixo.
 
 ## Critérios para novos módulos
 

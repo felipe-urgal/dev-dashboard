@@ -129,14 +129,17 @@ todos os projetos.
    040).
 6. **Paridade CLI→Web seletiva:** trazer, uma por vez e com política de risco
    proporcional, capacidades hoje exclusivas do Bash — `git-save`
-   (add+commit rápido com confirmação — concluído, task 041), `git-pr`
-   (rascunho via GitHub CLI,
-   apenas depois de revisar o modelo de autorização), snapshot/restore de
-   banco reconhecido, `dev-kill-port` e `dev-clean` como ações de manutenção
-   no painel de processos, e abrir editor/terminal via adaptadores locais
-   conhecidos. Integrações IA (`dev-claude`, `dev-ai-*`) permanecem
-   opcionais e isoladas em um painel próprio, sem virar dependência do
-   fluxo principal.
+   (add+commit rápido com confirmação — concluído, task 041), `dev-clean`
+   (lacuna real de logs órfãos sem estado correspondente — concluído,
+   task 042), `dev-kill-port` (avaliado e adiado, task 042: mata qualquer
+   PID dono da porta sem validar identidade de processo, o que conflita com
+   `docs/architecture/security.md`), `git-pr` (compor e abrir a URL de
+   criação de PR/MR a partir do remote `origin` já configurado, sem chamar
+   API de provedor nem exigir token de terceiros — ver `docs/tasks/NEXT.md`),
+   snapshot/restore de banco reconhecido, e abrir editor/terminal via
+   adaptadores locais conhecidos. Integrações IA (`dev-claude`, `dev-ai-*`)
+   permanecem opcionais e isoladas em um painel próprio, sem virar
+   dependência do fluxo principal.
 
 Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
 um terminal genérico disfarçado.

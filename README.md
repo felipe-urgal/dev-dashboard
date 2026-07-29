@@ -488,9 +488,10 @@ smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-A próxima entrega planejada é avisos locais de conclusão para operações
-demoradas (testes, scripts e processos), sem criar um segundo canal de eventos
-nem persistir conteúdo sensível.
+A próxima entrega planejada é `git-pr` no painel Git: publicar o branch atual
+em `origin` (reaproveitando o push já existente) e abrir a URL de criação de
+PR/MR do provedor remoto, sem chamar a API do GitHub/GitLab nem exigir token
+de terceiros.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
 para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
