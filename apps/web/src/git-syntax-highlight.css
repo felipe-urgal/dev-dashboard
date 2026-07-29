@@ -1,0 +1,171 @@
+:root {
+  --git-syntax-keyword: #ff5c9a;
+  --git-syntax-function: #a8e063;
+  --git-syntax-type: #66d9ef;
+  --git-syntax-string: #e6db74;
+  --git-syntax-number: #c5a3ff;
+  --git-syntax-comment: #7f8971;
+  --git-syntax-literal: #c5a3ff;
+  --git-syntax-variable: #f2f4f8;
+  --git-syntax-property: #7dd7f7;
+  --git-syntax-symbol: #ffad66;
+  --git-syntax-operator: #ff6b9f;
+  --git-syntax-tag: #ff6b9f;
+  --git-syntax-attribute: #a8e063;
+  --git-syntax-selector: #a8e063;
+}
+
+[data-theme='light'] {
+  --git-syntax-keyword: #cf225e;
+  --git-syntax-function: #417e18;
+  --git-syntax-type: #087ea4;
+  --git-syntax-string: #8a6100;
+  --git-syntax-number: #7c3aed;
+  --git-syntax-comment: #6e7781;
+  --git-syntax-literal: #7c3aed;
+  --git-syntax-variable: #24292f;
+  --git-syntax-property: #0969da;
+  --git-syntax-symbol: #bc4c00;
+  --git-syntax-operator: #cf225e;
+  --git-syntax-tag: #cf225e;
+  --git-syntax-attribute: #417e18;
+  --git-syntax-selector: #417e18;
+}
+
+.git-syntax-keyword,
+.git-syntax-function,
+.git-syntax-type,
+.git-syntax-literal,
+.git-syntax-property,
+.git-syntax-symbol,
+.git-syntax-tag,
+.git-syntax-attribute,
+.git-syntax-selector {
+  font-weight: 600;
+}
+
+.git-syntax-keyword { color: var(--git-syntax-keyword); }
+.git-syntax-function { color: var(--git-syntax-function); }
+.git-syntax-type { color: var(--git-syntax-type); }
+.git-syntax-string { color: var(--git-syntax-string); }
+.git-syntax-number { color: var(--git-syntax-number); }
+.git-syntax-comment { color: var(--git-syntax-comment); font-style: italic; }
+.git-syntax-literal { color: var(--git-syntax-literal); }
+.git-syntax-variable { color: var(--git-syntax-variable); }
+.git-syntax-property { color: var(--git-syntax-property); }
+.git-syntax-symbol { color: var(--git-syntax-symbol); }
+.git-syntax-operator { color: var(--git-syntax-operator); }
+.git-syntax-tag { color: var(--git-syntax-tag); }
+.git-syntax-attribute { color: var(--git-syntax-attribute); }
+.git-syntax-selector { color: var(--git-syntax-selector); }
+
+.git-diff-unified-row code,
+.git-diff-side-cell code,
+.git-inline-diff-line code,
+.git-inline-diff-side code,
+.git-syntax-patch-code {
+  text-shadow: none;
+}
+
+.git-syntax-patch {
+  display: block;
+  overflow: auto;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.git-syntax-patch-line {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.git-syntax-patch-prefix {
+  display: block;
+  align-self: stretch;
+  border-right: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+  color: var(--text-muted);
+  padding: 2px 4px;
+  text-align: center;
+  user-select: none;
+  font-weight: 700;
+}
+
+.git-syntax-patch-code {
+  display: block;
+  min-width: 0;
+  padding: 2px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.git-syntax-patch-line.is-addition {
+  box-shadow: inset 3px 0 0 var(--success-text);
+  background: color-mix(in srgb, var(--success-surface) 78%, var(--surface-1));
+}
+
+.git-syntax-patch-line.is-deletion {
+  box-shadow: inset 3px 0 0 var(--danger-text);
+  background: color-mix(in srgb, var(--danger-surface) 78%, var(--surface-1));
+}
+
+.git-syntax-patch-line.is-addition .git-syntax-patch-prefix {
+  background: color-mix(in srgb, var(--success-surface) 82%, var(--surface-2));
+  color: var(--success-text);
+}
+
+.git-syntax-patch-line.is-deletion .git-syntax-patch-prefix {
+  background: color-mix(in srgb, var(--danger-surface) 82%, var(--surface-2));
+  color: var(--danger-text);
+}
+
+.git-syntax-patch-line.is-hunk {
+  background: color-mix(in srgb, var(--info-surface) 84%, var(--surface-1));
+  color: var(--info-text);
+}
+
+.git-syntax-patch-line.is-hunk .git-syntax-patch-prefix {
+  background: color-mix(in srgb, var(--info-surface) 82%, var(--surface-2));
+  color: var(--info-text);
+}
+
+.git-syntax-patch-line.is-meta,
+.git-syntax-patch-line.is-notice {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.git-syntax-patch-line:hover {
+  filter: brightness(1.035);
+}
+
+.git-syntax-patch mark,
+.git-diff-unified-row mark,
+.git-diff-side-cell mark,
+.git-inline-diff-line mark,
+.git-inline-diff-side mark {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--warning-text) 28%, transparent);
+  color: inherit;
+  padding-inline: 1px;
+}
+
+@media (max-width: 760px) {
+  .git-syntax-patch-line {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .git-syntax-patch-code {
+    padding-inline: 7px;
+  }
+}
