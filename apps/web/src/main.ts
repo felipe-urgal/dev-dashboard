@@ -22,6 +22,7 @@ import './git-history-compact-columns.css';
 import './git-action-feedback.css';
 import './git-branch-delete-enhancer.css';
 import './git-diff-compact-enhancer.css';
+import './git-diff-layout-fix.css';
 import { installGitActionFeedback } from './git-action-feedback';
 import { installGitBranchDeleteEnhancer } from './git-branch-delete-enhancer';
 import { installGitCommitEnhancer } from './git-commit-enhancer';

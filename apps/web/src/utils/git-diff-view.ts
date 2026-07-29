@@ -19,7 +19,7 @@ export interface GitSplitDiffRow {
   right: GitUnifiedDiffLine | null;
 }
 
-const HUNK_PATTERN = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/;
+const HUNK_PATTERN = /^(@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@)(?:\s+(.*))?$/;
 
 function metaLine(text: string, kind: GitDiffLineKind = 'meta'): GitUnifiedDiffLine {
   return {
@@ -33,14 +33,19 @@ function metaLine(text: string, kind: GitDiffLineKind = 'meta'): GitUnifiedDiffL
 export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
   let oldLine: number | null = null;
   let newLine: number | null = null;
+  let previousHunkContext = '';
   const lines: GitUnifiedDiffLine[] = [];
 
   for (const rawLine of content.split('\n')) {
     const hunk = HUNK_PATTERN.exec(rawLine);
     if (hunk) {
-      oldLine = Number.parseInt(hunk[1] ?? '0', 10);
-      newLine = Number.parseInt(hunk[3] ?? '0', 10);
-      lines.push(metaLine(rawLine, 'hunk'));
+      oldLine = Number.parseInt(hunk[2] ?? '0', 10);
+      newLine = Number.parseInt(hunk[4] ?? '0', 10);
+      const coordinates = hunk[1] ?? rawLine;
+      const context = hunk[6]?.trim() ?? '';
+      const repeatedContext = Boolean(context) && context === previousHunkContext;
+      lines.push(metaLine(repeatedContext ? coordinates : rawLine, 'hunk'));
+      if (context) previousHunkContext = context;
       continue;
     }
 
