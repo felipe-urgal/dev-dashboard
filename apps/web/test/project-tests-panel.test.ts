@@ -185,7 +185,7 @@ test('exibe o histórico de execuções retornado pela API', async () => {
   assert.match(wrapper.text(), /Histórico de execuções/);
   const items = wrapper.findAll('.tests-history-list li');
   assert.equal(items.length, 1);
-  assert.match(items[0]!.text(), /node-script-test/);
+  assert.match(items[0]!.text(), /npm run test/);
   assert.match(items[0]!.text(), /src\/app\.test\.ts/);
 });
 
