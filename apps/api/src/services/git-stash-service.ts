@@ -217,7 +217,7 @@ function parseNumstat(
 }
 
 function parseSubject(subject: string): { branch: string; message: string } {
-  const match = /^(?:WIP|On) on ([^:]+):\s*(.*)$/.exec(subject.trim());
+  const match = /^(?:WIP on|On) ([^:]+):\s*(.*)$/.exec(subject.trim());
   if (!match) {
     return {
       branch: 'HEAD',
