@@ -1,9 +1,11 @@
+type CompatibleTimer = number | ReturnType<typeof setTimeout>;
+
 interface HistorySearchState {
   search: string;
   author: string;
   kind: 'all' | 'regular' | 'merge';
   pendingFirstPage: boolean;
-  debounceTimer: ReturnType<typeof window.setTimeout> | undefined;
+  debounceTimer: CompatibleTimer | undefined;
   total: number;
   returned: number;
 }
