@@ -51,7 +51,7 @@ vi.mock('../src/api', async (importOriginal) => ({
     scope: 'combined',
     files: [],
   }),
-  fetchProjectDatabase: vi.fn().mockResolvedValue({ supported: false, environments: [], total: 0, pageSize: 20 }),
+  fetchProjectDatabase: vi.fn().mockResolvedValue({ supported: false, environments: [], total: 0, page: 1, pageSize: 20 }),
   fetchProjectScripts: vi.fn().mockResolvedValue({ items: [], page: 1, totalPages: 1, total: 0 }),
   fetchScriptExecutionHistory: vi.fn().mockResolvedValue({ items: [] }),
   fetchLatestScriptExecution: vi.fn().mockResolvedValue(null),
@@ -129,7 +129,6 @@ describe('cards dos painéis de detalhe', () => {
 
   it.each([
     ['testes', ProjectTestsPanel],
-    ['banco de dados', ProjectDatabasePanel],
     ['scripts', ProjectScriptsPanel],
   ])('renderiza o painel de %s dentro de Card', async (_name, component) => {
     const wrapper = mount(component, { props: { project } });
@@ -137,6 +136,18 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.get('.dd-card').classes()).toContain('project-detail-card');
     expect(wrapper.find('.dd-card-header').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it('renderiza banco de dados como explorador com navegação própria', async () => {
+    const wrapper = mount(ProjectDatabasePanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.find('.database-explorer').exists()).toBe(true);
+    expect(wrapper.find('.database-explorer-header').exists()).toBe(true);
+    expect(wrapper.find('.database-explorer-tabs').exists()).toBe(true);
+    expect(wrapper.findAll('.database-explorer-tabs button')).toHaveLength(2);
 
     wrapper.unmount();
   });

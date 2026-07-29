@@ -6,6 +6,7 @@ import App from './App.vue';
 import { router } from './router';
 import './styles.css';
 import './project-details-redesign.css';
+import './database-layout-polish.css';
 import './project-header-server-enhancer.css';
 import './log-visual-enhancer.css';
 import './test-log-visual-polish.css';
