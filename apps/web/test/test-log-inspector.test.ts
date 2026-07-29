@@ -55,7 +55,8 @@ test('mantem fallback útil para runners sem bloco de falha estruturado', () => 
   const report = parseTestLog('AssertionError: expected true to be false\n at test/example.test.ts:14:2');
 
   assert.equal(report.failures.length, 1);
-  assert.match(report.failures[0]?.assertion ?? '', /AssertionError/);
+  assert.equal(report.failures[0]?.type, 'AssertionError');
+  assert.match(report.failures[0]?.assertion ?? '', /expected true to be false/);
   assert.ok(report.errorCount >= 1);
 });
 
