@@ -1,0 +1,39 @@
+.git-modern-panel,
+.git-modern-panel :where(button, input, select, textarea) {
+  font-family: var(--font-family);
+}
+
+.git-modern-panel {
+  color: var(--text);
+  font-size: var(--font-md);
+  font-weight: var(--font-weight-body);
+  line-height: 1.45;
+}
+
+.git-modern-panel :where(h1, h2, h3, h4, strong, b) {
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0;
+}
+
+.git-modern-panel :where(h2, h3, p) {
+  text-transform: none;
+}
+
+.git-modern-panel :where(code, pre) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', monospace;
+}
+
+.git-modern-panel :where(label, dt, th, .git-table-header) {
+  letter-spacing: 0;
+}
+
+.git-modern-panel .git-subtabs::-webkit-scrollbar {
+  height: 5px;
+}
+
+.git-modern-panel .git-subtabs::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--border-strong);
+}
