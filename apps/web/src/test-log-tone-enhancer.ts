@@ -87,12 +87,12 @@ export function installTestLogToneEnhancer(): void {
   scan();
 
   let scheduled = false;
-  const scheduleScan = (mutations: MutationRecord[]): void => {
+  const scheduleScan = (): void => {
     if (scheduled) return;
     scheduled = true;
     queueMicrotask(() => {
       scheduled = false;
-      mutations.forEach((mutation) => scan(mutation.target as ParentNode));
+      scan();
     });
   };
 
