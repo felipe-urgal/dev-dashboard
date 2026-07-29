@@ -46,6 +46,24 @@ test('alinha remoções e adições na visualização lado a lado', () => {
   assert.equal(changes[1]?.right?.text, 'return nextValue;');
 });
 
+test('omite contexto repetido dos hunks seguintes e preserva contextos diferentes', () => {
+  const lines = parseUnifiedGitDiff([
+    '@@ -18,7 +18,7 @@ class ApplicationController < ActionController::Base',
+    ' first',
+    '@@ -37,7 +37,7 @@ class ApplicationController < ActionController::Base',
+    ' second',
+    '@@ -52,7 +52,7 @@ def current_ability',
+    ' third',
+  ].join('\n')).filter((line) => line.kind === 'hunk');
+
+  assert.equal(
+    lines[0]?.text,
+    '@@ -18,7 +18,7 @@ class ApplicationController < ActionController::Base',
+  );
+  assert.equal(lines[1]?.text, '@@ -37,7 +37,7 @@');
+  assert.equal(lines[2]?.text, '@@ -52,7 +52,7 @@ def current_ability');
+});
+
 test('destaca busca escapando conteúdo HTML', () => {
   const result = highlightGitDiffText('<script>return value</script>', 'return');
 
