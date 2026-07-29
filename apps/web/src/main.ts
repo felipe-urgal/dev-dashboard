@@ -48,6 +48,7 @@ import { installLogDetailEnhancer } from './log-detail-enhancer';
 import { installLogVisualEnhancer } from './log-visual-enhancer';
 import { installProjectHeaderServerEnhancer } from './project-header-server-enhancer';
 import { installSqlExplanationEnhancer } from './sql-explanation-enhancer';
+import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
@@ -71,6 +72,7 @@ installGitDiffHeaderCleanup();
 installGitHistoryInlineDiffFix();
 installGitSummaryInlineDiffFix();
 installLogVisualEnhancer();
+installTestLogAutoFollow();
 installTestLogToneEnhancer();
 installSqlExplanationEnhancer();
 installLogDetailEnhancer();
