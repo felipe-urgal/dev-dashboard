@@ -2,9 +2,9 @@ import { h, render, type Component } from 'vue';
 import {
   ArchiveBoxIcon,
   ArrowsRightLeftIcon,
+  CheckCircleIcon,
   ClockIcon,
   CodeBracketIcon,
-  CommitIcon,
   DocumentMagnifyingGlassIcon,
   ServerStackIcon,
   Squares2X2Icon,
@@ -14,16 +14,21 @@ const iconByLabel: Record<string, Component> = {
   Resumo: Squares2X2Icon,
   Branches: CodeBracketIcon,
   Sincronização: ArrowsRightLeftIcon,
-  Commit: CommitIcon,
+  Commit: CheckCircleIcon,
   Stash: ArchiveBoxIcon,
   Diff: DocumentMagnifyingGlassIcon,
   Histórico: ClockIcon,
 };
 
-function mountIcon(host: HTMLElement, icon: Component, className: string): void {
+function mountIcon(
+  host: HTMLElement,
+  icon: Component,
+  className: string,
+  tagName: 'span' | 'i' = 'span',
+): void {
   if (host.dataset.heroiconReady === 'true') return;
 
-  const iconHost = document.createElement('span');
+  const iconHost = document.createElement(tagName);
   iconHost.className = className;
   iconHost.setAttribute('aria-hidden', 'true');
   render(h(icon, { class: `${className}-svg` }), iconHost);
@@ -32,14 +37,22 @@ function mountIcon(host: HTMLElement, icon: Component, className: string): void 
 }
 
 function enhanceGitIcons(root: ParentNode = document): void {
-  root.querySelectorAll<HTMLElement>('.git-subtabs button').forEach((button) => {
+  const tabButtons = [
+    ...(root instanceof HTMLElement && root.matches('.git-subtabs button') ? [root] : []),
+    ...root.querySelectorAll<HTMLElement>('.git-subtabs button'),
+  ];
+  tabButtons.forEach((button) => {
     const label = button.textContent?.trim() ?? '';
     const icon = iconByLabel[label];
     if (icon) mountIcon(button, icon, 'git-tab-heroicon');
   });
 
-  root.querySelectorAll<HTMLElement>('.git-server-indicator').forEach((indicator) => {
-    mountIcon(indicator, ServerStackIcon, 'git-server-heroicon');
+  const indicators = [
+    ...(root instanceof HTMLElement && root.matches('.git-server-indicator') ? [root] : []),
+    ...root.querySelectorAll<HTMLElement>('.git-server-indicator'),
+  ];
+  indicators.forEach((indicator) => {
+    mountIcon(indicator, ServerStackIcon, 'git-server-heroicon', 'i');
   });
 }
 
