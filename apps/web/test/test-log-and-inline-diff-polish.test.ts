@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { test } from 'vitest';
 
 import { classifyTestLogLine } from '../src/test-log-tone-enhancer';
+
+function sourceFile(fileName: string): string {
+  return resolve(process.cwd(), 'src', fileName);
+}
 
 test('classifica linhas comuns de Vitest e Rails para o realce visual', () => {
   assert.equal(classifyTestLogLine('........................................'), 'progress');
@@ -19,10 +24,7 @@ test('classifica linhas comuns de Vitest e Rails para o realce visual', () => {
 });
 
 test('mantem o log de testes dentro do painel e permite quebra de linhas longas', async () => {
-  const css = await readFile(
-    new URL('../src/test-log-visual-polish.css', import.meta.url),
-    'utf8',
-  );
+  const css = await readFile(sourceFile('test-log-visual-polish.css'), 'utf8');
 
   assert.match(css, /overflow-x:\s*hidden/);
   assert.match(css, /grid-template-columns:\s*48px minmax\(0, 1fr\)/);
@@ -33,10 +35,7 @@ test('mantem o log de testes dentro do painel e permite quebra de linhas longas'
 });
 
 test('usa o mesmo comportamento responsivo e semantico da pagina de diff nos diffs inline', async () => {
-  const css = await readFile(
-    new URL('../src/git-inline-diff-theme.css', import.meta.url),
-    'utf8',
-  );
+  const css = await readFile(sourceFile('git-inline-diff-theme.css'), 'utf8');
 
   assert.match(css, /git-inline-diff-unified[\s\S]*min-width:\s*0/);
   assert.match(css, /git-inline-diff-line[\s\S]*minmax\(0, 1fr\)/);
