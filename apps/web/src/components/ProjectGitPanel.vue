@@ -5,13 +5,16 @@ import {
   ref,
   watch,
 } from 'vue';
+import { RouterLink } from 'vue-router';
 
 import type {
   GitDiffSnapshot,
   GitFileDiff,
   GitFileStatus,
   GitRemote,
+  GitSyncStrategy,
   GitTrackingComparison,
+  ManagedProcess,
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -23,6 +26,7 @@ import {
   fetchProjectGit,
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
+  fetchProjectProcess,
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
@@ -34,26 +38,29 @@ import {
 import {
   fetchProjectGitRemote,
   fetchProjectGitWorkspace,
+  integrateProjectGitReference,
+  prepareProjectGitSync,
   prepareProjectGitTrackingBranch,
   trackProjectGitBranch,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
+import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
 type GitTab = 'summary' | 'branches' | 'sync' | 'commit' | 'stash' | 'diff' | 'history';
 
-const tabs: Array<{ id: GitTab; label: string }> = [
-  { id: 'summary', label: 'Resumo' },
-  { id: 'branches', label: 'Branches' },
-  { id: 'sync', label: 'Sincronização' },
-  { id: 'commit', label: 'Commit' },
-  { id: 'stash', label: 'Stash' },
-  { id: 'diff', label: 'Diff' },
-  { id: 'history', label: 'Histórico' },
+const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
+  { id: 'summary', label: 'Resumo', icon: '⌂' },
+  { id: 'branches', label: 'Branches', icon: '⑂' },
+  { id: 'sync', label: 'Sincronização', icon: '↕' },
+  { id: 'commit', label: 'Commit', icon: '●' },
+  { id: 'stash', label: 'Stash', icon: '□' },
+  { id: 'diff', label: 'Diff', icon: '±' },
+  { id: 'history', label: 'Histórico', icon: '◷' },
 ];
 
 const activeTab = ref<GitTab>('summary');
@@ -62,6 +69,7 @@ const workspace = ref<ProjectGitWorkspace | null>(null);
 const diff = ref<GitDiffSnapshot | null>(null);
 const selectedFile = ref('');
 const fileDiff = ref<GitFileDiff | null>(null);
+const serverProcess = ref<ManagedProcess | null>(null);
 const loading = ref(false);
 const loadingWorkspace = ref(false);
 const loadingDiff = ref(false);
@@ -82,6 +90,7 @@ const saveMessage = ref('');
 let generation = 0;
 let diffController: AbortController | undefined;
 let fileController: AbortController | undefined;
+let serverRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(workspaceErrorMessage, '');
@@ -119,6 +128,30 @@ const modifiedCount = computed(() =>
 const untrackedCount = computed(() =>
   overview.value?.files.filter((file) => file.status === 'untracked').length ?? 0,
 );
+
+const serverStatus = computed(() => {
+  const process = serverProcess.value;
+  if (!process) {
+    return { label: 'Servidor parado', detail: 'Sem processo ativo', tone: 'stopped' };
+  }
+  const detail = process.port
+    ? `Porta ${process.port}`
+    : process.pid
+      ? `PID ${process.pid}`
+      : 'Processo local';
+  switch (process.status) {
+    case 'running':
+      return { label: 'Servidor ativo', detail, tone: 'running' };
+    case 'starting':
+      return { label: 'Servidor iniciando', detail, tone: 'starting' };
+    case 'stopping':
+      return { label: 'Servidor parando', detail, tone: 'stopping' };
+    case 'failed':
+      return { label: 'Servidor falhou', detail, tone: 'failed' };
+    default:
+      return { label: 'Servidor parado', detail, tone: 'stopped' };
+  }
+});
 
 const savePrefixByBranchType: Record<string, string> = {
   feature: 'feat',
@@ -198,6 +231,14 @@ async function loadWorkspace(): Promise<void> {
   }
 }
 
+async function loadServerStatus(): Promise<void> {
+  try {
+    serverProcess.value = await fetchProjectProcess(props.project.id);
+  } catch {
+    serverProcess.value = null;
+  }
+}
+
 async function loadDiff(): Promise<void> {
   diffController?.abort();
   const local = new AbortController();
@@ -250,7 +291,7 @@ async function loadFileDiff(filePath: string): Promise<void> {
 
 async function reloadGitData(): Promise<void> {
   await loadGit();
-  await Promise.all([loadWorkspace(), loadDiff()]);
+  await Promise.all([loadWorkspace(), loadDiff(), loadServerStatus()]);
 }
 
 async function runMutation(
@@ -370,6 +411,47 @@ async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
   }
 }
 
+async function runSyncIntegration(payload: {
+  reference: string;
+  strategy: GitSyncStrategy;
+}): Promise<void> {
+  if (mutationRunning.value) return;
+  const labels: Record<GitSyncStrategy, string> = {
+    'ff-only': 'fast-forward',
+    rebase: 'rebase',
+    merge: 'merge',
+  };
+  const message = `Integrar "${payload.reference}" na branch atual usando ${labels[payload.strategy]}? A árvore de trabalho deve estar limpa. Em caso de conflito, a operação será abortada automaticamente.`;
+  if (typeof window !== 'undefined' && !window.confirm(message)) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectGitSync(
+      props.project.id,
+      payload.reference,
+      payload.strategy,
+    );
+    const result = await integrateProjectGitReference(
+      props.project.id,
+      payload.reference,
+      payload.strategy,
+      confirmation.token,
+    );
+    mutationMessage.value = result.changed
+      ? `${payload.reference} integrada na branch "${result.branch}" usando ${labels[payload.strategy]}.`
+      : `A branch "${result.branch}" já estava atualizada com ${payload.reference}.`;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error
+      ? error.message
+      : 'Não foi possível integrar a referência remota.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 async function refreshRemote(remote: string): Promise<void> {
   if (remoteRefreshing.value) return;
   if (typeof window !== 'undefined' && !window.confirm(
@@ -379,11 +461,10 @@ async function refreshRemote(remote: string): Promise<void> {
   remoteRefreshing.value = remote;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
-
   try {
     await fetchProjectGitRemote(props.project.id, remote);
     mutationMessage.value = `Referências de "${remote}" atualizadas.`;
-    await Promise.all([loadGit(), loadWorkspace()]);
+    await loadWorkspace();
   } catch (error) {
     mutationErrorMessage.value = error instanceof Error
       ? error.message
@@ -394,7 +475,7 @@ async function refreshRemote(remote: string): Promise<void> {
 }
 
 function currentBranchOrHead(): string {
-  return overview.value?.detached ? 'HEAD' : overview.value?.branch ?? 'HEAD';
+  return overview.value?.branch ?? 'HEAD';
 }
 
 async function runCommit(): Promise<void> {
@@ -404,16 +485,11 @@ async function runCommit(): Promise<void> {
     mutationErrorMessage.value = 'Informe uma mensagem de commit.';
     return;
   }
-
-  const confirmationText = commitIncludeAllChanges.value
-    ? `Incluir alterações rastreadas e criar o commit "${message}"?`
-    : `Criar o commit "${message}" usando somente alterações staged?`;
-  if (typeof window !== 'undefined' && !window.confirm(confirmationText)) return;
+  if (typeof window !== 'undefined' && !window.confirm(`Criar o commit "${message}"?`)) return;
 
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
-
   try {
     const confirmation = await prepareProjectGitMutation(
       props.project.id,
@@ -455,7 +531,6 @@ async function runSave(): Promise<void> {
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
-
   try {
     const confirmation = await prepareProjectGitMutation(
       props.project.id,
@@ -490,7 +565,6 @@ async function runStash(operation: 'stash-push' | 'stash-pop'): Promise<void> {
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
-
   try {
     const confirmation = await prepareProjectGitMutation(
       props.project.id,
@@ -520,30 +594,51 @@ watch(() => props.project.id, async () => {
   diff.value = null;
   fileDiff.value = null;
   selectedFile.value = '';
+  serverProcess.value = null;
   activeTab.value = 'summary';
-  await loadGit();
-  await Promise.all([loadWorkspace(), loadDiff()]);
+  if (serverRefreshTimer) clearInterval(serverRefreshTimer);
+  await Promise.all([loadGit(), loadWorkspace(), loadDiff(), loadServerStatus()]);
+  serverRefreshTimer = setInterval(() => {
+    void loadServerStatus();
+  }, 10_000);
 }, { immediate: true });
 
 onBeforeUnmount(() => {
   diffController?.abort();
   fileController?.abort();
+  if (serverRefreshTimer) clearInterval(serverRefreshTimer);
 });
 </script>
 
 <template>
   <section class="git-modern-panel">
-    <nav class="git-subtabs" aria-label="Áreas do Git">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        :class="{ active: activeTab === tab.id }"
-        @click="openTab(tab.id)"
+    <div class="git-navigation-bar">
+      <nav class="git-subtabs" aria-label="Áreas do Git">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          :data-icon="tab.icon"
+          :class="{ active: activeTab === tab.id }"
+          @click="openTab(tab.id)"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <RouterLink
+        class="git-server-indicator"
+        :class="`is-${serverStatus.tone}`"
+        :to="{ name: 'project-server', params: { projectId: project.id } }"
+        :title="`${serverStatus.label} · ${serverStatus.detail}`"
       >
-        {{ tab.label }}
-      </button>
-    </nav>
+        <span aria-hidden="true" />
+        <div>
+          <strong>{{ serverStatus.label }}</strong>
+          <small>{{ serverStatus.detail }}</small>
+        </div>
+      </RouterLink>
+    </div>
 
     <div v-if="errorMessage" class="project-error" role="alert">{{ errorMessage }}</div>
     <div v-if="workspaceErrorMessage" class="project-error" role="alert">{{ workspaceErrorMessage }}</div>
@@ -641,7 +736,7 @@ onBeforeUnmount(() => {
           <article class="git-command-card remote-card upstream-card">
             <header><div><span>Fonte principal</span><h3>Upstream</h3></div><strong>{{ workspace?.upstreamComparison?.reference ?? 'Sem base detectada' }}</strong></header>
             <code>{{ upstreamRemote?.fetchUrl || 'Remote upstream não configurado' }}</code>
-            <div class="remote-comparison"><b>{{ comparisonText(workspace?.upstreamComparison) }}</b><small>Fetch atualiza referências; merge/rebase continua explícito.</small></div>
+            <div class="remote-comparison"><b>{{ comparisonText(workspace?.upstreamComparison) }}</b><small>Compare e integre de forma explícita.</small></div>
             <div class="git-card-actions">
               <button class="secondary-button" :disabled="!upstreamRemote || remoteRefreshing === 'upstream'" @click="refreshRemote('upstream')">{{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}</button>
               <button class="secondary-button" @click="openTab('sync')">Ver sincronização</button>
@@ -696,46 +791,18 @@ onBeforeUnmount(() => {
         @fetch-remote="refreshRemote"
       />
 
-      <section v-else-if="activeTab === 'sync'" class="git-tab-page">
-        <div class="git-page-heading"><div><span>Sincronização</span><h2>Origin para publicar, upstream para atualizar</h2></div></div>
-        <div class="git-status-grid sync-grid">
-          <article><span>Branch local</span><strong>{{ overview.branch ?? 'HEAD' }}</strong><small>{{ trackedBranch }}</small></article>
-          <article><span>Origin</span><strong>{{ comparisonText(workspace?.originComparison) }}</strong><small>{{ comparisonHint(workspace?.originComparison) }}</small></article>
-          <article><span>Upstream</span><strong>{{ comparisonText(workspace?.upstreamComparison) }}</strong><small>{{ comparisonHint(workspace?.upstreamComparison) }}</small></article>
-          <article><span>Working tree</span><strong :class="overview.clean ? 'status-good' : 'status-warning'">{{ overview.clean ? 'Pronto' : 'Tem alterações' }}</strong><small>{{ overview.files.length }} arquivo(s)</small></article>
-        </div>
-        <div class="git-sync-layout">
-          <article class="git-command-card remote-detail-card">
-            <header><div><span>Destino de publicação</span><h3>Origin</h3></div><span class="git-pill git-pill-origin">Push padrão</span></header>
-            <dl>
-              <div><dt>Fetch URL</dt><dd><code>{{ originRemote?.fetchUrl || 'Não configurado' }}</code></dd></div>
-              <div><dt>Push URL</dt><dd><code>{{ originRemote?.pushUrl || 'Não configurado' }}</code></dd></div>
-              <div><dt>Tracking</dt><dd><code>{{ workspace?.originComparison?.reference ?? trackedBranch }}</code></dd></div>
-            </dl>
-            <div class="git-card-actions">
-              <button class="secondary-button" :disabled="remoteRefreshing === 'origin' || !originRemote" @click="refreshRemote('origin')">{{ remoteRefreshing === 'origin' ? 'Atualizando…' : 'Fetch origin' }}</button>
-              <button class="secondary-button" :disabled="mutationRunning || !overview.upstream" @click="runSyncMutation('pull')">Pull tracking</button>
-              <button class="primary-button" :disabled="mutationRunning || !originRemote" @click="runSyncMutation('push')">Push origin</button>
-            </div>
-          </article>
-          <article class="git-command-card remote-detail-card">
-            <header><div><span>Fonte principal</span><h3>Upstream</h3></div><span class="git-pill git-pill-upstream">Base</span></header>
-            <dl>
-              <div><dt>Fetch URL</dt><dd><code>{{ upstreamRemote?.fetchUrl || 'Não configurado' }}</code></dd></div>
-              <div><dt>Base detectada</dt><dd><code>{{ workspace?.upstreamComparison?.reference ?? 'Nenhuma' }}</code></dd></div>
-              <div><dt>Comparação</dt><dd>{{ comparisonText(workspace?.upstreamComparison) }}</dd></div>
-            </dl>
-            <div class="git-sync-notice">O fetch atualiza referências locais. Merge ou rebase não são executados automaticamente para evitar conflitos sem um fluxo de abortar.</div>
-            <div class="git-card-actions"><button class="primary-button" :disabled="remoteRefreshing === 'upstream' || !upstreamRemote" @click="refreshRemote('upstream')">{{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}</button></div>
-          </article>
-        </div>
-        <div class="git-table-card">
-          <div class="git-table-header remotes-table"><span>Remote</span><span>Papel</span><span>Fetch</span><span>Push</span></div>
-          <div v-for="remote in workspace?.remotes ?? []" :key="remote.name" class="git-table-row remotes-table">
-            <strong>{{ remote.name }}</strong><span class="git-pill" :class="`git-pill-${remote.role}`">{{ remote.role }}</span><code>{{ remote.fetchUrl || '—' }}</code><code>{{ remote.pushUrl || '—' }}</code>
-          </div>
-        </div>
-      </section>
+      <ProjectGitSyncPage
+        v-else-if="activeTab === 'sync'"
+        :project-id="project.id"
+        :overview="overview"
+        :workspace="workspace"
+        :busy="mutationRunning"
+        :remote-refreshing="remoteRefreshing"
+        @fetch-remote="refreshRemote"
+        @integrate="runSyncIntegration"
+        @pull="runSyncMutation('pull')"
+        @push="runSyncMutation('push')"
+      />
 
       <section v-else-if="activeTab === 'commit'" class="git-tab-page">
         <div class="git-status-grid commit-metrics">
@@ -848,56 +915,104 @@ onBeforeUnmount(() => {
 <style scoped>
 .git-modern-panel {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
+}
+
+.git-navigation-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  padding: 6px;
+  box-shadow: var(--shadow-1);
 }
 
 .git-subtabs {
   display: flex;
+  min-width: 0;
   gap: 4px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--color-border, #d8deea);
 }
 
 .git-subtabs button {
-  position: relative;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-text-muted, #667085);
-  padding: 11px 15px;
-  font-weight: 700;
+  color: var(--text-muted);
+  padding: 9px 12px;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
   white-space: nowrap;
 }
 
-.git-subtabs button::after {
-  position: absolute;
-  right: 12px;
-  bottom: -1px;
-  left: 12px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: transparent;
-  content: '';
+.git-subtabs button::before {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  content: attr(data-icon);
+  font-size: 13px;
+}
+
+.git-subtabs button:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .git-subtabs button.active {
-  color: #314bc4;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.git-subtabs button.active::after {
-  background: #314bc4;
+.git-server-indicator {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  min-width: 154px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 7px 10px;
+  text-decoration: none;
 }
+
+.git-server-indicator > span {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-dim) 12%, transparent);
+}
+
+.git-server-indicator div { display: grid; gap: 1px; }
+.git-server-indicator strong { font-size: var(--font-sm); }
+.git-server-indicator small { color: var(--text-muted); font-size: var(--font-xs); }
+.git-server-indicator.is-running > span { background: var(--success-text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success-text) 16%, transparent); }
+.git-server-indicator.is-starting > span,
+.git-server-indicator.is-stopping > span { background: var(--warning-text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-text) 16%, transparent); }
+.git-server-indicator.is-failed > span { background: var(--danger-text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-text) 16%, transparent); }
 
 .git-tab-page,
-.git-summary-page {
-  display: grid;
-  gap: 18px;
-}
+.git-summary-page { display: grid; gap: var(--space-4); }
 
 .git-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .git-status-grid article,
@@ -907,48 +1022,40 @@ onBeforeUnmount(() => {
 .git-branch-toolbar,
 .git-diff-layout-modern,
 .git-history-list article {
-  border: 1px solid var(--color-border, #d8deea);
-  border-radius: 14px;
-  background: var(--color-surface, #fff);
-  box-shadow: 0 10px 28px rgba(29, 43, 76, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
 }
 
 .git-status-grid article {
   display: grid;
   gap: 5px;
   min-width: 0;
-  padding: 16px;
+  padding: var(--space-4);
 }
 
 .git-status-grid span,
 .git-status-grid small,
 .git-command-card span,
 .git-command-card small,
-.git-page-heading span {
-  color: var(--color-text-muted, #667085);
-}
+.git-page-heading span { color: var(--text-muted); }
 
 .git-status-grid strong {
   overflow: hidden;
-  color: var(--color-text-strong, #182033);
-  font-size: 1.04rem;
+  color: var(--text);
+  font-size: var(--font-lg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.status-good {
-  color: #087552 !important;
-}
-
-.status-warning {
-  color: #9b5e00 !important;
-}
+.status-good { color: var(--success-text) !important; }
+.status-warning { color: var(--warning-text) !important; }
 
 .git-branch-toolbar {
   display: flex;
   align-items: end;
-  gap: 10px;
-  padding: 14px;
+  gap: var(--space-3);
+  padding: var(--space-3);
 }
 
 .git-branch-toolbar label,
@@ -956,58 +1063,48 @@ onBeforeUnmount(() => {
   display: grid;
   flex: 1;
   gap: 6px;
-  color: var(--color-text-muted, #667085);
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
 }
 
 input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--color-border, #d8deea);
-  border-radius: 9px;
-  background: var(--color-input, #f7f9fc);
-  color: var(--color-text-strong, #182033);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
   padding: 10px 12px;
   font: inherit;
-  text-transform: none;
 }
 
-textarea {
-  min-height: 88px;
-  resize: vertical;
-}
+textarea { min-height: 88px; resize: vertical; }
 
-.git-quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+.git-quick-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .git-quick-actions button,
 .git-preview-grid header button,
 .git-table-row button {
-  border: 1px solid var(--color-border, #d8deea);
-  border-radius: 9px;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #344054);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text);
   padding: 8px 11px;
-  font-weight: 700;
+  font-weight: var(--font-weight-strong);
 }
 
 .git-command-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .git-command-card {
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 17px;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
 
 .git-command-card header,
@@ -1019,7 +1116,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .git-command-card h3,
@@ -1027,20 +1124,17 @@ textarea {
 .git-page-heading h2,
 .git-table-card h3 {
   margin: 3px 0 0;
-  color: var(--color-text-strong, #182033);
+  color: var(--text);
+  font-size: var(--font-lg);
 }
 
 .git-command-card form,
-.git-commit-forms {
-  display: grid;
-  gap: 12px;
-}
+.git-commit-forms { display: grid; gap: var(--space-3); }
 
 .remote-card code,
-.remote-detail-card code,
 .git-table-row code {
   overflow: hidden;
-  color: var(--color-text-muted, #667085);
+  color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1048,33 +1142,26 @@ textarea {
 .remote-comparison {
   display: grid;
   gap: 4px;
-  border-radius: 10px;
-  background: var(--color-surface-subtle, #fbfcfe);
-  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: var(--space-3);
 }
 
-.git-card-actions {
-  justify-content: flex-start;
-  flex-wrap: wrap;
-}
+.git-card-actions { justify-content: flex-start; flex-wrap: wrap; }
 
 .git-preview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
-.git-preview-grid article {
-  min-width: 0;
-  padding: 16px;
-}
-
+.git-preview-grid article { min-width: 0; padding: var(--space-4); }
 .git-preview-grid ul,
 .git-preview-grid ol,
 .git-file-list-modern {
   display: grid;
-  gap: 8px;
-  margin: 12px 0 0;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1095,61 +1182,24 @@ textarea {
   white-space: nowrap;
 }
 
-.git-preview-grid li div {
-  display: grid;
-  min-width: 0;
-}
-
+.git-preview-grid li div { display: grid; min-width: 0; }
 .git-preview-grid li strong,
-.git-preview-grid li small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.git-preview-grid li small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.git-page-heading {
-  align-items: end;
-}
-
-.git-sync-layout,
+.git-page-heading { align-items: end; }
 .git-two-column-actions,
 .git-commit-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--space-3);
 }
 
-.remote-detail-card dl {
-  display: grid;
-  gap: 9px;
-  margin: 0;
-}
-
-.remote-detail-card dl div {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  gap: 10px;
-  border-bottom: 1px solid var(--color-border, #d8deea);
-  padding-bottom: 9px;
-}
-
-.remote-detail-card dt {
-  color: var(--color-text-muted, #667085);
-  font-weight: 700;
-}
-
-.remote-detail-card dd {
-  min-width: 0;
-  margin: 0;
-}
-
-.git-sync-notice,
 .git-inline-empty,
 .git-modern-empty {
-  border-radius: 10px;
-  background: var(--color-surface-subtle, #fbfcfe);
-  color: var(--color-text-muted, #667085);
-  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: var(--space-3);
 }
 
 .git-modern-empty {
@@ -1160,226 +1210,80 @@ textarea {
   text-align: center;
 }
 
-.git-table-card {
-  overflow: hidden;
-}
-
+.git-table-card { overflow: hidden; }
+.git-table-card > header { padding: var(--space-3) var(--space-4); }
 .git-table-header,
-.git-table-row {
-  display: grid;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-}
+.git-table-row { display: grid; align-items: center; gap: var(--space-3); padding: 12px 14px; }
+.git-table-header { background: var(--surface-2); color: var(--text-muted); font-size: var(--font-sm); font-weight: var(--font-weight-strong); }
+.git-table-row { border-top: 1px solid var(--border); }
+.stash-table { grid-template-columns: 130px minmax(0, 1fr) 190px; }
 
-.git-table-header {
-  background: var(--color-surface-subtle, #fbfcfe);
-  color: var(--color-text-muted, #667085);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.git-table-row {
-  border-top: 1px solid var(--color-border, #d8deea);
-}
-
-.remotes-table {
-  grid-template-columns: 120px 110px minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.stash-table {
-  grid-template-columns: 130px minmax(0, 1fr) 190px;
-}
-
-.git-pill {
-  width: fit-content;
-  border-radius: 999px;
-  background: rgba(49, 75, 196, 0.1);
-  color: #314bc4;
-  padding: 5px 8px;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.git-pill-upstream {
-  background: rgba(120, 72, 190, 0.12);
-  color: #6840a6;
-}
-
-.git-commit-layout {
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-}
-
-.files-card > header {
-  padding: 14px;
-}
-
-.git-file-list-modern {
-  margin: 0;
-  padding: 0 14px 14px;
-}
-
-.git-file-list-modern li {
-  border-top: 1px solid var(--color-border, #d8deea);
-  padding-top: 9px;
-}
-
-.git-file-list-modern small {
-  margin-left: auto;
-  color: var(--color-text-muted, #667085);
-}
-
-.git-check-label {
-  display: flex !important;
-  align-items: center;
-  gap: 8px !important;
-  text-transform: none !important;
-}
-
-.git-check-label input {
-  width: auto;
-}
+.git-check-label { display: flex !important; align-items: center; }
+.git-check-label input { width: auto; }
+.git-file-list-modern { padding: 0 var(--space-4) var(--space-4); }
+.git-file-list-modern li small { margin-left: auto; color: var(--text-muted); }
 
 .git-diff-layout-modern {
   display: grid;
-  grid-template-columns: minmax(280px, 0.32fr) minmax(0, 0.68fr);
-  min-height: 520px;
+  grid-template-columns: minmax(250px, .35fr) minmax(0, 1fr);
+  min-height: 420px;
   overflow: hidden;
 }
 
 .git-diff-layout-modern aside {
-  overflow: auto;
-  max-height: 680px;
-  border-right: 1px solid var(--color-border, #d8deea);
-  padding: 9px;
+  display: grid;
+  align-content: start;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
 .git-diff-layout-modern aside button {
-  width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  border-radius: 9px;
+  gap: var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--border);
   background: transparent;
-  padding: 10px;
+  color: var(--text);
+  padding: var(--space-3);
   text-align: left;
 }
 
-.git-diff-layout-modern aside button:hover,
-.git-diff-layout-modern aside button.active {
-  border-color: rgba(49, 75, 196, 0.28);
-  background: rgba(49, 75, 196, 0.06);
-}
+.git-diff-layout-modern aside button.active { background: var(--accent-soft); }
+.git-diff-layout-modern aside code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-diff-layout-modern main { min-width: 0; padding: var(--space-4); }
+.git-diff-layout-modern pre { overflow: auto; max-height: 620px; margin: 0; color: var(--text); white-space: pre; }
 
-.git-diff-layout-modern aside code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.git-diff-layout-modern main {
-  min-width: 0;
-  overflow: auto;
-  max-height: 680px;
-  padding: 16px;
-}
-
-.git-diff-layout-modern pre {
-  min-width: max-content;
-  margin: 0;
-  color: var(--color-text, #344054);
-  font-size: 0.8rem;
-  line-height: 1.55;
-  white-space: pre;
-}
-
-.git-history-list {
-  display: grid;
-  gap: 8px;
-}
-
-.git-history-list article {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 210px;
-  padding: 13px;
-}
-
-.git-history-list article div {
-  display: grid;
-  gap: 3px;
-}
-
-.git-history-list span,
-.git-history-list time {
-  color: var(--color-text-muted, #667085);
-}
+.git-history-list { display: grid; gap: var(--space-2); }
+.git-history-list article { grid-template-columns: 90px minmax(0, 1fr) auto; padding: var(--space-3) var(--space-4); }
+.git-history-list article div { display: grid; min-width: 0; }
+.git-history-list article span,
+.git-history-list time { color: var(--text-muted); font-size: var(--font-sm); }
 
 .git-mutation-success {
-  margin: 0;
-  border: 1px solid rgba(12, 148, 105, 0.28);
-  border-radius: 10px;
-  background: rgba(12, 148, 105, 0.08);
-  color: #087552;
-  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  background: var(--success-surface);
+  color: var(--success-text);
+  padding: var(--space-3);
 }
 
 @media (max-width: 1100px) {
-  .git-status-grid,
+  .git-navigation-bar { align-items: stretch; flex-direction: column; }
+  .git-server-indicator { align-self: flex-end; }
+  .git-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .git-command-grid,
-  .git-preview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .git-command-grid article:last-child,
-  .git-preview-grid article:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .git-diff-layout-modern {
-    grid-template-columns: 1fr;
-  }
-
-  .git-diff-layout-modern aside {
-    max-height: 300px;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border, #d8deea);
-  }
+  .git-preview-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
   .git-status-grid,
-  .git-command-grid,
-  .git-preview-grid,
-  .git-sync-layout,
   .git-two-column-actions,
-  .git-commit-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .git-command-grid article:last-child,
-  .git-preview-grid article:last-child {
-    grid-column: auto;
-  }
-
-  .git-branch-toolbar,
-  .git-page-heading,
-  .git-command-card header,
-  .git-card-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .remotes-table,
-  .stash-table,
-  .git-history-list article {
-    grid-template-columns: 1fr;
-  }
-
-  .git-table-header {
-    display: none;
-  }
+  .git-commit-layout { grid-template-columns: 1fr; }
+  .git-branch-toolbar { align-items: stretch; flex-direction: column; }
+  .git-diff-layout-modern { grid-template-columns: 1fr; }
+  .git-diff-layout-modern aside { border-right: 0; border-bottom: 1px solid var(--border); }
+  .git-history-list article { grid-template-columns: 80px minmax(0, 1fr); }
+  .git-history-list time { grid-column: 2; }
 }
 </style>
