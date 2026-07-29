@@ -17,7 +17,7 @@ export interface GitStashSummary {
 
 export interface GitStashFile {
   path: string;
-  previousPath?: string;
+  previousPath?: string | undefined;
   status: GitFileStatus;
   additions: number;
   deletions: number;
