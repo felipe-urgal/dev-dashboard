@@ -1,0 +1,364 @@
+/* Layout dedicado ao painel "Banco de dados" do detalhe de projeto. */
+
+/* O painel Rails deixa de ser uma pilha única: diagnóstico e dependências
+   dividem a primeira faixa, enquanto ambientes e rotas mantêm largura total. */
+@media (min-width: 1081px) {
+  .project-details-page:has(> .rails-migrations-card) {
+    grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.55fr);
+    column-gap: var(--space-4) !important;
+    row-gap: var(--space-4) !important;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) > .project-details-hero,
+  .project-details-page:has(> .rails-migrations-card) > .project-details-tabs,
+  .project-details-page:has(> .rails-migrations-card) > .project-detail-card:not(.rails-migrations-card):not(.rails-routes-card):not(.bundler-card),
+  .project-details-page:has(> .rails-migrations-card) > .rails-routes-card {
+    grid-column: 1 / -1;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) > .rails-migrations-card {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) > .bundler-card {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) > .rails-routes-card {
+    grid-row: 5;
+  }
+}
+
+.project-details-page:has(> .rails-migrations-card) > .project-detail-card {
+  min-width: 0;
+  border-color: color-mix(in srgb, var(--border) 88%, var(--accent));
+  box-shadow: 0 10px 30px rgb(0 0 0 / 10%);
+}
+
+.project-details-page:has(> .rails-migrations-card) > .project-detail-card > .dd-card-header {
+  align-items: center;
+  margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) var(--space-4);
+  padding: 16px var(--space-5) 14px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--surface-2) 60%, var(--surface-1));
+}
+
+.project-details-page:has(> .rails-migrations-card) .project-panel-heading {
+  gap: 4px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .project-panel-heading h3 {
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+
+.project-details-page:has(> .rails-migrations-card) .project-panel-heading p {
+  max-width: 72ch;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.project-details-page:has(> .rails-migrations-card) .dd-card-actions .secondary-button {
+  min-height: 34px;
+  padding-inline: 12px;
+  background: var(--surface-1);
+}
+
+/* Ambientes: cartões mais informativos e, quando couber, em duas colunas. */
+.project-details-page:has(> .rails-migrations-card) .database-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card {
+  position: relative;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 92%, var(--surface-2));
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card::before {
+  position: absolute;
+  top: -1px;
+  right: 18px;
+  left: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 52%, transparent);
+  content: '';
+  opacity: 0.6;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+  transform: translateY(-1px);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card > header {
+  align-items: flex-start;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card h4 {
+  margin-top: 4px;
+  font-size: var(--font-lg);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-0);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dl div {
+  padding: 11px 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dl div:nth-child(2n) {
+  border-right: 0;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dl div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dt {
+  letter-spacing: 0.06em;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card dd {
+  margin-top: 5px;
+  font-size: var(--font-sm);
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-url {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card footer {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-card footer > * {
+  min-height: 32px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .database-pagination {
+  grid-column: 1 / -1;
+  padding-top: var(--space-1);
+}
+
+/* Tabelas extensas passam a ocupar um viewport controlado com cabeçalho fixo.
+   Todo o conteúdo continua disponível por rolagem, sem alongar a página inteira. */
+.project-details-page:has(> .rails-migrations-card) .migrations-table,
+.project-details-page:has(> .rails-migrations-card) .routes-table,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table {
+  display: block;
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table {
+  max-height: 520px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .routes-table {
+  max-height: min(64vh, 680px);
+}
+
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table {
+  max-height: 420px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table thead,
+.project-details-page:has(> .rails-migrations-card) .migrations-table tbody,
+.project-details-page:has(> .rails-migrations-card) .routes-table thead,
+.project-details-page:has(> .rails-migrations-card) .routes-table tbody,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table thead,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table tbody {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table thead,
+.project-details-page:has(> .rails-migrations-card) .routes-table thead,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table thead {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table th,
+.project-details-page:has(> .rails-migrations-card) .routes-table th,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-2) 82%, var(--surface-0));
+  box-shadow: 0 1px 0 var(--border);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table td,
+.project-details-page:has(> .rails-migrations-card) .routes-table td,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table td {
+  padding: 10px 12px;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-table tbody tr:hover td,
+.project-details-page:has(> .rails-migrations-card) .routes-table tbody tr:hover td,
+.project-details-page:has(> .rails-migrations-card) .bundler-outdated-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--surface-2) 56%, transparent);
+}
+
+.project-details-page:has(> .rails-migrations-card) .routes-table th:nth-child(1),
+.project-details-page:has(> .rails-migrations-card) .routes-table td:nth-child(1) {
+  width: 90px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .routes-table th:nth-child(2),
+.project-details-page:has(> .rails-migrations-card) .routes-table td:nth-child(2) {
+  width: 34%;
+}
+
+.project-details-page:has(> .rails-migrations-card) .routes-table th:nth-child(3),
+.project-details-page:has(> .rails-migrations-card) .routes-table td:nth-child(3) {
+  width: 38%;
+}
+
+.project-details-page:has(> .rails-migrations-card) .route-search {
+  min-height: 38px;
+  padding: 9px 12px;
+  border-color: var(--border);
+  background: var(--surface-0);
+  font-size: var(--font-sm);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.project-details-page:has(> .rails-migrations-card) .route-search:focus {
+  border-color: var(--accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-summary {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-0);
+  font-size: var(--font-sm);
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-summary strong {
+  margin-right: 2px;
+  font-size: var(--font-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-mutations {
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-mutations-actions {
+  gap: 7px;
+}
+
+.project-details-page:has(> .rails-migrations-card) .migrations-mutation-output,
+.project-details-page:has(> .rails-migrations-card) .bundler-check-message {
+  border: 1px solid var(--border);
+  line-height: 1.45;
+}
+
+.project-details-page:has(> .rails-migrations-card) .bundler-check {
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-0);
+}
+
+@media (max-width: 1080px) {
+  .project-details-page:has(> .rails-migrations-card) {
+    gap: var(--space-4) !important;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .project-details-page:has(> .rails-migrations-card) > .project-detail-card > .dd-card-header {
+    align-items: flex-start;
+    padding: 14px var(--space-4) 12px;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-card dl {
+    grid-template-columns: 1fr;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-card dl div,
+  .project-details-page:has(> .rails-migrations-card) .database-card dl div:nth-child(2n),
+  .project-details-page:has(> .rails-migrations-card) .database-card dl div:nth-last-child(-n + 2) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-card dl div:last-child {
+    border-bottom: 0;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-card footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .database-card footer > * {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .project-details-page:has(> .rails-migrations-card) .migrations-table,
+  .project-details-page:has(> .rails-migrations-card) .routes-table,
+  .project-details-page:has(> .rails-migrations-card) .bundler-outdated-table {
+    max-height: 58vh;
+  }
+}
