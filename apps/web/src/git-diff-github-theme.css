@@ -1,0 +1,339 @@
+:root {
+  --git-diff-addition-accent: #3fb950;
+  --git-diff-addition-bg: color-mix(in srgb, #238636 20%, var(--surface-1));
+  --git-diff-addition-gutter: color-mix(in srgb, #238636 32%, var(--surface-2));
+  --git-diff-deletion-accent: #f85149;
+  --git-diff-deletion-bg: color-mix(in srgb, #da3633 20%, var(--surface-1));
+  --git-diff-deletion-gutter: color-mix(in srgb, #da3633 32%, var(--surface-2));
+  --git-diff-hunk-bg: color-mix(in srgb, #1f6feb 22%, var(--surface-1));
+  --git-diff-hunk-gutter: color-mix(in srgb, #1f6feb 32%, var(--surface-2));
+  --git-diff-hunk-text: #a5d6ff;
+  --git-diff-context-bg: var(--surface-1);
+  --git-diff-context-gutter: color-mix(in srgb, var(--surface-2) 88%, var(--surface-1));
+  --git-diff-row-border: color-mix(in srgb, var(--border) 66%, transparent);
+  --git-diff-meta-bg: color-mix(in srgb, var(--surface-2) 92%, var(--surface-1));
+  --git-diff-empty-stripe: color-mix(in srgb, var(--surface-2) 72%, var(--surface-1));
+}
+
+[data-theme='light'] {
+  --git-diff-addition-accent: #1a7f37;
+  --git-diff-addition-bg: #dafbe1;
+  --git-diff-addition-gutter: #ccffd8;
+  --git-diff-deletion-accent: #cf222e;
+  --git-diff-deletion-bg: #ffebe9;
+  --git-diff-deletion-gutter: #ffd7d5;
+  --git-diff-hunk-bg: #ddf4ff;
+  --git-diff-hunk-gutter: #b6e3ff;
+  --git-diff-hunk-text: #0550ae;
+  --git-diff-context-bg: #ffffff;
+  --git-diff-context-gutter: #f6f8fa;
+  --git-diff-row-border: #d8dee4;
+  --git-diff-meta-bg: #f6f8fa;
+  --git-diff-empty-stripe: #eaeef2;
+}
+
+/* Página principal de Diff. */
+.git-diff-page .git-diff-unified,
+.git-diff-page .git-diff-split {
+  border-top: 1px solid var(--git-diff-row-border);
+  background: var(--git-diff-context-bg);
+  color: var(--text);
+  scrollbar-color: var(--border-strong) var(--surface-2);
+}
+
+.git-diff-page .git-diff-unified-row {
+  grid-template-columns: 48px 48px 24px minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  border-bottom-color: var(--git-diff-row-border);
+  background: var(--git-diff-context-bg);
+  box-shadow: inset 4px 0 0 transparent;
+}
+
+.git-diff-page .git-diff-side-cell {
+  grid-template-columns: 48px 24px minmax(0, 1fr);
+  min-height: 24px;
+  background: var(--git-diff-context-bg);
+  box-shadow: inset 4px 0 0 transparent;
+}
+
+.git-diff-page .git-diff-unified-row code,
+.git-diff-page .git-diff-side-cell code,
+.git-diff-page .git-diff-split-meta code {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.git-diff-page .git-diff-line-number {
+  align-self: stretch;
+  border-right-color: var(--git-diff-row-border);
+  background: var(--git-diff-context-gutter);
+  color: var(--text-dim);
+}
+
+.git-diff-page .git-diff-unified-row.is-addition,
+.git-diff-page .git-diff-side-cell.is-addition {
+  background: var(--git-diff-addition-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+}
+
+.git-diff-page .git-diff-unified-row.is-addition .git-diff-line-number,
+.git-diff-page .git-diff-side-cell.is-addition .git-diff-line-number {
+  background: var(--git-diff-addition-gutter);
+  color: var(--git-diff-addition-accent);
+}
+
+.git-diff-page .git-diff-unified-row.is-addition .git-diff-line-prefix,
+.git-diff-page .git-diff-side-cell.is-addition .git-diff-line-prefix {
+  color: var(--git-diff-addition-accent);
+  font-weight: 800;
+}
+
+.git-diff-page .git-diff-unified-row.is-deletion,
+.git-diff-page .git-diff-side-cell.is-deletion {
+  background: var(--git-diff-deletion-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+}
+
+.git-diff-page .git-diff-unified-row.is-deletion .git-diff-line-number,
+.git-diff-page .git-diff-side-cell.is-deletion .git-diff-line-number {
+  background: var(--git-diff-deletion-gutter);
+  color: var(--git-diff-deletion-accent);
+}
+
+.git-diff-page .git-diff-unified-row.is-deletion .git-diff-line-prefix,
+.git-diff-page .git-diff-side-cell.is-deletion .git-diff-line-prefix {
+  color: var(--git-diff-deletion-accent);
+  font-weight: 800;
+}
+
+.git-diff-page .git-diff-unified-row.is-hunk,
+.git-diff-page .git-diff-split-meta:has(code:first-child) {
+  background: var(--git-diff-hunk-bg);
+  color: var(--git-diff-hunk-text);
+}
+
+.git-diff-page .git-diff-unified-row.is-hunk .git-diff-line-number {
+  background: var(--git-diff-hunk-gutter);
+  color: var(--git-diff-hunk-text);
+}
+
+.git-diff-page .git-diff-unified-row.is-meta,
+.git-diff-page .git-diff-unified-row.is-file,
+.git-diff-page .git-diff-unified-row.is-notice,
+.git-diff-page .git-diff-split-meta {
+  background: var(--git-diff-meta-bg);
+  color: var(--text-muted);
+}
+
+.git-diff-page .git-diff-side-cell.is-empty {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      var(--surface-2),
+      var(--surface-2) 7px,
+      var(--git-diff-empty-stripe) 7px,
+      var(--git-diff-empty-stripe) 14px
+    );
+}
+
+.git-diff-page .git-diff-unified-row:hover,
+.git-diff-page .git-diff-side-cell:not(.is-empty):hover {
+  filter: brightness(1.035);
+}
+
+/* Diffs por arquivo abertos no Resumo, Histórico e Stash. */
+.git-inline-file-diff {
+  --git-inline-row-border: var(--git-diff-row-border);
+  --git-inline-addition-bg: var(--git-diff-addition-bg);
+  --git-inline-deletion-bg: var(--git-diff-deletion-bg);
+  --git-inline-hunk-bg: var(--git-diff-hunk-bg);
+}
+
+.git-inline-file-diff .git-inline-diff-line,
+.git-inline-file-diff .git-inline-diff-side {
+  background: var(--git-diff-context-bg);
+  box-shadow: inset 4px 0 0 transparent;
+}
+
+.git-inline-file-diff .git-inline-diff-line-number {
+  background: var(--git-diff-context-gutter);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-addition,
+.git-inline-file-diff .git-inline-diff-side.is-addition {
+  background: var(--git-diff-addition-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-addition .git-inline-diff-line-number,
+.git-inline-file-diff .git-inline-diff-side.is-addition .git-inline-diff-line-number {
+  background: var(--git-diff-addition-gutter);
+  color: var(--git-diff-addition-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-addition .git-inline-diff-prefix,
+.git-inline-file-diff .git-inline-diff-side.is-addition .git-inline-diff-prefix {
+  color: var(--git-diff-addition-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-deletion,
+.git-inline-file-diff .git-inline-diff-side.is-deletion {
+  background: var(--git-diff-deletion-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-deletion .git-inline-diff-line-number,
+.git-inline-file-diff .git-inline-diff-side.is-deletion .git-inline-diff-line-number {
+  background: var(--git-diff-deletion-gutter);
+  color: var(--git-diff-deletion-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-deletion .git-inline-diff-prefix,
+.git-inline-file-diff .git-inline-diff-side.is-deletion .git-inline-diff-prefix {
+  color: var(--git-diff-deletion-accent);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-hunk,
+.git-inline-file-diff .git-inline-diff-split-meta.is-hunk {
+  background: var(--git-diff-hunk-bg);
+  color: var(--git-diff-hunk-text);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-hunk .git-inline-diff-line-number {
+  background: var(--git-diff-hunk-gutter);
+  color: var(--git-diff-hunk-text);
+}
+
+.git-inline-file-diff .git-inline-diff-line.is-meta,
+.git-inline-file-diff .git-inline-diff-line.is-file,
+.git-inline-file-diff .git-inline-diff-line.is-notice,
+.git-inline-file-diff .git-inline-diff-split-meta.is-meta,
+.git-inline-file-diff .git-inline-diff-split-meta.is-file,
+.git-inline-file-diff .git-inline-diff-split-meta.is-notice {
+  background: var(--git-diff-meta-bg);
+  color: var(--text-muted);
+}
+
+/* Patches completos exibidos em Commit, Resumo, Histórico e Stash. */
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) {
+  overflow: auto;
+  border: 1px solid var(--git-diff-row-border);
+  border-radius: var(--radius-md);
+  background: var(--git-diff-context-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  scrollbar-color: var(--border-strong) var(--surface-2);
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span {
+  display: block;
+  min-width: 0;
+  border-bottom: 1px solid var(--git-diff-row-border);
+  background: var(--git-diff-context-bg);
+  color: var(--text);
+  padding: 2px 14px 2px 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-shadow: inset 4px 0 0 transparent;
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span.is-addition {
+  background: var(--git-diff-addition-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span.is-deletion {
+  background: var(--git-diff-deletion-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span.is-hunk {
+  background: var(--git-diff-hunk-bg);
+  color: var(--git-diff-hunk-text);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--git-diff-hunk-text) 72%, transparent);
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span.is-meta,
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span.is-file {
+  background: var(--git-diff-meta-bg);
+  color: var(--text-muted);
+}
+
+:is(
+  .git-commit-detail-patch,
+  .git-history-page-patch,
+  .git-stash-patch,
+  .git-summary-detail-diff pre,
+  .git-history-page-diff pre,
+  .git-stash-diff pre
+) > span:hover {
+  filter: brightness(1.035);
+}
+
+@media (max-width: 760px) {
+  .git-diff-page .git-diff-unified-row {
+    grid-template-columns: 40px 40px 20px minmax(0, 1fr);
+  }
+
+  .git-diff-page .git-diff-side-cell {
+    grid-template-columns: 40px 20px minmax(0, 1fr);
+  }
+}
