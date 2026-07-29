@@ -11,19 +11,76 @@
   display: none !important;
 }
 
+.project-details-tabs {
+  display: flex !important;
+  min-width: 0;
+  align-items: center !important;
+  gap: 4px !important;
+  overflow-x: auto;
+  margin: 0 0 18px !important;
+  padding: 6px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: color-mix(in srgb, var(--surface-1) 96%, transparent) !important;
+  box-shadow: var(--shadow-1);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.project-details-tabs::-webkit-scrollbar {
+  display: none;
+}
+
 .project-details-tabs .project-details-tab {
-  border: 0 !important;
-  border-radius: 0 !important;
+  position: relative;
+  display: inline-flex;
+  min-height: 38px !important;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-md) !important;
   background: transparent !important;
+  color: var(--text-muted) !important;
   box-shadow: none !important;
+  padding: 0 14px !important;
+  font-size: var(--font-sm) !important;
+  font-weight: var(--font-weight-strong) !important;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease !important;
+}
+
+.project-details-tabs .project-details-tab::after {
+  display: none !important;
 }
 
 .project-details-tabs .project-details-tab:hover {
+  border-color: var(--border) !important;
   background: var(--surface-2) !important;
+  color: var(--text) !important;
+  transform: translateY(-1px);
 }
 
-.project-details-tabs {
-  margin: 0 0 18px !important;
+.project-details-tabs .project-details-tab-active {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border)) !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 4px 12px color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.project-details-tabs .project-details-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .server-config-card .server-card-header p,
@@ -53,6 +110,20 @@
 .server-log-preview-card .server-log-preview {
   min-height: 118px !important;
   max-height: 150px !important;
+}
+
+@media (max-width: 720px) {
+  .project-details-tabs {
+    margin-inline: -2px !important;
+    border-radius: var(--radius-md) !important;
+    padding: 5px !important;
+  }
+
+  .project-details-tabs .project-details-tab {
+    min-height: 36px !important;
+    padding-inline: 12px !important;
+    font-size: var(--font-xs) !important;
+  }
 }
 
 @media (min-width: 721px) {
