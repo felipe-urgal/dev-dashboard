@@ -17,6 +17,7 @@ import './git-commit-enhancer.css';
 import './git-stash-enhancer.css';
 import './git-history-page-enhancer.css';
 import './git-inline-file-diff-enhancer.css';
+import './git-inline-diff-theme.css';
 import './git-history-compact-columns.css';
 import { installGitCommitEnhancer } from './git-commit-enhancer';
 import { installGitDiffPageEnhancer } from './git-diff-page-enhancer';
