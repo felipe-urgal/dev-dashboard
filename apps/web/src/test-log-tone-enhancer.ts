@@ -24,6 +24,12 @@ export function classifyTestLogLine(value: string): TestLogVisualTone | null {
   }
 
   if (
+    /^(?:\$|>\s|yarn(?:\s+run)?\b|npm(?:\s+run)?\b|pnpm\b|bun\b|bundle exec\b|bin\/rails\b|rails test\b|ruby\b)/i.test(line)
+  ) {
+    return 'command';
+  }
+
+  if (
     /^(?:✓|✔|PASS\b|ok\b)/i.test(line)
     || /(?:^|\s)(?:spec|test|tests|__tests__)\/[\w./@-]+/i.test(line)
     || /[\w./@-]+(?:\.spec|\.test|_spec|_test)\.(?:[cm]?[jt]sx?|rb|py)\b/i.test(line)
@@ -36,12 +42,6 @@ export function classifyTestLogLine(value: string): TestLogVisualTone | null {
     || /^\d+\s+(?:runs?|examples?),\s*\d+\s+(?:assertions?|failures?)/i.test(line)
   ) {
     return 'summary';
-  }
-
-  if (
-    /^(?:\$|>\s|yarn(?:\s+run)?\b|npm(?:\s+run)?\b|pnpm\b|bun\b|bundle exec\b|bin\/rails\b|rails test\b|ruby\b)/i.test(line)
-  ) {
-    return 'command';
   }
 
   if (
