@@ -56,6 +56,10 @@ export function applyGlobalHistoryFilters(
   forceFirstPage = false,
 ): string {
   const url = new URL(value, 'http://dashboard.local');
+  url.pathname = url.pathname.replace(
+    /\/git\/commits$/,
+    '/git/exclusive-branch-commits',
+  );
   const setOrDelete = (key: string, item: string): void => {
     const normalized = item.trim();
     if (normalized) url.searchParams.set(key, normalized);
@@ -94,8 +98,8 @@ function restoreControls(section: HTMLElement): void {
   const author = control<HTMLSelectElement>(section, 'author');
   const kind = control<HTMLSelectElement>(section, 'kind');
   if (search) {
-    search.placeholder = 'Buscar hash, mensagem ou autor em todos os commits…';
-    search.setAttribute('aria-label', 'Buscar em todos os commits da referência');
+    search.placeholder = 'Buscar hash, mensagem ou autor nos commits exclusivos…';
+    search.setAttribute('aria-label', 'Buscar nos commits exclusivos da referência');
     if (search.value !== state.search) search.value = state.search;
   }
   if (kind && kind.value !== state.kind) kind.value = state.kind;
@@ -112,7 +116,7 @@ function restoreControls(section: HTMLElement): void {
   const count = section.querySelector<HTMLElement>('.git-history-page-filter-count');
   const filtering = Boolean(state.search.trim() || state.author || state.kind !== 'all');
   if (count && filtering) {
-    count.textContent = `${state.returned} de ${state.total} resultado(s) em todo o histórico`;
+    count.textContent = `${state.returned} de ${state.total} resultado(s) nos commits exclusivos`;
   }
 }
 
