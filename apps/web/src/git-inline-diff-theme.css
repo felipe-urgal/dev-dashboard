@@ -1,8 +1,39 @@
+.git-inline-file-diff {
+  --git-inline-row-border: color-mix(in srgb, var(--border) 62%, transparent);
+  --git-inline-addition-bg: color-mix(in srgb, var(--success-surface) 82%, var(--surface-1));
+  --git-inline-deletion-bg: color-mix(in srgb, var(--danger-surface) 82%, var(--surface-1));
+  --git-inline-hunk-bg: color-mix(in srgb, var(--info-surface) 84%, var(--surface-1));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.git-inline-file-diff > header {
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+
+.git-inline-diff-mode-switch {
+  background: var(--surface-2);
+}
+
+.git-inline-diff-mode-switch button.active {
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: var(--surface-1);
+  color: var(--accent);
+  box-shadow: var(--shadow-1);
+}
+
 .git-inline-diff-body {
   color-scheme: inherit;
+  max-height: 620px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--border-strong) var(--surface-2);
   background: var(--surface-1);
   color: var(--text);
-  scrollbar-color: var(--border-strong) var(--surface-2);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .git-inline-diff-body::-webkit-scrollbar {
@@ -10,7 +41,8 @@
   height: 10px;
 }
 
-.git-inline-diff-body::-webkit-scrollbar-track {
+.git-inline-diff-body::-webkit-scrollbar-track,
+.git-inline-diff-body::-webkit-scrollbar-corner {
   background: var(--surface-2);
 }
 
@@ -20,36 +52,83 @@
   background: var(--border-strong);
 }
 
-.git-inline-diff-body::-webkit-scrollbar-corner {
-  background: var(--surface-2);
-}
-
 .git-inline-diff-unified,
-.git-inline-diff-split,
-.git-inline-diff-line,
-.git-inline-diff-side {
+.git-inline-diff-split {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   background: var(--surface-1);
   color: var(--text);
 }
 
-.git-inline-diff-line-number {
-  border-right-color: var(--border);
-  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
-  color: var(--text-dim);
+.git-inline-diff-line {
+  grid-template-columns: 48px 48px 22px minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  min-height: 23px;
+  border-bottom: 1px solid var(--git-inline-row-border);
+  background: var(--surface-1);
+  color: var(--text);
 }
 
-.git-inline-diff-prefix {
-  color: var(--text-muted);
+.git-inline-diff-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  border-bottom: 1px solid var(--git-inline-row-border);
 }
 
 .git-inline-diff-side {
+  grid-template-columns: 48px 22px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 23px;
+  overflow: hidden;
   border-right-color: var(--border);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.git-inline-diff-line code,
+.git-inline-diff-side code,
+.git-inline-diff-split-meta code {
+  min-width: 0;
+  max-width: 100%;
+  color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.git-inline-diff-line code,
+.git-inline-diff-side code {
+  padding: 2px 12px 2px 5px;
+}
+
+.git-inline-diff-line-number {
+  align-self: stretch;
+  border-right-color: var(--border);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  color: var(--text-dim);
+  padding-block: 2px;
+}
+
+.git-inline-diff-prefix {
+  align-self: stretch;
+  color: var(--text-muted);
+  padding-block: 2px;
+  font-weight: 700;
 }
 
 .git-inline-diff-line.is-addition,
 .git-inline-diff-side.is-addition {
-  background: var(--success-surface);
-  color: var(--success-text);
+  box-shadow: inset 3px 0 0 var(--success-text);
+  background: var(--git-inline-addition-bg);
+  color: var(--text);
+}
+
+.git-inline-diff-line.is-addition code,
+.git-inline-diff-side.is-addition code {
+  color: var(--text);
 }
 
 .git-inline-diff-line.is-addition .git-inline-diff-line-number,
@@ -58,10 +137,21 @@
   color: var(--success-text);
 }
 
+.git-inline-diff-line.is-addition .git-inline-diff-prefix,
+.git-inline-diff-side.is-addition .git-inline-diff-prefix {
+  color: var(--success-text);
+}
+
 .git-inline-diff-line.is-deletion,
 .git-inline-diff-side.is-deletion {
-  background: var(--danger-surface);
-  color: var(--danger-text);
+  box-shadow: inset 3px 0 0 var(--danger-text);
+  background: var(--git-inline-deletion-bg);
+  color: var(--text);
+}
+
+.git-inline-diff-line.is-deletion code,
+.git-inline-diff-side.is-deletion code {
+  color: var(--text);
 }
 
 .git-inline-diff-line.is-deletion .git-inline-diff-line-number,
@@ -70,9 +160,19 @@
   color: var(--danger-text);
 }
 
+.git-inline-diff-line.is-deletion .git-inline-diff-prefix,
+.git-inline-diff-side.is-deletion .git-inline-diff-prefix {
+  color: var(--danger-text);
+}
+
 .git-inline-diff-line.is-hunk,
 .git-inline-diff-split-meta.is-hunk {
-  background: var(--info-surface);
+  background: var(--git-inline-hunk-bg);
+  color: var(--info-text);
+}
+
+.git-inline-diff-line.is-hunk .git-inline-diff-line-number {
+  background: color-mix(in srgb, var(--info-surface) 78%, var(--surface-2));
   color: var(--info-text);
 }
 
@@ -84,8 +184,27 @@
   color: var(--text-muted);
 }
 
+.git-inline-diff-split-meta {
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 4px 12px;
+  white-space: normal;
+}
+
 .git-inline-diff-side.is-empty {
-  background: var(--surface-2);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      var(--surface-2),
+      var(--surface-2) 6px,
+      color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 6px,
+      color-mix(in srgb, var(--surface-1) 76%, var(--surface-2)) 12px
+    );
+}
+
+.git-inline-diff-line:hover,
+.git-inline-diff-side:not(.is-empty):hover {
+  filter: brightness(1.035);
 }
 
 .git-inline-diff-empty {
@@ -95,4 +214,14 @@
 
 .git-inline-diff-empty p {
   color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .git-inline-diff-line {
+    grid-template-columns: 40px 40px 18px minmax(0, 1fr);
+  }
+
+  .git-inline-diff-side {
+    grid-template-columns: 40px 18px minmax(0, 1fr);
+  }
 }
