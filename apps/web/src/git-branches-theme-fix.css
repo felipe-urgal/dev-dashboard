@@ -1,0 +1,63 @@
+.git-branches-page {
+  --color-text-strong: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-surface: var(--surface-1);
+  --color-surface-subtle: var(--surface-2);
+  --color-input: var(--surface-2);
+  color: var(--text);
+}
+
+html .git-branches-page .branch-metrics article,
+html .git-branches-page .branch-create-card,
+html .git-branches-page .branch-browser-card {
+  box-shadow: var(--shadow-1);
+}
+
+html .git-branches-page .branch-filter-tabs button.active,
+html .git-branches-page .branch-list-item:hover,
+html .git-branches-page .branch-list-item.selected {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+html .git-branches-page .branch-kind-icon,
+html .git-branches-page .branch-state-current,
+html .git-branches-page .branch-state-origin,
+html .git-branches-page .branch-commit-heading code {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+html .git-branches-page .branch-kind-remote,
+html .git-branches-page .branch-state-success {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+html .git-branches-page .branch-state-warning {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+}
+
+html .git-branches-page .branch-state-danger {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+html .git-branches-page .branch-state-upstream {
+  background: var(--info-surface);
+  color: var(--info-text);
+}
+
+html .git-branches-page input::placeholder {
+  color: var(--text-dim);
+}
+
+html .git-branches-page input:focus-visible,
+html .git-branches-page button:focus-visible,
+html .git-branches-page select:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  outline-offset: 2px;
+}
