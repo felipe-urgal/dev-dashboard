@@ -36,12 +36,33 @@ vi.mock('../src/api', async (importOriginal) => ({
   fetchProjectTests: vi.fn().mockResolvedValue({ supported: false, commands: [] }),
   fetchProjectTestProcess: vi.fn().mockResolvedValue(null),
   fetchProjectTestLog: vi.fn().mockResolvedValue({ content: '', truncated: false }),
-  fetchProjectGit: vi.fn().mockResolvedValue({ repository: false }),
-  fetchProjectGitDiff: vi.fn().mockResolvedValue({ files: [] }),
+  fetchProjectGit: vi.fn().mockResolvedValue({
+    repository: false,
+    detached: false,
+    ahead: 0,
+    behind: 0,
+    clean: true,
+    files: [],
+    recentCommits: [],
+    stashes: [],
+  }),
+  fetchProjectGitDiff: vi.fn().mockResolvedValue({
+    repository: false,
+    scope: 'combined',
+    files: [],
+  }),
   fetchProjectDatabase: vi.fn().mockResolvedValue({ supported: false, environments: [], total: 0, pageSize: 20 }),
   fetchProjectScripts: vi.fn().mockResolvedValue({ items: [], page: 1, totalPages: 1, total: 0 }),
   fetchScriptExecutionHistory: vi.fn().mockResolvedValue({ items: [] }),
   fetchLatestScriptExecution: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock('../src/api/git-workspace', () => ({
+  fetchProjectGitWorkspace: vi.fn().mockResolvedValue({
+    branches: [],
+    remotes: [],
+  }),
+  fetchProjectGitRemote: vi.fn().mockResolvedValue('origin'),
 }));
 
 const publishTerminalNotice = vi.fn();
@@ -95,8 +116,18 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
+  it('renderiza o painel Git com sua navegação própria', async () => {
+    const wrapper = mount(ProjectGitPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.find('.git-modern-panel').exists()).toBe(true);
+    expect(wrapper.find('.git-subtabs').exists()).toBe(true);
+    expect(wrapper.findAll('.git-subtabs button')).toHaveLength(7);
+
+    wrapper.unmount();
+  });
+
   it.each([
-    ['Git', ProjectGitPanel],
     ['testes', ProjectTestsPanel],
     ['banco de dados', ProjectDatabasePanel],
     ['scripts', ProjectScriptsPanel],
@@ -136,8 +167,6 @@ describe('cards dos painéis de detalhe', () => {
 
       expect(publishTerminalNotice).not.toHaveBeenCalled();
 
-      // O status "running" agenda o próximo polling em 5s (ver
-      // scheduleProcessPolling em useProjectProcessStatus.ts).
       await vi.advanceTimersByTimeAsync(5_000);
       await flushPromises();
 
