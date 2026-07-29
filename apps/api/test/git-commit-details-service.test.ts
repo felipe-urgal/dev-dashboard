@@ -95,6 +95,49 @@ test('pagina dez commits e limita o histórico à branch atual', async () => {
   }
 });
 
+test('busca em todos os commits antes de aplicar a paginação', async () => {
+  const repository = await createRepository();
+  try {
+    await writeFile(path.join(repository.directory, 'target.txt'), 'alvo\n', 'utf8');
+    await run(repository.directory, ['add', 'target.txt']);
+    await run(repository.directory, ['commit', '-m', 'fix: commit alvo distante']);
+    const targetHash = await run(repository.directory, ['rev-parse', 'HEAD']);
+
+    for (let index = 1; index <= 12; index += 1) {
+      const fileName = `recent-${index}.txt`;
+      await writeFile(path.join(repository.directory, fileName), `${index}\n`, 'utf8');
+      await run(repository.directory, ['add', fileName]);
+      await run(repository.directory, ['commit', '-m', `feat: alteração recente ${index}`]);
+    }
+
+    const firstPage = await listBranchCommits(repository.directory, undefined, 1, 10);
+    assert.ok(firstPage.commits.every((commit) => commit.hash !== targetHash));
+
+    const byMessage = await listBranchCommits(
+      repository.directory,
+      undefined,
+      1,
+      10,
+      { search: 'ALVO DISTANTE' },
+    );
+    assert.equal(byMessage.total, 1);
+    assert.equal(byMessage.totalPages, 1);
+    assert.equal(byMessage.commits[0]?.hash, targetHash);
+
+    const byHash = await listBranchCommits(
+      repository.directory,
+      undefined,
+      1,
+      10,
+      { search: targetHash.slice(0, 9) },
+    );
+    assert.equal(byHash.total, 1);
+    assert.equal(byHash.commits[0]?.subject, 'fix: commit alvo distante');
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
+});
+
 test('consulta outra branch sem trocar o working tree', async () => {
   const repository = await createRepository();
   try {

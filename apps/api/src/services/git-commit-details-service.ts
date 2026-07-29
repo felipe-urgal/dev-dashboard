@@ -18,6 +18,14 @@ export type GitCommitFileStatus =
   | 'copied'
   | 'type-changed';
 
+export type GitCommitHistoryKind = 'all' | 'merge' | 'regular';
+
+export interface GitCommitHistoryFilters {
+  search?: string;
+  author?: string;
+  kind?: GitCommitHistoryKind;
+}
+
 export interface GitCommitDetailFile {
   path: string;
   previousPath?: string;
@@ -80,7 +88,7 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
-    maxBuffer: 6 * 1024 * 1024,
+    maxBuffer: 24 * 1024 * 1024,
     windowsHide: true,
     env: {
       ...process.env,
@@ -127,6 +135,41 @@ function parseHistory(output: string): GitCommitHistoryEntry[] {
         parentCount: parents.trim() ? parents.trim().split(/\s+/).length : 0,
       };
     });
+}
+
+function normalized(value: string | undefined): string {
+  return value?.trim().toLocaleLowerCase('pt-BR') ?? '';
+}
+
+function filterHistory(
+  commits: readonly GitCommitHistoryEntry[],
+  filters: GitCommitHistoryFilters,
+): GitCommitHistoryEntry[] {
+  const search = normalized(filters.search);
+  const author = normalized(filters.author);
+  const kind = filters.kind ?? 'all';
+
+  return commits.filter((commit) => {
+    if (author && normalized(commit.authorEmail) !== author) return false;
+    if (kind === 'merge' && commit.parentCount < 2) return false;
+    if (kind === 'regular' && commit.parentCount >= 2) return false;
+    if (!search) return true;
+    return [
+      commit.hash,
+      commit.shortHash,
+      commit.subject,
+      commit.authorName,
+      commit.authorEmail,
+    ].some((value) => normalized(value).includes(search));
+  });
+}
+
+function hasHistoryFilters(filters: GitCommitHistoryFilters): boolean {
+  return Boolean(
+    filters.search?.trim()
+    || filters.author?.trim()
+    || filters.kind && filters.kind !== 'all',
+  );
 }
 
 function statusFromCode(code: string): GitCommitFileStatus {
@@ -228,11 +271,14 @@ async function resolveHistoryReference(
   }
 }
 
+const HISTORY_FORMAT = `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`;
+
 export async function listBranchCommits(
   projectPath: string,
   requestedReference: string | undefined,
   requestedPage = 1,
   requestedPageSize = 10,
+  filters: GitCommitHistoryFilters = {},
 ): Promise<GitCommitHistoryPage> {
   await requireRepository(projectPath);
 
@@ -251,6 +297,28 @@ export async function listBranchCommits(
     };
   }
 
+  if (hasHistoryFilters(filters)) {
+    const output = await runGit(projectPath, [
+      'log',
+      HISTORY_FORMAT,
+      reference.revision,
+      '--',
+    ]);
+    const filtered = filterHistory(parseHistory(output), filters);
+    const total = filtered.length;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+    const effectivePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+    const start = (effectivePage - 1) * pageSize;
+    return {
+      branch: reference.label,
+      page: effectivePage,
+      pageSize,
+      total,
+      totalPages,
+      commits: filtered.slice(start, start + pageSize),
+    };
+  }
+
   const total = Number.parseInt(
     (await runGit(projectPath, ['rev-list', '--count', reference.revision])).trim(),
     10,
@@ -262,7 +330,7 @@ export async function listBranchCommits(
     'log',
     `--skip=${skip}`,
     `-n${pageSize}`,
-    `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`,
+    HISTORY_FORMAT,
     reference.revision,
     '--',
   ]);

@@ -1,0 +1,98 @@
+.git-inline-diff-body {
+  color-scheme: inherit;
+  background: var(--surface-1);
+  color: var(--text);
+  scrollbar-color: var(--border-strong) var(--surface-2);
+}
+
+.git-inline-diff-body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.git-inline-diff-body::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+
+.git-inline-diff-body::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface-2);
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.git-inline-diff-body::-webkit-scrollbar-corner {
+  background: var(--surface-2);
+}
+
+.git-inline-diff-unified,
+.git-inline-diff-split,
+.git-inline-diff-line,
+.git-inline-diff-side {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.git-inline-diff-line-number {
+  border-right-color: var(--border);
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  color: var(--text-dim);
+}
+
+.git-inline-diff-prefix {
+  color: var(--text-muted);
+}
+
+.git-inline-diff-side {
+  border-right-color: var(--border);
+}
+
+.git-inline-diff-line.is-addition,
+.git-inline-diff-side.is-addition {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+.git-inline-diff-line.is-addition .git-inline-diff-line-number,
+.git-inline-diff-side.is-addition .git-inline-diff-line-number {
+  background: color-mix(in srgb, var(--success-surface) 78%, var(--surface-2));
+  color: var(--success-text);
+}
+
+.git-inline-diff-line.is-deletion,
+.git-inline-diff-side.is-deletion {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+.git-inline-diff-line.is-deletion .git-inline-diff-line-number,
+.git-inline-diff-side.is-deletion .git-inline-diff-line-number {
+  background: color-mix(in srgb, var(--danger-surface) 78%, var(--surface-2));
+  color: var(--danger-text);
+}
+
+.git-inline-diff-line.is-hunk,
+.git-inline-diff-split-meta.is-hunk {
+  background: var(--info-surface);
+  color: var(--info-text);
+}
+
+.git-inline-diff-line.is-meta,
+.git-inline-diff-line.is-notice,
+.git-inline-diff-split-meta.is-meta,
+.git-inline-diff-split-meta.is-notice {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.git-inline-diff-side.is-empty {
+  background: var(--surface-2);
+}
+
+.git-inline-diff-empty {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.git-inline-diff-empty p {
+  color: var(--text-muted);
+}

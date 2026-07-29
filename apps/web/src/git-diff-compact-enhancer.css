@@ -1,0 +1,255 @@
+.git-diff-page {
+  gap: var(--space-3) !important;
+}
+
+.git-diff-page-heading {
+  align-items: flex-end !important;
+}
+
+.git-diff-page-heading h2 {
+  font-size: clamp(21px, 1.8vw, 26px) !important;
+}
+
+.git-diff-compact-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 24px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.git-diff-compact-summary > * + *::before {
+  content: '·';
+  margin-right: 10px;
+  color: var(--text-dim);
+}
+
+.git-diff-compact-branch {
+  color: var(--text);
+  font-size: var(--font-sm);
+}
+
+.git-diff-compact-scope {
+  color: var(--text-muted);
+}
+
+.git-diff-compact-summary-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.git-diff-compact-summary-item strong,
+.git-diff-compact-summary-item small {
+  font-size: inherit;
+}
+
+.git-diff-compact-summary-item.is-addition strong {
+  color: var(--success-text);
+}
+
+.git-diff-compact-summary-item.is-deletion strong {
+  color: var(--danger-text);
+}
+
+.git-diff-metrics[hidden],
+.git-diff-status-filter[hidden] {
+  display: none !important;
+}
+
+.git-diff-heading-actions,
+.git-diff-toolbar {
+  gap: 8px !important;
+}
+
+.git-diff-scope-switch button,
+.git-diff-refresh-button,
+.git-diff-view-switch button,
+.git-diff-copy-button {
+  min-height: 34px;
+  padding: 6px 9px !important;
+  font-size: var(--font-xs) !important;
+}
+
+.git-diff-toolbar input,
+.git-diff-toolbar select,
+.git-diff-content-search input {
+  min-height: 36px !important;
+  padding-block: 7px !important;
+}
+
+.git-diff-toolbar {
+  align-items: stretch !important;
+}
+
+.git-diff-page.has-single-diff-file .git-diff-file-search {
+  max-width: none;
+}
+
+.git-diff-workspace {
+  grid-template-columns: minmax(235px, 26%) minmax(0, 1fr) !important;
+  min-height: 560px !important;
+}
+
+.git-diff-files-pane > header {
+  padding: 10px 12px !important;
+}
+
+.git-diff-files-pane > header h3 {
+  font-size: var(--font-sm) !important;
+}
+
+.git-diff-files-pane > header small {
+  font-size: 10px !important;
+}
+
+.git-diff-file-list {
+  padding: 6px !important;
+}
+
+.git-diff-file-list > button {
+  gap: 7px !important;
+  padding: 8px !important;
+}
+
+.git-diff-file-list > button .status-badge {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
+.git-diff-file-header {
+  padding: 10px 12px !important;
+}
+
+.git-diff-selected-file {
+  gap: 8px !important;
+}
+
+.git-diff-selected-file h3 {
+  font-size: var(--font-xs) !important;
+}
+
+.git-diff-selected-file p {
+  font-size: 10px !important;
+}
+
+.git-diff-viewer-toolbar {
+  position: relative;
+  z-index: 2;
+  padding: 6px 10px !important;
+}
+
+.git-diff-content-search {
+  width: min(330px, 48%) !important;
+}
+
+.git-diff-patch-metadata {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.git-diff-patch-metadata summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  cursor: pointer;
+  padding: 6px 12px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  list-style: none;
+}
+
+.git-diff-patch-metadata summary::-webkit-details-marker {
+  display: none;
+}
+
+.git-diff-patch-metadata summary::before {
+  content: '›';
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: -6px;
+  color: var(--text-dim);
+  font-size: 17px;
+  transform-origin: center;
+  transition: transform 160ms ease;
+}
+
+.git-diff-patch-metadata[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.git-diff-patch-metadata summary span {
+  flex: 1;
+}
+
+.git-diff-patch-metadata summary small {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+}
+
+.git-diff-patch-metadata pre {
+  overflow: auto;
+  max-height: 180px;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  padding: 9px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.git-diff-unified > [hidden],
+.git-diff-split > [hidden] {
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  .git-diff-page-heading {
+    align-items: flex-start !important;
+  }
+
+  .git-diff-workspace {
+    grid-template-columns: minmax(220px, 31%) minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .git-diff-page-heading,
+  .git-diff-toolbar,
+  .git-diff-viewer-toolbar {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .git-diff-heading-actions,
+  .git-diff-scope-switch,
+  .git-diff-content-search {
+    width: 100% !important;
+  }
+
+  .git-diff-scope-switch button,
+  .git-diff-view-switch button {
+    flex: 1;
+  }
+
+  .git-diff-workspace {
+    grid-template-columns: 1fr !important;
+  }
+
+  .git-diff-files-pane {
+    max-height: 300px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border);
+  }
+}
