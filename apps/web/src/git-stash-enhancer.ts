@@ -5,7 +5,6 @@ import {
   ChevronRightIcon,
   CodeBracketSquareIcon,
   DocumentTextIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
 
 interface GitOverviewResponse {
@@ -400,11 +399,12 @@ function renderDetail(section: HTMLElement): void {
 
   const metrics = document.createElement('div');
   metrics.className = 'git-stash-detail-metrics';
-  [
+  const metricItems: Array<readonly [string, string, string]> = [
     [`${detail.fileCount}`, 'arquivos', ''],
     [`+${detail.additions}`, 'adições', 'is-addition'],
     [`−${detail.deletions}`, 'remoções', 'is-deletion'],
-  ].forEach(([value, label, className]) => {
+  ];
+  metricItems.forEach(([value, label, className]) => {
     const metric = document.createElement('span');
     if (className) metric.className = className;
     const strong = document.createElement('strong');
