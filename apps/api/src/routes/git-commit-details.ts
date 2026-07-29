@@ -9,7 +9,7 @@ import type { ProjectStore } from '../store/project-store.js';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
-  listCurrentBranchCommits,
+  listBranchCommits,
 } from '../services/git-commit-details-service.js';
 
 interface GitCommitDetailsRouteOptions extends FastifyPluginOptions {
@@ -25,6 +25,7 @@ interface CommitParams extends ProjectParams {
 }
 
 interface HistoryQuery {
+  ref?: string;
   page?: number;
   pageSize?: number;
 }
@@ -55,6 +56,12 @@ const historyQuerySchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
+    ref: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 250,
+      pattern: '^(?!-)[^\\u0000-\\u001F\\u007F]+$',
+    },
     page: { type: 'integer', minimum: 1, default: 1 },
     pageSize: { type: 'integer', minimum: 1, maximum: 10, default: 10 },
   },
@@ -70,6 +77,7 @@ const commitSummarySchema = {
     'authorName',
     'authorEmail',
     'authoredAt',
+    'parentCount',
   ],
   properties: {
     hash: { type: 'string' },
@@ -78,6 +86,7 @@ const commitSummarySchema = {
     authorName: { type: 'string' },
     authorEmail: { type: 'string' },
     authoredAt: { type: 'string' },
+    parentCount: { type: 'integer', minimum: 0 },
   },
 } as const;
 
@@ -222,8 +231,9 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
       const project = projectFor(request.params.projectId);
       try {
         return {
-          history: await listCurrentBranchCommits(
+          history: await listBranchCommits(
             project.path,
+            request.query.ref,
             request.query.page ?? 1,
             request.query.pageSize ?? 10,
           ),
