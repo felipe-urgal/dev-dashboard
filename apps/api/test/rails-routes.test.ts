@@ -9,17 +9,41 @@ import type { Project } from '@dev-dashboard/contracts';
 const TOKEN = 'r'.repeat(64);
 
 interface MigrationsResponse { migrations: { supported: boolean; migrations: Array<{ version: string; name: string; status: string }> } }
+interface MigrationDetailResponse { migration: { supported: boolean; version: string; filePath?: string; source?: string } }
+interface ModelsResponse { models: { supported: boolean; schemaPath?: string; tables: Array<{ name: string; columns: Array<{ name: string; type: string; nullable: boolean; primaryKey: boolean }>; indexes: Array<{ columns: string[]; unique: boolean }>; foreignKeys: Array<{ fromTable: string; toTable: string; column: string }> }> } }
 interface RoutesResponse { routes: { supported: boolean; routes: Array<{ name?: string; verb: string; path: string; controllerAction: string }> } }
 interface ConfirmationResponse { confirmation: { token: string; operation: string; expiresAt: string } }
 interface MutationResultResponse { result: { operation: string; succeeded: boolean; output: string } }
 interface ErrorResponse { error?: string }
 
-test('rotas de inspeção Rails (migrations e routes)', async (context) => {
+test('rotas de inspeção Rails (migrations, models e routes)', async (context) => {
   const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-rails-routes-'));
   const projectPath = path.join(fixtureRoot, 'sample');
   await mkdir(path.join(projectPath, 'bin'), { recursive: true });
+  await mkdir(path.join(projectPath, 'db', 'migrate'), { recursive: true });
   await writeFile(path.join(projectPath, 'Gemfile'), 'gem "rails"\n');
   await writeFile(path.join(projectPath, 'bin', 'rails'), '#!/bin/sh\n');
+  await writeFile(
+    path.join(projectPath, 'db', 'migrate', '20200101010101_create_users.rb'),
+    'class CreateUsers < ActiveRecord::Migration[7.1]\n  def change\n    create_table :users do |t|\n      t.string :name, null: false\n    end\n  end\nend\n',
+  );
+  await writeFile(
+    path.join(projectPath, 'db', 'schema.rb'),
+    `ActiveRecord::Schema[7.1].define(version: 2020_01_01_010101) do
+  create_table "orders", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "status", default: "pending", null: false
+    t.index ["user_id"], name: "index_orders_on_user_id"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.string "name", null: false
+  end
+
+  add_foreign_key "orders", "users"
+end
+`,
+  );
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
   const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
@@ -71,6 +95,29 @@ test('rotas de inspeção Rails (migrations e routes)', async (context) => {
     const { migrations } = response.json<MigrationsResponse>();
     assert.equal(migrations.supported, true);
     assert.deepEqual(migrations.migrations, [{ version: '20200101010101', name: 'Create users', status: 'up' }]);
+  });
+
+  await context.test('retorna o arquivo e o código de uma migration', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/migrations/20200101010101', headers });
+    assert.equal(response.statusCode, 200);
+    const { migration } = response.json<MigrationDetailResponse>();
+    assert.equal(migration.supported, true);
+    assert.equal(migration.filePath, 'db/migrate/20200101010101_create_users.rb');
+    assert.match(migration.source ?? '', /class CreateUsers/);
+  });
+
+  await context.test('retorna tabelas, colunas, índices e foreign keys do schema', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/models', headers });
+    assert.equal(response.statusCode, 200);
+    const { models } = response.json<ModelsResponse>();
+    assert.equal(models.supported, true);
+    assert.equal(models.schemaPath, 'db/schema.rb');
+    assert.deepEqual(models.tables.map((table) => table.name), ['orders', 'users']);
+
+    const orders = models.tables[0];
+    assert.deepEqual(orders?.columns.map((column) => column.name), ['id', 'user_id', 'status']);
+    assert.deepEqual(orders?.indexes[0]?.columns, ['user_id']);
+    assert.deepEqual(orders?.foreignKeys[0], { fromTable: 'orders', toTable: 'users', column: 'user_id' });
   });
 
   await context.test('retorna lista de rotas', async () => {
