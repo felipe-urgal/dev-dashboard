@@ -45,6 +45,7 @@ export type {
   GitStashEntry,
   GitTrackingComparison,
   ProjectGitOverview,
+  ProjectGitWorkspace,
 } from './git.js';
 
 export type {
