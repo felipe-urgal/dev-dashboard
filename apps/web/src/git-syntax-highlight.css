@@ -73,7 +73,7 @@
   max-width: 100%;
   min-width: 0;
   padding: 0 !important;
-  white-space: pre-wrap;
+  white-space: normal;
   overflow-wrap: anywhere;
   tab-size: 2;
 }
