@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
+import { gitSyncRoutes } from './routes/git-sync.js';
 
 import { processRoutes } from './routes/processes.js';
 
@@ -102,6 +103,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(gitWorkspaceRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+
+  app.register(gitSyncRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
   });

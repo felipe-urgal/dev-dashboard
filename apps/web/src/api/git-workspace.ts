@@ -1,5 +1,9 @@
 import type {
   GitMutationConfirmation,
+  GitSyncConfirmation,
+  GitSyncResult,
+  GitSyncStrategy,
+  GitTrackingComparison,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
@@ -110,4 +114,52 @@ export async function trackProjectGitBranch(
   );
 
   return response.branch.branch;
+}
+
+export async function compareProjectGitReference(
+  projectId: string,
+  reference: string,
+): Promise<GitTrackingComparison> {
+  const query = new URLSearchParams({ reference });
+  const response = await requestJson<{ comparison: GitTrackingComparison }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync/compare?${query.toString()}`,
+  );
+  return response.comparison;
+}
+
+export async function prepareProjectGitSync(
+  projectId: string,
+  reference: string,
+  strategy: GitSyncStrategy,
+): Promise<GitSyncConfirmation> {
+  const response = await requestJson<{ confirmation: GitSyncConfirmation }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference, strategy }),
+    },
+  );
+  return response.confirmation;
+}
+
+export async function integrateProjectGitReference(
+  projectId: string,
+  reference: string,
+  strategy: GitSyncStrategy,
+  confirmationToken: string,
+): Promise<GitSyncResult> {
+  const response = await requestJson<{ result: GitSyncResult }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reference,
+        strategy,
+        confirmationToken,
+      }),
+    },
+  );
+  return response.result;
 }
