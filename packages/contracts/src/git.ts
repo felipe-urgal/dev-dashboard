@@ -37,6 +37,24 @@ export interface ProjectGitWorkspace {
   upstreamComparison?: GitTrackingComparison;
 }
 
+export type GitSyncStrategy = 'ff-only' | 'rebase' | 'merge';
+
+export interface GitSyncConfirmation {
+  token: string;
+  reference: string;
+  strategy: GitSyncStrategy;
+  expiresAt: string;
+}
+
+export interface GitSyncResult {
+  branch: string;
+  reference: string;
+  strategy: GitSyncStrategy;
+  changed: boolean;
+  previousHead: string;
+  currentHead: string;
+}
+
 export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; stashes: GitStashEntry[]; }
 
 export type GitDiffScope = 'worktree' | 'index' | 'combined';
