@@ -28,6 +28,8 @@ export type {
 export type { Job, JobStatus } from './job.js';
 
 export type {
+  GitBranch,
+  GitBranchKind,
   GitCommit,
   GitCommitResult,
   GitDiffFile,
@@ -38,8 +40,12 @@ export type {
   GitFileStatus,
   GitMutationConfirmation,
   GitMutationOperation,
+  GitRemote,
+  GitRemoteRole,
   GitStashEntry,
+  GitTrackingComparison,
   ProjectGitOverview,
+  ProjectGitWorkspace,
 } from './git.js';
 
 export type {
