@@ -10,6 +10,25 @@ import type {
 
 const execFileAsync = promisify(execFile);
 const FIELD_SEPARATOR = '\u001f';
+const REMOTE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+const REMOTE_UNAVAILABLE_PATTERN = /could not resolve host|connection (?:refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
+
+export type GitWorkspaceErrorCode =
+  | 'GIT_NOT_REPOSITORY'
+  | 'GIT_REMOTE_INVALID'
+  | 'GIT_REMOTE_NOT_CONFIGURED'
+  | 'GIT_REMOTE_UNAVAILABLE'
+  | 'GIT_FETCH_FAILED';
+
+export class GitWorkspaceError extends Error {
+  public constructor(
+    public readonly code: GitWorkspaceErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'GitWorkspaceError';
+  }
+}
 
 async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
   const result = await execFileAsync('git', [...args], {
@@ -25,6 +44,14 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
   });
 
   return result.stdout.trim();
+}
+
+function commandFailureText(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const withOutput = error as Error & { stdout?: string; stderr?: string };
+  return [withOutput.message, withOutput.stdout, withOutput.stderr]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function sanitizeRemoteUrl(value: string): string {
@@ -260,5 +287,39 @@ export class GitWorkspaceService {
       ...(originComparison ? { originComparison } : {}),
       ...(upstreamComparison ? { upstreamComparison } : {}),
     };
+  }
+
+  public async fetchRemote(projectPath: string, remote: string): Promise<void> {
+    if (!REMOTE_NAME_PATTERN.test(remote)) {
+      throw new GitWorkspaceError('GIT_REMOTE_INVALID', 'Nome de remote inválido.');
+    }
+
+    try {
+      await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+    } catch {
+      throw new GitWorkspaceError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+    }
+
+    try {
+      await runGit(projectPath, ['remote', 'get-url', remote]);
+    } catch {
+      throw new GitWorkspaceError(
+        'GIT_REMOTE_NOT_CONFIGURED',
+        `O remote "${remote}" não está configurado neste projeto.`,
+      );
+    }
+
+    try {
+      await runGit(projectPath, ['fetch', '--prune', remote]);
+    } catch (error) {
+      const details = commandFailureText(error);
+      if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
+        throw new GitWorkspaceError(
+          'GIT_REMOTE_UNAVAILABLE',
+          `Não foi possível acessar o remote "${remote}".`,
+        );
+      }
+      throw new GitWorkspaceError('GIT_FETCH_FAILED', details || 'Falha ao atualizar o remote.');
+    }
   }
 }
