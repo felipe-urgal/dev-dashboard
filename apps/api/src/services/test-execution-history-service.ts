@@ -255,6 +255,15 @@ export class TestExecutionHistoryService {
     };
   }
 
+  public async clear(projectId: string): Promise<{ removedCount: number }> {
+    await this.reconcile(projectId);
+    const items = await this.load(projectId);
+    const kept = items.filter((item) => OPEN_STATUSES.includes(item.status));
+    const removedCount = items.length - kept.length;
+    if (removedCount > 0) await this.save(projectId, kept);
+    return { removedCount };
+  }
+
   private filePath(projectId: string): string {
     return path.join(this.stateDirectory, `${sanitizeProjectId(projectId)}.json`);
   }

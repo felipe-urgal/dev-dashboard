@@ -22,6 +22,7 @@ import {
   processLogSnapshotResponseSchema,
   projectTestFileResponseSchema,
   projectTestOverviewResponseSchema,
+  testExecutionHistoryClearResponseSchema,
   testExecutionHistoryResponseSchema,
 } from '../http/response-schemas.js';
 
@@ -577,6 +578,29 @@ export const testRoutes: FastifyPluginAsync<TestRouteOptions> = async (
         request.query.page,
         request.query.pageSize,
       );
+      return { history };
+    },
+  );
+
+  app.delete<{ Params: ProjectParams }>(
+    '/projects/:projectId/tests/history',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['history'],
+            properties: { history: testExecutionHistoryClearResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const history = await testExecutionHistoryService.clear(project.id);
       return { history };
     },
   );

@@ -34,17 +34,12 @@ test('mantem o log de testes dentro do painel e permite quebra de linhas longas'
   assert.match(css, /tests-log-line-error/);
 });
 
-test('trunca em uma linha as sequencias longas de pontos de progresso', async () => {
+test('mantem a quebra de linha e reduz o destaque das sequencias de pontos de progresso', async () => {
   const css = await readFile(sourceFile('test-log-visual-polish.css'), 'utf8');
+  const progressRule = css.match(/test-log-visual-progress code\s*\{([^}]*)\}/)?.[1] ?? '';
 
-  assert.match(
-    css,
-    /test-log-visual-progress code\s*\{[^}]*white-space:\s*nowrap/,
-  );
-  assert.match(
-    css,
-    /test-log-visual-progress code\s*\{[^}]*text-overflow:\s*ellipsis/,
-  );
+  assert.doesNotMatch(progressRule, /white-space:\s*nowrap/);
+  assert.match(progressRule, /color:\s*var\(--test-log-muted\)/);
 });
 
 test('usa o mesmo comportamento responsivo e semantico da pagina de diff nos diffs inline', async () => {
