@@ -18,7 +18,7 @@ interface ActionSession {
   label: string;
   activeRequests: number;
   failed: boolean;
-  settleTimer: ReturnType<typeof setTimeout> | undefined;
+  settleTimer: ReturnType<typeof window.setTimeout> | undefined;
   toast: HTMLElement;
 }
 
