@@ -92,9 +92,13 @@
 }
 
 .tests-log-output .test-log-visual-progress code {
+  display: block;
+  overflow: hidden;
   color: var(--test-log-info);
   font-weight: 700;
   letter-spacing: .06em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .tests-log-output .test-log-visual-file {

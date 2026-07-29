@@ -1,3 +1,5 @@
+import { isRedundantGitDiffHeaderLine } from './git-diff-metadata';
+
 export type GitDiffLineKind =
   | 'addition'
   | 'deletion'
@@ -54,7 +56,18 @@ export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
       || rawLine.startsWith('index ')
       || rawLine.startsWith('--- ')
       || rawLine.startsWith('+++ ')
-      || rawLine.startsWith('new file mode ')
+    ) {
+      // O caminho do arquivo já aparece no cabeçalho da própria visualização
+      // (lista de arquivos, seletor de arquivo); repetir "diff --git",
+      // "index" e "---"/"+++" aqui só adiciona ruído.
+      if (!isRedundantGitDiffHeaderLine(rawLine)) {
+        lines.push(metaLine(rawLine));
+      }
+      continue;
+    }
+
+    if (
+      rawLine.startsWith('new file mode ')
       || rawLine.startsWith('deleted file mode ')
       || rawLine.startsWith('similarity index ')
       || rawLine.startsWith('rename from ')
