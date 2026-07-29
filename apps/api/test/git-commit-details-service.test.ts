@@ -3,9 +3,8 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import test from 'node:test';
 import { promisify } from 'node:util';
-
-import { afterEach, test } from 'vitest';
 
 import {
   GitCommitDetailsError,
@@ -13,7 +12,6 @@ import {
 } from '../src/services/git-commit-details-service.js';
 
 const execFileAsync = promisify(execFile);
-const temporaryDirectories: string[] = [];
 
 async function run(directory: string, args: string[]): Promise<string> {
   const result = await execFileAsync('git', args, {
@@ -25,7 +23,6 @@ async function run(directory: string, args: string[]): Promise<string> {
 
 async function createRepository(): Promise<{ directory: string; hash: string }> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-commit-'));
-  temporaryDirectories.push(directory);
   await run(directory, ['init']);
   await run(directory, ['config', 'user.name', 'Dashboard Test']);
   await run(directory, ['config', 'user.email', 'dashboard@example.test']);
@@ -38,43 +35,42 @@ async function createRepository(): Promise<{ directory: string; hash: string }> 
   };
 }
 
-afterEach(async () => {
-  await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
-  );
-});
-
 test('retorna metadados, arquivos e patch de um commit', async () => {
   const repository = await createRepository();
-  const detail = await inspectGitCommit(repository.directory, repository.hash);
+  try {
+    const detail = await inspectGitCommit(repository.directory, repository.hash);
 
-  assert.equal(detail.hash, repository.hash);
-  assert.equal(detail.subject, 'feat: cria projeto');
-  assert.match(detail.body, /documentação inicial/);
-  assert.equal(detail.authorName, 'Dashboard Test');
-  assert.equal(detail.files.length, 1);
-  assert.equal(detail.files[0]?.path, 'README.md');
-  assert.equal(detail.files[0]?.status, 'added');
-  assert.equal(detail.additions, 1);
-  assert.equal(detail.deletions, 0);
-  assert.match(detail.patch, /\+\# Projeto/);
-  assert.equal(detail.truncated, false);
+    assert.equal(detail.hash, repository.hash);
+    assert.equal(detail.subject, 'feat: cria projeto');
+    assert.match(detail.body, /documentação inicial/);
+    assert.equal(detail.authorName, 'Dashboard Test');
+    assert.equal(detail.files.length, 1);
+    assert.equal(detail.files[0]?.path, 'README.md');
+    assert.equal(detail.files[0]?.status, 'added');
+    assert.equal(detail.additions, 1);
+    assert.equal(detail.deletions, 0);
+    assert.match(detail.patch, /\+\# Projeto/);
+    assert.equal(detail.truncated, false);
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
 });
 
 test('recusa hash inválido e commit inexistente', async () => {
   const repository = await createRepository();
+  try {
+    await assert.rejects(
+      () => inspectGitCommit(repository.directory, 'not-a-hash'),
+      (error: unknown) =>
+        error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_INVALID',
+    );
 
-  await assert.rejects(
-    () => inspectGitCommit(repository.directory, 'not-a-hash'),
-    (error: unknown) =>
-      error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_INVALID',
-  );
-
-  await assert.rejects(
-    () => inspectGitCommit(repository.directory, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
-    (error: unknown) =>
-      error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_NOT_FOUND',
-  );
+    await assert.rejects(
+      () => inspectGitCommit(repository.directory, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+      (error: unknown) =>
+        error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_NOT_FOUND',
+    );
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
 });
