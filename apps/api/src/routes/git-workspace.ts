@@ -8,7 +8,10 @@ import {
   GitWorkspaceError,
   GitWorkspaceService,
 } from '../services/git-workspace-service.js';
-import { ApiError } from '../http/api-error.js';
+import {
+  ApiError,
+  type ApiErrorCode,
+} from '../http/api-error.js';
 import {
   apiErrorResponseSchema,
   commonErrorResponseSchemas,
@@ -191,17 +194,24 @@ export const gitWorkspaceRoutes: FastifyPluginAsync<
             GIT_REMOTE_UNAVAILABLE: 502,
             GIT_FETCH_FAILED: 500,
           };
+          const apiCodeByCode: Record<GitWorkspaceError['code'], ApiErrorCode> = {
+            GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
+            GIT_REMOTE_INVALID: 'BAD_REQUEST',
+            GIT_REMOTE_NOT_CONFIGURED: 'GIT_REMOTE_NOT_CONFIGURED',
+            GIT_REMOTE_UNAVAILABLE: 'GIT_REMOTE_UNAVAILABLE',
+            GIT_FETCH_FAILED: 'GIT_COMMAND_FAILED',
+          };
 
           throw new ApiError({
             statusCode: statusByCode[error.code],
-            code: error.code,
+            code: apiCodeByCode[error.code],
             message: error.message,
           });
         }
 
         throw new ApiError({
           statusCode: 500,
-          code: 'GIT_FETCH_FAILED',
+          code: 'GIT_COMMAND_FAILED',
           message: error instanceof Error
             ? error.message
             : 'Não foi possível atualizar o remote.',
