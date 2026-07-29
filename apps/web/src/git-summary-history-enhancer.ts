@@ -1,6 +1,7 @@
 import { h, render } from 'vue';
 import {
   ArrowPathIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   CodeBracketSquareIcon,
@@ -18,10 +19,17 @@ interface GitCommitSummary {
   authoredAt: string;
 }
 
-interface GitOverviewResponse {
-  git: {
-    recentCommits: GitCommitSummary[];
-  };
+interface GitCommitHistoryPage {
+  branch: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  commits: GitCommitSummary[];
+}
+
+interface GitCommitHistoryResponse {
+  history: GitCommitHistoryPage;
 }
 
 interface CommitDetailFile {
@@ -50,10 +58,17 @@ interface CommitDetailResponse {
 
 interface SummaryState {
   projectId: string;
+  branch: string;
   commits: GitCommitSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
   selectedHash: string;
   search: string;
   request: AbortController | undefined;
+  historyRequest: AbortController | undefined;
+  branchObserver: MutationObserver | undefined;
 }
 
 const stateBySection = new WeakMap<HTMLElement, SummaryState>();
@@ -152,6 +167,13 @@ function patchView(patch: string): HTMLElement {
   return pre;
 }
 
+function currentBranchFromSection(section: HTMLElement): string {
+  return section
+    .querySelector<HTMLElement>('.git-status-grid article:first-child strong')
+    ?.textContent
+    ?.trim() ?? '';
+}
+
 function commitListItem(
   section: HTMLElement,
   commit: GitCommitSummary,
@@ -193,6 +215,21 @@ function commitListItem(
   return button;
 }
 
+function renderPagination(section: HTMLElement): void {
+  const state = stateBySection.get(section);
+  if (!state) return;
+  const previous = section.querySelector<HTMLButtonElement>('[data-history-page="previous"]');
+  const next = section.querySelector<HTMLButtonElement>('[data-history-page="next"]');
+  const label = section.querySelector<HTMLElement>('.git-summary-history-page-label');
+  if (previous) previous.disabled = state.page <= 1 || state.totalPages <= 1;
+  if (next) next.disabled = state.totalPages <= 1 || state.page >= state.totalPages;
+  if (label) {
+    label.textContent = state.totalPages > 0
+      ? `Página ${state.page} de ${state.totalPages}`
+      : 'Nenhuma página';
+  }
+}
+
 function renderHistoryList(section: HTMLElement): void {
   const state = stateBySection.get(section);
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
@@ -208,16 +245,40 @@ function renderHistoryList(section: HTMLElement): void {
 
   list.replaceChildren();
   commits.forEach((commit) => list.append(commitListItem(section, commit)));
-  if (count) count.textContent = `${commits.length} commit${commits.length === 1 ? '' : 's'}`;
+
+  if (count) {
+    if (query) {
+      count.textContent = `${commits.length} resultado${commits.length === 1 ? '' : 's'} nesta página · ${state.total} commits · ${state.branch}`;
+    } else if (state.total > 0) {
+      const start = ((state.page - 1) * state.pageSize) + 1;
+      const end = start + state.commits.length - 1;
+      count.textContent = `${start}–${end} de ${state.total} commits · ${state.branch}`;
+    } else {
+      count.textContent = `0 commits · ${state.branch || 'branch atual'}`;
+    }
+  }
 
   if (commits.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'git-summary-history-empty';
     empty.textContent = state.commits.length === 0
-      ? 'O repositório ainda não possui commits.'
-      : 'Nenhum commit corresponde à busca.';
+      ? 'A branch atual ainda não possui commits.'
+      : 'Nenhum commit desta página corresponde à busca.';
     list.append(empty);
   }
+  renderPagination(section);
+}
+
+function setHistoryLoading(section: HTMLElement): void {
+  const list = section.querySelector<HTMLElement>('.git-summary-history-list');
+  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+  if (!list) return;
+  list.replaceChildren();
+  const loading = document.createElement('p');
+  loading.className = 'git-summary-history-empty';
+  loading.textContent = 'Carregando commits da branch atual…';
+  list.append(loading);
+  if (count) count.textContent = 'Atualizando histórico…';
 }
 
 function setDetailLoading(section: HTMLElement, commit: GitCommitSummary): void {
@@ -401,6 +462,115 @@ function closeCommitDetail(section: HTMLElement): void {
   renderHistoryList(section);
 }
 
+async function loadHistoryPage(
+  section: HTMLElement,
+  requestedPage: number,
+  resetView = false,
+): Promise<void> {
+  const state = stateBySection.get(section);
+  if (!state) return;
+  state.historyRequest?.abort();
+  const controller = new AbortController();
+  state.historyRequest = controller;
+
+  if (resetView) {
+    state.search = '';
+    const input = section.querySelector<HTMLInputElement>('.git-summary-history-search input');
+    if (input) input.value = '';
+    closeCommitDetail(section);
+  }
+  setHistoryLoading(section);
+
+  try {
+    const query = new URLSearchParams({
+      page: String(Math.max(1, requestedPage)),
+      pageSize: '10',
+    });
+    const response = await requestJson<GitCommitHistoryResponse>(
+      `/api/projects/${encodeURIComponent(state.projectId)}/git/commits?${query}`,
+      controller.signal,
+    );
+    if (controller.signal.aborted) return;
+    state.branch = response.history.branch;
+    state.commits = response.history.commits;
+    state.page = response.history.page;
+    state.pageSize = response.history.pageSize;
+    state.total = response.history.total;
+    state.totalPages = response.history.totalPages;
+    renderHistoryList(section);
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    const list = section.querySelector<HTMLElement>('.git-summary-history-list');
+    const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+    list?.replaceChildren();
+    const message = document.createElement('p');
+    message.className = 'git-summary-history-empty is-error';
+    message.textContent = error instanceof Error
+      ? error.message
+      : 'Não foi possível carregar o histórico.';
+    list?.append(message);
+    if (count) count.textContent = 'Histórico indisponível';
+  } finally {
+    if (state.historyRequest === controller) state.historyRequest = undefined;
+    renderPagination(section);
+  }
+}
+
+function buildPagination(section: HTMLElement): HTMLElement {
+  const footer = document.createElement('footer');
+  footer.className = 'git-summary-history-pagination';
+
+  const previous = document.createElement('button');
+  previous.type = 'button';
+  previous.dataset.historyPage = 'previous';
+  previous.setAttribute('aria-label', 'Página anterior do histórico');
+  mountIcon(previous, ChevronLeftIcon, 'git-summary-pagination-icon');
+  const previousText = document.createElement('span');
+  previousText.textContent = 'Anterior';
+  previous.append(previousText);
+  previous.addEventListener('click', () => {
+    const state = stateBySection.get(section);
+    if (state && state.page > 1) void loadHistoryPage(section, state.page - 1, true);
+  });
+
+  const label = document.createElement('span');
+  label.className = 'git-summary-history-page-label';
+  label.textContent = 'Nenhuma página';
+
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.dataset.historyPage = 'next';
+  next.setAttribute('aria-label', 'Próxima página do histórico');
+  const nextText = document.createElement('span');
+  nextText.textContent = 'Próxima';
+  next.append(nextText);
+  mountIcon(next, ChevronRightIcon, 'git-summary-pagination-icon');
+  next.addEventListener('click', () => {
+    const state = stateBySection.get(section);
+    if (state && state.page < state.totalPages) {
+      void loadHistoryPage(section, state.page + 1, true);
+    }
+  });
+
+  footer.append(previous, label, next);
+  return footer;
+}
+
+function watchCurrentBranch(section: HTMLElement): MutationObserver | undefined {
+  const target = section.querySelector<HTMLElement>('.git-status-grid article:first-child strong');
+  if (!target) return undefined;
+  const observer = new MutationObserver(() => {
+    const state = stateBySection.get(section);
+    if (!state || state.historyRequest) return;
+    const branch = currentBranchFromSection(section);
+    if (branch && branch !== state.branch) {
+      void loadHistoryPage(section, 1, true);
+    }
+  });
+  observer.observe(target, { childList: true, characterData: true, subtree: true });
+  return observer;
+}
+
 function buildHistory(section: HTMLElement, projectId: string): void {
   const shell = document.createElement('section');
   shell.className = 'git-summary-history-shell';
@@ -414,7 +584,7 @@ function buildHistory(section: HTMLElement, projectId: string): void {
   mountIcon(title, ClockIcon, 'git-summary-history-icon');
   const titleCopy = document.createElement('div');
   const heading = document.createElement('h2');
-  heading.textContent = 'Histórico do projeto';
+  heading.textContent = 'Histórico da branch atual';
   const count = document.createElement('span');
   count.className = 'git-summary-history-count';
   count.textContent = 'Carregando…';
@@ -426,8 +596,8 @@ function buildHistory(section: HTMLElement, projectId: string): void {
   mountIcon(search, MagnifyingGlassIcon, 'git-summary-search-icon');
   const input = document.createElement('input');
   input.type = 'search';
-  input.placeholder = 'Buscar commit, hash ou autor…';
-  input.setAttribute('aria-label', 'Buscar no histórico de commits');
+  input.placeholder = 'Buscar nesta página…';
+  input.setAttribute('aria-label', 'Buscar nos commits desta página');
   input.addEventListener('input', () => {
     const state = stateBySection.get(section);
     if (!state) return;
@@ -443,7 +613,7 @@ function buildHistory(section: HTMLElement, projectId: string): void {
   loading.className = 'git-summary-history-empty';
   loading.textContent = 'Carregando histórico…';
   list.append(loading);
-  history.append(header, list);
+  history.append(header, list, buildPagination(section));
 
   const detail = document.createElement('aside');
   detail.className = 'git-summary-commit-detail';
@@ -453,28 +623,21 @@ function buildHistory(section: HTMLElement, projectId: string): void {
 
   const state: SummaryState = {
     projectId,
+    branch: currentBranchFromSection(section),
     commits: [],
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
     selectedHash: '',
     search: '',
     request: undefined,
+    historyRequest: undefined,
+    branchObserver: undefined,
   };
   stateBySection.set(section, state);
-
-  void requestJson<GitOverviewResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git`,
-  ).then((response) => {
-    state.commits = response.git.recentCommits;
-    renderHistoryList(section);
-  }).catch((error: unknown) => {
-    list.replaceChildren();
-    const message = document.createElement('p');
-    message.className = 'git-summary-history-empty is-error';
-    message.textContent = error instanceof Error
-      ? error.message
-      : 'Não foi possível carregar o histórico.';
-    list.append(message);
-    count.textContent = 'indisponível';
-  });
+  state.branchObserver = watchCurrentBranch(section);
+  void loadHistoryPage(section, 1);
 }
 
 function enhanceSummary(section: HTMLElement): void {
