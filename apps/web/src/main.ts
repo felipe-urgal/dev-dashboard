@@ -7,6 +7,7 @@ import { router } from './router';
 import './styles.css';
 import './project-details-redesign.css';
 import './database-layout-polish.css';
+import './scripts-explorer-redesign.css';
 import './project-header-server-enhancer.css';
 import './log-visual-enhancer.css';
 import './test-log-visual-polish.css';
