@@ -127,15 +127,24 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it.each([
-    ['testes', ProjectTestsPanel],
-    ['scripts', ProjectScriptsPanel],
-  ])('renderiza o painel de %s dentro de Card', async (_name, component) => {
-    const wrapper = mount(component, { props: { project } });
+  it('renderiza o painel de testes dentro de Card', async () => {
+    const wrapper = mount(ProjectTestsPanel, { props: { project } });
     await flushPromises();
 
     expect(wrapper.get('.dd-card').classes()).toContain('project-detail-card');
     expect(wrapper.find('.dd-card-header').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it('renderiza scripts como explorador com navegação própria', async () => {
+    const wrapper = mount(ProjectScriptsPanel, { props: { project } });
+    await flushPromises();
+
+    expect(wrapper.find('.scripts-explorer').exists()).toBe(true);
+    expect(wrapper.find('.scripts-explorer-header').exists()).toBe(true);
+    expect(wrapper.find('.scripts-explorer-tabs').exists()).toBe(true);
+    expect(wrapper.findAll('.scripts-explorer-tabs button')).toHaveLength(3);
 
     wrapper.unmount();
   });
@@ -197,7 +206,6 @@ describe('cards dos painéis de detalhe', () => {
 
     it('não publica aviso quando o processo já chega parado sem nunca ter sido observado rodando', async () => {
       fetchProjectProcess.mockResolvedValueOnce(null);
-
       const wrapper = mountServerPanel();
       await flushPromises();
 
