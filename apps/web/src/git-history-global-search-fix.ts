@@ -3,7 +3,7 @@ interface HistorySearchState {
   author: string;
   kind: 'all' | 'regular' | 'merge';
   pendingFirstPage: boolean;
-  debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  debounceTimer: ReturnType<typeof window.setTimeout> | undefined;
   total: number;
   returned: number;
 }
