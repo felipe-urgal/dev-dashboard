@@ -1,0 +1,122 @@
+.git-action-feedback-stack {
+  position: fixed;
+  z-index: 1200;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 8px;
+  width: min(340px, calc(100vw - 36px));
+  pointer-events: none;
+}
+
+.git-action-feedback-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  color: var(--text);
+  padding: 11px 13px;
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(12px);
+  animation: git-action-feedback-enter 180ms ease-out;
+}
+
+.git-action-feedback-toast.is-success {
+  border-color: color-mix(in srgb, var(--success-text) 42%, var(--border));
+}
+
+.git-action-feedback-toast.is-error {
+  border-color: color-mix(in srgb, var(--danger-text) 45%, var(--border));
+}
+
+.git-action-feedback-toast > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.git-action-feedback-toast strong {
+  color: var(--text);
+  font-size: var(--font-sm);
+}
+
+.git-action-feedback-toast span:not(.git-action-feedback-icon) {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-action-feedback-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--info-surface);
+  color: var(--info-text);
+}
+
+.git-action-feedback-toast.is-success .git-action-feedback-icon {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+.git-action-feedback-toast.is-error .git-action-feedback-icon {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+.git-action-feedback-icon-svg {
+  width: 17px;
+  height: 17px;
+}
+
+.git-action-feedback-toast.is-running .git-action-feedback-icon-svg {
+  animation: git-action-feedback-spin 850ms linear infinite;
+}
+
+.git-modern-panel button.is-git-action-running,
+.git-modern-panel [role='button'].is-git-action-running,
+.git-modern-panel a.is-git-action-running {
+  position: relative;
+  cursor: progress;
+  pointer-events: none;
+  opacity: .82;
+}
+
+.git-modern-panel button.is-git-action-running::after,
+.git-modern-panel [role='button'].is-git-action-running::after,
+.git-modern-panel a.is-git-action-running::after {
+  width: 13px;
+  height: 13px;
+  margin-left: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  content: '';
+  animation: git-action-feedback-spin 700ms linear infinite;
+}
+
+@keyframes git-action-feedback-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes git-action-feedback-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.98);
+  }
+}
+
+@media (max-width: 620px) {
+  .git-action-feedback-stack {
+    right: 10px;
+    bottom: 10px;
+    width: calc(100vw - 20px);
+  }
+}
