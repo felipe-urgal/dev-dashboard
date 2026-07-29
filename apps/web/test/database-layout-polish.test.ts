@@ -8,21 +8,52 @@ function sourceFile(fileName: string): string {
   return resolve(process.cwd(), 'src', fileName);
 }
 
-test('organiza o painel Rails em duas colunas sem afetar as demais abas', async () => {
-  const css = await readFile(sourceFile('database-layout-polish.css'), 'utf8');
+test('oferece a navegação completa do explorador de banco', async () => {
+  const component = await readFile(
+    sourceFile('components/ProjectDatabasePanel.vue'),
+    'utf8',
+  );
 
-  assert.match(css, /project-details-page:has\(> \.rails-migrations-card\)/);
-  assert.match(css, /grid-template-columns:\s*minmax\(0, 1\.45fr\) minmax\(340px, 0\.55fr\)/);
-  assert.match(css, /rails-routes-card[\s\S]*grid-column:\s*1 \/ -1/);
+  for (const label of [
+    'Visão geral',
+    'Ambientes',
+    'Migrations',
+    'Modelos',
+    'Rotas',
+    'Dependências',
+  ]) {
+    assert.match(component, new RegExp(label));
+  }
+
+  assert.match(component, /fetchProjectRailsMigrationDetail/);
+  assert.match(component, /fetchProjectRailsModels/);
+  assert.match(component, /Código da migration/);
+  assert.match(component, /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/);
+  assert.match(component, /Relacionamentos/);
 });
 
-test('reduz a altura das tabelas extensas mantendo todo o conteudo rolavel', async () => {
+test('mantém o layout restrito ao painel de banco e baseado nos tokens de tema', async () => {
   const css = await readFile(sourceFile('database-layout-polish.css'), 'utf8');
 
-  assert.match(css, /migrations-table[\s\S]*overflow:\s*auto/);
-  assert.match(css, /migrations-table[\s\S]*max-height:\s*520px/);
-  assert.match(css, /routes-table[\s\S]*max-height:\s*min\(64vh, 680px\)/);
-  assert.match(css, /thead[\s\S]*position:\s*sticky/);
+  assert.match(css, /project-details-page:has\(> \.database-explorer\)/);
+  assert.match(css, /\.database-explorer\s*\{/);
+  assert.match(css, /var\(--surface-1\)/);
+  assert.match(css, /var\(--text\)/);
+  assert.match(css, /var\(--border\)/);
+  assert.match(css, /var\(--accent\)/);
+  assert.doesNotMatch(css, /\[data-theme=['"]dark['"]\]/);
+});
+
+test('implementa painéis, tabelas roláveis e adaptação responsiva', async () => {
+  const css = await readFile(sourceFile('database-layout-polish.css'), 'utf8');
+
+  assert.match(css, /database-metrics-grid/);
+  assert.match(css, /database-split-layout/);
+  assert.match(css, /database-table-detail-layout/);
+  assert.match(css, /database-data-table thead[\s\S]*position:\s*sticky/);
+  assert.match(css, /@media \(max-width: 940px\)/);
+  assert.match(css, /@media \(max-width: 720px\)/);
+  assert.match(css, /prefers-reduced-motion/);
 });
 
 test('carrega o polimento depois do redesign geral do detalhe', async () => {
@@ -32,4 +63,13 @@ test('carrega o polimento depois do redesign geral do detalhe', async () => {
 
   assert.ok(redesignIndex >= 0);
   assert.ok(databaseIndex > redesignIndex);
+});
+
+test('consulta detalhes de migrations e modelos pelas novas rotas', async () => {
+  const api = await readFile(sourceFile('rails-explorer-api.ts'), 'utf8');
+
+  assert.match(api, /rails\/migrations\/\$\{encodeURIComponent\(version\)\}/);
+  assert.match(api, /rails\/models/);
+  assert.match(api, /RailsMigrationDetail/);
+  assert.match(api, /RailsModelsOverview/);
 });
