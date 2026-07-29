@@ -64,6 +64,36 @@ test('omite contexto repetido dos hunks seguintes e preserva contextos diferente
   assert.equal(lines[2]?.text, '@@ -52,7 +52,7 @@ def current_ability');
 });
 
+test('omite os cabeçalhos técnicos redundantes do arquivo (diff --git/index/---/+++)', () => {
+  const lines = parseUnifiedGitDiff(sample);
+  const metaTexts = lines
+    .filter((line) => line.kind === 'meta')
+    .map((line) => line.text);
+
+  assert.deepEqual(metaTexts, []);
+  assert.equal(lines.length, 6);
+});
+
+test('preserva metadados informativos que não são redundantes', () => {
+  const lines = parseUnifiedGitDiff([
+    'diff --git a/src/old-name.ts b/src/new-name.ts',
+    'similarity index 98%',
+    'rename from src/old-name.ts',
+    'rename to src/new-name.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/old-name.ts',
+    '+++ b/src/new-name.ts',
+  ].join('\n'));
+
+  const metaTexts = lines.map((line) => line.text);
+
+  assert.deepEqual(metaTexts, [
+    'similarity index 98%',
+    'rename from src/old-name.ts',
+    'rename to src/new-name.ts',
+  ]);
+});
+
 test('destaca busca escapando conteúdo HTML', () => {
   const result = highlightGitDiffText('<script>return value</script>', 'return');
 

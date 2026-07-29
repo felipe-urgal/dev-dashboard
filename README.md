@@ -398,17 +398,38 @@ DELETE /api/workspaces/:workspaceId
 GET    /api/projects
 GET    /api/projects/:projectId
 GET    /api/projects/:projectId/favicon
+GET    /api/projects/:projectId/readme
 GET    /api/projects/:projectId/git
 GET    /api/projects/:projectId/git/diff
 GET    /api/projects/:projectId/git/diff/file
+GET    /api/projects/:projectId/git/commits
+GET    /api/projects/:projectId/git/commits/:commitHash
+GET    /api/projects/:projectId/git/current-branch-commits
+GET    /api/projects/:projectId/git/workspace
+POST   /api/projects/:projectId/git/remotes/:remote/fetch
+GET    /api/projects/:projectId/git/sync/compare
+POST   /api/projects/:projectId/git/sync/confirmations
+POST   /api/projects/:projectId/git/sync
 POST   /api/projects/:projectId/git/mutations/confirmations
 POST   /api/projects/:projectId/git/branches
+POST   /api/projects/:projectId/git/branches/track/confirmations
+POST   /api/projects/:projectId/git/branches/track
+POST   /api/projects/:projectId/git/branches/delete/confirmations
+POST   /api/projects/:projectId/git/branches/delete
 POST   /api/projects/:projectId/git/switch
 POST   /api/projects/:projectId/git/pull
 POST   /api/projects/:projectId/git/push
 POST   /api/projects/:projectId/git/commit
+POST   /api/projects/:projectId/git/save
 POST   /api/projects/:projectId/git/stash
 POST   /api/projects/:projectId/git/stash/pop
+GET    /api/projects/:projectId/git/stashes
+GET    /api/projects/:projectId/git/stashes/:stashReference
+POST   /api/projects/:projectId/git/stashes/confirmations
+POST   /api/projects/:projectId/git/stashes
+POST   /api/projects/:projectId/git/stashes/:stashReference/apply
+POST   /api/projects/:projectId/git/stashes/:stashReference/pop
+POST   /api/projects/:projectId/git/stashes/:stashReference/drop
 
 GET    /api/projects/:projectId/rails/migrations
 GET    /api/projects/:projectId/rails/routes
@@ -488,9 +509,10 @@ smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-A próxima entrega planejada é avisos locais de conclusão para operações
-demoradas (testes, scripts e processos), sem criar um segundo canal de eventos
-nem persistir conteúdo sensível.
+A próxima entrega planejada é `git-pr` no painel Git: publicar o branch atual
+em `origin` (reaproveitando o push já existente) e abrir a URL de criação de
+PR/MR do provedor remoto, sem chamar a API do GitHub/GitLab nem exigir token
+de terceiros.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
 para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a

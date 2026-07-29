@@ -151,6 +151,12 @@ reescrito e permanece protegido por permissão `0600`.
 A retenção padrão de processos terminais é de sete dias, configurável por
 `DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
 do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.
+Além do par estado+log associado a um processo terminal, a varredura também
+remove logs órfãos — arquivos `.log` sem nenhum arquivo de estado
+correspondente no mesmo diretório gerenciado, respeitando a mesma janela de
+retenção (ou removidos imediatamente sob a limpeza manual). Um arquivo de
+estado corrompido ainda conta como existente para esse fim e preserva o log
+associado.
 Os valores também podem ser persistidos por `PUT /api/settings/retention` dentro
 de limites fechados. O arquivo privado não contém caminhos, sua gravação não
 dispara limpeza e a política passa a valer de forma uniforme após reiniciar a API.
