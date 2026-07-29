@@ -5,6 +5,7 @@ import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 const execFileAsync = promisify(execFile);
 const FIELD_SEPARATOR = '\u001f';
+const RECORD_SEPARATOR = '\u001e';
 const PATCH_LIMIT = 320_000;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
 
@@ -42,6 +43,24 @@ export interface GitCommitDetails {
   redactionCount: number;
 }
 
+export interface GitCommitHistoryEntry {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+}
+
+export interface GitCommitHistoryPage {
+  branch: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  commits: GitCommitHistoryEntry[];
+}
+
 export class GitCommitDetailsError extends Error {
   public constructor(
     public readonly code:
@@ -68,6 +87,42 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
     },
   });
   return result.stdout;
+}
+
+async function requireRepository(projectPath: string): Promise<void> {
+  try {
+    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+  } catch {
+    throw new GitCommitDetailsError(
+      'GIT_NOT_REPOSITORY',
+      'O projeto não é um repositório Git.',
+    );
+  }
+}
+
+function parseHistory(output: string): GitCommitHistoryEntry[] {
+  return output
+    .split(RECORD_SEPARATOR)
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [
+        hash = '',
+        shortHash = '',
+        subject = '',
+        authorName = '',
+        authorEmail = '',
+        authoredAt = '',
+      ] = record.split(FIELD_SEPARATOR);
+      return {
+        hash,
+        shortHash,
+        subject,
+        authorName,
+        authorEmail,
+        authoredAt,
+      };
+    });
 }
 
 function statusFromCode(code: string): GitCommitFileStatus {
@@ -135,6 +190,55 @@ function parseNumstat(
   return files;
 }
 
+export async function listCurrentBranchCommits(
+  projectPath: string,
+  requestedPage = 1,
+  requestedPageSize = 10,
+): Promise<GitCommitHistoryPage> {
+  await requireRepository(projectPath);
+
+  const page = Math.max(1, Math.floor(requestedPage));
+  const pageSize = Math.min(10, Math.max(1, Math.floor(requestedPageSize)));
+  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim() || 'HEAD destacado';
+
+  try {
+    await runGit(projectPath, ['rev-parse', '--verify', 'HEAD']);
+  } catch {
+    return {
+      branch,
+      page: 1,
+      pageSize,
+      total: 0,
+      totalPages: 0,
+      commits: [],
+    };
+  }
+
+  const total = Number.parseInt(
+    (await runGit(projectPath, ['rev-list', '--count', 'HEAD'])).trim(),
+    10,
+  ) || 0;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  const effectivePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+  const skip = (effectivePage - 1) * pageSize;
+  const output = await runGit(projectPath, [
+    'log',
+    'HEAD',
+    `--skip=${skip}`,
+    `-n${pageSize}`,
+    `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${RECORD_SEPARATOR}`,
+  ]);
+
+  return {
+    branch,
+    page: effectivePage,
+    pageSize,
+    total,
+    totalPages,
+    commits: parseHistory(output),
+  };
+}
+
 export async function inspectGitCommit(
   projectPath: string,
   commitHash: string,
@@ -143,11 +247,7 @@ export async function inspectGitCommit(
     throw new GitCommitDetailsError('GIT_COMMIT_INVALID', 'Hash de commit inválido.');
   }
 
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitCommitDetailsError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
-  }
+  await requireRepository(projectPath);
 
   try {
     await runGit(projectPath, ['rev-parse', '--verify', `${commitHash}^{commit}`]);
