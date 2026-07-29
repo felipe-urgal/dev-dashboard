@@ -7,7 +7,6 @@ import {
 } from 'vue';
 
 import type {
-  GitBranch,
   GitDiffSnapshot,
   GitFileDiff,
   GitFileStatus,
@@ -35,15 +34,17 @@ import {
 import {
   fetchProjectGitRemote,
   fetchProjectGitWorkspace,
+  prepareProjectGitTrackingBranch,
+  trackProjectGitBranch,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
+import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
 type GitTab = 'summary' | 'branches' | 'sync' | 'commit' | 'stash' | 'diff' | 'history';
-type BranchFilter = 'all' | 'local' | 'origin' | 'upstream';
 
 const tabs: Array<{ id: GitTab; label: string }> = [
   { id: 'summary', label: 'Resumo' },
@@ -75,8 +76,6 @@ const mutationErrorMessage = ref('');
 const remoteRefreshing = ref('');
 const createBranchName = ref('');
 const switchBranchName = ref('');
-const branchSearch = ref('');
-const branchFilter = ref<BranchFilter>('all');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
 const saveMessage = ref('');
@@ -105,31 +104,12 @@ const statusLabels: Record<GitFileStatus, string> = {
 const localBranches = computed(() =>
   workspace.value?.branches.filter((branch) => branch.kind === 'local') ?? [],
 );
-const originBranches = computed(() =>
-  workspace.value?.branches.filter((branch) => branch.remote === 'origin') ?? [],
-);
-const upstreamBranches = computed(() =>
-  workspace.value?.branches.filter((branch) => branch.remote === 'upstream') ?? [],
-);
 const originRemote = computed(() => remoteByName('origin'));
 const upstreamRemote = computed(() => remoteByName('upstream'));
 const trackedBranch = computed(() => overview.value?.upstream ?? 'Sem tracking configurado');
 const changedFilesPreview = computed(() => overview.value?.files.slice(0, 5) ?? []);
 const recentCommitsPreview = computed(() => overview.value?.recentCommits.slice(0, 4) ?? []);
 const diffFilesPreview = computed(() => diff.value?.files.slice(0, 4) ?? []);
-
-const filteredBranches = computed(() => {
-  const query = branchSearch.value.trim().toLocaleLowerCase();
-  return (workspace.value?.branches ?? []).filter((branch) => {
-    const matchesFilter = branchFilter.value === 'all'
-      || branchFilter.value === 'local' && branch.kind === 'local'
-      || branchFilter.value === 'origin' && branch.remote === 'origin'
-      || branchFilter.value === 'upstream' && branch.remote === 'upstream';
-    const matchesSearch = !query || branch.name.toLocaleLowerCase().includes(query);
-    return matchesFilter && matchesSearch;
-  });
-});
-
 const stagedCount = computed(() =>
   overview.value?.files.filter((file) => file.indexStatus !== '.' && file.indexStatus !== '?').length ?? 0,
 );
@@ -139,6 +119,21 @@ const modifiedCount = computed(() =>
 const untrackedCount = computed(() =>
   overview.value?.files.filter((file) => file.status === 'untracked').length ?? 0,
 );
+
+const savePrefixByBranchType: Record<string, string> = {
+  feature: 'feat',
+  fix: 'fix',
+  refactor: 'refactor',
+  chore: 'chore',
+  docs: 'docs',
+  hotfix: 'fix',
+};
+
+const savePrefix = computed(() => {
+  const branch = overview.value?.branch;
+  if (!branch || overview.value?.detached) return '';
+  return savePrefixByBranchType[branch.split('/')[0] ?? ''] ?? '';
+});
 
 function remoteByName(name: string): GitRemote | undefined {
   return workspace.value?.remotes.find((remote) => remote.name === name);
@@ -159,7 +154,7 @@ function comparisonText(comparison: GitTrackingComparison | undefined): string {
 }
 
 function comparisonHint(comparison: GitTrackingComparison | undefined): string {
-  if (!comparison) return 'Atualize as referências do remote para habilitar a comparação.';
+  if (!comparison) return 'Execute fetch para atualizar as referências.';
   return `em relação a ${comparison.reference}`;
 }
 
@@ -303,6 +298,38 @@ async function runMutation(
   }
 }
 
+async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
+  if (mutationRunning.value) return;
+  const localName = remoteBranch.slice(remoteBranch.indexOf('/') + 1);
+  const confirmationText = `Criar a branch local "${localName}" rastreando "${remoteBranch}" e trocar para ela? A árvore de trabalho deve estar limpa.`;
+  if (typeof window !== 'undefined' && !window.confirm(confirmationText)) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareProjectGitTrackingBranch(
+      props.project.id,
+      remoteBranch,
+    );
+    const branch = await trackProjectGitBranch(
+      props.project.id,
+      remoteBranch,
+      confirmation.token,
+    );
+    mutationMessage.value = `Branch local "${branch}" criada rastreando "${remoteBranch}".`;
+    switchBranchName.value = branch;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error
+      ? error.message
+      : 'Não foi possível criar a branch local.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
   if (mutationRunning.value) return;
   const branch = overview.value?.branch;
@@ -370,18 +397,47 @@ function currentBranchOrHead(): string {
   return overview.value?.detached ? 'HEAD' : overview.value?.branch ?? 'HEAD';
 }
 
-const savePrefixByBranchType: Record<string, string> = {
-  feature: 'feat',
-  fix: 'fix',
-  refactor: 'refactor',
-  chore: 'chore',
-  docs: 'docs',
-  hotfix: 'fix',
-};
-const savePrefix = computed(() => {
-  if (!overview.value || overview.value.detached || !overview.value.branch) return '';
-  return savePrefixByBranchType[overview.value.branch.split('/')[0] ?? ''] ?? '';
-});
+async function runCommit(): Promise<void> {
+  if (mutationRunning.value) return;
+  const message = commitMessage.value.trim();
+  if (!message) {
+    mutationErrorMessage.value = 'Informe uma mensagem de commit.';
+    return;
+  }
+
+  const confirmationText = commitIncludeAllChanges.value
+    ? `Incluir alterações rastreadas e criar o commit "${message}"?`
+    : `Criar o commit "${message}" usando somente alterações staged?`;
+  if (typeof window !== 'undefined' && !window.confirm(confirmationText)) return;
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareProjectGitMutation(
+      props.project.id,
+      'commit',
+      currentBranchOrHead(),
+    );
+    const commit = await commitProjectGit(
+      props.project.id,
+      message,
+      commitIncludeAllChanges.value,
+      confirmation.token,
+    );
+    mutationMessage.value = `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+    commitMessage.value = '';
+    commitIncludeAllChanges.value = false;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error
+      ? error.message
+      : 'Não foi possível criar o commit.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
 
 async function runSave(): Promise<void> {
   if (mutationRunning.value) return;
@@ -406,62 +462,18 @@ async function runSave(): Promise<void> {
       'save',
       currentBranchOrHead(),
     );
-    const result = await saveProjectGit(
+    const commit = await saveProjectGit(
       props.project.id,
       message,
       confirmation.token,
     );
-    mutationMessage.value = `Commit "${result.shortHash}" criado: ${result.subject}`;
+    mutationMessage.value = `Commit "${commit.shortHash}" criado: ${commit.subject}`;
     saveMessage.value = '';
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value = error instanceof Error
       ? error.message
-      : 'Não foi possível salvar todas as alterações.';
-  } finally {
-    mutationRunning.value = false;
-  }
-}
-
-async function runCommit(): Promise<void> {
-  if (mutationRunning.value) return;
-  const message = commitMessage.value.trim();
-  if (!message) {
-    mutationErrorMessage.value = 'Informe uma mensagem de commit.';
-    return;
-  }
-
-  const includeAllChanges = commitIncludeAllChanges.value;
-  if (typeof window !== 'undefined' && !window.confirm(
-    includeAllChanges
-      ? `Commitar todas as alterações rastreadas com a mensagem "${message}"?`
-      : `Commitar as alterações staged com a mensagem "${message}"?`,
-  )) return;
-
-  mutationRunning.value = true;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-
-  try {
-    const confirmation = await prepareProjectGitMutation(
-      props.project.id,
-      'commit',
-      currentBranchOrHead(),
-    );
-    const result = await commitProjectGit(
-      props.project.id,
-      message,
-      includeAllChanges,
-      confirmation.token,
-    );
-    mutationMessage.value = `Commit "${result.shortHash}" criado: ${result.subject}`;
-    commitMessage.value = '';
-    commitIncludeAllChanges.value = false;
-    await reloadGitData();
-  } catch (error) {
-    mutationErrorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível concluir o commit.';
+      : 'Não foi possível salvar as alterações.';
   } finally {
     mutationRunning.value = false;
   }
@@ -489,8 +501,8 @@ async function runStash(operation: 'stash-push' | 'stash-pop'): Promise<void> {
       const stash = await stashPushProjectGit(props.project.id, confirmation.token);
       mutationMessage.value = `Alterações guardadas: ${stash.message}`;
     } else {
-      const popped = await stashPopProjectGit(props.project.id, confirmation.token);
-      mutationMessage.value = `Stash restaurado: ${popped.message}`;
+      const stash = await stashPopProjectGit(props.project.id, confirmation.token);
+      mutationMessage.value = `Stash restaurado: ${stash.message}`;
     }
     await reloadGitData();
   } catch (error) {
@@ -533,22 +545,12 @@ onBeforeUnmount(() => {
       </button>
     </nav>
 
-    <div v-if="errorMessage" class="project-error" role="alert">
-      {{ errorMessage }}
-    </div>
-    <div v-if="workspaceErrorMessage" class="project-error" role="alert">
-      {{ workspaceErrorMessage }}
-    </div>
-    <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">
-      {{ mutationMessage }}
-    </p>
-    <p v-if="mutationErrorMessage" class="project-error" role="alert">
-      {{ mutationErrorMessage }}
-    </p>
+    <div v-if="errorMessage" class="project-error" role="alert">{{ errorMessage }}</div>
+    <div v-if="workspaceErrorMessage" class="project-error" role="alert">{{ workspaceErrorMessage }}</div>
+    <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">{{ mutationMessage }}</p>
+    <p v-if="mutationErrorMessage" class="project-error" role="alert">{{ mutationErrorMessage }}</p>
 
-    <div v-if="loading && !overview" class="git-modern-empty">
-      Consultando o repositório…
-    </div>
+    <div v-if="loading && !overview" class="git-modern-empty">Consultando o repositório…</div>
     <div v-else-if="overview && !overview.repository" class="git-modern-empty">
       <strong>Este projeto não é um repositório Git.</strong>
       <span>Nenhum diretório <code>.git</code> foi encontrado.</span>
@@ -604,7 +606,7 @@ onBeforeUnmount(() => {
             Trocar para branch
           </button>
           <button type="button" class="secondary-button" @click="openTab('branches')">
-            Ver todas as branches
+            Explorar branches
           </button>
         </div>
 
@@ -614,96 +616,35 @@ onBeforeUnmount(() => {
           <button type="button" :disabled="mutationRunning || !originRemote" @click="runSyncMutation('push')">↑ Push origin</button>
           <button type="button" @click="openTab('commit')">● Commit</button>
           <button type="button" @click="openTab('stash')">□ Stash</button>
-          <button type="button" @click="openTab('diff')">⌁ Atualizar diff</button>
+          <button type="button" @click="openTab('diff')">⌁ Ver diff</button>
         </div>
 
         <div class="git-command-grid">
           <article class="git-command-card">
-            <header>
-              <div><span>Branches</span><h3>Criar e trocar</h3></div>
-            </header>
+            <header><div><span>Branches</span><h3>Criar e trocar</h3></div></header>
             <form @submit.prevent="runMutation('create-branch', createBranchName)">
-              <label>
-                Nova branch
-                <input v-model="createBranchName" maxlength="200" placeholder="feature/nova-funcionalidade" />
-              </label>
-              <button class="primary-button" :disabled="mutationRunning || !createBranchName.trim()">
-                Criar branch
-              </button>
+              <label>Nova branch<input v-model="createBranchName" maxlength="200" placeholder="feature/nova-funcionalidade" /></label>
+              <button class="primary-button" :disabled="mutationRunning || !createBranchName.trim()">Criar branch</button>
             </form>
           </article>
 
           <article class="git-command-card remote-card origin-card">
-            <header>
-              <div><span>Publicação</span><h3>Origin</h3></div>
-              <strong>{{ workspace?.originComparison?.reference ?? 'Não publicado' }}</strong>
-            </header>
+            <header><div><span>Publicação</span><h3>Origin</h3></div><strong>{{ workspace?.originComparison?.reference ?? 'Não publicado' }}</strong></header>
             <code>{{ originRemote?.pushUrl || originRemote?.fetchUrl || 'Remote origin não configurado' }}</code>
-            <div class="remote-comparison">
-              <b>{{ comparisonText(workspace?.originComparison) }}</b>
-              <small>{{ comparisonHint(workspace?.originComparison) }}</small>
-            </div>
+            <div class="remote-comparison"><b>{{ comparisonText(workspace?.originComparison) }}</b><small>{{ comparisonHint(workspace?.originComparison) }}</small></div>
             <div class="git-card-actions">
-              <button class="secondary-button" :disabled="mutationRunning || !overview.upstream" @click="runSyncMutation('pull')">Pull tracking</button>
+              <button class="secondary-button" :disabled="remoteRefreshing === 'origin' || !originRemote" @click="refreshRemote('origin')">{{ remoteRefreshing === 'origin' ? 'Atualizando…' : 'Fetch origin' }}</button>
               <button class="primary-button" :disabled="mutationRunning || !originRemote" @click="runSyncMutation('push')">Push origin</button>
             </div>
           </article>
 
           <article class="git-command-card remote-card upstream-card">
-            <header>
-              <div><span>Fonte principal</span><h3>Upstream</h3></div>
-              <strong>{{ workspace?.upstreamComparison?.reference ?? 'Sem base detectada' }}</strong>
-            </header>
+            <header><div><span>Fonte principal</span><h3>Upstream</h3></div><strong>{{ workspace?.upstreamComparison?.reference ?? 'Sem base detectada' }}</strong></header>
             <code>{{ upstreamRemote?.fetchUrl || 'Remote upstream não configurado' }}</code>
-            <div class="remote-comparison">
-              <b>{{ comparisonText(workspace?.upstreamComparison) }}</b>
-              <small>Fetch atualiza referências; merge/rebase continua explícito.</small>
-            </div>
+            <div class="remote-comparison"><b>{{ comparisonText(workspace?.upstreamComparison) }}</b><small>Fetch atualiza referências; merge/rebase continua explícito.</small></div>
             <div class="git-card-actions">
-              <button
-                class="secondary-button"
-                :disabled="!upstreamRemote || remoteRefreshing === 'upstream'"
-                @click="refreshRemote('upstream')"
-              >
-                {{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}
-              </button>
+              <button class="secondary-button" :disabled="!upstreamRemote || remoteRefreshing === 'upstream'" @click="refreshRemote('upstream')">{{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}</button>
               <button class="secondary-button" @click="openTab('sync')">Ver sincronização</button>
-            </div>
-          </article>
-
-          <article class="git-command-card">
-            <header><div><span>Commit</span><h3>Commit rápido</h3></div></header>
-            <form @submit.prevent="runCommit">
-              <label>
-                Mensagem
-                <textarea v-model="commitMessage" maxlength="500" placeholder="Descreva as alterações" />
-              </label>
-              <label class="git-check-label">
-                <input v-model="commitIncludeAllChanges" type="checkbox" />
-                Incluir alterações rastreadas
-              </label>
-              <button class="primary-button" :disabled="mutationRunning || !commitMessage.trim()">Commitar</button>
-            </form>
-          </article>
-
-          <article class="git-command-card">
-            <header><div><span>Git-save</span><h3>Salvar tudo</h3></div></header>
-            <form @submit.prevent="runSave">
-              <label>
-                Mensagem
-                <textarea v-model="saveMessage" maxlength="500" placeholder="Descreva as alterações" />
-              </label>
-              <small>Inclui arquivos não rastreados e aplica {{ savePrefix ? `o prefixo ${savePrefix}:` : 'a mensagem informada' }}.</small>
-              <button class="primary-button" :disabled="mutationRunning || !saveMessage.trim()">Salvar tudo</button>
-            </form>
-          </article>
-
-          <article class="git-command-card">
-            <header><div><span>Stash</span><h3>Guardar alterações</h3></div></header>
-            <p>{{ overview.stashes.length }} stash(es) salvo(s).</p>
-            <div class="git-card-actions vertical">
-              <button class="primary-button" :disabled="mutationRunning" @click="runStash('stash-push')">Guardar alterações</button>
-              <button class="secondary-button" :disabled="mutationRunning || overview.stashes.length === 0" @click="runStash('stash-pop')">Restaurar mais recente</button>
             </div>
           </article>
         </div>
@@ -734,89 +675,35 @@ onBeforeUnmount(() => {
             <div v-if="diffFilesPreview.length === 0" class="git-inline-empty">Nenhuma diferença detectada.</div>
             <ul v-else>
               <li v-for="file in diffFilesPreview" :key="file.path">
-                <code>{{ file.path }}</code>
-                <small>+{{ file.additions }} / −{{ file.deletions }}</small>
+                <code>{{ file.path }}</code><small>+{{ file.additions }} / −{{ file.deletions }}</small>
               </li>
             </ul>
           </article>
         </div>
       </section>
 
-      <section v-else-if="activeTab === 'branches'" class="git-tab-page">
-        <div class="git-page-heading">
-          <div><span>Branches</span><h2>Gerenciar branches locais e remotas</h2></div>
-          <button class="secondary-button" :disabled="loadingWorkspace" @click="loadWorkspace">{{ loadingWorkspace ? 'Atualizando…' : 'Atualizar lista' }}</button>
-        </div>
-
-        <div class="git-branch-filters">
-          <select v-model="branchFilter">
-            <option value="all">Todas as branches</option>
-            <option value="local">Locais</option>
-            <option value="origin">Origin</option>
-            <option value="upstream">Upstream</option>
-          </select>
-          <input v-model="branchSearch" type="search" placeholder="Buscar branch…" />
-          <span>{{ filteredBranches.length }} resultado(s)</span>
-        </div>
-
-        <div class="git-two-column-actions">
-          <form class="git-command-card" @submit.prevent="runMutation('switch-branch', switchBranchName)">
-            <header><div><span>Checkout</span><h3>Trocar branch</h3></div></header>
-            <label>
-              Branch local
-              <select v-model="switchBranchName">
-                <option value="">Selecione</option>
-                <option v-for="branch in localBranches" :key="branch.name" :value="branch.name">{{ branch.name }}</option>
-              </select>
-            </label>
-            <button class="primary-button" :disabled="mutationRunning || !switchBranchName || switchBranchName === overview.branch">Trocar branch</button>
-          </form>
-          <form class="git-command-card" @submit.prevent="runMutation('create-branch', createBranchName)">
-            <header><div><span>Nova branch</span><h3>Criar a partir do HEAD</h3></div></header>
-            <label>
-              Nome
-              <input v-model="createBranchName" maxlength="200" placeholder="feature/nova-funcionalidade" />
-            </label>
-            <button class="primary-button" :disabled="mutationRunning || !createBranchName.trim()">Criar branch</button>
-          </form>
-        </div>
-
-        <div class="git-table-card">
-          <div class="git-table-header branches-table">
-            <span>Branch</span><span>Tipo</span><span>Tracking</span><span>Ações</span>
-          </div>
-          <div v-for="branch in filteredBranches" :key="`${branch.kind}-${branch.name}`" class="git-table-row branches-table">
-            <div><strong>{{ branch.name }}</strong><small v-if="branch.current">Branch atual</small></div>
-            <span class="git-pill" :class="`git-pill-${branch.kind}`">{{ branch.kind === 'local' ? 'Local' : branch.remote }}</span>
-            <code>{{ branch.upstream ?? (branch.kind === 'remote' ? branch.name : 'Sem tracking') }}</code>
-            <div class="row-actions">
-              <button
-                v-if="branch.kind === 'local'"
-                type="button"
-                :disabled="branch.current || mutationRunning"
-                @click="runMutation('switch-branch', branch.name)"
-              >
-                {{ branch.current ? 'Atual' : 'Trocar' }}
-              </button>
-              <span v-else>Somente leitura</span>
-            </div>
-          </div>
-          <div v-if="filteredBranches.length === 0" class="git-inline-empty">Nenhuma branch corresponde aos filtros.</div>
-        </div>
-      </section>
+      <ProjectGitBranchesPage
+        v-else-if="activeTab === 'branches'"
+        :overview="overview"
+        :workspace="workspace"
+        :loading="loadingWorkspace"
+        :busy="mutationRunning"
+        :remote-refreshing="remoteRefreshing"
+        @refresh="loadWorkspace"
+        @create="(name) => runMutation('create-branch', name)"
+        @switch="(name) => runMutation('switch-branch', name)"
+        @track="runTrackRemoteBranch"
+        @fetch-remote="refreshRemote"
+      />
 
       <section v-else-if="activeTab === 'sync'" class="git-tab-page">
-        <div class="git-page-heading">
-          <div><span>Sincronização</span><h2>Origin para publicar, upstream para atualizar</h2></div>
-        </div>
-
+        <div class="git-page-heading"><div><span>Sincronização</span><h2>Origin para publicar, upstream para atualizar</h2></div></div>
         <div class="git-status-grid sync-grid">
           <article><span>Branch local</span><strong>{{ overview.branch ?? 'HEAD' }}</strong><small>{{ trackedBranch }}</small></article>
           <article><span>Origin</span><strong>{{ comparisonText(workspace?.originComparison) }}</strong><small>{{ comparisonHint(workspace?.originComparison) }}</small></article>
           <article><span>Upstream</span><strong>{{ comparisonText(workspace?.upstreamComparison) }}</strong><small>{{ comparisonHint(workspace?.upstreamComparison) }}</small></article>
           <article><span>Working tree</span><strong :class="overview.clean ? 'status-good' : 'status-warning'">{{ overview.clean ? 'Pronto' : 'Tem alterações' }}</strong><small>{{ overview.files.length }} arquivo(s)</small></article>
         </div>
-
         <div class="git-sync-layout">
           <article class="git-command-card remote-detail-card">
             <header><div><span>Destino de publicação</span><h3>Origin</h3></div><span class="git-pill git-pill-origin">Push padrão</span></header>
@@ -831,7 +718,6 @@ onBeforeUnmount(() => {
               <button class="primary-button" :disabled="mutationRunning || !originRemote" @click="runSyncMutation('push')">Push origin</button>
             </div>
           </article>
-
           <article class="git-command-card remote-detail-card">
             <header><div><span>Fonte principal</span><h3>Upstream</h3></div><span class="git-pill git-pill-upstream">Base</span></header>
             <dl>
@@ -839,22 +725,14 @@ onBeforeUnmount(() => {
               <div><dt>Base detectada</dt><dd><code>{{ workspace?.upstreamComparison?.reference ?? 'Nenhuma' }}</code></dd></div>
               <div><dt>Comparação</dt><dd>{{ comparisonText(workspace?.upstreamComparison) }}</dd></div>
             </dl>
-            <div class="git-sync-notice">
-              O fetch atualiza as referências locais. Merge ou rebase não são executados automaticamente para evitar deixar o projeto em conflito sem um fluxo de abortar.
-            </div>
-            <div class="git-card-actions">
-              <button class="primary-button" :disabled="remoteRefreshing === 'upstream' || !upstreamRemote" @click="refreshRemote('upstream')">{{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}</button>
-            </div>
+            <div class="git-sync-notice">O fetch atualiza referências locais. Merge ou rebase não são executados automaticamente para evitar conflitos sem um fluxo de abortar.</div>
+            <div class="git-card-actions"><button class="primary-button" :disabled="remoteRefreshing === 'upstream' || !upstreamRemote" @click="refreshRemote('upstream')">{{ remoteRefreshing === 'upstream' ? 'Atualizando…' : 'Fetch upstream' }}</button></div>
           </article>
         </div>
-
         <div class="git-table-card">
           <div class="git-table-header remotes-table"><span>Remote</span><span>Papel</span><span>Fetch</span><span>Push</span></div>
           <div v-for="remote in workspace?.remotes ?? []" :key="remote.name" class="git-table-row remotes-table">
-            <strong>{{ remote.name }}</strong>
-            <span class="git-pill" :class="`git-pill-${remote.role}`">{{ remote.role }}</span>
-            <code>{{ remote.fetchUrl || '—' }}</code>
-            <code>{{ remote.pushUrl || '—' }}</code>
+            <strong>{{ remote.name }}</strong><span class="git-pill" :class="`git-pill-${remote.role}`">{{ remote.role }}</span><code>{{ remote.fetchUrl || '—' }}</code><code>{{ remote.pushUrl || '—' }}</code>
           </div>
         </div>
       </section>
@@ -866,7 +744,6 @@ onBeforeUnmount(() => {
           <article><span>Modificados</span><strong>{{ modifiedCount }}</strong><small>fora do índice</small></article>
           <article><span>Não rastreados</span><strong>{{ untrackedCount }}</strong><small>novos arquivos</small></article>
         </div>
-
         <div class="git-commit-layout">
           <article class="git-table-card files-card">
             <header><h3>Arquivos alterados</h3><span>{{ overview.files.length }} arquivo(s)</span></header>
@@ -874,12 +751,10 @@ onBeforeUnmount(() => {
             <ul v-else class="git-file-list-modern">
               <li v-for="file in overview.files" :key="`${file.path}-${file.previousPath ?? ''}`">
                 <StatusBadge :tone="gitFileToneFor(file.status)">{{ statusLabels[file.status] }}</StatusBadge>
-                <code><template v-if="file.previousPath">{{ file.previousPath }} → </template>{{ file.path }}</code>
-                <small>{{ file.indexStatus }}/{{ file.worktreeStatus }}</small>
+                <code><template v-if="file.previousPath">{{ file.previousPath }} → </template>{{ file.path }}</code><small>{{ file.indexStatus }}/{{ file.worktreeStatus }}</small>
               </li>
             </ul>
           </article>
-
           <div class="git-commit-forms">
             <form class="git-command-card" @submit.prevent="runCommit">
               <header><div><span>Commit padrão</span><h3>Registrar staged</h3></div></header>
@@ -911,13 +786,10 @@ onBeforeUnmount(() => {
             <button class="secondary-button" :disabled="mutationRunning || overview.stashes.length === 0" @click="runStash('stash-pop')">Restaurar mais recente</button>
           </article>
         </div>
-
         <div class="git-table-card">
           <div class="git-table-header stash-table"><span>Stash</span><span>Mensagem</span><span>Data</span></div>
           <div v-for="entry in overview.stashes" :key="entry.index" class="git-table-row stash-table">
-            <code>stash@{{ '{' }}{{ entry.index }}{{ '}' }}</code>
-            <strong>{{ entry.message }}</strong>
-            <span>{{ formatDate(entry.createdAt) }}</span>
+            <code>stash@{{ '{' }}{{ entry.index }}{{ '}' }}</code><strong>{{ entry.message }}</strong><span>{{ formatDate(entry.createdAt) }}</span>
           </div>
           <div v-if="overview.stashes.length === 0" class="git-inline-empty">Nenhum stash salvo.</div>
         </div>
@@ -941,9 +813,7 @@ onBeforeUnmount(() => {
               @click="loadFileDiff(file.path)"
             >
               <StatusBadge :tone="gitFileToneFor(file.status)">{{ statusLabels[file.status] }}</StatusBadge>
-              <code>{{ file.path }}</code>
-              <small v-if="!file.binary">+{{ file.additions }} / −{{ file.deletions }}</small>
-              <small v-else>binário</small>
+              <code>{{ file.path }}</code><small v-if="!file.binary">+{{ file.additions }} / −{{ file.deletions }}</small><small v-else>binário</small>
             </button>
           </aside>
           <main>
@@ -966,9 +836,7 @@ onBeforeUnmount(() => {
         <div class="git-page-heading"><div><span>Histórico</span><h2>Commits recentes</h2></div></div>
         <div class="git-history-list">
           <article v-for="commit in overview.recentCommits" :key="commit.hash">
-            <code>{{ commit.shortHash }}</code>
-            <div><strong>{{ commit.subject }}</strong><span>{{ commit.authorName }} · {{ commit.authorEmail }}</span></div>
-            <time>{{ formatDate(commit.authoredAt) }}</time>
+            <code>{{ commit.shortHash }}</code><div><strong>{{ commit.subject }}</strong><span>{{ commit.authorName }} · {{ commit.authorEmail }}</span></div><time>{{ formatDate(commit.authoredAt) }}</time>
           </article>
           <div v-if="overview.recentCommits.length === 0" class="git-inline-empty">O repositório ainda não possui commits.</div>
         </div>
@@ -980,85 +848,50 @@ onBeforeUnmount(() => {
 <style scoped>
 .git-modern-panel {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
 }
 
 .git-subtabs {
   display: flex;
-  min-width: 0;
   gap: 4px;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border, #d8deea);
 }
 
 .git-subtabs button {
   position: relative;
-  min-height: 42px;
-  flex: 0 0 auto;
-  padding: 0 14px;
   border: 0;
-  color: var(--text-muted);
   background: transparent;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 650;
+  color: var(--color-text-muted, #667085);
+  padding: 11px 15px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .git-subtabs button::after {
   position: absolute;
-  right: 10px;
+  right: 12px;
   bottom: -1px;
-  left: 10px;
+  left: 12px;
   height: 2px;
-  border-radius: 999px 999px 0 0;
+  border-radius: 2px 2px 0 0;
   background: transparent;
   content: '';
 }
 
-.git-subtabs button:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
 .git-subtabs button.active {
-  color: var(--accent);
+  color: #314bc4;
 }
 
 .git-subtabs button.active::after {
-  background: var(--accent);
+  background: #314bc4;
 }
 
-.git-tab-page {
+.git-tab-page,
+.git-summary-page {
   display: grid;
-  gap: 14px;
-}
-
-.git-modern-empty,
-.git-inline-empty {
-  display: grid;
-  place-items: center;
-  min-height: 92px;
-  padding: 18px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-dim);
-  background: var(--surface-1);
-  text-align: center;
-}
-
-.git-modern-empty strong {
-  color: var(--text);
-}
-
-.git-mutation-success {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--success-text) 35%, var(--border));
-  border-radius: var(--radius-sm);
-  color: var(--success-text);
-  background: var(--success-surface);
-  font-size: 11px;
+  gap: 18px;
 }
 
 .git-status-grid {
@@ -1069,119 +902,99 @@ onBeforeUnmount(() => {
 
 .git-status-grid article,
 .git-command-card,
-.git-preview-grid > article,
+.git-preview-grid article,
 .git-table-card,
+.git-branch-toolbar,
 .git-diff-layout-modern,
-.git-history-list {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
-  box-shadow: 0 10px 28px rgb(0 0 0 / 3%);
+.git-history-list article {
+  border: 1px solid var(--color-border, #d8deea);
+  border-radius: 14px;
+  background: var(--color-surface, #fff);
+  box-shadow: 0 10px 28px rgba(29, 43, 76, 0.04);
 }
 
 .git-status-grid article {
   display: grid;
-  gap: 6px;
-  min-height: 92px;
-  align-content: center;
-  padding: 15px 16px;
+  gap: 5px;
+  min-width: 0;
+  padding: 16px;
 }
 
 .git-status-grid span,
-.git-command-card header span,
+.git-status-grid small,
+.git-command-card span,
+.git-command-card small,
 .git-page-heading span {
-  color: var(--text-dim);
-  font-size: 9px;
-  font-weight: 750;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+  color: var(--color-text-muted, #667085);
 }
 
 .git-status-grid strong {
   overflow: hidden;
-  color: var(--text);
-  font-size: 14px;
+  color: var(--color-text-strong, #182033);
+  font-size: 1.04rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.git-status-grid small,
-.git-command-card small,
-.git-command-card p {
-  color: var(--text-dim);
-  font-size: 10px;
-  line-height: 1.5;
+.status-good {
+  color: #087552 !important;
 }
 
-.status-good { color: var(--success-text) !important; }
-.status-warning { color: var(--warning-text) !important; }
+.status-warning {
+  color: #9b5e00 !important;
+}
 
 .git-branch-toolbar {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
+  display: flex;
   align-items: end;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
+  padding: 14px;
 }
 
 .git-branch-toolbar label,
 .git-command-card label {
   display: grid;
+  flex: 1;
   gap: 6px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
+  color: var(--color-text-muted, #667085);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.git-branch-toolbar select,
-.git-command-card input,
-.git-command-card select,
-.git-command-card textarea,
-.git-branch-filters select,
-.git-branch-filters input {
+input,
+select,
+textarea {
   width: 100%;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  outline: 0;
-  color: var(--text);
-  background: var(--surface-2);
+  border: 1px solid var(--color-border, #d8deea);
+  border-radius: 9px;
+  background: var(--color-input, #f7f9fc);
+  color: var(--color-text-strong, #182033);
+  padding: 10px 12px;
   font: inherit;
-  font-size: 11px;
+  text-transform: none;
 }
 
-.git-command-card textarea {
-  min-height: 78px;
-  padding: 9px 10px;
+textarea {
+  min-height: 88px;
   resize: vertical;
 }
 
 .git-quick-actions {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
 }
 
 .git-quick-actions button,
-.git-table-row button,
-.git-preview-grid header button {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 650;
+.git-preview-grid header button,
+.git-table-row button {
+  border: 1px solid var(--color-border, #d8deea);
+  border-radius: 9px;
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #344054);
+  padding: 8px 11px;
+  font-weight: 700;
 }
 
 .git-command-grid {
@@ -1192,63 +1005,42 @@ onBeforeUnmount(() => {
 
 .git-command-card {
   display: grid;
-  min-width: 0;
-  gap: 12px;
   align-content: start;
-  padding: 15px;
+  gap: 14px;
+  padding: 17px;
 }
 
 .git-command-card header,
 .git-preview-grid header,
+.git-page-heading,
 .git-table-card > header,
-.git-page-heading {
+.git-history-list article,
+.git-card-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.git-command-card header > div,
-.git-page-heading > div {
-  display: grid;
-  gap: 4px;
-}
-
 .git-command-card h3,
 .git-preview-grid h3,
-.git-table-card h3,
-.git-page-heading h2 {
-  margin: 0;
-  color: var(--text);
+.git-page-heading h2,
+.git-table-card h3 {
+  margin: 3px 0 0;
+  color: var(--color-text-strong, #182033);
 }
 
-.git-command-card h3,
-.git-preview-grid h3,
-.git-table-card h3 { font-size: 13px; }
-.git-page-heading h2 { font-size: 18px; }
-
-.git-command-card form {
+.git-command-card form,
+.git-commit-forms {
   display: grid;
-  gap: 10px;
-}
-
-.git-check-label {
-  display: flex !important;
-  align-items: center;
-  gap: 7px !important;
-}
-
-.git-check-label input {
-  width: auto;
-  min-height: 0;
+  gap: 12px;
 }
 
 .remote-card code,
 .remote-detail-card code,
 .git-table-row code {
   overflow: hidden;
-  color: var(--text-dim);
-  font-size: 10px;
+  color: var(--color-text-muted, #667085);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1256,22 +1048,15 @@ onBeforeUnmount(() => {
 .remote-comparison {
   display: grid;
   gap: 4px;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  border-radius: 10px;
+  background: var(--color-surface-subtle, #fbfcfe);
+  padding: 12px;
 }
-
-.remote-comparison b { color: var(--text); font-size: 13px; }
 
 .git-card-actions {
-  display: flex;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: auto;
 }
-
-.git-card-actions.vertical { flex-direction: column; }
-.git-card-actions > * { flex: 1 1 110px; }
 
 .git-preview-grid {
   display: grid;
@@ -1279,251 +1064,322 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.git-preview-grid > article {
+.git-preview-grid article {
   min-width: 0;
-  padding: 14px;
-}
-
-.git-preview-grid header button {
-  min-height: 28px;
-  border: 0;
-  color: var(--accent);
-  background: transparent;
+  padding: 16px;
 }
 
 .git-preview-grid ul,
 .git-preview-grid ol,
 .git-file-list-modern {
   display: grid;
-  gap: 0;
-  margin: 10px 0 0;
+  gap: 8px;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .git-preview-grid li,
 .git-file-list-modern li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  border-bottom: 1px solid var(--border);
+  min-width: 0;
+  gap: 9px;
 }
 
-.git-preview-grid li:last-child,
-.git-file-list-modern li:last-child { border-bottom: 0; }
-.git-preview-grid code,
-.git-file-list-modern code { overflow: hidden; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.git-preview-grid strong { overflow: hidden; display: block; color: var(--text); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.git-preview-grid small { color: var(--text-dim); font-size: 9px; }
+.git-preview-grid li code,
+.git-file-list-modern code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-preview-grid li div {
+  display: grid;
+  min-width: 0;
+}
+
+.git-preview-grid li strong,
+.git-preview-grid li small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .git-page-heading {
-  align-items: center;
-  padding: 4px 2px;
+  align-items: end;
 }
 
-.git-branch-filters {
-  display: grid;
-  grid-template-columns: 190px minmax(220px, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
-}
-
-.git-branch-filters span { color: var(--text-dim); font-size: 10px; }
-
-.git-two-column-actions,
 .git-sync-layout,
+.git-two-column-actions,
 .git-commit-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
-.git-table-card { overflow: hidden; }
+.remote-detail-card dl {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.remote-detail-card dl div {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid var(--color-border, #d8deea);
+  padding-bottom: 9px;
+}
+
+.remote-detail-card dt {
+  color: var(--color-text-muted, #667085);
+  font-weight: 700;
+}
+
+.remote-detail-card dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.git-sync-notice,
+.git-inline-empty,
+.git-modern-empty {
+  border-radius: 10px;
+  background: var(--color-surface-subtle, #fbfcfe);
+  color: var(--color-text-muted, #667085);
+  padding: 14px;
+}
+
+.git-modern-empty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  gap: 6px;
+  text-align: center;
+}
+
+.git-table-card {
+  overflow: hidden;
+}
 
 .git-table-header,
 .git-table-row {
   display: grid;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
 }
 
 .git-table-header {
-  min-height: 36px;
-  color: var(--text-dim);
-  background: var(--surface-2);
-  font-size: 9px;
-  font-weight: 750;
+  background: var(--color-surface-subtle, #fbfcfe);
+  color: var(--color-text-muted, #667085);
+  font-size: 0.72rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .07em;
 }
 
 .git-table-row {
-  min-height: 48px;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 10px;
+  border-top: 1px solid var(--color-border, #d8deea);
 }
 
-.branches-table { grid-template-columns: minmax(180px, 1.2fr) 90px minmax(180px, 1fr) 110px; }
-.remotes-table { grid-template-columns: 100px 90px minmax(180px, 1fr) minmax(180px, 1fr); }
-.stash-table { grid-template-columns: 100px minmax(200px, 1fr) 170px; }
+.remotes-table {
+  grid-template-columns: 120px 110px minmax(0, 1fr) minmax(0, 1fr);
+}
 
-.git-table-row > div:first-child { display: grid; gap: 3px; min-width: 0; }
-.git-table-row strong { overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
-.git-table-row small { color: var(--success-text); }
-.row-actions { display: flex; justify-content: flex-end; }
+.stash-table {
+  grid-template-columns: 130px minmax(0, 1fr) 190px;
+}
 
 .git-pill {
-  display: inline-flex;
-  width: max-content;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 7px;
+  width: fit-content;
   border-radius: 999px;
-  color: var(--text-muted);
-  background: var(--surface-3);
-  font-size: 9px;
-  font-weight: 750;
-  text-transform: capitalize;
+  background: rgba(49, 75, 196, 0.1);
+  color: #314bc4;
+  padding: 5px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
-.git-pill-local,
-.git-pill-origin { color: var(--info-text); background: var(--info-surface); }
-.git-pill-remote,
-.git-pill-upstream { color: var(--warning-text); background: var(--warning-surface); }
+.git-pill-upstream {
+  background: rgba(120, 72, 190, 0.12);
+  color: #6840a6;
+}
 
-.remote-detail-card dl {
-  display: grid;
-  gap: 0;
+.git-commit-layout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.files-card > header {
+  padding: 14px;
+}
+
+.git-file-list-modern {
   margin: 0;
+  padding: 0 14px 14px;
 }
 
-.remote-detail-card dl > div {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  gap: 10px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--border);
+.git-file-list-modern li {
+  border-top: 1px solid var(--color-border, #d8deea);
+  padding-top: 9px;
 }
 
-.remote-detail-card dt { color: var(--text-dim); font-size: 10px; }
-.remote-detail-card dd { min-width: 0; margin: 0; color: var(--text); font-size: 10px; }
-
-.git-sync-notice {
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--warning-text) 25%, var(--border));
-  border-radius: var(--radius-sm);
-  color: var(--warning-text);
-  background: var(--warning-surface);
-  font-size: 10px;
-  line-height: 1.5;
+.git-file-list-modern small {
+  margin-left: auto;
+  color: var(--color-text-muted, #667085);
 }
 
-.files-card { padding: 14px; }
-.git-commit-forms { display: grid; gap: 12px; }
+.git-check-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+  text-transform: none !important;
+}
+
+.git-check-label input {
+  width: auto;
+}
 
 .git-diff-layout-modern {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 0.32fr) minmax(0, 0.68fr);
   min-height: 520px;
   overflow: hidden;
 }
 
 .git-diff-layout-modern aside {
-  overflow-y: auto;
-  border-right: 1px solid var(--border);
-  background: var(--surface-1);
+  overflow: auto;
+  max-height: 680px;
+  border-right: 1px solid var(--color-border, #d8deea);
+  padding: 9px;
 }
 
 .git-diff-layout-modern aside button {
+  width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  width: 100%;
-  min-height: 48px;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 9px;
   background: transparent;
+  padding: 10px;
   text-align: left;
 }
 
-.git-diff-layout-modern aside button.active { background: var(--accent-soft); }
-.git-diff-layout-modern aside code { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.git-diff-layout-modern aside small { font-size: 9px; }
+.git-diff-layout-modern aside button:hover,
+.git-diff-layout-modern aside button.active {
+  border-color: rgba(49, 75, 196, 0.28);
+  background: rgba(49, 75, 196, 0.06);
+}
+
+.git-diff-layout-modern aside code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .git-diff-layout-modern main {
   min-width: 0;
   overflow: auto;
-  background: color-mix(in srgb, var(--surface-0) 65%, var(--surface-1));
+  max-height: 680px;
+  padding: 16px;
 }
 
 .git-diff-layout-modern pre {
   min-width: max-content;
   margin: 0;
-  padding: 16px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.65;
+  color: var(--color-text, #344054);
+  font-size: 0.8rem;
+  line-height: 1.55;
   white-space: pre;
 }
 
-.git-history-list { overflow: hidden; }
+.git-history-list {
+  display: grid;
+  gap: 8px;
+}
+
 .git-history-list article {
   display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 180px;
-  align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  grid-template-columns: 90px minmax(0, 1fr) 210px;
+  padding: 13px;
 }
-.git-history-list article:last-of-type { border-bottom: 0; }
-.git-history-list code { color: var(--accent); font-size: 10px; }
-.git-history-list article > div { display: grid; gap: 4px; min-width: 0; }
-.git-history-list strong { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+.git-history-list article div {
+  display: grid;
+  gap: 3px;
+}
+
 .git-history-list span,
-.git-history-list time { color: var(--text-dim); font-size: 9px; }
-.git-history-list time { text-align: right; }
-
-@media (max-width: 1180px) {
-  .git-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .git-command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .git-preview-grid { grid-template-columns: 1fr; }
-  .git-quick-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.git-history-list time {
+  color: var(--color-text-muted, #667085);
 }
 
-@media (max-width: 860px) {
-  .git-branch-toolbar,
-  .git-branch-filters,
-  .git-two-column-actions,
-  .git-sync-layout,
-  .git-commit-layout,
-  .git-command-grid { grid-template-columns: 1fr; }
-  .git-diff-layout-modern { grid-template-columns: 1fr; }
-  .git-diff-layout-modern aside { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border); }
-  .branches-table,
-  .remotes-table,
-  .stash-table { grid-template-columns: 1fr; gap: 5px; }
-  .git-table-header { display: none; }
-  .row-actions { justify-content: flex-start; }
-  .git-history-list article { grid-template-columns: 72px minmax(0, 1fr); }
-  .git-history-list time { grid-column: 2; text-align: left; }
+.git-mutation-success {
+  margin: 0;
+  border: 1px solid rgba(12, 148, 105, 0.28);
+  border-radius: 10px;
+  background: rgba(12, 148, 105, 0.08);
+  color: #087552;
+  padding: 11px 13px;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 1100px) {
   .git-status-grid,
-  .git-quick-actions { grid-template-columns: 1fr; }
-  .git-subtabs button { padding: 0 10px; }
+  .git-command-grid,
+  .git-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .git-command-grid article:last-child,
+  .git-preview-grid article:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .git-diff-layout-modern {
+    grid-template-columns: 1fr;
+  }
+
+  .git-diff-layout-modern aside {
+    max-height: 300px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border, #d8deea);
+  }
+}
+
+@media (max-width: 760px) {
+  .git-status-grid,
+  .git-command-grid,
+  .git-preview-grid,
+  .git-sync-layout,
+  .git-two-column-actions,
+  .git-commit-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .git-command-grid article:last-child,
+  .git-preview-grid article:last-child {
+    grid-column: auto;
+  }
+
+  .git-branch-toolbar,
+  .git-page-heading,
+  .git-command-card header,
+  .git-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remotes-table,
+  .stash-table,
+  .git-history-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .git-table-header {
+    display: none;
+  }
 }
 </style>
