@@ -1,11 +1,10 @@
+import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { test } from 'node:test';
 import { promisify } from 'node:util';
-
-import { test } from 'vitest';
-import assert from 'node:assert/strict';
 
 import { listCurrentBranchOnlyCommits } from '../src/services/git-current-branch-history-service.js';
 
