@@ -124,10 +124,14 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
         };
       } catch (error) {
         if (error instanceof GitCommitDetailsError) {
-          const statusCode = error.code === 'GIT_COMMIT_NOT_FOUND' ? 404 : 400;
+          const code = error.code === 'GIT_COMMIT_INVALID'
+            ? 'GIT_REFERENCE_INVALID'
+            : error.code === 'GIT_COMMIT_NOT_FOUND'
+              ? 'GIT_REFERENCE_NOT_FOUND'
+              : 'GIT_NOT_REPOSITORY';
           throw new ApiError({
-            statusCode,
-            code: error.code,
+            statusCode: error.code === 'GIT_COMMIT_NOT_FOUND' ? 404 : 400,
+            code,
             message: error.message,
           });
         }
