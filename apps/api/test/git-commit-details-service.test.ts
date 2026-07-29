@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
+  listBranchCommits,
   listCurrentBranchCommits,
 } from '../src/services/git-commit-details-service.js';
 
@@ -75,8 +76,10 @@ test('pagina dez commits e limita o histórico à branch atual', async () => {
     assert.equal(firstPage.totalPages, 2);
     assert.equal(firstPage.commits.length, 10);
     assert.equal(firstPage.commits[0]?.subject, 'commit 14');
+    assert.equal(firstPage.commits[0]?.parentCount, 1);
     assert.equal(secondPage.commits.length, 5);
     assert.equal(secondPage.commits.at(-1)?.subject, 'feat: cria projeto');
+    assert.equal(secondPage.commits.at(-1)?.parentCount, 0);
 
     await run(repository.directory, ['switch', '--create', 'feature/isolada']);
     await writeFile(path.join(repository.directory, 'feature-only.txt'), 'feature\n', 'utf8');
@@ -92,9 +95,50 @@ test('pagina dez commits e limita o histórico à branch atual', async () => {
   }
 });
 
-test('recusa hash inválido e commit inexistente', async () => {
+test('consulta outra branch sem trocar o working tree', async () => {
   const repository = await createRepository();
   try {
+    const currentBranch = await run(repository.directory, ['branch', '--show-current']);
+    await run(repository.directory, ['switch', '--create', 'feature/historico']);
+    await writeFile(path.join(repository.directory, 'history.txt'), 'history\n', 'utf8');
+    await run(repository.directory, ['add', 'history.txt']);
+    await run(repository.directory, ['commit', '-m', 'feat: adiciona histórico']);
+    await run(repository.directory, ['switch', currentBranch]);
+
+    const history = await listBranchCommits(
+      repository.directory,
+      'feature/historico',
+      1,
+      10,
+    );
+
+    assert.equal(history.branch, 'feature/historico');
+    assert.equal(history.total, 2);
+    assert.equal(history.commits[0]?.subject, 'feat: adiciona histórico');
+    assert.equal(
+      await run(repository.directory, ['branch', '--show-current']),
+      currentBranch,
+    );
+  } finally {
+    await rm(repository.directory, { recursive: true, force: true });
+  }
+});
+
+test('recusa referência e hashes inválidos', async () => {
+  const repository = await createRepository();
+  try {
+    await assert.rejects(
+      () => listBranchCommits(repository.directory, '--all', 1, 10),
+      (error: unknown) =>
+        error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_INVALID',
+    );
+
+    await assert.rejects(
+      () => listBranchCommits(repository.directory, 'feature/inexistente', 1, 10),
+      (error: unknown) =>
+        error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_NOT_FOUND',
+    );
+
     await assert.rejects(
       () => inspectGitCommit(repository.directory, 'not-a-hash'),
       (error: unknown) =>
