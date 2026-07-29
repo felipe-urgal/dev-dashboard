@@ -25,6 +25,7 @@ import './git-branch-delete-enhancer.css';
 import './git-branches-theme-fix.css';
 import './git-diff-compact-enhancer.css';
 import './git-diff-layout-fix.css';
+import './git-diff-github-theme.css';
 import { installGitActionFeedback } from './git-action-feedback';
 import { installGitBranchDeleteEnhancer } from './git-branch-delete-enhancer';
 import { installGitCommitEnhancer } from './git-commit-enhancer';
