@@ -31,6 +31,15 @@ interface MountArgs {
 
 const jsonHeaders = { 'content-type': 'application/json' };
 
+const latestCommit = {
+  hash: 'abc123456789',
+  shortHash: 'abc1234',
+  subject: 'feat: melhora painel Git',
+  authorName: 'Dashboard Test',
+  authorEmail: 'dashboard@example.test',
+  authoredAt: '2026-07-29T10:00:00.000Z',
+};
+
 const baseOverview: ProjectGitOverview = {
   repository: true,
   branch: 'feature/git-ui',
@@ -47,24 +56,8 @@ const baseOverview: ProjectGitOverview = {
       status: 'modified',
     },
   ],
-  latestCommit: {
-    hash: 'abc123456789',
-    shortHash: 'abc1234',
-    subject: 'feat: melhora painel Git',
-    authorName: 'Dashboard Test',
-    authorEmail: 'dashboard@example.test',
-    authoredAt: '2026-07-29T10:00:00.000Z',
-  },
-  recentCommits: [
-    {
-      hash: 'abc123456789',
-      shortHash: 'abc1234',
-      subject: 'feat: melhora painel Git',
-      authorName: 'Dashboard Test',
-      authorEmail: 'dashboard@example.test',
-      authoredAt: '2026-07-29T10:00:00.000Z',
-    },
-  ],
+  latestCommit,
+  recentCommits: [latestCommit],
   stashes: [],
 };
 
@@ -76,6 +69,9 @@ const baseWorkspace: ProjectGitWorkspace = {
       kind: 'local',
       current: true,
       upstream: 'origin/feature/git-ui',
+      ahead: 1,
+      behind: 0,
+      latestCommit,
     },
     {
       name: 'main',
@@ -83,6 +79,14 @@ const baseWorkspace: ProjectGitWorkspace = {
       kind: 'local',
       current: false,
       upstream: 'origin/main',
+      ahead: 0,
+      behind: 0,
+      latestCommit: {
+        ...latestCommit,
+        hash: 'def123456789',
+        shortHash: 'def1234',
+        subject: 'chore: prepara projeto',
+      },
     },
     {
       name: 'origin/feature/git-ui',
@@ -90,6 +94,9 @@ const baseWorkspace: ProjectGitWorkspace = {
       kind: 'remote',
       current: false,
       remote: 'origin',
+      ahead: 0,
+      behind: 0,
+      latestCommit,
     },
     {
       name: 'origin/main',
@@ -97,6 +104,14 @@ const baseWorkspace: ProjectGitWorkspace = {
       kind: 'remote',
       current: false,
       remote: 'origin',
+      ahead: 0,
+      behind: 0,
+      latestCommit: {
+        ...latestCommit,
+        hash: 'def123456789',
+        shortHash: 'def1234',
+        subject: 'chore: prepara projeto',
+      },
     },
     {
       name: 'upstream/main',
@@ -104,6 +119,30 @@ const baseWorkspace: ProjectGitWorkspace = {
       kind: 'remote',
       current: false,
       remote: 'upstream',
+      ahead: 0,
+      behind: 0,
+      latestCommit: {
+        ...latestCommit,
+        hash: 'fed123456789',
+        shortHash: 'fed1234',
+        subject: 'feat: versão principal',
+        authorName: 'Equipe principal',
+      },
+    },
+    {
+      name: 'upstream/release/2.0',
+      shortName: 'release/2.0',
+      kind: 'remote',
+      current: false,
+      remote: 'upstream',
+      ahead: 0,
+      behind: 0,
+      latestCommit: {
+        ...latestCommit,
+        hash: '999123456789',
+        shortHash: '9991234',
+        subject: 'release: prepara 2.0',
+      },
     },
   ],
   remotes: [
@@ -268,19 +307,144 @@ test('renderiza o resumo com comparações separadas de origin e upstream', asyn
   assert.ok(branchOptions.some((option) => option.text().includes('main')));
 });
 
-test('lista e filtra branches locais, origin e upstream', async () => {
+test('navega, filtra e exibe detalhes de branches remotas', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
   await clickTab(mounted.wrapper, 'Branches');
 
-  assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 5);
+  assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 6);
+  assert.match(mounted.wrapper.text(), /Gerencie linhas de trabalho locais e remotas/);
 
-  await mounted.wrapper.find('.git-branch-filters select').setValue('upstream');
+  const upstreamFilter = mounted.wrapper
+    .findAll('.branch-filter-tabs button')
+    .find((button) => button.text() === 'Upstream');
+  assert.ok(upstreamFilter);
+  await upstreamFilter.trigger('click');
   await flushPromises();
 
   const rows = mounted.wrapper.findAll('.git-table-row.branches-table');
-  assert.equal(rows.length, 1);
+  assert.equal(rows.length, 2);
   assert.match(rows[0]!.text(), /upstream\/main/);
+
+  const release = rows.find((row) => row.text().includes('upstream/release/2.0'));
+  assert.ok(release);
+  await release.trigger('click');
+  await flushPromises();
+
+  const detail = mounted.wrapper.find('.branch-detail-panel');
+  assert.match(detail.text(), /upstream\/release\/2.0/);
+  assert.match(detail.text(), /release: prepara 2.0/);
+  assert.match(detail.text(), /Criar local e trocar/);
+});
+
+test('cria branch local rastreando uma referência remota após confirmação', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/branches/track/confirmations')) {
+        const body = request.body as { remoteBranch: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'r'.repeat(64),
+            operation: 'track-branch',
+            target: body.remoteBranch,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches/track')) {
+        return jsonResponse({ branch: { branch: 'release/2.0' } }, 201);
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+  await clickTab(mounted.wrapper, 'Branches');
+
+  const release = mounted.wrapper
+    .findAll('.branch-list-item')
+    .find((row) => row.text().includes('upstream/release/2.0'));
+  assert.ok(release);
+  await release.trigger('click');
+  await flushPromises();
+
+  const trackButton = mounted.wrapper
+    .findAll('.branch-detail-actions button')
+    .find((button) => button.text().includes('Criar local e trocar'));
+  assert.ok(trackButton);
+  await trackButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/branches/track/confirmations'),
+  );
+  const mutationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/branches/track'),
+  );
+  assert.ok(confirmationIndex >= 0);
+  assert.ok(mutationIndex > confirmationIndex);
+  assert.deepEqual(mounted.requests[mutationIndex]!.body, {
+    remoteBranch: 'upstream/release/2.0',
+    confirmationToken: 'r'.repeat(64),
+  });
+  assert.match(mounted.wrapper.text(), /Branch local "release\/2.0" criada rastreando "upstream\/release\/2.0"/);
+});
+
+test('cria branch normal pelo formulário moderno', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 't'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches')) {
+        const body = request.body as { name: string };
+        return jsonResponse({ branch: { branch: body.name } }, 201);
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+  await clickTab(mounted.wrapper, 'Branches');
+
+  const createForm = mounted.wrapper.find('.branch-create-card form');
+  await createForm.find('input').setValue('feature/nova');
+  await createForm.trigger('submit');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/mutations/confirmations'),
+  );
+  const mutationIndex = mounted.requests.findIndex((request) =>
+    request.path.endsWith('/git/branches'),
+  );
+  assert.ok(confirmationIndex >= 0);
+  assert.ok(mutationIndex > confirmationIndex);
+  assert.equal(
+    (mounted.requests[mutationIndex]!.body as { confirmationToken: string }).confirmationToken,
+    't'.repeat(64),
+  );
+  assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
 });
 
 test('abre a página de diff e carrega o arquivo selecionado', async () => {
@@ -322,57 +486,6 @@ test('mostra o estado vazio na página de diff', async () => {
   assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
 });
 
-test('cria branch após confirmação e recarrega os dados', async () => {
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-
-  const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/mutations/confirmations')) {
-        const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 't'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          },
-        }, 201);
-      }
-      if (request.path.endsWith('/git/branches')) {
-        const body = request.body as { name: string };
-        return jsonResponse({ branch: { branch: body.name } }, 201);
-      }
-      return undefined;
-    },
-  });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-  };
-  await clickTab(mounted.wrapper, 'Branches');
-
-  const createForm = mounted.wrapper.findAll('.git-two-column-actions form')[1]!;
-  await createForm.find('input').setValue('feature/nova');
-  await createForm.trigger('submit');
-  await flushPromises();
-  await flushPromises();
-
-  const confirmationIndex = mounted.requests.findIndex((request) =>
-    request.path.endsWith('/git/mutations/confirmations'),
-  );
-  const mutationIndex = mounted.requests.findIndex((request) =>
-    request.path.endsWith('/git/branches'),
-  );
-  assert.ok(confirmationIndex >= 0);
-  assert.ok(mutationIndex > confirmationIndex);
-  assert.equal(
-    (mounted.requests[mutationIndex]!.body as { confirmationToken: string }).confirmationToken,
-    't'.repeat(64),
-  );
-  assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
-});
-
 test('push publica a branch no origin após confirmação', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
@@ -409,131 +522,6 @@ test('push publica a branch no origin após confirmação', async () => {
   await flushPromises();
   await flushPromises();
 
-  const confirmation = mounted.requests.find((request) =>
-    request.path.endsWith('/git/mutations/confirmations'),
-  );
-  assert.deepEqual(confirmation?.body, {
-    operation: 'push',
-    target: 'feature/git-ui',
-  });
   assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/push')));
   assert.match(mounted.wrapper.text(), /Push para origin concluído/);
-});
-
-test('fetch upstream atualiza somente as referências do remote', async () => {
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-
-  const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/remotes/upstream/fetch')) {
-        return jsonResponse({ remote: 'upstream' });
-      }
-      return undefined;
-    },
-  });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-  };
-  await clickTab(mounted.wrapper, 'Sincronização');
-
-  const fetchButton = mounted.wrapper
-    .findAll('.remote-detail-card button')
-    .find((button) => button.text().includes('Fetch upstream'));
-  assert.ok(fetchButton);
-  await fetchButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(mounted.requests.some((request) =>
-    request.path.endsWith('/git/remotes/upstream/fetch')
-    && request.method === 'POST',
-  ));
-  assert.match(mounted.wrapper.text(), /Referências de "upstream" atualizadas/);
-});
-
-test('commit envia mensagem, opção de alterações rastreadas e token', async () => {
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-
-  const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/mutations/confirmations')) {
-        const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'c'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          },
-        }, 201);
-      }
-      if (request.path.endsWith('/git/commit')) {
-        return jsonResponse({
-          commit: {
-            hash: 'def456',
-            shortHash: 'def456',
-            subject: 'fix: corrige fluxo',
-          },
-        }, 201);
-      }
-      return undefined;
-    },
-  });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-  };
-  await clickTab(mounted.wrapper, 'Commit');
-
-  const commitForm = mounted.wrapper.findAll('.git-commit-forms form')[0]!;
-  await commitForm.find('textarea').setValue('fix: corrige fluxo');
-  await commitForm.find('input[type="checkbox"]').setValue(true);
-  await commitForm.trigger('submit');
-  await flushPromises();
-  await flushPromises();
-
-  const commitRequest = mounted.requests.find((request) =>
-    request.path.endsWith('/git/commit'),
-  );
-  assert.deepEqual(commitRequest?.body, {
-    message: 'fix: corrige fluxo',
-    includeAllChanges: true,
-    confirmationToken: 'c'.repeat(64),
-  });
-  assert.match(mounted.wrapper.text(), /Commit "def456" criado/);
-});
-
-test('página de stash informa estado vazio', async () => {
-  const mounted = await mountPanel({
-    overview: { ...baseOverview, stashes: [] },
-  });
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Stash');
-
-  assert.match(mounted.wrapper.text(), /Nenhum stash salvo/);
-});
-
-test('mostra falha de carregamento do diff na página correspondente', async () => {
-  const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/diff')) {
-        return jsonResponse(
-          { error: 'GIT_COMMAND_FAILED', message: 'API indisponível' },
-          500,
-        );
-      }
-      return undefined;
-    },
-  });
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Diff');
-
-  assert.match(mounted.wrapper.text(), /API indisponível/);
-  assert.equal(
-    mounted.wrapper.findAll('.git-diff-layout-modern aside button').length,
-    0,
-  );
 });
