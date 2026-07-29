@@ -27,23 +27,14 @@ export interface GitTrackingComparison {
   behind: number;
 }
 
-export interface ProjectGitOverview {
-  repository: boolean;
-  branch?: string;
-  detached: boolean;
-  upstream?: string;
-  ahead: number;
-  behind: number;
-  clean: boolean;
-  files: GitFileChange[];
-  latestCommit?: GitCommit;
-  recentCommits: GitCommit[];
-  stashes: GitStashEntry[];
+export interface ProjectGitWorkspace {
   branches: GitBranch[];
   remotes: GitRemote[];
   originComparison?: GitTrackingComparison;
   upstreamComparison?: GitTrackingComparison;
 }
+
+export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; stashes: GitStashEntry[]; }
 
 export type GitDiffScope = 'worktree' | 'index' | 'combined';
 
@@ -62,7 +53,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'fetch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
+export type GitMutationOperation = 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
 
 export interface GitMutationConfirmation {
   token: string;
