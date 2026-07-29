@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test } from 'vitest';
 
 test('aplica a paleta semântica a todas as visualizações de diff', async () => {
   const css = await readFile(
-    new URL('../src/git-diff-github-theme.css', import.meta.url),
+    resolve(process.cwd(), 'src', 'git-diff-github-theme.css'),
     'utf8',
   );
 
