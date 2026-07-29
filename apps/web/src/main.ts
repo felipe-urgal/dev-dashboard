@@ -8,6 +8,7 @@ import './styles.css';
 import './project-details-redesign.css';
 import './project-header-server-enhancer.css';
 import './log-visual-enhancer.css';
+import './test-log-visual-polish.css';
 import './sql-explanation-enhancer.css';
 import './log-detail-enhancer.css';
 import './git-modern-polish.css';
@@ -40,6 +41,7 @@ import { installLogDetailEnhancer } from './log-detail-enhancer';
 import { installLogVisualEnhancer } from './log-visual-enhancer';
 import { installProjectHeaderServerEnhancer } from './project-header-server-enhancer';
 import { installSqlExplanationEnhancer } from './sql-explanation-enhancer';
+import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
@@ -58,6 +60,7 @@ installGitInlineFileDiffEnhancer();
 installGitHistoryInlineDiffFix();
 installGitSummaryInlineDiffFix();
 installLogVisualEnhancer();
+installTestLogToneEnhancer();
 installSqlExplanationEnhancer();
 installLogDetailEnhancer();
 
