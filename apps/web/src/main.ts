@@ -9,6 +9,7 @@ import './project-details-redesign.css';
 import './project-header-server-enhancer.css';
 import './log-visual-enhancer.css';
 import './test-log-visual-polish.css';
+import './test-log-theme-fix.css';
 import './sql-explanation-enhancer.css';
 import './log-detail-enhancer.css';
 import './git-modern-polish.css';
