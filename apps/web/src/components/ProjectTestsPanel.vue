@@ -395,6 +395,13 @@ function commandIsCurrent(commandId: string): boolean {
   return Boolean(managedProcess.value && currentTarget.value?.commandId === commandId);
 }
 
+function historyExecutionTarget(item: TestExecutionRecord): ExecutionTarget {
+  return {
+    commandId: item.commandId,
+    ...(item.targetFile ? { targetFile: item.targetFile } : {}),
+  };
+}
+
 function isCurrentProjectRequest(
   projectId: string,
   requestGeneration: number,
@@ -1068,7 +1075,7 @@ onBeforeUnmount(() => {
               :disabled="isRunning || startingCommandId !== null"
               :aria-label="`Repetir ${item.targetFile ?? item.commandId}`"
               title="Repetir execução"
-              @click="handleRepeat({ commandId: item.commandId, targetFile: item.targetFile })"
+              @click="handleRepeat(historyExecutionTarget(item))"
             >
               <ArrowPathIcon aria-hidden="true" />
             </button>
