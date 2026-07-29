@@ -22,6 +22,10 @@ interface Params {
   projectId: string;
 }
 
+interface MigrationParams extends Params {
+  version: string;
+}
+
 interface MutationConfirmationBody {
   operation: RailsMigrationMutationOperation;
 }
@@ -36,6 +40,14 @@ const paramsSchema = {
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
+const migrationParamsSchema = {
+  type: 'object', additionalProperties: false, required: ['projectId', 'version'],
+  properties: {
+    projectId: { type: 'string', minLength: 1 },
+    version: { type: 'string', pattern: '^[0-9]{8,20}$' },
+  },
+} as const;
+
 const mutationOperationEnum = ['migrate', 'rollback', 'seed', 'prepare'] as const;
 
 const mutationConfirmationBodySchema = {
@@ -48,6 +60,78 @@ const mutationBodySchema = {
   properties: {
     operation: { type: 'string', enum: mutationOperationEnum },
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+  },
+} as const;
+
+const railsMigrationDetailResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'version', 'truncated'],
+  properties: {
+    supported: { type: 'boolean' },
+    version: { type: 'string' },
+    name: { type: 'string' },
+    status: { type: 'string', enum: ['up', 'down'] },
+    filePath: { type: 'string' },
+    source: { type: 'string' },
+    truncated: { type: 'boolean' },
+  },
+} as const;
+
+const railsSchemaColumnResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['name', 'type', 'nullable', 'primaryKey'],
+  properties: {
+    name: { type: 'string' },
+    type: { type: 'string' },
+    nullable: { type: 'boolean' },
+    primaryKey: { type: 'boolean' },
+    default: { type: 'string' },
+    limit: { type: 'integer' },
+    precision: { type: 'integer' },
+    scale: { type: 'integer' },
+  },
+} as const;
+
+const railsSchemaIndexResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['columns', 'unique'],
+  properties: {
+    name: { type: 'string' },
+    columns: { type: 'array', items: { type: 'string' } },
+    unique: { type: 'boolean' },
+  },
+} as const;
+
+const railsSchemaForeignKeyResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['fromTable', 'toTable', 'column'],
+  properties: {
+    fromTable: { type: 'string' },
+    toTable: { type: 'string' },
+    column: { type: 'string' },
+    primaryKey: { type: 'string' },
+    name: { type: 'string' },
+  },
+} as const;
+
+const railsSchemaTableResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['name', 'columns', 'indexes', 'foreignKeys'],
+  properties: {
+    name: { type: 'string' },
+    columns: { type: 'array', items: railsSchemaColumnResponseSchema },
+    indexes: { type: 'array', items: railsSchemaIndexResponseSchema },
+    foreignKeys: { type: 'array', items: railsSchemaForeignKeyResponseSchema },
+  },
+} as const;
+
+const railsModelsOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'tables'],
+  properties: {
+    supported: { type: 'boolean' },
+    schemaPath: { type: 'string' },
+    tables: { type: 'array', items: railsSchemaTableResponseSchema },
   },
 } as const;
 
@@ -85,6 +169,41 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
     },
   }, async (request) => ({
     migrations: await options.railsInspectionService.getMigrationsOverview(
+      requireProject(options.projectStore, request.params.projectId),
+    ),
+  }));
+
+  app.get<{ Params: MigrationParams }>('/projects/:projectId/rails/migrations/:version', {
+    schema: {
+      params: migrationParamsSchema,
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['migration'],
+          properties: { migration: railsMigrationDetailResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => ({
+    migration: await options.railsInspectionService.getMigrationDetail(
+      requireProject(options.projectStore, request.params.projectId),
+      request.params.version,
+    ),
+  }));
+
+  app.get<{ Params: Params }>('/projects/:projectId/rails/models', {
+    schema: {
+      params: paramsSchema,
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['models'],
+          properties: { models: railsModelsOverviewResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => ({
+    models: await options.railsInspectionService.getModelsOverview(
       requireProject(options.projectStore, request.params.projectId),
     ),
   }));
