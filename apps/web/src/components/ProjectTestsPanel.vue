@@ -31,6 +31,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  clearProjectTestHistory,
   clearProjectTestLog,
   fetchProjectTestFiles,
   fetchProjectTestHistory,
@@ -95,6 +96,7 @@ const historyPage = ref(1);
 const historyTotalPages = ref(0);
 const loadingHistory = ref(false);
 const historyErrorMessage = ref('');
+const clearingHistory = ref(false);
 const HISTORY_PAGE_SIZE = 10;
 
 useAutoDismiss(errorMessage, '');
@@ -602,6 +604,35 @@ async function loadHistory(page = historyPage.value): Promise<void> {
   }
 }
 
+async function handleClearHistory(): Promise<void> {
+  if (clearingHistory.value || historyItems.value.length === 0) return;
+
+  const confirmed =
+    typeof window === 'undefined' ||
+    window.confirm(
+      'Remover o histórico de execuções deste projeto? Execuções em andamento serão preservadas.',
+    );
+  if (!confirmed) return;
+
+  const projectId = props.project.id;
+  const requestGeneration = generation;
+  clearingHistory.value = true;
+  historyErrorMessage.value = '';
+  try {
+    await clearProjectTestHistory(projectId);
+    if (!isCurrentProjectRequest(projectId, requestGeneration)) return;
+    await loadHistory(1);
+  } catch (error) {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) {
+      historyErrorMessage.value = error instanceof Error
+        ? error.message
+        : 'Não foi possível limpar o histórico de execuções.';
+    }
+  } finally {
+    if (isCurrentProjectRequest(projectId, requestGeneration)) clearingHistory.value = false;
+  }
+}
+
 async function handleStop(): Promise<void> {
   const projectId = props.project.id;
   const requestGeneration = generation;
@@ -1030,16 +1061,28 @@ onBeforeUnmount(() => {
             <h4 id="tests-history-title">Histórico de execuções</h4>
             <p>Resultados recentes deste projeto.</p>
           </div>
-          <button
-            type="button"
-            class="secondary-button tests-icon-button"
-            :disabled="loadingHistory"
-            aria-label="Atualizar histórico"
-            title="Atualizar histórico"
-            @click="loadHistory()"
-          >
-            <ArrowPathIcon aria-hidden="true" />
-          </button>
+          <div class="tests-history-heading-actions">
+            <button
+              type="button"
+              class="secondary-button tests-icon-button"
+              :disabled="clearingHistory || historyItems.length === 0"
+              aria-label="Limpar histórico"
+              title="Limpar histórico"
+              @click="handleClearHistory"
+            >
+              <TrashIcon aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="secondary-button tests-icon-button"
+              :disabled="loadingHistory"
+              aria-label="Atualizar histórico"
+              title="Atualizar histórico"
+              @click="loadHistory()"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         <p v-if="historyErrorMessage" class="project-error" role="alert">{{ historyErrorMessage }}</p>

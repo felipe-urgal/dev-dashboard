@@ -708,6 +708,16 @@ export async function fetchProjectTestHistory(
   return response.history;
 }
 
+interface TestExecutionHistoryClearResponse { history: { removedCount: number } }
+
+export async function clearProjectTestHistory(projectId: string): Promise<number> {
+  const response = await requestJson<TestExecutionHistoryClearResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/history`,
+    { method: 'DELETE' },
+  );
+  return response.history.removedCount;
+}
+
 interface ProjectDatabaseResponse { database: ProjectDatabaseOverview; }
 interface ProjectDatabaseSecretResponse { secret: ProjectDatabaseSecret; }
 interface ProjectDatabaseStartResponse { start: ProjectDatabaseStartResult; }

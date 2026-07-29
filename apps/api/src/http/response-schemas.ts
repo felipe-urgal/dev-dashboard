@@ -406,6 +406,15 @@ export const testExecutionHistoryResponseSchema = {
   },
 } as const;
 
+export const testExecutionHistoryClearResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['removedCount'],
+  properties: {
+    removedCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 export const projectTestOverviewResponseSchema = {
   type: 'object',
   additionalProperties: false,

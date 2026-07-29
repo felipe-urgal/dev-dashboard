@@ -131,4 +131,15 @@ test('rotas de arquivo específico de teste', async (context) => {
     assert.equal(history!.items[0]!.targetFile, 'src/app.test.ts');
     assert.ok(['stopped', 'failed'].includes(history!.items[0]!.status));
   });
+
+  await context.test('DELETE tests/history remove a entrada terminal registrada', async () => {
+    const deleteResponse = await app.inject({
+      method: 'DELETE', url: '/api/projects/p1/tests/history', headers: { 'x-dev-dashboard-token': TOKEN },
+    });
+    assert.equal(deleteResponse.statusCode, 200);
+    assert.equal(deleteResponse.json<{ history: { removedCount: number } }>().history.removedCount, 1);
+
+    const getResponse = await app.inject({ method: 'GET', url: '/api/projects/p1/tests/history', headers });
+    assert.equal(getResponse.json<HistoryResponse>().history.total, 0);
+  });
 });

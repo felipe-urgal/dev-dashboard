@@ -231,6 +231,60 @@ test('pagina o histórico ao clicar em Próxima', async () => {
   assert.ok(calls.some((search) => search.includes('page=2')));
 });
 
+test('limpa o histórico de execuções após confirmação', async () => {
+  const calls: Array<{ method: string; pathname: string }> = [];
+  let cleared = false;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    const method = init?.method ?? 'GET';
+    calls.push({ method, pathname: url.pathname });
+    if (url.pathname.endsWith('/tests')) {
+      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/process')) {
+      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/history') && method === 'DELETE') {
+      cleared = true;
+      return new Response(JSON.stringify({ history: { removedCount: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/tests/history')) {
+      const items = cleared
+        ? []
+        : [{ id: 'exec-1', projectId: 'p1', commandId: 'node-script-test', status: 'stopped', startedAt: '2026-07-27T10:00:00Z' }];
+      return new Response(JSON.stringify({
+        history: { items, page: 1, pageSize: 10, total: items.length, totalPages: items.length ? 1 : 0 },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const originalConfirm = window.confirm;
+  window.confirm = () => true;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+    window.confirm = originalConfirm;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(wrapper.findAll('.tests-history-list li').length, 1);
+
+  const clearButton = wrapper.find('button[aria-label="Limpar histórico"]');
+  assert.ok(clearButton.exists());
+  await clearButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(calls.some((call) => call.method === 'DELETE' && call.pathname.endsWith('/tests/history')));
+  assert.equal(wrapper.findAll('.tests-history-list li').length, 0);
+  assert.match(wrapper.text(), /Nenhuma execução registrada ainda/);
+});
+
 function sseResponse(frames: string[]): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({

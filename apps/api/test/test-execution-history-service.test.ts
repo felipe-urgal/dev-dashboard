@@ -110,6 +110,41 @@ test('reconcile marca como failed quando o processo gerenciado desaparece', asyn
   assert.ok(history.items[0]!.finishedAt);
 });
 
+test('clear remove entradas terminais e preserva execuções em andamento', async (context) => {
+  const stateDirectory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-test-history-'));
+  context.after(async () => { await rm(stateDirectory, { recursive: true, force: true }); });
+  const pm = fakeProcessManager();
+  const service = new TestExecutionHistoryService(pm, stateDirectory);
+
+  const finished = makeManagedProcess({ id: 'node-script-test' });
+  pm.set(finished);
+  await service.recordStart('p1', finished);
+  pm.set({ ...finished, status: 'stopped', stoppedAt: new Date().toISOString(), exitCode: 0 });
+  await service.reconcile('p1');
+
+  const running = makeManagedProcess({ id: 'node-script-test:file', args: ['run', 'test', '--', 'src/app.test.ts'] });
+  pm.set(running);
+  await service.recordStart('p1', running);
+
+  const result = await service.clear('p1');
+  assert.equal(result.removedCount, 1);
+
+  const history = await service.history('p1');
+  assert.equal(history.total, 1);
+  assert.equal(history.items[0]!.status, 'running');
+  assert.equal(history.items[0]!.targetFile, 'src/app.test.ts');
+});
+
+test('clear não faz nada quando não há entradas terminais', async (context) => {
+  const stateDirectory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-test-history-'));
+  context.after(async () => { await rm(stateDirectory, { recursive: true, force: true }); });
+  const pm = fakeProcessManager();
+  const service = new TestExecutionHistoryService(pm, stateDirectory);
+
+  const result = await service.clear('p1');
+  assert.equal(result.removedCount, 0);
+});
+
 test('o histórico sobrevive à recriação do serviço (reinício da API)', async (context) => {
   const stateDirectory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-test-history-'));
   context.after(async () => { await rm(stateDirectory, { recursive: true, force: true }); });
