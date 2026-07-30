@@ -209,6 +209,27 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     assert.equal(response.json<CommitResponse>().commit.subject, 'commit via rota');
   });
 
+  await context.test('amend altera a mensagem do último commit', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'amend', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/commit/amend', headers,
+      payload: JSON.stringify({
+        message: 'commit corrigido via rota',
+        confirmationToken: confirmation.token,
+      }),
+    });
+    assert.equal(response.statusCode, 201);
+    interface CommitResponse { commit: { hash: string; shortHash: string; subject: string } }
+    assert.equal(
+      response.json<CommitResponse>().commit.subject,
+      'commit corrigido via rota',
+    );
+  });
+
   await context.test('stash: empilhar e restaurar via rota', async () => {
     await writeFile(path.join(repoPath, 'README.md'), 'stash via rota\n');
 

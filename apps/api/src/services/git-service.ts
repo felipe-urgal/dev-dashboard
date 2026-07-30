@@ -635,6 +635,22 @@ export class GitService {
     return { hash, shortHash, subject };
   }
 
+  public async amend(projectPath: string, projectId: string, message: string, confirmationToken?: string): Promise<GitCommitResult> {
+    validateCommitMessage(message);
+    await requireRepository(projectPath);
+    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const branch = status.branch ?? 'HEAD';
+    this.consumeMutationConfirmation(projectId, 'amend', branch, confirmationToken);
+    try {
+      await runGit(projectPath, ['commit', '--amend', '-m', message]);
+    } catch (error) {
+      throw new GitMutationError('GIT_COMMIT_FAILED', error instanceof Error ? error.message : 'Falha ao alterar o último commit.');
+    }
+    const log = await runGit(projectPath, ['log', '-1', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s`]);
+    const [hash = '', shortHash = '', subject = ''] = log.trim().split(LOG_SEPARATOR);
+    return { hash, shortHash, subject };
+  }
+
   public async save(projectPath: string, projectId: string, message: string, confirmationToken?: string): Promise<GitCommitResult> {
     validateCommitMessage(message);
     await requireRepository(projectPath);

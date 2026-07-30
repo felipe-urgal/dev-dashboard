@@ -11,10 +11,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  amendProjectGit,
   commitProjectGit,
   createProjectGitBranch,
   deleteProjectGitBranch,
-  discardProjectGitFile,
   fetchProjectGit,
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
@@ -22,11 +22,7 @@ import {
   prepareProjectGitBranchRename,
   prepareProjectGitMutation,
   renameProjectGitBranch,
-  removeProjectGitUntrackedFile,
-  saveProjectGit,
-  stageProjectGitFile,
   switchProjectGitBranch,
-  unstageProjectGitFile,
 } from '../api';
 import {
   fetchProjectGitWorkspace,
@@ -36,7 +32,9 @@ import {
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
-import ProjectGitCommitPage from './ProjectGitCommitPage.vue';
+import ProjectGitCommitPage, {
+  type CommitMode,
+} from './ProjectGitCommitPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -76,8 +74,7 @@ const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
 const createBranchName = ref('');
 const commitMessage = ref('');
-const commitIncludeAllChanges = ref(false);
-const commitScope = ref<'staged' | 'all'>('staged');
+const commitMode = ref<CommitMode>('create');
 let generation = 0;
 let diffController: AbortController | undefined;
 let fileController: AbortController | undefined;
@@ -391,10 +388,10 @@ async function runCommit(): Promise<void> {
     return;
   }
 
-  const saveAll = commitScope.value === 'all';
-  const confirmationText = saveAll
-    ? `Preparar todas as alterações e criar o commit "${message}"?`
-    : `Criar o commit "${message}"?`;
+  const amend = commitMode.value === 'amend';
+  const confirmationText = amend
+    ? `Alterar o último commit para "${message}"?`
+    : `Criar o commit "${message}" com todas as alterações rastreadas?`;
   if (
     typeof window !== 'undefined'
     && !window.confirm(confirmationText)
@@ -406,14 +403,14 @@ async function runCommit(): Promise<void> {
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
   try {
-    const operation = saveAll ? 'save' : 'commit';
+    const operation = amend ? 'amend' : 'commit';
     const confirmation = await prepareProjectGitMutation(
       props.project.id,
       operation,
       currentBranchOrHead(),
     );
-    const commit = saveAll
-      ? await saveProjectGit(
+    const commit = amend
+      ? await amendProjectGit(
           props.project.id,
           message,
           confirmation.token,
@@ -421,94 +418,25 @@ async function runCommit(): Promise<void> {
       : await commitProjectGit(
           props.project.id,
           message,
-          commitIncludeAllChanges.value,
+          true,
           confirmation.token,
         );
-    mutationMessage.value = `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+    mutationMessage.value = amend
+      ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
+      : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
     commitMessage.value = '';
-    commitIncludeAllChanges.value = false;
-    commitScope.value = 'staged';
+    commitMode.value = 'create';
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível criar o commit.';
+        : amend
+          ? 'Não foi possível alterar o último commit.'
+          : 'Não foi possível criar o commit.';
   } finally {
     mutationRunning.value = false;
   }
-}
-
-async function runFileMutation(payload: {
-  operation: 'stage' | 'unstage' | 'discard' | 'remove';
-  path: string;
-}): Promise<void> {
-  if (mutationRunning.value) return;
-
-  if (payload.operation === 'discard' || payload.operation === 'remove') {
-    const confirmationText = payload.operation === 'discard'
-      ? `Desfazer definitivamente as alterações de "${payload.path}"?`
-      : `Remover definitivamente o arquivo novo "${payload.path}"?`;
-    if (
-      typeof window !== 'undefined'
-      && !window.confirm(confirmationText)
-    ) {
-      return;
-    }
-  }
-
-  mutationRunning.value = true;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  try {
-    if (payload.operation === 'stage') {
-      await stageProjectGitFile(props.project.id, payload.path);
-      mutationMessage.value = `Arquivo "${payload.path}" adicionado ao staged.`;
-    } else if (payload.operation === 'unstage') {
-      await unstageProjectGitFile(props.project.id, payload.path);
-      mutationMessage.value = `Arquivo "${payload.path}" removido do staged.`;
-    } else {
-      const operation = payload.operation === 'discard'
-        ? 'discard-file'
-        : 'remove-untracked-file';
-      const confirmation = await prepareProjectGitMutation(
-        props.project.id,
-        operation,
-        payload.path,
-      );
-      if (payload.operation === 'discard') {
-        await discardProjectGitFile(
-          props.project.id,
-          payload.path,
-          confirmation.token,
-        );
-        mutationMessage.value = `Alterações de "${payload.path}" desfeitas.`;
-      } else {
-        await removeProjectGitUntrackedFile(
-          props.project.id,
-          payload.path,
-          confirmation.token,
-        );
-        mutationMessage.value = `Arquivo novo "${payload.path}" removido.`;
-      }
-    }
-    await reloadGitData();
-  } catch (error) {
-    mutationErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível alterar o arquivo.';
-  } finally {
-    mutationRunning.value = false;
-  }
-}
-
-function openFileDiff(filePath: string): void {
-  activeTab.value = 'diff';
-  void Promise.all([
-    loadDiff(),
-    loadFileDiff(filePath),
-  ]);
 }
 
 watch(
@@ -519,6 +447,8 @@ watch(
     diff.value = null;
     fileDiff.value = null;
     selectedFile.value = '';
+    commitMessage.value = '';
+    commitMode.value = 'create';
     activeTab.value = 'sync';
     await Promise.all([
       loadGit(),
@@ -607,13 +537,10 @@ onBeforeUnmount(() => {
       <ProjectGitCommitPage
         v-else-if="activeTab === 'commit'"
         v-model:message="commitMessage"
-        v-model:include-tracked="commitIncludeAllChanges"
-        v-model:scope="commitScope"
+        v-model:mode="commitMode"
         :overview="overview"
         :busy="mutationRunning"
         @submit="runCommit"
-        @file-mutation="runFileMutation"
-        @view-diff="openFileDiff"
       />
 
       <section v-else-if="activeTab === 'diff'" class="git-tab-page">

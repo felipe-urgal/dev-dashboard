@@ -55,3 +55,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `046-project-details-avatar.md` — remoção do avatar com iniciais do cabeçalho de detalhes e do recuo associado, preservando nome, tipo, caminho e branch.
 - `047-git-branches-crud.md` — Branches como entrada padrão do painel Git, com lista unificada local/`origin`, criação prefixada, troca, renomeação e remoção forçada local, sem duplicar ações de sincronização.
 - `048-git-sync-main.md` — Sincronização como primeira aba do painel Git, reduzida a uma operação confirmada que atualiza `main` a partir de `upstream/main` e publica em `origin/main`.
+- `049-git-commit-simple.md` — Commit reduzido a duas operações: criação com todas as alterações rastreadas e correção segura do último commit via amend.

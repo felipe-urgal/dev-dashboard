@@ -46,7 +46,7 @@ export const gitMutationRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop', 'discard-file', 'remove-untracked-file'] },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'amend', 'save', 'stash-push', 'stash-pop', 'discard-file', 'remove-untracked-file'] },
       target: { type: 'string', minLength: 1, maxLength: 4096 },
     },
   } as const;
@@ -121,7 +121,7 @@ export const gitMutationRoutes: FastifyPluginAsync<
     });
   }
 
-  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file'; target: string } }>(
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file'; target: string } }>(
     '/projects/:projectId/git/mutations/confirmations',
     {
       schema: {
@@ -276,6 +276,34 @@ export const gitMutationRoutes: FastifyPluginAsync<
       try {
         return reply.code(201).send({
           commit: await gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { message: string; confirmationToken: string } }>(
+    '/projects/:projectId/git/commit/amend',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: saveBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['commit'],
+            properties: { commit: gitCommitMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return reply.code(201).send({
+          commit: await gitService.amend(project.path, project.id, request.body.message, request.body.confirmationToken),
         });
       } catch (error) {
         translateMutationError(error);
