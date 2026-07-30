@@ -7,8 +7,8 @@ grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrai
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
-`sql-explanation-enhancer.ts` e `log-detail-enhancer.ts` concluídos, demais arquivos da camada
-"enhancer" pendentes. Fase 6 ainda é planejamento.
+`sql-explanation-enhancer.ts`, `log-detail-enhancer.ts` e `git-summary-inline-diff-fix.ts`
+concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -428,9 +428,28 @@ com `enhanceLine`/`enhance`/`installLogDetailEnhancer`.
   resolvidos com verificação manual por `sed`).
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Os demais arquivos da camada (`git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts`
-  286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo
-  processo de rastreio manual de dependências.
+**`git-summary-inline-diff-fix.ts` (290 → 23 linhas) — concluído**, décimo arquivo da fase. Sem
+`WeakMap` nem variável de módulo — o `mode` de visualização (unificado/lado a lado) é lido do
+`localStorage` a cada abertura de arquivo, não fica em memória entre chamadas. Este arquivo é um
+dos "irmãos" citados na nota de duplicação entre enhancers (ver seção "Duplicação entre os
+enhancers" mais abaixo neste documento) — tem lógica quase idêntica à de
+`git-inline-file-diff-enhancer.ts`, mas é um enhancer separado específico para o painel de resumo
+(`git-summary-commit-detail`), então a quebra foi feita isoladamente, sem tentar unificar os dois
+(fora de escopo desta fase). Split em `git-summary-inline-diff-fix/`: `types.ts` (`ViewMode`),
+`dom-helpers.ts` (`mountIcon`), `storage.ts` (`readMode`/`saveMode`), `diff-render.ts`
+(`unified`/`split`, incluindo os helpers privados `prefix`/`number`/`splitCell`), `paths.ts`
+(`filePaths`) e `enhance.ts` (a função `enhance` inteira, mantida como um único bloco porque as
+closures `open`/`draw`/`close` compartilham variáveis locais como `active`/`mode` de forma
+entrelaçada — separá-las exigiria introduzir um objeto de estado explícito, fora do escopo de uma
+quebra puramente mecânica). O arquivo principal ficou só com `scan`/
+`installGitSummaryInlineDiffFix`.
+- Todas as funções (incluindo os helpers privados de `diff-render.ts`) bateram no `diff` linha a
+  linha contra o original sem nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Os demais arquivos da camada (`test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts`
+  262, etc.) seguem pendentes — cada um exige o mesmo processo de rastreio manual de
+  dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
