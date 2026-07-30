@@ -500,6 +500,26 @@ test('mostra o estado vazio na página de diff', async () => {
   assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
 });
 
+test('renderiza a sincronização como um pipeline único com ações rápidas', async () => {
+  const mounted = await mountPanel();
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+  assert.match(mounted.wrapper.text(), /Pipeline de sincronização/);
+  assert.equal(mounted.wrapper.findAll('.git-sync-node').length, 3);
+  assert.ok(mounted.wrapper.find('.git-sync-pipeline-card').exists());
+  assert.ok(mounted.wrapper.find('.git-sync-quick-actions').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-metrics').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-workspace').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-strategies').exists());
+
+  const strategySelect = mounted.wrapper.findAll('.git-sync-controls select')[1];
+  assert.ok(strategySelect);
+  await strategySelect.setValue('merge');
+  assert.equal((strategySelect.element as HTMLSelectElement).value, 'merge');
+});
+
 test('push publica a branch no origin após confirmação', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
@@ -532,7 +552,7 @@ test('push publica a branch no origin após confirmação', async () => {
 
   const pushButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.text().includes('Push origin'));
+    .find((button) => button.classes().includes('git-sync-publish-button'));
   assert.ok(pushButton);
   await pushButton.trigger('click');
   await flushPromises();
@@ -577,7 +597,7 @@ test('abre a pull request calculada pela API quando a branch já está publicada
 
   const prButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.text().includes('Abrir pull request'));
+    .find((button) => button.classes().includes('git-sync-open-pr-button'));
   assert.ok(prButton);
   await prButton.trigger('click');
   await flushPromises();
@@ -638,7 +658,7 @@ test('publica a branch antes de abrir a pull request quando ainda não há upstr
 
   const prButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.text().includes('Abrir pull request'));
+    .find((button) => button.classes().includes('git-sync-open-pr-button'));
   assert.ok(prButton);
   await prButton.trigger('click');
   await flushPromises();
