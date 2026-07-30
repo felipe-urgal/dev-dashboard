@@ -171,6 +171,45 @@ const baseWorkspace: ProjectGitWorkspace = {
   },
 };
 
+const commitOverview: ProjectGitOverview = {
+  ...baseOverview,
+  branch: 'main',
+  upstream: 'origin/main',
+  clean: false,
+  files: [
+    {
+      path: 'src/staged.ts',
+      indexStatus: 'M',
+      worktreeStatus: '.',
+      status: 'modified',
+    },
+    {
+      path: 'src/styles.css',
+      indexStatus: 'M',
+      worktreeStatus: '.',
+      status: 'modified',
+    },
+    {
+      path: 'src/app.ts',
+      indexStatus: '.',
+      worktreeStatus: 'M',
+      status: 'modified',
+    },
+    {
+      path: 'README.md',
+      indexStatus: '.',
+      worktreeStatus: 'M',
+      status: 'modified',
+    },
+    {
+      path: 'src/new-file.ts',
+      indexStatus: '?',
+      worktreeStatus: '?',
+      status: 'untracked',
+    },
+  ],
+};
+
 const baseDiff: GitDiffSnapshot = {
   repository: true,
   scope: 'combined',
@@ -459,6 +498,129 @@ test('cria branch normal pelo formulário moderno', async () => {
     't'.repeat(64),
   );
   assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
+});
+
+test('renderiza o commit como um fluxo linear com arquivos e composer', async () => {
+  const mounted = await mountPanel({ overview: commitOverview });
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  assert.match(mounted.wrapper.text(), /Preparar e registrar alterações/);
+  assert.equal(mounted.wrapper.findAll('.git-commit-file-row').length, 5);
+  assert.ok(mounted.wrapper.find('.git-commit-steps').exists());
+  assert.ok(mounted.wrapper.find('.git-commit-composer').exists());
+  assert.ok(!mounted.wrapper.find('.commit-metrics').exists());
+  assert.ok(!mounted.wrapper.find('.git-commit-layout').exists());
+
+  const modifiedFilter = mounted.wrapper
+    .findAll('.git-commit-filter-tabs button')
+    .find((button) => button.text().includes('Modificados'));
+  assert.ok(modifiedFilter);
+  await modifiedFilter.trigger('click');
+  assert.equal(mounted.wrapper.findAll('.git-commit-file-row').length, 2);
+
+  const feat = mounted.wrapper
+    .findAll('.git-commit-types button')
+    .find((button) => button.text() === 'feat');
+  assert.ok(feat);
+  await feat.trigger('click');
+  assert.equal(
+    (mounted.wrapper.find('.git-commit-composer textarea').element as HTMLTextAreaElement).value,
+    'feat: ',
+  );
+});
+
+test('abre a aba Diff já focada no arquivo escolhido no Commit', async () => {
+  const mounted = await mountPanel({ overview: commitOverview });
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  const row = mounted.wrapper
+    .findAll('.git-commit-file-row')
+    .find((candidate) => candidate.text().includes('src/app.ts'));
+  assert.ok(row);
+  await row.find('.git-commit-diff-button').trigger('click');
+  await flushPromises();
+
+  assert.match(mounted.wrapper.text(), /Diferenças por arquivo/);
+  assert.match(mounted.wrapper.find('.git-diff-layout-modern pre').text(), /const value = 42/);
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/diff/file'),
+    ),
+  );
+});
+
+test('confirma antes de desfazer modificado ou remover arquivo novo', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    overview: commitOverview,
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'f'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (
+        request.path.endsWith('/git/files/discard')
+        || request.path.endsWith('/git/files/remove')
+      ) {
+        const body = request.body as { path: string };
+        return jsonResponse({ file: { path: body.path } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  const discard = mounted.wrapper
+    .findAll('.git-commit-danger-button')
+    .find((button) => button.text().includes('Desfazer alterações'));
+  assert.ok(discard);
+  await discard.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const remove = mounted.wrapper
+    .findAll('.git-commit-danger-button')
+    .find((button) => button.text().includes('Remover arquivo'));
+  assert.ok(remove);
+  await remove.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmations = mounted.requests
+    .filter((request) => request.path.endsWith('/git/mutations/confirmations'))
+    .map((request) => request.body);
+  assert.deepEqual(confirmations, [
+    { operation: 'discard-file', target: 'src/app.ts' },
+    { operation: 'remove-untracked-file', target: 'src/new-file.ts' },
+  ]);
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/files/discard'),
+    ),
+  );
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/files/remove'),
+    ),
+  );
 });
 
 test('abre a página de diff e carrega o arquivo selecionado', async () => {
