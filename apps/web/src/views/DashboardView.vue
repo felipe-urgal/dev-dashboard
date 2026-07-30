@@ -2,9 +2,11 @@
 import {
   computed,
   ref,
+  watch,
 } from 'vue';
 import {
   MagnifyingGlassIcon,
+  PlayIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -14,6 +16,10 @@ import Card from '../components/Card.vue';
 import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { dashboardStore } from '../stores/dashboard';
+import {
+  fetchManagedProcesses,
+  startProjectProcess,
+} from '../api';
 
 const {
   projects,
@@ -24,6 +30,7 @@ const {
   successMessage,
   warningCount,
   lastScannedPath,
+  selectedWorkspaceId,
   sortedProjects,
   scanSelectedWorkspace,
   handleDeleteWorkspace,
@@ -37,6 +44,13 @@ type ProjectFilter = 'all' | ProjectType;
 
 const projectSearch = ref('');
 const projectFilter = ref<ProjectFilter>('all');
+const activeServerProjectIds = ref(new Set<string>());
+const loadingServerStatuses = ref(false);
+const serverStatusesLoaded = ref(false);
+const startingAllServers = ref(false);
+const serversBeingStarted = ref(0);
+
+let serverStatusRequest = 0;
 
 const projectTypeFilters: Array<{
   value: ProjectFilter;
@@ -75,10 +89,152 @@ const hasActiveProjectFilters = computed(
     normalizedProjectSearch.value.length > 0,
 );
 
+const projectsWithServer = computed(() =>
+  sortedProjects.value.filter((project) =>
+    project.capabilities.includes('server'),
+  ),
+);
+
+const startableServerProjects = computed(() =>
+  projectsWithServer.value.filter(
+    (project) => !activeServerProjectIds.value.has(project.id),
+  ),
+);
+
+const serverActionTitle = computed(() => {
+  if (loadingServerStatuses.value) {
+    return 'Verificando servidores disponíveis.';
+  }
+
+  if (!serverStatusesLoaded.value) {
+    return 'Não foi possível verificar os servidores disponíveis.';
+  }
+
+  if (startableServerProjects.value.length === 0) {
+    return 'Todos os servidores disponíveis já estão em execução.';
+  }
+
+  const count = startableServerProjects.value.length;
+  return `Iniciar ${count} ${count === 1 ? 'servidor parado' : 'servidores parados'}.`;
+});
+
 function clearProjectFilters(): void {
   projectSearch.value = '';
   projectFilter.value = 'all';
 }
+
+async function refreshServerStatuses(): Promise<void> {
+  const request = ++serverStatusRequest;
+
+  if (projectsWithServer.value.length === 0) {
+    activeServerProjectIds.value = new Set();
+    loadingServerStatuses.value = false;
+    serverStatusesLoaded.value = false;
+    return;
+  }
+
+  activeServerProjectIds.value = new Set();
+  loadingServerStatuses.value = true;
+  serverStatusesLoaded.value = false;
+
+  try {
+    const managedProcesses = await fetchManagedProcesses({
+      ...(selectedWorkspaceId.value
+        ? { workspaceId: selectedWorkspaceId.value }
+        : {}),
+      kind: 'server',
+    });
+
+    if (request !== serverStatusRequest) return;
+
+    activeServerProjectIds.value = new Set(
+      managedProcesses
+        .filter((process) =>
+          process.status === 'starting' ||
+          process.status === 'running' ||
+          process.status === 'stopping',
+        )
+        .map((process) => process.projectId),
+    );
+    serverStatusesLoaded.value = true;
+  } catch (error) {
+    if (request !== serverStatusRequest) return;
+
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível verificar os servidores disponíveis.';
+  } finally {
+    if (request === serverStatusRequest) {
+      loadingServerStatuses.value = false;
+    }
+  }
+}
+
+async function handleStartAllServers(): Promise<void> {
+  const projectsToStart = [...startableServerProjects.value];
+
+  if (projectsToStart.length === 0 || startingAllServers.value) {
+    return;
+  }
+
+  startingAllServers.value = true;
+  serversBeingStarted.value = projectsToStart.length;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  try {
+    const results = await Promise.allSettled(
+      projectsToStart.map((project) =>
+        startProjectProcess(project.id),
+      ),
+    );
+
+    const startedProjectIds = projectsToStart
+      .filter((_, index) => results[index]?.status === 'fulfilled')
+      .map((project) => project.id);
+    const failedProjects = projectsToStart.filter(
+      (_, index) => results[index]?.status === 'rejected',
+    );
+
+    activeServerProjectIds.value = new Set([
+      ...activeServerProjectIds.value,
+      ...startedProjectIds,
+    ]);
+
+    if (failedProjects.length === 0) {
+      successMessage.value =
+        `${startedProjectIds.length} ` +
+        `${startedProjectIds.length === 1 ? 'servidor iniciado' : 'servidores iniciados'}.`;
+    } else {
+      const failedNames = failedProjects
+        .map((project) => project.name)
+        .join(', ');
+      const successSummary = startedProjectIds.length > 0
+        ? startedProjectIds.length === 1
+          ? '1 servidor iniciado. '
+          : `${startedProjectIds.length} servidores iniciados. `
+        : '';
+
+      errorMessage.value =
+        `${successSummary}Não foi possível iniciar: ${failedNames}.`;
+    }
+  } finally {
+    startingAllServers.value = false;
+    serversBeingStarted.value = 0;
+  }
+}
+
+watch(
+  [
+    selectedWorkspaceId,
+    () => projectsWithServer.value.map((project) => project.id).join(','),
+  ],
+  () => {
+    void refreshServerStatuses();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -165,10 +321,35 @@ function clearProjectFilters(): void {
         </div>
       </template>
       <template #actions>
-        <span class="section-count">
-          {{ projects.length }}
-          {{ projects.length === 1 ? 'projeto' : 'projetos' }}
-        </span>
+        <div class="repositories-actions">
+          <span class="section-count">
+            {{ projects.length }}
+            {{ projects.length === 1 ? 'projeto' : 'projetos' }}
+          </span>
+
+          <button
+            v-if="projectsWithServer.length > 0"
+            type="button"
+            class="primary-button servers-start-button"
+            :disabled="
+              loadingServerStatuses ||
+              !serverStatusesLoaded ||
+              startingAllServers ||
+              startableServerProjects.length === 0
+            "
+            :title="serverActionTitle"
+            @click="handleStartAllServers"
+          >
+            <PlayIcon aria-hidden="true" />
+            <span>
+              {{
+                startingAllServers
+                  ? `Iniciando ${serversBeingStarted}...`
+                  : 'Iniciar servidores'
+              }}
+            </span>
+          </button>
+        </div>
       </template>
 
       <div
