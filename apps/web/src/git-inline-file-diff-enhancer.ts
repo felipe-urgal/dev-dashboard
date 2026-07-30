@@ -26,6 +26,12 @@ interface DetailConfiguration {
 const VIEW_MODE_KEY = 'dev-dashboard-git-inline-diff-mode';
 const TARGET_FILE_KEY = 'dev-dashboard-git-target-diff-file';
 
+// Captura o texto bruto do patch combinado assim que o container aparece, antes que
+// outros enhancers (destaque de sintaxe, limpeza de cabeçalhos redundantes) reescrevam
+// o innerHTML do <pre> — ler `.textContent` sob demanda no clique pegaria a versão já
+// mutada, sem as linhas "diff --git" que `findGitPatchForFile` precisa para separar por arquivo.
+const rawPatchByElement = new WeakMap<HTMLElement, string>();
+
 const configurations: DetailConfiguration[] = [
   {
     container: '.git-summary-commit-detail',
@@ -284,6 +290,10 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
   if (!files || !patch || files.dataset.inlineFileDiff === 'true') return;
   files.dataset.inlineFileDiff = 'true';
 
+  if (!rawPatchByElement.has(patch)) {
+    rawPatchByElement.set(patch, patch.textContent ?? '');
+  }
+
   const viewer = document.createElement('section');
   viewer.className = 'git-inline-file-diff';
   viewer.hidden = true;
@@ -307,7 +317,8 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const filePatch = findGitPatchForFile(patch.textContent ?? '', paths.filePath, paths.previousPath);
+      const rawPatch = rawPatchByElement.get(patch) ?? patch.textContent ?? '';
+      const filePatch = findGitPatchForFile(rawPatch, paths.filePath, paths.previousPath);
       activeRow?.classList.remove('is-diff-active');
       activeRow = row;
       row.classList.add('is-diff-active');
@@ -332,7 +343,7 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
   updateFullDiffLabel(container, configuration.fullDiffSummary);
 }
 
-function scanDetails(root: ParentNode): void {
+export function scanDetails(root: ParentNode): void {
   configurations.forEach((configuration) => {
     if (root instanceof HTMLElement && root.matches(configuration.container)) {
       enhanceDetail(root, configuration);
