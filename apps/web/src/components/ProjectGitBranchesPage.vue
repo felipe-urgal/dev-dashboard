@@ -833,7 +833,7 @@ input {
 }
 
 @media (max-width: 680px) {
-    .branch-create-card,
+  .branch-create-card,
   .branch-browser-toolbar,
   .branch-detail-panel header,
   .branch-detail-actions {
