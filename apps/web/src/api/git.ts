@@ -1,0 +1,121 @@
+import type {
+  GitCommitResult,
+  GitDiffScope,
+  GitDiffSnapshot,
+  GitFileDiff,
+  GitMutationConfirmation,
+  GitMutationOperation,
+  GitStashEntry,
+  ProjectGitOverview,
+} from '@dev-dashboard/contracts';
+
+import { requestJson } from './core';
+
+interface ProjectGitResponse { git: ProjectGitOverview; }
+
+export async function fetchProjectGit(projectId: string): Promise<ProjectGitOverview> {
+  const response = await requestJson<ProjectGitResponse>(`/api/projects/${encodeURIComponent(projectId)}/git`);
+  return response.git;
+}
+
+interface ProjectGitDiffResponse { diff: GitDiffSnapshot }
+interface ProjectGitFileDiffResponse { file: GitFileDiff }
+
+export async function fetchProjectGitDiff(projectId: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitDiffSnapshot> {
+  const query = new URLSearchParams({ scope });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitDiffResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/diff?${query}`,
+    init,
+  );
+  return response.diff;
+}
+
+export async function fetchProjectGitFileDiff(projectId: string, filePath: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitFileDiff> {
+  const query = new URLSearchParams({ path: filePath, scope });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitFileDiffResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/diff/file?${query}`,
+    init,
+  );
+  return response.file;
+}
+
+interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
+interface GitBranchMutationResponse { branch: { branch: string } }
+
+export async function prepareProjectGitMutation(projectId: string, operation: GitMutationOperation, target: string): Promise<GitMutationConfirmation> {
+  const response = await requestJson<GitMutationConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/mutations/confirmations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, target }) },
+  );
+  return response.confirmation;
+}
+
+export async function createProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function switchProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/switch`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function pullProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function pushProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/push`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+interface GitCommitMutationResponse { commit: GitCommitResult }
+interface GitStashPushResponse { stash: GitStashEntry }
+interface GitStashPopResponse { popped: GitStashEntry }
+
+export async function commitProjectGit(projectId: string, message: string, includeAllChanges: boolean, confirmationToken: string): Promise<GitCommitResult> {
+  const response = await requestJson<GitCommitMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/commit`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, includeAllChanges, confirmationToken }) },
+  );
+  return response.commit;
+}
+
+export async function saveProjectGit(projectId: string, message: string, confirmationToken: string): Promise<GitCommitResult> {
+  const response = await requestJson<GitCommitMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/save`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, confirmationToken }) },
+  );
+  return response.commit;
+}
+
+export async function stashPushProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
+  const response = await requestJson<GitStashPushResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/stash`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.stash;
+}
+
+export async function stashPopProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
+  const response = await requestJson<GitStashPopResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/stash/pop`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.popped;
+}

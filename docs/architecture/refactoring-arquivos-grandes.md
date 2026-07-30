@@ -2,7 +2,7 @@
 
 ## Status
 
-Fase 1 concluída. Fases 2–6 ainda são planejamento.
+Fases 1 e 2 concluídas. Fases 3–6 ainda são planejamento.
 
 ## Contexto
 
@@ -45,13 +45,22 @@ mesmo, na seção da fase correspondente.
 - Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
   testes da API, 163 do frontend, todos os pacotes) sem nenhuma mudança de comportamento.
 
-### Fase 2 — `apps/web/src/api.ts` (baixo risco)
+### Fase 2 — `apps/web/src/api.ts` (baixo risco) — concluída
 
-- Extrair `requestJson`, bootstrap de sessão e classes de erro para `api/core.ts`.
-- Um arquivo por domínio: `api/scripts.ts`, `api/workspaces.ts`, `api/processes.ts`, `api/git.ts`,
-  `api/tests.ts`, `api/rails.ts`, `api/activities.ts`, `api/settings.ts`.
-- `api.ts` vira um barrel (`export * from './api/...'`) — os ~60 pontos de import existentes
-  (`from '../api'`) continuam funcionando sem alteração.
+- `requestJson`, `requestJsonAttempt`, bootstrap de sessão do navegador, `ApiRequestError`,
+  `followEventStream` (helper genérico de SSE) e `fetchHealth` foram para `api/core.ts`.
+- Um arquivo por domínio: `api/scripts.ts`, `api/workspaces.ts` (inclui projetos/diretórios),
+  `api/processes.ts`, `api/git.ts`, `api/tests.ts`, `api/rails.ts` (inclui banco de dados),
+  `api/activities.ts`, `api/settings.ts`.
+- `api.ts` (859 → 9 linhas) virou um barrel (`export * from './api/...'`) — os ~20 arquivos que
+  importam `from '../api'`/`from './api'` continuam funcionando sem alteração.
+- Já existia um `apps/web/src/api/` com `git-workspace.ts` (sync/tracking de branch remoto), anterior
+  a esta fase — confirma que o diretório `api/` como convenção de split já tinha precedente no repo;
+  nenhum conflito de nome com os novos arquivos.
+- Importações internas usam caminho relativo sem extensão (`from './core'`), diferente do padrão
+  `NodeNext` da API (`from './core.js'`) — `apps/web` usa `moduleResolution: "Bundler"`.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
+  testes da API, 163 do frontend) sem nenhuma mudança de comportamento.
 
 ### Fase 3 — CSS flat grandes (baixo risco)
 
