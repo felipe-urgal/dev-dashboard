@@ -6,8 +6,9 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
-`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts` e `git-commit-enhancer.ts`
-concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
+`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts` e
+`sql-explanation-enhancer.ts` concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6
+ainda é planejamento.
 
 ## Contexto
 
@@ -388,10 +389,26 @@ as três funções testadas e os dois tipos.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
   (incluindo o teste que importa as três funções puras direto do arquivo) e os 13 testes E2E —
   todos verdes.
-- Os demais arquivos da camada (`sql-explanation-enhancer.ts` 326, `log-detail-enhancer.ts` 291,
-  `git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts` 286,
-  `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo processo de
-  rastreio manual de dependências.
+**`sql-explanation-enhancer.ts` (326 → 42 linhas) — concluído**, oitavo arquivo da fase e o mais
+simples até agora: nenhum `WeakMap`, nenhuma variável de módulo, nenhum import circular — apenas
+funções puras de parsing de SQL (regex sobre a string do statement) encadeadas por argumentos e
+retorno, sem tocar o DOM exceto em `buildExplanation`. Nenhum teste importa símbolos deste arquivo
+diretamente (confirmado via grep — só `main.ts` importa o instalador). Split em `sql-explanation/`:
+`types.ts` (`SqlExplanation`), `constants.ts` (`SQL_LINE_SELECTOR`/`EXPLANATION_CLASS`),
+`text-helpers.ts` (`cleanIdentifier`/`code`/`unique`), `extract.ts` (`extractStatement`/
+`extractMainTable`/`extractJoinedTables`/`extractLimit`/`extractOrder`/`selectProjection`/
+`hasSoftDeleteFilter`/`hasWhere`, todo o parsing de SQL bruto por regex), `describe.ts`
+(`describeSelect`/`explainSql`, a montagem da explicação em português a partir do que foi
+extraído) e `render.ts` (`explanationKey`/`buildExplanation`, a montagem do `<details>` exibido
+abaixo da linha de log). O arquivo principal ficou só com `enhanceSqlLine`/`enhance`/
+`installSqlExplanationEnhancer`.
+- Todas as 18 funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Os demais arquivos da camada (`log-detail-enhancer.ts` 291, `git-summary-inline-diff-fix.ts` 290,
+  `test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
+  cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
