@@ -2,7 +2,8 @@
 
 ## Status
 
-Fases 1, 2 e 3 concluídas. Fases 4–6 ainda são planejamento.
+Fases 1, 2 e 3 concluídas. Fase 4 parcial (sub-etapa 1, extração de `<style scoped>`, concluída;
+sub-etapa 2, extração de composables, pendente). Fases 5 e 6 ainda são planejamento.
 
 ## Contexto
 
@@ -92,13 +93,23 @@ mesmo, na seção da fase correspondente.
 
 ### Fase 4 — Componentes `.vue` grandes (risco médio)
 
-- Extrair `<style scoped>` para um arquivo irmão via `<style scoped src="./NomeDoComponente.css">`
-  (suportado nativamente pelo compilador de SFC do Vue — comportamento idêntico ao style inline).
-- Extrair grupos coesos do `<script setup>` para composables (`composables/useLogPolling.ts`,
-  `useRailsLogFilters.ts`, `useGitDiffView.ts` etc.), um composable por responsabilidade já visível
-  no arquivo atual.
-- Um componente por vez; rodar `npm run test --workspace=@dev-dashboard/web` e o smoke E2E depois
-  de cada extração.
+- Sub-etapa 1 (concluída): extrair `<style scoped>` para um arquivo irmão via
+  `<style scoped src="./NomeDoComponente.css">` (suportado nativamente pelo compilador de SFC do
+  Vue). Feito em `ProjectLogsPanel.vue` (1640 → 865 linhas), `ProjectServerPanel.vue` (1423 → 854),
+  `ProjectGitPanel.vue` (1289 → 915), `ProjectGitDiffPage.vue` (1281 → 656),
+  `ProjectGitBranchesPage.vue` (736 → 327) e `views/ProjectDetailsView.vue` (760 → 400).
+  `ProjectScriptsPanel.vue` e `ProjectDatabasePanel.vue` não tinham `<style>` próprio (já usavam só
+  CSS global) — nada a extrair ali.
+  - O hash `data-v-xxxxxxxx` gerado pelo compilador muda ao mover o style para `src` (é derivado de
+    como o Vue trata o bloco, não do conteúdo), mas continua **auto-consistente**: o mesmo hash novo
+    aparece tanto no HTML renderizado quanto no CSS compilado, então o escopo do CSS continua
+    funcionando de forma idêntica. Nenhum teste depende do valor do hash. Verificado com
+    `npm run typecheck`, `npm run build`, `npm test` (163 testes) e `npm run test:e2e` (13 testes,
+    incluindo o baseline visual da sidebar) — tudo passando.
+- Sub-etapa 2 (pendente): extrair grupos coesos do `<script setup>` para composables
+  (`composables/useLogPolling.ts`, `useRailsLogFilters.ts`, `useGitDiffView.ts` etc.), um composable
+  por responsabilidade já visível no arquivo atual. Ainda não iniciada — é a parte que toca lógica
+  reativa, não só estilo, e merece ir componente por componente com o smoke E2E rodando a cada um.
 
 ### Fase 5 — Camada "enhancer" (risco médio — decisão registrada)
 
