@@ -6,8 +6,9 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM foram quebrados
 mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
-`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 ainda é
-planejamento.
+`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 iniciada:
+etapa 1 (funções livres de `process-manager.ts`, 1430 → 1070 linhas) concluída; etapa 2 (métodos
+acoplados ao estado privado da classe) pendente de avaliação.
 
 ## Contexto
 
@@ -606,11 +607,41 @@ arquitetural separada no início desta fase.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
-- Extrair funções livres, sem estado de instância, para módulos próprios: `command-resolution.ts`
-  (Rails/Node), `port-utils.ts`, `state-directory.ts`.
-- Métodos que dependem de campos privados da classe (`observedExits`, `startLocks`) são mais
-  difíceis de mover sem introduzir um objeto de estado explícito — tratar como sub-tarefa própria,
-  rodando a suíte completa (`process-manager.test.ts`, `log-retention.test.ts`) a cada extração.
+**Etapa 1 — funções livres (1430 → 1070 linhas) — concluída.** Extraídas todas as funções sem
+estado de instância que precediam a classe, em quatro módulos novos (imports com extensão `.js`,
+padrão `NodeNext` deste pacote):
+
+- `errors.ts` — `ProcessManagerErrorCode`/`ProcessManagerError` (movidos da posição original) e
+  `isErrnoException`. O `index.ts` do pacote continua importando `ProcessManagerError` de
+  `./process-manager.js`, que agora reexporta de `./errors.js` — nenhum consumidor em `apps/api`
+  (12 arquivos usam o erro via `@dev-dashboard/process-manager`) precisou mudar.
+- `state-directory.ts` — `resolveStateDirectory` (respeita `DEV_DASHBOARD_STATE_DIR` e
+  `XDG_STATE_HOME`).
+- `port-utils.ts` — `SERVER_BIND_HOST`, `validatePort`, `isIpv4Family` (privado),
+  `listServerUrls`, `canConnect`, `canListen`, `findAvailablePort`.
+- `command-resolution.ts` — `ResolvedCommand` (exportado), `PackageManifest`/`NodePackageManager`/
+  `pathExists`/`readPackageManifest`/`resolveNodePackageManager`/`resolveNodeCommand`/
+  `resolveRailsCommand` (privados) e `resolveServerCommand` (exportado, único ponto de entrada que
+  a classe usa) — o equivalente TS de `lib/server/core/start.sh` citado no CLAUDE.md fica agora num
+  módulo próprio.
+
+O arquivo principal manteve, além da classe: `terminalProcess` e `waitForProcessExit` (funções
+livres, mas usadas exclusivamente pelo ciclo de vida da classe — movê-las não reduziria
+acoplamento), os tipos `StartServerOptions`/`ReadServerLogOptions`/`ObservedExit`/`ManagedKind`, e
+os reexports de compatibilidade. A classe `ProcessManager` inteira foi verificada por `diff` contra
+o original — **zero bytes alterados** no corpo da classe; todas as funções extraídas também
+bateram byte a byte (processo de verificação idêntico ao da Fase 5).
+
+Verificação: `npm run build`/`npm run test` do pacote (42 testes, incluindo o teste de timing
+historicamente flaky, que passou), `npm run typecheck`/`npm run build`/`npm test` do monorepo
+completo (249 API, 174 web, todos os pacotes) e os 13 testes E2E — todos verdes.
+
+**Etapa 2 — pendente.** Métodos que dependem de campos privados da classe (`observedExits`,
+`exitWaiters`, `startLocks`) são mais difíceis de mover sem introduzir um objeto de estado
+explícito — tratar como sub-tarefa própria, rodando a suíte completa (`process-manager.test.ts`,
+`log-retention.test.ts`) a cada extração. Avaliar se o ganho compensa: a classe restante (~965
+linhas) é coesa em torno do seu estado, e fatiar métodos que compartilham três `Map`s privados
+exigiria exatamente o tipo de refatoração comportamental que este plano evita.
 
 ## Ordem de execução
 
