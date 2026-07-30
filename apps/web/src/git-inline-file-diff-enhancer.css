@@ -353,3 +353,41 @@
     justify-content: center;
   }
 }
+
+
+.git-inline-full-diff {
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.git-inline-full-diff-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 8px 10px;
+}
+
+.git-inline-full-diff-toolbar > strong {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.git-inline-full-diff .git-inline-diff-body {
+  max-height: 520px;
+}
+
+@media (max-width: 620px) {
+  .git-inline-full-diff-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .git-inline-full-diff-toolbar .git-inline-diff-mode-switch {
+    align-self: flex-start;
+  }
+}
