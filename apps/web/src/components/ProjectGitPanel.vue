@@ -25,8 +25,6 @@ import {
   removeProjectGitUntrackedFile,
   saveProjectGit,
   stageProjectGitFile,
-  stashPopProjectGit,
-  stashPushProjectGit,
   switchProjectGitBranch,
   unstageProjectGitFile,
 } from '../api';
@@ -48,7 +46,6 @@ type GitTab =
   | 'branches'
   | 'sync'
   | 'commit'
-  | 'stash'
   | 'diff'
   | 'history';
 
@@ -56,7 +53,6 @@ const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
   { id: 'sync', label: 'Sincronização', icon: '↕' },
   { id: 'branches', label: 'Branches', icon: '⑂' },
   { id: 'commit', label: 'Commit', icon: '●' },
-  { id: 'stash', label: 'Stash', icon: '□' },
   { id: 'diff', label: 'Diff', icon: '±' },
   { id: 'history', label: 'Histórico', icon: '◷' },
 ];
@@ -515,54 +511,6 @@ function openFileDiff(filePath: string): void {
   ]);
 }
 
-async function runStash(
-  operation: 'stash-push' | 'stash-pop',
-): Promise<void> {
-  if (mutationRunning.value) return;
-  const topStash = overview.value?.stashes[0];
-  const confirmationText =
-    operation === 'stash-push'
-      ? 'Guardar as alterações rastreadas no stash?'
-      : `Restaurar o stash mais recente ("${topStash?.message ?? ''}")?`;
-  if (
-    typeof window !== 'undefined' &&
-    !window.confirm(confirmationText)
-  )
-    return;
-
-  mutationRunning.value = true;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  try {
-    const confirmation = await prepareProjectGitMutation(
-      props.project.id,
-      operation,
-      currentBranchOrHead(),
-    );
-    if (operation === 'stash-push') {
-      const stash = await stashPushProjectGit(
-        props.project.id,
-        confirmation.token,
-      );
-      mutationMessage.value = `Alterações guardadas: ${stash.message}`;
-    } else {
-      const stash = await stashPopProjectGit(
-        props.project.id,
-        confirmation.token,
-      );
-      mutationMessage.value = `Stash restaurado: ${stash.message}`;
-    }
-    await reloadGitData();
-  } catch (error) {
-    mutationErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível concluir a operação de stash.';
-  } finally {
-    mutationRunning.value = false;
-  }
-}
-
 watch(
   () => props.project.id,
   async () => {
@@ -667,79 +615,6 @@ onBeforeUnmount(() => {
         @file-mutation="runFileMutation"
         @view-diff="openFileDiff"
       />
-
-      <section v-else-if="activeTab === 'stash'" class="git-tab-page">
-        <div class="git-page-heading">
-          <div>
-            <span>Stash</span>
-            <h2>Guardar e restaurar trabalho temporário</h2>
-          </div>
-        </div>
-        <div class="git-two-column-actions stash-actions">
-          <article class="git-command-card">
-            <header>
-              <div>
-                <span>Novo stash</span>
-                <h3>Guardar alterações rastreadas</h3>
-              </div>
-            </header>
-            <p>
-              O working tree possui
-              {{ overview.files.length }} alteração(ões).
-            </p>
-            <button
-              class="primary-button"
-              :disabled="mutationRunning"
-              @click="runStash('stash-push')"
-            >
-              Guardar alterações
-            </button>
-          </article>
-          <article class="git-command-card">
-            <header>
-              <div>
-                <span>Mais recente</span>
-                <h3>Restaurar stash</h3>
-              </div>
-            </header>
-            <p>
-              {{
-                overview.stashes[0]?.message ??
-                'Nenhum stash disponível.'
-              }}
-            </p>
-            <button
-              class="secondary-button"
-              :disabled="
-                mutationRunning || overview.stashes.length === 0
-              "
-              @click="runStash('stash-pop')"
-            >
-              Restaurar mais recente
-            </button>
-          </article>
-        </div>
-        <div class="git-table-card">
-          <div class="git-table-header stash-table">
-            <span>Stash</span><span>Mensagem</span><span>Data</span>
-          </div>
-          <div
-            v-for="entry in overview.stashes"
-            :key="entry.index"
-            class="git-table-row stash-table"
-          >
-            <code>stash@{{ '{' }}{{ entry.index }}{{ '}' }}</code
-            ><strong>{{ entry.message }}</strong
-            ><span>{{ formatDate(entry.createdAt) }}</span>
-          </div>
-          <div
-            v-if="overview.stashes.length === 0"
-            class="git-inline-empty"
-          >
-            Nenhum stash salvo.
-          </div>
-        </div>
-      </section>
 
       <section v-else-if="activeTab === 'diff'" class="git-tab-page">
         <div class="git-page-heading">
