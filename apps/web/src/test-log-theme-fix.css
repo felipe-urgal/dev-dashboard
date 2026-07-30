@@ -70,7 +70,7 @@ html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests
 }
 
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-error {
-  background-color: var(--test-log-danger-surface);
+  background-color: transparent;
 }
 
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines li > span {
@@ -110,4 +110,13 @@ html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-progress-token.test-log-progress-pending {
   color: var(--test-log-warning);
   font-weight: 700;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .test-log-inspector-layout:has(.test-log-failed-examples) {
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .test-log-failed-examples,
+html[data-theme] body .tests-dashboard .tests-log-shell .test-log-run-context {
+  display: none;
 }
