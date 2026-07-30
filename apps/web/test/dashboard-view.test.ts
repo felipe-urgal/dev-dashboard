@@ -7,6 +7,13 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 const actions = vi.hoisted(() => ({
   escanear: vi.fn(),
   remover: vi.fn(),
+  buscarProcessos: vi.fn(),
+  iniciarProcesso: vi.fn(),
+}));
+
+vi.mock('../src/api', () => ({
+  fetchManagedProcesses: actions.buscarProcessos,
+  startProjectProcess: actions.iniciarProcesso,
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -55,6 +62,13 @@ function mountView() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  actions.buscarProcessos.mockResolvedValue([]);
+  actions.iniciarProcesso.mockImplementation(async (projectId: string) => ({
+    id: `process-${projectId}`,
+    projectId,
+    kind: 'server',
+    status: 'starting',
+  }));
   dashboardStore.projects.value = [];
   dashboardStore.workspaces.value = [];
   dashboardStore.selectedWorkspaceId.value = '';
@@ -129,5 +143,101 @@ describe('dashboard principal', () => {
 
     await wrapper.get('.empty-state-filtered .secondary-button').trigger('click');
     expect(wrapper.findAll('.project-stub')).toHaveLength(2);
+  });
+
+  it('inicia todos os servidores parados e ignora os que já estão ativos', async () => {
+    actions.buscarProcessos.mockResolvedValue([
+      {
+        id: 'process-p1',
+        projectId: 'p1',
+        kind: 'server',
+        status: 'running',
+      },
+    ]);
+    dashboardStore.selectedWorkspaceId.value = 'w1';
+    dashboardStore.projects.value = [
+      { ...project, capabilities: ['git', 'server'] },
+      {
+        ...project,
+        id: 'p2',
+        name: 'API',
+        capabilities: ['server'],
+      },
+      {
+        ...project,
+        id: 'p3',
+        name: 'Documentação',
+        capabilities: ['git'],
+      },
+    ];
+
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(actions.buscarProcessos).toHaveBeenCalledWith({
+        workspaceId: 'w1',
+        kind: 'server',
+      });
+      expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+    });
+
+    await wrapper.get('.servers-start-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(actions.iniciarProcesso).toHaveBeenCalledOnce();
+    });
+
+    expect(actions.iniciarProcesso).toHaveBeenCalledWith('p2');
+    expect(wrapper.text()).toContain('1 servidor iniciado.');
+    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeDefined();
+  });
+
+  it('informa os projetos que falharam sem perder os servidores iniciados', async () => {
+    dashboardStore.projects.value = [
+      { ...project, capabilities: ['server'] },
+      {
+        ...project,
+        id: 'p2',
+        name: 'API',
+        capabilities: ['server'],
+      },
+    ];
+    actions.iniciarProcesso
+      .mockResolvedValueOnce({
+        id: 'process-p1',
+        projectId: 'p1',
+        kind: 'server',
+        status: 'starting',
+      })
+      .mockRejectedValueOnce(new Error('porta ocupada'));
+
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+    });
+
+    await wrapper.get('.servers-start-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(actions.iniciarProcesso).toHaveBeenCalledTimes(2);
+    });
+
+    expect(wrapper.text()).toContain('1 servidor iniciado. Não foi possível iniciar: Favorito.');
+    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+  });
+
+  it('mantém a ação indisponível quando não consegue verificar os processos', async () => {
+    actions.buscarProcessos.mockRejectedValue(
+      new Error('Não foi possível consultar os processos.'),
+    );
+    dashboardStore.projects.value = [
+      { ...project, capabilities: ['server'] },
+    ];
+
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('Não foi possível consultar os processos.');
+    });
+
+    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.servers-start-button').attributes('title'))
+      .toBe('Não foi possível verificar os servidores disponíveis.');
   });
 });
