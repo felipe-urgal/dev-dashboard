@@ -301,6 +301,14 @@ test('renderiza o resumo com comparações separadas de origin e upstream', asyn
   assert.match(text, /Upstream · base principal/);
   assert.match(text, /upstream\/main/);
   assert.match(text, /↑ 4 · ↓ 2/);
+  assert.match(text, /Histórico recente/);
+  assert.match(text, /feat: melhora painel Git/);
+  assert.equal(
+    mounted.wrapper.findAll('.git-recent-history-preview article').length,
+    1,
+  );
+  assert.ok(!mounted.wrapper.find('.git-quick-actions').exists());
+  assert.ok(!mounted.wrapper.find('.git-command-grid').exists());
 });
 
 test('navega, filtra e exibe detalhes de branches remotas', async () => {
@@ -512,7 +520,6 @@ test('push publica a branch no origin após confirmação', async () => {
 
   await clickTab(mounted.wrapper, 'Sincronização');
 
-
   const pushButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')
     .find((button) => button.text().includes('Push origin'));
@@ -557,7 +564,6 @@ test('abre a pull request calculada pela API quando a branch já está publicada
   };
 
   await clickTab(mounted.wrapper, 'Sincronização');
-
 
   const prButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')
@@ -619,7 +625,6 @@ test('publica a branch antes de abrir a pull request quando ainda não há upstr
   };
 
   await clickTab(mounted.wrapper, 'Sincronização');
-
 
   const prButton = mounted.wrapper
     .findAll('.git-sync-sidebar-actions button')

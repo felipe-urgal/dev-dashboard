@@ -898,6 +898,38 @@ onBeforeUnmount(() => {
             }}</small>
           </article>
         </div>
+
+        <div class="git-preview-grid git-recent-history-preview">
+          <article>
+            <header>
+              <h3>Histórico recente</h3>
+              <button type="button" @click="openTab('history')">
+                Ver tudo
+              </button>
+            </header>
+            <div
+              v-if="recentCommitsPreview.length === 0"
+              class="git-inline-empty"
+            >
+              Nenhum commit encontrado.
+            </div>
+            <ol v-else>
+              <li
+                v-for="commit in recentCommitsPreview"
+                :key="commit.hash"
+              >
+                <code>{{ commit.shortHash }}</code>
+                <div>
+                  <strong>{{ commit.subject }}</strong>
+                  <small>
+                    {{ commit.authorName }} ·
+                    {{ formatDate(commit.authoredAt) }}
+                  </small>
+                </div>
+              </li>
+            </ol>
+          </article>
+        </div>
       </section>
 
       <ProjectGitBranchesPage
@@ -1519,6 +1551,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+.git-recent-history-preview {
+  grid-template-columns: 1fr;
 }
 
 .git-preview-grid article {
