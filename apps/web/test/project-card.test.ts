@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Project } from '@dev-dashboard/contracts';
 
 vi.mock('../src/api', () => ({
-  fetchProjectProcess: vi.fn().mockResolvedValue(null),
+  fetchProjectProcess: vi.fn().mockResolvedValue({
+    id: 'process-p1',
+    projectId: 'p1',
+    kind: 'server',
+    status: 'running',
+    port: 3003,
+  }),
 }));
 
 import ProjectCard from '../src/components/ProjectCard.vue';
@@ -17,11 +23,11 @@ const project: Project = {
   type: 'node',
   source: 'workspace',
   favorite: false,
-  capabilities: ['git'],
+  capabilities: ['git', 'server'],
 };
 
 describe('ProjectCard', () => {
-  it('renderiza a identidade do projeto sem avatar', () => {
+  it('renderiza somente a porta em destaque nos metadados', async () => {
     const wrapper = mount(ProjectCard, {
       props: { project },
       global: {
@@ -36,5 +42,10 @@ describe('ProjectCard', () => {
     expect(wrapper.find('.project-avatar').exists()).toBe(false);
     expect(wrapper.get('.project-row-identity').text())
       .toContain('Projeto sem avatar');
+    await vi.waitFor(() => {
+      expect(wrapper.get('.project-port-badge').text())
+        .toBe('Porta 3003');
+    });
+    expect(wrapper.text()).not.toContain('Git');
   });
 });
