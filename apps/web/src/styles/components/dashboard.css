@@ -421,17 +421,22 @@
 
 .project-row-meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 0;
-  color: var(--text-dim);
-  font-size: var(--font-xs);
 }
 
-.project-row-meta > *:not(:first-child)::before {
-  content: '\00b7';
-  margin: 0 6px;
-  color: var(--text-dim);
+.project-port-badge {
+  display: inline-flex;
+  min-height: 21px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--info-text);
+  background: var(--accent-soft);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.03em;
 }
 
 .project-row-action {
