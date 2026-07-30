@@ -52,3 +52,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `043-git-pull-request-url.md` — equivalente ao `git-pr` do CLI: compõe e abre a URL de criação de PR/MR (GitHub ou GitLab) a partir do remote "origin" já configurado, publicando o branch primeiro quando necessário, sem chamar API de provedor nem exigir token de terceiros.
 - `044-project-details-header.md` — simplificação do cabeçalho de detalhes do projeto, removendo as ações redundantes de copiar caminho, abrir Git e executar script.
 - `045-project-details-branch.md` — remoção dos metadados secundários e do status de servidor do cabeçalho de detalhes, deixando a branch atual em destaque.
+- `046-project-details-avatar.md` — remoção do avatar com iniciais do cabeçalho de detalhes e do recuo associado, preservando nome, tipo, caminho e branch.

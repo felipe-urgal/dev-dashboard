@@ -1,12 +1,12 @@
-# Próxima atividade — 046: snapshot/restore de banco no painel
+# Próxima atividade — 047: snapshot/restore de banco no painel
 
 ## Contexto
 
 A "paridade CLI→Web seletiva" do Horizonte 2 já trouxe `git-save` (task
 041), a lacuna real de `dev-clean` (task 042) e `git-pr` (task 043, URL de
 PR/MR composta sem chamar API de provedor). Após os ajustes pontuais do
-cabeçalho de detalhes (tasks 044 e 045), o próximo item do mesmo ponto do
-roadmap ainda pendente é snapshot/restore de banco reconhecido: hoje
+cabeçalho de detalhes (tasks 044, 045 e 046), o próximo item do mesmo ponto
+do roadmap ainda pendente é snapshot/restore de banco reconhecido: hoje
 exclusivo do CLI bash (`lib/rails/database/snapshot.sh` e `restore.sh`),
 faz backup rápido do banco do projeto Rails atual e permite restaurá-lo —
 útil para trocar de branch sem perder o estado local nem precisar rodar

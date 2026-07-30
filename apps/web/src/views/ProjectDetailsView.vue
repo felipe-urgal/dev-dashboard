@@ -17,7 +17,6 @@ import {
 import type { Project } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
-import ProjectAvatar from '../components/ProjectAvatar.vue';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
@@ -137,24 +136,17 @@ watch(projectId, () => {
     <template v-else>
       <header class="project-details-hero">
         <div class="project-details-main">
-          <div class="project-details-identity">
-            <ProjectAvatar
-              :project="project"
-              class="project-details-avatar"
-            />
-
-            <div class="project-details-copy">
-              <div class="project-title-row">
-                <h2>{{ project.name }}</h2>
-                <span
-                  class="type-badge"
-                  :class="`type-badge-${project.type}`"
-                >
-                  {{ projectTypeLabels[project.type] }}
-                </span>
-              </div>
-              <code>{{ project.path }}</code>
+          <div class="project-details-copy">
+            <div class="project-title-row">
+              <h2>{{ project.name }}</h2>
+              <span
+                class="type-badge"
+                :class="`type-badge-${project.type}`"
+              >
+                {{ projectTypeLabels[project.type] }}
+              </span>
             </div>
+            <code>{{ project.path }}</code>
           </div>
 
           <div
