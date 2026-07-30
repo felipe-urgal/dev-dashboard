@@ -82,3 +82,32 @@ html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines code {
   color: var(--test-log-text);
 }
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-success code,
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-visual-file.tests-log-line-success code {
+  color: var(--test-log-success);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-error code,
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-visual-file.tests-log-line-error code {
+  color: var(--test-log-danger);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-warning code {
+  color: var(--test-log-warning);
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-progress-token.test-log-progress-success {
+  color: var(--test-log-success);
+  font-weight: 700;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-progress-token.test-log-progress-failure {
+  color: var(--test-log-danger);
+  font-weight: 800;
+}
+
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .test-log-progress-token.test-log-progress-pending {
+  color: var(--test-log-warning);
+  font-weight: 700;
+}
