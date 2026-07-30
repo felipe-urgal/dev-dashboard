@@ -4,9 +4,9 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts` e
-`git-summary-history-enhancer.ts` concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6
-ainda é planejamento.
+Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
+`git-summary-history-enhancer.ts` e `git-inline-file-diff-enhancer.ts` concluídos, demais arquivos
+da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -287,8 +287,36 @@ para `buildPagination` em `git-history-page-enhancer.ts`.
   contra ele, em vez de reler do disco.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS a 1 byte de diferença de nome de chunk),
   os 174 testes unitários e os 13 testes E2E — todos verdes.
-- Os demais arquivos da camada (`git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts`
-  402, etc.) seguem pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-inline-file-diff-enhancer.ts` (486 → 71 linhas) — concluído**, quarto arquivo da fase.
+Diferente dos três anteriores, este arquivo não tem um `WeakMap` de estado compartilhado — é
+majoritariamente funções puras de renderização mais uma configuração estática
+(`configurations: DetailConfiguration[]`) reutilizada em todo `enhanceDetail`/`scanDetails`. Por
+isso a quebra seguiu um critério diferente: por responsabilidade de renderização, não por dono do
+estado. Split em `git-inline-file-diff/`: `types.ts` (`DiffViewMode`/`DetailConfiguration`),
+`configurations.ts` (a lista estática dos 3 containers Git suportados: resumo, histórico, stash),
+`dom-helpers.ts` (`mountIcon`), `storage.ts` (`readViewMode`/`persistViewMode`/`rawPatchOf`/
+`TARGET_FILE_KEY`), `diff-render.ts` (`unifiedView`/`splitView`/`emptyView`, puras, sem DOM externo),
+`viewer.ts` (`renderViewer`, o painel de diff de um arquivo) e `full-diff.ts`
+(`enhanceFullDiff`/`updateFullDiffLabel`, o diff combinado dentro do `<details>`). `detail.ts` reúne
+`pathsFromRow`/`enhanceDetail`/`scanDetails` — este último é importado diretamente por
+`git-inline-file-diff-enhancer.test.ts` (confirmado via grep antes de começar), então o arquivo
+principal precisou re-exportá-lo (`export { scanDetails } from './git-inline-file-diff/detail'`),
+igual ao padrão de re-export já usado para `git-history-page-enhancer.ts`. O arquivo principal ficou
+só com `commitFilePath`/`rememberCommitFile`/`openRememberedDiffFile`/`scan`/
+`installGitInlineFileDiffEnhancer` (a lógica de "lembrar qual arquivo estava aberto ao navegar para
+a aba Diff", que não pertence a nenhum dos módulos de renderização).
+- Sem import circular aqui — ao contrário dos três arquivos anteriores, a ausência de estado
+  compartilhado permite uma ordem de dependência estritamente linear (`types` → `configurations`/
+  `dom-helpers`/`storage` → `diff-render` → `viewer`/`full-diff` → `detail` → arquivo principal).
+- Mesmo processo de verificação por `diff` contra o original antes do typecheck — sem erros de
+  transcrição desta vez (2 falsos positivos do script de extração automática por causa de
+  assinaturas de função com tipos de retorno/parâmetro multilinhas, resolvidos com verificação
+  manual por `sed`).
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `scanDetails` direto do arquivo) e os 13 testes E2E — todos
+  verdes.
+- Os demais arquivos da camada (`log-visual-enhancer.ts` 402, etc.) seguem pendentes — cada um
+  exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
