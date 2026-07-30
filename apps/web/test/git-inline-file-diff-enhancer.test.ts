@@ -112,7 +112,8 @@ test('substitui o patch bruto do diff completo pela visualização estruturada',
 
   scanDetails(host);
 
-  assert.equal(patch.hidden, true);
+  assert.equal(patch.isConnected, false);
+  assert.equal(host.querySelector('.git-history-page-diff pre'), null);
   const fullDiff = host.querySelector('.git-inline-full-diff');
   assert.ok(fullDiff);
   assert.match(fullDiff!.textContent ?? '', /Scope/);
