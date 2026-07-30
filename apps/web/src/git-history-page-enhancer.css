@@ -194,7 +194,7 @@
 .git-history-page-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 0 0;
-  height: clamp(500px, 62vh, 610px);
+  height: clamp(540px, 68vh, 680px);
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
