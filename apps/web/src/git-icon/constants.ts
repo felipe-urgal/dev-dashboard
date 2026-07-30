@@ -1,6 +1,5 @@
 import type { Component } from 'vue';
 import {
-  ArchiveBoxIcon,
   ArrowsRightLeftIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -14,7 +13,6 @@ export const iconByLabel: Record<string, Component> = {
   Branches: CodeBracketIcon,
   Sincronização: ArrowsRightLeftIcon,
   Commit: CheckCircleIcon,
-  Stash: ArchiveBoxIcon,
   Diff: DocumentMagnifyingGlassIcon,
   Histórico: ClockIcon,
 };

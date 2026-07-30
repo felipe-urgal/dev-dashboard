@@ -340,9 +340,13 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
   cleanup = mounted.restore;
 
   const text = mounted.wrapper.text();
+  const tabLabels = mounted.wrapper
+    .findAll('.git-subtabs button')
+    .map((button) => button.text());
   assert.doesNotMatch(text, /Resumo/);
   assert.doesNotMatch(text, /Histórico recente/);
   assert.doesNotMatch(text, /upstream\//);
+  assert.doesNotMatch(tabLabels.join(' '), /Stash/);
   assert.match(text, /main\s*→\s*origin\/main/);
   assert.match(text, /Sincronizar/);
   assert.ok(
@@ -352,11 +356,8 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
       ?.classes('active'),
   );
   assert.deepEqual(
-    mounted.wrapper
-      .findAll('.git-subtabs button')
-      .slice(0, 2)
-      .map((button) => button.text()),
-    ['Sincronização', 'Branches'],
+    tabLabels,
+    ['Sincronização', 'Branches', 'Commit', 'Diff', 'Histórico'],
   );
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
