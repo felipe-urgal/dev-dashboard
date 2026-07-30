@@ -4,8 +4,10 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 iniciada: `git-history-page-enhancer.ts` concluído, demais arquivos da camada
-"enhancer" pendentes. Fase 6 ainda é planejamento.
+Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
+`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts` e
+`git-summary-global-search-fix.ts` concluídos, demais arquivos da camada "enhancer" pendentes.
+Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -238,9 +240,114 @@ detalhe do commit, `selectCommit`). O arquivo principal ficou só com o bootstra
   `build` (CSS/JS praticamente idênticos), os 174 testes unitários (incluindo o teste que importa
   `clampHistoryListWidth`/`filterHistoryCommits`/`uniqueHistoryAuthors` direto do arquivo) e os 13
   testes E2E.
-- Os demais arquivos da camada (`git-stash-enhancer.ts` 871, `git-summary-history-enhancer.ts`
-  686, `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem
-  pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-stash-enhancer.ts` (872 → 249 linhas) — concluído**, segundo arquivo da fase. Mesmo padrão:
+um único `WeakMap<HTMLElement, StashPageState>` (`stateBySection`) compartilhado por quase todas as
+funções. Nenhum teste importa símbolos diretamente deste arquivo (confirmado via grep antes de
+começar), então não houve necessidade de re-exports de compatibilidade. Split em `git-stash/`:
+`types.ts` (interfaces + `StashOperation`), `state.ts` (o `WeakMap`), `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`), `format.ts` (`formatDate`/`relativeDate`/
+`statusLabel`), `notice.ts` (`setNotice`/`persistAndReload`/`readPersistedNotice`, com a chave de
+`sessionStorage`), `controls.ts` (`refreshControls`/`renderMetrics`, habilitação de botões conforme
+estado), `actions.ts` (`prepareConfirmation`/`runCreate`/`runStashMutation`, as três mutações que
+persistem aviso e recarregam a página), `list.ts` (`stashListItem`/`renderList`) e `detail.ts`
+(`patchView`/`renderDetailLoading`/`renderEmptyDetail`/`detailAction`/`renderDetail`/`selectStash`).
+O arquivo principal ficou só com o bootstrap (`loadStashes`/`metricCard`/`buildStashPage`/
+`isStashSection`/`enhanceStash`/`scan`/`installGitStashEnhancer`).
+- Mesmo import circular real entre `list.ts` e `detail.ts` do arquivo anterior:
+  `stashListItem` (`list.ts`) chama `selectStash` (`detail.ts`); `selectStash` (`detail.ts`) chama
+  `renderList` (`list.ts`). Seguro pelo mesmo motivo (funções `function`, hoisted, só invocadas
+  dentro de handlers).
+- Mesmo processo de verificação por `diff` linha a linha contra o arquivo original antes do
+  typecheck. Desta vez cometi 2 erros de transcrição, ambos pegos antes de rodar qualquer
+  verificação: um ícone placeholder inventado (`ArchiveBoxIconPlaceholder` em vez de
+  `ArchiveBoxIcon`, faltando também o import) em `list.ts`, e uma função `refreshControlsAfterSelect`
+  inventada em `detail.ts` em vez de importar e chamar `refreshControls` de `controls.ts`.
+- Verificado com `typecheck`, `build` (CSS/JS idênticos ao original), os 174 testes unitários e os
+  13 testes E2E — todos verdes na branch `claude/reorganizar-arquitetura-arquivos-fase5b` (criada a
+  partir da `main` já com o merge da fase 1, commit `2221475`, após o PR #94 ser mesclado).
+**`git-summary-history-enhancer.ts` (686 → 228 linhas) — concluído**, terceiro arquivo da fase.
+Mesmo padrão de `WeakMap<HTMLElement, SummaryState>` (`stateBySection`) compartilhado. Nenhum teste
+importa símbolos diretamente deste arquivo (confirmado via grep — só `main.ts` importa o instalador).
+Split em `git-summary-history/`: `types.ts`, `state.ts`, `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`/`currentBranchFromSection`), `format.ts`
+(`formatDate`/`relativeDate`/`statusLabel`), `list.ts` (`commitListItem`/`renderPagination`/
+`renderHistoryList`/`setHistoryLoading`) e `detail.ts` (`patchView`/`setDetailLoading`/
+`renderCommitDetail`/`renderDetailError`/`selectCommit`/`closeCommitDetail`). O arquivo principal
+ficou só com o bootstrap (`loadHistoryPage`/`buildPagination`/`watchCurrentBranch`/`buildHistory`/
+`enhanceSummary`/`scan`/`installGitSummaryHistoryEnhancer`) — `buildPagination` e
+`watchCurrentBranch` ficaram no principal (não em `list.ts`) porque seus handlers de clique/mutação
+chamam `loadHistoryPage`, que por sua vez pertence ao bootstrap, espelhando a mesma decisão tomada
+para `buildPagination` em `git-history-page-enhancer.ts`.
+- Mesmo import circular real entre `list.ts` e `detail.ts` dos dois arquivos anteriores:
+  `commitListItem` (`list.ts`) chama `selectCommit` (`detail.ts`); `selectCommit`/`closeCommitDetail`
+  (`detail.ts`) chamam `renderHistoryList` (`list.ts`).
+- Mesmo processo de verificação por `diff` linha a linha contra o arquivo original antes do
+  typecheck — desta vez sem erros de transcrição (todas as ~24 funções bateram na primeira
+  tentativa). Um cuidado extra aqui: como o arquivo principal já havia sido sobrescrito antes da
+  verificação, foi preciso recuperar o conteúdo original com `git show HEAD:<arquivo>` para comparar
+  contra ele, em vez de reler do disco.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS a 1 byte de diferença de nome de chunk),
+  os 174 testes unitários e os 13 testes E2E — todos verdes.
+**`git-inline-file-diff-enhancer.ts` (486 → 71 linhas) — concluído**, quarto arquivo da fase.
+Diferente dos três anteriores, este arquivo não tem um `WeakMap` de estado compartilhado — é
+majoritariamente funções puras de renderização mais uma configuração estática
+(`configurations: DetailConfiguration[]`) reutilizada em todo `enhanceDetail`/`scanDetails`. Por
+isso a quebra seguiu um critério diferente: por responsabilidade de renderização, não por dono do
+estado. Split em `git-inline-file-diff/`: `types.ts` (`DiffViewMode`/`DetailConfiguration`),
+`configurations.ts` (a lista estática dos 3 containers Git suportados: resumo, histórico, stash),
+`dom-helpers.ts` (`mountIcon`), `storage.ts` (`readViewMode`/`persistViewMode`/`rawPatchOf`/
+`TARGET_FILE_KEY`), `diff-render.ts` (`unifiedView`/`splitView`/`emptyView`, puras, sem DOM externo),
+`viewer.ts` (`renderViewer`, o painel de diff de um arquivo) e `full-diff.ts`
+(`enhanceFullDiff`/`updateFullDiffLabel`, o diff combinado dentro do `<details>`). `detail.ts` reúne
+`pathsFromRow`/`enhanceDetail`/`scanDetails` — este último é importado diretamente por
+`git-inline-file-diff-enhancer.test.ts` (confirmado via grep antes de começar), então o arquivo
+principal precisou re-exportá-lo (`export { scanDetails } from './git-inline-file-diff/detail'`),
+igual ao padrão de re-export já usado para `git-history-page-enhancer.ts`. O arquivo principal ficou
+só com `commitFilePath`/`rememberCommitFile`/`openRememberedDiffFile`/`scan`/
+`installGitInlineFileDiffEnhancer` (a lógica de "lembrar qual arquivo estava aberto ao navegar para
+a aba Diff", que não pertence a nenhum dos módulos de renderização).
+- Sem import circular aqui — ao contrário dos três arquivos anteriores, a ausência de estado
+  compartilhado permite uma ordem de dependência estritamente linear (`types` → `configurations`/
+  `dom-helpers`/`storage` → `diff-render` → `viewer`/`full-diff` → `detail` → arquivo principal).
+- Mesmo processo de verificação por `diff` contra o original antes do typecheck — sem erros de
+  transcrição desta vez (2 falsos positivos do script de extração automática por causa de
+  assinaturas de função com tipos de retorno/parâmetro multilinhas, resolvidos com verificação
+  manual por `sed`).
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `scanDetails` direto do arquivo) e os 13 testes E2E — todos
+  verdes.
+**`git-summary-global-search-fix.ts` (646 → 141 linhas) — concluído**, quinto arquivo da fase e o
+maior de todos os enhancers (maior até que `git-history-page-enhancer.ts` original). Mesmo padrão
+de `WeakMap<HTMLElement, SummarySearchState>` (`stateBySection`), mais uma particularidade: uma
+variável de módulo solta `let summaryFetch: typeof window.fetch | undefined` (fora do `WeakMap`,
+usada para permitir injeção de fetch em testes/observabilidade) atribuída dentro de
+`installGitSummaryGlobalSearchFix`. Como bindings `let` importados são somente leitura no módulo
+que importa, essa variável foi movida para `network.ts` junto com `requestJson`, e a atribuição
+direta virou uma função `setSummaryFetcher()` chamada pelo arquivo principal — a única mudança que
+não é uma cópia literal nesta quebra, registrada aqui explicitamente. Split em
+`git-summary-global-search-fix/`: `types.ts`, `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`), `format.ts` (`formatDate`/`relativeDate`/`statusLabel`),
+`url.ts` (`buildSummaryHistorySearchUrl`, testado diretamente por
+`git-summary-global-search-fix.test.ts` — confirmado via grep antes de começar, único símbolo
+testado), `network.ts` (`requestJson`/`setSummaryFetcher`), `state.ts` (`stateBySection`/
+`stateFor`), `snapshot.ts` (`captureOriginal`/`restoreOriginal`, o mecanismo que restaura a lista
+original do resumo quando a busca global é limpa), `pagination.ts` (`setPagination`) e `list.ts`/
+`detail.ts` (mesmo par circular dos arquivos anteriores: `resultRow`/`renderResults`/
+`setSearchLoading`/`closeSearchDetail` em `list.ts` chamando `selectResult` de `detail.ts`, que por
+sua vez chama `renderResults`/`closeSearchDetail` de volta). O arquivo principal ficou com
+`loadSearchPage`/`resetForBranchChange`/`enhanceSection`/`scan`/
+`installGitSummaryGlobalSearchFix`, além de reexportar `buildSummaryHistorySearchUrl`.
+- Mesmo processo de verificação por `diff` linha a linha contra o original antes do typecheck —
+  sem erros de transcrição; os únicos dois diffs não-`OK` foram o `export` esperado e a mudança
+  documentada de `summaryFetch = ...` para `setSummaryFetcher(...)`.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `buildSummaryHistorySearchUrl` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+- Os demais arquivos da camada (`log-visual-enhancer.ts` 402, `git-commit-enhancer.ts` 362,
+  `sql-explanation-enhancer.ts` 326, `log-detail-enhancer.ts` 291,
+  `git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts` 286,
+  `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo processo de
+  rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
