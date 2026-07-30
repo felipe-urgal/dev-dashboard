@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test, vi } from 'vitest';
 
-import { mount, flushPromises } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 
 import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
@@ -13,9 +13,7 @@ vi.mock('../src/stores/notice-center', () => ({
   noticeCenterStore: {
     publishTerminalNotice: vi.fn((input: Record<string, unknown>) => {
       const dedupeKey = input.dedupeKey as string;
-      if (!publishedNotices.has(dedupeKey)) {
-        publishedNotices.set(dedupeKey, input);
-      }
+      if (!publishedNotices.has(dedupeKey)) publishedNotices.set(dedupeKey, input);
     }),
   },
 }));
@@ -37,24 +35,31 @@ const baseOverview: ProjectTestOverview = {
 };
 
 let cleanup: (() => void) | undefined;
+
 beforeEach(() => {
   cleanup = undefined;
   publishedNotices.clear();
 });
+
 afterEach(() => { cleanup?.(); });
 
-test('exibe o botão "Executar arquivo" quando o comando suporta arquivo específico', async () => {
+function jsonResponse(value: unknown, status = 200): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+function emptyPanelFetch(input: RequestInfo | URL): Promise<Response> {
+  const url = new URL(String(input), 'http://localhost');
+  if (url.pathname.endsWith('/tests')) return Promise.resolve(jsonResponse({ tests: baseOverview }));
+  if (url.pathname.endsWith('/tests/process')) return Promise.resolve(jsonResponse({ process: null }));
+  return Promise.resolve(new Response('not found', { status: 404 }));
+}
+
+test('apresenta o fluxo guiado e remove comandos detectados e histórico', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
+  globalThis.fetch = emptyPanelFetch as typeof fetch;
 
   const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
   cleanup = () => {
@@ -64,30 +69,34 @@ test('exibe o botão "Executar arquivo" quando o comando suporta arquivo especí
   await flushPromises();
   await flushPromises();
 
-  const buttons = wrapper.findAll('button');
-  assert.ok(buttons.some((button) => button.text() === 'Executar arquivo'));
+  assert.match(wrapper.text(), /Execução atual/);
+  assert.match(wrapper.text(), /Tipo de execução/);
+  assert.match(wrapper.text(), /Configure os detalhes/);
+  assert.match(wrapper.text(), /Revise e execute/);
+  assert.doesNotMatch(wrapper.text(), /Comandos detectados/);
+  assert.doesNotMatch(wrapper.text(), /Histórico de execuções/);
+
+  const options = wrapper.findAll('.tests-execution-select option').map((option) => option.text());
+  assert.ok(options.some((option) => option.includes('Vitest — suíte completa')));
+  assert.ok(options.some((option) => option.includes('Vitest — arquivo específico')));
 });
 
-test('lista arquivos ao abrir o seletor e inicia a execução do arquivo escolhido', async () => {
+test('executa a suíte selecionada pelo novo seletor', async () => {
   const calls: string[] = [];
   let currentProcess: Record<string, unknown> | null = null;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     calls.push(url.pathname);
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
+    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/node-script-test/start')) {
+      currentProcess = {
+        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
+        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
     }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/files')) {
-      return new Response(JSON.stringify({ files: [{ path: 'src/app.test.ts' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/files/start')) {
-      currentProcess = { id: 'node-script-test:file', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'] };
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -99,38 +108,75 @@ test('lista arquivos ao abrir o seletor e inicia a execução do arquivo escolhi
   await flushPromises();
   await flushPromises();
 
-  const toggleButton = wrapper.findAll('button').find((button) => button.text() === 'Executar arquivo');
-  await toggleButton!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(calls.some((path) => path.endsWith('/node-script-test/files')));
-
-  const select = wrapper.find('.tests-file-picker select');
-  assert.ok(select.exists());
-  await select.setValue('src/app.test.ts');
-
-  const startFileButton = wrapper.findAll('button').find((button) => button.text().includes('Executar arquivo selecionado'));
-  await startFileButton!.trigger('click');
-  await flushPromises();
+  assert.equal((wrapper.find('.tests-execution-select').element as HTMLSelectElement).value, 'node-script-test::suite');
+  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
   await flushPromises();
 
-  assert.ok(calls.some((path) => path.endsWith('/files/start')));
+  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/start')));
   assert.match(wrapper.text(), /Executando|Iniciando/);
+});
+
+test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async () => {
+  const calls: string[] = [];
+  let currentProcess: Record<string, unknown> | null = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    calls.push(url.pathname);
+    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/files') && !url.pathname.endsWith('/files/start')) {
+      return jsonResponse({ files: [{ path: 'src/app.test.ts' }] });
+    }
+    if (url.pathname.endsWith('/files/start')) {
+      currentProcess = {
+        id: 'node-script-test:file', projectId: 'p1', kind: 'test', status: 'running',
+        command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'], startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
+    }
+    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.tests-execution-select').setValue('node-script-test::file');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/files')));
+  const fileSelect = wrapper.find('.tests-file-select');
+  assert.ok(fileSelect.exists());
+  await fileSelect.setValue('src/app.test.ts');
+
+  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
+  await flushPromises();
+
+  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/files/start')));
+  assert.match(wrapper.text(), /src\/app\.test\.ts/);
 });
 
 test('mostra erro específico quando a listagem de arquivos falha', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: null });
     if (url.pathname.endsWith('/files')) {
-      return new Response(JSON.stringify({ error: 'TEST_COMMAND_NOT_FOUND', message: 'Comando de teste não encontrado para este projeto.' }), { status: 404, headers: { 'content-type': 'application/json' } });
+      return jsonResponse({
+        error: 'TEST_COMMAND_NOT_FOUND',
+        message: 'Comando de teste não encontrado para este projeto.',
+      }, 404);
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -143,146 +189,11 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
   await flushPromises();
   await flushPromises();
 
-  const toggleButton = wrapper.findAll('button').find((button) => button.text() === 'Executar arquivo');
-  await toggleButton!.trigger('click');
+  await wrapper.find('.tests-execution-select').setValue('node-script-test::file');
   await flushPromises();
   await flushPromises();
 
   assert.match(wrapper.text(), /Comando de teste não encontrado/);
-});
-
-test('exibe o histórico de execuções retornado pela API', async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/history')) {
-      return new Response(JSON.stringify({
-        history: {
-          items: [
-            { id: 'exec-1', projectId: 'p1', commandId: 'node-script-test', targetFile: 'src/app.test.ts', status: 'stopped', startedAt: '2026-07-27T10:00:00Z', finishedAt: '2026-07-27T10:00:05Z', exitCode: 0 },
-          ],
-          page: 1, pageSize: 10, total: 1, totalPages: 1,
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Histórico de execuções/);
-  const items = wrapper.findAll('.tests-history-list li');
-  assert.equal(items.length, 1);
-  assert.match(items[0]!.text(), /npm run test/);
-  assert.match(items[0]!.text(), /src\/app\.test\.ts/);
-});
-
-test('pagina o histórico ao clicar em Próxima', async () => {
-  const calls: string[] = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = new URL(String(input), 'http://localhost');
-    calls.push(url.search);
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/history')) {
-      const page = Number(url.searchParams.get('page') ?? '1');
-      return new Response(JSON.stringify({
-        history: {
-          items: [{ id: `exec-${page}`, projectId: 'p1', commandId: 'node-script-test', status: 'stopped', startedAt: '2026-07-27T10:00:00Z' }],
-          page, pageSize: 10, total: 15, totalPages: 2,
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Página 1 de 2/);
-  const nextButton = wrapper.findAll('button').find((button) => button.text() === 'Próxima');
-  await nextButton!.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Página 2 de 2/);
-  assert.ok(calls.some((search) => search.includes('page=2')));
-});
-
-test('limpa o histórico de execuções após confirmação', async () => {
-  const calls: Array<{ method: string; pathname: string }> = [];
-  let cleared = false;
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost');
-    const method = init?.method ?? 'GET';
-    calls.push({ method, pathname: url.pathname });
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: null }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/history') && method === 'DELETE') {
-      cleared = true;
-      return new Response(JSON.stringify({ history: { removedCount: 1 } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/history')) {
-      const items = cleared
-        ? []
-        : [{ id: 'exec-1', projectId: 'p1', commandId: 'node-script-test', status: 'stopped', startedAt: '2026-07-27T10:00:00Z' }];
-      return new Response(JSON.stringify({
-        history: { items, page: 1, pageSize: 10, total: items.length, totalPages: items.length ? 1 : 0 },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const originalConfirm = window.confirm;
-  window.confirm = () => true;
-
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-    window.confirm = originalConfirm;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  assert.equal(wrapper.findAll('.tests-history-list li').length, 1);
-
-  const clearButton = wrapper.find('button[aria-label="Limpar histórico"]');
-  assert.ok(clearButton.exists());
-  await clearButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(calls.some((call) => call.method === 'DELETE' && call.pathname.endsWith('/tests/history')));
-  assert.equal(wrapper.findAll('.tests-history-list li').length, 0);
-  assert.match(wrapper.text(), /Nenhuma execução registrada ainda/);
 });
 
 function sseResponse(frames: string[]): Response {
@@ -304,9 +215,7 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
   };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
     if (url.pathname.endsWith('/tests/process/events')) {
       currentProcess = { ...currentProcess, status: 'stopped', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 0 };
       return sseResponse([
@@ -315,14 +224,9 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
       ]);
     }
     if (url.pathname.endsWith('/tests/process/logs')) {
-      return new Response(JSON.stringify({ log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return jsonResponse({ log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } });
     }
-    if (url.pathname.endsWith('/tests/process')) {
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/tests/history')) {
-      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -341,31 +245,23 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
 });
 
 test('publica aviso ao receber estado terminal após passar por running', async () => {
-  const { noticeCenterStore } = await import('../src/stores/notice-center');
-
   const originalFetch = globalThis.fetch;
   let currentProcess: Record<string, unknown> | null = null;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
-      currentProcess = { id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z' };
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
+      currentProcess = {
+        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
+        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
     }
     if (url.pathname === '/api/projects/p1/tests/process/events') {
       currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
-      return sseResponse([
-        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
-      ]);
+      return sseResponse([`event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`]);
     }
-    if (url.pathname === '/api/projects/p1/tests/process') {
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname === '/api/projects/p1/tests/history') {
-      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname === '/api/projects/p1/tests/process') return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -377,8 +273,9 @@ test('publica aviso ao receber estado terminal após passar por running', async 
   await flushPromises();
   await flushPromises();
 
-  const startButton = wrapper.findAll('button').find((button) => button.text() === 'Executar');
-  await startButton!.trigger('click');
+  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
   await flushPromises();
 
   for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
@@ -387,7 +284,7 @@ test('publica aviso ao receber estado terminal após passar por running', async 
   }
 
   assert.equal(publishedNotices.size, 1, 'deve ter publicado com um dedupeKey único');
-  const call = Array.from(publishedNotices.values())[0]! as Record<string, unknown>;
+  const call = Array.from(publishedNotices.values())[0]!;
   assert.equal(call.origin, 'test');
   assert.equal(call.outcome, 'failed');
   assert.equal(call.projectId, 'p1');
@@ -398,30 +295,22 @@ test('publica aviso ao receber estado terminal após passar por running', async 
 
 test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', async () => {
   const originalFetch = globalThis.fetch;
-  let eventStreamCallCount = 0;
   let currentProcess: Record<string, unknown> | null = null;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
-      currentProcess = { id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running', command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z' };
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 201, headers: { 'content-type': 'application/json' } });
+      currentProcess = {
+        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
+        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
     }
     if (url.pathname === '/api/projects/p1/tests/process/events') {
-      eventStreamCallCount += 1;
       currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
-      return sseResponse([
-        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
-      ]);
+      return sseResponse([`event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`]);
     }
-    if (url.pathname === '/api/projects/p1/tests/process') {
-      return new Response(JSON.stringify({ process: currentProcess }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname === '/api/projects/p1/tests/history') {
-      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname === '/api/projects/p1/tests/process') return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -433,8 +322,9 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
   await flushPromises();
   await flushPromises();
 
-  const startButton = wrapper.findAll('button').find((button) => button.text() === 'Executar');
-  await startButton!.trigger('click');
+  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
   await flushPromises();
 
   for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
@@ -443,33 +333,32 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
   }
 
   const noticesAfterFirstTerminal = publishedNotices.size;
-  assert.equal(noticesAfterFirstTerminal, 1, 'deve ter publicado com um dedupeKey único');
+  assert.equal(noticesAfterFirstTerminal, 1);
 
   for (let attempt = 0; attempt < 50; attempt += 1) {
     await flushPromises();
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  assert.equal(publishedNotices.size, noticesAfterFirstTerminal, 'não deve publicar novas chaves mesmo após reconexões');
+  assert.equal(publishedNotices.size, noticesAfterFirstTerminal);
 });
 
 test('não publica aviso quando processo já chega parado na primeira renderização', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') {
-      return new Response(JSON.stringify({ tests: baseOverview }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/process') {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         process: {
           id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'stopped',
-          command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T09:00:00Z', stoppedAt: '2026-07-27T09:00:05Z', exitCode: 0,
+          command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T09:00:00Z',
+          stoppedAt: '2026-07-27T09:00:05Z', exitCode: 0,
         },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      });
     }
-    if (url.pathname === '/api/projects/p1/tests/history') {
-      return new Response(JSON.stringify({ history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    if (url.pathname.endsWith('/tests/process/logs')) {
+      return jsonResponse({ log: { projectId: 'p1', processId: 'node-script-test', content: '', sizeBytes: 0, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -485,5 +374,5 @@ test('não publica aviso quando processo já chega parado na primeira renderiza�
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  assert.equal(publishedNotices.size, 0, 'não deve ter publicado aviso para processo já parado');
+  assert.equal(publishedNotices.size, 0);
 });
