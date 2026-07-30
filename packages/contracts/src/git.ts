@@ -95,3 +95,12 @@ export interface GitFileDiff {
   masked: boolean;
   redactionCount: number;
 }
+
+export type GitPullRequestProvider = 'github' | 'gitlab';
+
+export interface GitPullRequestUrl {
+  provider: GitPullRequestProvider;
+  url: string;
+  branch: string;
+  defaultBranch: string;
+}

@@ -40,6 +40,8 @@ export type {
   GitFileStatus,
   GitMutationConfirmation,
   GitMutationOperation,
+  GitPullRequestProvider,
+  GitPullRequestUrl,
   GitRemote,
   GitRemoteRole,
   GitStashEntry,

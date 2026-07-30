@@ -525,3 +525,107 @@ test('push publica a branch no origin após confirmação', async () => {
   assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/push')));
   assert.match(mounted.wrapper.text(), /Push para origin concluído/);
 });
+
+test('abre a pull request calculada pela API quando a branch já está publicada', async () => {
+  const originalConfirm = globalThis.confirm;
+  const originalOpen = globalThis.open;
+  globalThis.confirm = () => true;
+  const openedUrls: string[] = [];
+  globalThis.open = ((url: string | URL) => {
+    openedUrls.push(String(url));
+    return null;
+  }) as typeof window.open;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/pull-request-url')) {
+        return jsonResponse({
+          pullRequest: {
+            provider: 'github',
+            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
+            branch: 'feature/git-ui',
+            defaultBranch: 'main',
+          },
+        });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+    globalThis.open = originalOpen;
+  };
+
+  const prButton = mounted.wrapper
+    .findAll('.git-quick-actions button')
+    .find((button) => button.text().includes('Abrir pull request'));
+  assert.ok(prButton);
+  await prButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/pull-request-url')));
+  assert.ok(!mounted.requests.some((request) => request.path.endsWith('/git/push')));
+  assert.deepEqual(openedUrls, ['https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1']);
+  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
+});
+
+test('publica a branch antes de abrir a pull request quando ainda não há upstream', async () => {
+  const originalConfirm = globalThis.confirm;
+  const originalOpen = globalThis.open;
+  globalThis.confirm = () => true;
+  globalThis.open = (() => null) as typeof window.open;
+
+  const mounted = await mountPanel({
+    overview: (() => {
+      const { upstream: _upstream, ...rest } = baseOverview;
+      return rest;
+    })(),
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'p'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/push')) {
+        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
+      }
+      if (request.path.endsWith('/git/pull-request-url')) {
+        return jsonResponse({
+          pullRequest: {
+            provider: 'github',
+            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
+            branch: 'feature/git-ui',
+            defaultBranch: 'main',
+          },
+        });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+    globalThis.open = originalOpen;
+  };
+
+  const prButton = mounted.wrapper
+    .findAll('.git-quick-actions button')
+    .find((button) => button.text().includes('Abrir pull request'));
+  assert.ok(prButton);
+  await prButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const requestPaths = mounted.requests.map((request) => request.path);
+  assert.ok(requestPaths.some((path) => path.endsWith('/git/push')));
+  assert.ok(requestPaths.some((path) => path.endsWith('/git/pull-request-url')));
+  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
+});

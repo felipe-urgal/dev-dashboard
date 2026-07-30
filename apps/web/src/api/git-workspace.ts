@@ -1,5 +1,6 @@
 import type {
   GitMutationConfirmation,
+  GitPullRequestUrl,
   GitSyncConfirmation,
   GitSyncResult,
   GitSyncStrategy,
@@ -141,6 +142,15 @@ export async function prepareProjectGitSync(
     },
   );
   return response.confirmation;
+}
+
+export async function fetchProjectGitPullRequestUrl(
+  projectId: string,
+): Promise<GitPullRequestUrl> {
+  const response = await requestJson<{ pullRequest: GitPullRequestUrl }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-url`,
+  );
+  return response.pullRequest;
 }
 
 export async function integrateProjectGitReference(

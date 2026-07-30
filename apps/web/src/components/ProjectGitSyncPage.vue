@@ -27,6 +27,7 @@ const emit = defineEmits<{
   integrate: [payload: { reference: string; strategy: GitSyncStrategy }];
   pull: [];
   push: [];
+  openPullRequest: [];
 }>();
 
 const selectedReference = ref('');
@@ -303,6 +304,9 @@ watch(selectedReference, (reference) => {
               {{ remoteRefreshing === 'origin' ? 'Atualizando…' : 'Fetch origin' }}
             </button>
             <button class="primary-button" type="button" :disabled="busy" @click="emit('push')">Push origin</button>
+            <button class="secondary-button" type="button" :disabled="busy" @click="emit('openPullRequest')">
+              Abrir pull request
+            </button>
           </div>
         </article>
 

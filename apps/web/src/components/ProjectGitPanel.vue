@@ -36,6 +36,7 @@ import {
   switchProjectGitBranch,
 } from '../api';
 import {
+  fetchProjectGitPullRequestUrl,
   fetchProjectGitRemote,
   fetchProjectGitWorkspace,
   integrateProjectGitReference,
@@ -411,6 +412,44 @@ async function runSyncMutation(operation: 'pull' | 'push'): Promise<void> {
   }
 }
 
+async function runOpenPullRequest(): Promise<void> {
+  if (mutationRunning.value) return;
+  const branch = overview.value?.branch;
+  if (!branch) {
+    mutationErrorMessage.value = 'Não é possível determinar a branch atual.';
+    return;
+  }
+
+  if (!overview.value?.upstream && (typeof window === 'undefined' || !window.confirm(
+    `A branch "${branch}" ainda não foi publicada. Enviar para "origin" antes de abrir a Pull Request?`,
+  ))) {
+    return;
+  }
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+  try {
+    if (!overview.value?.upstream) {
+      const confirmation = await prepareProjectGitMutation(props.project.id, 'push', branch);
+      await pushProjectGitBranch(props.project.id, confirmation.token);
+      await reloadGitData();
+    }
+
+    const pullRequest = await fetchProjectGitPullRequestUrl(props.project.id);
+    mutationMessage.value = `Pull Request preparada: "${pullRequest.branch}" → "${pullRequest.defaultBranch}".`;
+    if (typeof window !== 'undefined') {
+      window.open(pullRequest.url, '_blank', 'noopener,noreferrer');
+    }
+  } catch (error) {
+    mutationErrorMessage.value = error instanceof Error
+      ? error.message
+      : 'Não foi possível abrir a Pull Request.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 async function runSyncIntegration(payload: {
   reference: string;
   strategy: GitSyncStrategy;
@@ -709,6 +748,7 @@ onBeforeUnmount(() => {
           <button type="button" @click="openTab('branches')">＋ Criar branch</button>
           <button type="button" :disabled="mutationRunning || !overview.upstream" @click="runSyncMutation('pull')">↓ Pull</button>
           <button type="button" :disabled="mutationRunning || !originRemote" @click="runSyncMutation('push')">↑ Push origin</button>
+          <button type="button" :disabled="mutationRunning || !originRemote" @click="runOpenPullRequest">⇱ Abrir pull request</button>
           <button type="button" @click="openTab('commit')">● Commit</button>
           <button type="button" @click="openTab('stash')">□ Stash</button>
           <button type="button" @click="openTab('diff')">⌁ Ver diff</button>
@@ -802,6 +842,7 @@ onBeforeUnmount(() => {
         @integrate="runSyncIntegration"
         @pull="runSyncMutation('pull')"
         @push="runSyncMutation('push')"
+        @open-pull-request="runOpenPullRequest"
       />
 
       <section v-else-if="activeTab === 'commit'" class="git-tab-page">
