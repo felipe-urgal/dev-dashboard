@@ -2,7 +2,7 @@
 
 ## Status
 
-Planejamento. Nenhuma fase foi executada ainda.
+Fase 1 concluída. Fases 2–6 ainda são planejamento.
 
 ## Contexto
 
@@ -29,12 +29,21 @@ mesmo, na seção da fase correspondente.
 
 ## Fases propostas
 
-### Fase 1 — API (baixo risco, mecânica pura)
+### Fase 1 — API (baixo risco, mecânica pura) — concluída
 
-- Mover as 8 mutações Git de `routes/projects.ts` para um novo `routes/git-mutations.ts`, seguindo
-  a convenção `git-*.ts` já usada pelos demais arquivos de rota Git.
-- Quebrar `response-schemas.ts` em `response-schemas/{errors,workspaces-projects,processes,scripts,git,tests,rails,activity}.ts`
-  mais um `index.ts` que re-exporta tudo — nenhum import externo muda.
+- Movidas as 8 mutações Git de `routes/projects.ts` (685 → 370 linhas) para
+  `routes/git-mutations.ts` (novo, 355 linhas), seguindo a convenção `git-*.ts` já usada pelos
+  demais arquivos de rota Git. Registrado em `app.ts` como um plugin próprio, com o mesmo
+  `projectStore`/`gitService` do plugin de projetos.
+- `response-schemas.ts` (683 linhas) quebrado em
+  `response-schemas/{common,scripts,workspaces-projects,processes,tests,git,rails,activity}.ts`.
+  O arquivo original virou um barrel de 8 linhas (`export * from './response-schemas/...'`), então
+  nenhum import externo (`from '../http/response-schemas.js'`) mudou. Helpers internos não
+  exportados (`retentionValueLimitSchema`, `gitFileStatusEnum`, `activityStatusEnum`,
+  `scriptActivityResponseSchema`, `processActivityResponseSchema`) foram para o arquivo do domínio
+  que os usa.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
+  testes da API, 163 do frontend, todos os pacotes) sem nenhuma mudança de comportamento.
 
 ### Fase 2 — `apps/web/src/api.ts` (baixo risco)
 

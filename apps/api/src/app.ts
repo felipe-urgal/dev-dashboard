@@ -5,6 +5,7 @@ import { directoryRoutes } from './routes/directories.js';
 import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
+import { gitMutationRoutes } from './routes/git-mutations.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
@@ -102,6 +103,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(projectRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitService: context.gitService,
+  });
+
+  app.register(gitMutationRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
