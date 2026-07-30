@@ -288,6 +288,65 @@ function updateFullDiffLabel(container: HTMLElement, selector: string): void {
   if (label) label.textContent = 'Ver diff completo (todos os arquivos)';
 }
 
+function enhanceFullDiff(patch: HTMLElement): void {
+  const details = patch.closest<HTMLDetailsElement>('details');
+  if (!details || details.dataset.structuredFullDiff === 'true') return;
+  details.dataset.structuredFullDiff = 'true';
+
+  const rawPatch = rawPatchOf(patch);
+  patch.hidden = true;
+  patch.setAttribute('aria-hidden', 'true');
+
+  const shell = document.createElement('section');
+  shell.className = 'git-inline-full-diff';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'git-inline-full-diff-toolbar';
+  const label = document.createElement('strong');
+  label.textContent = 'Visualização';
+  const switcher = document.createElement('div');
+  switcher.className = 'git-inline-diff-mode-switch';
+  switcher.setAttribute('aria-label', 'Modo de visualização do diff completo');
+  const body = document.createElement('div');
+  body.className = 'git-inline-diff-body';
+  let mode = readViewMode();
+
+  const draw = (): void => {
+    switcher.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      const selected = button.dataset.mode === mode;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    body.replaceChildren();
+    body.append(rawPatch.trim()
+      ? mode === 'split' ? splitView(rawPatch) : unifiedView(rawPatch)
+      : emptyView('Este commit não possui diff textual para exibir.'));
+  };
+
+  [
+    { mode: 'unified' as const, label: 'Unificado', icon: Bars3BottomLeftIcon },
+    { mode: 'split' as const, label: 'Lado a lado', icon: ViewColumnsIcon },
+  ].forEach((definition) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.mode = definition.mode;
+    mountIcon(button, definition.icon, 'git-inline-diff-mode-icon');
+    const text = document.createElement('span');
+    text.textContent = definition.label;
+    button.append(text);
+    button.addEventListener('click', () => {
+      mode = definition.mode;
+      persistViewMode(mode);
+      draw();
+    });
+    switcher.append(button);
+  });
+
+  toolbar.append(label, switcher);
+  shell.append(toolbar, body);
+  details.append(shell);
+  draw();
+}
+
 function enhanceDetail(container: HTMLElement, configuration: DetailConfiguration): void {
   const files = container.querySelector<HTMLElement>(configuration.files);
   const patch = container.querySelector<HTMLElement>(configuration.patch);
@@ -340,6 +399,7 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
   });
 
   updateFullDiffLabel(container, configuration.fullDiffSummary);
+  enhanceFullDiff(patch);
 }
 
 export function scanDetails(root: ParentNode): void {
@@ -411,6 +471,7 @@ export function installGitInlineFileDiffEnhancer(): void {
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      if (mutation.target instanceof HTMLElement) scan(mutation.target);
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) scan(node);
       }
