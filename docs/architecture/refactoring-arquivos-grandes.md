@@ -4,8 +4,8 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 iniciada: `git-history-page-enhancer.ts` concluído, demais arquivos da camada
-"enhancer" pendentes. Fase 6 ainda é planejamento.
+Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts` e `git-stash-enhancer.ts` concluídos,
+demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -238,9 +238,34 @@ detalhe do commit, `selectCommit`). O arquivo principal ficou só com o bootstra
   `build` (CSS/JS praticamente idênticos), os 174 testes unitários (incluindo o teste que importa
   `clampHistoryListWidth`/`filterHistoryCommits`/`uniqueHistoryAuthors` direto do arquivo) e os 13
   testes E2E.
-- Os demais arquivos da camada (`git-stash-enhancer.ts` 871, `git-summary-history-enhancer.ts`
-  686, `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem
-  pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-stash-enhancer.ts` (872 → 249 linhas) — concluído**, segundo arquivo da fase. Mesmo padrão:
+um único `WeakMap<HTMLElement, StashPageState>` (`stateBySection`) compartilhado por quase todas as
+funções. Nenhum teste importa símbolos diretamente deste arquivo (confirmado via grep antes de
+começar), então não houve necessidade de re-exports de compatibilidade. Split em `git-stash/`:
+`types.ts` (interfaces + `StashOperation`), `state.ts` (o `WeakMap`), `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`), `format.ts` (`formatDate`/`relativeDate`/
+`statusLabel`), `notice.ts` (`setNotice`/`persistAndReload`/`readPersistedNotice`, com a chave de
+`sessionStorage`), `controls.ts` (`refreshControls`/`renderMetrics`, habilitação de botões conforme
+estado), `actions.ts` (`prepareConfirmation`/`runCreate`/`runStashMutation`, as três mutações que
+persistem aviso e recarregam a página), `list.ts` (`stashListItem`/`renderList`) e `detail.ts`
+(`patchView`/`renderDetailLoading`/`renderEmptyDetail`/`detailAction`/`renderDetail`/`selectStash`).
+O arquivo principal ficou só com o bootstrap (`loadStashes`/`metricCard`/`buildStashPage`/
+`isStashSection`/`enhanceStash`/`scan`/`installGitStashEnhancer`).
+- Mesmo import circular real entre `list.ts` e `detail.ts` do arquivo anterior:
+  `stashListItem` (`list.ts`) chama `selectStash` (`detail.ts`); `selectStash` (`detail.ts`) chama
+  `renderList` (`list.ts`). Seguro pelo mesmo motivo (funções `function`, hoisted, só invocadas
+  dentro de handlers).
+- Mesmo processo de verificação por `diff` linha a linha contra o arquivo original antes do
+  typecheck. Desta vez cometi 2 erros de transcrição, ambos pegos antes de rodar qualquer
+  verificação: um ícone placeholder inventado (`ArchiveBoxIconPlaceholder` em vez de
+  `ArchiveBoxIcon`, faltando também o import) em `list.ts`, e uma função `refreshControlsAfterSelect`
+  inventada em `detail.ts` em vez de importar e chamar `refreshControls` de `controls.ts`.
+- Verificado com `typecheck`, `build` (CSS/JS idênticos ao original), os 174 testes unitários e os
+  13 testes E2E — todos verdes na branch `claude/reorganizar-arquitetura-arquivos-fase5b` (criada a
+  partir da `main` já com o merge da fase 1, commit `2221475`, após o PR #94 ser mesclado).
+- Os demais arquivos da camada (`git-summary-history-enhancer.ts` 686,
+  `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem pendentes —
+  cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
