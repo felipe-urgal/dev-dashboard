@@ -65,6 +65,15 @@ const mutationBodySchema = {
   },
 } as const;
 
+const mainMutationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken'],
+  properties: {
+    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+  },
+} as const;
+
 const comparisonSchema = {
   type: 'object',
   additionalProperties: false,
@@ -115,6 +124,8 @@ function translateSyncError(error: unknown): never {
       GIT_NOT_REPOSITORY: 400,
       GIT_REFERENCE_INVALID: 400,
       GIT_REFERENCE_NOT_FOUND: 404,
+      GIT_BRANCH_NOT_FOUND: 404,
+      GIT_REMOTE_NOT_CONFIGURED: 409,
       GIT_WORKING_TREE_DIRTY: 409,
       GIT_SYNC_CONFIRMATION_REQUIRED: 409,
       GIT_DETACHED_HEAD: 400,
@@ -126,6 +137,8 @@ function translateSyncError(error: unknown): never {
       GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
       GIT_REFERENCE_INVALID: 'GIT_REFERENCE_INVALID',
       GIT_REFERENCE_NOT_FOUND: 'GIT_REFERENCE_NOT_FOUND',
+      GIT_BRANCH_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
+      GIT_REMOTE_NOT_CONFIGURED: 'GIT_REMOTE_NOT_CONFIGURED',
       GIT_WORKING_TREE_DIRTY: 'GIT_WORKING_TREE_DIRTY',
       GIT_SYNC_CONFIRMATION_REQUIRED: 'GIT_SYNC_CONFIRMATION_REQUIRED',
       GIT_DETACHED_HEAD: 'GIT_DETACHED_HEAD',
@@ -232,6 +245,72 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
             request.body.strategy,
           ),
         });
+      } catch (error) {
+        translateSyncError(error);
+      }
+    },
+  );
+
+  app.post<{
+    Params: ProjectParams;
+  }>(
+    '/projects/:projectId/git/sync/main/confirmations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: { confirmation: confirmationSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return reply.code(201).send({
+          confirmation: service.prepareMainConfirmation(project.id),
+        });
+      } catch (error) {
+        translateSyncError(error);
+      }
+    },
+  );
+
+  app.post<{
+    Params: ProjectParams;
+    Body: { confirmationToken: string };
+  }>(
+    '/projects/:projectId/git/sync/main',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: mainMutationBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
+            properties: { result: resultSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          result: await service.synchronizeMain(
+            project.path,
+            project.id,
+            request.body.confirmationToken,
+          ),
+        };
       } catch (error) {
         translateSyncError(error);
       }

@@ -335,7 +335,7 @@ async function clickTab(
   await flushPromises();
 }
 
-test('abre diretamente em branches sem resumo ou conteúdo de outras ferramentas', async () => {
+test('abre diretamente em sincronização e mantém branches como segunda aba', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
@@ -343,14 +343,21 @@ test('abre diretamente em branches sem resumo ou conteúdo de outras ferramentas
   assert.doesNotMatch(text, /Resumo/);
   assert.doesNotMatch(text, /Histórico recente/);
   assert.doesNotMatch(text, /upstream\//);
-  assert.doesNotMatch(text, /Fetch|Sincronizar|Criar local/);
+  assert.match(text, /main\s*→\s*origin\/main/);
+  assert.match(text, /Sincronizar/);
   assert.ok(
     mounted.wrapper
       .findAll('.git-subtabs button')
-      .find((button) => button.text() === 'Branches')
+      .find((button) => button.text() === 'Sincronização')
       ?.classes('active'),
   );
-  assert.equal(mounted.wrapper.findAll('.branch-table-row').length, 2);
+  assert.deepEqual(
+    mounted.wrapper
+      .findAll('.git-subtabs button')
+      .slice(0, 2)
+      .map((button) => button.text()),
+    ['Sincronização', 'Branches'],
+  );
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
 
@@ -374,6 +381,7 @@ test('lista branches locais e origin sem expor ações de sincronização', asyn
     },
   });
   cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Branches');
 
   assert.equal(mounted.wrapper.findAll('.branch-table-row').length, 3);
   assert.match(mounted.wrapper.text(), /release\/2.0/);
@@ -422,6 +430,7 @@ test('cria branch com prefixo pelo modal centralizado', async () => {
     mounted.restore();
     globalThis.confirm = originalConfirm;
   };
+  await clickTab(mounted.wrapper, 'Branches');
   await mounted.wrapper.find('.branch-create-button').trigger('click');
   const createForm = mounted.wrapper.find('.branch-modal-form');
   assert.ok(createForm.exists());
@@ -489,6 +498,7 @@ test('renomeia uma branch local pelo menu de ações', async () => {
     },
   });
   cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Branches');
 
   const currentRow = mounted.wrapper
     .findAll('.branch-table-row')
@@ -555,6 +565,7 @@ test('remove uma branch local após confirmação digitada', async () => {
     },
   });
   cleanup = mounted.restore;
+  await clickTab(mounted.wrapper, 'Branches');
 
   const row = mounted.wrapper
     .findAll('.branch-table-row')
@@ -756,87 +767,52 @@ test('mostra o estado vazio na página de diff', async () => {
   assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
 });
 
-test('renderiza a sincronização como um pipeline único com ações rápidas', async () => {
-  const mounted = await mountPanel();
+test('renderiza a sincronização em uma única ação entre main e origin/main', async () => {
+  const mounted = await mountPanel({
+    overview: { ...baseOverview, clean: true, files: [] },
+  });
   cleanup = mounted.restore;
 
-  await clickTab(mounted.wrapper, 'Sincronização');
-
-  assert.match(mounted.wrapper.text(), /Pipeline de sincronização/);
-  assert.equal(mounted.wrapper.findAll('.git-sync-node').length, 3);
-  assert.ok(mounted.wrapper.find('.git-sync-pipeline-card').exists());
-  assert.ok(mounted.wrapper.find('.git-sync-quick-actions').exists());
-  assert.ok(!mounted.wrapper.find('.git-sync-metrics').exists());
-  assert.ok(!mounted.wrapper.find('.git-sync-workspace').exists());
-  assert.ok(!mounted.wrapper.find('.git-sync-strategies').exists());
-
-  const strategySelect = mounted.wrapper.findAll('.git-sync-controls select')[1];
-  assert.ok(strategySelect);
-  await strategySelect.setValue('merge');
-  assert.equal((strategySelect.element as HTMLSelectElement).value, 'merge');
+  assert.ok(mounted.wrapper.find('.git-sync-card').exists());
+  assert.match(mounted.wrapper.text(), /main\s*→\s*origin\/main/);
+  assert.match(mounted.wrapper.text(), /Sincronizado/);
+  assert.match(
+    mounted.wrapper.text(),
+    /A sincronização atualiza a main e publica no origin/,
+  );
+  assert.equal(mounted.wrapper.findAll('.git-sync-button').length, 1);
+  assert.doesNotMatch(
+    mounted.wrapper.text(),
+    /upstream|fetch|pipeline|estratégia|pull request/i,
+  );
 });
 
-test('push publica a branch no origin após confirmação', async () => {
+test('sincroniza a main em uma única mutação confirmada', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 
   const mounted = await mountPanel({
+    overview: { ...baseOverview, clean: true, files: [] },
     handler: (request) => {
-      if (request.path.endsWith('/git/mutations/confirmations')) {
-        const body = request.body as { operation: string; target: string };
+      if (request.path.endsWith('/git/sync/main/confirmations')) {
         return jsonResponse({
           confirmation: {
             token: 'p'.repeat(64),
-            operation: body.operation,
-            target: body.target,
+            reference: 'upstream/main',
+            strategy: 'merge',
             expiresAt: new Date(Date.now() + 60_000).toISOString(),
           },
         }, 201);
       }
-      if (request.path.endsWith('/git/push')) {
-        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
-      }
-      return undefined;
-    },
-  });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-  };
-
-  await clickTab(mounted.wrapper, 'Sincronização');
-
-  const pushButton = mounted.wrapper
-    .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.classes().includes('git-sync-publish-button'));
-  assert.ok(pushButton);
-  await pushButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/push')));
-  assert.match(mounted.wrapper.text(), /Push para origin concluído/);
-});
-
-test('abre a pull request calculada pela API quando a branch já está publicada', async () => {
-  const originalConfirm = globalThis.confirm;
-  const originalOpen = globalThis.open;
-  globalThis.confirm = () => true;
-  const openedUrls: string[] = [];
-  globalThis.open = ((url: string | URL) => {
-    openedUrls.push(String(url));
-    return null;
-  }) as typeof window.open;
-
-  const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/pull-request-url')) {
+      if (request.path.endsWith('/git/sync/main')) {
         return jsonResponse({
-          pullRequest: {
-            provider: 'github',
-            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
-            branch: 'feature/git-ui',
-            defaultBranch: 'main',
+          result: {
+            branch: 'main',
+            reference: 'upstream/main',
+            strategy: 'merge',
+            changed: true,
+            previousHead: 'a'.repeat(40),
+            currentHead: 'b'.repeat(40),
           },
         });
       }
@@ -846,82 +822,24 @@ test('abre a pull request calculada pela API quando a branch já está publicada
   cleanup = () => {
     mounted.restore();
     globalThis.confirm = originalConfirm;
-    globalThis.open = originalOpen;
   };
 
-  await clickTab(mounted.wrapper, 'Sincronização');
-
-  const prButton = mounted.wrapper
-    .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.classes().includes('git-sync-open-pr-button'));
-  assert.ok(prButton);
-  await prButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/pull-request-url')));
-  assert.ok(!mounted.requests.some((request) => request.path.endsWith('/git/push')));
-  assert.deepEqual(openedUrls, ['https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1']);
-  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
-});
-
-test('publica a branch antes de abrir a pull request quando ainda não há upstream', async () => {
-  const originalConfirm = globalThis.confirm;
-  const originalOpen = globalThis.open;
-  globalThis.confirm = () => true;
-  globalThis.open = (() => null) as typeof window.open;
-
-  const mounted = await mountPanel({
-    overview: (() => {
-      const { upstream: _upstream, ...rest } = baseOverview;
-      return rest;
-    })(),
-    handler: (request) => {
-      if (request.path.endsWith('/git/mutations/confirmations')) {
-        const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'p'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          },
-        }, 201);
-      }
-      if (request.path.endsWith('/git/push')) {
-        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
-      }
-      if (request.path.endsWith('/git/pull-request-url')) {
-        return jsonResponse({
-          pullRequest: {
-            provider: 'github',
-            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
-            branch: 'feature/git-ui',
-            defaultBranch: 'main',
-          },
-        });
-      }
-      return undefined;
-    },
-  });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-    globalThis.open = originalOpen;
-  };
-
-  await clickTab(mounted.wrapper, 'Sincronização');
-
-  const prButton = mounted.wrapper
-    .findAll('.git-sync-sidebar-actions button')
-    .find((button) => button.classes().includes('git-sync-open-pr-button'));
-  assert.ok(prButton);
-  await prButton.trigger('click');
+  await mounted.wrapper.find('.git-sync-button').trigger('click');
   await flushPromises();
   await flushPromises();
 
   const requestPaths = mounted.requests.map((request) => request.path);
-  assert.ok(requestPaths.some((path) => path.endsWith('/git/push')));
-  assert.ok(requestPaths.some((path) => path.endsWith('/git/pull-request-url')));
-  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
+  const confirmationIndex = requestPaths.findIndex((path) =>
+    path.endsWith('/git/sync/main/confirmations'),
+  );
+  const mutationIndex = requestPaths.findIndex((path) =>
+    path.endsWith('/git/sync/main')
+    && !path.endsWith('/confirmations'),
+  );
+  assert.ok(confirmationIndex >= 0);
+  assert.ok(mutationIndex > confirmationIndex);
+  assert.match(
+    mounted.wrapper.text(),
+    /Main atualizada e publicada em origin\/main/,
+  );
 });

@@ -11,6 +11,9 @@ import type {
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
+const MAIN_BRANCH = 'main';
+const MAIN_REFERENCE = 'upstream/main';
+const MAIN_STRATEGY: GitSyncStrategy = 'merge';
 const REMOTE_REFERENCE_PATTERN = /^[A-Za-z0-9._-]+\/(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 const CONFLICT_PATTERN = /conflict|could not apply|automatic merge failed|resolve all conflicts/i;
 const FAST_FORWARD_PATTERN = /not possible to fast-forward|diverging branches|fatal: not possible/i;
@@ -19,6 +22,8 @@ export type GitSyncErrorCode =
   | 'GIT_NOT_REPOSITORY'
   | 'GIT_REFERENCE_INVALID'
   | 'GIT_REFERENCE_NOT_FOUND'
+  | 'GIT_BRANCH_NOT_FOUND'
+  | 'GIT_REMOTE_NOT_CONFIGURED'
   | 'GIT_WORKING_TREE_DIRTY'
   | 'GIT_SYNC_CONFIRMATION_REQUIRED'
   | 'GIT_DETACHED_HEAD'
@@ -119,6 +124,47 @@ async function requireRemoteReference(
   }
 }
 
+async function requireRemote(
+  projectPath: string,
+  remote: 'origin' | 'upstream',
+): Promise<void> {
+  try {
+    await runGit(projectPath, ['remote', 'get-url', remote]);
+  } catch {
+    throw new GitSyncError(
+      'GIT_REMOTE_NOT_CONFIGURED',
+      `O remote "${remote}" não está configurado neste projeto.`,
+    );
+  }
+}
+
+async function requireLocalMain(projectPath: string): Promise<void> {
+  try {
+    await runGit(projectPath, [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      'refs/heads/main',
+    ]);
+  } catch {
+    throw new GitSyncError(
+      'GIT_BRANCH_NOT_FOUND',
+      'A branch local "main" não foi encontrada.',
+    );
+  }
+}
+
+async function optionalReferenceHead(
+  projectPath: string,
+  reference: string,
+): Promise<string | undefined> {
+  try {
+    return await runGit(projectPath, ['rev-parse', reference]);
+  } catch {
+    return undefined;
+  }
+}
+
 async function requireCleanWorkingTree(projectPath: string): Promise<void> {
   const output = await runGit(projectPath, [
     'status',
@@ -194,6 +240,16 @@ export class GitSyncService {
       strategy,
       expiresAt: new Date(expiresAt).toISOString(),
     };
+  }
+
+  public prepareMainConfirmation(
+    projectId: string,
+  ): GitSyncConfirmation {
+    return this.prepareConfirmation(
+      projectId,
+      MAIN_REFERENCE,
+      MAIN_STRATEGY,
+    );
   }
 
   public async compare(
@@ -277,6 +333,88 @@ export class GitSyncService {
       reference,
       strategy,
       changed: currentHead !== previousHead,
+      previousHead,
+      currentHead,
+    };
+  }
+
+  public async synchronizeMain(
+    projectPath: string,
+    projectId: string,
+    confirmationToken?: string,
+  ): Promise<GitSyncResult> {
+    await requireRepository(projectPath);
+    this.consumeConfirmation(
+      projectId,
+      MAIN_REFERENCE,
+      MAIN_STRATEGY,
+      confirmationToken,
+    );
+    await requireCleanWorkingTree(projectPath);
+    await requireRemote(projectPath, 'upstream');
+    await requireRemote(projectPath, 'origin');
+    await requireLocalMain(projectPath);
+
+    const previousHead = await runGit(
+      projectPath,
+      ['rev-parse', MAIN_BRANCH],
+    );
+    const previousOriginHead = await optionalReferenceHead(
+      projectPath,
+      'origin/main',
+    );
+
+    try {
+      await runGit(projectPath, ['fetch', '--prune', 'upstream']);
+    } catch {
+      throw new GitSyncError(
+        'GIT_SYNC_FAILED',
+        'Não foi possível buscar atualizações do repositório principal.',
+      );
+    }
+
+    await requireRemoteReference(projectPath, MAIN_REFERENCE);
+    await runGit(projectPath, ['checkout', MAIN_BRANCH]);
+
+    try {
+      await runGit(projectPath, ['merge', '--no-edit', MAIN_REFERENCE]);
+    } catch (error) {
+      const details = failureText(error);
+      await abortOperation(projectPath, MAIN_STRATEGY);
+
+      if (CONFLICT_PATTERN.test(details)) {
+        throw new GitSyncError(
+          'GIT_SYNC_CONFLICT',
+          'A integração encontrou conflitos e foi abortada automaticamente. A main voltou ao estado anterior.',
+        );
+      }
+      throw new GitSyncError(
+        'GIT_SYNC_FAILED',
+        'Não foi possível integrar upstream/main na main.',
+      );
+    }
+
+    try {
+      await runGit(projectPath, [
+        'push',
+        'origin',
+        `${MAIN_BRANCH}:${MAIN_BRANCH}`,
+      ]);
+    } catch {
+      throw new GitSyncError(
+        'GIT_SYNC_FAILED',
+        'A main foi atualizada localmente, mas não foi possível publicá-la em origin/main.',
+      );
+    }
+
+    const currentHead = await runGit(projectPath, ['rev-parse', 'HEAD']);
+    return {
+      branch: MAIN_BRANCH,
+      reference: MAIN_REFERENCE,
+      strategy: MAIN_STRATEGY,
+      changed:
+        currentHead !== previousHead
+        || previousOriginHead !== currentHead,
       previousHead,
       currentHead,
     };

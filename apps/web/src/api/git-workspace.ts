@@ -173,3 +173,32 @@ export async function integrateProjectGitReference(
   );
   return response.result;
 }
+
+export async function prepareProjectGitMainSync(
+  projectId: string,
+): Promise<GitSyncConfirmation> {
+  const response = await requestJson<{ confirmation: GitSyncConfirmation }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync/main/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    },
+  );
+  return response.confirmation;
+}
+
+export async function synchronizeProjectGitMain(
+  projectId: string,
+  confirmationToken: string,
+): Promise<GitSyncResult> {
+  const response = await requestJson<{ result: GitSyncResult }>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/sync/main`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
+    },
+  );
+  return response.result;
+}
