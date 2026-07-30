@@ -7,8 +7,9 @@ grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrai
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
-`sql-explanation-enhancer.ts`, `log-detail-enhancer.ts` e `git-summary-inline-diff-fix.ts`
-concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
+`sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts` e
+`test-log-tone-enhancer.ts` concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6
+ainda é planejamento.
 
 ## Contexto
 
@@ -447,9 +448,41 @@ quebra puramente mecânica). O arquivo principal ficou só com `scan`/
   linha contra o original sem nenhum erro de transcrição.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Os demais arquivos da camada (`test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts`
-  262, etc.) seguem pendentes — cada um exige o mesmo processo de rastreio manual de
-  dependências.
+**`test-log-tone-enhancer.ts` (286 → 39 linhas) — concluído**, décimo primeiro arquivo da fase.
+Sem `WeakMap` nem variável de módulo compartilhada — cada linha é classificada de forma pura por
+regex, sem estado entre chamadas. Seis símbolos são importados diretamente por consumidores
+externos: `classifyTestLogLine` (teste), `classifyTestLogSemanticTone`/`enhanceTestLogTones`/
+`isTestLogErrorLine` (teste) e `classifyTestLogSemanticTone`/`isTestLogErrorLine`/
+`isTestLogWarningLine` (`composables/project-test-log.ts`, um consumidor interno, não só teste) —
+confirmado via grep antes de começar, todos reexportados pelo arquivo principal. Split em
+`test-log-tone/`: `constants.ts` (as classes de tom e os regex `RSPEC_PROGRESS_PATTERN`/
+`TEST_FILE_PATTERN`), `types.ts` (`TestLogVisualTone`/`TestLogSemanticTone`), `classify.ts`
+(`normalizedLine` — exportado porque `row.ts` também precisa dele —, `hasNonZeroFailureSummary`,
+`isTestLogSuccessLine`/`isTestLogErrorLine`/`isTestLogWarningLine`,
+`classifyTestLogSemanticTone`/`classifyTestLogLine`), `dom-helpers.ts` (`toggleExclusiveClass`),
+`row.ts` (`decorateRspecProgress`/`enhanceRow`) e `shell.ts`
+(`tabButton`/`setTabCount`/`renderSemanticEmptyInspector`/`enhanceShell`). O arquivo principal
+ficou só com `enhanceTestLogTones`/`installTestLogToneEnhancer`, além dos reexports.
+- Segundo erro de transcrição real da fase (o primeiro foi no `git-stash-enhancer.ts`): a função
+  `normalizedLine` original usa `value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')` para remover
+  códigos de escape ANSI — na primeira cópia, o `\u001B` (o caractere ESC que abre a sequência)
+  foi descartado por engano, o que teria feito o regex remover colchetes `[...]` de qualquer
+  linha em vez de só sequências ANSI. Pego por inspeção antes do `diff` de verificação, comparando
+  contra o original linha a linha.
+- Repetição da armadilha de escape Unicode já vista em `log-detail-enhancer.ts`: ao corrigir o
+  `\u001B`, a ferramenta de escrita novamente converteu a sequência de escape em um byte ESC (0x1B)
+  real embutido no arquivo, em vez do texto literal `\u001B` que o TypeScript original interpreta
+  em tempo de execução — corrigido reescrevendo o byte de volta para os seis caracteres literais.
+  Vale registrar como padrão recorrente: qualquer extração manual que precise digitar uma sequência
+  de escape Unicode dentro de uma regex ou template literal deve ter o arquivo resultante
+  verificado com uma contagem de bytes de controle (`\x00`, `\x1b`, etc.) antes do `diff`, não só
+  depois.
+- Fora esses dois pontos, todas as ~16 funções bateram no `diff` linha a linha contra o original.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo os dois arquivos de teste que importam símbolos direto deste módulo) e os 13 testes
+  E2E — todos verdes.
+- Os demais arquivos da camada (`git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
+  cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
