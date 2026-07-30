@@ -5,8 +5,9 @@
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
-`git-summary-history-enhancer.ts` e `git-inline-file-diff-enhancer.ts` concluídos, demais arquivos
-da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
+`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts` e
+`git-summary-global-search-fix.ts` concluídos, demais arquivos da camada "enhancer" pendentes.
+Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -315,8 +316,38 @@ a aba Diff", que não pertence a nenhum dos módulos de renderização).
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
   (incluindo o teste que importa `scanDetails` direto do arquivo) e os 13 testes E2E — todos
   verdes.
-- Os demais arquivos da camada (`log-visual-enhancer.ts` 402, etc.) seguem pendentes — cada um
-  exige o mesmo processo de rastreio manual de dependências.
+**`git-summary-global-search-fix.ts` (646 → 141 linhas) — concluído**, quinto arquivo da fase e o
+maior de todos os enhancers (maior até que `git-history-page-enhancer.ts` original). Mesmo padrão
+de `WeakMap<HTMLElement, SummarySearchState>` (`stateBySection`), mais uma particularidade: uma
+variável de módulo solta `let summaryFetch: typeof window.fetch | undefined` (fora do `WeakMap`,
+usada para permitir injeção de fetch em testes/observabilidade) atribuída dentro de
+`installGitSummaryGlobalSearchFix`. Como bindings `let` importados são somente leitura no módulo
+que importa, essa variável foi movida para `network.ts` junto com `requestJson`, e a atribuição
+direta virou uma função `setSummaryFetcher()` chamada pelo arquivo principal — a única mudança que
+não é uma cópia literal nesta quebra, registrada aqui explicitamente. Split em
+`git-summary-global-search-fix/`: `types.ts`, `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`), `format.ts` (`formatDate`/`relativeDate`/`statusLabel`),
+`url.ts` (`buildSummaryHistorySearchUrl`, testado diretamente por
+`git-summary-global-search-fix.test.ts` — confirmado via grep antes de começar, único símbolo
+testado), `network.ts` (`requestJson`/`setSummaryFetcher`), `state.ts` (`stateBySection`/
+`stateFor`), `snapshot.ts` (`captureOriginal`/`restoreOriginal`, o mecanismo que restaura a lista
+original do resumo quando a busca global é limpa), `pagination.ts` (`setPagination`) e `list.ts`/
+`detail.ts` (mesmo par circular dos arquivos anteriores: `resultRow`/`renderResults`/
+`setSearchLoading`/`closeSearchDetail` em `list.ts` chamando `selectResult` de `detail.ts`, que por
+sua vez chama `renderResults`/`closeSearchDetail` de volta). O arquivo principal ficou com
+`loadSearchPage`/`resetForBranchChange`/`enhanceSection`/`scan`/
+`installGitSummaryGlobalSearchFix`, além de reexportar `buildSummaryHistorySearchUrl`.
+- Mesmo processo de verificação por `diff` linha a linha contra o original antes do typecheck —
+  sem erros de transcrição; os únicos dois diffs não-`OK` foram o `export` esperado e a mudança
+  documentada de `summaryFetch = ...` para `setSummaryFetcher(...)`.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `buildSummaryHistorySearchUrl` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+- Os demais arquivos da camada (`log-visual-enhancer.ts` 402, `git-commit-enhancer.ts` 362,
+  `sql-explanation-enhancer.ts` 326, `log-detail-enhancer.ts` 291,
+  `git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts` 286,
+  `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo processo de
+  rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
