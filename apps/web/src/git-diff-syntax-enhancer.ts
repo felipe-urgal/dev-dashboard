@@ -31,8 +31,9 @@ function looksLikePatch(value: string): boolean {
 }
 
 function enhancePatch(element: HTMLElement): void {
-  const source = element.textContent ?? '';
+  const source = element.dataset.rawPatch ?? element.textContent ?? '';
   if (!source.trim() || !looksLikePatch(source)) return;
+  if (!element.dataset.rawPatch) element.dataset.rawPatch = source;
   if (sourceByPatch.get(element) === source) return;
 
   sourceByPatch.set(element, source);

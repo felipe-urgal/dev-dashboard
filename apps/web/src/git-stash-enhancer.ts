@@ -164,6 +164,11 @@ function statusLabel(status: GitStashFile['status']): string {
 function patchView(patch: string): HTMLElement {
   const pre = document.createElement('pre');
   pre.className = 'git-stash-patch';
+  // Preserva o texto bruto do patch num atributo, imune a mutações visuais de outros
+  // enhancers (destaque de sintaxe, limpeza de cabeçalhos redundantes) que reescrevem o
+  // innerHTML do <pre> depois — git-inline-file-diff-enhancer.ts depende desse texto
+  // intacto para separar o patch combinado por arquivo.
+  pre.dataset.rawPatch = patch;
   if (!patch.trim()) {
     pre.textContent = 'Este stash não possui diff textual para exibir.';
     return pre;

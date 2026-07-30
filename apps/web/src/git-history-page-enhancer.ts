@@ -5,8 +5,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentIcon,
-  ClockIcon,
-  CodeBracketSquareIcon,
   DocumentTextIcon,
   MagnifyingGlassIcon,
   TagIcon,
@@ -97,6 +95,97 @@ interface HistoryPageState {
 }
 
 const stateBySection = new WeakMap<HTMLElement, HistoryPageState>();
+
+const HISTORY_LIST_WIDTH_KEY = 'dev-dashboard-git-history-list-width';
+const DEFAULT_HISTORY_LIST_WIDTH = 30;
+const MIN_HISTORY_LIST_WIDTH = 22;
+const MAX_HISTORY_LIST_WIDTH = 62;
+
+export function clampHistoryListWidth(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_HISTORY_LIST_WIDTH;
+  return Math.min(MAX_HISTORY_LIST_WIDTH, Math.max(MIN_HISTORY_LIST_WIDTH, value));
+}
+
+function readHistoryListWidth(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(HISTORY_LIST_WIDTH_KEY));
+    return stored > 0 ? clampHistoryListWidth(stored) : DEFAULT_HISTORY_LIST_WIDTH;
+  } catch {
+    return DEFAULT_HISTORY_LIST_WIDTH;
+  }
+}
+
+function persistHistoryListWidth(value: number): void {
+  try {
+    window.localStorage.setItem(HISTORY_LIST_WIDTH_KEY, String(value));
+  } catch {
+    // Preferência visual opcional.
+  }
+}
+
+function applyHistoryListWidth(layout: HTMLElement, value: number): number {
+  const width = clampHistoryListWidth(value);
+  layout.style.setProperty('--git-history-list-width', `${width}%`);
+  const separator = layout.querySelector<HTMLElement>('.git-history-page-resizer');
+  separator?.setAttribute('aria-valuenow', String(Math.round(width)));
+  return width;
+}
+
+function buildHistoryResizer(layout: HTMLElement): HTMLButtonElement {
+  const separator = document.createElement('button');
+  separator.type = 'button';
+  separator.className = 'git-history-page-resizer';
+  separator.setAttribute('role', 'separator');
+  separator.setAttribute('aria-label', 'Redimensionar lista de commits e detalhes');
+  separator.setAttribute('aria-orientation', 'vertical');
+  separator.setAttribute('aria-valuemin', String(MIN_HISTORY_LIST_WIDTH));
+  separator.setAttribute('aria-valuemax', String(MAX_HISTORY_LIST_WIDTH));
+
+  const updateFromPointer = (event: PointerEvent): void => {
+    const bounds = layout.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+    applyHistoryListWidth(layout, ((event.clientX - bounds.left) / bounds.width) * 100);
+  };
+
+  const finishResize = (event: PointerEvent): void => {
+    if (separator.hasPointerCapture(event.pointerId)) separator.releasePointerCapture(event.pointerId);
+    separator.classList.remove('is-dragging');
+    document.documentElement.classList.remove('is-resizing-git-history');
+    persistHistoryListWidth(Number.parseFloat(
+      layout.style.getPropertyValue('--git-history-list-width'),
+    ));
+  };
+
+  separator.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || window.matchMedia('(max-width: 820px)').matches) return;
+    event.preventDefault();
+    separator.setPointerCapture(event.pointerId);
+    separator.classList.add('is-dragging');
+    document.documentElement.classList.add('is-resizing-git-history');
+    updateFromPointer(event);
+  });
+  separator.addEventListener('pointermove', (event) => {
+    if (!separator.hasPointerCapture(event.pointerId)) return;
+    updateFromPointer(event);
+  });
+  separator.addEventListener('pointerup', finishResize);
+  separator.addEventListener('pointercancel', finishResize);
+  separator.addEventListener('keydown', (event) => {
+    const current = Number.parseFloat(
+      layout.style.getPropertyValue('--git-history-list-width'),
+    ) || DEFAULT_HISTORY_LIST_WIDTH;
+    let next = current;
+    if (event.key === 'ArrowLeft') next = current - 2;
+    else if (event.key === 'ArrowRight') next = current + 2;
+    else if (event.key === 'Home') next = MIN_HISTORY_LIST_WIDTH;
+    else if (event.key === 'End') next = MAX_HISTORY_LIST_WIDTH;
+    else return;
+    event.preventDefault();
+    persistHistoryListWidth(applyHistoryListWidth(layout, next));
+  });
+
+  return separator;
+}
 
 function projectIdFromLocation(): string {
   const match = window.location.pathname.match(/\/projects\/([^/]+)/);
@@ -485,6 +574,7 @@ function closeDetail(section: HTMLElement): void {
 function detailLoading(section: HTMLElement, commit: GitHistoryCommit): void {
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
   const loading = document.createElement('div');
   loading.className = 'git-history-page-detail-loading';
@@ -502,6 +592,11 @@ function detailLoading(section: HTMLElement, commit: GitHistoryCommit): void {
 function patchView(patch: string): HTMLElement {
   const pre = document.createElement('pre');
   pre.className = 'git-history-page-patch';
+  // Preserva o texto bruto do patch num atributo, imune a mutações visuais de outros
+  // enhancers (destaque de sintaxe, limpeza de cabeçalhos redundantes) que reescrevem o
+  // innerHTML do <pre> depois — git-inline-file-diff-enhancer.ts depende desse texto
+  // intacto para separar o patch combinado por arquivo.
+  pre.dataset.rawPatch = patch;
   if (!patch.trim()) {
     pre.textContent = 'Este commit não possui diff textual para exibir.';
     return pre;
@@ -544,6 +639,7 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
   const state = stateBySection.get(section);
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!state || !host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
 
   const header = document.createElement('header');
@@ -642,13 +738,6 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
   }
   files.append(filesHeader, fileList);
 
-  const diff = document.createElement('details');
-  diff.className = 'git-history-page-diff';
-  const summary = document.createElement('summary');
-  mountIcon(summary, CodeBracketSquareIcon, 'git-history-page-diff-icon');
-  const summaryText = document.createElement('span');
-  summaryText.textContent = 'Ver diff completo';
-  summary.append(summaryText);
   const warnings = document.createElement('div');
   warnings.className = 'git-history-page-warnings';
   if (detail.masked) {
@@ -661,13 +750,23 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
     warning.textContent = 'O diff foi truncado para manter a página responsiva.';
     warnings.append(warning);
   }
-  diff.append(summary, warnings, patchView(detail.patch));
-  host.append(header, metrics, body, files, diff);
+
+  // O patch combinado continua no DOM apenas como fonte para os diffs individuais.
+  // A visualização completa foi removida do Histórico para evitar duplicação e ruído.
+  const patchSource = document.createElement('div');
+  patchSource.className = 'git-history-page-patch-source';
+  patchSource.hidden = true;
+  patchSource.append(patchView(detail.patch));
+
+  host.append(header, metrics, body, files);
+  if (warnings.childElementCount > 0) host.append(warnings);
+  host.append(patchSource);
 }
 
 function renderDetailError(section: HTMLElement, message: string): void {
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
   const error = document.createElement('div');
   error.className = 'git-history-page-detail-error';
@@ -820,32 +919,6 @@ function buildPage(section: HTMLElement, projectId: string): void {
   section.replaceChildren();
   section.classList.add('git-history-page');
 
-  const heading = document.createElement('header');
-  heading.className = 'git-history-page-heading';
-  const headingCopy = document.createElement('div');
-  mountIcon(headingCopy, ClockIcon, 'git-history-page-heading-icon');
-  const titleCopy = document.createElement('div');
-  const eyebrow = document.createElement('span');
-  eyebrow.textContent = 'Histórico Git';
-  const title = document.createElement('h2');
-  title.textContent = 'Linha do tempo do projeto';
-  const description = document.createElement('p');
-  description.textContent = 'Navegue por qualquer branch sem trocar o working tree e inspecione cada alteração.';
-  titleCopy.append(eyebrow, title, description);
-  headingCopy.append(titleCopy);
-  const refresh = document.createElement('button');
-  refresh.type = 'button';
-  refresh.className = 'secondary-button git-history-page-refresh';
-  mountIcon(refresh, ArrowPathIcon, 'git-history-page-refresh-icon');
-  const refreshText = document.createElement('span');
-  refreshText.textContent = 'Atualizar';
-  refresh.append(refreshText);
-  refresh.addEventListener('click', () => {
-    const state = stateBySection.get(section);
-    if (state) void loadHistory(section, state.page, false);
-  });
-  heading.append(headingCopy, refresh);
-
   const metrics = document.createElement('div');
   metrics.className = 'git-history-page-metrics';
   metrics.append(
@@ -920,7 +993,18 @@ function buildPage(section: HTMLElement, projectId: string): void {
     state.kind = kind.value as HistoryCommitKind;
     renderList(section);
   });
-  toolbar.append(referenceLabel, searchLabel, authorLabel, kind);
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.className = 'secondary-button git-history-page-refresh';
+  mountIcon(refresh, ArrowPathIcon, 'git-history-page-refresh-icon');
+  const refreshText = document.createElement('span');
+  refreshText.textContent = 'Atualizar';
+  refresh.append(refreshText);
+  refresh.addEventListener('click', () => {
+    const state = stateBySection.get(section);
+    if (state) void loadHistory(section, state.page, false);
+  });
+  toolbar.append(referenceLabel, searchLabel, authorLabel, kind, refresh);
 
   const layout = document.createElement('section');
   layout.className = 'git-history-page-layout';
@@ -964,8 +1048,9 @@ function buildPage(section: HTMLElement, projectId: string): void {
   const detail = document.createElement('aside');
   detail.className = 'git-history-page-detail';
   detail.setAttribute('aria-live', 'polite');
-  layout.append(history, detail);
-  section.append(heading, metrics, toolbar, layout);
+  applyHistoryListWidth(layout, readHistoryListWidth());
+  layout.append(history, buildHistoryResizer(layout), detail);
+  section.append(toolbar, metrics, layout);
 
   const state: HistoryPageState = {
     projectId,

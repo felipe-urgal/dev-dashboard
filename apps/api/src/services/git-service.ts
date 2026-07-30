@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { unlink } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import type { GitCommit, GitCommitResult, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, GitMutationConfirmation, GitMutationOperation, GitStashEntry, ProjectGitOverview } from '@dev-dashboard/contracts';
@@ -34,6 +35,10 @@ export type GitMutationErrorCode =
   | 'GIT_COMMIT_MESSAGE_INVALID'
   | 'GIT_NOTHING_TO_COMMIT'
   | 'GIT_COMMIT_FAILED'
+  | 'GIT_FILE_PATH_INVALID'
+  | 'GIT_FILE_NOT_FOUND'
+  | 'GIT_FILE_OPERATION_NOT_ALLOWED'
+  | 'GIT_FILE_MUTATION_FAILED'
   | 'GIT_NOTHING_TO_STASH'
   | 'GIT_STASH_PUSH_FAILED'
   | 'GIT_STASH_EMPTY'
@@ -195,6 +200,40 @@ function validateBranchName(name: string): void {
   }
 }
 
+function validateMutationPath(filePath: string): void {
+  if (
+    !filePath
+    || filePath.length > 4096
+    || filePath.includes('\0')
+    || path.isAbsolute(filePath)
+    || filePath.split(/[\\/]/).includes('..')
+  ) {
+    throw new GitMutationError(
+      'GIT_FILE_PATH_INVALID',
+      'Caminho de arquivo inválido.',
+    );
+  }
+}
+
+function ensureMutationPathInsideProject(
+  projectPath: string,
+  requestedPath: string,
+): string {
+  validateMutationPath(requestedPath);
+  try {
+    const relative = ensurePathInsideProject(projectPath, requestedPath);
+    if (relative === '.') {
+      throw new Error('O caminho precisa apontar para um arquivo.');
+    }
+    return relative;
+  } catch {
+    throw new GitMutationError(
+      'GIT_FILE_PATH_INVALID',
+      'O arquivo precisa estar dentro do projeto.',
+    );
+  }
+}
+
 const REMOTE_UNAVAILABLE_PATTERN = /could not resolve host|connection (refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
 
 async function requireOriginRemote(projectPath: string): Promise<void> {
@@ -312,7 +351,11 @@ export class GitService {
   }
 
   public prepareMutationConfirmation(projectId: string, operation: GitMutationOperation, target: string): GitMutationConfirmation {
-    validateBranchName(target);
+    if (operation === 'discard-file' || operation === 'remove-untracked-file') {
+      validateMutationPath(target);
+    } else {
+      validateBranchName(target);
+    }
     this.pruneExpiredMutations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
@@ -429,6 +472,146 @@ export class GitService {
     return { branch };
   }
 
+  public async stageFile(
+    projectPath: string,
+    requestedPath: string,
+  ): Promise<{ path: string }> {
+    await requireRepository(projectPath);
+    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
+    const status = parseStatus(await runGit(projectPath, [
+      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
+    ]));
+    const file = status.files.find((candidate) => candidate.path === safePath);
+    if (!file) {
+      throw new GitMutationError(
+        'GIT_FILE_NOT_FOUND',
+        'O arquivo não possui alterações para adicionar ao staged.',
+      );
+    }
+    try {
+      await runGit(projectPath, ['add', '--', safePath]);
+    } catch (error) {
+      throw new GitMutationError(
+        'GIT_FILE_MUTATION_FAILED',
+        error instanceof Error ? error.message : 'Falha ao adicionar o arquivo ao staged.',
+      );
+    }
+    return { path: safePath };
+  }
+
+  public async unstageFile(
+    projectPath: string,
+    requestedPath: string,
+  ): Promise<{ path: string }> {
+    await requireRepository(projectPath);
+    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
+    const status = parseStatus(await runGit(projectPath, [
+      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
+    ]));
+    const file = status.files.find((candidate) => candidate.path === safePath);
+    if (!file || file.indexStatus === '.' || file.indexStatus === '?') {
+      throw new GitMutationError(
+        'GIT_FILE_OPERATION_NOT_ALLOWED',
+        'O arquivo não está staged.',
+      );
+    }
+    try {
+      await runGit(projectPath, ['restore', '--staged', '--', safePath]);
+    } catch {
+      try {
+        await runGit(projectPath, ['reset', '--', safePath]);
+      } catch (error) {
+        throw new GitMutationError(
+          'GIT_FILE_MUTATION_FAILED',
+          error instanceof Error ? error.message : 'Falha ao remover o arquivo do staged.',
+        );
+      }
+    }
+    return { path: safePath };
+  }
+
+  public async discardFile(
+    projectPath: string,
+    projectId: string,
+    requestedPath: string,
+    confirmationToken?: string,
+  ): Promise<{ path: string }> {
+    await requireRepository(projectPath);
+    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
+    const status = parseStatus(await runGit(projectPath, [
+      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
+    ]));
+    const file = status.files.find((candidate) => candidate.path === safePath);
+    if (!file) {
+      throw new GitMutationError(
+        'GIT_FILE_NOT_FOUND',
+        'O arquivo modificado não foi encontrado.',
+      );
+    }
+    if (file.status === 'untracked' || file.worktreeStatus === '.') {
+      throw new GitMutationError(
+        'GIT_FILE_OPERATION_NOT_ALLOWED',
+        'Somente alterações rastreadas fora do staged podem ser desfeitas.',
+      );
+    }
+    this.consumeMutationConfirmation(
+      projectId,
+      'discard-file',
+      safePath,
+      confirmationToken,
+    );
+    try {
+      await runGit(projectPath, ['restore', '--worktree', '--', safePath]);
+    } catch (error) {
+      throw new GitMutationError(
+        'GIT_FILE_MUTATION_FAILED',
+        error instanceof Error ? error.message : 'Falha ao desfazer as alterações do arquivo.',
+      );
+    }
+    return { path: safePath };
+  }
+
+  public async removeUntrackedFile(
+    projectPath: string,
+    projectId: string,
+    requestedPath: string,
+    confirmationToken?: string,
+  ): Promise<{ path: string }> {
+    await requireRepository(projectPath);
+    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
+    const status = parseStatus(await runGit(projectPath, [
+      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
+    ]));
+    const file = status.files.find((candidate) => candidate.path === safePath);
+    if (!file) {
+      throw new GitMutationError(
+        'GIT_FILE_NOT_FOUND',
+        'O arquivo novo não foi encontrado.',
+      );
+    }
+    if (file.status !== 'untracked') {
+      throw new GitMutationError(
+        'GIT_FILE_OPERATION_NOT_ALLOWED',
+        'Somente arquivos não rastreados podem ser removidos por esta ação.',
+      );
+    }
+    this.consumeMutationConfirmation(
+      projectId,
+      'remove-untracked-file',
+      safePath,
+      confirmationToken,
+    );
+    try {
+      await unlink(path.join(projectPath, safePath));
+    } catch (error) {
+      throw new GitMutationError(
+        'GIT_FILE_MUTATION_FAILED',
+        error instanceof Error ? error.message : 'Falha ao remover o arquivo novo.',
+      );
+    }
+    return { path: safePath };
+  }
+
   public async commit(projectPath: string, projectId: string, message: string, includeAllChanges: boolean, confirmationToken?: string): Promise<GitCommitResult> {
     validateCommitMessage(message);
     await requireRepository(projectPath);
@@ -462,7 +645,10 @@ export class GitService {
       throw new GitMutationError('GIT_NOTHING_TO_COMMIT', 'Não há alterações na árvore de trabalho para salvar.');
     }
     const prefix = status.detached ? '' : resolveSavePrefix(status.branch);
-    const subject = prefix ? `${prefix}: ${message}` : message;
+    const hasConventionalPrefix = /^(?:feat|fix|refactor|chore|docs|test)(?:\([^)]*\))?:\s/.test(message);
+    const subject = prefix && !hasConventionalPrefix
+      ? `${prefix}: ${message}`
+      : message;
     validateCommitMessage(subject);
     await runGit(projectPath, ['add', '--all']);
     const staged = await runGit(projectPath, ['diff', '--cached', '--name-only', '-z']);

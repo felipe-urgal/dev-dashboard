@@ -502,6 +502,68 @@ export async function fetchProjectGitFileDiff(projectId: string, filePath: strin
   return response.file;
 }
 
+interface ProjectGitFileMutationResponse { file: { path: string } }
+
+async function mutateProjectGitFile(
+  projectId: string,
+  action: 'stage' | 'unstage' | 'discard' | 'remove',
+  filePath: string,
+  confirmationToken?: string,
+): Promise<string> {
+  const response = await requestJson<ProjectGitFileMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/files/${action}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: filePath,
+        ...(confirmationToken ? { confirmationToken } : {}),
+      }),
+    },
+  );
+  return response.file.path;
+}
+
+export function stageProjectGitFile(
+  projectId: string,
+  filePath: string,
+): Promise<string> {
+  return mutateProjectGitFile(projectId, 'stage', filePath);
+}
+
+export function unstageProjectGitFile(
+  projectId: string,
+  filePath: string,
+): Promise<string> {
+  return mutateProjectGitFile(projectId, 'unstage', filePath);
+}
+
+export function discardProjectGitFile(
+  projectId: string,
+  filePath: string,
+  confirmationToken: string,
+): Promise<string> {
+  return mutateProjectGitFile(
+    projectId,
+    'discard',
+    filePath,
+    confirmationToken,
+  );
+}
+
+export function removeProjectGitUntrackedFile(
+  projectId: string,
+  filePath: string,
+  confirmationToken: string,
+): Promise<string> {
+  return mutateProjectGitFile(
+    projectId,
+    'remove',
+    filePath,
+    confirmationToken,
+  );
+}
+
 interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
 interface GitBranchMutationResponse { branch: { branch: string } }
 

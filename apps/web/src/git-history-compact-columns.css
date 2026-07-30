@@ -8,7 +8,10 @@
   }
 
   .git-history-page-layout.is-inspecting {
-    grid-template-columns: minmax(280px, .58fr) minmax(0, 1.42fr);
+    grid-template-columns:
+      minmax(280px, var(--git-history-list-width, 30%))
+      10px
+      minmax(0, 1fr);
   }
 
   .git-summary-history-shell.is-inspecting .git-summary-history-title h2,
@@ -30,6 +33,9 @@
   }
 
   .git-history-page-layout.is-inspecting {
-    grid-template-columns: minmax(265px, .66fr) minmax(0, 1.34fr);
+    grid-template-columns:
+      minmax(265px, var(--git-history-list-width, 32%))
+      10px
+      minmax(0, 1fr);
   }
 }

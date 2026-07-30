@@ -135,11 +135,11 @@ todos os projetos.
    PID dono da porta sem validar identidade de processo, o que conflita com
    `docs/architecture/security.md`), `git-pr` (compor e abrir a URL de
    criação de PR/MR a partir do remote `origin` já configurado, sem chamar
-   API de provedor nem exigir token de terceiros — ver `docs/tasks/NEXT.md`),
-   snapshot/restore de banco reconhecido, e abrir editor/terminal via
-   adaptadores locais conhecidos. Integrações IA (`dev-claude`, `dev-ai-*`)
-   permanecem opcionais e isoladas em um painel próprio, sem virar
-   dependência do fluxo principal.
+   API de provedor nem exigir token de terceiros — concluído, task 043),
+   snapshot/restore de banco reconhecido (ver `docs/tasks/NEXT.md`), e abrir
+   editor/terminal via adaptadores locais conhecidos. Integrações IA
+   (`dev-claude`, `dev-ai-*`) permanecem opcionais e isoladas em um painel
+   próprio, sem virar dependência do fluxo principal.
 
 Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
 um terminal genérico disfarçado.

@@ -336,8 +336,8 @@ export const projectRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop'] },
-      target: { type: 'string', minLength: 1, maxLength: 200 },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop', 'discard-file', 'remove-untracked-file'] },
+      target: { type: 'string', minLength: 1, maxLength: 4096 },
     },
   } as const;
 
@@ -393,6 +393,10 @@ export const projectRoutes: FastifyPluginAsync<
         GIT_COMMIT_MESSAGE_INVALID: 400,
         GIT_NOTHING_TO_COMMIT: 409,
         GIT_COMMIT_FAILED: 500,
+        GIT_FILE_PATH_INVALID: 400,
+        GIT_FILE_NOT_FOUND: 404,
+        GIT_FILE_OPERATION_NOT_ALLOWED: 409,
+        GIT_FILE_MUTATION_FAILED: 500,
         GIT_NOTHING_TO_STASH: 409,
         GIT_STASH_PUSH_FAILED: 500,
         GIT_STASH_EMPTY: 404,
@@ -407,7 +411,7 @@ export const projectRoutes: FastifyPluginAsync<
     });
   }
 
-  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop'; target: string } }>(
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file'; target: string } }>(
     '/projects/:projectId/git/mutations/confirmations',
     {
       schema: {
