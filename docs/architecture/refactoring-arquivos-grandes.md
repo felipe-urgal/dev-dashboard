@@ -8,9 +8,10 @@ Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhance
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
 `sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
-`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`
-e `git-diff-compact-enhancer.ts` concluídos — todos os enhancers >250 linhas do levantamento
-original foram quebrados, restam só arquivos <200 linhas. Fase 6 ainda é planejamento.
+`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`,
+`git-diff-compact-enhancer.ts` e `git-branch-delete-enhancer.ts` concluídos — todos os enhancers
+>250 linhas do levantamento original foram quebrados, restam só arquivos <160 linhas. Fase 6 ainda
+é planejamento.
 
 ## Contexto
 
@@ -535,10 +536,25 @@ Arquivo principal com `enhancePage`/`scan`/`scheduleScan`/`installGitDiffCompact
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
   (incluindo o teste que importa `splitLeadingPatchMetadata` direto do arquivo) e os 13 testes
   E2E — todos verdes.
-- Os enhancers que restam na camada (`git-branch-delete-enhancer.ts` 193,
-  `project-header-server-enhancer.ts` 155, `git-diff-syntax-enhancer.ts` 110, etc.) já estão
-  abaixo de ~200 linhas — avaliar com o usuário se vale continuar a fase para esses arquivos
-  menores ou encerrar a Fase 5 e seguir para a Fase 6 (`process-manager.ts`).
+**`git-branch-delete-enhancer.ts` (193 → 28 linhas) — concluído**, décimo quinto arquivo da fase.
+Sem `WeakMap`; a única variável de módulo (`scheduled`) fica no arquivo principal, mesmo padrão do
+arquivo anterior. Nenhum teste importa símbolos deste arquivo diretamente (confirmado via grep).
+Split em `git-branch-delete/`: `types.ts` (`ConfirmationResponse`/`DeleteResponse`),
+`dom-helpers.ts` (`projectIdFromLocation`/`mountIcon`), `network.ts` (`requestJson`),
+`panel-info.ts` (`selectedBranch`/`isLocalBranch`/`isCurrentBranch`/`protectionReason`/
+`refreshBranches`, a leitura de estado do painel de branch e a proteção contra remover a branch
+atual ou `main`/`master`) e `enhance.ts` (`enhancePanel`, mantida como um único bloco porque o
+handler de clique assíncrono compartilha `button`/`status`/`branch` por closure, mesmo critério
+usado nos dois arquivos `*-inline-diff-fix` anteriores). Arquivo principal com `scan`/
+`installGitBranchDeleteEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Os enhancers que restam na camada (`project-header-server-enhancer.ts` 155,
+  `git-diff-syntax-enhancer.ts` 110, etc.) já estão abaixo de ~160 linhas — avaliar com o usuário
+  se vale continuar a fase para esses arquivos menores ou encerrar a Fase 5 e seguir para a Fase 6
+  (`process-manager.ts`).
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
