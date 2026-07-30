@@ -510,8 +510,11 @@ test('push publica a branch no origin após confirmação', async () => {
     globalThis.confirm = originalConfirm;
   };
 
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+
   const pushButton = mounted.wrapper
-    .findAll('.git-quick-actions button')
+    .findAll('.git-sync-sidebar-actions button')
     .find((button) => button.text().includes('Push origin'));
   assert.ok(pushButton);
   await pushButton.trigger('click');
@@ -553,8 +556,11 @@ test('abre a pull request calculada pela API quando a branch já está publicada
     globalThis.open = originalOpen;
   };
 
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+
   const prButton = mounted.wrapper
-    .findAll('.git-quick-actions button')
+    .findAll('.git-sync-sidebar-actions button')
     .find((button) => button.text().includes('Abrir pull request'));
   assert.ok(prButton);
   await prButton.trigger('click');
@@ -612,8 +618,11 @@ test('publica a branch antes de abrir a pull request quando ainda não há upstr
     globalThis.open = originalOpen;
   };
 
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+
   const prButton = mounted.wrapper
-    .findAll('.git-quick-actions button')
+    .findAll('.git-sync-sidebar-actions button')
     .find((button) => button.text().includes('Abrir pull request'));
   assert.ok(prButton);
   await prButton.trigger('click');
