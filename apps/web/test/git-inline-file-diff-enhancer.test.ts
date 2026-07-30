@@ -104,3 +104,17 @@ test('recorre ao textContent quando data-raw-patch não está presente', () => {
   assert.doesNotMatch(viewer!.textContent ?? '', /não está disponível/);
   assert.match(viewer!.textContent ?? '', /Scope/);
 });
+
+
+test('substitui o patch bruto do diff completo pela visualização estruturada', () => {
+  const { host, patch } = buildHistoryDetail();
+  cleanup = () => host.remove();
+
+  scanDetails(host);
+
+  assert.equal(patch.hidden, true);
+  const fullDiff = host.querySelector('.git-inline-full-diff');
+  assert.ok(fullDiff);
+  assert.match(fullDiff!.textContent ?? '', /Scope/);
+  assert.ok(fullDiff!.querySelector('.git-inline-diff-line-number'));
+});
