@@ -42,11 +42,15 @@ test('mantém risco, confirmação e acompanhamento da execução no redesenho',
     sourceFile('components/ProjectScriptsPanel.vue'),
     'utf8',
   );
+  const executionComposable = await readFile(
+    sourceFile('composables/useScriptExecution.ts'),
+    'utf8',
+  );
 
-  assert.match(component, /item\.risk !== 'read-only'/);
-  assert.match(component, /prepareScriptExecution/);
-  assert.match(component, /followScriptExecutionEvents/);
-  assert.match(component, /cancelScriptExecution/);
+  assert.match(executionComposable, /item\.risk !== 'read-only'/);
+  assert.match(executionComposable, /prepareScriptExecution/);
+  assert.match(executionComposable, /followScriptExecutionEvents/);
+  assert.match(executionComposable, /cancelScriptExecution/);
   assert.match(component, /maskedLogEntries/);
   assert.match(component, /class="script-card"/);
 });

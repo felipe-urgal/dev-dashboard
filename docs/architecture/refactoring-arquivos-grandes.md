@@ -150,10 +150,23 @@ mesmo, na seção da fase correspondente.
     - Um teste (`database-layout-polish.test.ts`) verificava `fetchProjectRailsMigrationDetail`/
       `fetchProjectRailsModels` diretamente no texto do componente — ajustado para verificar nos
       composables correspondentes, mesmo padrão já usado nos ajustes de teste das fases 1 e 3.
+  - `ProjectScriptsPanel.vue` (1004 → 747 linhas): dividido em `useScriptCatalog.ts` (102 linhas:
+    catálogo, filtros origem/risco/busca com debounce, paginação) e `useScriptExecution.ts`
+    (265 linhas: execução, acompanhamento via SSE com reconexão e backoff, histórico, cancelamento).
+    Diferente dos demais, aqui os dois composables **compartilham duas referências passadas por
+    parâmetro** em vez de serem totalmente independentes: `activeSection` (troca de aba disparada
+    tanto por `selectScript` quanto por `run`/`selectHistory`) e `errorMessage` (um único banner de
+    erro no template, escrito tanto por falhas de catálogo quanto de execução — motivo pelo qual não
+    virou um `ref` interno de cada composable, e sim um parâmetro compartilhado, do mesmo jeito que
+    `hasManagedProcess` foi compartilhado entre os dois composables do `ProjectServerPanel`).
+    `selectedActionId` também é passado do composable de catálogo para o de execução pela mesma
+    razão (`run()` escreve nele).
+    - Um teste (`scripts-explorer-redesign.test.ts`) verificava `prepareScriptExecution`/
+      `followScriptExecutionEvents`/`cancelScriptExecution`/a checagem de risco diretamente no texto
+      do componente — ajustado para verificar em `useScriptExecution.ts`.
   - Componentes restantes (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
-    `ProjectGitBranchesPage.vue`, `ProjectScriptsPanel.vue`): pendentes. Os três primeiros tiveram
-    reforma funcional grande no merge com a `main` (ver abaixo) — vale reler o estado atual antes de
-    tentar extrair composables ali.
+    `ProjectGitBranchesPage.vue`): pendentes. Tiveram reforma funcional grande no merge com a `main`
+    (ver abaixo) — vale reler o estado atual antes de tentar extrair composables ali.
 
 **Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
 com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo

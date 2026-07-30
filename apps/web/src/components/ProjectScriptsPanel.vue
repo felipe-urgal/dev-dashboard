@@ -26,27 +26,15 @@ import {
 import type {
   Project,
   ProjectScript,
-  ProjectScriptCatalog,
   ProjectScriptOrigin,
   ProjectScriptRisk,
   ScriptExecution,
-  ScriptExecutionHistory,
   ScriptExecutionStatus,
 } from '@dev-dashboard/contracts';
 
-import {
-  cancelScriptExecution,
-  fetchLatestScriptExecution,
-  fetchProjectScripts,
-  fetchScriptExecution,
-  fetchScriptExecutionHistory,
-  fetchScriptExecutionLog,
-  followScriptExecutionEvents,
-  prepareScriptExecution,
-  startScriptExecution,
-} from '../api';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { noticeCenterStore } from '../stores/notice-center';
+import { useScriptCatalog } from '../composables/useScriptCatalog';
+import { useScriptExecution } from '../composables/useScriptExecution';
 import { riskToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 
@@ -55,32 +43,47 @@ const props = defineProps<{ project: Project }>();
 type ScriptSection = 'overview' | 'catalog' | 'executions';
 type ScriptCategory = 'all' | 'build' | 'development' | 'tests' | 'maintenance' | 'deploy' | 'utilities';
 
-const catalog = ref<ProjectScriptCatalog | null>(null);
-const loading = ref(false);
-const errorMessage = ref('');
-const search = ref('');
-const origin = ref<ProjectScriptOrigin | ''>('');
-const risk = ref<ProjectScriptRisk | ''>('');
-const category = ref<ScriptCategory>('all');
-const page = ref(1);
-
-const execution = ref<ScriptExecution | null>(null);
-const history = ref<ScriptExecutionHistory | null>(null);
-const executionLog = ref('');
-const maskedLogEntries = ref(0);
-const startingActionId = ref<string | null>(null);
-const selectedActionId = ref('');
 const activeSection = ref<ScriptSection>('overview');
+const category = ref<ScriptCategory>('all');
 const copiedActionId = ref('');
+const errorMessage = ref('');
+
+const {
+  catalog,
+  loading,
+  search,
+  origin,
+  risk,
+  page,
+  selectedActionId,
+  selectScript,
+  load,
+} = useScriptCatalog(() => props.project, activeSection, 'catalog', errorMessage);
+
+const {
+  execution,
+  history,
+  executionLog,
+  maskedLogEntries,
+  startingActionId,
+  run,
+  loadHistory,
+  selectHistory,
+  cancel,
+} = useScriptExecution(() => props.project, activeSection, selectedActionId, 'executions', errorMessage);
 
 useAutoDismiss(errorMessage, '');
 
-let generation = 0;
-let executionGeneration = 0;
-let hasObservedRunning = false;
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let copiedTimer: ReturnType<typeof setTimeout> | null = null;
-let closeExecutionEvents: (() => void) | null = null;
+
+watch([origin, risk], () => {
+  category.value = 'all';
+});
+
+watch(() => props.project.id, () => {
+  activeSection.value = 'overview';
+  category.value = 'all';
+});
 
 const originLabels: Record<ProjectScriptOrigin, string> = {
   'package-script': 'package.json',
@@ -253,11 +256,6 @@ function selectSection(section: ScriptSection): void {
   activeSection.value = section;
 }
 
-function selectScript(item: ProjectScript): void {
-  selectedActionId.value = item.id;
-  activeSection.value = 'catalog';
-}
-
 async function copyCommand(item: ProjectScript): Promise<void> {
   try {
     await navigator.clipboard.writeText(item.command);
@@ -271,262 +269,7 @@ async function copyCommand(item: ProjectScript): Promise<void> {
   }
 }
 
-async function load(): Promise<void> {
-  const current = generation;
-  const projectId = props.project.id;
-  loading.value = true;
-  errorMessage.value = '';
-
-  const query = new URLSearchParams({
-    page: String(page.value),
-    pageSize: '12',
-  });
-  if (search.value.trim()) query.set('search', search.value.trim());
-  if (origin.value) query.set('origin', origin.value);
-  if (risk.value) query.set('risk', risk.value);
-
-  try {
-    const result = await fetchProjectScripts(projectId, query);
-    if (current !== generation || projectId !== props.project.id) return;
-    catalog.value = result;
-    if (!result.items.some((item) => item.id === selectedActionId.value)) {
-      selectedActionId.value = result.items[0]?.id ?? '';
-    }
-  } catch (error) {
-    if (current === generation && projectId === props.project.id) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o catálogo.';
-    }
-  } finally {
-    if (current === generation) loading.value = false;
-  }
-}
-
-async function run(item: ProjectScript): Promise<void> {
-  if (startingActionId.value || execution.value?.status === 'running') return;
-  const projectId = props.project.id;
-  const current = generation;
-
-  if (
-    item.risk !== 'read-only'
-    && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente.`)
-  ) return;
-
-  selectedActionId.value = item.id;
-  startingActionId.value = item.id;
-  const currentExecution = ++executionGeneration;
-  errorMessage.value = '';
-
-  try {
-    const confirmation = item.risk === 'read-only'
-      ? undefined
-      : await prepareScriptExecution(projectId, item.id);
-    const started = await startScriptExecution(projectId, item.id, confirmation?.token);
-    execution.value = started;
-    activeSection.value = 'executions';
-    startingActionId.value = null;
-    await followExecution(started, projectId, current, currentExecution);
-    await loadHistory(projectId, current);
-  } catch (error) {
-    if (current === generation && currentExecution === executionGeneration) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível executar a ação.';
-    }
-  } finally {
-    if (current === generation && currentExecution === executionGeneration) {
-      startingActionId.value = null;
-    }
-  }
-}
-
-async function followExecution(
-  initial: ScriptExecution,
-  projectId: string,
-  current: number,
-  currentExecutionGeneration: number,
-): Promise<void> {
-  let currentExecution = initial;
-  let reconnectDelay = 500;
-  closeExecutionEvents?.();
-  closeExecutionEvents = null;
-
-  while (
-    current === generation
-    && currentExecutionGeneration === executionGeneration
-    && projectId === props.project.id
-  ) {
-    const [recoveredExecution, recoveredLog] = await Promise.all([
-      fetchScriptExecution(projectId, initial.id),
-      fetchScriptExecutionLog(projectId, initial.id),
-    ]);
-    if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
-
-    currentExecution = recoveredExecution;
-    execution.value = recoveredExecution;
-    executionLog.value = recoveredLog.content;
-    maskedLogEntries.value = recoveredLog.redactionCount;
-    if (errorMessage.value === realtimeRecoveryMessage) errorMessage.value = '';
-    if (currentExecution.status !== 'running') return;
-
-    const stream = followScriptExecutionEvents(projectId, initial.id, (event) => {
-      if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
-      if (event.type === 'state') {
-        currentExecution = event.execution;
-        execution.value = event.execution;
-      } else {
-        executionLog.value = event.log.content;
-        maskedLogEntries.value = event.log.redactionCount;
-      }
-    });
-    closeExecutionEvents = stream.close;
-
-    try {
-      await stream.done;
-    } catch {
-      if (current === generation && currentExecutionGeneration === executionGeneration) {
-        errorMessage.value = realtimeRecoveryMessage;
-      }
-    }
-
-    if (closeExecutionEvents === stream.close) closeExecutionEvents = null;
-    if (currentExecution.status !== 'running') {
-      const finalLog = await fetchScriptExecutionLog(projectId, initial.id);
-      if (current === generation && currentExecutionGeneration === executionGeneration) {
-        executionLog.value = finalLog.content;
-        maskedLogEntries.value = finalLog.redactionCount;
-      }
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
-    reconnectDelay = Math.min(reconnectDelay * 2, 5_000);
-  }
-}
-
-async function restoreExecution(projectId: string, current: number): Promise<void> {
-  const currentExecution = ++executionGeneration;
-  try {
-    const latest = await fetchLatestScriptExecution(projectId);
-    if (
-      current !== generation
-      || currentExecution !== executionGeneration
-      || projectId !== props.project.id
-      || !latest
-    ) return;
-    execution.value = latest;
-    await followExecution(latest, projectId, current, currentExecution);
-  } catch (error) {
-    if (current === generation && currentExecution === executionGeneration) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível recuperar a última execução.';
-    }
-  }
-}
-
-async function loadHistory(
-  projectId = props.project.id,
-  current = generation,
-): Promise<void> {
-  try {
-    const result = await fetchScriptExecutionHistory(projectId);
-    if (current === generation && projectId === props.project.id) history.value = result;
-  } catch (error) {
-    if (current === generation) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o histórico.';
-    }
-  }
-}
-
-async function selectHistory(item: ScriptExecution): Promise<void> {
-  const currentExecution = ++executionGeneration;
-  const current = generation;
-  const projectId = props.project.id;
-  execution.value = item;
-  executionLog.value = '';
-  maskedLogEntries.value = 0;
-  activeSection.value = 'executions';
-  await followExecution(item, projectId, current, currentExecution);
-}
-
-async function cancel(): Promise<void> {
-  if (!execution.value) return;
-  try {
-    execution.value = await cancelScriptExecution(props.project.id, execution.value.id);
-  } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível cancelar.';
-  }
-}
-
-watch(() => props.project.id, () => {
-  closeExecutionEvents?.();
-  closeExecutionEvents = null;
-  generation += 1;
-  executionGeneration += 1;
-  const current = generation;
-  const projectId = props.project.id;
-  catalog.value = null;
-  history.value = null;
-  execution.value = null;
-  executionLog.value = '';
-  maskedLogEntries.value = 0;
-  startingActionId.value = null;
-  selectedActionId.value = '';
-  activeSection.value = 'overview';
-  category.value = 'all';
-  page.value = 1;
-  hasObservedRunning = false;
-  void load();
-  void loadHistory(projectId, current);
-  void restoreExecution(projectId, current);
-}, { immediate: true });
-
-watch([origin, risk], () => {
-  page.value = 1;
-  category.value = 'all';
-  void load();
-});
-
-watch(search, () => {
-  page.value = 1;
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => void load(), 250);
-});
-
-watch(execution, (exec) => {
-  if (!exec) return;
-  if (exec.status === 'running') {
-    hasObservedRunning = true;
-    return;
-  }
-  if (!hasObservedRunning) return;
-
-  noticeCenterStore.publishTerminalNotice({
-    origin: 'script',
-    dedupeKey: `script:${exec.id}:${exec.status}`,
-    outcome: exec.status,
-    projectId: props.project.id,
-    projectName: props.project.name,
-    label: exec.actionName,
-    routeTo: {
-      name: 'project-scripts',
-      params: { projectId: props.project.id },
-    },
-  });
-});
-
 onUnmounted(() => {
-  closeExecutionEvents?.();
-  closeExecutionEvents = null;
-  generation += 1;
-  executionGeneration += 1;
-  if (searchTimer) clearTimeout(searchTimer);
   if (copiedTimer) clearTimeout(copiedTimer);
 });
 </script>
