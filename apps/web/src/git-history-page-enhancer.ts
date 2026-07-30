@@ -575,6 +575,7 @@ function closeDetail(section: HTMLElement): void {
 function detailLoading(section: HTMLElement, commit: GitHistoryCommit): void {
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
   const loading = document.createElement('div');
   loading.className = 'git-history-page-detail-loading';
@@ -639,6 +640,7 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
   const state = stateBySection.get(section);
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!state || !host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
 
   const header = document.createElement('header');
@@ -763,6 +765,7 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
 function renderDetailError(section: HTMLElement, message: string): void {
   const host = section.querySelector<HTMLElement>('.git-history-page-detail');
   if (!host) return;
+  host.scrollTop = 0;
   host.replaceChildren();
   const error = document.createElement('div');
   error.className = 'git-history-page-detail-error';
