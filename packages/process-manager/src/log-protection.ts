@@ -6,11 +6,27 @@ export interface MaskedLogContent {
   redactionCount: number;
 }
 
+// O nome da chave é capturado como um identificador plano com segmentos
+// limitados (um único quantificador por segmento, sem ambiguidade de
+// particionamento) e só depois verificado contra os sufixos sensíveis abaixo.
+// A versão anterior embutia a lista de sufixos dentro do grupo repetido —
+// `(?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|...)` — e usava quantificadores
+// ilimitados; um log de teste sem quebras de linha (ex. uma linha de progresso
+// do rspec/vitest com dezenas de milhares de caracteres) fazia o motor tentar
+// cada contagem possível de repetições em cada posição inicial antes de
+// falhar, custando tempo quadrático e travando o event loop da API ao ler o
+// log. Limitar o tamanho de cada segmento (nomes de chave reais nunca chegam
+// perto disso) mantém o casamento em tempo linear mesmo em conteúdo hostil.
+const SENSITIVE_KEY_SUFFIX =
+  /(?:^|[_-])(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret|token)$/i;
 const SENSITIVE_ASSIGNMENT =
-  /(?<![A-Za-z0-9_])(["']?)((?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret|token))\1(\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi;
+  /(?<![A-Za-z0-9_])(["']?)([A-Za-z0-9]{1,64}(?:[_-][A-Za-z0-9]{1,64}){0,8})\1(\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi;
 const BEARER_TOKEN = /\b(Bearer\s+)([^\s,"'};]+)/gi;
+// Esquema limitado a 20 chars (nenhum esquema real chega perto disso): sem
+// limite, `[a-z0-9+.-]*` seguido do literal obrigatório "://" sofre do mesmo
+// backtracking quadrático descrito acima quando "://" nunca aparece.
 const CREDENTIAL_URL =
-  /\b([a-z][a-z0-9+.-]*:\/\/[^\s\/:@]+:)([^\s\/@]+)(@)/gi;
+  /\b([a-z][a-z0-9+.-]{0,20}:\/\/[^\s\/:@]+:)([^\s\/@]+)(@)/gi;
 const KNOWN_TOKEN =
   /\b(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,})\b/g;
 
@@ -44,7 +60,11 @@ export function maskSensitiveLogContent(
   let content = replace(
     input,
     SENSITIVE_ASSIGNMENT,
-    (_match, keyQuote, key, separator, value) => {
+    (match, keyQuote, key, separator, value) => {
+      if (!SENSITIVE_KEY_SUFFIX.test(key)) {
+        return match;
+      }
+
       const valueQuote = value.startsWith('"') || value.startsWith("'")
         ? value[0]
         : '';

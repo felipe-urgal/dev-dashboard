@@ -85,3 +85,18 @@ test('mascara por inteiro valores entre aspas e propriedades JSON', () => {
   assert.match(result.content, /restante$/m);
   assert.match(result.content, /{"password":"\[CONTEUDO_MASCARADO\]"}/);
 });
+
+test('não trava com uma linha adversária de ~256KB sem quebras de linha', () => {
+  // Uma única linha longa sem \n (ex. o progresso do rspec/vitest em uma
+  // execução com muitos exemplos) fazia as regexes de SENSITIVE_ASSIGNMENT e
+  // CREDENTIAL_URL retroceder de forma quadrática antes desta correção,
+  // travando o event loop da API por dezenas de segundos ao ler o log.
+  const adversarial = 'aaaa-'.repeat(52_000);
+
+  const start = Date.now();
+  const result = maskSensitiveLogContent(adversarial);
+  const elapsed = Date.now() - start;
+
+  assert.equal(result.masked, false);
+  assert.ok(elapsed < 1_000, `esperado <1000ms, levou ${elapsed}ms`);
+});
