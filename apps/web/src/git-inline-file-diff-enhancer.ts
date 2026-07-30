@@ -20,7 +20,8 @@ interface DetailConfiguration {
   container: string;
   files: string;
   patch: string;
-  fullDiffSummary: string;
+  fullDiffSummary?: string;
+  showFullDiff?: boolean;
 }
 
 const VIEW_MODE_KEY = 'dev-dashboard-git-inline-diff-mode';
@@ -46,8 +47,8 @@ const configurations: DetailConfiguration[] = [
   {
     container: '.git-history-page-detail',
     files: '.git-history-page-detail-files',
-    patch: '.git-history-page-diff pre',
-    fullDiffSummary: '.git-history-page-diff summary',
+    patch: '.git-history-page-patch-source pre',
+    showFullDiff: false,
   },
   {
     container: '.git-stash-detail',
@@ -400,8 +401,10 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     });
   });
 
-  updateFullDiffLabel(container, configuration.fullDiffSummary);
-  enhanceFullDiff(patch);
+  if (configuration.fullDiffSummary) {
+    updateFullDiffLabel(container, configuration.fullDiffSummary);
+  }
+  if (configuration.showFullDiff !== false) enhanceFullDiff(patch);
 }
 
 export function scanDetails(root: ParentNode): void {
