@@ -26,11 +26,15 @@ interface DetailConfiguration {
 const VIEW_MODE_KEY = 'dev-dashboard-git-inline-diff-mode';
 const TARGET_FILE_KEY = 'dev-dashboard-git-target-diff-file';
 
-// Captura o texto bruto do patch combinado assim que o container aparece, antes que
-// outros enhancers (destaque de sintaxe, limpeza de cabeçalhos redundantes) reescrevam
-// o innerHTML do <pre> — ler `.textContent` sob demanda no clique pegaria a versão já
-// mutada, sem as linhas "diff --git" que `findGitPatchForFile` precisa para separar por arquivo.
-const rawPatchByElement = new WeakMap<HTMLElement, string>();
+// O texto bruto do patch combinado é preservado em data-raw-patch pelas funções
+// patchView() que criam esse <pre> (git-history-page-enhancer.ts,
+// git-summary-history-enhancer.ts, git-stash-enhancer.ts). Ler apenas `.textContent`
+// pegaria a versão já reescrita por outros enhancers (destaque de sintaxe, limpeza de
+// cabeçalhos redundantes), sem as linhas "diff --git" que `findGitPatchForFile` precisa
+// para separar o patch por arquivo.
+function rawPatchOf(element: HTMLElement): string {
+  return element.dataset.rawPatch ?? element.textContent ?? '';
+}
 
 const configurations: DetailConfiguration[] = [
   {
@@ -290,10 +294,6 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
   if (!files || !patch || files.dataset.inlineFileDiff === 'true') return;
   files.dataset.inlineFileDiff = 'true';
 
-  if (!rawPatchByElement.has(patch)) {
-    rawPatchByElement.set(patch, patch.textContent ?? '');
-  }
-
   const viewer = document.createElement('section');
   viewer.className = 'git-inline-file-diff';
   viewer.hidden = true;
@@ -317,8 +317,7 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const rawPatch = rawPatchByElement.get(patch) ?? patch.textContent ?? '';
-      const filePatch = findGitPatchForFile(rawPatch, paths.filePath, paths.previousPath);
+      const filePatch = findGitPatchForFile(rawPatchOf(patch), paths.filePath, paths.previousPath);
       activeRow?.classList.remove('is-diff-active');
       activeRow = row;
       row.classList.add('is-diff-active');

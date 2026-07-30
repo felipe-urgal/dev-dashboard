@@ -44,6 +44,10 @@ function buildHistoryDetail(filePath = 'app/models/big_number.rb'): {
   `;
   document.body.append(host);
   const patch = host.querySelector<HTMLElement>('.git-history-page-diff pre')!;
+  // Espelha patchView() (git-history-page-enhancer.ts): o texto bruto fica em
+  // data-raw-patch, e o conteúdo visual (textContent/innerHTML) começa igual, mas pode
+  // ser reescrito depois por outros enhancers sem afetar o atributo.
+  patch.dataset.rawPatch = RAW_PATCH;
   patch.textContent = RAW_PATCH;
   const files = host.querySelector<HTMLElement>('.git-history-page-detail-files')!;
   return { host, files, patch };
@@ -56,8 +60,9 @@ test('mostra o diff do arquivo mesmo depois que outro enhancer remove os cabeça
   scanDetails(host);
 
   // Simula a limpeza de cabeçalhos redundantes (git-diff-header-cleanup.ts) reescrevendo
-  // o <pre> sem as linhas "diff --git"/"index"/"---"/"+++", como acontece de verdade quando
-  // o destaque de sintaxe marca essas linhas como "is-meta" e o cleanup as remove do DOM.
+  // o innerHTML visível do <pre> sem as linhas "diff --git"/"index"/"---"/"+++", como
+  // acontece de verdade quando o destaque de sintaxe marca essas linhas como "is-meta" e
+  // o cleanup as remove do DOM. O atributo data-raw-patch não é tocado por esse processo.
   patch.textContent = RAW_PATCH
     .split('\n')
     .filter((line) => !/^(diff --git |index |--- |\+\+\+ )/.test(line))
@@ -83,4 +88,19 @@ test('mostra "patch indisponível" quando o arquivo realmente não está no patc
 
   const viewer = host.querySelector('.git-inline-file-diff');
   assert.match(viewer!.textContent ?? '', /não está disponível/);
+});
+
+test('recorre ao textContent quando data-raw-patch não está presente', () => {
+  const { host, files, patch } = buildHistoryDetail();
+  delete patch.dataset.rawPatch;
+  cleanup = () => host.remove();
+
+  scanDetails(host);
+
+  const row = files.querySelector<HTMLElement>('li')!;
+  row.click();
+
+  const viewer = host.querySelector('.git-inline-file-diff');
+  assert.doesNotMatch(viewer!.textContent ?? '', /não está disponível/);
+  assert.match(viewer!.textContent ?? '', /Scope/);
 });
