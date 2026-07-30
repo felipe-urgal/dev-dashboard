@@ -21,27 +21,33 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
 interface RepositoryFixture {
   root: string;
   local: string;
+  origin: string;
+  source: string;
   cleanup: () => Promise<void>;
 }
 
 async function createFixture(): Promise<RepositoryFixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-sync-'));
-  const remote = path.join(root, 'upstream.git');
+  const upstream = path.join(root, 'upstream.git');
+  const origin = path.join(root, 'origin.git');
   const local = path.join(root, 'local');
   const source = path.join(root, 'source');
 
-  await git(root, 'init', '--bare', '--initial-branch=main', remote);
+  await git(root, 'init', '--bare', '--initial-branch=main', upstream);
+  await git(root, 'init', '--bare', '--initial-branch=main', origin);
   await git(root, 'init', '--initial-branch=main', local);
   await git(local, 'config', 'user.name', 'Dashboard Test');
   await git(local, 'config', 'user.email', 'dashboard@example.test');
   await writeFile(path.join(local, 'README.md'), '# Projeto\n');
   await git(local, 'add', 'README.md');
   await git(local, 'commit', '-m', 'initial');
-  await git(local, 'remote', 'add', 'upstream', remote);
+  await git(local, 'remote', 'add', 'upstream', upstream);
+  await git(local, 'remote', 'add', 'origin', origin);
   await git(local, 'push', '--set-upstream', 'upstream', 'main');
+  await git(local, 'push', '--set-upstream', 'origin', 'main');
   await git(local, 'switch', '--create', 'feature/sync');
 
-  await git(root, 'clone', remote, source);
+  await git(root, 'clone', upstream, source);
   await git(source, 'config', 'user.name', 'Upstream Test');
   await git(source, 'config', 'user.email', 'upstream@example.test');
   await writeFile(path.join(source, 'upstream.txt'), 'nova versão\n');
@@ -53,6 +59,8 @@ async function createFixture(): Promise<RepositoryFixture> {
   return {
     root,
     local,
+    origin,
+    source,
     cleanup: () => rm(root, { recursive: true, force: true }),
   };
 }
@@ -113,6 +121,44 @@ test('exige confirmação antes de integrar', async () => {
       (error: unknown) =>
         error instanceof GitSyncError
         && error.code === 'GIT_SYNC_CONFIRMATION_REQUIRED',
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test('sincroniza a main a partir de upstream/main e publica em origin/main', async () => {
+  const fixture = await createFixture();
+  const service = new GitSyncService();
+
+  try {
+    await writeFile(
+      path.join(fixture.source, 'upstream-2.txt'),
+      'outra versão\n',
+    );
+    await git(fixture.source, 'add', 'upstream-2.txt');
+    await git(fixture.source, 'commit', '-m', 'feat: nova atualização');
+    await git(fixture.source, 'push', 'origin', 'main');
+
+    const confirmation = service.prepareMainConfirmation('project-1');
+    const result = await service.synchronizeMain(
+      fixture.local,
+      'project-1',
+      confirmation.token,
+    );
+
+    assert.equal(result.branch, 'main');
+    assert.equal(result.reference, 'upstream/main');
+    assert.equal(result.strategy, 'merge');
+    assert.equal(result.changed, true);
+    assert.equal(await git(fixture.local, 'branch', '--show-current'), 'main');
+    assert.equal(
+      await git(fixture.local, 'rev-parse', 'main'),
+      await git(fixture.local, 'rev-parse', 'upstream/main'),
+    );
+    assert.equal(
+      await git(fixture.origin, 'rev-parse', 'main'),
+      result.currentHead,
     );
   } finally {
     await fixture.cleanup();
