@@ -60,6 +60,12 @@ export function createNoticeCenterStore() {
     }
   }
 
+  function markAllRead(): void {
+    notices.value.forEach((notice) => {
+      notice.read = true;
+    });
+  }
+
   function dismiss(id: string): void {
     notices.value = notices.value.filter((notice) => notice.id !== id);
   }
@@ -73,6 +79,7 @@ export function createNoticeCenterStore() {
     unreadCount,
     publishTerminalNotice,
     markRead,
+    markAllRead,
     dismiss,
     clearAll,
   };
