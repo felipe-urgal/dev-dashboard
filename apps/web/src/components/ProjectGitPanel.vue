@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
 
 import type {
   GitDiffSnapshot,
@@ -9,7 +8,6 @@ import type {
   GitRemote,
   GitSyncStrategy,
   GitTrackingComparison,
-  ManagedProcess,
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -22,7 +20,6 @@ import {
   fetchProjectGit,
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
-  fetchProjectProcess,
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
@@ -77,7 +74,6 @@ const workspace = ref<ProjectGitWorkspace | null>(null);
 const diff = ref<GitDiffSnapshot | null>(null);
 const selectedFile = ref('');
 const fileDiff = ref<GitFileDiff | null>(null);
-const serverProcess = ref<ManagedProcess | null>(null);
 const loading = ref(false);
 const loadingWorkspace = ref(false);
 const loadingDiff = ref(false);
@@ -97,7 +93,6 @@ const commitScope = ref<'staged' | 'all'>('staged');
 let generation = 0;
 let diffController: AbortController | undefined;
 let fileController: AbortController | undefined;
-let serverRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(workspaceErrorMessage, '');
@@ -125,38 +120,6 @@ const trackedBranch = computed(
 const recentCommitsPreview = computed(
   () => overview.value?.recentCommits.slice(0, 4) ?? [],
 );
-
-const serverStatus = computed(() => {
-  const process = serverProcess.value;
-  if (!process) {
-    return {
-      label: 'Servidor parado',
-      detail: 'Sem processo ativo',
-      tone: 'stopped',
-    };
-  }
-  const detail = process.port
-    ? `Porta ${process.port}`
-    : process.pid
-      ? `PID ${process.pid}`
-      : 'Processo local';
-  switch (process.status) {
-    case 'running':
-      return { label: 'Servidor ativo', detail, tone: 'running' };
-    case 'starting':
-      return {
-        label: 'Servidor iniciando',
-        detail,
-        tone: 'starting',
-      };
-    case 'stopping':
-      return { label: 'Servidor parando', detail, tone: 'stopping' };
-    case 'failed':
-      return { label: 'Servidor falhou', detail, tone: 'failed' };
-    default:
-      return { label: 'Servidor parado', detail, tone: 'stopped' };
-  }
-});
 
 function remoteByName(name: string): GitRemote | undefined {
   return workspace.value?.remotes.find(
@@ -231,14 +194,6 @@ async function loadWorkspace(): Promise<void> {
   }
 }
 
-async function loadServerStatus(): Promise<void> {
-  try {
-    serverProcess.value = await fetchProjectProcess(props.project.id);
-  } catch {
-    serverProcess.value = null;
-  }
-}
-
 async function loadDiff(): Promise<void> {
   diffController?.abort();
   const local = new AbortController();
@@ -300,7 +255,6 @@ async function reloadGitData(): Promise<void> {
   await Promise.all([
     loadWorkspace(),
     loadDiff(),
-    loadServerStatus(),
   ]);
 }
 
@@ -767,18 +721,12 @@ watch(
     diff.value = null;
     fileDiff.value = null;
     selectedFile.value = '';
-    serverProcess.value = null;
     activeTab.value = 'summary';
-    if (serverRefreshTimer) clearInterval(serverRefreshTimer);
     await Promise.all([
       loadGit(),
       loadWorkspace(),
       loadDiff(),
-      loadServerStatus(),
     ]);
-    serverRefreshTimer = setInterval(() => {
-      void loadServerStatus();
-    }, 10_000);
   },
   { immediate: true },
 );
@@ -786,7 +734,6 @@ watch(
 onBeforeUnmount(() => {
   diffController?.abort();
   fileController?.abort();
-  if (serverRefreshTimer) clearInterval(serverRefreshTimer);
 });
 </script>
 
@@ -806,21 +753,6 @@ onBeforeUnmount(() => {
         </button>
       </nav>
 
-      <RouterLink
-        class="git-server-indicator"
-        :class="`is-${serverStatus.tone}`"
-        :to="{
-          name: 'project-server',
-          params: { projectId: project.id },
-        }"
-        :title="`${serverStatus.label} · ${serverStatus.detail}`"
-      >
-        <span aria-hidden="true" />
-        <div>
-          <strong>{{ serverStatus.label }}</strong>
-          <small>{{ serverStatus.detail }}</small>
-        </div>
-      </RouterLink>
     </div>
 
     <div v-if="errorMessage" class="project-error" role="alert">

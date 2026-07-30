@@ -61,58 +61,6 @@
     color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.git-server-indicator {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex: 0 0 auto;
-  min-width: 154px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  color: var(--text);
-  padding: 7px 10px;
-  text-decoration: none;
-}
-
-.git-server-indicator > span {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: var(--text-dim);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--text-dim) 12%, transparent);
-}
-
-.git-server-indicator div {
-  display: grid;
-  gap: 1px;
-}
-.git-server-indicator strong {
-  font-size: var(--font-sm);
-}
-.git-server-indicator small {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-.git-server-indicator.is-running > span {
-  background: var(--success-text);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--success-text) 16%, transparent);
-}
-.git-server-indicator.is-starting > span,
-.git-server-indicator.is-stopping > span {
-  background: var(--warning-text);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--warning-text) 16%, transparent);
-}
-.git-server-indicator.is-failed > span {
-  background: var(--danger-text);
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--danger-text) 16%, transparent);
-}
-
 .git-tab-page,
 .git-summary-page {
   display: grid;
@@ -463,9 +411,6 @@ textarea {
   .git-navigation-bar {
     align-items: stretch;
     flex-direction: column;
-  }
-  .git-server-indicator {
-    align-self: flex-end;
   }
   .git-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
