@@ -2,6 +2,8 @@
 import {
   ArrowPathIcon,
   Bars3BottomLeftIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
   ClipboardDocumentIcon,
   DocumentTextIcon,
   FunnelIcon,
@@ -46,6 +48,35 @@ const props = defineProps<{
 type DiffViewMode = 'unified' | 'split';
 type DiffStatusFilter = 'all' | GitFileStatus;
 
+const FILES_PANE_WIDTH_KEY = 'dev-dashboard-git-diff-files-pane-width';
+const VIEWER_COLLAPSED_KEY = 'dev-dashboard-git-diff-viewer-collapsed';
+const DEFAULT_FILES_PANE_WIDTH = 300;
+const MIN_FILES_PANE_WIDTH = 220;
+const MAX_FILES_PANE_WIDTH = 640;
+const RESIZE_KEYBOARD_STEP = 16;
+
+function clampFilesPaneWidth(value: number): number {
+  return Math.min(MAX_FILES_PANE_WIDTH, Math.max(MIN_FILES_PANE_WIDTH, value));
+}
+
+function readStoredFilesPaneWidth(): number {
+  try {
+    const raw = window.localStorage.getItem(FILES_PANE_WIDTH_KEY);
+    const value = raw ? Number.parseInt(raw, 10) : Number.NaN;
+    return Number.isFinite(value) ? clampFilesPaneWidth(value) : DEFAULT_FILES_PANE_WIDTH;
+  } catch {
+    return DEFAULT_FILES_PANE_WIDTH;
+  }
+}
+
+function readStoredViewerCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(VIEWER_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const scope = ref<GitDiffScope>('combined');
 const snapshot = ref<GitDiffSnapshot | null>(null);
 const overview = ref<ProjectGitOverview | null>(null);
@@ -60,6 +91,10 @@ const loadingFile = ref(false);
 const snapshotError = ref('');
 const fileError = ref('');
 const copied = ref(false);
+const filesPaneWidth = ref(readStoredFilesPaneWidth());
+const viewerCollapsed = ref(readStoredViewerCollapsed());
+const resizingFilesPane = ref(false);
+const workspaceEl = ref<HTMLElement | null>(null);
 let snapshotController: AbortController | undefined;
 let fileController: AbortController | undefined;
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
@@ -113,6 +148,12 @@ const statusOptions: Array<{
 const currentScope = computed(() =>
   scopeOptions.find((option) => option.value === scope.value) ?? scopeOptions[0]!,
 );
+
+const workspaceStyle = computed(() => (
+  viewerCollapsed.value
+    ? { gridTemplateColumns: '1fr' }
+    : { gridTemplateColumns: `${filesPaneWidth.value}px 6px minmax(0, 1fr)` }
+));
 
 const branchLabel = computed(() => {
   if (!overview.value) return 'Carregando branch…';
@@ -296,6 +337,62 @@ async function moveSelection(direction: -1 | 1): Promise<void> {
   )?.focus();
 }
 
+function persistFilesPaneWidth(value: number): void {
+  try {
+    window.localStorage.setItem(FILES_PANE_WIDTH_KEY, String(value));
+  } catch {
+    // Preferência visual opcional.
+  }
+}
+
+function persistViewerCollapsed(value: boolean): void {
+  try {
+    window.localStorage.setItem(VIEWER_COLLAPSED_KEY, String(value));
+  } catch {
+    // Preferência visual opcional.
+  }
+}
+
+function toggleViewerCollapsed(): void {
+  viewerCollapsed.value = !viewerCollapsed.value;
+  persistViewerCollapsed(viewerCollapsed.value);
+}
+
+function startFilesPaneResize(event: PointerEvent): void {
+  if (viewerCollapsed.value) return;
+  event.preventDefault();
+  const workspace = workspaceEl.value;
+  if (!workspace) return;
+
+  const { left } = workspace.getBoundingClientRect();
+  resizingFilesPane.value = true;
+
+  const onMove = (moveEvent: PointerEvent): void => {
+    filesPaneWidth.value = clampFilesPaneWidth(moveEvent.clientX - left);
+  };
+  const onUp = (): void => {
+    resizingFilesPane.value = false;
+    persistFilesPaneWidth(filesPaneWidth.value);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+function handleFilesPaneResizeKeydown(event: KeyboardEvent): void {
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    filesPaneWidth.value = clampFilesPaneWidth(filesPaneWidth.value - RESIZE_KEYBOARD_STEP);
+    persistFilesPaneWidth(filesPaneWidth.value);
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    filesPaneWidth.value = clampFilesPaneWidth(filesPaneWidth.value + RESIZE_KEYBOARD_STEP);
+    persistFilesPaneWidth(filesPaneWidth.value);
+  }
+}
+
 function handleFileListKeydown(event: KeyboardEvent): void {
   if (event.key === 'ArrowDown') {
     event.preventDefault();
@@ -437,14 +534,33 @@ onBeforeUnmount(() => {
       <span>{{ currentScope.description }} não possui arquivos para revisar.</span>
     </div>
 
-    <div v-else-if="snapshot" class="git-diff-workspace">
+    <div
+      v-else-if="snapshot"
+      ref="workspaceEl"
+      class="git-diff-workspace"
+      :class="{ 'is-viewer-collapsed': viewerCollapsed, 'is-resizing': resizingFilesPane }"
+      :style="workspaceStyle"
+    >
       <aside class="git-diff-files-pane">
         <header>
           <div>
             <h3>Arquivos alterados</h3>
             <span>{{ filteredFiles.length }} de {{ snapshot.files.length }}</span>
           </div>
-          <small>↑ ↓ para navegar</small>
+          <div class="git-diff-files-pane-actions">
+            <small>↑ ↓ para navegar</small>
+            <button
+              type="button"
+              class="git-diff-collapse-button"
+              :aria-pressed="viewerCollapsed"
+              :title="viewerCollapsed ? 'Mostrar diff do arquivo selecionado' : 'Mostrar apenas os arquivos alterados'"
+              @click="toggleViewerCollapsed"
+            >
+              <ChevronDoubleLeftIcon v-if="viewerCollapsed" aria-hidden="true" />
+              <ChevronDoubleRightIcon v-else aria-hidden="true" />
+              <span>{{ viewerCollapsed ? 'Mostrar diff' : 'Só arquivos' }}</span>
+            </button>
+          </div>
         </header>
 
         <div
@@ -490,7 +606,21 @@ onBeforeUnmount(() => {
         </div>
       </aside>
 
-      <main class="git-diff-viewer">
+      <div
+        v-if="!viewerCollapsed"
+        class="git-diff-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Redimensionar lista de arquivos"
+        :aria-valuenow="filesPaneWidth"
+        :aria-valuemin="MIN_FILES_PANE_WIDTH"
+        :aria-valuemax="MAX_FILES_PANE_WIDTH"
+        tabindex="0"
+        @pointerdown="startFilesPaneResize"
+        @keydown="handleFilesPaneResizeKeydown"
+      ></div>
+
+      <main v-if="!viewerCollapsed" class="git-diff-viewer">
         <template v-if="selectedFile">
           <header class="git-diff-file-header">
             <div class="git-diff-selected-file">
@@ -508,18 +638,6 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <button
-              type="button"
-              class="git-diff-copy-button"
-              :title="copied ? 'Caminho copiado' : 'Copiar caminho do arquivo'"
-              @click="copySelectedPath"
-            >
-              <ClipboardDocumentIcon aria-hidden="true" />
-              {{ copied ? 'Copiado' : 'Copiar caminho' }}
-            </button>
-          </header>
-
-          <div class="git-diff-viewer-toolbar">
             <div class="git-diff-view-switch" aria-label="Modo de visualização">
               <button
                 type="button"
@@ -553,7 +671,17 @@ onBeforeUnmount(() => {
                 {{ diffMatchCount }} ocorrência(s)
               </span>
             </label>
-          </div>
+
+            <button
+              type="button"
+              class="git-diff-copy-button"
+              :title="copied ? 'Caminho copiado' : 'Copiar caminho do arquivo'"
+              @click="copySelectedPath"
+            >
+              <ClipboardDocumentIcon aria-hidden="true" />
+              {{ copied ? 'Copiado' : 'Copiar caminho' }}
+            </button>
+          </header>
 
           <p v-if="fileError" class="project-error git-diff-file-error" role="alert">
             {{ fileError }}

@@ -3,7 +3,6 @@
   gap: 18px;
 }
 
-.branches-page-heading,
 .branch-create-card,
 .branch-browser-toolbar,
 .branch-detail-panel header,
@@ -15,14 +14,12 @@
   gap: 16px;
 }
 
-.branches-page-heading h2,
 .branch-create-card h3,
 .branch-detail-panel h3 {
   margin: 3px 0 0;
   color: var(--color-text-strong, #182033);
 }
 
-.branches-page-heading p,
 .branch-create-card p,
 .branch-commit-detail p,
 .branch-action-hint {
@@ -152,14 +149,68 @@ input {
 
 .branch-browser-layout {
   display: grid;
-  grid-template-columns: minmax(330px, 0.9fr) minmax(420px, 1.1fr);
-  min-height: 510px;
+  grid-template-columns:
+    minmax(300px, var(--branch-list-width))
+    10px
+    minmax(360px, 1fr);
+  min-height: 460px;
+}
+
+.branch-resize-handle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.branch-resize-handle::before {
+  position: absolute;
+  inset: 0;
+  background: var(--color-border, #d8deea);
+  content: '';
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.branch-resize-handle span {
+  position: relative;
+  width: 3px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--color-border, #d8deea);
+  transition:
+    background 120ms ease,
+    height 120ms ease;
+}
+
+.branch-resize-handle:hover::before,
+.branch-resize-handle:focus-visible::before,
+.branch-browser-layout.resizing .branch-resize-handle::before {
+  opacity: 0.2;
+}
+
+.branch-resize-handle:hover span,
+.branch-resize-handle:focus-visible span,
+.branch-browser-layout.resizing .branch-resize-handle span {
+  height: 58px;
+  background: #314bc4;
+}
+
+.branch-resize-handle:focus-visible {
+  outline: 2px solid #314bc4;
+  outline-offset: -2px;
+}
+
+:global(body.branch-browser-resizing) {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .branch-list {
   overflow: auto;
-  max-height: 620px;
-  border-right: 1px solid var(--color-border, #d8deea);
+  max-height: 560px;
   padding: 10px;
 }
 
@@ -370,6 +421,10 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .branch-resize-handle {
+    display: none;
+  }
+
   .branch-list {
     max-height: 360px;
     border-right: 0;
@@ -378,7 +433,6 @@ input {
 }
 
 @media (max-width: 680px) {
-  .branches-page-heading,
   .branch-create-card,
   .branch-browser-toolbar,
   .branch-detail-panel header,

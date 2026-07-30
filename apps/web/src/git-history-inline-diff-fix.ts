@@ -153,7 +153,7 @@ function enhance(detail: HTMLElement): void {
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const filePatch = findGitPatchForFile(patch.textContent ?? '', paths.path, paths.previousPath);
+      const filePatch = findGitPatchForFile(patch.dataset.rawPatch ?? patch.textContent ?? '', paths.path, paths.previousPath);
       active?.classList.remove('is-diff-active');
       active = row;
       row.classList.add('is-diff-active');

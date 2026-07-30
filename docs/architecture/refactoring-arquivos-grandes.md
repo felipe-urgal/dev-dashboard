@@ -111,6 +111,24 @@ mesmo, na seção da fase correspondente.
   por responsabilidade já visível no arquivo atual. Ainda não iniciada — é a parte que toca lógica
   reativa, não só estilo, e merece ir componente por componente com o smoke E2E rodando a cada um.
 
+**Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
+com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
+`ProjectGitCommitPage.vue`, reforma de `ProjectGitPanel.vue`/`ProjectGitSyncPage.vue`) que tocou os
+três arquivos já mexidos pela sub-etapa 1 (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
+`ProjectGitBranchesPage.vue`) e os pontos de extensão de `response-schemas.ts`/`api.ts`/
+`routes/projects.ts` já quebrados nas fases 1–2. Resolução: para os três `.vue`, em vez de
+mesclar manualmente hunk a hunk, o conteúdo de `main` (autoridade sobre lógica/template/estilo) foi
+tomado por inteiro e a extração mecânica do `<style scoped>` foi refeita em cima dele — mais seguro
+que tentar reconciliar duas versões de um `<style>` grande. Para os módulos já divididos
+(`response-schemas/git.ts`, `api/git.ts`, `routes/git-mutations.ts`), as adições de `main`
+(`gitPullRequestUrlResponseSchema`, as funções de mutação de arquivo do `api.ts`, os operators
+`discard-file`/`remove-untracked-file` no endpoint compartilhado de confirmação) foram inseridas no
+arquivo de domínio correspondente. Um teste novo trazido pela `main`
+(`git-file-confirmation-route.test.ts`) registrava `projectRoutes` diretamente para bater no
+endpoint `/git/mutations/confirmations` — que a fase 1 já tinha movido para `gitMutationRoutes`;
+ajustado para registrar o plugin certo. Verificado com `typecheck`, `build`, os 174 testes
+unitários (todos os workspaces) e os 13 testes E2E depois do merge.
+
 ### Fase 5 — Camada "enhancer" (risco médio — decisão registrada)
 
 Decisão: por ora, **só quebrar mecanicamente**, sem migrar o padrão para dentro dos componentes

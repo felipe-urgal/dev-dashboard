@@ -20,11 +20,22 @@ interface DetailConfiguration {
   container: string;
   files: string;
   patch: string;
-  fullDiffSummary: string;
+  fullDiffSummary?: string;
+  showFullDiff?: boolean;
 }
 
 const VIEW_MODE_KEY = 'dev-dashboard-git-inline-diff-mode';
 const TARGET_FILE_KEY = 'dev-dashboard-git-target-diff-file';
+
+// O texto bruto do patch combinado é preservado em data-raw-patch pelas funções
+// patchView() que criam esse <pre> (git-history-page-enhancer.ts,
+// git-summary-history-enhancer.ts, git-stash-enhancer.ts). Ler apenas `.textContent`
+// pegaria a versão já reescrita por outros enhancers (destaque de sintaxe, limpeza de
+// cabeçalhos redundantes), sem as linhas "diff --git" que `findGitPatchForFile` precisa
+// para separar o patch por arquivo.
+function rawPatchOf(element: HTMLElement): string {
+  return element.dataset.rawPatch ?? element.textContent ?? '';
+}
 
 const configurations: DetailConfiguration[] = [
   {
@@ -36,8 +47,8 @@ const configurations: DetailConfiguration[] = [
   {
     container: '.git-history-page-detail',
     files: '.git-history-page-detail-files',
-    patch: '.git-history-page-diff pre',
-    fullDiffSummary: '.git-history-page-diff summary',
+    patch: '.git-history-page-patch-source pre',
+    showFullDiff: false,
   },
   {
     container: '.git-stash-detail',
@@ -278,6 +289,67 @@ function updateFullDiffLabel(container: HTMLElement, selector: string): void {
   if (label) label.textContent = 'Ver diff completo (todos os arquivos)';
 }
 
+function enhanceFullDiff(patch: HTMLElement): void {
+  const details = patch.closest<HTMLDetailsElement>('details');
+  if (!details || details.dataset.structuredFullDiff === 'true') return;
+  details.dataset.structuredFullDiff = 'true';
+
+  const rawPatch = rawPatchOf(patch);
+  // O CSS legado do <pre> define display:block e pode sobrepor o atributo hidden.
+  // A referência continua disponível para os cliques nos arquivos, então removemos
+  // apenas a representação visual antiga e mantemos o patch bruto em memória.
+  patch.remove();
+
+  const shell = document.createElement('section');
+  shell.className = 'git-inline-full-diff';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'git-inline-full-diff-toolbar';
+  const label = document.createElement('strong');
+  label.textContent = 'Visualização';
+  const switcher = document.createElement('div');
+  switcher.className = 'git-inline-diff-mode-switch';
+  switcher.setAttribute('aria-label', 'Modo de visualização do diff completo');
+  const body = document.createElement('div');
+  body.className = 'git-inline-diff-body';
+  let mode = readViewMode();
+
+  const draw = (): void => {
+    switcher.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      const selected = button.dataset.mode === mode;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    body.replaceChildren();
+    body.append(rawPatch.trim()
+      ? mode === 'split' ? splitView(rawPatch) : unifiedView(rawPatch)
+      : emptyView('Este commit não possui diff textual para exibir.'));
+  };
+
+  [
+    { mode: 'unified' as const, label: 'Unificado', icon: Bars3BottomLeftIcon },
+    { mode: 'split' as const, label: 'Lado a lado', icon: ViewColumnsIcon },
+  ].forEach((definition) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.mode = definition.mode;
+    mountIcon(button, definition.icon, 'git-inline-diff-mode-icon');
+    const text = document.createElement('span');
+    text.textContent = definition.label;
+    button.append(text);
+    button.addEventListener('click', () => {
+      mode = definition.mode;
+      persistViewMode(mode);
+      draw();
+    });
+    switcher.append(button);
+  });
+
+  toolbar.append(label, switcher);
+  shell.append(toolbar, body);
+  details.append(shell);
+  draw();
+}
+
 function enhanceDetail(container: HTMLElement, configuration: DetailConfiguration): void {
   const files = container.querySelector<HTMLElement>(configuration.files);
   const patch = container.querySelector<HTMLElement>(configuration.patch);
@@ -307,7 +379,7 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const filePatch = findGitPatchForFile(patch.textContent ?? '', paths.filePath, paths.previousPath);
+      const filePatch = findGitPatchForFile(rawPatchOf(patch), paths.filePath, paths.previousPath);
       activeRow?.classList.remove('is-diff-active');
       activeRow = row;
       row.classList.add('is-diff-active');
@@ -329,10 +401,13 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     });
   });
 
-  updateFullDiffLabel(container, configuration.fullDiffSummary);
+  if (configuration.fullDiffSummary) {
+    updateFullDiffLabel(container, configuration.fullDiffSummary);
+  }
+  if (configuration.showFullDiff !== false) enhanceFullDiff(patch);
 }
 
-function scanDetails(root: ParentNode): void {
+export function scanDetails(root: ParentNode): void {
   configurations.forEach((configuration) => {
     if (root instanceof HTMLElement && root.matches(configuration.container)) {
       enhanceDetail(root, configuration);
@@ -401,6 +476,7 @@ export function installGitInlineFileDiffEnhancer(): void {
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
+      if (mutation.target instanceof HTMLElement) scan(mutation.target);
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) scan(node);
       }

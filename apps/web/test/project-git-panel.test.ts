@@ -171,6 +171,45 @@ const baseWorkspace: ProjectGitWorkspace = {
   },
 };
 
+const commitOverview: ProjectGitOverview = {
+  ...baseOverview,
+  branch: 'main',
+  upstream: 'origin/main',
+  clean: false,
+  files: [
+    {
+      path: 'src/staged.ts',
+      indexStatus: 'M',
+      worktreeStatus: '.',
+      status: 'modified',
+    },
+    {
+      path: 'src/styles.css',
+      indexStatus: 'M',
+      worktreeStatus: '.',
+      status: 'modified',
+    },
+    {
+      path: 'src/app.ts',
+      indexStatus: '.',
+      worktreeStatus: 'M',
+      status: 'modified',
+    },
+    {
+      path: 'README.md',
+      indexStatus: '.',
+      worktreeStatus: 'M',
+      status: 'modified',
+    },
+    {
+      path: 'src/new-file.ts',
+      indexStatus: '?',
+      worktreeStatus: '?',
+      status: 'untracked',
+    },
+  ],
+};
+
 const baseDiff: GitDiffSnapshot = {
   repository: true,
   scope: 'combined',
@@ -301,10 +340,14 @@ test('renderiza o resumo com comparações separadas de origin e upstream', asyn
   assert.match(text, /Upstream · base principal/);
   assert.match(text, /upstream\/main/);
   assert.match(text, /↑ 4 · ↓ 2/);
-
-  const branchOptions = mounted.wrapper.findAll('.git-branch-toolbar option');
-  assert.ok(branchOptions.some((option) => option.text().includes('feature/git-ui')));
-  assert.ok(branchOptions.some((option) => option.text().includes('main')));
+  assert.match(text, /Histórico recente/);
+  assert.match(text, /feat: melhora painel Git/);
+  assert.equal(
+    mounted.wrapper.findAll('.git-recent-history-preview article').length,
+    1,
+  );
+  assert.ok(!mounted.wrapper.find('.git-quick-actions').exists());
+  assert.ok(!mounted.wrapper.find('.git-command-grid').exists());
 });
 
 test('navega, filtra e exibe detalhes de branches remotas', async () => {
@@ -313,7 +356,17 @@ test('navega, filtra e exibe detalhes de branches remotas', async () => {
   await clickTab(mounted.wrapper, 'Branches');
 
   assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 6);
-  assert.match(mounted.wrapper.text(), /Gerencie linhas de trabalho locais e remotas/);
+  assert.doesNotMatch(
+    mounted.wrapper.text(),
+    /Gerencie linhas de trabalho locais e remotas/,
+  );
+  assert.ok(mounted.wrapper.find('.branch-refresh-button').exists());
+
+  const layout = mounted.wrapper.find('.branch-browser-layout');
+  const resizeHandle = mounted.wrapper.find('.branch-resize-handle');
+  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 45%/);
+  await resizeHandle.trigger('keydown', { key: 'ArrowRight' });
+  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 50%/);
 
   const upstreamFilter = mounted.wrapper
     .findAll('.branch-filter-tabs button')
@@ -447,6 +500,129 @@ test('cria branch normal pelo formulário moderno', async () => {
   assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
 });
 
+test('renderiza o commit como um fluxo linear com arquivos e composer', async () => {
+  const mounted = await mountPanel({ overview: commitOverview });
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  assert.match(mounted.wrapper.text(), /Preparar e registrar alterações/);
+  assert.equal(mounted.wrapper.findAll('.git-commit-file-row').length, 5);
+  assert.ok(mounted.wrapper.find('.git-commit-steps').exists());
+  assert.ok(mounted.wrapper.find('.git-commit-composer').exists());
+  assert.ok(!mounted.wrapper.find('.commit-metrics').exists());
+  assert.ok(!mounted.wrapper.find('.git-commit-layout').exists());
+
+  const modifiedFilter = mounted.wrapper
+    .findAll('.git-commit-filter-tabs button')
+    .find((button) => button.text().includes('Modificados'));
+  assert.ok(modifiedFilter);
+  await modifiedFilter.trigger('click');
+  assert.equal(mounted.wrapper.findAll('.git-commit-file-row').length, 2);
+
+  const feat = mounted.wrapper
+    .findAll('.git-commit-types button')
+    .find((button) => button.text() === 'feat');
+  assert.ok(feat);
+  await feat.trigger('click');
+  assert.equal(
+    (mounted.wrapper.find('.git-commit-composer textarea').element as HTMLTextAreaElement).value,
+    'feat: ',
+  );
+});
+
+test('abre a aba Diff já focada no arquivo escolhido no Commit', async () => {
+  const mounted = await mountPanel({ overview: commitOverview });
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  const row = mounted.wrapper
+    .findAll('.git-commit-file-row')
+    .find((candidate) => candidate.text().includes('src/app.ts'));
+  assert.ok(row);
+  await row.find('.git-commit-diff-button').trigger('click');
+  await flushPromises();
+
+  assert.match(mounted.wrapper.text(), /Diferenças por arquivo/);
+  assert.match(mounted.wrapper.find('.git-diff-layout-modern pre').text(), /const value = 42/);
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/diff/file'),
+    ),
+  );
+});
+
+test('confirma antes de desfazer modificado ou remover arquivo novo', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    overview: commitOverview,
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'f'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (
+        request.path.endsWith('/git/files/discard')
+        || request.path.endsWith('/git/files/remove')
+      ) {
+        const body = request.body as { path: string };
+        return jsonResponse({ file: { path: body.path } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+
+  await clickTab(mounted.wrapper, 'Commit');
+
+  const discard = mounted.wrapper
+    .findAll('.git-commit-danger-button')
+    .find((button) => button.text().includes('Desfazer alterações'));
+  assert.ok(discard);
+  await discard.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const remove = mounted.wrapper
+    .findAll('.git-commit-danger-button')
+    .find((button) => button.text().includes('Remover arquivo'));
+  assert.ok(remove);
+  await remove.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmations = mounted.requests
+    .filter((request) => request.path.endsWith('/git/mutations/confirmations'))
+    .map((request) => request.body);
+  assert.deepEqual(confirmations, [
+    { operation: 'discard-file', target: 'src/app.ts' },
+    { operation: 'remove-untracked-file', target: 'src/new-file.ts' },
+  ]);
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/files/discard'),
+    ),
+  );
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/git/files/remove'),
+    ),
+  );
+});
+
 test('abre a página de diff e carrega o arquivo selecionado', async () => {
   const mounted = await mountPanel({
     fileDiff: (filePath) => ({
@@ -486,6 +662,26 @@ test('mostra o estado vazio na página de diff', async () => {
   assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
 });
 
+test('renderiza a sincronização como um pipeline único com ações rápidas', async () => {
+  const mounted = await mountPanel();
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+  assert.match(mounted.wrapper.text(), /Pipeline de sincronização/);
+  assert.equal(mounted.wrapper.findAll('.git-sync-node').length, 3);
+  assert.ok(mounted.wrapper.find('.git-sync-pipeline-card').exists());
+  assert.ok(mounted.wrapper.find('.git-sync-quick-actions').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-metrics').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-workspace').exists());
+  assert.ok(!mounted.wrapper.find('.git-sync-strategies').exists());
+
+  const strategySelect = mounted.wrapper.findAll('.git-sync-controls select')[1];
+  assert.ok(strategySelect);
+  await strategySelect.setValue('merge');
+  assert.equal((strategySelect.element as HTMLSelectElement).value, 'merge');
+});
+
 test('push publica a branch no origin após confirmação', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
@@ -514,9 +710,11 @@ test('push publica a branch no origin após confirmação', async () => {
     globalThis.confirm = originalConfirm;
   };
 
+  await clickTab(mounted.wrapper, 'Sincronização');
+
   const pushButton = mounted.wrapper
-    .findAll('.git-quick-actions button')
-    .find((button) => button.text().includes('Push origin'));
+    .findAll('.git-sync-sidebar-actions button')
+    .find((button) => button.classes().includes('git-sync-publish-button'));
   assert.ok(pushButton);
   await pushButton.trigger('click');
   await flushPromises();
@@ -524,4 +722,112 @@ test('push publica a branch no origin após confirmação', async () => {
 
   assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/push')));
   assert.match(mounted.wrapper.text(), /Push para origin concluído/);
+});
+
+test('abre a pull request calculada pela API quando a branch já está publicada', async () => {
+  const originalConfirm = globalThis.confirm;
+  const originalOpen = globalThis.open;
+  globalThis.confirm = () => true;
+  const openedUrls: string[] = [];
+  globalThis.open = ((url: string | URL) => {
+    openedUrls.push(String(url));
+    return null;
+  }) as typeof window.open;
+
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/pull-request-url')) {
+        return jsonResponse({
+          pullRequest: {
+            provider: 'github',
+            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
+            branch: 'feature/git-ui',
+            defaultBranch: 'main',
+          },
+        });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+    globalThis.open = originalOpen;
+  };
+
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+  const prButton = mounted.wrapper
+    .findAll('.git-sync-sidebar-actions button')
+    .find((button) => button.classes().includes('git-sync-open-pr-button'));
+  assert.ok(prButton);
+  await prButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(mounted.requests.some((request) => request.path.endsWith('/git/pull-request-url')));
+  assert.ok(!mounted.requests.some((request) => request.path.endsWith('/git/push')));
+  assert.deepEqual(openedUrls, ['https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1']);
+  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
+});
+
+test('publica a branch antes de abrir a pull request quando ainda não há upstream', async () => {
+  const originalConfirm = globalThis.confirm;
+  const originalOpen = globalThis.open;
+  globalThis.confirm = () => true;
+  globalThis.open = (() => null) as typeof window.open;
+
+  const mounted = await mountPanel({
+    overview: (() => {
+      const { upstream: _upstream, ...rest } = baseOverview;
+      return rest;
+    })(),
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'p'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/push')) {
+        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
+      }
+      if (request.path.endsWith('/git/pull-request-url')) {
+        return jsonResponse({
+          pullRequest: {
+            provider: 'github',
+            url: 'https://github.com/felipe-urgal/projeto/compare/main...feature%2Fgit-ui?expand=1',
+            branch: 'feature/git-ui',
+            defaultBranch: 'main',
+          },
+        });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+    globalThis.open = originalOpen;
+  };
+
+  await clickTab(mounted.wrapper, 'Sincronização');
+
+  const prButton = mounted.wrapper
+    .findAll('.git-sync-sidebar-actions button')
+    .find((button) => button.classes().includes('git-sync-open-pr-button'));
+  assert.ok(prButton);
+  await prButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const requestPaths = mounted.requests.map((request) => request.path);
+  assert.ok(requestPaths.some((path) => path.endsWith('/git/push')));
+  assert.ok(requestPaths.some((path) => path.endsWith('/git/pull-request-url')));
+  assert.match(mounted.wrapper.text(), /Pull Request preparada/);
 });

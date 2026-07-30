@@ -104,3 +104,14 @@ export const gitFileDiffResponseSchema = {
     redactionCount: { type: 'integer', minimum: 0 },
   },
 } as const;
+
+export const gitPullRequestUrlResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['provider', 'url', 'branch', 'defaultBranch'],
+  properties: {
+    provider: { type: 'string', enum: ['github', 'gitlab'] },
+    url: { type: 'string' },
+    branch: { type: 'string' },
+    defaultBranch: { type: 'string' },
+  },
+} as const;

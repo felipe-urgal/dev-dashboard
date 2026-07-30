@@ -74,7 +74,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'track-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop';
+export type GitMutationOperation = 'create-branch' | 'track-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file';
 
 export interface GitMutationConfirmation {
   token: string;
@@ -94,4 +94,13 @@ export interface GitFileDiff {
   truncated: boolean;
   masked: boolean;
   redactionCount: number;
+}
+
+export type GitPullRequestProvider = 'github' | 'gitlab';
+
+export interface GitPullRequestUrl {
+  provider: GitPullRequestProvider;
+  url: string;
+  branch: string;
+  defaultBranch: string;
 }

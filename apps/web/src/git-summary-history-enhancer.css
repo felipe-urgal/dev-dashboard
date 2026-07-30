@@ -14,6 +14,10 @@
   transition: grid-template-columns 220ms ease;
 }
 
+.git-summary-history-shell.is-empty {
+  min-height: 0;
+}
+
 .git-summary-history-shell.is-inspecting {
   grid-template-columns: minmax(310px, .72fr) minmax(0, 1.28fr);
 }

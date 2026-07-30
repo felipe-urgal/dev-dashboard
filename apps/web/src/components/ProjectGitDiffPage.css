@@ -9,7 +9,6 @@
 .git-diff-heading-actions,
 .git-diff-toolbar,
 .git-diff-file-header,
-.git-diff-viewer-toolbar,
 .git-diff-selected-file,
 .git-diff-files-pane > header {
   display: flex;
@@ -40,7 +39,7 @@
   letter-spacing: -.025em;
 }
 
-.git-diff-page-heading p {
+.git-diff-page-heading p:not([hidden]) {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
@@ -231,6 +230,35 @@
   gap: 2px;
 }
 
+.git-diff-files-pane > header .git-diff-files-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.git-diff-collapse-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-muted);
+  padding: 5px 8px;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.git-diff-collapse-button:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.git-diff-collapse-button svg {
+  width: 15px;
+  height: 15px;
+}
+
 .git-diff-files-pane h3 {
   margin: 0;
   font-size: var(--font-md);
@@ -252,13 +280,13 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
-  padding: 10px;
+  padding: 6px 8px;
   font: inherit;
   text-align: left;
 }
@@ -311,6 +339,38 @@
   font-weight: var(--font-weight-strong);
 }
 
+.git-diff-resize-handle {
+  position: relative;
+  min-width: 0;
+  cursor: col-resize;
+  background: var(--border);
+  touch-action: none;
+}
+
+.git-diff-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  left: -4px;
+}
+
+.git-diff-resize-handle:hover,
+.git-diff-resize-handle:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+.git-diff-workspace.is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.git-diff-workspace.is-resizing .git-diff-resize-handle {
+  background: var(--accent);
+}
+
 .git-diff-viewer {
   min-width: 0;
   overflow: hidden;
@@ -318,21 +378,23 @@
 }
 
 .git-diff-file-header {
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-3);
   border-bottom: 1px solid var(--border);
-  padding: 13px 16px;
+  padding: 10px 16px;
 }
 
 .git-diff-selected-file {
+  flex: 1 1 200px;
   min-width: 0;
   gap: 10px;
 }
 
 .git-diff-selected-file > div {
-  display: grid;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
-  gap: 2px;
+  gap: 8px;
 }
 
 .git-diff-selected-file h3,
@@ -344,25 +406,20 @@
 }
 
 .git-diff-selected-file h3 {
+  min-width: 40px;
+  flex: 1 1 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--font-sm);
 }
 
 .git-diff-selected-file p {
+  flex: 0 0 auto;
   color: var(--text-muted);
   font-size: var(--font-xs);
 }
 
-.git-diff-viewer-toolbar {
-  justify-content: space-between;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-  padding: 9px 12px;
-}
-
 .git-diff-content-search {
-  width: min(360px, 50%);
+  width: min(280px, 40%);
 }
 
 .git-diff-content-search input {
@@ -573,7 +630,6 @@
 
 @media (max-width: 820px) {
   .git-diff-toolbar,
-  .git-diff-viewer-toolbar,
   .git-diff-file-header {
     align-items: stretch;
     flex-direction: column;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
@@ -33,6 +34,15 @@ const filter = ref<BranchFilter>('all');
 const search = ref('');
 const selectedBranchName = ref('');
 const createBranchName = ref('');
+
+const MIN_LIST_WIDTH = 30;
+const MAX_LIST_WIDTH = 65;
+const branchBrowserLayout = ref<HTMLElement | null>(null);
+const branchListWidth = ref(45);
+const isResizing = ref(false);
+const branchLayoutStyle = computed(() => ({
+  '--branch-list-width': `${branchListWidth.value}%`,
+}));
 
 const branches = computed(() => props.workspace?.branches ?? []);
 const localBranches = computed(() => branches.value.filter((branch) => branch.kind === 'local'));
@@ -125,26 +135,61 @@ function submitCreate(): void {
 function selectBranch(branch: GitBranch): void {
   selectedBranchName.value = branch.name;
 }
+
+function updateBranchListWidth(clientX: number): void {
+  const layout = branchBrowserLayout.value;
+  if (!layout) return;
+  const bounds = layout.getBoundingClientRect();
+  if (bounds.width <= 0) return;
+  const percentage = ((clientX - bounds.left) / bounds.width) * 100;
+  branchListWidth.value = Math.min(
+    MAX_LIST_WIDTH,
+    Math.max(MIN_LIST_WIDTH, percentage),
+  );
+}
+
+function stopResizing(): void {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.body.classList.remove('branch-browser-resizing');
+  document.removeEventListener('pointermove', resizeWithPointer);
+  document.removeEventListener('pointerup', stopResizing);
+  document.removeEventListener('pointercancel', stopResizing);
+}
+
+function resizeWithPointer(event: PointerEvent): void {
+  updateBranchListWidth(event.clientX);
+}
+
+function startResizing(event: PointerEvent): void {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  isResizing.value = true;
+  document.body.classList.add('branch-browser-resizing');
+  document.addEventListener('pointermove', resizeWithPointer);
+  document.addEventListener('pointerup', stopResizing);
+  document.addEventListener('pointercancel', stopResizing);
+}
+
+function resizeWithKeyboard(event: KeyboardEvent): void {
+  const delta = event.key === 'ArrowLeft'
+    ? -5
+    : event.key === 'ArrowRight'
+      ? 5
+      : 0;
+  if (!delta) return;
+  event.preventDefault();
+  branchListWidth.value = Math.min(
+    MAX_LIST_WIDTH,
+    Math.max(MIN_LIST_WIDTH, branchListWidth.value + delta),
+  );
+}
+
+onBeforeUnmount(stopResizing);
 </script>
 
 <template>
   <section class="git-branches-page">
-    <header class="branches-page-heading">
-      <div>
-        <span class="section-kicker">Branches</span>
-        <h2>Gerencie linhas de trabalho locais e remotas</h2>
-        <p>Encontre uma branch, veja tracking e último commit, ou crie uma branch local a partir de origin/upstream.</p>
-      </div>
-      <button
-        type="button"
-        class="secondary-button"
-        :disabled="loading"
-        @click="emit('refresh')"
-      >
-        {{ loading ? 'Atualizando…' : 'Atualizar lista' }}
-      </button>
-    </header>
-
     <div class="branch-metrics" aria-label="Resumo de branches">
       <article>
         <span>Atual</span>
@@ -208,9 +253,22 @@ function selectBranch(branch: GitBranch): void {
           <input v-model="search" type="search" placeholder="Buscar branch ou commit…" />
         </label>
         <span class="branch-result-count">{{ filteredBranches.length }} resultado(s)</span>
+        <button
+          type="button"
+          class="secondary-button branch-refresh-button"
+          :disabled="loading"
+          @click="emit('refresh')"
+        >
+          {{ loading ? 'Atualizando…' : 'Atualizar lista' }}
+        </button>
       </div>
 
-      <div class="branch-browser-layout">
+      <div
+        ref="branchBrowserLayout"
+        class="branch-browser-layout"
+        :class="{ resizing: isResizing }"
+        :style="branchLayoutStyle"
+      >
         <aside class="branch-list" aria-label="Lista de branches">
           <button
             v-for="branch in filteredBranches"
@@ -235,6 +293,21 @@ function selectBranch(branch: GitBranch): void {
             Nenhuma branch corresponde aos filtros atuais.
           </div>
         </aside>
+
+        <div
+          class="branch-resize-handle"
+          role="separator"
+          aria-label="Redimensionar lista e detalhes das branches"
+          aria-orientation="vertical"
+          :aria-valuemin="MIN_LIST_WIDTH"
+          :aria-valuemax="MAX_LIST_WIDTH"
+          :aria-valuenow="Math.round(branchListWidth)"
+          tabindex="0"
+          @pointerdown="startResizing"
+          @keydown="resizeWithKeyboard"
+        >
+          <span aria-hidden="true" />
+        </div>
 
         <article v-if="selectedBranch" class="branch-detail-panel">
           <header>

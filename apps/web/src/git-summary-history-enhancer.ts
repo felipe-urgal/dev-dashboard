@@ -142,6 +142,11 @@ async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 function patchView(patch: string): HTMLElement {
   const pre = document.createElement('pre');
   pre.className = 'git-commit-detail-patch';
+  // Preserva o texto bruto do patch num atributo, imune a mutações visuais de outros
+  // enhancers (destaque de sintaxe, limpeza de cabeçalhos redundantes) que reescrevem o
+  // innerHTML do <pre> depois — git-inline-file-diff-enhancer.ts depende desse texto
+  // intacto para separar o patch combinado por arquivo.
+  pre.dataset.rawPatch = patch;
   if (!patch.trim()) {
     pre.textContent = 'Este commit não possui um patch textual para exibir.';
     return pre;
@@ -266,6 +271,8 @@ function renderHistoryList(section: HTMLElement): void {
       : 'Nenhum commit desta página corresponde à busca.';
     list.append(empty);
   }
+  section.querySelector('.git-summary-history-shell')
+    ?.classList.toggle('is-empty', state.commits.length === 0);
   renderPagination(section);
 }
 

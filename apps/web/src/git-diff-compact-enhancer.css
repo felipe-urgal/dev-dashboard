@@ -89,7 +89,6 @@
 }
 
 .git-diff-workspace {
-  grid-template-columns: minmax(235px, 26%) minmax(0, 1fr) !important;
   min-height: 560px !important;
 }
 
@@ -110,8 +109,8 @@
 }
 
 .git-diff-file-list > button {
-  gap: 7px !important;
-  padding: 8px !important;
+  gap: 8px !important;
+  padding: 6px 8px !important;
 }
 
 .git-diff-file-list > button .status-badge {
@@ -120,7 +119,9 @@
 }
 
 .git-diff-file-header {
-  padding: 10px 12px !important;
+  position: relative;
+  z-index: 2;
+  padding: 8px 12px !important;
 }
 
 .git-diff-selected-file {
@@ -135,14 +136,8 @@
   font-size: 10px !important;
 }
 
-.git-diff-viewer-toolbar {
-  position: relative;
-  z-index: 2;
-  padding: 6px 10px !important;
-}
-
 .git-diff-content-search {
-  width: min(330px, 48%) !important;
+  width: min(260px, 38%) !important;
 }
 
 .git-diff-patch-metadata {
@@ -218,16 +213,12 @@
   .git-diff-page-heading {
     align-items: flex-start !important;
   }
-
-  .git-diff-workspace {
-    grid-template-columns: minmax(220px, 31%) minmax(0, 1fr) !important;
-  }
 }
 
 @media (max-width: 760px) {
   .git-diff-page-heading,
   .git-diff-toolbar,
-  .git-diff-viewer-toolbar {
+  .git-diff-file-header {
     align-items: stretch !important;
     flex-direction: column;
   }
@@ -245,6 +236,10 @@
 
   .git-diff-workspace {
     grid-template-columns: 1fr !important;
+  }
+
+  .git-diff-resize-handle {
+    display: none !important;
   }
 
   .git-diff-files-pane {
