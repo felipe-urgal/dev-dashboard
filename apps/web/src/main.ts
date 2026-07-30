@@ -54,6 +54,7 @@ import { installProjectHeaderServerEnhancer } from './project-header-server-enha
 import { installSqlExplanationEnhancer } from './sql-explanation-enhancer';
 import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogInspector } from './test-log-inspector';
+import { installTestLogInspectorMutationGuard } from './test-log-inspector-mutation-guard';
 import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
@@ -79,7 +80,12 @@ installGitSummaryInlineDiffFix();
 installLogVisualEnhancer();
 installTestLogAutoFollow();
 installTestLogToneEnhancer();
-installTestLogInspector();
+const restoreTestLogInspectorMutationObserver = installTestLogInspectorMutationGuard();
+try {
+  installTestLogInspector();
+} finally {
+  restoreTestLogInspectorMutationObserver();
+}
 installSqlExplanationEnhancer();
 installLogDetailEnhancer();
 
