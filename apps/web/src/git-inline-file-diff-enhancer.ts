@@ -294,8 +294,10 @@ function enhanceFullDiff(patch: HTMLElement): void {
   details.dataset.structuredFullDiff = 'true';
 
   const rawPatch = rawPatchOf(patch);
-  patch.hidden = true;
-  patch.setAttribute('aria-hidden', 'true');
+  // O CSS legado do <pre> define display:block e pode sobrepor o atributo hidden.
+  // A referência continua disponível para os cliques nos arquivos, então removemos
+  // apenas a representação visual antiga e mantemos o patch bruto em memória.
+  patch.remove();
 
   const shell = document.createElement('section');
   shell.className = 'git-inline-full-diff';
