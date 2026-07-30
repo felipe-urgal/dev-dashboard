@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
@@ -33,6 +34,15 @@ const filter = ref<BranchFilter>('all');
 const search = ref('');
 const selectedBranchName = ref('');
 const createBranchName = ref('');
+
+const MIN_LIST_WIDTH = 30;
+const MAX_LIST_WIDTH = 65;
+const branchBrowserLayout = ref<HTMLElement | null>(null);
+const branchListWidth = ref(45);
+const isResizing = ref(false);
+const branchLayoutStyle = computed(() => ({
+  '--branch-list-width': `${branchListWidth.value}%`,
+}));
 
 const branches = computed(() => props.workspace?.branches ?? []);
 const localBranches = computed(() => branches.value.filter((branch) => branch.kind === 'local'));
@@ -125,26 +135,61 @@ function submitCreate(): void {
 function selectBranch(branch: GitBranch): void {
   selectedBranchName.value = branch.name;
 }
+
+function updateBranchListWidth(clientX: number): void {
+  const layout = branchBrowserLayout.value;
+  if (!layout) return;
+  const bounds = layout.getBoundingClientRect();
+  if (bounds.width <= 0) return;
+  const percentage = ((clientX - bounds.left) / bounds.width) * 100;
+  branchListWidth.value = Math.min(
+    MAX_LIST_WIDTH,
+    Math.max(MIN_LIST_WIDTH, percentage),
+  );
+}
+
+function stopResizing(): void {
+  if (!isResizing.value) return;
+  isResizing.value = false;
+  document.body.classList.remove('branch-browser-resizing');
+  document.removeEventListener('pointermove', resizeWithPointer);
+  document.removeEventListener('pointerup', stopResizing);
+  document.removeEventListener('pointercancel', stopResizing);
+}
+
+function resizeWithPointer(event: PointerEvent): void {
+  updateBranchListWidth(event.clientX);
+}
+
+function startResizing(event: PointerEvent): void {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  isResizing.value = true;
+  document.body.classList.add('branch-browser-resizing');
+  document.addEventListener('pointermove', resizeWithPointer);
+  document.addEventListener('pointerup', stopResizing);
+  document.addEventListener('pointercancel', stopResizing);
+}
+
+function resizeWithKeyboard(event: KeyboardEvent): void {
+  const delta = event.key === 'ArrowLeft'
+    ? -5
+    : event.key === 'ArrowRight'
+      ? 5
+      : 0;
+  if (!delta) return;
+  event.preventDefault();
+  branchListWidth.value = Math.min(
+    MAX_LIST_WIDTH,
+    Math.max(MIN_LIST_WIDTH, branchListWidth.value + delta),
+  );
+}
+
+onBeforeUnmount(stopResizing);
 </script>
 
 <template>
   <section class="git-branches-page">
-    <header class="branches-page-heading">
-      <div>
-        <span class="section-kicker">Branches</span>
-        <h2>Gerencie linhas de trabalho locais e remotas</h2>
-        <p>Encontre uma branch, veja tracking e último commit, ou crie uma branch local a partir de origin/upstream.</p>
-      </div>
-      <button
-        type="button"
-        class="secondary-button"
-        :disabled="loading"
-        @click="emit('refresh')"
-      >
-        {{ loading ? 'Atualizando…' : 'Atualizar lista' }}
-      </button>
-    </header>
-
     <div class="branch-metrics" aria-label="Resumo de branches">
       <article>
         <span>Atual</span>
@@ -208,9 +253,22 @@ function selectBranch(branch: GitBranch): void {
           <input v-model="search" type="search" placeholder="Buscar branch ou commit…" />
         </label>
         <span class="branch-result-count">{{ filteredBranches.length }} resultado(s)</span>
+        <button
+          type="button"
+          class="secondary-button branch-refresh-button"
+          :disabled="loading"
+          @click="emit('refresh')"
+        >
+          {{ loading ? 'Atualizando…' : 'Atualizar lista' }}
+        </button>
       </div>
 
-      <div class="branch-browser-layout">
+      <div
+        ref="branchBrowserLayout"
+        class="branch-browser-layout"
+        :class="{ resizing: isResizing }"
+        :style="branchLayoutStyle"
+      >
         <aside class="branch-list" aria-label="Lista de branches">
           <button
             v-for="branch in filteredBranches"
@@ -235,6 +293,21 @@ function selectBranch(branch: GitBranch): void {
             Nenhuma branch corresponde aos filtros atuais.
           </div>
         </aside>
+
+        <div
+          class="branch-resize-handle"
+          role="separator"
+          aria-label="Redimensionar lista e detalhes das branches"
+          aria-orientation="vertical"
+          :aria-valuemin="MIN_LIST_WIDTH"
+          :aria-valuemax="MAX_LIST_WIDTH"
+          :aria-valuenow="Math.round(branchListWidth)"
+          tabindex="0"
+          @pointerdown="startResizing"
+          @keydown="resizeWithKeyboard"
+        >
+          <span aria-hidden="true" />
+        </div>
 
         <article v-if="selectedBranch" class="branch-detail-panel">
           <header>
@@ -330,7 +403,6 @@ function selectBranch(branch: GitBranch): void {
   gap: 18px;
 }
 
-.branches-page-heading,
 .branch-create-card,
 .branch-browser-toolbar,
 .branch-detail-panel header,
@@ -342,14 +414,12 @@ function selectBranch(branch: GitBranch): void {
   gap: 16px;
 }
 
-.branches-page-heading h2,
 .branch-create-card h3,
 .branch-detail-panel h3 {
   margin: 3px 0 0;
   color: var(--color-text-strong, #182033);
 }
 
-.branches-page-heading p,
 .branch-create-card p,
 .branch-commit-detail p,
 .branch-action-hint {
@@ -479,14 +549,68 @@ input {
 
 .branch-browser-layout {
   display: grid;
-  grid-template-columns: minmax(330px, 0.9fr) minmax(420px, 1.1fr);
-  min-height: 510px;
+  grid-template-columns:
+    minmax(300px, var(--branch-list-width))
+    10px
+    minmax(360px, 1fr);
+  min-height: 460px;
+}
+
+.branch-resize-handle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.branch-resize-handle::before {
+  position: absolute;
+  inset: 0;
+  background: var(--color-border, #d8deea);
+  content: '';
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.branch-resize-handle span {
+  position: relative;
+  width: 3px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--color-border, #d8deea);
+  transition:
+    background 120ms ease,
+    height 120ms ease;
+}
+
+.branch-resize-handle:hover::before,
+.branch-resize-handle:focus-visible::before,
+.branch-browser-layout.resizing .branch-resize-handle::before {
+  opacity: 0.2;
+}
+
+.branch-resize-handle:hover span,
+.branch-resize-handle:focus-visible span,
+.branch-browser-layout.resizing .branch-resize-handle span {
+  height: 58px;
+  background: #314bc4;
+}
+
+.branch-resize-handle:focus-visible {
+  outline: 2px solid #314bc4;
+  outline-offset: -2px;
+}
+
+:global(body.branch-browser-resizing) {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .branch-list {
   overflow: auto;
-  max-height: 620px;
-  border-right: 1px solid var(--color-border, #d8deea);
+  max-height: 560px;
   padding: 10px;
 }
 
@@ -697,6 +821,10 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .branch-resize-handle {
+    display: none;
+  }
+
   .branch-list {
     max-height: 360px;
     border-right: 0;
@@ -705,8 +833,7 @@ input {
 }
 
 @media (max-width: 680px) {
-  .branches-page-heading,
-  .branch-create-card,
+    .branch-create-card,
   .branch-browser-toolbar,
   .branch-detail-panel header,
   .branch-detail-actions {

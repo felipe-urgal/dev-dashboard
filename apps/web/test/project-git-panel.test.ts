@@ -317,7 +317,17 @@ test('navega, filtra e exibe detalhes de branches remotas', async () => {
   await clickTab(mounted.wrapper, 'Branches');
 
   assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 6);
-  assert.match(mounted.wrapper.text(), /Gerencie linhas de trabalho locais e remotas/);
+  assert.doesNotMatch(
+    mounted.wrapper.text(),
+    /Gerencie linhas de trabalho locais e remotas/,
+  );
+  assert.ok(mounted.wrapper.find('.branch-refresh-button').exists());
+
+  const layout = mounted.wrapper.find('.branch-browser-layout');
+  const resizeHandle = mounted.wrapper.find('.branch-resize-handle');
+  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 45%/);
+  await resizeHandle.trigger('keydown', { key: 'ArrowRight' });
+  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 50%/);
 
   const upstreamFilter = mounted.wrapper
     .findAll('.branch-filter-tabs button')
