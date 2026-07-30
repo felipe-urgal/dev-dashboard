@@ -9,10 +9,10 @@ Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhance
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
 `sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
 `test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`,
-`git-diff-compact-enhancer.ts`, `git-branch-delete-enhancer.ts` e
-`project-header-server-enhancer.ts` concluídos, faltando só 3 arquivos pequenos
-(`git-diff-syntax-enhancer.ts`, `git-icon-enhancer.ts`, `git-diff-page-enhancer.ts`) para encerrar
-a fase por completo. Fase 6 ainda é planejamento.
+`git-diff-compact-enhancer.ts`, `git-branch-delete-enhancer.ts`,
+`project-header-server-enhancer.ts` e `git-diff-syntax-enhancer.ts` concluídos, faltando só 2
+arquivos pequenos (`git-icon-enhancer.ts`, `git-diff-page-enhancer.ts`) para encerrar a fase por
+completo. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -570,9 +570,23 @@ cabeçalho do projeto). Arquivo principal com as três variáveis de estado, `lo
   transcrição.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Os enhancers que restam na camada (`git-diff-syntax-enhancer.ts` 110, `git-icon-enhancer.ts` 76,
-  `git-diff-page-enhancer.ts` 73) seguem para conclusão da fase, a pedido do usuário mesmo já
-  estando abaixo do limiar inicial de tamanho.
+**`git-diff-syntax-enhancer.ts` (110 → 42 linhas) — concluído**, décimo sétimo arquivo da fase.
+Duas `WeakMap` independentes (`sourceByPatch`/`stateByCode`), uma por tipo de elemento decorado
+(`<pre>` de patch vs. `<code>` de linha individual) — sem relação entre si, cada uma fica isolada
+no módulo que a usa. Nenhum teste importa símbolos deste arquivo diretamente (confirmado via
+grep). Split em `git-diff-syntax/`: `constants.ts` (`PATCH_SELECTOR`/`CODE_SELECTOR`), `state.ts`
+(as duas `WeakMap`), `patch.ts` (`looksLikePatch`/`enhancePatch`) e `code.ts`
+(`syntaxContext`/`enhanceCode`, que monta a chave de cache `` `${filePath}\u0000${query}\u0000${source}` ``
+— mesma armadilha de escape Unicode das duas extrações anteriores, desta vez evitada de propósito
+escrevendo um placeholder de texto e substituindo por bytes exatos via script Python em vez de
+digitar o escape diretamente na ferramenta de edição). Arquivo principal com `scan`/
+`closestFromMutationTarget`/`installGitDiffSyntaxEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição, incluindo o escape Unicode preservado corretamente.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Restam `git-icon-enhancer.ts` (76) e `git-diff-page-enhancer.ts` (73) para concluir a fase por
+  completo, a pedido do usuário.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
