@@ -89,6 +89,30 @@ Fases 1–3 são puramente mecânicas e de baixo risco — dá para executar em 
 4–6 tocam comportamento sensível (logs, testes, processos gerenciados) e devem ser feitas uma de
 cada vez, com os testes relevantes rodando a cada passo.
 
+## Paralelização
+
+As fases não dependem umas das outras tecnicamente — a ordem acima é por risco, não por
+pré-requisito. Em termos de arquivos tocados:
+
+| Fases | Arquivos que tocam | Conflito entre si? |
+|---|---|---|
+| 1 (rotas API + response-schemas) | `apps/api/src/routes/*`, `apps/api/src/http/response-schemas.ts` | — |
+| 2 (`api.ts` web) | `apps/web/src/api.ts` | Não sobrepõe com 1 (consome a API, não edita rotas) |
+| 3 (CSS flat) | `apps/web/src/*.css`, `styles/components.css` | Não sobrepõe com 1, 2, 4, 5, 6 |
+| 4 (componentes `.vue`) | um componente por vez, cada um em arquivo próprio | Os componentes entre si não se tocam — vários podem rodar ao mesmo tempo, cada um em uma branch |
+| 5 (enhancers) | `apps/web/src/*-enhancer.{ts,css}` | Arquivos próprios, distintos dos CSS da fase 3 e dos componentes da fase 4 |
+| 6 (`process-manager.ts`) | `packages/process-manager/` | Pacote isolado, só a API o importa via barrel — não conflita com o resto |
+
+Ou seja: **1, 2, 3, 5 e 6 são totalmente disjuntas em arquivos** e podem ser executadas em paralelo
+sem risco de conflito de merge. A fase 4 também paraleliza bem *internamente* (cada componente é
+independente dos demais), mas por ser a de maior risco (toca lógica reativa, não só estilo),
+prefira um componente por vez dentro dela.
+
+Se a execução for de fato paralela (múltiplas branches/agentes simultâneos), cada frente deve ir
+para uma branch/worktree própria e ser mesclada de volta uma a uma — não porque os arquivos
+colidem, mas para manter `npm run typecheck && npm test` verde a cada merge, em vez de acumular
+várias mudanças não verificadas ao mesmo tempo.
+
 ## Fora do escopo (por ora)
 
 - Reescrever a camada "enhancer" para dentro dos componentes Vue (ver Fase 5).
