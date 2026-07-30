@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
-  onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
@@ -23,17 +21,10 @@ import {
 
 import { RouterLink } from 'vue-router';
 
-import type {
-  ProcessLogSnapshot,
-  Project,
-} from '@dev-dashboard/contracts';
-
-import {
-  clearProjectProcessLog,
-  fetchProjectProcessLog,
-} from '../api';
+import type { Project } from '@dev-dashboard/contracts';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import type {
   RailsLogGroup,
@@ -44,10 +35,6 @@ import {
   parseRailsLog,
   railsRequestStatusTone,
 } from '../utils/rails-log-parser';
-import {
-  RequestGate,
-  RequestGeneration,
-} from '../utils/request-generation';
 
 type ViewMode = 'requests' | 'raw';
 type CategoryFilter = 'all' | 'requests' | 'sql' | 'render' | 'errors';
@@ -66,26 +53,33 @@ const {
   statusLabel,
 } = useProjectProcessStatus(() => props.project);
 
-const loadingLogs = ref(false);
-const logSnapshot = ref<ProcessLogSnapshot | null>(null);
-const logErrorMessage = ref('');
 const logContainer = ref<HTMLElement | null>(null);
-const followLogs = ref(true);
-const streamPaused = ref(false);
 const searchQuery = ref('');
 const categoryFilter = ref<CategoryFilter>('all');
 const viewMode = ref<ViewMode>(props.project.type === 'rails' ? 'requests' : 'raw');
 const copiedRequestId = ref('');
 
+const {
+  loadingLogs,
+  logSnapshot,
+  logErrorMessage,
+  followLogs,
+  streamPaused,
+  refreshLogs,
+  scrollLogsToBottom,
+  handleLogScroll,
+  clearLogView,
+  toggleStream,
+} = useProjectLogsPolling(
+  () => props.project,
+  hasManagedProcess,
+  supportsServer,
+  logContainer,
+);
+
 useAutoDismiss(processErrorMessage, '');
 useAutoDismiss(logErrorMessage, '');
 useAutoDismiss(copiedRequestId, '');
-
-const projectRequests = new RequestGeneration();
-const logRequests = new RequestGeneration();
-const logRequestGate = new RequestGate();
-let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
-let clearingLog = false;
 
 const processUrls = computed<string[]>(() => {
   if (processStatus.value !== 'running') return [];
@@ -179,172 +173,7 @@ const visibleLineCount = computed(() =>
     : visibleRawLines.value.length,
 );
 
-function isCurrentProject(
-  projectId: string,
-  generation: number,
-): boolean {
-  return (
-    props.project.id === projectId &&
-    projectRequests.isCurrent(generation)
-  );
-}
-
-async function scrollLogsToBottom(): Promise<void> {
-  if (!followLogs.value) return;
-
-  await nextTick();
-  const element = logContainer.value;
-
-  if (element) {
-    element.scrollTop = element.scrollHeight;
-  }
-}
-
-async function refreshLogs(): Promise<void> {
-  if (!hasManagedProcess.value || clearingLog) return;
-
-  const requestToken = logRequestGate.begin('project-logs');
-  if (!requestToken) return;
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  const logGeneration = logRequests.capture();
-  loadingLogs.value = true;
-  logErrorMessage.value = '';
-
-  try {
-    const snapshot = await fetchProjectProcessLog(projectId);
-
-    if (
-      isCurrentProject(projectId, generation) &&
-      logRequests.isCurrent(logGeneration)
-    ) {
-      logSnapshot.value = snapshot;
-      await scrollLogsToBottom();
-    }
-  } catch (error) {
-    if (
-      isCurrentProject(projectId, generation) &&
-      logRequests.isCurrent(logGeneration)
-    ) {
-      logErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar os logs.';
-    }
-  } finally {
-    if (logRequestGate.finish(requestToken)) {
-      if (isCurrentProject(projectId, generation) && !clearingLog) {
-        loadingLogs.value = false;
-      }
-    }
-  }
-}
-
-function stopLogPolling(): void {
-  if (logPollingTimer) {
-    clearTimeout(logPollingTimer);
-    logPollingTimer = undefined;
-  }
-}
-
-function scheduleLogPolling(): void {
-  stopLogPolling();
-
-  if (
-    streamPaused.value ||
-    !supportsServer.value ||
-    !hasManagedProcess.value
-  ) {
-    return;
-  }
-
-  const generation = projectRequests.capture();
-  logPollingTimer = setTimeout(async () => {
-    await refreshLogs();
-
-    if (
-      projectRequests.isCurrent(generation) &&
-      !streamPaused.value &&
-      hasManagedProcess.value
-    ) {
-      scheduleLogPolling();
-    }
-  }, 2_000);
-}
-
-function handleLogScroll(): void {
-  const element = logContainer.value;
-  if (!element) return;
-
-  const distanceFromBottom =
-    element.scrollHeight -
-    element.scrollTop -
-    element.clientHeight;
-
-  followLogs.value = distanceFromBottom < 40;
-}
-
-async function clearLogView(): Promise<void> {
-  if (!hasManagedProcess.value || clearingLog) return;
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  const clearGeneration = logRequests.invalidate();
-  logRequestGate.invalidate();
-  clearingLog = true;
-  loadingLogs.value = true;
-  logErrorMessage.value = '';
-  stopLogPolling();
-
-  try {
-    const snapshot = await clearProjectProcessLog(projectId);
-
-    if (
-      isCurrentProject(projectId, generation) &&
-      logRequests.isCurrent(clearGeneration)
-    ) {
-      logSnapshot.value = snapshot;
-      followLogs.value = true;
-      await scrollLogsToBottom();
-    }
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      logErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível limpar os logs.';
-    }
-  } finally {
-    if (isCurrentProject(projectId, generation)) {
-      clearingLog = false;
-      loadingLogs.value = false;
-      scheduleLogPolling();
-    }
-  }
-}
-
-function toggleStream(): void {
-  streamPaused.value = !streamPaused.value;
-
-  if (streamPaused.value) {
-    stopLogPolling();
-  } else {
-    void refreshLogs().then(scheduleLogPolling);
-  }
-}
-
-function resetLogs(): void {
-  projectRequests.invalidate();
-  logRequests.invalidate();
-  logRequestGate.invalidate();
-  stopLogPolling();
-  clearingLog = false;
-  loadingLogs.value = false;
-  logSnapshot.value = null;
-  logErrorMessage.value = '';
-  followLogs.value = true;
-  streamPaused.value = false;
+function resetFilters(): void {
   searchQuery.value = '';
   categoryFilter.value = 'all';
   viewMode.value = props.project.type === 'rails' ? 'requests' : 'raw';
@@ -405,33 +234,13 @@ async function copyRequestId(requestId: string): Promise<void> {
 watch(
   () => props.project.id,
   () => {
-    resetLogs();
-  },
-  { immediate: true },
-);
-
-watch(
-  hasManagedProcess,
-  (available) => {
-    if (!available) {
-      stopLogPolling();
-      return;
-    }
-
-    void refreshLogs().then(scheduleLogPolling);
+    resetFilters();
   },
   { immediate: true },
 );
 
 watch(viewMode, () => {
   void scrollLogsToBottom();
-});
-
-onBeforeUnmount(() => {
-  projectRequests.invalidate();
-  logRequests.invalidate();
-  logRequestGate.invalidate();
-  stopLogPolling();
 });
 </script>
 

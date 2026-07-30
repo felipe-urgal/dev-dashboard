@@ -106,10 +106,23 @@ mesmo, na seção da fase correspondente.
     funcionando de forma idêntica. Nenhum teste depende do valor do hash. Verificado com
     `npm run typecheck`, `npm run build`, `npm test` (163 testes) e `npm run test:e2e` (13 testes,
     incluindo o baseline visual da sidebar) — tudo passando.
-- Sub-etapa 2 (pendente): extrair grupos coesos do `<script setup>` para composables
-  (`composables/useLogPolling.ts`, `useRailsLogFilters.ts`, `useGitDiffView.ts` etc.), um composable
-  por responsabilidade já visível no arquivo atual. Ainda não iniciada — é a parte que toca lógica
-  reativa, não só estilo, e merece ir componente por componente com o smoke E2E rodando a cada um.
+- Sub-etapa 2 (em andamento): extrair grupos coesos do `<script setup>` para composables, um
+  componente por vez, com o smoke E2E rodando a cada um.
+  - `ProjectLogsPanel.vue` (674 linhas, script ~250 → ~90): extraído
+    `composables/useProjectLogsPolling.ts` (244 linhas) com o polling de log
+    (`refreshLogs`/`scheduleLogPolling`/`stopLogPolling`/`clearLogView`/`toggleStream`) e seu
+    próprio rastreio de gerações de requisição, seguindo o mesmo formato de
+    `useProjectProcessStatus.ts` (função-fábrica que recebe `getProject` e devolve refs/funções).
+    O componente manteve os filtros de busca/categoria/view-mode e a formatação de exibição (que são
+    puramente de UI, não de rede).
+    - Um detalhe de ordenação importa aqui: o composable precisa ter **seu próprio** watcher
+      imediato de `getProject().id` chamando `reset()` antes do watcher de `hasManagedProcess` que
+      dispara o primeiro `refreshLogs`/agendamento — na mesma ordem relativa que existia no
+      componente original. Delegar esse reset para um watcher externo no componente (declarado
+      depois da chamada do composable) inverteria a ordem e cancelaria a busca inicial assim que ela
+      começasse. Por isso o composable é autocontido, como `useProjectProcessStatus`, em vez de
+      expor um `reset()` para o componente chamar.
+  - Componentes restantes (`ProjectServerPanel.vue`, `ProjectGitPanel.vue`, etc.): pendentes.
 
 **Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
 com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
