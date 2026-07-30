@@ -300,6 +300,36 @@ test('commit com includeAllChanges adiciona modificações rastreadas automatica
   assert.equal(result.subject, 'inclui tudo');
 });
 
+test('amend substitui a mensagem do último commit sem exigir alterações', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const previousHead = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: root });
+  const service = new GitService();
+  const confirmation = service.prepareMutationConfirmation('p1', 'amend', 'main');
+  const result = await service.amend(
+    root,
+    'p1',
+    'mensagem corrigida',
+    confirmation.token,
+  );
+  assert.equal(result.subject, 'mensagem corrigida');
+  assert.notEqual(result.hash, previousHead.stdout.trim());
+  const status = await execFileAsync('git', ['status', '--porcelain'], { cwd: root });
+  assert.equal(status.stdout, '');
+});
+
+test('amend sem confirmação é recusado', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  await assert.rejects(
+    () => service.amend(root, 'p1', 'mensagem corrigida'),
+    (error: unknown) =>
+      error instanceof GitMutationError
+      && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+  );
+});
+
 test('commit sem nada staged falha com GIT_NOTHING_TO_COMMIT', async (context) => {
   const root = await makeRepo();
   context.after(async () => { await rm(root, { recursive: true, force: true }); });

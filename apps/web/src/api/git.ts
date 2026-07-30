@@ -239,6 +239,14 @@ export async function commitProjectGit(projectId: string, message: string, inclu
   return response.commit;
 }
 
+export async function amendProjectGit(projectId: string, message: string, confirmationToken: string): Promise<GitCommitResult> {
+  const response = await requestJson<GitCommitMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/commit/amend`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, confirmationToken }) },
+  );
+  return response.commit;
+}
+
 export async function saveProjectGit(projectId: string, message: string, confirmationToken: string): Promise<GitCommitResult> {
   const response = await requestJson<GitCommitMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/save`,

@@ -74,7 +74,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'track-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file';
+export type GitMutationOperation = 'create-branch' | 'track-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file';
 
 export interface GitMutationConfirmation {
   token: string;
