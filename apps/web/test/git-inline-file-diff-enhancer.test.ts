@@ -36,14 +36,13 @@ function buildHistoryDetail(filePath = 'app/models/big_number.rb'): {
         <header><h4>Arquivos alterados</h4></header>
         <ul><li><code>${filePath}</code></li></ul>
       </section>
-      <details class="git-history-page-diff">
-        <summary><span>Ver diff completo</span></summary>
+      <div class="git-history-page-patch-source" hidden>
         <pre></pre>
-      </details>
+      </div>
     </div>
   `;
   document.body.append(host);
-  const patch = host.querySelector<HTMLElement>('.git-history-page-diff pre')!;
+  const patch = host.querySelector<HTMLElement>('.git-history-page-patch-source pre')!;
   // Espelha patchView() (git-history-page-enhancer.ts): o texto bruto fica em
   // data-raw-patch, e o conteúdo visual (textContent/innerHTML) começa igual, mas pode
   // ser reescrito depois por outros enhancers sem afetar o atributo.
@@ -106,16 +105,17 @@ test('recorre ao textContent quando data-raw-patch não está presente', () => {
 });
 
 
-test('substitui o patch bruto do diff completo pela visualização estruturada', () => {
+test('mantém o patch combinado oculto apenas como fonte dos diffs individuais', () => {
   const { host, patch } = buildHistoryDetail();
   cleanup = () => host.remove();
 
   scanDetails(host);
 
-  assert.equal(patch.isConnected, false);
-  assert.equal(host.querySelector('.git-history-page-diff pre'), null);
-  const fullDiff = host.querySelector('.git-inline-full-diff');
-  assert.ok(fullDiff);
-  assert.match(fullDiff!.textContent ?? '', /Scope/);
-  assert.ok(fullDiff!.querySelector('.git-inline-diff-line-number'));
+  assert.equal(patch.isConnected, true);
+  assert.ok(host.querySelector('.git-history-page-patch-source[hidden]'));
+  assert.equal(host.querySelector('.git-inline-full-diff'), null);
+
+  const row = host.querySelector<HTMLElement>('.git-history-page-detail-files li')!;
+  row.click();
+  assert.match(host.querySelector('.git-inline-file-diff')?.textContent ?? '', /Scope/);
 });
