@@ -7,6 +7,7 @@ import {
 import {
   MagnifyingGlassIcon,
   PlayIcon,
+  StopIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -19,6 +20,7 @@ import { dashboardStore } from '../stores/dashboard';
 import {
   fetchManagedProcesses,
   startProjectProcess,
+  stopProjectProcess,
 } from '../api';
 
 const {
@@ -45,10 +47,13 @@ type ProjectFilter = 'all' | ProjectType;
 const projectSearch = ref('');
 const projectFilter = ref<ProjectFilter>('all');
 const activeServerProjectIds = ref(new Set<string>());
+const stoppableServerProjectIds = ref(new Set<string>());
 const loadingServerStatuses = ref(false);
 const serverStatusesLoaded = ref(false);
 const startingAllServers = ref(false);
 const serversBeingStarted = ref(0);
+const stoppingAllServers = ref(false);
+const serversBeingStopped = ref(0);
 
 let serverStatusRequest = 0;
 
@@ -101,7 +106,17 @@ const startableServerProjects = computed(() =>
   ),
 );
 
-const serverActionTitle = computed(() => {
+const stoppableServerProjects = computed(() =>
+  projectsWithServer.value.filter(
+    (project) => stoppableServerProjectIds.value.has(project.id),
+  ),
+);
+
+const serverActionInProgress = computed(
+  () => startingAllServers.value || stoppingAllServers.value,
+);
+
+const serverStartActionTitle = computed(() => {
   if (loadingServerStatuses.value) {
     return 'Verificando servidores disponíveis.';
   }
@@ -118,6 +133,23 @@ const serverActionTitle = computed(() => {
   return `Iniciar ${count} ${count === 1 ? 'servidor parado' : 'servidores parados'}.`;
 });
 
+const serverStopActionTitle = computed(() => {
+  if (loadingServerStatuses.value) {
+    return 'Verificando servidores em execução.';
+  }
+
+  if (!serverStatusesLoaded.value) {
+    return 'Não foi possível verificar os servidores em execução.';
+  }
+
+  if (stoppableServerProjects.value.length === 0) {
+    return 'Nenhum servidor está em execução.';
+  }
+
+  const count = stoppableServerProjects.value.length;
+  return `Parar ${count} ${count === 1 ? 'servidor ativo' : 'servidores ativos'}.`;
+});
+
 function clearProjectFilters(): void {
   projectSearch.value = '';
   projectFilter.value = 'all';
@@ -128,12 +160,14 @@ async function refreshServerStatuses(): Promise<void> {
 
   if (projectsWithServer.value.length === 0) {
     activeServerProjectIds.value = new Set();
+    stoppableServerProjectIds.value = new Set();
     loadingServerStatuses.value = false;
     serverStatusesLoaded.value = false;
     return;
   }
 
   activeServerProjectIds.value = new Set();
+  stoppableServerProjectIds.value = new Set();
   loadingServerStatuses.value = true;
   serverStatusesLoaded.value = false;
 
@@ -156,6 +190,14 @@ async function refreshServerStatuses(): Promise<void> {
         )
         .map((process) => process.projectId),
     );
+    stoppableServerProjectIds.value = new Set(
+      managedProcesses
+        .filter((process) =>
+          process.status === 'starting' ||
+          process.status === 'running',
+        )
+        .map((process) => process.projectId),
+    );
     serverStatusesLoaded.value = true;
   } catch (error) {
     if (request !== serverStatusRequest) return;
@@ -174,7 +216,7 @@ async function refreshServerStatuses(): Promise<void> {
 async function handleStartAllServers(): Promise<void> {
   const projectsToStart = [...startableServerProjects.value];
 
-  if (projectsToStart.length === 0 || startingAllServers.value) {
+  if (projectsToStart.length === 0 || serverActionInProgress.value) {
     return;
   }
 
@@ -201,6 +243,10 @@ async function handleStartAllServers(): Promise<void> {
       ...activeServerProjectIds.value,
       ...startedProjectIds,
     ]);
+    stoppableServerProjectIds.value = new Set([
+      ...stoppableServerProjectIds.value,
+      ...startedProjectIds,
+    ]);
 
     if (failedProjects.length === 0) {
       successMessage.value =
@@ -222,6 +268,67 @@ async function handleStartAllServers(): Promise<void> {
   } finally {
     startingAllServers.value = false;
     serversBeingStarted.value = 0;
+  }
+}
+
+async function handleStopAllServers(): Promise<void> {
+  const projectsToStop = [...stoppableServerProjects.value];
+
+  if (projectsToStop.length === 0 || serverActionInProgress.value) {
+    return;
+  }
+
+  stoppingAllServers.value = true;
+  serversBeingStopped.value = projectsToStop.length;
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  try {
+    const results = await Promise.allSettled(
+      projectsToStop.map((project) =>
+        stopProjectProcess(project.id),
+      ),
+    );
+
+    const stoppedProjectIds = projectsToStop
+      .filter((_, index) => results[index]?.status === 'fulfilled')
+      .map((project) => project.id);
+    const stoppedProjectIdSet = new Set(stoppedProjectIds);
+    const failedProjects = projectsToStop.filter(
+      (_, index) => results[index]?.status === 'rejected',
+    );
+
+    activeServerProjectIds.value = new Set(
+      [...activeServerProjectIds.value].filter(
+        (projectId) => !stoppedProjectIdSet.has(projectId),
+      ),
+    );
+    stoppableServerProjectIds.value = new Set(
+      [...stoppableServerProjectIds.value].filter(
+        (projectId) => !stoppedProjectIdSet.has(projectId),
+      ),
+    );
+
+    if (failedProjects.length === 0) {
+      successMessage.value =
+        `${stoppedProjectIds.length} ` +
+        `${stoppedProjectIds.length === 1 ? 'servidor parado' : 'servidores parados'}.`;
+    } else {
+      const failedNames = failedProjects
+        .map((project) => project.name)
+        .join(', ');
+      const successSummary = stoppedProjectIds.length > 0
+        ? stoppedProjectIds.length === 1
+          ? '1 servidor parado. '
+          : `${stoppedProjectIds.length} servidores parados. `
+        : '';
+
+      errorMessage.value =
+        `${successSummary}Não foi possível parar: ${failedNames}.`;
+    }
+  } finally {
+    stoppingAllServers.value = false;
+    serversBeingStopped.value = 0;
   }
 }
 
@@ -327,28 +434,54 @@ watch(
             {{ projects.length === 1 ? 'projeto' : 'projetos' }}
           </span>
 
-          <button
+          <div
             v-if="projectsWithServer.length > 0"
-            type="button"
-            class="primary-button servers-start-button"
-            :disabled="
-              loadingServerStatuses ||
-              !serverStatusesLoaded ||
-              startingAllServers ||
-              startableServerProjects.length === 0
-            "
-            :title="serverActionTitle"
-            @click="handleStartAllServers"
+            class="servers-actions"
           >
-            <PlayIcon aria-hidden="true" />
-            <span>
-              {{
-                startingAllServers
-                  ? `Iniciando ${serversBeingStarted}...`
-                  : 'Iniciar servidores'
-              }}
-            </span>
-          </button>
+            <button
+              type="button"
+              class="primary-button servers-action-button servers-start-button"
+              :disabled="
+                loadingServerStatuses ||
+                !serverStatusesLoaded ||
+                serverActionInProgress ||
+                startableServerProjects.length === 0
+              "
+              :title="serverStartActionTitle"
+              @click="handleStartAllServers"
+            >
+              <PlayIcon aria-hidden="true" />
+              <span>
+                {{
+                  startingAllServers
+                    ? `Iniciando ${serversBeingStarted}...`
+                    : 'Iniciar servidores'
+                }}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              class="danger-button servers-action-button servers-stop-button"
+              :disabled="
+                loadingServerStatuses ||
+                !serverStatusesLoaded ||
+                serverActionInProgress ||
+                stoppableServerProjects.length === 0
+              "
+              :title="serverStopActionTitle"
+              @click="handleStopAllServers"
+            >
+              <StopIcon aria-hidden="true" />
+              <span>
+                {{
+                  stoppingAllServers
+                    ? `Parando ${serversBeingStopped}...`
+                    : 'Parar servidores'
+                }}
+              </span>
+            </button>
+          </div>
         </div>
       </template>
 

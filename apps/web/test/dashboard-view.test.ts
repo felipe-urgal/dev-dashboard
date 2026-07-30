@@ -9,11 +9,13 @@ const actions = vi.hoisted(() => ({
   remover: vi.fn(),
   buscarProcessos: vi.fn(),
   iniciarProcesso: vi.fn(),
+  pararProcesso: vi.fn(),
 }));
 
 vi.mock('../src/api', () => ({
   fetchManagedProcesses: actions.buscarProcessos,
   startProjectProcess: actions.iniciarProcesso,
+  stopProjectProcess: actions.pararProcesso,
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -68,6 +70,12 @@ beforeEach(() => {
     projectId,
     kind: 'server',
     status: 'starting',
+  }));
+  actions.pararProcesso.mockImplementation(async (projectId: string) => ({
+    id: `process-${projectId}`,
+    projectId,
+    kind: 'server',
+    status: 'stopped',
   }));
   dashboardStore.projects.value = [];
   dashboardStore.workspaces.value = [];
@@ -239,5 +247,93 @@ describe('dashboard principal', () => {
     expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeDefined();
     expect(wrapper.get('.servers-start-button').attributes('title'))
       .toBe('Não foi possível verificar os servidores disponíveis.');
+    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.servers-stop-button').attributes('title'))
+      .toBe('Não foi possível verificar os servidores em execução.');
+  });
+
+  it('para todos os servidores ativos e ignora os projetos parados', async () => {
+    actions.buscarProcessos.mockResolvedValue([
+      {
+        id: 'process-p1',
+        projectId: 'p1',
+        kind: 'server',
+        status: 'running',
+      },
+    ]);
+    dashboardStore.selectedWorkspaceId.value = 'w1';
+    dashboardStore.projects.value = [
+      { ...project, capabilities: ['git', 'server'] },
+      {
+        ...project,
+        id: 'p2',
+        name: 'API',
+        capabilities: ['server'],
+      },
+    ];
+
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
+    });
+
+    await wrapper.get('.servers-stop-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(actions.pararProcesso).toHaveBeenCalledOnce();
+    });
+
+    expect(actions.pararProcesso).toHaveBeenCalledWith('p1');
+    expect(wrapper.text()).toContain('1 servidor parado.');
+    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+  });
+
+  it('informa os servidores que falharam ao parar sem perder os demais resultados', async () => {
+    actions.buscarProcessos.mockResolvedValue([
+      {
+        id: 'process-p1',
+        projectId: 'p1',
+        kind: 'server',
+        status: 'running',
+      },
+      {
+        id: 'process-p2',
+        projectId: 'p2',
+        kind: 'server',
+        status: 'running',
+      },
+    ]);
+    dashboardStore.projects.value = [
+      { ...project, capabilities: ['server'] },
+      {
+        ...project,
+        id: 'p2',
+        name: 'API',
+        capabilities: ['server'],
+      },
+    ];
+    actions.pararProcesso
+      .mockResolvedValueOnce({
+        id: 'process-p2',
+        projectId: 'p2',
+        kind: 'server',
+        status: 'stopped',
+      })
+      .mockRejectedValueOnce(new Error('falha ao encerrar'));
+
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
+    });
+
+    await wrapper.get('.servers-stop-button').trigger('click');
+    await vi.waitFor(() => {
+      expect(actions.pararProcesso).toHaveBeenCalledTimes(2);
+    });
+
+    expect(wrapper.text()).toContain(
+      '1 servidor parado. Não foi possível parar: Favorito.',
+    );
+    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
   });
 });
