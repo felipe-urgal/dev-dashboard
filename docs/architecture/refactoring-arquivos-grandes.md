@@ -4,10 +4,10 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
-`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
-`git-summary-global-search-fix.ts` e `log-visual-enhancer.ts` concluídos, demais arquivos da camada
-"enhancer" pendentes. Fase 6 ainda é planejamento.
+Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM foram quebrados
+mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
+`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 ainda é
+planejamento.
 
 ## Contexto
 
@@ -369,10 +369,240 @@ linhas de log brutas: boot, sucesso, build, requisição HTTP, erro, warning), `
   manualmente por não caberem nesse padrão de substituição (viram chamadas a `setActiveSearchQuery`).
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes. Nenhum teste importa símbolos diretamente deste arquivo.
-- Os demais arquivos da camada (`git-commit-enhancer.ts` 362, `sql-explanation-enhancer.ts` 326,
-  `log-detail-enhancer.ts` 291, `git-summary-inline-diff-fix.ts` 290,
-  `test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
-  cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-commit-enhancer.ts` (362 → 42 linhas) — concluído**, sétimo arquivo da fase e o segundo sem
+`WeakMap`/variável de módulo compartilhada — cada função aqui é independente, ligada apenas por
+argumentos explícitos (`section`, `branch`, `counts`), o que tornou esta a quebra mais direta até
+agora. Três funções são puras e testadas diretamente por `git-commit-enhancer.test.ts`
+(`classifyGitStatus`, `matchesCommitFile`, `withCommitPrefix` — confirmado via grep antes de
+começar) e precisaram ser reexportadas pelo arquivo principal. Split em `git-commit/`: `types.ts`
+(`CommitFileKind`/`CommitFileFilter`), `constants.ts` (`conventionalTypes`), `dom-helpers.ts`
+(`mountIcon`), `classify.ts` (`classifyGitStatus`/`matchesCommitFile`), `commit-prefix.ts`
+(`withCommitPrefix`), `tabs.ts` (`findTab`), `heading.ts` (`addPageHeading`), `files.ts`
+(`enhanceFiles`, o filtro/busca da lista de arquivos alterados) `message-editor.ts`
+(`branchType`/`messageEditor`, os chips de tipo de commit sugeridos pela branch) e `composer.ts`
+(`enhanceComposer`, a alternância entre os formulários "commit staged"/"salvar tudo"). O arquivo
+principal ficou só com `enhanceCommitPage`/`scan`/`installGitCommitEnhancer`, além de reexportar
+as três funções testadas e os dois tipos.
+- Sem import circular e sem transformação de estado compartilhado desta vez — todas as funções
+  bateram no `diff` linha a linha contra o original sem nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa as três funções puras direto do arquivo) e os 13 testes E2E —
+  todos verdes.
+**`sql-explanation-enhancer.ts` (326 → 42 linhas) — concluído**, oitavo arquivo da fase e o mais
+simples até agora: nenhum `WeakMap`, nenhuma variável de módulo, nenhum import circular — apenas
+funções puras de parsing de SQL (regex sobre a string do statement) encadeadas por argumentos e
+retorno, sem tocar o DOM exceto em `buildExplanation`. Nenhum teste importa símbolos deste arquivo
+diretamente (confirmado via grep — só `main.ts` importa o instalador). Split em `sql-explanation/`:
+`types.ts` (`SqlExplanation`), `constants.ts` (`SQL_LINE_SELECTOR`/`EXPLANATION_CLASS`),
+`text-helpers.ts` (`cleanIdentifier`/`code`/`unique`), `extract.ts` (`extractStatement`/
+`extractMainTable`/`extractJoinedTables`/`extractLimit`/`extractOrder`/`selectProjection`/
+`hasSoftDeleteFilter`/`hasWhere`, todo o parsing de SQL bruto por regex), `describe.ts`
+(`describeSelect`/`explainSql`, a montagem da explicação em português a partir do que foi
+extraído) e `render.ts` (`explanationKey`/`buildExplanation`, a montagem do `<details>` exibido
+abaixo da linha de log). O arquivo principal ficou só com `enhanceSqlLine`/`enhance`/
+`installSqlExplanationEnhancer`.
+- Todas as 18 funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`log-detail-enhancer.ts` (291 → 41 linhas) — concluído**, nono arquivo da fase, também sem
+`WeakMap`/variável de módulo/import circular — cada linha de log é decorada de forma independente
+lendo o estado da busca direto do DOM a cada chamada (`searchQuery()`), sem cache entre chamadas.
+Split em `log-detail/`: `constants.ts` (`RAW_LINE_SELECTOR`/`SEARCH_INPUT_SELECTOR`/
+`sqlKeywords`/`sqlFunctions`), `types.ts` (`NodeRequest`/`QueryParameter`), `dom-helpers.ts`
+(`searchQuery`/`originalText`/`appendHighlightedText`), `node-request.ts`
+(`parseNodeRequest`/`parseRequestTarget`/`buildParameters`/`decorateNodeRequest`, o parse de query
+string de requisições Node/Next) e `sql.ts` (`sqlTokenClass`/`appendSql`/`splitRawSql`/
+`decorateRawSql`, o destaque de sintaxe de linhas SQL brutas do log). O arquivo principal ficou só
+com `enhanceLine`/`enhance`/`installLogDetailEnhancer`.
+- Armadilha encontrada durante a extração: duas `renderKey` usam `\u0000` como separador dentro de
+  um template literal (`` `${value}\u0000${query}` ``). Ao transcrever o conteúdo via ferramenta,
+  a sequência de escape virou um byte NUL de verdade no arquivo novo (detectável porque `grep`
+  passou a reportar "binary file matches") em vez do texto literal `\u0000` que o TypeScript
+  original interpreta como escape em tempo de execução — corrigido reescrevendo o byte NUL de volta
+  para os seis caracteres literais antes de seguir. Vale nota para qualquer futura extração
+  manual que envolva escapes Unicode em template literals.
+- Fora esse ponto, todas as funções bateram no `diff` linha a linha contra o original (os dois
+  falsos-negativos do script de extração automática, por assinatura de retorno multilinha,
+  resolvidos com verificação manual por `sed`).
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`git-summary-inline-diff-fix.ts` (290 → 23 linhas) — concluído**, décimo arquivo da fase. Sem
+`WeakMap` nem variável de módulo — o `mode` de visualização (unificado/lado a lado) é lido do
+`localStorage` a cada abertura de arquivo, não fica em memória entre chamadas. Este arquivo é um
+dos "irmãos" citados na nota de duplicação entre enhancers (ver seção "Duplicação entre os
+enhancers" mais abaixo neste documento) — tem lógica quase idêntica à de
+`git-inline-file-diff-enhancer.ts`, mas é um enhancer separado específico para o painel de resumo
+(`git-summary-commit-detail`), então a quebra foi feita isoladamente, sem tentar unificar os dois
+(fora de escopo desta fase). Split em `git-summary-inline-diff-fix/`: `types.ts` (`ViewMode`),
+`dom-helpers.ts` (`mountIcon`), `storage.ts` (`readMode`/`saveMode`), `diff-render.ts`
+(`unified`/`split`, incluindo os helpers privados `prefix`/`number`/`splitCell`), `paths.ts`
+(`filePaths`) e `enhance.ts` (a função `enhance` inteira, mantida como um único bloco porque as
+closures `open`/`draw`/`close` compartilham variáveis locais como `active`/`mode` de forma
+entrelaçada — separá-las exigiria introduzir um objeto de estado explícito, fora do escopo de uma
+quebra puramente mecânica). O arquivo principal ficou só com `scan`/
+`installGitSummaryInlineDiffFix`.
+- Todas as funções (incluindo os helpers privados de `diff-render.ts`) bateram no `diff` linha a
+  linha contra o original sem nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`test-log-tone-enhancer.ts` (286 → 39 linhas) — concluído**, décimo primeiro arquivo da fase.
+Sem `WeakMap` nem variável de módulo compartilhada — cada linha é classificada de forma pura por
+regex, sem estado entre chamadas. Seis símbolos são importados diretamente por consumidores
+externos: `classifyTestLogLine` (teste), `classifyTestLogSemanticTone`/`enhanceTestLogTones`/
+`isTestLogErrorLine` (teste) e `classifyTestLogSemanticTone`/`isTestLogErrorLine`/
+`isTestLogWarningLine` (`composables/project-test-log.ts`, um consumidor interno, não só teste) —
+confirmado via grep antes de começar, todos reexportados pelo arquivo principal. Split em
+`test-log-tone/`: `constants.ts` (as classes de tom e os regex `RSPEC_PROGRESS_PATTERN`/
+`TEST_FILE_PATTERN`), `types.ts` (`TestLogVisualTone`/`TestLogSemanticTone`), `classify.ts`
+(`normalizedLine` — exportado porque `row.ts` também precisa dele —, `hasNonZeroFailureSummary`,
+`isTestLogSuccessLine`/`isTestLogErrorLine`/`isTestLogWarningLine`,
+`classifyTestLogSemanticTone`/`classifyTestLogLine`), `dom-helpers.ts` (`toggleExclusiveClass`),
+`row.ts` (`decorateRspecProgress`/`enhanceRow`) e `shell.ts`
+(`tabButton`/`setTabCount`/`renderSemanticEmptyInspector`/`enhanceShell`). O arquivo principal
+ficou só com `enhanceTestLogTones`/`installTestLogToneEnhancer`, além dos reexports.
+- Segundo erro de transcrição real da fase (o primeiro foi no `git-stash-enhancer.ts`): a função
+  `normalizedLine` original usa `value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')` para remover
+  códigos de escape ANSI — na primeira cópia, o `\u001B` (o caractere ESC que abre a sequência)
+  foi descartado por engano, o que teria feito o regex remover colchetes `[...]` de qualquer
+  linha em vez de só sequências ANSI. Pego por inspeção antes do `diff` de verificação, comparando
+  contra o original linha a linha.
+- Repetição da armadilha de escape Unicode já vista em `log-detail-enhancer.ts`: ao corrigir o
+  `\u001B`, a ferramenta de escrita novamente converteu a sequência de escape em um byte ESC (0x1B)
+  real embutido no arquivo, em vez do texto literal `\u001B` que o TypeScript original interpreta
+  em tempo de execução — corrigido reescrevendo o byte de volta para os seis caracteres literais.
+  Vale registrar como padrão recorrente: qualquer extração manual que precise digitar uma sequência
+  de escape Unicode dentro de uma regex ou template literal deve ter o arquivo resultante
+  verificado com uma contagem de bytes de controle (`\x00`, `\x1b`, etc.) antes do `diff`, não só
+  depois.
+- Fora esses dois pontos, todas as ~16 funções bateram no `diff` linha a linha contra o original.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo os dois arquivos de teste que importam símbolos direto deste módulo) e os 13 testes
+  E2E — todos verdes.
+**`git-history-inline-diff-fix.ts` (262 → 22 linhas) — concluído**, décimo segundo arquivo da
+fase e "irmão" quase idêntico de `git-summary-inline-diff-fix.ts` (mesma nota de duplicação entre
+enhancers) — a única diferença de comportamento é o seletor alvo (`.git-history-page-detail`/
+`.git-history-page-detail-files`/`.git-history-page-diff pre` em vez dos equivalentes
+`.git-summary-*`) e o fato de já ler `patch.dataset.rawPatch` em vez de só `patch.textContent`.
+Mesma estrutura de módulos em `git-history-inline-diff-fix/`: `types.ts` (`ViewMode`),
+`dom-helpers.ts` (`mountIcon`), `storage.ts` (`readMode`/`saveMode`), `diff-render.ts`
+(`unified`/`split` + helpers privados `prefix`/`number`/`splitCell`), `paths.ts` (`filePaths`) e
+`enhance.ts` (a função `enhance` mantida como bloco único pelo mesmo motivo do arquivo irmão).
+Arquivo principal só com `scan`/`installGitHistoryInlineDiffFix`.
+- Nenhum teste importa símbolos deste arquivo diretamente (confirmado via grep).
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Com este arquivo concluído, todos os enhancers com >250 linhas listados originalmente no
+  levantamento da fase foram quebrados.
+
+**`git-history-global-search-fix.ts` (223 → 109 linhas) — concluído**, décimo terceiro arquivo da
+fase — este tinha ficado de fora do levantamento inicial de arquivos >250 linhas, mas seguia o
+mesmo padrão dos demais e valia a quebra. Mesmo padrão de `WeakMap<HTMLElement, HistorySearchState>`
+(`stateBySection`). A função `applyGlobalHistoryFilters` é testada diretamente por
+`git-history-global-search-fix.test.ts` (confirmado via grep) e foi reexportada. Split em
+`git-history-global-search-fix/`: `types.ts` (`CompatibleTimer`/`HistorySearchState`/
+`HistoryResponsePayload`), `dom-helpers.ts` (`historySection`/`control`), `state.ts`
+(`stateBySection`/`stateFor`), `url.ts` (`isHistoryListRequest`/`applyGlobalHistoryFilters`/
+`requestUrl`/`replaceRequestUrl`, a reescrita de URL que redireciona `/git/commits` para
+`/git/exclusive-branch-commits` com os filtros aplicados) e `controls.ts`
+(`restoreControls`/`scheduleRestore`). O arquivo principal ficou com `refresh`/`enhanceSection`/
+`scan`/`installGitHistoryGlobalSearchFix` — este último é o maior remanescente porque contém o
+monkey-patch de `window.fetch` inteiro, que não fazia sentido fatiar mais sem obscurecer o fluxo de
+uma única requisição interceptada.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `applyGlobalHistoryFilters` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+**`git-diff-compact-enhancer.ts` (195 → 39 linhas) — concluído**, décimo quarto arquivo da fase.
+Sem `WeakMap`; a única variável de módulo (`let scheduled = false`) fica no arquivo principal
+porque só é lida/escrita por `scan`/`scheduleScan`, que também ficaram lá. A função
+`splitLeadingPatchMetadata` é testada diretamente por `git-diff-compact-enhancer.test.ts`
+(confirmado via grep) e foi reexportada junto com o tipo `LeadingPatchMetadata`. Split em
+`git-diff-compact/`: `types.ts` (`DiffSummaryMetric`/`LeadingPatchMetadata`), `summary.ts`
+(`metricValue`/`appendSummaryMetric`/`updateCompactSummary`, o resumo compacto de branch+métricas
+no cabeçalho), `filters.ts` (`totalFileCount`/`updateFilters`, oculta o filtro de status quando há
+só um arquivo) e `patch-metadata.ts` (`splitLeadingPatchMetadata`/`leadingMetadataRows`/
+`updatePatchMetadata`, que move linhas de metadado do patch para um `<details>` recolhível).
+Arquivo principal com `enhancePage`/`scan`/`scheduleScan`/`installGitDiffCompactEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `splitLeadingPatchMetadata` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+**`git-branch-delete-enhancer.ts` (193 → 28 linhas) — concluído**, décimo quinto arquivo da fase.
+Sem `WeakMap`; a única variável de módulo (`scheduled`) fica no arquivo principal, mesmo padrão do
+arquivo anterior. Nenhum teste importa símbolos deste arquivo diretamente (confirmado via grep).
+Split em `git-branch-delete/`: `types.ts` (`ConfirmationResponse`/`DeleteResponse`),
+`dom-helpers.ts` (`projectIdFromLocation`/`mountIcon`), `network.ts` (`requestJson`),
+`panel-info.ts` (`selectedBranch`/`isLocalBranch`/`isCurrentBranch`/`protectionReason`/
+`refreshBranches`, a leitura de estado do painel de branch e a proteção contra remover a branch
+atual ou `main`/`master`) e `enhance.ts` (`enhancePanel`, mantida como um único bloco porque o
+handler de clique assíncrono compartilha `button`/`status`/`branch` por closure, mesmo critério
+usado nos dois arquivos `*-inline-diff-fix` anteriores). Arquivo principal com `scan`/
+`installGitBranchDeleteEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`project-header-server-enhancer.ts` (155 → 64 linhas) — concluído**, décimo sexto arquivo da
+fase. Diferente de todos os anteriores, o estado compartilhado aqui são três variáveis de módulo
+soltas (`activeProjectId`/`refreshTimer`/`requestGeneration`) lidas e escritas tanto por
+`loadServerStatus` quanto por `synchronize` — por isso essas duas funções e a variável ficaram
+juntas no arquivo principal, em vez de forçar um getter/setter só para permitir a extração (o
+padrão usado em `git-summary-global-search-fix.ts`/`log-visual-enhancer.ts` quando só uma função
+precisava mutar o estado; aqui duas precisam, então mantê-las juntas é mais simples e igualmente
+correto). Split em `project-header-server/`: `types.ts`
+(`ManagedProcessSnapshot`/`ProcessResponse`), `dom-helpers.ts`
+(`projectIdFromLocation`/`serverPath`), `status.ts` (`statusDescription`) e `indicator.ts`
+(`ensureIndicator`/`updateIndicator`, a montagem e atualização do indicador de servidor no
+cabeçalho do projeto). Arquivo principal com as três variáveis de estado, `loadServerStatus`,
+`synchronize` e `installProjectHeaderServerEnhancer`.
+- Nenhum teste importa símbolos deste arquivo diretamente (confirmado via grep).
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`git-diff-syntax-enhancer.ts` (110 → 42 linhas) — concluído**, décimo sétimo arquivo da fase.
+Duas `WeakMap` independentes (`sourceByPatch`/`stateByCode`), uma por tipo de elemento decorado
+(`<pre>` de patch vs. `<code>` de linha individual) — sem relação entre si, cada uma fica isolada
+no módulo que a usa. Nenhum teste importa símbolos deste arquivo diretamente (confirmado via
+grep). Split em `git-diff-syntax/`: `constants.ts` (`PATCH_SELECTOR`/`CODE_SELECTOR`), `state.ts`
+(as duas `WeakMap`), `patch.ts` (`looksLikePatch`/`enhancePatch`) e `code.ts`
+(`syntaxContext`/`enhanceCode`, que monta a chave de cache `` `${filePath}\u0000${query}\u0000${source}` ``
+— mesma armadilha de escape Unicode das duas extrações anteriores, desta vez evitada de propósito
+escrevendo um placeholder de texto e substituindo por bytes exatos via script Python em vez de
+digitar o escape diretamente na ferramenta de edição). Arquivo principal com `scan`/
+`closestFromMutationTarget`/`installGitDiffSyntaxEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição, incluindo o escape Unicode preservado corretamente.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+**`git-icon-enhancer.ts` (76 → 43 linhas) e `git-diff-page-enhancer.ts` (73 → 25 linhas) —
+concluídos**, décimo oitavo e décimo nono arquivos, encerrando a Fase 5. Diferente de todos os
+anteriores, esses dois já eram pequenos e coesos antes da quebra (uma única responsabilidade cada:
+montar ícones em abas/indicadores; montar e desmontar um componente Vue numa seção legada) — a
+divisão foi feita a pedido explícito do usuário para completar 100% da camada "enhancer", não por
+necessidade estrutural (foi sinalizado antes de prosseguir). `git-icon-enhancer.ts` foi dividido em
+`git-icon/`: `constants.ts` (`iconByLabel`) e `dom-helpers.ts` (`mountIcon`) — arquivo principal com
+`enhanceGitIcons`/`installGitIconEnhancer`. `git-diff-page-enhancer.ts` foi dividido em
+`git-diff-page/`: `state.ts` (`mountedApps`, o `Map<HTMLElement, App>` das instâncias Vue
+montadas), `dom-helpers.ts` (`projectIdFromLocation`/`isLegacyDiffSection`) e `lifecycle.ts`
+(`enhanceDiffSection`/`cleanup`, montagem e desmontagem da instância) — arquivo principal com
+`scan`/`installGitDiffPageEnhancer`.
+- Todas as funções de ambos os arquivos bateram no `diff` linha a linha contra o original sem
+  nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+
+**Fase 5 encerrada.** Todos os 19 arquivos da camada "enhancer" vanilla-DOM (`*-enhancer.ts`/
+`*-fix.ts`) foram quebrados mecanicamente em módulos por responsabilidade, do maior
+(`git-history-page-enhancer.ts`, 1130 linhas) ao menor (`git-diff-page-enhancer.ts`, 73 linhas),
+sem nenhuma mudança de comportamento. O padrão vanilla-DOM em si não foi alterado — migrar para
+lógica reativa dentro dos componentes Vue continua fora de escopo, registrado como decisão
+arquitetural separada no início desta fase.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 

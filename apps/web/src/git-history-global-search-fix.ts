@@ -1,129 +1,15 @@
-type CompatibleTimer = number | ReturnType<typeof setTimeout>;
+export { applyGlobalHistoryFilters } from './git-history-global-search-fix/url';
 
-interface HistorySearchState {
-  search: string;
-  author: string;
-  kind: 'all' | 'regular' | 'merge';
-  pendingFirstPage: boolean;
-  debounceTimer: CompatibleTimer | undefined;
-  total: number;
-  returned: number;
-}
-
-interface HistoryResponsePayload {
-  history?: {
-    total?: number;
-    commits?: unknown[];
-  };
-}
-
-const stateBySection = new WeakMap<HTMLElement, HistorySearchState>();
-
-function historySection(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('.git-history-page');
-}
-
-function control<T extends HTMLInputElement | HTMLSelectElement>(
-  section: HTMLElement,
-  name: string,
-): T | null {
-  return section.querySelector<T>(`[data-history-control="${name}"]`);
-}
-
-function stateFor(section: HTMLElement): HistorySearchState {
-  const existing = stateBySection.get(section);
-  if (existing) return existing;
-  const state: HistorySearchState = {
-    search: control<HTMLInputElement>(section, 'search')?.value ?? '',
-    author: control<HTMLSelectElement>(section, 'author')?.value ?? '',
-    kind: (control<HTMLSelectElement>(section, 'kind')?.value as HistorySearchState['kind']) || 'all',
-    pendingFirstPage: false,
-    debounceTimer: undefined,
-    total: 0,
-    returned: 0,
-  };
-  stateBySection.set(section, state);
-  return state;
-}
-
-function isHistoryListRequest(url: URL): boolean {
-  return /\/api\/projects\/[^/]+\/git\/commits$/.test(url.pathname);
-}
-
-export function applyGlobalHistoryFilters(
-  value: string,
-  filters: Pick<HistorySearchState, 'search' | 'author' | 'kind'>,
-  forceFirstPage = false,
-): string {
-  const url = new URL(value, 'http://dashboard.local');
-  url.pathname = url.pathname.replace(
-    /\/git\/commits$/,
-    '/git/exclusive-branch-commits',
-  );
-  const setOrDelete = (key: string, item: string): void => {
-    const normalized = item.trim();
-    if (normalized) url.searchParams.set(key, normalized);
-    else url.searchParams.delete(key);
-  };
-  setOrDelete('search', filters.search);
-  setOrDelete('author', filters.author);
-  if (filters.kind !== 'all') url.searchParams.set('kind', filters.kind);
-  else url.searchParams.delete('kind');
-  if (forceFirstPage) url.searchParams.set('page', '1');
-  return url.pathname + url.search;
-}
-
-function requestUrl(input: RequestInfo | URL): URL | null {
-  try {
-    if (typeof Request !== 'undefined' && input instanceof Request) {
-      return new URL(input.url, window.location.href);
-    }
-    return new URL(String(input), window.location.href);
-  } catch {
-    return null;
-  }
-}
-
-function replaceRequestUrl(input: RequestInfo | URL, url: URL): RequestInfo | URL {
-  if (typeof Request !== 'undefined' && input instanceof Request) {
-    return new Request(url.toString(), input);
-  }
-  if (input instanceof URL) return url;
-  return url.toString();
-}
-
-function restoreControls(section: HTMLElement): void {
-  const state = stateFor(section);
-  const search = control<HTMLInputElement>(section, 'search');
-  const author = control<HTMLSelectElement>(section, 'author');
-  const kind = control<HTMLSelectElement>(section, 'kind');
-  if (search) {
-    search.placeholder = 'Buscar hash, mensagem ou autor nos commits exclusivos…';
-    search.setAttribute('aria-label', 'Buscar nos commits exclusivos da referência');
-    if (search.value !== state.search) search.value = state.search;
-  }
-  if (kind && kind.value !== state.kind) kind.value = state.kind;
-  if (author && state.author) {
-    if (![...author.options].some((option) => option.value === state.author)) {
-      const option = document.createElement('option');
-      option.value = state.author;
-      option.textContent = state.author;
-      author.append(option);
-    }
-    author.value = state.author;
-  }
-
-  const count = section.querySelector<HTMLElement>('.git-history-page-filter-count');
-  const filtering = Boolean(state.search.trim() || state.author || state.kind !== 'all');
-  if (count && filtering) {
-    count.textContent = `${state.returned} de ${state.total} resultado(s) nos commits exclusivos`;
-  }
-}
-
-function scheduleRestore(section: HTMLElement): void {
-  queueMicrotask(() => restoreControls(section));
-  window.setTimeout(() => restoreControls(section), 0);
-}
+import { control, historySection } from './git-history-global-search-fix/dom-helpers';
+import { restoreControls, scheduleRestore } from './git-history-global-search-fix/controls';
+import { stateFor } from './git-history-global-search-fix/state';
+import {
+  applyGlobalHistoryFilters,
+  isHistoryListRequest,
+  replaceRequestUrl,
+  requestUrl,
+} from './git-history-global-search-fix/url';
+import type { HistoryResponsePayload, HistorySearchState } from './git-history-global-search-fix/types';
 
 function refresh(section: HTMLElement): void {
   section.querySelector<HTMLButtonElement>('.git-history-page-refresh')?.click();
