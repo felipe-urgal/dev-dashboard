@@ -26,6 +26,14 @@ test('oferece a navegação completa do explorador de banco', async () => {
     sourceFile('components/ProjectDatabasePanel.vue'),
     'utf8',
   );
+  const railsMigrationsComposable = await readFile(
+    sourceFile('composables/useRailsMigrations.ts'),
+    'utf8',
+  );
+  const railsModelsComposable = await readFile(
+    sourceFile('composables/useRailsModels.ts'),
+    'utf8',
+  );
 
   for (const label of [
     'Visão geral',
@@ -38,8 +46,8 @@ test('oferece a navegação completa do explorador de banco', async () => {
     assert.match(component, new RegExp(label));
   }
 
-  assert.match(component, /fetchProjectRailsMigrationDetail/);
-  assert.match(component, /fetchProjectRailsModels/);
+  assert.match(railsMigrationsComposable, /fetchProjectRailsMigrationDetail/);
+  assert.match(railsModelsComposable, /fetchProjectRailsModels/);
   assert.match(component, /Código da migration/);
   assert.match(component, /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/);
   assert.match(component, /Relacionamentos/);

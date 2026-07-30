@@ -136,10 +136,24 @@ mesmo, na seção da fase correspondente.
       pelos dois composables (`refreshLogs`, `scheduleLogPolling`, `refreshActivities`) nos mesmos
       pontos em que já eram chamadas antes (o watcher de `processStatus` que dispara notificações e
       as três ações de processo).
+  - `ProjectDatabasePanel.vue` (871 → 661 linhas): dividido em cinco composables independentes, um
+    por domínio de dado — `useProjectDatabaseOverview.ts` (101 linhas: ambientes, revelar URL,
+    iniciar banco), `useRailsMigrations.ts` (152 linhas: migrations + detalhe + as mutações
+    migrate/rollback/seed/prepare, que só se aplicam a migrations), `useRailsModels.ts` (58 linhas),
+    `useRailsRoutes.ts` (66 linhas, exporta também a função pura `routeKey`) e `useRailsBundler.ts`
+    (58 linhas). Diferente dos painéis de servidor/logs, aqui não há polling — cada composable é só
+    um "one-shot load" com um contador de geração simples (`let generation = 0`, sem as classes
+    `RequestGeneration`/`RequestGate`), e todos são independentes entre si (nenhum depende do estado
+    de outro), o que tornou a divisão mais direta. O componente manteve apenas estado de UI (seção
+    ativa, filtros de busca por aba) e helpers de formatação puros; `refreshAll`/`refreshActive`
+    viraram só orquestradores que chamam as funções `load*` expostas por cada composable.
+    - Um teste (`database-layout-polish.test.ts`) verificava `fetchProjectRailsMigrationDetail`/
+      `fetchProjectRailsModels` diretamente no texto do componente — ajustado para verificar nos
+      composables correspondentes, mesmo padrão já usado nos ajustes de teste das fases 1 e 3.
   - Componentes restantes (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
-    `ProjectGitBranchesPage.vue`, `ProjectDatabasePanel.vue`, `ProjectScriptsPanel.vue`): pendentes.
-    Os três primeiros tiveram reforma funcional grande no merge com a `main` (ver abaixo) — vale
-    reler o estado atual antes de tentar extrair composables ali.
+    `ProjectGitBranchesPage.vue`, `ProjectScriptsPanel.vue`): pendentes. Os três primeiros tiveram
+    reforma funcional grande no merge com a `main` (ver abaixo) — vale reler o estado atual antes de
+    tentar extrair composables ali.
 
 **Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
 com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
