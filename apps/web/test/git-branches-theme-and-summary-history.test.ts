@@ -29,15 +29,18 @@ test('redireciona somente o histórico do resumo para os commits exclusivos da b
   );
 });
 
-test('mapeia a página de branches para os tokens dos temas claro e escuro', async () => {
+test('a página Vue de branches usa os tokens dos temas claro e escuro', async () => {
   const css = await readFile(
-    path.resolve(process.cwd(), 'src/git-branches-theme-fix.css'),
+    path.resolve(
+      process.cwd(),
+      'src/components/ProjectGitBranchesPage.css',
+    ),
     'utf8',
   );
 
-  assert.match(css, /--color-surface:\s*var\(--surface-1\)/);
-  assert.match(css, /--color-surface-subtle:\s*var\(--surface-2\)/);
-  assert.match(css, /--color-text-strong:\s*var\(--text\)/);
-  assert.match(css, /branch-state-warning[\s\S]*var\(--warning-surface\)/);
-  assert.match(css, /branch-state-danger[\s\S]*var\(--danger-surface\)/);
+  assert.match(css, /background:\s*var\(--surface-1\)/);
+  assert.match(css, /background:\s*var\(--surface-2\)/);
+  assert.match(css, /color:\s*var\(--text\)/);
+  assert.match(css, /branch-state\.is-remote[\s\S]*var\(--warning-text\)/);
+  assert.match(css, /branch-delete-form[\s\S]*var\(--danger-surface\)/);
 });

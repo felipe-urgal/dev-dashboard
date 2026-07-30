@@ -105,6 +105,23 @@ export function removeProjectGitUntrackedFile(
 
 interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
 interface GitBranchMutationResponse { branch: { branch: string } }
+interface GitBranchRenameConfirmationResponse {
+  confirmation: {
+    token: string;
+    operation: 'rename-branch';
+    currentName: string;
+    nextName: string;
+    expiresAt: string;
+  };
+}
+interface GitBranchDeleteConfirmationResponse {
+  confirmation: {
+    token: string;
+    operation: 'delete-branch';
+    target: string;
+    expiresAt: string;
+  };
+}
 
 export async function prepareProjectGitMutation(projectId: string, operation: GitMutationOperation, target: string): Promise<GitMutationConfirmation> {
   const response = await requestJson<GitMutationConfirmationResponse>(
@@ -126,6 +143,70 @@ export async function switchProjectGitBranch(projectId: string, name: string, co
   const response = await requestJson<GitBranchMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/switch`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+  );
+  return response.branch.branch;
+}
+
+export async function prepareProjectGitBranchRename(
+  projectId: string,
+  currentName: string,
+  nextName: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchRenameConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/rename/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentName, nextName }),
+    },
+  );
+  return response.confirmation.token;
+}
+
+export async function renameProjectGitBranch(
+  projectId: string,
+  currentName: string,
+  nextName: string,
+  confirmationToken: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/rename`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentName, nextName, confirmationToken }),
+    },
+  );
+  return response.branch.branch;
+}
+
+export async function prepareProjectGitBranchDelete(
+  projectId: string,
+  branch: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchDeleteConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/delete/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch }),
+    },
+  );
+  return response.confirmation.token;
+}
+
+export async function deleteProjectGitBranch(
+  projectId: string,
+  branch: string,
+  confirmationToken: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/delete`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch, confirmationToken }),
+    },
   );
   return response.branch.branch;
 }

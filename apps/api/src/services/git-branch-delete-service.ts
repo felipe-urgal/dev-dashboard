@@ -12,7 +12,6 @@ export type GitBranchDeleteErrorCode =
   | 'GIT_BRANCH_NOT_FOUND'
   | 'GIT_BRANCH_CURRENT'
   | 'GIT_BRANCH_PROTECTED'
-  | 'GIT_BRANCH_NOT_MERGED'
   | 'GIT_MUTATION_CONFIRMATION_REQUIRED'
   | 'GIT_COMMAND_FAILED';
 
@@ -38,11 +37,6 @@ interface StoredConfirmation {
   projectId: string;
   branch: string;
   expiresAt: number;
-}
-
-interface GitCommandFailure extends Error {
-  stderr?: string;
-  stdout?: string;
 }
 
 async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
@@ -168,16 +162,11 @@ export class GitBranchDeleteService {
     }
 
     try {
-      await runGit(projectPath, ['branch', '--delete', '--', target]);
-    } catch (error) {
-      const failure = error as GitCommandFailure;
-      const details = `${failure.stderr ?? ''}\n${failure.stdout ?? ''}\n${failure.message}`;
-      if (/not fully merged|não está totalmente mesclad/i.test(details)) {
-        throw new GitBranchDeleteError(
-          'GIT_BRANCH_NOT_MERGED',
-          `A branch "${target}" ainda possui commits não integrados. Faça merge/rebase antes de removê-la.`,
-        );
-      }
+      await runGit(
+        projectPath,
+        ['branch', '--delete', '--force', '--', target],
+      );
+    } catch {
       throw new GitBranchDeleteError(
         'GIT_COMMAND_FAILED',
         `Não foi possível remover a branch "${target}".`,

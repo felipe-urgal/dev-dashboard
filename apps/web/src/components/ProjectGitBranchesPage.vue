@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import {
+  CheckCircleIcon,
+  EllipsisHorizontalIcon,
+  LockClosedIcon,
+  MinusCircleIcon,
+  PencilSquareIcon,
+  PlusIcon,
+  ShareIcon,
+  TrashIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
+import {
   computed,
   onBeforeUnmount,
+  onMounted,
   ref,
-  watch,
 } from 'vue';
 
 import type {
@@ -17,383 +28,531 @@ const props = defineProps<{
   workspace: ProjectGitWorkspace | null;
   loading: boolean;
   busy: boolean;
-  remoteRefreshing: string;
 }>();
 
 const emit = defineEmits<{
-  refresh: [];
   create: [name: string];
   switch: [name: string];
-  track: [remoteBranch: string];
-  fetchRemote: [remote: string];
+  rename: [currentName: string, nextName: string];
+  delete: [name: string];
 }>();
 
-type BranchFilter = 'all' | 'local' | 'origin' | 'upstream';
+type BranchFilter = 'all' | 'local' | 'remote';
+type BranchModal = 'create' | 'rename' | 'delete' | null;
+
+interface BranchRow {
+  name: string;
+  local?: GitBranch;
+  origin?: GitBranch;
+}
+
+interface BranchPrefix {
+  value: string;
+  label: string;
+}
+
+const prefixes: BranchPrefix[] = [
+  { value: 'feature/', label: 'Nova função' },
+  { value: 'bugfix/', label: 'Correção comum' },
+  { value: 'hotfix/', label: 'Correção urgente' },
+  { value: 'docs/', label: 'Documentação' },
+  { value: 'refactor/', label: 'Melhoria interna' },
+  { value: 'test/', label: 'Testes' },
+];
 
 const filter = ref<BranchFilter>('all');
-const search = ref('');
-const selectedBranchName = ref('');
-const createBranchName = ref('');
+const openMenu = ref('');
+const modal = ref<BranchModal>(null);
+const selectedBranch = ref('');
+const branchPrefix = ref(prefixes[0]!.value);
+const branchSuffix = ref('');
+const renamedBranch = ref('');
+const deleteConfirmation = ref('');
 
-const MIN_LIST_WIDTH = 30;
-const MAX_LIST_WIDTH = 65;
-const branchBrowserLayout = ref<HTMLElement | null>(null);
-const branchListWidth = ref(45);
-const isResizing = ref(false);
-const branchLayoutStyle = computed(() => ({
-  '--branch-list-width': `${branchListWidth.value}%`,
-}));
+const rows = computed<BranchRow[]>(() => {
+  const byName = new Map<string, BranchRow>();
 
-const branches = computed(() => props.workspace?.branches ?? []);
-const localBranches = computed(() => branches.value.filter((branch) => branch.kind === 'local'));
-const originBranches = computed(() => branches.value.filter((branch) => branch.remote === 'origin'));
-const upstreamBranches = computed(() => branches.value.filter((branch) => branch.remote === 'upstream'));
+  for (const branch of props.workspace?.branches ?? []) {
+    if (branch.kind === 'remote' && branch.remote !== 'origin') continue;
+    const name = branch.kind === 'local' ? branch.name : branch.shortName;
+    const row = byName.get(name) ?? { name };
+    if (branch.kind === 'local') row.local = branch;
+    else row.origin = branch;
+    byName.set(name, row);
+  }
 
-const filteredBranches = computed(() => {
-  const query = search.value.trim().toLocaleLowerCase('pt-BR');
-  return branches.value.filter((branch) => {
-    const matchesFilter = filter.value === 'all'
-      || filter.value === 'local' && branch.kind === 'local'
-      || filter.value === 'origin' && branch.remote === 'origin'
-      || filter.value === 'upstream' && branch.remote === 'upstream';
-    const matchesSearch = !query
-      || branch.name.toLocaleLowerCase('pt-BR').includes(query)
-      || branch.latestCommit?.subject.toLocaleLowerCase('pt-BR').includes(query);
-    return matchesFilter && matchesSearch;
+  return [...byName.values()].sort((left, right) => {
+    if (left.local?.current !== right.local?.current) {
+      return left.local?.current ? -1 : 1;
+    }
+    return left.name.localeCompare(right.name, 'pt-BR');
   });
 });
 
-const selectedBranch = computed(() => {
-  return branches.value.find((branch) => branch.name === selectedBranchName.value)
-    ?? branches.value.find((branch) => branch.current)
-    ?? filteredBranches.value[0]
-    ?? null;
+const filteredRows = computed(() => rows.value.filter((row) => {
+  if (filter.value === 'local') return Boolean(row.local);
+  if (filter.value === 'remote') return Boolean(row.origin);
+  return true;
+}));
+
+const fullBranchName = computed(() => {
+  const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
+  return suffix ? `${branchPrefix.value}${suffix}` : branchPrefix.value;
 });
 
-const selectedLocalExists = computed(() => {
-  const branch = selectedBranch.value;
-  if (!branch || branch.kind !== 'remote') return false;
-  return localBranches.value.some((candidate) => candidate.name === branch.shortName);
+const selectedRow = computed(
+  () => rows.value.find((row) => row.name === selectedBranch.value),
+);
+
+const canSubmitCreate = computed(() => {
+  const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
+  return Boolean(suffix) && fullBranchName.value.length <= 200;
 });
 
-watch(branches, (items) => {
-  if (items.length === 0) {
-    selectedBranchName.value = '';
-    return;
-  }
-  if (items.some((branch) => branch.name === selectedBranchName.value)) return;
-  selectedBranchName.value = items.find((branch) => branch.current)?.name ?? items[0]!.name;
-}, { immediate: true });
+const canSubmitRename = computed(() => {
+  const nextName = renamedBranch.value.trim();
+  return Boolean(nextName)
+    && nextName !== selectedBranch.value
+    && nextName.length <= 200;
+});
 
-function formatDate(value: string | undefined): string {
-  if (!value) return 'Data não disponível';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+const canSubmitDelete = computed(
+  () => deleteConfirmation.value === selectedBranch.value,
+);
+
+function isProtected(row: BranchRow): boolean {
+  return row.name === 'main' || row.name === 'master';
 }
 
-function branchSource(branch: GitBranch): string {
-  if (branch.kind === 'local') return 'Branch local';
-  if (branch.remote === 'origin') return 'Remote de publicação';
-  if (branch.remote === 'upstream') return 'Remote principal';
-  return `Remote ${branch.remote ?? 'desconhecido'}`;
+function stateLabel(row: BranchRow): string {
+  if (row.local?.current) return 'Atual';
+  if (row.local && row.origin) return 'Disponível';
+  if (row.local) return 'Somente local';
+  return 'Somente remota';
 }
 
-function trackingLabel(branch: GitBranch): string {
-  if (branch.kind === 'remote') return branch.name;
-  return branch.upstream ?? 'Sem tracking configurado';
+function stateTone(row: BranchRow): string {
+  if (row.local?.current) return 'current';
+  if (row.local && row.origin) return 'available';
+  if (row.local) return 'local';
+  return 'remote';
 }
 
-function stateLabel(branch: GitBranch): string {
-  if (branch.current) return 'Atual';
-  if (branch.kind === 'remote') return branch.remote ?? 'Remota';
-  if (!branch.upstream) return 'Sem tracking';
-  if (branch.ahead > 0 && branch.behind > 0) return 'Divergiu';
-  if (branch.ahead > 0) return `${branch.ahead} à frente`;
-  if (branch.behind > 0) return `${branch.behind} atrás`;
-  return 'Sincronizada';
+function closeMenu(): void {
+  openMenu.value = '';
 }
 
-function stateTone(branch: GitBranch): string {
-  if (branch.current) return 'current';
-  if (branch.kind === 'remote') return branch.remote === 'upstream' ? 'upstream' : 'origin';
-  if (branch.ahead > 0 && branch.behind > 0) return 'danger';
-  if (branch.ahead > 0 || branch.behind > 0 || !branch.upstream) return 'warning';
-  return 'success';
+function toggleMenu(name: string): void {
+  openMenu.value = openMenu.value === name ? '' : name;
+}
+
+function openCreateModal(): void {
+  closeMenu();
+  selectedBranch.value = '';
+  branchPrefix.value = prefixes[0]!.value;
+  branchSuffix.value = '';
+  modal.value = 'create';
+}
+
+function openRenameModal(row: BranchRow): void {
+  closeMenu();
+  selectedBranch.value = row.name;
+  renamedBranch.value = row.name;
+  modal.value = 'rename';
+}
+
+function openDeleteModal(row: BranchRow): void {
+  closeMenu();
+  selectedBranch.value = row.name;
+  deleteConfirmation.value = '';
+  modal.value = 'delete';
+}
+
+function closeModal(): void {
+  if (props.busy) return;
+  modal.value = null;
 }
 
 function submitCreate(): void {
-  const name = createBranchName.value.trim();
-  if (!name) return;
-  emit('create', name);
-  createBranchName.value = '';
+  if (!canSubmitCreate.value || props.busy) return;
+  emit('create', fullBranchName.value);
+  modal.value = null;
 }
 
-function selectBranch(branch: GitBranch): void {
-  selectedBranchName.value = branch.name;
+function submitRename(): void {
+  if (!canSubmitRename.value || props.busy) return;
+  emit('rename', selectedBranch.value, renamedBranch.value.trim());
+  modal.value = null;
 }
 
-function updateBranchListWidth(clientX: number): void {
-  const layout = branchBrowserLayout.value;
-  if (!layout) return;
-  const bounds = layout.getBoundingClientRect();
-  if (bounds.width <= 0) return;
-  const percentage = ((clientX - bounds.left) / bounds.width) * 100;
-  branchListWidth.value = Math.min(
-    MAX_LIST_WIDTH,
-    Math.max(MIN_LIST_WIDTH, percentage),
-  );
+function submitDelete(): void {
+  if (!canSubmitDelete.value || props.busy) return;
+  emit('delete', selectedBranch.value);
+  modal.value = null;
 }
 
-function stopResizing(): void {
-  if (!isResizing.value) return;
-  isResizing.value = false;
-  document.body.classList.remove('branch-browser-resizing');
-  document.removeEventListener('pointermove', resizeWithPointer);
-  document.removeEventListener('pointerup', stopResizing);
-  document.removeEventListener('pointercancel', stopResizing);
+function handleDocumentClick(): void {
+  closeMenu();
 }
 
-function resizeWithPointer(event: PointerEvent): void {
-  updateBranchListWidth(event.clientX);
+function handleEscape(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return;
+  if (modal.value) closeModal();
+  else closeMenu();
 }
 
-function startResizing(event: PointerEvent): void {
-  if (event.button !== 0) return;
-  event.preventDefault();
-  isResizing.value = true;
-  document.body.classList.add('branch-browser-resizing');
-  document.addEventListener('pointermove', resizeWithPointer);
-  document.addEventListener('pointerup', stopResizing);
-  document.addEventListener('pointercancel', stopResizing);
-}
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick);
+  document.addEventListener('keydown', handleEscape);
+});
 
-function resizeWithKeyboard(event: KeyboardEvent): void {
-  const delta = event.key === 'ArrowLeft'
-    ? -5
-    : event.key === 'ArrowRight'
-      ? 5
-      : 0;
-  if (!delta) return;
-  event.preventDefault();
-  branchListWidth.value = Math.min(
-    MAX_LIST_WIDTH,
-    Math.max(MIN_LIST_WIDTH, branchListWidth.value + delta),
-  );
-}
-
-onBeforeUnmount(stopResizing);
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick);
+  document.removeEventListener('keydown', handleEscape);
+});
 </script>
 
 <template>
   <section class="git-branches-page">
-    <div class="branch-metrics" aria-label="Resumo de branches">
-      <article>
-        <span>Atual</span>
-        <strong>{{ overview.detached ? 'HEAD destacado' : overview.branch ?? 'Sem commits' }}</strong>
-        <small>{{ overview.upstream ?? 'Sem tracking' }}</small>
-      </article>
-      <article>
-        <span>Locais</span>
-        <strong>{{ localBranches.length }}</strong>
-        <small>disponíveis para checkout</small>
-      </article>
-      <article>
-        <span>Origin</span>
-        <strong>{{ originBranches.length }}</strong>
-        <small>branches publicadas</small>
-      </article>
-      <article>
-        <span>Upstream</span>
-        <strong>{{ upstreamBranches.length }}</strong>
-        <small>branches da fonte principal</small>
-      </article>
-    </div>
-
-    <div class="branch-create-card">
-      <div>
-        <span class="section-kicker">Nova branch</span>
-        <h3>Criar a partir do HEAD atual</h3>
-        <p>A árvore de trabalho deve estar limpa para trocar de contexto com segurança.</p>
-      </div>
-      <form @submit.prevent="submitCreate">
-        <label>
-          <span>Nome da branch</span>
-          <input
-            v-model="createBranchName"
-            type="text"
-            maxlength="200"
-            placeholder="feature/nova-funcionalidade"
-            :disabled="busy"
-          />
-        </label>
-        <button
-          type="submit"
-          class="primary-button"
-          :disabled="busy || !createBranchName.trim()"
-        >
-          Criar e trocar
-        </button>
-      </form>
-    </div>
-
-    <div class="branch-browser-card">
-      <div class="branch-browser-toolbar">
+    <div class="branch-table-card">
+      <header class="branch-table-toolbar">
         <div class="branch-filter-tabs" aria-label="Filtrar branches">
-          <button type="button" :class="{ active: filter === 'all' }" @click="filter = 'all'">Todas</button>
-          <button type="button" :class="{ active: filter === 'local' }" @click="filter = 'local'">Locais</button>
-          <button type="button" :class="{ active: filter === 'origin' }" @click="filter = 'origin'">Origin</button>
-          <button type="button" :class="{ active: filter === 'upstream' }" @click="filter = 'upstream'">Upstream</button>
+          <button
+            type="button"
+            :class="{ active: filter === 'all' }"
+            @click="filter = 'all'"
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            :class="{ active: filter === 'local' }"
+            @click="filter = 'local'"
+          >
+            Locais
+          </button>
+          <button
+            type="button"
+            :class="{ active: filter === 'remote' }"
+            @click="filter = 'remote'"
+          >
+            Remotas
+          </button>
         </div>
-        <label class="branch-search">
-          <span class="sr-only">Buscar branch</span>
-          <input v-model="search" type="search" placeholder="Buscar branch ou commit…" />
-        </label>
-        <span class="branch-result-count">{{ filteredBranches.length }} resultado(s)</span>
+
+        <span class="branch-result-count">
+          {{ filteredRows.length }}
+          {{ filteredRows.length === 1 ? 'branch' : 'branches' }}
+        </span>
+
         <button
           type="button"
-          class="secondary-button branch-refresh-button"
-          :disabled="loading"
-          @click="emit('refresh')"
+          class="primary-button branch-create-button"
+          :disabled="busy"
+          @click="openCreateModal"
         >
-          {{ loading ? 'Atualizando…' : 'Atualizar lista' }}
+          <PlusIcon aria-hidden="true" />
+          Nova branch
         </button>
-      </div>
+      </header>
 
-      <div
-        ref="branchBrowserLayout"
-        class="branch-browser-layout"
-        :class="{ resizing: isResizing }"
-        :style="branchLayoutStyle"
-      >
-        <aside class="branch-list" aria-label="Lista de branches">
-          <button
-            v-for="branch in filteredBranches"
-            :key="`${branch.kind}-${branch.name}`"
-            type="button"
-            class="git-table-row branches-table branch-list-item"
-            :class="{ selected: selectedBranch?.name === branch.name }"
-            @click="selectBranch(branch)"
-          >
-            <span class="branch-kind-icon" :class="`branch-kind-${branch.kind}`" aria-hidden="true">
-              {{ branch.kind === 'local' ? '⑂' : '◌' }}
-            </span>
-            <span class="branch-list-copy">
-              <strong>{{ branch.name }}</strong>
-              <small>{{ branch.latestCommit?.subject || trackingLabel(branch) }}</small>
-            </span>
-            <span class="branch-state" :class="`branch-state-${stateTone(branch)}`">
-              {{ stateLabel(branch) }}
-            </span>
-          </button>
-          <div v-if="filteredBranches.length === 0" class="branch-empty-state">
-            Nenhuma branch corresponde aos filtros atuais.
-          </div>
-        </aside>
-
-        <div
-          class="branch-resize-handle"
-          role="separator"
-          aria-label="Redimensionar lista e detalhes das branches"
-          aria-orientation="vertical"
-          :aria-valuemin="MIN_LIST_WIDTH"
-          :aria-valuemax="MAX_LIST_WIDTH"
-          :aria-valuenow="Math.round(branchListWidth)"
-          tabindex="0"
-          @pointerdown="startResizing"
-          @keydown="resizeWithKeyboard"
-        >
-          <span aria-hidden="true" />
+      <div class="branch-table-scroll">
+        <div class="branch-table-header" aria-hidden="true">
+          <span>Branch</span>
+          <span>Local</span>
+          <span>Origin</span>
+          <span>Estado</span>
+          <span>Ações</span>
         </div>
 
-        <article v-if="selectedBranch" class="branch-detail-panel">
-          <header>
-            <div>
-              <span class="section-kicker">{{ branchSource(selectedBranch) }}</span>
-              <h3>{{ selectedBranch.name }}</h3>
-            </div>
-            <span class="branch-state" :class="`branch-state-${stateTone(selectedBranch)}`">
-              {{ stateLabel(selectedBranch) }}
+        <div
+          v-for="row in filteredRows"
+          :key="row.name"
+          class="branch-table-row"
+          :class="{ 'is-current': row.local?.current }"
+        >
+          <div class="branch-name-cell">
+            <ShareIcon aria-hidden="true" />
+            <strong>{{ row.name }}</strong>
+            <span v-if="row.local?.current" class="branch-current-badge">
+              Atual
             </span>
-          </header>
-
-          <dl class="branch-detail-grid">
-            <div>
-              <dt>Tipo</dt>
-              <dd>{{ selectedBranch.kind === 'local' ? 'Local' : 'Remota' }}</dd>
-            </div>
-            <div>
-              <dt>Tracking</dt>
-              <dd><code>{{ trackingLabel(selectedBranch) }}</code></dd>
-            </div>
-            <div>
-              <dt>À frente</dt>
-              <dd>{{ selectedBranch.ahead }}</dd>
-            </div>
-            <div>
-              <dt>Atrás</dt>
-              <dd>{{ selectedBranch.behind }}</dd>
-            </div>
-          </dl>
-
-          <section class="branch-commit-detail">
-            <span class="section-kicker">Último commit</span>
-            <template v-if="selectedBranch.latestCommit">
-              <div class="branch-commit-heading">
-                <code>{{ selectedBranch.latestCommit.shortHash }}</code>
-                <strong>{{ selectedBranch.latestCommit.subject }}</strong>
-              </div>
-              <p>
-                {{ selectedBranch.latestCommit.authorName }} ·
-                {{ formatDate(selectedBranch.latestCommit.authoredAt) }}
-              </p>
-            </template>
-            <p v-else>Nenhum commit disponível para esta referência.</p>
-          </section>
-
-          <div v-if="selectedBranch.kind === 'local'" class="branch-detail-actions">
-            <button
-              type="button"
-              class="primary-button"
-              :disabled="busy || selectedBranch.current"
-              @click="emit('switch', selectedBranch.name)"
-            >
-              {{ selectedBranch.current ? 'Branch atual' : 'Trocar para esta branch' }}
-            </button>
+            <LockClosedIcon
+              v-if="isProtected(row)"
+              class="branch-protected-icon"
+              aria-label="Branch protegida"
+            />
           </div>
 
-          <div v-else class="branch-detail-actions remote-actions">
+          <span class="branch-presence">
+            <CheckCircleIcon v-if="row.local" class="is-present" aria-hidden="true" />
+            <MinusCircleIcon v-else aria-hidden="true" />
+            {{ row.local ? 'Sim' : 'Não' }}
+          </span>
+
+          <span class="branch-presence">
+            <CheckCircleIcon v-if="row.origin" class="is-present" aria-hidden="true" />
+            <MinusCircleIcon v-else aria-hidden="true" />
+            {{ row.origin ? 'Sim' : 'Não' }}
+          </span>
+
+          <span class="branch-state" :class="`is-${stateTone(row)}`">
+            <span aria-hidden="true" />
+            {{ stateLabel(row) }}
+          </span>
+
+          <div class="branch-row-actions">
             <button
+              v-if="row.local && !row.local.current"
               type="button"
               class="secondary-button"
-              :disabled="remoteRefreshing === selectedBranch.remote || !selectedBranch.remote"
-              @click="selectedBranch.remote && emit('fetchRemote', selectedBranch.remote)"
+              :disabled="busy"
+              @click="emit('switch', row.name)"
             >
-              {{ remoteRefreshing === selectedBranch.remote ? 'Atualizando…' : `Fetch ${selectedBranch.remote}` }}
+              Trocar
             </button>
-            <button
-              type="button"
-              class="primary-button"
-              :disabled="busy || selectedLocalExists"
-              @click="emit('track', selectedBranch.name)"
+            <span v-else-if="!row.local" class="branch-readonly">
+              Somente leitura
+            </span>
+
+            <div
+              v-if="row.local && !isProtected(row)"
+              class="branch-action-menu"
+              @click.stop
             >
-              {{ selectedLocalExists ? 'Branch local já existe' : 'Criar local e trocar' }}
-            </button>
+              <button
+                type="button"
+                class="branch-menu-trigger"
+                :aria-expanded="openMenu === row.name"
+                :aria-label="`Ações da branch ${row.name}`"
+                @click="toggleMenu(row.name)"
+              >
+                <EllipsisHorizontalIcon aria-hidden="true" />
+              </button>
+
+              <div
+                v-if="openMenu === row.name"
+                class="branch-menu-popover"
+              >
+                <button type="button" @click="openRenameModal(row)">
+                  <PencilSquareIcon aria-hidden="true" />
+                  Renomear
+                </button>
+                <button
+                  v-if="!row.local.current"
+                  type="button"
+                  class="is-danger"
+                  @click="openDeleteModal(row)"
+                >
+                  <TrashIcon aria-hidden="true" />
+                  Remover branch…
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <p v-if="selectedBranch.kind === 'remote'" class="branch-action-hint">
-            A branch local será criada como <code>{{ selectedBranch.shortName }}</code> e ficará rastreando <code>{{ selectedBranch.name }}</code>.
-          </p>
-        </article>
-
-        <div v-else class="branch-detail-panel branch-empty-state">
-          Selecione uma branch para ver os detalhes.
+        <div v-if="loading" class="branch-table-empty">
+          Atualizando branches…
+        </div>
+        <div v-else-if="filteredRows.length === 0" class="branch-table-empty">
+          Nenhuma branch disponível neste filtro.
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="modal"
+        class="branch-modal-backdrop"
+        @click.self="closeModal"
+      >
+        <section
+          class="branch-modal"
+          role="dialog"
+          aria-modal="true"
+          :aria-labelledby="`branch-${modal}-title`"
+        >
+          <header>
+            <div>
+              <h2 :id="`branch-${modal}-title`">
+                {{
+                  modal === 'create'
+                    ? 'Nova branch'
+                    : modal === 'rename'
+                      ? 'Renomear branch'
+                      : 'Remover branch'
+                }}
+              </h2>
+              <p v-if="modal === 'create'">
+                Será criada a partir de
+                <strong>{{ overview.branch ?? 'HEAD' }}</strong>.
+              </p>
+              <p v-else-if="modal === 'rename'">
+                Altere apenas o nome da branch local.
+              </p>
+              <p v-else>
+                A branch local será removida mesmo que possua commits não integrados.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="branch-modal-close"
+              aria-label="Fechar"
+              :disabled="busy"
+              @click="closeModal"
+            >
+              <XMarkIcon aria-hidden="true" />
+            </button>
+          </header>
+
+          <form
+            v-if="modal === 'create'"
+            class="branch-modal-form"
+            @submit.prevent="submitCreate"
+          >
+            <div class="branch-name-composer">
+              <label>
+                <span>Prefixo</span>
+                <select v-model="branchPrefix" :disabled="busy">
+                  <option
+                    v-for="prefix in prefixes"
+                    :key="prefix.value"
+                    :value="prefix.value"
+                  >
+                    {{ prefix.value }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span>Nome</span>
+                <input
+                  v-model="branchSuffix"
+                  type="text"
+                  maxlength="190"
+                  placeholder="novo-login"
+                  autofocus
+                  :disabled="busy"
+                />
+              </label>
+            </div>
+
+            <label>
+              <span>Nome completo</span>
+              <input
+                :value="fullBranchName"
+                type="text"
+                readonly
+                tabindex="-1"
+              />
+            </label>
+
+            <div class="branch-prefix-grid" aria-label="Tipos de branch">
+              <button
+                v-for="prefix in prefixes"
+                :key="prefix.value"
+                type="button"
+                :class="{ active: branchPrefix === prefix.value }"
+                @click="branchPrefix = prefix.value"
+              >
+                <strong>{{ prefix.value }}</strong>
+                <span>{{ prefix.label }}</span>
+              </button>
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="busy"
+                @click="closeModal"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="primary-button"
+                :disabled="busy || !canSubmitCreate"
+              >
+                Criar e trocar
+              </button>
+            </footer>
+          </form>
+
+          <form
+            v-else-if="modal === 'rename'"
+            class="branch-modal-form"
+            @submit.prevent="submitRename"
+          >
+            <label>
+              <span>Novo nome</span>
+              <input
+                v-model="renamedBranch"
+                type="text"
+                maxlength="200"
+                autofocus
+                :disabled="busy"
+              />
+            </label>
+            <footer>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="busy"
+                @click="closeModal"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="primary-button"
+                :disabled="busy || !canSubmitRename"
+              >
+                Salvar novo nome
+              </button>
+            </footer>
+          </form>
+
+          <form
+            v-else
+            class="branch-modal-form branch-delete-form"
+            @submit.prevent="submitDelete"
+          >
+            <p>
+              Esta ação não pode ser desfeita. Para confirmar, digite
+              <strong>{{ selectedRow?.name }}</strong>.
+            </p>
+            <label>
+              <span>Nome da branch</span>
+              <input
+                v-model="deleteConfirmation"
+                type="text"
+                autocomplete="off"
+                autofocus
+                :disabled="busy"
+              />
+            </label>
+            <footer>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="busy"
+                @click="closeModal"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="danger-button"
+                :disabled="busy || !canSubmitDelete"
+              >
+                Remover branch
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    </Teleport>
   </section>
 </template>
 

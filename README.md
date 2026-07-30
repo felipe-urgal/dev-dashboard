@@ -15,7 +15,7 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Detecção automática de portas disponíveis
 - Persistência segura de PIDs e metadados dos processos
 - Visualização de logs no navegador
-- Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (criar/trocar branch, pull, push, commit, stash)
+- Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (CRUD de branches locais, pull, push, commit e stash)
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations e routes do Rails somente leitura, com migrate/rollback/seed/prepare mutáveis sob confirmação, e diagnóstico Bundler somente leitura
@@ -414,6 +414,8 @@ POST   /api/projects/:projectId/git/mutations/confirmations
 POST   /api/projects/:projectId/git/branches
 POST   /api/projects/:projectId/git/branches/track/confirmations
 POST   /api/projects/:projectId/git/branches/track
+POST   /api/projects/:projectId/git/branches/rename/confirmations
+POST   /api/projects/:projectId/git/branches/rename
 POST   /api/projects/:projectId/git/branches/delete/confirmations
 POST   /api/projects/:projectId/git/branches/delete
 POST   /api/projects/:projectId/git/switch
@@ -490,8 +492,9 @@ A interface web já permite:
 4. visualizar projetos no navegador;
 5. iniciar, configurar e parar servidores;
 6. abrir URLs e acompanhar logs protegidos;
-7. consultar Git (status, diff, branches, commits) e executar mutações com
-   confirmação (criar/trocar branch, pull, push, commit, stash);
+7. consultar Git (status, diff, branches, commits), administrar branches
+   locais (criar, trocar, renomear e remover) e executar mutações com
+   confirmação (pull, push, commit e stash);
 8. detectar e executar testes reconhecidos, incluindo um arquivo específico;
 9. inspecionar bancos locais e iniciar serviços reconhecidos;
 10. consultar e executar com segurança scripts e tarefas catalogados;
@@ -509,10 +512,9 @@ smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-A próxima entrega planejada é `git-pr` no painel Git: publicar o branch atual
-em `origin` (reaproveitando o push já existente) e abrir a URL de criação de
-PR/MR do provedor remoto, sem chamar a API do GitHub/GitLab nem exigir token
-de terceiros.
+A próxima entrega planejada é snapshot/restore de banco no painel, com
+confirmação explícita para restauração e reaproveitamento da detecção de
+adaptador já existente.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
 para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a

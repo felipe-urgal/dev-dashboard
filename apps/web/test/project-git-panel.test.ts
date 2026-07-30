@@ -304,6 +304,11 @@ async function mountPanel(args: MountArgs = {}) {
 
   const wrapper = mount(ProjectGitPanel, {
     props: { project: makeProject() },
+    global: {
+      stubs: {
+        Teleport: true,
+      },
+    },
   });
   await flushPromises();
   await flushPromises();
@@ -330,126 +335,66 @@ async function clickTab(
   await flushPromises();
 }
 
-test('renderiza o resumo com comparações separadas de origin e upstream', async () => {
+test('abre diretamente em branches sem resumo ou conteúdo de outras ferramentas', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
   const text = mounted.wrapper.text();
-  assert.match(text, /Origin · publicação/);
-  assert.match(text, /origin\/feature\/git-ui/);
-  assert.match(text, /Upstream · base principal/);
-  assert.match(text, /upstream\/main/);
-  assert.match(text, /↑ 4 · ↓ 2/);
-  assert.match(text, /Histórico recente/);
-  assert.match(text, /feat: melhora painel Git/);
-  assert.equal(
-    mounted.wrapper.findAll('.git-recent-history-preview article').length,
-    1,
+  assert.doesNotMatch(text, /Resumo/);
+  assert.doesNotMatch(text, /Histórico recente/);
+  assert.doesNotMatch(text, /upstream\//);
+  assert.doesNotMatch(text, /Fetch|Sincronizar|Criar local/);
+  assert.ok(
+    mounted.wrapper
+      .findAll('.git-subtabs button')
+      .find((button) => button.text() === 'Branches')
+      ?.classes('active'),
   );
-  assert.ok(!mounted.wrapper.find('.git-quick-actions').exists());
-  assert.ok(!mounted.wrapper.find('.git-command-grid').exists());
+  assert.equal(mounted.wrapper.findAll('.branch-table-row').length, 2);
+  assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
 
-test('navega, filtra e exibe detalhes de branches remotas', async () => {
-  const mounted = await mountPanel();
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Branches');
-
-  assert.equal(mounted.wrapper.findAll('.git-table-row.branches-table').length, 6);
-  assert.doesNotMatch(
-    mounted.wrapper.text(),
-    /Gerencie linhas de trabalho locais e remotas/,
-  );
-  assert.ok(mounted.wrapper.find('.branch-refresh-button').exists());
-
-  const layout = mounted.wrapper.find('.branch-browser-layout');
-  const resizeHandle = mounted.wrapper.find('.branch-resize-handle');
-  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 45%/);
-  await resizeHandle.trigger('keydown', { key: 'ArrowRight' });
-  assert.match(layout.attributes('style') ?? '', /--branch-list-width: 50%/);
-
-  const upstreamFilter = mounted.wrapper
-    .findAll('.branch-filter-tabs button')
-    .find((button) => button.text() === 'Upstream');
-  assert.ok(upstreamFilter);
-  await upstreamFilter.trigger('click');
-  await flushPromises();
-
-  const rows = mounted.wrapper.findAll('.git-table-row.branches-table');
-  assert.equal(rows.length, 2);
-  assert.match(rows[0]!.text(), /upstream\/main/);
-
-  const release = rows.find((row) => row.text().includes('upstream/release/2.0'));
-  assert.ok(release);
-  await release.trigger('click');
-  await flushPromises();
-
-  const detail = mounted.wrapper.find('.branch-detail-panel');
-  assert.match(detail.text(), /upstream\/release\/2.0/);
-  assert.match(detail.text(), /release: prepara 2.0/);
-  assert.match(detail.text(), /Criar local e trocar/);
-});
-
-test('cria branch local rastreando uma referência remota após confirmação', async () => {
-  const originalConfirm = globalThis.confirm;
-  globalThis.confirm = () => true;
-
+test('lista branches locais e origin sem expor ações de sincronização', async () => {
   const mounted = await mountPanel({
-    handler: (request) => {
-      if (request.path.endsWith('/git/branches/track/confirmations')) {
-        const body = request.body as { remoteBranch: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'r'.repeat(64),
-            operation: 'track-branch',
-            target: body.remoteBranch,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          },
-        }, 201);
-      }
-      if (request.path.endsWith('/git/branches/track')) {
-        return jsonResponse({ branch: { branch: 'release/2.0' } }, 201);
-      }
-      return undefined;
+    workspace: {
+      ...baseWorkspace,
+      branches: [
+        ...baseWorkspace.branches,
+        {
+          name: 'origin/release/2.0',
+          shortName: 'release/2.0',
+          kind: 'remote',
+          current: false,
+          remote: 'origin',
+          ahead: 0,
+          behind: 0,
+          latestCommit,
+        },
+      ],
     },
   });
-  cleanup = () => {
-    mounted.restore();
-    globalThis.confirm = originalConfirm;
-  };
-  await clickTab(mounted.wrapper, 'Branches');
+  cleanup = mounted.restore;
 
-  const release = mounted.wrapper
-    .findAll('.branch-list-item')
-    .find((row) => row.text().includes('upstream/release/2.0'));
+  assert.equal(mounted.wrapper.findAll('.branch-table-row').length, 3);
+  assert.match(mounted.wrapper.text(), /release\/2.0/);
+  assert.doesNotMatch(mounted.wrapper.text(), /upstream\/release\/2.0/);
+
+  const remoteFilter = mounted.wrapper
+    .findAll('.branch-filter-tabs button')
+    .find((button) => button.text() === 'Remotas');
+  assert.ok(remoteFilter);
+  await remoteFilter.trigger('click');
+  await flushPromises();
+
+  const rows = mounted.wrapper.findAll('.branch-table-row');
+  assert.equal(rows.length, 3);
+  const release = rows.find((row) => row.text().includes('release/2.0'));
   assert.ok(release);
-  await release.trigger('click');
-  await flushPromises();
-
-  const trackButton = mounted.wrapper
-    .findAll('.branch-detail-actions button')
-    .find((button) => button.text().includes('Criar local e trocar'));
-  assert.ok(trackButton);
-  await trackButton.trigger('click');
-  await flushPromises();
-  await flushPromises();
-
-  const confirmationIndex = mounted.requests.findIndex((request) =>
-    request.path.endsWith('/git/branches/track/confirmations'),
-  );
-  const mutationIndex = mounted.requests.findIndex((request) =>
-    request.path.endsWith('/git/branches/track'),
-  );
-  assert.ok(confirmationIndex >= 0);
-  assert.ok(mutationIndex > confirmationIndex);
-  assert.deepEqual(mounted.requests[mutationIndex]!.body, {
-    remoteBranch: 'upstream/release/2.0',
-    confirmationToken: 'r'.repeat(64),
-  });
-  assert.match(mounted.wrapper.text(), /Branch local "release\/2.0" criada rastreando "upstream\/release\/2.0"/);
+  assert.match(release.text(), /Somente remota/);
+  assert.match(release.text(), /Somente leitura/);
 });
 
-test('cria branch normal pelo formulário moderno', async () => {
+test('cria branch com prefixo pelo modal centralizado', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 
@@ -477,11 +422,23 @@ test('cria branch normal pelo formulário moderno', async () => {
     mounted.restore();
     globalThis.confirm = originalConfirm;
   };
-  await clickTab(mounted.wrapper, 'Branches');
-
-  const createForm = mounted.wrapper.find('.branch-create-card form');
-  await createForm.find('input').setValue('feature/nova');
-  await createForm.trigger('submit');
+  await mounted.wrapper.find('.branch-create-button').trigger('click');
+  const createForm = mounted.wrapper.find('.branch-modal-form');
+  assert.ok(createForm.exists());
+  assert.match(mounted.wrapper.find('.branch-modal').text(), /Nova branch/);
+  await createForm.find('select').setValue('bugfix/');
+  await mounted.wrapper
+    .find('.branch-modal-form input:not([readonly])')
+    .setValue('correcao-botao');
+  await flushPromises();
+  assert.equal(
+    (
+      mounted.wrapper.find('.branch-modal-form input[readonly]')
+        .element as HTMLInputElement
+    ).value,
+    'bugfix/correcao-botao',
+  );
+  await mounted.wrapper.find('.branch-modal-form').trigger('submit');
   await flushPromises();
   await flushPromises();
 
@@ -497,7 +454,144 @@ test('cria branch normal pelo formulário moderno', async () => {
     (mounted.requests[mutationIndex]!.body as { confirmationToken: string }).confirmationToken,
     't'.repeat(64),
   );
-  assert.match(mounted.wrapper.text(), /Branch "feature\/nova" criada e selecionada/);
+  assert.equal(
+    (mounted.requests[mutationIndex]!.body as { name: string }).name,
+    'bugfix/correcao-botao',
+  );
+  assert.match(
+    mounted.wrapper.text(),
+    /Branch "bugfix\/correcao-botao" criada e selecionada/,
+  );
+});
+
+test('renomeia uma branch local pelo menu de ações', async () => {
+  const mounted = await mountPanel({
+    handler: (request) => {
+      if (request.path.endsWith('/git/branches/rename/confirmations')) {
+        const body = request.body as {
+          currentName: string;
+          nextName: string;
+        };
+        return jsonResponse({
+          confirmation: {
+            token: 'n'.repeat(64),
+            operation: 'rename-branch',
+            ...body,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches/rename')) {
+        const body = request.body as { nextName: string };
+        return jsonResponse({ branch: { branch: body.nextName } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = mounted.restore;
+
+  const currentRow = mounted.wrapper
+    .findAll('.branch-table-row')
+    .find((row) => row.text().includes('feature/git-ui'));
+  assert.ok(currentRow);
+  await currentRow.find('.branch-menu-trigger').trigger('click');
+  const renameAction = currentRow
+    .findAll('.branch-menu-popover button')
+    .find((button) => button.text().includes('Renomear'));
+  assert.ok(renameAction);
+  await renameAction.trigger('click');
+
+  const renameForm = mounted.wrapper.find('.branch-modal-form');
+  await renameForm.find('input').setValue('feature/git-ui-renamed');
+  await renameForm.trigger('submit');
+  await flushPromises();
+  await flushPromises();
+
+  const mutation = mounted.requests.find((request) =>
+    request.path.endsWith('/git/branches/rename')
+    && !request.path.endsWith('/confirmations'),
+  );
+  assert.deepEqual(mutation?.body, {
+    currentName: 'feature/git-ui',
+    nextName: 'feature/git-ui-renamed',
+    confirmationToken: 'n'.repeat(64),
+  });
+  assert.match(
+    mounted.wrapper.text(),
+    /Branch "feature\/git-ui" renomeada para "feature\/git-ui-renamed"/,
+  );
+});
+
+test('remove uma branch local após confirmação digitada', async () => {
+  const removableBranch: ProjectGitWorkspace['branches'][number] = {
+    name: 'bugfix/old',
+    shortName: 'bugfix/old',
+    kind: 'local',
+    current: false,
+    ahead: 0,
+    behind: 0,
+    latestCommit,
+  };
+  const mounted = await mountPanel({
+    workspace: {
+      ...baseWorkspace,
+      branches: [...baseWorkspace.branches, removableBranch],
+    },
+    handler: (request) => {
+      if (request.path.endsWith('/git/branches/delete/confirmations')) {
+        return jsonResponse({
+          confirmation: {
+            token: 'd'.repeat(64),
+            operation: 'delete-branch',
+            target: 'bugfix/old',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches/delete')) {
+        return jsonResponse({ branch: { branch: 'bugfix/old' } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = mounted.restore;
+
+  const row = mounted.wrapper
+    .findAll('.branch-table-row')
+    .find((candidate) => candidate.text().includes('bugfix/old'));
+  assert.ok(row);
+  await row.find('.branch-menu-trigger').trigger('click');
+  const deleteAction = row
+    .findAll('.branch-menu-popover button')
+    .find((button) => button.text().includes('Remover branch'));
+  assert.ok(deleteAction);
+  await deleteAction.trigger('click');
+
+  const deleteForm = mounted.wrapper.find('.branch-delete-form');
+  const submit = deleteForm.find('button[type="submit"]');
+  assert.ok(submit.attributes('disabled') !== undefined);
+  await deleteForm.find('input').setValue('bugfix/old');
+  await flushPromises();
+  assert.equal(
+    (
+      mounted.wrapper.find('.branch-delete-form button[type="submit"]')
+        .element as HTMLButtonElement
+    ).disabled,
+    false,
+  );
+  await mounted.wrapper.find('.branch-delete-form').trigger('submit');
+  await flushPromises();
+  await flushPromises();
+
+  const mutation = mounted.requests.find((request) =>
+    request.path.endsWith('/git/branches/delete')
+    && !request.path.endsWith('/confirmations'),
+  );
+  assert.deepEqual(mutation?.body, {
+    branch: 'bugfix/old',
+    confirmationToken: 'd'.repeat(64),
+  });
+  assert.match(mounted.wrapper.text(), /Branch "bugfix\/old" removida/);
 });
 
 test('renderiza o commit como um fluxo linear com arquivos e composer', async () => {
