@@ -286,7 +286,14 @@ function applyFilters(shell: HTMLElement, state: InspectorState): void {
     if (show) visible += 1;
   });
   const count = shell.querySelector<HTMLElement>('.test-log-explorer-count');
-  if (count) count.textContent = `${visible} de ${rows.length} linhas`;
+  const countText = `${visible} de ${rows.length} linhas`;
+  // Atribuir .textContent sempre recria o nó de texto (mutação de childList)
+  // mesmo quando o valor não muda. Como um MutationObserver reage a essas
+  // mutações para reagendar este mesmo enhanceShell/applyFilters, uma
+  // atribuição incondicional aqui forma um loop infinito de mutação →
+  // callback → mutação que trava a aba assim que o painel de testes
+  // renderiza — daí o guard de igualdade abaixo.
+  if (count && count.textContent !== countText) count.textContent = countText;
 }
 
 function toolbarFor(shell: HTMLElement, state: InspectorState): HTMLElement {

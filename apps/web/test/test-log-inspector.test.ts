@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { test } from 'vitest';
+import { afterEach, test } from 'vitest';
 
-import { parseTestLog } from '../src/test-log-inspector';
+import { installTestLogInspector, parseTestLog } from '../src/test-log-inspector';
 
 function sourceFile(fileName: string): string {
   return resolve(process.cwd(), 'src', fileName);
@@ -77,4 +77,64 @@ test('carrega o inspetor depois das camadas visuais existentes', async () => {
   assert.match(main, /import '\.\/test-log-inspector\.css';/);
   assert.match(main, /installTestLogInspector\(\);/);
   assert.ok(main.indexOf("import './test-log-theme-fix.css';") < main.indexOf("import './test-log-inspector.css';"));
+});
+
+afterEach(() => {
+  document.documentElement.dataset.testLogInspector = '';
+  document.body.replaceChildren();
+});
+
+function mountShell(lineCount: number): HTMLElement {
+  const shell = document.createElement('div');
+  shell.className = 'tests-log-shell';
+  shell.innerHTML = `
+    <div class="tests-log-tabs"><button class="active">Log</button></div>
+    <div class="tests-log-output">
+      <ul class="tests-log-lines">
+        ${Array.from({ length: lineCount }, (_, index) => `<li><code>linha ${index}</code></li>`).join('')}
+      </ul>
+    </div>
+    <div class="tests-log-footer"></div>
+  `;
+  document.body.append(shell);
+  return shell;
+}
+
+test('não entra em loop de mutação ao atualizar a contagem de linhas visíveis', async () => {
+  // O PR #87 atribuía .test-log-explorer-count.textContent incondicionalmente
+  // a cada chamada de applyFilters. Como isso sempre recria o nó de texto
+  // (mutação de childList), e o MutationObserver do inspetor reage a
+  // mutações reagendando o próprio applyFilters, o resultado era um loop
+  // infinito que travava a aba assim que a aba "Testes" era aberta.
+  const shell = mountShell(5);
+  installTestLogInspector();
+
+  const countNode = shell.querySelector('.test-log-explorer-count');
+  assert.ok(countNode, 'toolbar de exploração deveria ter sido instalada');
+
+  let mutationCount = 0;
+  const watchdog = new MutationObserver(() => {
+    mutationCount += 1;
+  });
+  watchdog.observe(countNode as Node, { childList: true, characterData: true, subtree: true });
+
+  // Simula novas linhas de log chegando via streaming (SSE), que é o gatilho
+  // real de mutação recorrente durante uma execução de testes.
+  const list = shell.querySelector('.tests-log-lines') as HTMLElement;
+  const extra = document.createElement('li');
+  extra.innerHTML = '<code>linha nova</code>';
+  list.append(extra);
+
+  // Dá tempo suficiente para qualquer cascata de microtasks se manifestar.
+  for (let i = 0; i < 25; i += 1) {
+    await Promise.resolve();
+  }
+
+  watchdog.disconnect();
+
+  assert.equal(countNode?.textContent, '6 de 6 linhas');
+  assert.ok(
+    mutationCount < 10,
+    `esperava a contagem de mutações estabilizar rapidamente, mas viu ${mutationCount} — indica loop de mutação`,
+  );
 });
