@@ -6,6 +6,7 @@ import type { Notice } from '../src/stores/notice-center';
 
 const actions = vi.hoisted(() => ({
   markRead: vi.fn(),
+  markAllRead: vi.fn(),
   dismiss: vi.fn(),
   clearAll: vi.fn(),
 }));
@@ -19,6 +20,7 @@ vi.mock('../src/stores/notice-center', async () => {
       notices,
       unreadCount: computed(() => notices.value.filter((notice) => !notice.read).length),
       markRead: actions.markRead,
+      markAllRead: actions.markAllRead,
       dismiss: actions.dismiss,
       clearAll: actions.clearAll,
     },
@@ -37,7 +39,7 @@ function makeNotice(overrides: Partial<Notice> = {}): Notice {
     projectId: 'p1',
     projectName: 'Aplicação principal',
     label: 'rspec spec/models',
-    createdAt: Date.now(),
+    createdAt: Date.now() - 4 * 60_000,
     read: false,
     routeTo: { name: 'project-tests', params: { projectId: 'p1' } },
     ...overrides,
@@ -49,6 +51,7 @@ async function mountNoticeCenter(): Promise<{ wrapper: ReturnType<typeof mount>;
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/activity', name: 'activity', component: { template: '<div />' } },
       { path: '/projects/:projectId/tests', name: 'project-tests', component: { template: '<div />' } },
     ],
   });
@@ -67,24 +70,27 @@ beforeEach(() => {
   noticeCenterStore.notices.value = [];
 });
 
-describe('central de avisos', () => {
-  it('mostra texto vazio dentro da região aria-live quando não há avisos', async () => {
+describe('central de notificações', () => {
+  it('mostra estado vazio dentro da região aria-live quando não há notificações', async () => {
     const { wrapper } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
 
     const region = wrapper.find('[aria-live="polite"]');
     expect(region.exists()).toBe(true);
-    expect(region.text()).toContain('Nenhum aviso no momento.');
+    expect(region.text()).toContain('Nenhuma notificação no momento.');
   });
 
-  it('mostra o texto do aviso e a contagem de não lidos no badge', async () => {
+  it('mostra hierarquia do aviso, horário relativo e contagem de não lidos', async () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper } = await mountNoticeCenter();
 
     expect(wrapper.find('.notice-badge').text()).toBe('1');
 
     await wrapper.find('.notice-bell-button').trigger('click');
-    expect(wrapper.text()).toContain('Testes de Aplicação principal falharam — rspec spec/models');
+    expect(wrapper.find('.notice-item-overline').text()).toContain('Testes');
+    expect(wrapper.find('.notice-item-overline time').text()).toBe('há 4 min');
+    expect(wrapper.find('.notice-item-body strong').text()).toBe('Testes concluídos com falhas');
+    expect(wrapper.find('.notice-item-meta').text()).toBe('Aplicação principal · rspec spec/models');
   });
 
   it('clique no corpo do item marca como lido e navega para routeTo', async () => {
@@ -112,11 +118,33 @@ describe('central de avisos', () => {
     expect(router.currentRoute.value.name).toBe('dashboard');
   });
 
+  it('marca todas como lidas pelo cabeçalho', async () => {
+    noticeCenterStore.notices.value = [makeNotice()];
+    const { wrapper } = await mountNoticeCenter();
+    await wrapper.find('.notice-bell-button').trigger('click');
+
+    await wrapper.find('.notice-header-action').trigger('click');
+
+    expect(actions.markAllRead).toHaveBeenCalledOnce();
+  });
+
+  it('abre o painel global de atividade pelo rodapé', async () => {
+    noticeCenterStore.notices.value = [makeNotice()];
+    const { wrapper, router } = await mountNoticeCenter();
+    await wrapper.find('.notice-bell-button').trigger('click');
+
+    await wrapper.find('.notice-activity-link').trigger('click');
+    await flushPromises();
+
+    expect(router.currentRoute.value.name).toBe('activity');
+    expect(wrapper.find('.notice-panel').exists()).toBe(false);
+  });
+
   it('botão limpar tudo chama clearAll e fica desabilitado quando a lista está vazia', async () => {
     const { wrapper } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
 
-    const clearButton = wrapper.find('.notice-panel-footer button');
+    const clearButton = wrapper.find('.notice-clear-button');
     expect(clearButton.attributes('disabled')).toBeDefined();
 
     noticeCenterStore.notices.value = [makeNotice()];
@@ -129,11 +157,15 @@ describe('central de avisos', () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper } = await mountNoticeCenter();
 
-    expect(wrapper.find('.notice-bell-button').attributes('aria-label')).toBe('1 aviso(s) não lido(s)');
+    expect(wrapper.find('.notice-bell-button').attributes('aria-label')).toBe('1 notificação(ões) não lida(s)');
 
     await wrapper.find('.notice-bell-button').trigger('click');
-    expect(wrapper.find('.notice-item-dismiss').attributes('aria-label')).toBe('Descartar aviso');
-    expect(wrapper.find('.notice-panel-footer button').attributes('aria-label')).toBe('Limpar todos os avisos');
+    expect(wrapper.find('.notice-item-dismiss').attributes('aria-label')).toBe(
+      'Descartar notificação de Aplicação principal',
+    );
+    expect(wrapper.find('.notice-clear-button').attributes('aria-label')).toBe(
+      'Limpar todas as notificações',
+    );
   });
 
   it('move o foco para o painel ao abrir e devolve ao sino ao fechar com Escape', async () => {
