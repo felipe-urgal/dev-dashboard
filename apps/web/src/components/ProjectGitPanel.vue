@@ -5,7 +5,6 @@ import type {
   GitDiffSnapshot,
   GitFileDiff,
   GitFileStatus,
-  GitSyncStrategy,
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -22,8 +21,6 @@ import {
   prepareProjectGitBranchDelete,
   prepareProjectGitBranchRename,
   prepareProjectGitMutation,
-  pullProjectGitBranch,
-  pushProjectGitBranch,
   renameProjectGitBranch,
   removeProjectGitUntrackedFile,
   saveProjectGit,
@@ -34,11 +31,9 @@ import {
   unstageProjectGitFile,
 } from '../api';
 import {
-  fetchProjectGitPullRequestUrl,
-  fetchProjectGitRemote,
   fetchProjectGitWorkspace,
-  integrateProjectGitReference,
-  prepareProjectGitSync,
+  prepareProjectGitMainSync,
+  synchronizeProjectGitMain,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -58,15 +53,15 @@ type GitTab =
   | 'history';
 
 const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
-  { id: 'branches', label: 'Branches', icon: '⑂' },
   { id: 'sync', label: 'Sincronização', icon: '↕' },
+  { id: 'branches', label: 'Branches', icon: '⑂' },
   { id: 'commit', label: 'Commit', icon: '●' },
   { id: 'stash', label: 'Stash', icon: '□' },
   { id: 'diff', label: 'Diff', icon: '±' },
   { id: 'history', label: 'Histórico', icon: '◷' },
 ];
 
-const activeTab = ref<GitTab>('branches');
+const activeTab = ref<GitTab>('sync');
 const overview = ref<ProjectGitOverview | null>(null);
 const workspace = ref<ProjectGitWorkspace | null>(null);
 const diff = ref<GitDiffSnapshot | null>(null);
@@ -83,7 +78,6 @@ const fileErrorMessage = ref('');
 const mutationRunning = ref(false);
 const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
-const remoteRefreshing = ref('');
 const createBranchName = ref('');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
@@ -352,78 +346,13 @@ async function runDeleteBranch(branch: string): Promise<void> {
   }
 }
 
-async function runSyncMutation(
-  operation: 'pull' | 'push',
-): Promise<void> {
+async function runMainSynchronization(): Promise<void> {
   if (mutationRunning.value) return;
-  const branch = overview.value?.branch;
-  if (!branch) {
-    mutationErrorMessage.value =
-      'Não é possível determinar a branch atual.';
-    return;
-  }
-
-  const confirmationText =
-    operation === 'pull'
-      ? `Fazer pull fast-forward do tracking "${overview.value?.upstream ?? branch}"? A árvore de trabalho deve estar limpa.`
-      : `Enviar a branch "${branch}" para o remote "origin"?`;
+  const message =
+    'Sincronizar a main com o repositório principal e publicar em origin/main? A árvore de trabalho deve estar limpa.';
   if (
-    typeof window !== 'undefined' &&
-    !window.confirm(confirmationText)
-  )
-    return;
-
-  mutationRunning.value = true;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-
-  try {
-    const confirmation = await prepareProjectGitMutation(
-      props.project.id,
-      operation,
-      branch,
-    );
-    const result =
-      operation === 'pull'
-        ? await pullProjectGitBranch(
-            props.project.id,
-            confirmation.token,
-          )
-        : await pushProjectGitBranch(
-            props.project.id,
-            confirmation.token,
-          );
-
-    mutationMessage.value =
-      operation === 'pull'
-        ? `Pull concluído na branch "${result}".`
-        : `Push para origin concluído na branch "${result}".`;
-    await reloadGitData();
-  } catch (error) {
-    mutationErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível sincronizar a branch.';
-  } finally {
-    mutationRunning.value = false;
-  }
-}
-
-async function runOpenPullRequest(): Promise<void> {
-  if (mutationRunning.value) return;
-  const branch = overview.value?.branch;
-  if (!branch) {
-    mutationErrorMessage.value =
-      'Não é possível determinar a branch atual.';
-    return;
-  }
-
-  if (
-    !overview.value?.upstream &&
-    (typeof window === 'undefined' ||
-      !window.confirm(
-        `A branch "${branch}" ainda não foi publicada. Enviar para "origin" antes de abrir a Pull Request?`,
-      ))
+    typeof window !== 'undefined'
+    && !window.confirm(message)
   ) {
     return;
   }
@@ -431,104 +360,26 @@ async function runOpenPullRequest(): Promise<void> {
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
-  try {
-    if (!overview.value?.upstream) {
-      const confirmation = await prepareProjectGitMutation(
-        props.project.id,
-        'push',
-        branch,
-      );
-      await pushProjectGitBranch(
-        props.project.id,
-        confirmation.token,
-      );
-      await reloadGitData();
-    }
 
-    const pullRequest = await fetchProjectGitPullRequestUrl(
+  try {
+    const confirmation = await prepareProjectGitMainSync(
       props.project.id,
     );
-    mutationMessage.value = `Pull Request preparada: "${pullRequest.branch}" → "${pullRequest.defaultBranch}".`;
-    if (typeof window !== 'undefined') {
-      window.open(pullRequest.url, '_blank', 'noopener,noreferrer');
-    }
-  } catch (error) {
-    mutationErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível abrir a Pull Request.';
-  } finally {
-    mutationRunning.value = false;
-  }
-}
-
-async function runSyncIntegration(payload: {
-  reference: string;
-  strategy: GitSyncStrategy;
-}): Promise<void> {
-  if (mutationRunning.value) return;
-  const labels: Record<GitSyncStrategy, string> = {
-    'ff-only': 'fast-forward',
-    rebase: 'rebase',
-    merge: 'merge',
-  };
-  const message = `Integrar "${payload.reference}" na branch atual usando ${labels[payload.strategy]}? A árvore de trabalho deve estar limpa. Em caso de conflito, a operação será abortada automaticamente.`;
-  if (typeof window !== 'undefined' && !window.confirm(message))
-    return;
-
-  mutationRunning.value = true;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  try {
-    const confirmation = await prepareProjectGitSync(
+    const result = await synchronizeProjectGitMain(
       props.project.id,
-      payload.reference,
-      payload.strategy,
-    );
-    const result = await integrateProjectGitReference(
-      props.project.id,
-      payload.reference,
-      payload.strategy,
       confirmation.token,
     );
     mutationMessage.value = result.changed
-      ? `${payload.reference} integrada na branch "${result.branch}" usando ${labels[payload.strategy]}.`
-      : `A branch "${result.branch}" já estava atualizada com ${payload.reference}.`;
+      ? 'Main atualizada e publicada em origin/main.'
+      : 'Main e origin/main já estavam sincronizadas.';
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível integrar a referência remota.';
+        : 'Não foi possível sincronizar a main.';
   } finally {
     mutationRunning.value = false;
-  }
-}
-
-async function refreshRemote(remote: string): Promise<void> {
-  if (remoteRefreshing.value) return;
-  if (
-    typeof window !== 'undefined' &&
-    !window.confirm(
-      `Executar fetch --prune no remote "${remote}"? Isso atualiza apenas as referências remotas locais.`,
-    )
-  )
-    return;
-
-  remoteRefreshing.value = remote;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  try {
-    await fetchProjectGitRemote(props.project.id, remote);
-    mutationMessage.value = `Referências de "${remote}" atualizadas.`;
-    await loadWorkspace();
-  } catch (error) {
-    mutationErrorMessage.value =
-      error instanceof Error
-        ? error.message
-        : `Não foi possível atualizar o remote "${remote}".`;
-  } finally {
-    remoteRefreshing.value = '';
   }
 }
 
@@ -720,7 +571,7 @@ watch(
     diff.value = null;
     fileDiff.value = null;
     selectedFile.value = '';
-    activeTab.value = 'branches';
+    activeTab.value = 'sync';
     await Promise.all([
       loadGit(),
       loadWorkspace(),
@@ -785,8 +636,16 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else-if="overview">
+      <ProjectGitSyncPage
+        v-if="activeTab === 'sync'"
+        :overview="overview"
+        :workspace="workspace"
+        :busy="mutationRunning"
+        @synchronize="runMainSynchronization"
+      />
+
       <ProjectGitBranchesPage
-        v-if="activeTab === 'branches'"
+        v-else-if="activeTab === 'branches'"
         :overview="overview"
         :workspace="workspace"
         :loading="loadingWorkspace"
@@ -795,20 +654,6 @@ onBeforeUnmount(() => {
         @switch="(name) => runMutation('switch-branch', name)"
         @rename="runRenameBranch"
         @delete="runDeleteBranch"
-      />
-
-      <ProjectGitSyncPage
-        v-else-if="activeTab === 'sync'"
-        :project-id="project.id"
-        :overview="overview"
-        :workspace="workspace"
-        :busy="mutationRunning"
-        :remote-refreshing="remoteRefreshing"
-        @fetch-remote="refreshRemote"
-        @integrate="runSyncIntegration"
-        @pull="runSyncMutation('pull')"
-        @push="runSyncMutation('push')"
-        @open-pull-request="runOpenPullRequest"
       />
 
       <ProjectGitCommitPage
