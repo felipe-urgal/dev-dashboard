@@ -202,6 +202,11 @@
   line-height: 1.55;
 }
 
+
+.git-history-page-detail .git-inline-file-diff .git-inline-diff-body {
+  max-height: clamp(320px, 45vh, 440px);
+}
+
 .git-inline-diff-unified {
   min-width: 720px;
   padding: 8px 0;
