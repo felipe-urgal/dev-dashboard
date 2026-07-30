@@ -1,0 +1,192 @@
+.tests-log-shell {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+}
+
+.tests-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.tests-log-tabs {
+  display: flex;
+  min-width: 0;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.tests-log-tabs button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.tests-log-tabs button:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tests-log-tabs button.active {
+  color: var(--info-text);
+  background: var(--accent-soft);
+}
+
+.tests-log-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tests-log-actions > span {
+  color: var(--success-text);
+  font-size: var(--font-xs);
+}
+
+.tests-log-output {
+  max-height: 520px;
+  min-height: 260px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  color: var(--text);
+  background: #0b0e14;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+:global([data-theme='light']) .tests-log-output {
+  background: #f8f9fc;
+}
+
+.tests-log-truncated {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--warning-text);
+  background: var(--warning-surface);
+  font-size: var(--font-xs);
+}
+
+.tests-log-lines {
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.tests-log-lines li {
+  display: grid;
+  grid-template-columns: 44px minmax(max-content, 1fr);
+  min-width: max-content;
+}
+
+.tests-log-lines li > span {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 0 10px 0 6px;
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
+  background: #0b0e14;
+  text-align: right;
+  user-select: none;
+}
+
+:global([data-theme='light']) .tests-log-lines li > span {
+  background: #f8f9fc;
+}
+
+.tests-log-lines code {
+  display: block;
+  padding: 0 12px;
+  color: inherit;
+  font: inherit;
+  white-space: pre;
+}
+
+.tests-log-line-success code { color: var(--success-text); }
+.tests-log-line-error code { color: var(--danger-text); }
+.tests-log-line-warning code { color: var(--warning-text); }
+.tests-log-line-muted code { color: var(--text-muted); }
+
+.tests-log-empty-state {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: var(--space-5);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.tests-log-empty-state > svg {
+  width: 28px;
+  height: 28px;
+}
+
+.tests-log-empty-state strong {
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--font-sm);
+}
+
+.tests-log-empty-state p {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--font-xs);
+}
+
+.tests-log-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 7px 9px 7px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--surface-1);
+  font-size: var(--font-xs);
+}
+
+.tests-log-tail {
+  padding: 4px 7px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
+  font-size: var(--font-xs);
+}
+
+.tests-log-tail:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tests-ready-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 170px;
+  margin-top: var(--space-4);
+  padding: var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  text-align: left;
+}

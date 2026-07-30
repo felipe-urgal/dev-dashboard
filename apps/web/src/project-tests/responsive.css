@@ -1,0 +1,145 @@
+@media (max-width: 1180px) {
+  .tests-execution-config-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tests-config-review {
+    grid-column: 1 / -1;
+    min-height: auto;
+  }
+
+  .tests-run-metadata {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tests-run-metadata > div:nth-child(3) {
+    border-right: 0;
+  }
+
+  .tests-run-metadata > div:nth-child(n + 4) {
+    margin-top: 12px;
+  }
+
+  .tests-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .tests-execution-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 10px;
+  }
+
+  .tests-execution-steps li::after {
+    display: none;
+  }
+
+  .tests-execution-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tests-config-review {
+    grid-column: auto;
+  }
+
+  .tests-config-card {
+    min-height: auto;
+  }
+
+  .tests-run-metadata,
+  .tests-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tests-run-metadata > div {
+    margin-top: 0 !important;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tests-run-metadata > div:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .tests-log-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tests-log-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .tests-execution-steps {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .tests-execution-steps li > div {
+    background: transparent;
+  }
+
+  .tests-execution-config-grid {
+    padding: var(--space-3);
+  }
+
+  .tests-config-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .tests-config-actions button {
+    width: 100%;
+  }
+
+  .tests-run-status {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .tests-status-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .tests-run-metadata,
+  .tests-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .tests-run-metadata > div,
+  .tests-run-metadata > div:nth-last-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tests-run-metadata > div:last-child {
+    border-bottom: 0;
+  }
+
+  .tests-log-tabs,
+  .tests-log-actions {
+    width: 100%;
+  }
+
+  .tests-log-tabs button,
+  .tests-log-actions .secondary-button {
+    flex: 1;
+  }
+
+  .tests-ready-state {
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tests-execution-steps li > span,
+  .tests-config-card,
+  .tests-run-status {
+    transition: none;
+  }
+}

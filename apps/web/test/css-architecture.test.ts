@@ -6,6 +6,14 @@ const raizDosEstilos = resolve(import.meta.dirname, '../src/styles');
 const lerEstilo = (arquivo: string) =>
   readFileSync(resolve(raizDosEstilos, arquivo), 'utf8');
 
+const lerComponentes = () => {
+  const arquivoPrincipal = lerEstilo('components.css');
+  const importados = [
+    ...arquivoPrincipal.matchAll(/@import\s+'\.\/(components\/[^']+)'/g),
+  ].map((correspondencia) => lerEstilo(correspondencia[1] ?? ''));
+  return [arquivoPrincipal, ...importados].join('\n');
+};
+
 describe('arquitetura de CSS', () => {
   it('mantém o ponto de entrada pequeno e a ordem explícita das camadas', () => {
     const entradaCompativel = readFileSync(
@@ -24,7 +32,7 @@ describe('arquitetura de CSS', () => {
 
   it('preserva seletores estruturais das rotas principais', () => {
     const layout = lerEstilo('layout.css');
-    const componentes = lerEstilo('components.css');
+    const componentes = lerComponentes();
 
     for (const seletor of ['.app-shell', '.sidebar', '.topbar', '.content']) {
       expect(layout).toContain(`${seletor} {`);
@@ -41,7 +49,7 @@ describe('arquitetura de CSS', () => {
   });
 
   it('não reintroduz famílias visuais legadas nem cores fora dos tokens', () => {
-    const componentes = lerEstilo('components.css');
+    const componentes = lerComponentes();
     const familiasRemovidas = [
       'activity-status-',
       'git-status-',

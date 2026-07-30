@@ -2,7 +2,7 @@
 
 ## Status
 
-Fases 1 e 2 concluídas. Fases 3–6 ainda são planejamento.
+Fases 1, 2 e 3 concluídas. Fases 4–6 ainda são planejamento.
 
 ## Contexto
 
@@ -62,14 +62,33 @@ mesmo, na seção da fase correspondente.
 - Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
   testes da API, 163 do frontend) sem nenhuma mudança de comportamento.
 
-### Fase 3 — CSS flat grandes (baixo risco)
+### Fase 3 — CSS flat grandes (baixo risco) — concluída
 
-- `components.css` já tem seções demarcadas por comentário (`/* Git do projeto */`,
-  `/* Processos gerenciados */`, `/* Painel de atividade */` etc., linhas 897–2921) → dividir em
-  `components/{project-detail,git,database,rails,scripts,navigation,activity,processes,git-diff}.css`,
-  com `components.css` reduzido a `@import`, no mesmo espírito da consolidação da task 023.
-- Mesma técnica para `database-layout-polish.css`, `scripts-explorer-redesign.css` e
-  `project-tests-redesign.css`.
+- `styles/components.css` (2921 → 8 linhas): dividido pelas seções já demarcadas por comentário em
+  `styles/components/{dashboard,project-details,project-panels,navigation,activity,processes,git-diff}.css`.
+  `dashboard.css` cobre o primeiro bloco genérico (botões, alerts, lista de projetos, cards);
+  `project-panels.css` agrupa os blocos pequenos de Git/banco/migrations/Bundler/scripts do painel
+  de detalhe do projeto, que tinham comentário próprio mas eram pequenos demais para virar arquivo
+  individual.
+- `database-layout-polish.css` (1961 → 9 linhas): sem comentários de seção, dividido por bloco de
+  seletor em `database/{header,metrics,overview,detail-panel,tables,inspector-mutation,
+  empty-states,responsive}.css`, cortando sempre em linhas em branco fora de qualquer regra.
+- `scripts-explorer-redesign.css` (1496 → 6 linhas): mesma técnica, em
+  `scripts-explorer/{header,overview,catalog,executions,responsive}.css`.
+- `project-tests-redesign.css` (838 → 6 linhas): mesma técnica, em
+  `project-tests/{header,config,result,log-shell,ready-state,responsive}.css`.
+- Cada arquivo original virou um `@import` na mesma ordem relativa do conteúdo original — o hash do
+  CSS final gerado pelo `vite build` ficou **idêntico** ao de antes da divisão
+  (`index-CfvOI6sP.css`), confirmando que o conteúdo compilado não mudou um byte.
+- `apps/web/test/css-architecture.test.ts` e `apps/web/test/database-layout-polish.test.ts` /
+  `scripts-explorer-redesign.test.ts` liam o conteúdo bruto de `components.css` /
+  `database-layout-polish.css` / `scripts-explorer-redesign.css` diretamente — foram ajustados para
+  seguir os `@import` e concatenar os arquivos importados antes de aplicar as mesmas asserções (sem
+  reduzir cobertura, só deixando de depender de tudo estar num único arquivo).
+- `project-tests-redesign.css` não tinha teste próprio; nenhuma mudança de teste foi necessária ali.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (163
+  testes do frontend, incluindo os três arquivos de teste ajustados) sem nenhuma mudança de
+  comportamento.
 
 ### Fase 4 — Componentes `.vue` grandes (risco médio)
 

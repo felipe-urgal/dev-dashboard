@@ -1,0 +1,131 @@
+.tests-dashboard {
+  min-width: 0;
+}
+
+.tests-panel-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.15rem, 1vw + 0.75rem, 1.45rem);
+}
+
+.tests-panel-heading p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.tests-button-with-icon,
+.tests-log-tail {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.tests-button-with-icon > svg,
+.tests-log-tail > svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.tests-execution-flow {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-0);
+}
+
+.tests-execution-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+  background: color-mix(in srgb, var(--surface-1) 82%, var(--surface-0));
+}
+
+.tests-execution-steps li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text-dim);
+}
+
+.tests-execution-steps li:not(:last-child)::after {
+  position: absolute;
+  top: 15px;
+  right: 12px;
+  left: 46px;
+  height: 1px;
+  background: var(--border);
+  content: '';
+  transform: translateX(50%);
+}
+
+.tests-execution-steps li > span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-0);
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.tests-execution-steps li > div {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding-right: 12px;
+  background: color-mix(in srgb, var(--surface-1) 82%, var(--surface-0));
+}
+
+.tests-execution-steps strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tests-execution-steps small {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tests-execution-steps li.active {
+  color: var(--info-text);
+}
+
+.tests-execution-steps li.active > span {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.tests-execution-steps li.complete {
+  color: var(--text);
+}
+
+.tests-execution-steps li.complete > span {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--border));
+  color: var(--info-text);
+  background: var(--accent-soft);
+}
+

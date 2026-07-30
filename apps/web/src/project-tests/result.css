@@ -1,0 +1,186 @@
+.tests-result {
+  margin-top: var(--space-4);
+}
+
+.tests-run-status {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.tests-run-status > svg {
+  width: 27px;
+  height: 27px;
+}
+
+.tests-run-status > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.tests-run-status span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.tests-run-status strong {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.tests-run-status code,
+.tests-run-command code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.tests-run-status code {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tests-run-status-success {
+  border-color: color-mix(in srgb, var(--success-text) 42%, var(--border));
+  background: color-mix(in srgb, var(--success-text) 10%, var(--surface-1));
+}
+.tests-run-status-success > svg,
+.tests-tone-success { color: var(--success-text); }
+.tests-run-status-danger {
+  border-color: color-mix(in srgb, var(--danger-text) 44%, var(--border));
+}
+.tests-run-status-danger > svg,
+.tests-tone-danger { color: var(--danger-text); }
+.tests-run-status-warning > svg,
+.tests-tone-warning { color: var(--warning-text); }
+.tests-run-status-info {
+  border-color: color-mix(in srgb, var(--info-text) 38%, var(--border));
+}
+.tests-run-status-info > svg,
+.tests-tone-info { color: var(--info-text); }
+.tests-run-status-neutral > svg,
+.tests-tone-neutral { color: var(--text-muted); }
+
+.tests-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-0);
+  font-size: var(--font-xs);
+  font-weight: 800;
+}
+
+.tests-status-badge-success {
+  border-color: color-mix(in srgb, var(--success-text) 38%, var(--border));
+  color: var(--success-text) !important;
+  background: color-mix(in srgb, var(--success-text) 10%, var(--surface-0));
+}
+
+.tests-status-badge-danger {
+  border-color: color-mix(in srgb, var(--danger-text) 38%, var(--border));
+  color: var(--danger-text) !important;
+  background: color-mix(in srgb, var(--danger-text) 10%, var(--surface-0));
+}
+
+.tests-status-badge-info {
+  border-color: color-mix(in srgb, var(--info-text) 38%, var(--border));
+  color: var(--info-text) !important;
+  background: color-mix(in srgb, var(--info-text) 10%, var(--surface-0));
+}
+
+.tests-status-badge-warning {
+  color: var(--warning-text) !important;
+  background: var(--warning-surface);
+}
+
+.tests-run-metadata {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(240px, 2fr) repeat(4, minmax(100px, 0.8fr));
+  gap: 0;
+  margin: var(--space-3) 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.tests-run-metadata > div {
+  min-width: 0;
+  padding: 0 14px;
+  border-right: 1px solid var(--border);
+}
+
+.tests-run-metadata > div:last-child {
+  border-right: 0;
+}
+
+.tests-run-metadata dt,
+.tests-summary span {
+  margin-bottom: 5px;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+}
+
+.tests-run-metadata dd {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-sm);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.tests-run-command code {
+  display: block;
+  color: var(--text);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.tests-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.tests-summary > div {
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  align-content: start;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.tests-summary strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--font-lg);
+  overflow-wrap: anywhere;
+}
+
+.tests-summary-success { color: var(--success-text) !important; }
+.tests-summary-danger { color: var(--danger-text) !important; }
+
+.tests-summary small {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  line-height: 1.4;
+}
+
