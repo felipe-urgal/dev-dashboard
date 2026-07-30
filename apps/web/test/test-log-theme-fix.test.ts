@@ -8,7 +8,7 @@ function sourceFile(fileName: string): string {
   return resolve(process.cwd(), 'src', fileName);
 }
 
-test('aplica superfícies próprias para os temas claro e escuro no log de testes', async () => {
+test('aplica o tema do log e mantém o diagnóstico enxuto', async () => {
   const css = await readFile(sourceFile('test-log-theme-fix.css'), 'utf8');
 
   assert.match(css, /html\[data-theme='light'\][\s\S]*--test-log-background:\s*#ffffff/);
@@ -16,5 +16,9 @@ test('aplica superfícies próprias para os temas claro e escuro no log de teste
   assert.match(css, /background-color:\s*var\(--test-log-background\)/);
   assert.match(css, /li\s*>\s*span[\s\S]*background-color:\s*var\(--test-log-gutter\)/);
   assert.match(css, /test-log-visual-progress[\s\S]*var\(--test-log-progress-surface\)/);
-  assert.match(css, /tests-log-line-error[\s\S]*var\(--test-log-danger-surface\)/);
+  assert.ok(css.includes('.tests-log-line-error {\n  background-color: transparent;'));
+  assert.ok(css.includes('color: var(--test-log-danger);'));
+  assert.ok(css.includes('grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);'));
+  assert.ok(css.includes('.test-log-failed-examples,'));
+  assert.ok(css.includes('.test-log-run-context {\n  display: none;'));
 });
