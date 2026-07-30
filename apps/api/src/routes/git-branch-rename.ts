@@ -6,17 +6,26 @@ import type {
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
-  GitBranchDeleteError,
-  GitBranchDeleteService,
-} from '../services/git-branch-delete-service.js';
+  GitBranchRenameError,
+  GitBranchRenameService,
+} from '../services/git-branch-rename-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
-interface GitBranchDeleteRouteOptions extends FastifyPluginOptions {
+interface GitBranchRenameRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
 }
 
 interface ProjectParams {
   projectId: string;
+}
+
+interface RenameBody {
+  currentName: string;
+  nextName: string;
+}
+
+interface RenameMutationBody extends RenameBody {
+  confirmationToken: string;
 }
 
 const projectParamsSchema = {
@@ -26,21 +35,22 @@ const projectParamsSchema = {
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
-const branchBodySchema = {
+const renameBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['branch'],
+  required: ['currentName', 'nextName'],
   properties: {
-    branch: { type: 'string', minLength: 1, maxLength: 200 },
+    currentName: { type: 'string', minLength: 1, maxLength: 200 },
+    nextName: { type: 'string', minLength: 1, maxLength: 200 },
   },
 } as const;
 
-const deleteBodySchema = {
+const renameMutationBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['branch', 'confirmationToken'],
+  required: ['currentName', 'nextName', 'confirmationToken'],
   properties: {
-    branch: { type: 'string', minLength: 1, maxLength: 200 },
+    ...renameBodySchema.properties,
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
   },
 } as const;
@@ -48,11 +58,18 @@ const deleteBodySchema = {
 const confirmationSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['token', 'operation', 'target', 'expiresAt'],
+  required: [
+    'token',
+    'operation',
+    'currentName',
+    'nextName',
+    'expiresAt',
+  ],
   properties: {
     token: { type: 'string' },
-    operation: { type: 'string', enum: ['delete-branch'] },
-    target: { type: 'string' },
+    operation: { type: 'string', enum: ['rename-branch'] },
+    currentName: { type: 'string' },
+    nextName: { type: 'string' },
     expiresAt: { type: 'string' },
   },
 } as const;
@@ -65,23 +82,27 @@ const branchResultSchema = {
 } as const;
 
 function translateError(error: unknown): never {
-  if (error instanceof GitBranchDeleteError) {
-    const statusByCode: Record<GitBranchDeleteError['code'], number> = {
+  if (error instanceof GitBranchRenameError) {
+    const statusByCode: Record<GitBranchRenameError['code'], number> = {
       GIT_NOT_REPOSITORY: 400,
       GIT_BRANCH_INVALID: 400,
       GIT_BRANCH_NOT_FOUND: 404,
-      GIT_BRANCH_CURRENT: 409,
+      GIT_BRANCH_EXISTS: 409,
       GIT_BRANCH_PROTECTED: 409,
       GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
       GIT_COMMAND_FAILED: 500,
     };
-    const apiCodeByCode: Record<GitBranchDeleteError['code'], ApiErrorCode> = {
+    const apiCodeByCode: Record<
+      GitBranchRenameError['code'],
+      ApiErrorCode
+    > = {
       GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
       GIT_BRANCH_INVALID: 'GIT_BRANCH_INVALID',
       GIT_BRANCH_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
-      GIT_BRANCH_CURRENT: 'GIT_COMMAND_FAILED',
+      GIT_BRANCH_EXISTS: 'GIT_BRANCH_EXISTS',
       GIT_BRANCH_PROTECTED: 'GIT_COMMAND_FAILED',
-      GIT_MUTATION_CONFIRMATION_REQUIRED: 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+      GIT_MUTATION_CONFIRMATION_REQUIRED:
+        'GIT_MUTATION_CONFIRMATION_REQUIRED',
       GIT_COMMAND_FAILED: 'GIT_COMMAND_FAILED',
     };
     throw new ApiError({
@@ -90,26 +111,27 @@ function translateError(error: unknown): never {
       message: error.message,
     });
   }
+
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
     message: error instanceof Error
       ? error.message
-      : 'Não foi possível remover a branch.',
+      : 'Não foi possível renomear a branch.',
   });
 }
 
-export const gitBranchDeleteRoutes: FastifyPluginAsync<
-  GitBranchDeleteRouteOptions
+export const gitBranchRenameRoutes: FastifyPluginAsync<
+  GitBranchRenameRouteOptions
 > = async (app, options) => {
-  const service = new GitBranchDeleteService();
+  const service = new GitBranchRenameService();
 
-  app.post<{ Params: ProjectParams; Body: { branch: string } }>(
-    '/projects/:projectId/git/branches/delete/confirmations',
+  app.post<{ Params: ProjectParams; Body: RenameBody }>(
+    '/projects/:projectId/git/branches/rename/confirmations',
     {
       schema: {
         params: projectParamsSchema,
-        body: branchBodySchema,
+        body: renameBodySchema,
         response: {
           201: {
             type: 'object',
@@ -122,7 +144,9 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       },
     },
     async (request, reply) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,
@@ -130,9 +154,14 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
           message: 'Projeto não encontrado.',
         });
       }
+
       try {
         return reply.code(201).send({
-          confirmation: service.prepareConfirmation(project.id, request.body.branch),
+          confirmation: service.prepareConfirmation(
+            project.id,
+            request.body.currentName,
+            request.body.nextName,
+          ),
         });
       } catch (error) {
         translateError(error);
@@ -140,15 +169,12 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
     },
   );
 
-  app.post<{
-    Params: ProjectParams;
-    Body: { branch: string; confirmationToken: string };
-  }>(
-    '/projects/:projectId/git/branches/delete',
+  app.post<{ Params: ProjectParams; Body: RenameMutationBody }>(
+    '/projects/:projectId/git/branches/rename',
     {
       schema: {
         params: projectParamsSchema,
-        body: deleteBodySchema,
+        body: renameMutationBodySchema,
         response: {
           200: {
             type: 'object',
@@ -161,7 +187,9 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       },
     },
     async (request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,
@@ -169,12 +197,14 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
           message: 'Projeto não encontrado.',
         });
       }
+
       try {
         return {
-          branch: await service.deleteLocalBranch(
+          branch: await service.renameLocalBranch(
             project.path,
             project.id,
-            request.body.branch,
+            request.body.currentName,
+            request.body.nextName,
             request.body.confirmationToken,
           ),
         };

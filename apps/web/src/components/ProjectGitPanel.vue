@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
   GitDiffSnapshot,
   GitFileDiff,
   GitFileStatus,
-  GitRemote,
   GitSyncStrategy,
-  GitTrackingComparison,
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -16,13 +14,17 @@ import type {
 import {
   commitProjectGit,
   createProjectGitBranch,
+  deleteProjectGitBranch,
   discardProjectGitFile,
   fetchProjectGit,
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
+  prepareProjectGitBranchDelete,
+  prepareProjectGitBranchRename,
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
+  renameProjectGitBranch,
   removeProjectGitUntrackedFile,
   saveProjectGit,
   stageProjectGitFile,
@@ -37,8 +39,6 @@ import {
   fetchProjectGitWorkspace,
   integrateProjectGitReference,
   prepareProjectGitSync,
-  prepareProjectGitTrackingBranch,
-  trackProjectGitBranch,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -50,7 +50,6 @@ import StatusBadge from './StatusBadge.vue';
 const props = defineProps<{ project: Project }>();
 
 type GitTab =
-  | 'summary'
   | 'branches'
   | 'sync'
   | 'commit'
@@ -59,7 +58,6 @@ type GitTab =
   | 'history';
 
 const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
-  { id: 'summary', label: 'Resumo', icon: '⌂' },
   { id: 'branches', label: 'Branches', icon: '⑂' },
   { id: 'sync', label: 'Sincronização', icon: '↕' },
   { id: 'commit', label: 'Commit', icon: '●' },
@@ -68,7 +66,7 @@ const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
   { id: 'history', label: 'Histórico', icon: '◷' },
 ];
 
-const activeTab = ref<GitTab>('summary');
+const activeTab = ref<GitTab>('branches');
 const overview = ref<ProjectGitOverview | null>(null);
 const workspace = ref<ProjectGitWorkspace | null>(null);
 const diff = ref<GitDiffSnapshot | null>(null);
@@ -112,20 +110,6 @@ const statusLabels: Record<GitFileStatus, string> = {
   'type-changed': 'Tipo alterado',
 };
 
-const originRemote = computed(() => remoteByName('origin'));
-const upstreamRemote = computed(() => remoteByName('upstream'));
-const trackedBranch = computed(
-  () => overview.value?.upstream ?? 'Sem tracking configurado',
-);
-const recentCommitsPreview = computed(
-  () => overview.value?.recentCommits.slice(0, 4) ?? [],
-);
-
-function remoteByName(name: string): GitRemote | undefined {
-  return workspace.value?.remotes.find(
-    (remote) => remote.name === name,
-  );
-}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -136,23 +120,11 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function comparisonText(
-  comparison: GitTrackingComparison | undefined,
-): string {
-  if (!comparison) return 'Sem referência local para comparar';
-  return `↑ ${comparison.ahead} · ↓ ${comparison.behind}`;
-}
-
-function comparisonHint(
-  comparison: GitTrackingComparison | undefined,
-): string {
-  if (!comparison)
-    return 'Execute fetch para atualizar as referências.';
-  return `em relação a ${comparison.reference}`;
-}
-
 function openTab(tab: GitTab): void {
   activeTab.value = tab;
+  if (tab === 'diff' && !diff.value && !loadingDiff.value) {
+    void loadDiff();
+  }
 }
 
 async function loadGit(): Promise<void> {
@@ -254,8 +226,8 @@ async function reloadGitData(): Promise<void> {
   await loadGit();
   await Promise.all([
     loadWorkspace(),
-    loadDiff(),
   ]);
+  if (activeTab.value === 'diff') await loadDiff();
 }
 
 async function runMutation(
@@ -318,39 +290,63 @@ async function runMutation(
   }
 }
 
-async function runTrackRemoteBranch(
-  remoteBranch: string,
+async function runRenameBranch(
+  currentName: string,
+  nextName: string,
 ): Promise<void> {
   if (mutationRunning.value) return;
-  const localName = remoteBranch.slice(remoteBranch.indexOf('/') + 1);
-  const confirmationText = `Criar a branch local "${localName}" rastreando "${remoteBranch}" e trocar para ela? A árvore de trabalho deve estar limpa.`;
-  if (
-    typeof window !== 'undefined' &&
-    !window.confirm(confirmationText)
-  )
-    return;
-
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
 
   try {
-    const confirmation = await prepareProjectGitTrackingBranch(
+    const confirmationToken = await prepareProjectGitBranchRename(
       props.project.id,
-      remoteBranch,
+      currentName,
+      nextName,
     );
-    const branch = await trackProjectGitBranch(
+    const branch = await renameProjectGitBranch(
       props.project.id,
-      remoteBranch,
-      confirmation.token,
+      currentName,
+      nextName,
+      confirmationToken,
     );
-    mutationMessage.value = `Branch local "${branch}" criada rastreando "${remoteBranch}".`;
+    mutationMessage.value =
+      `Branch "${currentName}" renomeada para "${branch}".`;
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível criar a branch local.';
+        : 'Não foi possível renomear a branch.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
+async function runDeleteBranch(branch: string): Promise<void> {
+  if (mutationRunning.value) return;
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmationToken = await prepareProjectGitBranchDelete(
+      props.project.id,
+      branch,
+    );
+    const removedBranch = await deleteProjectGitBranch(
+      props.project.id,
+      branch,
+      confirmationToken,
+    );
+    mutationMessage.value = `Branch "${removedBranch}" removida.`;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover a branch.';
   } finally {
     mutationRunning.value = false;
   }
@@ -662,7 +658,10 @@ async function runFileMutation(payload: {
 
 function openFileDiff(filePath: string): void {
   activeTab.value = 'diff';
-  void loadFileDiff(filePath);
+  void Promise.all([
+    loadDiff(),
+    loadFileDiff(filePath),
+  ]);
 }
 
 async function runStash(
@@ -721,11 +720,10 @@ watch(
     diff.value = null;
     fileDiff.value = null;
     selectedFile.value = '';
-    activeTab.value = 'summary';
+    activeTab.value = 'branches';
     await Promise.all([
       loadGit(),
       loadWorkspace(),
-      loadDiff(),
     ]);
   },
   { immediate: true },
@@ -752,7 +750,6 @@ onBeforeUnmount(() => {
           {{ tab.label }}
         </button>
       </nav>
-
     </div>
 
     <div v-if="errorMessage" class="project-error" role="alert">
@@ -788,96 +785,16 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else-if="overview">
-      <section
-        v-if="activeTab === 'summary'"
-        class="git-tab-page git-summary-page"
-      >
-        <div class="git-status-grid">
-          <article>
-            <span>Branch atual</span>
-            <strong>{{
-              overview.detached
-                ? 'HEAD destacado'
-                : (overview.branch ?? 'Sem commits')
-            }}</strong>
-            <small>{{ trackedBranch }}</small>
-          </article>
-          <article>
-            <span>Working tree</span>
-            <strong
-              :class="
-                overview.clean ? 'status-good' : 'status-warning'
-              "
-            >
-              {{ overview.clean ? 'Limpo' : 'Alterado' }}
-            </strong>
-            <small>{{ overview.files.length }} arquivo(s)</small>
-          </article>
-          <article>
-            <span>Origin · publicação</span>
-            <strong>{{
-              comparisonText(workspace?.originComparison)
-            }}</strong>
-            <small>{{
-              comparisonHint(workspace?.originComparison)
-            }}</small>
-          </article>
-          <article>
-            <span>Upstream · base principal</span>
-            <strong>{{
-              comparisonText(workspace?.upstreamComparison)
-            }}</strong>
-            <small>{{
-              comparisonHint(workspace?.upstreamComparison)
-            }}</small>
-          </article>
-        </div>
-
-        <div class="git-preview-grid git-recent-history-preview">
-          <article>
-            <header>
-              <h3>Histórico recente</h3>
-              <button type="button" @click="openTab('history')">
-                Ver tudo
-              </button>
-            </header>
-            <div
-              v-if="recentCommitsPreview.length === 0"
-              class="git-inline-empty"
-            >
-              Nenhum commit encontrado.
-            </div>
-            <ol v-else>
-              <li
-                v-for="commit in recentCommitsPreview"
-                :key="commit.hash"
-              >
-                <code>{{ commit.shortHash }}</code>
-                <div>
-                  <strong>{{ commit.subject }}</strong>
-                  <small>
-                    {{ commit.authorName }} ·
-                    {{ formatDate(commit.authoredAt) }}
-                  </small>
-                </div>
-              </li>
-            </ol>
-          </article>
-        </div>
-      </section>
-
       <ProjectGitBranchesPage
-        v-else-if="activeTab === 'branches'"
+        v-if="activeTab === 'branches'"
         :overview="overview"
         :workspace="workspace"
         :loading="loadingWorkspace"
         :busy="mutationRunning"
-        :remote-refreshing="remoteRefreshing"
-        @refresh="loadWorkspace"
         @create="(name) => runMutation('create-branch', name)"
         @switch="(name) => runMutation('switch-branch', name)"
-        @track="runTrackRemoteBranch"
-        @fetch-remote="refreshRemote"
+        @rename="runRenameBranch"
+        @delete="runDeleteBranch"
       />
 
       <ProjectGitSyncPage

@@ -122,7 +122,9 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.find('.git-modern-panel').exists()).toBe(true);
     expect(wrapper.find('.git-subtabs').exists()).toBe(true);
-    expect(wrapper.findAll('.git-subtabs button')).toHaveLength(7);
+    expect(wrapper.findAll('.git-subtabs button')).toHaveLength(6);
+    expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
+    expect(wrapper.find('.git-subtabs button')?.text()).toContain('Branches');
 
     wrapper.unmount();
   });

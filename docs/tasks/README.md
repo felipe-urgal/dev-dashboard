@@ -53,3 +53,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `044-project-details-header.md` — simplificação do cabeçalho de detalhes do projeto, removendo as ações redundantes de copiar caminho, abrir Git e executar script.
 - `045-project-details-branch.md` — remoção dos metadados secundários e do status de servidor do cabeçalho de detalhes, deixando a branch atual em destaque.
 - `046-project-details-avatar.md` — remoção do avatar com iniciais do cabeçalho de detalhes e do recuo associado, preservando nome, tipo, caminho e branch.
+- `047-git-branches-crud.md` — Branches como entrada padrão do painel Git, com lista unificada local/`origin`, criação prefixada, troca, renomeação e remoção forçada local, sem duplicar ações de sincronização.

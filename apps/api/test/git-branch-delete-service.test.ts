@@ -111,7 +111,7 @@ test('protects main even when another branch is selected', async () => {
   }
 });
 
-test('does not force-delete a branch with unmerged commits', async () => {
+test('remove uma branch mesmo quando existem commits não integrados', async () => {
   const { root, repository } = await createRepository();
   try {
     await createCommittedBranch(repository, 'feature/unmerged');
@@ -119,20 +119,18 @@ test('does not force-delete a branch with unmerged commits', async () => {
     const service = new GitBranchDeleteService();
     const confirmation = service.prepareConfirmation('project-1', 'feature/unmerged');
 
-    await assert.rejects(
-      () => service.deleteLocalBranch(
-        repository,
-        'project-1',
-        'feature/unmerged',
-        confirmation.token,
-      ),
-      (error: unknown) => {
-        assert.ok(error instanceof GitBranchDeleteError);
-        assert.equal(error.code, 'GIT_BRANCH_NOT_MERGED');
-        return true;
-      },
+    const result = await service.deleteLocalBranch(
+      repository,
+      'project-1',
+      'feature/unmerged',
+      confirmation.token,
     );
-    assert.match(await git(repository, 'branch', '--list', 'feature/unmerged'), /feature\/unmerged/);
+
+    assert.equal(result.branch, 'feature/unmerged');
+    assert.equal(
+      await git(repository, 'branch', '--list', 'feature/unmerged'),
+      '',
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

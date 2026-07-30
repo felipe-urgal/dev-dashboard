@@ -15,6 +15,7 @@ import { gitCurrentBranchHistoryRoutes } from './routes/git-current-branch-histo
 import { gitExclusiveBranchHistoryRoutes } from './routes/git-exclusive-branch-history.js';
 import { gitStashRoutes } from './routes/git-stash.js';
 import { gitBranchDeleteRoutes } from './routes/git-branch-delete.js';
+import { gitBranchRenameRoutes } from './routes/git-branch-rename.js';
 import { gitFileMutationRoutes } from './routes/git-file-mutations.js';
 
 import { processRoutes } from './routes/processes.js';
@@ -152,6 +153,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(gitBranchDeleteRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+
+  app.register(gitBranchRenameRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
   });
