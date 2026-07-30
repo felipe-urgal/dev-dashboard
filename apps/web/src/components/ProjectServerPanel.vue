@@ -22,14 +22,11 @@ import { RouterLink } from 'vue-router';
 
 import type {
   Activity,
-  ProcessLogSnapshot,
   Project,
   ProjectServerSettings,
 } from '@dev-dashboard/contracts';
 
 import {
-  fetchActivities,
-  fetchProjectProcessLog,
   fetchProjectServerSettings,
   saveProjectServerSettings,
   startProjectProcess,
@@ -38,11 +35,10 @@ import {
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
+import { useProjectServerActivities } from '../composables/useProjectServerActivities';
+import { useProjectServerLogPreview } from '../composables/useProjectServerLogPreview';
 import { noticeCenterStore } from '../stores/notice-center';
-import {
-  RequestGate,
-  RequestGeneration,
-} from '../utils/request-generation';
+import { RequestGeneration } from '../utils/request-generation';
 import { parseServerPort } from '../utils/server-settings';
 
 const props = defineProps<{
@@ -66,14 +62,22 @@ const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
-
-const logSnapshot = ref<ProcessLogSnapshot | null>(null);
-const loadingLogs = ref(false);
-const logErrorMessage = ref('');
-const activities = ref<Activity[]>([]);
-const loadingActivities = ref(false);
-const activityErrorMessage = ref('');
 const now = ref(Date.now());
+
+const {
+  logSnapshot,
+  loadingLogs,
+  logErrorMessage,
+  refreshLogs,
+  scheduleLogPolling,
+} = useProjectServerLogPreview(() => props.project, hasManagedProcess);
+
+const {
+  activities,
+  loadingActivities,
+  activityErrorMessage,
+  refreshActivities,
+} = useProjectServerActivities(() => props.project);
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
@@ -81,10 +85,6 @@ useAutoDismiss(logErrorMessage, '');
 useAutoDismiss(activityErrorMessage, '');
 
 const projectRequests = new RequestGeneration();
-const logRequests = new RequestGeneration();
-const logRequestGate = new RequestGate();
-const activityRequestGate = new RequestGate();
-let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
 let clockTimer: ReturnType<typeof setInterval> | undefined;
 let hasObservedRunning = false;
 
@@ -290,107 +290,6 @@ async function handleSaveSettings(): Promise<void> {
   }
 }
 
-async function refreshLogs(): Promise<void> {
-  if (!hasManagedProcess.value) return;
-
-  const requestToken = logRequestGate.begin('server-log-preview');
-  if (!requestToken) return;
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  const logGeneration = logRequests.capture();
-  loadingLogs.value = true;
-  logErrorMessage.value = '';
-
-  try {
-    const snapshot = await fetchProjectProcessLog(projectId, 24_576);
-    if (
-      isCurrentProject(projectId, generation) &&
-      logRequests.isCurrent(logGeneration)
-    ) {
-      logSnapshot.value = snapshot;
-    }
-  } catch (error) {
-    if (
-      isCurrentProject(projectId, generation) &&
-      logRequests.isCurrent(logGeneration)
-    ) {
-      logErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar os logs.';
-    }
-  } finally {
-    if (
-      logRequestGate.finish(requestToken) &&
-      isCurrentProject(projectId, generation)
-    ) {
-      loadingLogs.value = false;
-    }
-  }
-}
-
-function stopLogPolling(): void {
-  if (logPollingTimer) {
-    clearTimeout(logPollingTimer);
-    logPollingTimer = undefined;
-  }
-}
-
-function scheduleLogPolling(): void {
-  stopLogPolling();
-  if (!hasManagedProcess.value) return;
-
-  const generation = projectRequests.capture();
-  logPollingTimer = setTimeout(async () => {
-    await refreshLogs();
-
-    if (
-      projectRequests.isCurrent(generation) &&
-      hasManagedProcess.value
-    ) {
-      scheduleLogPolling();
-    }
-  }, 2_500);
-}
-
-async function refreshActivities(): Promise<void> {
-  const requestToken = activityRequestGate.begin('server-activity');
-  if (!requestToken) return;
-
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  loadingActivities.value = true;
-  activityErrorMessage.value = '';
-
-  try {
-    const result = await fetchActivities({
-      projectId,
-      origin: 'server',
-      page: 1,
-      pageSize: 4,
-    });
-
-    if (isCurrentProject(projectId, generation)) {
-      activities.value = result.items;
-    }
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      activityErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar a atividade recente.';
-    }
-  } finally {
-    if (
-      activityRequestGate.finish(requestToken) &&
-      isCurrentProject(projectId, generation)
-    ) {
-      loadingActivities.value = false;
-    }
-  }
-}
-
 async function startServer(
   projectId: string,
   generation: number,
@@ -487,39 +386,21 @@ async function handleRestart(): Promise<void> {
 }
 
 function resetPanelState(): void {
-  stopLogPolling();
   projectRequests.invalidate();
-  logRequests.invalidate();
-  logRequestGate.invalidate();
-  activityRequestGate.invalidate();
 
   selectedPort.value = '';
   loadingSettings.value = false;
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
-  logSnapshot.value = null;
-  loadingLogs.value = false;
-  logErrorMessage.value = '';
-  activities.value = [];
-  loadingActivities.value = false;
-  activityErrorMessage.value = '';
 }
 
 async function initializeProject(): Promise<void> {
   resetPanelState();
-  const generation = projectRequests.capture();
 
-  await refreshActivities();
   if (!supportsServer.value) return;
 
   await refreshServerSettings();
-  if (!projectRequests.isCurrent(generation)) return;
-
-  if (hasManagedProcess.value) {
-    await refreshLogs();
-    scheduleLogPolling();
-  }
 }
 
 watch(
@@ -570,10 +451,6 @@ clockTimer = setInterval(() => {
 
 onBeforeUnmount(() => {
   projectRequests.invalidate();
-  logRequests.invalidate();
-  logRequestGate.invalidate();
-  activityRequestGate.invalidate();
-  stopLogPolling();
 
   if (clockTimer) clearInterval(clockTimer);
 });

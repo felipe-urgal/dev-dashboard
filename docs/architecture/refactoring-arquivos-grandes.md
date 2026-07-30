@@ -122,7 +122,24 @@ mesmo, na seção da fase correspondente.
       depois da chamada do composable) inverteria a ordem e cancelaria a busca inicial assim que ela
       começasse. Por isso o composable é autocontido, como `useProjectProcessStatus`, em vez de
       expor um `reset()` para o componente chamar.
-  - Componentes restantes (`ProjectServerPanel.vue`, `ProjectGitPanel.vue`, etc.): pendentes.
+  - `ProjectServerPanel.vue` (854 → 731 linhas): extraídos dois composables independentes,
+    `composables/useProjectServerLogPreview.ts` (144 linhas, preview de log sem follow/scroll/clear
+    — só refresh/schedule) e `composables/useProjectServerActivities.ts` (88 linhas, atividade
+    recente do servidor). Diferente de `ProjectLogsPanel`, este componente também tem
+    settings/start/stop/restart fortemente acoplados por um único `RequestGeneration` compartilhado
+    (`isCurrentProject`) — essa parte **não** foi extraída nesta passada: início/parada/reinício do
+    servidor e persistência de porta são a lógica de negócio central do painel, e dividir isso
+    aumentaria o risco sem reduzir tanto o tamanho. A extração ficou só nos dois blocos read-only
+    (log preview e atividade), que já não dependiam do `RequestGeneration` compartilhado das ações.
+    - `refreshServerSettings`/`persistServerSettings`/`handleStart`/`handleStop`/`handleRestart`/
+      `resetPanelState`/`initializeProject` continuam no componente, chamando as funções expostas
+      pelos dois composables (`refreshLogs`, `scheduleLogPolling`, `refreshActivities`) nos mesmos
+      pontos em que já eram chamadas antes (o watcher de `processStatus` que dispara notificações e
+      as três ações de processo).
+  - Componentes restantes (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
+    `ProjectGitBranchesPage.vue`, `ProjectDatabasePanel.vue`, `ProjectScriptsPanel.vue`): pendentes.
+    Os três primeiros tiveram reforma funcional grande no merge com a `main` (ver abaixo) — vale
+    reler o estado atual antes de tentar extrair composables ali.
 
 **Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
 com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
