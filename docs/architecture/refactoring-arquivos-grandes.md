@@ -4,8 +4,9 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts` e `git-stash-enhancer.ts` concluídos,
-demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
+Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts` e
+`git-summary-history-enhancer.ts` concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6
+ainda é planejamento.
 
 ## Contexto
 
@@ -263,9 +264,31 @@ O arquivo principal ficou só com o bootstrap (`loadStashes`/`metricCard`/`build
 - Verificado com `typecheck`, `build` (CSS/JS idênticos ao original), os 174 testes unitários e os
   13 testes E2E — todos verdes na branch `claude/reorganizar-arquitetura-arquivos-fase5b` (criada a
   partir da `main` já com o merge da fase 1, commit `2221475`, após o PR #94 ser mesclado).
-- Os demais arquivos da camada (`git-summary-history-enhancer.ts` 686,
-  `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem pendentes —
-  cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-summary-history-enhancer.ts` (686 → 228 linhas) — concluído**, terceiro arquivo da fase.
+Mesmo padrão de `WeakMap<HTMLElement, SummaryState>` (`stateBySection`) compartilhado. Nenhum teste
+importa símbolos diretamente deste arquivo (confirmado via grep — só `main.ts` importa o instalador).
+Split em `git-summary-history/`: `types.ts`, `state.ts`, `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`/`currentBranchFromSection`), `format.ts`
+(`formatDate`/`relativeDate`/`statusLabel`), `list.ts` (`commitListItem`/`renderPagination`/
+`renderHistoryList`/`setHistoryLoading`) e `detail.ts` (`patchView`/`setDetailLoading`/
+`renderCommitDetail`/`renderDetailError`/`selectCommit`/`closeCommitDetail`). O arquivo principal
+ficou só com o bootstrap (`loadHistoryPage`/`buildPagination`/`watchCurrentBranch`/`buildHistory`/
+`enhanceSummary`/`scan`/`installGitSummaryHistoryEnhancer`) — `buildPagination` e
+`watchCurrentBranch` ficaram no principal (não em `list.ts`) porque seus handlers de clique/mutação
+chamam `loadHistoryPage`, que por sua vez pertence ao bootstrap, espelhando a mesma decisão tomada
+para `buildPagination` em `git-history-page-enhancer.ts`.
+- Mesmo import circular real entre `list.ts` e `detail.ts` dos dois arquivos anteriores:
+  `commitListItem` (`list.ts`) chama `selectCommit` (`detail.ts`); `selectCommit`/`closeCommitDetail`
+  (`detail.ts`) chamam `renderHistoryList` (`list.ts`).
+- Mesmo processo de verificação por `diff` linha a linha contra o arquivo original antes do
+  typecheck — desta vez sem erros de transcrição (todas as ~24 funções bateram na primeira
+  tentativa). Um cuidado extra aqui: como o arquivo principal já havia sido sobrescrito antes da
+  verificação, foi preciso recuperar o conteúdo original com `git show HEAD:<arquivo>` para comparar
+  contra ele, em vez de reler do disco.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS a 1 byte de diferença de nome de chunk),
+  os 174 testes unitários e os 13 testes E2E — todos verdes.
+- Os demais arquivos da camada (`git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts`
+  402, etc.) seguem pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
