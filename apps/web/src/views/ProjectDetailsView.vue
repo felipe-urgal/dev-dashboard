@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import {
   computed,
-  onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
 
 import {
-  ClipboardDocumentIcon,
   CodeBracketIcon,
   FolderIcon,
   ShareIcon,
@@ -39,8 +37,6 @@ const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
-const pathCopied = ref(false);
-let copiedMessageTimer: ReturnType<typeof setTimeout> | undefined;
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -107,30 +103,10 @@ async function loadProject(): Promise<void> {
   }
 }
 
-async function copyProjectPath(): Promise<void> {
-  if (!project.value) return;
-
-  try {
-    await navigator.clipboard.writeText(project.value.path);
-    pathCopied.value = true;
-
-    if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
-    copiedMessageTimer = setTimeout(() => {
-      pathCopied.value = false;
-    }, 2_000);
-  } catch {
-    pathCopied.value = false;
-  }
-}
-
 watch(projectId, () => {
   void loadProject();
 }, {
   immediate: true,
-});
-
-onBeforeUnmount(() => {
-  if (copiedMessageTimer) clearTimeout(copiedMessageTimer);
 });
 </script>
 
@@ -210,29 +186,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="project-details-actions">
-          <button type="button" @click="copyProjectPath">
-            <ClipboardDocumentIcon aria-hidden="true" />
-            {{ pathCopied ? 'Caminho copiado' : 'Copiar caminho' }}
-          </button>
-
-          <RouterLink
-            v-if="project.capabilities.includes('git')"
-            :to="{ name: 'project-git', params: { projectId: project.id } }"
-          >
-            <ShareIcon aria-hidden="true" />
-            Abrir Git
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.capabilities.includes('scripts')"
-            class="project-primary-action"
-            :to="{ name: 'project-scripts', params: { projectId: project.id } }"
-          >
-            <CodeBracketIcon aria-hidden="true" />
-            Executar script
-          </RouterLink>
-        </div>
       </header>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
