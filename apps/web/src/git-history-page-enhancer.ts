@@ -5,7 +5,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentIcon,
-  CodeBracketSquareIcon,
   DocumentTextIcon,
   MagnifyingGlassIcon,
   TagIcon,
@@ -739,13 +738,6 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
   }
   files.append(filesHeader, fileList);
 
-  const diff = document.createElement('details');
-  diff.className = 'git-history-page-diff';
-  const summary = document.createElement('summary');
-  mountIcon(summary, CodeBracketSquareIcon, 'git-history-page-diff-icon');
-  const summaryText = document.createElement('span');
-  summaryText.textContent = 'Ver diff completo';
-  summary.append(summaryText);
   const warnings = document.createElement('div');
   warnings.className = 'git-history-page-warnings';
   if (detail.masked) {
@@ -758,8 +750,17 @@ function renderDetail(section: HTMLElement, detail: CommitDetail): void {
     warning.textContent = 'O diff foi truncado para manter a página responsiva.';
     warnings.append(warning);
   }
-  diff.append(summary, warnings, patchView(detail.patch));
-  host.append(header, metrics, body, files, diff);
+
+  // O patch combinado continua no DOM apenas como fonte para os diffs individuais.
+  // A visualização completa foi removida do Histórico para evitar duplicação e ruído.
+  const patchSource = document.createElement('div');
+  patchSource.className = 'git-history-page-patch-source';
+  patchSource.hidden = true;
+  patchSource.append(patchView(detail.patch));
+
+  host.append(header, metrics, body, files);
+  if (warnings.childElementCount > 0) host.append(warnings);
+  host.append(patchSource);
 }
 
 function renderDetailError(section: HTMLElement, message: string): void {
