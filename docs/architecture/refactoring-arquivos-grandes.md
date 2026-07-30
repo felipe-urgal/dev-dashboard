@@ -5,9 +5,9 @@
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
-`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts` e
-`git-summary-global-search-fix.ts` concluídos, demais arquivos da camada "enhancer" pendentes.
-Fase 6 ainda é planejamento.
+`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
+`git-summary-global-search-fix.ts` e `log-visual-enhancer.ts` concluídos, demais arquivos da camada
+"enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -343,11 +343,36 @@ sua vez chama `renderResults`/`closeSearchDetail` de volta). O arquivo principal
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
   (incluindo o teste que importa `buildSummaryHistorySearchUrl` direto do arquivo) e os 13 testes
   E2E — todos verdes.
-- Os demais arquivos da camada (`log-visual-enhancer.ts` 402, `git-commit-enhancer.ts` 362,
-  `sql-explanation-enhancer.ts` 326, `log-detail-enhancer.ts` 291,
-  `git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts` 286,
-  `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo processo de
-  rastreio manual de dependências.
+**`log-visual-enhancer.ts` (402 → 53 linhas) — concluído**, sexto arquivo da fase e o primeiro sem
+`WeakMap` — o estado compartilhado aqui é uma única variável de módulo solta,
+`let activeSearchQuery = ''`, lida por praticamente toda função do arquivo (para destacar o termo
+buscado e marcar `enhanced-search-match`). Como bindings `let` importados são somente leitura fora
+do módulo que os declara (mesma limitação encontrada em `git-summary-global-search-fix.ts`), a
+variável ficou em `log-visual/search.ts` junto com `appendHighlightedText` (a única função que
+já morava no mesmo escopo dela no arquivo original), exportando um getter/setter
+(`getActiveSearchQuery`/`setActiveSearchQuery`). Toda referência direta à variável nas demais
+funções virou uma chamada ao getter — a única mudança que não é cópia literal, e a mesma stakepoint
+já usada para `summaryFetch`/`setSummaryFetcher`. Split em `log-visual/`: `constants.ts`
+(`enhancedAttribute`/`originalTextAttribute`/`sqlKeywords`/`sqlFunctions`), `dom-helpers.ts`
+(`text`/`rememberOriginalText`), `search.ts` (a variável + `appendHighlightedText`),
+`line-decorators.ts` (`isErrorMessage`/`renderPlainLine`/`decorateRawLine`, a classificação de
+linhas de log brutas: boot, sucesso, build, requisição HTTP, erro, warning), `sql.ts`
+(`sqlTokenClass`/`appendSqlStatement`/`decorateSqlLine`, o destaque de sintaxe SQL) e
+`render-line.ts` (`decorateRenderLine`, linhas "Rendering/Rendered" do Rails) e `rails-cards.ts`
+(`highlightPlainElement`/`decorateRailsCards`). O arquivo principal ficou com
+`enhance`/`refreshSearchQuery`/`installLogVisualEnhancer`.
+- Verificação adaptada para essa mudança: em vez de `diff` byte a byte puro, cada função foi
+  comparada contra uma cópia do original com `s/activeSearchQuery/getActiveSearchQuery()/g`
+  aplicado via `sed` antes do `diff` — confirmando que a única diferença real era a
+  substituição mecânica da variável pelo getter, nunca uma mudança de lógica. As duas funções que
+  atribuem a variável (`refreshSearchQuery`/`installLogVisualEnhancer`) foram conferidas
+  manualmente por não caberem nesse padrão de substituição (viram chamadas a `setActiveSearchQuery`).
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes. Nenhum teste importa símbolos diretamente deste arquivo.
+- Os demais arquivos da camada (`git-commit-enhancer.ts` 362, `sql-explanation-enhancer.ts` 326,
+  `log-detail-enhancer.ts` 291, `git-summary-inline-diff-fix.ts` 290,
+  `test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
+  cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
