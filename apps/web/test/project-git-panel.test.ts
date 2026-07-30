@@ -301,10 +301,6 @@ test('renderiza o resumo com comparações separadas de origin e upstream', asyn
   assert.match(text, /Upstream · base principal/);
   assert.match(text, /upstream\/main/);
   assert.match(text, /↑ 4 · ↓ 2/);
-
-  const branchOptions = mounted.wrapper.findAll('.git-branch-toolbar option');
-  assert.ok(branchOptions.some((option) => option.text().includes('feature/git-ui')));
-  assert.ok(branchOptions.some((option) => option.text().includes('main')));
 });
 
 test('navega, filtra e exibe detalhes de branches remotas', async () => {

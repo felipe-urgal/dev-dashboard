@@ -84,7 +84,6 @@ const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
 const remoteRefreshing = ref('');
 const createBranchName = ref('');
-const switchBranchName = ref('');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
 const saveMessage = ref('');
@@ -111,9 +110,6 @@ const statusLabels: Record<GitFileStatus, string> = {
   'type-changed': 'Tipo alterado',
 };
 
-const localBranches = computed(() =>
-  workspace.value?.branches.filter((branch) => branch.kind === 'local') ?? [],
-);
 const originRemote = computed(() => remoteByName('origin'));
 const upstreamRemote = computed(() => remoteByName('upstream'));
 const trackedBranch = computed(() => overview.value?.upstream ?? 'Sem tracking configurado');
@@ -205,7 +201,6 @@ async function loadGit(): Promise<void> {
     const result = await fetchProjectGit(props.project.id);
     if (requestGeneration !== generation) return;
     overview.value = result;
-    if (!switchBranchName.value && result.branch) switchBranchName.value = result.branch;
   } catch (error) {
     if (requestGeneration === generation) {
       errorMessage.value = error instanceof Error
@@ -329,7 +324,6 @@ async function runMutation(
       ? `Branch "${branch}" criada e selecionada.`
       : `Agora na branch "${branch}".`;
     createBranchName.value = '';
-    switchBranchName.value = branch;
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value = error instanceof Error
@@ -361,7 +355,6 @@ async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
       confirmation.token,
     );
     mutationMessage.value = `Branch local "${branch}" criada rastreando "${remoteBranch}".`;
-    switchBranchName.value = branch;
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value = error instanceof Error
@@ -717,33 +710,6 @@ onBeforeUnmount(() => {
           </article>
         </div>
 
-        <div class="git-branch-toolbar">
-          <label>
-            <span>Trocar branch</span>
-            <select v-model="switchBranchName" :disabled="mutationRunning || loadingWorkspace">
-              <option value="">Selecione uma branch local</option>
-              <option
-                v-for="branch in localBranches"
-                :key="branch.name"
-                :value="branch.name"
-              >
-                {{ branch.current ? '✓ ' : '' }}{{ branch.name }}
-              </option>
-            </select>
-          </label>
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="mutationRunning || !switchBranchName || switchBranchName === overview.branch"
-            @click="runMutation('switch-branch', switchBranchName)"
-          >
-            Trocar para branch
-          </button>
-          <button type="button" class="secondary-button" @click="openTab('branches')">
-            Explorar branches
-          </button>
-        </div>
-
         <div class="git-quick-actions" aria-label="Ações rápidas do Git">
           <button type="button" @click="openTab('branches')">＋ Criar branch</button>
           <button type="button" :disabled="mutationRunning || !overview.upstream" @click="runSyncMutation('pull')">↓ Pull</button>
@@ -1060,7 +1026,6 @@ onBeforeUnmount(() => {
 .git-command-card,
 .git-preview-grid article,
 .git-table-card,
-.git-branch-toolbar,
 .git-diff-layout-modern,
 .git-history-list article {
   border: 1px solid var(--border);
@@ -1092,14 +1057,6 @@ onBeforeUnmount(() => {
 .status-good { color: var(--success-text) !important; }
 .status-warning { color: var(--warning-text) !important; }
 
-.git-branch-toolbar {
-  display: flex;
-  align-items: end;
-  gap: var(--space-3);
-  padding: var(--space-3);
-}
-
-.git-branch-toolbar label,
 .git-command-card label {
   display: grid;
   flex: 1;
@@ -1321,7 +1278,6 @@ textarea { min-height: 88px; resize: vertical; }
   .git-status-grid,
   .git-two-column-actions,
   .git-commit-layout { grid-template-columns: 1fr; }
-  .git-branch-toolbar { align-items: stretch; flex-direction: column; }
   .git-diff-layout-modern { grid-template-columns: 1fr; }
   .git-diff-layout-modern aside { border-right: 0; border-bottom: 1px solid var(--border); }
   .git-history-list article { grid-template-columns: 80px minmax(0, 1fr); }

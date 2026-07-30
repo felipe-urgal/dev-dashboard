@@ -266,6 +266,8 @@ function renderHistoryList(section: HTMLElement): void {
       : 'Nenhum commit desta página corresponde à busca.';
     list.append(empty);
   }
+  section.querySelector('.git-summary-history-shell')
+    ?.classList.toggle('is-empty', state.commits.length === 0);
   renderPagination(section);
 }
 
