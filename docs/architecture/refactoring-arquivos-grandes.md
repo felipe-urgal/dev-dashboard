@@ -2,7 +2,10 @@
 
 ## Status
 
-Planejamento. Nenhuma fase foi executada ainda.
+Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
+grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
+Fase 4). Fase 5 iniciada: `git-history-page-enhancer.ts` concluído, demais arquivos da camada
+"enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -29,39 +32,174 @@ mesmo, na seção da fase correspondente.
 
 ## Fases propostas
 
-### Fase 1 — API (baixo risco, mecânica pura)
+### Fase 1 — API (baixo risco, mecânica pura) — concluída
 
-- Mover as 8 mutações Git de `routes/projects.ts` para um novo `routes/git-mutations.ts`, seguindo
-  a convenção `git-*.ts` já usada pelos demais arquivos de rota Git.
-- Quebrar `response-schemas.ts` em `response-schemas/{errors,workspaces-projects,processes,scripts,git,tests,rails,activity}.ts`
-  mais um `index.ts` que re-exporta tudo — nenhum import externo muda.
+- Movidas as 8 mutações Git de `routes/projects.ts` (685 → 370 linhas) para
+  `routes/git-mutations.ts` (novo, 355 linhas), seguindo a convenção `git-*.ts` já usada pelos
+  demais arquivos de rota Git. Registrado em `app.ts` como um plugin próprio, com o mesmo
+  `projectStore`/`gitService` do plugin de projetos.
+- `response-schemas.ts` (683 linhas) quebrado em
+  `response-schemas/{common,scripts,workspaces-projects,processes,tests,git,rails,activity}.ts`.
+  O arquivo original virou um barrel de 8 linhas (`export * from './response-schemas/...'`), então
+  nenhum import externo (`from '../http/response-schemas.js'`) mudou. Helpers internos não
+  exportados (`retentionValueLimitSchema`, `gitFileStatusEnum`, `activityStatusEnum`,
+  `scriptActivityResponseSchema`, `processActivityResponseSchema`) foram para o arquivo do domínio
+  que os usa.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
+  testes da API, 163 do frontend, todos os pacotes) sem nenhuma mudança de comportamento.
 
-### Fase 2 — `apps/web/src/api.ts` (baixo risco)
+### Fase 2 — `apps/web/src/api.ts` (baixo risco) — concluída
 
-- Extrair `requestJson`, bootstrap de sessão e classes de erro para `api/core.ts`.
-- Um arquivo por domínio: `api/scripts.ts`, `api/workspaces.ts`, `api/processes.ts`, `api/git.ts`,
-  `api/tests.ts`, `api/rails.ts`, `api/activities.ts`, `api/settings.ts`.
-- `api.ts` vira um barrel (`export * from './api/...'`) — os ~60 pontos de import existentes
-  (`from '../api'`) continuam funcionando sem alteração.
+- `requestJson`, `requestJsonAttempt`, bootstrap de sessão do navegador, `ApiRequestError`,
+  `followEventStream` (helper genérico de SSE) e `fetchHealth` foram para `api/core.ts`.
+- Um arquivo por domínio: `api/scripts.ts`, `api/workspaces.ts` (inclui projetos/diretórios),
+  `api/processes.ts`, `api/git.ts`, `api/tests.ts`, `api/rails.ts` (inclui banco de dados),
+  `api/activities.ts`, `api/settings.ts`.
+- `api.ts` (859 → 9 linhas) virou um barrel (`export * from './api/...'`) — os ~20 arquivos que
+  importam `from '../api'`/`from './api'` continuam funcionando sem alteração.
+- Já existia um `apps/web/src/api/` com `git-workspace.ts` (sync/tracking de branch remoto), anterior
+  a esta fase — confirma que o diretório `api/` como convenção de split já tinha precedente no repo;
+  nenhum conflito de nome com os novos arquivos.
+- Importações internas usam caminho relativo sem extensão (`from './core'`), diferente do padrão
+  `NodeNext` da API (`from './core.js'`) — `apps/web` usa `moduleResolution: "Bundler"`.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (240
+  testes da API, 163 do frontend) sem nenhuma mudança de comportamento.
 
-### Fase 3 — CSS flat grandes (baixo risco)
+### Fase 3 — CSS flat grandes (baixo risco) — concluída
 
-- `components.css` já tem seções demarcadas por comentário (`/* Git do projeto */`,
-  `/* Processos gerenciados */`, `/* Painel de atividade */` etc., linhas 897–2921) → dividir em
-  `components/{project-detail,git,database,rails,scripts,navigation,activity,processes,git-diff}.css`,
-  com `components.css` reduzido a `@import`, no mesmo espírito da consolidação da task 023.
-- Mesma técnica para `database-layout-polish.css`, `scripts-explorer-redesign.css` e
-  `project-tests-redesign.css`.
+- `styles/components.css` (2921 → 8 linhas): dividido pelas seções já demarcadas por comentário em
+  `styles/components/{dashboard,project-details,project-panels,navigation,activity,processes,git-diff}.css`.
+  `dashboard.css` cobre o primeiro bloco genérico (botões, alerts, lista de projetos, cards);
+  `project-panels.css` agrupa os blocos pequenos de Git/banco/migrations/Bundler/scripts do painel
+  de detalhe do projeto, que tinham comentário próprio mas eram pequenos demais para virar arquivo
+  individual.
+- `database-layout-polish.css` (1961 → 9 linhas): sem comentários de seção, dividido por bloco de
+  seletor em `database/{header,metrics,overview,detail-panel,tables,inspector-mutation,
+  empty-states,responsive}.css`, cortando sempre em linhas em branco fora de qualquer regra.
+- `scripts-explorer-redesign.css` (1496 → 6 linhas): mesma técnica, em
+  `scripts-explorer/{header,overview,catalog,executions,responsive}.css`.
+- `project-tests-redesign.css` (838 → 6 linhas): mesma técnica, em
+  `project-tests/{header,config,result,log-shell,ready-state,responsive}.css`.
+- Cada arquivo original virou um `@import` na mesma ordem relativa do conteúdo original — o hash do
+  CSS final gerado pelo `vite build` ficou **idêntico** ao de antes da divisão
+  (`index-CfvOI6sP.css`), confirmando que o conteúdo compilado não mudou um byte.
+- `apps/web/test/css-architecture.test.ts` e `apps/web/test/database-layout-polish.test.ts` /
+  `scripts-explorer-redesign.test.ts` liam o conteúdo bruto de `components.css` /
+  `database-layout-polish.css` / `scripts-explorer-redesign.css` diretamente — foram ajustados para
+  seguir os `@import` e concatenar os arquivos importados antes de aplicar as mesmas asserções (sem
+  reduzir cobertura, só deixando de depender de tudo estar num único arquivo).
+- `project-tests-redesign.css` não tinha teste próprio; nenhuma mudança de teste foi necessária ali.
+- Verificação: `npm run typecheck`, `npm run build` e `npm test` passam no monorepo inteiro (163
+  testes do frontend, incluindo os três arquivos de teste ajustados) sem nenhuma mudança de
+  comportamento.
 
 ### Fase 4 — Componentes `.vue` grandes (risco médio)
 
-- Extrair `<style scoped>` para um arquivo irmão via `<style scoped src="./NomeDoComponente.css">`
-  (suportado nativamente pelo compilador de SFC do Vue — comportamento idêntico ao style inline).
-- Extrair grupos coesos do `<script setup>` para composables (`composables/useLogPolling.ts`,
-  `useRailsLogFilters.ts`, `useGitDiffView.ts` etc.), um composable por responsabilidade já visível
-  no arquivo atual.
-- Um componente por vez; rodar `npm run test --workspace=@dev-dashboard/web` e o smoke E2E depois
-  de cada extração.
+- Sub-etapa 1 (concluída): extrair `<style scoped>` para um arquivo irmão via
+  `<style scoped src="./NomeDoComponente.css">` (suportado nativamente pelo compilador de SFC do
+  Vue). Feito em `ProjectLogsPanel.vue` (1640 → 865 linhas), `ProjectServerPanel.vue` (1423 → 854),
+  `ProjectGitPanel.vue` (1289 → 915), `ProjectGitDiffPage.vue` (1281 → 656),
+  `ProjectGitBranchesPage.vue` (736 → 327) e `views/ProjectDetailsView.vue` (760 → 400).
+  `ProjectScriptsPanel.vue` e `ProjectDatabasePanel.vue` não tinham `<style>` próprio (já usavam só
+  CSS global) — nada a extrair ali.
+  - O hash `data-v-xxxxxxxx` gerado pelo compilador muda ao mover o style para `src` (é derivado de
+    como o Vue trata o bloco, não do conteúdo), mas continua **auto-consistente**: o mesmo hash novo
+    aparece tanto no HTML renderizado quanto no CSS compilado, então o escopo do CSS continua
+    funcionando de forma idêntica. Nenhum teste depende do valor do hash. Verificado com
+    `npm run typecheck`, `npm run build`, `npm test` (163 testes) e `npm run test:e2e` (13 testes,
+    incluindo o baseline visual da sidebar) — tudo passando.
+- Sub-etapa 2 (em andamento): extrair grupos coesos do `<script setup>` para composables, um
+  componente por vez, com o smoke E2E rodando a cada um.
+  - `ProjectLogsPanel.vue` (674 linhas, script ~250 → ~90): extraído
+    `composables/useProjectLogsPolling.ts` (244 linhas) com o polling de log
+    (`refreshLogs`/`scheduleLogPolling`/`stopLogPolling`/`clearLogView`/`toggleStream`) e seu
+    próprio rastreio de gerações de requisição, seguindo o mesmo formato de
+    `useProjectProcessStatus.ts` (função-fábrica que recebe `getProject` e devolve refs/funções).
+    O componente manteve os filtros de busca/categoria/view-mode e a formatação de exibição (que são
+    puramente de UI, não de rede).
+    - Um detalhe de ordenação importa aqui: o composable precisa ter **seu próprio** watcher
+      imediato de `getProject().id` chamando `reset()` antes do watcher de `hasManagedProcess` que
+      dispara o primeiro `refreshLogs`/agendamento — na mesma ordem relativa que existia no
+      componente original. Delegar esse reset para um watcher externo no componente (declarado
+      depois da chamada do composable) inverteria a ordem e cancelaria a busca inicial assim que ela
+      começasse. Por isso o composable é autocontido, como `useProjectProcessStatus`, em vez de
+      expor um `reset()` para o componente chamar.
+  - `ProjectServerPanel.vue` (854 → 731 linhas): extraídos dois composables independentes,
+    `composables/useProjectServerLogPreview.ts` (144 linhas, preview de log sem follow/scroll/clear
+    — só refresh/schedule) e `composables/useProjectServerActivities.ts` (88 linhas, atividade
+    recente do servidor). Diferente de `ProjectLogsPanel`, este componente também tem
+    settings/start/stop/restart fortemente acoplados por um único `RequestGeneration` compartilhado
+    (`isCurrentProject`) — essa parte **não** foi extraída nesta passada: início/parada/reinício do
+    servidor e persistência de porta são a lógica de negócio central do painel, e dividir isso
+    aumentaria o risco sem reduzir tanto o tamanho. A extração ficou só nos dois blocos read-only
+    (log preview e atividade), que já não dependiam do `RequestGeneration` compartilhado das ações.
+    - `refreshServerSettings`/`persistServerSettings`/`handleStart`/`handleStop`/`handleRestart`/
+      `resetPanelState`/`initializeProject` continuam no componente, chamando as funções expostas
+      pelos dois composables (`refreshLogs`, `scheduleLogPolling`, `refreshActivities`) nos mesmos
+      pontos em que já eram chamadas antes (o watcher de `processStatus` que dispara notificações e
+      as três ações de processo).
+  - `ProjectDatabasePanel.vue` (871 → 661 linhas): dividido em cinco composables independentes, um
+    por domínio de dado — `useProjectDatabaseOverview.ts` (101 linhas: ambientes, revelar URL,
+    iniciar banco), `useRailsMigrations.ts` (152 linhas: migrations + detalhe + as mutações
+    migrate/rollback/seed/prepare, que só se aplicam a migrations), `useRailsModels.ts` (58 linhas),
+    `useRailsRoutes.ts` (66 linhas, exporta também a função pura `routeKey`) e `useRailsBundler.ts`
+    (58 linhas). Diferente dos painéis de servidor/logs, aqui não há polling — cada composable é só
+    um "one-shot load" com um contador de geração simples (`let generation = 0`, sem as classes
+    `RequestGeneration`/`RequestGate`), e todos são independentes entre si (nenhum depende do estado
+    de outro), o que tornou a divisão mais direta. O componente manteve apenas estado de UI (seção
+    ativa, filtros de busca por aba) e helpers de formatação puros; `refreshAll`/`refreshActive`
+    viraram só orquestradores que chamam as funções `load*` expostas por cada composable.
+    - Um teste (`database-layout-polish.test.ts`) verificava `fetchProjectRailsMigrationDetail`/
+      `fetchProjectRailsModels` diretamente no texto do componente — ajustado para verificar nos
+      composables correspondentes, mesmo padrão já usado nos ajustes de teste das fases 1 e 3.
+  - `ProjectScriptsPanel.vue` (1004 → 747 linhas): dividido em `useScriptCatalog.ts` (102 linhas:
+    catálogo, filtros origem/risco/busca com debounce, paginação) e `useScriptExecution.ts`
+    (265 linhas: execução, acompanhamento via SSE com reconexão e backoff, histórico, cancelamento).
+    Diferente dos demais, aqui os dois composables **compartilham duas referências passadas por
+    parâmetro** em vez de serem totalmente independentes: `activeSection` (troca de aba disparada
+    tanto por `selectScript` quanto por `run`/`selectHistory`) e `errorMessage` (um único banner de
+    erro no template, escrito tanto por falhas de catálogo quanto de execução — motivo pelo qual não
+    virou um `ref` interno de cada composable, e sim um parâmetro compartilhado, do mesmo jeito que
+    `hasManagedProcess` foi compartilhado entre os dois composables do `ProjectServerPanel`).
+    `selectedActionId` também é passado do composable de catálogo para o de execução pela mesma
+    razão (`run()` escreve nele).
+    - Um teste (`scripts-explorer-redesign.test.ts`) verificava `prepareScriptExecution`/
+      `followScriptExecutionEvents`/`cancelScriptExecution`/a checagem de risco diretamente no texto
+      do componente — ajustado para verificar em `useScriptExecution.ts`.
+  - `ProjectGitPanel.vue` (1173), `ProjectGitDiffPage.vue` (784) e `ProjectGitBranchesPage.vue`
+    (400): avaliados após a reforma funcional da `main` (ver merge abaixo) e **decidido não
+    extrair composables** nesta rodada:
+    - `ProjectGitBranchesPage.vue` virou puramente apresentacional no merge (recebe
+      `overview`/`workspace` via props, emite eventos — não chama API própria). Já está num
+      tamanho razoável e coeso; não há mais um composable "de dados" para extrair.
+    - `ProjectGitPanel.vue` é o orquestrador central do painel: ~12 funções `run*` (branch, sync,
+      commit, stash, mutação de arquivo, PR) compartilhando um único `mutationRunning`/
+      `mutationMessage`/`mutationErrorMessage` com guarda de execução única. É a lógica de negócio
+      central do painel, na mesma categoria do start/stop/restart não extraído em
+      `ProjectServerPanel` — só que maior e mais entrelaçado; sem uma fronteira limpa entre
+      leitura e mutação que justifique o risco.
+    - `ProjectGitDiffPage.vue` tem uma extração plausível (`loadOverview`/`selectFile`/
+      `loadSnapshot`/`refresh`), mas fortemente acoplada a `scope`/`selectedPath`, que também
+      dirigem navegação por teclado e larguras de painel persistidas. Fica registrado como
+      candidato futuro se o arquivo crescer mais, não como pendência ativa.
+
+**Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
+com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
+`ProjectGitCommitPage.vue`, reforma de `ProjectGitPanel.vue`/`ProjectGitSyncPage.vue`) que tocou os
+três arquivos já mexidos pela sub-etapa 1 (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
+`ProjectGitBranchesPage.vue`) e os pontos de extensão de `response-schemas.ts`/`api.ts`/
+`routes/projects.ts` já quebrados nas fases 1–2. Resolução: para os três `.vue`, em vez de
+mesclar manualmente hunk a hunk, o conteúdo de `main` (autoridade sobre lógica/template/estilo) foi
+tomado por inteiro e a extração mecânica do `<style scoped>` foi refeita em cima dele — mais seguro
+que tentar reconciliar duas versões de um `<style>` grande. Para os módulos já divididos
+(`response-schemas/git.ts`, `api/git.ts`, `routes/git-mutations.ts`), as adições de `main`
+(`gitPullRequestUrlResponseSchema`, as funções de mutação de arquivo do `api.ts`, os operators
+`discard-file`/`remove-untracked-file` no endpoint compartilhado de confirmação) foram inseridas no
+arquivo de domínio correspondente. Um teste novo trazido pela `main`
+(`git-file-confirmation-route.test.ts`) registrava `projectRoutes` diretamente para bater no
+endpoint `/git/mutations/confirmations` — que a fase 1 já tinha movido para `gitMutationRoutes`;
+ajustado para registrar o plugin certo. Verificado com `typecheck`, `build`, os 174 testes
+unitários (todos os workspaces) e os 13 testes E2E depois do merge.
 
 ### Fase 5 — Camada "enhancer" (risco médio — decisão registrada)
 
@@ -74,6 +212,35 @@ Vue.
 - Migrar o padrão inteiro para lógica reativa dentro dos componentes Vue (eliminando o patch
   pós-render) fica registrado como alternativa mais profunda, fora de escopo deste plano — reavaliar
   como decisão arquitetural separada se a camada "enhancer" continuar crescendo.
+
+**`git-history-page-enhancer.ts` (1130 → 351 linhas) — concluído**, primeiro arquivo da fase.
+Diferente das fases anteriores, aqui quase todas as ~40 funções compartilham um único
+`WeakMap<HTMLElement, HistoryPageState>` (`stateBySection`) — não dá para cortar por bloco
+independente, foi preciso rastrear a fundo quem chama quem. Split em `git-history/`:
+`types.ts` (interfaces + `HistoryCommitKind`/`GitHistoryCommit` exportados), `state.ts` (o
+`WeakMap` compartilhado), `list-width.ts` (redimensionamento da lista, independente), `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`), `filters.ts` (`filterHistoryCommits`/
+`uniqueHistoryAuthors`, testados diretamente), `format.ts` (datas/status), `toolbar.ts` (filtros de
+referência/autor/métricas), `list.ts` (linhas da lista + `closeDetail`) e `detail.ts` (patch,
+detalhe do commit, `selectCommit`). O arquivo principal ficou só com o bootstrap
+(`buildPage`/`buildPagination`/`buildMetric`/`loadHistory`/`enhanceHistory`/`scan`/
+`installGitHistoryPageEnhancer`) e re-exporta `GitHistoryCommit`, `HistoryCommitKind`,
+`filterHistoryCommits`, `uniqueHistoryAuthors` e `clampHistoryListWidth` para não quebrar
+`git-history-page-enhancer.test.ts`, que importa esses nomes diretamente do arquivo.
+- `list.ts` e `detail.ts` têm um import circular real (`commitRow` em `list.ts` chama
+  `selectCommit` de `detail.ts`; `selectCommit`/`renderDetail`/`renderDetailError` em `detail.ts`
+  chamam `closeDetail`/`renderList` de `list.ts`) — seguro em ESM porque são só `function`
+  (hoisted) chamadas dentro de handlers de evento, nunca avaliadas no topo do módulo.
+- Processo de verificação: como esse tipo de transcrição manual é propenso a erro de cópia (e de
+  fato cometi 3 durante a extração — um `require()` indevido, um placeholder de ícone esquecido e
+  uma linha inventada em vez de `relativeDate`), cada função foi conferida com `diff` contra o
+  arquivo original linha a linha antes de seguir para o typecheck. Verificado com `typecheck`,
+  `build` (CSS/JS praticamente idênticos), os 174 testes unitários (incluindo o teste que importa
+  `clampHistoryListWidth`/`filterHistoryCommits`/`uniqueHistoryAuthors` direto do arquivo) e os 13
+  testes E2E.
+- Os demais arquivos da camada (`git-stash-enhancer.ts` 871, `git-summary-history-enhancer.ts`
+  686, `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem
+  pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 

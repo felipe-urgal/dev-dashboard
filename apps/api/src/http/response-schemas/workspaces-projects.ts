@@ -1,0 +1,75 @@
+export const workspaceResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'name', 'path', 'enabled'],
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    path: { type: 'string' },
+    enabled: { type: 'boolean' },
+  },
+} as const;
+
+export const projectResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'name',
+    'path',
+    'type',
+    'source',
+    'favorite',
+    'capabilities',
+  ],
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    path: { type: 'string' },
+    type: {
+      type: 'string',
+      enum: ['rails', 'node', 'unknown'],
+    },
+    source: {
+      type: 'string',
+      enum: ['workspace', 'standalone'],
+    },
+    workspaceId: { type: 'string' },
+    port: { type: 'integer' },
+    favorite: { type: 'boolean' },
+    capabilities: {
+      type: 'array',
+      items: {
+        type: 'string',
+        enum: [
+          'server',
+          'git',
+          'tests',
+          'database',
+          'scripts',
+          'webpack',
+          'sidekiq',
+          'rake',
+          'bundler',
+        ],
+      },
+    },
+  },
+} as const;
+
+export const workspaceScanWarningResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['path', 'code', 'message'],
+  properties: {
+    path: { type: 'string' },
+    code: {
+      type: 'string',
+      enum: [
+        'UNREADABLE_DIRECTORY',
+        'PROJECT_DETECTION_FAILED',
+      ],
+    },
+    message: { type: 'string' },
+  },
+} as const;

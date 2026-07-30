@@ -1,0 +1,27 @@
+.database-empty-state {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.database-overview-block > .database-empty-state,
+.database-table-shell > .database-empty-state,
+.database-sidebar-panel > .database-empty-state {
+  border: 0;
+  border-radius: 0;
+}
+
+.database-empty-state-compact {
+  min-height: 90px;
+  padding: 16px;
+}
+

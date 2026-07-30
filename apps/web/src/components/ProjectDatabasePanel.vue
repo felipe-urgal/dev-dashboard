@@ -28,35 +28,19 @@ import {
 
 import type {
   BundlerOutdatedGem,
-  BundlerOverview,
   Project,
   ProjectDatabaseEnvironment,
-  ProjectDatabaseOverview,
-  RailsMigrationDetail,
   RailsMigrationEntry,
-  RailsMigrationMutationOperation,
-  RailsMigrationsOverview,
-  RailsModelsOverview,
   RailsRouteEntry,
-  RailsRoutesOverview,
   RailsSchemaTable,
 } from '@dev-dashboard/contracts';
 
-import {
-  fetchProjectBundler,
-  fetchProjectDatabase,
-  fetchProjectRailsMigrations,
-  fetchProjectRailsRoutes,
-  prepareProjectRailsMutation,
-  revealProjectDatabaseUrl,
-  runProjectRailsMutation,
-  startProjectDatabase,
-} from '../api';
-import {
-  fetchProjectRailsMigrationDetail,
-  fetchProjectRailsModels,
-} from '../rails-explorer-api';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOverview';
+import { useRailsBundler } from '../composables/useRailsBundler';
+import { useRailsMigrations } from '../composables/useRailsMigrations';
+import { useRailsModels } from '../composables/useRailsModels';
+import { useRailsRoutes, routeKey } from '../composables/useRailsRoutes';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 
@@ -66,31 +50,63 @@ type DatabaseSection = 'overview' | 'environments' | 'migrations' | 'models' | '
 type MigrationStatusFilter = 'all' | 'up' | 'down';
 type RouteVerbFilter = 'all' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-const overview = ref<ProjectDatabaseOverview | null>(null);
-const loading = ref(false);
-const errorMessage = ref('');
-const revealed = ref<Record<string, string>>({});
-const page = ref(1);
-const starting = ref<Record<string, boolean>>({});
+const isRailsProject = computed(() => props.project.type === 'rails');
 
-const migrations = ref<RailsMigrationsOverview | null>(null);
-const migrationsLoading = ref(false);
-const migrationsErrorMessage = ref('');
-const migrationDetail = ref<RailsMigrationDetail | null>(null);
-const migrationDetailLoading = ref(false);
-const migrationDetailErrorMessage = ref('');
+const {
+  overview,
+  loading,
+  errorMessage,
+  revealed,
+  page,
+  starting,
+  selectedEnvironmentId,
+  loadDatabase,
+  reveal,
+  start,
+} = useProjectDatabaseOverview(() => props.project);
 
-const models = ref<RailsModelsOverview | null>(null);
-const modelsLoading = ref(false);
-const modelsErrorMessage = ref('');
+const {
+  migrations,
+  migrationsLoading,
+  migrationsErrorMessage,
+  migrationDetail,
+  migrationDetailLoading,
+  migrationDetailErrorMessage,
+  selectedMigrationVersion,
+  mutationRunning,
+  mutationMessage,
+  mutationErrorMessage,
+  mutationOutput,
+  mutationLabels,
+  loadMigrations,
+  selectMigration,
+  runMigrationMutation,
+} = useRailsMigrations(() => props.project, isRailsProject);
 
-const routes = ref<RailsRoutesOverview | null>(null);
-const routesLoading = ref(false);
-const routesErrorMessage = ref('');
+const {
+  models,
+  modelsLoading,
+  modelsErrorMessage,
+  selectedTableName,
+  loadModels,
+} = useRailsModels(() => props.project, isRailsProject);
 
-const bundler = ref<BundlerOverview | null>(null);
-const bundlerLoading = ref(false);
-const bundlerErrorMessage = ref('');
+const {
+  routes,
+  routesLoading,
+  routesErrorMessage,
+  selectedRouteKey,
+  loadRoutes,
+  selectRoute,
+} = useRailsRoutes(() => props.project, isRailsProject);
+
+const {
+  bundler,
+  bundlerLoading,
+  bundlerErrorMessage,
+  selectedGemName,
+  loadBundler,
+} = useRailsBundler(() => props.project, isRailsProject);
 
 const activeSection = ref<DatabaseSection>('overview');
 const globalFilter = ref('');
@@ -101,19 +117,7 @@ const routeFilter = ref('');
 const routeVerbFilter = ref<RouteVerbFilter>('all');
 const outdatedFilter = ref('');
 
-const selectedEnvironmentId = ref('');
-const selectedMigrationVersion = ref('');
-const selectedTableName = ref('');
-const selectedRouteKey = ref('');
-const selectedGemName = ref('');
-
-const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
-const mutationMessage = ref('');
-const mutationErrorMessage = ref('');
-const mutationOutput = ref('');
 const copiedKey = ref('');
-
-let generation = 0;
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 useAutoDismiss(errorMessage, '');
@@ -125,7 +129,6 @@ useAutoDismiss(mutationMessage, '');
 useAutoDismiss(mutationErrorMessage, '');
 useAutoDismiss(bundlerErrorMessage, '');
 
-const isRailsProject = computed(() => props.project.type === 'rails');
 const pages = computed(() => Math.max(1, Math.ceil((overview.value?.total ?? 0) / (overview.value?.pageSize ?? 20))));
 const pendingMigrationsCount = computed(() => migrations.value?.migrations.filter((item) => item.status === 'down').length ?? 0);
 const appliedMigrationsCount = computed(() => migrations.value?.migrations.filter((item) => item.status === 'up').length ?? 0);
@@ -136,18 +139,6 @@ const totalRelations = computed(() => models.value?.tables.reduce((total, table)
 
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
 const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
-const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
-  migrate: 'Rodar migrations pendentes (db:migrate)',
-  rollback: 'Desfazer a última migration (db:rollback, 1 passo)',
-  seed: 'Rodar seeds (db:seed)',
-  prepare: 'Preparar o banco (db:prepare)',
-};
-const mutationConfirmationText: Record<RailsMigrationMutationOperation, string> = {
-  migrate: 'Rodar todas as migrations pendentes neste banco?',
-  rollback: 'Desfazer a última migration aplicada (um passo)? Isso pode apagar dados dessa migration.',
-  seed: 'Rodar db:seed neste banco? Scripts de seed podem criar ou alterar dados.',
-  prepare: 'Rodar db:prepare neste banco? Isso pode criar o banco e carregar o schema mais recente.',
-};
 
 const sectionTabs = computed(() => [
   { id: 'overview' as const, label: 'Visão geral', icon: CircleStackIcon },
@@ -239,10 +230,6 @@ const selectedTable = computed<RailsSchemaTable | null>(() =>
   ?? null,
 );
 
-function routeKey(route: RailsRouteEntry, index = 0): string {
-  return `${route.verb}:${route.path}:${route.controllerAction}:${route.name ?? ''}:${index}`;
-}
-
 const selectedRoute = computed<RailsRouteEntry | null>(() => {
   const list = routes.value?.routes ?? [];
   const index = list.findIndex((route, routeIndex) => routeKey(route, routeIndex) === selectedRouteKey.value);
@@ -274,119 +261,6 @@ function routeControllerAction(route: RailsRouteEntry | null): { controller: str
   return { controller, action };
 }
 
-async function loadDatabase(targetPage = page.value): Promise<void> {
-  const current = generation;
-  loading.value = true;
-  errorMessage.value = '';
-  try {
-    const result = await fetchProjectDatabase(props.project.id, targetPage);
-    if (current !== generation) return;
-    overview.value = result;
-    page.value = targetPage;
-    if (!result.environments.some((item) => item.id === selectedEnvironmentId.value)) {
-      selectedEnvironmentId.value = result.environments[0]?.id ?? '';
-    }
-  } catch (error) {
-    if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os bancos.';
-  } finally {
-    if (current === generation) loading.value = false;
-  }
-}
-
-async function loadMigrations(): Promise<void> {
-  if (!isRailsProject.value) return;
-  const current = generation;
-  migrationsLoading.value = true;
-  migrationsErrorMessage.value = '';
-  try {
-    const result = await fetchProjectRailsMigrations(props.project.id);
-    if (current !== generation) return;
-    migrations.value = result;
-    const preferred = result.migrations.find((item) => item.version === selectedMigrationVersion.value)
-      ?? result.migrations.find((item) => item.status === 'down')
-      ?? result.migrations[0];
-    selectedMigrationVersion.value = preferred?.version ?? '';
-    if (preferred) await loadMigrationDetail(preferred.version);
-  } catch (error) {
-    if (current === generation) migrationsErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar as migrations.';
-  } finally {
-    if (current === generation) migrationsLoading.value = false;
-  }
-}
-
-async function loadMigrationDetail(version: string): Promise<void> {
-  if (!version || !/^\d{8,20}$/.test(version)) {
-    migrationDetail.value = null;
-    return;
-  }
-  const current = generation;
-  migrationDetailLoading.value = true;
-  migrationDetailErrorMessage.value = '';
-  try {
-    const result = await fetchProjectRailsMigrationDetail(props.project.id, version);
-    if (current === generation && selectedMigrationVersion.value === version) migrationDetail.value = result;
-  } catch (error) {
-    if (current === generation) migrationDetailErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar os detalhes da migration.';
-  } finally {
-    if (current === generation) migrationDetailLoading.value = false;
-  }
-}
-
-async function loadModels(): Promise<void> {
-  if (!isRailsProject.value) return;
-  const current = generation;
-  modelsLoading.value = true;
-  modelsErrorMessage.value = '';
-  try {
-    const result = await fetchProjectRailsModels(props.project.id);
-    if (current !== generation) return;
-    models.value = result;
-    if (!result.tables.some((table) => table.name === selectedTableName.value)) {
-      selectedTableName.value = result.tables[0]?.name ?? '';
-    }
-  } catch (error) {
-    if (current === generation) modelsErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os modelos.';
-  } finally {
-    if (current === generation) modelsLoading.value = false;
-  }
-}
-
-async function loadRoutes(): Promise<void> {
-  if (!isRailsProject.value) return;
-  const current = generation;
-  routesLoading.value = true;
-  routesErrorMessage.value = '';
-  try {
-    const result = await fetchProjectRailsRoutes(props.project.id);
-    if (current !== generation) return;
-    routes.value = result;
-    if (!selectedRouteKey.value && result.routes[0]) selectedRouteKey.value = routeKey(result.routes[0], 0);
-  } catch (error) {
-    if (current === generation) routesErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar as rotas.';
-  } finally {
-    if (current === generation) routesLoading.value = false;
-  }
-}
-
-async function loadBundler(): Promise<void> {
-  if (!isRailsProject.value) return;
-  const current = generation;
-  bundlerLoading.value = true;
-  bundlerErrorMessage.value = '';
-  try {
-    const result = await fetchProjectBundler(props.project.id);
-    if (current !== generation) return;
-    bundler.value = result;
-    if (!result.outdated.some((gem) => gem.name === selectedGemName.value)) {
-      selectedGemName.value = result.outdated[0]?.name ?? '';
-    }
-  } catch (error) {
-    if (current === generation) bundlerErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar o Bundler.';
-  } finally {
-    if (current === generation) bundlerLoading.value = false;
-  }
-}
-
 async function refreshAll(): Promise<void> {
   await Promise.all([
     loadDatabase(1),
@@ -410,56 +284,6 @@ function selectSection(section: DatabaseSection): void {
   activeSection.value = section;
 }
 
-function selectMigration(entry: RailsMigrationEntry): void {
-  selectedMigrationVersion.value = entry.version;
-  migrationDetail.value = null;
-  void loadMigrationDetail(entry.version);
-}
-
-function selectRoute(route: RailsRouteEntry, index: number): void {
-  selectedRouteKey.value = routeKey(route, index);
-}
-
-async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
-  if (mutationRunning.value) return;
-  const confirmed = typeof window === 'undefined' || window.confirm(mutationConfirmationText[operation]);
-  if (!confirmed) return;
-
-  mutationRunning.value = operation;
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  mutationOutput.value = '';
-  try {
-    const confirmation = await prepareProjectRailsMutation(props.project.id, operation);
-    const result = await runProjectRailsMutation(props.project.id, operation, confirmation.token);
-    mutationOutput.value = result.output;
-    if (result.succeeded) mutationMessage.value = `${mutationLabels[operation]} concluído.`;
-    else mutationErrorMessage.value = `${mutationLabels[operation]} falhou. Veja a saída abaixo.`;
-    await loadMigrations();
-  } catch (error) {
-    mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
-  } finally {
-    mutationRunning.value = '';
-  }
-}
-
-async function reveal(id: string): Promise<void> {
-  if (revealed.value[id]) {
-    const next = { ...revealed.value };
-    delete next[id];
-    revealed.value = next;
-    return;
-  }
-
-  const current = generation;
-  try {
-    const secret = await revealProjectDatabaseUrl(props.project.id, id);
-    if (current === generation) revealed.value = { ...revealed.value, [id]: secret.databaseUrl };
-  } catch (error) {
-    if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível revelar a URL.';
-  }
-}
-
 async function copy(value: string, key: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(value);
@@ -468,20 +292,6 @@ async function copy(value: string, key: string): Promise<void> {
     copiedTimer = setTimeout(() => { copiedKey.value = ''; }, 1_800);
   } catch {
     copiedKey.value = '';
-  }
-}
-
-async function start(id: string): Promise<void> {
-  const current = generation;
-  starting.value = { ...starting.value, [id]: true };
-  errorMessage.value = '';
-  try {
-    await startProjectDatabase(props.project.id, id);
-    if (current === generation) await loadDatabase();
-  } catch (error) {
-    if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o banco.';
-  } finally {
-    if (current === generation) starting.value = { ...starting.value, [id]: false };
   }
 }
 
@@ -499,32 +309,12 @@ function columnTypeLabel(table: RailsSchemaTable, columnName: string): string {
 }
 
 watch(() => props.project.id, () => {
-  generation += 1;
-  overview.value = null;
-  migrations.value = null;
-  migrationDetail.value = null;
-  models.value = null;
-  routes.value = null;
-  bundler.value = null;
-  revealed.value = {};
-  starting.value = {};
-  page.value = 1;
   activeSection.value = 'overview';
   globalFilter.value = '';
   migrationFilter.value = '';
   modelFilter.value = '';
   routeFilter.value = '';
   outdatedFilter.value = '';
-  selectedEnvironmentId.value = '';
-  selectedMigrationVersion.value = '';
-  selectedTableName.value = '';
-  selectedRouteKey.value = '';
-  selectedGemName.value = '';
-  mutationRunning.value = '';
-  mutationMessage.value = '';
-  mutationErrorMessage.value = '';
-  mutationOutput.value = '';
-  void refreshAll();
 }, { immediate: true });
 
 onBeforeUnmount(() => {

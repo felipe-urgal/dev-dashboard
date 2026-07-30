@@ -1,0 +1,205 @@
+.scripts-executions-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 290px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.scripts-history-panel {
+  align-self: start;
+}
+
+.scripts-history-list {
+  display: grid;
+  max-height: 620px;
+  overflow-y: auto;
+  padding: 7px;
+}
+
+.scripts-history-list > button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.scripts-history-list > button:hover:not(:disabled),
+.scripts-history-list > button.active {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: var(--accent-soft);
+}
+
+.scripts-history-list > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.scripts-history-list > button > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.scripts-history-list strong,
+.scripts-history-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scripts-history-list strong {
+  font-size: var(--font-xs);
+}
+
+.scripts-history-list small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.scripts-execution-detail {
+  align-self: start;
+}
+
+.scripts-execution-detail > header > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.scripts-execution-detail > header p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.scripts-execution-metadata {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.scripts-execution-metadata div {
+  min-width: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--border);
+}
+
+.scripts-execution-metadata div:last-child {
+  border-right: 0;
+}
+
+.scripts-execution-metadata dt {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.scripts-execution-metadata dd {
+  overflow: hidden;
+  margin: 5px 0 0;
+  color: var(--text);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scripts-execution-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scripts-execution-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.scripts-execution-actions button.is-danger {
+  border-color: color-mix(in srgb, var(--danger-text) 55%, var(--border));
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.scripts-execution-actions svg {
+  width: 14px;
+  height: 14px;
+}
+
+.scripts-log-panel {
+  min-width: 0;
+  padding: 14px;
+}
+
+.scripts-log-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.scripts-log-panel > header > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.scripts-log-panel > header h5 {
+  margin: 0;
+}
+
+.scripts-log-panel > header svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+
+.scripts-log-panel > header > span {
+  color: var(--warning-text);
+  font-size: 9px;
+}
+
+.scripts-log-panel pre {
+  overflow: auto;
+  min-height: 300px;
+  max-height: 560px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-0);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.scripts-execution-empty {
+  min-height: 360px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 11px;
+}
+

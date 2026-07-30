@@ -8,9 +8,30 @@ function sourceFile(fileName: string): string {
   return resolve(process.cwd(), 'src', fileName);
 }
 
+async function readDatabaseLayoutCss(): Promise<string> {
+  const arquivoPrincipal = await readFile(
+    sourceFile('database-layout-polish.css'),
+    'utf8',
+  );
+  const importados = await Promise.all(
+    [...arquivoPrincipal.matchAll(/@import\s+'\.\/(database\/[^']+)'/g)].map(
+      (correspondencia) => readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
+    ),
+  );
+  return [arquivoPrincipal, ...importados].join('\n');
+}
+
 test('oferece a navegação completa do explorador de banco', async () => {
   const component = await readFile(
     sourceFile('components/ProjectDatabasePanel.vue'),
+    'utf8',
+  );
+  const railsMigrationsComposable = await readFile(
+    sourceFile('composables/useRailsMigrations.ts'),
+    'utf8',
+  );
+  const railsModelsComposable = await readFile(
+    sourceFile('composables/useRailsModels.ts'),
     'utf8',
   );
 
@@ -25,15 +46,15 @@ test('oferece a navegação completa do explorador de banco', async () => {
     assert.match(component, new RegExp(label));
   }
 
-  assert.match(component, /fetchProjectRailsMigrationDetail/);
-  assert.match(component, /fetchProjectRailsModels/);
+  assert.match(railsMigrationsComposable, /fetchProjectRailsMigrationDetail/);
+  assert.match(railsModelsComposable, /fetchProjectRailsModels/);
   assert.match(component, /Código da migration/);
   assert.match(component, /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/);
   assert.match(component, /Relacionamentos/);
 });
 
 test('mantém o layout restrito ao painel de banco e baseado nos tokens de tema', async () => {
-  const css = await readFile(sourceFile('database-layout-polish.css'), 'utf8');
+  const css = await readDatabaseLayoutCss();
 
   assert.match(css, /project-details-page:has\(> \.database-explorer\)/);
   assert.match(css, /\.database-explorer\s*\{/);
@@ -45,7 +66,7 @@ test('mantém o layout restrito ao painel de banco e baseado nos tokens de tema'
 });
 
 test('implementa painéis, tabelas roláveis e adaptação responsiva', async () => {
-  const css = await readFile(sourceFile('database-layout-polish.css'), 'utf8');
+  const css = await readDatabaseLayoutCss();
 
   assert.match(css, /database-metrics-grid/);
   assert.match(css, /database-split-layout/);

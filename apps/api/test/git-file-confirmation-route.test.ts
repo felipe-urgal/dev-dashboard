@@ -3,12 +3,12 @@ import test from 'node:test';
 
 import Fastify from 'fastify';
 
-import { projectRoutes } from '../src/routes/projects.js';
+import { gitMutationRoutes } from '../src/routes/git-mutations.js';
 import { GitService } from '../src/services/git-service.js';
 
 test('accepts destructive file operations in mutation confirmations', async () => {
   const app = Fastify();
-  await app.register(projectRoutes, {
+  await app.register(gitMutationRoutes, {
     projectStore: {
       findProject: (projectId: string) => ({
         id: projectId,
