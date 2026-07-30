@@ -6,9 +6,9 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
-`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts` e
-`sql-explanation-enhancer.ts` concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6
-ainda é planejamento.
+`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
+`sql-explanation-enhancer.ts` e `log-detail-enhancer.ts` concluídos, demais arquivos da camada
+"enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -406,9 +406,31 @@ abaixo da linha de log). O arquivo principal ficou só com `enhanceSqlLine`/`enh
   transcrição.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Os demais arquivos da camada (`log-detail-enhancer.ts` 291, `git-summary-inline-diff-fix.ts` 290,
-  `test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
-  cada um exige o mesmo processo de rastreio manual de dependências.
+**`log-detail-enhancer.ts` (291 → 41 linhas) — concluído**, nono arquivo da fase, também sem
+`WeakMap`/variável de módulo/import circular — cada linha de log é decorada de forma independente
+lendo o estado da busca direto do DOM a cada chamada (`searchQuery()`), sem cache entre chamadas.
+Split em `log-detail/`: `constants.ts` (`RAW_LINE_SELECTOR`/`SEARCH_INPUT_SELECTOR`/
+`sqlKeywords`/`sqlFunctions`), `types.ts` (`NodeRequest`/`QueryParameter`), `dom-helpers.ts`
+(`searchQuery`/`originalText`/`appendHighlightedText`), `node-request.ts`
+(`parseNodeRequest`/`parseRequestTarget`/`buildParameters`/`decorateNodeRequest`, o parse de query
+string de requisições Node/Next) e `sql.ts` (`sqlTokenClass`/`appendSql`/`splitRawSql`/
+`decorateRawSql`, o destaque de sintaxe de linhas SQL brutas do log). O arquivo principal ficou só
+com `enhanceLine`/`enhance`/`installLogDetailEnhancer`.
+- Armadilha encontrada durante a extração: duas `renderKey` usam `\u0000` como separador dentro de
+  um template literal (`` `${value}\u0000${query}` ``). Ao transcrever o conteúdo via ferramenta,
+  a sequência de escape virou um byte NUL de verdade no arquivo novo (detectável porque `grep`
+  passou a reportar "binary file matches") em vez do texto literal `\u0000` que o TypeScript
+  original interpreta como escape em tempo de execução — corrigido reescrevendo o byte NUL de volta
+  para os seis caracteres literais antes de seguir. Vale nota para qualquer futura extração
+  manual que envolva escapes Unicode em template literals.
+- Fora esse ponto, todas as funções bateram no `diff` linha a linha contra o original (os dois
+  falsos-negativos do script de extração automática, por assinatura de retorno multilinha,
+  resolvidos com verificação manual por `sed`).
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Os demais arquivos da camada (`git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts`
+  286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo
+  processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
