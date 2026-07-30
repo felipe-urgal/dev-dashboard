@@ -336,8 +336,8 @@ export const projectRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop'] },
-      target: { type: 'string', minLength: 1, maxLength: 200 },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'save', 'stash-push', 'stash-pop', 'discard-file', 'remove-untracked-file'] },
+      target: { type: 'string', minLength: 1, maxLength: 4096 },
     },
   } as const;
 
