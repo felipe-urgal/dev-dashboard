@@ -815,6 +815,10 @@ html.is-resizing-git-history * {
   font-size: var(--font-xs);
 }
 
+.git-history-page-patch-source {
+  display: none !important;
+}
+
 .git-history-page-patch {
   display: block;
   overflow: auto;
