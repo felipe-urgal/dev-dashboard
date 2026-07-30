@@ -116,3 +116,18 @@ test('markRead(id) reduz unreadCount sem remover o item da lista', () => {
   assert.equal(store.notices.value.length, 1);
   assert.equal(store.notices.value[0]!.read, true);
 });
+
+test('markAllRead() marca todos os avisos como lidos sem remover o histórico', () => {
+  const store = createNoticeCenterStore();
+
+  store.publishTerminalNotice(createTestNoticeInput('test:1:succeeded'));
+  store.publishTerminalNotice(createTestNoticeInput('test:2:failed'));
+
+  assert.equal(store.unreadCount.value, 2);
+
+  store.markAllRead();
+
+  assert.equal(store.unreadCount.value, 0);
+  assert.equal(store.notices.value.length, 2);
+  assert.equal(store.notices.value.every((notice) => notice.read), true);
+});
