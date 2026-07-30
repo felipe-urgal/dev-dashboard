@@ -58,32 +58,8 @@
   height: 18px;
 }
 
-.git-tab-heroicon-svg,
-.git-server-heroicon-svg {
+.git-tab-heroicon-svg {
   display: block;
   fill: none;
   stroke: currentColor;
-}
-
-.git-server-heroicon,
-.git-server-heroicon-svg {
-  width: 20px;
-  height: 20px;
-}
-
-.git-server-heroicon {
-  color: var(--text-muted);
-}
-
-.git-server-indicator.is-running .git-server-heroicon {
-  color: var(--success-text);
-}
-
-.git-server-indicator.is-starting .git-server-heroicon,
-.git-server-indicator.is-stopping .git-server-heroicon {
-  color: var(--warning-text);
-}
-
-.git-server-indicator.is-failed .git-server-heroicon {
-  color: var(--danger-text);
 }

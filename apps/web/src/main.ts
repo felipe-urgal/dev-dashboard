@@ -8,7 +8,6 @@ import './styles.css';
 import './project-details-redesign.css';
 import './database-layout-polish.css';
 import './scripts-explorer-redesign.css';
-import './project-header-server-enhancer.css';
 import './log-visual-enhancer.css';
 import './test-log-visual-polish.css';
 import './test-log-theme-fix.css';
@@ -50,7 +49,6 @@ import { installGitSummaryHistoryEnhancer } from './git-summary-history-enhancer
 import { installGitSummaryInlineDiffFix } from './git-summary-inline-diff-fix';
 import { installLogDetailEnhancer } from './log-detail-enhancer';
 import { installLogVisualEnhancer } from './log-visual-enhancer';
-import { installProjectHeaderServerEnhancer } from './project-header-server-enhancer';
 import { installSqlExplanationEnhancer } from './sql-explanation-enhancer';
 import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogInspector } from './test-log-inspector';
@@ -59,7 +57,6 @@ import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
-installProjectHeaderServerEnhancer();
 installGitIconEnhancer();
 installGitActionFeedback();
 installGitBranchDeleteEnhancer();

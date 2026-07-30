@@ -6,10 +6,7 @@ import {
 } from 'vue';
 
 import {
-  CodeBracketIcon,
-  FolderIcon,
   ShareIcon,
-  Squares2X2Icon,
 } from '@heroicons/vue/24/outline';
 
 import {
@@ -58,12 +55,6 @@ const workspace = computed(() => {
   return dashboardStore.workspaces.value.find(
     (item) => item.id === workspaceId,
   ) ?? null;
-});
-
-const projectSourceLabel = computed(() => {
-  if (project.value?.source === 'workspace') return 'Workspace';
-  if (project.value?.source === 'standalone') return 'Projeto avulso';
-  return 'Origem local';
 });
 
 async function loadProject(): Promise<void> {
@@ -166,22 +157,14 @@ watch(projectId, () => {
             </div>
           </div>
 
-          <div class="project-details-metadata" aria-label="Metadados do projeto">
+          <div
+            v-if="gitBranch"
+            class="project-details-branch"
+            aria-label="Branch atual"
+          >
             <span>
-              <FolderIcon aria-hidden="true" />
-              {{ workspace?.name ?? 'Sem workspace' }}
-            </span>
-            <span v-if="gitBranch">
               <ShareIcon aria-hidden="true" />
               {{ gitBranch }}
-            </span>
-            <span>
-              <CodeBracketIcon aria-hidden="true" />
-              {{ projectSourceLabel }}
-            </span>
-            <span>
-              <Squares2X2Icon aria-hidden="true" />
-              {{ project.capabilities.length }} capacidades
             </span>
           </div>
         </div>
