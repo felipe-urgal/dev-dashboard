@@ -124,7 +124,7 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.git-subtabs').exists()).toBe(true);
     expect(wrapper.findAll('.git-subtabs button')).toHaveLength(6);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
-    expect(wrapper.find('.git-subtabs button')?.text()).toContain('Branches');
+    expect(wrapper.find('.git-subtabs button')?.text()).toContain('Sincronização');
 
     wrapper.unmount();
   });
