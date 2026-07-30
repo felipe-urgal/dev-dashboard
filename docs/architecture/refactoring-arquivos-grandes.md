@@ -4,7 +4,8 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fases 5 e 6 ainda são planejamento.
+Fase 4). Fase 5 iniciada: `git-history-page-enhancer.ts` concluído, demais arquivos da camada
+"enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -211,6 +212,35 @@ Vue.
 - Migrar o padrão inteiro para lógica reativa dentro dos componentes Vue (eliminando o patch
   pós-render) fica registrado como alternativa mais profunda, fora de escopo deste plano — reavaliar
   como decisão arquitetural separada se a camada "enhancer" continuar crescendo.
+
+**`git-history-page-enhancer.ts` (1130 → 351 linhas) — concluído**, primeiro arquivo da fase.
+Diferente das fases anteriores, aqui quase todas as ~40 funções compartilham um único
+`WeakMap<HTMLElement, HistoryPageState>` (`stateBySection`) — não dá para cortar por bloco
+independente, foi preciso rastrear a fundo quem chama quem. Split em `git-history/`:
+`types.ts` (interfaces + `HistoryCommitKind`/`GitHistoryCommit` exportados), `state.ts` (o
+`WeakMap` compartilhado), `list-width.ts` (redimensionamento da lista, independente), `dom-helpers.ts`
+(`projectIdFromLocation`/`mountIcon`/`requestJson`), `filters.ts` (`filterHistoryCommits`/
+`uniqueHistoryAuthors`, testados diretamente), `format.ts` (datas/status), `toolbar.ts` (filtros de
+referência/autor/métricas), `list.ts` (linhas da lista + `closeDetail`) e `detail.ts` (patch,
+detalhe do commit, `selectCommit`). O arquivo principal ficou só com o bootstrap
+(`buildPage`/`buildPagination`/`buildMetric`/`loadHistory`/`enhanceHistory`/`scan`/
+`installGitHistoryPageEnhancer`) e re-exporta `GitHistoryCommit`, `HistoryCommitKind`,
+`filterHistoryCommits`, `uniqueHistoryAuthors` e `clampHistoryListWidth` para não quebrar
+`git-history-page-enhancer.test.ts`, que importa esses nomes diretamente do arquivo.
+- `list.ts` e `detail.ts` têm um import circular real (`commitRow` em `list.ts` chama
+  `selectCommit` de `detail.ts`; `selectCommit`/`renderDetail`/`renderDetailError` em `detail.ts`
+  chamam `closeDetail`/`renderList` de `list.ts`) — seguro em ESM porque são só `function`
+  (hoisted) chamadas dentro de handlers de evento, nunca avaliadas no topo do módulo.
+- Processo de verificação: como esse tipo de transcrição manual é propenso a erro de cópia (e de
+  fato cometi 3 durante a extração — um `require()` indevido, um placeholder de ícone esquecido e
+  uma linha inventada em vez de `relativeDate`), cada função foi conferida com `diff` contra o
+  arquivo original linha a linha antes de seguir para o typecheck. Verificado com `typecheck`,
+  `build` (CSS/JS praticamente idênticos), os 174 testes unitários (incluindo o teste que importa
+  `clampHistoryListWidth`/`filterHistoryCommits`/`uniqueHistoryAuthors` direto do arquivo) e os 13
+  testes E2E.
+- Os demais arquivos da camada (`git-stash-enhancer.ts` 871, `git-summary-history-enhancer.ts`
+  686, `git-inline-file-diff-enhancer.ts` 486, `log-visual-enhancer.ts` 402, etc.) seguem
+  pendentes — cada um exige o mesmo processo de rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
