@@ -6,8 +6,8 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
-`git-summary-global-search-fix.ts` e `log-visual-enhancer.ts` concluídos, demais arquivos da camada
-"enhancer" pendentes. Fase 6 ainda é planejamento.
+`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts` e `git-commit-enhancer.ts`
+concluídos, demais arquivos da camada "enhancer" pendentes. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -369,10 +369,29 @@ linhas de log brutas: boot, sucesso, build, requisição HTTP, erro, warning), `
   manualmente por não caberem nesse padrão de substituição (viram chamadas a `setActiveSearchQuery`).
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes. Nenhum teste importa símbolos diretamente deste arquivo.
-- Os demais arquivos da camada (`git-commit-enhancer.ts` 362, `sql-explanation-enhancer.ts` 326,
-  `log-detail-enhancer.ts` 291, `git-summary-inline-diff-fix.ts` 290,
-  `test-log-tone-enhancer.ts` 286, `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes —
-  cada um exige o mesmo processo de rastreio manual de dependências.
+**`git-commit-enhancer.ts` (362 → 42 linhas) — concluído**, sétimo arquivo da fase e o segundo sem
+`WeakMap`/variável de módulo compartilhada — cada função aqui é independente, ligada apenas por
+argumentos explícitos (`section`, `branch`, `counts`), o que tornou esta a quebra mais direta até
+agora. Três funções são puras e testadas diretamente por `git-commit-enhancer.test.ts`
+(`classifyGitStatus`, `matchesCommitFile`, `withCommitPrefix` — confirmado via grep antes de
+começar) e precisaram ser reexportadas pelo arquivo principal. Split em `git-commit/`: `types.ts`
+(`CommitFileKind`/`CommitFileFilter`), `constants.ts` (`conventionalTypes`), `dom-helpers.ts`
+(`mountIcon`), `classify.ts` (`classifyGitStatus`/`matchesCommitFile`), `commit-prefix.ts`
+(`withCommitPrefix`), `tabs.ts` (`findTab`), `heading.ts` (`addPageHeading`), `files.ts`
+(`enhanceFiles`, o filtro/busca da lista de arquivos alterados) `message-editor.ts`
+(`branchType`/`messageEditor`, os chips de tipo de commit sugeridos pela branch) e `composer.ts`
+(`enhanceComposer`, a alternância entre os formulários "commit staged"/"salvar tudo"). O arquivo
+principal ficou só com `enhanceCommitPage`/`scan`/`installGitCommitEnhancer`, além de reexportar
+as três funções testadas e os dois tipos.
+- Sem import circular e sem transformação de estado compartilhado desta vez — todas as funções
+  bateram no `diff` linha a linha contra o original sem nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa as três funções puras direto do arquivo) e os 13 testes E2E —
+  todos verdes.
+- Os demais arquivos da camada (`sql-explanation-enhancer.ts` 326, `log-detail-enhancer.ts` 291,
+  `git-summary-inline-diff-fix.ts` 290, `test-log-tone-enhancer.ts` 286,
+  `git-history-inline-diff-fix.ts` 262, etc.) seguem pendentes — cada um exige o mesmo processo de
+  rastreio manual de dependências.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
