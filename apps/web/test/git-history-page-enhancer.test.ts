@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 import {
+  clampHistoryListWidth,
   filterHistoryCommits,
   uniqueHistoryAuthors,
   type GitHistoryCommit,
@@ -66,4 +67,12 @@ test('deduplica e ordena autores', () => {
     { email: 'bot@example.test', name: 'Dashboard Bot' },
     { email: 'felipe@example.test', name: 'Felipe Urgal' },
   ]);
+});
+
+
+test('limita a largura redimensionável da lista do histórico', () => {
+  assert.equal(clampHistoryListWidth(10), 22);
+  assert.equal(clampHistoryListWidth(42), 42);
+  assert.equal(clampHistoryListWidth(90), 62);
+  assert.equal(clampHistoryListWidth(Number.NaN), 30);
 });
