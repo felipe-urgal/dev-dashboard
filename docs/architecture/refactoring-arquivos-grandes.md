@@ -9,9 +9,10 @@ Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhance
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
 `sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
 `test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`,
-`git-diff-compact-enhancer.ts` e `git-branch-delete-enhancer.ts` concluídos — todos os enhancers
->250 linhas do levantamento original foram quebrados, restam só arquivos <160 linhas. Fase 6 ainda
-é planejamento.
+`git-diff-compact-enhancer.ts`, `git-branch-delete-enhancer.ts` e
+`project-header-server-enhancer.ts` concluídos, faltando só 3 arquivos pequenos
+(`git-diff-syntax-enhancer.ts`, `git-icon-enhancer.ts`, `git-diff-page-enhancer.ts`) para encerrar
+a fase por completo. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -551,10 +552,27 @@ usado nos dois arquivos `*-inline-diff-fix` anteriores). Arquivo principal com `
   transcrição.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Os enhancers que restam na camada (`project-header-server-enhancer.ts` 155,
-  `git-diff-syntax-enhancer.ts` 110, etc.) já estão abaixo de ~160 linhas — avaliar com o usuário
-  se vale continuar a fase para esses arquivos menores ou encerrar a Fase 5 e seguir para a Fase 6
-  (`process-manager.ts`).
+**`project-header-server-enhancer.ts` (155 → 64 linhas) — concluído**, décimo sexto arquivo da
+fase. Diferente de todos os anteriores, o estado compartilhado aqui são três variáveis de módulo
+soltas (`activeProjectId`/`refreshTimer`/`requestGeneration`) lidas e escritas tanto por
+`loadServerStatus` quanto por `synchronize` — por isso essas duas funções e a variável ficaram
+juntas no arquivo principal, em vez de forçar um getter/setter só para permitir a extração (o
+padrão usado em `git-summary-global-search-fix.ts`/`log-visual-enhancer.ts` quando só uma função
+precisava mutar o estado; aqui duas precisam, então mantê-las juntas é mais simples e igualmente
+correto). Split em `project-header-server/`: `types.ts`
+(`ManagedProcessSnapshot`/`ProcessResponse`), `dom-helpers.ts`
+(`projectIdFromLocation`/`serverPath`), `status.ts` (`statusDescription`) e `indicator.ts`
+(`ensureIndicator`/`updateIndicator`, a montagem e atualização do indicador de servidor no
+cabeçalho do projeto). Arquivo principal com as três variáveis de estado, `loadServerStatus`,
+`synchronize` e `installProjectHeaderServerEnhancer`.
+- Nenhum teste importa símbolos deste arquivo diretamente (confirmado via grep).
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+- Os enhancers que restam na camada (`git-diff-syntax-enhancer.ts` 110, `git-icon-enhancer.ts` 76,
+  `git-diff-page-enhancer.ts` 73) seguem para conclusão da fase, a pedido do usuário mesmo já
+  estando abaixo do limiar inicial de tamanho.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
