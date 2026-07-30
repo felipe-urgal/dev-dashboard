@@ -8,7 +8,6 @@ import {
 import type { Project } from '@dev-dashboard/contracts';
 
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
-import ProjectAvatar from './ProjectAvatar.vue';
 
 import {
   capabilityLabel,
@@ -53,8 +52,6 @@ const statusLabel = computed(() => {
         },
       }"
     >
-      <ProjectAvatar :project="project" />
-
       <div class="project-row-identity">
         <div class="project-row-heading">
           <div class="project-row-title">
