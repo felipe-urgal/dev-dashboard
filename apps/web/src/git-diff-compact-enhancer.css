@@ -119,7 +119,9 @@
 }
 
 .git-diff-file-header {
-  padding: 10px 12px !important;
+  position: relative;
+  z-index: 2;
+  padding: 8px 12px !important;
 }
 
 .git-diff-selected-file {
@@ -134,14 +136,8 @@
   font-size: 10px !important;
 }
 
-.git-diff-viewer-toolbar {
-  position: relative;
-  z-index: 2;
-  padding: 6px 10px !important;
-}
-
 .git-diff-content-search {
-  width: min(330px, 48%) !important;
+  width: min(260px, 38%) !important;
 }
 
 .git-diff-patch-metadata {
@@ -222,7 +218,7 @@
 @media (max-width: 760px) {
   .git-diff-page-heading,
   .git-diff-toolbar,
-  .git-diff-viewer-toolbar {
+  .git-diff-file-header {
     align-items: stretch !important;
     flex-direction: column;
   }

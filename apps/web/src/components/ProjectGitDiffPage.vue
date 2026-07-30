@@ -638,18 +638,6 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <button
-              type="button"
-              class="git-diff-copy-button"
-              :title="copied ? 'Caminho copiado' : 'Copiar caminho do arquivo'"
-              @click="copySelectedPath"
-            >
-              <ClipboardDocumentIcon aria-hidden="true" />
-              {{ copied ? 'Copiado' : 'Copiar caminho' }}
-            </button>
-          </header>
-
-          <div class="git-diff-viewer-toolbar">
             <div class="git-diff-view-switch" aria-label="Modo de visualização">
               <button
                 type="button"
@@ -683,7 +671,17 @@ onBeforeUnmount(() => {
                 {{ diffMatchCount }} ocorrência(s)
               </span>
             </label>
-          </div>
+
+            <button
+              type="button"
+              class="git-diff-copy-button"
+              :title="copied ? 'Caminho copiado' : 'Copiar caminho do arquivo'"
+              @click="copySelectedPath"
+            >
+              <ClipboardDocumentIcon aria-hidden="true" />
+              {{ copied ? 'Copiado' : 'Copiar caminho' }}
+            </button>
+          </header>
 
           <p v-if="fileError" class="project-error git-diff-file-error" role="alert">
             {{ fileError }}
@@ -795,7 +793,6 @@ onBeforeUnmount(() => {
 .git-diff-heading-actions,
 .git-diff-toolbar,
 .git-diff-file-header,
-.git-diff-viewer-toolbar,
 .git-diff-selected-file,
 .git-diff-files-pane > header {
   display: flex;
@@ -1165,21 +1162,23 @@ onBeforeUnmount(() => {
 }
 
 .git-diff-file-header {
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-3);
   border-bottom: 1px solid var(--border);
-  padding: 13px 16px;
+  padding: 10px 16px;
 }
 
 .git-diff-selected-file {
+  flex: 1 1 200px;
   min-width: 0;
   gap: 10px;
 }
 
 .git-diff-selected-file > div {
-  display: grid;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
-  gap: 2px;
+  gap: 8px;
 }
 
 .git-diff-selected-file h3,
@@ -1191,25 +1190,20 @@ onBeforeUnmount(() => {
 }
 
 .git-diff-selected-file h3 {
+  min-width: 40px;
+  flex: 1 1 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--font-sm);
 }
 
 .git-diff-selected-file p {
+  flex: 0 0 auto;
   color: var(--text-muted);
   font-size: var(--font-xs);
 }
 
-.git-diff-viewer-toolbar {
-  justify-content: space-between;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-  padding: 9px 12px;
-}
-
 .git-diff-content-search {
-  width: min(360px, 50%);
+  width: min(280px, 40%);
 }
 
 .git-diff-content-search input {
@@ -1420,7 +1414,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 820px) {
   .git-diff-toolbar,
-  .git-diff-viewer-toolbar,
   .git-diff-file-header {
     align-items: stretch;
     flex-direction: column;
