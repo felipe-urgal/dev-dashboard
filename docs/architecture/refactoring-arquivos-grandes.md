@@ -2,8 +2,9 @@
 
 ## Status
 
-Fases 1, 2 e 3 concluídas. Fase 4 parcial (sub-etapa 1, extração de `<style scoped>`, concluída;
-sub-etapa 2, extração de composables, pendente). Fases 5 e 6 ainda são planejamento.
+Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
+grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
+Fase 4). Fases 5 e 6 ainda são planejamento.
 
 ## Contexto
 
@@ -164,9 +165,22 @@ mesmo, na seção da fase correspondente.
     - Um teste (`scripts-explorer-redesign.test.ts`) verificava `prepareScriptExecution`/
       `followScriptExecutionEvents`/`cancelScriptExecution`/a checagem de risco diretamente no texto
       do componente — ajustado para verificar em `useScriptExecution.ts`.
-  - Componentes restantes (`ProjectGitPanel.vue`, `ProjectGitDiffPage.vue`,
-    `ProjectGitBranchesPage.vue`): pendentes. Tiveram reforma funcional grande no merge com a `main`
-    (ver abaixo) — vale reler o estado atual antes de tentar extrair composables ali.
+  - `ProjectGitPanel.vue` (1173), `ProjectGitDiffPage.vue` (784) e `ProjectGitBranchesPage.vue`
+    (400): avaliados após a reforma funcional da `main` (ver merge abaixo) e **decidido não
+    extrair composables** nesta rodada:
+    - `ProjectGitBranchesPage.vue` virou puramente apresentacional no merge (recebe
+      `overview`/`workspace` via props, emite eventos — não chama API própria). Já está num
+      tamanho razoável e coeso; não há mais um composable "de dados" para extrair.
+    - `ProjectGitPanel.vue` é o orquestrador central do painel: ~12 funções `run*` (branch, sync,
+      commit, stash, mutação de arquivo, PR) compartilhando um único `mutationRunning`/
+      `mutationMessage`/`mutationErrorMessage` com guarda de execução única. É a lógica de negócio
+      central do painel, na mesma categoria do start/stop/restart não extraído em
+      `ProjectServerPanel` — só que maior e mais entrelaçado; sem uma fronteira limpa entre
+      leitura e mutação que justifique o risco.
+    - `ProjectGitDiffPage.vue` tem uma extração plausível (`loadOverview`/`selectFile`/
+      `loadSnapshot`/`refresh`), mas fortemente acoplada a `scope`/`selectedPath`, que também
+      dirigem navegação por teclado e larguras de painel persistidas. Fica registrado como
+      candidato futuro se o arquivo crescer mais, não como pendência ativa.
 
 **Merge com `main` (task 043 — URL de pull request no painel Git):** a `main` avançou em paralelo
 com uma entrega funcional grande (`git-pull-request-service`, `git-file-mutations`, um novo
