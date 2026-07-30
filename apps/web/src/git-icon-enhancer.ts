@@ -1,40 +1,7 @@
-import { h, render, type Component } from 'vue';
-import {
-  ArchiveBoxIcon,
-  ArrowsRightLeftIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  CodeBracketIcon,
-  DocumentMagnifyingGlassIcon,
-  ServerStackIcon,
-  Squares2X2Icon,
-} from '@heroicons/vue/24/outline';
+import { ServerStackIcon } from '@heroicons/vue/24/outline';
 
-const iconByLabel: Record<string, Component> = {
-  Resumo: Squares2X2Icon,
-  Branches: CodeBracketIcon,
-  Sincronização: ArrowsRightLeftIcon,
-  Commit: CheckCircleIcon,
-  Stash: ArchiveBoxIcon,
-  Diff: DocumentMagnifyingGlassIcon,
-  Histórico: ClockIcon,
-};
-
-function mountIcon(
-  host: HTMLElement,
-  icon: Component,
-  className: string,
-  tagName: 'span' | 'i' = 'span',
-): void {
-  if (host.dataset.heroiconReady === 'true') return;
-
-  const iconHost = document.createElement(tagName);
-  iconHost.className = className;
-  iconHost.setAttribute('aria-hidden', 'true');
-  render(h(icon, { class: `${className}-svg` }), iconHost);
-  host.prepend(iconHost);
-  host.dataset.heroiconReady = 'true';
-}
+import { iconByLabel } from './git-icon/constants';
+import { mountIcon } from './git-icon/dom-helpers';
 
 function enhanceGitIcons(root: ParentNode = document): void {
   const tabButtons = [

@@ -4,15 +4,10 @@
 
 Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em 4 dos 7 componentes
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
-Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhancer.ts`,
-`git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
-`git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
-`sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
-`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`,
-`git-diff-compact-enhancer.ts`, `git-branch-delete-enhancer.ts`,
-`project-header-server-enhancer.ts` e `git-diff-syntax-enhancer.ts` concluídos, faltando só 2
-arquivos pequenos (`git-icon-enhancer.ts`, `git-diff-page-enhancer.ts`) para encerrar a fase por
-completo. Fase 6 ainda é planejamento.
+Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM foram quebrados
+mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
+`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 ainda é
+planejamento.
 
 ## Contexto
 
@@ -585,8 +580,29 @@ digitar o escape diretamente na ferramenta de edição). Arquivo principal com `
   transcrição, incluindo o escape Unicode preservado corretamente.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
-- Restam `git-icon-enhancer.ts` (76) e `git-diff-page-enhancer.ts` (73) para concluir a fase por
-  completo, a pedido do usuário.
+**`git-icon-enhancer.ts` (76 → 43 linhas) e `git-diff-page-enhancer.ts` (73 → 25 linhas) —
+concluídos**, décimo oitavo e décimo nono arquivos, encerrando a Fase 5. Diferente de todos os
+anteriores, esses dois já eram pequenos e coesos antes da quebra (uma única responsabilidade cada:
+montar ícones em abas/indicadores; montar e desmontar um componente Vue numa seção legada) — a
+divisão foi feita a pedido explícito do usuário para completar 100% da camada "enhancer", não por
+necessidade estrutural (foi sinalizado antes de prosseguir). `git-icon-enhancer.ts` foi dividido em
+`git-icon/`: `constants.ts` (`iconByLabel`) e `dom-helpers.ts` (`mountIcon`) — arquivo principal com
+`enhanceGitIcons`/`installGitIconEnhancer`. `git-diff-page-enhancer.ts` foi dividido em
+`git-diff-page/`: `state.ts` (`mountedApps`, o `Map<HTMLElement, App>` das instâncias Vue
+montadas), `dom-helpers.ts` (`projectIdFromLocation`/`isLegacyDiffSection`) e `lifecycle.ts`
+(`enhanceDiffSection`/`cleanup`, montagem e desmontagem da instância) — arquivo principal com
+`scan`/`installGitDiffPageEnhancer`.
+- Todas as funções de ambos os arquivos bateram no `diff` linha a linha contra o original sem
+  nenhum erro de transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
+  testes E2E — todos verdes.
+
+**Fase 5 encerrada.** Todos os 19 arquivos da camada "enhancer" vanilla-DOM (`*-enhancer.ts`/
+`*-fix.ts`) foram quebrados mecanicamente em módulos por responsabilidade, do maior
+(`git-history-page-enhancer.ts`, 1130 linhas) ao menor (`git-diff-page-enhancer.ts`, 73 linhas),
+sem nenhuma mudança de comportamento. O padrão vanilla-DOM em si não foi alterado — migrar para
+lógica reativa dentro dos componentes Vue continua fora de escopo, registrado como decisão
+arquitetural separada no início desta fase.
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
