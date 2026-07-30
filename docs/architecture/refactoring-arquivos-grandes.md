@@ -8,8 +8,9 @@ Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhance
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
 `sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
-`test-log-tone-enhancer.ts` e `git-history-inline-diff-fix.ts` concluídos — todos os enhancers
->250 linhas do levantamento original foram quebrados. Fase 6 ainda é planejamento.
+`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts` e `git-history-global-search-fix.ts`
+concluídos — todos os enhancers >250 linhas do levantamento original foram quebrados, restam só
+arquivos <200 linhas. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -497,11 +498,32 @@ Arquivo principal só com `scan`/`installGitHistoryInlineDiffFix`.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários e os 13
   testes E2E — todos verdes.
 - Com este arquivo concluído, todos os enhancers com >250 linhas listados originalmente no
-  levantamento da fase foram quebrados. Os que restam na camada "enhancer" (`git-diff-compact-enhancer.ts`
-  195, `git-branch-delete-enhancer.ts` 193, `project-header-server-enhancer.ts` 155,
-  `git-diff-syntax-enhancer.ts` 110, etc.) já estão abaixo do limiar de ~250 linhas que motivou o
-  levantamento inicial — avaliar com o usuário se vale continuar a fase para esses arquivos
-  menores ou encerrar a Fase 5 e seguir para a Fase 6 (`process-manager.ts`).
+  levantamento da fase foram quebrados.
+
+**`git-history-global-search-fix.ts` (223 → 109 linhas) — concluído**, décimo terceiro arquivo da
+fase — este tinha ficado de fora do levantamento inicial de arquivos >250 linhas, mas seguia o
+mesmo padrão dos demais e valia a quebra. Mesmo padrão de `WeakMap<HTMLElement, HistorySearchState>`
+(`stateBySection`). A função `applyGlobalHistoryFilters` é testada diretamente por
+`git-history-global-search-fix.test.ts` (confirmado via grep) e foi reexportada. Split em
+`git-history-global-search-fix/`: `types.ts` (`CompatibleTimer`/`HistorySearchState`/
+`HistoryResponsePayload`), `dom-helpers.ts` (`historySection`/`control`), `state.ts`
+(`stateBySection`/`stateFor`), `url.ts` (`isHistoryListRequest`/`applyGlobalHistoryFilters`/
+`requestUrl`/`replaceRequestUrl`, a reescrita de URL que redireciona `/git/commits` para
+`/git/exclusive-branch-commits` com os filtros aplicados) e `controls.ts`
+(`restoreControls`/`scheduleRestore`). O arquivo principal ficou com `refresh`/`enhanceSection`/
+`scan`/`installGitHistoryGlobalSearchFix` — este último é o maior remanescente porque contém o
+monkey-patch de `window.fetch` inteiro, que não fazia sentido fatiar mais sem obscurecer o fluxo de
+uma única requisição interceptada.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `applyGlobalHistoryFilters` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+- Os enhancers que restam na camada (`git-diff-compact-enhancer.ts` 195,
+  `git-branch-delete-enhancer.ts` 193, `project-header-server-enhancer.ts` 155,
+  `git-diff-syntax-enhancer.ts` 110, etc.) já estão abaixo do limiar de ~200 linhas — avaliar com o
+  usuário se vale continuar a fase para esses arquivos menores ou encerrar a Fase 5 e seguir para
+  a Fase 6 (`process-manager.ts`).
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
