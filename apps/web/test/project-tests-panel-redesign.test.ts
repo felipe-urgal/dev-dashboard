@@ -78,6 +78,9 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
+    if (url.pathname.endsWith('/files')) {
+      return jsonResponse({ files: [{ path: 'spec/ui/default-template.spec.tsx' }] });
+    }
     if (url.pathname.endsWith('/tests/process/logs')) {
       return jsonResponse({
         log: {
@@ -93,28 +96,6 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
       });
     }
     if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process });
-    if (url.pathname.endsWith('/tests/history')) {
-      return jsonResponse({
-        history: {
-          items: [
-            {
-              id: 'exec-1',
-              projectId: 'p1',
-              commandId: 'node-script-test',
-              targetFile: 'spec/ui/default-template.spec.tsx',
-              status: 'stopped',
-              startedAt: process.startedAt,
-              finishedAt: process.stoppedAt,
-              exitCode: 0,
-            },
-          ],
-          page: 1,
-          pageSize: 10,
-          total: 1,
-          totalPages: 1,
-        },
-      });
-    }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -127,10 +108,10 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
 
   const summary = wrapper.find('.tests-summary');
   assert.match(summary.text(), /default-template\.spec\.tsx/);
-  assert.match(summary.text(), /25 passaram/);
-  assert.match(summary.text(), /0 falharam/);
+  assert.match(summary.text(), /Sucessos25/);
+  assert.match(summary.text(), /Falhas/);
   assert.match(summary.text(), /232ms/);
-  assert.match(summary.text(), /Vitest/);
+  assert.match(summary.text(), /Vitest|Arquivo específico/);
 
   const output = wrapper.find('.tests-log-output');
   assert.doesNotMatch(output.text(), /\u001b\[/);
@@ -144,10 +125,20 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
   assert.match(wrapper.find('.tests-log-lines').text(), /warning From Yarn/);
 });
 
-test('repete pelo histórico preservando o arquivo alvo', async () => {
+test('repete a execução atual preservando o arquivo alvo', async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ path: string; body?: string }> = [];
-  let process: Record<string, unknown> | null = null;
+  let process: Record<string, unknown> | null = {
+    id: 'node-script-test:file',
+    projectId: 'p1',
+    kind: 'test',
+    status: 'stopped',
+    command: 'yarn',
+    args: ['run', 'test', '--', 'src/app.test.ts'],
+    startedAt: '2026-07-29T15:00:00Z',
+    stoppedAt: '2026-07-29T15:00:02Z',
+    exitCode: 0,
+  };
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
@@ -156,6 +147,9 @@ test('repete pelo histórico preservando o arquivo alvo', async () => {
       ...(typeof init?.body === 'string' ? { body: init.body } : {}),
     });
     if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
+    if (url.pathname.endsWith('/files') && !url.pathname.endsWith('/files/start')) {
+      return jsonResponse({ files: [{ path: 'src/app.test.ts' }] });
+    }
     if (url.pathname.endsWith('/files/start')) {
       process = {
         id: 'node-script-test:file',
@@ -185,28 +179,6 @@ test('repete pelo histórico preservando o arquivo alvo', async () => {
       });
     }
     if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process });
-    if (url.pathname.endsWith('/tests/history')) {
-      return jsonResponse({
-        history: {
-          items: [
-            {
-              id: 'exec-1',
-              projectId: 'p1',
-              commandId: 'node-script-test',
-              targetFile: 'src/app.test.ts',
-              status: 'stopped',
-              startedAt: '2026-07-29T15:00:00Z',
-              finishedAt: '2026-07-29T15:00:02Z',
-              exitCode: 0,
-            },
-          ],
-          page: 1,
-          pageSize: 10,
-          total: 1,
-          totalPages: 1,
-        },
-      });
-    }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -217,8 +189,8 @@ test('repete pelo histórico preservando o arquivo alvo', async () => {
   };
   await settle();
 
-  const repeatButton = wrapper.find('.tests-history-repeat');
-  assert.ok(repeatButton.exists());
+  const repeatButton = wrapper.findAll('button').find((button) => button.text() === 'Repetir execução');
+  assert.ok(repeatButton);
   await repeatButton.trigger('click');
   await settle();
 
