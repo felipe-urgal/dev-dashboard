@@ -9,10 +9,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
-import {
-  capabilityLabel,
-  projectTypeLabels,
-} from '../utils/project-labels';
+import { projectTypeLabels } from '../utils/project-labels';
 
 const props = defineProps<{
   project: Project;
@@ -79,16 +76,11 @@ const statusLabel = computed(() => {
 
         <code class="project-path">{{ project.path }}</code>
 
-        <div class="project-row-meta">
-          <span
-            v-for="capability in project.capabilities"
-            :key="capability"
-            class="capability"
-          >
-            {{ capabilityLabel(capability) }}
-          </span>
-
-          <span v-if="managedProcess?.port">
+        <div
+          v-if="managedProcess?.port"
+          class="project-row-meta"
+        >
+          <span class="project-port-badge">
             Porta {{ managedProcess.port }}
           </span>
         </div>
