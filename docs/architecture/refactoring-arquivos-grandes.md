@@ -8,9 +8,9 @@ Fase 4). Fase 5 em andamento: `git-history-page-enhancer.ts`, `git-stash-enhance
 `git-summary-history-enhancer.ts`, `git-inline-file-diff-enhancer.ts`,
 `git-summary-global-search-fix.ts`, `log-visual-enhancer.ts`, `git-commit-enhancer.ts`,
 `sql-explanation-enhancer.ts`, `log-detail-enhancer.ts`, `git-summary-inline-diff-fix.ts`,
-`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts` e `git-history-global-search-fix.ts`
-concluídos — todos os enhancers >250 linhas do levantamento original foram quebrados, restam só
-arquivos <200 linhas. Fase 6 ainda é planejamento.
+`test-log-tone-enhancer.ts`, `git-history-inline-diff-fix.ts`, `git-history-global-search-fix.ts`
+e `git-diff-compact-enhancer.ts` concluídos — todos os enhancers >250 linhas do levantamento
+original foram quebrados, restam só arquivos <200 linhas. Fase 6 ainda é planejamento.
 
 ## Contexto
 
@@ -519,11 +519,26 @@ uma única requisição interceptada.
 - Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
   (incluindo o teste que importa `applyGlobalHistoryFilters` direto do arquivo) e os 13 testes
   E2E — todos verdes.
-- Os enhancers que restam na camada (`git-diff-compact-enhancer.ts` 195,
-  `git-branch-delete-enhancer.ts` 193, `project-header-server-enhancer.ts` 155,
-  `git-diff-syntax-enhancer.ts` 110, etc.) já estão abaixo do limiar de ~200 linhas — avaliar com o
-  usuário se vale continuar a fase para esses arquivos menores ou encerrar a Fase 5 e seguir para
-  a Fase 6 (`process-manager.ts`).
+**`git-diff-compact-enhancer.ts` (195 → 39 linhas) — concluído**, décimo quarto arquivo da fase.
+Sem `WeakMap`; a única variável de módulo (`let scheduled = false`) fica no arquivo principal
+porque só é lida/escrita por `scan`/`scheduleScan`, que também ficaram lá. A função
+`splitLeadingPatchMetadata` é testada diretamente por `git-diff-compact-enhancer.test.ts`
+(confirmado via grep) e foi reexportada junto com o tipo `LeadingPatchMetadata`. Split em
+`git-diff-compact/`: `types.ts` (`DiffSummaryMetric`/`LeadingPatchMetadata`), `summary.ts`
+(`metricValue`/`appendSummaryMetric`/`updateCompactSummary`, o resumo compacto de branch+métricas
+no cabeçalho), `filters.ts` (`totalFileCount`/`updateFilters`, oculta o filtro de status quando há
+só um arquivo) e `patch-metadata.ts` (`splitLeadingPatchMetadata`/`leadingMetadataRows`/
+`updatePatchMetadata`, que move linhas de metadado do patch para um `<details>` recolhível).
+Arquivo principal com `enhancePage`/`scan`/`scheduleScan`/`installGitDiffCompactEnhancer`.
+- Todas as funções bateram no `diff` linha a linha contra o original sem nenhum erro de
+  transcrição.
+- Verificado com `typecheck`, `build` (CSS idêntico, JS estável), os 174 testes unitários
+  (incluindo o teste que importa `splitLeadingPatchMetadata` direto do arquivo) e os 13 testes
+  E2E — todos verdes.
+- Os enhancers que restam na camada (`git-branch-delete-enhancer.ts` 193,
+  `project-header-server-enhancer.ts` 155, `git-diff-syntax-enhancer.ts` 110, etc.) já estão
+  abaixo de ~200 linhas — avaliar com o usuário se vale continuar a fase para esses arquivos
+  menores ou encerrar a Fase 5 e seguir para a Fase 6 (`process-manager.ts`).
 
 ### Fase 6 — `packages/process-manager/src/process-manager.ts` (risco mais alto)
 
