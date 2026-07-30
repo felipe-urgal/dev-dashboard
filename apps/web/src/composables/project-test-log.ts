@@ -1,3 +1,9 @@
+import {
+  classifyTestLogSemanticTone,
+  isTestLogErrorLine,
+  isTestLogWarningLine,
+} from '../test-log-tone-enhancer';
+
 export type TestLogTab = 'log' | 'errors' | 'warnings' | 'details';
 export type TestLogLineTone = 'default' | 'success' | 'error' | 'warning' | 'muted';
 
@@ -28,12 +34,11 @@ export function matchNumber(value: string, pattern: RegExp): number | undefined 
 }
 
 export function isErrorLine(value: string): boolean {
-  if (/\b0\s+(?:failed|failures|errors)\b/i.test(value)) return false;
-  return /\b(?:error|failed|failure|syntaxerror|exception|unexpected|undefined method|cannot|enoent)\b/i.test(value);
+  return isTestLogErrorLine(value);
 }
 
 export function isWarningLine(value: string): boolean {
-  return /\b(?:warning|warn|deprecated|deprecation)\b/i.test(value);
+  return isTestLogWarningLine(value);
 }
 
 export function isDetailLine(value: string): boolean {
@@ -41,11 +46,7 @@ export function isDetailLine(value: string): boolean {
 }
 
 export function logLineTone(value: string): TestLogLineTone {
-  if (isErrorLine(value)) return 'error';
-  if (isWarningLine(value)) return 'warning';
-  if (/\b(?:passed|success|done)\b/i.test(value) && !/\b0\s+passed\b/i.test(value)) return 'success';
-  if (/^\s*(?:RUN|Test Files|Tests|Start at|Duration|Finished in)/i.test(value)) return 'muted';
-  return 'default';
+  return classifyTestLogSemanticTone(value);
 }
 
 export function extractTargetFile(value: string): string | undefined {
