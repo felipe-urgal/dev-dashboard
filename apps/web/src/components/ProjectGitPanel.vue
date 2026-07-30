@@ -122,33 +122,8 @@ const upstreamRemote = computed(() => remoteByName('upstream'));
 const trackedBranch = computed(
   () => overview.value?.upstream ?? 'Sem tracking configurado',
 );
-const changedFilesPreview = computed(
-  () => overview.value?.files.slice(0, 5) ?? [],
-);
 const recentCommitsPreview = computed(
   () => overview.value?.recentCommits.slice(0, 4) ?? [],
-);
-const diffFilesPreview = computed(
-  () => diff.value?.files.slice(0, 4) ?? [],
-);
-const stagedCount = computed(
-  () =>
-    overview.value?.files.filter(
-      (file) => file.indexStatus !== '.' && file.indexStatus !== '?',
-    ).length ?? 0,
-);
-const modifiedCount = computed(
-  () =>
-    overview.value?.files.filter(
-      (file) =>
-        file.worktreeStatus !== '.' && file.worktreeStatus !== '?',
-    ).length ?? 0,
-);
-const untrackedCount = computed(
-  () =>
-    overview.value?.files.filter(
-      (file) => file.status === 'untracked',
-    ).length ?? 0,
 );
 
 const serverStatus = computed(() => {
