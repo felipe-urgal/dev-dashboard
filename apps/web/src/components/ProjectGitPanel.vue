@@ -18,6 +18,7 @@ import type {
 import {
   commitProjectGit,
   createProjectGitBranch,
+  discardProjectGitFile,
   fetchProjectGit,
   fetchProjectGitDiff,
   fetchProjectGitFileDiff,
@@ -25,10 +26,13 @@ import {
   prepareProjectGitMutation,
   pullProjectGitBranch,
   pushProjectGitBranch,
+  removeProjectGitUntrackedFile,
   saveProjectGit,
+  stageProjectGitFile,
   stashPopProjectGit,
   stashPushProjectGit,
   switchProjectGitBranch,
+  unstageProjectGitFile,
 } from '../api';
 import {
   fetchProjectGitPullRequestUrl,
@@ -42,6 +46,7 @@ import {
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
+import ProjectGitCommitPage from './ProjectGitCommitPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -88,7 +93,7 @@ const remoteRefreshing = ref('');
 const createBranchName = ref('');
 const commitMessage = ref('');
 const commitIncludeAllChanges = ref(false);
-const saveMessage = ref('');
+const commitScope = ref<'staged' | 'all'>('staged');
 let generation = 0;
 let diffController: AbortController | undefined;
 let fileController: AbortController | undefined;
@@ -176,21 +181,6 @@ const serverStatus = computed(() => {
     default:
       return { label: 'Servidor parado', detail, tone: 'stopped' };
   }
-});
-
-const savePrefixByBranchType: Record<string, string> = {
-  feature: 'feat',
-  fix: 'fix',
-  refactor: 'refactor',
-  chore: 'chore',
-  docs: 'docs',
-  hotfix: 'fix',
-};
-
-const savePrefix = computed(() => {
-  const branch = overview.value?.branch;
-  if (!branch || overview.value?.detached) return '';
-  return savePrefixByBranchType[branch.split('/')[0] ?? ''] ?? '';
 });
 
 function remoteByName(name: string): GitRemote | undefined {
@@ -628,30 +618,44 @@ async function runCommit(): Promise<void> {
     mutationErrorMessage.value = 'Informe uma mensagem de commit.';
     return;
   }
+
+  const saveAll = commitScope.value === 'all';
+  const confirmationText = saveAll
+    ? `Preparar todas as alterações e criar o commit "${message}"?`
+    : `Criar o commit "${message}"?`;
   if (
-    typeof window !== 'undefined' &&
-    !window.confirm(`Criar o commit "${message}"?`)
-  )
+    typeof window !== 'undefined'
+    && !window.confirm(confirmationText)
+  ) {
     return;
+  }
 
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
   try {
+    const operation = saveAll ? 'save' : 'commit';
     const confirmation = await prepareProjectGitMutation(
       props.project.id,
-      'commit',
+      operation,
       currentBranchOrHead(),
     );
-    const commit = await commitProjectGit(
-      props.project.id,
-      message,
-      commitIncludeAllChanges.value,
-      confirmation.token,
-    );
+    const commit = saveAll
+      ? await saveProjectGit(
+          props.project.id,
+          message,
+          confirmation.token,
+        )
+      : await commitProjectGit(
+          props.project.id,
+          message,
+          commitIncludeAllChanges.value,
+          confirmation.token,
+        );
     mutationMessage.value = `Commit "${commit.shortHash}" criado: ${commit.subject}`;
     commitMessage.value = '';
     commitIncludeAllChanges.value = false;
+    commitScope.value = 'staged';
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value =
@@ -663,50 +667,73 @@ async function runCommit(): Promise<void> {
   }
 }
 
-async function runSave(): Promise<void> {
+async function runFileMutation(payload: {
+  operation: 'stage' | 'unstage' | 'discard' | 'remove';
+  path: string;
+}): Promise<void> {
   if (mutationRunning.value) return;
-  const message = saveMessage.value.trim();
-  if (!message) {
-    mutationErrorMessage.value = 'Informe uma mensagem de commit.';
-    return;
-  }
 
-  const finalMessage = savePrefix.value
-    ? `${savePrefix.value}: ${message}`
-    : message;
-  if (
-    typeof window !== 'undefined' &&
-    !window.confirm(
-      `Preparar todas as alterações e criar o commit "${finalMessage}"?`,
-    )
-  )
-    return;
+  if (payload.operation === 'discard' || payload.operation === 'remove') {
+    const confirmationText = payload.operation === 'discard'
+      ? `Desfazer definitivamente as alterações de "${payload.path}"?`
+      : `Remover definitivamente o arquivo novo "${payload.path}"?`;
+    if (
+      typeof window !== 'undefined'
+      && !window.confirm(confirmationText)
+    ) {
+      return;
+    }
+  }
 
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
   try {
-    const confirmation = await prepareProjectGitMutation(
-      props.project.id,
-      'save',
-      currentBranchOrHead(),
-    );
-    const commit = await saveProjectGit(
-      props.project.id,
-      message,
-      confirmation.token,
-    );
-    mutationMessage.value = `Commit "${commit.shortHash}" criado: ${commit.subject}`;
-    saveMessage.value = '';
+    if (payload.operation === 'stage') {
+      await stageProjectGitFile(props.project.id, payload.path);
+      mutationMessage.value = `Arquivo "${payload.path}" adicionado ao staged.`;
+    } else if (payload.operation === 'unstage') {
+      await unstageProjectGitFile(props.project.id, payload.path);
+      mutationMessage.value = `Arquivo "${payload.path}" removido do staged.`;
+    } else {
+      const operation = payload.operation === 'discard'
+        ? 'discard-file'
+        : 'remove-untracked-file';
+      const confirmation = await prepareProjectGitMutation(
+        props.project.id,
+        operation,
+        payload.path,
+      );
+      if (payload.operation === 'discard') {
+        await discardProjectGitFile(
+          props.project.id,
+          payload.path,
+          confirmation.token,
+        );
+        mutationMessage.value = `Alterações de "${payload.path}" desfeitas.`;
+      } else {
+        await removeProjectGitUntrackedFile(
+          props.project.id,
+          payload.path,
+          confirmation.token,
+        );
+        mutationMessage.value = `Arquivo novo "${payload.path}" removido.`;
+      }
+    }
     await reloadGitData();
   } catch (error) {
     mutationErrorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível salvar as alterações.';
+        : 'Não foi possível alterar o arquivo.';
   } finally {
     mutationRunning.value = false;
   }
+}
+
+function openFileDiff(filePath: string): void {
+  activeTab.value = 'diff';
+  void loadFileDiff(filePath);
 }
 
 async function runStash(
@@ -960,124 +987,17 @@ onBeforeUnmount(() => {
         @open-pull-request="runOpenPullRequest"
       />
 
-      <section
+      <ProjectGitCommitPage
         v-else-if="activeTab === 'commit'"
-        class="git-tab-page"
-      >
-        <div class="git-status-grid commit-metrics">
-          <article>
-            <span>Branch atual</span
-            ><strong>{{ overview.branch ?? 'HEAD' }}</strong
-            ><small>{{ trackedBranch }}</small>
-          </article>
-          <article>
-            <span>Staged</span><strong>{{ stagedCount }}</strong
-            ><small>prontos para commit</small>
-          </article>
-          <article>
-            <span>Modificados</span
-            ><strong>{{ modifiedCount }}</strong
-            ><small>fora do índice</small>
-          </article>
-          <article>
-            <span>Não rastreados</span
-            ><strong>{{ untrackedCount }}</strong
-            ><small>novos arquivos</small>
-          </article>
-        </div>
-        <div class="git-commit-layout">
-          <article class="git-table-card files-card">
-            <header>
-              <h3>Arquivos alterados</h3>
-              <span>{{ overview.files.length }} arquivo(s)</span>
-            </header>
-            <div
-              v-if="overview.files.length === 0"
-              class="git-inline-empty"
-            >
-              Working tree limpo.
-            </div>
-            <ul v-else class="git-file-list-modern">
-              <li
-                v-for="file in overview.files"
-                :key="`${file.path}-${file.previousPath ?? ''}`"
-              >
-                <StatusBadge :tone="gitFileToneFor(file.status)">{{
-                  statusLabels[file.status]
-                }}</StatusBadge>
-                <code
-                  ><template v-if="file.previousPath"
-                    >{{ file.previousPath }} → </template
-                  >{{ file.path }}</code
-                ><small
-                  >{{ file.indexStatus }}/{{
-                    file.worktreeStatus
-                  }}</small
-                >
-              </li>
-            </ul>
-          </article>
-          <div class="git-commit-forms">
-            <form
-              class="git-command-card"
-              @submit.prevent="runCommit"
-            >
-              <header>
-                <div>
-                  <span>Commit padrão</span>
-                  <h3>Registrar staged</h3>
-                </div>
-              </header>
-              <label
-                >Mensagem<textarea
-                  v-model="commitMessage"
-                  maxlength="500"
-                  placeholder="Descreva as alterações"
-                />
-              </label>
-              <label class="git-check-label"
-                ><input
-                  v-model="commitIncludeAllChanges"
-                  type="checkbox"
-                />
-                Incluir alterações rastreadas</label
-              >
-              <button
-                class="primary-button"
-                :disabled="mutationRunning || !commitMessage.trim()"
-              >
-                Commitar alterações
-              </button>
-            </form>
-            <form class="git-command-card" @submit.prevent="runSave">
-              <header>
-                <div>
-                  <span>Git-save</span>
-                  <h3>Preparar e commitar tudo</h3>
-                </div>
-              </header>
-              <label
-                >Mensagem<textarea
-                  v-model="saveMessage"
-                  maxlength="500"
-                  placeholder="Descreva as alterações"
-                />
-              </label>
-              <small
-                >Inclui arquivos não rastreados{{
-                  savePrefix ? ` e usa ${savePrefix}:` : ''
-                }}.</small
-              >
-              <button
-                class="primary-button"
-                :disabled="mutationRunning || !saveMessage.trim()"
-              >
-                Salvar tudo
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+        v-model:message="commitMessage"
+        v-model:include-tracked="commitIncludeAllChanges"
+        v-model:scope="commitScope"
+        :overview="overview"
+        :busy="mutationRunning"
+        @submit="runCommit"
+        @file-mutation="runFileMutation"
+        @view-diff="openFileDiff"
+      />
 
       <section v-else-if="activeTab === 'stash'" class="git-tab-page">
         <div class="git-page-heading">
