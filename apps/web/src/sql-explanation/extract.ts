@@ -1,19 +1,5 @@
 import { cleanIdentifier, unique } from './text-helpers';
 
-export function extractStatement(line: HTMLElement): string {
-  const renderedStatement = line.querySelector<HTMLElement>('.enhanced-sql-statement');
-  if (renderedStatement?.textContent?.trim()) {
-    return renderedStatement.textContent.trim();
-  }
-
-  const original = line.dataset.logOriginalText ?? line.textContent ?? '';
-  const match = original.match(
-    /^.+?\s+\([\d.]+ms\)\s+((?:SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK)\b.*)$/i,
-  );
-
-  return match?.[1]?.trim() ?? original.trim();
-}
-
 export function extractMainTable(statement: string): string | undefined {
   const patterns = [
     /\bFROM\s+((?:`[^`]+`|[A-Za-z_][\w$]*)(?:\.(?:`[^`]+`|[A-Za-z_][\w$]*))?)/i,

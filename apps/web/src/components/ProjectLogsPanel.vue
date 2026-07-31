@@ -8,10 +8,10 @@ import {
 import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
-  ChevronDownIcon,
   ClipboardDocumentIcon,
   CodeBracketIcon,
   DocumentTextIcon,
+  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PauseIcon,
   PlayIcon,
@@ -23,9 +23,11 @@ import { RouterLink } from 'vue-router';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import RailsParamsTree from './RailsParamsTree.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
+import { explainSql } from '../sql-explanation/describe';
 import type {
   RailsLogGroup,
   RailsLogLine,
@@ -35,9 +37,21 @@ import {
   parseRailsLog,
   railsRequestStatusTone,
 } from '../utils/rails-log-parser';
+import { parseRubyInspect } from '../utils/ruby-inspect-parser';
+import {
+  groupSqlLines,
+  highlightSqlHtml,
+} from '../utils/sql-highlight';
 
 type ViewMode = 'requests' | 'raw';
 type CategoryFilter = 'all' | 'requests' | 'sql' | 'render' | 'errors';
+
+// A large first log (boot chatter, N previous requests) can be thousands of lines —
+// rendering every one of them as DOM nodes at once is what used to freeze the tab.
+// Both the request list and the raw feed render only a capped, most-recent window,
+// with an explicit "load older" action to pull in more.
+const REQUEST_LIST_PAGE_SIZE = 150;
+const RAW_LINE_PAGE_SIZE = 1500;
 
 const props = defineProps<{
   project: Project;
@@ -58,6 +72,9 @@ const searchQuery = ref('');
 const categoryFilter = ref<CategoryFilter>('all');
 const viewMode = ref<ViewMode>(props.project.type === 'rails' ? 'requests' : 'raw');
 const copiedRequestId = ref('');
+const selectedGroupKey = ref('');
+const requestListLimit = ref(REQUEST_LIST_PAGE_SIZE);
+const rawLineLimit = ref(RAW_LINE_PAGE_SIZE);
 
 const {
   loadingLogs,
@@ -66,7 +83,7 @@ const {
   followLogs,
   streamPaused,
   refreshLogs,
-  scrollLogsToBottom,
+  scrollLogsToLatest,
   handleLogScroll,
   clearLogView,
   toggleStream,
@@ -111,11 +128,12 @@ const hasStructuredRequests = computed(() =>
   parsedLog.value.groups.some((group) => group.kind === 'request'),
 );
 
-const requestGroups = computed(() =>
-  parsedLog.value.groups.filter(
-    (group): group is RailsRequestLogGroup => group.kind === 'request',
-  ),
-);
+// The parser emits groups in file order (oldest first); the inspector reads newest-first.
+const orderedGroups = computed<RailsLogGroup[]>(() => [...parsedLog.value.groups].reverse());
+
+function groupSelectionKey(group: RailsLogGroup): string {
+  return group.kind === 'request' ? group.requestId : group.id;
+}
 
 function groupMatchesCategory(group: RailsLogGroup): boolean {
   switch (categoryFilter.value) {
@@ -152,20 +170,34 @@ function lineMatchesCategory(line: RailsLogLine): boolean {
 const visibleGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
 
-  return parsedLog.value.groups.filter((group) => {
+  return orderedGroups.value.filter((group) => {
     const matchesSearch = !query || group.searchableText.includes(query);
     return matchesSearch && groupMatchesCategory(group);
   });
 });
 
+const cappedGroups = computed(() => visibleGroups.value.slice(0, requestListLimit.value));
+const hiddenGroupsCount = computed(() =>
+  Math.max(0, visibleGroups.value.length - cappedGroups.value.length),
+);
+
+const orderedRawLines = computed<RailsLogLine[]>(() =>
+  orderedGroups.value.flatMap((group) => group.lines),
+);
+
 const visibleRawLines = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
 
-  return parsedLog.value.lines.filter((line) => {
+  return orderedRawLines.value.filter((line) => {
     const matchesSearch = !query || line.text.toLowerCase().includes(query);
     return matchesSearch && lineMatchesCategory(line);
   });
 });
+
+const cappedRawLines = computed(() => visibleRawLines.value.slice(0, rawLineLimit.value));
+const hiddenRawLinesCount = computed(() =>
+  Math.max(0, visibleRawLines.value.length - cappedRawLines.value.length),
+);
 
 const visibleLineCount = computed(() =>
   viewMode.value === 'requests'
@@ -173,10 +205,56 @@ const visibleLineCount = computed(() =>
     : visibleRawLines.value.length,
 );
 
+const selectedGroup = computed<RailsLogGroup | undefined>(
+  () =>
+    cappedGroups.value.find((group) => groupSelectionKey(group) === selectedGroupKey.value) ??
+    cappedGroups.value[0],
+);
+
+const selectedRequestGroup = computed<RailsRequestLogGroup | undefined>(() =>
+  selectedGroup.value?.kind === 'request' ? selectedGroup.value : undefined,
+);
+
+const selectedSqlGroups = computed(() => {
+  if (!selectedRequestGroup.value) return [];
+
+  return groupSqlLines(selectedRequestGroup.value.sqlLines).map((group) => ({
+    ...group,
+    explanation: explainSql(group.pattern),
+  }));
+});
+
+const selectedN1Group = computed(() => selectedSqlGroups.value.find((group) => group.n1Suspect));
+
+const selectedParams = computed(() => {
+  const raw = selectedRequestGroup.value?.parameters;
+  if (!raw) return undefined;
+  return parseRubyInspect(raw);
+});
+
+function selectGroup(group: RailsLogGroup): void {
+  selectedGroupKey.value = groupSelectionKey(group);
+}
+
+function loadMoreRequests(): void {
+  requestListLimit.value += REQUEST_LIST_PAGE_SIZE;
+}
+
+function loadMoreRawLines(): void {
+  rawLineLimit.value += RAW_LINE_PAGE_SIZE;
+}
+
+function highlightedSql(text: string): string {
+  return highlightSqlHtml(text);
+}
+
 function resetFilters(): void {
   searchQuery.value = '';
   categoryFilter.value = 'all';
   viewMode.value = props.project.type === 'rails' ? 'requests' : 'raw';
+  selectedGroupKey.value = '';
+  requestListLimit.value = REQUEST_LIST_PAGE_SIZE;
+  rawLineLimit.value = RAW_LINE_PAGE_SIZE;
 }
 
 function formatDuration(value: number | undefined): string {
@@ -240,7 +318,15 @@ watch(
 );
 
 watch(viewMode, () => {
-  void scrollLogsToBottom();
+  void scrollLogsToLatest();
+});
+
+// Keep the selection valid (and the list highlight in sync) as polling replaces the
+// group set every couple seconds, or as filters change which groups are visible.
+watch(cappedGroups, (groups) => {
+  if (!groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)) {
+    selectedGroupKey.value = groups[0] ? groupSelectionKey(groups[0]) : '';
+  }
 });
 </script>
 
@@ -345,16 +431,12 @@ watch(viewMode, () => {
               <template v-if="logSnapshot.truncated"> · trecho final</template>
             </span>
             <span>{{ visibleLineCount }} linhas</span>
+            <span>Mais recente no topo</span>
             <span>{{ followLogs ? 'Auto scroll' : 'Rolagem pausada' }}</span>
           </div>
         </header>
 
-        <div
-          ref="logContainer"
-          class="project-log-content"
-          tabindex="0"
-          @scroll="handleLogScroll"
-        >
+        <div class="project-log-content">
           <div
             v-if="loadingStatus && !hasManagedProcess"
             class="project-log-terminal-empty"
@@ -390,25 +472,32 @@ watch(viewMode, () => {
             Nenhuma linha corresponde aos filtros aplicados.
           </div>
 
-          <div v-else-if="viewMode === 'requests'" class="rails-request-list">
-            <template v-for="group in visibleGroups" :key="group.id">
-              <article
-                v-if="group.kind === 'request'"
-                class="rails-request-card"
+          <div v-else-if="viewMode === 'requests'" class="rails-inspector">
+            <div
+              ref="logContainer"
+              class="rails-inspector-list"
+              tabindex="0"
+              @scroll="handleLogScroll"
+            >
+              <button
+                v-for="group in cappedGroups"
+                :key="groupSelectionKey(group)"
+                type="button"
+                class="rails-list-item"
                 :class="{
-                  'rails-request-slow': (group.durationMs ?? 0) >= 500,
-                  'rails-request-failed': (group.status ?? 0) >= 400,
+                  selected: groupSelectionKey(group) === selectedGroupKey,
+                  'list-item-slow':
+                    group.kind === 'request' && (group.durationMs ?? 0) >= 500,
+                  'list-item-error':
+                    group.kind === 'request' && (group.status ?? 0) >= 400,
                 }"
+                @click="selectGroup(group)"
               >
-                <header class="rails-request-header">
-                  <div class="rails-request-heading">
-                    <span
-                      class="rails-method"
-                      :class="methodTone(group.method)"
-                    >
+                <template v-if="group.kind === 'request'">
+                  <div class="rails-list-row1">
+                    <span class="rails-method" :class="methodTone(group.method)">
                       {{ group.method ?? 'REQ' }}
                     </span>
-                    <strong>{{ group.path ?? 'Requisição Rails' }}</strong>
                     <span
                       v-if="group.status"
                       class="rails-status"
@@ -417,121 +506,244 @@ watch(viewMode, () => {
                       {{ group.status }}
                     </span>
                   </div>
-
-                  <div class="rails-request-duration">
-                    <strong>{{ formatDuration(group.durationMs) }}</strong>
+                  <div class="rails-list-path">{{ group.path ?? 'Requisição Rails' }}</div>
+                  <div class="rails-list-row2">
+                    <span>{{ formatDuration(group.durationMs) }}</span>
                     <span v-if="group.startedAt">{{ group.startedAt }}</span>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <div class="rails-list-row1">
+                    <span class="rails-list-system-tag">Sistema</span>
+                  </div>
+                  <div class="rails-list-path">{{ group.lines[0]?.text || '—' }}</div>
+                </template>
+              </button>
+
+              <button
+                v-if="hiddenGroupsCount > 0"
+                type="button"
+                class="rails-load-more"
+                @click="loadMoreRequests"
+              >
+                Carregar mais antigas ({{ hiddenGroupsCount }} ocultas)
+              </button>
+            </div>
+
+            <div class="rails-inspector-detail">
+              <template v-if="selectedRequestGroup">
+                <header class="rails-detail-header">
+                  <div class="rails-detail-heading">
+                    <span
+                      class="rails-method"
+                      :class="methodTone(selectedRequestGroup.method)"
+                    >
+                      {{ selectedRequestGroup.method ?? 'REQ' }}
+                    </span>
+                    <span
+                      v-if="selectedRequestGroup.status"
+                      class="rails-status"
+                      :class="`rails-status-${railsRequestStatusTone(selectedRequestGroup.status)}`"
+                    >
+                      {{ selectedRequestGroup.status }}
+                    </span>
+                    <h3>{{ selectedRequestGroup.path ?? 'Requisição Rails' }}</h3>
+                  </div>
+                  <div class="rails-detail-sub">
+                    <span v-if="selectedRequestGroup.controller">
+                      {{ selectedRequestGroup.controller }}#{{ selectedRequestGroup.action }}
+                    </span>
+                    <span v-if="selectedRequestGroup.format">{{ selectedRequestGroup.format }}</span>
+                    <button
+                      type="button"
+                      :title="
+                        copiedRequestId === selectedRequestGroup.requestId
+                          ? 'Copiado'
+                          : 'Copiar request ID'
+                      "
+                      @click="copyRequestId(selectedRequestGroup.requestId)"
+                    >
+                      <ClipboardDocumentIcon aria-hidden="true" />
+                      {{ selectedRequestGroup.requestId.slice(0, 8) }}
+                    </button>
                   </div>
                 </header>
 
-                <div class="rails-request-context">
-                  <span v-if="group.controller">
-                    {{ group.controller }}#{{ group.action }}
-                  </span>
-                  <span v-if="group.format">{{ group.format }}</span>
-                  <button
-                    type="button"
-                    :title="copiedRequestId === group.requestId ? 'Copiado' : 'Copiar request ID'"
-                    @click="copyRequestId(group.requestId)"
-                  >
-                    <ClipboardDocumentIcon aria-hidden="true" />
-                    {{ group.requestId.slice(0, 8) }}
-                  </button>
+                <dl class="rails-detail-stats">
+                  <div>
+                    <dt>Duração</dt>
+                    <dd :class="{ 'stat-slow': (selectedRequestGroup.durationMs ?? 0) >= 500 }">
+                      {{ formatDuration(selectedRequestGroup.durationMs) }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Queries</dt>
+                    <dd :class="{ 'stat-warn': selectedN1Group }">
+                      {{ selectedRequestGroup.queryCount ?? 0 }}
+                      <template v-if="selectedRequestGroup.cachedQueries">
+                        · {{ selectedRequestGroup.cachedQueries }} cache
+                      </template>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>SQL</dt>
+                    <dd>{{ formatDuration(selectedRequestGroup.activeRecordDurationMs) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Views</dt>
+                    <dd>{{ formatDuration(selectedRequestGroup.viewDurationMs) }}</dd>
+                  </div>
+                  <div>
+                    <dt>GC</dt>
+                    <dd>{{ formatDuration(selectedRequestGroup.gcDurationMs) }}</dd>
+                  </div>
+                </dl>
+
+                <div v-if="selectedN1Group" class="rails-n1-callout" role="status">
+                  <ExclamationTriangleIcon aria-hidden="true" />
+                  <div>
+                    <strong>N+1 provável.</strong>
+                    Essa consulta rodou
+                    <strong>{{ selectedN1Group.count }}×</strong>
+                    nesta requisição
+                    <template v-if="selectedN1Group.label">
+                      ({{ selectedN1Group.label }})
+                    </template>
+                    · {{ formatDuration(selectedN1Group.totalMs) }} no total — considere
+                    eager loading (<code>includes</code>) na origem.
+                  </div>
                 </div>
 
-                <div class="rails-request-metrics">
-                  <span v-if="group.queryCount !== undefined">
-                    <strong>{{ group.queryCount }}</strong> queries
-                    <template v-if="group.cachedQueries"> · {{ group.cachedQueries }} cache</template>
-                  </span>
-                  <span v-if="group.activeRecordDurationMs !== undefined">
-                    SQL <strong>{{ formatDuration(group.activeRecordDurationMs) }}</strong>
-                  </span>
-                  <span v-if="group.viewDurationMs !== undefined">
-                    Views <strong>{{ formatDuration(group.viewDurationMs) }}</strong>
-                  </span>
-                  <span v-if="group.gcDurationMs !== undefined">
-                    GC <strong>{{ formatDuration(group.gcDurationMs) }}</strong>
-                  </span>
+                <div v-if="selectedRequestGroup.errorLines.length" class="rails-detail-section">
+                  <span class="rails-detail-section-title">Erro</span>
+                  <pre class="rails-detail-pre rails-detail-error">{{
+                    selectedRequestGroup.errorLines.map((line) => line.text).join('\n')
+                  }}</pre>
                 </div>
 
-                <div v-if="group.parameters" class="rails-parameters">
-                  <span>Parâmetros</span>
-                  <code>{{ group.parameters }}</code>
+                <div v-if="selectedSqlGroups.length" class="rails-detail-section">
+                  <span class="rails-detail-section-title">
+                    SQL agrupado por padrão · {{ selectedRequestGroup.sqlLines.length }} execuções
+                  </span>
+                  <div class="sql-block">
+                    <div
+                      v-for="sqlGroup in selectedSqlGroups"
+                      :key="(sqlGroup.label ?? '') + sqlGroup.pattern"
+                      class="sql-row-wrap"
+                    >
+                      <div
+                        class="sql-row"
+                        :class="{ 'sql-row-hot': sqlGroup.n1Suspect }"
+                      >
+                        <span class="sql-count" :class="{ hot: sqlGroup.n1Suspect }">
+                          ×{{ sqlGroup.count }}
+                        </span>
+                        <span class="sql-text" v-html="highlightedSql(sqlGroup.pattern)" />
+                        <span class="sql-time" :class="{ hot: sqlGroup.n1Suspect }">
+                          {{ formatDuration(sqlGroup.avgMs) }} cada · {{ formatDuration(sqlGroup.totalMs) }}
+                        </span>
+                      </div>
+                      <details class="sql-explain">
+                        <summary>
+                          <span>Entender esta consulta</span>
+                          <span class="sql-explain-hint">explicação em português</span>
+                        </summary>
+                        <div class="sql-explain-body">
+                          <p>{{ sqlGroup.explanation.description }}</p>
+                          <div class="sql-explain-return">
+                            <strong>Retorno esperado</strong>
+                            <span>{{ sqlGroup.explanation.expectedReturn }}</span>
+                          </div>
+                          <div
+                            v-if="sqlGroup.explanation.mainTable || sqlGroup.explanation.relatedTables.length"
+                            class="sql-explain-tables"
+                          >
+                            <span>Tabelas envolvidas</span>
+                            <code
+                              v-for="table in [
+                                sqlGroup.explanation.mainTable,
+                                ...sqlGroup.explanation.relatedTables,
+                              ].filter((value, index, all) => value && all.indexOf(value) === index)"
+                              :key="table"
+                            >{{ table }}</code>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
                 </div>
 
-                <div v-if="group.errorLines.length" class="rails-error-lines">
-                  <span
-                    v-for="line in group.errorLines"
+                <div v-if="selectedRequestGroup.renderLines.length" class="rails-detail-section">
+                  <span class="rails-detail-section-title">
+                    Renderização · {{ selectedRequestGroup.renderLines.length }} etapas
+                  </span>
+                  <pre class="rails-detail-pre">{{
+                    selectedRequestGroup.renderLines.map((line) => line.text).join('\n')
+                  }}</pre>
+                </div>
+
+                <div v-if="selectedParams !== undefined" class="rails-detail-section">
+                  <span class="rails-detail-section-title">Parâmetros</span>
+                  <RailsParamsTree :value="selectedParams" />
+                </div>
+                <div v-else-if="selectedRequestGroup.parameters" class="rails-detail-section">
+                  <span class="rails-detail-section-title">Parâmetros</span>
+                  <pre class="rails-detail-pre">{{ selectedRequestGroup.parameters }}</pre>
+                </div>
+
+                <div v-if="selectedRequestGroup.otherLines.length" class="rails-detail-section">
+                  <span class="rails-detail-section-title">
+                    Outras linhas · {{ selectedRequestGroup.otherLines.length }}
+                  </span>
+                  <pre class="rails-detail-pre">{{
+                    selectedRequestGroup.otherLines.map((line) => line.text || ' ').join('\n')
+                  }}</pre>
+                </div>
+              </template>
+
+              <template v-else-if="selectedGroup">
+                <span class="rails-detail-section-title">Sistema</span>
+                <div class="rails-system-group">
+                  <code
+                    v-for="line in selectedGroup.lines"
                     :key="line.id"
-                  >{{ line.text }}</span>
+                    :class="rawLineClass(line)"
+                  >{{ line.text || ' ' }}</code>
                 </div>
+              </template>
 
-                <div class="rails-request-details">
-                  <details v-if="group.sqlLines.length">
-                    <summary>
-                      <span>SQL</span>
-                      <strong>{{ group.sqlLines.length }} operações</strong>
-                      <ChevronDownIcon aria-hidden="true" />
-                    </summary>
-                    <div class="rails-detail-lines rails-sql-lines">
-                      <code
-                        v-for="line in [...group.sqlLines, ...group.sourceLines]"
-                        :key="line.id"
-                        :class="`rails-detail-${line.kind}`"
-                      >{{ line.text }}</code>
-                    </div>
-                  </details>
-
-                  <details v-if="group.renderLines.length">
-                    <summary>
-                      <span>Renderização</span>
-                      <strong>{{ group.renderLines.length }} etapas</strong>
-                      <ChevronDownIcon aria-hidden="true" />
-                    </summary>
-                    <div class="rails-detail-lines">
-                      <code
-                        v-for="line in group.renderLines"
-                        :key="line.id"
-                      >{{ line.text }}</code>
-                    </div>
-                  </details>
-
-                  <details v-if="group.otherLines.length">
-                    <summary>
-                      <span>Outras linhas</span>
-                      <strong>{{ group.otherLines.length }}</strong>
-                      <ChevronDownIcon aria-hidden="true" />
-                    </summary>
-                    <div class="rails-detail-lines">
-                      <code
-                        v-for="line in group.otherLines"
-                        :key="line.id"
-                      >{{ line.text || ' ' }}</code>
-                    </div>
-                  </details>
-                </div>
-              </article>
-
-              <div v-else class="rails-system-group">
-                <span>Sistema</span>
-                <code
-                  v-for="line in group.lines"
-                  :key="line.id"
-                  :class="rawLineClass(line)"
-                >{{ line.text || ' ' }}</code>
+              <div v-else class="rails-detail-empty">
+                Selecione uma requisição na lista à esquerda.
               </div>
-            </template>
+            </div>
           </div>
 
-          <code v-else class="project-log-raw-lines">
-            <span
-              v-for="line in visibleRawLines"
-              :key="line.id"
-              class="project-log-line"
-              :class="rawLineClass(line)"
-            >{{ line.text || ' ' }}</span>
-          </code>
+          <div
+            v-else
+            ref="logContainer"
+            class="project-log-raw-wrap"
+            tabindex="0"
+            @scroll="handleLogScroll"
+          >
+            <code class="project-log-raw-lines">
+              <span
+                v-for="line in cappedRawLines"
+                :key="line.id"
+                class="project-log-line"
+                :class="rawLineClass(line)"
+              >{{ line.text || ' ' }}</span>
+            </code>
+
+            <button
+              v-if="hiddenRawLinesCount > 0"
+              type="button"
+              class="rails-load-more"
+              @click="loadMoreRawLines"
+            >
+              Carregar linhas mais antigas ({{ hiddenRawLinesCount }} ocultas)
+            </button>
+          </div>
         </div>
 
         <footer class="project-log-terminal-footer">
@@ -550,10 +762,10 @@ watch(viewMode, () => {
             type="button"
             @click="
               followLogs = true;
-              scrollLogsToBottom();
+              scrollLogsToLatest();
             "
           >
-            Ir para o final
+            Ir para o mais recente
           </button>
         </footer>
       </div>

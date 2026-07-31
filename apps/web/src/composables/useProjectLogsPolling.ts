@@ -43,14 +43,15 @@ export function useProjectLogsPolling(
     );
   }
 
-  async function scrollLogsToBottom(): Promise<void> {
+  // The log feed renders newest-first, so "following" means staying pinned to the top.
+  async function scrollLogsToLatest(): Promise<void> {
     if (!followLogs.value) return;
 
     await nextTick();
     const element = logContainer.value;
 
     if (element) {
-      element.scrollTop = element.scrollHeight;
+      element.scrollTop = 0;
     }
   }
 
@@ -74,7 +75,7 @@ export function useProjectLogsPolling(
         logRequests.isCurrent(logGeneration)
       ) {
         logSnapshot.value = snapshot;
-        await scrollLogsToBottom();
+        await scrollLogsToLatest();
       }
     } catch (error) {
       if (
@@ -131,12 +132,7 @@ export function useProjectLogsPolling(
     const element = logContainer.value;
     if (!element) return;
 
-    const distanceFromBottom =
-      element.scrollHeight -
-      element.scrollTop -
-      element.clientHeight;
-
-    followLogs.value = distanceFromBottom < 40;
+    followLogs.value = element.scrollTop < 40;
   }
 
   async function clearLogView(): Promise<void> {
@@ -160,7 +156,7 @@ export function useProjectLogsPolling(
       ) {
         logSnapshot.value = snapshot;
         followLogs.value = true;
-        await scrollLogsToBottom();
+        await scrollLogsToLatest();
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
@@ -236,7 +232,7 @@ export function useProjectLogsPolling(
     followLogs,
     streamPaused,
     refreshLogs,
-    scrollLogsToBottom,
+    scrollLogsToLatest,
     handleLogScroll,
     clearLogView,
     toggleStream,

@@ -12,7 +12,6 @@ import './log-visual-enhancer.css';
 import './test-log-visual-polish.css';
 import './test-log-theme-fix.css';
 import './test-log-inspector.css';
-import './sql-explanation-enhancer.css';
 import './log-detail-enhancer.css';
 import './log-stream-syntax.css';
 import './git-modern-polish.css';
@@ -37,7 +36,6 @@ import { installGitSummaryHistoryEnhancer } from './git-summary-history-enhancer
 import { installGitSummaryInlineDiffFix } from './git-summary-inline-diff-fix';
 import { installLogDetailEnhancer } from './log-detail-enhancer';
 import { installLogVisualEnhancer } from './log-visual-enhancer';
-import { installSqlExplanationEnhancer } from './sql-explanation-enhancer';
 import { installTestLogAutoFollow } from './test-log-auto-follow';
 import { installTestLogInspector } from './test-log-inspector';
 import { installTestLogInspectorMutationGuard } from './test-log-inspector-mutation-guard';
@@ -65,7 +63,6 @@ try {
 } finally {
   restoreTestLogInspectorMutationObserver();
 }
-installSqlExplanationEnhancer();
 installLogDetailEnhancer();
 
 createApp(App)

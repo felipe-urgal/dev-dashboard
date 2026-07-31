@@ -1,23 +1,9 @@
-import { enhancedAttribute } from './log-visual/constants';
 import { decorateRawLine } from './log-visual/line-decorators';
 import { decorateRailsCards } from './log-visual/rails-cards';
-import { decorateRenderLine } from './log-visual/render-line';
 import { setActiveSearchQuery } from './log-visual/search';
-import { decorateSqlLine } from './log-visual/sql';
 
 function enhance(root: ParentNode = document): void {
   root.querySelectorAll<HTMLElement>('.project-log-raw-lines .project-log-line').forEach(decorateRawLine);
-  root.querySelectorAll<HTMLElement>('.rails-sql-lines code.rails-detail-sql').forEach(decorateSqlLine);
-  root.querySelectorAll<HTMLElement>('.rails-request-details details:nth-of-type(2) .rails-detail-lines code').forEach(decorateRenderLine);
-
-  root.querySelectorAll<HTMLElement>('.rails-request-details details').forEach((details) => {
-    if (details.getAttribute(enhancedAttribute) === 'true') return;
-    details.setAttribute(enhancedAttribute, 'true');
-    const summary = details.querySelector('summary');
-    const lines = details.querySelectorAll('.rails-detail-lines code');
-    if (summary && lines.length > 8) summary.classList.add('enhanced-detail-summary');
-  });
-
   decorateRailsCards(root);
 }
 
