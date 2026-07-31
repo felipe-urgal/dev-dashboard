@@ -81,6 +81,7 @@ const loading = ref(false);
 const loadingWorkspace = ref(false);
 const loadingDiff = ref(false);
 const loadingFile = ref(false);
+const remoteRefreshRunning = ref(false);
 const errorMessage = ref('');
 const workspaceErrorMessage = ref('');
 const diffErrorMessage = ref('');
@@ -127,6 +128,9 @@ function openTab(tab: GitTab): void {
   if (tab === 'diff' && !diff.value && !loadingDiff.value) {
     void loadDiff();
   }
+  if (tab === 'sync') {
+    void refreshRemotesSilently();
+  }
 }
 
 async function loadGit(): Promise<void> {
@@ -166,6 +170,30 @@ async function loadWorkspace(): Promise<void> {
         : 'Não foi possível consultar branches e remotos.';
   } finally {
     loadingWorkspace.value = false;
+  }
+}
+
+function configuredRemoteNames(): string[] {
+  return (workspace.value?.remotes ?? [])
+    .filter((remote) => remote.name === 'origin' || remote.name === 'upstream')
+    .map((remote) => remote.name);
+}
+
+async function refreshRemotesSilently(): Promise<void> {
+  if (remoteRefreshRunning.value || mutationRunning.value) return;
+  const remotes = configuredRemoteNames();
+  if (remotes.length === 0) return;
+
+  remoteRefreshRunning.value = true;
+  try {
+    const results = await Promise.allSettled(
+      remotes.map((remote) => fetchProjectGitRemote(props.project.id, remote)),
+    );
+    if (results.some((result) => result.status === 'fulfilled')) {
+      await loadWorkspace();
+    }
+  } finally {
+    remoteRefreshRunning.value = false;
   }
 }
 
@@ -356,10 +384,8 @@ async function runDeleteBranch(branch: string): Promise<void> {
 }
 
 async function runRefreshRemotes(): Promise<void> {
-  if (mutationRunning.value) return;
-  const remotes = (workspace.value?.remotes ?? [])
-    .filter((remote) => remote.name === 'origin' || remote.name === 'upstream')
-    .map((remote) => remote.name);
+  if (mutationRunning.value || remoteRefreshRunning.value) return;
+  const remotes = configuredRemoteNames();
   if (remotes.length === 0) {
     mutationErrorMessage.value = 'Nenhum remote configurado para atualizar.';
     return;
@@ -386,7 +412,7 @@ async function runRefreshRemotes(): Promise<void> {
 }
 
 async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
-  if (mutationRunning.value) return;
+  if (mutationRunning.value || remoteRefreshRunning.value) return;
   const message =
     `Trazer "${remoteBranch}" para uma branch local e trocar para ela? A árvore de trabalho deve estar limpa.`;
   if (
@@ -424,7 +450,7 @@ async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
 }
 
 async function runDeleteRemoteBranch(remoteBranch: string): Promise<void> {
-  if (mutationRunning.value) return;
+  if (mutationRunning.value || remoteRefreshRunning.value) return;
   mutationRunning.value = true;
   mutationMessage.value = '';
   mutationErrorMessage.value = '';
@@ -452,7 +478,7 @@ async function runDeleteRemoteBranch(remoteBranch: string): Promise<void> {
 }
 
 async function runMainSynchronization(): Promise<void> {
-  if (mutationRunning.value) return;
+  if (mutationRunning.value || remoteRefreshRunning.value) return;
   const message =
     'Sincronizar a main com o repositório principal e publicar em origin/main? A árvore de trabalho deve estar limpa.';
   if (
@@ -566,6 +592,7 @@ watch(
       loadGit(),
       loadWorkspace(),
     ]);
+    void refreshRemotesSilently();
   },
   { immediate: true },
 );
@@ -631,6 +658,7 @@ onBeforeUnmount(() => {
         :overview="overview"
         :workspace="workspace"
         :busy="mutationRunning"
+        :checking="remoteRefreshRunning"
         @synchronize="runMainSynchronization"
       />
 
@@ -639,7 +667,7 @@ onBeforeUnmount(() => {
         :overview="overview"
         :workspace="workspace"
         :loading="loadingWorkspace"
-        :busy="mutationRunning"
+        :busy="mutationRunning || remoteRefreshRunning"
         @create="(name) => runMutation('create-branch', name)"
         @switch="(name) => runMutation('switch-branch', name)"
         @rename="runRenameBranch"
