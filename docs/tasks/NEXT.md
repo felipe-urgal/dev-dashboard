@@ -1,4 +1,4 @@
-# Próxima atividade — 053: remover o enhancer legado da aba Diff
+# Próxima atividade — 054: remover o enhancer legado da aba Diff
 
 ## Contexto
 
