@@ -16,6 +16,7 @@ const props = defineProps<{
   overview: ProjectGitOverview;
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
+  checking?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -71,7 +72,7 @@ const available = computed(() =>
 );
 
 const status = computed(() => {
-  if (!props.workspace) {
+  if (!props.workspace || props.checking) {
     return {
       label: 'Verificando…',
       tone: 'loading',
@@ -85,7 +86,7 @@ const status = computed(() => {
   }
   if (synchronized.value) {
     return {
-      label: 'Sincronizado na última verificação',
+      label: 'Tudo sincronizado',
       tone: 'success',
     };
   }
@@ -101,13 +102,14 @@ const status = computed(() => {
   };
 });
 
-const buttonLabel = computed(() => {
-  if (props.busy) return 'Sincronizando…';
-  return synchronized.value ? 'Verificar' : 'Sincronizar';
-});
+const buttonLabel = computed(() =>
+  props.busy ? 'Sincronizando…' : 'Sincronizar',
+);
 
 const buttonDisabled = computed(() =>
   props.busy
+  || props.checking
+  || synchronized.value
   || !props.overview.clean
   || !available.value,
 );
@@ -158,7 +160,7 @@ const buttonDisabled = computed(() =>
       </div>
 
       <p class="git-sync-note">
-        A sincronização verifica o upstream, atualiza a main e publica no origin.
+        A sincronização atualiza a main e publica no origin.
       </p>
     </div>
   </section>
