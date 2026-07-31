@@ -155,7 +155,8 @@ você deve ler antes de criar qualquer rota nova:
 - Um token aleatório de 32 bytes é gerado no primeiro uso, persistido em
   `~/.config/dev-dashboard/api-token` (`0600`), exigido via o header `X-Dev-Dashboard-Token` nas
   rotas privadas, comparado com `timingSafeEqual`. `GET /api/health` é a única rota pública.
-- CORS é uma lista fechada (`http://127.0.0.1:5173`, `http://localhost:5173`); o proxy do Vite em
+- CORS é uma lista fechada (`http://127.0.0.1:5173`, `http://localhost:5173`, `http://127.0.0.1:4173`,
+  `http://localhost:4173`); o proxy do Vite em
   desenvolvimento anexa o token do lado do servidor, então ele nunca fica presente no bundle do
   frontend.
 - Leituras de log têm limite (262144 bytes, priorizando o final do arquivo) e são restritas a

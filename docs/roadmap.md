@@ -136,7 +136,7 @@ todos os projetos.
    `docs/architecture/security.md`), `git-pr` (compor e abrir a URL de
    criação de PR/MR a partir do remote `origin` já configurado, sem chamar
    API de provedor nem exigir token de terceiros — concluído, task 043),
-   snapshot/restore de banco reconhecido (ver `docs/tasks/NEXT.md`), e abrir
+   snapshot/restore de banco reconhecido (concluído, task 051), e abrir
    editor/terminal via adaptadores locais conhecidos. Integrações IA
    (`dev-claude`, `dev-ai-*`) permanecem opcionais e isoladas em um painel
    próprio, sem virar dependência do fluxo principal.
@@ -259,8 +259,8 @@ parte deste horizonte.
 
 Cada branch deve partir da base atual, ter um escopo coerente, documentar sua
 task numerada, adicionar testes proporcionais e atualizar `NEXT.md`. A próxima
-branch recomendada é a da task 036 (avisos locais de conclusão), detalhada em
-[`docs/tasks/NEXT.md`](./tasks/NEXT.md).
+branch recomendada é sempre a descrita em
+[`docs/tasks/NEXT.md`](./tasks/NEXT.md) (atualmente a task 053).
 
 Operações mutáveis devem ser pequenas e revisáveis: não agrupar várias ações
 Git/Rails privilegiadas em uma única entrega.

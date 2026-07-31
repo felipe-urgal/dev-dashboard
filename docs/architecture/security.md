@@ -273,7 +273,11 @@ A API aceita explicitamente as origens locais do dashboard:
 ```text
 http://127.0.0.1:5173
 http://localhost:5173
+http://127.0.0.1:4173
+http://localhost:4173
 ```
+
+(as duas últimas são a porta de preview do Vite, usada por `npm run preview`.)
 
 Requisições de navegador vindas de outras origens são rejeitadas.
 

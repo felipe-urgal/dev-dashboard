@@ -465,6 +465,10 @@ GET    /api/projects/:projectId/tests/history
 GET    /api/projects/:projectId/database
 POST   /api/projects/:projectId/database/:environmentId/reveal
 POST   /api/projects/:projectId/database/:environmentId/start
+GET    /api/projects/:projectId/database/snapshots
+POST   /api/projects/:projectId/database/snapshots
+POST   /api/projects/:projectId/database/snapshots/:snapshotId/restore/confirmation
+POST   /api/projects/:projectId/database/snapshots/:snapshotId/restore
 
 GET    /api/projects/:projectId/scripts
 POST   /api/projects/:projectId/scripts/confirmations
@@ -496,7 +500,8 @@ A interface web já permite:
    locais (criar, trocar, renomear e remover) e executar mutações com
    confirmação (pull, push, commit e stash);
 8. detectar e executar testes reconhecidos, incluindo um arquivo específico;
-9. inspecionar bancos locais e iniciar serviços reconhecidos;
+9. inspecionar bancos locais, iniciar serviços reconhecidos e criar/restaurar
+   snapshots de banco com confirmação explícita;
 10. consultar e executar com segurança scripts e tarefas catalogados;
 11. cancelar execuções e consultar seu histórico persistente (scripts e testes);
 12. acompanhar execuções do catálogo e de testes em tempo real por SSE;
@@ -511,10 +516,6 @@ A cobertura automatizada inclui testes unitários, testes de componentes Vue e u
 smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
-
-A próxima entrega planejada é snapshot/restore de banco no painel, com
-confirmação explícita para restauração e reaproveitamento da detecção de
-adaptador já existente.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
 para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
