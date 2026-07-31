@@ -190,7 +190,7 @@ function composeGithubUrl(options: {
   const head = sameRepository
     ? options.sourceBranch
     : `${sourceOwner}:${options.sourceBranch}`;
-  const params = new URLSearchParams({ expand: '1' });
+  const params = new URLSearchParams({ quick_pull: '1' });
   if (options.title?.trim()) params.set('title', options.title.trim());
   if (options.description?.trim()) params.set('body', options.description.trim());
   return `https://${options.target.host}/${options.target.ownerRepo}/compare/${encodeURIComponent(options.baseBranch)}...${encodeURIComponent(head)}?${params.toString()}`;
