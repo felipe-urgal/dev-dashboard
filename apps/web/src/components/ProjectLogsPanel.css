@@ -148,14 +148,57 @@
   background: var(--danger-surface);
 }
 
+/*
+ * The terminal panel keeps its own "code display" identity (like the Git
+ * diff/history viewers do) instead of just inheriting the page chrome —
+ * but unlike the very first version of this redesign, that identity now
+ * reacts to the theme too: dark defaults here, swapped for a light,
+ * white-panel equivalent under [data-theme='light'] below. Everything
+ * inside .project-log-terminal is themed off these local custom
+ * properties (plus the app's global semantic tokens for status colors)
+ * rather than hardcoded hex, the same pattern git-diff-github-theme.css
+ * uses for the diff view.
+ */
 .project-log-terminal {
+  --term-bg: #101621;
+  --term-panel: #151d29;
+  --term-text: #d9e2f0;
+  --term-text-dim: #8d9aab;
+  --term-text-faint: #7f8da0;
+  --term-text-strong: #f2f5fc;
+  --term-border: rgb(255 255 255 / 8%);
+  --term-border-soft: rgb(255 255 255 / 5%);
+  --term-border-strong: rgb(255 255 255 / 15%);
+  --term-hover: rgb(255 255 255 / 4%);
+  --term-code-bg: rgb(4 8 15 / 30%);
+  --term-purple-text: #dfc3ff;
+  --term-purple-surface: rgb(139 92 246 / 18%);
+  --term-inset-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+
   margin: 14px;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid var(--term-border);
   border-radius: var(--radius-md);
-  color: #d9e2f0;
-  background: #101621;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+  color: var(--term-text);
+  background: var(--term-bg);
+  box-shadow: var(--term-inset-shadow);
+}
+
+[data-theme='light'] .project-log-terminal {
+  --term-bg: #ffffff;
+  --term-panel: #f6f8fa;
+  --term-text: #1c222e;
+  --term-text-dim: #57606a;
+  --term-text-faint: #6e7781;
+  --term-text-strong: #0e1420;
+  --term-border: #d8dee4;
+  --term-border-soft: #eaeef2;
+  --term-border-strong: #c3cad1;
+  --term-hover: #f0f3f7;
+  --term-code-bg: #f6f8fa;
+  --term-purple-text: #6639ba;
+  --term-purple-surface: #ede4ff;
+  --term-inset-shadow: none;
 }
 
 .project-log-terminal-header,
@@ -164,15 +207,15 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #8d9aab;
-  background: #151d29;
+  color: var(--term-text-dim);
+  background: var(--term-panel);
   font-size: 10px;
 }
 
 .project-log-terminal-header {
   min-height: 42px;
   padding: 0 12px;
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  border-bottom: 1px solid var(--term-border);
 }
 
 .project-log-terminal-header > div {
@@ -184,8 +227,8 @@
 .project-log-stream-status {
   padding: 4px 7px;
   border-radius: 999px;
-  color: #91e6a8;
-  background: rgb(42 173 81 / 18%);
+  color: var(--success-text);
+  background: var(--success-surface);
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
@@ -193,8 +236,8 @@
 }
 
 .project-log-stream-paused {
-  color: #ffd09a;
-  background: rgb(220 139 45 / 18%);
+  color: var(--warning-text);
+  background: var(--warning-surface);
 }
 
 /* ---- content area: fixed-height shell, each mode manages its own scroll ---- */
@@ -210,7 +253,7 @@
   min-height: 360px;
   place-items: center;
   padding: 14px;
-  color: #7e8a9a;
+  color: var(--term-text-faint);
   text-align: center;
 }
 
@@ -227,7 +270,7 @@
   gap: 6px;
   overflow-y: auto;
   padding: 10px;
-  border-right: 1px solid rgb(255 255 255 / 8%);
+  border-right: 1px solid var(--term-border);
 }
 
 .rails-list-item {
@@ -245,20 +288,20 @@
 }
 
 .rails-list-item:hover {
-  background: rgb(255 255 255 / 4%);
+  background: var(--term-hover);
 }
 
 .rails-list-item.selected {
-  border-color: rgb(137 169 255 / 35%);
-  background: rgb(137 169 255 / 12%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rails-list-item.list-item-slow {
-  border-left-color: #e4ad53;
+  border-left-color: var(--warning-text);
 }
 
 .rails-list-item.list-item-error {
-  border-left-color: #e86666;
+  border-left-color: var(--danger-text);
 }
 
 .rails-list-row1 {
@@ -268,7 +311,7 @@
 }
 
 .rails-list-system-tag {
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
@@ -277,7 +320,7 @@
 
 .rails-list-path {
   overflow: hidden;
-  color: #d9e2f0;
+  color: var(--term-text);
   font-family: var(--font-mono);
   font-size: 11px;
   text-overflow: ellipsis;
@@ -285,14 +328,14 @@
 }
 
 .rails-list-item.selected .rails-list-path {
-  color: #f2f5fc;
+  color: var(--term-text-strong);
 }
 
 .rails-list-row2 {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-variant-numeric: tabular-nums;
@@ -301,9 +344,9 @@
 .rails-load-more {
   margin-top: 4px;
   padding: 9px 10px;
-  border: 1px dashed rgb(255 255 255 / 15%);
+  border: 1px dashed var(--term-border-strong);
   border-radius: 8px;
-  color: #a9c4ff;
+  color: var(--accent);
   background: transparent;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -312,8 +355,8 @@
 }
 
 .rails-load-more:hover {
-  border-color: rgb(137 169 255 / 45%);
-  background: rgb(137 169 255 / 8%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rails-inspector-detail {
@@ -325,7 +368,7 @@
   display: grid;
   height: 100%;
   place-items: center;
-  color: #7e8a9a;
+  color: var(--term-text-faint);
   font-size: 12px;
   text-align: center;
 }
@@ -343,7 +386,7 @@
 .rails-detail-heading h3 {
   overflow: hidden;
   margin: 0;
-  color: #f2f5fc;
+  color: var(--term-text-strong);
   font-family: var(--font-mono);
   font-size: 13.5px;
   font-weight: 700;
@@ -357,7 +400,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 8px;
-  color: #8d9aab;
+  color: var(--term-text-dim);
   font-size: 11px;
 }
 
@@ -367,17 +410,17 @@
   gap: 4px;
   margin-left: auto;
   padding: 3px 7px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid var(--term-border);
   border-radius: 6px;
-  color: #718096;
+  color: var(--term-text-dim);
   background: transparent;
   font-family: var(--font-mono);
   font-size: 10px;
 }
 
 .rails-detail-sub button:hover {
-  color: #a9c4ff;
-  border-color: rgb(137 169 255 / 35%);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .rails-detail-sub svg {
@@ -390,20 +433,20 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   margin: 0 0 14px;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid var(--term-border);
   border-radius: 9px;
-  background: rgb(255 255 255 / 8%);
+  background: var(--term-border);
   overflow: hidden;
 }
 
 .rails-detail-stats > div {
   padding: 9px 11px;
-  background: #151d29;
+  background: var(--term-panel);
 }
 
 .rails-detail-stats dt {
   margin: 0 0 4px;
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -412,7 +455,7 @@
 .rails-detail-stats dd {
   margin: 0;
   overflow: hidden;
-  color: #edf2fb;
+  color: var(--term-text-strong);
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
@@ -421,11 +464,11 @@
 }
 
 .rails-detail-stats dd.stat-slow {
-  color: #f0b95c;
+  color: var(--warning-text);
 }
 
 .rails-detail-stats dd.stat-warn {
-  color: #f3c869;
+  color: var(--warning-text);
 }
 
 .rails-n1-callout {
@@ -434,10 +477,10 @@
   gap: 9px;
   margin-bottom: 14px;
   padding: 10px 11px;
-  border: 1px solid rgb(220 139 45 / 40%);
+  border: 1px solid color-mix(in srgb, var(--warning-text) 40%, transparent);
   border-radius: 9px;
-  color: #f3c869;
-  background: rgb(220 139 45 / 10%);
+  color: var(--warning-text);
+  background: var(--warning-surface);
   font-size: 11.5px;
   line-height: 1.6;
 }
@@ -460,7 +503,7 @@
 .rails-detail-section-title {
   display: block;
   margin-bottom: 7px;
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -470,10 +513,10 @@
 .rails-detail-pre {
   margin: 0;
   padding: 10px 11px;
-  border: 1px solid rgb(255 255 255 / 7%);
+  border: 1px solid var(--term-border);
   border-radius: 8px;
-  color: #b8c2d0;
-  background: rgb(4 8 15 / 30%);
+  color: var(--term-text-dim);
+  background: var(--term-code-bg);
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.65;
@@ -482,22 +525,22 @@
 }
 
 .rails-detail-error {
-  border-color: rgb(232 102 102 / 28%);
-  color: #ffadad;
-  background: rgb(222 75 75 / 9%);
+  border-color: color-mix(in srgb, var(--danger-text) 30%, transparent);
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 /* ---- SQL: grouped, syntax-highlighted ---- */
 .sql-block {
   display: grid;
   gap: 0;
-  border: 1px solid rgb(255 255 255 / 7%);
+  border: 1px solid var(--term-border);
   border-radius: 8px;
-  background: rgb(4 8 15 / 30%);
+  background: var(--term-code-bg);
 }
 
 .sql-row-wrap {
-  border-bottom: 1px solid rgb(255 255 255 / 5%);
+  border-bottom: 1px solid var(--term-border-soft);
 }
 
 .sql-row-wrap:last-child {
@@ -513,11 +556,11 @@
 }
 
 .sql-row-hot {
-  background: rgb(220 139 45 / 6%);
+  background: color-mix(in srgb, var(--warning-text) 8%, transparent);
 }
 
 .sql-explain {
-  border-top: 1px dashed rgb(255 255 255 / 6%);
+  border-top: 1px dashed var(--term-border-soft);
 }
 
 .sql-explain summary {
@@ -525,7 +568,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 11px;
-  color: #7f8da0;
+  color: var(--term-text-faint);
   cursor: pointer;
   font-size: 10px;
   font-weight: 700;
@@ -537,11 +580,11 @@
 }
 
 .sql-explain summary:hover {
-  color: #a9c4ff;
+  color: var(--accent);
 }
 
 .sql-explain-hint {
-  color: #5a6579;
+  color: var(--term-text-faint);
   font-weight: 400;
   text-transform: none;
   letter-spacing: normal;
@@ -555,7 +598,7 @@
 
 .sql-explain-body p {
   margin: 0;
-  color: #c7d0dd;
+  color: var(--term-text-dim);
   font-size: 11.5px;
   line-height: 1.6;
 }
@@ -567,7 +610,7 @@
 }
 
 .sql-explain-return strong {
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
@@ -575,7 +618,7 @@
 }
 
 .sql-explain-return span {
-  color: #b8c2d0;
+  color: var(--term-text-dim);
 }
 
 .sql-explain-tables {
@@ -587,19 +630,19 @@
 }
 
 .sql-explain-tables > span {
-  color: #7f8da0;
+  color: var(--term-text-faint);
 }
 
 .sql-explain-tables code {
   padding: 2px 6px;
   border-radius: 4px;
-  color: #8fe6bb;
-  background: rgb(42 173 81 / 12%);
+  color: var(--success-text);
+  background: var(--success-surface);
   font-family: var(--font-mono);
 }
 
 .sql-count {
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -607,7 +650,7 @@
 }
 
 .sql-count.hot {
-  color: #f3c869;
+  color: var(--warning-text);
 }
 
 .sql-text {
@@ -619,7 +662,7 @@
 }
 
 .sql-time {
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-variant-numeric: tabular-nums;
@@ -627,29 +670,32 @@
 }
 
 .sql-time.hot {
-  color: #f3c869;
+  color: var(--warning-text);
 }
 
 /*
  * .sql-text is filled via v-html (already-highlighted markup from
  * highlightSqlHtml), so its spans never receive the component's scope
  * attribute — :deep() is required for these rules to actually match.
+ * The colors reuse the same --git-syntax-* tokens the Git diff/history
+ * viewers already use for code, so SQL reads consistently with the rest
+ * of the app and gets their light-theme values for free.
  */
 .sql-text :deep(.sql-tk-kw) {
-  color: #ff9edb;
+  color: var(--git-syntax-keyword);
   font-weight: 700;
 }
 
 .sql-text :deep(.sql-tk-ident) {
-  color: #8fe6bb;
+  color: var(--git-syntax-property);
 }
 
 .sql-text :deep(.sql-tk-str) {
-  color: #f0b95c;
+  color: var(--git-syntax-string);
 }
 
 .sql-text :deep(.sql-tk-num) {
-  color: #c9a9ff;
+  color: var(--git-syntax-number);
 }
 
 /* ---- system (non-request) log group, shown in the detail pane ---- */
@@ -657,15 +703,15 @@
   display: grid;
   gap: 3px;
   padding: 10px 12px;
-  border: 1px dashed rgb(255 255 255 / 10%);
+  border: 1px dashed var(--term-border-strong);
   border-radius: 8px;
-  background: rgb(255 255 255 / 2%);
+  background: var(--term-hover);
 }
 
 .rails-system-group code {
   display: block;
   min-height: 18px;
-  color: #c7d0dd;
+  color: var(--term-text-dim);
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.65;
@@ -689,48 +735,48 @@
 }
 
 .method-read {
-  color: #9ac2ff;
-  background: rgb(69 127 214 / 18%);
+  color: var(--info-text);
+  background: var(--info-surface);
 }
 
 .method-post {
-  color: #91e6a8;
-  background: rgb(42 173 81 / 18%);
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .method-write {
-  color: #dfc3ff;
-  background: rgb(139 92 246 / 18%);
+  color: var(--term-purple-text);
+  background: var(--term-purple-surface);
 }
 
 .method-delete {
-  color: #ffadad;
-  background: rgb(222 75 75 / 18%);
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .rails-status-success {
-  color: #91e6a8;
-  background: rgb(42 173 81 / 16%);
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .rails-status-redirect {
-  color: #9ac2ff;
-  background: rgb(69 127 214 / 16%);
+  color: var(--info-text);
+  background: var(--info-surface);
 }
 
 .rails-status-warning {
-  color: #ffd09a;
-  background: rgb(220 139 45 / 18%);
+  color: var(--warning-text);
+  background: var(--warning-surface);
 }
 
 .rails-status-error {
-  color: #ffadad;
-  background: rgb(222 75 75 / 18%);
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .rails-status-neutral {
-  color: #b8c2d0;
-  background: rgb(255 255 255 / 7%);
+  color: var(--term-text-dim);
+  background: var(--term-border-soft);
 }
 
 /* ---- raw view ---- */
@@ -750,45 +796,45 @@
 .project-log-line {
   display: block;
   min-height: 18px;
-  color: #c7d0dd;
+  color: var(--term-text-dim);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .project-log-line-request {
-  color: #9ac2ff !important;
+  color: var(--info-text) !important;
 }
 
 .project-log-line-controller {
-  color: #dfc3ff !important;
+  color: var(--term-purple-text) !important;
 }
 
 .project-log-line-sql {
-  color: #b8d4ff !important;
+  color: var(--git-syntax-property) !important;
 }
 
 .project-log-line-source,
 .project-log-line-render {
-  color: #8491a4 !important;
+  color: var(--term-text-faint) !important;
 }
 
 .project-log-line-warning {
-  color: #f4cf8e !important;
+  color: var(--warning-text) !important;
 }
 
 .project-log-line-error {
-  color: #ff9a9a !important;
+  color: var(--danger-text) !important;
 }
 
 .project-log-terminal-footer {
   min-height: 36px;
   padding: 0 12px;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid var(--term-border);
 }
 
 .project-log-terminal-footer button {
   border: 0;
-  color: #a9c4ff;
+  color: var(--accent);
   background: transparent;
   font-size: 10px;
   font-weight: 700;
@@ -992,7 +1038,7 @@
 
   .rails-inspector-list {
     border-right: 0;
-    border-bottom: 1px solid rgb(255 255 255 / 8%);
+    border-bottom: 1px solid var(--term-border);
   }
 
   .rails-detail-stats {

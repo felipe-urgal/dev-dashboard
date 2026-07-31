@@ -99,11 +99,18 @@ function formatScalar(value: ParamValue): string {
  * translucent background, so deeper values sat under N stacked overlays
  * and looked progressively darker/muddier instead of just indented.
  */
+/*
+ * Colors read var()s defined on the ancestor .project-log-terminal (and
+ * the app's global semantic/syntax tokens) — custom properties inherit
+ * through the DOM regardless of Vue's per-component scoped CSS, so this
+ * stays in sync with the terminal's dark/light theming without redefining
+ * anything here.
+ */
 .ptree-root {
   padding: 9px 11px;
-  border: 1px solid rgb(255 255 255 / 7%);
+  border: 1px solid var(--term-border);
   border-radius: 8px;
-  background: rgb(4 8 15 / 30%);
+  background: var(--term-code-bg);
 }
 
 .prow {
@@ -113,28 +120,28 @@ function formatScalar(value: ParamValue): string {
 }
 
 .pkey {
-  color: #9ac2ff;
+  color: var(--info-text);
 }
 
 .pcolon {
-  color: #7f8da0;
+  color: var(--term-text-faint);
 }
 
 .pval-str {
-  color: #f0b95c;
+  color: var(--git-syntax-string);
   overflow-wrap: anywhere;
 }
 
 .pval-num {
-  color: #c9a9ff;
+  color: var(--git-syntax-number);
 }
 
 .pval-bool {
-  color: #91e6a8;
+  color: var(--success-text);
 }
 
 .pval-null {
-  color: #7f8da0;
+  color: var(--term-text-faint);
   font-style: italic;
 }
 
@@ -142,17 +149,17 @@ function formatScalar(value: ParamValue): string {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border: 1px solid rgb(222 75 75 / 35%);
+  border: 1px solid color-mix(in srgb, var(--danger-text) 35%, transparent);
   border-radius: 4px;
-  color: #ffadad;
-  background: rgb(222 75 75 / 10%);
+  color: var(--danger-text);
+  background: var(--danger-surface);
   font-size: 9.5px;
   font-weight: 700;
 }
 
 .pnest {
   padding-left: 14px;
-  border-left: 1px solid rgb(255 255 255 / 8%);
+  border-left: 1px solid var(--term-border);
   margin-left: 3px;
 }
 </style>
