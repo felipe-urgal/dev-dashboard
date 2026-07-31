@@ -93,22 +93,20 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
-test('keeps main synchronization available when cached refs are equal', async () => {
+test('shows remote verification without spinning a merely disabled sync button', () => {
   const wrapper = mount(ProjectGitSyncPage, {
     props: {
       overview,
       workspace,
       busy: false,
+      checking: true,
     },
   });
 
   const button = wrapper.find('.git-sync-button');
-  assert.equal(button.attributes('disabled'), undefined);
-  assert.match(wrapper.text(), /Sincronizado na última verificação/);
-  assert.match(button.text(), /Verificar/);
-
-  await button.trigger('click');
-  assert.equal(wrapper.emitted('synchronize')?.length, 1);
+  assert.ok(button.attributes('disabled') !== undefined);
+  assert.match(wrapper.text(), /Verificando/);
+  assert.equal(button.classes('is-busy'), false);
 });
 
 test('remote-only branch can be tracked and removed from origin', async () => {
@@ -130,6 +128,7 @@ test('remote-only branch can be tracked and removed from origin', async () => {
     .findAll('.branch-table-row')
     .find((row) => row.text().includes('feature/remota'));
   assert.ok(remoteRow);
+  assert.match(remoteRow.text(), /Somente leitura/);
 
   const trackButton = remoteRow
     .findAll('button')
