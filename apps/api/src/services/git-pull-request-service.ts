@@ -229,17 +229,24 @@ export class GitPullRequestService {
   ): Promise<GitPullRequestUrl> {
     await requireRepository(projectPath);
     const branch = await currentBranch(projectPath);
-    const published = await publishedReference(projectPath, branch);
-    const separator = published.indexOf('/');
-    const sourceRemote = separator > 0 ? published.slice(0, separator) : 'origin';
-    const sourceBranch = separator > 0 ? published.slice(separator + 1) : branch;
-
     const targetRemote = options.targetRemote ?? 'origin';
     const baseBranchName = options.baseBranch?.trim()
       || await defaultBranch(projectPath, targetRemote);
     if (options.baseBranch?.trim()) {
       await requireBaseBranch(projectPath, targetRemote, baseBranchName);
     }
+
+    if (targetRemote === 'origin' && branch === baseBranchName) {
+      throw new GitPullRequestError(
+        'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
+        `Você está na branch principal ("${baseBranchName}"). Troque para uma branch de feature antes de abrir uma Pull Request.`,
+      );
+    }
+
+    const published = await publishedReference(projectPath, branch);
+    const separator = published.indexOf('/');
+    const sourceRemote = separator > 0 ? published.slice(0, separator) : 'origin';
+    const sourceBranch = separator > 0 ? published.slice(separator + 1) : branch;
 
     const [sourceRemoteUrl, targetRemoteUrl] = await Promise.all([
       remoteUrl(projectPath, sourceRemote),
