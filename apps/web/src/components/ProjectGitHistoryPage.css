@@ -1,5 +1,7 @@
 .git-history-page {
   display: grid;
+  /* Sem isto a tabela empurra a largura do painel inteiro. */
+  min-width: 0;
   gap: var(--space-4);
   color: var(--text);
   font-family: var(--font-family);
@@ -109,14 +111,20 @@
 
 /* ── Tabela de commits ─────────────────────────────────────────── */
 
-.git-history-table {
-  width: 100%;
+.git-history-table-wrapper {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  overflow-x: auto;
+}
+
+.git-history-table {
+  width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
-  background: var(--surface-1);
-  overflow: hidden;
 }
 
 .git-history-table thead th {
@@ -172,18 +180,42 @@
   outline-offset: -2px;
 }
 
+.git-history-col-date,
+.git-history-table thead th:nth-child(1) { width: 78px; }
+
+.git-history-col-author,
+.git-history-table thead th:nth-child(3) { width: 200px; }
+
+.git-history-col-time,
+.git-history-table thead th:nth-child(4) { width: 118px; }
+
+.git-history-col-action,
+.git-history-table thead th:nth-child(5) { width: 28px; }
+
 .git-history-time {
-  width: 72px;
   color: var(--text-dim);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * A célula continua sendo célula de tabela: aplicar `display: flex` no `td`
+ * tira a coluna do algoritmo da tabela e foi o que quebrava a linha.
+ */
 .git-history-subject {
+  overflow: hidden;
+}
+
+.git-history-subject-inner {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
+  overflow: hidden;
+}
+
+.git-history-subject code {
+  flex: none;
 }
 
 .git-history-subject code {
@@ -191,7 +223,9 @@
   font-size: var(--font-sm);
 }
 
-.git-history-subject span {
+.git-history-subject-text {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
@@ -199,6 +233,7 @@
 }
 
 .git-history-subject em {
+  flex: none;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--info-surface);
@@ -208,11 +243,13 @@
 }
 
 .git-history-author {
-  width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-muted);
 }
 
-.git-history-author span:last-child {
+.git-history-author-name {
   margin-left: 7px;
 }
 
@@ -230,13 +267,11 @@
 }
 
 .git-history-relative {
-  width: 130px;
   color: var(--text-dim);
   white-space: nowrap;
 }
 
 .git-history-chevron {
-  width: 28px;
   color: var(--text-dim);
   text-align: right;
 }
@@ -264,7 +299,14 @@
 
 .git-history-pagination div {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+}
+
+.git-history-pagination-gap {
+  padding: 0 4px;
+  color: var(--text-dim);
 }
 
 .git-history-pagination button {
@@ -325,11 +367,40 @@
   color: var(--warning-text);
   font-size: var(--font-sm);
 }
-@media (max-width: 860px) {
+/* Colunas somem por prioridade em vez de a tabela cortar o conteúdo. */
+@media (max-width: 1080px) {
+  .git-history-col-author,
+  .git-history-table thead th:nth-child(3) { width: 150px; }
+
+  .git-history-col-time,
+  .git-history-table thead th:nth-child(4) { width: 100px; }
+}
+
+@media (max-width: 900px) {
+  .git-history-col-author { width: 0; }
+
   .git-history-author,
-  .git-history-relative {
+  th:nth-child(3) {
     display: none;
   }
 
   .git-history-refresh { margin-left: 0; }
+}
+
+@media (max-width: 680px) {
+  .git-history-col-time { width: 0; }
+
+  .git-history-relative,
+  th:nth-child(4) {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .git-history-col-date { width: 0; }
+
+  .git-history-time,
+  th:nth-child(1) {
+    display: none;
+  }
 }

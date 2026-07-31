@@ -48,7 +48,6 @@ type DiffViewMode = 'unified' | 'split';
 
 interface FileState {
   file: GitCommitDetailFile;
-  open: boolean;
   loading: boolean;
   error: string;
   diff: GitCommitFileDiff | null;
@@ -71,6 +70,7 @@ const detailLoading = ref(false);
 const detailError = ref('');
 const selectedHash = ref('');
 const fileStates = ref<FileState[]>([]);
+const selectedFilePath = ref('');
 const viewMode = ref<DiffViewMode>(readStoredViewMode());
 const copiedHash = ref('');
 
@@ -144,6 +144,34 @@ const commitBody = computed(() => {
 
 const totalPages = computed(() => Math.max(1, history.value?.totalPages ?? 1));
 
+/**
+ * Repositórios grandes têm centenas de páginas: mostramos uma janela ao redor
+ * da atual, com as pontas sempre acessíveis.
+ */
+const pageWindow = computed<Array<number | 'gap'>>(() => {
+  const total = totalPages.value;
+  const current = page.value;
+  if (total <= 7) return Array.from({ length: total }, (_unused, index) => index + 1);
+
+  const pages = new Set<number>([1, total, current]);
+  for (const offset of [-1, 1]) {
+    const target = current + offset;
+    if (target > 1 && target < total) pages.add(target);
+  }
+  if (current <= 3) [2, 3, 4].forEach((item) => pages.add(item));
+  if (current >= total - 2) [total - 3, total - 2, total - 1].forEach((item) => pages.add(item));
+
+  const ordered = [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right);
+  const result: Array<number | 'gap'> = [];
+  let previous = 0;
+  for (const item of ordered) {
+    if (previous && item - previous > 1) result.push('gap');
+    result.push(item);
+    previous = item;
+  }
+  return result;
+});
+
 const rangeLabel = computed(() => {
   const total = history.value?.total ?? 0;
   if (total === 0) return 'Nenhum commit encontrado';
@@ -211,6 +239,15 @@ function relativeTime(value: string): string {
   return `há ${years} ano${years === 1 ? '' : 's'}`;
 }
 
+function fileName(filePath: string): string {
+  return filePath.split('/').filter(Boolean).at(-1) ?? filePath;
+}
+
+function directoryName(filePath: string): string {
+  const parts = filePath.split('/').filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+}
+
 function authorInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -271,6 +308,7 @@ async function openCommit(commit: GitCommitHistoryEntry): Promise<void> {
   selectedHash.value = commit.hash;
   detail.value = null;
   fileStates.value = [];
+  selectedFilePath.value = '';
   detailError.value = '';
   detailLoading.value = true;
 
@@ -280,14 +318,14 @@ async function openCommit(commit: GitCommitHistoryEntry): Promise<void> {
     detail.value = result;
     fileStates.value = result.files.map((file) => reactive<FileState>({
       file,
-      // Com um arquivo só, o diff já abre — é o caso mais comum na revisão.
-      open: result.files.length === 1,
       loading: false,
       error: '',
       diff: null,
     }));
+    // O diff do primeiro arquivo já aparece: o modal nunca abre vazio.
     const first = fileStates.value[0];
-    if (first?.open) void loadFileDiff(first);
+    selectedFilePath.value = first?.file.path ?? '';
+    if (first) void loadFileDiff(first);
   } catch (error) {
     if (controller.signal.aborted) return;
     detailError.value = error instanceof Error
@@ -303,6 +341,7 @@ function closeCommit(): void {
   selectedHash.value = '';
   detail.value = null;
   fileStates.value = [];
+  selectedFilePath.value = '';
   detailError.value = '';
 }
 
@@ -325,9 +364,14 @@ async function loadFileDiff(state: FileState): Promise<void> {
   }
 }
 
-function toggleFile(state: FileState): void {
-  state.open = !state.open;
-  if (state.open) void loadFileDiff(state);
+const selectedFile = computed(() =>
+  fileStates.value.find((state) => state.file.path === selectedFilePath.value) ?? null,
+);
+
+function selectFile(path: string): void {
+  selectedFilePath.value = path;
+  const state = fileStates.value.find((item) => item.file.path === path);
+  if (state) void loadFileDiff(state);
 }
 
 async function copyHash(hash: string): Promise<void> {
@@ -451,7 +495,8 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <table class="git-history-table" data-git-action-feedback="off">
+      <div class="git-history-table-wrapper">
+        <table class="git-history-table" data-git-action-feedback="off">
         <thead>
           <tr>
             <th scope="col">Data</th>
@@ -482,13 +527,15 @@ onBeforeUnmount(() => {
           >
             <td class="git-history-time">{{ formatTime(commit.authoredAt) }}</td>
             <td class="git-history-subject">
-              <code>{{ commit.shortHash }}</code>
-              <span>{{ commit.subject }}</span>
-              <em v-if="commit.parentCount >= 2">merge</em>
+              <span class="git-history-subject-inner">
+                <code>{{ commit.shortHash }}</code>
+                <span class="git-history-subject-text">{{ commit.subject }}</span>
+                <em v-if="commit.parentCount >= 2">merge</em>
+              </span>
             </td>
             <td class="git-history-author">
               <span class="git-history-avatar" aria-hidden="true">{{ authorInitials(commit.authorName) }}</span>
-              <span :title="commit.authorEmail">{{ commit.authorName }}</span>
+              <span class="git-history-author-name" :title="commit.authorEmail">{{ commit.authorName }}</span>
             </td>
             <td class="git-history-relative" :title="formatFullDate(commit.authoredAt)">
               {{ relativeTime(commit.authoredAt) }}
@@ -496,23 +543,26 @@ onBeforeUnmount(() => {
             <td class="git-history-chevron" aria-hidden="true">›</td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
 
       <nav class="git-history-pagination" aria-label="Paginação do histórico">
         <span>{{ rangeLabel }}</span>
         <div>
           <button type="button" :disabled="page <= 1 || loading" @click="goToPage(page - 1)">Anterior</button>
-          <button
-            v-for="target in totalPages"
-            :key="target"
-            type="button"
-            :class="{ active: target === page }"
-            :aria-current="target === page ? 'page' : undefined"
-            :disabled="loading"
-            @click="goToPage(target)"
-          >
-            {{ target }}
-          </button>
+          <template v-for="(target, index) in pageWindow" :key="`${target}-${index}`">
+            <span v-if="target === 'gap'" class="git-history-pagination-gap" aria-hidden="true">…</span>
+            <button
+              v-else
+              type="button"
+              :class="{ active: target === page }"
+              :aria-current="target === page ? 'page' : undefined"
+              :disabled="loading"
+              @click="goToPage(target)"
+            >
+              {{ target }}
+            </button>
+          </template>
           <button type="button" :disabled="page >= totalPages || loading" @click="goToPage(page + 1)">Próxima</button>
         </div>
       </nav>
@@ -601,57 +651,80 @@ onBeforeUnmount(() => {
               Este commit não alterou arquivos.
             </p>
 
-            <article
-              v-for="state in fileStates"
-              :key="state.file.path"
-              class="git-history-file"
-              :class="{ 'is-open': state.open }"
-            >
-              <button
-                type="button"
-                class="git-history-file-head"
-                :aria-expanded="state.open"
-                @click="toggleFile(state)"
-              >
-                <span class="git-history-file-path" :title="state.file.path">
-                  {{ state.file.path }}
-                  <small v-if="state.file.previousPath">de {{ state.file.previousPath }}</small>
-                </span>
-                <StatusBadge :tone="gitFileToneFor(state.file.status)">
-                  {{ statusLabels[state.file.status] }}
-                </StatusBadge>
-                <span v-if="state.file.binary" class="git-history-file-counts">binário</span>
-                <span v-else class="git-history-file-counts git-history-delta">
-                  <b class="is-addition">+{{ state.file.additions }}</b>
-                  <b class="is-deletion">−{{ state.file.deletions }}</b>
-                </span>
-                <span class="git-history-file-chevron" aria-hidden="true">›</span>
-              </button>
+            <div v-else class="git-history-diff-layout">
+              <label class="git-history-file-select">
+                <span class="visually-hidden">Arquivo do commit</span>
+                <select
+                  :value="selectedFilePath"
+                  @change="selectFile(($event.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="state in fileStates" :key="state.file.path" :value="state.file.path">
+                    {{ state.file.path }} (+{{ state.file.additions }} −{{ state.file.deletions }})
+                  </option>
+                </select>
+              </label>
 
-              <div v-if="state.open" class="git-history-file-body">
-                <p v-if="state.error" class="project-error" role="alert">{{ state.error }}</p>
+              <nav class="git-history-file-list" aria-label="Arquivos do commit">
+                <button
+                  v-for="state in fileStates"
+                  :key="state.file.path"
+                  type="button"
+                  :class="{ active: state.file.path === selectedFilePath }"
+                  :aria-current="state.file.path === selectedFilePath ? 'true' : undefined"
+                  @click="selectFile(state.file.path)"
+                >
+                  <span class="git-history-file-name" :title="state.file.path">
+                    {{ fileName(state.file.path) }}
+                  </span>
+                  <span class="git-history-file-dir">{{ directoryName(state.file.path) }}</span>
+                  <span v-if="state.file.binary" class="git-history-file-counts">binário</span>
+                  <span v-else class="git-history-file-counts git-history-delta">
+                    <b class="is-addition">+{{ state.file.additions }}</b>
+                    <b class="is-deletion">−{{ state.file.deletions }}</b>
+                  </span>
+                </button>
+              </nav>
 
-                <div v-else-if="state.loading" class="git-history-empty">
-                  <ArrowPathIcon class="spinning" aria-hidden="true" />
-                  Carregando diff…
-                </div>
+              <section v-if="selectedFile" class="git-history-diff-pane">
+                <header class="git-history-diff-pane-head">
+                  <span class="git-history-file-path" :title="selectedFile.file.path">
+                    {{ selectedFile.file.path }}
+                    <small v-if="selectedFile.file.previousPath">
+                      de {{ selectedFile.file.previousPath }}
+                    </small>
+                  </span>
+                  <StatusBadge :tone="gitFileToneFor(selectedFile.file.status)">
+                    {{ statusLabels[selectedFile.file.status] }}
+                  </StatusBadge>
+                </header>
 
-                <div v-else-if="state.diff?.binary" class="git-history-empty">
-                  Diff binário não disponível.
-                </div>
+                <div class="git-history-file-body">
+                  <p v-if="selectedFile.error" class="project-error" role="alert">
+                    {{ selectedFile.error }}
+                  </p>
 
-                <template v-else-if="state.diff">
-                  <div v-if="state.diff.truncated" class="git-history-notice">
-                    O diff foi truncado para manter a interface responsiva.
+                  <div v-else-if="selectedFile.loading" class="git-history-empty">
+                    <ArrowPathIcon class="spinning" aria-hidden="true" />
+                    Carregando diff…
                   </div>
-                  <GitFileDiffView
-                    :content="state.diff.content"
-                    :path="state.file.path"
-                    :view-mode="viewMode"
-                  />
-                </template>
-              </div>
-            </article>
+
+                  <div v-else-if="selectedFile.diff?.binary" class="git-history-empty">
+                    Diff binário não disponível.
+                  </div>
+
+                  <template v-else-if="selectedFile.diff">
+                    <div v-if="selectedFile.diff.truncated" class="git-history-notice">
+                      O diff foi truncado para manter a interface responsiva.
+                    </div>
+                    <GitFileDiffView
+                      :content="selectedFile.diff.content"
+                      :path="selectedFile.file.path"
+                      :view-mode="viewMode"
+                    />
+                  </template>
+                </div>
+              </section>
+            </div>
 
             <footer class="git-history-legend">
               <span><i class="is-addition">+</i> Adicionado</span>

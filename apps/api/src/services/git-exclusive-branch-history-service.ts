@@ -2,6 +2,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+
+/** Teto de itens por página, alinhado ao schema das rotas de histórico. */
+const HISTORY_PAGE_SIZE_LIMIT = 50;
 const FIELD_SEPARATOR = '\u001f';
 const RECORD_SEPARATOR = '\u001e';
 const HISTORY_FORMAT = `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`;
@@ -255,7 +258,7 @@ export async function listExclusiveBranchCommits(
   await requireRepository(projectPath);
 
   const page = Math.max(1, Math.floor(options.page ?? 1));
-  const pageSize = Math.min(10, Math.max(1, Math.floor(options.pageSize ?? 10)));
+  const pageSize = Math.min(HISTORY_PAGE_SIZE_LIMIT, Math.max(1, Math.floor(options.pageSize ?? 10)));
   const reference = await resolveReference(projectPath, options.reference);
 
   if (!reference.exists) {

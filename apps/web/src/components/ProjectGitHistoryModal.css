@@ -13,8 +13,8 @@
 .git-history-modal {
   display: flex;
   flex-direction: column;
-  width: min(1080px, 100%);
-  max-height: min(88vh, 900px);
+  width: min(1320px, 100%);
+  height: min(90vh, 960px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
@@ -86,10 +86,14 @@
 }
 
 .git-history-modal-body {
-  display: grid;
+  /* Coluna flexível: o painel de diff fica com toda a altura que sobrar. */
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .git-history-commit-body {
@@ -160,32 +164,111 @@
   box-shadow: var(--shadow-1);
 }
 
-/* ── Arquivos do commit ────────────────────────────────────────── */
+/* ── Arquivos do commit: lista à esquerda, diff à direita ──────── */
 
-.git-history-file {
+.git-history-diff-layout {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+/* O select só aparece quando não cabe a lista lateral. */
+.git-history-file-select { display: none; }
+
+.git-history-file-select select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-sm);
+}
+
+.git-history-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  overflow-y: auto;
+}
+
+.git-history-file-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.git-history-file-list button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.git-history-file-list button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.git-history-file-name {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-history-file-dir {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.git-history-file-counts {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.git-history-diff-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
   overflow: hidden;
 }
 
-.git-history-file-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto 20px;
+.git-history-diff-pane-head {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
-  width: 100%;
   padding: 9px var(--space-3);
-  border: 0;
+  border-bottom: 1px solid var(--border);
   background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.git-history-file-head:hover {
-  background: var(--surface-3);
 }
 
 .git-history-file-path {
@@ -201,28 +284,9 @@
   color: var(--text-dim);
 }
 
-.git-history-file-counts {
-  color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--font-sm);
-}
-
-.git-history-file-chevron {
-  color: var(--text-dim);
-  transition: transform .18s ease;
-}
-
-.git-history-file.is-open .git-history-file-chevron {
-  transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .git-history-file-chevron { transition: none; }
-}
-
 .git-history-file-body {
-  border-top: 1px solid var(--border);
-  overflow-x: auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .git-history-legend {
@@ -418,11 +482,14 @@
 .git-history-file-body .hljs-template-variable,
 .git-history-file-body .hljs-property { color: var(--git-syntax-variable); }
 
-@media (max-width: 720px) {
-  .git-history-modal { max-height: 92vh; }
+@media (max-width: 900px) {
+  .git-history-modal { height: 94vh; }
 
-  .git-history-file-head {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 6px;
+  .git-history-diff-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
+
+  .git-history-file-select { display: block; }
+  .git-history-file-list { display: none; }
 }

@@ -23,8 +23,10 @@ montavam a tela por fora do Vue.
   ("Mostrando 1 a 20 de 32 commits");
 - clicar em uma linha abre o **modal do commit**: hash com copiar, assunto,
   autor, data, corpo da mensagem e "Arquivos alterados (N)";
-- cada arquivo abre seu próprio diff, carregado sob demanda; com um único
-  arquivo, o diff já vem aberto;
+- o modal é **lista de arquivos + painel de diff**: a lista fica à esquerda e o
+  diff do arquivo selecionado ocupa o resto do modal, carregado sob demanda. Em
+  telas estreitas a lista vira um `select`. O primeiro arquivo já abre com o
+  diff visível;
 - o diff usa a mesma renderização da aba Diff — **destaque intralinha**,
   **realce de sintaxe com detecção de linguagem** e alternância entre
   **unificado** e **lado a lado** (preferência persistida), além da legenda
@@ -95,6 +97,18 @@ A rota nova segue o checklist de `docs/architecture/security.md`:
   destaque intralinha, alternância unificado/lado a lado, fechamento e
   paginação.
 
+## Detalhes de layout que exigiram cuidado
+
+- `td { display: flex }` tira a célula do algoritmo da tabela: era o que
+  quebrava a linha e estreitava a coluna do assunto. O flex passou para um
+  elemento interno;
+- com `table-layout: fixed` quem define as larguras é a primeira linha, então
+  elas vivem no `colgroup` **e** nos `th` do `thead`;
+- a paginação mostra uma janela de páginas com as pontas (`1 … 7 8 9 … 85`) em
+  vez de um botão por página;
+- as colunas Autor, Tempo e Data somem por prioridade conforme a largura, em vez
+  de a tabela cortar o conteúdo.
+
 ## Limitações
 
 - não há expansão de contexto (`@@`) no histórico: exigiria ler faixas de linhas
@@ -103,4 +117,6 @@ A rota nova segue o checklist de `docs/architecture/security.md`:
 - `GitFileDiffView.vue` compartilha a renderização com a aba Diff por
   duplicação de template — a aba Diff mantém sua própria cópia porque nela as
   linhas convivem com os controles de expansão;
-- o modal não navega entre commits (Prev/Next) nem entre arquivos pelo teclado.
+- o modal não navega entre commits (Prev/Next) nem entre arquivos pelo teclado;
+- abaixo de ~860px o painel Git inteiro tem overflow horizontal por causa das
+  sub-abas (`git-navigation-bar`), comportamento anterior a esta entrega.

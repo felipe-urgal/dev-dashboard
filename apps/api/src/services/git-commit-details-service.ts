@@ -9,6 +9,8 @@ const RECORD_SEPARATOR = '\u001e';
 const PATCH_LIMIT = 320_000;
 const FILE_PATCH_LIMIT = 262_144;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
+/** Teto de itens por página, alinhado ao schema das rotas de histórico. */
+const HISTORY_PAGE_SIZE_LIMIT = 50;
 const HISTORY_REFERENCE_PATTERN = /^(?!-)[^\u0000-\u001f\u007f]{1,250}$/;
 
 export type GitCommitFileStatus =
@@ -314,7 +316,7 @@ export async function listBranchCommits(
   await requireRepository(projectPath);
 
   const page = Math.max(1, Math.floor(requestedPage));
-  const pageSize = Math.min(10, Math.max(1, Math.floor(requestedPageSize)));
+  const pageSize = Math.min(HISTORY_PAGE_SIZE_LIMIT, Math.max(1, Math.floor(requestedPageSize)));
   const reference = await resolveHistoryReference(projectPath, requestedReference);
 
   if (!reference.exists) {
