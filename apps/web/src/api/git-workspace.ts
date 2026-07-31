@@ -117,6 +117,43 @@ export async function trackProjectGitBranch(
   return response.branch.branch;
 }
 
+export async function prepareProjectGitRemoteBranchDelete(
+  projectId: string,
+  remoteBranch: string,
+): Promise<GitMutationConfirmation> {
+  const response = await requestJson<GitTrackingConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/remote/delete/confirmations`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ remoteBranch }),
+    },
+  );
+
+  return response.confirmation;
+}
+
+export async function deleteProjectGitRemoteBranch(
+  projectId: string,
+  remoteBranch: string,
+  confirmationToken: string,
+): Promise<string> {
+  const response = await requestJson<GitBranchMutationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/branches/remote/delete`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ remoteBranch, confirmationToken }),
+    },
+  );
+
+  return response.branch.branch;
+}
+
 export async function compareProjectGitReference(
   projectId: string,
   reference: string,

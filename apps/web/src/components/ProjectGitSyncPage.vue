@@ -16,6 +16,7 @@ const props = defineProps<{
   overview: ProjectGitOverview;
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
+  checking?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -71,7 +72,7 @@ const available = computed(() =>
 );
 
 const status = computed(() => {
-  if (!props.workspace) {
+  if (!props.workspace || props.checking) {
     return {
       label: 'Verificando…',
       tone: 'loading',
@@ -107,6 +108,7 @@ const buttonLabel = computed(() =>
 
 const buttonDisabled = computed(() =>
   props.busy
+  || props.checking
   || synchronized.value
   || !props.overview.clean
   || !available.value,
@@ -147,6 +149,7 @@ const buttonDisabled = computed(() =>
 
         <button
           class="secondary-button git-sync-button"
+          :class="{ 'is-busy': busy }"
           type="button"
           :disabled="buttonDisabled"
           @click="emit('synchronize')"
@@ -241,7 +244,7 @@ const buttonDisabled = computed(() =>
 }
 
 .git-sync-status.is-loading svg,
-.git-sync-button:disabled svg {
+.git-sync-button.is-busy svg {
   animation: git-sync-spin 0.8s linear infinite;
 }
 

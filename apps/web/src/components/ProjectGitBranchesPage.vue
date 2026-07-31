@@ -35,10 +35,13 @@ const emit = defineEmits<{
   switch: [name: string];
   rename: [currentName: string, nextName: string];
   delete: [name: string];
+  'refresh-remotes': [];
+  track: [remoteBranch: string];
+  'delete-remote': [remoteBranch: string];
 }>();
 
 type BranchFilter = 'all' | 'local' | 'remote';
-type BranchModal = 'create' | 'rename' | 'delete' | null;
+type BranchModal = 'create' | 'rename' | 'delete' | 'delete-remote' | null;
 
 interface BranchRow {
   name: string;
@@ -168,6 +171,13 @@ function openDeleteModal(row: BranchRow): void {
   modal.value = 'delete';
 }
 
+function openDeleteRemoteModal(row: BranchRow): void {
+  closeMenu();
+  selectedBranch.value = row.name;
+  deleteConfirmation.value = '';
+  modal.value = 'delete-remote';
+}
+
 function closeModal(): void {
   if (props.busy) return;
   modal.value = null;
@@ -187,7 +197,13 @@ function submitRename(): void {
 
 function submitDelete(): void {
   if (!canSubmitDelete.value || props.busy) return;
-  emit('delete', selectedBranch.value);
+  if (modal.value === 'delete-remote') {
+    const remoteBranch = selectedRow.value?.origin?.name;
+    if (!remoteBranch) return;
+    emit('delete-remote', remoteBranch);
+  } else {
+    emit('delete', selectedBranch.value);
+  }
   modal.value = null;
 }
 
@@ -254,6 +270,15 @@ onBeforeUnmount(() => {
           <PlusIcon aria-hidden="true" />
           Nova branch
         </button>
+
+        <button
+          type="button"
+          class="secondary-button branch-refresh-button"
+          :disabled="busy"
+          @click="emit('refresh-remotes')"
+        >
+          Atualizar remotas
+        </button>
       </header>
 
       <div class="branch-table-scroll">
@@ -311,12 +336,20 @@ onBeforeUnmount(() => {
             >
               Trocar
             </button>
-            <span v-else-if="!row.local" class="branch-readonly">
-              Somente leitura
-            </span>
+            <template v-else-if="!row.local && row.origin">
+              <span class="branch-readonly">Somente leitura</span>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="busy"
+                @click="emit('track', row.origin.name)"
+              >
+                Trazer para local
+              </button>
+            </template>
 
             <div
-              v-if="row.local && !isProtected(row)"
+              v-if="!isProtected(row) && (row.local || row.origin)"
               class="branch-action-menu"
               @click.stop
             >
@@ -334,18 +367,31 @@ onBeforeUnmount(() => {
                 v-if="openMenu === row.name"
                 class="branch-menu-popover"
               >
-                <button type="button" @click="openRenameModal(row)">
+                <button
+                  v-if="row.local"
+                  type="button"
+                  @click="openRenameModal(row)"
+                >
                   <PencilSquareIcon aria-hidden="true" />
                   Renomear
                 </button>
                 <button
-                  v-if="!row.local.current"
+                  v-if="row.local && !row.local.current"
                   type="button"
                   class="is-danger"
                   @click="openDeleteModal(row)"
                 >
                   <TrashIcon aria-hidden="true" />
                   Remover branch…
+                </button>
+                <button
+                  v-if="row.origin"
+                  type="button"
+                  class="is-danger"
+                  @click="openDeleteRemoteModal(row)"
+                >
+                  <TrashIcon aria-hidden="true" />
+                  Remover do origin…
                 </button>
               </div>
             </div>
@@ -381,7 +427,9 @@ onBeforeUnmount(() => {
                     ? 'Nova branch'
                     : modal === 'rename'
                       ? 'Renomear branch'
-                      : 'Remover branch'
+                      : modal === 'delete-remote'
+                        ? 'Remover branch remota'
+                        : 'Remover branch local'
                 }}
               </h2>
               <p v-if="modal === 'create'">
@@ -390,6 +438,10 @@ onBeforeUnmount(() => {
               </p>
               <p v-else-if="modal === 'rename'">
                 Altere apenas o nome da branch local.
+              </p>
+              <p v-else-if="modal === 'delete-remote'">
+                A branch será removida de <strong>origin</strong>. A branch local,
+                se existir, será mantida.
               </p>
               <p v-else>
                 A branch local será removida mesmo que possua commits não integrados.
@@ -546,7 +598,7 @@ onBeforeUnmount(() => {
                 class="danger-button"
                 :disabled="busy || !canSubmitDelete"
               >
-                Remover branch
+                {{ modal === 'delete-remote' ? 'Remover do origin' : 'Remover branch local' }}
               </button>
             </footer>
           </form>
