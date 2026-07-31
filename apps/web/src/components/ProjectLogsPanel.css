@@ -197,66 +197,482 @@
   background: rgb(220 139 45 / 18%);
 }
 
+/* ---- content area: fixed-height shell, each mode manages its own scroll ---- */
 .project-log-content {
+  height: 62vh;
   min-height: 430px;
-  max-height: 62vh;
-  overflow: auto;
-  padding: 14px;
   outline: 0;
 }
 
-.rails-request-list {
+.project-log-terminal-empty {
   display: grid;
-  gap: 10px;
+  height: 100%;
+  min-height: 360px;
+  place-items: center;
+  padding: 14px;
+  color: #7e8a9a;
+  text-align: center;
 }
 
-.rails-request-card {
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 10px;
-  background: #151d29;
+/* ---- requests view: list + detail split (concept C) ---- */
+.rails-inspector {
+  display: grid;
+  height: 100%;
+  grid-template-columns: 260px minmax(0, 1fr);
 }
 
-.rails-request-card:hover {
-  border-color: rgb(137 169 255 / 32%);
-}
-
-.rails-request-slow {
-  border-left: 3px solid #e4ad53;
-}
-
-.rails-request-failed {
-  border-left: 3px solid #e86666;
-}
-
-.rails-request-header {
+.rails-inspector-list {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 14px 8px;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 1px solid rgb(255 255 255 / 8%);
 }
 
-.rails-request-heading {
+.rails-list-item {
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rails-list-item:hover {
+  background: rgb(255 255 255 / 4%);
+}
+
+.rails-list-item.selected {
+  border-color: rgb(137 169 255 / 35%);
+  background: rgb(137 169 255 / 12%);
+}
+
+.rails-list-item.list-item-slow {
+  border-left-color: #e4ad53;
+}
+
+.rails-list-item.list-item-error {
+  border-left-color: #e86666;
+}
+
+.rails-list-row1 {
   display: flex;
-  min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.rails-request-heading > strong {
+.rails-list-system-tag {
+  color: #7f8da0;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.rails-list-path {
   overflow: hidden;
-  color: #edf2fb;
+  color: #d9e2f0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.rails-list-item.selected .rails-list-path {
+  color: #f2f5fc;
+}
+
+.rails-list-row2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #7f8da0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rails-load-more {
+  margin-top: 4px;
+  padding: 9px 10px;
+  border: 1px dashed rgb(255 255 255 / 15%);
+  border-radius: 8px;
+  color: #a9c4ff;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rails-load-more:hover {
+  border-color: rgb(137 169 255 / 45%);
+  background: rgb(137 169 255 / 8%);
+}
+
+.rails-inspector-detail {
+  overflow-y: auto;
+  padding: 16px 18px 22px;
+}
+
+.rails-detail-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: #7e8a9a;
+  font-size: 12px;
+  text-align: center;
+}
+
+.rails-detail-header {
+  margin-bottom: 14px;
+}
+
+.rails-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.rails-detail-heading h3 {
+  overflow: hidden;
+  margin: 0;
+  color: #f2f5fc;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rails-detail-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #8d9aab;
+  font-size: 11px;
+}
+
+.rails-detail-sub button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 6px;
+  color: #718096;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.rails-detail-sub button:hover {
+  color: #a9c4ff;
+  border-color: rgb(137 169 255 / 35%);
+}
+
+.rails-detail-sub svg {
+  width: 13px;
+  height: 13px;
+}
+
+.rails-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 14px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 8%);
+  overflow: hidden;
+}
+
+.rails-detail-stats > div {
+  padding: 9px 11px;
+  background: #151d29;
+}
+
+.rails-detail-stats dt {
+  margin: 0 0 4px;
+  color: #7f8da0;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rails-detail-stats dd {
+  margin: 0;
+  overflow: hidden;
+  color: #edf2fb;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rails-detail-stats dd.stat-slow {
+  color: #f0b95c;
+}
+
+.rails-detail-stats dd.stat-warn {
+  color: #f3c869;
+}
+
+.rails-n1-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 14px;
+  padding: 10px 11px;
+  border: 1px solid rgb(220 139 45 / 40%);
+  border-radius: 9px;
+  color: #f3c869;
+  background: rgb(220 139 45 / 10%);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.rails-n1-callout svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.rails-n1-callout code {
+  font-family: var(--font-mono);
+}
+
+.rails-detail-section {
+  margin-bottom: 14px;
+}
+
+.rails-detail-section-title {
+  display: block;
+  margin-bottom: 7px;
+  color: #7f8da0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.rails-detail-pre {
+  margin: 0;
+  padding: 10px 11px;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 8px;
+  color: #b8c2d0;
+  background: rgb(4 8 15 / 30%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rails-detail-error {
+  border-color: rgb(232 102 102 / 28%);
+  color: #ffadad;
+  background: rgb(222 75 75 / 9%);
+}
+
+/* ---- SQL: grouped, syntax-highlighted ---- */
+.sql-block {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgb(255 255 255 / 7%);
+  border-radius: 8px;
+  background: rgb(4 8 15 / 30%);
+}
+
+.sql-row-wrap {
+  border-bottom: 1px solid rgb(255 255 255 / 5%);
+}
+
+.sql-row-wrap:last-child {
+  border-bottom: none;
+}
+
+.sql-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 11px;
+}
+
+.sql-row-hot {
+  background: rgb(220 139 45 / 6%);
+}
+
+.sql-explain {
+  border-top: 1px dashed rgb(255 255 255 / 6%);
+}
+
+.sql-explain summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  color: #7f8da0;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.sql-explain summary::-webkit-details-marker {
+  display: none;
+}
+
+.sql-explain summary:hover {
+  color: #a9c4ff;
+}
+
+.sql-explain-hint {
+  color: #5a6579;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.sql-explain-body {
+  display: grid;
+  gap: 9px;
+  padding: 4px 11px 12px;
+}
+
+.sql-explain-body p {
+  margin: 0;
+  color: #c7d0dd;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.sql-explain-return {
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.sql-explain-return strong {
+  color: #7f8da0;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sql-explain-return span {
+  color: #b8c2d0;
+}
+
+.sql-explain-tables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.sql-explain-tables > span {
+  color: #7f8da0;
+}
+
+.sql-explain-tables code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #8fe6bb;
+  background: rgb(42 173 81 / 12%);
+  font-family: var(--font-mono);
+}
+
+.sql-count {
+  color: #7f8da0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sql-count.hot {
+  color: #f3c869;
+}
+
+.sql-text {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.sql-time {
+  color: #7f8da0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sql-time.hot {
+  color: #f3c869;
+}
+
+.sql-tk-kw {
+  color: #ff9edb;
+  font-weight: 700;
+}
+
+.sql-tk-ident {
+  color: #8fe6bb;
+}
+
+.sql-tk-str {
+  color: #f0b95c;
+}
+
+.sql-tk-num {
+  color: #c9a9ff;
+}
+
+/* ---- system (non-request) log group, shown in the detail pane ---- */
+.rails-system-group {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px dashed rgb(255 255 255 / 10%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 2%);
+}
+
+.rails-system-group code {
+  display: block;
+  min-height: 18px;
+  color: #c7d0dd;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- shared badges (list rows + detail header) ---- */
 .rails-method,
 .rails-status {
   display: inline-flex;
-  min-height: 22px;
+  min-height: 20px;
   align-items: center;
   justify-content: center;
   padding: 0 7px;
@@ -312,208 +728,21 @@
   background: rgb(255 255 255 / 7%);
 }
 
-.rails-request-duration {
-  display: grid;
-  flex: 0 0 auto;
-  gap: 3px;
-  color: #7f8da0;
-  font-size: 9px;
-  text-align: right;
+/* ---- raw view ---- */
+.project-log-raw-wrap {
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px;
 }
 
-.rails-request-duration strong {
-  color: #d9e2f0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.rails-request-context,
-.rails-request-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  padding: 0 14px 10px;
-  color: #8d9aab;
-  font-size: 10px;
-}
-
-.rails-request-context > span,
-.rails-request-metrics > span {
-  padding-right: 8px;
-  border-right: 1px solid rgb(255 255 255 / 8%);
-}
-
-.rails-request-context > span:last-of-type,
-.rails-request-metrics > span:last-child {
-  border-right: 0;
-}
-
-.rails-request-context button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  border: 0;
-  color: #718096;
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-
-.rails-request-context button:hover {
-  color: #a9c4ff;
-}
-
-.rails-request-context svg {
-  width: 13px;
-  height: 13px;
-}
-
-.rails-request-metrics strong {
-  color: #dbe5f3;
-  font-family: var(--font-mono);
-}
-
-.rails-parameters {
-  display: grid;
-  gap: 5px;
-  margin: 0 14px 10px;
-  padding: 8px 10px;
-  border: 1px solid rgb(255 255 255 / 7%);
-  border-radius: 7px;
-  background: rgb(4 8 15 / 22%);
-}
-
-.rails-parameters span {
-  color: #7f8da0;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.rails-parameters code {
-  color: #d1bdf3;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.rails-error-lines {
-  display: grid;
-  gap: 4px;
-  margin: 0 14px 10px;
-  padding: 9px 10px;
-  border: 1px solid rgb(232 102 102 / 26%);
-  border-radius: 7px;
-  color: #ffadad;
-  background: rgb(222 75 75 / 9%);
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.rails-request-details {
-  border-top: 1px solid rgb(255 255 255 / 7%);
-}
-
-.rails-request-details details + details {
-  border-top: 1px solid rgb(255 255 255 / 6%);
-}
-
-.rails-request-details summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 16px;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 14px;
-  color: #8d9aab;
-  cursor: pointer;
-  font-size: 10px;
-  list-style: none;
-}
-
-.rails-request-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.rails-request-details summary:hover {
-  color: #d9e2f0;
-  background: rgb(255 255 255 / 3%);
-}
-
-.rails-request-details summary strong {
-  font-weight: 600;
-}
-
-.rails-request-details summary svg {
-  width: 14px;
-  height: 14px;
-  transition: transform 140ms ease;
-}
-
-.rails-request-details details[open] summary svg {
-  transform: rotate(180deg);
-}
-
-.rails-detail-lines {
-  display: grid;
-  gap: 4px;
-  padding: 10px 14px 12px;
-  border-top: 1px solid rgb(255 255 255 / 5%);
-  background: #0f1520;
-}
-
-.rails-detail-lines code {
-  color: #b8c2d0;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.rails-sql-lines code {
-  color: #b8d4ff;
-}
-
-.rails-sql-lines .rails-detail-source {
-  color: #74839a;
-}
-
-.rails-system-group {
-  display: grid;
-  gap: 3px;
-  padding: 10px 12px;
-  border: 1px dashed rgb(255 255 255 / 10%);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 2%);
-}
-
-.rails-system-group > span {
-  margin-bottom: 3px;
-  color: #6f7d90;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.rails-system-group code,
 .project-log-raw-lines {
+  display: block;
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.65;
 }
 
-.project-log-raw-lines {
-  display: block;
-}
-
-.project-log-line,
-.rails-system-group code {
+.project-log-line {
   display: block;
   min-height: 18px;
   color: #c7d0dd;
@@ -544,14 +773,6 @@
 
 .project-log-line-error {
   color: #ff9a9a !important;
-}
-
-.project-log-terminal-empty {
-  display: grid;
-  min-height: 360px;
-  place-items: center;
-  color: #7e8a9a;
-  text-align: center;
 }
 
 .project-log-terminal-footer {
@@ -750,22 +971,27 @@
   }
 
   .project-log-content {
+    height: auto;
     min-height: 360px;
     max-height: 66vh;
+  }
+
+  .project-log-raw-wrap {
     padding: 9px;
   }
 
-  .rails-request-header {
-    align-items: flex-start;
-    flex-direction: column;
+  .rails-inspector {
+    grid-template-columns: 1fr;
+    grid-template-rows: 40vh minmax(320px, 1fr);
   }
 
-  .rails-request-duration {
-    text-align: left;
+  .rails-inspector-list {
+    border-right: 0;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
   }
 
-  .rails-request-heading {
-    width: 100%;
+  .rails-detail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .project-logs-sidebar {
