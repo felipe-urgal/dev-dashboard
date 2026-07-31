@@ -52,15 +52,6 @@ const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
 
-const workspace = computed(() => {
-  const workspaceId = project.value?.workspaceId;
-  if (!workspaceId) return null;
-
-  return dashboardStore.workspaces.value.find(
-    (item) => item.id === workspaceId,
-  ) ?? null;
-});
-
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
@@ -237,67 +228,11 @@ watch(projectId, () => {
         </RouterLink>
       </nav>
 
-      <div v-if="isReadmeRoute" class="project-readme-layout">
-        <ProjectReadmePanel
-          :key="`readme-${project.id}`"
-          :project="project"
-        />
-
-        <aside class="project-readme-sidebar">
-          <section class="project-summary-card">
-            <span class="section-kicker">Resumo do projeto</span>
-            <dl>
-              <div>
-                <dt>Workspace</dt>
-                <dd>{{ workspace?.name ?? 'Não associado' }}</dd>
-              </div>
-              <div>
-                <dt>Tipo</dt>
-                <dd>{{ projectTypeLabels[project.type] }}</dd>
-              </div>
-              <div>
-                <dt>Origem</dt>
-                <dd>{{ project.source }}</dd>
-              </div>
-              <div>
-                <dt>Capacidades</dt>
-                <dd>{{ project.capabilities.length }}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section class="project-quick-links-card">
-            <span class="section-kicker">Acessos rápidos</span>
-            <RouterLink
-              :to="{
-                name: 'project-server',
-                params: { projectId: project.id },
-              }"
-            >
-              Gerenciar servidor
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-            <RouterLink
-              :to="{
-                name: 'project-logs',
-                params: { projectId: project.id },
-              }"
-            >
-              Acompanhar logs
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-            <RouterLink
-              :to="{
-                name: 'project-git',
-                params: { projectId: project.id },
-              }"
-            >
-              Abrir Git
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-          </section>
-        </aside>
-      </div>
+      <ProjectReadmePanel
+        v-if="isReadmeRoute"
+        :key="`readme-${project.id}`"
+        :project="project"
+      />
 
       <ProjectServerPanel
         v-else-if="isServerRoute"
