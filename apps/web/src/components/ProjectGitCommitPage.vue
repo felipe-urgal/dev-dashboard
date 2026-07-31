@@ -114,7 +114,7 @@ function updateMessage(event: Event): void {
         Inclui automaticamente todas as alterações rastreadas.
       </p>
       <p v-else>
-        Substitui o último commit mantendo as alterações já registradas.
+        Adiciona todas as alterações atuais e substitui o último commit.
       </p>
 
       <button
