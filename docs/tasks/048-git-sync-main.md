@@ -18,8 +18,6 @@ repositório principal e publicá-la em `origin/main`.
   e referências visíveis a `upstream`;
 - painel único com a relação `main → origin/main`, estado atual, texto curto e
   botão "Sincronizar";
-- largura máxima do painel reduzida e centralizada para manter a operação
-  simples mais compacta em telas largas;
 - operação única e confirmada que:
   1. valida repositório, árvore de trabalho limpa, branch `main` e remotes;
   2. executa `git fetch --prune upstream`;
