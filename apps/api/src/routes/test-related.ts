@@ -102,10 +102,10 @@ function requireProject(projectStore: ProjectStore, projectId: string) {
 }
 
 function relatedTestApiError(error: RelatedTestError): ApiError {
-  const statusCode = error.code === 'RELATED_TESTS_COMMAND_NOT_FOUND' ? 404 : 400;
+  const commandMissing = error.code === 'RELATED_TESTS_COMMAND_NOT_FOUND';
   return new ApiError({
-    statusCode,
-    code: error.code,
+    statusCode: commandMissing ? 404 : 400,
+    code: commandMissing ? 'TEST_COMMAND_NOT_FOUND' : 'GIT_COMMAND_FAILED',
     message: error.message,
   });
 }
@@ -195,7 +195,7 @@ export const testRelatedRoutes: FastifyPluginAsync<TestRelatedRouteOptions> = as
         if (related.testFiles.length === 0) {
           throw new ApiError({
             statusCode: 409,
-            code: 'RELATED_TESTS_NOT_FOUND',
+            code: 'CONFLICT',
             message: 'Nenhum teste relacionado às alterações da branch foi encontrado.',
           });
         }
