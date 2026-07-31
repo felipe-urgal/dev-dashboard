@@ -751,6 +751,7 @@ export class GitService {
     const branch = status.branch ?? 'HEAD';
     this.consumeMutationConfirmation(projectId, 'amend', branch, confirmationToken);
     try {
+      await runGit(projectPath, ['add', '.']);
       await runGit(projectPath, ['commit', '--amend', '-m', message]);
     } catch (error) {
       throw new GitMutationError('GIT_COMMIT_FAILED', error instanceof Error ? error.message : 'Falha ao alterar o último commit.');
