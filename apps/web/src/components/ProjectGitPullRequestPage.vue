@@ -98,14 +98,39 @@ function defaultDescription(): string {
   return `## Resumo\n\n${subject}`;
 }
 
-function openExternal(url: string): boolean {
-  if (typeof window === 'undefined') return false;
-  const opened = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    errorMessage.value = 'O navegador bloqueou a nova aba. Use o link abaixo para continuar.';
-    return false;
+function reserveExternalWindow(): Window | null {
+  if (typeof window === 'undefined') return null;
+  const popup = window.open('', '_blank');
+  if (!popup) return null;
+  try {
+    popup.opener = null;
+  } catch {
+    // Alguns navegadores tornam opener somente leitura; a navegação ainda é segura no novo contexto.
   }
-  return true;
+  return popup;
+}
+
+function navigateExternal(popup: Window | null, url: string): boolean {
+  if (popup && !popup.closed) {
+    try {
+      popup.location.href = url;
+      return true;
+    } catch {
+      // Cai no link explícito abaixo quando o navegador impedir a navegação da janela reservada.
+    }
+  }
+  generatedUrl.value = url;
+  errorMessage.value = 'O navegador bloqueou a nova aba. Use o botão abaixo para continuar.';
+  return false;
+}
+
+function closeReservedWindow(popup: Window | null): void {
+  if (!popup || popup.closed) return;
+  try {
+    popup.close();
+  } catch {
+    // Sem ação: a mensagem de erro da operação é mais importante do que fechar a janela vazia.
+  }
 }
 
 async function checkExistingPullRequest(): Promise<GitOpenPullRequest | null> {
@@ -190,6 +215,10 @@ onBeforeUnmount(() => {
 
 async function openPullRequest(): Promise<void> {
   if (!canOpen.value) return;
+
+  // Reserva a aba ainda dentro do gesto do usuário. Assim a chamada assíncrona à API
+  // não perde a permissão de popup e `noopener` não gera um falso positivo de bloqueio.
+  const reservedWindow = reserveExternalWindow();
   opening.value = true;
   errorMessage.value = '';
   generatedUrl.value = '';
@@ -197,8 +226,7 @@ async function openPullRequest(): Promise<void> {
   try {
     const existing = await checkExistingPullRequest();
     if (existing) {
-      generatedUrl.value = existing.url;
-      openExternal(existing.url);
+      navigateExternal(reservedWindow, existing.url);
       return;
     }
 
@@ -211,9 +239,9 @@ async function openPullRequest(): Promise<void> {
         description: description.value.trim(),
       },
     );
-    generatedUrl.value = pullRequest.url;
-    openExternal(pullRequest.url);
+    navigateExternal(reservedWindow, pullRequest.url);
   } catch (error) {
+    closeReservedWindow(reservedWindow);
     errorMessage.value = error instanceof Error
       ? error.message
       : 'Não foi possível preparar a Pull Request.';
@@ -256,14 +284,6 @@ async function openPullRequest(): Promise<void> {
           {{ existingPullRequest.sourceBranch }} → {{ targetRemote }}/{{ existingPullRequest.baseBranch }}
         </small>
       </div>
-      <a
-        :href="existingPullRequest.url"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Ver PR #{{ existingPullRequest.number }}
-        <ArrowTopRightOnSquareIcon aria-hidden="true" />
-      </a>
     </div>
 
     <div v-else-if="lookupUnavailable" class="git-pr-lookup-note">
@@ -344,6 +364,16 @@ async function openPullRequest(): Promise<void> {
           Ver PR #{{ existingPullRequest.number }}
           <ArrowTopRightOnSquareIcon aria-hidden="true" />
         </a>
+        <a
+          v-else-if="generatedUrl"
+          class="git-pr-fallback-link"
+          :href="generatedUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Abrir página da Pull Request
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+        </a>
         <button v-else type="submit" :disabled="!canOpen">
           <ArrowTopRightOnSquareIcon aria-hidden="true" />
           {{
@@ -356,17 +386,6 @@ async function openPullRequest(): Promise<void> {
         </button>
       </div>
     </form>
-
-    <a
-      v-if="generatedUrl && !existingPullRequest"
-      class="git-pr-fallback-link"
-      :href="generatedUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Abrir página da Pull Request
-      <ArrowTopRightOnSquareIcon aria-hidden="true" />
-    </a>
   </section>
 </template>
 
@@ -472,8 +491,7 @@ async function openPullRequest(): Promise<void> {
 
 .git-pr-footer button,
 .git-pr-fallback-link,
-.git-pr-existing-action,
-.git-pr-existing a {
+.git-pr-existing-action {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
@@ -491,8 +509,7 @@ async function openPullRequest(): Promise<void> {
 
 .git-pr-footer button svg,
 .git-pr-fallback-link svg,
-.git-pr-existing-action svg,
-.git-pr-existing a svg {
+.git-pr-existing-action svg {
   width: 16px;
   height: 16px;
 }
@@ -535,10 +552,6 @@ async function openPullRequest(): Promise<void> {
   color: var(--text-muted);
 }
 
-.git-pr-fallback-link {
-  justify-self: start;
-}
-
 @media (max-width: 800px) {
   .git-pr-grid {
     grid-template-columns: 1fr;
@@ -553,7 +566,7 @@ async function openPullRequest(): Promise<void> {
 
   .git-pr-footer button,
   .git-pr-existing-action,
-  .git-pr-existing a {
+  .git-pr-fallback-link {
     width: 100%;
   }
 }
