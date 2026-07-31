@@ -14,12 +14,16 @@ import {
   useRoute,
 } from 'vue-router';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectGitOverview,
+} from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
+import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
 import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
@@ -33,6 +37,7 @@ const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
+const gitOverview = ref<ProjectGitOverview | null>(null);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -62,6 +67,7 @@ async function loadProject(): Promise<void> {
   errorMessage.value = '';
   project.value = null;
   gitBranch.value = '';
+  gitOverview.value = null;
 
   try {
     const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
@@ -74,9 +80,11 @@ async function loadProject(): Promise<void> {
         const git = await fetchProjectGit(loadedProject.id);
         if (projectId.value === requestedProjectId) {
           gitBranch.value = git.branch ?? '';
+          gitOverview.value = git;
         }
       } catch {
         gitBranch.value = '';
+        gitOverview.value = null;
       }
     }
   } catch (error) {
@@ -161,6 +169,11 @@ watch(projectId, () => {
           </div>
         </div>
 
+        <ProjectPullRequestSummary
+          v-if="gitOverview"
+          :project-id="project.id"
+          :overview="gitOverview"
+        />
       </header>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
