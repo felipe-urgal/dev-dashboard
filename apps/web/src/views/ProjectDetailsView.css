@@ -134,6 +134,24 @@
   background: var(--accent);
 }
 
+:deep(.readme-panel) {
+  width: 100%;
+  min-width: 0;
+}
+
+:deep(.readme-document) {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+:deep(.readme-code-block) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 @media (max-width: 1180px) {
   .project-details-hero {
     align-items: flex-start;
