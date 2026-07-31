@@ -355,7 +355,15 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
     mounted.wrapper
       .findAll('.git-subtabs button')
       .map((button) => button.text()),
-    ['Sincronização', 'Branches', 'Commit', 'Diff', 'Histórico'],
+    [
+      'Sincronização',
+      'Branches',
+      'Diff',
+      'Commit',
+      'Desfazer',
+      'Pull Request',
+      'Histórico',
+    ],
   );
   assert.doesNotMatch(text, /Stash/);
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
@@ -816,20 +824,21 @@ test('renderiza a sincronização em uma única ação entre main e origin/main'
   });
   cleanup = mounted.restore;
 
-  assert.ok(mounted.wrapper.find('.git-sync-card').exists());
-  assert.match(mounted.wrapper.text(), /main\s*→\s*origin\/main/);
-  assert.match(mounted.wrapper.text(), /Tudo sincronizado/);
+  const syncCard = mounted.wrapper.find('.git-sync-card');
+  assert.ok(syncCard.exists());
+  assert.match(syncCard.text(), /main\s*→\s*origin\/main/);
+  assert.match(syncCard.text(), /Tudo sincronizado/);
   assert.match(
-    mounted.wrapper.text(),
+    syncCard.text(),
     /A sincronização atualiza a main e publica no origin/,
   );
-  assert.equal(mounted.wrapper.findAll('.git-sync-button').length, 1);
+  assert.equal(syncCard.findAll('.git-sync-button').length, 1);
   assert.ok(
-    mounted.wrapper.find('.git-sync-button').attributes('disabled')
+    syncCard.find('.git-sync-button').attributes('disabled')
       !== undefined,
   );
   assert.doesNotMatch(
-    mounted.wrapper.text(),
+    syncCard.text(),
     /upstream|fetch|pipeline|estratégia|pull request/i,
   );
 });

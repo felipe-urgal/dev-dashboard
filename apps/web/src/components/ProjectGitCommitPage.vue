@@ -5,20 +5,12 @@ import {
 } from '@heroicons/vue/24/outline';
 import { computed } from 'vue';
 
-import type {
-  ProjectGitOverview,
-  ProjectGitWorkspace,
-} from '@dev-dashboard/contracts';
-
-import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
-import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
+import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 
 export type CommitMode = 'create' | 'amend';
 
 const props = defineProps<{
-  projectId: string;
   overview: ProjectGitOverview;
-  workspace: ProjectGitWorkspace | null;
   busy: boolean;
   message: string;
   mode: CommitMode;
@@ -28,7 +20,6 @@ const emit = defineEmits<{
   'update:message': [value: string];
   'update:mode': [value: CommitMode];
   submit: [];
-  changed: [];
 }>();
 
 const trackedChanges = computed(() =>
@@ -61,110 +52,89 @@ function updateMessage(event: Event): void {
 </script>
 
 <template>
-  <section class="git-commit-workflow">
-    <form class="git-commit-card" @submit.prevent="emit('submit')">
-      <div
-        class="git-commit-mode"
-        role="radiogroup"
-        aria-label="Operação de commit"
+  <form class="git-commit-card" @submit.prevent="emit('submit')">
+    <div
+      class="git-commit-mode"
+      role="radiogroup"
+      aria-label="Operação de commit"
+    >
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="mode === 'create'"
+        :class="{ active: mode === 'create' }"
+        :disabled="busy"
+        @click="selectMode('create')"
       >
-        <button
-          type="button"
-          role="radio"
-          :aria-checked="mode === 'create'"
-          :class="{ active: mode === 'create' }"
-          :disabled="busy"
-          @click="selectMode('create')"
-        >
-          <CheckCircleIcon aria-hidden="true" />
-          Novo commit
-        </button>
-        <button
-          type="button"
-          role="radio"
-          :aria-checked="mode === 'amend'"
-          :class="{ active: mode === 'amend' }"
-          :disabled="busy || !overview.latestCommit"
-          @click="selectMode('amend')"
-        >
-          <ArrowPathRoundedSquareIcon aria-hidden="true" />
-          Alterar último commit
-        </button>
-      </div>
+        <CheckCircleIcon aria-hidden="true" />
+        Novo commit
+      </button>
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="mode === 'amend'"
+        :class="{ active: mode === 'amend' }"
+        :disabled="busy || !overview.latestCommit"
+        @click="selectMode('amend')"
+      >
+        <ArrowPathRoundedSquareIcon aria-hidden="true" />
+        Alterar último commit
+      </button>
+    </div>
 
-      <div class="git-commit-divider" />
+    <div class="git-commit-divider" />
 
-      <div class="git-commit-context">
-        <span>Branch <strong>{{ overview.branch ?? 'HEAD' }}</strong></span>
-        <span aria-hidden="true" />
-        <span v-if="mode === 'create'">
-          {{ trackedChanges.length }}
-          {{ trackedChanges.length === 1 ? 'alteração rastreada' : 'alterações rastreadas' }}
-        </span>
-        <span v-else-if="overview.latestCommit">
-          Último commit <strong>{{ overview.latestCommit.shortHash }}</strong>
-        </span>
-      </div>
+    <div class="git-commit-context">
+      <span>Branch <strong>{{ overview.branch ?? 'HEAD' }}</strong></span>
+      <span aria-hidden="true" />
+      <span v-if="mode === 'create'">
+        {{ trackedChanges.length }}
+        {{ trackedChanges.length === 1 ? 'alteração rastreada' : 'alterações rastreadas' }}
+      </span>
+      <span v-else-if="overview.latestCommit">
+        Último commit <strong>{{ overview.latestCommit.shortHash }}</strong>
+      </span>
+    </div>
 
-      <label class="git-commit-message">
-        <span>Mensagem do commit</span>
-        <textarea
-          :value="message"
-          maxlength="500"
-          :placeholder="mode === 'create'
-            ? 'Descreva as alterações'
-            : 'Atualize a mensagem do último commit'"
-          :disabled="busy"
-          @input="updateMessage"
-        />
-      </label>
+    <label class="git-commit-message">
+      <span>Mensagem do commit</span>
+      <textarea
+        :value="message"
+        maxlength="500"
+        :placeholder="mode === 'create'
+          ? 'Descreva as alterações'
+          : 'Atualize a mensagem do último commit'"
+        :disabled="busy"
+        @input="updateMessage"
+      />
+    </label>
 
-      <div class="git-commit-footer">
-        <p v-if="mode === 'create'">
-          Inclui automaticamente todas as alterações rastreadas.
-        </p>
-        <p v-else>
-          Adiciona todas as alterações atuais e substitui o último commit.
-        </p>
+    <div class="git-commit-footer">
+      <p v-if="mode === 'create'">
+        Inclui automaticamente todas as alterações rastreadas.
+      </p>
+      <p v-else>
+        Adiciona todas as alterações atuais e substitui o último commit.
+      </p>
 
-        <button
-          type="submit"
-          class="git-commit-submit"
-          :disabled="!canSubmit"
-        >
-          {{
-            busy
-              ? 'Processando…'
-              : mode === 'create'
-                ? 'Criar commit'
-                : 'Alterar commit'
-          }}
-        </button>
-      </div>
-    </form>
-
-    <ProjectGitUndoPage
-      :project-id="projectId"
-      :overview="overview"
-      :busy="busy"
-      @changed="emit('changed')"
-    />
-
-    <ProjectGitPullRequestPage
-      :project-id="projectId"
-      :overview="overview"
-      :workspace="workspace"
-      :busy="busy"
-    />
-  </section>
+      <button
+        type="submit"
+        class="git-commit-submit"
+        :disabled="!canSubmit"
+      >
+        {{
+          busy
+            ? 'Processando…'
+            : mode === 'create'
+              ? 'Criar commit'
+              : 'Alterar commit'
+        }}
+      </button>
+    </div>
+  </form>
 </template>
 
 <style scoped>
-.git-commit-workflow {
-  display: grid;
-  gap: var(--space-4);
-}
-
 .git-commit-card {
   width: 100%;
   margin: 0;

@@ -122,7 +122,17 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.find('.git-modern-panel').exists()).toBe(true);
     expect(wrapper.find('.git-subtabs').exists()).toBe(true);
-    expect(wrapper.findAll('.git-subtabs button')).toHaveLength(5);
+    expect(
+      wrapper.findAll('.git-subtabs button').map((button) => button.text()),
+    ).toEqual([
+      'Sincronização',
+      'Branches',
+      'Diff',
+      'Commit',
+      'Desfazer',
+      'Pull Request',
+      'Histórico',
+    ]);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Stash');
     expect(wrapper.find('.git-subtabs button')?.text()).toContain('Sincronização');
