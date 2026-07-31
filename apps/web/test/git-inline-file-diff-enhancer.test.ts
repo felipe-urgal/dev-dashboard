@@ -31,24 +31,24 @@ function buildHistoryDetail(filePath = 'app/models/big_number.rb'): {
 } {
   const host = document.createElement('div');
   host.innerHTML = `
-    <div class="git-history-page-detail">
-      <section class="git-history-page-detail-files">
+    <div class="git-stash-detail">
+      <section class="git-stash-files">
         <header><h4>Arquivos alterados</h4></header>
         <ul><li><code>${filePath}</code></li></ul>
       </section>
-      <div class="git-history-page-patch-source" hidden>
+      <div class="git-stash-diff" hidden>
         <pre></pre>
       </div>
     </div>
   `;
   document.body.append(host);
-  const patch = host.querySelector<HTMLElement>('.git-history-page-patch-source pre')!;
+  const patch = host.querySelector<HTMLElement>('.git-stash-diff pre')!;
   // Espelha patchView() (git-history-page-enhancer.ts): o texto bruto fica em
   // data-raw-patch, e o conteúdo visual (textContent/innerHTML) começa igual, mas pode
   // ser reescrito depois por outros enhancers sem afetar o atributo.
   patch.dataset.rawPatch = RAW_PATCH;
   patch.textContent = RAW_PATCH;
-  const files = host.querySelector<HTMLElement>('.git-history-page-detail-files')!;
+  const files = host.querySelector<HTMLElement>('.git-stash-files')!;
   return { host, files, patch };
 }
 
@@ -112,10 +112,10 @@ test('mantém o patch combinado oculto apenas como fonte dos diffs individuais',
   scanDetails(host);
 
   assert.equal(patch.isConnected, true);
-  assert.ok(host.querySelector('.git-history-page-patch-source[hidden]'));
+  assert.ok(host.querySelector('.git-stash-diff[hidden]'));
   assert.equal(host.querySelector('.git-inline-full-diff'), null);
 
-  const row = host.querySelector<HTMLElement>('.git-history-page-detail-files li')!;
+  const row = host.querySelector<HTMLElement>('.git-stash-files li')!;
   row.click();
   assert.match(host.querySelector('.git-inline-file-diff')?.textContent ?? '', /Scope/);
 });

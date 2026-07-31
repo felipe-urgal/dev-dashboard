@@ -35,6 +35,7 @@ import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitCommitPage, {
   type CommitMode,
 } from './ProjectGitCommitPage.vue';
+import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
 import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
@@ -653,36 +654,7 @@ onBeforeUnmount(() => {
         :busy="mutationRunning"
       />
 
-      <section v-else class="git-tab-page">
-        <div class="git-page-heading">
-          <div>
-            <span>Histórico</span>
-            <h2>Commits recentes</h2>
-          </div>
-        </div>
-        <div class="git-history-list">
-          <article
-            v-for="commit in overview.recentCommits"
-            :key="commit.hash"
-          >
-            <code>{{ commit.shortHash }}</code>
-            <div>
-              <strong>{{ commit.subject }}</strong
-              ><span
-                >{{ commit.authorName }} ·
-                {{ commit.authorEmail }}</span
-              >
-            </div>
-            <time>{{ formatDate(commit.authoredAt) }}</time>
-          </article>
-          <div
-            v-if="overview.recentCommits.length === 0"
-            class="git-inline-empty"
-          >
-            O repositório ainda não possui commits.
-          </div>
-        </div>
-      </section>
+      <ProjectGitHistoryPage v-else :project-id="project.id" />
     </template>
   </section>
 </template>

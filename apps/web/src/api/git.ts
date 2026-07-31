@@ -1,4 +1,8 @@
 import type {
+  GitCommitDetails,
+  GitCommitFileDiff,
+  GitCommitHistoryKind,
+  GitCommitHistoryPage,
   GitCommitResult,
   GitDiffScope,
   GitDiffSnapshot,
@@ -37,6 +41,72 @@ export async function fetchProjectGitFileDiff(projectId: string, filePath: strin
   const init: RequestInit = signal ? { signal } : {};
   const response = await requestJson<ProjectGitFileDiffResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/diff/file?${query}`,
+    init,
+  );
+  return response.file;
+}
+
+interface ProjectGitCommitsResponse { history: GitCommitHistoryPage }
+interface ProjectGitCommitDetailResponse { detail: GitCommitDetails }
+interface ProjectGitCommitFileResponse { file: GitCommitFileDiff }
+
+export interface ProjectGitCommitsQuery {
+  ref?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  author?: string;
+  kind?: GitCommitHistoryKind;
+}
+
+export type ProjectGitHistoryScope = 'exclusive' | 'all';
+
+export async function fetchProjectGitCommits(
+  projectId: string,
+  query: ProjectGitCommitsQuery = {},
+  signal?: AbortSignal,
+  scope: ProjectGitHistoryScope = 'exclusive',
+): Promise<GitCommitHistoryPage> {
+  const search = new URLSearchParams();
+  if (query.ref) search.set('ref', query.ref);
+  if (query.page) search.set('page', String(query.page));
+  if (query.pageSize) search.set('pageSize', String(query.pageSize));
+  if (query.search) search.set('search', query.search);
+  if (query.author) search.set('author', query.author);
+  if (query.kind && query.kind !== 'all') search.set('kind', query.kind);
+
+  const endpoint = scope === 'exclusive' ? 'exclusive-branch-commits' : 'commits';
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitCommitsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/${endpoint}?${search}`,
+    init,
+  );
+  return response.history;
+}
+
+export async function fetchProjectGitCommitDetail(
+  projectId: string,
+  commitHash: string,
+  signal?: AbortSignal,
+): Promise<GitCommitDetails> {
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitCommitDetailResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/commits/${encodeURIComponent(commitHash)}`,
+    init,
+  );
+  return response.detail;
+}
+
+export async function fetchProjectGitCommitFileDiff(
+  projectId: string,
+  commitHash: string,
+  filePath: string,
+  signal?: AbortSignal,
+): Promise<GitCommitFileDiff> {
+  const query = new URLSearchParams({ path: filePath });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitCommitFileResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/commits/${encodeURIComponent(commitHash)}/file?${query}`,
     init,
   );
   return response.file;

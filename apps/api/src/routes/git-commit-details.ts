@@ -9,6 +9,7 @@ import type { ProjectStore } from '../store/project-store.js';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
+  inspectGitCommitFile,
   listBranchCommits,
   type GitCommitHistoryKind,
 } from '../services/git-commit-details-service.js';
@@ -67,7 +68,7 @@ const historyQuerySchema = {
       pattern: '^(?!-)[^\\u0000-\\u001F\\u007F]+$',
     },
     page: { type: 'integer', minimum: 1, default: 1 },
-    pageSize: { type: 'integer', minimum: 1, maximum: 10, default: 10 },
+    pageSize: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
     search: { type: 'string', maxLength: 200 },
     author: { type: 'string', maxLength: 320 },
     kind: { type: 'string', enum: ['all', 'regular', 'merge'], default: 'all' },
@@ -179,16 +180,19 @@ const responseSchema = {
   },
 } as const;
 
+const commitErrorCodes = {
+  GIT_COMMIT_INVALID: 'GIT_REFERENCE_INVALID',
+  GIT_COMMIT_NOT_FOUND: 'GIT_REFERENCE_NOT_FOUND',
+  GIT_COMMIT_FILE_NOT_FOUND: 'GIT_COMMIT_FILE_NOT_FOUND',
+  GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
+} as const;
+
 function translateCommitError(error: unknown): never {
   if (error instanceof GitCommitDetailsError) {
-    const code = error.code === 'GIT_COMMIT_INVALID'
-      ? 'GIT_REFERENCE_INVALID'
-      : error.code === 'GIT_COMMIT_NOT_FOUND'
-        ? 'GIT_REFERENCE_NOT_FOUND'
-        : 'GIT_NOT_REPOSITORY';
+    const notFound = error.code === 'GIT_COMMIT_NOT_FOUND' || error.code === 'GIT_COMMIT_FILE_NOT_FOUND';
     throw new ApiError({
-      statusCode: error.code === 'GIT_COMMIT_NOT_FOUND' ? 404 : 400,
-      code,
+      statusCode: notFound ? 404 : 400,
+      code: commitErrorCodes[error.code],
       message: error.message,
     });
   }
@@ -276,6 +280,60 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
       try {
         return {
           detail: await inspectGitCommit(project.path, request.params.commitHash),
+        };
+      } catch (error) {
+        translateCommitError(error);
+      }
+    },
+  );
+
+  app.get<{ Params: CommitParams; Querystring: { path: string } }>(
+    '/projects/:projectId/git/commits/:commitHash/file',
+    {
+      schema: {
+        params: paramsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['path'],
+          properties: { path: { type: 'string', minLength: 1, maxLength: 2048 } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['file'],
+            properties: {
+              file: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['hash', 'path', 'status', 'binary', 'content', 'truncated', 'masked', 'redactionCount'],
+                properties: {
+                  hash: { type: 'string' },
+                  path: { type: 'string' },
+                  status: { type: 'string', enum: ['added', 'modified', 'deleted', 'renamed', 'copied', 'type-changed'] },
+                  binary: { type: 'boolean' },
+                  content: { type: 'string' },
+                  truncated: { type: 'boolean' },
+                  masked: { type: 'boolean' },
+                  redactionCount: { type: 'integer', minimum: 0 },
+                },
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          file: await inspectGitCommitFile(
+            project.path,
+            request.params.commitHash,
+            request.query.path,
+          ),
         };
       } catch (error) {
         translateCommitError(error);

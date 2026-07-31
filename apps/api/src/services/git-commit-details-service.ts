@@ -7,6 +7,7 @@ const execFileAsync = promisify(execFile);
 const FIELD_SEPARATOR = '\u001f';
 const RECORD_SEPARATOR = '\u001e';
 const PATCH_LIMIT = 320_000;
+const FILE_PATCH_LIMIT = 262_144;
 const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
 const HISTORY_REFERENCE_PATTERN = /^(?!-)[^\u0000-\u001f\u007f]{1,250}$/;
 
@@ -52,6 +53,17 @@ export interface GitCommitDetails {
   redactionCount: number;
 }
 
+export interface GitCommitFileDiff {
+  hash: string;
+  path: string;
+  status: GitCommitFileStatus;
+  binary: boolean;
+  content: string;
+  truncated: boolean;
+  masked: boolean;
+  redactionCount: number;
+}
+
 export interface GitCommitHistoryEntry {
   hash: string;
   shortHash: string;
@@ -76,6 +88,7 @@ export class GitCommitDetailsError extends Error {
     public readonly code:
       | 'GIT_COMMIT_INVALID'
       | 'GIT_COMMIT_NOT_FOUND'
+      | 'GIT_COMMIT_FILE_NOT_FOUND'
       | 'GIT_NOT_REPOSITORY',
     message: string,
   ) {
@@ -216,18 +229,36 @@ function parseNumstat(
   statuses: Map<string, { status: GitCommitFileStatus; previousPath?: string }>,
 ): GitCommitDetailFile[] {
   const files: GitCommitDetailFile[] = [];
-  const records = output.split('\0').filter(Boolean);
+  const records = output.split('\0');
+  let index = 0;
 
-  for (const record of records) {
+  while (index < records.length) {
+    const record = records[index];
+    index += 1;
+    if (!record) continue;
+
     const [additionsRaw = '0', deletionsRaw = '0', ...pathParts] = record.split('\t');
-    const filePath = pathParts.join('\t');
-    if (!filePath) continue;
+    let filePath = pathParts.join('\t');
+    let previousPath: string | undefined;
+
+    // Em renomeações o `-z` quebra o registro em três: contagens, caminho
+    // anterior e caminho novo. Sem consumir os dois seguintes, o arquivo
+    // renomeado desaparecia da lista.
+    if (!filePath) {
+      previousPath = records[index] ?? '';
+      index += 1;
+      filePath = records[index] ?? '';
+      index += 1;
+      if (!filePath) continue;
+    }
+
     const binary = additionsRaw === '-' || deletionsRaw === '-';
     const status = statuses.get(filePath);
+    const effectivePreviousPath = status?.previousPath ?? previousPath;
     files.push({
       path: filePath,
-      ...(status?.previousPath ? { previousPath: status.previousPath } : {}),
-      status: status?.status ?? 'modified',
+      ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
+      status: status?.status ?? (previousPath ? 'renamed' : 'modified'),
       additions: binary ? 0 : Number.parseInt(additionsRaw, 10) || 0,
       deletions: binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0,
       binary,
@@ -419,5 +450,68 @@ export async function inspectGitCommit(
     truncated,
     masked: maskedPatch.masked,
     redactionCount: maskedPatch.redactionCount,
+  };
+}
+
+/**
+ * Diff de um único arquivo dentro de um commit — é o que a tela de histórico
+ * carrega sob demanda, em vez de trazer o patch inteiro de uma vez.
+ *
+ * O caminho vem do navegador, mas só é aceito se constar da própria lista de
+ * arquivos do commit; nada de caminho arbitrário chegando ao `git show`.
+ */
+export async function inspectGitCommitFile(
+  projectPath: string,
+  commitHash: string,
+  filePath: string,
+): Promise<GitCommitFileDiff> {
+  if (!COMMIT_HASH_PATTERN.test(commitHash)) {
+    throw new GitCommitDetailsError('GIT_COMMIT_INVALID', 'Hash de commit inválido.');
+  }
+
+  await requireRepository(projectPath);
+
+  try {
+    await runGit(projectPath, ['rev-parse', '--verify', `${commitHash}^{commit}`]);
+  } catch {
+    throw new GitCommitDetailsError('GIT_COMMIT_NOT_FOUND', 'Commit não encontrado neste repositório.');
+  }
+
+  const nameStatus = await runGit(projectPath, [
+    'show', '--format=', '--name-status', '-z', '--find-renames', commitHash,
+  ]);
+  const numstat = await runGit(projectPath, [
+    'show', '--format=', '--numstat', '-z', '--find-renames', commitHash,
+  ]);
+  const entry = parseNumstat(numstat, parseNameStatus(nameStatus))
+    .find((file) => file.path === filePath);
+
+  if (!entry) {
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_FILE_NOT_FOUND',
+      'O arquivo não faz parte deste commit.',
+    );
+  }
+
+  // Renomeados precisam do caminho anterior para o git localizar as duas pontas.
+  const pathArguments = entry.previousPath ? [entry.previousPath, entry.path] : [entry.path];
+  const raw = await runGit(projectPath, [
+    'show', '--format=', '--find-renames', '--no-ext-diff', '--unified=3',
+    commitHash, '--', ...pathArguments,
+  ]);
+
+  const binary = entry.binary || /^Binary files /m.test(raw);
+  const truncated = raw.length > FILE_PATCH_LIMIT;
+  const masked = maskSensitiveLogContent(truncated ? raw.slice(0, FILE_PATCH_LIMIT) : raw);
+
+  return {
+    hash: commitHash,
+    path: entry.path,
+    status: entry.status,
+    binary,
+    content: binary ? '' : masked.content,
+    truncated,
+    masked: masked.masked,
+    redactionCount: masked.redactionCount,
   };
 }
