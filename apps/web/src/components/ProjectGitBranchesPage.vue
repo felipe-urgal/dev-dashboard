@@ -336,15 +336,17 @@ onBeforeUnmount(() => {
             >
               Trocar
             </button>
-            <button
-              v-else-if="!row.local && row.origin"
-              type="button"
-              class="secondary-button"
-              :disabled="busy"
-              @click="emit('track', row.origin.name)"
-            >
-              Trazer para local
-            </button>
+            <template v-else-if="!row.local && row.origin">
+              <span class="branch-readonly">Somente leitura</span>
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="busy"
+                @click="emit('track', row.origin.name)"
+              >
+                Trazer para local
+              </button>
+            </template>
 
             <div
               v-if="!isProtected(row) && (row.local || row.origin)"
@@ -380,7 +382,7 @@ onBeforeUnmount(() => {
                   @click="openDeleteModal(row)"
                 >
                   <TrashIcon aria-hidden="true" />
-                  Remover local…
+                  Remover branch…
                 </button>
                 <button
                   v-if="row.origin"
