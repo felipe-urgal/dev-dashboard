@@ -3,6 +3,7 @@ import type {
   GitDiffScope,
   GitDiffSnapshot,
   GitFileDiff,
+  GitFileLines,
   GitMutationConfirmation,
   GitMutationOperation,
   GitStashEntry,
@@ -39,6 +40,30 @@ export async function fetchProjectGitFileDiff(projectId: string, filePath: strin
     init,
   );
   return response.file;
+}
+
+interface ProjectGitFileLinesResponse { lines: GitFileLines }
+
+export async function fetchProjectGitFileLines(
+  projectId: string,
+  filePath: string,
+  scope: GitDiffScope,
+  start: number,
+  end: number,
+  signal?: AbortSignal,
+): Promise<GitFileLines> {
+  const query = new URLSearchParams({
+    path: filePath,
+    scope,
+    start: String(start),
+    end: String(end),
+  });
+  const init: RequestInit = signal ? { signal } : {};
+  const response = await requestJson<ProjectGitFileLinesResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/diff/file/lines?${query}`,
+    init,
+  );
+  return response.lines;
 }
 
 interface ProjectGitFileMutationResponse { file: { path: string } }

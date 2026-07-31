@@ -8,11 +8,18 @@ export type GitDiffLineKind =
   | 'meta'
   | 'notice';
 
+export interface GitDiffWordRange {
+  start: number;
+  end: number;
+}
+
 export interface GitUnifiedDiffLine {
   kind: GitDiffLineKind;
   text: string;
   oldLine: number | null;
   newLine: number | null;
+  /** Trechos alterados dentro da linha, quando ela forma par com a linha oposta. */
+  words?: readonly GitDiffWordRange[];
 }
 
 export interface GitSplitDiffRow {
@@ -170,6 +177,133 @@ export function buildSplitGitDiffRows(
   return rows;
 }
 
+const WORD_PATTERN = /\s+|[\p{L}\p{N}_$]+|[^\s\p{L}\p{N}_$]/gu;
+/** Acima disso a tabela de LCS deixa de valer o custo para uma linha só. */
+const WORD_DIFF_MAX_CELLS = 40_000;
+/** Abaixo disso as linhas são diferentes demais: marcar tudo vira ruído. */
+const WORD_DIFF_MIN_SIMILARITY = 0.45;
+
+function tokenizeLine(text: string): string[] {
+  return text.match(WORD_PATTERN) ?? [];
+}
+
+function appendRange(ranges: GitDiffWordRange[], start: number, end: number): void {
+  const last = ranges.at(-1);
+  if (last && last.end === start) last.end = end;
+  else ranges.push({ start, end });
+}
+
+/**
+ * Compara duas linhas por token e devolve os trechos que mudaram de cada lado,
+ * para que só a diferença real receba destaque forte.
+ *
+ * Devolve `null` quando as linhas são parecidas demais (idênticas), diferentes
+ * demais, ou grandes demais para valer a comparação.
+ */
+export function computeGitDiffWordRanges(
+  oldText: string,
+  newText: string,
+): { left: GitDiffWordRange[]; right: GitDiffWordRange[] } | null {
+  if (oldText === newText) return null;
+
+  const left = tokenizeLine(oldText);
+  const right = tokenizeLine(newText);
+  if (left.length === 0 || right.length === 0) return null;
+  if (left.length * right.length > WORD_DIFF_MAX_CELLS) return null;
+
+  const table: number[][] = Array.from(
+    { length: left.length + 1 },
+    () => new Array<number>(right.length + 1).fill(0),
+  );
+  for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
+    for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
+      table[leftIndex]![rightIndex] = left[leftIndex] === right[rightIndex]
+        ? table[leftIndex + 1]![rightIndex + 1]! + 1
+        : Math.max(table[leftIndex + 1]![rightIndex]!, table[leftIndex]![rightIndex + 1]!);
+    }
+  }
+
+  const common = table[0]![0]!;
+  if (common / Math.max(left.length, right.length) < WORD_DIFF_MIN_SIMILARITY) return null;
+
+  const leftRanges: GitDiffWordRange[] = [];
+  const rightRanges: GitDiffWordRange[] = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+  let leftOffset = 0;
+  let rightOffset = 0;
+
+  while (leftIndex < left.length && rightIndex < right.length) {
+    const leftToken = left[leftIndex]!;
+    const rightToken = right[rightIndex]!;
+    if (leftToken === rightToken) {
+      leftOffset += leftToken.length;
+      rightOffset += rightToken.length;
+      leftIndex += 1;
+      rightIndex += 1;
+    } else if (table[leftIndex + 1]![rightIndex]! >= table[leftIndex]![rightIndex + 1]!) {
+      appendRange(leftRanges, leftOffset, leftOffset + leftToken.length);
+      leftOffset += leftToken.length;
+      leftIndex += 1;
+    } else {
+      appendRange(rightRanges, rightOffset, rightOffset + rightToken.length);
+      rightOffset += rightToken.length;
+      rightIndex += 1;
+    }
+  }
+  while (leftIndex < left.length) {
+    const token = left[leftIndex]!;
+    appendRange(leftRanges, leftOffset, leftOffset + token.length);
+    leftOffset += token.length;
+    leftIndex += 1;
+  }
+  while (rightIndex < right.length) {
+    const token = right[rightIndex]!;
+    appendRange(rightRanges, rightOffset, rightOffset + token.length);
+    rightOffset += token.length;
+    rightIndex += 1;
+  }
+
+  return { left: leftRanges, right: rightRanges };
+}
+
+/**
+ * Percorre o diff e, em cada bloco de remoções seguido de adições, casa as
+ * linhas por posição e anota os trechos alterados nas duas pontas.
+ */
+export function annotateGitDiffWordChanges(
+  lines: readonly GitUnifiedDiffLine[],
+): GitUnifiedDiffLine[] {
+  const result = lines.map((line) => ({ ...line }));
+  let index = 0;
+
+  while (index < result.length) {
+    if (result[index]?.kind !== 'deletion') {
+      index += 1;
+      continue;
+    }
+
+    let deletionEnd = index;
+    while (result[deletionEnd]?.kind === 'deletion') deletionEnd += 1;
+    let additionEnd = deletionEnd;
+    while (result[additionEnd]?.kind === 'addition') additionEnd += 1;
+
+    const pairs = Math.min(deletionEnd - index, additionEnd - deletionEnd);
+    for (let pair = 0; pair < pairs; pair += 1) {
+      const deletion = result[index + pair]!;
+      const addition = result[deletionEnd + pair]!;
+      const ranges = computeGitDiffWordRanges(deletion.text, addition.text);
+      if (!ranges) continue;
+      deletion.words = ranges.left;
+      addition.words = ranges.right;
+    }
+
+    index = additionEnd > index ? additionEnd : index + 1;
+  }
+
+  return result;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -200,6 +334,126 @@ export function highlightGitDiffText(text: string, query: string): string {
 
   result += escapeHtml(text.slice(cursor));
   return result;
+}
+
+/**
+ * Renderiza uma linha combinando os dois destaques possíveis: o trecho alterado
+ * em relação à linha oposta e as ocorrências da busca dentro do diff.
+ */
+export function renderGitDiffLineHtml(
+  text: string,
+  options: { words?: readonly GitDiffWordRange[]; query?: string } = {},
+): string {
+  const words = options.words ?? [];
+  const query = options.query?.trim() ?? '';
+  if (words.length === 0) return highlightGitDiffText(text, query);
+
+  const changed = new Array<boolean>(text.length).fill(false);
+  for (const range of words) {
+    for (let index = Math.max(0, range.start); index < Math.min(range.end, text.length); index += 1) {
+      changed[index] = true;
+    }
+  }
+
+  const matched = new Array<boolean>(text.length).fill(false);
+  if (query) {
+    const expression = new RegExp(escapeRegExp(query), 'gi');
+    for (const match of text.matchAll(expression)) {
+      const start = match.index ?? 0;
+      for (let index = start; index < start + (match[0]?.length ?? 0); index += 1) {
+        matched[index] = true;
+      }
+    }
+  }
+
+  let html = '';
+  let cursor = 0;
+  while (cursor < text.length) {
+    const isChanged = changed[cursor];
+    const isMatch = matched[cursor];
+    let end = cursor + 1;
+    while (end < text.length && changed[end] === isChanged && matched[end] === isMatch) end += 1;
+
+    const chunk = escapeHtml(text.slice(cursor, end));
+    if (isMatch && isChanged) html += `<mark class="git-diff-word">${chunk}</mark>`;
+    else if (isMatch) html += `<mark>${chunk}</mark>`;
+    else if (isChanged) html += `<span class="git-diff-word">${chunk}</span>`;
+    else html += chunk;
+    cursor = end;
+  }
+
+  return html;
+}
+
+export interface GitDiffHunk {
+  header: GitUnifiedDiffLine;
+  lines: GitUnifiedDiffLine[];
+  /** Diferença entre a numeração nova e a antiga na região deste hunk. */
+  lineOffset: number;
+  firstNewLine: number | null;
+  lastNewLine: number | null;
+}
+
+export interface GitDiffHunkSplit {
+  /** Linhas de metadados que aparecem antes do primeiro hunk. */
+  leading: GitUnifiedDiffLine[];
+  hunks: GitDiffHunk[];
+}
+
+/**
+ * Reagrupa o diff plano em hunks, guardando o que a expansão de contexto
+ * precisa saber: onde cada hunk começa e termina na numeração do arquivo novo.
+ */
+export function splitGitDiffHunks(lines: readonly GitUnifiedDiffLine[]): GitDiffHunkSplit {
+  const leading: GitUnifiedDiffLine[] = [];
+  const hunks: GitDiffHunk[] = [];
+
+  for (const line of lines) {
+    if (line.kind === 'hunk') {
+      const coordinates = HUNK_PATTERN.exec(line.text);
+      const oldStart = Number.parseInt(coordinates?.[2] ?? '0', 10);
+      const newStart = Number.parseInt(coordinates?.[4] ?? '0', 10);
+      hunks.push({
+        header: line,
+        lines: [],
+        lineOffset: newStart - oldStart,
+        firstNewLine: newStart || null,
+        lastNewLine: null,
+      });
+      continue;
+    }
+
+    const current = hunks.at(-1);
+    if (!current) {
+      leading.push(line);
+      continue;
+    }
+    current.lines.push(line);
+    if (line.newLine !== null) current.lastNewLine = line.newLine;
+  }
+
+  return { leading, hunks };
+}
+
+/**
+ * Converte linhas cruas do arquivo em linhas de contexto numeradas nos dois
+ * lados — o `lineOffset` do hunk reconstrói a numeração antiga.
+ */
+export function buildGitDiffContextLines(
+  texts: readonly string[],
+  startNewLine: number,
+  lineOffset: number,
+): GitUnifiedDiffLine[] {
+  return texts.map((text, index) => {
+    const newLine = startNewLine + index;
+    const oldLine = newLine - lineOffset;
+    return {
+      kind: 'context' as const,
+      text,
+      oldLine: oldLine >= 1 ? oldLine : null,
+      newLine,
+    };
+  });
 }
 
 export function countGitDiffMatches(content: string, query: string): number {

@@ -125,3 +125,109 @@ test('getDiffSnapshot para diretório não git retorna repository=false', async 
   assert.equal(snapshot.repository, false);
   assert.deepEqual(snapshot.files, []);
 });
+
+test('getFileLines devolve a faixa pedida do arquivo alterado', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  const lines = Array.from({ length: 40 }, (_unused, index) => `linha ${index + 1}`);
+  await writeFile(path.join(root, 'src', 'app.ts'), `${lines.join('\n')}\n`);
+
+  const service = new GitService();
+  const result = await service.getFileLines(root, 'src/app.ts', 'combined', 5, 8);
+  assert.equal(result.path, 'src/app.ts');
+  assert.equal(result.start, 5);
+  assert.equal(result.end, 8);
+  assert.equal(result.totalLines, 40);
+  assert.deepEqual(result.lines, ['linha 5', 'linha 6', 'linha 7', 'linha 8']);
+});
+
+test('getFileLines recorta a faixa ao fim do arquivo', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'src', 'app.ts'), 'um\ndois\ntrês\n');
+
+  const service = new GitService();
+  const result = await service.getFileLines(root, 'src/app.ts', 'combined', 2, 90);
+  assert.equal(result.end, 3);
+  assert.deepEqual(result.lines, ['dois', 'três']);
+});
+
+test('getFileLines lê o blob do índice quando o escopo é index', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  await writeFile(path.join(root, 'src', 'app.ts'), 'staged\n');
+  await git(root, ['add', 'src/app.ts']);
+  await writeFile(path.join(root, 'src', 'app.ts'), 'worktree\n');
+
+  const service = new GitService();
+  const staged = await service.getFileLines(root, 'src/app.ts', 'index', 1, 1);
+  assert.deepEqual(staged.lines, ['staged']);
+  const worktree = await service.getFileLines(root, 'src/app.ts', 'combined', 1, 1);
+  assert.deepEqual(worktree.lines, ['worktree']);
+});
+
+test('getFileLines mascara segredos do trecho lido', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'src', 'app.ts'), 'password="s3cret1234567890abcdef"\nfim\n');
+
+  const service = new GitService();
+  const result = await service.getFileLines(root, 'src/app.ts', 'combined', 1, 2);
+  assert.equal(result.masked, true);
+  assert.ok(result.redactionCount > 0);
+  assert.ok(!result.lines.join('\n').includes('s3cret1234567890abcdef'));
+});
+
+test('getFileLines recusa caminho fora do projeto', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'src', 'app.ts'), 'alterado\n');
+
+  const service = new GitService();
+  await assert.rejects(
+    () => service.getFileLines(root, '../../etc/passwd', 'combined', 1, 5),
+    (error: unknown) => error instanceof GitDiffError && error.code === 'GIT_DIFF_PATH_OUTSIDE_PROJECT',
+  );
+});
+
+test('getFileLines recusa arquivo que não está no diff do escopo', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'src', 'app.ts'), 'alterado\n');
+
+  const service = new GitService();
+  await assert.rejects(
+    () => service.getFileLines(root, 'README.md', 'combined', 1, 5),
+    (error: unknown) => error instanceof GitDiffError && error.code === 'GIT_DIFF_PATH_NOT_IN_DIFF',
+  );
+});
+
+test('getFileLines recusa faixa invertida ou grande demais', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await writeFile(path.join(root, 'src', 'app.ts'), 'alterado\n');
+
+  const service = new GitService();
+  await assert.rejects(
+    () => service.getFileLines(root, 'src/app.ts', 'combined', 9, 2),
+    (error: unknown) => error instanceof GitDiffError && error.code === 'GIT_DIFF_RANGE_INVALID',
+  );
+  await assert.rejects(
+    () => service.getFileLines(root, 'src/app.ts', 'combined', 1, 5_000),
+    (error: unknown) => error instanceof GitDiffError && error.code === 'GIT_DIFF_RANGE_INVALID',
+  );
+});
+
+test('getFileLines recusa arquivo removido', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  await git(root, ['rm', '-q', 'src/app.ts']);
+
+  const service = new GitService();
+  await assert.rejects(
+    () => service.getFileLines(root, 'src/app.ts', 'combined', 1, 5),
+    (error: unknown) => error instanceof GitDiffError && error.code === 'GIT_DIFF_LINES_UNAVAILABLE',
+  );
+});

@@ -96,6 +96,17 @@ export interface GitFileDiff {
   redactionCount: number;
 }
 
+export interface GitFileLines {
+  path: string;
+  scope: GitDiffScope;
+  start: number;
+  end: number;
+  totalLines: number;
+  lines: string[];
+  masked: boolean;
+  redactionCount: number;
+}
+
 export type GitPullRequestProvider = 'github' | 'gitlab';
 
 export interface GitPullRequestUrl {

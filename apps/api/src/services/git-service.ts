@@ -1,17 +1,27 @@
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { unlink } from 'node:fs/promises';
+import { open, unlink } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import type { GitCommit, GitCommitResult, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileStatus, GitMutationConfirmation, GitMutationOperation, GitStashEntry, ProjectGitOverview } from '@dev-dashboard/contracts';
+import type { GitCommit, GitCommitResult, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileLines, GitFileStatus, GitMutationConfirmation, GitMutationOperation, GitStashEntry, ProjectGitOverview } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 export const GIT_DIFF_FILE_LIMIT = 262_144;
+export const GIT_DIFF_LINES_LIMIT = 400;
 export const GIT_MUTATION_CONFIRMATION_TTL_MS = 60_000;
 export const GIT_BRANCH_NAME_PATTERN = /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 
 export class GitDiffError extends Error {
-  public constructor(public readonly code: 'GIT_NOT_REPOSITORY' | 'GIT_DIFF_PATH_OUTSIDE_PROJECT' | 'GIT_DIFF_PATH_INVALID', message: string) {
+  public constructor(
+    public readonly code:
+      | 'GIT_NOT_REPOSITORY'
+      | 'GIT_DIFF_PATH_OUTSIDE_PROJECT'
+      | 'GIT_DIFF_PATH_INVALID'
+      | 'GIT_DIFF_PATH_NOT_IN_DIFF'
+      | 'GIT_DIFF_RANGE_INVALID'
+      | 'GIT_DIFF_LINES_UNAVAILABLE',
+    message: string,
+  ) {
     super(message);
     this.name = 'GitDiffError';
   }
@@ -174,6 +184,41 @@ function ensurePathInsideProject(projectPath: string, requested: string): string
     throw new GitDiffError('GIT_DIFF_PATH_OUTSIDE_PROJECT', 'Caminho fora do projeto.');
   }
   return relative || '.';
+}
+
+async function readIndexBlob(projectPath: string, safePath: string): Promise<string> {
+  try {
+    return await runGit(projectPath, ['show', `:${safePath}`]);
+  } catch {
+    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O arquivo não está no índice.');
+  }
+}
+
+/**
+ * Lê no máximo `GIT_DIFF_FILE_LIMIT` bytes do início do arquivo: a expansão de
+ * contexto numera linhas a partir do topo, então o começo é o trecho útil —
+ * ao contrário dos logs, onde o final é que importa.
+ */
+async function readWorkingTreeFile(projectPath: string, safePath: string): Promise<string> {
+  const absolute = path.resolve(projectPath, safePath);
+  let handle;
+  try {
+    handle = await open(absolute, 'r');
+  } catch {
+    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'Arquivo indisponível na árvore de trabalho.');
+  }
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) {
+      throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O caminho não é um arquivo comum.');
+    }
+    const size = Math.min(stats.size, GIT_DIFF_FILE_LIMIT);
+    const buffer = Buffer.alloc(size);
+    await handle.read(buffer, 0, size, 0);
+    return buffer.toString('utf8');
+  } finally {
+    await handle.close();
+  }
 }
 
 async function assertWorkingTreeClean(projectPath: string): Promise<void> {
@@ -345,6 +390,70 @@ export class GitService {
       binary,
       content: binary ? '' : masked.content,
       truncated,
+      masked: masked.masked,
+      redactionCount: masked.redactionCount,
+    };
+  }
+
+  /**
+   * Lê uma faixa de linhas do lado "novo" de um arquivo que já aparece no diff
+   * do escopo pedido — é o que alimenta a expansão de contexto na interface.
+   *
+   * O navegador nunca escolhe um caminho livre: além da checagem de contenção
+   * no projeto, o caminho precisa estar na lista de arquivos do próprio diff.
+   */
+  public async getFileLines(
+    projectPath: string,
+    requestedPath: string,
+    scope: GitDiffScope,
+    start: number,
+    end: number,
+  ): Promise<GitFileLines> {
+    try {
+      await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+    } catch {
+      throw new GitDiffError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+    }
+
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+      throw new GitDiffError('GIT_DIFF_RANGE_INVALID', 'Faixa de linhas inválida.');
+    }
+    if (end - start + 1 > GIT_DIFF_LINES_LIMIT) {
+      throw new GitDiffError('GIT_DIFF_RANGE_INVALID', `A faixa excede ${GIT_DIFF_LINES_LIMIT} linhas.`);
+    }
+
+    const safePath = ensurePathInsideProject(projectPath, requestedPath);
+    const snapshot = await this.getDiffSnapshot(projectPath, scope);
+    const entry = snapshot.files.find((file) => file.path === safePath);
+    if (!entry) {
+      throw new GitDiffError('GIT_DIFF_PATH_NOT_IN_DIFF', 'O arquivo não faz parte do diff deste escopo.');
+    }
+    if (entry.binary) {
+      throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'Arquivo binário não tem expansão de contexto.');
+    }
+    if (entry.status === 'deleted') {
+      throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'Arquivo removido não tem conteúdo para expandir.');
+    }
+
+    const content = scope === 'index'
+      ? await readIndexBlob(projectPath, safePath)
+      : await readWorkingTreeFile(projectPath, safePath);
+
+    const allLines = content.split('\n');
+    if (allLines.at(-1) === '') allLines.pop();
+    const totalLines = allLines.length;
+    const effectiveStart = Math.min(start, totalLines + 1);
+    const effectiveEnd = Math.min(end, totalLines);
+    const slice = effectiveEnd < effectiveStart ? [] : allLines.slice(effectiveStart - 1, effectiveEnd);
+
+    const masked = maskSensitiveLogContent(slice.join('\n'));
+    return {
+      path: safePath,
+      scope,
+      start: effectiveStart,
+      end: effectiveEnd < effectiveStart ? effectiveStart - 1 : effectiveEnd,
+      totalLines,
+      lines: slice.length === 0 ? [] : masked.content.split('\n'),
       masked: masked.masked,
       redactionCount: masked.redactionCount,
     };

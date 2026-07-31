@@ -54,6 +54,9 @@ function rememberTrigger(event: Event): void {
   if (activeSession) return;
   const element = actionElement(event);
   if (!element || !element.closest('.git-modern-panel')) return;
+  // Gestos de navegação (expandir contexto de um diff, por exemplo) não são
+  // ações de Git e não merecem um aviso a cada clique.
+  if (element.closest('[data-git-action-feedback="off"]')) return;
   pendingTrigger = {
     element,
     label: actionLabel(element),

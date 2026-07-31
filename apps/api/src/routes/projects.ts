@@ -24,12 +24,19 @@ import {
   commonErrorResponseSchemas,
   gitDiffSnapshotResponseSchema,
   gitFileDiffResponseSchema,
+  gitFileLinesResponseSchema,
   projectResponseSchema,
   projectGitOverviewResponseSchema,
 } from '../http/response-schemas.js';
 
 interface ProjectParams {
   projectId: string;
+}
+
+// Todos os erros de diff são de requisição: caminho fora do projeto, caminho
+// que não faz parte do diff, faixa inválida ou arquivo sem conteúdo expansível.
+function gitDiffErrorStatus(error: GitDiffError): number {
+  return error.code === 'GIT_DIFF_LINES_UNAVAILABLE' ? 404 : 400;
 }
 
 const faviconDirectories = [
@@ -313,16 +320,64 @@ export const projectRoutes: FastifyPluginAsync<
         return { file: await gitService.getFileDiff(project.path, request.query.path, request.query.scope ?? 'combined') };
       } catch (error) {
         if (error instanceof GitDiffError) {
-          const statuses: Record<string, number> = {
-            GIT_NOT_REPOSITORY: 400,
-            GIT_DIFF_PATH_OUTSIDE_PROJECT: 400,
-            GIT_DIFF_PATH_INVALID: 400,
-          };
-          throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
+          throw new ApiError({ statusCode: gitDiffErrorStatus(error), code: error.code, message: error.message });
         }
         throw new ApiError({
           statusCode: 500, code: 'GIT_COMMAND_FAILED',
           message: error instanceof Error ? error.message : 'Não foi possível carregar o diff do arquivo.',
+        });
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: { path: string; scope?: 'worktree' | 'index' | 'combined'; start: number; end: number };
+  }>(
+    '/projects/:projectId/git/diff/file/lines',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: {
+          type: 'object', additionalProperties: false,
+          required: ['path', 'start', 'end'],
+          properties: {
+            path: { type: 'string', minLength: 1, maxLength: 2048 },
+            scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
+            start: { type: 'integer', minimum: 1 },
+            end: { type: 'integer', minimum: 1 },
+          },
+        },
+        response: {
+          200: {
+            type: 'object', additionalProperties: false,
+            required: ['lines'],
+            properties: { lines: gitFileLinesResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      try {
+        return {
+          lines: await gitService.getFileLines(
+            project.path,
+            request.query.path,
+            request.query.scope ?? 'combined',
+            request.query.start,
+            request.query.end,
+          ),
+        };
+      } catch (error) {
+        if (error instanceof GitDiffError) {
+          throw new ApiError({ statusCode: gitDiffErrorStatus(error), code: error.code, message: error.message });
+        }
+        throw new ApiError({
+          statusCode: 500, code: 'GIT_COMMAND_FAILED',
+          message: error instanceof Error ? error.message : 'Não foi possível ler as linhas do arquivo.',
         });
       }
     },
