@@ -1,7 +1,7 @@
 :root {
   --git-diff-addition-accent: #3fb950;
-  --git-diff-addition-bg: color-mix(in srgb, #238636 20%, var(--surface-1));
-  --git-diff-addition-gutter: color-mix(in srgb, #238636 32%, var(--surface-2));
+  --git-diff-addition-bg: var(--git-diff-context-bg);
+  --git-diff-addition-gutter: var(--git-diff-context-gutter);
   --git-diff-deletion-accent: #f85149;
   --git-diff-deletion-bg: color-mix(in srgb, #da3633 20%, var(--surface-1));
   --git-diff-deletion-gutter: color-mix(in srgb, #da3633 32%, var(--surface-2));
@@ -29,8 +29,8 @@
 
 [data-theme='light'] {
   --git-diff-addition-accent: #1a7f37;
-  --git-diff-addition-bg: #dafbe1;
-  --git-diff-addition-gutter: #ccffd8;
+  --git-diff-addition-bg: var(--git-diff-context-bg);
+  --git-diff-addition-gutter: var(--git-diff-context-gutter);
   --git-diff-deletion-accent: #cf222e;
   --git-diff-deletion-bg: #ffebe9;
   --git-diff-deletion-gutter: #ffd7d5;
