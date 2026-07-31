@@ -798,21 +798,51 @@ test('mostra o estado vazio na página de diff', async () => {
 
 test('renderiza a sincronização em uma única ação entre main e origin/main', async () => {
   const mounted = await mountPanel({
-    overview: { ...baseOverview, clean: true, files: [] },
+    workspace: {
+      ...baseWorkspace,
+      branches: baseWorkspace.branches.map((branch) =>
+        branch.name === 'upstream/main'
+          ? {
+              ...branch,
+              latestCommit: {
+                ...branch.latestCommit!,
+                hash: 'def123456789',
+                shortHash: 'def1234',
+              },
+            }
+          : branch,
+      ),
+    },
   });
   cleanup = mounted.restore;
 
   assert.ok(mounted.wrapper.find('.git-sync-card').exists());
   assert.match(mounted.wrapper.text(), /main\s*→\s*origin\/main/);
-  assert.match(mounted.wrapper.text(), /Sincronizado/);
+  assert.match(mounted.wrapper.text(), /Tudo sincronizado/);
   assert.match(
     mounted.wrapper.text(),
     /A sincronização atualiza a main e publica no origin/,
   );
   assert.equal(mounted.wrapper.findAll('.git-sync-button').length, 1);
+  assert.ok(
+    mounted.wrapper.find('.git-sync-button').attributes('disabled')
+      !== undefined,
+  );
   assert.doesNotMatch(
     mounted.wrapper.text(),
     /upstream|fetch|pipeline|estratégia|pull request/i,
+  );
+});
+
+test('avisa sobre alterações locais somente quando há sincronização pendente', async () => {
+  const mounted = await mountPanel();
+  cleanup = mounted.restore;
+
+  assert.match(mounted.wrapper.text(), /Alterações locais pendentes/);
+  assert.doesNotMatch(mounted.wrapper.text(), /Tudo sincronizado/);
+  assert.ok(
+    mounted.wrapper.find('.git-sync-button').attributes('disabled')
+      !== undefined,
   );
 });
 

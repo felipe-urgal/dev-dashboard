@@ -37,6 +37,10 @@ repositório principal e publicá-la em `origin/main`.
 - A ação fica indisponível quando há alterações locais pendentes, quando a
   branch `main` não existe ou quando os remotes obrigatórios não estão
   configurados.
+- O estado "Tudo sincronizado" exige que as referências conhecidas de `main`,
+  `origin/main` e `upstream/main` apontem para o mesmo commit. Nesse estado, o
+  aviso de working tree sujo da branch aberta não substitui a informação e a
+  ação permanece desabilitada por não haver trabalho a executar.
 
 ## Segurança
 
