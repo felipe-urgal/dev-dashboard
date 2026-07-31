@@ -59,7 +59,7 @@ test('compõe Pull Request do fork origin para upstream com título e descriçã
   const url = new URL(result.url);
   assert.equal(url.hostname, 'github.com');
   assert.equal(url.pathname, '/empresa/dev-dashboard/compare/main...felipe-urgal%3Afeature%2Fpull-request');
-  assert.equal(url.searchParams.get('expand'), '1');
+  assert.equal(url.searchParams.get('quick_pull'), '1');
   assert.equal(url.searchParams.get('title'), 'feat: fluxo de PR');
   assert.equal(
     url.searchParams.get('body'),
@@ -84,6 +84,7 @@ test('compõe Pull Request para origin usando branch base escolhida', async (con
 
   const url = new URL(result.url);
   assert.equal(url.pathname, '/felipe-urgal/dev-dashboard/compare/develop...feature%2Fpull-request');
+  assert.equal(url.searchParams.get('quick_pull'), '1');
   assert.equal(url.searchParams.get('title'), 'PR para develop');
   assert.equal(url.searchParams.get('body'), null);
 });
