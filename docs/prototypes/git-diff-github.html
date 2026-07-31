@@ -1,0 +1,1594 @@
+<title>Protótipo — Diff no estilo GitHub</title>
+<style>
+  :root {
+    color-scheme: dark;
+
+    --surface-0: #0a0d12;
+    --surface-1: #10141b;
+    --surface-2: #171c25;
+    --surface-3: #1e232d;
+    --border: #262d39;
+    --border-strong: #354055;
+    --text: #e1e5ed;
+    --text-muted: #778195;
+    --text-dim: #737e94;
+    --accent: #6483d1;
+    --accent-strong: #4f5eff;
+    --accent-soft: #16213a;
+
+    --success-surface: #173125;
+    --success-text: #8ed5ae;
+    --danger-surface: #351a20;
+    --danger-text: #e59ba7;
+    --info-surface: #16213a;
+    --info-text: #8fa8ff;
+    --warning-surface: #332d18;
+    --warning-text: #d7c585;
+
+    /* Camada específica do diff */
+    --diff-add-bg: rgb(46 160 67 / 15%);
+    --diff-add-gutter: rgb(63 185 80 / 30%);
+    --diff-add-word: rgb(63 185 80 / 40%);
+    --diff-del-bg: rgb(248 81 73 / 10%);
+    --diff-del-gutter: rgb(248 81 73 / 30%);
+    --diff-del-word: rgb(248 81 73 / 40%);
+    --diff-hunk-bg: rgb(56 139 253 / 10%);
+    --diff-hunk-text: #7d8894;
+    --diff-gutter-text: #6b7484;
+    --diff-stat-empty: #2b323d;
+    --diff-row-hover: rgb(255 255 255 / 3%);
+
+    --tok-keyword: #ff7b72;
+    --tok-string: #a5d6ff;
+    --tok-comment: #8b949e;
+    --tok-number: #79c0ff;
+    --tok-tag: #7ee787;
+    --tok-type: #ffa657;
+
+    --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    --font-xs: 10px;
+    --font-sm: 11px;
+    --font-md: 13px;
+    --font-lg: 16px;
+    --font-xl: 20px;
+    --font-weight-body: 500;
+    --font-weight-strong: 600;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-1: 0 4px 12px rgb(0 0 0 / 40%);
+
+    --gutter: 46px;
+    --toolbar-h: 52px;
+  }
+
+  :root[data-theme='light'],
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+
+    --surface-0: #f4f6fa;
+    --surface-1: #ffffff;
+    --surface-2: #eef1f6;
+    --surface-3: #e1e6ee;
+    --border: #d5dbe5;
+    --border-strong: #a9b3c4;
+    --text: #1c222e;
+    --text-muted: #556074;
+    --text-dim: #8b95a6;
+    --accent: #3454b4;
+    --accent-strong: #1f3fa0;
+    --accent-soft: #e0e7fa;
+
+    --success-surface: #d9efdf;
+    --success-text: #226b41;
+    --danger-surface: #f7d7dd;
+    --danger-text: #8b2434;
+    --info-surface: #dde5fb;
+    --info-text: #26397d;
+    --warning-surface: #f6ecc9;
+    --warning-text: #7a5a10;
+
+    --diff-add-bg: #e6ffec;
+    --diff-add-gutter: #ccffd8;
+    --diff-add-word: #abf2bc;
+    --diff-del-bg: #ffebe9;
+    --diff-del-gutter: #ffd7d5;
+    --diff-del-word: #ffb1b8;
+    --diff-hunk-bg: #ddf4ff;
+    --diff-hunk-text: #57606a;
+    --diff-gutter-text: #8b95a6;
+    --diff-stat-empty: #d8dee6;
+    --diff-row-hover: rgb(9 30 66 / 3%);
+
+    --tok-keyword: #cf222e;
+    --tok-string: #0a3069;
+    --tok-comment: #6e7781;
+    --tok-number: #0550ae;
+    --tok-tag: #116329;
+    --tok-type: #953800;
+
+    --shadow-1: 0 4px 12px rgb(16 24 40 / 8%);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      color-scheme: dark;
+
+      --surface-0: #0a0d12;
+      --surface-1: #10141b;
+      --surface-2: #171c25;
+      --surface-3: #1e232d;
+      --border: #262d39;
+      --border-strong: #354055;
+      --text: #e1e5ed;
+      --text-muted: #778195;
+      --text-dim: #737e94;
+      --accent: #6483d1;
+      --accent-strong: #4f5eff;
+      --accent-soft: #16213a;
+
+      --success-surface: #173125;
+      --success-text: #8ed5ae;
+      --danger-surface: #351a20;
+      --danger-text: #e59ba7;
+      --info-surface: #16213a;
+      --info-text: #8fa8ff;
+      --warning-surface: #332d18;
+      --warning-text: #d7c585;
+
+      --diff-add-bg: rgb(46 160 67 / 15%);
+      --diff-add-gutter: rgb(63 185 80 / 30%);
+      --diff-add-word: rgb(63 185 80 / 40%);
+      --diff-del-bg: rgb(248 81 73 / 10%);
+      --diff-del-gutter: rgb(248 81 73 / 30%);
+      --diff-del-word: rgb(248 81 73 / 40%);
+      --diff-hunk-bg: rgb(56 139 253 / 10%);
+      --diff-hunk-text: #7d8894;
+      --diff-gutter-text: #6b7484;
+      --diff-stat-empty: #2b323d;
+      --diff-row-hover: rgb(255 255 255 / 3%);
+
+      --tok-keyword: #ff7b72;
+      --tok-string: #a5d6ff;
+      --tok-comment: #8b949e;
+      --tok-number: #79c0ff;
+      --tok-tag: #7ee787;
+      --tok-type: #ffa657;
+
+      --shadow-1: 0 4px 12px rgb(0 0 0 / 40%);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--surface-0);
+    color: var(--text);
+    font-family: var(--font-family);
+    font-size: var(--font-md);
+    font-weight: var(--font-weight-body);
+    line-height: 1.5;
+  }
+
+  button, input, select { font: inherit; color: inherit; }
+
+  button {
+    cursor: pointer;
+    background: none;
+    border: 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  .page {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-5) 96px;
+    display: grid;
+    gap: var(--space-4);
+  }
+
+  /* ── Cabeçalho ─────────────────────────────────────────────── */
+
+  .heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .kicker {
+    color: var(--accent);
+    font-size: var(--font-xs);
+    font-weight: var(--font-weight-strong);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .heading h1 {
+    margin: 2px 0 6px;
+    font-size: clamp(22px, 2vw, 28px);
+    letter-spacing: -.025em;
+    text-wrap: balance;
+  }
+
+  .heading-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+  }
+
+  .branch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--font-sm);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .heading-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .segmented {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .segmented button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 7px;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .segmented button:hover { color: var(--text); }
+
+  .segmented button[aria-pressed='true'] {
+    background: var(--surface-1);
+    color: var(--text);
+    box-shadow: var(--shadow-1);
+  }
+
+  .ghost-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .ghost-button:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  /* ── Barra fixa ────────────────────────────────────────────── */
+
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    height: var(--toolbar-h);
+    padding: 0 var(--space-3);
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 1 1 220px;
+    min-width: 180px;
+    padding: 6px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+  }
+
+  .search input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: 0;
+    outline: none;
+    font-size: var(--font-sm);
+  }
+
+  .progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .progress-track {
+    width: 92px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    background: var(--success-text);
+    transition: width .25s ease;
+  }
+
+  /* ── Layout ────────────────────────────────────────────────── */
+
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .delta {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .delta .plus { color: var(--success-text); }
+  .delta .minus { color: var(--danger-text); }
+
+  /* ── Cartões de arquivo ────────────────────────────────────── */
+
+  .files {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .file-card {
+    min-width: 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    scroll-margin-top: calc(var(--toolbar-h) + var(--space-4));
+  }
+
+  .file-card.is-viewed .file-body { display: none; }
+  .file-card.is-collapsed .file-body { display: none; }
+
+  .file-head {
+    position: sticky;
+    top: calc(var(--toolbar-h) + 1px);
+    z-index: 20;
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 9px var(--space-3);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .file-card.is-viewed .file-head,
+  .file-card.is-collapsed .file-head { border-bottom-color: transparent; }
+
+  .chevron {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+  }
+
+  .chevron:hover { background: var(--surface-3); color: var(--text); }
+  .chevron svg { transition: transform .18s ease; }
+  .file-card.is-collapsed .chevron svg,
+  .file-card.is-viewed .chevron svg { transform: rotate(-90deg); }
+
+  .file-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .path {
+    display: flex;
+    align-items: baseline;
+    gap: 1px;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-md);
+  }
+
+  .path .dir {
+    flex: 0 1 auto;
+    min-width: 0;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .path .base {
+    flex: none;
+    color: var(--text);
+    font-weight: var(--font-weight-strong);
+  }
+
+  .path .from {
+    color: var(--text-dim);
+    font-size: var(--font-sm);
+  }
+
+  .icon-button {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    flex: none;
+  }
+
+  .icon-button:hover { background: var(--surface-3); color: var(--text); }
+  .icon-button.is-done { color: var(--success-text); }
+
+  .file-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .counts {
+    display: inline-flex;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--font-sm);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .statbar {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .statbar i {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--diff-stat-empty);
+  }
+
+  .statbar i.add { background: var(--success-text); }
+  .statbar i.del { background: var(--danger-text); }
+
+  .status-tag {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--font-xs);
+    font-weight: var(--font-weight-strong);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .status-tag.added { background: var(--success-surface); color: var(--success-text); }
+  .status-tag.modified { background: var(--warning-surface); color: var(--warning-text); }
+  .status-tag.deleted { background: var(--danger-surface); color: var(--danger-text); }
+  .status-tag.renamed { background: var(--info-surface); color: var(--info-text); }
+
+  .viewed {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    font-weight: var(--font-weight-strong);
+    user-select: none;
+  }
+
+  .viewed:hover { border-color: var(--border-strong); color: var(--text); }
+  .viewed input { accent-color: var(--success-text); margin: 0; }
+
+  /* ── Corpo do diff ─────────────────────────────────────────── */
+
+  .file-body {
+    overflow-x: auto;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .diff-table { min-width: max-content; width: 100%; }
+
+  .hunk-head {
+    display: grid;
+    grid-template-columns: var(--gutter) var(--gutter) minmax(0, 1fr);
+    align-items: center;
+    background: var(--diff-hunk-bg);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--diff-hunk-text);
+  }
+
+  .hunk-expand {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    min-height: 24px;
+    color: var(--accent);
+  }
+
+  .hunk-expand:hover { background: var(--accent-soft); }
+  .hunk-expand[disabled] { color: var(--text-dim); opacity: .4; cursor: default; }
+
+  .hunk-label {
+    padding-left: var(--space-3);
+    white-space: pre;
+  }
+
+  .row {
+    display: grid;
+    position: relative;
+  }
+
+  .unified .row { grid-template-columns: var(--gutter) var(--gutter) minmax(0, 1fr); }
+  .split .row { grid-template-columns: var(--gutter) minmax(0, 1fr) var(--gutter) minmax(0, 1fr); }
+
+  .row:hover .comment-button { opacity: 1; }
+
+  .ln {
+    padding: 0 8px;
+    text-align: right;
+    color: var(--diff-gutter-text);
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .code {
+    padding: 0 10px 0 0;
+    white-space: pre;
+    tab-size: 2;
+  }
+
+  .code .mark {
+    display: inline-block;
+    width: 14px;
+    color: var(--diff-gutter-text);
+    user-select: none;
+  }
+
+  .cell { display: contents; }
+
+  .row.context:hover .ln,
+  .row.context:hover .code { background: var(--diff-row-hover); }
+
+  .add .ln { background: var(--diff-add-gutter); color: var(--text); }
+  .add .code { background: var(--diff-add-bg); }
+  .add .code .mark { color: var(--success-text); }
+
+  .del .ln { background: var(--diff-del-gutter); color: var(--text); }
+  .del .code { background: var(--diff-del-bg); }
+  .del .code .mark { color: var(--danger-text); }
+
+  .pad .ln, .pad .code { background: var(--surface-2); opacity: .55; }
+
+  .split .code.left { border-right: 1px solid var(--border); }
+
+  .dw { border-radius: 2px; }
+  .add .dw { background: var(--diff-add-word); }
+  .del .dw { background: var(--diff-del-word); }
+
+  .comment-button {
+    position: absolute;
+    left: 2px;
+    top: 1px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-strong);
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .12s ease;
+  }
+
+  .comment-button:focus-visible { opacity: 1; }
+
+  .tok-keyword { color: var(--tok-keyword); }
+  .tok-string { color: var(--tok-string); }
+  .tok-comment { color: var(--tok-comment); font-style: italic; }
+  .tok-number { color: var(--tok-number); }
+  .tok-tag { color: var(--tok-tag); }
+  .tok-type { color: var(--tok-type); }
+
+  .file-note {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-family: var(--font-family);
+    font-size: var(--font-sm);
+  }
+
+  .empty-state {
+    padding: var(--space-6);
+    text-align: center;
+    color: var(--text-muted);
+    background: var(--surface-1);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* ── Notas do protótipo ────────────────────────────────────── */
+
+  .notes {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .notes h2 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-lg);
+  }
+
+  .notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .notes li { color: var(--text-muted); font-size: var(--font-sm); }
+  .notes b { color: var(--text); font-weight: var(--font-weight-strong); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="page">
+  <header class="heading">
+    <div>
+      <span class="kicker">Revisão de código</span>
+      <h1>Alterações da branch</h1>
+      <p class="heading-meta">
+        <span class="branch-chip">fix/cadastro</span>
+        <span>Staged e não staged</span>
+        <span aria-hidden="true">·</span>
+        <span><b id="summary-files">4</b> arquivos</span>
+        <span aria-hidden="true">·</span>
+        <span class="delta"><span class="plus" id="summary-add">+0</span> <span class="minus" id="summary-del">−0</span></span>
+      </p>
+    </div>
+
+    <div class="heading-actions">
+      <button class="ghost-button" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <label class="search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.7 11.8a6 6 0 1 1 1.1-1.1l3.2 3.2-1.1 1.1-3.2-3.2ZM11 7a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>
+      <input id="file-filter" type="search" placeholder="Buscar arquivo ou caminho…" aria-label="Buscar arquivo ou caminho" />
+    </label>
+
+    <div class="segmented" role="group" aria-label="Modo de visualização">
+      <button type="button" data-view="unified" aria-pressed="true">Unificado</button>
+      <button type="button" data-view="split" aria-pressed="false">Lado a lado</button>
+    </div>
+
+    <button class="ghost-button" type="button" id="toggle-all">Recolher tudo</button>
+
+    <div class="progress">
+      <span id="viewed-label">0 de 4 revisados</span>
+      <span class="progress-track"><span class="progress-bar" id="viewed-bar"></span></span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <main class="files" id="files"></main>
+  </div>
+
+  <section class="notes">
+    <h2>O que este protótipo muda em relação à tela atual</h2>
+    <ul>
+      <li><b>Todos os arquivos empilhados</b> em vez de mestre/detalhe: rola-se a revisão inteira de cima a baixo, como no GitHub, com o cabeçalho de cada arquivo grudado no topo enquanto ele está em tela.</li>
+      <li><b>Destaque intralinha</b>: em pares removido/adicionado, só os trechos realmente alterados ficam com fundo forte — é o que faz a mudança "termos de uso e política de privacidade. <i>teste</i>" saltar aos olhos.</li>
+      <li><b>Expansão de contexto</b> pelas setas no cabeçalho do trecho (<code>@@</code>), carregando as linhas não alteradas ao redor.</li>
+      <li><b>Marcar como revisado</b> por arquivo, com barra de progresso na barra fixa; arquivo revisado recolhe sozinho.</li>
+      <li><b>Barra de proporção</b> (quadradinhos verdes/vermelhos) e contagem por arquivo no cabeçalho de cada cartão.</li>
+      <li><b>Âncora de comentário</b> por linha (o botão azul que aparece no hover) — só o gesto visual, sem backend de comentários.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+  // ── Conteúdo de exemplo ───────────────────────────────────────
+  // Guardamos os arquivos inteiros (antes/depois) e derivamos o diff em
+  // runtime, para que a expansão de contexto mostre linhas reais.
+
+  const FORM_STEP_OLD = `// importing types
+import type { SignupPayload } from "@/app/lib/types/models/user_context";
+import type { State, City } from "@/app/lib/types/models/ibge";
+
+// importing components
+import Form from "react-bootstrap/Form";
+import Button from "react-bootstrap/Button";
+import UserProfileFormFields from "@/app/ui/pages/auth/user-profile-form-fields";
+
+// importing icons
+import IconRightToBracket from "@/app/ui/pages/auth/icon/icon-right-to-bracket.svg";
+
+interface SignupFormStepProps {
+  formData: SignupPayload;
+  states: State[];
+  cities: City[];
+  onFieldChange: (field: keyof SignupPayload, value: string) => void;
+  onShowConfirmPasswordChange: (show: boolean) => void;
+  onSubmit: React.ComponentProps<"form">["onSubmit"];
+  errors?: Partial<Record<keyof SignupPayload, string>>;
+};
+
+export default function SignupFormStep({
+  formData,
+  states,
+  cities,
+  onFieldChange,
+  onShowConfirmPasswordChange,
+  onSubmit,
+  errors,
+}: SignupFormStepProps) {
+  return (
+    <Form onSubmit={onSubmit} noValidate>
+      <UserProfileFormFields
+        formData={formData}
+        states={states}
+        cities={cities}
+        onFieldChange={onFieldChange}
+        onShowConfirmPasswordChange={onShowConfirmPasswordChange}
+        errors={errors}
+      />
+
+      <Button type="submit" className="w-100 mt-4">
+        <IconRightToBracket className="me-2" />
+        Criar conta
+      </Button>
+    </Form>
+  );
+}
+`;
+
+  const FORM_STEP_NEW = `"use client";
+
+import { useState } from "react";
+
+// importing types
+import type { SignupPayload } from "@/app/lib/types/models/user_context";
+import type { State, City } from "@/app/lib/types/models/ibge";
+
+// importing components
+import Form from "react-bootstrap/Form";
+import Button from "react-bootstrap/Button";
+import UserProfileFormFields from "@/app/ui/pages/auth/user-profile-form-fields";
+
+// importing icons
+import IconRightToBracket from "@/app/ui/pages/auth/icon/icon-right-to-bracket.svg";
+import Link from "next/link";
+
+interface SignupFormStepProps {
+  formData: SignupPayload;
+  states: State[];
+  cities: City[];
+  onFieldChange: (field: keyof SignupPayload, value: string) => void;
+  onShowConfirmPasswordChange: (show: boolean) => void;
+  onSubmit: React.ComponentProps<"form">["onSubmit"];
+  errors?: Partial<Record<keyof SignupPayload, string>>;
+}
+
+export default function SignupFormStep({
+  formData,
+  states,
+  cities,
+  onFieldChange,
+  onShowConfirmPasswordChange,
+  onSubmit,
+  errors,
+}: SignupFormStepProps) {
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  return (
+    <Form onSubmit={onSubmit} noValidate>
+      <UserProfileFormFields
+        formData={formData}
+        states={states}
+        cities={cities}
+        onFieldChange={onFieldChange}
+        onShowConfirmPasswordChange={onShowConfirmPasswordChange}
+        errors={errors}
+      />
+
+      <Form.Check className="mt-4" id="accepted-terms">
+        <Form.Check.Input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(event) => setAcceptedTerms(event.target.checked)}
+        />
+        <Form.Check.Label>
+          Li e aceito os
+          <Link
+            href="/termos"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-black small"
+          >
+            termos de uso e política de privacidade. teste
+          </Link>
+        </Form.Check.Label>
+      </Form.Check>
+
+      <Button type="submit" className="w-100 mt-4" disabled={!acceptedTerms}>
+        <IconRightToBracket className="me-2" />
+        Criar conta
+      </Button>
+    </Form>
+  );
+}
+`;
+
+  const SIGNUP_OLD = `"use client";
+
+import { useState } from "react";
+
+import SignupFormStep from "./signup-form-step";
+import ConfirmationStep from "./confirmation-step";
+
+import type { SignupPayload } from "@/app/lib/types/models/user_context";
+
+export default function SignupPage() {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<SignupPayload>(EMPTY_PAYLOAD);
+
+  return (
+    <main className="signup">
+      {step === 1 ? (
+        <SignupFormStep
+          formData={formData}
+          onFieldChange={handleFieldChange}
+          onSubmit={handleSubmit}
+        />
+      ) : (
+        <ConfirmationStep email={formData.email} />
+      )}
+    </main>
+  );
+}
+`;
+
+  const SIGNUP_NEW = `"use client";
+
+import { useState } from "react";
+
+import SignupFormStep from "./signup-form-step";
+import ConfirmationStep from "./confirmation-step";
+import TermsModal from "./terms-modal";
+
+import type { SignupPayload } from "@/app/lib/types/models/user_context";
+
+export default function SignupPage() {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<SignupPayload>(EMPTY_PAYLOAD);
+  const [showTerms, setShowTerms] = useState(false);
+
+  return (
+    <main className="signup">
+      {step === 1 ? (
+        <SignupFormStep
+          formData={formData}
+          onFieldChange={handleFieldChange}
+          onSubmit={handleSubmit}
+        />
+      ) : (
+        <ConfirmationStep email={formData.email} />
+      )}
+
+      <TermsModal show={showTerms} onHide={() => setShowTerms(false)} />
+    </main>
+  );
+}
+`;
+
+  const TERMS_MODAL_NEW = `"use client";
+
+import Modal from "react-bootstrap/Modal";
+import Button from "react-bootstrap/Button";
+
+interface TermsModalProps {
+  show: boolean;
+  onHide: () => void;
+}
+
+export default function TermsModal({ show, onHide }: TermsModalProps) {
+  return (
+    <Modal show={show} onHide={onHide} scrollable size="lg">
+      <Modal.Header closeButton>
+        <Modal.Title>Termos de uso e política de privacidade</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="small text-muted">
+          Ao criar uma conta você concorda com o tratamento dos seus dados
+          conforme descrito nesta política.
+        </p>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="primary" onClick={onHide}>
+          Entendi
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
+`;
+
+  const LEGACY_TERMS_OLD = `// Texto legado dos termos, servido direto do bundle.
+export const TERMS_VERSION = "2019-04";
+
+export const TERMS_TEXT = [
+  "Este documento regula o uso da plataforma.",
+  "O usuário é responsável pelos dados informados.",
+].join("\\n");
+
+export function isTermsAccepted(version: string): boolean {
+  return version === TERMS_VERSION;
+}
+`;
+
+  const FILES = [
+    {
+      path: 'app/ui/pages/auth/signup/signup-form-step/index.tsx',
+      status: 'modified',
+      oldText: FORM_STEP_OLD,
+      newText: FORM_STEP_NEW,
+    },
+    {
+      path: 'app/ui/pages/auth/signup/index.tsx',
+      status: 'modified',
+      oldText: SIGNUP_OLD,
+      newText: SIGNUP_NEW,
+    },
+    {
+      path: 'app/ui/pages/auth/signup/terms-modal.tsx',
+      status: 'added',
+      oldText: '',
+      newText: TERMS_MODAL_NEW,
+    },
+    {
+      path: 'app/lib/legacy/terms.ts',
+      status: 'deleted',
+      oldText: LEGACY_TERMS_OLD,
+      newText: '',
+    },
+  ];
+
+  const STATUS_LABEL = {
+    added: 'Adicionado',
+    modified: 'Modificado',
+    deleted: 'Removido',
+    renamed: 'Renomeado',
+  };
+
+  // ── Diff de linhas (LCS) ──────────────────────────────────────
+
+  function splitLines(text) {
+    if (!text) return [];
+    const lines = text.split('\n');
+    if (lines.at(-1) === '') lines.pop();
+    return lines;
+  }
+
+  function lineDiff(oldLines, newLines) {
+    const n = oldLines.length;
+    const m = newLines.length;
+    const table = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+
+    for (let i = n - 1; i >= 0; i -= 1) {
+      for (let j = m - 1; j >= 0; j -= 1) {
+        table[i][j] = oldLines[i] === newLines[j]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+      }
+    }
+
+    const ops = [];
+    let i = 0;
+    let j = 0;
+    while (i < n && j < m) {
+      if (oldLines[i] === newLines[j]) {
+        ops.push({ kind: 'context', text: oldLines[i], oldLine: i + 1, newLine: j + 1 });
+        i += 1;
+        j += 1;
+      } else if (table[i + 1][j] >= table[i][j + 1]) {
+        ops.push({ kind: 'del', text: oldLines[i], oldLine: i + 1, newLine: null });
+        i += 1;
+      } else {
+        ops.push({ kind: 'add', text: newLines[j], oldLine: null, newLine: j + 1 });
+        j += 1;
+      }
+    }
+    while (i < n) {
+      ops.push({ kind: 'del', text: oldLines[i], oldLine: i + 1, newLine: null });
+      i += 1;
+    }
+    while (j < m) {
+      ops.push({ kind: 'add', text: newLines[j], oldLine: null, newLine: j + 1 });
+      j += 1;
+    }
+    return ops;
+  }
+
+  const CONTEXT = 3;
+
+  function buildHunks(ops) {
+    const changed = ops.map((op) => op.kind !== 'context');
+    const keep = new Array(ops.length).fill(false);
+    changed.forEach((isChanged, index) => {
+      if (!isChanged) return;
+      for (let k = index - CONTEXT; k <= index + CONTEXT; k += 1) {
+        if (k >= 0 && k < ops.length) keep[k] = true;
+      }
+    });
+
+    const hunks = [];
+    let current = null;
+    ops.forEach((op, index) => {
+      if (!keep[index]) {
+        current = null;
+        return;
+      }
+      if (!current) {
+        current = { lines: [], oldStart: 0, oldCount: 0, newStart: 0, newCount: 0 };
+        hunks.push(current);
+      }
+      current.lines.push(op);
+    });
+
+    hunks.forEach((hunk) => {
+      const firstOld = hunk.lines.find((line) => line.oldLine !== null);
+      const firstNew = hunk.lines.find((line) => line.newLine !== null);
+      hunk.oldStart = firstOld ? firstOld.oldLine : 0;
+      hunk.newStart = firstNew ? firstNew.newLine : 0;
+      hunk.oldCount = hunk.lines.filter((line) => line.oldLine !== null).length;
+      hunk.newCount = hunk.lines.filter((line) => line.newLine !== null).length;
+      hunk.expandUp = 0;
+      hunk.expandDown = 0;
+    });
+
+    return hunks;
+  }
+
+  // ── Diff intralinha ───────────────────────────────────────────
+
+  function tokenize(text) {
+    return text.match(/\s+|[A-Za-z_$][\w$]*|\d+|[^\s\w]/g) ?? [];
+  }
+
+  function wordRanges(oldText, newText) {
+    const a = tokenize(oldText);
+    const b = tokenize(newText);
+    const n = a.length;
+    const m = b.length;
+    if (n === 0 || m === 0 || n * m > 40000) return null;
+
+    const table = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i -= 1) {
+      for (let j = m - 1; j >= 0; j -= 1) {
+        table[i][j] = a[i] === b[j]
+          ? table[i + 1][j + 1] + 1
+          : Math.max(table[i + 1][j], table[i][j + 1]);
+      }
+    }
+
+    const common = table[0][0];
+    // Linhas pouco parecidas ficam melhor sem destaque parcial.
+    if (common / Math.max(n, m) < 0.45) return null;
+
+    const left = [];
+    const right = [];
+    let i = 0;
+    let j = 0;
+    let oldPos = 0;
+    let newPos = 0;
+
+    const push = (list, start, end) => {
+      const last = list.at(-1);
+      if (last && last.end === start) last.end = end;
+      else list.push({ start, end });
+    };
+
+    while (i < n && j < m) {
+      if (a[i] === b[j]) {
+        oldPos += a[i].length;
+        newPos += b[j].length;
+        i += 1;
+        j += 1;
+      } else if (table[i + 1][j] >= table[i][j + 1]) {
+        push(left, oldPos, oldPos + a[i].length);
+        oldPos += a[i].length;
+        i += 1;
+      } else {
+        push(right, newPos, newPos + b[j].length);
+        newPos += b[j].length;
+        j += 1;
+      }
+    }
+    while (i < n) {
+      push(left, oldPos, oldPos + a[i].length);
+      oldPos += a[i].length;
+      i += 1;
+    }
+    while (j < m) {
+      push(right, newPos, newPos + b[j].length);
+      newPos += b[j].length;
+      j += 1;
+    }
+
+    return { left, right };
+  }
+
+  function pairRuns(lines) {
+    // Marca, dentro de um trecho, os pares removido/adicionado que devem
+    // receber destaque intralinha.
+    let index = 0;
+    while (index < lines.length) {
+      if (lines[index].kind !== 'del') {
+        index += 1;
+        continue;
+      }
+      let delEnd = index;
+      while (delEnd < lines.length && lines[delEnd].kind === 'del') delEnd += 1;
+      let addEnd = delEnd;
+      while (addEnd < lines.length && lines[addEnd].kind === 'add') addEnd += 1;
+
+      const dels = lines.slice(index, delEnd);
+      const adds = lines.slice(delEnd, addEnd);
+      const pairs = Math.min(dels.length, adds.length);
+      for (let k = 0; k < pairs; k += 1) {
+        const ranges = wordRanges(dels[k].text, adds[k].text);
+        if (!ranges) continue;
+        dels[k].words = ranges.left;
+        adds[k].words = ranges.right;
+      }
+      index = addEnd > index ? addEnd : index + 1;
+    }
+  }
+
+  // ── Realce de sintaxe ─────────────────────────────────────────
+
+  const SYNTAX = /(\/\/[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b(?:import|export|default|from|function|return|const|let|var|interface|type|if|else|new|async|await|extends|as|keyof|true|false|null|undefined|void|boolean|string|number)\b)|(<\/?[A-Za-z][\w.]*|\/>)|(\b\d+(?:\.\d+)?\b)|(\b[A-Z][\w.]*\b)/g;
+
+  const SYNTAX_CLASS = ['tok-comment', 'tok-string', 'tok-keyword', 'tok-tag', 'tok-number', 'tok-type'];
+
+  function syntaxRanges(text) {
+    const ranges = [];
+    SYNTAX.lastIndex = 0;
+    let match = SYNTAX.exec(text);
+    while (match) {
+      const groupIndex = match.slice(1).findIndex((value) => value !== undefined);
+      if (groupIndex >= 0) {
+        ranges.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          cls: SYNTAX_CLASS[groupIndex],
+        });
+      }
+      match = SYNTAX.exec(text);
+    }
+    return ranges;
+  }
+
+  const ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>]/g, (char) => ESCAPE[char]);
+  }
+
+  function renderCode(text, words) {
+    if (!text) return '';
+    const syntax = new Array(text.length).fill('');
+    syntaxRanges(text).forEach((range) => {
+      for (let index = range.start; index < range.end; index += 1) syntax[index] = range.cls;
+    });
+
+    const changed = new Array(text.length).fill(false);
+    (words ?? []).forEach((range) => {
+      for (let index = range.start; index < range.end && index < text.length; index += 1) {
+        changed[index] = true;
+      }
+    });
+
+    let html = '';
+    let cursor = 0;
+    while (cursor < text.length) {
+      const cls = syntax[cursor];
+      const isChanged = changed[cursor];
+      let end = cursor + 1;
+      while (end < text.length && syntax[end] === cls && changed[end] === isChanged) end += 1;
+
+      const chunk = escapeHtml(text.slice(cursor, end));
+      const classes = [cls, isChanged ? 'dw' : ''].filter(Boolean).join(' ');
+      html += classes ? `<span class="${classes}">${chunk}</span>` : chunk;
+      cursor = end;
+    }
+    return html;
+  }
+
+  // ── Estado ────────────────────────────────────────────────────
+
+  const state = {
+    view: 'unified',
+    filter: '',
+  };
+
+  const model = FILES.map((file) => {
+    const oldLines = splitLines(file.oldText);
+    const newLines = splitLines(file.newText);
+    const ops = lineDiff(oldLines, newLines);
+    const hunks = buildHunks(ops);
+    hunks.forEach((hunk) => pairRuns(hunk.lines));
+
+    return {
+      ...file,
+      oldLines,
+      newLines,
+      hunks,
+      additions: ops.filter((op) => op.kind === 'add').length,
+      deletions: ops.filter((op) => op.kind === 'del').length,
+      viewed: false,
+      collapsed: false,
+    };
+  });
+
+  // ── Renderização ──────────────────────────────────────────────
+
+  const CHEVRON = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 11 3 6h10Z"/></svg>';
+  const COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2h7l3 3v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm6 1.5V5h1.5L10 3.5ZM2 4v10h9v1.5H2A1.5 1.5 0 0 1 .5 14V4H2Z"/></svg>';
+  const EXPAND_UP = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="m8 4 5 5H3Z"/></svg>';
+  const EXPAND_DOWN = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="m8 12 5-5H3Z"/></svg>';
+
+  function statBar(additions, deletions) {
+    const total = additions + deletions;
+    let adds = 0;
+    let dels = 0;
+    if (total > 0) {
+      adds = additions === 0 ? 0 : Math.max(1, Math.round((additions / total) * 5));
+      dels = deletions === 0 ? 0 : Math.max(1, 5 - adds);
+      if (adds + dels > 5) adds = 5 - dels;
+    }
+    let html = '';
+    for (let index = 0; index < 5; index += 1) {
+      const cls = index < adds ? 'add' : index < adds + dels ? 'del' : '';
+      html += `<i class="${cls}"></i>`;
+    }
+    return `<span class="statbar" aria-hidden="true">${html}</span>`;
+  }
+
+  function splitPath(path) {
+    const parts = path.split('/');
+    const base = parts.pop();
+    return { dir: parts.length ? `${parts.join('/')}/` : '', base };
+  }
+
+  function hunkLabel(hunk) {
+    return `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@`;
+  }
+
+  function expandedLines(file, hunk) {
+    // Contexto extra vem do arquivo novo; as linhas de contexto são idênticas
+    // nos dois lados, então basta deslocar a numeração antiga.
+    const offset = hunk.newStart - hunk.oldStart;
+    const before = [];
+    for (let index = hunk.newStart - 1 - hunk.expandUp; index < hunk.newStart - 1; index += 1) {
+      if (index < 0) continue;
+      before.push({
+        kind: 'context',
+        text: file.newLines[index],
+        newLine: index + 1,
+        oldLine: index + 1 - offset,
+      });
+    }
+
+    const lastNew = hunk.lines.filter((line) => line.newLine !== null).at(-1);
+    const after = [];
+    if (lastNew) {
+      for (let index = lastNew.newLine; index < lastNew.newLine + hunk.expandDown; index += 1) {
+        if (index >= file.newLines.length) break;
+        after.push({
+          kind: 'context',
+          text: file.newLines[index],
+          newLine: index + 1,
+          oldLine: index + 1 - offset,
+        });
+      }
+    }
+    return { before, after };
+  }
+
+  function unifiedRow(line) {
+    const mark = line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' ';
+    return `<div class="row ${line.kind}">
+      <button class="comment-button" type="button" title="Comentar nesta linha" tabindex="-1">+</button>
+      <span class="ln">${line.oldLine ?? ''}</span>
+      <span class="ln">${line.newLine ?? ''}</span>
+      <span class="code"><span class="mark">${mark}</span>${renderCode(line.text, line.words)}</span>
+    </div>`;
+  }
+
+  function splitPairs(lines) {
+    const rows = [];
+    let index = 0;
+    while (index < lines.length) {
+      const line = lines[index];
+      if (line.kind === 'context') {
+        rows.push({ left: line, right: line });
+        index += 1;
+        continue;
+      }
+      let delEnd = index;
+      while (delEnd < lines.length && lines[delEnd].kind === 'del') delEnd += 1;
+      let addEnd = delEnd;
+      while (addEnd < lines.length && lines[addEnd].kind === 'add') addEnd += 1;
+
+      const dels = lines.slice(index, delEnd);
+      const adds = lines.slice(delEnd, addEnd);
+      const total = Math.max(dels.length, adds.length);
+      for (let k = 0; k < total; k += 1) {
+        rows.push({ left: dels[k] ?? null, right: adds[k] ?? null });
+      }
+      index = addEnd > index ? addEnd : index + 1;
+    }
+    return rows;
+  }
+
+  function splitCell(line, side) {
+    if (!line) {
+      return `<span class="ln"></span><span class="code ${side}"></span>`;
+    }
+    const mark = line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ' ';
+    const number = side === 'left' ? line.oldLine : line.newLine;
+    return `<span class="ln">${number ?? ''}</span>
+      <span class="code ${side}"><span class="mark">${mark}</span>${renderCode(line.text, line.words)}</span>`;
+  }
+
+  function splitRow(pair) {
+    const leftKind = pair.left ? pair.left.kind : 'pad';
+    const rightKind = pair.right ? pair.right.kind : 'pad';
+    const rowKind = leftKind === 'context' && rightKind === 'context' ? 'context' : 'changed';
+    return `<div class="row ${rowKind}">
+      <button class="comment-button" type="button" title="Comentar nesta linha" tabindex="-1">+</button>
+      <span class="cell ${leftKind}">${splitCell(pair.left, 'left')}</span>
+      <span class="cell ${rightKind}">${splitCell(pair.right, 'right')}</span>
+    </div>`;
+  }
+
+  function renderHunk(file, hunk, hunkIndex) {
+    const { before, after } = expandedLines(file, hunk);
+    const lines = [...before, ...hunk.lines, ...after];
+    const canUp = hunk.newStart - 1 - hunk.expandUp > 0;
+    const lastNew = lines.filter((line) => line.newLine !== null).at(-1);
+    const canDown = lastNew ? lastNew.newLine < file.newLines.length : false;
+
+    const body = state.view === 'unified'
+      ? lines.map(unifiedRow).join('')
+      : splitPairs(lines).map(splitRow).join('');
+
+    const head = `<div class="hunk-head">
+      <button class="hunk-expand" type="button" data-expand="up" data-hunk="${hunkIndex}" ${canUp ? '' : 'disabled'} title="Mostrar 10 linhas acima" aria-label="Mostrar 10 linhas acima">${EXPAND_UP}</button>
+      <button class="hunk-expand" type="button" data-expand="down" data-hunk="${hunkIndex}" ${canDown ? '' : 'disabled'} title="Mostrar 10 linhas abaixo" aria-label="Mostrar 10 linhas abaixo">${EXPAND_DOWN}</button>
+      <span class="hunk-label">${hunkLabel(hunk)}</span>
+    </div>`;
+
+    return head + body;
+  }
+
+  function renderFileBody(file) {
+    if (file.hunks.length === 0) {
+      return '<p class="file-note">Sem alterações textuais neste escopo.</p>';
+    }
+    return `<div class="diff-table ${state.view}">${
+      file.hunks.map((hunk, index) => renderHunk(file, hunk, index)).join('')
+    }</div>`;
+  }
+
+  function renderFileCard(file, index) {
+    const { dir, base } = splitPath(file.path);
+    const card = document.createElement('article');
+    card.className = 'file-card';
+    card.id = `file-${index}`;
+    card.dataset.index = String(index);
+    if (file.viewed) card.classList.add('is-viewed');
+    if (file.collapsed) card.classList.add('is-collapsed');
+
+    card.innerHTML = `
+      <header class="file-head">
+        <button class="chevron" type="button" data-action="collapse" aria-expanded="${!file.collapsed}" aria-label="Recolher ${base}">${CHEVRON}</button>
+        <div class="file-title">
+          <span class="path" title="${file.path}">
+            <span class="dir">${dir}</span><span class="base">${base}</span>
+          </span>
+          <button class="icon-button" type="button" data-action="copy" title="Copiar caminho" aria-label="Copiar caminho">${COPY}</button>
+        </div>
+        <div class="file-meta">
+          <span class="status-tag ${file.status}">${STATUS_LABEL[file.status]}</span>
+          <span class="counts delta"><span class="plus">+${file.additions}</span><span class="minus">−${file.deletions}</span></span>
+          ${statBar(file.additions, file.deletions)}
+          <label class="viewed">
+            <input type="checkbox" data-action="viewed" ${file.viewed ? 'checked' : ''} />
+            Revisado
+          </label>
+        </div>
+      </header>
+      <div class="file-body">${renderFileBody(file)}</div>
+    `;
+
+    return card;
+  }
+
+  const filesEl = document.getElementById('files');
+
+  function visibleFiles() {
+    const query = state.filter.trim().toLocaleLowerCase('pt-BR');
+    return model
+      .map((file, index) => ({ file, index }))
+      .filter(({ file }) => !query || file.path.toLocaleLowerCase('pt-BR').includes(query));
+  }
+
+  function renderFiles() {
+    const entries = visibleFiles();
+    filesEl.replaceChildren();
+    if (entries.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'empty-state';
+      empty.textContent = 'Nenhum arquivo corresponde à busca.';
+      filesEl.append(empty);
+      return;
+    }
+    entries.forEach(({ file, index }) => filesEl.append(renderFileCard(file, index)));
+  }
+
+  function renderProgress() {
+    const viewed = model.filter((file) => file.viewed).length;
+    document.getElementById('viewed-label').textContent = `${viewed} de ${model.length} revisados`;
+    document.getElementById('viewed-bar').style.width = `${(viewed / model.length) * 100}%`;
+  }
+
+  function renderSummary() {
+    document.getElementById('summary-files').textContent = String(model.length);
+    document.getElementById('summary-add').textContent = `+${model.reduce((total, file) => total + file.additions, 0)}`;
+    document.getElementById('summary-del').textContent = `−${model.reduce((total, file) => total + file.deletions, 0)}`;
+  }
+
+  function renderAll() {
+    renderFiles();
+    renderProgress();
+  }
+
+  // ── Interações ────────────────────────────────────────────────
+
+  filesEl.addEventListener('click', (event) => {
+    const card = event.target.closest('.file-card');
+    if (!card) return;
+    const file = model[Number(card.dataset.index)];
+
+    const expand = event.target.closest('[data-expand]');
+    if (expand) {
+      const hunk = file.hunks[Number(expand.dataset.hunk)];
+      if (expand.dataset.expand === 'up') hunk.expandUp += 10;
+      else hunk.expandDown += 10;
+      card.querySelector('.file-body').innerHTML = renderFileBody(file);
+      return;
+    }
+
+    if (event.target.closest('[data-action="collapse"]')) {
+      file.collapsed = !file.collapsed;
+      card.classList.toggle('is-collapsed', file.collapsed);
+      card.querySelector('[data-action="collapse"]').setAttribute('aria-expanded', String(!file.collapsed));
+      return;
+    }
+
+    const copy = event.target.closest('[data-action="copy"]');
+    if (copy) {
+      navigator.clipboard?.writeText(file.path).then(() => {
+        copy.classList.add('is-done');
+        setTimeout(() => copy.classList.remove('is-done'), 1200);
+      }).catch(() => {});
+    }
+  });
+
+  filesEl.addEventListener('change', (event) => {
+    const input = event.target.closest('[data-action="viewed"]');
+    if (!input) return;
+    const card = event.target.closest('.file-card');
+    const file = model[Number(card.dataset.index)];
+    file.viewed = input.checked;
+    card.classList.toggle('is-viewed', file.viewed);
+    renderProgress();
+  });
+
+  document.querySelectorAll('[data-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.view = button.dataset.view;
+      document.querySelectorAll('[data-view]').forEach((other) => {
+        other.setAttribute('aria-pressed', String(other === button));
+      });
+      renderFiles();
+    });
+  });
+
+  document.getElementById('file-filter').addEventListener('input', (event) => {
+    state.filter = event.target.value;
+    renderAll();
+  });
+
+  document.getElementById('toggle-all').addEventListener('click', (event) => {
+    const collapse = model.some((file) => !file.collapsed);
+    model.forEach((file) => { file.collapsed = collapse; });
+    event.target.textContent = collapse ? 'Expandir tudo' : 'Recolher tudo';
+    renderFiles();
+  });
+
+  renderSummary();
+  renderAll();
+</script>

@@ -105,6 +105,21 @@ export const gitFileDiffResponseSchema = {
   },
 } as const;
 
+export const gitFileLinesResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['path', 'scope', 'start', 'end', 'totalLines', 'lines', 'masked', 'redactionCount'],
+  properties: {
+    path: { type: 'string' },
+    scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
+    start: { type: 'integer', minimum: 1 },
+    end: { type: 'integer', minimum: 0 },
+    totalLines: { type: 'integer', minimum: 0 },
+    lines: { type: 'array', items: { type: 'string' } },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 export const gitPullRequestUrlResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['provider', 'url', 'branch', 'defaultBranch'],

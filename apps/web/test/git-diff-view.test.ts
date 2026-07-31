@@ -2,10 +2,15 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 import {
+  annotateGitDiffWordChanges,
+  buildGitDiffContextLines,
   buildSplitGitDiffRows,
+  computeGitDiffWordRanges,
   countGitDiffMatches,
   highlightGitDiffText,
   parseUnifiedGitDiff,
+  renderGitDiffLineHtml,
+  splitGitDiffHunks,
 } from '../src/utils/git-diff-view';
 
 const sample = [
@@ -100,4 +105,76 @@ test('destaca busca escapando conteúdo HTML', () => {
   assert.match(result, /&lt;script&gt;/);
   assert.match(result, /<mark>return<\/mark>/);
   assert.equal(countGitDiffMatches('Return value; return fallback;', 'return'), 2);
+});
+
+test('marca apenas o trecho alterado entre linhas parecidas', () => {
+  const ranges = computeGitDiffWordRanges(
+    '        termos de uso e política de privacidade.',
+    '        termos de uso e política de privacidade. teste',
+  );
+
+  assert.ok(ranges);
+  assert.deepEqual(ranges!.left, []);
+  assert.equal(ranges!.right.length, 1);
+  const changed = '        termos de uso e política de privacidade. teste'
+    .slice(ranges!.right[0]!.start, ranges!.right[0]!.end);
+  assert.equal(changed, ' teste');
+});
+
+test('não marca trechos quando as linhas são diferentes demais', () => {
+  assert.equal(
+    computeGitDiffWordRanges('const value = 1;', '<Form.Check className="mt-4" id="x" />'),
+    null,
+  );
+});
+
+test('anota palavras alteradas nos pares removido/adicionado', () => {
+  const lines = annotateGitDiffWordChanges(parseUnifiedGitDiff([
+    '@@ -1,1 +1,1 @@',
+    '-const value = 1;',
+    '+const value = 2;',
+  ].join('\n')));
+
+  const deletion = lines.find((line) => line.kind === 'deletion');
+  const addition = lines.find((line) => line.kind === 'addition');
+  assert.equal(deletion?.words?.length, 1);
+  assert.equal(addition?.words?.length, 1);
+  assert.equal(
+    'const value = 2;'.slice(addition!.words![0]!.start, addition!.words![0]!.end),
+    '2',
+  );
+});
+
+test('renderiza destaque de palavra junto com a busca no diff', () => {
+  const html = renderGitDiffLineHtml('const value = 2;', {
+    words: [{ start: 14, end: 15 }],
+    query: 'value',
+  });
+
+  assert.match(html, /<mark>value<\/mark>/);
+  assert.match(html, /<span class="git-diff-word">2<\/span>/);
+});
+
+test('escapa HTML mesmo com destaque de palavra', () => {
+  const html = renderGitDiffLineHtml('<Form disabled />', { words: [{ start: 0, end: 5 }] });
+  assert.ok(!html.includes('<Form'));
+  assert.match(html, /&lt;Form/);
+});
+
+test('agrupa o diff em hunks com deslocamento de numeração', () => {
+  const { leading, hunks } = splitGitDiffHunks(parseUnifiedGitDiff(sample));
+
+  assert.equal(hunks.length, 1);
+  assert.equal(leading.length, 0);
+  assert.equal(hunks[0]?.lineOffset, 0);
+  assert.equal(hunks[0]?.firstNewLine, 10);
+  assert.equal(hunks[0]?.lastNewLine, 13);
+});
+
+test('numera as linhas de contexto expandidas nos dois lados', () => {
+  const lines = buildGitDiffContextLines(['alfa', 'beta'], 10, 4);
+
+  assert.deepEqual(lines.map((line) => line.newLine), [10, 11]);
+  assert.deepEqual(lines.map((line) => line.oldLine), [6, 7]);
+  assert.ok(lines.every((line) => line.kind === 'context'));
 });

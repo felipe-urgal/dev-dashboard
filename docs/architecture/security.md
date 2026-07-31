@@ -130,6 +130,12 @@ O limite máximo atual é:
 262144 bytes
 ```
 
+A expansão de contexto do diff usa o mesmo teto por leitura. Além dele, a rota
+só aceita um caminho que já conste da lista de arquivos do diff do escopo
+pedido, limita a faixa a 400 linhas por requisição, recusa arquivos binários e
+removidos, e devolve o trecho pelo mesmo mascaramento de segredos das demais
+leituras.
+
 ### Segredos
 
 Logs podem conter:

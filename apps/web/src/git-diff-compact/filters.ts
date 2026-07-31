@@ -1,4 +1,6 @@
 function totalFileCount(page: HTMLElement): number {
+  const cards = page.querySelectorAll('.git-diff-file-card').length;
+  if (cards > 0) return cards;
   const text = page.querySelector<HTMLElement>('.git-diff-files-pane > header span')?.textContent ?? '';
   const match = text.match(/de\s+(\d+)/i);
   if (match?.[1]) return Number.parseInt(match[1], 10) || 0;

@@ -1,11 +1,12 @@
-# Próxima atividade — 050: snapshot/restore de banco no painel
+# Próxima atividade — 051: snapshot/restore de banco no painel
 
 ## Contexto
 
 A paridade CLI→Web seletiva já trouxe commit rápido, manutenção de processos,
-URL de pull request, CRUD de branches, sincronização da `main` e o fluxo de
-commit reduzido a criação e amend. O próximo item pendente é snapshot/restore
-de banco reconhecido, hoje disponível apenas no CLI bash.
+URL de pull request, CRUD de branches, sincronização da `main`, o fluxo de
+commit reduzido a criação e amend e a revisão de diff no vocabulário do GitHub.
+O próximo item pendente é snapshot/restore de banco reconhecido, hoje
+disponível apenas no CLI bash.
 
 ## Objetivo
 

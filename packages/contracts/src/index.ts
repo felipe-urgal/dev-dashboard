@@ -37,6 +37,7 @@ export type {
   GitDiffSnapshot,
   GitFileChange,
   GitFileDiff,
+  GitFileLines,
   GitFileStatus,
   GitMutationConfirmation,
   GitMutationOperation,
