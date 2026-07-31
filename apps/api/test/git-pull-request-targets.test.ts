@@ -132,6 +132,40 @@ test('detecta Pull Request aberta no GitHub pela origem e branch base', async (c
   assert.equal(url.searchParams.get('base'), 'main');
 });
 
+test('usa gh autenticado quando a API pública não consegue acessar o repositório', async (context) => {
+  const root = await makeForkFixture();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  const commands: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+  const service = new GitPullRequestService({
+    fetchImpl: async () => new Response('Not Found', { status: 404 }),
+    providerCliImpl: async (command, args, cwd) => {
+      commands.push({ command, args, cwd });
+      return JSON.stringify([
+        {
+          number: 77,
+          title: 'fix: PR privada já aberta',
+          html_url: 'https://github.com/empresa/dev-dashboard/pull/77',
+        },
+      ]);
+    },
+  });
+
+  const result = await service.findOpenPullRequest(root, {
+    targetRemote: 'upstream',
+    baseBranch: 'main',
+  });
+
+  assert.equal(result.checked, true);
+  assert.equal(result.existing?.number, 77);
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0]?.command, 'gh');
+  assert.equal(commands[0]?.cwd, root);
+  assert.ok(commands[0]?.args.includes('github.com'));
+  assert.ok(commands[0]?.args.includes('head=felipe-urgal:feature/pull-request'));
+  assert.ok(commands[0]?.args.includes('base=main'));
+});
+
 test('informa que a verificação foi concluída quando não existe PR aberta', async (context) => {
   const root = await makeForkFixture();
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
@@ -159,6 +193,7 @@ test('falha fechada na consulta externa sem bloquear a criação de PR', async (
     fetchImpl: async () => {
       throw new Error('network unavailable');
     },
+    providerCliImpl: async () => null,
   });
 
   const result = await service.findOpenPullRequest(root, {

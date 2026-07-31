@@ -95,6 +95,13 @@ const workspace: ProjectGitWorkspace = {
   ],
 };
 
+let popup: {
+  opener: Window | null;
+  closed: boolean;
+  location: { href: string };
+  close: ReturnType<typeof vi.fn>;
+};
+
 beforeEach(() => {
   vi.restoreAllMocks();
   api.composeProjectGitPullRequest.mockReset();
@@ -106,7 +113,13 @@ beforeEach(() => {
     branch: 'feature/pull-request',
     defaultBranch: 'main',
   });
-  vi.spyOn(window, 'open').mockReturnValue(window);
+  popup = {
+    opener: window,
+    closed: false,
+    location: { href: 'about:blank' },
+    close: vi.fn(),
+  };
+  vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
 });
 
 test('prefere upstream e preenche título e descrição a partir do commit', async () => {
@@ -138,7 +151,7 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
   ]);
 });
 
-test('abre a tela oficial com destino, base, título e descrição escolhidos', async () => {
+test('reserva a aba no clique e navega sem falso erro nem botão duplicado', async () => {
   const wrapper = mount(ProjectGitPullRequestPage, {
     props: {
       projectId: 'p1',
@@ -171,12 +184,36 @@ test('abre a tela oficial com destino, base, título e descrição escolhidos', 
   ]);
   assert.deepEqual(
     (window.open as ReturnType<typeof vi.fn>).mock.calls[0],
-    [
-      'https://github.com/empresa/dev-dashboard/compare/main...felipe-urgal:feature/pull-request?expand=1',
-      '_blank',
-      'noopener,noreferrer',
-    ],
+    ['', '_blank'],
   );
+  assert.equal(popup.opener, null);
+  assert.equal(
+    popup.location.href,
+    'https://github.com/empresa/dev-dashboard/compare/main...felipe-urgal:feature/pull-request?expand=1',
+  );
+  assert.ok(!wrapper.find('.git-pr-fallback-link').exists());
+  assert.doesNotMatch(wrapper.text(), /navegador bloqueou/i);
+});
+
+test('troca a ação principal pelo link de continuação quando o popup é bloqueado', async () => {
+  (window.open as ReturnType<typeof vi.fn>).mockReturnValueOnce(null);
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('form').trigger('submit');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /navegador bloqueou a nova aba/i);
+  assert.ok(wrapper.find('.git-pr-fallback-link').exists());
+  assert.ok(!wrapper.find('.git-pr-footer button').exists());
 });
 
 test('detecta PR aberta e substitui a criação por acesso ao PR existente', async () => {
@@ -212,6 +249,7 @@ test('detecta PR aberta e substitui a criação por acesso ao PR existente', asy
     existingLink.attributes('href'),
     'https://github.com/empresa/dev-dashboard/pull/42',
   );
+  assert.equal(wrapper.findAll('.git-pr-existing-action').length, 1);
 
   await wrapper.find('form').trigger('submit');
   await flushPromises();

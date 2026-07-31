@@ -28,6 +28,11 @@ export interface GitPullRequestServiceOptions {
   fetchImpl?: typeof fetch;
   lookupTimeoutMs?: number;
   lookupCacheTtlMs?: number;
+  providerCliImpl?: (
+    command: string,
+    args: readonly string[],
+    cwd: string,
+  ) => Promise<string | null>;
 }
 
 export type GitPullRequestErrorCode =
@@ -62,6 +67,28 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
     },
   });
   return result.stdout.trim();
+}
+
+async function runProviderCli(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+): Promise<string | null> {
+  try {
+    const result = await execFileAsync(command, [...args], {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 2 * 1024 * 1024,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        LC_ALL: 'C',
+      },
+    });
+    return result.stdout.trim();
+  } catch {
+    return null;
+  }
 }
 
 async function optionalGit(projectPath: string, args: readonly string[]): Promise<string | null> {
@@ -166,6 +193,7 @@ interface ParsedRemote {
 }
 
 interface ResolvedPullRequestContext {
+  projectPath: string;
   branch: string;
   targetRemote: GitPullRequestTargetRemote;
   baseBranch: string;
@@ -260,10 +288,43 @@ function githubRepositoryParts(ownerRepo: string): [string, string] | null {
   return [parts[0], parts[1]];
 }
 
+function githubLookupFromPayload(
+  payload: unknown,
+  context: ResolvedPullRequestContext,
+): GitPullRequestLookup | null {
+  if (!Array.isArray(payload)) return null;
+  if (payload.length === 0) return { checked: true };
+  const item = asRecord(payload[0]);
+  const number = item?.number;
+  const title = item?.title;
+  const htmlUrl = item?.html_url;
+  if (
+    typeof number !== 'number'
+    || typeof title !== 'string'
+    || typeof htmlUrl !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    checked: true,
+    existing: {
+      provider: 'github',
+      number,
+      title,
+      url: htmlUrl,
+      sourceBranch: context.sourceBranch,
+      baseBranch: context.baseBranch,
+    },
+  };
+}
+
 export class GitPullRequestService {
   private readonly fetchImpl: typeof fetch;
   private readonly lookupTimeoutMs: number;
   private readonly lookupCacheTtlMs: number;
+  private readonly providerCliImpl: NonNullable<
+    GitPullRequestServiceOptions['providerCliImpl']
+  >;
   private readonly lookupCache = new Map<
     string,
     { expiresAt: number; result: GitPullRequestLookup }
@@ -273,6 +334,7 @@ export class GitPullRequestService {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.lookupTimeoutMs = options.lookupTimeoutMs ?? 5_000;
     this.lookupCacheTtlMs = options.lookupCacheTtlMs ?? 30_000;
+    this.providerCliImpl = options.providerCliImpl ?? runProviderCli;
   }
 
   public async composeUrl(
@@ -373,6 +435,7 @@ export class GitPullRequestService {
     }
 
     return {
+      projectPath,
       branch,
       targetRemote,
       baseBranch,
@@ -410,34 +473,57 @@ export class GitPullRequestService {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'dev-dashboard',
     });
-    if (!response?.ok) return { checked: false };
+    if (response?.ok) {
+      try {
+        const lookup = githubLookupFromPayload(
+          await response.json() as unknown,
+          context,
+        );
+        if (lookup) return lookup;
+      } catch {
+        // Se a API pública não puder ser lida, tenta a sessão autenticada do gh.
+      }
+    }
+
+    return this.lookupGithubWithCli(
+      context,
+      targetOwner,
+      targetRepo,
+      sourceOwner,
+    );
+  }
+
+  private async lookupGithubWithCli(
+    context: ResolvedPullRequestContext,
+    targetOwner: string,
+    targetRepo: string,
+    sourceOwner: string,
+  ): Promise<GitPullRequestLookup> {
+    const output = await this.providerCliImpl(
+      'gh',
+      [
+        'api',
+        '--hostname',
+        'github.com',
+        '--method',
+        'GET',
+        `repos/${targetOwner}/${targetRepo}/pulls`,
+        '-f',
+        'state=open',
+        '-f',
+        `head=${sourceOwner}:${context.sourceBranch}`,
+        '-f',
+        `base=${context.baseBranch}`,
+        '-f',
+        'per_page=1',
+      ],
+      context.projectPath,
+    );
+    if (!output) return { checked: false };
 
     try {
-      const payload = await response.json() as unknown;
-      if (!Array.isArray(payload)) return { checked: false };
-      if (payload.length === 0) return { checked: true };
-      const item = asRecord(payload[0]);
-      const number = item?.number;
-      const title = item?.title;
-      const htmlUrl = item?.html_url;
-      if (
-        typeof number !== 'number'
-        || typeof title !== 'string'
-        || typeof htmlUrl !== 'string'
-      ) {
-        return { checked: false };
-      }
-      return {
-        checked: true,
-        existing: {
-          provider: 'github',
-          number,
-          title,
-          url: htmlUrl,
-          sourceBranch: context.sourceBranch,
-          baseBranch: context.baseBranch,
-        },
-      };
+      return githubLookupFromPayload(JSON.parse(output) as unknown, context)
+        ?? { checked: false };
     } catch {
       return { checked: false };
     }
