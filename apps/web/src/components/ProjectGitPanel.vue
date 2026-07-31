@@ -25,9 +25,14 @@ import {
   switchProjectGitBranch,
 } from '../api';
 import {
+  deleteProjectGitRemoteBranch,
+  fetchProjectGitRemote,
   fetchProjectGitWorkspace,
   prepareProjectGitMainSync,
+  prepareProjectGitRemoteBranchDelete,
+  prepareProjectGitTrackingBranch,
   synchronizeProjectGitMain,
+  trackProjectGitBranch,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { gitFileToneFor } from '../utils/status-tones';
@@ -42,6 +47,10 @@ import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
+
+const emit = defineEmits<{
+  'git-updated': [overview: ProjectGitOverview];
+}>();
 
 type GitTab =
   | 'branches'
@@ -129,6 +138,7 @@ async function loadGit(): Promise<void> {
     const result = await fetchProjectGit(props.project.id);
     if (requestGeneration !== generation) return;
     overview.value = result;
+    emit('git-updated', result);
   } catch (error) {
     if (requestGeneration === generation) {
       errorMessage.value =
@@ -345,6 +355,102 @@ async function runDeleteBranch(branch: string): Promise<void> {
   }
 }
 
+async function runRefreshRemotes(): Promise<void> {
+  if (mutationRunning.value) return;
+  const remotes = (workspace.value?.remotes ?? [])
+    .filter((remote) => remote.name === 'origin' || remote.name === 'upstream')
+    .map((remote) => remote.name);
+  if (remotes.length === 0) {
+    mutationErrorMessage.value = 'Nenhum remote configurado para atualizar.';
+    return;
+  }
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    await Promise.all(
+      remotes.map((remote) => fetchProjectGitRemote(props.project.id, remote)),
+    );
+    mutationMessage.value = 'Branches remotas atualizadas.';
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível atualizar as branches remotas.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
+async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
+  if (mutationRunning.value) return;
+  const message =
+    `Trazer "${remoteBranch}" para uma branch local e trocar para ela? A árvore de trabalho deve estar limpa.`;
+  if (
+    typeof window !== 'undefined'
+    && !window.confirm(message)
+  ) {
+    return;
+  }
+
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareProjectGitTrackingBranch(
+      props.project.id,
+      remoteBranch,
+    );
+    const branch = await trackProjectGitBranch(
+      props.project.id,
+      remoteBranch,
+      confirmation.token,
+    );
+    mutationMessage.value =
+      `Branch remota "${remoteBranch}" criada localmente como "${branch}" e selecionada.`;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível trazer a branch remota para local.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
+async function runDeleteRemoteBranch(remoteBranch: string): Promise<void> {
+  if (mutationRunning.value) return;
+  mutationRunning.value = true;
+  mutationMessage.value = '';
+  mutationErrorMessage.value = '';
+
+  try {
+    const confirmation = await prepareProjectGitRemoteBranchDelete(
+      props.project.id,
+      remoteBranch,
+    );
+    const branch = await deleteProjectGitRemoteBranch(
+      props.project.id,
+      remoteBranch,
+      confirmation.token,
+    );
+    mutationMessage.value = `Branch remota "origin/${branch}" removida.`;
+    await reloadGitData();
+  } catch (error) {
+    mutationErrorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover a branch remota.';
+  } finally {
+    mutationRunning.value = false;
+  }
+}
+
 async function runMainSynchronization(): Promise<void> {
   if (mutationRunning.value) return;
   const message =
@@ -538,6 +644,9 @@ onBeforeUnmount(() => {
         @switch="(name) => runMutation('switch-branch', name)"
         @rename="runRenameBranch"
         @delete="runDeleteBranch"
+        @refresh-remotes="runRefreshRemotes"
+        @track="runTrackRemoteBranch"
+        @delete-remote="runDeleteRemoteBranch"
       />
 
       <section v-else-if="activeTab === 'diff'" class="git-tab-page">
