@@ -355,7 +355,15 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
     mounted.wrapper
       .findAll('.git-subtabs button')
       .map((button) => button.text()),
-    ['Sincronização', 'Branches', 'Commit', 'Diff', 'Histórico'],
+    [
+      'Sincronização',
+      'Branches',
+      'Diff',
+      'Commit',
+      'Desfazer',
+      'Pull Request',
+      'Histórico',
+    ],
   );
   assert.doesNotMatch(text, /Stash/);
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
