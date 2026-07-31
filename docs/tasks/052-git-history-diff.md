@@ -109,6 +109,18 @@ A rota nova segue o checklist de `docs/architecture/security.md`:
 - as colunas Autor, Tempo e Data somem por prioridade conforme a largura, em vez
   de a tabela cortar o conteúdo.
 
+## Ajustes posteriores
+
+- a divisória entre a lista de arquivos e o painel de diff do modal agora é
+  **arrastável** (`.git-history-resize-handle`, arraste pelo mouse ou setas
+  esquerda/direita com foco), com a largura persistida em
+  `localStorage` (`dev-dashboard-git-history-list-width`, 160–560px);
+- `overscroll-behavior: contain` nos contêineres `.git-diff-unified` /
+  `.git-diff-split` (`git-diff-layout-fix.css`) passou a valer só no eixo
+  horizontal (`overscroll-behavior-x`), deixando o vertical em `auto` — a
+  versão anterior, que continha os dois eixos, podia impedir a rolagem da
+  página encadear a partir de dentro do diff.
+
 ## Limitações
 
 - não há expansão de contexto (`@@`) no histórico: exigiria ler faixas de linhas

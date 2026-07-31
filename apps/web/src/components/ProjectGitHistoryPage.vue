@@ -43,6 +43,11 @@ const props = defineProps<{
 
 const PAGE_SIZE = 20;
 const VIEW_MODE_KEY = 'dev-dashboard-git-history-view-mode';
+const LIST_WIDTH_KEY = 'dev-dashboard-git-history-list-width';
+const DEFAULT_LIST_WIDTH = 260;
+const MIN_LIST_WIDTH = 160;
+const MAX_LIST_WIDTH = 560;
+const RESIZE_KEYBOARD_STEP = 16;
 
 type DiffViewMode = 'unified' | 'split';
 
@@ -73,6 +78,9 @@ const fileStates = ref<FileState[]>([]);
 const selectedFilePath = ref('');
 const viewMode = ref<DiffViewMode>(readStoredViewMode());
 const copiedHash = ref('');
+const listWidth = ref(readStoredListWidth());
+const resizingList = ref(false);
+const diffLayoutEl = ref<HTMLElement | null>(null);
 
 let historyController: AbortController | undefined;
 let detailController: AbortController | undefined;
@@ -97,6 +105,59 @@ const kindOptions: Array<{ value: GitCommitHistoryKind; label: string }> = [
   { value: 'regular', label: 'Sem merges' },
   { value: 'merge', label: 'Somente merges' },
 ];
+
+function clampListWidth(value: number): number {
+  return Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, Math.round(value)));
+}
+
+function readStoredListWidth(): number {
+  try {
+    const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
+    const value = raw ? Number.parseInt(raw, 10) : Number.NaN;
+    return Number.isFinite(value) ? clampListWidth(value) : DEFAULT_LIST_WIDTH;
+  } catch {
+    return DEFAULT_LIST_WIDTH;
+  }
+}
+
+function persistListWidth(value: number): void {
+  try {
+    window.localStorage.setItem(LIST_WIDTH_KEY, String(value));
+  } catch {
+    // Preferência visual opcional.
+  }
+}
+
+/** Arrastar a divisória entre a lista de arquivos e o diff. */
+function startListResize(event: PointerEvent): void {
+  event.preventDefault();
+  const layout = diffLayoutEl.value;
+  if (!layout) return;
+
+  const { left } = layout.getBoundingClientRect();
+  resizingList.value = true;
+
+  const onMove = (moveEvent: PointerEvent): void => {
+    listWidth.value = clampListWidth(moveEvent.clientX - left);
+  };
+  const onUp = (): void => {
+    resizingList.value = false;
+    persistListWidth(listWidth.value);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+  };
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+function handleResizeKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  const delta = event.key === 'ArrowLeft' ? -RESIZE_KEYBOARD_STEP : RESIZE_KEYBOARD_STEP;
+  listWidth.value = clampListWidth(listWidth.value + delta);
+  persistListWidth(listWidth.value);
+}
 
 function readStoredViewMode(): DiffViewMode {
   try {
@@ -651,7 +712,13 @@ onBeforeUnmount(() => {
               Este commit não alterou arquivos.
             </p>
 
-            <div v-else class="git-history-diff-layout">
+            <div
+              v-else
+              ref="diffLayoutEl"
+              class="git-history-diff-layout"
+              :class="{ 'is-resizing': resizingList }"
+              :style="{ '--git-history-list-width': `${listWidth}px` }"
+            >
               <label class="git-history-file-select">
                 <span class="visually-hidden">Arquivo do commit</span>
                 <select
@@ -684,6 +751,19 @@ onBeforeUnmount(() => {
                   </span>
                 </button>
               </nav>
+
+              <div
+                class="git-history-resize-handle"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Redimensionar a lista de arquivos"
+                :aria-valuenow="listWidth"
+                :aria-valuemin="MIN_LIST_WIDTH"
+                :aria-valuemax="MAX_LIST_WIDTH"
+                tabindex="0"
+                @pointerdown="startListResize"
+                @keydown="handleResizeKeydown"
+              ></div>
 
               <section v-if="selectedFile" class="git-history-diff-pane">
                 <header class="git-history-diff-pane-head">
