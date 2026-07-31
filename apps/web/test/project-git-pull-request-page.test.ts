@@ -9,6 +9,7 @@ import type {
 
 const api = vi.hoisted(() => ({
   composeProjectGitPullRequest: vi.fn(),
+  getProjectGitPullRequestStatus: vi.fn(),
 }));
 
 vi.mock('../src/api', () => api);
@@ -97,6 +98,8 @@ const workspace: ProjectGitWorkspace = {
 beforeEach(() => {
   vi.restoreAllMocks();
   api.composeProjectGitPullRequest.mockReset();
+  api.getProjectGitPullRequestStatus.mockReset();
+  api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
   api.composeProjectGitPullRequest.mockResolvedValue({
     provider: 'github',
     url: 'https://github.com/empresa/dev-dashboard/compare/main...felipe-urgal:feature/pull-request?expand=1',
@@ -116,6 +119,7 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
     },
   });
   await flushPromises();
+  await flushPromises();
 
   const selects = wrapper.findAll('select');
   assert.equal((selects[0]!.element as HTMLSelectElement).value, 'upstream');
@@ -128,6 +132,10 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
     (wrapper.find('textarea').element as HTMLTextAreaElement).value,
     /## Resumo/,
   );
+  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
+    'p1',
+    { targetRemote: 'upstream', baseBranch: 'main' },
+  ]);
 });
 
 test('abre a tela oficial com destino, base, título e descrição escolhidos', async () => {
@@ -140,11 +148,13 @@ test('abre a tela oficial com destino, base, título e descrição escolhidos', 
     },
   });
   await flushPromises();
+  await flushPromises();
 
   const selects = wrapper.findAll('select');
   await selects[0]!.setValue('origin');
   await flushPromises();
   await selects[1]!.setValue('develop');
+  await flushPromises();
   await wrapper.find('input:not([readonly])').setValue('fix: título customizado');
   await wrapper.find('textarea').setValue('## Mudanças\n\nDescrição customizada.');
   await wrapper.find('form').trigger('submit');
@@ -166,5 +176,92 @@ test('abre a tela oficial com destino, base, título e descrição escolhidos', 
       '_blank',
       'noopener,noreferrer',
     ],
+  );
+});
+
+test('detecta PR aberta e substitui a criação por acesso ao PR existente', async () => {
+  api.getProjectGitPullRequestStatus.mockResolvedValue({
+    checked: true,
+    existing: {
+      provider: 'github',
+      number: 42,
+      title: 'feat: PR já existente',
+      url: 'https://github.com/empresa/dev-dashboard/pull/42',
+      sourceBranch: 'feature/pull-request',
+      baseBranch: 'main',
+    },
+  });
+
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /PR #42 já está aberta/);
+  assert.match(wrapper.text(), /feat: PR já existente/);
+  assert.match(wrapper.text(), /feature\/pull-request → upstream\/main/);
+  const existingLink = wrapper.find('.git-pr-existing-action');
+  assert.ok(existingLink.exists());
+  assert.equal(
+    existingLink.attributes('href'),
+    'https://github.com/empresa/dev-dashboard/pull/42',
+  );
+
+  await wrapper.find('form').trigger('submit');
+  await flushPromises();
+  assert.equal(api.composeProjectGitPullRequest.mock.calls.length, 0);
+});
+
+test('refaz a verificação ao trocar o destino e libera criação quando não há PR', async () => {
+  api.getProjectGitPullRequestStatus.mockImplementation(
+    async (_projectId: string, input: { targetRemote: string; baseBranch: string }) => {
+      if (input.targetRemote === 'upstream') {
+        return {
+          checked: true,
+          existing: {
+            provider: 'github',
+            number: 42,
+            title: 'feat: PR já existente',
+            url: 'https://github.com/empresa/dev-dashboard/pull/42',
+            sourceBranch: 'feature/pull-request',
+            baseBranch: 'main',
+          },
+        };
+      }
+      return { checked: true };
+    },
+  );
+
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+  assert.ok(wrapper.find('.git-pr-existing-action').exists());
+
+  const targetSelect = wrapper.findAll('select')[0]!;
+  await targetSelect.setValue('origin');
+  await flushPromises();
+  await flushPromises();
+
+  assert.ok(!wrapper.find('.git-pr-existing-action').exists());
+  assert.deepEqual(api.getProjectGitPullRequestStatus.mock.calls.at(-1), [
+    'p1',
+    { targetRemote: 'origin', baseBranch: 'main' },
+  ]);
+  assert.equal(
+    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement).disabled,
+    false,
   );
 });
