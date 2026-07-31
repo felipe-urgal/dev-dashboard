@@ -5,9 +5,13 @@ import type { ParamValue } from '../utils/ruby-inspect-parser';
 
 defineOptions({ name: 'RailsParamsTree' });
 
-const props = defineProps<{
-  value: ParamValue;
-}>();
+const props = withDefaults(
+  defineProps<{
+    value: ParamValue;
+    root?: boolean;
+  }>(),
+  { root: true },
+);
 
 type Entry = { key: string; value: ParamValue };
 
@@ -58,7 +62,7 @@ function formatScalar(value: ParamValue): string {
 </script>
 
 <template>
-  <div class="ptree">
+  <div class="ptree" :class="{ 'ptree-root': root }">
     <template v-for="entry in entries" :key="entry.key">
       <div class="prow">
         <span class="pkey">{{ isArray ? `[${entry.key}]` : entry.key }}</span>
@@ -70,7 +74,7 @@ function formatScalar(value: ParamValue): string {
         >{{ formatScalar(entry.value) }}</span>
       </div>
       <div v-if="isNested(entry.value) && !isFiltered(entry.value)" class="pnest">
-        <RailsParamsTree :value="entry.value" />
+        <RailsParamsTree :value="entry.value" :root="false" />
       </div>
     </template>
 
@@ -84,13 +88,22 @@ function formatScalar(value: ParamValue): string {
 .ptree {
   display: grid;
   gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.75;
+}
+
+/*
+ * Only the outermost tree draws the box — RailsParamsTree renders itself
+ * recursively for nested values, and every level used to redraw this same
+ * translucent background, so deeper values sat under N stacked overlays
+ * and looked progressively darker/muddier instead of just indented.
+ */
+.ptree-root {
   padding: 9px 11px;
   border: 1px solid rgb(255 255 255 / 7%);
   border-radius: 8px;
   background: rgb(4 8 15 / 30%);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.75;
 }
 
 .prow {
