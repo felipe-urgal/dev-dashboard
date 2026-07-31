@@ -14,12 +14,16 @@ import {
   useRoute,
 } from 'vue-router';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectGitOverview,
+} from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
+import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
 import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
@@ -33,6 +37,7 @@ const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
+const gitOverview = ref<ProjectGitOverview | null>(null);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -47,21 +52,13 @@ const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
 
-const workspace = computed(() => {
-  const workspaceId = project.value?.workspaceId;
-  if (!workspaceId) return null;
-
-  return dashboardStore.workspaces.value.find(
-    (item) => item.id === workspaceId,
-  ) ?? null;
-});
-
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
   errorMessage.value = '';
   project.value = null;
   gitBranch.value = '';
+  gitOverview.value = null;
 
   try {
     const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
@@ -74,9 +71,11 @@ async function loadProject(): Promise<void> {
         const git = await fetchProjectGit(loadedProject.id);
         if (projectId.value === requestedProjectId) {
           gitBranch.value = git.branch ?? '';
+          gitOverview.value = git;
         }
       } catch {
         gitBranch.value = '';
+        gitOverview.value = null;
       }
     }
   } catch (error) {
@@ -161,6 +160,11 @@ watch(projectId, () => {
           </div>
         </div>
 
+        <ProjectPullRequestSummary
+          v-if="gitOverview"
+          :project-id="project.id"
+          :overview="gitOverview"
+        />
       </header>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
@@ -224,67 +228,11 @@ watch(projectId, () => {
         </RouterLink>
       </nav>
 
-      <div v-if="isReadmeRoute" class="project-readme-layout">
-        <ProjectReadmePanel
-          :key="`readme-${project.id}`"
-          :project="project"
-        />
-
-        <aside class="project-readme-sidebar">
-          <section class="project-summary-card">
-            <span class="section-kicker">Resumo do projeto</span>
-            <dl>
-              <div>
-                <dt>Workspace</dt>
-                <dd>{{ workspace?.name ?? 'Não associado' }}</dd>
-              </div>
-              <div>
-                <dt>Tipo</dt>
-                <dd>{{ projectTypeLabels[project.type] }}</dd>
-              </div>
-              <div>
-                <dt>Origem</dt>
-                <dd>{{ project.source }}</dd>
-              </div>
-              <div>
-                <dt>Capacidades</dt>
-                <dd>{{ project.capabilities.length }}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section class="project-quick-links-card">
-            <span class="section-kicker">Acessos rápidos</span>
-            <RouterLink
-              :to="{
-                name: 'project-server',
-                params: { projectId: project.id },
-              }"
-            >
-              Gerenciar servidor
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-            <RouterLink
-              :to="{
-                name: 'project-logs',
-                params: { projectId: project.id },
-              }"
-            >
-              Acompanhar logs
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-            <RouterLink
-              :to="{
-                name: 'project-git',
-                params: { projectId: project.id },
-              }"
-            >
-              Abrir Git
-              <span aria-hidden="true">→</span>
-            </RouterLink>
-          </section>
-        </aside>
-      </div>
+      <ProjectReadmePanel
+        v-if="isReadmeRoute"
+        :key="`readme-${project.id}`"
+        :project="project"
+      />
 
       <ProjectServerPanel
         v-else-if="isServerRoute"

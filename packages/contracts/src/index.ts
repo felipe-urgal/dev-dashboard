@@ -49,6 +49,7 @@ export type {
   GitMutationConfirmation,
   GitMutationOperation,
   GitOpenPullRequest,
+  GitPullRequestCiStatus,
   GitPullRequestLookup,
   GitPullRequestProvider,
   GitPullRequestUrl,

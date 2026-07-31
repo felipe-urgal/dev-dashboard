@@ -134,94 +134,22 @@
   background: var(--accent);
 }
 
-.project-readme-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: var(--space-4);
-  align-items: start;
+:deep(.readme-panel) {
+  width: 100%;
+  min-width: 0;
 }
 
-.project-readme-sidebar {
-  display: grid;
-  gap: var(--space-4);
+:deep(.readme-document) {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 
-.project-summary-card,
-.project-quick-links-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-1);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 3.5%);
-}
-
-.project-summary-card,
-.project-quick-links-card {
-  padding: var(--space-4);
-}
-
-.project-summary-card dl {
-  display: grid;
-  gap: 0;
-  margin: 10px 0 0;
-}
-
-.project-summary-card dl > div {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.project-summary-card dl > div:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-.project-summary-card dt {
-  color: var(--text-dim);
-  font-size: var(--font-xs);
-}
-
-.project-summary-card dd {
-  max-width: 58%;
-  margin: 0;
-  color: var(--text);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.project-quick-links-card {
-  display: grid;
-  gap: 8px;
-}
-
-.project-quick-links-card .section-kicker {
-  margin-bottom: 4px;
-}
-
-.project-quick-links-card a {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 14px;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  background: var(--surface-2);
-  font-size: var(--font-xs);
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
-}
-
-.project-quick-links-card a:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
+:deep(.readme-code-block) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1180px) {
@@ -232,14 +160,6 @@
 
   .project-details-copy code {
     max-width: 75vw;
-  }
-
-  .project-readme-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .project-readme-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -265,9 +185,5 @@
 
   .project-details-tab {
     padding: 0 11px;
-  }
-
-  .project-readme-sidebar {
-    grid-template-columns: 1fr;
   }
 }
