@@ -1,0 +1,531 @@
+/* ── Modal do commit ───────────────────────────────────────────── */
+
+.git-history-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgb(0 0 0 / 55%);
+}
+
+.git-history-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1320px, 100%);
+  height: min(90vh, 960px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+
+.git-history-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.git-history-modal-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.git-history-modal-hash {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.git-history-modal-hash code {
+  color: var(--accent);
+  font-size: var(--font-sm);
+}
+
+.git-history-modal-title h3 {
+  margin: 0;
+  font-size: var(--font-lg);
+  letter-spacing: -.01em;
+}
+
+.git-history-modal-title p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-history-copy,
+.git-history-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.git-history-copy:hover,
+.git-history-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.git-history-copy svg,
+.git-history-close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.git-history-modal-body {
+  /* Coluna flexível: o painel de diff fica com toda a altura que sobrar. */
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-history-commit-body {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  white-space: pre-wrap;
+}
+
+.git-history-files-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.git-history-files-head strong {
+  font-size: var(--font-md);
+}
+
+.git-history-delta {
+  display: inline-flex;
+  gap: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.git-history-delta .is-addition { color: var(--git-diff-addition-accent); }
+.git-history-delta .is-deletion { color: var(--git-diff-deletion-accent); }
+
+.git-diff-view-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.git-diff-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.git-diff-view-switch button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.git-diff-view-switch button.active {
+  background: var(--surface-1);
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+
+/* ── Arquivos do commit: lista à esquerda, diff à direita ──────── */
+
+.git-history-diff-layout {
+  flex: 1 1 auto;
+  display: grid;
+  /* A largura da lista é arrastável; a coluna do meio é a alça. */
+  grid-template-columns: var(--git-history-list-width, 260px) 11px minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* Enquanto arrasta, nada de seleção de texto nem de hover atrapalhando. */
+.git-history-diff-layout.is-resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.git-history-resize-handle {
+  position: relative;
+  align-self: stretch;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* A linha visível é fina; a área clicável é a coluna inteira. */
+.git-history-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 5px;
+  border-radius: 1px;
+  background: var(--border);
+  transition: background .12s ease;
+}
+
+.git-history-resize-handle:hover::after,
+.git-history-resize-handle:focus-visible::after,
+.git-history-diff-layout.is-resizing .git-history-resize-handle::after {
+  background: var(--accent);
+}
+
+.git-history-resize-handle:focus-visible {
+  outline: none;
+}
+
+/* O select só aparece quando não cabe a lista lateral. */
+.git-history-file-select { display: none; }
+
+.git-history-file-select select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-sm);
+}
+
+.git-history-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  overflow-y: auto;
+}
+
+.git-history-file-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.git-history-file-list button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.git-history-file-list button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.git-history-file-name {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-history-file-dir {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.git-history-file-counts {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.git-history-diff-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.git-history-diff-pane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 9px var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.git-history-file-path {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-history-file-path small {
+  margin-left: 6px;
+  color: var(--text-dim);
+}
+
+.git-history-file-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.git-history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-history-legend i {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+}
+
+.git-history-legend .is-addition {
+  background: var(--git-diff-addition-gutter);
+  color: var(--git-diff-addition-accent);
+}
+
+.git-history-legend .is-deletion {
+  background: var(--git-diff-deletion-gutter);
+  color: var(--git-diff-deletion-accent);
+}
+
+.git-history-legend .is-context {
+  background: var(--git-diff-hunk-bg);
+  color: var(--git-diff-hunk-text);
+}
+
+/* ── Linhas do diff (mesma gramática visual da aba Diff) ───────── */
+
+.git-history-file-body .git-diff-unified,
+.git-history-file-body .git-diff-split {
+  display: grid;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.git-history-file-body .git-diff-unified-row {
+  display: grid;
+  grid-template-columns: 48px 48px 24px minmax(0, 1fr);
+  border-bottom: 1px solid transparent;
+}
+
+.git-history-file-body .git-diff-split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.git-history-file-body .git-diff-side-cell {
+  display: grid;
+  grid-template-columns: 48px 24px minmax(0, 1fr);
+}
+
+.git-history-file-body .git-diff-split-row .git-diff-side-cell:first-child {
+  border-right: 1px solid var(--git-diff-row-border);
+}
+
+.git-history-file-body .git-diff-side-cell.is-empty {
+  background: var(--git-diff-empty-stripe);
+}
+
+.git-history-file-body .git-diff-line-number {
+  padding: 0 8px;
+  border-right: 1px solid transparent;
+  color: var(--text-dim);
+  text-align: right;
+  user-select: none;
+}
+
+.git-history-file-body .git-diff-line-prefix {
+  color: var(--text-dim);
+  text-align: center;
+  user-select: none;
+}
+
+.git-history-file-body code {
+  padding-right: 10px;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.git-history-file-body .git-diff-hunk-head {
+  padding: 0 var(--space-3);
+  border-top: 1px solid var(--git-diff-row-border);
+  border-bottom: 1px solid var(--git-diff-row-border);
+  background: var(--git-diff-hunk-bg);
+  color: var(--git-diff-hunk-text);
+}
+
+.git-history-file-body .git-diff-split-meta,
+.git-history-file-body .git-diff-unified-row.is-meta,
+.git-history-file-body .git-diff-unified-row.is-notice {
+  padding: 0 var(--space-3);
+  background: var(--git-diff-meta-bg);
+  color: var(--text-muted);
+}
+
+/* As cores do tema global valem dentro de .git-diff-page; aqui repetimos os
+   mesmos tokens para a tabela de linhas do histórico. */
+.git-history-file-body .git-diff-unified-row.is-addition,
+.git-history-file-body .git-diff-side-cell.is-addition {
+  background: var(--git-diff-addition-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+}
+
+.git-history-file-body .git-diff-unified-row.is-addition .git-diff-line-number,
+.git-history-file-body .git-diff-side-cell.is-addition .git-diff-line-number {
+  background: var(--git-diff-addition-gutter);
+  color: var(--git-diff-addition-accent);
+}
+
+.git-history-file-body .git-diff-unified-row.is-addition .git-diff-line-prefix,
+.git-history-file-body .git-diff-side-cell.is-addition .git-diff-line-prefix {
+  color: var(--git-diff-addition-accent);
+  font-weight: 800;
+}
+
+.git-history-file-body .git-diff-unified-row.is-deletion,
+.git-history-file-body .git-diff-side-cell.is-deletion {
+  background: var(--git-diff-deletion-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+}
+
+.git-history-file-body .git-diff-unified-row.is-deletion .git-diff-line-number,
+.git-history-file-body .git-diff-side-cell.is-deletion .git-diff-line-number {
+  background: var(--git-diff-deletion-gutter);
+  color: var(--git-diff-deletion-accent);
+}
+
+.git-history-file-body .git-diff-unified-row.is-deletion .git-diff-line-prefix,
+.git-history-file-body .git-diff-side-cell.is-deletion .git-diff-line-prefix {
+  color: var(--git-diff-deletion-accent);
+  font-weight: 800;
+}
+
+.git-history-file-body .git-diff-unified-row.is-context .git-diff-line-number,
+.git-history-file-body .git-diff-side-cell.is-context .git-diff-line-number {
+  background: var(--git-diff-context-gutter);
+}
+
+.git-history-file-body .git-diff-unified-row.is-addition .git-diff-word,
+.git-history-file-body .git-diff-side-cell.is-addition .git-diff-word {
+  border-radius: 2px;
+  background: var(--git-diff-word-addition);
+}
+
+.git-history-file-body .git-diff-unified-row.is-deletion .git-diff-word,
+.git-history-file-body .git-diff-side-cell.is-deletion .git-diff-word {
+  border-radius: 2px;
+  background: var(--git-diff-word-deletion);
+}
+
+.git-history-file-body .hljs-keyword,
+.git-history-file-body .hljs-selector-tag,
+.git-history-file-body .hljs-literal { color: var(--git-syntax-keyword); }
+
+.git-history-file-body .hljs-string,
+.git-history-file-body .hljs-regexp,
+.git-history-file-body .hljs-symbol { color: var(--git-syntax-string); }
+
+.git-history-file-body .hljs-comment,
+.git-history-file-body .hljs-quote {
+  color: var(--git-syntax-comment);
+  font-style: italic;
+}
+
+.git-history-file-body .hljs-number,
+.git-history-file-body .hljs-meta { color: var(--git-syntax-number); }
+
+.git-history-file-body .hljs-title,
+.git-history-file-body .hljs-name,
+.git-history-file-body .hljs-section { color: var(--git-syntax-title); }
+
+.git-history-file-body .hljs-type,
+.git-history-file-body .hljs-built_in,
+.git-history-file-body .hljs-attr,
+.git-history-file-body .hljs-attribute { color: var(--git-syntax-type); }
+
+.git-history-file-body .hljs-variable,
+.git-history-file-body .hljs-template-variable,
+.git-history-file-body .hljs-property { color: var(--git-syntax-variable); }
+
+@media (max-width: 900px) {
+  .git-history-modal { height: 94vh; }
+
+  .git-history-diff-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .git-history-file-select { display: block; }
+  .git-history-file-list,
+  .git-history-resize-handle { display: none; }
+}

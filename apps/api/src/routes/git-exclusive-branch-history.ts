@@ -49,7 +49,7 @@ const historyQuerySchema = {
       pattern: '^(?!-)[^\\u0000-\\u001F\\u007F]+$',
     },
     page: { type: 'integer', minimum: 1, default: 1 },
-    pageSize: { type: 'integer', minimum: 1, maximum: 10, default: 10 },
+    pageSize: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
     search: { type: 'string', maxLength: 200 },
     author: { type: 'string', maxLength: 320 },
     kind: { type: 'string', enum: ['all', 'regular', 'merge'], default: 'all' },

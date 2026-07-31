@@ -8,12 +8,6 @@ export const configurations: DetailConfiguration[] = [
     fullDiffSummary: '.git-summary-detail-diff summary',
   },
   {
-    container: '.git-history-page-detail',
-    files: '.git-history-page-detail-files',
-    patch: '.git-history-page-patch-source pre',
-    showFullDiff: false,
-  },
-  {
     container: '.git-stash-detail',
     files: '.git-stash-files',
     patch: '.git-stash-diff pre',

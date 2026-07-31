@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import {
   GitCommitDetailsError,
   inspectGitCommit,
+  inspectGitCommitFile,
   listBranchCommits,
   listCurrentBranchCommits,
 } from '../src/services/git-commit-details-service.js';
@@ -196,4 +197,86 @@ test('recusa referência e hashes inválidos', async () => {
   } finally {
     await rm(repository.directory, { recursive: true, force: true });
   }
+});
+
+test('retorna o diff de um único arquivo do commit', async () => {
+  const { directory } = await createRepository();
+  await writeFile(path.join(directory, 'app.ts'), 'const valor = 1;\n', 'utf8');
+  await writeFile(path.join(directory, 'outro.ts'), 'export const outro = true;\n', 'utf8');
+  await run(directory, ['add', '.']);
+  await run(directory, ['commit', '-m', 'feat: dois arquivos']);
+  const hash = await run(directory, ['rev-parse', 'HEAD']);
+
+  const file = await inspectGitCommitFile(directory, hash, 'app.ts');
+  assert.equal(file.path, 'app.ts');
+  assert.equal(file.status, 'added');
+  assert.equal(file.binary, false);
+  assert.match(file.content, /\+const valor = 1;/);
+  // O diff é só do arquivo pedido.
+  assert.ok(!file.content.includes('outro.ts'));
+
+  await rm(directory, { recursive: true, force: true });
+});
+
+test('acompanha o caminho anterior de um arquivo renomeado', async () => {
+  const { directory } = await createRepository();
+  await writeFile(path.join(directory, 'antigo.ts'), 'export const valor = 1;\n'.repeat(6), 'utf8');
+  await run(directory, ['add', 'antigo.ts']);
+  await run(directory, ['commit', '-m', 'feat: cria arquivo']);
+  await run(directory, ['mv', 'antigo.ts', 'novo.ts']);
+  await run(directory, ['commit', '-am', 'refactor: renomeia arquivo']);
+  const hash = await run(directory, ['rev-parse', 'HEAD']);
+
+  const file = await inspectGitCommitFile(directory, hash, 'novo.ts');
+  assert.equal(file.status, 'renamed');
+  assert.match(file.content, /antigo\.ts/);
+
+  await rm(directory, { recursive: true, force: true });
+});
+
+test('recusa arquivo que não faz parte do commit', async () => {
+  const { directory, hash } = await createRepository();
+
+  await assert.rejects(
+    () => inspectGitCommitFile(directory, hash, '../../etc/passwd'),
+    (error: unknown) => error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_FILE_NOT_FOUND',
+  );
+  await assert.rejects(
+    () => inspectGitCommitFile(directory, hash, 'app.ts'),
+    (error: unknown) => error instanceof GitCommitDetailsError && error.code === 'GIT_COMMIT_FILE_NOT_FOUND',
+  );
+
+  await rm(directory, { recursive: true, force: true });
+});
+
+test('mascara segredos no diff do arquivo', async () => {
+  const { directory } = await createRepository();
+  await writeFile(path.join(directory, '.env'), 'API_TOKEN="s3cret1234567890abcdef"\n', 'utf8');
+  await run(directory, ['add', '.env']);
+  await run(directory, ['commit', '-m', 'chore: adiciona env']);
+  const hash = await run(directory, ['rev-parse', 'HEAD']);
+
+  const file = await inspectGitCommitFile(directory, hash, '.env');
+  assert.equal(file.masked, true);
+  assert.ok(!file.content.includes('s3cret1234567890abcdef'));
+
+  await rm(directory, { recursive: true, force: true });
+});
+
+test('inclui arquivos renomeados na lista de arquivos do commit', async () => {
+  const { directory } = await createRepository();
+  await writeFile(path.join(directory, 'antigo.ts'), 'export const valor = 1;\n'.repeat(6), 'utf8');
+  await run(directory, ['add', 'antigo.ts']);
+  await run(directory, ['commit', '-m', 'feat: cria arquivo']);
+  await run(directory, ['mv', 'antigo.ts', 'novo.ts']);
+  await run(directory, ['commit', '-am', 'refactor: renomeia arquivo']);
+  const hash = await run(directory, ['rev-parse', 'HEAD']);
+
+  const detail = await inspectGitCommit(directory, hash);
+  const renamed = detail.files.find((file) => file.path === 'novo.ts');
+  assert.ok(renamed, `esperava novo.ts em ${JSON.stringify(detail.files.map((file) => file.path))}`);
+  assert.equal(renamed!.status, 'renamed');
+  assert.equal(renamed!.previousPath, 'antigo.ts');
+
+  await rm(directory, { recursive: true, force: true });
 });
