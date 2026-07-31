@@ -52,6 +52,11 @@ const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
 
+function updateGitOverview(git: ProjectGitOverview): void {
+  gitBranch.value = git.branch ?? '';
+  gitOverview.value = git;
+}
+
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
@@ -70,8 +75,7 @@ async function loadProject(): Promise<void> {
       try {
         const git = await fetchProjectGit(loadedProject.id);
         if (projectId.value === requestedProjectId) {
-          gitBranch.value = git.branch ?? '';
-          gitOverview.value = git;
+          updateGitOverview(git);
         }
       } catch {
         gitBranch.value = '';
@@ -250,6 +254,7 @@ watch(projectId, () => {
         v-else-if="isGitRoute"
         :key="`git-${project.id}`"
         :project="project"
+        @git-updated="updateGitOverview"
       />
 
       <ProjectTestsPanel
