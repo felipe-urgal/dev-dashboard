@@ -145,7 +145,7 @@ const trackingMutationBodySchema = {
   },
 } as const;
 
-const trackingConfirmationResponseSchema = {
+const branchRemoteConfirmationResponseSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['confirmation'],
@@ -156,7 +156,10 @@ const trackingConfirmationResponseSchema = {
       required: ['token', 'operation', 'target', 'expiresAt'],
       properties: {
         token: { type: 'string' },
-        operation: { type: 'string', enum: ['track-branch'] },
+        operation: {
+          type: 'string',
+          enum: ['track-branch', 'delete-remote-branch'],
+        },
         target: { type: 'string' },
         expiresAt: { type: 'string' },
       },
@@ -256,7 +259,7 @@ export const gitWorkspaceRoutes: FastifyPluginAsync<
         params: projectParamsSchema,
         body: trackingConfirmationBodySchema,
         response: {
-          201: trackingConfirmationResponseSchema,
+          201: branchRemoteConfirmationResponseSchema,
           ...commonErrorResponseSchemas,
         },
       },
@@ -307,6 +310,70 @@ export const gitWorkspaceRoutes: FastifyPluginAsync<
             request.body.confirmationToken,
           ),
         });
+      } catch (error) {
+        translateBranchError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: { remoteBranch: string } }>(
+    '/projects/:projectId/git/branches/remote/delete/confirmations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: trackingConfirmationBodySchema,
+        response: {
+          201: branchRemoteConfirmationResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return reply.code(201).send({
+          confirmation: branchService.prepareRemoteDeleteConfirmation(
+            project.id,
+            request.body.remoteBranch,
+          ),
+        });
+      } catch (error) {
+        translateBranchError(error);
+      }
+    },
+  );
+
+  app.post<{
+    Params: ProjectParams;
+    Body: { remoteBranch: string; confirmationToken: string };
+  }>(
+    '/projects/:projectId/git/branches/remote/delete',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: trackingMutationBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['branch'],
+            properties: { branch: gitBranchMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return {
+          branch: await branchService.deleteRemoteBranch(
+            project.path,
+            project.id,
+            request.body.remoteBranch,
+            request.body.confirmationToken,
+          ),
+        };
       } catch (error) {
         translateBranchError(error);
       }
