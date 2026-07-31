@@ -371,107 +371,10 @@
 
   .workspace {
     display: grid;
-    grid-template-columns: 268px minmax(0, 1fr);
-    gap: var(--space-4);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  @media (max-width: 900px) {
-    .workspace { grid-template-columns: minmax(0, 1fr); }
-    .tree-pane { display: none; }
-  }
-
-  /* ── Árvore de arquivos ────────────────────────────────────── */
-
-  .tree-pane {
-    position: sticky;
-    top: calc(var(--toolbar-h) + var(--space-4));
-    max-height: calc(100vh - var(--toolbar-h) - var(--space-6) * 2);
-    display: flex;
-    flex-direction: column;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-
-  .tree-pane header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-3) var(--space-2);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .tree-pane h2 {
-    margin: 0;
-    font-size: var(--font-md);
-    letter-spacing: -.01em;
-  }
-
-  .tree-pane header span {
-    color: var(--text-dim);
-    font-size: var(--font-sm);
-  }
-
-  .tree {
-    padding: var(--space-2) 6px var(--space-3);
-    overflow: auto;
-  }
-
-  .tree-folder {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    font-size: var(--font-sm);
-    font-family: var(--font-mono);
-  }
-
-  .tree-folder:hover { background: var(--surface-2); color: var(--text); }
-
-  .tree-file {
-    display: grid;
-    grid-template-columns: 8px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    padding: 5px 6px;
-    border-radius: var(--radius-sm);
-    text-align: left;
-    color: var(--text-muted);
-    font-size: var(--font-sm);
-  }
-
-  .tree-file:hover { background: var(--surface-2); color: var(--text); }
-  .tree-file[aria-current='true'] { background: var(--accent-soft); color: var(--text); }
-  .tree-file.is-viewed { opacity: .5; }
-
-  .tree-file .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-mono);
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-  }
-
-  .dot.added { background: var(--success-text); }
-  .dot.modified { background: var(--warning-text); }
-  .dot.deleted { background: var(--danger-text); }
-  .dot.renamed { background: var(--info-text); }
-
-  .tree-file .delta {
-    font-family: var(--font-mono);
-    font-size: var(--font-xs);
+  .delta {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
@@ -813,11 +716,6 @@
     </div>
 
     <div class="heading-actions">
-      <div class="segmented" role="group" aria-label="Escopo do diff">
-        <button type="button" aria-pressed="true">Todas</button>
-        <button type="button" aria-pressed="false">Staged</button>
-        <button type="button" aria-pressed="false">Não staged</button>
-      </div>
       <button class="ghost-button" type="button">Atualizar</button>
     </div>
   </header>
@@ -842,14 +740,6 @@
   </div>
 
   <div class="workspace">
-    <aside class="tree-pane">
-      <header>
-        <h2>Arquivos alterados</h2>
-        <span id="tree-count">4</span>
-      </header>
-      <nav class="tree" id="tree" aria-label="Árvore de arquivos alterados"></nav>
-    </aside>
-
     <main class="files" id="files"></main>
   </div>
 
@@ -860,7 +750,7 @@
       <li><b>Destaque intralinha</b>: em pares removido/adicionado, só os trechos realmente alterados ficam com fundo forte — é o que faz a mudança "termos de uso e política de privacidade. <i>teste</i>" saltar aos olhos.</li>
       <li><b>Expansão de contexto</b> pelas setas no cabeçalho do trecho (<code>@@</code>), carregando as linhas não alteradas ao redor.</li>
       <li><b>Marcar como revisado</b> por arquivo, com barra de progresso na barra fixa; arquivo revisado recolhe sozinho.</li>
-      <li><b>Barra de proporção</b> (quadradinhos verdes/vermelhos) e contagem por arquivo, além da árvore de diretórios navegável.</li>
+      <li><b>Barra de proporção</b> (quadradinhos verdes/vermelhos) e contagem por arquivo no cabeçalho de cada cartão.</li>
       <li><b>Âncora de comentário</b> por linha (o botão azul que aparece no hover) — só o gesto visual, sem backend de comentários.</li>
     </ul>
   </section>
@@ -1597,7 +1487,6 @@ export function isTermsAccepted(version: string): boolean {
   }
 
   const filesEl = document.getElementById('files');
-  const treeEl = document.getElementById('tree');
 
   function visibleFiles() {
     const query = state.filter.trim().toLocaleLowerCase('pt-BR');
@@ -1619,42 +1508,6 @@ export function isTermsAccepted(version: string): boolean {
     entries.forEach(({ file, index }) => filesEl.append(renderFileCard(file, index)));
   }
 
-  function renderTree() {
-    const entries = visibleFiles();
-    treeEl.replaceChildren();
-    document.getElementById('tree-count').textContent = String(entries.length);
-
-    const groups = new Map();
-    entries.forEach(({ file, index }) => {
-      const { dir, base } = splitPath(file.path);
-      const key = dir || './';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push({ file, index, base });
-    });
-
-    groups.forEach((items, dir) => {
-      const folder = document.createElement('div');
-      folder.className = 'tree-folder';
-      folder.textContent = dir;
-      treeEl.append(folder);
-
-      items.forEach(({ file, index, base }) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `tree-file${file.viewed ? ' is-viewed' : ''}`;
-        button.innerHTML = `
-          <span class="dot ${file.status}" aria-hidden="true"></span>
-          <span class="name">${base}</span>
-          <span class="delta"><span class="plus">+${file.additions}</span> <span class="minus">−${file.deletions}</span></span>
-        `;
-        button.addEventListener('click', () => {
-          document.getElementById(`file-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-        treeEl.append(button);
-      });
-    });
-  }
-
   function renderProgress() {
     const viewed = model.filter((file) => file.viewed).length;
     document.getElementById('viewed-label').textContent = `${viewed} de ${model.length} revisados`;
@@ -1669,7 +1522,6 @@ export function isTermsAccepted(version: string): boolean {
 
   function renderAll() {
     renderFiles();
-    renderTree();
     renderProgress();
   }
 
@@ -1712,7 +1564,6 @@ export function isTermsAccepted(version: string): boolean {
     const file = model[Number(card.dataset.index)];
     file.viewed = input.checked;
     card.classList.toggle('is-viewed', file.viewed);
-    renderTree();
     renderProgress();
   });
 

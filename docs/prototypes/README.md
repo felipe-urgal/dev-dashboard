@@ -24,7 +24,7 @@ Diferenças em relação à tela atual:
 | Linha inteira pintada de verde ou vermelho | Destaque intralinha: só os trechos alterados recebem fundo forte |
 | Trecho fixo devolvido pela API | Expansão de contexto pelas setas no cabeçalho `@@` |
 | Sem controle de progresso | "Revisado" por arquivo, com barra de progresso na barra fixa |
-| Lista simples de arquivos | Árvore por diretório, com barra de proporção e status por arquivo |
+| Contagem só no resumo do topo | Barra de proporção e status no cabeçalho de cada arquivo |
 | — | Âncora de comentário por linha (apenas o gesto visual) |
 
 O protótipo deriva o diff em runtime (LCS de linhas + LCS de tokens para o
