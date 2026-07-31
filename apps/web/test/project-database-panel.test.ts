@@ -189,7 +189,7 @@ test('projeto Node oculta as abas exclusivas de Rails', async () => {
   await flushPromises();
 
   const labels = wrapper.findAll('.database-explorer-tabs button').map((button) => button.text());
-  assert.deepEqual(labels, ['Visão geral', 'Ambientes']);
+  assert.deepEqual(labels, ['Visão geral', 'Ambientes', 'Snapshots']);
 });
 
 test('mostra diagnóstico Bundler com gems desatualizadas e filtro', async () => {

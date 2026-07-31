@@ -193,6 +193,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     databaseDetectionService: context.databaseDetectionService,
+    databaseSnapshotService: context.databaseSnapshotService,
   });
 
   app.register(railsRoutes, {

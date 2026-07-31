@@ -1,10 +1,22 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import { ApiError } from '../http/api-error.js';
-import { commonErrorResponseSchemas, projectDatabaseOverviewResponseSchema } from '../http/response-schemas.js';
+import {
+  commonErrorResponseSchemas,
+  databaseRestoreResultResponseSchema,
+  databaseSnapshotConfirmationResponseSchema,
+  databaseSnapshotListResponseSchema,
+  databaseSnapshotResponseSchema,
+  projectDatabaseOverviewResponseSchema,
+} from '../http/response-schemas.js';
 import { DatabaseStartError, type DatabaseDetectionService } from '../services/database-detection-service.js';
+import { DatabaseSnapshotError, type DatabaseSnapshotService } from '../services/database-snapshot-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
-interface Options extends FastifyPluginOptions { projectStore: ProjectStore; databaseDetectionService: DatabaseDetectionService }
+interface Options extends FastifyPluginOptions {
+  projectStore: ProjectStore;
+  databaseDetectionService: DatabaseDetectionService;
+  databaseSnapshotService: DatabaseSnapshotService;
+}
 interface Params { projectId: string }
 interface SecretParams extends Params { environmentId: string }
 interface Query { page?: number; pageSize?: number }
@@ -82,6 +94,139 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
         code: 'DATABASE_START_FAILED',
         message: error instanceof DatabaseStartError ? messages[error.reason] : messages['command-failed'],
       });
+    }
+  });
+
+  const snapshotParamsSchema = {
+    type: 'object', additionalProperties: false, required: ['projectId', 'snapshotId'],
+    properties: {
+      projectId: { type: 'string', minLength: 1 },
+      // Só o formato de UUID gerado pela própria API é aceito.
+      snapshotId: {
+        type: 'string',
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      },
+    },
+  } as const;
+
+  const snapshotStatuses: Record<string, number> = {
+    DATABASE_ENVIRONMENT_NOT_FOUND: 404,
+    DATABASE_SNAPSHOT_NOT_FOUND: 404,
+    DATABASE_SNAPSHOT_UNSUPPORTED: 409,
+    DATABASE_SNAPSHOT_TOOL_MISSING: 409,
+    DATABASE_SNAPSHOT_TOO_LARGE: 409,
+    DATABASE_RESTORE_CONFIRMATION_REQUIRED: 409,
+    DATABASE_SNAPSHOT_FAILED: 500,
+    DATABASE_RESTORE_FAILED: 500,
+  };
+
+  const asApiError = (error: unknown): never => {
+    if (error instanceof ApiError) throw error;
+    if (error instanceof DatabaseSnapshotError) {
+      throw new ApiError({
+        statusCode: snapshotStatuses[error.code] ?? 500,
+        code: error.code,
+        message: error.message,
+      });
+    }
+    throw new ApiError({
+      statusCode: 500,
+      code: 'DATABASE_SNAPSHOT_FAILED',
+      message: error instanceof Error ? error.message : 'Falha na operação de snapshot.',
+    });
+  };
+
+  app.get<{ Params: Params }>('/projects/:projectId/database/snapshots', {
+    schema: {
+      params: paramsSchema, querystring: emptyQuery,
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['snapshots'],
+          properties: { snapshots: databaseSnapshotListResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const project = requireProject(options.projectStore, request.params.projectId);
+    try {
+      return { snapshots: await options.databaseSnapshotService.list(project) };
+    } catch (error) {
+      return asApiError(error);
+    }
+  });
+
+  app.post<{ Params: Params; Body: { environmentId: string } }>('/projects/:projectId/database/snapshots', {
+    schema: {
+      params: paramsSchema, querystring: emptyQuery,
+      body: {
+        type: 'object', additionalProperties: false, required: ['environmentId'],
+        properties: { environmentId: { type: 'string', minLength: 1, maxLength: 120 } },
+      },
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['snapshot'],
+          properties: { snapshot: databaseSnapshotResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const project = requireProject(options.projectStore, request.params.projectId);
+    try {
+      return { snapshot: await options.databaseSnapshotService.create(project, request.body.environmentId) };
+    } catch (error) {
+      request.log.warn({ projectId: project.id }, 'Database snapshot failed');
+      return asApiError(error);
+    }
+  });
+
+  app.post<{ Params: Params & { snapshotId: string } }>('/projects/:projectId/database/snapshots/:snapshotId/restore/confirmation', {
+    schema: {
+      params: snapshotParamsSchema, querystring: emptyQuery,
+      body: { type: 'object', additionalProperties: false, properties: {} },
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['confirmation'],
+          properties: { confirmation: databaseSnapshotConfirmationResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const project = requireProject(options.projectStore, request.params.projectId);
+    try {
+      return {
+        confirmation: await options.databaseSnapshotService.prepareRestore(project, request.params.snapshotId),
+      };
+    } catch (error) {
+      return asApiError(error);
+    }
+  });
+
+  app.post<{ Params: Params & { snapshotId: string }; Body: { confirmationToken: string } }>('/projects/:projectId/database/snapshots/:snapshotId/restore', {
+    schema: {
+      params: snapshotParamsSchema, querystring: emptyQuery,
+      body: {
+        type: 'object', additionalProperties: false, required: ['confirmationToken'],
+        properties: { confirmationToken: { type: 'string', minLength: 64, maxLength: 64 } },
+      },
+      response: {
+        200: {
+          type: 'object', additionalProperties: false, required: ['restore'],
+          properties: { restore: databaseRestoreResultResponseSchema },
+        },
+        ...commonErrorResponseSchemas,
+      },
+    },
+  }, async (request) => {
+    const project = requireProject(options.projectStore, request.params.projectId);
+    try {
+      await options.databaseSnapshotService.restore(project, request.params.snapshotId, request.body.confirmationToken);
+      return { restore: { snapshotId: request.params.snapshotId, restored: true } };
+    } catch (error) {
+      request.log.warn({ projectId: project.id }, 'Database restore failed');
+      return asApiError(error);
     }
   });
 };

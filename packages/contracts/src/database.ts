@@ -39,3 +39,35 @@ export interface ProjectDatabaseStartResult {
   environmentId: string;
   started: boolean;
 }
+
+export type DatabaseSnapshotDriver = 'mysql' | 'postgresql';
+
+export interface DatabaseSnapshot {
+  id: string;
+  environmentId: string;
+  environment: string;
+  driver: DatabaseSnapshotDriver;
+  database: string;
+  label: string;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface DatabaseSnapshotList {
+  snapshots: DatabaseSnapshot[];
+  total: number;
+  retentionLimit: number;
+  /** Ambientes cujo adaptador e ferramentas de linha de comando permitem dump. */
+  supportedEnvironmentIds: string[];
+}
+
+export interface DatabaseSnapshotConfirmation {
+  token: string;
+  snapshotId: string;
+  expiresAt: string;
+}
+
+export interface DatabaseRestoreResult {
+  snapshotId: string;
+  restored: boolean;
+}

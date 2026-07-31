@@ -24,6 +24,51 @@ export const projectDatabaseOverviewResponseSchema = {
   },
 } as const;
 
+export const databaseSnapshotResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['id', 'environmentId', 'environment', 'driver', 'database', 'label', 'createdAt', 'sizeBytes'],
+  properties: {
+    id: { type: 'string' },
+    environmentId: { type: 'string' },
+    environment: { type: 'string' },
+    driver: { type: 'string', enum: ['mysql', 'postgresql'] },
+    database: { type: 'string' },
+    label: { type: 'string' },
+    createdAt: { type: 'string' },
+    sizeBytes: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+export const databaseSnapshotListResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['snapshots', 'total', 'retentionLimit', 'supportedEnvironmentIds'],
+  properties: {
+    snapshots: { type: 'array', items: databaseSnapshotResponseSchema },
+    total: { type: 'integer', minimum: 0 },
+    retentionLimit: { type: 'integer', minimum: 1 },
+    supportedEnvironmentIds: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
+export const databaseSnapshotConfirmationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['token', 'snapshotId', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    snapshotId: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+export const databaseRestoreResultResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['snapshotId', 'restored'],
+  properties: {
+    snapshotId: { type: 'string' },
+    restored: { type: 'boolean' },
+  },
+} as const;
+
 export const railsMigrationEntryResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['version', 'name', 'status'],

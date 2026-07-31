@@ -14,7 +14,7 @@ import type {
   ProjectDatabaseSource,
 } from '@dev-dashboard/contracts';
 
-interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'startAvailable'> {
+export interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'startAvailable'> {
   databaseUrl?: string;
 }
 

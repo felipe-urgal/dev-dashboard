@@ -10,6 +10,7 @@ import { GitService } from './services/git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
+import { DatabaseSnapshotService } from './services/database-snapshot-service.js';
 import { RailsInspectionService } from './services/rails-inspection-service.js';
 import { BundlerInspectionService } from './services/bundler-inspection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
@@ -26,6 +27,7 @@ export interface AppContext {
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   databaseDetectionService: DatabaseDetectionService;
+  databaseSnapshotService: DatabaseSnapshotService;
   railsInspectionService: RailsInspectionService;
   bundlerInspectionService: BundlerInspectionService;
   scriptDetectionService: ScriptDetectionService;
@@ -39,6 +41,7 @@ export function createAppContext(): AppContext {
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
+  const databaseDetectionService = new DatabaseDetectionService();
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -49,7 +52,8 @@ export function createAppContext(): AppContext {
     gitService: new GitService(),
     testDetectionService: new TestDetectionService(),
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
-    databaseDetectionService: new DatabaseDetectionService(),
+    databaseDetectionService,
+    databaseSnapshotService: new DatabaseSnapshotService(databaseDetectionService, processManager.stateDirectory),
     railsInspectionService: new RailsInspectionService(),
     bundlerInspectionService: new BundlerInspectionService(),
     scriptDetectionService,

@@ -1,0 +1,156 @@
+/* Seção de snapshots do banco. */
+
+.database-explorer-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--success-text);
+  border-radius: 8px;
+  color: var(--success-text);
+  background: var(--success-surface);
+  font-size: var(--font-sm);
+}
+
+.database-toolbar .database-action-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.database-toolbar .database-action-primary:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+}
+
+.database-toolbar .database-action-primary:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.database-toolbar .database-action-primary svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.database-snapshot-hint {
+  flex: 1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.database-snapshot-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.database-snapshot-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.database-snapshot-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.database-snapshot-info strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-snapshot-info small {
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+}
+
+.database-snapshot-size {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.database-snapshot-list li > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.database-snapshot-list li > button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.database-snapshot-list li > button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.database-snapshot-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--danger-text);
+  border-radius: 8px;
+  background: var(--danger-surface);
+  color: var(--danger-text);
+  font-size: var(--font-sm);
+}
+
+.database-snapshot-confirm button {
+  padding: 5px 10px;
+  border: 1px solid currentcolor;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.database-snapshot-confirm button:disabled {
+  cursor: progress;
+  opacity: .7;
+}
+
+@media (max-width: 720px) {
+  .database-snapshot-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .database-snapshot-confirm {
+    flex-wrap: wrap;
+  }
+}

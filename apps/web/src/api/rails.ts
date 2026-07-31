@@ -1,5 +1,9 @@
 import type {
   BundlerOverview,
+  DatabaseRestoreResult,
+  DatabaseSnapshot,
+  DatabaseSnapshotConfirmation,
+  DatabaseSnapshotList,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseStartResult,
@@ -34,6 +38,43 @@ export async function startProjectDatabase(projectId: string, environmentId: str
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
   });
   return response.start;
+}
+
+interface ProjectDatabaseSnapshotsResponse { snapshots: DatabaseSnapshotList; }
+interface ProjectDatabaseSnapshotResponse { snapshot: DatabaseSnapshot; }
+interface ProjectDatabaseSnapshotConfirmationResponse { confirmation: DatabaseSnapshotConfirmation; }
+interface ProjectDatabaseRestoreResponse { restore: DatabaseRestoreResult; }
+
+function snapshotsPath(projectId: string): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/database/snapshots`;
+}
+
+export async function fetchProjectDatabaseSnapshots(projectId: string): Promise<DatabaseSnapshotList> {
+  const response = await requestJson<ProjectDatabaseSnapshotsResponse>(snapshotsPath(projectId));
+  return response.snapshots;
+}
+
+export async function createProjectDatabaseSnapshot(projectId: string, environmentId: string): Promise<DatabaseSnapshot> {
+  const response = await requestJson<ProjectDatabaseSnapshotResponse>(snapshotsPath(projectId), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ environmentId }),
+  });
+  return response.snapshot;
+}
+
+export async function prepareProjectDatabaseRestore(projectId: string, snapshotId: string): Promise<DatabaseSnapshotConfirmation> {
+  const response = await requestJson<ProjectDatabaseSnapshotConfirmationResponse>(
+    `${snapshotsPath(projectId)}/${encodeURIComponent(snapshotId)}/restore/confirmation`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+  );
+  return response.confirmation;
+}
+
+export async function restoreProjectDatabaseSnapshot(projectId: string, snapshotId: string, confirmationToken: string): Promise<DatabaseRestoreResult> {
+  const response = await requestJson<ProjectDatabaseRestoreResponse>(
+    `${snapshotsPath(projectId)}/${encodeURIComponent(snapshotId)}/restore`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+  );
+  return response.restore;
 }
 
 interface ProjectRailsMigrationsResponse { migrations: RailsMigrationsOverview; }
