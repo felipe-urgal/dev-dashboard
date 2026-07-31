@@ -58,7 +58,7 @@ test('compõe a URL de comparação do GitHub para o remote SSH', async () => {
     assert.equal(result.defaultBranch, 'main');
     assert.equal(
       result.url,
-      'https://github.com/felipe-urgal/dev-dashboard/compare/main...feature%2Fpull-request?expand=1',
+      'https://github.com/felipe-urgal/dev-dashboard/compare/main...feature%2Fpull-request?quick_pull=1',
     );
   } finally {
     await fixture.cleanup();
