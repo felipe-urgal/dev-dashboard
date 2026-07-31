@@ -38,6 +38,8 @@ export interface TestExecutionTarget {
   targetFile?: string;
 }
 
+const SUCCESS_RESULT_RESET_DELAY_MS = 1_500;
+
 export function useProjectTestProcess(
   props: { project: Project },
   overview: Ref<ProjectTestOverview | null>,
@@ -59,6 +61,7 @@ export function useProjectTestProcess(
   let lastStartedCommandId: string | null = null;
   let generation = 0;
   let closeExecutionEvents: (() => void) | null = null;
+  let successResultResetTimer: ReturnType<typeof setTimeout> | null = null;
   const recoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
   const status = computed(() => managedProcess.value?.status ?? 'idle');
@@ -116,6 +119,37 @@ export function useProjectTestProcess(
     const process = managedProcess.value;
     return process ? [process.command, ...(process.args ?? [])].filter(Boolean).join(' ') : '—';
   });
+
+  function cancelSuccessResultReset(): void {
+    if (successResultResetTimer === null) return;
+    clearTimeout(successResultResetTimer);
+    successResultResetTimer = null;
+  }
+
+  function resetSuccessfulResult(processId: string): void {
+    const process = managedProcess.value;
+    if (
+      !process ||
+      process.id !== processId ||
+      process.status !== 'stopped' ||
+      process.exitCode !== 0
+    ) return;
+
+    managedProcess.value = null;
+    logContent.value = '';
+    logTruncated.value = false;
+    copyMessage.value = '';
+    activeLogTab.value = 'log';
+  }
+
+  function scheduleSuccessfulResultReset(process: ManagedProcess): void {
+    cancelSuccessResultReset();
+    const processId = process.id;
+    successResultResetTimer = setTimeout(() => {
+      successResultResetTimer = null;
+      resetSuccessfulResult(processId);
+    }, SUCCESS_RESULT_RESET_DELAY_MS);
+  }
 
   function currentRequest(projectId: string, requestGeneration: number): boolean {
     return props.project.id === projectId && generation === requestGeneration;
@@ -197,6 +231,7 @@ export function useProjectTestProcess(
   async function startExecution(target: TestExecutionTarget): Promise<void> {
     const projectId = props.project.id;
     const requestGeneration = generation;
+    cancelSuccessResultReset();
     startingCommandId.value = target.commandId;
     lastStartedCommandId = target.commandId;
     errorMessage.value = '';
@@ -276,9 +311,17 @@ export function useProjectTestProcess(
   watch(managedProcess, (process) => {
     if (!process) return;
     if (process.status === 'starting' || process.status === 'running' || process.status === 'stopping') {
+      cancelSuccessResultReset();
       hasObservedRunning = true;
       return;
     }
+
+    if (process.status === 'stopped' && process.exitCode === 0) {
+      scheduleSuccessfulResultReset(process);
+    } else {
+      cancelSuccessResultReset();
+    }
+
     if (!hasObservedRunning || (process.status !== 'stopped' && process.status !== 'failed')) return;
     const effectiveCommandId = startingCommandId.value || lastStartedCommandId;
     const commandLabel = overview.value?.commands.find((command) => command.id === effectiveCommandId)?.label ?? 'Testes';
@@ -299,6 +342,7 @@ export function useProjectTestProcess(
       generation += 1;
       closeExecutionEvents?.();
       closeExecutionEvents = null;
+      cancelSuccessResultReset();
       hasObservedRunning = false;
       lastStartedCommandId = null;
       managedProcess.value = null;
@@ -317,6 +361,7 @@ export function useProjectTestProcess(
   onBeforeUnmount(() => {
     closeExecutionEvents?.();
     closeExecutionEvents = null;
+    cancelSuccessResultReset();
   });
 
   return {
