@@ -115,3 +115,17 @@ export interface GitPullRequestUrl {
   branch: string;
   defaultBranch: string;
 }
+
+export interface GitOpenPullRequest {
+  provider: GitPullRequestProvider;
+  number: number;
+  title: string;
+  url: string;
+  sourceBranch: string;
+  baseBranch: string;
+}
+
+export interface GitPullRequestLookup {
+  checked: boolean;
+  existing?: GitOpenPullRequest;
+}

@@ -88,3 +88,83 @@ test('compõe Pull Request para origin usando branch base escolhida', async (con
   assert.equal(url.searchParams.get('title'), 'PR para develop');
   assert.equal(url.searchParams.get('body'), null);
 });
+
+test('detecta Pull Request aberta no GitHub pela origem e branch base', async (context) => {
+  const root = await makeForkFixture();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  const requests: string[] = [];
+  const service = new GitPullRequestService({
+    fetchImpl: async (input) => {
+      requests.push(String(input));
+      return new Response(JSON.stringify([
+        {
+          number: 42,
+          title: 'feat: fluxo de PR',
+          html_url: 'https://github.com/empresa/dev-dashboard/pull/42',
+        },
+      ]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+
+  const result = await service.findOpenPullRequest(root, {
+    targetRemote: 'upstream',
+    baseBranch: 'main',
+  });
+
+  assert.equal(result.checked, true);
+  assert.deepEqual(result.existing, {
+    provider: 'github',
+    number: 42,
+    title: 'feat: fluxo de PR',
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
+    sourceBranch: 'feature/pull-request',
+    baseBranch: 'main',
+  });
+  assert.equal(requests.length, 1);
+  const url = new URL(requests[0]!);
+  assert.equal(url.pathname, '/repos/empresa/dev-dashboard/pulls');
+  assert.equal(url.searchParams.get('state'), 'open');
+  assert.equal(url.searchParams.get('head'), 'felipe-urgal:feature/pull-request');
+  assert.equal(url.searchParams.get('base'), 'main');
+});
+
+test('informa que a verificação foi concluída quando não existe PR aberta', async (context) => {
+  const root = await makeForkFixture();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  const service = new GitPullRequestService({
+    fetchImpl: async () => new Response('[]', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  });
+
+  const result = await service.findOpenPullRequest(root, {
+    targetRemote: 'upstream',
+    baseBranch: 'main',
+  });
+
+  assert.deepEqual(result, { checked: true });
+});
+
+test('falha fechada na consulta externa sem bloquear a criação de PR', async (context) => {
+  const root = await makeForkFixture();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+
+  const service = new GitPullRequestService({
+    fetchImpl: async () => {
+      throw new Error('network unavailable');
+    },
+  });
+
+  const result = await service.findOpenPullRequest(root, {
+    targetRemote: 'upstream',
+    baseBranch: 'main',
+  });
+
+  assert.deepEqual(result, { checked: false });
+});

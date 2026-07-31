@@ -3,15 +3,17 @@ import {
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
+  GitOpenPullRequest,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
 import {
   composeProjectGitPullRequest,
+  getProjectGitPullRequestStatus,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -27,8 +29,13 @@ const baseBranch = ref('main');
 const title = ref('');
 const description = ref('');
 const opening = ref(false);
+const checkingExisting = ref(false);
+const existingPullRequest = ref<GitOpenPullRequest | null>(null);
+const lookupUnavailable = ref(false);
 const errorMessage = ref('');
 const generatedUrl = ref('');
+let lookupGeneration = 0;
+let lookupScheduled = false;
 
 const availableTargets = computed(() => {
   const names = new Set(
@@ -60,14 +67,20 @@ const baseBranches = computed(() => {
 
 const branchPublished = computed(() => Boolean(props.overview.upstream));
 
-const canOpen = computed(() =>
-  !props.busy
-  && !opening.value
-  && !props.overview.detached
+const canLookup = computed(() =>
+  !props.overview.detached
   && Boolean(props.overview.branch)
   && branchPublished.value
   && availableTargets.value.includes(targetRemote.value)
-  && Boolean(baseBranch.value.trim())
+  && Boolean(baseBranch.value.trim()),
+);
+
+const canOpen = computed(() =>
+  !props.busy
+  && !opening.value
+  && !checkingExisting.value
+  && !existingPullRequest.value
+  && canLookup.value
   && Boolean(title.value.trim()),
 );
 
@@ -85,8 +98,60 @@ function defaultDescription(): string {
   return `## Resumo\n\n${subject}`;
 }
 
+function openExternal(url: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    errorMessage.value = 'O navegador bloqueou a nova aba. Use o link abaixo para continuar.';
+    return false;
+  }
+  return true;
+}
+
+async function checkExistingPullRequest(): Promise<GitOpenPullRequest | null> {
+  const generation = ++lookupGeneration;
+  existingPullRequest.value = null;
+  lookupUnavailable.value = false;
+
+  if (!canLookup.value) {
+    checkingExisting.value = false;
+    return null;
+  }
+
+  checkingExisting.value = true;
+  try {
+    const lookup = await getProjectGitPullRequestStatus(
+      props.projectId,
+      {
+        targetRemote: targetRemote.value,
+        baseBranch: baseBranch.value.trim(),
+      },
+    );
+    if (generation !== lookupGeneration) return null;
+    lookupUnavailable.value = !lookup.checked;
+    existingPullRequest.value = lookup.existing ?? null;
+    return existingPullRequest.value;
+  } catch {
+    if (generation !== lookupGeneration) return null;
+    lookupUnavailable.value = true;
+    existingPullRequest.value = null;
+    return null;
+  } finally {
+    if (generation === lookupGeneration) checkingExisting.value = false;
+  }
+}
+
+function scheduleExistingLookup(): void {
+  if (lookupScheduled) return;
+  lookupScheduled = true;
+  queueMicrotask(() => {
+    lookupScheduled = false;
+    void checkExistingPullRequest();
+  });
+}
+
 watch(
-  () => [props.overview.branch, props.workspace] as const,
+  () => [props.overview.branch, props.overview.upstream, props.workspace] as const,
   () => {
     if (availableTargets.value.includes('upstream')) targetRemote.value = 'upstream';
     else if (availableTargets.value.includes('origin')) targetRemote.value = 'origin';
@@ -97,6 +162,9 @@ watch(
     description.value = defaultDescription();
     generatedUrl.value = '';
     errorMessage.value = '';
+    existingPullRequest.value = null;
+    lookupUnavailable.value = false;
+    scheduleExistingLookup();
   },
   { immediate: true },
 );
@@ -104,6 +172,20 @@ watch(
 watch(targetRemote, () => {
   baseBranch.value = defaultBase();
   generatedUrl.value = '';
+  existingPullRequest.value = null;
+  lookupUnavailable.value = false;
+  scheduleExistingLookup();
+});
+
+watch(baseBranch, () => {
+  generatedUrl.value = '';
+  existingPullRequest.value = null;
+  lookupUnavailable.value = false;
+  scheduleExistingLookup();
+});
+
+onBeforeUnmount(() => {
+  lookupGeneration += 1;
 });
 
 async function openPullRequest(): Promise<void> {
@@ -113,6 +195,13 @@ async function openPullRequest(): Promise<void> {
   generatedUrl.value = '';
 
   try {
+    const existing = await checkExistingPullRequest();
+    if (existing) {
+      generatedUrl.value = existing.url;
+      openExternal(existing.url);
+      return;
+    }
+
     const pullRequest = await composeProjectGitPullRequest(
       props.projectId,
       {
@@ -123,12 +212,7 @@ async function openPullRequest(): Promise<void> {
       },
     );
     generatedUrl.value = pullRequest.url;
-    const opened = typeof window === 'undefined'
-      ? null
-      : window.open(pullRequest.url, '_blank', 'noopener,noreferrer');
-    if (!opened && typeof window !== 'undefined') {
-      errorMessage.value = 'O navegador bloqueou a nova aba. Use o link abaixo para continuar.';
-    }
+    openExternal(pullRequest.url);
   } catch (error) {
     errorMessage.value = error instanceof Error
       ? error.message
@@ -158,6 +242,32 @@ async function openPullRequest(): Promise<void> {
 
     <div v-if="!branchPublished" class="git-pr-warning">
       A branch atual ainda não possui upstream. Publique a branch antes de abrir a Pull Request.
+    </div>
+
+    <div v-else-if="checkingExisting" class="git-pr-checking" aria-live="polite">
+      Verificando se já existe uma Pull Request aberta para este destino…
+    </div>
+
+    <div v-else-if="existingPullRequest" class="git-pr-existing" aria-live="polite">
+      <div>
+        <span>PR #{{ existingPullRequest.number }} já está aberta</span>
+        <strong>{{ existingPullRequest.title }}</strong>
+        <small>
+          {{ existingPullRequest.sourceBranch }} → {{ targetRemote }}/{{ existingPullRequest.baseBranch }}
+        </small>
+      </div>
+      <a
+        :href="existingPullRequest.url"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Ver PR #{{ existingPullRequest.number }}
+        <ArrowTopRightOnSquareIcon aria-hidden="true" />
+      </a>
+    </div>
+
+    <div v-else-if="lookupUnavailable" class="git-pr-lookup-note">
+      Não foi possível verificar automaticamente se já existe uma Pull Request aberta. Você ainda pode continuar, mas vale conferir o repositório antes de criar outra.
     </div>
 
     <form class="git-pr-form" @submit.prevent="openPullRequest">
@@ -224,15 +334,31 @@ async function openPullRequest(): Promise<void> {
         <p>
           O dashboard não armazena credenciais do GitHub/GitLab; ele abre a tela oficial de criação já preenchida.
         </p>
-        <button type="submit" :disabled="!canOpen">
+        <a
+          v-if="existingPullRequest"
+          class="git-pr-existing-action"
+          :href="existingPullRequest.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Ver PR #{{ existingPullRequest.number }}
           <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          {{ opening ? 'Preparando…' : 'Abrir Pull Request' }}
+        </a>
+        <button v-else type="submit" :disabled="!canOpen">
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+          {{
+            checkingExisting
+              ? 'Verificando PR…'
+              : opening
+                ? 'Preparando…'
+                : 'Abrir Pull Request'
+          }}
         </button>
       </div>
     </form>
 
     <a
-      v-if="generatedUrl"
+      v-if="generatedUrl && !existingPullRequest"
       class="git-pr-fallback-link"
       :href="generatedUrl"
       target="_blank"
@@ -257,14 +383,16 @@ async function openPullRequest(): Promise<void> {
 }
 
 .git-pr-heading,
-.git-pr-footer {
+.git-pr-footer,
+.git-pr-existing {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
 
-.git-pr-heading > div {
+.git-pr-heading > div,
+.git-pr-existing > div {
   display: grid;
   gap: 4px;
 }
@@ -277,7 +405,8 @@ async function openPullRequest(): Promise<void> {
 }
 
 .git-pr-heading span,
-.git-pr-form label > span {
+.git-pr-form label > span,
+.git-pr-existing span {
   color: var(--text-muted);
   font-size: var(--font-sm);
   font-weight: 600;
@@ -342,7 +471,9 @@ async function openPullRequest(): Promise<void> {
 }
 
 .git-pr-footer button,
-.git-pr-fallback-link {
+.git-pr-fallback-link,
+.git-pr-existing-action,
+.git-pr-existing a {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
@@ -359,7 +490,9 @@ async function openPullRequest(): Promise<void> {
 }
 
 .git-pr-footer button svg,
-.git-pr-fallback-link svg {
+.git-pr-fallback-link svg,
+.git-pr-existing-action svg,
+.git-pr-existing a svg {
   width: 16px;
   height: 16px;
 }
@@ -370,11 +503,36 @@ async function openPullRequest(): Promise<void> {
   color: var(--text-dim);
 }
 
-.git-pr-warning {
+.git-pr-warning,
+.git-pr-checking,
+.git-pr-lookup-note,
+.git-pr-existing {
   border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.git-pr-warning {
   background: var(--warning-surface);
   color: var(--warning-text);
-  padding: var(--space-3);
+}
+
+.git-pr-checking,
+.git-pr-lookup-note {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.git-pr-existing {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+.git-pr-existing strong {
+  color: var(--text);
+}
+
+.git-pr-existing small {
+  color: var(--text-muted);
 }
 
 .git-pr-fallback-link {
@@ -387,12 +545,15 @@ async function openPullRequest(): Promise<void> {
   }
 
   .git-pr-heading,
-  .git-pr-footer {
+  .git-pr-footer,
+  .git-pr-existing {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .git-pr-footer button {
+  .git-pr-footer button,
+  .git-pr-existing-action,
+  .git-pr-existing a {
     width: 100%;
   }
 }
