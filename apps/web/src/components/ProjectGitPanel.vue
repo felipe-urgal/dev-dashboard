@@ -538,9 +538,12 @@ onBeforeUnmount(() => {
         v-else-if="activeTab === 'commit'"
         v-model:message="commitMessage"
         v-model:mode="commitMode"
+        :project-id="project.id"
         :overview="overview"
+        :workspace="workspace"
         :busy="mutationRunning"
         @submit="runCommit"
+        @changed="reloadGitData"
       />
 
       <section v-else-if="activeTab === 'diff'" class="git-tab-page">
