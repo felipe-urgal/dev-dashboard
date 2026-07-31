@@ -3,6 +3,7 @@ export * from './api/scripts';
 export * from './api/workspaces';
 export * from './api/processes';
 export * from './api/git';
+export * from './api/git-workflows';
 export * from './api/tests';
 export * from './api/rails';
 export * from './api/activities';

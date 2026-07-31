@@ -5,13 +5,23 @@ import type { GitPullRequestProvider, GitPullRequestUrl } from '@dev-dashboard/c
 
 const execFileAsync = promisify(execFile);
 
+export type GitPullRequestTargetRemote = 'origin' | 'upstream';
+
+export interface GitPullRequestComposeOptions {
+  targetRemote?: GitPullRequestTargetRemote;
+  baseBranch?: string;
+  title?: string;
+  description?: string;
+}
+
 export type GitPullRequestErrorCode =
   | 'GIT_NOT_REPOSITORY'
   | 'GIT_DETACHED_HEAD'
   | 'GIT_REMOTE_NOT_CONFIGURED'
   | 'GIT_PULL_REQUEST_NOT_PUBLISHED'
   | 'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT'
-  | 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED';
+  | 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED'
+  | 'GIT_PULL_REQUEST_BASE_NOT_FOUND';
 
 export class GitPullRequestError extends Error {
   public constructor(
@@ -38,6 +48,14 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
   return result.stdout.trim();
 }
 
+async function optionalGit(projectPath: string, args: readonly string[]): Promise<string | null> {
+  try {
+    return await runGit(projectPath, args);
+  } catch {
+    return null;
+  }
+}
+
 async function requireRepository(projectPath: string): Promise<void> {
   try {
     await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
@@ -54,9 +72,9 @@ async function currentBranch(projectPath: string): Promise<string> {
   return branch;
 }
 
-async function requireUpstream(projectPath: string, branch: string): Promise<void> {
+async function publishedReference(projectPath: string, branch: string): Promise<string> {
   try {
-    await runGit(projectPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+    return await runGit(projectPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
   } catch {
     throw new GitPullRequestError(
       'GIT_PULL_REQUEST_NOT_PUBLISHED',
@@ -65,30 +83,65 @@ async function requireUpstream(projectPath: string, branch: string): Promise<voi
   }
 }
 
-async function originRemoteUrl(projectPath: string): Promise<string> {
+async function remoteUrl(projectPath: string, remote: string): Promise<string> {
   try {
-    return await runGit(projectPath, ['remote', 'get-url', 'origin']);
+    return await runGit(projectPath, ['remote', 'get-url', remote]);
   } catch {
-    throw new GitPullRequestError('GIT_REMOTE_NOT_CONFIGURED', 'Nenhum remoto "origin" configurado para este projeto.');
+    throw new GitPullRequestError(
+      'GIT_REMOTE_NOT_CONFIGURED',
+      `Nenhum remoto "${remote}" configurado para este projeto.`,
+    );
   }
 }
 
-async function defaultBranch(projectPath: string): Promise<string> {
+async function defaultBranch(projectPath: string, remote: string): Promise<string> {
   try {
-    const ref = await runGit(projectPath, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
-    if (ref) return ref.replace(/^origin\//, '');
+    const ref = await runGit(projectPath, [
+      'symbolic-ref',
+      '--quiet',
+      '--short',
+      `refs/remotes/${remote}/HEAD`,
+    ]);
+    if (ref) return ref.replace(new RegExp(`^${remote}/`), '');
   } catch {
-    // Ausência de refs/remotes/origin/HEAD é comum em clones rasos; cai no fallback abaixo.
+    // Ausência de refs/remotes/<remote>/HEAD é comum; cai nos fallbacks.
   }
+
   for (const candidate of ['main', 'master', 'develop']) {
-    try {
-      await runGit(projectPath, ['show-ref', '--verify', '--quiet', `refs/heads/${candidate}`]);
-      return candidate;
-    } catch {
-      // Tenta o próximo candidato.
-    }
+    const remoteRef = await optionalGit(projectPath, [
+      'show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${candidate}`,
+    ]);
+    if (remoteRef !== null) return candidate;
+
+    const localRef = await optionalGit(projectPath, [
+      'show-ref', '--verify', '--quiet', `refs/heads/${candidate}`,
+    ]);
+    if (localRef !== null) return candidate;
   }
   return 'main';
+}
+
+async function requireBaseBranch(
+  projectPath: string,
+  remote: string,
+  branch: string,
+): Promise<void> {
+  const remoteRef = await optionalGit(projectPath, [
+    'show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${branch}`,
+  ]);
+  if (remoteRef !== null) return;
+
+  if (remote === 'origin') {
+    const localRef = await optionalGit(projectPath, [
+      'show-ref', '--verify', '--quiet', `refs/heads/${branch}`,
+    ]);
+    if (localRef !== null) return;
+  }
+
+  throw new GitPullRequestError(
+    'GIT_PULL_REQUEST_BASE_NOT_FOUND',
+    `A branch base "${remote}/${branch}" não foi encontrada. Atualize os remotos e tente novamente.`,
+  );
 }
 
 interface ParsedRemote {
@@ -124,49 +177,115 @@ function detectProvider(host: string): GitPullRequestProvider | null {
   return null;
 }
 
-function composeProviderUrl(
-  provider: GitPullRequestProvider,
-  host: string,
-  ownerRepo: string,
-  branch: string,
-  defaultBranchName: string,
-): string {
-  if (provider === 'github') {
-    return `https://${host}/${ownerRepo}/compare/${encodeURIComponent(defaultBranchName)}...${encodeURIComponent(branch)}?expand=1`;
+function composeGithubUrl(options: {
+  target: ParsedRemote;
+  source: ParsedRemote;
+  sourceBranch: string;
+  baseBranch: string;
+  title?: string;
+  description?: string;
+}): string {
+  const sameRepository = options.target.ownerRepo === options.source.ownerRepo;
+  const sourceOwner = options.source.ownerRepo.split('/')[0] ?? '';
+  const head = sameRepository
+    ? options.sourceBranch
+    : `${sourceOwner}:${options.sourceBranch}`;
+  const params = new URLSearchParams({ quick_pull: '1' });
+  if (options.title?.trim()) params.set('title', options.title.trim());
+  if (options.description?.trim()) params.set('body', options.description.trim());
+  return `https://${options.target.host}/${options.target.ownerRepo}/compare/${encodeURIComponent(options.baseBranch)}...${encodeURIComponent(head)}?${params.toString()}`;
+}
+
+function composeGitlabUrl(options: {
+  target: ParsedRemote;
+  source: ParsedRemote;
+  sourceBranch: string;
+  baseBranch: string;
+  title?: string;
+  description?: string;
+}): string {
+  if (options.target.ownerRepo !== options.source.ownerRepo) {
+    throw new GitPullRequestError(
+      'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
+      'Pull Request entre forks diferentes é suportada pelo painel somente no GitHub.',
+    );
   }
+
   const params = new URLSearchParams({
-    'merge_request[source_branch]': branch,
-    'merge_request[target_branch]': defaultBranchName,
+    'merge_request[source_branch]': options.sourceBranch,
+    'merge_request[target_branch]': options.baseBranch,
   });
-  return `https://${host}/${ownerRepo}/-/merge_requests/new?${params.toString()}`;
+  if (options.title?.trim()) params.set('merge_request[title]', options.title.trim());
+  if (options.description?.trim()) {
+    params.set('merge_request[description]', options.description.trim());
+  }
+  return `https://${options.target.host}/${options.target.ownerRepo}/-/merge_requests/new?${params.toString()}`;
 }
 
 export class GitPullRequestService {
-  public async composeUrl(projectPath: string): Promise<GitPullRequestUrl> {
+  public async composeUrl(
+    projectPath: string,
+    options: GitPullRequestComposeOptions = {},
+  ): Promise<GitPullRequestUrl> {
     await requireRepository(projectPath);
     const branch = await currentBranch(projectPath);
-    const defaultBranchName = await defaultBranch(projectPath);
-    if (branch === defaultBranchName) {
+    const targetRemote = options.targetRemote ?? 'origin';
+    const baseBranchName = options.baseBranch?.trim()
+      || await defaultBranch(projectPath, targetRemote);
+    if (options.baseBranch?.trim()) {
+      await requireBaseBranch(projectPath, targetRemote, baseBranchName);
+    }
+
+    if (targetRemote === 'origin' && branch === baseBranchName) {
       throw new GitPullRequestError(
         'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
-        `Você está na branch principal ("${defaultBranchName}"). Troque para uma branch de feature antes de abrir uma Pull Request.`,
+        `Você está na branch principal ("${baseBranchName}"). Troque para uma branch de feature antes de abrir uma Pull Request.`,
       );
     }
-    await requireUpstream(projectPath, branch);
-    const remoteUrl = await originRemoteUrl(projectPath);
-    const parsed = parseRemoteUrl(remoteUrl);
-    const provider = parsed ? detectProvider(parsed.host) : null;
-    if (!parsed || !provider) {
+
+    const published = await publishedReference(projectPath, branch);
+    const separator = published.indexOf('/');
+    const sourceRemote = separator > 0 ? published.slice(0, separator) : 'origin';
+    const sourceBranch = separator > 0 ? published.slice(separator + 1) : branch;
+
+    const [sourceRemoteUrl, targetRemoteUrl] = await Promise.all([
+      remoteUrl(projectPath, sourceRemote),
+      remoteUrl(projectPath, targetRemote),
+    ]);
+    const source = parseRemoteUrl(sourceRemoteUrl);
+    const target = parseRemoteUrl(targetRemoteUrl);
+    const sourceProvider = source ? detectProvider(source.host) : null;
+    const provider = target ? detectProvider(target.host) : null;
+
+    if (!source || !target || !sourceProvider || !provider || sourceProvider !== provider) {
       throw new GitPullRequestError(
         'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
-        'O remoto "origin" não é um repositório GitHub ou GitLab reconhecido.',
+        'Os remotos de origem e destino precisam ser repositórios GitHub ou GitLab compatíveis.',
       );
     }
+
+    if (source.ownerRepo === target.ownerRepo && sourceBranch === baseBranchName) {
+      throw new GitPullRequestError(
+        'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
+        `A branch de origem e a branch base são a mesma ("${baseBranchName}"). Escolha outra branch base.`,
+      );
+    }
+
+    const composeOptions = {
+      target,
+      source,
+      sourceBranch,
+      baseBranch: baseBranchName,
+      ...(options.title ? { title: options.title } : {}),
+      ...(options.description ? { description: options.description } : {}),
+    };
     return {
       provider,
-      url: composeProviderUrl(provider, parsed.host, parsed.ownerRepo, branch, defaultBranchName),
+      url: provider === 'github'
+        ? composeGithubUrl(composeOptions)
+        : composeGitlabUrl(composeOptions),
       branch,
-      defaultBranch: defaultBranchName,
+      defaultBranch: baseBranchName,
     };
   }
 }
