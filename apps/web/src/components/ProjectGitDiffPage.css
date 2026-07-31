@@ -521,13 +521,80 @@
 .git-diff-unified-row.is-addition :deep(.git-diff-word),
 .git-diff-side-cell.is-addition :deep(.git-diff-word) {
   border-radius: 2px;
-  background: color-mix(in srgb, var(--git-diff-addition-accent) 38%, transparent);
+  background: var(--git-diff-word-addition);
 }
 
 .git-diff-unified-row.is-deletion :deep(.git-diff-word),
 .git-diff-side-cell.is-deletion :deep(.git-diff-word) {
   border-radius: 2px;
-  background: color-mix(in srgb, var(--git-diff-deletion-accent) 38%, transparent);
+  background: var(--git-diff-word-deletion);
+}
+
+/*
+ * Realce de sintaxe. As classes vêm do highlight.js e chegam por `v-html`,
+ * então precisam de `:deep`. Só as famílias que aparecem no dia a dia do
+ * repositório recebem cor; o resto herda a cor do texto.
+ */
+.git-diff-unified :deep(.hljs-keyword),
+.git-diff-split :deep(.hljs-keyword),
+.git-diff-unified :deep(.hljs-selector-tag),
+.git-diff-split :deep(.hljs-selector-tag),
+.git-diff-unified :deep(.hljs-literal),
+.git-diff-split :deep(.hljs-literal) {
+  color: var(--git-syntax-keyword);
+}
+
+.git-diff-unified :deep(.hljs-string),
+.git-diff-split :deep(.hljs-string),
+.git-diff-unified :deep(.hljs-regexp),
+.git-diff-split :deep(.hljs-regexp),
+.git-diff-unified :deep(.hljs-symbol),
+.git-diff-split :deep(.hljs-symbol) {
+  color: var(--git-syntax-string);
+}
+
+.git-diff-unified :deep(.hljs-comment),
+.git-diff-split :deep(.hljs-comment),
+.git-diff-unified :deep(.hljs-quote),
+.git-diff-split :deep(.hljs-quote) {
+  color: var(--git-syntax-comment);
+  font-style: italic;
+}
+
+.git-diff-unified :deep(.hljs-number),
+.git-diff-split :deep(.hljs-number),
+.git-diff-unified :deep(.hljs-meta),
+.git-diff-split :deep(.hljs-meta) {
+  color: var(--git-syntax-number);
+}
+
+.git-diff-unified :deep(.hljs-title),
+.git-diff-split :deep(.hljs-title),
+.git-diff-unified :deep(.hljs-name),
+.git-diff-split :deep(.hljs-name),
+.git-diff-unified :deep(.hljs-section),
+.git-diff-split :deep(.hljs-section) {
+  color: var(--git-syntax-title);
+}
+
+.git-diff-unified :deep(.hljs-type),
+.git-diff-split :deep(.hljs-type),
+.git-diff-unified :deep(.hljs-built_in),
+.git-diff-split :deep(.hljs-built_in),
+.git-diff-unified :deep(.hljs-attr),
+.git-diff-split :deep(.hljs-attr),
+.git-diff-unified :deep(.hljs-attribute),
+.git-diff-split :deep(.hljs-attribute) {
+  color: var(--git-syntax-type);
+}
+
+.git-diff-unified :deep(.hljs-variable),
+.git-diff-split :deep(.hljs-variable),
+.git-diff-unified :deep(.hljs-template-variable),
+.git-diff-split :deep(.hljs-template-variable),
+.git-diff-unified :deep(.hljs-property),
+.git-diff-split :deep(.hljs-property) {
+  color: var(--git-syntax-variable);
 }
 
 .git-diff-unified :deep(mark),

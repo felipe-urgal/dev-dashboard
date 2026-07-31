@@ -72,6 +72,7 @@ interface HunkState {
 
 interface FileEntry {
   file: GitDiffFile;
+  language: string | null;
   loading: boolean;
   loaded: boolean;
   error: string;
@@ -84,6 +85,19 @@ interface FileEntry {
 }
 
 const scope: GitDiffScope = 'combined';
+
+type SyntaxModule = typeof import('../utils/git-diff-syntax');
+
+let syntaxModule: Promise<SyntaxModule | null> | undefined;
+
+/**
+ * O highlight.js só é baixado quando alguém abre um diff — fora daqui ele não
+ * pesa no bundle inicial do dashboard.
+ */
+function loadSyntaxModule(): Promise<SyntaxModule | null> {
+  syntaxModule ??= import('../utils/git-diff-syntax').catch(() => null);
+  return syntaxModule;
+}
 
 const snapshot = ref<GitDiffSnapshot | null>(null);
 const overview = ref<ProjectGitOverview | null>(null);
@@ -213,8 +227,35 @@ function statBlocks(entry: FileEntry): Array<'add' | 'del' | 'empty'> {
 function highlighted(line: GitUnifiedDiffLine): string {
   return renderGitDiffLineHtml(line.text, {
     ...(line.words ? { words: line.words } : {}),
+    ...(line.syntax ? { syntax: line.syntax } : {}),
     query: diffSearch.value,
   });
+}
+
+/**
+ * O realce de sintaxe é caro e não muda enquanto o arquivo não recarrega —
+ * calculamos as faixas uma vez, na carga e a cada expansão de contexto.
+ */
+function withSyntax(
+  lines: readonly GitUnifiedDiffLine[],
+  language: string | null,
+  syntaxRangesFor: SyntaxModule['syntaxRangesFor'],
+): GitUnifiedDiffLine[] {
+  if (!language) return [...lines];
+  return lines.map((line) => (
+    line.kind === 'addition' || line.kind === 'deletion' || line.kind === 'context'
+      ? { ...line, syntax: syntaxRangesFor(line.text, language) }
+      : line
+  ));
+}
+
+/** Amostra do lado novo do arquivo, usada quando a extensão não diz nada. */
+function detectionSample(lines: readonly GitUnifiedDiffLine[]): string {
+  return lines
+    .filter((line) => line.kind === 'context' || line.kind === 'addition')
+    .slice(0, 80)
+    .map((line) => line.text)
+    .join('\n');
 }
 
 /**
@@ -275,7 +316,12 @@ async function expandContext(
       end,
     );
     entry.totalLines = result.totalLines;
-    const context = buildGitDiffContextLines(result.lines, result.start, state.hunk.lineOffset);
+    const syntax = await loadSyntaxModule();
+    const context = withSyntax(
+      buildGitDiffContextLines(result.lines, result.start, state.hunk.lineOffset),
+      entry.language,
+      syntax?.syntaxRangesFor ?? (() => []),
+    );
     if (direction === 'up') state.before = [...context, ...state.before];
     else state.after = [...state.after, ...context];
   } catch (error) {
@@ -290,6 +336,7 @@ async function expandContext(
 function buildEntry(file: GitDiffFile): FileEntry {
   return reactive<FileEntry>({
     file,
+    language: null,
     loading: false,
     loaded: false,
     error: '',
@@ -318,8 +365,17 @@ async function loadFileDiff(entry: FileEntry): Promise<void> {
       controller.signal,
     );
     if (controller.signal.aborted) return;
-    const lines = annotateGitDiffWordChanges(parseUnifiedGitDiff(diff.content));
+    const parsed = annotateGitDiffWordChanges(parseUnifiedGitDiff(diff.content));
+
+    const syntax = await loadSyntaxModule();
+    if (controller.signal.aborted) return;
+    const language = syntax
+      ? syntax.detectLanguage(entry.file.path, detectionSample(parsed))
+      : null;
+    const lines = syntax ? withSyntax(parsed, language, syntax.syntaxRangesFor) : parsed;
+
     const { leading, hunks } = splitGitDiffHunks(lines);
+    entry.language = language;
     entry.diff = diff;
     entry.leading = leading;
     entry.hunks = hunks.map((hunk) => ({ hunk, before: [], after: [], expanding: false }));

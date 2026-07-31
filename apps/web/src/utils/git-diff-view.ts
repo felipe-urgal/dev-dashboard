@@ -8,6 +8,12 @@ export type GitDiffLineKind =
   | 'meta'
   | 'notice';
 
+export interface GitDiffLineSyntaxRange {
+  start: number;
+  end: number;
+  className: string;
+}
+
 export interface GitDiffWordRange {
   start: number;
   end: number;
@@ -20,6 +26,8 @@ export interface GitUnifiedDiffLine {
   newLine: number | null;
   /** Trechos alterados dentro da linha, quando ela forma par com a linha oposta. */
   words?: readonly GitDiffWordRange[];
+  /** Faixas de realce de sintaxe, quando a linguagem do arquivo é conhecida. */
+  syntax?: readonly GitDiffLineSyntaxRange[];
 }
 
 export interface GitSplitDiffRow {
@@ -336,22 +344,37 @@ export function highlightGitDiffText(text: string, query: string): string {
   return result;
 }
 
+export interface GitDiffLineRenderOptions {
+  words?: readonly GitDiffWordRange[];
+  syntax?: readonly GitDiffLineSyntaxRange[];
+  query?: string;
+}
+
 /**
- * Renderiza uma linha combinando os dois destaques possíveis: o trecho alterado
- * em relação à linha oposta e as ocorrências da busca dentro do diff.
+ * Renderiza uma linha combinando as três camadas de destaque possíveis: o
+ * realce de sintaxe, o trecho alterado em relação à linha oposta e as
+ * ocorrências da busca dentro do diff.
  */
 export function renderGitDiffLineHtml(
   text: string,
-  options: { words?: readonly GitDiffWordRange[]; query?: string } = {},
+  options: GitDiffLineRenderOptions = {},
 ): string {
   const words = options.words ?? [];
+  const syntax = options.syntax ?? [];
   const query = options.query?.trim() ?? '';
-  if (words.length === 0) return highlightGitDiffText(text, query);
+  if (words.length === 0 && syntax.length === 0) return highlightGitDiffText(text, query);
 
   const changed = new Array<boolean>(text.length).fill(false);
   for (const range of words) {
     for (let index = Math.max(0, range.start); index < Math.min(range.end, text.length); index += 1) {
       changed[index] = true;
+    }
+  }
+
+  const tokens = new Array<string>(text.length).fill('');
+  for (const range of syntax) {
+    for (let index = Math.max(0, range.start); index < Math.min(range.end, text.length); index += 1) {
+      tokens[index] = range.className;
     }
   }
 
@@ -371,13 +394,19 @@ export function renderGitDiffLineHtml(
   while (cursor < text.length) {
     const isChanged = changed[cursor];
     const isMatch = matched[cursor];
+    const token = tokens[cursor];
     let end = cursor + 1;
-    while (end < text.length && changed[end] === isChanged && matched[end] === isMatch) end += 1;
+    while (
+      end < text.length
+      && changed[end] === isChanged
+      && matched[end] === isMatch
+      && tokens[end] === token
+    ) end += 1;
 
     const chunk = escapeHtml(text.slice(cursor, end));
-    if (isMatch && isChanged) html += `<mark class="git-diff-word">${chunk}</mark>`;
-    else if (isMatch) html += `<mark>${chunk}</mark>`;
-    else if (isChanged) html += `<span class="git-diff-word">${chunk}</span>`;
+    const classes = [token, isChanged ? 'git-diff-word' : ''].filter(Boolean).join(' ');
+    if (isMatch) html += `<mark${classes ? ` class="${classes}"` : ''}>${chunk}</mark>`;
+    else if (classes) html += `<span class="${classes}">${chunk}</span>`;
     else html += chunk;
     cursor = end;
   }

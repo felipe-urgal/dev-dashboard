@@ -56,4 +56,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `047-git-branches-crud.md` — Branches como entrada padrão do painel Git, com lista unificada local/`origin`, criação prefixada, troca, renomeação e remoção forçada local, sem duplicar ações de sincronização.
 - `048-git-sync-main.md` — Sincronização como primeira aba do painel Git, reduzida a uma operação confirmada que atualiza `main` a partir de `upstream/main` e publica em `origin/main`.
 - `049-git-commit-simple.md` — Commit reduzido a duas operações: criação com todas as alterações rastreadas e correção segura do último commit via amend.
-- `050-git-diff-github.md` — Diff no vocabulário do GitHub: arquivos empilhados com cabeçalho fixo e marcação de revisado, destaque intralinha e expansão de contexto por uma rota nova de faixas de linhas, restrita aos arquivos do próprio diff.
+- `050-git-diff-github.md` — Diff no vocabulário do GitHub: arquivos empilhados com cabeçalho fixo e marcação de revisado, destaque intralinha, realce de sintaxe com detecção automática de linguagem e expansão de contexto por uma rota nova de faixas de linhas, restrita aos arquivos do próprio diff.

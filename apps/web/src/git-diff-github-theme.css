@@ -13,6 +13,18 @@
   --git-diff-row-border: color-mix(in srgb, var(--border) 66%, transparent);
   --git-diff-meta-bg: color-mix(in srgb, var(--surface-2) 92%, var(--surface-1));
   --git-diff-empty-stripe: color-mix(in srgb, var(--surface-2) 72%, var(--surface-1));
+
+  --git-diff-word-addition: rgb(63 185 80 / 40%);
+  --git-diff-word-deletion: rgb(248 81 73 / 40%);
+
+  /* Realce de sintaxe (classes hljs-* do highlight.js). */
+  --git-syntax-keyword: #ff7b72;
+  --git-syntax-string: #a5d6ff;
+  --git-syntax-comment: #8b949e;
+  --git-syntax-number: #79c0ff;
+  --git-syntax-title: #d2a8ff;
+  --git-syntax-type: #ffa657;
+  --git-syntax-variable: #7ee787;
 }
 
 [data-theme='light'] {
@@ -30,6 +42,17 @@
   --git-diff-row-border: #d8dee4;
   --git-diff-meta-bg: #f6f8fa;
   --git-diff-empty-stripe: #eaeef2;
+
+  --git-diff-word-addition: #abf2bc;
+  --git-diff-word-deletion: #ffb1b8;
+
+  --git-syntax-keyword: #cf222e;
+  --git-syntax-string: #0a3069;
+  --git-syntax-comment: #6e7781;
+  --git-syntax-number: #0550ae;
+  --git-syntax-title: #6639ba;
+  --git-syntax-type: #953800;
+  --git-syntax-variable: #116329;
 }
 
 /* Página principal de Diff. */

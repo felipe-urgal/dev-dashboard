@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, test } from 'vitest';
+import { afterEach, test, vi } from 'vitest';
 
 import { flushPromises, mount } from '@vue/test-utils';
 
@@ -69,6 +69,17 @@ afterEach(() => {
   cleanup = undefined;
 });
 
+/**
+ * O realce de sintaxe entra por import dinâmico: além dos microtasks, é preciso
+ * esperar o módulo carregar antes de olhar para o conteúdo dos cartões.
+ */
+async function settle(wrapper: { html: () => string }): Promise<void> {
+  await vi.waitFor(() => {
+    if (wrapper.html().includes('Carregando ')) throw new Error('diff ainda carregando');
+  }, { timeout: 5_000, interval: 10 });
+  await flushPromises();
+}
+
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), { status, headers: jsonHeaders });
 }
@@ -128,8 +139,7 @@ async function mountPage(options: { lines?: string[] } = {}) {
     globalThis.fetch = originalFetch;
   };
 
-  await flushPromises();
-  await flushPromises();
+  await settle(wrapper);
   return { wrapper, requests };
 }
 
@@ -168,7 +178,7 @@ test('expande o contexto acima do hunk pela seta do cabeçalho', async () => {
   assert.equal(expandUp.attributes('disabled'), undefined);
 
   await expandUp.trigger('click');
-  await flushPromises();
+  await settle(wrapper);
 
   const lineRequest = requests.find((request) => request.path.endsWith('/git/diff/file/lines'));
   assert.ok(lineRequest, 'esperava uma requisição de linhas');
@@ -194,4 +204,12 @@ test('filtra os cartões pela busca de arquivo', async () => {
   await wrapper.find('.git-diff-file-search input').setValue('terms');
   assert.equal(wrapper.findAll('.git-diff-file-card').length, 1);
   assert.ok(wrapper.text().includes('terms.ts'));
+});
+
+test('aplica realce de sintaxe pela extensão do arquivo', async () => {
+  const { wrapper } = await mountPage();
+
+  const card = wrapper.findAll('.git-diff-file-card')[1]!;
+  assert.ok(card.text().includes('terms.ts'));
+  assert.ok(card.html().includes('hljs-keyword'), 'esperava tokens de sintaxe no diff');
 });
