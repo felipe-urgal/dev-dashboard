@@ -35,7 +35,9 @@ import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitCommitPage, {
   type CommitMode,
 } from './ProjectGitCommitPage.vue';
+import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
+import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -43,15 +45,19 @@ const props = defineProps<{ project: Project }>();
 type GitTab =
   | 'branches'
   | 'sync'
-  | 'commit'
   | 'diff'
+  | 'commit'
+  | 'undo'
+  | 'pull-request'
   | 'history';
 
 const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
   { id: 'sync', label: 'Sincronização', icon: '↕' },
   { id: 'branches', label: 'Branches', icon: '⑂' },
-  { id: 'commit', label: 'Commit', icon: '●' },
   { id: 'diff', label: 'Diff', icon: '±' },
+  { id: 'commit', label: 'Commit', icon: '●' },
+  { id: 'undo', label: 'Desfazer', icon: '↶' },
+  { id: 'pull-request', label: 'Pull Request', icon: '↗' },
   { id: 'history', label: 'Histórico', icon: '◷' },
 ];
 
@@ -96,7 +102,6 @@ const statusLabels: Record<GitFileStatus, string> = {
   conflicted: 'Conflito',
   'type-changed': 'Tipo alterado',
 };
-
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -534,18 +539,6 @@ onBeforeUnmount(() => {
         @delete="runDeleteBranch"
       />
 
-      <ProjectGitCommitPage
-        v-else-if="activeTab === 'commit'"
-        v-model:message="commitMessage"
-        v-model:mode="commitMode"
-        :project-id="project.id"
-        :overview="overview"
-        :workspace="workspace"
-        :busy="mutationRunning"
-        @submit="runCommit"
-        @changed="reloadGitData"
-      />
-
       <section v-else-if="activeTab === 'diff'" class="git-tab-page">
         <div class="git-page-heading">
           <div>
@@ -634,6 +627,31 @@ onBeforeUnmount(() => {
           </main>
         </div>
       </section>
+
+      <ProjectGitCommitPage
+        v-else-if="activeTab === 'commit'"
+        v-model:message="commitMessage"
+        v-model:mode="commitMode"
+        :overview="overview"
+        :busy="mutationRunning"
+        @submit="runCommit"
+      />
+
+      <ProjectGitUndoPage
+        v-else-if="activeTab === 'undo'"
+        :project-id="project.id"
+        :overview="overview"
+        :busy="mutationRunning"
+        @changed="reloadGitData"
+      />
+
+      <ProjectGitPullRequestPage
+        v-else-if="activeTab === 'pull-request'"
+        :project-id="project.id"
+        :overview="overview"
+        :workspace="workspace"
+        :busy="mutationRunning"
+      />
 
       <section v-else class="git-tab-page">
         <div class="git-page-heading">
