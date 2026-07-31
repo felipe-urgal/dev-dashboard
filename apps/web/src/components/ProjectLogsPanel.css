@@ -630,20 +630,25 @@
   color: #f3c869;
 }
 
-.sql-tk-kw {
+/*
+ * .sql-text is filled via v-html (already-highlighted markup from
+ * highlightSqlHtml), so its spans never receive the component's scope
+ * attribute — :deep() is required for these rules to actually match.
+ */
+.sql-text :deep(.sql-tk-kw) {
   color: #ff9edb;
   font-weight: 700;
 }
 
-.sql-tk-ident {
+.sql-text :deep(.sql-tk-ident) {
   color: #8fe6bb;
 }
 
-.sql-tk-str {
+.sql-text :deep(.sql-tk-str) {
   color: #f0b95c;
 }
 
-.sql-tk-num {
+.sql-text :deep(.sql-tk-num) {
   color: #c9a9ff;
 }
 
