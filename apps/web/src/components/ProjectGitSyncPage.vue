@@ -37,6 +37,15 @@ const originMain = computed(() =>
   ),
 );
 
+const upstreamMain = computed(() =>
+  props.workspace?.branches.find(
+    (branch) =>
+      branch.kind === 'remote'
+      && branch.remote === 'upstream'
+      && branch.shortName === 'main',
+  ),
+);
+
 const hasRequiredRemotes = computed(() => {
   const remotes = props.workspace?.remotes ?? [];
   return remotes.some((remote) => remote.name === 'upstream')
@@ -46,7 +55,14 @@ const hasRequiredRemotes = computed(() => {
 const synchronized = computed(() => {
   const localHash = localMain.value?.latestCommit?.hash;
   const originHash = originMain.value?.latestCommit?.hash;
-  return Boolean(localHash && originHash && localHash === originHash);
+  const upstreamHash = upstreamMain.value?.latestCommit?.hash;
+  return Boolean(
+    localHash
+    && originHash
+    && upstreamHash
+    && localHash === originHash
+    && localHash === upstreamHash,
+  );
 });
 
 const available = computed(() =>
@@ -67,16 +83,16 @@ const status = computed(() => {
       tone: 'warning',
     };
   }
+  if (synchronized.value) {
+    return {
+      label: 'Tudo sincronizado',
+      tone: 'success',
+    };
+  }
   if (!props.overview.clean) {
     return {
       label: 'Alterações locais pendentes',
       tone: 'warning',
-    };
-  }
-  if (synchronized.value) {
-    return {
-      label: 'Sincronizado',
-      tone: 'success',
     };
   }
   return {
@@ -91,6 +107,7 @@ const buttonLabel = computed(() =>
 
 const buttonDisabled = computed(() =>
   props.busy
+  || synchronized.value
   || !props.overview.clean
   || !available.value,
 );
@@ -148,9 +165,7 @@ const buttonDisabled = computed(() =>
 
 <style scoped>
 .git-sync-page {
-  width: min(1280px, 100%);
   min-width: 0;
-  margin-inline: auto;
 }
 
 .git-sync-card {

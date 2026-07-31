@@ -16,7 +16,10 @@
 ## Alterações conferidas no código
 
 - Commit ocupa toda a largura útil e usa espaçamento vertical compacto;
-- Sincronização tem largura máxima de `1280px` e permanece centralizada;
+- Sincronização voltou a ocupar toda a largura útil do painel após a versão
+  limitada ter deixado a composição visual desequilibrada;
+- o estado "Tudo sincronizado" tem prioridade sobre alterações da branch
+  aberta somente quando `main`, `origin/main` e `upstream/main` são iguais;
 - Branches usa `ShareIcon`, o ícone de ramificação da biblioteca Heroicons;
 - as operações, estados e regras de negócio dos três painéis foram preservados.
 
