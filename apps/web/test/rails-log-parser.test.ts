@@ -61,6 +61,16 @@ describe('rails-log-parser', () => {
     expect(parsed.summary.totalQueries).toBe(4);
   });
 
+  it('não classifica como SQL uma linha que só menciona a palavra no meio do texto', () => {
+    const parsed = parseRailsLog(
+      `[${requestId}] No template found for Api::V1::UserSettingsController#UPDATE, rendering head :no_content`,
+    );
+
+    expect(parsed.groups[0]?.kind).toBe('request');
+    if (parsed.groups[0]?.kind !== 'request') return;
+    expect(parsed.groups[0].sqlLines).toHaveLength(0);
+  });
+
   it('classifica a tonalidade do status HTTP', () => {
     expect(railsRequestStatusTone(200)).toBe('success');
     expect(railsRequestStatusTone(302)).toBe('redirect');

@@ -95,7 +95,10 @@ function lineKind(text: string): RailsLogLineKind {
   if (/^(?:Rendering|Rendered)\s+/i.test(text)) return 'render';
 
   if (
-    /\b(?:SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE SAVEPOINT)\b/i.test(text) ||
+    // The keyword must open the statement (optionally after a "Model Load (0.3ms)"
+    // label) — matching it anywhere in the line used to misclassify unrelated
+    // messages that merely contain the word, e.g. "...Controller#UPDATE, rendering...".
+    /^(?:\S.*?\s+\([\d.]+ms\)\s*)?(?:SELECT|INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE SAVEPOINT)\b/i.test(text) ||
     /\b(?:Load|Count|Exists\?|Create|Update|Delete|Pluck|Maximum|Minimum|Sum|Average)\s+\([\d.]+ms\)/i.test(text)
   ) {
     return 'sql';
