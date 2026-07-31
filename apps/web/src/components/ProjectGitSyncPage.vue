@@ -85,7 +85,7 @@ const status = computed(() => {
   }
   if (synchronized.value) {
     return {
-      label: 'Tudo sincronizado',
+      label: 'Sincronizado na última verificação',
       tone: 'success',
     };
   }
@@ -101,13 +101,13 @@ const status = computed(() => {
   };
 });
 
-const buttonLabel = computed(() =>
-  props.busy ? 'Sincronizando…' : 'Sincronizar',
-);
+const buttonLabel = computed(() => {
+  if (props.busy) return 'Sincronizando…';
+  return synchronized.value ? 'Verificar' : 'Sincronizar';
+});
 
 const buttonDisabled = computed(() =>
   props.busy
-  || synchronized.value
   || !props.overview.clean
   || !available.value,
 );
@@ -157,7 +157,7 @@ const buttonDisabled = computed(() =>
       </div>
 
       <p class="git-sync-note">
-        A sincronização atualiza a main e publica no origin.
+        A sincronização verifica o upstream, atualiza a main e publica no origin.
       </p>
     </div>
   </section>
@@ -178,18 +178,18 @@ const buttonDisabled = computed(() =>
 
 .git-sync-main-row {
   display: flex;
-  min-height: 180px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  gap: var(--space-4);
+  min-height: 180px;
+  padding: 32px 24px;
 }
 
 .git-sync-relationship {
   display: flex;
-  min-width: 0;
   align-items: center;
-  gap: var(--space-4);
+  gap: 18px;
+  min-width: 0;
 }
 
 .git-sync-relationship > svg {
@@ -201,31 +201,32 @@ const buttonDisabled = computed(() =>
 
 .git-sync-relationship > div {
   display: grid;
-  gap: var(--space-3);
+  gap: 10px;
+  min-width: 0;
 }
 
 .git-sync-relationship strong {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   color: var(--text);
-  font-size: 24px;
-  line-height: 1.2;
+  font-size: 25px;
+  letter-spacing: -0.02em;
 }
 
 .git-sync-status {
   display: inline-flex;
-  width: fit-content;
   align-items: center;
   gap: 8px;
+  width: fit-content;
   color: var(--text-muted);
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: var(--font-weight-strong);
 }
 
 .git-sync-status svg {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
 }
 
 .git-sync-status.is-success {
@@ -240,31 +241,38 @@ const buttonDisabled = computed(() =>
   color: var(--accent);
 }
 
-.git-sync-status.is-loading svg,
-.git-sync-button:disabled svg {
-  animation: git-sync-spin 0.8s linear infinite;
+.git-sync-status.is-loading svg {
+  animation: git-sync-spin 1s linear infinite;
 }
 
 .git-sync-button {
   display: inline-flex;
-  min-width: 170px;
-  min-height: 48px;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: 8px;
+  min-width: 170px;
+  min-height: 48px;
 }
 
 .git-sync-button svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
+}
+
+.git-sync-button:disabled svg {
+  animation: none;
+}
+
+.git-sync-button:not(:disabled) svg {
+  animation: none;
 }
 
 .git-sync-note {
   margin: 0;
   border-top: 1px solid var(--border);
-  padding: var(--space-4) var(--space-6);
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  padding: 14px 24px;
+  font-size: var(--font-xs);
 }
 
 @keyframes git-sync-spin {
@@ -275,23 +283,19 @@ const buttonDisabled = computed(() =>
 
 @media (max-width: 760px) {
   .git-sync-main-row {
-    min-height: 0;
     align-items: stretch;
     flex-direction: column;
-    padding: var(--space-5);
+    min-height: 0;
+    padding: 24px 18px;
   }
 
   .git-sync-relationship strong {
     flex-wrap: wrap;
-    font-size: 20px;
+    font-size: 21px;
   }
 
   .git-sync-button {
     width: 100%;
-  }
-
-  .git-sync-note {
-    padding: var(--space-4) var(--space-5);
   }
 }
 </style>
