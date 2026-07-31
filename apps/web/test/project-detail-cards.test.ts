@@ -159,7 +159,7 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.database-explorer').exists()).toBe(true);
     expect(wrapper.find('.database-explorer-header').exists()).toBe(true);
     expect(wrapper.find('.database-explorer-tabs').exists()).toBe(true);
-    expect(wrapper.findAll('.database-explorer-tabs button')).toHaveLength(2);
+    expect(wrapper.findAll('.database-explorer-tabs button')).toHaveLength(3);
 
     wrapper.unmount();
   });

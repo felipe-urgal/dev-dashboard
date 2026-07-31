@@ -57,3 +57,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `048-git-sync-main.md` — Sincronização como primeira aba do painel Git, reduzida a uma operação confirmada que atualiza `main` a partir de `upstream/main` e publica em `origin/main`.
 - `049-git-commit-simple.md` — Commit reduzido a duas operações: criação com todas as alterações rastreadas e correção segura do último commit via amend.
 - `050-git-diff-github.md` — Diff no vocabulário do GitHub: arquivos empilhados com cabeçalho fixo e marcação de revisado, destaque intralinha, realce de sintaxe com detecção automática de linguagem e expansão de contexto por uma rota nova de faixas de linhas, restrita aos arquivos do próprio diff.
+- `051-database-snapshots.md` — snapshot e restore de banco no painel (equivalente ao `db:snapshot`/`db:restore` do CLI): dump comprimido no diretório de estado, retenção de 10 por projeto e restauração em duas etapas, sempre a partir do ambiente detectado.

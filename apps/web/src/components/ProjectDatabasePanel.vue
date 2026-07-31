@@ -6,7 +6,9 @@ import {
   watch,
 } from 'vue';
 import {
+  ArchiveBoxIcon,
   ArrowPathIcon,
+  ArrowUturnLeftIcon,
   CheckCircleIcon,
   ChevronRightIcon,
   CircleStackIcon,
@@ -37,6 +39,7 @@ import type {
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOverview';
+import { useProjectDatabaseSnapshots } from '../composables/useProjectDatabaseSnapshots';
 import { useRailsBundler } from '../composables/useRailsBundler';
 import { useRailsMigrations } from '../composables/useRailsMigrations';
 import { useRailsModels } from '../composables/useRailsModels';
@@ -46,7 +49,7 @@ import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
-type DatabaseSection = 'overview' | 'environments' | 'migrations' | 'models' | 'routes' | 'dependencies';
+type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models' | 'routes' | 'dependencies';
 type MigrationStatusFilter = 'all' | 'up' | 'down';
 type RouteVerbFilter = 'all' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -101,6 +104,23 @@ const {
 } = useRailsRoutes(() => props.project, isRailsProject);
 
 const {
+  snapshots,
+  snapshotsLoading,
+  snapshotsErrorMessage,
+  snapshotsMessage,
+  snapshotsSupported,
+  snapshotEnvironmentId,
+  creatingSnapshot,
+  restoringSnapshotId,
+  pendingRestoreId,
+  loadSnapshots,
+  createSnapshot,
+  requestRestore,
+  cancelRestore,
+  confirmRestore,
+} = useProjectDatabaseSnapshots(() => props.project, selectedEnvironmentId);
+
+const {
   bundler,
   bundlerLoading,
   bundlerErrorMessage,
@@ -128,6 +148,8 @@ useAutoDismiss(routesErrorMessage, '');
 useAutoDismiss(mutationMessage, '');
 useAutoDismiss(mutationErrorMessage, '');
 useAutoDismiss(bundlerErrorMessage, '');
+useAutoDismiss(snapshotsErrorMessage, '');
+useAutoDismiss(snapshotsMessage, '');
 
 const pages = computed(() => Math.max(1, Math.ceil((overview.value?.total ?? 0) / (overview.value?.pageSize ?? 20))));
 const pendingMigrationsCount = computed(() => migrations.value?.migrations.filter((item) => item.status === 'down').length ?? 0);
@@ -143,6 +165,7 @@ const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
 const sectionTabs = computed(() => [
   { id: 'overview' as const, label: 'Visão geral', icon: CircleStackIcon },
   { id: 'environments' as const, label: 'Ambientes', icon: ServerStackIcon },
+  { id: 'snapshots' as const, label: 'Snapshots', icon: ArchiveBoxIcon },
   ...(isRailsProject.value ? [
     { id: 'migrations' as const, label: 'Migrations', icon: DocumentTextIcon },
     { id: 'models' as const, label: 'Modelos', icon: TableCellsIcon },
@@ -154,6 +177,7 @@ const sectionTabs = computed(() => [
 const sectionTitle = computed(() => ({
   overview: 'Banco de dados do projeto',
   environments: 'Ambientes',
+  snapshots: 'Snapshots',
   migrations: 'Migrations',
   models: 'Modelos',
   routes: 'Rotas',
@@ -163,6 +187,7 @@ const sectionTitle = computed(() => ({
 const sectionDescription = computed(() => ({
   overview: 'Visão consolidada de ambientes, migrations, modelos, rotas e dependências.',
   environments: 'Gerencie conexões, credenciais e disponibilidade dos bancos detectados.',
+  snapshots: 'Guarde o estado do banco antes de trocar de branch e restaure quando precisar.',
   migrations: 'Acompanhe o status e consulte o código-fonte de cada migration.',
   models: 'Explore as tabelas do schema, suas colunas, índices e relacionamentos.',
   routes: 'Pesquise endpoints Rails e consulte controller, action e helper.',
@@ -170,6 +195,19 @@ const sectionDescription = computed(() => ({
 })[activeSection.value]);
 
 const isRefreshing = computed(() => loading.value || migrationsLoading.value || modelsLoading.value || routesLoading.value || bundlerLoading.value);
+
+function snapshotMoment(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Data desconhecida'
+    : date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} kB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function activeQuery(localValue: string): string {
   return (localValue.trim() || globalFilter.value.trim()).toLowerCase();
@@ -274,6 +312,7 @@ async function refreshAll(): Promise<void> {
 async function refreshActive(): Promise<void> {
   if (activeSection.value === 'overview') return refreshAll();
   if (activeSection.value === 'environments') return loadDatabase();
+  if (activeSection.value === 'snapshots') return loadSnapshots();
   if (activeSection.value === 'migrations') return loadMigrations();
   if (activeSection.value === 'models') return loadModels();
   if (activeSection.value === 'routes') return loadRoutes();
@@ -506,6 +545,73 @@ onBeforeUnmount(() => {
         </article>
         <div v-else class="database-detail-panel database-empty-state">Selecione um ambiente para ver os detalhes.</div>
       </div>
+    </section>
+
+    <section v-else-if="activeSection === 'snapshots'" class="database-section" role="tabpanel">
+      <div class="database-metrics-grid database-metrics-grid-migrations">
+        <article class="database-metric-card">
+          <span class="database-metric-icon"><ArchiveBoxIcon aria-hidden="true" /></span>
+          <div><small>Snapshots</small><strong>{{ snapshots?.total ?? 0 }}</strong><span>de {{ snapshots?.retentionLimit ?? 0 }} guardados</span></div>
+        </article>
+        <article class="database-metric-card">
+          <span class="database-metric-icon"><CircleStackIcon aria-hidden="true" /></span>
+          <div><small>Ambiente</small><strong class="database-metric-text">{{ snapshotEnvironmentId || 'Nenhum compatível' }}</strong><span>origem do dump</span></div>
+        </article>
+        <article class="database-metric-card">
+          <span class="database-metric-icon"><CheckCircleIcon aria-hidden="true" /></span>
+          <div><small>Último</small><strong class="database-metric-text">{{ snapshots?.snapshots[0] ? snapshotMoment(snapshots.snapshots[0].createdAt) : 'Nenhum ainda' }}</strong><span>criação mais recente</span></div>
+        </article>
+      </div>
+
+      <div v-if="snapshotsErrorMessage" class="database-explorer-alert" role="alert">{{ snapshotsErrorMessage }}</div>
+      <div v-if="snapshotsMessage" class="database-explorer-notice" role="status">{{ snapshotsMessage }}</div>
+
+      <div class="database-toolbar">
+        <p class="database-snapshot-hint">
+          O dump é gerado com o cliente do próprio banco e fica guardado apenas nesta máquina.
+        </p>
+        <button
+          class="database-action-primary"
+          type="button"
+          :disabled="!snapshotsSupported || creatingSnapshot"
+          @click="createSnapshot"
+        >
+          <ArchiveBoxIcon aria-hidden="true" />
+          {{ creatingSnapshot ? 'Gerando snapshot…' : 'Gerar snapshot' }}
+        </button>
+      </div>
+
+      <div v-if="!snapshotsSupported && !snapshotsLoading" class="database-empty-state">
+        Nenhum ambiente MySQL ou PostgreSQL foi detectado neste projeto — snapshot e restore ficam indisponíveis.
+      </div>
+
+      <div v-else-if="snapshotsLoading && !snapshots" class="database-empty-state">Consultando snapshots…</div>
+
+      <div v-else-if="(snapshots?.snapshots.length ?? 0) === 0" class="database-empty-state">
+        Nenhum snapshot guardado. Gere um antes de trocar de branch ou rodar uma migration arriscada.
+      </div>
+
+      <ul v-else class="database-snapshot-list">
+        <li v-for="snapshot in snapshots?.snapshots ?? []" :key="snapshot.id">
+          <div class="database-snapshot-info">
+            <strong>{{ snapshot.label }}</strong>
+            <small>{{ snapshotMoment(snapshot.createdAt) }} · {{ snapshot.database }} · {{ snapshot.driver }}</small>
+          </div>
+          <span class="database-snapshot-size">{{ formatBytes(snapshot.sizeBytes) }}</span>
+
+          <div v-if="pendingRestoreId === snapshot.id" class="database-snapshot-confirm">
+            <span>Restaurar sobrescreve o banco atual.</span>
+            <button type="button" :disabled="restoringSnapshotId === snapshot.id" @click="confirmRestore(snapshot.id)">
+              {{ restoringSnapshotId === snapshot.id ? 'Restaurando…' : 'Confirmar' }}
+            </button>
+            <button type="button" :disabled="restoringSnapshotId === snapshot.id" @click="cancelRestore">Cancelar</button>
+          </div>
+          <button v-else type="button" @click="requestRestore(snapshot.id)">
+            <ArrowUturnLeftIcon aria-hidden="true" />
+            Restaurar
+          </button>
+        </li>
+      </ul>
     </section>
 
     <section v-else-if="activeSection === 'migrations'" class="database-section" role="tabpanel">

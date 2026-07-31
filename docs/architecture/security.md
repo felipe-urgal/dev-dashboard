@@ -136,6 +136,25 @@ pedido, limita a faixa a 400 linhas por requisição, recusa arquivos binários 
 removidos, e devolve o trecho pelo mesmo mascaramento de segredos das demais
 leituras.
 
+### Snapshots de banco
+
+O dump é gerado com o cliente do próprio banco (`mysqldump`/`pg_dump`) por
+`spawn` sem `shell`, com argumentos fixos por driver. O navegador envia apenas o
+id do ambiente e o id do snapshot: host, porta, usuário, senha e banco vêm
+sempre da detecção do projeto, e a senha viaja por `MYSQL_PWD`/`PGPASSWORD`,
+nunca na linha de comando.
+
+Os arquivos ficam no diretório de estado, com diretório `0700` e arquivos
+`0600`, fora de qualquer caminho servido estaticamente. As respostas trazem
+somente metadados — não existe rota de download do dump — e o id do snapshot é
+validado como UUID antes de compor qualquer caminho.
+
+A restauração sobrescreve o banco e por isso exige confirmação em duas etapas:
+token aleatório de 32 bytes, válido por um minuto, vinculado ao projeto e ao
+snapshot, comparado com `timingSafeEqual` e consumido na primeira tentativa.
+Cada dump tem teto de 512 MB e dez minutos; ao estourar, o processo é encerrado
+e o arquivo parcial removido. A retenção padrão é de dez snapshots por projeto.
+
 ### Segredos
 
 Logs podem conter:

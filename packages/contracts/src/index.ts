@@ -78,6 +78,11 @@ export type {
 
 export type {
   DatabaseReachability,
+  DatabaseRestoreResult,
+  DatabaseSnapshot,
+  DatabaseSnapshotConfirmation,
+  DatabaseSnapshotDriver,
+  DatabaseSnapshotList,
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
