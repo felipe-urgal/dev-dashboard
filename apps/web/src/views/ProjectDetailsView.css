@@ -135,15 +135,11 @@
 }
 
 .project-readme-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: var(--space-4);
-  align-items: start;
+  min-width: 0;
 }
 
 .project-readme-sidebar {
-  display: grid;
-  gap: var(--space-4);
+  display: none;
 }
 
 .project-summary-card,
@@ -233,14 +229,6 @@
   .project-details-copy code {
     max-width: 75vw;
   }
-
-  .project-readme-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .project-readme-sidebar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 720px) {
@@ -265,9 +253,5 @@
 
   .project-details-tab {
     padding: 0 11px;
-  }
-
-  .project-readme-sidebar {
-    grid-template-columns: 1fr;
   }
 }
