@@ -147,6 +147,7 @@ const buttonDisabled = computed(() =>
 
         <button
           class="secondary-button git-sync-button"
+          :class="{ 'is-busy': busy }"
           type="button"
           :disabled="buttonDisabled"
           @click="emit('synchronize')"
@@ -178,18 +179,18 @@ const buttonDisabled = computed(() =>
 
 .git-sync-main-row {
   display: flex;
+  min-height: 180px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  min-height: 180px;
-  padding: 32px 24px;
+  gap: var(--space-5);
+  padding: var(--space-6);
 }
 
 .git-sync-relationship {
   display: flex;
-  align-items: center;
-  gap: 18px;
   min-width: 0;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .git-sync-relationship > svg {
@@ -201,32 +202,31 @@ const buttonDisabled = computed(() =>
 
 .git-sync-relationship > div {
   display: grid;
-  gap: 10px;
-  min-width: 0;
+  gap: var(--space-3);
 }
 
 .git-sync-relationship strong {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--text);
-  font-size: 25px;
-  letter-spacing: -0.02em;
+  font-size: 24px;
+  line-height: 1.2;
 }
 
 .git-sync-status {
   display: inline-flex;
+  width: fit-content;
   align-items: center;
   gap: 8px;
-  width: fit-content;
   color: var(--text-muted);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   font-weight: var(--font-weight-strong);
 }
 
 .git-sync-status svg {
-  width: 19px;
-  height: 19px;
+  width: 22px;
+  height: 22px;
 }
 
 .git-sync-status.is-success {
@@ -241,38 +241,31 @@ const buttonDisabled = computed(() =>
   color: var(--accent);
 }
 
-.git-sync-status.is-loading svg {
-  animation: git-sync-spin 1s linear infinite;
+.git-sync-status.is-loading svg,
+.git-sync-button.is-busy svg {
+  animation: git-sync-spin 0.8s linear infinite;
 }
 
 .git-sync-button {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   min-width: 170px;
   min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
 }
 
 .git-sync-button svg {
-  width: 20px;
-  height: 20px;
-}
-
-.git-sync-button:disabled svg {
-  animation: none;
-}
-
-.git-sync-button:not(:disabled) svg {
-  animation: none;
+  width: 19px;
+  height: 19px;
 }
 
 .git-sync-note {
   margin: 0;
   border-top: 1px solid var(--border);
+  padding: var(--space-4) var(--space-6);
   color: var(--text-muted);
-  padding: 14px 24px;
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
 }
 
 @keyframes git-sync-spin {
@@ -283,19 +276,23 @@ const buttonDisabled = computed(() =>
 
 @media (max-width: 760px) {
   .git-sync-main-row {
+    min-height: 0;
     align-items: stretch;
     flex-direction: column;
-    min-height: 0;
-    padding: 24px 18px;
+    padding: var(--space-5);
   }
 
   .git-sync-relationship strong {
     flex-wrap: wrap;
-    font-size: 21px;
+    font-size: 20px;
   }
 
   .git-sync-button {
     width: 100%;
+  }
+
+  .git-sync-note {
+    padding: var(--space-4) var(--space-5);
   }
 }
 </style>
