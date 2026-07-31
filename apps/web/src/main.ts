@@ -14,6 +14,7 @@ import './test-log-theme-fix.css';
 import './test-log-inspector.css';
 import './sql-explanation-enhancer.css';
 import './log-detail-enhancer.css';
+import './log-stream-syntax.css';
 import './git-modern-polish.css';
 import './git-summary-history-enhancer.css';
 import './git-inline-file-diff-enhancer.css';
