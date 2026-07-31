@@ -1,4 +1,7 @@
-import type { GitPullRequestUrl } from '@dev-dashboard/contracts';
+import type {
+  GitPullRequestLookup,
+  GitPullRequestUrl,
+} from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
 
@@ -40,6 +43,10 @@ interface UndoFileResponse {
 
 interface PullRequestUrlResponse {
   pullRequest: GitPullRequestUrl;
+}
+
+interface PullRequestLookupResponse {
+  lookup: GitPullRequestLookup;
 }
 
 export async function prepareProjectGitUndo(
@@ -87,6 +94,23 @@ export async function undoProjectGitFile(
     },
   );
   return response.file.path;
+}
+
+export async function getProjectGitPullRequestStatus(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+  },
+): Promise<GitPullRequestLookup> {
+  const query = [
+    `targetRemote=${encodeURIComponent(input.targetRemote)}`,
+    `baseBranch=${encodeURIComponent(input.baseBranch)}`,
+  ].join('&');
+  const response = await requestJson<PullRequestLookupResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-status?${query}`,
+  );
+  return response.lookup;
 }
 
 export async function composeProjectGitPullRequest(
