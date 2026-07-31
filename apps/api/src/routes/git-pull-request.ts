@@ -29,6 +29,11 @@ interface PullRequestBody {
   description: string;
 }
 
+interface PullRequestLookupQuery {
+  targetRemote: GitPullRequestTargetRemote;
+  baseBranch: string;
+}
+
 interface GitPullRequestRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
 }
@@ -51,6 +56,54 @@ const pullRequestBodySchema = {
     baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
     title: { type: 'string', minLength: 1, maxLength: 256 },
     description: { type: 'string', maxLength: 20_000 },
+  },
+} as const;
+
+const pullRequestLookupQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['targetRemote', 'baseBranch'],
+  properties: {
+    targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
+    baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
+  },
+} as const;
+
+const openPullRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'provider',
+    'number',
+    'title',
+    'url',
+    'sourceBranch',
+    'baseBranch',
+  ],
+  properties: {
+    provider: { type: 'string', enum: ['github', 'gitlab'] },
+    number: { type: 'integer', minimum: 1 },
+    title: { type: 'string' },
+    url: { type: 'string' },
+    sourceBranch: { type: 'string' },
+    baseBranch: { type: 'string' },
+  },
+} as const;
+
+const pullRequestLookupResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['lookup'],
+  properties: {
+    lookup: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['checked'],
+      properties: {
+        checked: { type: 'boolean' },
+        existing: openPullRequestSchema,
+      },
+    },
   },
 } as const;
 
@@ -126,6 +179,36 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       const project = projectFor(request.params.projectId);
       try {
         return { pullRequest: await service.composeUrl(project.path) };
+      } catch (error) {
+        translatePullRequestError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: PullRequestLookupQuery;
+  }>(
+    '/projects/:projectId/git/pull-request-status',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: pullRequestLookupQuerySchema,
+        response: {
+          200: pullRequestLookupResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          lookup: await service.findOpenPullRequest(project.path, {
+            targetRemote: request.query.targetRemote,
+            baseBranch: request.query.baseBranch,
+          }),
+        };
       } catch (error) {
         translatePullRequestError(error);
       }
