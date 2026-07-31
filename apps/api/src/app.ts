@@ -21,6 +21,7 @@ import { gitFileMutationRoutes } from './routes/git-file-mutations.js';
 import { processRoutes } from './routes/processes.js';
 
 import { testRoutes } from './routes/tests.js';
+import { testRelatedRoutes } from './routes/test-related.js';
 import { databaseRoutes } from './routes/database.js';
 import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
@@ -182,6 +183,14 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(testRoutes, {
+    prefix: '/api',
+    processManager: context.processManager,
+    projectStore: context.projectStore,
+    testDetectionService: context.testDetectionService,
+    testExecutionHistoryService: context.testExecutionHistoryService,
+  });
+
+  app.register(testRelatedRoutes, {
     prefix: '/api',
     processManager: context.processManager,
     projectStore: context.projectStore,
