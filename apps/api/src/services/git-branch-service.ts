@@ -239,7 +239,6 @@ export class GitBranchService {
 
     try {
       await runGit(projectPath, ['push', remote, '--delete', localBranch]);
-      await runGit(projectPath, ['fetch', '--prune', remote]);
     } catch (error) {
       throw new GitBranchServiceError(
         'GIT_COMMAND_FAILED',
@@ -247,6 +246,12 @@ export class GitBranchService {
           ? error.message
           : `Não foi possível remover "${remoteBranch}".`,
       );
+    }
+
+    try {
+      await runGit(projectPath, ['fetch', '--prune', remote]);
+    } catch {
+      // A remoção remota já foi concluída; o próximo fetch limpa a referência local.
     }
 
     return { branch: localBranch };
