@@ -10,6 +10,7 @@ import { projectReadmeRoutes } from './routes/project-readme.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
+import { gitUndoRoutes } from './routes/git-undo.js';
 import { gitCommitDetailsRoutes } from './routes/git-commit-details.js';
 import { gitCurrentBranchHistoryRoutes } from './routes/git-current-branch-history.js';
 import { gitExclusiveBranchHistoryRoutes } from './routes/git-exclusive-branch-history.js';
@@ -129,6 +130,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(gitPullRequestRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+  });
+
+  app.register(gitUndoRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
   });
