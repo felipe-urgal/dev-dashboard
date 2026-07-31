@@ -49,6 +49,16 @@ interface PullRequestLookupResponse {
   lookup: GitPullRequestLookup;
 }
 
+function pullRequestLookupQuery(input: {
+  targetRemote: GitPullRequestTargetRemote;
+  baseBranch: string;
+}): string {
+  return [
+    `targetRemote=${encodeURIComponent(input.targetRemote)}`,
+    `baseBranch=${encodeURIComponent(input.baseBranch)}`,
+  ].join('&');
+}
+
 export async function prepareProjectGitUndo(
   projectId: string,
   operation: GitUndoOperation,
@@ -103,12 +113,21 @@ export async function getProjectGitPullRequestStatus(
     baseBranch: string;
   },
 ): Promise<GitPullRequestLookup> {
-  const query = [
-    `targetRemote=${encodeURIComponent(input.targetRemote)}`,
-    `baseBranch=${encodeURIComponent(input.baseBranch)}`,
-  ].join('&');
   const response = await requestJson<PullRequestLookupResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-status?${query}`,
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-status?${pullRequestLookupQuery(input)}`,
+  );
+  return response.lookup;
+}
+
+export async function getProjectGitPullRequestSummary(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+  },
+): Promise<GitPullRequestLookup> {
+  const response = await requestJson<PullRequestLookupResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request-summary?${pullRequestLookupQuery(input)}`,
   );
   return response.lookup;
 }

@@ -9,6 +9,7 @@ import {
   GitPullRequestService,
   type GitPullRequestTargetRemote,
 } from '../services/git-pull-request-service.js';
+import { GitPullRequestStatusService } from '../services/git-pull-request-status-service.js';
 import {
   ApiError,
   type ApiErrorCode,
@@ -87,6 +88,12 @@ const openPullRequestSchema = {
     url: { type: 'string' },
     sourceBranch: { type: 'string' },
     baseBranch: { type: 'string' },
+    ciStatus: {
+      type: 'string',
+      enum: ['success', 'pending', 'failure', 'unknown'],
+    },
+    commentsCount: { type: 'integer', minimum: 0 },
+    unresolvedConversationsCount: { type: 'integer', minimum: 0 },
   },
 } as const;
 
@@ -146,6 +153,7 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
   GitPullRequestRouteOptions
 > = async (app, options) => {
   const service = new GitPullRequestService();
+  const statusService = new GitPullRequestStatusService();
 
   function projectFor(projectId: string) {
     const project = options.projectStore.findProject(projectId);
@@ -157,6 +165,24 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       });
     }
     return project;
+  }
+
+  async function lookupPullRequest(
+    projectId: string,
+    query: PullRequestLookupQuery,
+    enrichStatus: boolean,
+  ) {
+    const project = projectFor(projectId);
+    const lookup = await service.findOpenPullRequest(project.path, {
+      targetRemote: query.targetRemote,
+      baseBranch: query.baseBranch,
+    });
+    if (!enrichStatus || !lookup.existing) return lookup;
+
+    return {
+      ...lookup,
+      existing: await statusService.enrich(project.path, lookup.existing),
+    };
   }
 
   app.get<{ Params: ProjectParams }>(
@@ -201,13 +227,43 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       },
     },
     async (request) => {
-      const project = projectFor(request.params.projectId);
       try {
         return {
-          lookup: await service.findOpenPullRequest(project.path, {
-            targetRemote: request.query.targetRemote,
-            baseBranch: request.query.baseBranch,
-          }),
+          lookup: await lookupPullRequest(
+            request.params.projectId,
+            request.query,
+            false,
+          ),
+        };
+      } catch (error) {
+        translatePullRequestError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: PullRequestLookupQuery;
+  }>(
+    '/projects/:projectId/git/pull-request-summary',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: pullRequestLookupQuerySchema,
+        response: {
+          200: pullRequestLookupResponseSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          lookup: await lookupPullRequest(
+            request.params.projectId,
+            request.query,
+            true,
+          ),
         };
       } catch (error) {
         translatePullRequestError(error);
