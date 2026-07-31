@@ -30,6 +30,10 @@ fazem parte desta tela.
   branch e operação;
 - a API executa Git com argumentos fechados e sem shell;
 - o enhancer antigo de commit e sua interface de arquivos foram removidos.
+- o formulário ocupa toda a largura útil do painel Git, alinhado à listagem de
+  branches, com espaçamento vertical mais compacto.
+- a aba Branches passou a usar o ícone de ramificação da biblioteca visual do
+  projeto no lugar do símbolo de código.
 
 ## Arquivos principais
 

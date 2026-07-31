@@ -136,12 +136,13 @@ function updateMessage(event: Event): void {
 
 <style scoped>
 .git-commit-card {
-  width: min(1120px, calc(100% - (var(--space-4) * 2)));
-  margin: clamp(42px, 8vh, 92px) auto 0;
+  width: 100%;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
-  padding: clamp(24px, 3vw, 40px);
+  padding: 20px;
+  box-shadow: var(--shadow-1);
 }
 
 .git-commit-mode {
@@ -154,7 +155,7 @@ function updateMessage(event: Event): void {
 
 .git-commit-mode button {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -163,7 +164,7 @@ function updateMessage(event: Event): void {
   border-radius: 0;
   background: var(--surface-1);
   color: var(--text-muted);
-  padding: 0 22px;
+  padding: 0 16px;
   font: inherit;
   font-weight: 600;
 }
@@ -184,13 +185,13 @@ function updateMessage(event: Event): void {
 }
 
 .git-commit-mode svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .git-commit-divider {
   height: 1px;
-  margin: 32px 0;
+  margin: 20px 0;
   background: var(--border);
 }
 
@@ -203,7 +204,7 @@ function updateMessage(event: Event): void {
 
 .git-commit-context > span[aria-hidden='true'] {
   width: 1px;
-  height: 24px;
+  height: 20px;
   background: var(--border);
 }
 
@@ -214,7 +215,7 @@ function updateMessage(event: Event): void {
 .git-commit-message {
   display: grid;
   gap: var(--space-2);
-  margin-top: 32px;
+  margin-top: 20px;
   color: var(--text-muted);
 }
 
@@ -223,7 +224,7 @@ function updateMessage(event: Event): void {
 }
 
 .git-commit-message textarea {
-  min-height: 142px;
+  min-height: 112px;
   resize: vertical;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -244,7 +245,7 @@ function updateMessage(event: Event): void {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-top: var(--space-3);
+  margin-top: 10px;
 }
 
 .git-commit-footer p {
@@ -273,9 +274,7 @@ function updateMessage(event: Event): void {
 
 @media (max-width: 720px) {
   .git-commit-card {
-    width: 100%;
-    margin-top: var(--space-4);
-    padding: var(--space-4);
+    padding: 16px;
   }
 
   .git-commit-mode {

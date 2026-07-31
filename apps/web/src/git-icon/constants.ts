@@ -3,14 +3,14 @@ import {
   ArrowsRightLeftIcon,
   CheckCircleIcon,
   ClockIcon,
-  CodeBracketIcon,
   DocumentMagnifyingGlassIcon,
+  ShareIcon,
   Squares2X2Icon,
 } from '@heroicons/vue/24/outline';
 
 export const iconByLabel: Record<string, Component> = {
   Resumo: Squares2X2Icon,
-  Branches: CodeBracketIcon,
+  Branches: ShareIcon,
   Sincronização: ArrowsRightLeftIcon,
   Commit: CheckCircleIcon,
   Diff: DocumentMagnifyingGlassIcon,

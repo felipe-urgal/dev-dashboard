@@ -148,7 +148,9 @@ const buttonDisabled = computed(() =>
 
 <style scoped>
 .git-sync-page {
+  width: min(1280px, 100%);
   min-width: 0;
+  margin-inline: auto;
 }
 
 .git-sync-card {
