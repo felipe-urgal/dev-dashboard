@@ -19,6 +19,17 @@ interface ProcessLogResponse {
 
 interface ProjectTestsResponse { tests: ProjectTestOverview; }
 
+export interface ProjectRelatedTests {
+  baseBranch: string;
+  currentBranch: string;
+  changedFiles: string[];
+  testFiles: ProjectTestFile[];
+}
+
+interface ProjectRelatedTestsResponse {
+  related: ProjectRelatedTests;
+}
+
 export async function fetchProjectTests(
   projectId: string,
   options: { refresh?: boolean } = {},
@@ -52,6 +63,34 @@ export async function startProjectTest(
       },
       body: JSON.stringify({}),
     }
+  );
+  if (!response.process) {
+    throw new Error('A API não retornou o processo iniciado.');
+  }
+  return response.process;
+}
+
+export async function fetchProjectRelatedTests(
+  projectId: string,
+  commandId: string,
+): Promise<ProjectRelatedTests> {
+  const response = await requestJson<ProjectRelatedTestsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related`,
+  );
+  return response.related;
+}
+
+export async function startProjectRelatedTests(
+  projectId: string,
+  commandId: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<ProcessResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/related/start`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
   );
   if (!response.process) {
     throw new Error('A API não retornou o processo iniciado.');

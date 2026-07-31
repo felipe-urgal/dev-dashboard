@@ -12,8 +12,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  fetchProjectRelatedTests,
   fetchProjectTestFiles,
   fetchProjectTests,
+  type ProjectRelatedTests,
 } from '../api';
 import { useAutoDismiss } from './useAutoDismiss';
 import {
@@ -30,10 +32,11 @@ import {
 } from './project-test-log';
 import {
   useProjectTestProcess,
+  type TestExecutionScope,
   type TestExecutionTarget,
 } from './useProjectTestProcess';
 
-type ExecutionScope = 'suite' | 'file';
+type ExecutionScope = TestExecutionScope;
 
 interface ExecutionChoice {
   key: string;
@@ -61,8 +64,12 @@ export function useProjectTestsPanel(props: { project: Project }) {
   const testFiles = ref<ProjectTestFile[]>([]);
   const selectedFilePath = ref('');
   const fileErrorMessage = ref('');
+  const loadingRelatedCommandId = ref<string | null>(null);
+  const relatedTests = ref<ProjectRelatedTests | null>(null);
+  const relatedErrorMessage = ref('');
 
   useAutoDismiss(fileErrorMessage, '');
+  useAutoDismiss(relatedErrorMessage, '');
 
   const process = useProjectTestProcess(props, overview);
   const {
@@ -98,13 +105,22 @@ export function useProjectTestsPanel(props: { project: Project }) {
         description: command.label,
       }];
       if (command.supportsFileTarget) {
-        choices.push({
-          key: choiceKey(command.id, 'file'),
-          commandId: command.id,
-          scope: 'file',
-          label: `${runner} — arquivo específico`,
-          description: command.label,
-        });
+        choices.push(
+          {
+            key: choiceKey(command.id, 'file'),
+            commandId: command.id,
+            scope: 'file',
+            label: `${runner} — arquivo específico`,
+            description: command.label,
+          },
+          {
+            key: choiceKey(command.id, 'related'),
+            commandId: command.id,
+            scope: 'related',
+            label: `${runner} — alterações da branch`,
+            description: command.label,
+          },
+        );
       }
       return choices;
     }));
@@ -118,8 +134,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
   });
 
   const selectionConfigured = computed(() => Boolean(
-    selectedChoice.value &&
-    (selectedChoice.value.scope === 'suite' || selectedFilePath.value),
+    selectedChoice.value && (
+      selectedChoice.value.scope === 'suite' ||
+      (selectedChoice.value.scope === 'file' && selectedFilePath.value) ||
+      (selectedChoice.value.scope === 'related' && (relatedTests.value?.testFiles.length ?? 0) > 0)
+    ),
   ));
 
   const canExecuteSelection = computed(() => Boolean(
@@ -133,6 +152,12 @@ export function useProjectTestsPanel(props: { project: Project }) {
       return selectedFilePath.value
         ? `${command.label} ${selectedFilePath.value}`
         : `${command.label} <arquivo>`;
+    }
+    if (selectedChoice.value?.scope === 'related') {
+      const files = relatedTests.value?.testFiles ?? [];
+      return files.length > 0
+        ? `${command.label} ${files.map((entry) => entry.path).join(' ')}`
+        : `${command.label} <testes relacionados>`;
     }
     return command.label;
   });
@@ -182,7 +207,9 @@ export function useProjectTestsPanel(props: { project: Project }) {
       passed = Math.max(0, Number(rails[1]) - failed);
     }
     const runner = currentCommand.value ? runnerLabels[currentCommand.value.runner] : projectRunnerFallback();
-    const targetFile = currentTarget.value?.targetFile ?? extractTargetFile(text) ?? 'Suíte completa';
+    const targetFile = currentTarget.value?.scope === 'related'
+      ? 'Alterações da branch'
+      : currentTarget.value?.targetFile ?? extractTargetFile(text) ?? 'Suíte completa';
     const testDuration = /\btests\s+([\d.]+(?:ms|s))\b/i.exec(text)?.[1]
       ?? /\bFinished in\s+([^\n]+)/i.exec(text)?.[1]?.trim()
       ?? /\bDone in\s+([\d.]+s)\b/i.exec(text)?.[1]
@@ -217,13 +244,16 @@ export function useProjectTestsPanel(props: { project: Project }) {
   function syncSelectionFromProcess(): void {
     const target = currentTarget.value;
     if (!target || !overview.value) return;
-    const scope: ExecutionScope = target.targetFile ? 'file' : 'suite';
+    const scope: ExecutionScope = target.scope ?? (target.targetFile ? 'file' : 'suite');
     const key = choiceKey(target.commandId, scope);
     if (!executionChoices.value.some((choice) => choice.key === key)) return;
     selectedExecutionKey.value = key;
     selectedFilePath.value = target.targetFile ?? '';
     if (scope === 'file' && loadingFilesCommandId.value !== target.commandId && testFiles.value.length === 0) {
       void loadFilesForCommand(target.commandId);
+    }
+    if (scope === 'related' && loadingRelatedCommandId.value !== target.commandId && relatedTests.value === null) {
+      void loadRelatedForCommand(target.commandId);
     }
   }
 
@@ -260,8 +290,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
     selectedFilePath.value = '';
     testFiles.value = [];
     fileErrorMessage.value = '';
+    relatedTests.value = null;
+    relatedErrorMessage.value = '';
     const choice = selectedChoice.value;
     if (choice?.scope === 'file') await loadFilesForCommand(choice.commandId);
+    if (choice?.scope === 'related') await loadRelatedForCommand(choice.commandId);
   }
 
   async function loadFilesForCommand(commandId: string): Promise<void> {
@@ -288,21 +321,45 @@ export function useProjectTestsPanel(props: { project: Project }) {
     }
   }
 
+  async function loadRelatedForCommand(commandId: string): Promise<void> {
+    const projectId = props.project.id;
+    loadingRelatedCommandId.value = commandId;
+    relatedErrorMessage.value = '';
+    relatedTests.value = null;
+    try {
+      const related = await fetchProjectRelatedTests(projectId, commandId);
+      const choice = selectedChoice.value;
+      if (projectId !== props.project.id || choice?.commandId !== commandId || choice.scope !== 'related') return;
+      relatedTests.value = related;
+    } catch (error) {
+      const choice = selectedChoice.value;
+      if (projectId === props.project.id && choice?.commandId === commandId && choice.scope === 'related') {
+        relatedErrorMessage.value = error instanceof Error
+          ? error.message
+          : 'Não foi possível identificar os testes relacionados às alterações.';
+      }
+    } finally {
+      if (loadingRelatedCommandId.value === commandId) loadingRelatedCommandId.value = null;
+    }
+  }
+
   async function handleExecuteSelection(): Promise<void> {
     const choice = selectedChoice.value;
     if (!choice || !canExecuteSelection.value) return;
     await startExecution({
       commandId: choice.commandId,
+      scope: choice.scope,
       ...(choice.scope === 'file' && selectedFilePath.value ? { targetFile: selectedFilePath.value } : {}),
     });
   }
 
   async function handleRepeat(target: TestExecutionTarget): Promise<void> {
     if (isRunning.value || startingCommandId.value !== null) return;
-    const scope: ExecutionScope = target.targetFile ? 'file' : 'suite';
+    const scope: ExecutionScope = target.scope ?? (target.targetFile ? 'file' : 'suite');
     selectedExecutionKey.value = choiceKey(target.commandId, scope);
     selectedFilePath.value = target.targetFile ?? '';
-    await startExecution(target);
+    if (scope === 'related') await loadRelatedForCommand(target.commandId);
+    await startExecution({ ...target, scope });
   }
 
   async function handleCopyLogs(): Promise<void> {
@@ -319,6 +376,9 @@ export function useProjectTestsPanel(props: { project: Project }) {
       testFiles.value = [];
       selectedFilePath.value = '';
       fileErrorMessage.value = '';
+      loadingRelatedCommandId.value = null;
+      relatedTests.value = null;
+      relatedErrorMessage.value = '';
       void loadOverview();
     },
     { immediate: true },
@@ -350,10 +410,13 @@ export function useProjectTestsPanel(props: { project: Project }) {
     loadOverview,
     loadingFilesCommandId,
     loadingOverview,
+    loadingRelatedCommandId,
     logTruncated,
     logViewport,
     managedProcess,
     overview,
+    relatedErrorMessage,
+    relatedTests,
     runSummary,
     scrollLogToEnd,
     selectedChoice,

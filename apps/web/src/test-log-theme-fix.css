@@ -62,7 +62,7 @@ html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests
 }
 
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-success {
-  background-color: var(--test-log-success-surface);
+  background-color: transparent;
 }
 
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output .tests-log-lines .tests-log-line-warning {

@@ -24,10 +24,10 @@ const {
   currentCommandText, currentStatusTone, currentTarget, duration, errorLogLines, errorMessage,
   executionChoices, executionPreview, fileErrorMessage, formatTimestamp, handleClearLogs,
   handleCopyLogs, handleExecutionChoiceChange, handleExecuteSelection, handleRepeat, handleStop,
-  isRunning, loadOverview, loadingFilesCommandId, loadingOverview, logTruncated, managedProcess,
-  overview, runSummary, scrollLogToEnd, selectedChoice, selectedExecutionKey, selectedFilePath,
-  selectionConfigured, startingCommandId, statusLabel, stopping, testFiles, totalTests, visibleLogLines,
-  warningLogLines,
+  isRunning, loadOverview, loadingFilesCommandId, loadingOverview, loadingRelatedCommandId,
+  logTruncated, managedProcess, overview, relatedErrorMessage, relatedTests, runSummary,
+  scrollLogToEnd, selectedChoice, selectedExecutionKey, selectedFilePath, selectionConfigured,
+  startingCommandId, statusLabel, stopping, testFiles, totalTests, visibleLogLines, warningLogLines,
 } = useProjectTestsPanel(props);
 
 function statusIconForTone(tone: 'success' | 'danger' | 'warning' | 'info' | 'neutral') {
@@ -151,6 +151,38 @@ function statusIconForTone(tone: 'success' | 'danger' | 'warning' | 'info' | 'ne
                 </select>
               </label>
             </template>
+
+            <template v-else-if="selectedChoice?.scope === 'related'">
+              <p v-if="relatedErrorMessage" class="project-error" role="alert">{{ relatedErrorMessage }}</p>
+              <p v-else-if="loadingRelatedCommandId === selectedChoice.commandId" class="tests-config-loading">
+                Identificando alterações e testes relacionados…
+              </p>
+              <div v-else-if="relatedTests" class="tests-config-summary tests-related-summary">
+                <DocumentTextIcon aria-hidden="true" />
+                <div>
+                  <strong>Alterações da branch</strong>
+                  <p class="tests-related-branches">
+                    {{ relatedTests.baseBranch }} → {{ relatedTests.currentBranch }}
+                  </p>
+                  <p>
+                    {{ relatedTests.changedFiles.length }}
+                    {{ relatedTests.changedFiles.length === 1 ? 'arquivo modificado' : 'arquivos modificados' }}
+                    ·
+                    {{ relatedTests.testFiles.length }}
+                    {{ relatedTests.testFiles.length === 1 ? 'teste relacionado' : 'testes relacionados' }}
+                  </p>
+                  <ul v-if="relatedTests.testFiles.length" class="tests-related-files">
+                    <li v-for="file in relatedTests.testFiles" :key="file.path">
+                      <code>{{ file.path }}</code>
+                    </li>
+                  </ul>
+                  <p v-else class="tests-related-empty">
+                    Nenhum teste relacionado foi identificado. A suíte completa não será executada automaticamente.
+                  </p>
+                </div>
+              </div>
+            </template>
+
             <div v-else class="tests-config-summary">
               <DocumentTextIcon aria-hidden="true" />
               <div>
@@ -253,7 +285,9 @@ function statusIconForTone(tone: 'success' | 'danger' | 'warning' | 'info' | 'ne
           <div>
             <span>Arquivo alvo</span>
             <strong>{{ runSummary.targetFile }}</strong>
-            <small>{{ currentTarget?.targetFile ? 'Arquivo específico' : 'Suíte completa' }}</small>
+            <small>
+              {{ currentTarget?.scope === 'related' ? 'Testes relacionados' : currentTarget?.targetFile ? 'Arquivo específico' : 'Suíte completa' }}
+            </small>
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import {
   fetchProjectTestLog,
   fetchProjectTestProcess,
   followTestExecutionEvents,
+  startProjectRelatedTests,
   startProjectTest,
   startProjectTestFile,
   stopProjectTest,
@@ -29,9 +30,11 @@ import {
 } from './project-test-log';
 
 export type TestStatusTone = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
+export type TestExecutionScope = 'suite' | 'file' | 'related';
 
 export interface TestExecutionTarget {
   commandId: string;
+  scope?: TestExecutionScope;
   targetFile?: string;
 }
 
@@ -94,10 +97,19 @@ export function useProjectTestProcess(
     if (!process) return null;
     const prefix = `${process.projectId}:${process.kind}:`;
     const rawId = process.id.startsWith(prefix) ? process.id.slice(prefix.length) : process.id;
+    const relatedExecution = rawId.endsWith(':related');
     const fileExecution = rawId.endsWith(':file');
-    const commandId = fileExecution ? rawId.slice(0, -':file'.length) : rawId;
+    const commandId = relatedExecution
+      ? rawId.slice(0, -':related'.length)
+      : fileExecution
+        ? rawId.slice(0, -':file'.length)
+        : rawId;
     const targetFile = fileExecution ? process.args?.at(-1) : undefined;
-    return { commandId, ...(targetFile ? { targetFile } : {}) };
+    return {
+      commandId,
+      scope: relatedExecution ? 'related' : fileExecution ? 'file' : 'suite',
+      ...(targetFile ? { targetFile } : {}),
+    };
   });
 
   const currentCommandText = computed(() => {
@@ -190,9 +202,11 @@ export function useProjectTestProcess(
     errorMessage.value = '';
     activeLogTab.value = 'log';
     try {
-      const result = target.targetFile
-        ? await startProjectTestFile(projectId, target.commandId, target.targetFile)
-        : await startProjectTest(projectId, target.commandId);
+      const result = target.scope === 'related'
+        ? await startProjectRelatedTests(projectId, target.commandId)
+        : target.targetFile
+          ? await startProjectTestFile(projectId, target.commandId, target.targetFile)
+          : await startProjectTest(projectId, target.commandId);
       if (!currentRequest(projectId, requestGeneration)) return;
       managedProcess.value = result;
       logContent.value = '';
