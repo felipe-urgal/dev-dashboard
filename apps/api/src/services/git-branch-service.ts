@@ -2,7 +2,10 @@ import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 
-import type { GitMutationConfirmation } from '@dev-dashboard/contracts';
+import type {
+  GitMutationConfirmation,
+  GitMutationOperation,
+} from '@dev-dashboard/contracts';
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
@@ -31,7 +34,8 @@ export class GitBranchServiceError extends Error {
 interface StoredConfirmation {
   token: string;
   projectId: string;
-  remoteBranch: string;
+  operation: Extract<GitMutationOperation, 'track-branch' | 'delete-remote-branch'>;
+  target: string;
   expiresAt: number;
 }
 
@@ -70,6 +74,26 @@ function splitRemoteBranch(remoteBranch: string): { remote: string; localBranch:
   return { remote, localBranch };
 }
 
+function assertOriginRemoteBranch(remoteBranch: string): {
+  remote: string;
+  localBranch: string;
+} {
+  const parsed = splitRemoteBranch(remoteBranch);
+  if (parsed.remote !== 'origin') {
+    throw new GitBranchServiceError(
+      'GIT_BRANCH_INVALID',
+      'Somente branches do remote "origin" podem ser removidas pelo painel.',
+    );
+  }
+  if (parsed.localBranch === 'main' || parsed.localBranch === 'master') {
+    throw new GitBranchServiceError(
+      'GIT_BRANCH_INVALID',
+      `A branch protegida "${parsed.localBranch}" não pode ser removida do origin.`,
+    );
+  }
+  return parsed;
+}
+
 async function assertClean(projectPath: string): Promise<void> {
   const status = await runGit(projectPath, [
     'status',
@@ -85,6 +109,28 @@ async function assertClean(projectPath: string): Promise<void> {
   }
 }
 
+async function assertRepository(projectPath: string): Promise<void> {
+  try {
+    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
+  } catch {
+    throw new GitBranchServiceError(
+      'GIT_COMMAND_FAILED',
+      'O projeto não é um repositório Git.',
+    );
+  }
+}
+
+async function assertRemote(projectPath: string, remote: string): Promise<void> {
+  try {
+    await runGit(projectPath, ['remote', 'get-url', remote]);
+  } catch {
+    throw new GitBranchServiceError(
+      'GIT_REMOTE_NOT_CONFIGURED',
+      `O remote "${remote}" não está configurado neste projeto.`,
+    );
+  }
+}
+
 export class GitBranchService {
   private readonly confirmations = new Map<string, StoredConfirmation>();
 
@@ -93,23 +139,19 @@ export class GitBranchService {
     remoteBranch: string,
   ): GitMutationConfirmation {
     splitRemoteBranch(remoteBranch);
-    this.pruneExpired();
+    return this.prepareConfirmation(projectId, 'track-branch', remoteBranch);
+  }
 
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
+  public prepareRemoteDeleteConfirmation(
+    projectId: string,
+    remoteBranch: string,
+  ): GitMutationConfirmation {
+    assertOriginRemoteBranch(remoteBranch);
+    return this.prepareConfirmation(
       projectId,
+      'delete-remote-branch',
       remoteBranch,
-      expiresAt,
-    });
-
-    return {
-      token,
-      operation: 'track-branch',
-      target: remoteBranch,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    );
   }
 
   public async trackRemoteBranch(
@@ -119,27 +161,16 @@ export class GitBranchService {
     confirmationToken?: string,
   ): Promise<{ branch: string }> {
     const { remote, localBranch } = splitRemoteBranch(remoteBranch);
-    this.consumeConfirmation(projectId, remoteBranch, confirmationToken);
+    this.consumeConfirmation(
+      projectId,
+      'track-branch',
+      remoteBranch,
+      confirmationToken,
+    );
 
-    try {
-      await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-    } catch {
-      throw new GitBranchServiceError(
-        'GIT_COMMAND_FAILED',
-        'O projeto não é um repositório Git.',
-      );
-    }
-
+    await assertRepository(projectPath);
     await assertClean(projectPath);
-
-    try {
-      await runGit(projectPath, ['remote', 'get-url', remote]);
-    } catch {
-      throw new GitBranchServiceError(
-        'GIT_REMOTE_NOT_CONFIGURED',
-        `O remote "${remote}" não está configurado neste projeto.`,
-      );
-    }
+    await assertRemote(projectPath, remote);
 
     try {
       await runGit(projectPath, [
@@ -189,9 +220,67 @@ export class GitBranchService {
     return { branch: localBranch };
   }
 
-  private consumeConfirmation(
+  public async deleteRemoteBranch(
+    projectPath: string,
     projectId: string,
     remoteBranch: string,
+    confirmationToken?: string,
+  ): Promise<{ branch: string }> {
+    const { remote, localBranch } = assertOriginRemoteBranch(remoteBranch);
+    this.consumeConfirmation(
+      projectId,
+      'delete-remote-branch',
+      remoteBranch,
+      confirmationToken,
+    );
+
+    await assertRepository(projectPath);
+    await assertRemote(projectPath, remote);
+
+    try {
+      await runGit(projectPath, ['push', remote, '--delete', localBranch]);
+      await runGit(projectPath, ['fetch', '--prune', remote]);
+    } catch (error) {
+      throw new GitBranchServiceError(
+        'GIT_COMMAND_FAILED',
+        error instanceof Error
+          ? error.message
+          : `Não foi possível remover "${remoteBranch}".`,
+      );
+    }
+
+    return { branch: localBranch };
+  }
+
+  private prepareConfirmation(
+    projectId: string,
+    operation: StoredConfirmation['operation'],
+    target: string,
+  ): GitMutationConfirmation {
+    this.pruneExpired();
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
+    this.confirmations.set(token, {
+      token,
+      projectId,
+      operation,
+      target,
+      expiresAt,
+    });
+
+    return {
+      token,
+      operation,
+      target,
+      expiresAt: new Date(expiresAt).toISOString(),
+    };
+  }
+
+  private consumeConfirmation(
+    projectId: string,
+    operation: StoredConfirmation['operation'],
+    target: string,
     token: string | undefined,
   ): void {
     this.pruneExpired();
@@ -199,11 +288,12 @@ export class GitBranchService {
     if (
       !confirmation
       || confirmation.projectId !== projectId
-      || confirmation.remoteBranch !== remoteBranch
+      || confirmation.operation !== operation
+      || confirmation.target !== target
     ) {
       throw new GitBranchServiceError(
         'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para criar a branch local.',
+        'Confirmação obrigatória para alterar a branch remota.',
       );
     }
     this.confirmations.delete(token!);
