@@ -108,6 +108,7 @@ export interface GitFileLines {
 }
 
 export type GitPullRequestProvider = 'github' | 'gitlab';
+export type GitPullRequestCiStatus = 'success' | 'pending' | 'failure' | 'unknown';
 
 export interface GitPullRequestUrl {
   provider: GitPullRequestProvider;
@@ -123,6 +124,9 @@ export interface GitOpenPullRequest {
   url: string;
   sourceBranch: string;
   baseBranch: string;
+  ciStatus?: GitPullRequestCiStatus;
+  commentsCount?: number;
+  unresolvedConversationsCount?: number;
 }
 
 export interface GitPullRequestLookup {
