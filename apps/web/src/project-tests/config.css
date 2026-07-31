@@ -93,6 +93,7 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  min-width: 0;
   padding: 13px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -106,6 +107,10 @@
   color: var(--info-text);
 }
 
+.tests-config-summary > div {
+  min-width: 0;
+}
+
 .tests-config-summary strong {
   color: var(--text);
   font-size: var(--font-sm);
@@ -117,6 +122,37 @@
   color: var(--text-muted);
   font-size: var(--font-xs);
   line-height: 1.5;
+}
+
+.tests-related-summary {
+  max-height: 160px;
+  overflow: auto;
+}
+
+.tests-related-branches {
+  color: var(--text) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.tests-related-files {
+  display: grid;
+  gap: 4px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tests-related-files code {
+  display: block;
+  min-width: 0;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-xs);
+  overflow-wrap: anywhere;
+}
+
+.tests-related-empty {
+  color: var(--warning-text) !important;
 }
 
 .tests-config-review {
@@ -137,6 +173,8 @@
 .tests-command-preview code {
   display: block;
   min-height: 42px;
+  max-height: 120px;
+  overflow: auto;
   padding: 10px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
