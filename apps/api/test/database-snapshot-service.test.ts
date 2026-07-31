@@ -53,7 +53,12 @@ DUMP`);
   }
 
   const originalPath = process.env.PATH ?? '';
-  process.env.PATH = `${binDirectory}:${originalPath}`;
+  // Sem os clientes falsos, o PATH é isolado no diretório vazio: a máquina que
+  // roda o teste pode ter um mysqldump de verdade instalado (é o caso do CI),
+  // e aí o erro seria de conexão em vez de binário ausente.
+  process.env.PATH = options.binaries === false
+    ? binDirectory
+    : `${binDirectory}:${originalPath}`;
 
   const project: Project = {
     id: 'projeto-1',
