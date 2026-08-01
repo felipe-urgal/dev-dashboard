@@ -721,7 +721,7 @@ completo direto no arquivo.
  590  apps/web/src/components/ProjectServerPanel.vue
  467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
  434  apps/web/src/composables/useProjectTestsPanel.ts             [avaliado, não dividido — ver nota abaixo]
- 404  apps/web/src/components/ProjectTestsGuidedPanel.vue
+ 404  apps/web/src/components/ProjectTestsGuidedPanel.vue          [avaliado, não dividido — ver nota abaixo]
 ```
 
 Regra geral desta fase é a mesma das anteriores (refatoração pura, sem mudar assinatura pública,
@@ -1052,6 +1052,18 @@ lote continuam aparecendo nos mesmos alertas da view. Verificado com `vue-tsc`, 
 monorepo completo (248 testes web) e os 13 testes E2E (incluindo o teste de confirmação de início
 de servidor pela paleta) — todos verdes.
 
+**`ProjectTestsGuidedPanel.vue` (404 linhas) — avaliado, não dividido.** Diferente dos outros
+componentes grandes desta fase, o `<script setup>` já é enxuto (40 linhas): toda a lógica já mora
+em `composables/useProjectTestsPanel.ts` (avaliado e não dividido acima) desde a Fase 4, e o
+componente só desestrutura o composable e escolhe o ícone de status. As 364 linhas restantes são
+puro `<template>` — o assistente guiado em 4 passos (tipo de execução, configuração, revisão,
+resultado) e os quatro painéis de log (log/erros/avisos/detalhes). Está só 4 linhas acima da meta
+e uma divisão exigiria extrair pedaços do template em subcomponentes de apresentação (ex. um
+componente para os passos do assistente, outro para os painéis de log), o que aumentaria a
+indireção de prop-drilling para um ganho marginal de ~4 linhas. Mesmo critério de "divisão
+artificial piora a leitura" já registrado para `stores/dashboard.ts`/`useProjectTestsPanel.ts`
+acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
@@ -1065,10 +1077,11 @@ saíram da lista por completo — todo o `apps/api/src` está concluído (exceto
 acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
 (660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
 inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
-pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não
-divididos (ver nota acima). Os demais ~9 arquivos do inventário — todos componentes `.vue` em
-`apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista completa está na seção
-"Fase 7" logo acima. Arquivos `.vue` com bastante
+pendência ativa agora. `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
+`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~8
+arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem
+de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com
+bastante
 template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
 tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
 pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
