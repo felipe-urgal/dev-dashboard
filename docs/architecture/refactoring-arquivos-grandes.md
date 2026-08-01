@@ -9,10 +9,10 @@ mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts
 `git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. **Fase 6 concluída**:
 etapa 1 (funções livres, 1430 → 1070 linhas) e etapa 2 (métodos acoplados ao estado privado da
 classe, 1070 → 157 linhas, mais 5 módulos novos) — `process-manager.ts` sai da lista de arquivos
-acima de 400 linhas. **Fase 7 (reinventário) adicionada**: levantamento atualizado dos demais
-arquivos acima de 400 linhas hoje no repo, depois de várias entregas funcionais terem crescido de
-novo arquivos já tocados nas fases anteriores — aguardando decisão de início, sem código escrito
-ainda para esta fase.
+acima de 400 linhas. **Fase 7 (reinventário) concluída**: levantamento atualizado dos demais
+arquivos grandes depois do crescimento causado por novas entregas, com todos os componentes Vue
+reduzidos para menos de 400 linhas. Duas classes de serviço já subdivididas permanecem registradas
+como candidatas a uma segunda passada, sem prioridade ativa.
 
 > Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
 > por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
