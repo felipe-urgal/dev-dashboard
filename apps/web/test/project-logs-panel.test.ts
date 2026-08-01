@@ -102,6 +102,10 @@ describe('ProjectLogsPanel', () => {
       expect(items[0]?.classes()).toContain('selected');
 
       expect(wrapper.get('.rails-detail-heading h3').text()).toContain('/export');
+      expect(wrapper.find('.project-logs-sidebar').exists()).toBe(false);
+      expect(wrapper.get('.project-logs-topbar').text()).toContain('Status do servidor');
+      expect(wrapper.get('.project-logs-topbar').text()).toContain('Ações rápidas');
+      expect(wrapper.findAll('.project-log-quick-actions a')).toHaveLength(2);
     } finally {
       restoreFetch();
     }
