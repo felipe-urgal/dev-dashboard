@@ -14,6 +14,7 @@ import {
   CircleStackIcon,
   ClipboardDocumentIcon,
   CodeBracketSquareIcon,
+  CommandLineIcon,
   DocumentTextIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -42,11 +43,12 @@ import { useRailsMigrations } from '../composables/useRailsMigrations';
 import { useRailsModels } from '../composables/useRailsModels';
 import { highlightGitDiffCode } from '../utils/git-syntax-highlight';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
+import RailsGeneratorForm from './RailsGeneratorForm.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
-type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models';
+type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models' | 'operations';
 type MigrationStatusFilter = 'all' | 'up' | 'down';
 
 const isRailsProject = computed(() => props.project.type === 'rails');
@@ -149,6 +151,7 @@ const sectionTabs = computed(() => [
   ...(isRailsProject.value ? [
     { id: 'migrations' as const, label: 'Migrations', icon: DocumentTextIcon },
     { id: 'models' as const, label: 'Modelos', icon: TableCellsIcon },
+    { id: 'operations' as const, label: 'Operações', icon: CommandLineIcon },
   ] : []),
 ]);
 
@@ -158,6 +161,7 @@ const sectionTitle = computed(() => ({
   snapshots: 'Snapshots',
   migrations: 'Migrations',
   models: 'Modelos',
+  operations: 'Operações',
 })[activeSection.value]);
 
 const sectionDescription = computed(() => ({
@@ -166,6 +170,7 @@ const sectionDescription = computed(() => ({
   snapshots: 'Guarde o estado do banco antes de trocar de branch e restaure quando precisar.',
   migrations: 'Acompanhe o status e consulte o código-fonte de cada migration.',
   models: 'Explore as tabelas do schema, suas colunas, índices e relacionamentos.',
+  operations: 'Rode comandos de banco e gere model ou migration a partir dos campos informados.',
 })[activeSection.value]);
 
 const isRefreshing = computed(() => loading.value || migrationsLoading.value || modelsLoading.value);
@@ -278,7 +283,7 @@ async function refreshActive(): Promise<void> {
   if (activeSection.value === 'environments') return loadDatabase();
   if (activeSection.value === 'snapshots') return loadSnapshots();
   if (activeSection.value === 'migrations') return loadMigrations();
-  return loadModels();
+  if (activeSection.value === 'models') return loadModels();
 }
 
 function selectSection(section: DatabaseSection): void {
@@ -605,12 +610,6 @@ onBeforeUnmount(() => {
         </table>
         <p v-if="filteredMigrations.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma migration corresponde aos filtros.</p>
       </div>
-
-      <section class="database-mutation-panel">
-        <header><div><strong>Operações Rails</strong><span>Cada comando pede confirmação antes de executar.</span></div></header>
-        <div class="database-mutation-actions"><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}</button></div>
-        <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">{{ mutationErrorMessage }}</p><p v-else-if="mutationMessage" class="database-success-message">{{ mutationMessage }}</p><pre v-if="mutationOutput" class="database-command-output">{{ mutationOutput }}</pre>
-      </section>
     </section>
 
     <section v-else-if="activeSection === 'models'" class="database-section" role="tabpanel">
@@ -659,6 +658,31 @@ onBeforeUnmount(() => {
             <div><header><h5>Relacionamentos ({{ selectedTable.foreignKeys.length }})</h5></header><ul class="database-schema-list"><li v-for="relation in selectedTable.foreignKeys" :key="`${relation.column}-${relation.toTable}`"><LinkIcon aria-hidden="true" /><span><strong>{{ relation.column }} → {{ relation.toTable }}</strong><code>{{ relation.fromTable }}.{{ relation.column }}</code></span><small>FK</small></li><li v-if="selectedTable.foreignKeys.length === 0" class="database-schema-empty">Nenhuma foreign key declarada.</li></ul></div>
           </section>
         </article>
+      </div>
+    </section>
+
+    <section v-else-if="activeSection === 'operations'" class="database-section" role="tabpanel">
+      <section class="database-mutation-panel">
+        <header><div><strong>Operações Rails</strong><span>Cada comando pede confirmação antes de executar.</span></div></header>
+        <div class="database-mutation-actions"><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}</button></div>
+        <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">{{ mutationErrorMessage }}</p><p v-else-if="mutationMessage" class="database-success-message">{{ mutationMessage }}</p><pre v-if="mutationOutput" class="database-command-output">{{ mutationOutput }}</pre>
+      </section>
+
+      <div class="database-generator-grid">
+        <RailsGeneratorForm
+          :project="props.project"
+          kind="model"
+          title="Gerar model"
+          hint="Cria o model e a migration que cria a tabela, a partir dos campos informados."
+          :databases="migrations?.databases ?? ['primary']"
+        />
+        <RailsGeneratorForm
+          :project="props.project"
+          kind="migration"
+          title="Gerar migration"
+          hint="Cria só a migration — para atualizar uma tabela já existente, por exemplo."
+          :databases="migrations?.databases ?? ['primary']"
+        />
       </div>
     </section>
 

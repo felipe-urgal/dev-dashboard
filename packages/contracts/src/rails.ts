@@ -92,3 +92,37 @@ export interface RailsMigrationMutationResult {
   masked: boolean;
   redactionCount: number;
 }
+
+export type RailsGeneratorKind = 'model' | 'migration';
+
+export type RailsGeneratorFieldType =
+  | 'string' | 'text' | 'integer' | 'bigint' | 'float' | 'decimal'
+  | 'boolean' | 'date' | 'datetime' | 'time' | 'timestamp' | 'binary'
+  | 'references' | 'uuid';
+
+export interface RailsGeneratorField {
+  name: string;
+  type: RailsGeneratorFieldType;
+}
+
+export interface RailsGeneratorConfirmation {
+  token: string;
+  kind: RailsGeneratorKind;
+  name: string;
+  fields: RailsGeneratorField[];
+  database?: string;
+  /** Prévia do comando exato que vai rodar, montado a partir da entrada já validada. */
+  command: string;
+  expiresAt: string;
+}
+
+export interface RailsGeneratorResult {
+  kind: RailsGeneratorKind;
+  name: string;
+  succeeded: boolean;
+  createdFiles: string[];
+  output: string;
+  truncated: boolean;
+  masked: boolean;
+  redactionCount: number;
+}

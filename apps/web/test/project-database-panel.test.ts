@@ -106,6 +106,16 @@ function mockFetchFor(
       options.onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
       return new Response(JSON.stringify({ result: { operation: 'migrate', succeeded: true, output: '== migrating ==', truncated: false, masked: false, redactionCount: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
+    if (url.pathname.endsWith('/rails/generate/confirmations')) {
+      const body = init?.body ? JSON.parse(String(init.body)) as { kind: string; name: string; fields: Array<{ name: string; type: string }> } : { kind: '', name: '', fields: [] };
+      options.onMutationCall?.(url.pathname, body);
+      const command = ['rails', 'generate', body.kind, body.name, ...body.fields.map((field) => `${field.name}:${field.type}`)].join(' ');
+      return new Response(JSON.stringify({ confirmation: { token: 'g'.repeat(64), kind: body.kind, name: body.name, fields: body.fields, command, expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/rails/generate/mutations')) {
+      options.onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
+      return new Response(JSON.stringify({ result: { kind: 'model', name: 'Product', succeeded: true, createdFiles: ['app/models/product.rb', 'db/migrate/20240101010101_create_products.rb'], output: '      create  app/models/product.rb\n      create  db/migrate/20240101010101_create_products.rb\n', truncated: false, masked: false, redactionCount: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
   return originalFetch;
@@ -137,7 +147,7 @@ test('roda migrate após confirmação e recarrega o status', async () => {
   await flushPromises();
   await flushPromises();
 
-  await tab(wrapper, 'Migrations').trigger('click');
+  await tab(wrapper, 'Operações').trigger('click');
   const migrateButton = wrapper.findAll('button').find((button) => button.text() === 'Rodar migrate');
   assert.ok(migrateButton);
   await migrateButton!.trigger('click');
@@ -239,6 +249,46 @@ test('mostra um seletor de banco em Migrations e Modelos quando há mais de um',
   await flushPromises();
   assert.match(wrapper.text(), /logs/);
   assert.ok(!wrapper.text().includes('users'));
+});
+
+test('gera um model pela aba Operações após pré-visualizar o comando', async () => {
+  const calls: string[] = [];
+  const originalFetch = mockFetchFor('rails', { onMutationCall: (pathname) => calls.push(pathname) });
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  await tab(wrapper, 'Operações').trigger('click');
+  await flushPromises();
+
+  const forms = wrapper.findAll('.database-generator-form');
+  const modelForm = forms.find((form) => form.text().includes('Gerar model'));
+  assert.ok(modelForm, 'esperava o formulário de gerar model');
+
+  await modelForm!.find('.database-generator-name input').setValue('Product');
+  await modelForm!.find('.database-generator-field-row input').setValue('name');
+
+  const submitButton = modelForm!.findAll('button').find((button) => button.text() === 'Pré-visualizar e gerar');
+  assert.ok(submitButton);
+  await submitButton!.trigger('click');
+  await flushPromises();
+
+  assert.match(modelForm!.text(), /rails generate model Product name:string/);
+
+  const confirmButton = modelForm!.findAll('button').find((button) => button.text() === 'Confirmar');
+  assert.ok(confirmButton);
+  await confirmButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls, [
+    '/api/projects/p1/rails/generate/confirmations',
+    '/api/projects/p1/rails/generate/mutations',
+  ]);
+  assert.match(modelForm!.text(), /Gerado com sucesso/);
+  assert.match(modelForm!.text(), /app\/models\/product\.rb/);
+  assert.match(modelForm!.text(), /db\/migrate\/20240101010101_create_products\.rb/);
 });
 
 test('projeto Node oculta as abas exclusivas de Rails', async () => {

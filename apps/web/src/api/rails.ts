@@ -7,6 +7,10 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseServiceActionResult,
+  RailsGeneratorConfirmation,
+  RailsGeneratorField,
+  RailsGeneratorKind,
+  RailsGeneratorResult,
   RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
   RailsMigrationMutationResult,
@@ -99,6 +103,31 @@ export async function runProjectRailsMutation(projectId: string, operation: Rail
   const response = await requestJson<RailsMutationResultResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/mutations`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, confirmationToken }) },
+  );
+  return response.result;
+}
+
+interface RailsGeneratorConfirmationResponse { confirmation: RailsGeneratorConfirmation }
+interface RailsGeneratorResultResponse { result: RailsGeneratorResult }
+
+export async function prepareProjectRailsGenerator(
+  projectId: string,
+  kind: RailsGeneratorKind,
+  name: string,
+  fields: RailsGeneratorField[],
+  database?: string,
+): Promise<RailsGeneratorConfirmation> {
+  const response = await requestJson<RailsGeneratorConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/generate/confirmations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, name, fields, ...(database ? { database } : {}) }) },
+  );
+  return response.confirmation;
+}
+
+export async function runProjectRailsGenerator(projectId: string, confirmationToken: string): Promise<RailsGeneratorResult> {
+  const response = await requestJson<RailsGeneratorResultResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/generate/mutations`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
   );
   return response.result;
 }

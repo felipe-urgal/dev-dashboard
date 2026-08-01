@@ -1,0 +1,247 @@
+.database-generator-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.database-generator-form {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.database-generator-form > header {
+  display: grid;
+  gap: 4px;
+}
+
+.database-generator-form > header > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.database-generator-form > header svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.database-generator-form > header h4 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.database-generator-form > header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.database-generator-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.database-generator-name,
+.database-generator-database {
+  display: grid;
+  gap: 5px;
+}
+
+.database-generator-name span,
+.database-generator-database > span,
+.database-generator-field-list-label {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.database-generator-name input {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-0);
+  color: var(--text);
+  font-size: 10px;
+}
+
+.database-generator-field-list {
+  display: grid;
+  gap: 6px;
+}
+
+.database-generator-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px auto;
+  gap: 6px;
+}
+
+.database-generator-field-row input,
+.database-generator-field-row select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-0);
+  color: var(--text);
+  font-size: 9px;
+}
+
+.database-generator-field-row > button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-muted);
+}
+
+.database-generator-field-row > button:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+.database-generator-field-row > button:disabled {
+  opacity: 0.4;
+}
+
+.database-generator-field-row > button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.database-generator-add-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 7px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 9px;
+  font-weight: 650;
+  width: fit-content;
+}
+
+.database-generator-add-field:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.database-generator-add-field svg {
+  width: 13px;
+  height: 13px;
+}
+
+.database-generator-confirm {
+  display: grid;
+  gap: 10px;
+}
+
+.database-generator-command {
+  margin: 0;
+  overflow-x: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-0);
+}
+
+.database-generator-command code {
+  color: var(--accent);
+  font-size: 10px;
+  white-space: pre;
+}
+
+.database-generator-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.database-generator-confirm-actions button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.database-generator-confirm-actions button:first-child {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.database-generator-result {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.database-generator-result > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--success-text);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.database-generator-result > p svg {
+  width: 14px;
+  height: 14px;
+}
+
+.database-generator-result.is-failure > p {
+  color: var(--danger-text);
+}
+
+.database-generator-files {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.database-generator-files li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+}
+
+.database-generator-files svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-dim);
+}
+
+.database-generator-files code {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 940px) {
+  .database-generator-grid {
+    grid-template-columns: 1fr;
+  }
+}

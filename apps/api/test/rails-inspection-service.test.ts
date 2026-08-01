@@ -266,3 +266,92 @@ test('mascara segredos na saída da mutação', async () => {
   assert.equal(result.masked, true);
   assert.doesNotMatch(result.output, /senha/);
 });
+
+test('gera um model após confirmação, com o comando fechado montado a partir da entrada', async () => {
+  const project = await fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new RailsInspectionService(async (command, args) => {
+    calls.push({ command, args });
+    return { stdout: '      create  app/models/product.rb\n      create  db/migrate/20240101010101_create_products.rb\n      create  test/models/product_test.rb\n' };
+  });
+
+  const confirmation = await service.prepareGeneratorConfirmation(project, 'model', 'Product', [
+    { name: 'name', type: 'string' },
+    { name: 'price', type: 'decimal' },
+  ]);
+  assert.equal(confirmation.command, 'rails generate model Product name:string price:decimal');
+
+  const result = await service.runGenerator(project, confirmation.token);
+  assert.equal(result.succeeded, true);
+  assert.deepEqual(result.createdFiles, [
+    'app/models/product.rb',
+    'db/migrate/20240101010101_create_products.rb',
+    'test/models/product_test.rb',
+  ]);
+  assert.deepEqual(calls, [{
+    command: path.join(project.path, 'bin', 'rails'),
+    args: ['generate', 'model', 'Product', 'name:string', 'price:decimal'],
+  }]);
+});
+
+test('gera uma migration para o banco secundário com --database', async () => {
+  const project = await fixture({
+    'bin/rails': '#!/bin/sh\n',
+    Gemfile: 'gem "rails"\n',
+    'db/schema.rb': 'ActiveRecord::Schema.define(version: 1) do\nend\n',
+    'db/data_schema.rb': 'ActiveRecord::Schema.define(version: 1) do\nend\n',
+  });
+  const calls: Array<{ args: string[] }> = [];
+  const service = new RailsInspectionService(async (_command, args) => {
+    calls.push({ args });
+    return { stdout: '      create  db/migrate_data/20240101010101_create_logs.rb\n' };
+  });
+
+  const confirmation = await service.prepareGeneratorConfirmation(project, 'migration', 'CreateLogs', [
+    { name: 'message', type: 'text' },
+  ], 'data');
+  assert.equal(confirmation.database, 'data');
+  assert.equal(confirmation.command, 'rails generate migration CreateLogs message:text --database=data');
+
+  await service.runGenerator(project, confirmation.token);
+  assert.deepEqual(calls, [{ args: ['generate', 'migration', 'CreateLogs', 'message:text', '--database=data'] }]);
+});
+
+test('rejeita nome, campo ou tipo fora do catálogo fechado antes de montar o comando', async () => {
+  const project = await fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
+  const service = new RailsInspectionService(async () => assert.fail('não deveria executar comandos'));
+
+  await assert.rejects(
+    () => service.prepareGeneratorConfirmation(project, 'model', '../evil', []),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_INVALID_INPUT',
+  );
+  await assert.rejects(
+    () => service.prepareGeneratorConfirmation(project, 'model', 'Product', [{ name: '--flag', type: 'string' }]),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_INVALID_INPUT',
+  );
+  await assert.rejects(
+    () => service.prepareGeneratorConfirmation(project, 'model', 'Product', [{ name: 'kind', type: 'money' as never }]),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_INVALID_INPUT',
+  );
+  await assert.rejects(
+    () => service.prepareGeneratorConfirmation(project, 'migration', 'CreateLogs', [], 'nope'),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_INVALID_INPUT',
+  );
+});
+
+test('exige confirmação válida para rodar o gerador e consome o token uma única vez', async () => {
+  const project = await fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
+  const service = new RailsInspectionService(async () => ({ stdout: '      create  app/models/tag.rb\n' }));
+
+  await assert.rejects(
+    () => service.runGenerator(project, undefined),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_CONFIRMATION_REQUIRED',
+  );
+
+  const confirmation = await service.prepareGeneratorConfirmation(project, 'model', 'Tag', []);
+  await service.runGenerator(project, confirmation.token);
+  await assert.rejects(
+    () => service.runGenerator(project, confirmation.token),
+    (error: unknown) => error instanceof RailsMutationError && error.code === 'RAILS_GENERATOR_CONFIRMATION_REQUIRED',
+  );
+});

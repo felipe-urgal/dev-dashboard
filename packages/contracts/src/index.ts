@@ -108,6 +108,11 @@ export type {
 } from './bundler.js';
 
 export type {
+  RailsGeneratorConfirmation,
+  RailsGeneratorField,
+  RailsGeneratorFieldType,
+  RailsGeneratorKind,
+  RailsGeneratorResult,
   RailsMigrationDetail,
   RailsMigrationEntry,
   RailsMigrationMutationConfirmation,
