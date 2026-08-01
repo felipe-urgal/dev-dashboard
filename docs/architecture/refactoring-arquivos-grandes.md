@@ -729,7 +729,6 @@ completo direto no arquivo.
  493  apps/web/src/utils/git-diff-view.ts
  467  apps/web/src/stores/dashboard.ts
  461  apps/web/src/utils/git-syntax-highlight.ts
- 456  apps/api/src/services/git-sync-service.ts
  437  apps/api/src/routes/git-workspace.ts
  434  apps/web/src/composables/useProjectTestsPanel.ts
  430  apps/api/src/routes/rails.ts                             [cresceu com rotas de generator, task 060]
@@ -890,15 +889,24 @@ partir do que a detecção já sabe — nunca dados vindos do navegador) e `proc
 `StoredSnapshot`/`PendingRestore` internos. Verificado com `typecheck`, `build` e os 19 testes de
 `database-snapshot-service`/`database-snapshot-routes`, mais o monorepo completo — todos verdes.
 
+**`apps/api/src/services/git-sync-service.ts` (456 → 284 linhas) — concluído**, décimo primeiro
+arquivo desta fase. Mesmo padrão dos outros serviços Git: `errors.ts`
+(`GitSyncErrorCode`/`GitSyncError`), `constants.ts` (TTL, constantes de "sincronizar main", os três
+regex), `run.ts` (`runGit`/`failureText`), `validation.ts`
+(`validateReference`/`validateStrategy`) e `repository-guards.ts` (as 7 checagens de pré-condição:
+repositório/referência remota/remote configurado/branch local/HEAD destacado/árvore limpa/abortar
+operação). A classe `GitSyncService` fica sozinha no arquivo principal. Verificado com `typecheck`,
+`build` e os 4 testes de `git-sync-service`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
-`git-stash-service.ts`, `git-commit-details-service.ts` e `database-snapshot-service.ts` saíram da
-lista por completo. `git-service.ts` (842 → 574) e
+`git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts` e
+`git-sync-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~24 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~23 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
