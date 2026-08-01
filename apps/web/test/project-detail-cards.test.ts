@@ -111,7 +111,8 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-status-card').exists()).toBe(true);
-    expect(wrapper.find('.server-log-preview-card').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('Atividade recente');
+    expect(wrapper.text()).not.toContain('Últimos logs');
 
     wrapper.unmount();
   });
