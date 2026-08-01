@@ -211,20 +211,22 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     timeoutMs: number,
     acceptObservedExit = false,
   ): Promise<boolean> {
-    const observedExit = waitForObservedExit(
+    const groupExit = waitForProcessExit(pid, timeoutMs);
+    const observation = await waitForObservedExit(
       projectId,
       kind,
       pid,
       timeoutMs,
-    ).then((observation) =>
-      observation !== undefined
-        ? acceptObservedExit || !isManagedProcessAlive(pid)
-        : false,
     );
 
-    const groupExit = waitForProcessExit(pid, timeoutMs);
+    if (
+      observation !== undefined
+      && (acceptObservedExit || !isManagedProcessAlive(pid))
+    ) {
+      return true;
+    }
 
-    return await Promise.race([observedExit, groupExit]);
+    return await groupExit;
   }
 
   return {

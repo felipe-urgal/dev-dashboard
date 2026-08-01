@@ -242,9 +242,10 @@ parte deste horizonte.
   subir major de dependências nossas com breaking changes;
 - [x] testes de API e Process Manager;
 - [x] CI em push e pull request;
-- [ ] refatoração pura dos 36 arquivos acima de 400 linhas (nenhuma API
-  pública muda) — plano detalhado dos 3 primeiros em
-  `docs/refactor/plano-arquivos-grandes.md`; inventário completo lá.
+- [ ] segunda passada nas duas classes de serviço que continuam acima de 400
+  linhas (nenhuma API pública muda); todos os componentes Vue já foram
+  concluídos na task 063. Inventário e decisões em
+  `docs/architecture/refactoring-arquivos-grandes.md`.
 
 ### Operação e governança
 

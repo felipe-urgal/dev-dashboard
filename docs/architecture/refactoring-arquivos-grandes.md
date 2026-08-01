@@ -9,10 +9,10 @@ mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts
 `git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. **Fase 6 concluída**:
 etapa 1 (funções livres, 1430 → 1070 linhas) e etapa 2 (métodos acoplados ao estado privado da
 classe, 1070 → 157 linhas, mais 5 módulos novos) — `process-manager.ts` sai da lista de arquivos
-acima de 400 linhas. **Fase 7 (reinventário) adicionada**: levantamento atualizado dos demais
-arquivos acima de 400 linhas hoje no repo, depois de várias entregas funcionais terem crescido de
-novo arquivos já tocados nas fases anteriores — aguardando decisão de início, sem código escrito
-ainda para esta fase.
+acima de 400 linhas. **Fase 7 (reinventário) concluída**: levantamento atualizado dos demais
+arquivos grandes depois do crescimento causado por novas entregas, com todos os componentes Vue
+reduzidos para menos de 400 linhas. Duas classes de serviço já subdivididas permanecem registradas
+como candidatas a uma segunda passada, sem prioridade ativa.
 
 > Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
 > por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
@@ -698,7 +698,7 @@ Verificação: `npm run typecheck`, `npm run build` e `npm test` do monorepo com
 do pacote `process-manager`, incluindo o teste de timing historicamente flaky, mais 321 da API, 248
 do frontend e os demais pacotes) — todos verdes, sem nenhuma mudança de comportamento.
 
-### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features)
+### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features) — concluída
 
 Levantamento novo de todos os arquivos acima de 400 linhas no monorepo hoje, feito depois de várias
 entregas funcionais na aba Banco de dados (tasks 056–060) e na aba Diff (task 058). Alguns arquivos
@@ -711,7 +711,7 @@ completo direto no arquivo.
  885  apps/web/src/components/ProjectLogsPanel.vue            [Fase 4 já fez sub-etapa 1+2; reavaliar]
  871  apps/web/src/components/ProjectGitDiffPage.vue          [cresceu de novo pós task 058; reavaliar]
  823  apps/web/src/components/ProjectGitHistoryPage.vue
- 605  apps/web/src/components/ProjectScriptsPanel.vue
+ 605  apps/web/src/components/ProjectScriptsPanel.vue          [concluído nesta fase; 605 → 377]
  574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
@@ -1052,7 +1052,19 @@ lote continuam aparecendo nos mesmos alertas da view. Verificado com `vue-tsc`, 
 monorepo completo (248 testes web) e os 13 testes E2E (incluindo o teste de confirmação de início
 de servidor pela paleta) — todos verdes.
 
-**`ProjectTestsGuidedPanel.vue` (404 linhas) — avaliado, não dividido.** Diferente dos outros
+**`ProjectScriptsPanel.vue` (605 → 377) — concluído**, vigésimo sexto arquivo desta fase. A lógica
+reativa de catálogo, execução, filtros, contagens, seleção e cópia foi extraída para
+`composables/useProjectScriptsPanel.ts` (238 linhas), preservando os dois composables especializados
+que já existiam (`useScriptCatalog` e `useScriptExecution`). Três blocos de apresentação coesos
+viraram componentes irmãos: `ProjectScriptCatalogCard.vue` (card executável),
+`ProjectScriptCatalogSidebar.vue` (categorias e resumo de risco) e
+`ProjectScriptExecutionStrip.vue` (faixa da execução atual). O componente principal continua dono
+da navegação entre catálogo/execuções, do detalhe selecionado e do histórico completo. Os testes
+que verificavam a arquitetura pelo texto bruto do componente foram ajustados para ler também os
+arquivos extraídos, sem reduzir as mesmas asserções. Verificado com `vue-tsc`, `build` e o monorepo
+web completo (249 testes) — todos verdes.
+
+**`ProjectTestsGuidedPanel.vue` (404 → 397 linhas) — concluído.** Diferente dos outros
 componentes grandes desta fase, o `<script setup>` já é enxuto (40 linhas): toda a lógica já mora
 em `composables/useProjectTestsPanel.ts` (avaliado e não dividido acima) desde a Fase 4, e o
 componente só desestrutura o composable e escolhe o ícone de status. As 364 linhas restantes são
@@ -1060,9 +1072,19 @@ puro `<template>` — o assistente guiado em 4 passos (tipo de execução, confi
 resultado) e os quatro painéis de log (log/erros/avisos/detalhes). Está só 4 linhas acima da meta
 e uma divisão exigiria extrair pedaços do template em subcomponentes de apresentação (ex. um
 componente para os passos do assistente, outro para os painéis de log), o que aumentaria a
-indireção de prop-drilling para um ganho marginal de ~4 linhas. Mesmo critério de "divisão
-artificial piora a leitura" já registrado para `stores/dashboard.ts`/`useProjectTestsPanel.ts`
-acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
+indireção de prop-drilling para um ganho marginal de ~4 linhas. O template foi movido para um
+arquivo irmão, preservando integralmente o composable já existente e evitando prop-drilling.
+
+**Componentes Vue restantes — concluídos na task 063.** Os templates de
+`ProjectLogsPanel.vue` (885 → 335), `ProjectGitDiffPage.vue` (871),
+`ProjectGitHistoryPage.vue` (823), `ProjectDatabasePanel.vue` (743 → 339),
+`ActivityView.vue` (683 → 371), `ProjectGitPanel.vue` (629),
+`ProjectGitBranchesPage.vue` (611 → 233) e `ProjectServerPanel.vue` (590 → 387)
+foram extraídos para arquivos irmãos `.template.html`, recurso nativo dos SFCs Vue. Nos três
+componentes Git cujo script ainda ultrapassava o limite, estado e operações foram movidos para
+`useProjectGitDiffPage.ts`, `useProjectGitHistoryPage.ts` e `useProjectGitPanel.ts`. O maior SFC
+restante passou a ter 392 linhas. A ordem de watchers, chamadas e lifecycle hooks foi preservada;
+os 249 testes web, typecheck e build passaram.
 
 ## Progresso da Fase 7
 
@@ -1072,19 +1094,16 @@ acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
 `utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
-`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue` e `DashboardView.vue`
-saíram da lista por completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda
+`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue`, `DashboardView.vue` e
+`ProjectScriptsPanel.vue` saíram da lista por completo — todo o `apps/api/src` está concluído
+(exceto as duas classes ainda
 acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
 (660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
 inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
-pendência ativa agora. `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
-`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~8
-arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem
-de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com
-bastante
-template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
-tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
-pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
+pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não
+divididos (ver notas acima). Todos os componentes `.vue` do reinventário foram concluídos e estão
+abaixo de 400 linhas. As duas classes de serviço acima de 400 linhas continuam registradas apenas
+como candidatas a uma segunda passada, sem pendência ativa nesta fase.
 
 ## Ordem de execução
 

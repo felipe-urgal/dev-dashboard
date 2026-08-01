@@ -69,3 +69,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `060-rails-generators.md` — aba Operações (migrate/rollback/seed/db:prepare, deslocado de Migrations) mais dois formulários novos, gerar model e gerar migration, com catálogo fechado de tipo de coluna, validação de nome e confirmação em duas etapas — a primeira ação da aba Banco de dados que cria arquivos no projeto.
 - `061-scripts-refinement.md` — Scripts abre diretamente no catálogo, com lista compacta e curadoria compartilhada que remove hooks e delega servidor, testes e migrations às áreas especializadas.
 - `062-dashboard-project-branch.md` — visão geral exibe a branch Git atual em cada projeto, ao lado da porta, sem bloquear a linha quando a consulta complementar falha.
+- `063-stop-servers-and-scripts-refactor.md` — corrige o falso timeout ao parar processos sem observador em memória e conclui a refatoração pura de todos os componentes Vue acima de 400 linhas na Fase 7.
