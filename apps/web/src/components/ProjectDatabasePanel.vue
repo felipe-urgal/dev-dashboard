@@ -295,7 +295,7 @@ function selectSection(section: DatabaseSection): void {
 
 function sectionFromQuery(): DatabaseSection {
   const value = Array.isArray(route?.query.section) ? route.query.section[0] : route?.query.section;
-  const allowed: DatabaseSection[] = ['overview', 'environments', 'snapshots', 'migrations', 'models', 'routes', 'dependencies'];
+  const allowed: DatabaseSection[] = ['overview', 'environments', 'snapshots', 'migrations', 'models', 'operations'];
   if (!allowed.includes(value as DatabaseSection)) return 'overview';
   if (!isRailsProject.value && !['overview', 'environments', 'snapshots'].includes(value ?? '')) return 'overview';
   return value as DatabaseSection;
