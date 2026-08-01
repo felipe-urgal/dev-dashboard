@@ -78,8 +78,9 @@ export async function restoreProjectDatabaseSnapshot(projectId: string, snapshot
 
 interface ProjectRailsMigrationsResponse { migrations: RailsMigrationsOverview; }
 
-export async function fetchProjectRailsMigrations(projectId: string): Promise<RailsMigrationsOverview> {
-  const response = await requestJson<ProjectRailsMigrationsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/migrations`);
+export async function fetchProjectRailsMigrations(projectId: string, database?: string): Promise<RailsMigrationsOverview> {
+  const query = database ? `?${new URLSearchParams({ database })}` : '';
+  const response = await requestJson<ProjectRailsMigrationsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/migrations${query}`);
   return response.migrations;
 }
 

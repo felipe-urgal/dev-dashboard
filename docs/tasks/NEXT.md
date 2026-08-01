@@ -1,50 +1,60 @@
-# Próxima atividade — 057: migrations e modelos por banco secundário
+# Próxima atividade — 058: gerar model e migration pela interface
 
 ## Contexto
 
-A 055 ensinou a detecção de banco (`config/database.yml`) a reconhecer o
-formato Rails 6+ de múltiplos bancos por ambiente (`development: { primary,
-data }`). As abas **Migrations** e **Modelos**, porém, ainda assumem um único
-banco por projeto: `RailsInspectionService.getMigrationsOverview` roda
-`db:migrate:status` e devolve uma lista única (que na prática mistura as
-migrations de `db/migrate` e `db/migrate_data` quando o projeto tem um
-`migrations_paths` secundário), e `getModelsOverview` só lê `db/schema.rb`,
-ignorando `db/<nome>_schema.rb` de bancos secundários.
+Depois de consertar a detecção e a leitura de migrations/schema para
+projetos com múltiplos bancos (057), o pedido seguinte foi: uma aba própria
+para as "Operações Rails" (hoje um bloco fixo dentro de Migrations, com
+Rodar migrate / Rollback / Rodar seed / db:prepare) e, dentro dela,
+`rails generate model` e `rails generate migration` — gerar as migrations
+(e o model, no primeiro caso) que criam ou alteram uma tabela, a partir de
+uma lista de campos `nome:tipo`.
+
+Isso é uma categoria de mudança diferente de tudo que a aba Banco de dados
+fez até aqui: `db:migrate`/`snapshot`/`start`/`stop` operam sobre um estado
+já existente (banco, snapshot, serviço). Um generator **cria arquivos novos**
+no projeto (`app/models/*.rb`, `db/migrate/*.rb`) — mais próximo, em risco,
+das mutações Git do painel do que das operações de banco.
 
 ## Objetivo
 
-Deixar explícito, "de cara", quando um projeto tem mais de um banco: um
-seletor no topo de Migrations e de Modelos para trocar entre eles, cada um
-com sua própria lista de migrations (`db/migrate` vs. `db/migrate_<nome>`) e
-seu próprio schema (`db/schema.rb` vs. `db/<nome>_schema.rb`).
+Uma aba (ex.: "Operações") com:
+1. o bloco de operações Rails que já existe (migrate/rollback/seed/prepare),
+   deslocado de dentro de Migrations;
+2. gerar model: nome + lista de campos (`nome:tipo`), roda
+   `rails generate model <Nome> <campo:tipo> ...`;
+3. gerar migration: nome + lista de campos, roda
+   `rails generate migration <Nome> <campo:tipo> ...`.
 
 ## Plano sugerido
 
-1. `RailsInspectionService`: um helper para listar os bancos do projeto —
-   mais simples e robusto lendo `db/*_schema.rb` (a própria evidência de que
-   existe um banco secundário) do que reinterpretar `database.yml`; `primary`
-   sempre existe.
-2. `getMigrationsOverview`/`getMigrationDetail` ganham um parâmetro
-   `database` (padrão `primary`); `db:migrate:status` imprime um bloco
-   `database: ...` por banco configurado — separar os blocos em vez de
-   concatenar todas as migrations numa lista só, e usar `db/migrate` ou
-   `db/migrate_<nome>` para achar o arquivo-fonte.
-3. `getModelsOverview` ganha o mesmo parâmetro `database`, lendo
-   `db/<nome>_schema.rb` em vez de `db/schema.rb` quando for secundário.
-4. Contratos: `RailsMigrationsOverview` e `RailsModelsOverview` ganham
-   `databases: string[]`; rotas `/rails/migrations`, `/rails/migrations/:version`
-   e `/rails/models` ganham querystring `database`.
-5. `ProjectDatabasePanel.vue`: seletor de banco (segmented control, só
-   aparece quando `databases.length > 1`) no topo das abas Migrations e
-   Modelos, reaproveitando os composables já existentes com um novo estado de
-   banco selecionado.
+1. **Catálogo fechado de tipos de coluna** — só os tipos que o Rails aceita
+   nativamente em `t.<tipo>` (string, text, integer, bigint, float, decimal,
+   boolean, date, datetime, time, timestamp, binary, references, uuid); a
+   API rejeita qualquer tipo fora da lista antes de montar o comando.
+2. **Validação de nome** — nome do model/migration e nome de cada campo por
+   um padrão fechado (`^[A-Za-z][A-Za-z0-9_]*$`, sem `/`, espaço, `-` ou `.`)
+   para não colidir com flags do gerador nem permitir path traversal; os
+   argumentos vão para `execFile` como array, nunca concatenados numa string
+   de shell — mesmo padrão já usado em `db:migrate`/systemctl.
+3. **Confirmação em duas etapas** — como as demais mutações do painel: uma
+   rota `POST .../generate/confirmations` monta o comando a partir da
+   entrada já validada e devolve um token com TTL curto; `POST
+   .../generate/mutations` só aceita o token (sem reenviar nome/campos —
+   evita qualquer divergência entre o que foi confirmado e o que roda de
+   fato). Preview do comando exato (`rails generate model Produto
+   nome:string preco:decimal`) antes de confirmar.
+4. **Resposta** — parsear a saída do gerador (linhas `create <caminho>`) para
+   listar os arquivos criados, além da saída bruta mascarada (mesmo
+   `maskSensitiveLogContent` das outras mutações).
+5. **Banco secundário**: `rails generate migration` aceita
+   `--database=<nome>`; expor isso só se `databases.length > 1` (057), com o
+   mesmo seletor de banco já construído para Migrations/Modelos.
+6. Revisão de segurança dedicada antes de mesclar — é a primeira vez que a
+   aba Banco de dados cria arquivos no projeto, não só lê ou troca estado.
 
 ## Fora do escopo
 
-- gerar migrations ou models pela interface (`rails generate migration|model`)
-  — pedido separado, ainda por dimensionar (superfície de escrita nova:
-  cria arquivos, precisa de catálogo fechado de tipos de coluna e validação
-  de nome antes de qualquer confirmação em duas etapas);
-- correlacionar banco lógico ↔ arquivo de schema por qualquer via além do
-  nome do arquivo (`<nome>_schema.rb`); não há necessidade de reler
-  `database.yml` para isso.
+- editar ou apagar um model/migration já existente pela interface;
+- outros geradores do Rails (`scaffold`, `controller`, etc.) — só model e
+  migration, conforme pedido.

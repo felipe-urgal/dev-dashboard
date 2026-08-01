@@ -90,30 +90,78 @@ async function resolveRailsCommand(project: Project): Promise<RailsCommand | nul
   return { command: 'bundle', args: ['exec', 'rails'] };
 }
 
+/**
+ * "primary" sempre existe; um banco secundário aparece como `db/<nome>_schema.rb`
+ * (convenção do Rails para múltiplos bancos por ambiente, ver database.yml).
+ */
+async function listDatabases(project: Project): Promise<string[]> {
+  try {
+    const files = await readdir(path.join(project.path, 'db'));
+    const secondary = files
+      .filter((file) => file !== 'schema.rb' && /^[a-z][a-z0-9_]*_schema\.rb$/.test(file))
+      .map((file) => file.replace(/_schema\.rb$/, ''))
+      .sort();
+    return ['primary', ...secondary];
+  } catch {
+    return ['primary'];
+  }
+}
+
+function migrationsDirectory(projectPath: string, database: string): string {
+  return path.join(projectPath, 'db', database === 'primary' ? 'migrate' : `migrate_${database}`);
+}
+
 const MIGRATION_ROW = /^\s*(up|down)\s+(\S+)\s+(.+?)\s*$/i;
 const DATABASE_LINE = /^\s*database:\s*(.+?)\s*$/i;
 
-function parseMigrationStatus(output: string): { database?: string; migrations: RailsMigrationEntry[] } {
-  const migrations: RailsMigrationEntry[] = [];
-  let database: string | undefined;
+interface MigrationStatusBlock {
+  database?: string;
+  migrations: RailsMigrationEntry[];
+}
+
+/**
+ * `db:migrate:status` imprime um bloco `database: <arquivo>` por banco configurado
+ * quando o projeto tem mais de um (Rails 6+). Cada bloco vira uma entrada própria,
+ * em vez de misturar as migrations de todos os bancos numa lista só.
+ */
+function parseMigrationStatusBlocks(output: string): MigrationStatusBlock[] {
+  const blocks: MigrationStatusBlock[] = [];
+  let current: MigrationStatusBlock | undefined;
 
   for (const line of output.split(/\r?\n/)) {
     const databaseMatch = line.match(DATABASE_LINE);
     if (databaseMatch) {
-      database = databaseMatch[1];
+      current = { database: databaseMatch[1] ?? '', migrations: [] };
+      blocks.push(current);
       continue;
     }
     const rowMatch = line.match(MIGRATION_ROW);
     if (!rowMatch) continue;
+    if (!current) { current = { migrations: [] }; blocks.push(current); }
     const [, status, version, name] = rowMatch;
-    migrations.push({
+    current.migrations.push({
       status: (status ?? '').toLowerCase() as RailsMigrationEntry['status'],
       version: version ?? '',
       name: name ?? '',
     });
   }
 
-  return { ...(database ? { database } : {}), migrations };
+  return blocks;
+}
+
+/**
+ * Correlaciona os blocos de status (identificados pelo arquivo/nome do banco impresso
+ * pelo Rails, ex. "app_development_data") com os nomes configurados em database.yml
+ * (ex. "data"), pela convenção do próprio Rails de sufixar o banco secundário com o
+ * nome da configuração. O que sobra vira "primary".
+ */
+function matchMigrationStatusBlock(blocks: MigrationStatusBlock[], databases: string[], database: string): MigrationStatusBlock {
+  if (database === 'primary') {
+    const secondary = databases.filter((name) => name !== 'primary');
+    const remaining = blocks.filter((block) => !secondary.some((name) => block.database?.toLowerCase().includes(`_${name}`)));
+    return remaining[0] ?? blocks[0] ?? { migrations: [] };
+  }
+  return blocks.find((block) => block.database?.toLowerCase().includes(`_${database}`)) ?? blocks[0] ?? { migrations: [] };
 }
 
 const ROUTE_VERBS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
@@ -260,9 +308,11 @@ export class RailsInspectionService {
 
   public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
 
-  public async getMigrationsOverview(project: Project): Promise<RailsMigrationsOverview> {
+  public async getMigrationsOverview(project: Project, database = 'primary'): Promise<RailsMigrationsOverview> {
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
     const railsCommand = await resolveRailsCommand(project);
-    if (!railsCommand) return { supported: false, migrations: [] };
+    if (!railsCommand) return { supported: false, databases, migrations: [] };
 
     try {
       const { stdout } = await this.runCommand(
@@ -270,24 +320,28 @@ export class RailsInspectionService {
         [...railsCommand.args, 'db:migrate:status'],
         { cwd: project.path },
       );
-      return { supported: true, ...parseMigrationStatus(stdout) };
+      const blocks = parseMigrationStatusBlocks(stdout);
+      const block = matchMigrationStatusBlock(blocks, databases, selected);
+      return { supported: true, databases, ...(block.database ? { database: block.database } : {}), migrations: block.migrations };
     } catch {
-      return { supported: false, migrations: [] };
+      return { supported: false, databases, migrations: [] };
     }
   }
 
-  public async getMigrationDetail(project: Project, version: string): Promise<RailsMigrationDetail> {
+  public async getMigrationDetail(project: Project, version: string, database = 'primary'): Promise<RailsMigrationDetail> {
     if (!/^\d{8,20}$/.test(version)) {
       return { supported: false, version, truncated: false };
     }
 
-    const overview = await this.getMigrationsOverview(project);
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
+    const overview = await this.getMigrationsOverview(project, selected);
     const entry = overview.migrations.find((migration) => migration.version === version);
-    const migrationsDirectory = path.join(project.path, 'db', 'migrate');
+    const migrateDir = migrationsDirectory(project.path, selected);
 
     let fileName: string | undefined;
     try {
-      fileName = (await readdir(migrationsDirectory))
+      fileName = (await readdir(migrateDir))
         .filter((candidate) => candidate.startsWith(`${version}_`) && candidate.endsWith('.rb'))
         .sort()[0];
     } catch {
@@ -302,7 +356,7 @@ export class RailsInspectionService {
     let truncated = false;
     if (fileName) {
       try {
-        const rawSource = await readFile(path.join(migrationsDirectory, fileName), 'utf8');
+        const rawSource = await readFile(path.join(migrateDir, fileName), 'utf8');
         truncated = rawSource.length > MIGRATION_SOURCE_LIMIT;
         source = truncated ? rawSource.slice(0, MIGRATION_SOURCE_LIMIT) : rawSource;
       } catch {
@@ -315,26 +369,30 @@ export class RailsInspectionService {
       version,
       ...(entry?.name ? { name: entry.name } : {}),
       ...(entry?.status ? { status: entry.status } : {}),
-      ...(fileName ? { filePath: path.posix.join('db', 'migrate', fileName) } : {}),
+      ...(fileName ? { filePath: path.posix.join('db', path.basename(migrateDir), fileName) } : {}),
       ...(source !== undefined ? { source } : {}),
       truncated,
     };
   }
 
-  public async getModelsOverview(project: Project): Promise<RailsModelsOverview> {
-    if (project.type !== 'rails') return { supported: false, tables: [] };
-    const schemaPath = path.join(project.path, 'db', 'schema.rb');
-    if (!(await pathExists(schemaPath))) return { supported: false, tables: [] };
+  public async getModelsOverview(project: Project, database = 'primary'): Promise<RailsModelsOverview> {
+    if (project.type !== 'rails') return { supported: false, databases: [], tables: [] };
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
+    const fileName = selected === 'primary' ? 'schema.rb' : `${selected}_schema.rb`;
+    const schemaPath = path.join(project.path, 'db', fileName);
+    if (!(await pathExists(schemaPath))) return { supported: false, databases, tables: [] };
 
     try {
       const source = await readFile(schemaPath, 'utf8');
       return {
+        databases,
         supported: true,
-        schemaPath: 'db/schema.rb',
+        schemaPath: path.posix.join('db', fileName),
         tables: parseSchema(source),
       };
     } catch {
-      return { supported: false, tables: [] };
+      return { supported: false, databases, tables: [] };
     }
   }
 

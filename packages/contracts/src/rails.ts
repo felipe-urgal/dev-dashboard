@@ -8,6 +8,8 @@ export interface RailsMigrationEntry {
 
 export interface RailsMigrationsOverview {
   supported: boolean;
+  /** Bancos configurados no projeto (ex.: ["primary", "data"]); "primary" sempre está presente. */
+  databases: string[];
   database?: string;
   migrations: RailsMigrationEntry[];
 }
@@ -68,6 +70,8 @@ export interface RailsSchemaTable {
 
 export interface RailsModelsOverview {
   supported: boolean;
+  /** Bancos configurados no projeto (ex.: ["primary", "data"]); "primary" sempre está presente. */
+  databases: string[];
   schemaPath?: string;
   tables: RailsSchemaTable[];
 }

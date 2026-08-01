@@ -26,6 +26,10 @@ interface MigrationParams extends Params {
   version: string;
 }
 
+interface DatabaseQuery {
+  database?: string;
+}
+
 interface MutationConfirmationBody {
   operation: RailsMigrationMutationOperation;
 }
@@ -46,6 +50,11 @@ const migrationParamsSchema = {
     projectId: { type: 'string', minLength: 1 },
     version: { type: 'string', pattern: '^[0-9]{8,20}$' },
   },
+} as const;
+
+const databaseQuerySchema = {
+  type: 'object', additionalProperties: false,
+  properties: { database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 } },
 } as const;
 
 const mutationOperationEnum = ['migrate', 'rollback', 'seed', 'prepare'] as const;
@@ -127,9 +136,10 @@ const railsSchemaTableResponseSchema = {
 
 const railsModelsOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['supported', 'tables'],
+  required: ['supported', 'databases', 'tables'],
   properties: {
     supported: { type: 'boolean' },
+    databases: { type: 'array', items: { type: 'string' } },
     schemaPath: { type: 'string' },
     tables: { type: 'array', items: railsSchemaTableResponseSchema },
   },
@@ -156,9 +166,10 @@ function translateMutationError(error: unknown): never {
 }
 
 export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => {
-  app.get<{ Params: Params }>('/projects/:projectId/rails/migrations', {
+  app.get<{ Params: Params; Querystring: DatabaseQuery }>('/projects/:projectId/rails/migrations', {
     schema: {
       params: paramsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['migrations'],
@@ -170,12 +181,14 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
   }, async (request) => ({
     migrations: await options.railsInspectionService.getMigrationsOverview(
       requireProject(options.projectStore, request.params.projectId),
+      request.query.database,
     ),
   }));
 
-  app.get<{ Params: MigrationParams }>('/projects/:projectId/rails/migrations/:version', {
+  app.get<{ Params: MigrationParams; Querystring: DatabaseQuery }>('/projects/:projectId/rails/migrations/:version', {
     schema: {
       params: migrationParamsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['migration'],
@@ -188,12 +201,14 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
     migration: await options.railsInspectionService.getMigrationDetail(
       requireProject(options.projectStore, request.params.projectId),
       request.params.version,
+      request.query.database,
     ),
   }));
 
-  app.get<{ Params: Params }>('/projects/:projectId/rails/models', {
+  app.get<{ Params: Params; Querystring: DatabaseQuery }>('/projects/:projectId/rails/models', {
     schema: {
       params: paramsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['models'],
@@ -205,6 +220,7 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
   }, async (request) => ({
     models: await options.railsInspectionService.getModelsOverview(
       requireProject(options.projectStore, request.params.projectId),
+      request.query.database,
     ),
   }));
 

@@ -72,6 +72,7 @@ const {
   migrationDetailLoading,
   migrationDetailErrorMessage,
   selectedMigrationVersion,
+  selectedDatabase: selectedMigrationsDatabase,
   mutationRunning,
   mutationMessage,
   mutationErrorMessage,
@@ -79,6 +80,7 @@ const {
   mutationLabels,
   loadMigrations,
   selectMigration,
+  selectDatabase: selectMigrationsDatabase,
   runMigrationMutation,
 } = useRailsMigrations(() => props.project, isRailsProject);
 
@@ -87,7 +89,9 @@ const {
   modelsLoading,
   modelsErrorMessage,
   selectedTableName,
+  selectedDatabase: selectedModelsDatabase,
   loadModels,
+  selectDatabase: selectModelsDatabase,
 } = useRailsModels(() => props.project, isRailsProject);
 
 const {
@@ -562,6 +566,16 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else-if="activeSection === 'migrations'" class="database-section" role="tabpanel">
+      <div v-if="(migrations?.databases.length ?? 0) > 1" class="database-segmented-control" aria-label="Selecionar banco">
+        <button
+          v-for="name in migrations?.databases ?? []"
+          :key="name"
+          type="button"
+          :class="{ active: selectedMigrationsDatabase === name }"
+          @click="selectMigrationsDatabase(name)"
+        >{{ name === 'primary' ? 'Principal' : name }}</button>
+      </div>
+
       <div class="database-metrics-grid database-metrics-grid-migrations">
         <article class="database-metric-card"><span class="database-metric-icon"><DocumentTextIcon aria-hidden="true" /></span><div><small>Total</small><strong>{{ migrations?.migrations.length ?? 0 }}</strong><span>migrations</span></div></article>
         <article class="database-metric-card database-metric-card-warning"><span class="database-metric-icon"><ArrowPathIcon aria-hidden="true" /></span><div><small>Pendentes</small><strong>{{ pendingMigrationsCount }}</strong><span>aguardando</span></div></article>
@@ -600,6 +614,16 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else-if="activeSection === 'models'" class="database-section" role="tabpanel">
+      <div v-if="(models?.databases.length ?? 0) > 1" class="database-segmented-control" aria-label="Selecionar banco">
+        <button
+          v-for="name in models?.databases ?? []"
+          :key="name"
+          type="button"
+          :class="{ active: selectedModelsDatabase === name }"
+          @click="selectModelsDatabase(name)"
+        >{{ name === 'primary' ? 'Principal' : name }}</button>
+      </div>
+
       <div class="database-metrics-grid">
         <article class="database-metric-card"><span class="database-metric-icon"><TableCellsIcon aria-hidden="true" /></span><div><small>Total de tabelas</small><strong>{{ models?.tables.length ?? 0 }}</strong><span>em {{ models?.schemaPath ?? 'schema.rb' }}</span></div></article>
         <article class="database-metric-card"><span class="database-metric-icon"><CodeBracketSquareIcon aria-hidden="true" /></span><div><small>Total de colunas</small><strong>{{ totalColumns }}</strong><span>campos declarados</span></div></article>

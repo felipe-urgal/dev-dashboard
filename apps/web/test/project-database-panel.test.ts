@@ -17,6 +17,7 @@ const emptyDatabase: ProjectDatabaseOverview = { supported: false, environments:
 
 const migrationsWithPending: RailsMigrationsOverview = {
   supported: true,
+  databases: ['primary'],
   database: 'sample_development',
   migrations: [
     { version: '20200101010101', name: 'Create users', status: 'up' },
@@ -26,6 +27,7 @@ const migrationsWithPending: RailsMigrationsOverview = {
 
 const modelsOverview: RailsModelsOverview = {
   supported: true,
+  databases: ['primary'],
   schemaPath: 'db/schema.rb',
   tables: [
     {
@@ -88,10 +90,10 @@ function mockFetchFor(
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/rails/migrations')) {
-      return new Response(JSON.stringify({ migrations: project === 'rails' ? migrationsWithPending : { supported: false, migrations: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ migrations: project === 'rails' ? migrationsWithPending : { supported: false, databases: [], migrations: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/rails/models')) {
-      return new Response(JSON.stringify({ models: project === 'rails' ? modelsOverview : { supported: false, tables: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ models: project === 'rails' ? modelsOverview : { supported: false, databases: [], tables: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/database/snapshots')) {
       return new Response(JSON.stringify({ snapshots: { snapshots: [], total: 0, retentionLimit: 10, supportedEnvironmentIds: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -181,6 +183,62 @@ test('abre os detalhes da migration em um modal com o código destacado', async 
   await flushPromises();
 
   assert.equal(document.querySelectorAll('.database-migration-modal-backdrop').length, 0);
+});
+
+test('mostra um seletor de banco em Migrations e Modelos quando há mais de um', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const database = url.searchParams.get('database') ?? 'primary';
+    if (url.pathname.endsWith('/database')) {
+      return new Response(JSON.stringify({ database: emptyDatabase }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/rails/migrations')) {
+      const migrations = database === 'data'
+        ? { supported: true, databases: ['primary', 'data'], database: 'app_development_data', migrations: [{ version: '20200201010101', name: 'Create logs', status: 'up' }] }
+        : { supported: true, databases: ['primary', 'data'], database: 'app_development', migrations: [{ version: '20200101010101', name: 'Create users', status: 'up' }] };
+      return new Response(JSON.stringify({ migrations }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/rails/models')) {
+      const models = database === 'data'
+        ? { supported: true, databases: ['primary', 'data'], schemaPath: 'db/data_schema.rb', tables: [{ name: 'logs', columns: [], indexes: [], foreignKeys: [] }] }
+        : { supported: true, databases: ['primary', 'data'], schemaPath: 'db/schema.rb', tables: [{ name: 'users', columns: [], indexes: [], foreignKeys: [] }] };
+      return new Response(JSON.stringify({ models }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/database/snapshots')) {
+      return new Response(JSON.stringify({ snapshots: { snapshots: [], total: 0, retentionLimit: 10, supportedEnvironmentIds: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  await tab(wrapper, 'Migrations').trigger('click');
+  await flushPromises();
+  assert.match(wrapper.text(), /Create users/);
+  assert.ok(!wrapper.text().includes('Create logs'));
+
+  const dataButton = wrapper.findAll('.database-segmented-control button').find((button) => button.text() === 'data');
+  assert.ok(dataButton, 'esperava o botão do banco "data"');
+  await dataButton!.trigger('click');
+  await flushPromises();
+  assert.match(wrapper.text(), /Create logs/);
+  assert.ok(!wrapper.text().includes('Create users'));
+
+  await tab(wrapper, 'Modelos').trigger('click');
+  await flushPromises();
+  assert.match(wrapper.text(), /users/);
+  assert.ok(!wrapper.text().includes('logs'));
+
+  const modelsDataButton = wrapper.findAll('.database-segmented-control button').find((button) => button.text() === 'data');
+  assert.ok(modelsDataButton, 'esperava o botão do banco "data" em Modelos');
+  await modelsDataButton!.trigger('click');
+  await flushPromises();
+  assert.match(wrapper.text(), /logs/);
+  assert.ok(!wrapper.text().includes('users'));
 });
 
 test('projeto Node oculta as abas exclusivas de Rails', async () => {

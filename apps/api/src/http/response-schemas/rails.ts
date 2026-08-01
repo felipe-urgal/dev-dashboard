@@ -80,9 +80,10 @@ export const railsMigrationEntryResponseSchema = {
 
 export const railsMigrationsOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['supported', 'migrations'],
+  required: ['supported', 'databases', 'migrations'],
   properties: {
     supported: { type: 'boolean' },
+    databases: { type: 'array', items: { type: 'string' } },
     database: { type: 'string' },
     migrations: { type: 'array', items: railsMigrationEntryResponseSchema },
   },

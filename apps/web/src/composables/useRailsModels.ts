@@ -15,6 +15,7 @@ export function useRailsModels(
   const modelsLoading = ref(false);
   const modelsErrorMessage = ref('');
   const selectedTableName = ref('');
+  const selectedDatabase = ref('primary');
 
   let generation = 0;
 
@@ -24,7 +25,7 @@ export function useRailsModels(
     modelsLoading.value = true;
     modelsErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsModels(getProject().id);
+      const result = await fetchProjectRailsModels(getProject().id, selectedDatabase.value);
       if (current !== generation) return;
       models.value = result;
       if (!result.tables.some((table) => table.name === selectedTableName.value)) {
@@ -37,12 +38,20 @@ export function useRailsModels(
     }
   }
 
+  function selectDatabase(database: string): void {
+    if (selectedDatabase.value === database) return;
+    selectedDatabase.value = database;
+    selectedTableName.value = '';
+    void loadModels();
+  }
+
   watch(
     () => getProject().id,
     () => {
       generation += 1;
       models.value = null;
       selectedTableName.value = '';
+      selectedDatabase.value = 'primary';
       void loadModels();
     },
     { immediate: true },
@@ -53,6 +62,8 @@ export function useRailsModels(
     modelsLoading,
     modelsErrorMessage,
     selectedTableName,
+    selectedDatabase,
     loadModels,
+    selectDatabase,
   };
 }
