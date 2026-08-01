@@ -1,5 +1,8 @@
 # Próxima atividade
 
+A melhoria pontual da task 062 foi concluída. Ela não altera a prioridade das
+frentes abaixo, que continuam aguardando decisão de início.
+
 Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
 código escrito ainda:
 
