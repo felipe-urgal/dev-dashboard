@@ -727,7 +727,6 @@ completo direto no arquivo.
  539  apps/web/src/components/CommandPalette.vue
  530  apps/web/src/test-log-inspector.ts
  493  apps/web/src/utils/git-diff-view.ts
- 471  apps/api/src/services/database-snapshot-service.ts
  467  apps/web/src/stores/dashboard.ts
  461  apps/web/src/utils/git-syntax-highlight.ts
  456  apps/api/src/services/git-sync-service.ts
@@ -880,14 +879,26 @@ ficou só com as 4 funções de serviço. Verificado com `typecheck`, `build` e 
 `git-commit-details-service`/`git-current-branch-history-service`/
 `git-exclusive-branch-history-service`, mais o monorepo completo — todos verdes.
 
+**`apps/api/src/services/database-snapshot-service.ts` (471 → 329 linhas) — concluído**, décimo
+arquivo desta fase. Split em `database-snapshot/`: `errors.ts`
+(`DatabaseSnapshotErrorCode`/`DatabaseSnapshotError`), `constants.ts` (retenção, TTL, limite de
+tamanho, timeout, os binários de dump/restore por driver), `connection.ts` (`snapshotDriver`/
+`connectionFor`/`dumpArguments`/`restoreArguments`/`passwordEnvironment`, a montagem da conexão a
+partir do que a detecção já sabe — nunca dados vindos do navegador) e `process-helpers.ts`
+(`spawnFailure`/`normalizeLabel`). A classe `DatabaseSnapshotService` (dump/restore via
+`spawn`+`pipeline` com gzip, confirmação em duas etapas) fica sozinha no arquivo principal, com
+`StoredSnapshot`/`PendingRestore` internos. Verificado com `typecheck`, `build` e os 19 testes de
+`database-snapshot-service`/`database-snapshot-routes`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
-`git-stash-service.ts` e `git-commit-details-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`git-stash-service.ts`, `git-commit-details-service.ts` e `database-snapshot-service.ts` saíram da
+lista por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~25 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~24 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
