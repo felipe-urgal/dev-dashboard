@@ -21,14 +21,15 @@ async function readScriptsExplorerCss(): Promise<string> {
   return [arquivoPrincipal, ...importados].join('\n');
 }
 
-test('estrutura scripts como explorador com visão geral, catálogo e execuções', async () => {
+test('estrutura scripts como explorador direto de catálogo e execuções', async () => {
   const component = await readFile(
     sourceFile('components/ProjectScriptsPanel.vue'),
     'utf8',
   );
 
-  assert.match(component, /type ScriptSection = 'overview' \| 'catalog' \| 'executions'/);
-  assert.match(component, /label: 'Visão geral'/);
+  assert.match(component, /type ScriptSection = 'catalog' \| 'executions'/);
+  assert.match(component, /ref<ScriptSection>\('catalog'\)/);
+  assert.doesNotMatch(component, /label: 'Visão geral'/);
   assert.match(component, /label: 'Catálogo'/);
   assert.match(component, /label: 'Execuções'/);
   assert.match(component, /class="scripts-catalog-layout"/);
