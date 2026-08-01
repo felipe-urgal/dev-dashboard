@@ -8,7 +8,16 @@ Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM 
 mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
 `git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 iniciada:
 etapa 1 (funções livres de `process-manager.ts`, 1430 → 1070 linhas) concluída; etapa 2 (métodos
-acoplados ao estado privado da classe) pendente de avaliação.
+acoplados ao estado privado da classe) pendente de avaliação. **Fase 7 (reinventário) adicionada**:
+levantamento atualizado dos 36 arquivos acima de 400 linhas hoje no repo, depois de várias entregas
+funcionais terem crescido de novo arquivos já tocados nas fases anteriores — aguardando decisão de
+início, sem código escrito ainda para esta fase.
+
+> Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
+> por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
+> `ProjectGitDiffPage.vue` como nunca refatorados. Foi removido e o conteúdo relevante (inventário
+> atualizado) foi incorporado à Fase 7 abaixo — este arquivo é a única fonte de verdade sobre o
+> plano de quebra de arquivos grandes.
 
 ## Contexto
 
@@ -642,6 +651,63 @@ explícito — tratar como sub-tarefa própria, rodando a suíte completa (`proc
 `log-retention.test.ts`) a cada extração. Avaliar se o ganho compensa: a classe restante (~965
 linhas) é coesa em torno do seu estado, e fatiar métodos que compartilham três `Map`s privados
 exigiria exatamente o tipo de refatoração comportamental que este plano evita.
+
+### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features)
+
+Levantamento novo de todos os arquivos acima de 400 linhas no monorepo hoje, feito depois de várias
+entregas funcionais na aba Banco de dados (tasks 056–060) e na aba Diff (task 058). Alguns arquivos
+já tocados nas fases 4/5 voltaram a crescer por causa de funcionalidade nova, não porque a extração
+anterior foi desfeita — por exemplo `ProjectGitDiffPage.vue` ficou em 656 linhas ao final da Fase 4,
+mas está em 871 agora depois de a task 058 substituir o enhancer legado por um componente Vue mais
+completo direto no arquivo.
+
+```
+1070  packages/process-manager/src/process-manager.ts        [Fase 6 etapa 2 pendente]
+ 885  apps/web/src/components/ProjectLogsPanel.vue            [Fase 4 já fez sub-etapa 1+2; reavaliar]
+ 871  apps/web/src/components/ProjectGitDiffPage.vue          [cresceu de novo pós task 058; reavaliar]
+ 842  apps/api/src/services/git-service.ts
+ 823  apps/web/src/components/ProjectGitHistoryPage.vue
+ 747  apps/web/src/components/ProjectScriptsPanel.vue
+ 743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
+ 683  apps/web/src/views/ActivityView.vue
+ 666  apps/api/src/routes/tests.ts
+ 660  apps/api/src/services/script-execution-service.ts
+ 649  apps/api/src/services/rails-inspection-service.ts        [cresceu com generators, task 060]
+ 629  apps/web/src/components/ProjectGitPanel.vue
+ 627  apps/web/src/components/ProjectReadmePanel.vue
+ 611  apps/web/src/components/ProjectGitBranchesPage.vue
+ 604  apps/api/src/services/git-pull-request-service.ts
+ 600  apps/api/src/routes/processes.ts
+ 593  apps/web/src/views/ProcessesView.vue
+ 590  apps/web/src/components/ProjectServerPanel.vue
+ 588  apps/web/src/components/NoticeCenter.vue
+ 587  apps/api/src/services/test-detection-service.ts
+ 573  apps/web/src/components/ProjectGitPullRequestPage.vue
+ 573  apps/api/src/services/git-stash-service.ts
+ 571  apps/web/src/views/DashboardView.vue
+ 539  apps/web/src/components/CommandPalette.vue
+ 530  apps/web/src/test-log-inspector.ts
+ 519  apps/api/src/services/git-commit-details-service.ts
+ 493  apps/web/src/utils/git-diff-view.ts
+ 471  apps/api/src/services/database-snapshot-service.ts
+ 467  apps/web/src/stores/dashboard.ts
+ 461  apps/web/src/utils/git-syntax-highlight.ts
+ 456  apps/api/src/services/git-sync-service.ts
+ 437  apps/api/src/routes/git-workspace.ts
+ 434  apps/web/src/composables/useProjectTestsPanel.ts
+ 430  apps/api/src/routes/rails.ts                             [cresceu com rotas de generator, task 060]
+ 425  apps/api/src/routes/projects.ts
+ 423  apps/api/src/routes/git-stash.ts
+ 404  apps/web/src/components/ProjectTestsGuidedPanel.vue
+ 404  apps/api/src/services/git-undo-service.ts
+```
+
+Regra geral desta fase é a mesma das anteriores (refatoração pura, sem mudar assinatura pública,
+~200 linhas por arquivo novo como meta). Diferença de processo: para os arquivos já quebrados antes
+(`ProjectLogsPanel.vue`, `ProjectDatabasePanel.vue`, `ProjectGitDiffPage.vue`), o primeiro passo é
+reler o que já foi extraído nas Fases 4/5 e decidir se o crescimento novo cabe num composable já
+existente ou pede um novo, em vez de repetir a análise do zero. Sem plano detalhado arquivo a
+arquivo ainda — mesmo formato das fases anteriores, mapeado em lotes conforme a execução avança.
 
 ## Ordem de execução
 

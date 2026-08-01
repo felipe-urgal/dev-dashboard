@@ -1,21 +1,59 @@
 # Próxima atividade
 
-Nenhuma atividade específica planejada no momento. A aba Banco de dados
-recebeu uma sequência de entregas (056–060: limpeza de Rotas/Dependências,
-pausar/reiniciar o banco local, múltiplos bancos por ambiente em
-`database.yml`/Migrations/Modelos, modal de migration com syntax highlight,
-remoção do enhancer legado da aba Diff, e geração de model/migration) — vale
-revisitar a aba como um todo antes de propor a próxima fatia, em vez de
-assumir de antemão qual é a lacuna mais importante.
+Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
+código escrito ainda:
 
-Candidatos observados ao longo dessas entregas, nenhum dimensionado ainda:
+## 1. Refatoração pura dos arquivos acima de 400 linhas
 
-- os arquivos criados por `rails generate` (060) aparecem só como texto; não
-  há ação de abrir no editor — a aba Banco de dados não tem hoje esse tipo
-  de integração;
-- `runMigrationMutation` (migrate/rollback/seed/db:prepare) sempre opera em
-  todos os bancos configurados de uma vez; não há como escolher rodar só
-  num banco secundário pela interface (059);
-- a correlação entre bloco de `db:migrate:status` e banco configurado (059)
-  é heurística (nome do arquivo contém o nome da configuração); não há um
-  jeito formal de confirmar a correspondência.
+Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases 1–5
+já concluídas em sessões anteriores; fase 6 com a etapa 1 concluída, etapa 2
+pendente; fase 7 é o reinventário mais recente, 36 arquivos acima de 400
+linhas hoje). Nenhuma API pública muda — é reorganização de arquivo, não de
+comportamento. Falta decidir se a próxima ação é fechar a fase 6 etapa 2
+(`process-manager.ts`) ou começar a fase 7 pelos arquivos que mais
+cresceram.
+
+## 2. Abrir o editor local do usuário
+
+Próxima candidata concreta de "paridade CLI→Web" (Horizonte 2 do roadmap):
+a API roda `code <projeto>` (ou `cursor`/outro, catálogo fechado de
+editores conhecidos), sem shell — igual ao adaptador que o CLI Bash já tem
+para terminal/Claude. Ainda não tem doc de desenho próprio; é o próximo
+passo antes de codar.
+
+Fase 2 dessa mesma frente (editor completo dentro do navegador, tipo
+Monaco/CodeMirror lendo qualquer arquivo do projeto pela API) foi
+propositalmente adiada para o Horizonte 4 — é uma superfície de acesso a
+arquivo muito maior que qualquer endpoint hoje e pede modelo de ameaça
+próprio antes de qualquer código.
+
+## 3. Docker Compose por serviços declarados e allowlist
+
+Item do Horizonte 3 do roadmap. Desenho completo em
+`docs/architecture/docker-compose-design.md`: ler `docker-compose.yml`/
+`compose.yaml` já existente no projeto (nunca criar/buildar imagem),
+catálogo fechado de 4 ações (`start`/`stop`/`restart`/`logs`) via
+`execFile('docker', [...])` sem shell, confirmação em duas etapas para
+`stop`/`restart`. Ponto em aberto que trava o início da implementação: se
+`logs` vira um terceiro `kind` de `ManagedProcess` (`'compose-service'`,
+reaproveitando o rastreamento de PID/log que já existe, mais retrabalho) ou
+uma leitura pontual com `--tail` (mais simples, sem streaming ao vivo) — o
+doc recomenda a primeira opção, mas registra o trade-off para decisão na
+hora de codar.
+
+## Outras frentes documentadas, sem prioridade definida ainda
+
+- **Rake tasks com variáveis** (`ENV['FILE']` etc.): desenho completo em
+  `docs/refactor/rake-tasks-mapeamento.md`, a partir de um exemplo real
+  fornecido. Detecção estática das variáveis obrigatórias/opcionais direto
+  do código-fonte da task, formulário gerado a partir disso.
+- candidatos observados nas entregas 057–060 da aba Banco de dados:
+  - os arquivos criados por `rails generate` (060) aparecem só como texto,
+    sem ação de abrir no editor — conecta com a frente 2 acima quando ela
+    sair;
+  - `runMigrationMutation` (migrate/rollback/seed/db:prepare) sempre opera
+    em todos os bancos configurados de uma vez; não há como escolher rodar
+    só num banco secundário pela interface (059);
+  - a correlação entre bloco de `db:migrate:status` e banco configurado
+    (059) é heurística (nome do arquivo contém o nome da configuração); não
+    há um jeito formal de confirmar a correspondência.
