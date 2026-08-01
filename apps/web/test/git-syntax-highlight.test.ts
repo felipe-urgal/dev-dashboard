@@ -42,6 +42,20 @@ test('destaca palavras-chave, classes, métodos, símbolos e comentários Ruby',
   assert.match(symbol, /git-syntax-comment[^>]*># remove filhos/);
 });
 
+test('limita comentários Ruby à linha atual em blocos de código', () => {
+  const highlighted = highlightGitDiffCode([
+    'class CreatePosts < ActiveRecord::Migration[7.0]',
+    '  # Colunas usadas por integrações antigas',
+    '  t.string :gallery_uuid, limit: 36',
+    'end',
+  ].join('\n'), 'db/migrate/20240101010101_create_posts.rb');
+
+  assert.match(highlighted, /<span class="git-syntax-comment"># Colunas usadas por integrações antigas<\/span>\n/);
+  assert.match(highlighted, /\n\s*<span class="git-syntax-function">t<\/span>/);
+  assert.match(highlighted, /<span class="git-syntax-symbol">:gallery_uuid<\/span>/);
+  assert.doesNotMatch(highlighted, /git-syntax-comment[^<]*# Colunas[^<]*t\.string/);
+});
+
 test('mantém a busca marcada dentro dos tokens de sintaxe', () => {
   const highlighted = highlightGitDiffCode(
     'def current_site',

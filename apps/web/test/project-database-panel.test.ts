@@ -83,7 +83,12 @@ function mockFetchFor(
               name: entry?.name,
               status: entry?.status,
               filePath: `db/migrate/${version}_${entry?.name.toLowerCase().replaceAll(' ', '_')}.rb`,
-              source: `class ${entry?.name.replaceAll(' ', '')}\nend`,
+              source: [
+                `class ${entry?.name.replaceAll(' ', '')} < ActiveRecord::Migration[7.0]`,
+                '  # Mantém compatibilidade com dados antigos',
+                '  t.string :legacy_uuid, limit: 36',
+                'end',
+              ].join('\n'),
               truncated: false,
             }
           : { supported: false, version, truncated: false },
@@ -186,6 +191,9 @@ test('abre os detalhes da migration em um modal com o código destacado', async 
   const code = backdrop!.querySelector('code.git-syntax-code');
   assert.ok(code, 'esperava o código destacado');
   assert.ok((code!.innerHTML ?? '').includes('git-syntax-'), 'esperava tokens de syntax highlight');
+  assert.match(code!.innerHTML, /git-syntax-comment[^>]*># Mantém compatibilidade com dados antigos<\/span>\n/);
+  assert.match(code!.innerHTML, /\n\s*<span class="git-syntax-function">t<\/span>/);
+  assert.match(code!.innerHTML, /git-syntax-symbol[^>]*>:legacy_uuid/);
 
   const closeButton = backdrop!.querySelector<HTMLButtonElement>('.database-migration-modal-close');
   assert.ok(closeButton);
