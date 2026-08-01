@@ -722,7 +722,6 @@ completo direto no arquivo.
  593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
  588  apps/web/src/components/NoticeCenter.vue
- 587  apps/api/src/services/test-detection-service.ts
  573  apps/web/src/components/ProjectGitPullRequestPage.vue
  573  apps/api/src/services/git-stash-service.ts
  571  apps/web/src/views/DashboardView.vue
@@ -846,13 +845,27 @@ Mesmo padrão de `routes/tests.ts`: plugin único registrando 9 rotas, dividido 
 com `typecheck`, `build` e os 26 testes de `processes-route`/`process-cleanup`/`server-config`/
 `routes`, mais o monorepo completo — todos verdes.
 
+**`apps/api/src/services/test-detection-service.ts` (587 → 118 linhas) — concluído**, sétimo
+arquivo desta fase. Divisão por origem de detecção (mesmo critério de
+`packages/project-discovery`): `errors.ts` (`TestFileErrorCode`/`TestFileError`), `types.ts`
+(`ResolvedCommand`/`DetectedTestCommand`, compartilhados por todos os detectores), `fs-helpers.ts`
+(`pathExists`), `node-detection.ts` (`detectNodeCommands` e seus helpers privados de
+package.json/lockfile), `rails-detection.ts` (`detectRailsCommands`), `python-detection.ts`
+(`detectPythonCommands`) e `file-scan.ts` (`findTestFiles`/`ensureTestPathInsideProject`/
+`composeFileCommand`/`FILE_TARGET_PATTERNS`, a varredura de arquivos de teste por padrão de nome). O
+arquivo principal ficou só com a classe `TestDetectionService` (cache + orquestração dos três
+detectores por `project.type`). Verificado com `typecheck`, `build` e os 28 testes de
+`test-detection-service`/`test-file-routes`/`related-test-service`, mais o monorepo completo —
+todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
-`git-pull-request-service.ts` e `routes/processes.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`git-pull-request-service.ts`, `routes/processes.ts` e `test-detection-service.ts` saíram da lista
+por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~28 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~27 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
