@@ -1,7 +1,6 @@
 .database-overview-block,
 .database-sidebar-panel,
 .database-detail-panel,
-.database-inspector-panel,
 .database-mutation-panel {
   min-width: 0;
   border: 1px solid var(--border);

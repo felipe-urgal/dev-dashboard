@@ -69,7 +69,7 @@ test('implementa painéis, tabelas roláveis e adaptação responsiva', async ()
 
   assert.match(css, /database-metrics-grid/);
   assert.match(css, /database-split-layout/);
-  assert.match(css, /database-table-detail-layout/);
+  assert.match(css, /database-migration-modal/);
   assert.match(css, /database-data-table thead[\s\S]*position:\s*sticky/);
   assert.match(css, /@media \(max-width: 940px\)/);
   assert.match(css, /@media \(max-width: 720px\)/);

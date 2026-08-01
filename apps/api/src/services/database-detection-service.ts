@@ -135,38 +135,80 @@ function interpolate(value: string, env: Record<string, string>): string {
   );
 }
 
+function collectFields(lines: string[], minIndent: number): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const pattern = new RegExp(`^\\s{${minIndent},}([a-z_]+):\\s*(.*?)\\s*$`, 'i');
+  for (const line of lines) {
+    const match = line.match(pattern);
+    if (match) fields[match[1] ?? ''] = (match[2] ?? '').replace(/^['"]|['"]$/g, '');
+  }
+  return fields;
+}
+
+/**
+ * Rails 6+ permite múltiplos bancos por ambiente (`development: { primary: {...}, data: {...} }`).
+ * Uma linha de 2 espaços terminada em ":" sem valor é o nome do banco; seus campos ficam a 4+ espaços.
+ */
+function buildEnvironment(
+  section: string,
+  databaseName: string | null,
+  fields: Record<string, string>,
+  defaults: Record<string, string>,
+  env: Record<string, string>,
+): DetectedDatabase | null {
+  const merged = { ...defaults, ...fields };
+  const isSecondaryDatabase = databaseName !== null && databaseName !== 'primary';
+  const environment = isSecondaryDatabase ? `${section}/${databaseName}` : section;
+  const id = isSecondaryDatabase ? `rails-${section}-${databaseName}` : `rails-${section}`;
+
+  const urlValue = merged.url;
+  if (urlValue) return fromUrl(id, environment, interpolate(urlValue, env), 'rails-database-yml', 'config/database.yml');
+
+  const driver = interpolate(merged.adapter ?? '', env);
+  if (!driver) return null;
+  const host = interpolate(merged.host ?? 'localhost', env);
+  const port = Number(interpolate(merged.port ?? '', env)) || defaultPorts[driver];
+  const username = interpolate(merged.username ?? '', env);
+  const password = interpolate(merged.password ?? '', env);
+  const database = interpolate(merged.database ?? '', env);
+  const protocol = driver === 'postgresql' ? 'postgresql' : driver.replace('2', '');
+  const auth = username ? `${encodeURIComponent(username)}${password ? `:${encodeURIComponent(password)}` : ''}@` : '';
+  const databaseUrl = `${protocol}://${auth}${host}${port ? `:${port}` : ''}/${database}`;
+  const maskedUrl = password ? databaseUrl.replace(`:${encodeURIComponent(password)}@`, ':••••••••@') : databaseUrl;
+  return { id, environment, driver, host, ...(port ? { port } : {}), ...(database ? { database } : {}), ...(username ? { username } : {}), passwordConfigured: Boolean(password), maskedUrl, source: 'rails-database-yml', sourceDetail: 'config/database.yml', databaseUrl };
+}
+
 function parseRails(contents: string, env: Record<string, string>): DetectedDatabase[] {
   const results: DetectedDatabase[] = [];
-  let section = '';
-  let fields: Record<string, string> = {};
   let defaults: Record<string, string> = {};
+  let sectionName = '';
+  let sectionLines: string[] = [];
+
   const flush = () => {
-    if (!section) return;
-    if (section === 'default') { defaults = { ...fields }; return; }
-    fields = { ...defaults, ...fields };
-    const urlValue = fields.url;
-    if (urlValue) {
-      const item = fromUrl(`rails-${section}`, section, interpolate(urlValue, env), 'rails-database-yml', 'config/database.yml');
+    if (!sectionName) return;
+    if (sectionName === 'default') { defaults = collectFields(sectionLines, 2); sectionLines = []; return; }
+
+    const databaseKeys = sectionLines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => /^ {2}[a-z_]+:\s*(?:&\S+)?\s*$/i.test(line));
+
+    if (databaseKeys.length === 0) {
+      const item = buildEnvironment(sectionName, null, collectFields(sectionLines, 2), defaults, env);
       if (item) results.push(item);
-      return;
+    } else {
+      databaseKeys.forEach(({ line, index }, position) => {
+        const databaseName = line.trim().replace(/:.*$/, '');
+        const nextIndex = databaseKeys[position + 1]?.index ?? sectionLines.length;
+        const item = buildEnvironment(sectionName, databaseName, collectFields(sectionLines.slice(index + 1, nextIndex), 4), defaults, env);
+        if (item) results.push(item);
+      });
     }
-    const driver = interpolate(fields.adapter ?? '', env);
-    if (!driver) return;
-    const host = interpolate(fields.host ?? 'localhost', env);
-    const port = Number(interpolate(fields.port ?? '', env)) || defaultPorts[driver];
-    const username = interpolate(fields.username ?? '', env);
-    const password = interpolate(fields.password ?? '', env);
-    const database = interpolate(fields.database ?? '', env);
-    const protocol = driver === 'postgresql' ? 'postgresql' : driver.replace('2', '');
-    const auth = username ? `${encodeURIComponent(username)}${password ? `:${encodeURIComponent(password)}` : ''}@` : '';
-    const databaseUrl = `${protocol}://${auth}${host}${port ? `:${port}` : ''}/${database}`;
-    const maskedUrl = password ? databaseUrl.replace(`:${encodeURIComponent(password)}@`, ':••••••••@') : databaseUrl;
-    results.push({ id: `rails-${section}`, environment: section, driver, host, ...(port ? { port } : {}), ...(database ? { database } : {}), ...(username ? { username } : {}), passwordConfigured: Boolean(password), maskedUrl, source: 'rails-database-yml', sourceDetail: 'config/database.yml', databaseUrl });
+    sectionLines = [];
   };
+
   for (const rawLine of contents.split(/\r?\n/)) {
-    if (/^\S[^:]*:\s*(?:&\S+)?\s*$/.test(rawLine)) { flush(); section = rawLine.split(':')[0]?.trim() ?? ''; fields = {}; continue; }
-    const match = rawLine.match(/^\s{2,}([a-z_]+):\s*(.*?)\s*$/i);
-    if (match) fields[match[1] ?? ''] = (match[2] ?? '').replace(/^['"]|['"]$/g, '');
+    if (/^\S[^:]*:\s*(?:&\S+)?\s*$/.test(rawLine)) { flush(); sectionName = rawLine.split(':')[0]?.trim() ?? ''; continue; }
+    if (sectionName) sectionLines.push(rawLine);
   }
   flush();
   return results;

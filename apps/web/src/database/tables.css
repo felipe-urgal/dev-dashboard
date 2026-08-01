@@ -8,7 +8,7 @@
   scrollbar-width: thin;
 }
 
-.database-table-detail-layout > .database-table-shell {
+.database-section > .database-table-shell {
   max-height: min(68vh, 720px);
 }
 

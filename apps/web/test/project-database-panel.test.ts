@@ -152,6 +152,37 @@ test('roda migrate após confirmação e recarrega o status', async () => {
   assert.match(wrapper.text(), /migrating/);
 });
 
+test('abre os detalhes da migration em um modal com o código destacado', async () => {
+  const originalFetch = mockFetchFor('rails');
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) }, attachTo: document.body });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(document.querySelectorAll('.database-migration-modal-backdrop').length, 0);
+
+  await tab(wrapper, 'Migrations').trigger('click');
+  const row = wrapper.findAll('.database-migrations-table tbody tr').find((candidate) => candidate.text().includes('Create users'));
+  assert.ok(row);
+  await row!.find('button').trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const backdrop = document.querySelector('.database-migration-modal-backdrop');
+  assert.ok(backdrop, 'esperava o modal de detalhes aberto');
+  assert.match(backdrop!.textContent ?? '', /Create users/);
+  const code = backdrop!.querySelector('code.git-syntax-code');
+  assert.ok(code, 'esperava o código destacado');
+  assert.ok((code!.innerHTML ?? '').includes('git-syntax-'), 'esperava tokens de syntax highlight');
+
+  const closeButton = backdrop!.querySelector<HTMLButtonElement>('.database-migration-modal-close');
+  assert.ok(closeButton);
+  closeButton!.click();
+  await flushPromises();
+
+  assert.equal(document.querySelectorAll('.database-migration-modal-backdrop').length, 0);
+});
+
 test('projeto Node oculta as abas exclusivas de Rails', async () => {
   const originalFetch = mockFetchFor('node');
   const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });

@@ -18,7 +18,7 @@
 
 .database-section > .database-explorer-alert,
 .database-mutation-panel .database-explorer-alert,
-.database-inspector-panel .database-explorer-alert {
+.database-migration-modal-body .database-explorer-alert {
   margin: 0;
 }
 

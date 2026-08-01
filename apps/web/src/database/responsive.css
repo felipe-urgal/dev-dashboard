@@ -19,19 +19,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .database-split-layout,
-  .database-table-detail-layout {
+  .database-split-layout {
     grid-template-columns: 1fr;
   }
 
   .database-sidebar-panel {
     max-height: 430px;
     min-height: 320px;
-  }
-
-  .database-inspector-panel {
-    position: static;
-    max-height: none;
   }
 
   .database-environment-detail-grid {
@@ -81,7 +75,7 @@
 
   .database-section > .database-explorer-alert,
   .database-mutation-panel .database-explorer-alert,
-  .database-inspector-panel .database-explorer-alert {
+  .database-migration-modal-body .database-explorer-alert {
     margin-inline: 0;
   }
 

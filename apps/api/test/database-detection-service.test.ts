@@ -56,6 +56,23 @@ test('não testa conectividade de hosts remotos definidos pelo projeto', async (
   assert.equal(overview.environments[0]?.reachability, 'unknown');
 });
 
+test('detecta múltiplos bancos por ambiente (Rails 6+ primary/data)', async () => {
+  const project = await fixture({
+    'config/database.yml': `test:\n  primary:\n    adapter: mysql2\n    host: localhost\n    database: app_test\n\n  data:\n    adapter: mysql2\n    host: localhost\n    database: app_test_data\n\ndevelopment:\n  primary:\n    adapter: mysql2\n    host: localhost\n    database: app_development\n\n  data:\n    adapter: mysql2\n    host: localhost\n    database: app_development_data\n`,
+  });
+  const overview = await new DatabaseDetectionService().getOverview(project);
+  assert.equal(overview.total, 4);
+  assert.deepEqual(
+    overview.environments.map((item) => ({ environment: item.environment, database: item.database })),
+    [
+      { environment: 'test', database: 'app_test' },
+      { environment: 'test/data', database: 'app_test_data' },
+      { environment: 'development', database: 'app_development' },
+      { environment: 'development/data', database: 'app_development_data' },
+    ],
+  );
+});
+
 test('oferece e inicia o serviço systemd correspondente ao banco local', async () => {
   const project = await fixture({
     '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',

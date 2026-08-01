@@ -24,6 +24,7 @@ import {
   PlayIcon,
   ServerStackIcon,
   TableCellsIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
 import type {
@@ -39,6 +40,7 @@ import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOve
 import { useProjectDatabaseSnapshots } from '../composables/useProjectDatabaseSnapshots';
 import { useRailsMigrations } from '../composables/useRailsMigrations';
 import { useRailsModels } from '../composables/useRailsModels';
+import { highlightGitDiffCode } from '../utils/git-syntax-highlight';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 
@@ -110,6 +112,7 @@ const globalFilter = ref('');
 const migrationFilter = ref('');
 const migrationStatusFilter = ref<MigrationStatusFilter>('all');
 const modelFilter = ref('');
+const migrationModalOpen = ref(false);
 
 const copiedKey = ref('');
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -210,6 +213,25 @@ const selectedMigrationEntry = computed<RailsMigrationEntry | null>(() =>
   ?? null,
 );
 
+const migrationSourceHtml = computed(() => {
+  const source = migrationDetail.value?.source;
+  if (!source) return '';
+  return highlightGitDiffCode(source, migrationDetail.value?.filePath || 'migration.rb');
+});
+
+function openMigration(entry: RailsMigrationEntry): void {
+  selectMigration(entry);
+  migrationModalOpen.value = true;
+}
+
+function closeMigrationModal(): void {
+  migrationModalOpen.value = false;
+}
+
+function handleDatabaseExplorerKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && migrationModalOpen.value) closeMigrationModal();
+}
+
 const selectedTable = computed<RailsSchemaTable | null>(() =>
   models.value?.tables.find((table) => table.name === selectedTableName.value)
   ?? models.value?.tables[0]
@@ -284,6 +306,7 @@ watch(() => props.project.id, () => {
   globalFilter.value = '';
   migrationFilter.value = '';
   modelFilter.value = '';
+  migrationModalOpen.value = false;
 }, { immediate: true });
 
 onBeforeUnmount(() => {
@@ -292,7 +315,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="database-explorer" aria-labelledby="database-explorer-title">
+  <section class="database-explorer" aria-labelledby="database-explorer-title" @keydown="handleDatabaseExplorerKeydown">
     <header class="database-explorer-header">
       <div class="database-explorer-heading">
         <span class="database-explorer-breadcrumb">Projeto / Banco de dados</span>
@@ -377,7 +400,7 @@ onBeforeUnmount(() => {
         <div v-if="migrationsLoading && !migrations" class="database-empty-state database-empty-state-compact">Consultando migrations…</div>
         <ul v-else class="database-preview-list">
           <li v-for="entry in migrations?.migrations.slice(0, 5) ?? []" :key="entry.version">
-            <button type="button" @click="selectMigration(entry); selectSection('migrations')">
+            <button type="button" @click="openMigration(entry); selectSection('migrations')">
               <span class="database-preview-dot" :class="`is-${entry.status}`"></span>
               <code>{{ entry.version }}</code>
               <strong>{{ entry.name }}</strong>
@@ -554,40 +577,19 @@ onBeforeUnmount(() => {
       <div v-if="migrationsErrorMessage" class="database-explorer-alert" role="alert">{{ migrationsErrorMessage }}</div>
       <div v-else-if="migrationsLoading && !migrations" class="database-empty-state">Consultando migrations…</div>
       <div v-else-if="migrations && !migrations.supported" class="database-empty-state"><strong>Status de migrations indisponível.</strong><span>Não encontramos bin/rails ou o comando falhou.</span></div>
-      <div v-else class="database-table-detail-layout">
-        <div class="database-table-shell">
-          <table class="database-data-table database-migrations-table">
-            <thead><tr><th>Versão</th><th>Nome</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="entry in filteredMigrations" :key="entry.version" :class="{ active: selectedMigrationEntry?.version === entry.version }">
-                <td><button type="button" @click="selectMigration(entry)"><code>{{ entry.version }}</code></button></td>
-                <td><button type="button" @click="selectMigration(entry)">{{ entry.name }}</button></td>
-                <td><StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge></td>
-                <td><button class="database-row-action" type="button" aria-label="Ver detalhes" @click="selectMigration(entry)"><ChevronRightIcon aria-hidden="true" /></button></td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="filteredMigrations.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma migration corresponde aos filtros.</p>
-        </div>
-
-        <aside class="database-inspector-panel">
-          <header><div><small>Detalhes da migration</small><h4>{{ selectedMigrationEntry?.name ?? 'Selecione uma migration' }}</h4></div></header>
-          <div v-if="migrationDetailErrorMessage" class="database-explorer-alert" role="alert">{{ migrationDetailErrorMessage }}</div>
-          <div v-else-if="migrationDetailLoading" class="database-empty-state database-empty-state-compact">Carregando arquivo…</div>
-          <template v-else-if="selectedMigrationEntry">
-            <StatusBadge :tone="railsMigrationToneFor(selectedMigrationEntry.status)">{{ migrationStatusLabels[selectedMigrationEntry.status] }}</StatusBadge>
-            <dl class="database-inspector-list">
-              <div><dt>Versão</dt><dd><code>{{ selectedMigrationEntry.version }}</code><button type="button" @click="copy(selectedMigrationEntry.version, 'migration-version')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-version' ? 'Copiada' : 'Copiar' }}</button></dd></div>
-              <div><dt>Arquivo</dt><dd><code>{{ migrationDetail?.filePath ?? 'Arquivo não localizado' }}</code></dd></div>
-              <div><dt>Status</dt><dd>{{ migrationStatusLabels[selectedMigrationEntry.status] }}</dd></div>
-            </dl>
-            <section class="database-source-preview">
-              <header><strong>Código da migration</strong><button v-if="migrationDetail?.source" type="button" @click="copy(migrationDetail.source, 'migration-source')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-source' ? 'Código copiado' : 'Copiar código' }}</button></header>
-              <pre v-if="migrationDetail?.source"><code>{{ migrationDetail.source }}</code></pre>
-              <p v-else>O status existe no banco, mas o arquivo da migration não foi encontrado no projeto.</p>
-            </section>
-          </template>
-        </aside>
+      <div v-else class="database-table-shell">
+        <table class="database-data-table database-migrations-table">
+          <thead><tr><th>Versão</th><th>Nome</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="entry in filteredMigrations" :key="entry.version">
+              <td><button type="button" @click="openMigration(entry)"><code>{{ entry.version }}</code></button></td>
+              <td><button type="button" @click="openMigration(entry)">{{ entry.name }}</button></td>
+              <td><StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge></td>
+              <td><button class="database-row-action" type="button" aria-label="Ver detalhes" @click="openMigration(entry)"><ChevronRightIcon aria-hidden="true" /></button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="filteredMigrations.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma migration corresponde aos filtros.</p>
       </div>
 
       <section class="database-mutation-panel">
@@ -635,5 +637,46 @@ onBeforeUnmount(() => {
         </article>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="migrationModalOpen"
+        class="database-migration-modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalhes da migration"
+        @click.self="closeMigrationModal"
+      >
+        <article class="database-migration-modal">
+          <header class="database-migration-modal-head">
+            <div>
+              <small>Detalhes da migration</small>
+              <h4>{{ selectedMigrationEntry?.name ?? 'Selecione uma migration' }}</h4>
+            </div>
+            <button type="button" class="database-migration-modal-close" aria-label="Fechar detalhes" @click="closeMigrationModal">
+              <XMarkIcon aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="database-migration-modal-body">
+            <div v-if="migrationDetailErrorMessage" class="database-explorer-alert" role="alert">{{ migrationDetailErrorMessage }}</div>
+            <div v-else-if="migrationDetailLoading" class="database-empty-state database-empty-state-compact">Carregando arquivo…</div>
+            <template v-else-if="selectedMigrationEntry">
+              <StatusBadge :tone="railsMigrationToneFor(selectedMigrationEntry.status)">{{ migrationStatusLabels[selectedMigrationEntry.status] }}</StatusBadge>
+              <dl class="database-inspector-list">
+                <div><dt>Versão</dt><dd><code>{{ selectedMigrationEntry.version }}</code><button type="button" @click="copy(selectedMigrationEntry.version, 'migration-version')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-version' ? 'Copiada' : 'Copiar' }}</button></dd></div>
+                <div><dt>Arquivo</dt><dd><code>{{ migrationDetail?.filePath ?? 'Arquivo não localizado' }}</code></dd></div>
+                <div><dt>Status</dt><dd>{{ migrationStatusLabels[selectedMigrationEntry.status] }}</dd></div>
+              </dl>
+              <section class="database-source-preview">
+                <header><strong>Código da migration</strong><button v-if="migrationDetail?.source" type="button" @click="copy(migrationDetail.source, 'migration-source')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-source' ? 'Código copiado' : 'Copiar código' }}</button></header>
+                <pre v-if="migrationDetail?.source" class="database-migration-source-code"><code class="git-syntax-code" v-html="migrationSourceHtml"></code></pre>
+                <p v-else>O status existe no banco, mas o arquivo da migration não foi encontrado no projeto.</p>
+              </section>
+            </template>
+          </div>
+        </article>
+      </div>
+    </Teleport>
   </section>
 </template>
