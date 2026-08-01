@@ -63,7 +63,7 @@ async function mountPalette(path = '/'): Promise<{ wrapper: VueWrapper; router: 
     global: { plugins: [router] },
     props: {
       projects: [
-        makeProject({ id: 'p1', name: 'Aplicação principal', path: '/projetos/principal', capabilities: ['server', 'tests', 'scripts'] }),
+        makeProject({ id: 'p1', name: 'Aplicação principal', path: '/projetos/principal', capabilities: ['server', 'tests', 'scripts', 'database'] }),
         makeProject({ id: 'p2', name: 'Serviço financeiro', path: '/clientes/financas' }),
       ],
       workspaces: [makeWorkspace()],
@@ -218,6 +218,37 @@ describe('paleta de navegação', () => {
     const recentGroup = document.querySelector('.command-palette-group');
     expect(recentGroup?.textContent).toContain('Recentes');
     expect(recentGroup?.textContent).toContain('Criar snapshot');
+  });
+
+  it('autocompleta projeto e executa uma ação no contexto selecionado', async () => {
+    const { wrapper } = await mountPalette('/');
+    (wrapper.vm as unknown as { show: () => void }).show();
+    await flushPromises();
+    const search = document.querySelector<HTMLInputElement>('[aria-label="Buscar ou executar um comando"]')!;
+
+    search.value = '@aplic princ';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPromises();
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    await flushPromises();
+
+    expect(search.value).toBe('@Aplicação principal > ');
+    expect(document.querySelector('.command-palette-context')?.textContent).toContain('Aplicação principal');
+    expect(api.fetchProjectProcess).toHaveBeenCalledWith('p1');
+
+    search.value += 'iniciar server';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await flushPromises();
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Iniciar servidor');
+
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    await flushPromises();
+    expect(search.value).toBe('@Aplicação principal > Iniciar servidor');
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPromises();
+    expect(api.startProjectProcess).toHaveBeenCalledWith('p1', { port: 3100 });
   });
 
   it('não oferece ação de servidor sem a capacidade correspondente', async () => {

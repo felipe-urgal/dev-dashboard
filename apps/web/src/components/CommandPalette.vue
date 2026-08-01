@@ -89,6 +89,7 @@ interface NavigationPaletteItem extends PaletteItemBase {
   to: RouteLocationRaw;
   workspaceId?: string;
   hint?: string;
+  projectId?: string;
 }
 
 interface ActionPaletteItem extends PaletteItemBase {
@@ -112,6 +113,7 @@ const projectProcess = ref<ManagedProcess | null>();
 const testProcess = ref<ManagedProcess | null>();
 const testOverview = ref<ProjectTestOverview>();
 const scriptCatalog = ref<ProjectScriptCatalog>();
+const loadedProjectId = ref<string>();
 const loadingActions = ref(false);
 const executingAction = ref(false);
 const pendingActionId = ref<string>();
@@ -127,8 +129,20 @@ const currentProject = computed(() => {
   return props.projects.find((project) => project.id === projectId);
 });
 
+const parsedQuery = computed(() => parsePaletteQuery(query.value));
+const selectedProject = computed(() => {
+  const projectQuery = parsedQuery.value.project;
+  if (projectQuery === undefined) return currentProject.value;
+  const exact = props.projects.find((project) => [project.id, project.name].some((value) => normalizePaletteText(value) === projectQuery));
+  if (exact) return exact;
+  return props.projects
+    .map((project) => ({ project, score: paletteFuzzyScore(`${project.name} ${project.id} ${project.path}`, projectQuery) }))
+    .filter(({ score }) => score >= 0)
+    .sort((left, right) => right.score - left.score)[0]?.project;
+});
+
 const items = computed<PaletteItem[]>(() => {
-  const project = currentProject.value;
+  const project = selectedProject.value;
   const projectItems: PaletteItem[] = project ? buildProjectItems(project) : [];
   const globalItems: NavigationPaletteItem[] = [
     navigationItem('pagina-visao-geral', 'Páginas', 'Visão geral', 'Dashboard e repositórios', { name: 'dashboard', hash: '#overview' }, HomeIcon, 'page'),
@@ -141,13 +155,16 @@ const items = computed<PaletteItem[]>(() => {
   );
   const allProjectItems = [...props.projects]
     .sort((left, right) => left.name.localeCompare(right.name))
-    .map((item) => navigationItem(`project-${item.id}`, 'Projetos', item.name, item.path, { name: 'project-details', params: { projectId: item.id } }, FolderIcon, 'project'));
+    .map((item) => ({
+      ...navigationItem(`project-${item.id}`, 'Projetos', item.name, item.path, { name: 'project-details', params: { projectId: item.id } }, FolderIcon, 'project'),
+      projectId: item.id,
+    }));
 
   return [...projectItems, ...globalItems, ...workspaceItems, ...allProjectItems];
 });
 
 const orderedItems = computed<PaletteItem[]>(() => {
-  const parsed = parsePaletteQuery(query.value);
+  const parsed = parsedQuery.value;
   const candidates = items.value.filter((item) => parsed.mode === 'all' || item.mode === parsed.mode);
   if (parsed.value) {
     return candidates
@@ -165,7 +182,7 @@ const orderedItems = computed<PaletteItem[]>(() => {
 });
 
 const groupViews = computed<PaletteGroupView[]>(() => {
-  const parsed = parsePaletteQuery(query.value);
+  const parsed = parsedQuery.value;
   const recentSet = !parsed.value
     ? new Set(recentIds.value.filter((id) => orderedItems.value.some((item) => item.id === id)))
     : new Set<string>();
@@ -185,42 +202,54 @@ const groupViews = computed<PaletteGroupView[]>(() => {
 function buildProjectItems(project: Project): PaletteItem[] {
   const params = { projectId: project.id };
   const areas: NavigationPaletteItem[] = [
-    navigationItem('area-project-details', 'Projeto atual', 'Visão geral do projeto', project.name, { name: 'project-details', params }, HomeIcon, 'page'),
-    navigationItem('area-project-server', 'Projeto atual', 'Servidor', 'Configurar e controlar o servidor', { name: 'project-server', params }, ServerStackIcon, 'page'),
-    navigationItem('area-project-logs', 'Projeto atual', 'Logs', 'Acompanhar a saída do servidor', { name: 'project-logs', params }, DocumentTextIcon, 'page'),
-    navigationItem('area-project-git', 'Projeto atual', 'Git', 'Branches, diff, commit e sincronização', { name: 'project-git', params }, CodeBracketIcon, 'page'),
-    navigationItem('area-project-tests', 'Projeto atual', 'Testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'page'),
-    navigationItem('area-project-database', 'Projeto atual', 'Banco de dados', 'Ambientes, snapshots e migrations', { name: 'project-database', params }, CircleStackIcon, 'page'),
-    navigationItem('area-project-scripts', 'Projeto atual', 'Scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'page'),
+    navigationItem(`area-project-details-${project.id}`, 'Projeto atual', 'Visão geral do projeto', project.name, { name: 'project-details', params }, HomeIcon, 'page'),
+    navigationItem(`area-project-server-${project.id}`, 'Projeto atual', 'Servidor', 'Configurar e controlar o servidor', { name: 'project-server', params }, ServerStackIcon, 'page'),
+    navigationItem(`area-project-logs-${project.id}`, 'Projeto atual', 'Logs', 'Acompanhar a saída do servidor', { name: 'project-logs', params }, DocumentTextIcon, 'page'),
+    navigationItem(`area-project-git-${project.id}`, 'Projeto atual', 'Git', 'Branches, diff, commit e sincronização', { name: 'project-git', params }, CodeBracketIcon, 'page'),
+    navigationItem(`area-project-tests-${project.id}`, 'Projeto atual', 'Testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'page'),
+    navigationItem(`area-project-database-${project.id}`, 'Projeto atual', 'Banco de dados', 'Ambientes, snapshots e migrations', { name: 'project-database', params }, CircleStackIcon, 'page'),
+    navigationItem(`area-project-scripts-${project.id}`, 'Projeto atual', 'Scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'page'),
   ];
   const shortcuts: NavigationPaletteItem[] = [
-    navigationItem('command-git-sync', 'Comandos do projeto', 'Sincronizar main', 'Abrir sincronização segura do repositório', { name: 'project-git', params, query: { tab: 'sync' } }, ArrowPathIcon, 'action', undefined, 'Abrir'),
-    navigationItem('command-git-branch', 'Comandos do projeto', 'Criar branch', 'Abrir gerenciamento de branches', { name: 'project-git', params, query: { tab: 'branches' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
-    navigationItem('command-git-commit', 'Comandos do projeto', 'Commitar alterações', 'Abrir criação e correção de commit', { name: 'project-git', params, query: { tab: 'commit' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
-    navigationItem('command-database-snapshot', 'Comandos do projeto', 'Criar snapshot', 'Abrir snapshots do banco de dados', { name: 'project-database', params, query: { section: 'snapshots' } }, CircleStackIcon, 'action', undefined, 'Abrir'),
+    ...(project.capabilities.includes('server') ? [
+      navigationItem(`command-server-${project.id}`, 'Comandos do projeto', 'Abrir servidor', 'Configuração e status do servidor', { name: 'project-server', params }, ServerStackIcon, 'action', undefined, 'Abrir'),
+      navigationItem(`command-logs-${project.id}`, 'Comandos do projeto', 'Abrir logs', 'Acompanhar a saída do servidor', { name: 'project-logs', params }, DocumentTextIcon, 'action', undefined, 'Abrir'),
+    ] : []),
+    ...(project.capabilities.includes('git') ? [
+      navigationItem(`command-git-${project.id}`, 'Comandos do projeto', 'Abrir Git', 'Branches, diff e histórico', { name: 'project-git', params }, CodeBracketIcon, 'action', undefined, 'Abrir'),
+      navigationItem(`command-git-sync-${project.id}`, 'Comandos do projeto', 'Sincronizar main', 'Abrir sincronização segura do repositório', { name: 'project-git', params, query: { tab: 'sync' } }, ArrowPathIcon, 'action', undefined, 'Abrir'),
+      navigationItem(`command-git-branch-${project.id}`, 'Comandos do projeto', 'Criar branch', 'Abrir gerenciamento de branches', { name: 'project-git', params, query: { tab: 'branches' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
+      navigationItem(`command-git-commit-${project.id}`, 'Comandos do projeto', 'Commitar alterações', 'Abrir criação e correção de commit', { name: 'project-git', params, query: { tab: 'commit' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
+    ] : []),
+    ...(project.capabilities.includes('tests') ? [navigationItem(`command-tests-${project.id}`, 'Comandos do projeto', 'Abrir testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'action', undefined, 'Abrir')] : []),
+    ...(project.capabilities.includes('database') ? [
+      navigationItem(`command-database-${project.id}`, 'Comandos do projeto', 'Abrir banco de dados', 'Ambientes e ferramentas do banco', { name: 'project-database', params }, CircleStackIcon, 'action', undefined, 'Abrir'),
+      navigationItem(`command-database-snapshot-${project.id}`, 'Comandos do projeto', 'Criar snapshot', 'Abrir snapshots do banco de dados', { name: 'project-database', params, query: { section: 'snapshots' } }, CircleStackIcon, 'action', undefined, 'Abrir'),
+    ] : []),
+    ...(project.capabilities.includes('scripts') ? [navigationItem(`command-scripts-${project.id}`, 'Comandos do projeto', 'Abrir scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'action', undefined, 'Abrir')] : []),
   ];
   const actions: ActionPaletteItem[] = [];
-  if (project.capabilities.includes('server') && projectProcess.value !== undefined) {
+  if (loadedProjectId.value === project.id && project.capabilities.includes('server') && projectProcess.value !== undefined) {
     const status = projectProcess.value?.status ?? 'stopped';
     if (status === 'running' || status === 'starting') {
-      actions.push(actionItem('server-stop', 'Parar servidor', `Interromper o servidor de ${project.name}`, StopCircleIcon, 'atencao', { type: 'server-stop' }));
+      actions.push(actionItem(`${project.id}:server-stop`, 'Parar servidor', `Interromper o servidor de ${project.name}`, StopCircleIcon, 'atencao', { type: 'server-stop' }, 'stop server server stop'));
     } else if (status !== 'stopping') {
-      actions.push(actionItem('server-start', 'Iniciar servidor', `Executar o servidor de ${project.name}`, ServerStackIcon, 'reversivel', { type: 'server-start' }));
+      actions.push(actionItem(`${project.id}:server-start`, 'Iniciar servidor', `Executar o servidor de ${project.name}`, ServerStackIcon, 'reversivel', { type: 'server-start' }, 'start server server start iniciar server'));
     }
   }
-  if (project.capabilities.includes('tests') && testOverview.value?.supported) {
+  if (loadedProjectId.value === project.id && project.capabilities.includes('tests') && testOverview.value?.supported) {
     const status = testProcess.value?.status;
     if (status === 'running' || status === 'starting') {
-      actions.push(actionItem('test-stop', 'Parar testes', 'Interromper a suíte em execução', StopCircleIcon, 'atencao', { type: 'test-stop' }));
+      actions.push(actionItem(`${project.id}:test-stop`, 'Parar testes', 'Interromper a suíte em execução', StopCircleIcon, 'atencao', { type: 'test-stop' }));
     } else {
       for (const command of testOverview.value.commands) {
-        actions.push(actionItem(`test-${command.id}`, command.label, command.description, BeakerIcon, 'reversivel', { type: 'test-start', commandId: command.id }));
+        actions.push(actionItem(`${project.id}:test-${command.id}`, command.label, command.description, BeakerIcon, 'reversivel', { type: 'test-start', commandId: command.id }));
       }
     }
   }
-  if (project.capabilities.includes('scripts')) {
+  if (loadedProjectId.value === project.id && project.capabilities.includes('scripts')) {
     for (const script of scriptCatalog.value?.items.filter((item) => item.enabled) ?? []) {
-      actions.push(actionItem(`script-${script.id}`, script.name, script.description || script.command, CommandLineIcon, script.risk === 'read-only' ? 'reversivel' : 'atencao', { type: 'script-start', script }));
+      actions.push(actionItem(`${project.id}:script-${script.id}`, script.name, script.description || script.command, CommandLineIcon, script.risk === 'read-only' ? 'reversivel' : 'atencao', { type: 'script-start', script }));
     }
   }
   return [...areas, ...actions, ...shortcuts];
@@ -240,8 +269,8 @@ function navigationItem(
   return { id, group, label, description, to, icon, mode, kind: 'navigation', searchText: normalizePaletteText(`${label} ${description}`), ...(workspaceId ? { workspaceId } : {}), ...(hint ? { hint } : {}) };
 }
 
-function actionItem(id: string, label: string, description: string, icon: Component, risk: ActionRisk, operation: ActionOperation): ActionPaletteItem {
-  return { id, group: 'Comandos do projeto', label, description, icon, risk, operation, mode: 'action', kind: 'action', searchText: normalizePaletteText(`${label} ${description}`) };
+function actionItem(id: string, label: string, description: string, icon: Component, risk: ActionRisk, operation: ActionOperation, aliases = ''): ActionPaletteItem {
+  return { id, group: 'Comandos do projeto', label, description, icon, risk, operation, mode: 'action', kind: 'action', searchText: normalizePaletteText(`${label} ${description} ${aliases}`) };
 }
 
 function readRecents(): string[] {
@@ -271,33 +300,37 @@ function show(): void {
   activeIndex.value = 0;
   feedback.value = '';
   pendingActionId.value = undefined;
-  void loadProjectActions();
+  void loadProjectActions(selectedProject.value);
   void nextTick(() => searchInput.value?.focus());
 }
 
-async function loadProjectActions(): Promise<void> {
-  const project = currentProject.value;
+async function loadProjectActions(project = selectedProject.value): Promise<void> {
   projectProcess.value = undefined;
   testProcess.value = undefined;
   testOverview.value = undefined;
   scriptCatalog.value = undefined;
+  loadedProjectId.value = undefined;
+  loadingActions.value = false;
   if (!project) return;
   loadingActions.value = true;
   const projectId = project.id;
   const requests: Promise<void>[] = [];
-  if (project.capabilities.includes('server')) requests.push(fetchProjectProcess(projectId).then((value) => { if (isCurrentProject(projectId)) projectProcess.value = value; }));
-  if (project.capabilities.includes('tests')) requests.push(Promise.all([fetchProjectTests(projectId), fetchProjectTestProcess(projectId)]).then(([overview, process]) => { if (isCurrentProject(projectId)) { testOverview.value = overview; testProcess.value = process; } }));
+  if (project.capabilities.includes('server')) requests.push(fetchProjectProcess(projectId).then((value) => { if (isSelectedProject(projectId)) projectProcess.value = value; }));
+  if (project.capabilities.includes('tests')) requests.push(Promise.all([fetchProjectTests(projectId), fetchProjectTestProcess(projectId)]).then(([overview, process]) => { if (isSelectedProject(projectId)) { testOverview.value = overview; testProcess.value = process; } }));
   if (project.capabilities.includes('scripts')) {
     const parameters = new URLSearchParams({ page: '1', pageSize: '100' });
-    requests.push(fetchProjectScripts(projectId, parameters).then((value) => { if (isCurrentProject(projectId)) scriptCatalog.value = value; }));
+    requests.push(fetchProjectScripts(projectId, parameters).then((value) => { if (isSelectedProject(projectId)) scriptCatalog.value = value; }));
   }
   const results = await Promise.allSettled(requests);
   if (open.value && requests.length && results.every((result) => result.status === 'rejected')) feedback.value = 'Não foi possível consultar as ações autorizadas.';
-  if (isCurrentProject(projectId)) loadingActions.value = false;
+  if (isSelectedProject(projectId)) {
+    loadedProjectId.value = projectId;
+    loadingActions.value = false;
+  }
 }
 
-function isCurrentProject(projectId: string): boolean {
-  return open.value && currentProject.value?.id === projectId;
+function isSelectedProject(projectId: string): boolean {
+  return open.value && selectedProject.value?.id === projectId;
 }
 
 function close(): void {
@@ -315,6 +348,20 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 
 function handleSearchKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+  if (event.key === 'Tab' && !event.shiftKey) {
+    if (completeActiveItem()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    return;
+  }
+  if (event.key === '>' && parsedQuery.value.mode === 'project') {
+    if (completeActiveProject()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    return;
+  }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     const direction = event.key === 'ArrowDown' ? 1 : -1;
@@ -330,12 +377,37 @@ function handleSearchKeydown(event: KeyboardEvent): void {
 }
 
 function handleDialogKeydown(event: KeyboardEvent): void {
+  if (event.defaultPrevented) return;
   if (event.key !== 'Tab') return;
   const focusable = [...(dialog.value?.querySelectorAll<HTMLElement>('input, button:not([disabled])') ?? [])];
   if (!focusable.length) return;
   const index = focusable.indexOf(document.activeElement as HTMLElement);
   if (event.shiftKey && index <= 0) { event.preventDefault(); focusable.at(-1)?.focus(); }
   else if (!event.shiftKey && index === focusable.length - 1) { event.preventDefault(); focusable[0]?.focus(); }
+}
+
+function completeActiveProject(): boolean {
+  const item = orderedItems.value[activeIndex.value];
+  if (item?.kind !== 'navigation' || !item.projectId) return false;
+  const project = props.projects.find((entry) => entry.id === item.projectId);
+  if (!project) return false;
+  query.value = `@${project.name} > `;
+  activeIndex.value = 0;
+  pendingActionId.value = undefined;
+  feedback.value = '';
+  return true;
+}
+
+function completeActiveItem(): boolean {
+  if (parsedQuery.value.mode === 'project') return completeActiveProject();
+  if (parsedQuery.value.mode !== 'action' || !selectedProject.value) return false;
+  const item = orderedItems.value[activeIndex.value];
+  if (!item) return false;
+  query.value = `@${selectedProject.value.name} > ${item.label}`;
+  activeIndex.value = 0;
+  pendingActionId.value = undefined;
+  feedback.value = '';
+  return true;
 }
 
 function handleQuery(): void {
@@ -356,7 +428,7 @@ async function select(item: PaletteItem): Promise<void> {
     feedback.value = `Pressione Enter novamente para ${item.label.toLocaleLowerCase('pt-BR')}.`;
     return;
   }
-  const project = currentProject.value;
+  const project = selectedProject.value;
   if (!project || executingAction.value) return;
   executingAction.value = true;
   feedback.value = '';
@@ -364,7 +436,7 @@ async function select(item: PaletteItem): Promise<void> {
     await executeAction(project.id, item.operation);
     remember(item);
     pendingActionId.value = undefined;
-    query.value = '';
+    query.value = parsedQuery.value.project !== undefined ? `@${project.name} > ` : '';
     activeIndex.value = 0;
   } catch (error) {
     feedback.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.';
@@ -400,6 +472,8 @@ function itemIndex(item: PaletteItem): number {
 
 function itemHint(item: PaletteItem): string {
   if (pendingActionId.value === item.id) return 'Confirmar';
+  if (parsedQuery.value.mode === 'project' && item.kind === 'navigation' && item.projectId) return 'Tab para usar';
+  if (parsedQuery.value.mode === 'action') return item.kind === 'action' && item.risk === 'atencao' ? 'Ação sensível' : 'Tab completa';
   if (item.kind === 'navigation') return item.hint ?? 'Abrir';
   return item.risk === 'atencao' ? 'Ação sensível' : 'Executar';
 }
@@ -408,6 +482,10 @@ watch(activeIndex, () => nextTick(() => {
   const active = dialog.value?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
   active?.scrollIntoView?.({ block: 'nearest' });
 }));
+watch(() => selectedProject.value?.id, (projectId, previousProjectId) => {
+  if (!open.value || parsedQuery.value.project === undefined || projectId === previousProjectId) return;
+  void loadProjectActions(selectedProject.value);
+});
 onMounted(() => window.addEventListener('keydown', handleGlobalKeydown));
 onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown));
 
@@ -426,6 +504,13 @@ defineExpose({ show });
           </label>
           <p><kbd>&gt;</kbd> ações <span>·</span> <kbd>/</kbd> páginas <span>·</span> <kbd>@</kbd> projetos</p>
         </header>
+
+        <div v-if="parsedQuery.project !== undefined" class="command-palette-context" :class="{ 'command-palette-context-invalid': !selectedProject }">
+          <FolderIcon aria-hidden="true" />
+          <span>Projeto</span>
+          <strong>{{ selectedProject?.name ?? parsedQuery.project }}</strong>
+          <small>{{ selectedProject ? 'Comandos e ferramentas deste projeto' : 'Projeto não encontrado' }}</small>
+        </div>
 
         <div v-if="orderedItems.length" class="command-palette-list" role="listbox">
           <section v-for="group in groupViews" :key="group.name" class="command-palette-group">
@@ -447,7 +532,7 @@ defineExpose({ show });
 
         <p v-else class="command-palette-empty">Nenhum comando encontrado. Tente outro termo ou prefixo.</p>
         <p v-if="feedback" class="command-palette-feedback" role="status">{{ feedback }}</p>
-        <footer><span>{{ loadingActions ? 'Consultando ações autorizadas…' : 'Catálogo seguro do projeto' }}</span><span><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>Enter</kbd> selecionar</span></footer>
+        <footer><span>{{ loadingActions ? 'Consultando ações autorizadas…' : 'Catálogo seguro do projeto' }}</span><span><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>Tab</kbd> autocompletar <kbd>Enter</kbd> selecionar</span></footer>
       </section>
     </div>
   </Teleport>

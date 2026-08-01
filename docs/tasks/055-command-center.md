@@ -18,6 +18,11 @@ confirmações dos fluxos sensíveis.
   risco e ajuda de teclado;
 - busca fuzzy tolerante a abreviações e acentos;
 - prefixos `>` para ações, `/` para páginas e `@` para projetos e workspaces;
+- composição contextual `@projeto > ação`, sem precisar navegar primeiro até o
+  projeto;
+- autocomplete com `Tab` para aceitar o projeto ou completar a ação destacada;
+- digitar `>` com um projeto destacado também aceita o projeto e abre seu
+  catálogo de comandos;
 - até seis comandos recentes persistidos localmente;
 - execução direta, em duas etapas, de iniciar/parar servidor, suítes de teste
   detectadas e scripts habilitados do catálogo fechado;
@@ -25,6 +30,8 @@ confirmações dos fluxos sensíveis.
   API antes da execução;
 - atalhos para sincronização, branches, commit e snapshots abrem a ferramenta
   correta já na aba correspondente;
+- atalhos contextuais para Servidor, Logs, Git, Testes, Banco e Scripts aparecem
+  apenas quando a capacidade existe no projeto selecionado;
 - navegação completa para Servidor e Logs adicionada ao catálogo do projeto;
 - seleção ativa acompanha o scroll e o foco continua preso ao diálogo.
 

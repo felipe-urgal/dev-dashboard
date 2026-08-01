@@ -9,6 +9,12 @@
 .command-palette kbd { min-width: 20px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; color: var(--text-muted); background: var(--surface-2); font: inherit; font-size: 9px; text-align: center; }
 .command-palette-header p { display: flex; align-items: center; gap: 7px; margin: 0; padding: 0 20px 12px 53px; color: var(--text-dim); font-size: 9px; }
 .command-palette-header p span { opacity: .55; }
+.command-palette-context { display: grid; grid-template-columns: auto auto minmax(0, auto) minmax(0, 1fr); align-items: center; gap: 7px; padding: 9px 20px; border-bottom: 1px solid var(--border); color: var(--text-muted); background: var(--accent-soft); font-size: 10px; }
+.command-palette-context > svg { width: 15px; height: 15px; color: var(--accent); }
+.command-palette-context strong { overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+.command-palette-context small { overflow: hidden; color: var(--text-dim); text-overflow: ellipsis; white-space: nowrap; }
+.command-palette-context-invalid { color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--surface-1)); }
+.command-palette-context-invalid > svg, .command-palette-context-invalid strong { color: var(--danger); }
 .command-palette-list { overflow-y: auto; max-height: min(59vh, 520px); padding: 8px; scrollbar-gutter: stable; }
 .command-palette-group + .command-palette-group { margin-top: 5px; }
 .command-palette-group h3 { margin: 0; padding: 9px 12px 5px; color: var(--text-dim); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }

@@ -50,10 +50,12 @@ test.describe('navegação principal', () => {
 
   test('paleta inicia o servidor somente após confirmação explícita', async ({ page }) => {
     await gotoBootstrapped(page, '/');
-    await page.getByRole('link', { name: 'Ver detalhes de sample-node-app' }).click();
     await page.keyboard.press('ControlOrMeta+KeyK');
     const search = page.getByRole('searchbox', { name: 'Buscar ou executar um comando' });
-    await search.fill('iniciar servidor');
+    await search.fill('@sample-node-app');
+    await page.keyboard.press('Tab');
+    await expect(search).toHaveValue('@sample-node-app > ');
+    await search.fill('@sample-node-app > iniciar server');
     await expect(page.getByRole('option', { name: /Iniciar servidor/ })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByText('Confirmar', { exact: true })).toBeVisible();

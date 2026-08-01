@@ -3,6 +3,7 @@ export type CommandPaletteMode = 'all' | 'action' | 'page' | 'project';
 export interface ParsedPaletteQuery {
   mode: CommandPaletteMode;
   value: string;
+  project?: string;
 }
 
 export function normalizePaletteText(value: string): string {
@@ -16,13 +17,23 @@ export function normalizePaletteText(value: string): string {
 export function parsePaletteQuery(query: string): ParsedPaletteQuery {
   const value = query.trimStart();
   const prefix = value[0];
+  if (prefix === '@') {
+    const projectAndAction = value.slice(1);
+    const actionSeparator = projectAndAction.indexOf('>');
+    if (actionSeparator >= 0) {
+      return {
+        mode: 'action',
+        project: normalizePaletteText(projectAndAction.slice(0, actionSeparator)),
+        value: normalizePaletteText(projectAndAction.slice(actionSeparator + 1)),
+      };
+    }
+    return { mode: 'project', value: normalizePaletteText(projectAndAction) };
+  }
   const mode: CommandPaletteMode = prefix === '>'
     ? 'action'
     : prefix === '/'
       ? 'page'
-      : prefix === '@'
-        ? 'project'
-        : 'all';
+      : 'all';
 
   return {
     mode,
