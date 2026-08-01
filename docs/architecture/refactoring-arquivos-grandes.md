@@ -719,7 +719,6 @@ completo direto no arquivo.
  629  apps/web/src/components/ProjectGitPanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
  590  apps/web/src/components/ProjectServerPanel.vue
- 571  apps/web/src/views/DashboardView.vue
  467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
  434  apps/web/src/composables/useProjectTestsPanel.ts             [avaliado, não dividido — ver nota abaixo]
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
@@ -1038,6 +1037,21 @@ desestruturação do composable e o template (inalterado). Verificado com `vue-t
 monorepo completo (248 testes web) e os 13 testes E2E (incluindo a rota global de processos e o
 baseline visual) — todos verdes.
 
+**`DashboardView.vue` (571 → 339) — concluído**, vigésimo quinto arquivo desta fase. Diferente de
+`ProcessesView.vue`, aqui a extração foi parcial: a view mistura duas responsabilidades bem
+distintas — busca/filtro local de projetos (curta, ~30 linhas, permanece no componente) e o
+recurso de "iniciar/parar todos os servidores" (status observado via polling dos processos
+gerenciados, ações em lote, mensagens de sucesso/erro), esta última bem mais densa e isolável.
+Extraído para `composables/useDashboardServerActions.ts` (292 linhas): os refs de status de
+servidor, os computeds de projetos iniciáveis/paráveis e os títulos de botão, `refreshServerStatuses`/
+`handleStartAllServers`/`handleStopAllServers` e o `watch` que dispara o refresh ao trocar de
+workspace ou mudar a lista de projetos com capacidade de servidor. A composable recebe
+`projectsWithServer`/`selectedWorkspaceId`/`errorMessage`/`successMessage` como parâmetros — os
+dois últimos são os mesmos `ref`s do `dashboardStore`, então mensagens de erro/sucesso da ação em
+lote continuam aparecendo nos mesmos alertas da view. Verificado com `vue-tsc`, `build`, o
+monorepo completo (248 testes web) e os 13 testes E2E (incluindo o teste de confirmação de início
+de servidor pela paleta) — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
@@ -1046,15 +1060,15 @@ baseline visual) — todos verdes.
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
 `utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
-`ProjectGitPullRequestPage.vue`, `CommandPalette.vue` e `ProcessesView.vue` saíram da lista por
-completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda acima de 400, ver
-nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram
-divididos, mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas
-a uma segunda passada (dividir a classe por domínio), não como pendência ativa agora.
-`stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não divididos (ver nota acima).
-Os demais ~10 arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem
-pendentes, sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima.
-Arquivos `.vue` com bastante
+`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue` e `DashboardView.vue`
+saíram da lista por completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda
+acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
+(660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
+inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
+pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não
+divididos (ver nota acima). Os demais ~9 arquivos do inventário — todos componentes `.vue` em
+`apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista completa está na seção
+"Fase 7" logo acima. Arquivos `.vue` com bastante
 template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
 tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
 pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
