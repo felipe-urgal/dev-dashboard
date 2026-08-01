@@ -71,8 +71,15 @@ compromissos de versão.
 - [x] migrations status e routes no web (task 030, somente leitura);
 - [x] migrate, rollback, seed e prepare com política de risco (task 031);
 - [x] diagnóstico Bundler — check e outdated, somente leitura (task 032);
-- [ ] Sidekiq, Webpack, generators e credenciais;
-- [ ] suporte validado a múltiplos bancos.
+- [x] múltiplos bancos por ambiente (`database.yml`, migrations e modelos —
+  tasks 057 e 059) e generators de model/migration com catálogo fechado de
+  tipo e confirmação em duas etapas (task 060);
+- [ ] Rake tasks fora de `db:*` (`lib/tasks/**/*.rake`) — desenho em
+  `docs/refactor/rake-tasks-mapeamento.md`: detecção estática de variáveis
+  `ENV['X']` obrigatórias/opcionais a partir do próprio código-fonte da
+  task, formulário gerado a partir disso, execução com os mesmos princípios
+  de `db:migrate`/generators (argumentos em array, sem shell);
+- [ ] Sidekiq, Webpack e credenciais.
 
 ### CLI Bash — mantido e funcional
 
@@ -136,10 +143,11 @@ todos os projetos.
    `docs/architecture/security.md`), `git-pr` (compor e abrir a URL de
    criação de PR/MR a partir do remote `origin` já configurado, sem chamar
    API de provedor nem exigir token de terceiros — concluído, task 043),
-   snapshot/restore de banco reconhecido (concluído, task 051), e abrir
-   editor/terminal via adaptadores locais conhecidos. Integrações IA
-   (`dev-claude`, `dev-ai-*`) permanecem opcionais e isoladas em um painel
-   próprio, sem virar dependência do fluxo principal.
+   snapshot/restore de banco reconhecido (concluído, task 051), e **abrir o
+   editor local do usuário** (`code <projeto>`/`cursor`/etc., catálogo
+   fechado de editores conhecidos, sem shell — próxima candidata concreta).
+   Integrações IA (`dev-claude`, `dev-ai-*`) permanecem opcionais e
+   isoladas em um painel próprio, sem virar dependência do fluxo principal.
 
 Critério de saída: executar o fluxo cotidiano principal no navegador sem criar
 um terminal genérico disfarçado.
@@ -170,7 +178,6 @@ existentes sem regressão funcional.
   quantidade, timeout e diretórios ignorados;
 - Docker Compose por serviços declarados e allowlist;
 - health checks configuráveis por tipos fechados;
-- abertura no editor por adaptadores locais conhecidos;
 - favoritos, recentes e perfis de ambiente sem valores secretos no frontend;
 - GitHub CLI somente após revisão do modelo de autorização.
 
@@ -182,6 +189,14 @@ e integrações revogáveis.
 - manifesto declarativo de extensões e capacidades;
 - adaptadores versionados e revisados;
 - temas e painéis adicionais sem execução remota;
+- **editor de código embutido no navegador** (Monaco/CodeMirror lendo — e
+  possivelmente escrevendo — arquivos do projeto pela API): fase 2 de
+  "abrir editor", depois do adaptador local (Horizonte 2). Maior superfície
+  de acesso a arquivo que a API já teria — qualquer arquivo do projeto, não
+  um conjunto fechado como hoje (schema, migration, README, log). Pede
+  modelo de ameaça próprio antes de qualquer endpoint (allowlist de
+  caminho contra a raiz do projeto, limite de tamanho, e decidir se
+  escrita entra na v1 ou só leitura);
 - compatibilidade macOS;
 - estratégia separada para Windows, onde processos, sinais e filesystem têm
   semânticas diferentes;
@@ -225,7 +240,10 @@ parte deste horizonte.
   decidir upgrades seguros e evitar `npm audit fix --force`, que pode
   subir major de dependências nossas com breaking changes;
 - [x] testes de API e Process Manager;
-- [x] CI em push e pull request.
+- [x] CI em push e pull request;
+- [ ] refatoração pura dos 36 arquivos acima de 400 linhas (nenhuma API
+  pública muda) — plano detalhado dos 3 primeiros em
+  `docs/refactor/plano-arquivos-grandes.md`; inventário completo lá.
 
 ### Operação e governança
 
@@ -260,7 +278,7 @@ parte deste horizonte.
 Cada branch deve partir da base atual, ter um escopo coerente, documentar sua
 task numerada, adicionar testes proporcionais e atualizar `NEXT.md`. A próxima
 branch recomendada é sempre a descrita em
-[`docs/tasks/NEXT.md`](./tasks/NEXT.md) (atualmente a task 053).
+[`docs/tasks/NEXT.md`](./tasks/NEXT.md).
 
 Operações mutáveis devem ser pequenas e revisáveis: não agrupar várias ações
 Git/Rails privilegiadas em uma única entrega.
