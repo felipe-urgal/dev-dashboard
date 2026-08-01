@@ -19,7 +19,8 @@ export interface ProjectDatabaseEnvironment {
   source: ProjectDatabaseSource;
   sourceDetail: string;
   reachability: DatabaseReachability;
-  startAvailable: boolean;
+  /** Existe uma unidade systemd local reconhecida para iniciar, pausar ou reiniciar este banco. */
+  serviceAvailable: boolean;
 }
 
 export interface ProjectDatabaseOverview {
@@ -35,9 +36,12 @@ export interface ProjectDatabaseSecret {
   databaseUrl: string;
 }
 
-export interface ProjectDatabaseStartResult {
+export type DatabaseServiceAction = 'start' | 'stop' | 'restart';
+
+export interface ProjectDatabaseServiceActionResult {
   environmentId: string;
-  started: boolean;
+  action: DatabaseServiceAction;
+  succeeded: boolean;
 }
 
 export type DatabaseSnapshotDriver = 'mysql' | 'postgresql';

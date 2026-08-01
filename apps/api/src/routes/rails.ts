@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import type { RailsMigrationMutationOperation } from '@dev-dashboard/contracts';
+import type { RailsGeneratorField, RailsGeneratorKind, RailsMigrationMutationOperation } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import {
@@ -26,12 +26,27 @@ interface MigrationParams extends Params {
   version: string;
 }
 
+interface DatabaseQuery {
+  database?: string;
+}
+
 interface MutationConfirmationBody {
   operation: RailsMigrationMutationOperation;
 }
 
 interface MutationBody {
   operation: RailsMigrationMutationOperation;
+  confirmationToken: string;
+}
+
+interface GeneratorConfirmationBody {
+  kind: RailsGeneratorKind;
+  name: string;
+  fields: RailsGeneratorField[];
+  database?: string;
+}
+
+interface GeneratorMutationBody {
   confirmationToken: string;
 }
 
@@ -46,6 +61,11 @@ const migrationParamsSchema = {
     projectId: { type: 'string', minLength: 1 },
     version: { type: 'string', pattern: '^[0-9]{8,20}$' },
   },
+} as const;
+
+const databaseQuerySchema = {
+  type: 'object', additionalProperties: false,
+  properties: { database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 } },
 } as const;
 
 const mutationOperationEnum = ['migrate', 'rollback', 'seed', 'prepare'] as const;
@@ -127,11 +147,71 @@ const railsSchemaTableResponseSchema = {
 
 const railsModelsOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['supported', 'tables'],
+  required: ['supported', 'databases', 'tables'],
   properties: {
     supported: { type: 'boolean' },
+    databases: { type: 'array', items: { type: 'string' } },
     schemaPath: { type: 'string' },
     tables: { type: 'array', items: railsSchemaTableResponseSchema },
+  },
+} as const;
+
+const generatorKindEnum = ['model', 'migration'] as const;
+const generatorFieldTypeEnum = [
+  'string', 'text', 'integer', 'bigint', 'float', 'decimal',
+  'boolean', 'date', 'datetime', 'time', 'timestamp', 'binary',
+  'references', 'uuid',
+] as const;
+
+const generatorFieldSchema = {
+  type: 'object', additionalProperties: false, required: ['name', 'type'],
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 60 },
+    type: { type: 'string', enum: generatorFieldTypeEnum },
+  },
+} as const;
+
+const generatorConfirmationBodySchema = {
+  type: 'object', additionalProperties: false, required: ['kind', 'name', 'fields'],
+  properties: {
+    kind: { type: 'string', enum: generatorKindEnum },
+    name: { type: 'string', minLength: 1, maxLength: 60 },
+    fields: { type: 'array', maxItems: 25, items: generatorFieldSchema },
+    database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 },
+  },
+} as const;
+
+const generatorMutationBodySchema = {
+  type: 'object', additionalProperties: false, required: ['confirmationToken'],
+  properties: { confirmationToken: { type: 'string', minLength: 64, maxLength: 64 } },
+} as const;
+
+const railsGeneratorConfirmationResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['token', 'kind', 'name', 'fields', 'command', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    kind: { type: 'string', enum: generatorKindEnum },
+    name: { type: 'string' },
+    fields: { type: 'array', items: generatorFieldSchema },
+    database: { type: 'string' },
+    command: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
+const railsGeneratorResultResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['kind', 'name', 'succeeded', 'createdFiles', 'output', 'truncated', 'masked', 'redactionCount'],
+  properties: {
+    kind: { type: 'string', enum: generatorKindEnum },
+    name: { type: 'string' },
+    succeeded: { type: 'boolean' },
+    createdFiles: { type: 'array', items: { type: 'string' } },
+    output: { type: 'string' },
+    truncated: { type: 'boolean' },
+    masked: { type: 'boolean' },
+    redactionCount: { type: 'integer', minimum: 0 },
   },
 } as const;
 
@@ -146,6 +226,9 @@ function translateMutationError(error: unknown): never {
     const statuses: Record<string, number> = {
       RAILS_MUTATION_UNSUPPORTED: 409,
       RAILS_MUTATION_CONFIRMATION_REQUIRED: 409,
+      RAILS_GENERATOR_UNSUPPORTED: 409,
+      RAILS_GENERATOR_CONFIRMATION_REQUIRED: 409,
+      RAILS_GENERATOR_INVALID_INPUT: 400,
     };
     throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
   }
@@ -156,9 +239,10 @@ function translateMutationError(error: unknown): never {
 }
 
 export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => {
-  app.get<{ Params: Params }>('/projects/:projectId/rails/migrations', {
+  app.get<{ Params: Params; Querystring: DatabaseQuery }>('/projects/:projectId/rails/migrations', {
     schema: {
       params: paramsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['migrations'],
@@ -170,12 +254,14 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
   }, async (request) => ({
     migrations: await options.railsInspectionService.getMigrationsOverview(
       requireProject(options.projectStore, request.params.projectId),
+      request.query.database,
     ),
   }));
 
-  app.get<{ Params: MigrationParams }>('/projects/:projectId/rails/migrations/:version', {
+  app.get<{ Params: MigrationParams; Querystring: DatabaseQuery }>('/projects/:projectId/rails/migrations/:version', {
     schema: {
       params: migrationParamsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['migration'],
@@ -188,12 +274,14 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
     migration: await options.railsInspectionService.getMigrationDetail(
       requireProject(options.projectStore, request.params.projectId),
       request.params.version,
+      request.query.database,
     ),
   }));
 
-  app.get<{ Params: Params }>('/projects/:projectId/rails/models', {
+  app.get<{ Params: Params; Querystring: DatabaseQuery }>('/projects/:projectId/rails/models', {
     schema: {
       params: paramsSchema,
+      querystring: databaseQuerySchema,
       response: {
         200: {
           type: 'object', additionalProperties: false, required: ['models'],
@@ -205,6 +293,7 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
   }, async (request) => ({
     models: await options.railsInspectionService.getModelsOverview(
       requireProject(options.projectStore, request.params.projectId),
+      request.query.database,
     ),
   }));
 
@@ -272,6 +361,66 @@ export const railsRoutes: FastifyPluginAsync<Options> = async (app, options) => 
       try {
         return {
           result: await options.railsInspectionService.runMutation(project, request.body.operation, request.body.confirmationToken),
+        };
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: GeneratorConfirmationBody }>(
+    '/projects/:projectId/rails/generate/confirmations',
+    {
+      schema: {
+        params: paramsSchema,
+        body: generatorConfirmationBodySchema,
+        response: {
+          201: {
+            type: 'object', additionalProperties: false, required: ['confirmation'],
+            properties: { confirmation: railsGeneratorConfirmationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(options.projectStore, request.params.projectId);
+      try {
+        return reply.code(201).send({
+          confirmation: await options.railsInspectionService.prepareGeneratorConfirmation(
+            project,
+            request.body.kind,
+            request.body.name,
+            request.body.fields,
+            request.body.database,
+          ),
+        });
+      } catch (error) {
+        translateMutationError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: Params; Body: GeneratorMutationBody }>(
+    '/projects/:projectId/rails/generate/mutations',
+    {
+      schema: {
+        params: paramsSchema,
+        body: generatorMutationBodySchema,
+        response: {
+          200: {
+            type: 'object', additionalProperties: false, required: ['result'],
+            properties: { result: railsGeneratorResultResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(options.projectStore, request.params.projectId);
+      try {
+        return {
+          result: await options.railsInspectionService.runGenerator(project, request.body.confirmationToken),
         };
       } catch (error) {
         translateMutationError(error);

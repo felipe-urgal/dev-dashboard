@@ -19,7 +19,7 @@ import type {
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
 
-import { fetchProjectGit } from '../api';
+import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
@@ -38,6 +38,8 @@ const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
+/** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
+const databaseSupported = ref(true);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -64,6 +66,7 @@ async function loadProject(): Promise<void> {
   project.value = null;
   gitBranch.value = '';
   gitOverview.value = null;
+  databaseSupported.value = true;
 
   try {
     const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
@@ -81,6 +84,13 @@ async function loadProject(): Promise<void> {
         gitBranch.value = '';
         gitOverview.value = null;
       }
+    }
+
+    try {
+      const database = await fetchProjectDatabase(loadedProject.id);
+      if (projectId.value === requestedProjectId) databaseSupported.value = database.supported;
+    } catch {
+      // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
     }
   } catch (error) {
     if (projectId.value === requestedProjectId) {
@@ -213,6 +223,7 @@ watch(projectId, () => {
         </RouterLink>
 
         <RouterLink
+          v-if="databaseSupported"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isDatabaseRoute }"
           :to="{

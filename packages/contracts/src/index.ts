@@ -89,6 +89,7 @@ export type {
 export type {
   DatabaseReachability,
   DatabaseRestoreResult,
+  DatabaseServiceAction,
   DatabaseSnapshot,
   DatabaseSnapshotConfirmation,
   DatabaseSnapshotDriver,
@@ -96,7 +97,7 @@ export type {
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
-  ProjectDatabaseStartResult,
+  ProjectDatabaseServiceActionResult,
   ProjectDatabaseSource,
 } from './database.js';
 
@@ -107,6 +108,11 @@ export type {
 } from './bundler.js';
 
 export type {
+  RailsGeneratorConfirmation,
+  RailsGeneratorField,
+  RailsGeneratorFieldType,
+  RailsGeneratorKind,
+  RailsGeneratorResult,
   RailsMigrationDetail,
   RailsMigrationEntry,
   RailsMigrationMutationConfirmation,

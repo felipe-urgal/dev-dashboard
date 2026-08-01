@@ -7,6 +7,11 @@ import { promisify } from 'node:util';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   Project,
+  RailsGeneratorConfirmation,
+  RailsGeneratorField,
+  RailsGeneratorFieldType,
+  RailsGeneratorKind,
+  RailsGeneratorResult,
   RailsMigrationDetail,
   RailsMigrationEntry,
   RailsMigrationMutationConfirmation,
@@ -40,7 +45,12 @@ const defaultCommandRunner: CommandRunner = async (command, args, options) => {
   return { stdout, stderr };
 };
 
-export type RailsMutationErrorCode = 'RAILS_MUTATION_UNSUPPORTED' | 'RAILS_MUTATION_CONFIRMATION_REQUIRED';
+export type RailsMutationErrorCode =
+  | 'RAILS_MUTATION_UNSUPPORTED'
+  | 'RAILS_MUTATION_CONFIRMATION_REQUIRED'
+  | 'RAILS_GENERATOR_INVALID_INPUT'
+  | 'RAILS_GENERATOR_UNSUPPORTED'
+  | 'RAILS_GENERATOR_CONFIRMATION_REQUIRED';
 
 export class RailsMutationError extends Error {
   public constructor(public readonly code: RailsMutationErrorCode, message: string) {
@@ -59,6 +69,67 @@ const MUTATION_ARGS: Record<RailsMigrationMutationOperation, string[]> = {
   seed: ['db:seed'],
   prepare: ['db:prepare'],
 };
+
+// Catálogo fechado: só os tipos que o Rails aceita nativamente em `t.<tipo>` no schema.
+const GENERATOR_FIELD_TYPES: readonly RailsGeneratorFieldType[] = [
+  'string', 'text', 'integer', 'bigint', 'float', 'decimal',
+  'boolean', 'date', 'datetime', 'time', 'timestamp', 'binary',
+  'references', 'uuid',
+];
+const GENERATOR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+const GENERATOR_FIELD_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+const GENERATOR_MAX_FIELDS = 25;
+const GENERATOR_CONFIRMATION_TTL_MS = 60_000;
+
+interface StoredGeneratorConfirmation {
+  token: string;
+  projectId: string;
+  kind: RailsGeneratorKind;
+  name: string;
+  fields: RailsGeneratorField[];
+  database?: string;
+  args: string[];
+  expiresAt: number;
+}
+
+/**
+ * Monta `generate <kind> <Nome> <campo:tipo> ...` a partir de entrada já validada —
+ * nome e campos batem contra um padrão fechado, tipo contra um catálogo fechado, e o
+ * banco (quando informado) precisa já constar em `listDatabases`. Nunca passa por shell:
+ * os argumentos vão como array para `execFile`.
+ */
+function buildGeneratorArgs(kind: RailsGeneratorKind, name: string, fields: RailsGeneratorField[], database?: string): string[] {
+  if (!GENERATOR_NAME_PATTERN.test(name) || name.length > 60) {
+    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', 'Nome inválido: use letras, números e "_", começando com uma letra.');
+  }
+  if (fields.length > GENERATOR_MAX_FIELDS) {
+    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `No máximo ${GENERATOR_MAX_FIELDS} campos.`);
+  }
+
+  const fieldArgs = fields.map((field) => {
+    if (!GENERATOR_FIELD_NAME_PATTERN.test(field.name) || field.name.length > 60) {
+      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Nome de campo inválido: "${field.name}".`);
+    }
+    if (!GENERATOR_FIELD_TYPES.includes(field.type)) {
+      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Tipo de campo não suportado: "${field.type}".`);
+    }
+    return `${field.name}:${field.type}`;
+  });
+
+  const args = ['generate', kind, name, ...fieldArgs];
+  if (database) args.push(`--database=${database}`);
+  return args;
+}
+
+/** Rails imprime uma linha "create <caminho>" por arquivo novo gerado. */
+function parseGeneratorCreatedFiles(output: string): string[] {
+  const files: string[] = [];
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.match(/^\s*create\s+(\S.*?)\s*$/);
+    if (match?.[1]) files.push(match[1]);
+  }
+  return files;
+}
 
 interface StoredMutationConfirmation {
   token: string;
@@ -90,30 +161,78 @@ async function resolveRailsCommand(project: Project): Promise<RailsCommand | nul
   return { command: 'bundle', args: ['exec', 'rails'] };
 }
 
+/**
+ * "primary" sempre existe; um banco secundário aparece como `db/<nome>_schema.rb`
+ * (convenção do Rails para múltiplos bancos por ambiente, ver database.yml).
+ */
+async function listDatabases(project: Project): Promise<string[]> {
+  try {
+    const files = await readdir(path.join(project.path, 'db'));
+    const secondary = files
+      .filter((file) => file !== 'schema.rb' && /^[a-z][a-z0-9_]*_schema\.rb$/.test(file))
+      .map((file) => file.replace(/_schema\.rb$/, ''))
+      .sort();
+    return ['primary', ...secondary];
+  } catch {
+    return ['primary'];
+  }
+}
+
+function migrationsDirectory(projectPath: string, database: string): string {
+  return path.join(projectPath, 'db', database === 'primary' ? 'migrate' : `migrate_${database}`);
+}
+
 const MIGRATION_ROW = /^\s*(up|down)\s+(\S+)\s+(.+?)\s*$/i;
 const DATABASE_LINE = /^\s*database:\s*(.+?)\s*$/i;
 
-function parseMigrationStatus(output: string): { database?: string; migrations: RailsMigrationEntry[] } {
-  const migrations: RailsMigrationEntry[] = [];
-  let database: string | undefined;
+interface MigrationStatusBlock {
+  database?: string;
+  migrations: RailsMigrationEntry[];
+}
+
+/**
+ * `db:migrate:status` imprime um bloco `database: <arquivo>` por banco configurado
+ * quando o projeto tem mais de um (Rails 6+). Cada bloco vira uma entrada própria,
+ * em vez de misturar as migrations de todos os bancos numa lista só.
+ */
+function parseMigrationStatusBlocks(output: string): MigrationStatusBlock[] {
+  const blocks: MigrationStatusBlock[] = [];
+  let current: MigrationStatusBlock | undefined;
 
   for (const line of output.split(/\r?\n/)) {
     const databaseMatch = line.match(DATABASE_LINE);
     if (databaseMatch) {
-      database = databaseMatch[1];
+      current = { database: databaseMatch[1] ?? '', migrations: [] };
+      blocks.push(current);
       continue;
     }
     const rowMatch = line.match(MIGRATION_ROW);
     if (!rowMatch) continue;
+    if (!current) { current = { migrations: [] }; blocks.push(current); }
     const [, status, version, name] = rowMatch;
-    migrations.push({
+    current.migrations.push({
       status: (status ?? '').toLowerCase() as RailsMigrationEntry['status'],
       version: version ?? '',
       name: name ?? '',
     });
   }
 
-  return { ...(database ? { database } : {}), migrations };
+  return blocks;
+}
+
+/**
+ * Correlaciona os blocos de status (identificados pelo arquivo/nome do banco impresso
+ * pelo Rails, ex. "app_development_data") com os nomes configurados em database.yml
+ * (ex. "data"), pela convenção do próprio Rails de sufixar o banco secundário com o
+ * nome da configuração. O que sobra vira "primary".
+ */
+function matchMigrationStatusBlock(blocks: MigrationStatusBlock[], databases: string[], database: string): MigrationStatusBlock {
+  if (database === 'primary') {
+    const secondary = databases.filter((name) => name !== 'primary');
+    const remaining = blocks.filter((block) => !secondary.some((name) => block.database?.toLowerCase().includes(`_${name}`)));
+    return remaining[0] ?? blocks[0] ?? { migrations: [] };
+  }
+  return blocks.find((block) => block.database?.toLowerCase().includes(`_${database}`)) ?? blocks[0] ?? { migrations: [] };
 }
 
 const ROUTE_VERBS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
@@ -257,12 +376,15 @@ function parseSchema(source: string): RailsSchemaTable[] {
 
 export class RailsInspectionService {
   private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
+  private readonly generatorConfirmations = new Map<string, StoredGeneratorConfirmation>();
 
   public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
 
-  public async getMigrationsOverview(project: Project): Promise<RailsMigrationsOverview> {
+  public async getMigrationsOverview(project: Project, database = 'primary'): Promise<RailsMigrationsOverview> {
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
     const railsCommand = await resolveRailsCommand(project);
-    if (!railsCommand) return { supported: false, migrations: [] };
+    if (!railsCommand) return { supported: false, databases, migrations: [] };
 
     try {
       const { stdout } = await this.runCommand(
@@ -270,24 +392,28 @@ export class RailsInspectionService {
         [...railsCommand.args, 'db:migrate:status'],
         { cwd: project.path },
       );
-      return { supported: true, ...parseMigrationStatus(stdout) };
+      const blocks = parseMigrationStatusBlocks(stdout);
+      const block = matchMigrationStatusBlock(blocks, databases, selected);
+      return { supported: true, databases, ...(block.database ? { database: block.database } : {}), migrations: block.migrations };
     } catch {
-      return { supported: false, migrations: [] };
+      return { supported: false, databases, migrations: [] };
     }
   }
 
-  public async getMigrationDetail(project: Project, version: string): Promise<RailsMigrationDetail> {
+  public async getMigrationDetail(project: Project, version: string, database = 'primary'): Promise<RailsMigrationDetail> {
     if (!/^\d{8,20}$/.test(version)) {
       return { supported: false, version, truncated: false };
     }
 
-    const overview = await this.getMigrationsOverview(project);
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
+    const overview = await this.getMigrationsOverview(project, selected);
     const entry = overview.migrations.find((migration) => migration.version === version);
-    const migrationsDirectory = path.join(project.path, 'db', 'migrate');
+    const migrateDir = migrationsDirectory(project.path, selected);
 
     let fileName: string | undefined;
     try {
-      fileName = (await readdir(migrationsDirectory))
+      fileName = (await readdir(migrateDir))
         .filter((candidate) => candidate.startsWith(`${version}_`) && candidate.endsWith('.rb'))
         .sort()[0];
     } catch {
@@ -302,7 +428,7 @@ export class RailsInspectionService {
     let truncated = false;
     if (fileName) {
       try {
-        const rawSource = await readFile(path.join(migrationsDirectory, fileName), 'utf8');
+        const rawSource = await readFile(path.join(migrateDir, fileName), 'utf8');
         truncated = rawSource.length > MIGRATION_SOURCE_LIMIT;
         source = truncated ? rawSource.slice(0, MIGRATION_SOURCE_LIMIT) : rawSource;
       } catch {
@@ -315,26 +441,30 @@ export class RailsInspectionService {
       version,
       ...(entry?.name ? { name: entry.name } : {}),
       ...(entry?.status ? { status: entry.status } : {}),
-      ...(fileName ? { filePath: path.posix.join('db', 'migrate', fileName) } : {}),
+      ...(fileName ? { filePath: path.posix.join('db', path.basename(migrateDir), fileName) } : {}),
       ...(source !== undefined ? { source } : {}),
       truncated,
     };
   }
 
-  public async getModelsOverview(project: Project): Promise<RailsModelsOverview> {
-    if (project.type !== 'rails') return { supported: false, tables: [] };
-    const schemaPath = path.join(project.path, 'db', 'schema.rb');
-    if (!(await pathExists(schemaPath))) return { supported: false, tables: [] };
+  public async getModelsOverview(project: Project, database = 'primary'): Promise<RailsModelsOverview> {
+    if (project.type !== 'rails') return { supported: false, databases: [], tables: [] };
+    const databases = await listDatabases(project);
+    const selected = databases.includes(database) ? database : 'primary';
+    const fileName = selected === 'primary' ? 'schema.rb' : `${selected}_schema.rb`;
+    const schemaPath = path.join(project.path, 'db', fileName);
+    if (!(await pathExists(schemaPath))) return { supported: false, databases, tables: [] };
 
     try {
       const source = await readFile(schemaPath, 'utf8');
       return {
+        databases,
         supported: true,
-        schemaPath: 'db/schema.rb',
+        schemaPath: path.posix.join('db', fileName),
         tables: parseSchema(source),
       };
     } catch {
-      return { supported: false, tables: [] };
+      return { supported: false, databases, tables: [] };
     }
   }
 
@@ -428,6 +558,92 @@ export class RailsInspectionService {
     const now = Date.now();
     for (const [token, record] of this.mutationConfirmations) {
       if (record.expiresAt <= now) this.mutationConfirmations.delete(token);
+    }
+  }
+
+  public async prepareGeneratorConfirmation(
+    project: Project,
+    kind: RailsGeneratorKind,
+    name: string,
+    fields: RailsGeneratorField[],
+    database?: string,
+  ): Promise<RailsGeneratorConfirmation> {
+    if (!(await resolveRailsCommand(project))) {
+      throw new RailsMutationError('RAILS_GENERATOR_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+    }
+    if (database && database !== 'primary' && !(await listDatabases(project)).includes(database)) {
+      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Banco "${database}" não foi encontrado neste projeto.`);
+    }
+    const effectiveDatabase = database && database !== 'primary' ? database : undefined;
+    const args = buildGeneratorArgs(kind, name, fields, effectiveDatabase);
+
+    this.pruneExpiredGeneratorConfirmations();
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + GENERATOR_CONFIRMATION_TTL_MS;
+    this.generatorConfirmations.set(token, {
+      token, projectId: project.id, kind, name, fields, ...(effectiveDatabase ? { database: effectiveDatabase } : {}), args, expiresAt,
+    });
+    return {
+      token, kind, name, fields, ...(effectiveDatabase ? { database: effectiveDatabase } : {}),
+      command: ['rails', ...args].join(' '),
+      expiresAt: new Date(expiresAt).toISOString(),
+    };
+  }
+
+  public async runGenerator(project: Project, confirmationToken: string | undefined): Promise<RailsGeneratorResult> {
+    const record = this.consumeGeneratorConfirmation(project.id, confirmationToken);
+    const railsCommand = await resolveRailsCommand(project);
+    if (!railsCommand) {
+      throw new RailsMutationError('RAILS_GENERATOR_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+    }
+
+    let succeeded = true;
+    let rawOutput = '';
+    try {
+      const { stdout, stderr } = await this.runCommand(
+        railsCommand.command,
+        [...railsCommand.args, ...record.args],
+        { cwd: project.path },
+      );
+      rawOutput = [stdout, stderr].filter(Boolean).join('\n');
+    } catch (error) {
+      succeeded = false;
+      const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+      rawOutput = [failure.stdout, failure.stderr]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .join('\n') || (typeof failure.message === 'string' ? failure.message : 'Falha ao executar o comando.');
+    }
+
+    const truncated = rawOutput.length > MUTATION_OUTPUT_LIMIT;
+    const trimmed = truncated ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT) : rawOutput;
+    const masked = maskSensitiveLogContent(trimmed);
+
+    return {
+      kind: record.kind,
+      name: record.name,
+      succeeded,
+      createdFiles: parseGeneratorCreatedFiles(masked.content),
+      output: masked.content,
+      truncated,
+      masked: masked.masked,
+      redactionCount: masked.redactionCount,
+    };
+  }
+
+  private consumeGeneratorConfirmation(projectId: string, token: string | undefined): StoredGeneratorConfirmation {
+    this.pruneExpiredGeneratorConfirmations();
+    const record = token ? this.generatorConfirmations.get(token) : undefined;
+    if (!record || record.projectId !== projectId) {
+      throw new RailsMutationError('RAILS_GENERATOR_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
+    }
+    this.generatorConfirmations.delete(token!);
+    return record;
+  }
+
+  private pruneExpiredGeneratorConfirmations(): void {
+    const now = Date.now();
+    for (const [token, record] of this.generatorConfirmations) {
+      if (record.expiresAt <= now) this.generatorConfirmations.delete(token);
     }
   }
 }

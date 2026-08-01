@@ -8,7 +8,7 @@ import {
   databaseSnapshotResponseSchema,
   projectDatabaseOverviewResponseSchema,
 } from '../http/response-schemas.js';
-import { DatabaseStartError, type DatabaseDetectionService } from '../services/database-detection-service.js';
+import { DatabaseServiceActionError, type DatabaseDetectionService, type DatabaseServiceAction } from '../services/database-detection-service.js';
 import { DatabaseSnapshotError, type DatabaseSnapshotService } from '../services/database-snapshot-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
@@ -57,45 +57,53 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
     return { secret: { environmentId: request.params.environmentId, databaseUrl } };
   });
 
-  app.post<{ Params: SecretParams }>('/projects/:projectId/database/:environmentId/start', {
-    schema: {
-      params: { type: 'object', additionalProperties: false, required: ['projectId', 'environmentId'], properties: { projectId: { type: 'string', minLength: 1 }, environmentId: { type: 'string', minLength: 1, maxLength: 120 } } },
-      body: { type: 'object', additionalProperties: false, properties: {} }, querystring: emptyQuery,
-      response: {
-        200: {
-          type: 'object', additionalProperties: false, required: ['start'],
-          properties: {
-            start: {
-              type: 'object', additionalProperties: false, required: ['environmentId', 'started'],
-              properties: { environmentId: { type: 'string' }, started: { type: 'boolean' } },
+  const serviceActionVerbs: Record<DatabaseServiceAction, string> = { start: 'iniciar', stop: 'parar', restart: 'reiniciar' };
+
+  for (const action of ['start', 'stop', 'restart'] as const) {
+    app.post<{ Params: SecretParams }>(`/projects/:projectId/database/:environmentId/${action}`, {
+      schema: {
+        params: { type: 'object', additionalProperties: false, required: ['projectId', 'environmentId'], properties: { projectId: { type: 'string', minLength: 1 }, environmentId: { type: 'string', minLength: 1, maxLength: 120 } } },
+        body: { type: 'object', additionalProperties: false, properties: {} }, querystring: emptyQuery,
+        response: {
+          200: {
+            type: 'object', additionalProperties: false, required: ['action'],
+            properties: {
+              action: {
+                type: 'object', additionalProperties: false, required: ['environmentId', 'action', 'succeeded'],
+                properties: {
+                  environmentId: { type: 'string' },
+                  action: { type: 'string', enum: ['start', 'stop', 'restart'] },
+                  succeeded: { type: 'boolean' },
+                },
+              },
             },
           },
+          ...commonErrorResponseSchemas,
         },
-        ...commonErrorResponseSchemas,
       },
-    },
-  }, async (request) => {
-    const project = requireProject(options.projectStore, request.params.projectId);
-    try {
-      const started = await options.databaseDetectionService.start(project, request.params.environmentId);
-      if (!started) throw new ApiError({ statusCode: 409, code: 'DATABASE_START_NOT_AVAILABLE', message: 'Não há um serviço local reconhecido para este banco.' });
-      return { start: { environmentId: request.params.environmentId, started: true } };
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId }, 'Database service start failed');
-      const messages = {
-        'systemctl-unavailable': 'O systemctl não está instalado ou disponível para iniciar o serviço local.',
-        'authorization-unavailable': 'Não há um agente de autenticação polkit disponível na sessão. Inicie um agente polkit e tente novamente.',
-        'permission-denied': 'A autorização para iniciar o serviço local de banco foi negada.',
-        'command-failed': 'O systemctl não conseguiu iniciar o serviço local de banco de dados. Consulte o log da API.',
-      } as const;
-      throw new ApiError({
-        statusCode: 500,
-        code: 'DATABASE_START_FAILED',
-        message: error instanceof DatabaseStartError ? messages[error.reason] : messages['command-failed'],
-      });
-    }
-  });
+    }, async (request) => {
+      const project = requireProject(options.projectStore, request.params.projectId);
+      try {
+        const succeeded = await options.databaseDetectionService[action](project, request.params.environmentId);
+        if (!succeeded) throw new ApiError({ statusCode: 409, code: 'DATABASE_SERVICE_ACTION_NOT_AVAILABLE', message: 'Não há um serviço local reconhecido para este banco.' });
+        return { action: { environmentId: request.params.environmentId, action, succeeded: true } };
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        request.log.warn({ error, projectId: project.id, environmentId: request.params.environmentId, action }, 'Database service action failed');
+        const messages = {
+          'systemctl-unavailable': `O systemctl não está instalado ou disponível para ${serviceActionVerbs[action]} o serviço local.`,
+          'authorization-unavailable': 'Não há um agente de autenticação polkit disponível na sessão. Inicie um agente polkit e tente novamente.',
+          'permission-denied': `A autorização para ${serviceActionVerbs[action]} o serviço local de banco foi negada.`,
+          'command-failed': `O systemctl não conseguiu ${serviceActionVerbs[action]} o serviço local de banco de dados. Consulte o log da API.`,
+        } as const;
+        throw new ApiError({
+          statusCode: 500,
+          code: 'DATABASE_SERVICE_ACTION_FAILED',
+          message: error instanceof DatabaseServiceActionError ? messages[error.reason] : messages['command-failed'],
+        });
+      }
+    });
+  }
 
   const snapshotParamsSchema = {
     type: 'object', additionalProperties: false, required: ['projectId', 'snapshotId'],

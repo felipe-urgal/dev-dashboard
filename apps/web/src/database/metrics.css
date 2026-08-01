@@ -18,7 +18,7 @@
 
 .database-section > .database-explorer-alert,
 .database-mutation-panel .database-explorer-alert,
-.database-inspector-panel .database-explorer-alert {
+.database-migration-modal-body .database-explorer-alert {
   margin: 0;
 }
 
@@ -33,10 +33,6 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 11px;
-}
-
-.database-route-metrics {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .database-metric-card {
@@ -68,14 +64,6 @@
   height: 18px;
 }
 
-.database-metric-card > .route-verb {
-  min-width: 42px;
-  min-height: 28px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
 .database-metric-card > div {
   display: grid;
   min-width: 0;
@@ -105,7 +93,7 @@
   line-height: 1.35;
 }
 
-.database-metric-card span:not(.database-metric-icon):not(.route-verb) {
+.database-metric-card span:not(.database-metric-icon) {
   overflow: hidden;
   color: var(--text-dim);
   font-size: 9px;

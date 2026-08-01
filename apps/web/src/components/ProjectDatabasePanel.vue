@@ -17,44 +17,42 @@ import {
   ClipboardDocumentIcon,
   CodeBracketSquareIcon,
   CommandLineIcon,
-  CubeIcon,
   DocumentTextIcon,
   EyeIcon,
   EyeSlashIcon,
   FunnelIcon,
   LinkIcon,
   MagnifyingGlassIcon,
-  MapIcon,
+  PauseIcon,
   PlayIcon,
   ServerStackIcon,
   TableCellsIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
 import type {
-  BundlerOutdatedGem,
+  DatabaseServiceAction,
   Project,
   ProjectDatabaseEnvironment,
   RailsMigrationEntry,
-  RailsRouteEntry,
   RailsSchemaTable,
 } from '@dev-dashboard/contracts';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOverview';
 import { useProjectDatabaseSnapshots } from '../composables/useProjectDatabaseSnapshots';
-import { useRailsBundler } from '../composables/useRailsBundler';
 import { useRailsMigrations } from '../composables/useRailsMigrations';
 import { useRailsModels } from '../composables/useRailsModels';
-import { useRailsRoutes, routeKey } from '../composables/useRailsRoutes';
+import { highlightGitDiffCode } from '../utils/git-syntax-highlight';
 import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-tones';
+import RailsGeneratorForm from './RailsGeneratorForm.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 const route = inject(routeLocationKey, undefined);
 
-type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models' | 'routes' | 'dependencies';
+type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models' | 'operations';
 type MigrationStatusFilter = 'all' | 'up' | 'down';
-type RouteVerbFilter = 'all' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 const isRailsProject = computed(() => props.project.type === 'rails');
 
@@ -64,11 +62,11 @@ const {
   errorMessage,
   revealed,
   page,
-  starting,
+  pendingAction,
   selectedEnvironmentId,
   loadDatabase,
   reveal,
-  start,
+  runAction,
 } = useProjectDatabaseOverview(() => props.project);
 
 const {
@@ -79,6 +77,7 @@ const {
   migrationDetailLoading,
   migrationDetailErrorMessage,
   selectedMigrationVersion,
+  selectedDatabase: selectedMigrationsDatabase,
   mutationRunning,
   mutationMessage,
   mutationErrorMessage,
@@ -86,6 +85,7 @@ const {
   mutationLabels,
   loadMigrations,
   selectMigration,
+  selectDatabase: selectMigrationsDatabase,
   runMigrationMutation,
 } = useRailsMigrations(() => props.project, isRailsProject);
 
@@ -94,17 +94,10 @@ const {
   modelsLoading,
   modelsErrorMessage,
   selectedTableName,
+  selectedDatabase: selectedModelsDatabase,
   loadModels,
+  selectDatabase: selectModelsDatabase,
 } = useRailsModels(() => props.project, isRailsProject);
-
-const {
-  routes,
-  routesLoading,
-  routesErrorMessage,
-  selectedRouteKey,
-  loadRoutes,
-  selectRoute,
-} = useRailsRoutes(() => props.project, isRailsProject);
 
 const {
   snapshots,
@@ -123,22 +116,12 @@ const {
   confirmRestore,
 } = useProjectDatabaseSnapshots(() => props.project, selectedEnvironmentId);
 
-const {
-  bundler,
-  bundlerLoading,
-  bundlerErrorMessage,
-  selectedGemName,
-  loadBundler,
-} = useRailsBundler(() => props.project, isRailsProject);
-
 const activeSection = ref<DatabaseSection>('overview');
 const globalFilter = ref('');
 const migrationFilter = ref('');
 const migrationStatusFilter = ref<MigrationStatusFilter>('all');
 const modelFilter = ref('');
-const routeFilter = ref('');
-const routeVerbFilter = ref<RouteVerbFilter>('all');
-const outdatedFilter = ref('');
+const migrationModalOpen = ref(false);
 
 const copiedKey = ref('');
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -147,10 +130,8 @@ useAutoDismiss(errorMessage, '');
 useAutoDismiss(migrationsErrorMessage, '');
 useAutoDismiss(migrationDetailErrorMessage, '');
 useAutoDismiss(modelsErrorMessage, '');
-useAutoDismiss(routesErrorMessage, '');
 useAutoDismiss(mutationMessage, '');
 useAutoDismiss(mutationErrorMessage, '');
-useAutoDismiss(bundlerErrorMessage, '');
 useAutoDismiss(snapshotsErrorMessage, '');
 useAutoDismiss(snapshotsMessage, '');
 
@@ -164,6 +145,7 @@ const totalRelations = computed(() => models.value?.tables.reduce((total, table)
 
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
 const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
+const serviceActionLabels: Record<DatabaseServiceAction, string> = { start: 'Iniciando…', stop: 'Pausando…', restart: 'Reiniciando…' };
 
 const sectionTabs = computed(() => [
   { id: 'overview' as const, label: 'Visão geral', icon: CircleStackIcon },
@@ -172,8 +154,7 @@ const sectionTabs = computed(() => [
   ...(isRailsProject.value ? [
     { id: 'migrations' as const, label: 'Migrations', icon: DocumentTextIcon },
     { id: 'models' as const, label: 'Modelos', icon: TableCellsIcon },
-    { id: 'routes' as const, label: 'Rotas', icon: MapIcon },
-    { id: 'dependencies' as const, label: 'Dependências', icon: CubeIcon },
+    { id: 'operations' as const, label: 'Operações', icon: CommandLineIcon },
   ] : []),
 ]);
 
@@ -183,21 +164,19 @@ const sectionTitle = computed(() => ({
   snapshots: 'Snapshots',
   migrations: 'Migrations',
   models: 'Modelos',
-  routes: 'Rotas',
-  dependencies: 'Dependências',
+  operations: 'Operações',
 })[activeSection.value]);
 
 const sectionDescription = computed(() => ({
-  overview: 'Visão consolidada de ambientes, migrations, modelos, rotas e dependências.',
+  overview: 'Visão consolidada de ambientes, migrations e modelos.',
   environments: 'Gerencie conexões, credenciais e disponibilidade dos bancos detectados.',
   snapshots: 'Guarde o estado do banco antes de trocar de branch e restaure quando precisar.',
   migrations: 'Acompanhe o status e consulte o código-fonte de cada migration.',
   models: 'Explore as tabelas do schema, suas colunas, índices e relacionamentos.',
-  routes: 'Pesquise endpoints Rails e consulte controller, action e helper.',
-  dependencies: 'Verifique o Bundler e as gems que possuem atualizações disponíveis.',
+  operations: 'Rode comandos de banco e gere model ou migration a partir dos campos informados.',
 })[activeSection.value]);
 
-const isRefreshing = computed(() => loading.value || migrationsLoading.value || modelsLoading.value || routesLoading.value || bundlerLoading.value);
+const isRefreshing = computed(() => loading.value || migrationsLoading.value || modelsLoading.value);
 
 function snapshotMoment(value: string): string {
   const date = new Date(value);
@@ -234,25 +213,6 @@ const filteredTables = computed(() => {
   );
 });
 
-const filteredRoutes = computed(() => {
-  const query = activeQuery(routeFilter.value);
-  return (routes.value?.routes ?? []).filter((route) => {
-    const verbMatches = routeVerbFilter.value === 'all' || route.verb === routeVerbFilter.value;
-    const queryMatches = !query
-      || route.path.toLowerCase().includes(query)
-      || route.controllerAction.toLowerCase().includes(query)
-      || (route.name ?? '').toLowerCase().includes(query)
-      || route.verb.toLowerCase().includes(query);
-    return verbMatches && queryMatches;
-  });
-});
-
-const filteredOutdatedGems = computed(() => {
-  const query = activeQuery(outdatedFilter.value);
-  if (!query) return bundler.value?.outdated ?? [];
-  return (bundler.value?.outdated ?? []).filter((gem) => gem.name.toLowerCase().includes(query));
-});
-
 const selectedEnvironment = computed<ProjectDatabaseEnvironment | null>(() =>
   overview.value?.environments.find((item) => item.id === selectedEnvironmentId.value)
   ?? overview.value?.environments[0]
@@ -265,50 +225,59 @@ const selectedMigrationEntry = computed<RailsMigrationEntry | null>(() =>
   ?? null,
 );
 
+const migrationSourceHtml = computed(() => {
+  const source = migrationDetail.value?.source;
+  if (!source) return '';
+  return highlightGitDiffCode(source, migrationDetail.value?.filePath || 'migration.rb');
+});
+
+function openMigration(entry: RailsMigrationEntry): void {
+  selectMigration(entry);
+  migrationModalOpen.value = true;
+}
+
+function closeMigrationModal(): void {
+  migrationModalOpen.value = false;
+}
+
+function handleDatabaseExplorerKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && migrationModalOpen.value) closeMigrationModal();
+}
+
 const selectedTable = computed<RailsSchemaTable | null>(() =>
   models.value?.tables.find((table) => table.name === selectedTableName.value)
   ?? models.value?.tables[0]
   ?? null,
 );
 
-const selectedRoute = computed<RailsRouteEntry | null>(() => {
-  const list = routes.value?.routes ?? [];
-  const index = list.findIndex((route, routeIndex) => routeKey(route, routeIndex) === selectedRouteKey.value);
-  return index >= 0 ? list[index] ?? null : list[0] ?? null;
-});
+/** Ambientes locais que compartilham o mesmo serviço systemd do ambiente selecionado: pausar ou reiniciar um afeta os outros. */
+const systemdServiceByDriver: Record<string, string> = {
+  mariadb: 'mariadb.service',
+  mongodb: 'mongod.service',
+  mysql: 'mysql.service',
+  mysql2: 'mysql.service',
+  postgres: 'postgresql.service',
+  postgresql: 'postgresql.service',
+  redis: 'redis-server.service',
+};
 
-const selectedGem = computed<BundlerOutdatedGem | null>(() =>
-  bundler.value?.outdated.find((gem) => gem.name === selectedGemName.value)
-  ?? bundler.value?.outdated[0]
-  ?? null,
-);
-
-const routeVerbCounts = computed(() => {
-  const counts: Record<string, number> = { GET: 0, POST: 0, PUT: 0, PATCH: 0, DELETE: 0 };
-  for (const route of routes.value?.routes ?? []) {
-    if (route.verb in counts) counts[route.verb] = (counts[route.verb] ?? 0) + 1;
-  }
-  return counts;
-});
-
-const majorGemUpdates = computed(() => (bundler.value?.outdated ?? []).filter((gem) => {
-  const installed = Number(gem.installed.match(/^\d+/)?.[0] ?? Number.NaN);
-  const newest = Number(gem.newest.match(/^\d+/)?.[0] ?? Number.NaN);
-  return Number.isFinite(installed) && Number.isFinite(newest) && newest > installed;
-}).length);
-
-function routeControllerAction(route: RailsRouteEntry | null): { controller: string; action: string } {
-  const [controller = '—', action = '—'] = (route?.controllerAction ?? '').split('#');
-  return { controller, action };
+function systemdServiceFor(item: ProjectDatabaseEnvironment): string | null {
+  return item.serviceAvailable ? systemdServiceByDriver[item.driver.toLowerCase()] ?? null : null;
 }
+
+const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
+  const env = selectedEnvironment.value;
+  if (!env) return [];
+  const service = systemdServiceFor(env);
+  if (!service) return [];
+  return (overview.value?.environments ?? []).filter((item) => item.id !== env.id && systemdServiceFor(item) === service);
+});
 
 async function refreshAll(): Promise<void> {
   await Promise.all([
     loadDatabase(1),
     loadMigrations(),
     loadModels(),
-    loadRoutes(),
-    loadBundler(),
   ]);
 }
 
@@ -318,8 +287,6 @@ async function refreshActive(): Promise<void> {
   if (activeSection.value === 'snapshots') return loadSnapshots();
   if (activeSection.value === 'migrations') return loadMigrations();
   if (activeSection.value === 'models') return loadModels();
-  if (activeSection.value === 'routes') return loadRoutes();
-  return loadBundler();
 }
 
 function selectSection(section: DatabaseSection): void {
@@ -328,7 +295,7 @@ function selectSection(section: DatabaseSection): void {
 
 function sectionFromQuery(): DatabaseSection {
   const value = Array.isArray(route?.query.section) ? route.query.section[0] : route?.query.section;
-  const allowed: DatabaseSection[] = ['overview', 'environments', 'snapshots', 'migrations', 'models', 'routes', 'dependencies'];
+  const allowed: DatabaseSection[] = ['overview', 'environments', 'snapshots', 'migrations', 'models', 'operations'];
   if (!allowed.includes(value as DatabaseSection)) return 'overview';
   if (!isRailsProject.value && !['overview', 'environments', 'snapshots'].includes(value ?? '')) return 'overview';
   return value as DatabaseSection;
@@ -345,10 +312,6 @@ async function copy(value: string, key: string): Promise<void> {
   }
 }
 
-function clientUrl(id: string, driver: string): string {
-  return `dev-dashboard://database/open?projectId=${encodeURIComponent(props.project.id)}&environmentId=${encodeURIComponent(id)}&driver=${encodeURIComponent(driver)}`;
-}
-
 function columnTypeLabel(table: RailsSchemaTable, columnName: string): string {
   const column = table.columns.find((item) => item.name === columnName);
   if (!column) return '—';
@@ -363,8 +326,7 @@ watch(() => props.project.id, () => {
   globalFilter.value = '';
   migrationFilter.value = '';
   modelFilter.value = '';
-  routeFilter.value = '';
-  outdatedFilter.value = '';
+  migrationModalOpen.value = false;
 }, { immediate: true });
 
 watch(() => route?.query.section, () => selectSection(sectionFromQuery()));
@@ -375,7 +337,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="database-explorer" aria-labelledby="database-explorer-title">
+  <section class="database-explorer" aria-labelledby="database-explorer-title" @keydown="handleDatabaseExplorerKeydown">
     <header class="database-explorer-header">
       <div class="database-explorer-heading">
         <span class="database-explorer-breadcrumb">Projeto / Banco de dados</span>
@@ -389,7 +351,7 @@ onBeforeUnmount(() => {
           <input
             v-model="globalFilter"
             type="search"
-            placeholder="Buscar ambientes, migrations, tabelas ou rotas…"
+            placeholder="Buscar ambientes, migrations ou tabelas…"
             aria-label="Buscar no banco de dados do projeto"
           >
           <kbd>⌘K</kbd>
@@ -424,17 +386,13 @@ onBeforeUnmount(() => {
           <span class="database-metric-icon"><ServerStackIcon aria-hidden="true" /></span>
           <div><small>Total de ambientes</small><strong>{{ overview?.total ?? 0 }}</strong><span>{{ reachableEnvironmentsCount }} acessíveis agora</span></div>
         </article>
-        <article class="database-metric-card">
+        <article v-if="isRailsProject" class="database-metric-card">
           <span class="database-metric-icon"><DocumentTextIcon aria-hidden="true" /></span>
           <div><small>Migrations pendentes</small><strong>{{ pendingMigrationsCount }}</strong><span>{{ appliedMigrationsCount }} aplicadas</span></div>
         </article>
         <article class="database-metric-card">
-          <span class="database-metric-icon"><MapIcon aria-hidden="true" /></span>
-          <div><small>Rotas Rails</small><strong>{{ routes?.routes.length ?? 0 }}</strong><span>endpoints reconhecidos</span></div>
-        </article>
-        <article class="database-metric-card database-metric-card-danger">
-          <span class="database-metric-icon"><CubeIcon aria-hidden="true" /></span>
-          <div><small>Gems desatualizadas</small><strong>{{ bundler?.outdated.length ?? 0 }}</strong><span>{{ majorGemUpdates }} atualizações maiores</span></div>
+          <span class="database-metric-icon"><ArchiveBoxIcon aria-hidden="true" /></span>
+          <div><small>Snapshots</small><strong>{{ snapshots?.total ?? 0 }}</strong><span>de {{ snapshots?.retentionLimit ?? 0 }} guardados</span></div>
         </article>
       </div>
 
@@ -459,48 +417,21 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <div v-if="isRailsProject" class="database-overview-columns">
-        <section class="database-overview-block">
-          <header class="database-block-heading"><div><DocumentTextIcon aria-hidden="true" /><h4>Migrations recentes</h4></div><button type="button" @click="selectSection('migrations')">Ver todas <ChevronRightIcon aria-hidden="true" /></button></header>
-          <div v-if="migrationsLoading && !migrations" class="database-empty-state database-empty-state-compact">Consultando migrations…</div>
-          <ul v-else class="database-preview-list">
-            <li v-for="entry in migrations?.migrations.slice(0, 5) ?? []" :key="entry.version">
-              <button type="button" @click="selectMigration(entry); selectSection('migrations')">
-                <span class="database-preview-dot" :class="`is-${entry.status}`"></span>
-                <code>{{ entry.version }}</code>
-                <strong>{{ entry.name }}</strong>
-                <StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge>
-              </button>
-            </li>
-          </ul>
-          <footer><button type="button" @click="migrationStatusFilter = 'down'; selectSection('migrations')">{{ pendingMigrationsCount }} pendentes <ChevronRightIcon aria-hidden="true" /></button></footer>
-        </section>
-
-        <section class="database-overview-block">
-          <header class="database-block-heading"><div><MapIcon aria-hidden="true" /><h4>Rotas da aplicação</h4></div><button type="button" @click="selectSection('routes')">Ver todas <ChevronRightIcon aria-hidden="true" /></button></header>
-          <div v-if="routesLoading && !routes" class="database-empty-state database-empty-state-compact">Consultando rotas…</div>
-          <div v-else class="database-preview-routes">
-            <div class="database-preview-route-head"><span>Verbo</span><span>Rota</span><span>Ação</span></div>
-            <button v-for="(route, index) in routes?.routes.slice(0, 5) ?? []" :key="routeKey(route, index)" type="button" @click="selectRoute(route, index); selectSection('routes')">
-              <span class="route-verb" :class="`route-verb-${route.verb.toLowerCase()}`">{{ route.verb }}</span><code>{{ route.path }}</code><span>{{ route.controllerAction }}</span>
+      <section v-if="isRailsProject" class="database-overview-block">
+        <header class="database-block-heading"><div><DocumentTextIcon aria-hidden="true" /><h4>Migrations recentes</h4></div><button type="button" @click="selectSection('migrations')">Ver todas <ChevronRightIcon aria-hidden="true" /></button></header>
+        <div v-if="migrationsLoading && !migrations" class="database-empty-state database-empty-state-compact">Consultando migrations…</div>
+        <ul v-else class="database-preview-list">
+          <li v-for="entry in migrations?.migrations.slice(0, 5) ?? []" :key="entry.version">
+            <button type="button" @click="openMigration(entry); selectSection('migrations')">
+              <span class="database-preview-dot" :class="`is-${entry.status}`"></span>
+              <code>{{ entry.version }}</code>
+              <strong>{{ entry.name }}</strong>
+              <StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge>
             </button>
-          </div>
-          <footer><button type="button" @click="selectSection('routes')">Total de {{ routes?.routes.length ?? 0 }} rotas <ChevronRightIcon aria-hidden="true" /></button></footer>
-        </section>
-
-        <section class="database-overview-block">
-          <header class="database-block-heading"><div><CubeIcon aria-hidden="true" /><h4>Dependências / Saúde</h4></div><button type="button" @click="selectSection('dependencies')">Ver detalhes <ChevronRightIcon aria-hidden="true" /></button></header>
-          <div class="database-health-card" :class="bundler?.check?.satisfied ? 'is-success' : 'is-warning'">
-            <CheckCircleIcon aria-hidden="true" />
-            <div><strong>Bundle check</strong><span>{{ bundler?.check?.satisfied ? 'Tudo certo com suas dependências.' : 'Existem dependências pendentes.' }}</span></div>
-          </div>
-          <h5>Gems desatualizadas ({{ bundler?.outdated.length ?? 0 }})</h5>
-          <ul class="database-gem-preview">
-            <li v-for="gem in bundler?.outdated.slice(0, 3) ?? []" :key="gem.name"><code>{{ gem.name }}</code><span>{{ gem.installed }} → {{ gem.newest }}</span></li>
-          </ul>
-          <footer><button type="button" @click="selectSection('dependencies')">Ver todas <ChevronRightIcon aria-hidden="true" /></button></footer>
-        </section>
-      </div>
+          </li>
+        </ul>
+        <footer><button type="button" @click="migrationStatusFilter = 'down'; selectSection('migrations')">{{ pendingMigrationsCount }} pendentes <ChevronRightIcon aria-hidden="true" /></button></footer>
+      </section>
 
       <aside class="database-tip"><span>💡</span><div><strong>Dica rápida</strong><p>Mantenha migrations pequenas e revise o schema antes de aplicar mudanças em produção.</p></div><button type="button" @click="selectSection('migrations')">Ir para Migrations <ChevronRightIcon aria-hidden="true" /></button></aside>
     </section>
@@ -550,9 +481,34 @@ onBeforeUnmount(() => {
               </div>
               <div class="database-action-grid">
                 <button v-if="revealed[selectedEnvironment.id] || (!selectedEnvironment.passwordConfigured && selectedEnvironment.maskedUrl)" type="button" @click="copy(revealed[selectedEnvironment.id] ?? selectedEnvironment.maskedUrl ?? '', `url-${selectedEnvironment.id}`)"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === `url-${selectedEnvironment.id}` ? 'URL copiada' : 'Copiar URL' }}</button>
-                <a :href="clientUrl(selectedEnvironment.id, selectedEnvironment.driver)"><CommandLineIcon aria-hidden="true" />Abrir cliente</a>
-                <button v-if="selectedEnvironment.reachability === 'unreachable'" class="database-action-primary" type="button" :disabled="starting[selectedEnvironment.id] || !selectedEnvironment.startAvailable" @click="start(selectedEnvironment.id)"><PlayIcon aria-hidden="true" />{{ starting[selectedEnvironment.id] ? 'Iniciando…' : selectedEnvironment.startAvailable ? 'Iniciar banco local' : 'Início não configurado' }}</button>
+
+                <template v-if="selectedEnvironment.serviceAvailable">
+                  <button
+                    v-if="selectedEnvironment.reachability === 'unreachable'"
+                    class="database-action-primary"
+                    type="button"
+                    :disabled="pendingAction[selectedEnvironment.id] !== undefined"
+                    @click="runAction(selectedEnvironment.id, 'start')"
+                  ><PlayIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : 'Iniciar banco local' }}</button>
+                  <template v-else>
+                    <button
+                      type="button"
+                      :disabled="pendingAction[selectedEnvironment.id] !== undefined"
+                      @click="runAction(selectedEnvironment.id, 'restart')"
+                    ><ArrowPathIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco' }}</button>
+                    <button
+                      class="database-action-danger"
+                      type="button"
+                      :disabled="pendingAction[selectedEnvironment.id] !== undefined"
+                      @click="runAction(selectedEnvironment.id, 'stop')"
+                    ><PauseIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Pausar banco' }}</button>
+                  </template>
+                </template>
+                <span v-else class="database-service-unavailable-hint">Início, pausa e reinício automáticos não estão disponíveis para este ambiente.</span>
               </div>
+              <p v-if="sharedServiceEnvironments.length" class="database-shared-service-hint">
+                Este serviço também é usado por: {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}. Pausar ou reiniciar afeta esses ambientes também.
+              </p>
             </section>
           </div>
         </article>
@@ -628,6 +584,16 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else-if="activeSection === 'migrations'" class="database-section" role="tabpanel">
+      <div v-if="(migrations?.databases.length ?? 0) > 1" class="database-segmented-control" aria-label="Selecionar banco">
+        <button
+          v-for="name in migrations?.databases ?? []"
+          :key="name"
+          type="button"
+          :class="{ active: selectedMigrationsDatabase === name }"
+          @click="selectMigrationsDatabase(name)"
+        >{{ name === 'primary' ? 'Principal' : name }}</button>
+      </div>
+
       <div class="database-metrics-grid database-metrics-grid-migrations">
         <article class="database-metric-card"><span class="database-metric-icon"><DocumentTextIcon aria-hidden="true" /></span><div><small>Total</small><strong>{{ migrations?.migrations.length ?? 0 }}</strong><span>migrations</span></div></article>
         <article class="database-metric-card database-metric-card-warning"><span class="database-metric-icon"><ArrowPathIcon aria-hidden="true" /></span><div><small>Pendentes</small><strong>{{ pendingMigrationsCount }}</strong><span>aguardando</span></div></article>
@@ -643,50 +609,33 @@ onBeforeUnmount(() => {
       <div v-if="migrationsErrorMessage" class="database-explorer-alert" role="alert">{{ migrationsErrorMessage }}</div>
       <div v-else-if="migrationsLoading && !migrations" class="database-empty-state">Consultando migrations…</div>
       <div v-else-if="migrations && !migrations.supported" class="database-empty-state"><strong>Status de migrations indisponível.</strong><span>Não encontramos bin/rails ou o comando falhou.</span></div>
-      <div v-else class="database-table-detail-layout">
-        <div class="database-table-shell">
-          <table class="database-data-table database-migrations-table">
-            <thead><tr><th>Versão</th><th>Nome</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="entry in filteredMigrations" :key="entry.version" :class="{ active: selectedMigrationEntry?.version === entry.version }">
-                <td><button type="button" @click="selectMigration(entry)"><code>{{ entry.version }}</code></button></td>
-                <td><button type="button" @click="selectMigration(entry)">{{ entry.name }}</button></td>
-                <td><StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge></td>
-                <td><button class="database-row-action" type="button" aria-label="Ver detalhes" @click="selectMigration(entry)"><ChevronRightIcon aria-hidden="true" /></button></td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="filteredMigrations.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma migration corresponde aos filtros.</p>
-        </div>
-
-        <aside class="database-inspector-panel">
-          <header><div><small>Detalhes da migration</small><h4>{{ selectedMigrationEntry?.name ?? 'Selecione uma migration' }}</h4></div></header>
-          <div v-if="migrationDetailErrorMessage" class="database-explorer-alert" role="alert">{{ migrationDetailErrorMessage }}</div>
-          <div v-else-if="migrationDetailLoading" class="database-empty-state database-empty-state-compact">Carregando arquivo…</div>
-          <template v-else-if="selectedMigrationEntry">
-            <StatusBadge :tone="railsMigrationToneFor(selectedMigrationEntry.status)">{{ migrationStatusLabels[selectedMigrationEntry.status] }}</StatusBadge>
-            <dl class="database-inspector-list">
-              <div><dt>Versão</dt><dd><code>{{ selectedMigrationEntry.version }}</code><button type="button" @click="copy(selectedMigrationEntry.version, 'migration-version')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-version' ? 'Copiada' : 'Copiar' }}</button></dd></div>
-              <div><dt>Arquivo</dt><dd><code>{{ migrationDetail?.filePath ?? 'Arquivo não localizado' }}</code></dd></div>
-              <div><dt>Status</dt><dd>{{ migrationStatusLabels[selectedMigrationEntry.status] }}</dd></div>
-            </dl>
-            <section class="database-source-preview">
-              <header><strong>Código da migration</strong><button v-if="migrationDetail?.source" type="button" @click="copy(migrationDetail.source, 'migration-source')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-source' ? 'Código copiado' : 'Copiar código' }}</button></header>
-              <pre v-if="migrationDetail?.source"><code>{{ migrationDetail.source }}</code></pre>
-              <p v-else>O status existe no banco, mas o arquivo da migration não foi encontrado no projeto.</p>
-            </section>
-          </template>
-        </aside>
+      <div v-else class="database-table-shell">
+        <table class="database-data-table database-migrations-table">
+          <thead><tr><th>Versão</th><th>Nome</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="entry in filteredMigrations" :key="entry.version">
+              <td><button type="button" @click="openMigration(entry)"><code>{{ entry.version }}</code></button></td>
+              <td><button type="button" @click="openMigration(entry)">{{ entry.name }}</button></td>
+              <td><StatusBadge :tone="railsMigrationToneFor(entry.status)">{{ migrationStatusLabels[entry.status] }}</StatusBadge></td>
+              <td><button class="database-row-action" type="button" aria-label="Ver detalhes" @click="openMigration(entry)"><ChevronRightIcon aria-hidden="true" /></button></td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="filteredMigrations.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma migration corresponde aos filtros.</p>
       </div>
-
-      <section class="database-mutation-panel">
-        <header><div><strong>Operações Rails</strong><span>Cada comando pede confirmação antes de executar.</span></div></header>
-        <div class="database-mutation-actions"><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}</button></div>
-        <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">{{ mutationErrorMessage }}</p><p v-else-if="mutationMessage" class="database-success-message">{{ mutationMessage }}</p><pre v-if="mutationOutput" class="database-command-output">{{ mutationOutput }}</pre>
-      </section>
     </section>
 
     <section v-else-if="activeSection === 'models'" class="database-section" role="tabpanel">
+      <div v-if="(models?.databases.length ?? 0) > 1" class="database-segmented-control" aria-label="Selecionar banco">
+        <button
+          v-for="name in models?.databases ?? []"
+          :key="name"
+          type="button"
+          :class="{ active: selectedModelsDatabase === name }"
+          @click="selectModelsDatabase(name)"
+        >{{ name === 'primary' ? 'Principal' : name }}</button>
+      </div>
+
       <div class="database-metrics-grid">
         <article class="database-metric-card"><span class="database-metric-icon"><TableCellsIcon aria-hidden="true" /></span><div><small>Total de tabelas</small><strong>{{ models?.tables.length ?? 0 }}</strong><span>em {{ models?.schemaPath ?? 'schema.rb' }}</span></div></article>
         <article class="database-metric-card"><span class="database-metric-icon"><CodeBracketSquareIcon aria-hidden="true" /></span><div><small>Total de colunas</small><strong>{{ totalColumns }}</strong><span>campos declarados</span></div></article>
@@ -725,56 +674,70 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section v-else-if="activeSection === 'routes'" class="database-section" role="tabpanel">
-      <div class="database-metrics-grid database-route-metrics">
-        <article class="database-metric-card"><span class="database-metric-icon"><MapIcon aria-hidden="true" /></span><div><small>Total de rotas</small><strong>{{ routes?.routes.length ?? 0 }}</strong><span>todas as rotas</span></div></article>
-        <article v-for="verb in ['GET', 'POST', 'PATCH', 'DELETE']" :key="verb" class="database-metric-card"><span class="route-verb" :class="`route-verb-${verb.toLowerCase()}`">{{ verb }}</span><div><small>{{ verb }}</small><strong>{{ routeVerbCounts[verb] ?? 0 }}</strong><span>endpoints</span></div></article>
-      </div>
+    <section v-else-if="activeSection === 'operations'" class="database-section" role="tabpanel">
+      <section class="database-mutation-panel">
+        <header><div><strong>Operações Rails</strong><span>Cada comando pede confirmação antes de executar.</span></div></header>
+        <div class="database-mutation-actions"><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}</button></div>
+        <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">{{ mutationErrorMessage }}</p><p v-else-if="mutationMessage" class="database-success-message">{{ mutationMessage }}</p><pre v-if="mutationOutput" class="database-command-output">{{ mutationOutput }}</pre>
+      </section>
 
-      <div class="database-toolbar"><label class="database-local-search"><MagnifyingGlassIcon aria-hidden="true" /><input v-model="routeFilter" type="search" placeholder="Buscar rota, controller ou helper…"></label><div class="database-segmented-control database-route-filter"><button v-for="verb in ['all', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const" :key="verb" type="button" :class="{ active: routeVerbFilter === verb }" @click="routeVerbFilter = verb">{{ verb === 'all' ? 'Todos' : verb }}</button></div><span class="database-toolbar-count">{{ filteredRoutes.length }} rotas</span></div>
-
-      <div v-if="routesErrorMessage" class="database-explorer-alert" role="alert">{{ routesErrorMessage }}</div>
-      <div v-else-if="routesLoading && !routes" class="database-empty-state">Consultando rotas…</div>
-      <div v-else-if="routes && !routes.supported" class="database-empty-state"><strong>Rotas indisponíveis.</strong><span>Não encontramos bin/rails ou o comando falhou.</span></div>
-      <div v-else class="database-table-detail-layout database-routes-layout">
-        <div class="database-table-shell"><table class="database-data-table database-routes-table"><thead><tr><th>Método</th><th>Rota</th><th>Controller#Action</th><th>Nome</th><th></th></tr></thead><tbody><tr v-for="(route, index) in filteredRoutes" :key="routeKey(route, index)" :class="{ active: selectedRoute === route }"><td><span class="route-verb" :class="`route-verb-${route.verb.toLowerCase()}`">{{ route.verb }}</span></td><td><button type="button" @click="selectRoute(route, index)"><code>{{ route.path }}</code></button></td><td><button type="button" @click="selectRoute(route, index)">{{ route.controllerAction }}</button></td><td><code>{{ route.name ?? '—' }}</code></td><td><button class="database-row-action" type="button" @click="selectRoute(route, index)"><ChevronRightIcon aria-hidden="true" /></button></td></tr></tbody></table><p v-if="filteredRoutes.length === 0" class="database-empty-state database-empty-state-compact">Nenhuma rota corresponde aos filtros.</p></div>
-
-        <aside class="database-inspector-panel">
-          <header><div><small>Detalhes da rota</small><h4>{{ selectedRoute?.controllerAction ?? 'Selecione uma rota' }}</h4></div></header>
-          <template v-if="selectedRoute">
-            <span class="route-verb" :class="`route-verb-${selectedRoute.verb.toLowerCase()}`">{{ selectedRoute.verb }}</span>
-            <dl class="database-inspector-list"><div><dt>Rota completa</dt><dd><code>{{ selectedRoute.path }}</code></dd></div><div><dt>Controller</dt><dd><code>{{ routeControllerAction(selectedRoute).controller }}</code></dd></div><div><dt>Action</dt><dd><code>{{ routeControllerAction(selectedRoute).action }}</code></dd></div><div><dt>Helper</dt><dd><code>{{ selectedRoute.name ?? 'Não informado' }}</code></dd></div></dl>
-            <div class="database-inspector-actions"><button type="button" @click="copy(selectedRoute.path, 'route-path')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'route-path' ? 'Rota copiada' : 'Copiar rota' }}</button><button type="button" @click="copy(selectedRoute.controllerAction, 'route-action')"><CodeBracketSquareIcon aria-hidden="true" />{{ copiedKey === 'route-action' ? 'Ação copiada' : 'Copiar action' }}</button></div>
-          </template>
-        </aside>
+      <div class="database-generator-grid">
+        <RailsGeneratorForm
+          :project="props.project"
+          kind="model"
+          title="Gerar model"
+          hint="Cria o model e a migration que cria a tabela, a partir dos campos informados."
+          :databases="migrations?.databases ?? ['primary']"
+        />
+        <RailsGeneratorForm
+          :project="props.project"
+          kind="migration"
+          title="Gerar migration"
+          hint="Cria só a migration — para atualizar uma tabela já existente, por exemplo."
+          :databases="migrations?.databases ?? ['primary']"
+        />
       </div>
     </section>
 
-    <section v-else class="database-section" role="tabpanel">
-      <div class="database-metrics-grid">
-        <article class="database-metric-card" :class="bundler?.check?.satisfied ? 'database-metric-card-success' : 'database-metric-card-warning'"><span class="database-metric-icon"><CheckCircleIcon aria-hidden="true" /></span><div><small>Bundle check</small><strong class="database-metric-text">{{ bundler?.check?.satisfied ? 'Tudo certo' : 'Pendente' }}</strong><span>estado das dependências</span></div></article>
-        <article class="database-metric-card database-metric-card-danger"><span class="database-metric-icon"><CubeIcon aria-hidden="true" /></span><div><small>Gems desatualizadas</small><strong>{{ bundler?.outdated.length ?? 0 }}</strong><span>atualizações disponíveis</span></div></article>
-        <article class="database-metric-card"><span class="database-metric-icon"><DocumentTextIcon aria-hidden="true" /></span><div><small>Com requisito</small><strong>{{ bundler?.outdated.filter((gem) => gem.requested).length ?? 0 }}</strong><span>restrições no Gemfile</span></div></article>
-        <article class="database-metric-card database-metric-card-warning"><span class="database-metric-icon"><ArrowPathIcon aria-hidden="true" /></span><div><small>Atualização maior</small><strong>{{ majorGemUpdates }}</strong><span>exigem mais atenção</span></div></article>
-      </div>
+    <Teleport to="body">
+      <div
+        v-if="migrationModalOpen"
+        class="database-migration-modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalhes da migration"
+        @click.self="closeMigrationModal"
+      >
+        <article class="database-migration-modal">
+          <header class="database-migration-modal-head">
+            <div>
+              <small>Detalhes da migration</small>
+              <h4>{{ selectedMigrationEntry?.name ?? 'Selecione uma migration' }}</h4>
+            </div>
+            <button type="button" class="database-migration-modal-close" aria-label="Fechar detalhes" @click="closeMigrationModal">
+              <XMarkIcon aria-hidden="true" />
+            </button>
+          </header>
 
-      <div v-if="bundlerErrorMessage" class="database-explorer-alert" role="alert">{{ bundlerErrorMessage }}</div>
-      <div v-else-if="bundlerLoading && !bundler" class="database-empty-state">Consultando o Bundler…</div>
-      <div v-else-if="bundler && !bundler.supported" class="database-empty-state"><strong>Diagnóstico Bundler indisponível.</strong><span>Não encontramos um Gemfile neste projeto.</span></div>
-      <div v-else class="database-split-layout database-dependencies-layout">
-        <aside class="database-sidebar-panel">
-          <header><div><h4>Gems desatualizadas</h4><span>{{ filteredOutdatedGems.length }}</span></div><label class="database-sidebar-search"><MagnifyingGlassIcon aria-hidden="true" /><input v-model="outdatedFilter" type="search" placeholder="Buscar gem…"></label></header>
-          <div class="database-sidebar-list database-gem-list"><button v-for="gem in filteredOutdatedGems" :key="gem.name" type="button" :class="{ active: selectedGem?.name === gem.name }" @click="selectedGemName = gem.name"><span class="database-sidebar-item-icon"><CubeIcon aria-hidden="true" /></span><span><strong>{{ gem.name }}</strong><small>{{ gem.installed }} → {{ gem.newest }}</small></span><ChevronRightIcon aria-hidden="true" /></button></div>
-        </aside>
-
-        <article v-if="selectedGem" class="database-detail-panel database-gem-detail">
-          <header class="database-detail-title"><div><span class="database-detail-icon"><CubeIcon aria-hidden="true" /></span><div><h4>{{ selectedGem.name }}</h4><p>Atualização disponível</p></div><StatusBadge tone="warning">Desatualizada</StatusBadge></div></header>
-          <dl class="database-definition-list"><div><dt>Instalada</dt><dd>{{ selectedGem.installed }}</dd></div><div><dt>Mais nova</dt><dd>{{ selectedGem.newest }}</dd></div><div><dt>Requisitada</dt><dd>{{ selectedGem.requested ?? 'Sem restrição informada' }}</dd></div><div><dt>Comando</dt><dd><code>bundle update {{ selectedGem.name }}</code></dd></div></dl>
-          <section class="database-dependency-note"><h5>Antes de atualizar</h5><p>Revise o changelog da gem, execute a suíte de testes e valide a alteração em um ambiente que não seja produção.</p></section>
-          <div class="database-inspector-actions"><button type="button" @click="copy(`bundle update ${selectedGem.name}`, 'gem-command')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'gem-command' ? 'Comando copiado' : 'Copiar comando' }}</button><button type="button" @click="copy(selectedGem.name, 'gem-name')"><DocumentTextIcon aria-hidden="true" />{{ copiedKey === 'gem-name' ? 'Nome copiado' : 'Copiar nome' }}</button></div>
+          <div class="database-migration-modal-body">
+            <div v-if="migrationDetailErrorMessage" class="database-explorer-alert" role="alert">{{ migrationDetailErrorMessage }}</div>
+            <div v-else-if="migrationDetailLoading" class="database-empty-state database-empty-state-compact">Carregando arquivo…</div>
+            <template v-else-if="selectedMigrationEntry">
+              <StatusBadge :tone="railsMigrationToneFor(selectedMigrationEntry.status)">{{ migrationStatusLabels[selectedMigrationEntry.status] }}</StatusBadge>
+              <dl class="database-inspector-list">
+                <div><dt>Versão</dt><dd><code>{{ selectedMigrationEntry.version }}</code><button type="button" @click="copy(selectedMigrationEntry.version, 'migration-version')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-version' ? 'Copiada' : 'Copiar' }}</button></dd></div>
+                <div><dt>Arquivo</dt><dd><code>{{ migrationDetail?.filePath ?? 'Arquivo não localizado' }}</code></dd></div>
+                <div><dt>Status</dt><dd>{{ migrationStatusLabels[selectedMigrationEntry.status] }}</dd></div>
+              </dl>
+              <section class="database-source-preview">
+                <header><strong>Código da migration</strong><button v-if="migrationDetail?.source" type="button" @click="copy(migrationDetail.source, 'migration-source')"><ClipboardDocumentIcon aria-hidden="true" />{{ copiedKey === 'migration-source' ? 'Código copiado' : 'Copiar código' }}</button></header>
+                <pre v-if="migrationDetail?.source" class="database-migration-source-code"><code class="git-syntax-code" v-html="migrationSourceHtml"></code></pre>
+                <p v-else>O status existe no banco, mas o arquivo da migration não foi encontrado no projeto.</p>
+              </section>
+            </template>
+          </div>
         </article>
-        <div v-else class="database-detail-panel database-empty-state">Nenhuma gem desatualizada encontrada.</div>
       </div>
-    </section>
+    </Teleport>
   </section>
 </template>

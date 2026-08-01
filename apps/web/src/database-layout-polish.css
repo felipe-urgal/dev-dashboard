@@ -5,6 +5,8 @@
 @import './database/detail-panel.css';
 @import './database/tables.css';
 @import './database/inspector-mutation.css';
+@import './database/migration-modal.css';
+@import './database/generator-form.css';
 @import './database/empty-states.css';
 @import './database/snapshots.css';
 @import './database/responsive.css';

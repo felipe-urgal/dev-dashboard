@@ -14,6 +14,8 @@ interface ModelsResponse { models: { supported: boolean; schemaPath?: string; ta
 interface RoutesResponse { routes: { supported: boolean; routes: Array<{ name?: string; verb: string; path: string; controllerAction: string }> } }
 interface ConfirmationResponse { confirmation: { token: string; operation: string; expiresAt: string } }
 interface MutationResultResponse { result: { operation: string; succeeded: boolean; output: string } }
+interface GeneratorConfirmationResponse { confirmation: { token: string; command: string; expiresAt: string } }
+interface GeneratorResultResponse { result: { succeeded: boolean; createdFiles: string[]; output: string } }
 interface ErrorResponse { error?: string }
 
 test('rotas de inspeção Rails (migrations, models e routes)', async (context) => {
@@ -167,5 +169,42 @@ end
     });
     assert.equal(response.statusCode, 409);
     assert.equal(response.json<ErrorResponse>().error, 'RAILS_MUTATION_CONFIRMATION_REQUIRED');
+  });
+
+  await context.test('prepara confirmação e gera um model', async () => {
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/generate/confirmations', headers: jsonHeaders,
+      payload: JSON.stringify({ kind: 'model', name: 'Product', fields: [{ name: 'name', type: 'string' }] }),
+    });
+    assert.equal(confirmationResponse.statusCode, 201);
+    const { confirmation } = confirmationResponse.json<GeneratorConfirmationResponse>();
+    assert.equal(confirmation.command, 'rails generate model Product name:string');
+
+    const mutationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/generate/mutations', headers: jsonHeaders,
+      payload: JSON.stringify({ confirmationToken: confirmation.token }),
+    });
+    assert.equal(mutationResponse.statusCode, 200);
+    const { result } = mutationResponse.json<GeneratorResultResponse>();
+    assert.equal(result.succeeded, true);
+    assert.match(result.output, /generate model Product/);
+  });
+
+  await context.test('rejeita nome de generator fora do padrão fechado', async () => {
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/generate/confirmations', headers: jsonHeaders,
+      payload: JSON.stringify({ kind: 'model', name: '../evil', fields: [] }),
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json<ErrorResponse>().error, 'RAILS_GENERATOR_INVALID_INPUT');
+  });
+
+  await context.test('rejeita execução de generator sem confirmação prévia', async () => {
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/rails/generate/mutations', headers: jsonHeaders,
+      payload: JSON.stringify({ confirmationToken: 'g'.repeat(64) }),
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.json<ErrorResponse>().error, 'RAILS_GENERATOR_CONFIRMATION_REQUIRED');
   });
 });

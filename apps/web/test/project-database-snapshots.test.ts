@@ -33,7 +33,7 @@ const environment = {
   source: 'dotenv',
   sourceDetail: '.env',
   reachability: 'reachable',
-  startAvailable: false,
+  serviceAvailable: false,
 };
 
 const snapshot = {

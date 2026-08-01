@@ -40,6 +40,7 @@ export function useRailsMigrations(
   const migrationDetailLoading = ref(false);
   const migrationDetailErrorMessage = ref('');
   const selectedMigrationVersion = ref('');
+  const selectedDatabase = ref('primary');
 
   const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
   const mutationMessage = ref('');
@@ -54,11 +55,12 @@ export function useRailsMigrations(
       return;
     }
     const current = generation;
+    const database = selectedDatabase.value;
     migrationDetailLoading.value = true;
     migrationDetailErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrationDetail(getProject().id, version);
-      if (current === generation && selectedMigrationVersion.value === version) migrationDetail.value = result;
+      const result = await fetchProjectRailsMigrationDetail(getProject().id, version, database);
+      if (current === generation && selectedMigrationVersion.value === version && selectedDatabase.value === database) migrationDetail.value = result;
     } catch (error) {
       if (current === generation) migrationDetailErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar os detalhes da migration.';
     } finally {
@@ -72,7 +74,7 @@ export function useRailsMigrations(
     migrationsLoading.value = true;
     migrationsErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrations(getProject().id);
+      const result = await fetchProjectRailsMigrations(getProject().id, selectedDatabase.value);
       if (current !== generation) return;
       migrations.value = result;
       const preferred = result.migrations.find((item) => item.version === selectedMigrationVersion.value)
@@ -91,6 +93,14 @@ export function useRailsMigrations(
     selectedMigrationVersion.value = entry.version;
     migrationDetail.value = null;
     void loadMigrationDetail(entry.version);
+  }
+
+  function selectDatabase(database: string): void {
+    if (selectedDatabase.value === database) return;
+    selectedDatabase.value = database;
+    selectedMigrationVersion.value = '';
+    migrationDetail.value = null;
+    void loadMigrations();
   }
 
   async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
@@ -123,6 +133,7 @@ export function useRailsMigrations(
       migrations.value = null;
       migrationDetail.value = null;
       selectedMigrationVersion.value = '';
+      selectedDatabase.value = 'primary';
       mutationRunning.value = '';
       mutationMessage.value = '';
       mutationErrorMessage.value = '';
@@ -140,6 +151,7 @@ export function useRailsMigrations(
     migrationDetailLoading,
     migrationDetailErrorMessage,
     selectedMigrationVersion,
+    selectedDatabase,
     mutationRunning,
     mutationMessage,
     mutationErrorMessage,
@@ -147,6 +159,7 @@ export function useRailsMigrations(
     mutationLabels,
     loadMigrations,
     selectMigration,
+    selectDatabase,
     runMigrationMutation,
   };
 }

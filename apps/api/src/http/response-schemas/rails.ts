@@ -1,7 +1,7 @@
 export const projectDatabaseEnvironmentResponseSchema = {
   type: 'object', additionalProperties: false,
 
-  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'startAvailable'],
+  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'serviceAvailable'],
 
   properties: {
     id: { type: 'string' }, environment: { type: 'string' }, driver: { type: 'string' },
@@ -10,7 +10,7 @@ export const projectDatabaseEnvironmentResponseSchema = {
     source: { type: 'string', enum: ['rails-database-yml', 'dotenv', 'prisma', 'knex'] },
     sourceDetail: { type: 'string' }, reachability: { type: 'string', enum: ['reachable', 'unreachable', 'unknown'] },
 
-    startAvailable: { type: 'boolean' },
+    serviceAvailable: { type: 'boolean' },
 
   },
 } as const;
@@ -80,9 +80,10 @@ export const railsMigrationEntryResponseSchema = {
 
 export const railsMigrationsOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['supported', 'migrations'],
+  required: ['supported', 'databases', 'migrations'],
   properties: {
     supported: { type: 'boolean' },
+    databases: { type: 'array', items: { type: 'string' } },
     database: { type: 'string' },
     migrations: { type: 'array', items: railsMigrationEntryResponseSchema },
   },

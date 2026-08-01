@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-import { splitLeadingPatchMetadata } from '../src/git-diff-compact-enhancer';
+import { splitLeadingPatchMetadata } from '../src/utils/split-leading-patch-metadata';
 
 test('separa metadados técnicos antes do primeiro hunk', () => {
   const result = splitLeadingPatchMetadata([
