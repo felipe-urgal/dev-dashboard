@@ -718,7 +718,6 @@ completo direto no arquivo.
  565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
  629  apps/web/src/components/ProjectGitPanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
- 593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
  571  apps/web/src/views/DashboardView.vue
  467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
@@ -1027,6 +1026,18 @@ corrigido para reusar `normalizePaletteText()` como no original. `CommandPalette
 Verificado com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E
 (incluindo os dois específicos da paleta de comandos e o baseline visual da sidebar) — todos verdes.
 
+**`ProcessesView.vue` (593 → 322) — concluído**, vigésimo quarto arquivo desta fase. Diferente dos
+componentes de detalhe do projeto, esta view não recebe `props` complexas nem precisa reagir a
+troca de projeto — é uma tela autocontida (filtros, contagens do resumo, tabela de processos
+gerenciados), então toda a lógica de `<script setup>` (estado, computeds de filtro/contagem,
+`loadReferenceData`/`loadProcesses`/`runCleanup`, os dois `watch` de filtro e o ciclo de vida
+`onMounted`/`onBeforeUnmount` do relógio de duração) foi extraída inteira, verbatim, para
+`composables/useProcessesView.ts` (336 linhas), que já inclui seu próprio `onMounted`/
+`onBeforeUnmount`. O componente ficou só com os imports de ícones/`StatusBadge`/formatadores, a
+desestruturação do composable e o template (inalterado). Verificado com `vue-tsc`, `build`, o
+monorepo completo (248 testes web) e os 13 testes E2E (incluindo a rota global de processos e o
+baseline visual) — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
@@ -1035,14 +1046,15 @@ Verificado com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
 `utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
-`ProjectGitPullRequestPage.vue` e `CommandPalette.vue` saíram da lista por completo — todo o
-`apps/api/src` está concluído (exceto as duas classes ainda acima de 400, ver nota acima).
-`git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos, mas as
-duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma segunda
-passada (dividir a classe por domínio), não como pendência ativa agora. `stores/dashboard.ts` e
-`useProjectTestsPanel.ts` foram avaliados e não divididos (ver nota acima). Os demais ~11 arquivos
-do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem de
-execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante
+`ProjectGitPullRequestPage.vue`, `CommandPalette.vue` e `ProcessesView.vue` saíram da lista por
+completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda acima de 400, ver
+nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram
+divididos, mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas
+a uma segunda passada (dividir a classe por domínio), não como pendência ativa agora.
+`stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não divididos (ver nota acima).
+Os demais ~10 arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem
+pendentes, sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima.
+Arquivos `.vue` com bastante
 template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
 tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
 pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
