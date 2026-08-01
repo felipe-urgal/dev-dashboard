@@ -15,7 +15,7 @@ import type {
   Project,
   Workspace,
 } from '@dev-dashboard/contracts';
-import { MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
+import { FolderIcon, MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useCommandPaletteItems, type PaletteItem } from '../composables/useCommandPaletteItems';
 import { useCommandPaletteProjectActions } from '../composables/useCommandPaletteProjectActions';
