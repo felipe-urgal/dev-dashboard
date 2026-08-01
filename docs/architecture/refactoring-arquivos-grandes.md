@@ -723,7 +723,6 @@ completo direto no arquivo.
  590  apps/web/src/components/ProjectServerPanel.vue
  588  apps/web/src/components/NoticeCenter.vue
  573  apps/web/src/components/ProjectGitPullRequestPage.vue
- 573  apps/api/src/services/git-stash-service.ts
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
  530  apps/web/src/test-log-inspector.ts
@@ -858,14 +857,26 @@ detectores por `project.type`). Verificado com `typecheck`, `build` e os 28 test
 `test-detection-service`/`test-file-routes`/`related-test-service`, mais o monorepo completo —
 todos verdes.
 
+**`apps/api/src/services/git-stash-service.ts` (573 → 287 linhas) — concluído**, oitavo arquivo
+desta fase. Split em `git-stash/`: `errors.ts` (`GitStashErrorCode`/`GitStashError`),
+`constants.ts` (separador de campo, TTL, limite de patch, os dois regex — mesma atenção de sempre
+ao `FIELD_SEPARATOR` como texto literal `'\u001f'`, não byte cru), `run.ts` (`runGit`/
+`failureText`), `validation.ts` (`validateReference`/`validateCreateInput`),
+`repository-guards.ts` (`requireRepository`/`requireCleanWorkingTree`/`currentBranch`/
+`rollbackWorkingTree`), `status-parsing.ts` (`parseNameStatus`/`parseNumstat`) e
+`reference-parsing.ts` (`parseSubject`/`parseReferences`/`includesUntracked`/`filesFor`/
+`summaryFor`, que já dependem de `status-parsing.ts`). O arquivo principal ficou só com a classe
+`GitStashService`. Verificado com `typecheck`, `build` e o teste de `git-stash-service`, mais o
+monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
-`git-pull-request-service.ts`, `routes/processes.ts` e `test-detection-service.ts` saíram da lista
-por completo. `git-service.ts` (842 → 574) e
+`git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts` e
+`git-stash-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~27 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~26 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
