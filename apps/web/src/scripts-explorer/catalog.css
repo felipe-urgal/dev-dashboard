@@ -152,12 +152,9 @@
 
 .scripts-catalog-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 155px 145px;
+  grid-template-columns: 155px 145px;
+  justify-content: end;
   gap: 8px;
-}
-
-.scripts-catalog-toolbar label {
-  padding: 0 10px;
 }
 
 .scripts-catalog-toolbar select {
@@ -168,6 +165,43 @@
   color: var(--text);
   background: var(--surface-0);
   font-size: var(--font-xs);
+}
+
+.scripts-catalog-note {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--info-text) 25%, var(--border));
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--info-surface) 35%, var(--surface-1));
+  font-size: var(--font-xs);
+  line-height: 1.45;
+}
+
+@media (min-width: 1081px) {
+  .scripts-explorer .script-card {
+    grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1.1fr) minmax(150px, 0.75fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding-block: 10px;
+  }
+
+  .scripts-explorer .script-card > header,
+  .scripts-explorer .script-card > footer {
+    min-width: 0;
+  }
+
+  .scripts-explorer .script-card > header {
+    align-items: flex-start;
+  }
+
+  .scripts-explorer .script-card > header > .status-badge {
+    display: none;
+  }
+
+  .scripts-explorer .script-card > footer {
+    justify-content: flex-end;
+  }
 }
 
 .scripts-catalog-toolbar select:focus {
@@ -367,4 +401,3 @@
   height: 15px;
   flex: 0 0 auto;
 }
-

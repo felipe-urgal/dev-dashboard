@@ -1,8 +1,4 @@
 @media (max-width: 1080px) {
-  .scripts-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .scripts-catalog-layout {
     grid-template-columns: 180px minmax(0, 1fr);
   }
@@ -38,21 +34,8 @@
     flex-basis: auto;
   }
 
-  .scripts-overview-grid,
   .scripts-executions-layout {
     grid-template-columns: 1fr;
-  }
-
-  .scripts-overview-catalog {
-    grid-row: auto;
-  }
-
-  .scripts-risk-guide {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .scripts-risk-guide button {
-    grid-column: 1 / -1;
   }
 
   .scripts-catalog-layout {
@@ -74,7 +57,7 @@
   }
 
   .scripts-catalog-toolbar {
-    grid-template-columns: minmax(0, 1fr) 145px 135px;
+    grid-template-columns: 145px 135px;
   }
 
   .scripts-history-list {
@@ -115,7 +98,6 @@
     width: 100%;
   }
 
-  .scripts-metrics-grid,
   .scripts-list,
   .scripts-detail-panel,
   .scripts-catalog-sidebar,

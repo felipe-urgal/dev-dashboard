@@ -16,8 +16,6 @@ import {
   MagnifyingGlassIcon,
   PlayIcon,
   QueueListIcon,
-  ShieldCheckIcon,
-  Squares2X2Icon,
   StopCircleIcon,
   WrenchScrewdriverIcon,
   XCircleIcon,
@@ -35,15 +33,16 @@ import type {
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useScriptCatalog } from '../composables/useScriptCatalog';
 import { useScriptExecution } from '../composables/useScriptExecution';
+import { isRunnableProjectScript } from '../utils/project-script-visibility';
 import { riskToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
 
-type ScriptSection = 'overview' | 'catalog' | 'executions';
+type ScriptSection = 'catalog' | 'executions';
 type ScriptCategory = 'all' | 'build' | 'development' | 'tests' | 'maintenance' | 'deploy' | 'utilities';
 
-const activeSection = ref<ScriptSection>('overview');
+const activeSection = ref<ScriptSection>('catalog');
 const category = ref<ScriptCategory>('all');
 const copiedActionId = ref('');
 const errorMessage = ref('');
@@ -56,7 +55,6 @@ const {
   risk,
   page,
   selectedActionId,
-  selectScript,
   load,
 } = useScriptCatalog(() => props.project, activeSection, 'catalog', errorMessage);
 
@@ -81,7 +79,7 @@ watch([origin, risk], () => {
 });
 
 watch(() => props.project.id, () => {
-  activeSection.value = 'overview';
+  activeSection.value = 'catalog';
   category.value = 'all';
 });
 
@@ -125,7 +123,6 @@ const categoryIds: ScriptCategory[] = [
 ];
 
 const sectionTabs = [
-  { id: 'overview' as const, label: 'Visão geral', icon: Squares2X2Icon },
   { id: 'catalog' as const, label: 'Catálogo', icon: CommandLineIcon },
   { id: 'executions' as const, label: 'Execuções', icon: ClockIcon },
 ];
@@ -133,32 +130,38 @@ const sectionTabs = [
 const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
 const sectionTitle = computed(() => ({
-  overview: 'Scripts e tarefas',
   catalog: 'Catálogo de scripts',
   executions: 'Execuções',
 })[activeSection.value]);
 
 const sectionDescription = computed(() => ({
-  overview: 'Visão consolidada das ações reconhecidas, riscos e execuções recentes.',
-  catalog: 'Encontre scripts e tarefas por origem, categoria e nível de risco.',
+  catalog: 'Execute somente as tarefas que não pertencem a Servidor, Testes ou Banco de dados.',
   executions: 'Acompanhe o processo ativo, consulte logs e revise o histórico.',
 })[activeSection.value]);
 
+const catalogScripts = computed(() =>
+  (catalog.value?.items ?? []).filter((item) => isRunnableProjectScript(item, props.project)),
+);
+
+const delegatedScriptsCount = computed(() =>
+  (catalog.value?.items.length ?? 0) - catalogScripts.value.length,
+);
+
 const selectedScript = computed<ProjectScript | null>(() =>
-  catalog.value?.items.find((item) => item.id === selectedActionId.value)
-  ?? catalog.value?.items[0]
+  catalogScripts.value.find((item) => item.id === selectedActionId.value)
+  ?? catalogScripts.value[0]
   ?? null,
 );
 
 const visibleScripts = computed(() => {
-  const items = catalog.value?.items ?? [];
+  const items = catalogScripts.value;
   if (category.value === 'all') return items;
   return items.filter((item) => categoryFor(item) === category.value);
 });
 
 const categoryCounts = computed(() => {
   const counts: Record<ScriptCategory, number> = {
-    all: catalog.value?.items.length ?? 0,
+    all: catalogScripts.value.length,
     build: 0,
     development: 0,
     tests: 0,
@@ -167,7 +170,7 @@ const categoryCounts = computed(() => {
     utilities: 0,
   };
 
-  for (const item of catalog.value?.items ?? []) {
+  for (const item of catalogScripts.value) {
     counts[categoryFor(item)] += 1;
   }
   return counts;
@@ -179,24 +182,9 @@ const riskCounts = computed(() => {
     mutable: 0,
     destructive: 0,
   };
-  for (const item of catalog.value?.items ?? []) counts[item.risk] += 1;
+  for (const item of catalogScripts.value) counts[item.risk] += 1;
   return counts;
 });
-
-const completedExecutions = computed(() =>
-  history.value?.items.filter((item) => item.status !== 'running') ?? [],
-);
-
-const successfulExecutions = computed(() =>
-  completedExecutions.value.filter((item) => item.status === 'succeeded').length,
-);
-
-const successRate = computed(() => {
-  if (completedExecutions.value.length === 0) return 0;
-  return Math.round((successfulExecutions.value / completedExecutions.value.length) * 100);
-});
-
-const latestExecution = computed(() => execution.value ?? history.value?.items[0] ?? null);
 
 const isRefreshing = computed(() => loading.value);
 
@@ -345,139 +333,7 @@ onUnmounted(() => {
       </button>
     </aside>
 
-    <section v-if="activeSection === 'overview'" class="scripts-section scripts-overview" role="tabpanel">
-      <div class="scripts-metrics-grid">
-        <article class="scripts-metric-card">
-          <span><CommandLineIcon aria-hidden="true" /></span>
-          <div>
-            <small>Scripts reconhecidos</small>
-            <strong>{{ catalog?.total ?? 0 }}</strong>
-            <p>ações no catálogo</p>
-          </div>
-        </article>
-
-        <article class="scripts-metric-card">
-          <span><ShieldCheckIcon aria-hidden="true" /></span>
-          <div>
-            <small>Somente leitura</small>
-            <strong>{{ riskCounts['read-only'] }}</strong>
-            <p>na página atual</p>
-          </div>
-        </article>
-
-        <article class="scripts-metric-card">
-          <span><ClockIcon aria-hidden="true" /></span>
-          <div>
-            <small>Execuções registradas</small>
-            <strong>{{ history?.total ?? 0 }}</strong>
-            <p>histórico recente</p>
-          </div>
-        </article>
-
-        <article class="scripts-metric-card" :class="{ 'is-warning': latestExecution?.status === 'failed' }">
-          <span><CheckCircleIcon aria-hidden="true" /></span>
-          <div>
-            <small>Taxa de sucesso</small>
-            <strong>{{ successRate }}%</strong>
-            <p>{{ completedExecutions.length }} concluídas avaliadas</p>
-          </div>
-        </article>
-      </div>
-
-      <div class="scripts-overview-grid">
-        <section class="scripts-overview-block scripts-overview-catalog">
-          <header class="scripts-block-heading">
-            <div>
-              <CommandLineIcon aria-hidden="true" />
-              <h4>Catálogo</h4>
-            </div>
-            <button type="button" @click="selectSection('catalog')">
-              Ver todos
-            </button>
-          </header>
-
-          <div v-if="loading && !catalog" class="scripts-empty-state">
-            Carregando catálogo…
-          </div>
-
-          <div v-else class="scripts-list scripts-list-preview">
-            <article
-              v-for="item in catalog?.items.slice(0, 4) ?? []"
-              :key="item.id"
-              class="script-card"
-              @click="selectScript(item)"
-            >
-              <header>
-                <div>
-                  <span>{{ originLabels[item.origin] }}</span>
-                  <h4>{{ item.name }}</h4>
-                </div>
-                <StatusBadge :tone="riskToneFor(item.risk)">
-                  {{ riskLabels[item.risk] }}
-                </StatusBadge>
-              </header>
-              <p>{{ item.description }}</p>
-              <code>{{ item.command }}</code>
-              <footer>
-                <button type="button" @click.stop="run(item)">
-                  <PlayIcon aria-hidden="true" />
-                  {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
-                </button>
-              </footer>
-            </article>
-          </div>
-        </section>
-
-        <section class="scripts-overview-block">
-          <header class="scripts-block-heading">
-            <div>
-              <ClockIcon aria-hidden="true" />
-              <h4>Execuções recentes</h4>
-            </div>
-            <button type="button" @click="selectSection('executions')">
-              Ver histórico
-            </button>
-          </header>
-
-          <div v-if="!history?.items.length" class="scripts-empty-state scripts-empty-state-compact">
-            Nenhuma execução registrada.
-          </div>
-
-          <ul v-else class="scripts-history-preview">
-            <li v-for="item in history.items.slice(0, 6)" :key="item.id">
-              <button type="button" @click="selectHistory(item)">
-                <span :class="`is-${item.status}`">
-                  <component :is="executionIcon(item.status)" aria-hidden="true" />
-                </span>
-                <span>
-                  <strong>{{ item.actionName }}</strong>
-                  <small>{{ formatDate(item.startedAt) }}</small>
-                </span>
-                <StatusBadge :tone="executionTone(item.status)">
-                  {{ executionStatusLabels[item.status] }}
-                </StatusBadge>
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <aside class="scripts-risk-guide">
-          <ShieldCheckIcon aria-hidden="true" />
-          <div>
-            <strong>Execução proporcional ao risco</strong>
-            <p>
-              Scripts somente leitura executam diretamente. Ações mutáveis pedem confirmação,
-              e operações destrutivas permanecem bloqueadas quando não são seguras.
-            </p>
-          </div>
-          <button type="button" @click="risk = 'read-only'; selectSection('catalog')">
-            Ver ações seguras
-          </button>
-        </aside>
-      </div>
-    </section>
-
-    <section v-else-if="activeSection === 'catalog'" class="scripts-section" role="tabpanel">
+    <section v-if="activeSection === 'catalog'" class="scripts-section" role="tabpanel">
       <div class="scripts-catalog-layout">
         <aside class="scripts-catalog-sidebar">
           <section>
@@ -511,10 +367,6 @@ onUnmounted(() => {
 
         <div class="scripts-catalog-main">
           <div class="scripts-catalog-toolbar">
-            <label>
-              <MagnifyingGlassIcon aria-hidden="true" />
-              <input v-model="search" type="search" placeholder="Buscar no catálogo…" aria-label="Buscar no catálogo">
-            </label>
             <select v-model="origin" aria-label="Filtrar por origem">
               <option value="">Todas as origens</option>
               <option value="package-script">package.json</option>
@@ -528,6 +380,12 @@ onUnmounted(() => {
               <option value="destructive">Destrutivo</option>
             </select>
           </div>
+
+          <p v-if="delegatedScriptsCount > 0" class="scripts-catalog-note">
+            {{ delegatedScriptsCount }}
+            {{ delegatedScriptsCount === 1 ? 'comando foi direcionado' : 'comandos foram direcionados' }}
+            para a área adequada ou ocultados por serem automáticos.
+          </p>
 
           <div v-if="loading && !catalog" class="scripts-empty-state">
             Carregando catálogo…

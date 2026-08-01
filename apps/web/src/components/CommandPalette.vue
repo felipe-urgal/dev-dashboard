@@ -59,6 +59,7 @@ import {
   parsePaletteQuery,
   type CommandPaletteMode,
 } from '../utils/command-palette';
+import { isRunnableProjectScript } from '../utils/project-script-visibility';
 
 const props = defineProps<{
   projects: Project[];
@@ -248,7 +249,9 @@ function buildProjectItems(project: Project): PaletteItem[] {
     }
   }
   if (loadedProjectId.value === project.id && project.capabilities.includes('scripts')) {
-    for (const script of scriptCatalog.value?.items.filter((item) => item.enabled) ?? []) {
+    for (const script of scriptCatalog.value?.items.filter(
+      (item) => item.enabled && isRunnableProjectScript(item, project),
+    ) ?? []) {
       actions.push(actionItem(`${project.id}:script-${script.id}`, script.name, script.description || script.command, CommandLineIcon, script.risk === 'read-only' ? 'reversivel' : 'atencao', { type: 'script-start', script }));
     }
   }

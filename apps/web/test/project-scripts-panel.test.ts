@@ -72,6 +72,7 @@ function sseResponse(events: ScriptExecutionEvent[]): Response {
 
 interface FetchScenario {
   latestExecution: ScriptExecution | null;
+  catalog?: ProjectScriptCatalog;
   executionsById?: Record<string, ScriptExecution>;
   sseEvents?: ScriptExecutionEvent[];
 }
@@ -103,7 +104,7 @@ function installFetchMock(scenario: FetchScenario): () => void {
       return jsonResponse({ history: emptyHistory });
     }
     if (path.endsWith('/scripts')) {
-      return jsonResponse({ catalog: baseCatalog });
+      return jsonResponse({ catalog: scenario.catalog ?? baseCatalog });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -140,6 +141,35 @@ test('montagem básica renderiza catálogo sem erros', async () => {
   assert.equal(scripts.length, 2);
   assert.match(wrapper.text(), /npm run test/);
   assert.match(wrapper.text(), /npm run build/);
+});
+
+test('catálogo remove hooks e direciona comandos cobertos por outras áreas', async () => {
+  const catalog: ProjectScriptCatalog = {
+    ...baseCatalog,
+    items: [
+      ...baseCatalog.items,
+      { ...baseCatalog.items[0]!, id: 'npm-run-dev', name: 'dev', command: 'npm run dev' },
+      { ...baseCatalog.items[0]!, id: 'npm-run-postbuild', name: 'postbuild', command: 'npm run postbuild' },
+      { ...baseCatalog.items[0]!, id: 'npm-run-lint', name: 'lint', command: 'npm run lint' },
+    ],
+    total: 5,
+  };
+  const restoreFetch = installFetchMock({ latestExecution: null, catalog });
+  const project = makeProject({ capabilities: ['scripts', 'server', 'tests'] });
+  const wrapper = mount(ProjectScriptsPanel, { props: { project } });
+  cleanup = () => {
+    wrapper.unmount();
+    restoreFetch();
+  };
+
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(
+    wrapper.findAll('.script-card h4').map((item) => item.text()),
+    ['npm run build', 'lint'],
+  );
+  assert.match(wrapper.text(), /3 comandos foram direcionados/);
 });
 
 test('transição de running para succeeded via SSE publica aviso uma única vez', async () => {

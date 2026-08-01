@@ -158,7 +158,7 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.scripts-explorer').exists()).toBe(true);
     expect(wrapper.find('.scripts-explorer-header').exists()).toBe(true);
     expect(wrapper.find('.scripts-explorer-tabs').exists()).toBe(true);
-    expect(wrapper.findAll('.scripts-explorer-tabs button')).toHaveLength(3);
+    expect(wrapper.findAll('.scripts-explorer-tabs button')).toHaveLength(2);
 
     wrapper.unmount();
   });
