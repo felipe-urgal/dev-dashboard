@@ -1,310 +1,40 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
-const execFileAsync = promisify(execFile);
-const FIELD_SEPARATOR = '\u001f';
-const RECORD_SEPARATOR = '\u001e';
-const PATCH_LIMIT = 320_000;
-const FILE_PATCH_LIMIT = 262_144;
-const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/i;
-/** Teto de itens por página, alinhado ao schema das rotas de histórico. */
-const HISTORY_PAGE_SIZE_LIMIT = 50;
-const HISTORY_REFERENCE_PATTERN = /^(?!-)[^\u0000-\u001f\u007f]{1,250}$/;
+import {
+  COMMIT_HASH_PATTERN,
+  FIELD_SEPARATOR,
+  FILE_PATCH_LIMIT,
+  HISTORY_FORMAT,
+  HISTORY_PAGE_SIZE_LIMIT,
+  PATCH_LIMIT,
+} from './git-commit-details/constants.js';
+import { GitCommitDetailsError } from './git-commit-details/errors.js';
+import { parseNameStatus, parseNumstat } from './git-commit-details/file-status-parsing.js';
+import {
+  filterHistory,
+  hasHistoryFilters,
+  parseHistory,
+  resolveHistoryReference,
+} from './git-commit-details/history-parsing.js';
+import { requireRepository, runGit } from './git-commit-details/run.js';
+import type {
+  GitCommitDetails,
+  GitCommitFileDiff,
+  GitCommitHistoryFilters,
+  GitCommitHistoryPage,
+} from './git-commit-details/types.js';
 
-export type GitCommitFileStatus =
-  | 'added'
-  | 'modified'
-  | 'deleted'
-  | 'renamed'
-  | 'copied'
-  | 'type-changed';
-
-export type GitCommitHistoryKind = 'all' | 'merge' | 'regular';
-
-export interface GitCommitHistoryFilters {
-  search?: string;
-  author?: string;
-  kind?: GitCommitHistoryKind;
-}
-
-export interface GitCommitDetailFile {
-  path: string;
-  previousPath?: string;
-  status: GitCommitFileStatus;
-  additions: number;
-  deletions: number;
-  binary: boolean;
-}
-
-export interface GitCommitDetails {
-  hash: string;
-  shortHash: string;
-  subject: string;
-  body: string;
-  authorName: string;
-  authorEmail: string;
-  authoredAt: string;
-  files: GitCommitDetailFile[];
-  additions: number;
-  deletions: number;
-  patch: string;
-  truncated: boolean;
-  masked: boolean;
-  redactionCount: number;
-}
-
-export interface GitCommitFileDiff {
-  hash: string;
-  path: string;
-  status: GitCommitFileStatus;
-  binary: boolean;
-  content: string;
-  truncated: boolean;
-  masked: boolean;
-  redactionCount: number;
-}
-
-export interface GitCommitHistoryEntry {
-  hash: string;
-  shortHash: string;
-  subject: string;
-  authorName: string;
-  authorEmail: string;
-  authoredAt: string;
-  parentCount: number;
-}
-
-export interface GitCommitHistoryPage {
-  branch: string;
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  commits: GitCommitHistoryEntry[];
-}
-
-export class GitCommitDetailsError extends Error {
-  public constructor(
-    public readonly code:
-      | 'GIT_COMMIT_INVALID'
-      | 'GIT_COMMIT_NOT_FOUND'
-      | 'GIT_COMMIT_FILE_NOT_FOUND'
-      | 'GIT_NOT_REPOSITORY',
-    message: string,
-  ) {
-    super(message);
-    this.name = 'GitCommitDetailsError';
-  }
-}
-
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 24 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout;
-}
-
-async function requireRepository(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitCommitDetailsError(
-      'GIT_NOT_REPOSITORY',
-      'O projeto não é um repositório Git.',
-    );
-  }
-}
-
-function parseHistory(output: string): GitCommitHistoryEntry[] {
-  return output
-    .split(RECORD_SEPARATOR)
-    .map((record) => record.trim())
-    .filter(Boolean)
-    .map((record) => {
-      const [
-        hash = '',
-        shortHash = '',
-        subject = '',
-        authorName = '',
-        authorEmail = '',
-        authoredAt = '',
-        parents = '',
-      ] = record.split(FIELD_SEPARATOR);
-      return {
-        hash,
-        shortHash,
-        subject,
-        authorName,
-        authorEmail,
-        authoredAt,
-        parentCount: parents.trim() ? parents.trim().split(/\s+/).length : 0,
-      };
-    });
-}
-
-function normalized(value: string | undefined): string {
-  return value?.trim().toLocaleLowerCase('pt-BR') ?? '';
-}
-
-function filterHistory(
-  commits: readonly GitCommitHistoryEntry[],
-  filters: GitCommitHistoryFilters,
-): GitCommitHistoryEntry[] {
-  const search = normalized(filters.search);
-  const author = normalized(filters.author);
-  const kind = filters.kind ?? 'all';
-
-  return commits.filter((commit) => {
-    if (author && normalized(commit.authorEmail) !== author) return false;
-    if (kind === 'merge' && commit.parentCount < 2) return false;
-    if (kind === 'regular' && commit.parentCount >= 2) return false;
-    if (!search) return true;
-    return [
-      commit.hash,
-      commit.shortHash,
-      commit.subject,
-      commit.authorName,
-      commit.authorEmail,
-    ].some((value) => normalized(value).includes(search));
-  });
-}
-
-function hasHistoryFilters(filters: GitCommitHistoryFilters): boolean {
-  return Boolean(
-    filters.search?.trim()
-    || filters.author?.trim()
-    || filters.kind && filters.kind !== 'all',
-  );
-}
-
-function statusFromCode(code: string): GitCommitFileStatus {
-  const normalized = code[0]?.toUpperCase() ?? 'M';
-  if (normalized === 'A') return 'added';
-  if (normalized === 'D') return 'deleted';
-  if (normalized === 'R') return 'renamed';
-  if (normalized === 'C') return 'copied';
-  if (normalized === 'T') return 'type-changed';
-  return 'modified';
-}
-
-function parseNameStatus(output: string): Map<string, {
-  status: GitCommitFileStatus;
-  previousPath?: string;
-}> {
-  const result = new Map<string, {
-    status: GitCommitFileStatus;
-    previousPath?: string;
-  }>();
-  const records = output.split('\0').filter(Boolean);
-
-  for (let index = 0; index < records.length; index += 1) {
-    const code = records[index] ?? '';
-    const status = statusFromCode(code);
-    if (status === 'renamed' || status === 'copied') {
-      const previousPath = records[index + 1] ?? '';
-      const currentPath = records[index + 2] ?? '';
-      index += 2;
-      if (currentPath) result.set(currentPath, { status, previousPath });
-      continue;
-    }
-
-    const filePath = records[index + 1] ?? '';
-    index += 1;
-    if (filePath) result.set(filePath, { status });
-  }
-
-  return result;
-}
-
-function parseNumstat(
-  output: string,
-  statuses: Map<string, { status: GitCommitFileStatus; previousPath?: string }>,
-): GitCommitDetailFile[] {
-  const files: GitCommitDetailFile[] = [];
-  const records = output.split('\0');
-  let index = 0;
-
-  while (index < records.length) {
-    const record = records[index];
-    index += 1;
-    if (!record) continue;
-
-    const [additionsRaw = '0', deletionsRaw = '0', ...pathParts] = record.split('\t');
-    let filePath = pathParts.join('\t');
-    let previousPath: string | undefined;
-
-    // Em renomeações o `-z` quebra o registro em três: contagens, caminho
-    // anterior e caminho novo. Sem consumir os dois seguintes, o arquivo
-    // renomeado desaparecia da lista.
-    if (!filePath) {
-      previousPath = records[index] ?? '';
-      index += 1;
-      filePath = records[index] ?? '';
-      index += 1;
-      if (!filePath) continue;
-    }
-
-    const binary = additionsRaw === '-' || deletionsRaw === '-';
-    const status = statuses.get(filePath);
-    const effectivePreviousPath = status?.previousPath ?? previousPath;
-    files.push({
-      path: filePath,
-      ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
-      status: status?.status ?? (previousPath ? 'renamed' : 'modified'),
-      additions: binary ? 0 : Number.parseInt(additionsRaw, 10) || 0,
-      deletions: binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0,
-      binary,
-    });
-  }
-
-  return files;
-}
-
-async function resolveHistoryReference(
-  projectPath: string,
-  requestedReference?: string,
-): Promise<{ label: string; revision: string; exists: boolean }> {
-  const currentBranch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
-  const requested = requestedReference?.trim() ?? '';
-  const revision = requested || 'HEAD';
-  const label = requested || currentBranch || 'HEAD destacado';
-
-  if (requested && !HISTORY_REFERENCE_PATTERN.test(requested)) {
-    throw new GitCommitDetailsError(
-      'GIT_COMMIT_INVALID',
-      'Referência Git inválida para consultar o histórico.',
-    );
-  }
-
-  try {
-    await runGit(projectPath, [
-      'rev-parse',
-      '--verify',
-      '--quiet',
-      '--end-of-options',
-      `${revision}^{commit}`,
-    ]);
-    return { label, revision, exists: true };
-  } catch {
-    if (!requested) return { label, revision, exists: false };
-    throw new GitCommitDetailsError(
-      'GIT_COMMIT_NOT_FOUND',
-      `A referência Git "${requested}" não foi encontrada.`,
-    );
-  }
-}
-
-const HISTORY_FORMAT = `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`;
+export { GitCommitDetailsError } from './git-commit-details/errors.js';
+export type {
+  GitCommitDetailFile,
+  GitCommitDetails,
+  GitCommitFileDiff,
+  GitCommitFileStatus,
+  GitCommitHistoryEntry,
+  GitCommitHistoryFilters,
+  GitCommitHistoryKind,
+  GitCommitHistoryPage,
+} from './git-commit-details/types.js';
 
 export async function listBranchCommits(
   projectPath: string,

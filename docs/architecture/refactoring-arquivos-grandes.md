@@ -6,12 +6,13 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM foram quebrados
 mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
-`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 iniciada:
-etapa 1 (funções livres de `process-manager.ts`, 1430 → 1070 linhas) concluída; etapa 2 (métodos
-acoplados ao estado privado da classe) pendente de avaliação. **Fase 7 (reinventário) adicionada**:
-levantamento atualizado dos 36 arquivos acima de 400 linhas hoje no repo, depois de várias entregas
-funcionais terem crescido de novo arquivos já tocados nas fases anteriores — aguardando decisão de
-início, sem código escrito ainda para esta fase.
+`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. **Fase 6 concluída**:
+etapa 1 (funções livres, 1430 → 1070 linhas) e etapa 2 (métodos acoplados ao estado privado da
+classe, 1070 → 157 linhas, mais 5 módulos novos) — `process-manager.ts` sai da lista de arquivos
+acima de 400 linhas. **Fase 7 (reinventário) adicionada**: levantamento atualizado dos demais
+arquivos acima de 400 linhas hoje no repo, depois de várias entregas funcionais terem crescido de
+novo arquivos já tocados nas fases anteriores — aguardando decisão de início, sem código escrito
+ainda para esta fase.
 
 > Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
 > por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
@@ -645,12 +646,57 @@ Verificação: `npm run build`/`npm run test` do pacote (42 testes, incluindo o 
 historicamente flaky, que passou), `npm run typecheck`/`npm run build`/`npm test` do monorepo
 completo (249 API, 174 web, todos os pacotes) e os 13 testes E2E — todos verdes.
 
-**Etapa 2 — pendente.** Métodos que dependem de campos privados da classe (`observedExits`,
-`exitWaiters`, `startLocks`) são mais difíceis de mover sem introduzir um objeto de estado
-explícito — tratar como sub-tarefa própria, rodando a suíte completa (`process-manager.test.ts`,
-`log-retention.test.ts`) a cada extração. Avaliar se o ganho compensa: a classe restante (~965
-linhas) é coesa em torno do seu estado, e fatiar métodos que compartilham três `Map`s privados
-exigiria exatamente o tipo de refatoração comportamental que este plano evita.
+**Etapa 2 — concluída (1070 → 157 linhas).** Os métodos acoplados a estado privado foram divididos
+por responsabilidade, substituindo `this.<campo>` por um objeto de contexto (`ProcessStoreContext
+= { processDirectory, logDirectory }`) e factories que fecham sobre seu próprio estado — mesmo
+espírito das factories já usadas em `createExitTracker`/`createProcessLifecycle` abaixo, só que
+aplicado à classe inteira em vez de um método isolado:
+
+- **`process-store.ts`** (175 linhas) — persistência em disco pura: `createProjectKey`,
+  `resolveLogFile`, `resolveProcessFile`, `readStoredProcess`, `writeStoredProcess`,
+  `listStoredProcessEntries` (o loop de `readdir` que antes vivia dentro de `listProcesses`) e
+  `terminalProcess` (função livre que já estava solta no topo do arquivo original). Nenhuma dessas
+  funções sabe nada sobre processo vivo ou tracking de saída — só formato de arquivo.
+- **`process-exit-tracking.ts`** (236 linhas) — os dois `Map` (`observedExits`, `exitWaiters`) que
+  antes eram campos da classe agora vivem dentro de `createExitTracker(context)`, uma factory que
+  devolve `{ observeChild, waitForObservedExit, waitForManagedExit, clearObservedExit }`. Inclui
+  também `waitForProcessExit` (função livre já existente) e `recordChildExit` (privada à factory,
+  chamada só por `observeChild`) — este módulo não importa nada de `process-store.ts` além dos
+  tipos e das duas funções de persistência que precisa (`readStoredProcess`/`writeStoredProcess`),
+  recebidas via o mesmo `context` compartilhado.
+- **`process-status.ts`** (138 linhas) — não estava no desenho original desta fase; extraído à
+  parte porque `getManagedProcess`/`listProcesses` (a reconciliação entre o `.json` salvo e o
+  processo do SO de fato) não pertence nem à persistência pura nem ao ciclo de vida start/stop —
+  depende dos dois: lê/escreve via `process-store.ts` e consulta `exitTracker.waitForObservedExit`/
+  `clearObservedExit`. Fábrica `createProcessStatusReader(context, exitTracker)`.
+- **`process-lifecycle.ts`** (402 linhas, acima da meta de ~200 — ver nota abaixo) — start/stop de
+  fato: `startManagedServer` (`startServerLocked`), `startManagedTest` (`startTestLocked`),
+  `stopManagedProcess`, `sendSignal`. Fábrica `createProcessLifecycle(context, exitTracker,
+  statusReader)` — `statusReader` é usado só para a checagem "já está rodando?" no início de cada
+  start; `stopManagedProcess` lê o processo via `readStoredProcess` puro (sem reconciliação), igual
+  ao comportamento original — atenção que vale registrar: era tentador chamar
+  `statusReader.getManagedProcess` também aqui por simetria, mas isso teria mudado o comportamento
+  (a versão original de `stopManagedProcess` nunca reconciliava o status antes de tentar parar).
+- **`process-logs.ts`** (156 linhas) — `readManagedLog`/`clearManagedLog` (antes `readLog`/
+  `clearLog`), leitura/limpeza de arquivo de log com mascaramento, sem nada de processo.
+- **`process-manager.ts`** (orquestrador, 157 linhas) — a classe `ProcessManager` continua
+  exportada com o mesmo nome, construtor e todos os métodos públicos com a mesma assinatura; cada
+  um vira uma chamada de uma linha para as factories acima. `withStartLock` continua na classe (é
+  concorrência do próprio `ProcessManager`, não pertence a nenhum módulo de domínio).
+
+Nota sobre `process-lifecycle.ts` ficar acima da meta de ~200 linhas: `startManagedServer` e
+`startManagedTest` compartilham a mesma estrutura (sweep → checar processo em andamento → `mkdir` →
+abrir log → `spawn` → persistir → observar saída), mas com detalhes suficientemente diferentes
+(resolução de porta/comando só no server; `CI=true` só no teste) que uma função genérica
+parametrizada teria ficado menos legível que as duas versões concretas lado a lado — mesmo
+trade-off já registrado para `git-summary-inline-diff-fix.ts`/`git-history-inline-diff-fix.ts` na
+Fase 5 (arquivos "irmãos" que não foram unificados). Registrado como candidato a nova subdivisão
+futura (`process-lifecycle/server.ts` + `process-lifecycle/test.ts` + `process-lifecycle/stop.ts`)
+se o arquivo crescer mais, não como pendência ativa agora.
+
+Verificação: `npm run typecheck`, `npm run build` e `npm test` do monorepo completo (os 42 testes
+do pacote `process-manager`, incluindo o teste de timing historicamente flaky, mais 321 da API, 248
+do frontend e os demais pacotes) — todos verdes, sem nenhuma mudança de comportamento.
 
 ### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features)
 
@@ -662,44 +708,20 @@ mas está em 871 agora depois de a task 058 substituir o enhancer legado por um 
 completo direto no arquivo.
 
 ```
-1070  packages/process-manager/src/process-manager.ts        [Fase 6 etapa 2 pendente]
  885  apps/web/src/components/ProjectLogsPanel.vue            [Fase 4 já fez sub-etapa 1+2; reavaliar]
  871  apps/web/src/components/ProjectGitDiffPage.vue          [cresceu de novo pós task 058; reavaliar]
- 842  apps/api/src/services/git-service.ts
  823  apps/web/src/components/ProjectGitHistoryPage.vue
- 747  apps/web/src/components/ProjectScriptsPanel.vue
+ 605  apps/web/src/components/ProjectScriptsPanel.vue
+ 574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
- 666  apps/api/src/routes/tests.ts
- 660  apps/api/src/services/script-execution-service.ts
- 649  apps/api/src/services/rails-inspection-service.ts        [cresceu com generators, task 060]
+ 565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
  629  apps/web/src/components/ProjectGitPanel.vue
- 627  apps/web/src/components/ProjectReadmePanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
- 604  apps/api/src/services/git-pull-request-service.ts
- 600  apps/api/src/routes/processes.ts
- 593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
- 588  apps/web/src/components/NoticeCenter.vue
- 587  apps/api/src/services/test-detection-service.ts
- 573  apps/web/src/components/ProjectGitPullRequestPage.vue
- 573  apps/api/src/services/git-stash-service.ts
- 571  apps/web/src/views/DashboardView.vue
- 539  apps/web/src/components/CommandPalette.vue
- 530  apps/web/src/test-log-inspector.ts
- 519  apps/api/src/services/git-commit-details-service.ts
- 493  apps/web/src/utils/git-diff-view.ts
- 471  apps/api/src/services/database-snapshot-service.ts
- 467  apps/web/src/stores/dashboard.ts
- 461  apps/web/src/utils/git-syntax-highlight.ts
- 456  apps/api/src/services/git-sync-service.ts
- 437  apps/api/src/routes/git-workspace.ts
- 434  apps/web/src/composables/useProjectTestsPanel.ts
- 430  apps/api/src/routes/rails.ts                             [cresceu com rotas de generator, task 060]
- 425  apps/api/src/routes/projects.ts
- 423  apps/api/src/routes/git-stash.ts
- 404  apps/web/src/components/ProjectTestsGuidedPanel.vue
- 404  apps/api/src/services/git-undo-service.ts
+ 467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
+ 434  apps/web/src/composables/useProjectTestsPanel.ts             [avaliado, não dividido — ver nota abaixo]
+ 404  apps/web/src/components/ProjectTestsGuidedPanel.vue          [avaliado, não dividido — ver nota abaixo]
 ```
 
 Regra geral desta fase é a mesma das anteriores (refatoração pura, sem mudar assinatura pública,
@@ -708,6 +730,361 @@ Regra geral desta fase é a mesma das anteriores (refatoração pura, sem mudar 
 reler o que já foi extraído nas Fases 4/5 e decidir se o crescimento novo cabe num composable já
 existente ou pede um novo, em vez de repetir a análise do zero. Sem plano detalhado arquivo a
 arquivo ainda — mesmo formato das fases anteriores, mapeado em lotes conforme a execução avança.
+
+**`apps/api/src/services/git-service.ts` (842 → 574 linhas) — concluído**, primeiro arquivo desta
+fase. Mesmo padrão de extração de funções livres já usado nas fases anteriores — a diferença é que
+aqui a maior parte das ~500 linhas é o corpo da classe `GitService` em si (16 métodos públicos de
+mutação/leitura), então a redução foi menor proporcionalmente que em `process-manager.ts`. Split em
+`git-service/`: `errors.ts` (`GitDiffError`/`GitMutationError`/`GitMutationErrorCode`/
+`StoredMutationConfirmation`), `constants.ts` (limites, padrões de regex, separadores de log —
+atenção ao registrar `LOG_SEPARATOR`/`RECORD_SEPARATOR` como texto literal `'\u001f'`/`'\u001e'`,
+não como byte de controle cru, mesma armadilha já documentada na Fase 5), `run.ts` (`runGit`/
+`commandFailureText`), `status-parsing.ts` (`parseStatus`/`parseCommits`/`statusFromCode`),
+`diff-helpers.ts` (`resolveDiffBase`/`gitDiffArgs`/`parseNumstat`/`ensurePathInsideProject`/
+`readIndexBlob`/`readWorkingTreeFile`), `mutation-guards.ts` (as validações antes de cada mutação:
+`assertWorkingTreeClean`/`requireRepository`/`validateBranchName`/`validateMutationPath`/
+`ensureMutationPathInsideProject`/`requireOriginRemote`/`validateCommitMessage`), `save-prefix.ts`
+(`resolveSavePrefix`) e `stash.ts` (`listStashEntries`). Todos os nomes que já eram exportados no
+nível do módulo (inclusive os não usados fora do arquivo hoje, como `GIT_BRANCH_NAME_PATTERN`)
+continuam reexportados de `git-service.ts`, preservando a API pública do módulo por completo.
+`git-service.ts` fica só com a classe `GitService`. Candidato a nova subdivisão futura (dividir a
+própria classe por domínio — branch/arquivo/commit/stash — como foi feito com `ProcessManager` na
+Fase 6) se o arquivo crescer mais; não foi feito agora porque a classe é coesa em torno de um único
+`Map` de confirmações compartilhado por todas as mutações. Verificado com `typecheck`, `build` e os
+54 testes de `git-service`/`git-service-mutations`/`git-service-diff`/`git-amend-all-changes`/
+`git-file-confirmation-route`, mais o monorepo completo (248 testes web) — todos verdes.
+
+**`apps/api/src/routes/tests.ts` (666 → 19 linhas) — concluído**, segundo arquivo desta fase.
+Plugin único registrando 9 rotas relacionadas a execução de testes; dividido por sub-domínio em
+`routes/tests/`: `helpers.ts` (tipos, schemas de params/query, `requireProject`, os três mapeadores
+de erro e `serializeTestExecutionEvent`), `process-routes.ts` (overview, processo, logs get/delete,
+stop — 5 rotas), `command-routes.ts` (iniciar comando, listar arquivos, iniciar arquivo — 3 rotas),
+`history-routes.ts` (histórico get/delete) e `events-route.ts` (o endpoint SSE de
+acompanhamento, isolado à parte por ser a rota mais densa e sem schema JSON — usa `reply.hijack()`
+diretamente). O arquivo principal ficou só com o plugin Fastify chamando os 4 `registerX(app,
+options)`. Único símbolo exportado (`testRoutes`) continua no mesmo lugar. Verificado com
+`typecheck`, `build` e os 24 testes de `test-events-route`/`test-file-routes`/`routes`, mais o
+monorepo completo (248 testes web) — todos verdes.
+
+**`apps/api/src/services/script-execution-service.ts` (660 → 565 linhas) — concluído**, terceiro
+arquivo desta fase. Mesma situação de `git-service.ts`: a classe `ScriptExecutionService` concentra
+6 `Map`s privados compartilhados por quase todos os métodos (`executions`/`activeProjects`/
+`confirmations`/`pendingWrites`/`subscribers`/`eventTimers`) — dividir os métodos exigiria o mesmo
+tipo de refatoração por contexto explícito feita em `process-manager.ts` (Fase 6), que não foi
+tentada aqui para manter esta passada como extração pura de funções livres, igual ao que já tinha
+sido validado em `git-service.ts`. Split em `script-execution/`: `errors.ts`
+(`ScriptExecutionErrorCode`/`ScriptExecutionError`), `constants.ts` (limites, TTL, padrão do UUID
+de execução), `command-resolution.ts` (`resolveNodeManager`/`resolveCommand`, o equivalente
+específico de scripts ao `resolveServerCommand` de `process-manager`) e `auth.ts` (`tokensMatch`,
+comparação de token em tempo constante). `ScriptExecutionError`/`ScriptExecutionErrorCode`
+continuam reexportados do arquivo principal — únicos símbolos consumidos fora do módulo, junto com
+a própria classe. Candidato a nova subdivisão futura igual ao `GitService`. Verificado com
+`typecheck`, `build` e os 18 testes de `script-execution-service`/`script-events-route`, mais o
+monorepo completo — todos verdes (um teste de timing historicamente flaky em
+`packages/process-manager` falhou uma vez e passou limpo na repetição, sem relação com este split).
+
+**`apps/api/src/services/rails-inspection-service.ts` (649 → 331 linhas) — concluído**, quarto
+arquivo desta fase. Ao contrário de `git-service.ts`/`script-execution-service.ts`, aqui a classe em
+si é pequena (~270 linhas) — a maior parte do arquivo eram parsers e helpers livres antes dela, sem
+nenhum estado compartilhado entre eles. Split em `rails-inspection/`: `errors.ts`
+(`RailsMutationErrorCode`/`RailsMutationError`), `constants.ts` (limites, TTLs, catálogo fechado de
+tipos de campo do generator), `command-resolution.ts` (`resolveRailsCommand`/`pathExists`/
+`defaultCommandRunner`, o equivalente Rails de `resolveServerCommand`), `databases.ts`
+(`listDatabases`, a detecção de bancos secundários via `db/*_schema.rb`), `generator.ts`
+(`buildGeneratorArgs`/`parseGeneratorCreatedFiles`), `migrations-parsing.ts`
+(`migrationsDirectory`/`parseMigrationStatusBlocks`/`matchMigrationStatusBlock`),
+`routes-parsing.ts` (`parseRoutes`) e `schema-parsing.ts` (`parseSchema` e seus 5 helpers privados
+de leitura de opção/singularização). O arquivo principal ficou só com a classe
+`RailsInspectionService` e `StoredMutationConfirmation` (usada só internamente).
+`RailsMutationError`/`RailsMutationErrorCode` continuam reexportados. Verificado com `typecheck`,
+`build` e os 33 testes de `rails-inspection-service`/`rails-routes`, mais o monorepo completo —
+todos verdes.
+
+**`apps/api/src/services/git-pull-request-service.ts` (604 → 339 linhas) — concluído**, quinto
+arquivo desta fase. Mesmo padrão de `rails-inspection-service.ts`: a classe
+`GitPullRequestService` é relativamente pequena (~280 linhas), a maior parte do arquivo eram
+funções livres antes dela. Split em `git-pull-request/`: `errors.ts`
+(`GitPullRequestErrorCode`/`GitPullRequestError`), `run.ts` (`runGit`/`runProviderCli`/
+`optionalGit`), `branch-context.ts` (`requireRepository`/`currentBranch`/`publishedReference`/
+`remoteUrl`/`defaultBranch`/`requireBaseBranch`), `remote-parsing.ts` (`parseRemoteUrl`/
+`detectProvider`), `url-compose.ts` (`composeGithubUrl`/`composeGitlabUrl`) e
+`github-lookup-payload.ts` (`asRecord`/`githubRepositoryParts`/`githubLookupFromPayload`). Um
+detalhe que não existia nas divisões anteriores: `ResolvedPullRequestContext` (o tipo que carrega
+branch/remoto/provider já resolvidos) é consumido tanto pela classe principal quanto por
+`github-lookup-payload.ts` — em vez de declará-lo em um dos dois e criar uma dependência cruzada,
+foi para um `context.ts` próprio (junto com `GitPullRequestTargetRemote`), do qual ambos importam.
+Verificado com `typecheck`, `build` e os 15 testes de `git-pull-request-service`/
+`git-pull-request-status-service`/`git-pull-request-targets`, mais o monorepo completo — todos
+verdes.
+
+**`apps/api/src/routes/processes.ts` (600 → 17 linhas) — concluído**, sexto arquivo desta fase.
+Mesmo padrão de `routes/tests.ts`: plugin único registrando 9 rotas, dividido por sub-domínio em
+`routes/processes/`: `helpers.ts` (tipos, schemas, `requireProject`, os dois mapeadores de erro e
+`processEnvelopeResponseSchema`), `server-settings-routes.ts` (GET/PUT `server-settings` — 2 rotas),
+`server-process-routes.ts` (processo/logs/start/stop do servidor de um projeto — 5 rotas) e
+`process-list-routes.ts` (listagem global `/processes` com filtro por workspace/kind e
+`/processes/cleanup`). Único símbolo exportado (`processRoutes`) continua no mesmo lugar. Verificado
+com `typecheck`, `build` e os 26 testes de `processes-route`/`process-cleanup`/`server-config`/
+`routes`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/services/test-detection-service.ts` (587 → 118 linhas) — concluído**, sétimo
+arquivo desta fase. Divisão por origem de detecção (mesmo critério de
+`packages/project-discovery`): `errors.ts` (`TestFileErrorCode`/`TestFileError`), `types.ts`
+(`ResolvedCommand`/`DetectedTestCommand`, compartilhados por todos os detectores), `fs-helpers.ts`
+(`pathExists`), `node-detection.ts` (`detectNodeCommands` e seus helpers privados de
+package.json/lockfile), `rails-detection.ts` (`detectRailsCommands`), `python-detection.ts`
+(`detectPythonCommands`) e `file-scan.ts` (`findTestFiles`/`ensureTestPathInsideProject`/
+`composeFileCommand`/`FILE_TARGET_PATTERNS`, a varredura de arquivos de teste por padrão de nome). O
+arquivo principal ficou só com a classe `TestDetectionService` (cache + orquestração dos três
+detectores por `project.type`). Verificado com `typecheck`, `build` e os 28 testes de
+`test-detection-service`/`test-file-routes`/`related-test-service`, mais o monorepo completo —
+todos verdes.
+
+**`apps/api/src/services/git-stash-service.ts` (573 → 287 linhas) — concluído**, oitavo arquivo
+desta fase. Split em `git-stash/`: `errors.ts` (`GitStashErrorCode`/`GitStashError`),
+`constants.ts` (separador de campo, TTL, limite de patch, os dois regex — mesma atenção de sempre
+ao `FIELD_SEPARATOR` como texto literal `'\u001f'`, não byte cru), `run.ts` (`runGit`/
+`failureText`), `validation.ts` (`validateReference`/`validateCreateInput`),
+`repository-guards.ts` (`requireRepository`/`requireCleanWorkingTree`/`currentBranch`/
+`rollbackWorkingTree`), `status-parsing.ts` (`parseNameStatus`/`parseNumstat`) e
+`reference-parsing.ts` (`parseSubject`/`parseReferences`/`includesUntracked`/`filesFor`/
+`summaryFor`, que já dependem de `status-parsing.ts`). O arquivo principal ficou só com a classe
+`GitStashService`. Verificado com `typecheck`, `build` e o teste de `git-stash-service`, mais o
+monorepo completo — todos verdes.
+
+**`apps/api/src/services/git-commit-details-service.ts` (519 → 249 linhas) — concluído**, nono
+arquivo desta fase e o primeiro sem nenhuma classe — só funções livres exportadas diretamente
+(`listBranchCommits`/`listCurrentBranchCommits`/`inspectGitCommit`/`inspectGitCommitFile`), sem
+estado compartilhado, o que tornou a divisão direta. Split em `git-commit-details/`: `types.ts` (os
+8 tipos/interfaces exportados), `errors.ts` (`GitCommitDetailsError`), `constants.ts` (separadores,
+limites, os dois regex e `HISTORY_FORMAT`), `run.ts` (`runGit`/`requireRepository`),
+`file-status-parsing.ts` (`parseNameStatus`/`parseNumstat`) e `history-parsing.ts`
+(`parseHistory`/`filterHistory`/`hasHistoryFilters`/`resolveHistoryReference`). O arquivo principal
+ficou só com as 4 funções de serviço. Verificado com `typecheck`, `build` e os 12 testes de
+`git-commit-details-service`/`git-current-branch-history-service`/
+`git-exclusive-branch-history-service`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/services/database-snapshot-service.ts` (471 → 329 linhas) — concluído**, décimo
+arquivo desta fase. Split em `database-snapshot/`: `errors.ts`
+(`DatabaseSnapshotErrorCode`/`DatabaseSnapshotError`), `constants.ts` (retenção, TTL, limite de
+tamanho, timeout, os binários de dump/restore por driver), `connection.ts` (`snapshotDriver`/
+`connectionFor`/`dumpArguments`/`restoreArguments`/`passwordEnvironment`, a montagem da conexão a
+partir do que a detecção já sabe — nunca dados vindos do navegador) e `process-helpers.ts`
+(`spawnFailure`/`normalizeLabel`). A classe `DatabaseSnapshotService` (dump/restore via
+`spawn`+`pipeline` com gzip, confirmação em duas etapas) fica sozinha no arquivo principal, com
+`StoredSnapshot`/`PendingRestore` internos. Verificado com `typecheck`, `build` e os 19 testes de
+`database-snapshot-service`/`database-snapshot-routes`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/services/git-sync-service.ts` (456 → 284 linhas) — concluído**, décimo primeiro
+arquivo desta fase. Mesmo padrão dos outros serviços Git: `errors.ts`
+(`GitSyncErrorCode`/`GitSyncError`), `constants.ts` (TTL, constantes de "sincronizar main", os três
+regex), `run.ts` (`runGit`/`failureText`), `validation.ts`
+(`validateReference`/`validateStrategy`) e `repository-guards.ts` (as 7 checagens de pré-condição:
+repositório/referência remota/remote configurado/branch local/HEAD destacado/árvore limpa/abortar
+operação). A classe `GitSyncService` fica sozinha no arquivo principal. Verificado com `typecheck`,
+`build` e os 4 testes de `git-sync-service`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/services/git-undo-service.ts` (404 → 220 linhas) — concluído**, décimo segundo
+arquivo desta fase e o último dos serviços "desfazer"/sincronização Git. Split em `git-undo/`:
+`errors.ts`, `types.ts` (`GitUndoOperation`/`GitUndoStrategy`/`CommitSummary`/
+`GitUndoConfirmation`/`GitUndoCommitResult`), `constants.ts`, `run.ts` (`runGit`/`optionalGit`),
+`repository-guards.ts` (`requireRepository`/`currentBranch`/`assertWorkingTreeClean`/
+`localAheadOfUpstream`), `commit-helpers.ts` (`headCommit`, que usa o `parseCommit` interno) e
+`file-helpers.ts` (`ensurePathInsideProject`/`renameInfo`/`pathExistsInHead`/`unlinkIfPresent`). A
+classe `GitUndoService` fica sozinha no arquivo principal. Verificado com `typecheck`, `build` e os
+5 testes de `git-undo-service`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/routes/git-workspace.ts` (437 → 17 linhas) — concluído**, décimo terceiro arquivo
+desta fase e o primeiro conjunto de rotas depois dos serviços. Split em `routes/git-workspace/`:
+`helpers.ts` (tipos, todos os schemas JSON, `findProject`, `translateBranchError`),
+`workspace-routes.ts` (GET workspace + POST fetch de remote — 2 rotas) e
+`branch-tracking-routes.ts` (as 4 rotas de rastrear/parar de rastrear branch remota). O arquivo
+principal ficou só com o plugin Fastify instanciando os dois serviços (`GitWorkspaceService`/
+`GitBranchService`) e chamando os 2 registradores. Verificado com `typecheck`, `build` e o
+monorepo completo — todos verdes.
+
+**`apps/api/src/routes/rails.ts` (430 → 12 linhas) — concluído**, décimo quarto arquivo desta fase.
+Split em `routes/rails/`: `helpers.ts` (tipos, todos os schemas de request/response,
+`requireProject`, `translateMutationError`), `read-routes.ts` (as 4 rotas GET de
+migrations/migration-detail/models/routes) e `mutation-routes.ts` (as 4 rotas POST de
+confirmação/mutação de migration e de generator). Verificado com `typecheck`, `build` e os 12
+testes de `rails-routes`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/routes/projects.ts` (425 → 16 linhas) — concluído**, décimo quinto arquivo desta
+fase. Split em `routes/projects/`: `helpers.ts` (tipos, `gitDiffErrorStatus`,
+`projectParamsSchema`), `favicon-route.ts` (a busca por favicon em 6 diretórios candidatos, com
+ranking de nome preferido — a parte mais densa do arquivo original), `list-routes.ts` (GET
+`/projects` + GET `/projects/:projectId`) e `git-diff-routes.ts` (as 4 rotas de overview/diff/
+diff-de-arquivo/linhas-de-arquivo). Verificado com `typecheck`, `build` e o monorepo completo —
+todos verdes.
+
+**`apps/api/src/routes/git-stash.ts` (423 → 16 linhas) — concluído**, décimo sexto arquivo desta
+fase e o último do lado `apps/api/src`. Split em `routes/git-stash/`: `helpers.ts` (tipos, todos os
+schemas, `translateStashError`, `projectFor`), `list-detail-routes.ts` (GET lista + GET detalhe) e
+`mutation-routes.ts` (confirmação, criar, e o loop `apply`/`pop`/`drop`). Verificado com
+`typecheck`, `build` e o monorepo completo — todos verdes.
+
+**`apps/web/src/test-log-inspector.ts` (530 → 29 linhas) — concluído**, décimo sétimo arquivo desta
+fase e o primeiro do lado `apps/web`. Mesmo padrão vanilla-DOM já usado nos 19 enhancers da Fase 5
+(`WeakMap<HTMLElement, InspectorState>` por shell, `installX()`/`enhanceX()`/`scan` como fachada
+pública). Split em `test-log-inspector/`: `types.ts`, `constants.ts` (`ANSI_PATTERN`/
+`STACK_PATH_PATTERN`), `state.ts` (o `WeakMap`), `text-helpers.ts` (`cleanLines`/`compact`/
+`isErrorText`/`isWarningText`), `log-parsing.ts` (`parseTestLog` e os 5 parsers privados de
+falha/resumo/exemplos), `dom-helpers.ts` (`el`/`labelValue`/`collectLog`/`modeFor`/`hidden`/
+`updatePressed`), `filters.ts` (`applyFilters`/`toolbarFor`, busca e filtro de linhas),
+`failure-detail.ts` (`failureDetail`/`copyFailure`, o painel de detalhe de uma falha),
+`inspector-render.ts` (`renderInspector`, a lista+detalhe navegável) e `enhance.ts`
+(`enhanceShell`/`enhanceTestLogInspector`, o bootstrap de varredura). O arquivo principal ficou só
+com `installTestLogInspector` (o `MutationObserver`) e os reexports (`parseTestLog`/
+`enhanceTestLogInspector`/os dois tipos), únicos símbolos consumidos fora do módulo. Atenção
+replicada de novo: a assinatura de re-render usa `\u0000` como separador em template literal —
+escrita como texto literal de escape, não byte de controle, mesma armadilha das fases anteriores.
+Verificado com `vue-tsc` (`typecheck` do workspace web), `build` e os 7 testes de
+`test-log-inspector`/`test-log-inspector-mutation-guard`, mais o monorepo completo — todos verdes.
+
+**`apps/web/src/utils/git-diff-view.ts` (493 → 16 linhas) — concluído**, décimo oitavo arquivo
+desta fase. Sem estado, sem classe — só tipos e funções puras de renderização de diff, o candidato
+mais simples até aqui do lado web. Split em `utils/git-diff-view/`: `types.ts` (os 8 tipos/
+interfaces), `constants.ts` (`HUNK_PATTERN`/`WORD_PATTERN`/limiares de diff por palavra),
+`parse.ts` (`parseUnifiedGitDiff`), `split-rows.ts` (`buildSplitGitDiffRows`, a view lado-a-lado),
+`word-diff.ts` (`computeGitDiffWordRanges`/`annotateGitDiffWordChanges`, a comparação por LCS de
+tokens), `html-render.ts` (`highlightGitDiffText`/`renderGitDiffLineHtml`/`countGitDiffMatches`) e
+`hunks.ts` (`splitGitDiffHunks`/`buildGitDiffContextLines`, usados pela expansão de contexto do
+`ProjectGitDiffPage.vue`). O arquivo principal virou um barrel puro (`export { ... } from
+'./git-diff-view/...'`), igual ao padrão já usado em `api.ts`/`response-schemas.ts` nas Fases 1–2 —
+nenhum dos 4 consumidores (`GitFileDiffView.vue`, `ProjectGitDiffPage.vue`, e os dois enhancers
+`git-summary-inline-diff-fix`/`git-inline-file-diff`) precisou mudar import. Verificado com
+`vue-tsc`, `build` e os 22 testes de `git-diff-view`/`git-diff-syntax`, mais o monorepo completo —
+todos verdes.
+
+**`apps/web/src/utils/git-syntax-highlight.ts` (461 → 4 linhas) — concluído**, décimo nono arquivo
+desta fase. Mesmo espírito de `git-diff-view.ts`: só tipos e funções puras (nenhuma classe, nenhum
+estado). Split em `utils/git-syntax-highlight/`: `types.ts` (`GitSyntaxLanguage`/
+`SyntaxTokenKind`), `keywords.ts` (o dicionário de palavras-chave por linguagem, o maior bloco de
+dados do arquivo original), `language-map.ts` (`gitSyntaxLanguageForPath`, mapa de
+extensão/nome-de-arquivo para linguagem), `render-text.ts` (`renderText`/`renderToken`, escape +
+`<mark>` de busca), `tokenize-helpers.ts` (`commentMarker`/`quotedEnd`/`nextNonWhitespace`),
+`generic-line.ts` (`highlightGenericLine`, o tokenizador principal — maior função do arquivo),
+`markup.ts` (`highlightMarkupLine`/`highlightAttributes`, para HTML/ERB/Vue), `markdown.ts`
+(`highlightMarkdownLine`), `highlight.ts` (`highlightGitDiffCode`, o dispatcher por linguagem) e
+`patch-render.ts` (`highlightGitPatch`). O arquivo principal virou um barrel puro de 4 linhas —
+nenhum dos 3 consumidores (`ProjectDatabasePanel.vue`, `git-diff-syntax/code.ts`,
+`git-diff-syntax/patch.ts`, este último um enhancer diferente e não relacionado, apesar do nome
+parecido) precisou mudar import. Verificado com `vue-tsc`, `build` e os 13 testes de
+`git-syntax-highlight`/`git-diff-syntax`, mais o monorepo completo — todos verdes.
+
+**`apps/web/src/stores/dashboard.ts` (467 linhas) e
+`apps/web/src/composables/useProjectTestsPanel.ts` (434 linhas) — avaliados, não divididos.**
+Diferente dos utils puros acima, os dois são uma única função-fábrica reativa (`createDashboardStore`/
+`useProjectTestsPanel`) onde praticamente todo helper lê e escreve o mesmo conjunto de `ref`s
+compartilhados, e as funções públicas se chamam umas às outras (`scanSelectedWorkspace` chama
+`scanWorkspaceById`, que chama `replaceWorkspaceProjects`/`activateWorkspace`; `ensureProject` chama
+`scanWorkspaceById` e `activateWorkspace` de novo). Extrair pedaços exigiria ou (a) um objeto de
+contexto explícito carregando várias `ref`s + várias funções de volta entre módulos — o mesmo
+padrão usado em `process-manager.ts`/`git-service.ts`, mas aqui o grafo de chamadas cruzadas é denso
+o bastante para que a divisão vire principalmente indireção, sem separar responsabilidades de
+verdade — ou (b) mudar a forma como o estado é composto (ex. Pinia com múltiplas stores), o que já
+não seria mais refatoração pura. `stores/dashboard.ts` em particular é o estado central do
+dashboard inteiro (toda view depende dele), então o custo de um erro sutil de fechamento reativo é
+alto para um ganho pequeno (só ~67 linhas acima da meta). Mesmo critério já registrado na Fase 4
+para `ProjectServerPanel.vue`/`ProjectGitPanel.vue`: não dividir quando a alternativa é uma
+divisão artificial que piora a leitura. Ficam no inventário como candidatos, não como pendência.
+
+**`ProjectReadmePanel.vue` (627 → 375), `NoticeCenter.vue` (588 → 264) e
+`ProjectGitPullRequestPage.vue` (573 → 392) — concluídos**, vigésimo/vigésimo primeiro/vigésimo
+segundo arquivos desta fase, os três primeiros componentes `.vue` genuínos da Fase 7. Mesma técnica
+mecânica de risco zero já validada na Fase 4 sub-etapa 1 (extrair `<style scoped>` para um arquivo
+irmão via `<style scoped src="./Componente.css">`, suportado nativamente pelo compilador de SFC do
+Vue) — script e template ficam byte a byte idênticos, só o bloco de estilo muda de lugar. Os outros
+componentes grandes desta lista (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`,
+`ProjectGitHistoryPage.vue`, `ProjectGitPanel.vue`, `ProjectGitBranchesPage.vue`,
+`ProjectServerPanel.vue`, `ProjectTestsGuidedPanel.vue`) já tinham o estilo externalizado desde a
+Fase 4 — cresceram de novo só em script/template por conta de features, então essa técnica não se
+aplica mais a eles (candidatos a composable, mais arriscado, ver nota da Fase 7 acima). Verificado
+com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E (incluindo o
+baseline visual da sidebar) — todos verdes, confirmando que a extração não alterou renderização.
+
+**`CommandPalette.vue` (539 → 309) — concluído**, vigésimo terceiro arquivo desta fase e primeiro
+componente `.vue` da Fase 7 dividido por extração de composable em vez de só estilo. Dois
+composables novos: `composables/useCommandPaletteProjectActions.ts` (123 linhas) concentra o
+estado e as ações escopadas ao projeto selecionado na paleta (status de servidor/testes, catálogo
+de scripts, `loadProjectActions`/`executeAction`) e `composables/useCommandPaletteItems.ts` (219
+linhas) concentra os tipos de item da paleta (`PaletteItem`, `NavigationPaletteItem`,
+`ActionPaletteItem`, `PaletteGroupView`) e a montagem/ordenação/agrupamento da lista
+(`items`/`orderedItems`/`groupViews`, `buildProjectItems`, `navigationItem`, `actionItem`).
+Diferença deliberada de assinatura em relação ao original: `loadProjectActions` e `executeAction`
+antes escreviam direto num `ref` `feedback` do componente; nas versões extraídas elas retornam o
+valor (`{ feedback? }` e a mensagem de sucesso, respectivamente) e quem chama — `show()`, o
+`watch(selectedProject)` e `select()` no componente — decide se atualiza `feedback.value`. Durante
+a extração de `navigationItem`/`actionItem` um bug foi introduzido e corrigido antes de qualquer
+verificação: a primeira versão calculava `searchText` com `.toLocaleLowerCase('pt-BR')` direto, em
+vez de chamar `normalizePaletteText()` (que também remove acentos via
+`.normalize('NFD').replace(...)`), o que teria quebrado a busca insensível a acento na paleta;
+corrigido para reusar `normalizePaletteText()` como no original. `CommandPalette.vue` ficou com
+309 linhas — keyboard handling, ciclo de vida, navegação e o template continuam no componente.
+Verificado com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E
+(incluindo os dois específicos da paleta de comandos e o baseline visual da sidebar) — todos verdes.
+
+**`ProcessesView.vue` (593 → 322) — concluído**, vigésimo quarto arquivo desta fase. Diferente dos
+componentes de detalhe do projeto, esta view não recebe `props` complexas nem precisa reagir a
+troca de projeto — é uma tela autocontida (filtros, contagens do resumo, tabela de processos
+gerenciados), então toda a lógica de `<script setup>` (estado, computeds de filtro/contagem,
+`loadReferenceData`/`loadProcesses`/`runCleanup`, os dois `watch` de filtro e o ciclo de vida
+`onMounted`/`onBeforeUnmount` do relógio de duração) foi extraída inteira, verbatim, para
+`composables/useProcessesView.ts` (336 linhas), que já inclui seu próprio `onMounted`/
+`onBeforeUnmount`. O componente ficou só com os imports de ícones/`StatusBadge`/formatadores, a
+desestruturação do composable e o template (inalterado). Verificado com `vue-tsc`, `build`, o
+monorepo completo (248 testes web) e os 13 testes E2E (incluindo a rota global de processos e o
+baseline visual) — todos verdes.
+
+**`DashboardView.vue` (571 → 339) — concluído**, vigésimo quinto arquivo desta fase. Diferente de
+`ProcessesView.vue`, aqui a extração foi parcial: a view mistura duas responsabilidades bem
+distintas — busca/filtro local de projetos (curta, ~30 linhas, permanece no componente) e o
+recurso de "iniciar/parar todos os servidores" (status observado via polling dos processos
+gerenciados, ações em lote, mensagens de sucesso/erro), esta última bem mais densa e isolável.
+Extraído para `composables/useDashboardServerActions.ts` (292 linhas): os refs de status de
+servidor, os computeds de projetos iniciáveis/paráveis e os títulos de botão, `refreshServerStatuses`/
+`handleStartAllServers`/`handleStopAllServers` e o `watch` que dispara o refresh ao trocar de
+workspace ou mudar a lista de projetos com capacidade de servidor. A composable recebe
+`projectsWithServer`/`selectedWorkspaceId`/`errorMessage`/`successMessage` como parâmetros — os
+dois últimos são os mesmos `ref`s do `dashboardStore`, então mensagens de erro/sucesso da ação em
+lote continuam aparecendo nos mesmos alertas da view. Verificado com `vue-tsc`, `build`, o
+monorepo completo (248 testes web) e os 13 testes E2E (incluindo o teste de confirmação de início
+de servidor pela paleta) — todos verdes.
+
+**`ProjectTestsGuidedPanel.vue` (404 linhas) — avaliado, não dividido.** Diferente dos outros
+componentes grandes desta fase, o `<script setup>` já é enxuto (40 linhas): toda a lógica já mora
+em `composables/useProjectTestsPanel.ts` (avaliado e não dividido acima) desde a Fase 4, e o
+componente só desestrutura o composable e escolhe o ícone de status. As 364 linhas restantes são
+puro `<template>` — o assistente guiado em 4 passos (tipo de execução, configuração, revisão,
+resultado) e os quatro painéis de log (log/erros/avisos/detalhes). Está só 4 linhas acima da meta
+e uma divisão exigiria extrair pedaços do template em subcomponentes de apresentação (ex. um
+componente para os passos do assistente, outro para os painéis de log), o que aumentaria a
+indireção de prop-drilling para um ganho marginal de ~4 linhas. Mesmo critério de "divisão
+artificial piora a leitura" já registrado para `stores/dashboard.ts`/`useProjectTestsPanel.ts`
+acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
+
+## Progresso da Fase 7
+
+`process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
+`git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
+`git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
+`git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
+`routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
+`utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
+`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue` e `DashboardView.vue`
+saíram da lista por completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda
+acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
+(660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
+inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
+pendência ativa agora. `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
+`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~8
+arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem
+de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com
+bastante
+template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
+tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
+pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
 
 ## Ordem de execução
 

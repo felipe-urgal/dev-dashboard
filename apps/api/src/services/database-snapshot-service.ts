@@ -10,45 +10,32 @@ import { createGunzip, createGzip } from 'node:zlib';
 import type {
   DatabaseSnapshot,
   DatabaseSnapshotConfirmation,
-  DatabaseSnapshotDriver,
   DatabaseSnapshotList,
   Project,
 } from '@dev-dashboard/contracts';
 
-import type { DatabaseDetectionService, DetectedDatabase } from './database-detection-service.js';
+import type { DatabaseDetectionService } from './database-detection-service.js';
+import { connectionFor, dumpArguments, restoreArguments, passwordEnvironment, type SnapshotConnection } from './database-snapshot/connection.js';
+import {
+  DATABASE_SNAPSHOT_CONFIRMATION_TTL_MS,
+  DATABASE_SNAPSHOT_MAX_BYTES,
+  DATABASE_SNAPSHOT_RETENTION,
+  DUMP_BINARIES,
+  DUMP_TIMEOUT_MS,
+  RESTORE_BINARIES,
+  UUID_PATTERN,
+} from './database-snapshot/constants.js';
+import { DatabaseSnapshotError } from './database-snapshot/errors.js';
+import { normalizeLabel, spawnFailure } from './database-snapshot/process-helpers.js';
+import { snapshotDriver } from './database-snapshot/connection.js';
 
-export const DATABASE_SNAPSHOT_RETENTION = 10;
-export const DATABASE_SNAPSHOT_CONFIRMATION_TTL_MS = 60_000;
-/** Teto de segurança para não encher o disco com um dump inesperado. */
-export const DATABASE_SNAPSHOT_MAX_BYTES = 512 * 1024 * 1024;
-const DUMP_TIMEOUT_MS = 10 * 60_000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-export type DatabaseSnapshotErrorCode =
-  | 'DATABASE_ENVIRONMENT_NOT_FOUND'
-  | 'DATABASE_SNAPSHOT_UNSUPPORTED'
-  | 'DATABASE_SNAPSHOT_TOOL_MISSING'
-  | 'DATABASE_SNAPSHOT_NOT_FOUND'
-  | 'DATABASE_SNAPSHOT_FAILED'
-  | 'DATABASE_SNAPSHOT_TOO_LARGE'
-  | 'DATABASE_RESTORE_CONFIRMATION_REQUIRED'
-  | 'DATABASE_RESTORE_FAILED';
-
-export class DatabaseSnapshotError extends Error {
-  public constructor(public readonly code: DatabaseSnapshotErrorCode, message: string) {
-    super(message);
-    this.name = 'DatabaseSnapshotError';
-  }
-}
-
-interface SnapshotConnection {
-  driver: DatabaseSnapshotDriver;
-  host: string;
-  port?: number;
-  username: string;
-  password: string;
-  database: string;
-}
+export {
+  DATABASE_SNAPSHOT_RETENTION,
+  DATABASE_SNAPSHOT_CONFIRMATION_TTL_MS,
+  DATABASE_SNAPSHOT_MAX_BYTES,
+} from './database-snapshot/constants.js';
+export { DatabaseSnapshotError } from './database-snapshot/errors.js';
+export type { DatabaseSnapshotErrorCode } from './database-snapshot/errors.js';
 
 interface StoredSnapshot extends DatabaseSnapshot {
   file: string;
@@ -62,135 +49,6 @@ interface PendingRestore {
 }
 
 const execFileAsync = promisify(execFile);
-
-const DUMP_BINARIES: Record<DatabaseSnapshotDriver, string> = {
-  mysql: 'mysqldump',
-  postgresql: 'pg_dump',
-};
-
-const RESTORE_BINARIES: Record<DatabaseSnapshotDriver, string> = {
-  mysql: 'mysql',
-  postgresql: 'psql',
-};
-
-function snapshotDriver(driver: string): DatabaseSnapshotDriver | null {
-  const normalized = driver.toLowerCase();
-  if (['mysql', 'mysql2', 'mariadb'].includes(normalized)) return 'mysql';
-  if (['postgres', 'postgresql', 'postgis'].includes(normalized)) return 'postgresql';
-  return null;
-}
-
-/** Traduz a falha de spawn mais comum: cliente do banco ausente no PATH. */
-function spawnFailure(binary: string, error: unknown): DatabaseSnapshotError {
-  const code = (error as { code?: string } | null)?.code;
-  if (code === 'ENOENT') {
-    return new DatabaseSnapshotError(
-      'DATABASE_SNAPSHOT_TOOL_MISSING',
-      `'${binary}' não está disponível no PATH. Instale o cliente do banco para usar snapshots.`,
-    );
-  }
-  return new DatabaseSnapshotError(
-    'DATABASE_SNAPSHOT_FAILED',
-    error instanceof Error ? error.message : `Falha ao executar '${binary}'.`,
-  );
-}
-
-/**
- * Monta os dados de conexão a partir do que a detecção já conhece. O navegador
- * nunca envia host, usuário, senha ou banco — só o id do ambiente.
- */
-function connectionFor(environment: DetectedDatabase): SnapshotConnection {
-  const driver = snapshotDriver(environment.driver);
-  if (!driver) {
-    throw new DatabaseSnapshotError(
-      'DATABASE_SNAPSHOT_UNSUPPORTED',
-      `Snapshot é suportado apenas para MySQL e PostgreSQL (adaptador: ${environment.driver}).`,
-    );
-  }
-
-  let username = environment.username ?? '';
-  let password = '';
-  let database = environment.database ?? '';
-  let host = environment.host ?? 'localhost';
-  let port = environment.port;
-
-  if (environment.databaseUrl) {
-    try {
-      const url = new URL(environment.databaseUrl);
-      if (url.username) username = decodeURIComponent(url.username);
-      if (url.password) password = decodeURIComponent(url.password);
-      if (url.hostname) host = url.hostname;
-      if (url.port) port = Number(url.port);
-      const fromPath = decodeURIComponent(url.pathname.slice(1));
-      if (fromPath) database = fromPath;
-    } catch {
-      // A URL detectada é apenas uma das fontes; os campos avulsos seguem valendo.
-    }
-  }
-
-  if (!database) {
-    throw new DatabaseSnapshotError(
-      'DATABASE_SNAPSHOT_UNSUPPORTED',
-      'Não foi possível determinar o nome do banco de dados deste ambiente.',
-    );
-  }
-
-  return { driver, host, ...(port ? { port } : {}), username, password, database };
-}
-
-function dumpArguments(connection: SnapshotConnection): string[] {
-  if (connection.driver === 'mysql') {
-    return [
-      '-h', connection.host,
-      ...(connection.port ? ['-P', String(connection.port)] : []),
-      ...(connection.username ? ['-u', connection.username] : []),
-      connection.database,
-    ];
-  }
-  return [
-    '-h', connection.host,
-    ...(connection.port ? ['-p', String(connection.port)] : []),
-    ...(connection.username ? ['-U', connection.username] : []),
-    '--no-owner',
-    '--no-privileges',
-    connection.database,
-  ];
-}
-
-function restoreArguments(connection: SnapshotConnection): string[] {
-  if (connection.driver === 'mysql') {
-    return [
-      '-h', connection.host,
-      ...(connection.port ? ['-P', String(connection.port)] : []),
-      ...(connection.username ? ['-u', connection.username] : []),
-      connection.database,
-    ];
-  }
-  return [
-    '-h', connection.host,
-    ...(connection.port ? ['-p', String(connection.port)] : []),
-    ...(connection.username ? ['-U', connection.username] : []),
-    '-q',
-    '-v', 'ON_ERROR_STOP=1',
-    connection.database,
-  ];
-}
-
-function passwordEnvironment(connection: SnapshotConnection): NodeJS.ProcessEnv {
-  if (!connection.password) return {};
-  return connection.driver === 'mysql'
-    ? { MYSQL_PWD: connection.password }
-    : { PGPASSWORD: connection.password };
-}
-
-function normalizeLabel(value: string): string {
-  const normalized = value
-    .toLocaleLowerCase('en')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-  return normalized || 'manual';
-}
 
 export class DatabaseSnapshotService {
   private readonly pendingRestores = new Map<string, PendingRestore>();

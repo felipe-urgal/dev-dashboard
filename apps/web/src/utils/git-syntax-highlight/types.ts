@@ -1,0 +1,33 @@
+export type GitSyntaxLanguage =
+  | 'css'
+  | 'generic'
+  | 'html'
+  | 'java'
+  | 'javascript'
+  | 'json'
+  | 'markdown'
+  | 'php'
+  | 'python'
+  | 'ruby'
+  | 'rust'
+  | 'shell'
+  | 'sql'
+  | 'typescript'
+  | 'vue'
+  | 'yaml';
+
+export type SyntaxTokenKind =
+  | 'attribute'
+  | 'comment'
+  | 'function'
+  | 'keyword'
+  | 'literal'
+  | 'number'
+  | 'operator'
+  | 'property'
+  | 'selector'
+  | 'string'
+  | 'symbol'
+  | 'tag'
+  | 'type'
+  | 'variable';

@@ -1,331 +1,63 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { open, unlink } from 'node:fs/promises';
-import { promisify } from 'node:util';
+import { unlink } from 'node:fs/promises';
 import path from 'node:path';
-import type { GitCommit, GitCommitResult, GitDiffFile, GitDiffScope, GitDiffSnapshot, GitFileChange, GitFileDiff, GitFileLines, GitFileStatus, GitMutationConfirmation, GitMutationOperation, GitStashEntry, ProjectGitOverview } from '@dev-dashboard/contracts';
+
+import type {
+  GitCommit,
+  GitCommitResult,
+  GitDiffScope,
+  GitDiffSnapshot,
+  GitFileChange,
+  GitFileDiff,
+  GitFileLines,
+  GitMutationConfirmation,
+  GitMutationOperation,
+  GitStashEntry,
+  ProjectGitOverview,
+} from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
-export const GIT_DIFF_FILE_LIMIT = 262_144;
-export const GIT_DIFF_LINES_LIMIT = 400;
-export const GIT_MUTATION_CONFIRMATION_TTL_MS = 60_000;
-export const GIT_BRANCH_NAME_PATTERN = /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+import {
+  GIT_DIFF_FILE_LIMIT,
+  GIT_DIFF_LINES_LIMIT,
+  GIT_MUTATION_CONFIRMATION_TTL_MS,
+  LOG_SEPARATOR,
+  RECORD_SEPARATOR,
+} from './git-service/constants.js';
+import {
+  resolveDiffBase,
+  gitDiffArgs,
+  parseNumstat,
+  ensurePathInsideProject,
+  readIndexBlob,
+  readWorkingTreeFile,
+} from './git-service/diff-helpers.js';
+import { GitDiffError, GitMutationError, type StoredMutationConfirmation } from './git-service/errors.js';
+import {
+  assertWorkingTreeClean,
+  ensureMutationPathInsideProject,
+  requireOriginRemote,
+  requireRepository,
+  validateBranchName,
+  validateCommitMessage,
+  validateMutationPath,
+} from './git-service/mutation-guards.js';
+import { runGit, commandFailureText } from './git-service/run.js';
+import { resolveSavePrefix } from './git-service/save-prefix.js';
+import { parseCommits, parseStatus } from './git-service/status-parsing.js';
+import { listStashEntries } from './git-service/stash.js';
+import { REMOTE_UNAVAILABLE_PATTERN } from './git-service/constants.js';
 
-export class GitDiffError extends Error {
-  public constructor(
-    public readonly code:
-      | 'GIT_NOT_REPOSITORY'
-      | 'GIT_DIFF_PATH_OUTSIDE_PROJECT'
-      | 'GIT_DIFF_PATH_INVALID'
-      | 'GIT_DIFF_PATH_NOT_IN_DIFF'
-      | 'GIT_DIFF_RANGE_INVALID'
-      | 'GIT_DIFF_LINES_UNAVAILABLE',
-    message: string,
-  ) {
-    super(message);
-    this.name = 'GitDiffError';
-  }
-}
-
-export type GitMutationErrorCode =
-  | 'GIT_NOT_REPOSITORY'
-  | 'GIT_BRANCH_INVALID'
-  | 'GIT_BRANCH_EXISTS'
-  | 'GIT_BRANCH_NOT_FOUND'
-  | 'GIT_WORKING_TREE_DIRTY'
-  | 'GIT_MUTATION_CONFIRMATION_REQUIRED'
-  | 'GIT_DETACHED_HEAD'
-  | 'GIT_NO_UPSTREAM'
-  | 'GIT_REMOTE_NOT_CONFIGURED'
-  | 'GIT_PULL_DIVERGED'
-  | 'GIT_PULL_FAILED'
-  | 'GIT_PUSH_REJECTED'
-  | 'GIT_PUSH_FAILED'
-  | 'GIT_REMOTE_UNAVAILABLE'
-  | 'GIT_COMMIT_MESSAGE_INVALID'
-  | 'GIT_NOTHING_TO_COMMIT'
-  | 'GIT_COMMIT_FAILED'
-  | 'GIT_FILE_PATH_INVALID'
-  | 'GIT_FILE_NOT_FOUND'
-  | 'GIT_FILE_OPERATION_NOT_ALLOWED'
-  | 'GIT_FILE_MUTATION_FAILED'
-  | 'GIT_NOTHING_TO_STASH'
-  | 'GIT_STASH_PUSH_FAILED'
-  | 'GIT_STASH_EMPTY'
-  | 'GIT_STASH_CONFLICT'
-  | 'GIT_STASH_POP_FAILED';
-
-export class GitMutationError extends Error {
-  public constructor(public readonly code: GitMutationErrorCode, message: string) {
-    super(message);
-    this.name = 'GitMutationError';
-  }
-}
-
-interface StoredMutationConfirmation {
-  token: string;
-  projectId: string;
-  operation: GitMutationOperation;
-  target: string;
-  expiresAt: number;
-}
-const execFileAsync = promisify(execFile);
-const LOG_SEPARATOR = '\u001f';
-const RECORD_SEPARATOR = '\u001e';
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
-  const result = await execFileAsync('git', [...args], { cwd: projectPath, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', LC_ALL: 'C' } });
-  return result.stdout;
-}
-
-function commandFailureText(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const withOutput = error as Error & { stdout?: string; stderr?: string };
-  return [withOutput.message, withOutput.stdout, withOutput.stderr].filter(Boolean).join('\n');
-}
-function statusFromCode(code: string): GitFileStatus {
-  if (code.includes('U') || code === 'AA' || code === 'DD') return 'conflicted';
-  if (code.includes('R')) return 'renamed';
-  if (code.includes('C')) return 'copied';
-  if (code.includes('A')) return 'added';
-  if (code.includes('D')) return 'deleted';
-  if (code.includes('T')) return 'type-changed';
-  return 'modified';
-}
-function parseStatus(output: string) {
-  let branch: string | undefined; let detached = false; let upstream: string | undefined; let ahead = 0; let behind = 0;
-  const files: GitFileChange[] = [];
-  const records = output.split('\0').filter(Boolean);
-  for (let index = 0; index < records.length; index += 1) {
-    const record = records[index]!;
-    if (record.startsWith('# branch.head ')) { const value = record.slice(14); detached = value === '(detached)'; if (!detached && value !== '(initial)') branch = value; continue; }
-    if (record.startsWith('# branch.upstream ')) { upstream = record.slice(18); continue; }
-    if (record.startsWith('# branch.ab ')) { const match = /\+(\d+)\s+-(\d+)/.exec(record); if (match) { ahead = Number(match[1]); behind = Number(match[2]); } continue; }
-    if (record.startsWith('? ')) { files.push({ path: record.slice(2), indexStatus: '?', worktreeStatus: '?', status: 'untracked' }); continue; }
-    if (record.startsWith('! ')) continue;
-    if (record.startsWith('1 ')) { const parts = record.split(' '); const code = parts[1] ?? '..'; files.push({ path: parts.slice(8).join(' '), indexStatus: code[0] ?? '.', worktreeStatus: code[1] ?? '.', status: statusFromCode(code) }); continue; }
-    if (record.startsWith('2 ')) { const parts = record.split(' '); const code = parts[1] ?? '..'; const currentPath = parts.slice(9).join(' '); const previousPath = records[index + 1]; if (previousPath) index += 1; files.push({ path: currentPath, ...(previousPath ? { previousPath } : {}), indexStatus: code[0] ?? '.', worktreeStatus: code[1] ?? '.', status: statusFromCode(code) }); continue; }
-    if (record.startsWith('u ')) { const parts = record.split(' '); const code = parts[1] ?? 'UU'; files.push({ path: parts.slice(10).join(' '), indexStatus: code[0] ?? 'U', worktreeStatus: code[1] ?? 'U', status: 'conflicted' }); }
-  }
-  return { branch, detached, upstream, ahead, behind, files };
-}
-function parseCommits(output: string): GitCommit[] {
-  return output.split(RECORD_SEPARATOR).map((item) => item.trim()).filter(Boolean).map((record) => {
-    const [hash = '', shortHash = '', subject = '', authorName = '', authorEmail = '', authoredAt = ''] = record.split(LOG_SEPARATOR);
-    return { hash, shortHash, subject, authorName, authorEmail, authoredAt };
-  });
-}
-const EMPTY_TREE_HASH = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-
-async function resolveDiffBase(projectPath: string, scope: GitDiffScope): Promise<string | null> {
-  if (scope === 'worktree') return null;
-  try {
-    await runGit(projectPath, ['rev-parse', '--verify', '--quiet', 'HEAD']);
-    return 'HEAD';
-  } catch {
-    return EMPTY_TREE_HASH;
-  }
-}
-
-function gitDiffArgs(scope: GitDiffScope, base: string | null, extra: readonly string[] = []): string[] {
-  if (scope === 'index') return ['diff', '--cached', ...(base ? [base] : []), ...extra];
-  if (scope === 'combined') return ['diff', ...(base ? [base] : []), ...extra];
-  return ['diff', ...extra];
-}
-
-function parseNumstat(output: string, statusByPath: Map<string, GitFileChange>): GitDiffFile[] {
-  const files: GitDiffFile[] = [];
-  const records = output.split('\0');
-  let index = 0;
-  while (index < records.length) {
-    const record = records[index];
-    index += 1;
-    if (!record) continue;
-    const fields = record.split('\t');
-    const additionsRaw = fields[0] ?? '0';
-    const deletionsRaw = fields[1] ?? '0';
-    const pathPart = fields.slice(2).join('\t');
-    const binary = additionsRaw === '-' && deletionsRaw === '-';
-    const additions = binary ? 0 : Number.parseInt(additionsRaw, 10) || 0;
-    const deletions = binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0;
-
-    let filePath = pathPart;
-    let previousPath: string | undefined;
-    if (!filePath) {
-      previousPath = records[index] ?? '';
-      index += 1;
-      filePath = records[index] ?? '';
-      index += 1;
-      if (!filePath) continue;
-    }
-
-    const change = statusByPath.get(filePath);
-    const effectivePreviousPath = previousPath || change?.previousPath;
-    const effectiveStatus = change?.status ?? (previousPath ? 'renamed' : 'modified');
-    files.push({
-      path: filePath,
-      ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
-      status: effectiveStatus,
-      additions,
-      deletions,
-      binary,
-    });
-  }
-  return files;
-}
-
-function ensurePathInsideProject(projectPath: string, requested: string): string {
-  if (!requested || requested.includes('\0')) {
-    throw new GitDiffError('GIT_DIFF_PATH_INVALID', 'Caminho inválido para diff.');
-  }
-  const normalizedProject = path.resolve(projectPath);
-  const resolved = path.resolve(normalizedProject, requested);
-  const relative = path.relative(normalizedProject, resolved);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new GitDiffError('GIT_DIFF_PATH_OUTSIDE_PROJECT', 'Caminho fora do projeto.');
-  }
-  return relative || '.';
-}
-
-async function readIndexBlob(projectPath: string, safePath: string): Promise<string> {
-  try {
-    return await runGit(projectPath, ['show', `:${safePath}`]);
-  } catch {
-    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O arquivo não está no índice.');
-  }
-}
-
-/**
- * Lê no máximo `GIT_DIFF_FILE_LIMIT` bytes do início do arquivo: a expansão de
- * contexto numera linhas a partir do topo, então o começo é o trecho útil —
- * ao contrário dos logs, onde o final é que importa.
- */
-async function readWorkingTreeFile(projectPath: string, safePath: string): Promise<string> {
-  const absolute = path.resolve(projectPath, safePath);
-  let handle;
-  try {
-    handle = await open(absolute, 'r');
-  } catch {
-    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'Arquivo indisponível na árvore de trabalho.');
-  }
-  try {
-    const stats = await handle.stat();
-    if (!stats.isFile()) {
-      throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O caminho não é um arquivo comum.');
-    }
-    const size = Math.min(stats.size, GIT_DIFF_FILE_LIMIT);
-    const buffer = Buffer.alloc(size);
-    await handle.read(buffer, 0, size, 0);
-    return buffer.toString('utf8');
-  } finally {
-    await handle.close();
-  }
-}
-
-async function assertWorkingTreeClean(projectPath: string): Promise<void> {
-  const output = await runGit(projectPath, ['status', '--porcelain=v2', '-z', '--untracked-files=all']);
-  const dirty = output.split('\0').some((record) =>
-    record.startsWith('1 ') || record.startsWith('2 ') || record.startsWith('u ') || record.startsWith('? '),
-  );
-  if (dirty) {
-    throw new GitMutationError('GIT_WORKING_TREE_DIRTY', 'A árvore de trabalho tem alterações não commitadas ou arquivos não rastreados.');
-  }
-}
-
-async function requireRepository(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitMutationError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
-  }
-}
-
-function validateBranchName(name: string): void {
-  if (!name || name.length > 200 || !GIT_BRANCH_NAME_PATTERN.test(name)) {
-    throw new GitMutationError('GIT_BRANCH_INVALID', 'Nome de branch inválido.');
-  }
-}
-
-function validateMutationPath(filePath: string): void {
-  if (
-    !filePath
-    || filePath.length > 4096
-    || filePath.includes('\0')
-    || path.isAbsolute(filePath)
-    || filePath.split(/[\\/]/).includes('..')
-  ) {
-    throw new GitMutationError(
-      'GIT_FILE_PATH_INVALID',
-      'Caminho de arquivo inválido.',
-    );
-  }
-}
-
-function ensureMutationPathInsideProject(
-  projectPath: string,
-  requestedPath: string,
-): string {
-  validateMutationPath(requestedPath);
-  try {
-    const relative = ensurePathInsideProject(projectPath, requestedPath);
-    if (relative === '.') {
-      throw new Error('O caminho precisa apontar para um arquivo.');
-    }
-    return relative;
-  } catch {
-    throw new GitMutationError(
-      'GIT_FILE_PATH_INVALID',
-      'O arquivo precisa estar dentro do projeto.',
-    );
-  }
-}
-
-const REMOTE_UNAVAILABLE_PATTERN = /could not resolve host|connection (refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
-
-async function requireOriginRemote(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['remote', 'get-url', 'origin']);
-  } catch {
-    throw new GitMutationError('GIT_REMOTE_NOT_CONFIGURED', 'Nenhum remoto "origin" configurado para este projeto.');
-  }
-}
-
-const COMMIT_MESSAGE_MAX_LENGTH = 500;
-
-function validateCommitMessage(message: string): void {
-  if (!message || message.trim().length === 0 || message.length > COMMIT_MESSAGE_MAX_LENGTH) {
-    throw new GitMutationError('GIT_COMMIT_MESSAGE_INVALID', 'Mensagem de commit inválida.');
-  }
-}
-
-// Espelha _git_branch_prefix do CLI bash (lib/git/helpers.sh): o tipo é o trecho do branch antes da primeira "/".
-export const SAVE_PREFIX_BY_BRANCH_TYPE: Readonly<Record<string, string>> = {
-  feature: 'feat',
-  fix: 'fix',
-  refactor: 'refactor',
-  chore: 'chore',
-  docs: 'docs',
-  hotfix: 'fix',
-};
-
-export function resolveSavePrefix(branch: string | undefined): string {
-  if (!branch) return '';
-  const type = branch.split('/')[0] ?? '';
-  return SAVE_PREFIX_BY_BRANCH_TYPE[type] ?? '';
-}
-
-async function listStashEntries(projectPath: string): Promise<GitStashEntry[]> {
-  let output = '';
-  try {
-    output = await runGit(projectPath, ['stash', 'list', `--format=%gd${LOG_SEPARATOR}%s${LOG_SEPARATOR}%cI`]);
-  } catch {
-    return [];
-  }
-  return output.split('\n').filter(Boolean).map((line) => {
-    const [ref = '', message = '', date = ''] = line.split(LOG_SEPARATOR);
-    const match = /stash@\{(\d+)\}/.exec(ref);
-    return { index: match?.[1] ? Number(match[1]) : 0, message, createdAt: date };
-  });
-}
+export {
+  GIT_DIFF_FILE_LIMIT,
+  GIT_DIFF_LINES_LIMIT,
+  GIT_MUTATION_CONFIRMATION_TTL_MS,
+  GIT_BRANCH_NAME_PATTERN,
+  SAVE_PREFIX_BY_BRANCH_TYPE,
+} from './git-service/constants.js';
+export { GitDiffError, GitMutationError } from './git-service/errors.js';
+export type { GitMutationErrorCode } from './git-service/errors.js';
+export { resolveSavePrefix } from './git-service/save-prefix.js';
 
 export class GitService {
   private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();

@@ -1,48 +1,29 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { promisify } from 'node:util';
 
 import type {
-  GitFileStatus,
   GitStashConfirmation,
   GitStashCreateInput,
   GitStashDetail,
-  GitStashFile,
   GitStashMutationResult,
   GitStashOperation,
   GitStashSummary,
 } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
-const execFileAsync = promisify(execFile);
-const FIELD_SEPARATOR = '\u001f';
-const CONFIRMATION_TTL_MS = 60_000;
-const PATCH_LIMIT = 320_000;
-const STASH_REFERENCE_PATTERN = /^stash@\{(\d+)\}$/;
-const CONFLICT_PATTERN = /conflict|merge conflict|needs merge|could not restore untracked files/i;
+import { CONFIRMATION_TTL_MS, CONFLICT_PATTERN, PATCH_LIMIT } from './git-stash/constants.js';
+import { GitStashError } from './git-stash/errors.js';
+import { filesFor, parseReferences, summaryFor, type ParsedStashReference } from './git-stash/reference-parsing.js';
+import {
+  currentBranch,
+  requireCleanWorkingTree,
+  requireRepository,
+  rollbackWorkingTree,
+} from './git-stash/repository-guards.js';
+import { failureText, runGit } from './git-stash/run.js';
+import { validateCreateInput, validateReference } from './git-stash/validation.js';
 
-export type GitStashErrorCode =
-  | 'GIT_NOT_REPOSITORY'
-  | 'GIT_WORKING_TREE_DIRTY'
-  | 'GIT_NOTHING_TO_STASH'
-  | 'GIT_STASH_REFERENCE_INVALID'
-  | 'GIT_STASH_NOT_FOUND'
-  | 'GIT_STASH_CONFIRMATION_REQUIRED'
-  | 'GIT_STASH_PUSH_FAILED'
-  | 'GIT_STASH_APPLY_FAILED'
-  | 'GIT_STASH_POP_FAILED'
-  | 'GIT_STASH_DROP_FAILED'
-  | 'GIT_STASH_CONFLICT';
-
-export class GitStashError extends Error {
-  public constructor(
-    public readonly code: GitStashErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'GitStashError';
-  }
-}
+export { GitStashError } from './git-stash/errors.js';
+export type { GitStashErrorCode } from './git-stash/errors.js';
 
 interface StoredConfirmation {
   token: string;
@@ -50,273 +31,6 @@ interface StoredConfirmation {
   operation: GitStashOperation;
   target: string;
   expiresAt: number;
-}
-
-interface ParsedStashReference {
-  index: number;
-  reference: string;
-  hash: string;
-  subject: string;
-  createdAt: string;
-}
-
-interface ParsedFileStatus {
-  status: GitFileStatus;
-  previousPath?: string;
-}
-
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 8 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout;
-}
-
-function failureText(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const withOutput = error as Error & { stdout?: string; stderr?: string };
-  return [withOutput.message, withOutput.stdout, withOutput.stderr]
-    .filter(Boolean)
-    .join('\n');
-}
-
-function validateReference(reference: string): number {
-  const match = STASH_REFERENCE_PATTERN.exec(reference);
-  const index = match?.[1] ? Number.parseInt(match[1], 10) : Number.NaN;
-  if (!Number.isSafeInteger(index) || index < 0) {
-    throw new GitStashError(
-      'GIT_STASH_REFERENCE_INVALID',
-      'Referência de stash inválida.',
-    );
-  }
-  return index;
-}
-
-function validateCreateInput(input: GitStashCreateInput): GitStashCreateInput {
-  const message = input.message.trim();
-  if (message.length > 200) {
-    throw new GitStashError(
-      'GIT_STASH_PUSH_FAILED',
-      'A mensagem do stash deve ter no máximo 200 caracteres.',
-    );
-  }
-  return {
-    message,
-    includeUntracked: input.includeUntracked,
-    keepIndex: input.keepIndex,
-  };
-}
-
-async function requireRepository(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitStashError(
-      'GIT_NOT_REPOSITORY',
-      'O projeto não é um repositório Git.',
-    );
-  }
-}
-
-async function requireCleanWorkingTree(projectPath: string): Promise<void> {
-  const output = await runGit(projectPath, [
-    'status',
-    '--porcelain=v2',
-    '-z',
-    '--untracked-files=all',
-  ]);
-  if (output.length > 0) {
-    throw new GitStashError(
-      'GIT_WORKING_TREE_DIRTY',
-      'A árvore de trabalho precisa estar limpa para restaurar um stash com segurança.',
-    );
-  }
-}
-
-async function currentBranch(projectPath: string): Promise<string> {
-  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
-  return branch || 'HEAD';
-}
-
-function statusFromCode(code: string): GitFileStatus {
-  const normalized = code[0]?.toUpperCase() ?? 'M';
-  if (normalized === 'A') return 'added';
-  if (normalized === 'D') return 'deleted';
-  if (normalized === 'R') return 'renamed';
-  if (normalized === 'C') return 'copied';
-  if (normalized === 'T') return 'type-changed';
-  return 'modified';
-}
-
-function parseNameStatus(output: string): Map<string, ParsedFileStatus> {
-  const statuses = new Map<string, ParsedFileStatus>();
-  const records = output.split('\0').filter(Boolean);
-
-  for (let index = 0; index < records.length;) {
-    const code = records[index++] ?? '';
-    const status = statusFromCode(code);
-    if (status === 'renamed' || status === 'copied') {
-      const previousPath = records[index++] ?? '';
-      const currentPath = records[index++] ?? '';
-      if (currentPath) statuses.set(currentPath, { status, previousPath });
-      continue;
-    }
-    const filePath = records[index++] ?? '';
-    if (filePath) statuses.set(filePath, { status });
-  }
-
-  return statuses;
-}
-
-function parseNumstat(
-  output: string,
-  statuses: Map<string, ParsedFileStatus>,
-): GitStashFile[] {
-  const files: GitStashFile[] = [];
-  const records = output.split('\0');
-  let index = 0;
-
-  while (index < records.length) {
-    const record = records[index++];
-    if (!record) continue;
-    const fields = record.split('\t');
-    const additionsRaw = fields[0] ?? '0';
-    const deletionsRaw = fields[1] ?? '0';
-    let filePath = fields.slice(2).join('\t');
-    let previousPath: string | undefined;
-
-    if (!filePath) {
-      previousPath = records[index++] ?? '';
-      filePath = records[index++] ?? '';
-      if (!filePath) continue;
-    }
-
-    const status = statuses.get(filePath);
-    const binary = additionsRaw === '-' || deletionsRaw === '-';
-    files.push({
-      path: filePath,
-      ...(status?.previousPath || previousPath
-        ? { previousPath: status?.previousPath || previousPath }
-        : {}),
-      status: status?.status ?? (previousPath ? 'renamed' : 'modified'),
-      additions: binary ? 0 : Number.parseInt(additionsRaw, 10) || 0,
-      deletions: binary ? 0 : Number.parseInt(deletionsRaw, 10) || 0,
-      binary,
-    });
-  }
-
-  return files;
-}
-
-function parseSubject(subject: string): { branch: string; message: string } {
-  const match = /^(?:WIP on|On) ([^:]+):\s*(.*)$/.exec(subject.trim());
-  if (!match) {
-    return {
-      branch: 'HEAD',
-      message: subject.trim() || 'Stash sem mensagem',
-    };
-  }
-  return {
-    branch: match[1]?.trim() || 'HEAD',
-    message: match[2]?.trim() || 'Stash sem mensagem',
-  };
-}
-
-async function parseReferences(projectPath: string): Promise<ParsedStashReference[]> {
-  const output = await runGit(projectPath, [
-    'stash',
-    'list',
-    '-n',
-    '50',
-    `--format=%gd${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%gs${FIELD_SEPARATOR}%cI`,
-  ]);
-
-  return output
-    .split('\n')
-    .filter(Boolean)
-    .flatMap((line): ParsedStashReference[] => {
-      const [reference = '', hash = '', subject = '', createdAt = ''] = line.split(FIELD_SEPARATOR);
-      const match = STASH_REFERENCE_PATTERN.exec(reference);
-      if (!match?.[1]) return [];
-      return [{
-        index: Number.parseInt(match[1], 10),
-        reference,
-        hash,
-        subject,
-        createdAt,
-      }];
-    });
-}
-
-async function includesUntracked(projectPath: string, reference: string): Promise<boolean> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--verify', '--quiet', `${reference}^3`]);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function filesFor(projectPath: string, reference: string): Promise<GitStashFile[]> {
-  const [nameStatus, numstat] = await Promise.all([
-    runGit(projectPath, [
-      'stash',
-      'show',
-      '--include-untracked',
-      '--name-status',
-      '-z',
-      reference,
-    ]),
-    runGit(projectPath, [
-      'stash',
-      'show',
-      '--include-untracked',
-      '--numstat',
-      '-z',
-      reference,
-    ]),
-  ]);
-  return parseNumstat(numstat, parseNameStatus(nameStatus));
-}
-
-async function summaryFor(
-  projectPath: string,
-  parsed: ParsedStashReference,
-): Promise<GitStashSummary> {
-  const [files, hasUntracked] = await Promise.all([
-    filesFor(projectPath, parsed.reference),
-    includesUntracked(projectPath, parsed.reference),
-  ]);
-  const subject = parseSubject(parsed.subject);
-  return {
-    index: parsed.index,
-    reference: parsed.reference,
-    hash: parsed.hash,
-    message: subject.message,
-    branch: subject.branch,
-    createdAt: parsed.createdAt,
-    fileCount: files.length,
-    additions: files.reduce((total, file) => total + file.additions, 0),
-    deletions: files.reduce((total, file) => total + file.deletions, 0),
-    includesUntracked: hasUntracked,
-  };
-}
-
-async function rollbackWorkingTree(projectPath: string, head: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['reset', '--hard', head]);
-    await runGit(projectPath, ['clean', '-fd']);
-  } catch {
-    // O erro original da aplicação do stash é mais relevante.
-  }
 }
 
 export class GitStashService {

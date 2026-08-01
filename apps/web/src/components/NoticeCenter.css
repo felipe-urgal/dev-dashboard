@@ -1,0 +1,323 @@
+.notice-center {
+  position: relative;
+}
+
+.notice-bell-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.notice-bell-button:hover,
+.notice-bell-button[aria-expanded='true'] {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+
+.notice-bell-button > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.notice-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--surface-1);
+  border-radius: 999px;
+  background: var(--danger-text);
+  color: var(--surface-0);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.notice-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: 372px;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+
+.notice-panel-header {
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.notice-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.notice-panel-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.notice-panel-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.notice-header-action,
+.notice-activity-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notice-header-action:hover:not(:disabled),
+.notice-activity-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.notice-header-action:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.notice-panel-body {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notice-empty {
+  min-height: 170px;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.notice-empty > svg {
+  width: 30px;
+  height: 30px;
+  margin-bottom: var(--space-3);
+  color: var(--text-dim);
+}
+
+.notice-empty p {
+  margin: 0 0 var(--space-1);
+  color: var(--text);
+  font-size: var(--font-md);
+  font-weight: 700;
+}
+
+.notice-empty span {
+  max-width: 260px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.notice-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 34px;
+  align-items: center;
+  min-height: 76px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  background: var(--surface-1);
+}
+
+.notice-item:last-child {
+  border-bottom: none;
+}
+
+.notice-item-unread {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.notice-item:hover {
+  background: var(--surface-2);
+}
+
+.notice-status-icon {
+  width: 34px;
+  height: 34px;
+  margin-left: var(--space-3);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+}
+
+.notice-status-icon > svg {
+  width: 19px;
+  height: 19px;
+}
+
+.notice-status-succeeded {
+  background: var(--success-surface);
+  color: var(--success-text);
+}
+
+.notice-status-failed {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+.notice-status-cancelled,
+.notice-status-stopped {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+}
+
+.notice-item-body {
+  min-width: 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notice-item-overline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.notice-item-overline time {
+  flex: none;
+  color: var(--text-dim);
+  font-weight: var(--font-weight-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.notice-item-body strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-md);
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-item-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice-item-dismiss {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.notice-item-dismiss:hover {
+  color: var(--text);
+}
+
+.notice-item-dismiss > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.notice-panel-footer {
+  min-height: 50px;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--surface-2);
+}
+
+.notice-clear-button {
+  min-height: 32px;
+  padding-inline: var(--space-3);
+  font-size: var(--font-sm);
+}
+
+@media (max-width: 480px) {
+  .notice-panel {
+    position: fixed;
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+}

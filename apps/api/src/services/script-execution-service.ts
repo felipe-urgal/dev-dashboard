@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import type { Writable } from 'node:stream';
-import { access, mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -19,26 +19,24 @@ import type {
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ScriptDetectionService } from './script-detection-service.js';
+import { tokensMatch } from './script-execution/auth.js';
+import {
+  CONFIRMATION_TTL_MS,
+  DEFAULT_HISTORY_LIMIT,
+  DEFAULT_RETENTION_DAYS,
+  EVENT_THROTTLE_MS,
+  EXECUTION_ID_PATTERN,
+  HISTORY_VERSION,
+  LOG_LIMIT,
+  MAX_EXECUTION_SUBSCRIBERS,
+  MAX_RETENTION_SWEEP_INTERVAL_MS,
+  MAX_TOTAL_SUBSCRIBERS,
+} from './script-execution/constants.js';
+import { resolveCommand } from './script-execution/command-resolution.js';
+import { ScriptExecutionError } from './script-execution/errors.js';
 
-export type ScriptExecutionErrorCode =
-  | 'SCRIPT_NOT_FOUND'
-  | 'SCRIPT_DISABLED'
-  | 'SCRIPT_CONFIRMATION_REQUIRED'
-  | 'SCRIPT_ALREADY_RUNNING'
-  | 'SCRIPT_EXECUTION_NOT_FOUND'
-  | 'SCRIPT_MANAGER_AMBIGUOUS'
-  | 'SCRIPT_MANAGER_NOT_FOUND'
-  | 'SCRIPT_SUBSCRIBER_LIMIT';
-
-export class ScriptExecutionError extends Error {
-  public constructor(
-    public readonly code: ScriptExecutionErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'ScriptExecutionError';
-  }
-}
+export { ScriptExecutionError } from './script-execution/errors.js';
+export type { ScriptExecutionErrorCode } from './script-execution/errors.js';
 
 interface RunningExecution {
   execution: ScriptExecution;
@@ -52,21 +50,7 @@ interface StoredConfirmation extends ScriptExecutionConfirmation {
   projectId: string;
 }
 
-type NodeManager = 'npm' | 'pnpm' | 'yarn';
-
-const LOG_LIMIT = 262_144;
-const CONFIRMATION_TTL_MS = 60_000;
-const HISTORY_VERSION = 1;
-const DEFAULT_HISTORY_LIMIT = 200;
-const DEFAULT_RETENTION_DAYS = 7;
-const MAX_RETENTION_SWEEP_INTERVAL_MS = 3_600_000;
-const EXECUTION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 interface StoredExecution { version: 1; execution: ScriptExecution }
-
-const MAX_EXECUTION_SUBSCRIBERS = 5;
-const MAX_TOTAL_SUBSCRIBERS = 20;
-const EVENT_THROTTLE_MS = 200;
 
 interface ExecutionSubscriber {
   send: (event: ScriptExecutionEvent) => void;
@@ -78,85 +62,6 @@ export interface ScriptExecutionServiceOptions {
   retentionMs?: number;
   sweepIntervalMs?: number;
   createLogStream?: (logPath: string) => Writable;
-}
-
-async function exists(target: string): Promise<boolean> {
-  try {
-    await access(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function resolveNodeManager(projectPath: string): Promise<NodeManager> {
-  const lockfiles: ReadonlyArray<[NodeManager, string]> = [
-    ['npm', 'package-lock.json'],
-    ['pnpm', 'pnpm-lock.yaml'],
-    ['yarn', 'yarn.lock'],
-  ];
-  const candidates = (
-    await Promise.all(
-      lockfiles.map(async ([manager, lockfile]) =>
-        (await exists(path.join(projectPath, lockfile))) ? manager : undefined,
-      ),
-    )
-  ).filter((manager): manager is NodeManager => manager !== undefined);
-
-  if (candidates.length > 1) {
-    throw new ScriptExecutionError(
-      'SCRIPT_MANAGER_AMBIGUOUS',
-      'Mais de um lockfile foi encontrado; remova a ambiguidade antes de executar.',
-    );
-  }
-  if (candidates.length === 0) {
-    throw new ScriptExecutionError(
-      'SCRIPT_MANAGER_NOT_FOUND',
-      'Nenhum lockfile npm, pnpm ou Yarn foi encontrado.',
-    );
-  }
-  return candidates[0]!;
-}
-
-async function resolveCommand(
-  project: Project,
-  action: ProjectScript,
-): Promise<{ command: string; args: string[] }> {
-  const separator = action.id.indexOf(':');
-  const origin = action.id.slice(0, separator);
-  const name = action.id.slice(separator + 1);
-
-  if (separator < 1 || !name || origin !== action.origin) {
-    throw new ScriptExecutionError(
-      'SCRIPT_NOT_FOUND',
-      'A ação catalogada é inválida.',
-    );
-  }
-  if (origin === 'package-script') {
-    return { command: await resolveNodeManager(project.path), args: ['run', name] };
-  }
-  if (origin === 'rails-task') {
-    return { command: path.join(project.path, 'bin', 'rails'), args: [name] };
-  }
-  if (
-    origin === 'bin' &&
-    ['rails', 'rake', 'rspec', 'rubocop', 'setup'].includes(name)
-  ) {
-    return { command: path.join(project.path, 'bin', name), args: [] };
-  }
-  throw new ScriptExecutionError(
-    'SCRIPT_NOT_FOUND',
-    'A ação não pertence à allowlist de execução.',
-  );
-}
-
-function tokensMatch(received: string, expected: string): boolean {
-  const receivedBuffer = Buffer.from(received);
-  const expectedBuffer = Buffer.from(expected);
-  return (
-    receivedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(receivedBuffer, expectedBuffer)
-  );
 }
 
 export class ScriptExecutionService {

@@ -6,101 +6,26 @@ import {
   onMounted,
   ref,
   watch,
-  type Component,
 } from 'vue';
 import {
   useRoute,
   useRouter,
-  type RouteLocationRaw,
 } from 'vue-router';
 import type {
-  ManagedProcess,
   Project,
-  ProjectScript,
-  ProjectScriptCatalog,
-  ProjectTestOverview,
   Workspace,
 } from '@dev-dashboard/contracts';
-import {
-  ArrowPathIcon,
-  BeakerIcon,
-  CircleStackIcon,
-  ClockIcon,
-  CodeBracketIcon,
-  Cog6ToothIcon,
-  CommandLineIcon,
-  DocumentTextIcon,
-  FolderIcon,
-  HomeIcon,
-  MagnifyingGlassIcon,
-  PlayCircleIcon,
-  ServerStackIcon,
-  ShieldCheckIcon,
-  StopCircleIcon,
-} from '@heroicons/vue/24/outline';
-import {
-  fetchProjectProcess,
-  fetchProjectScripts,
-  fetchProjectServerSettings,
-  fetchProjectTestProcess,
-  fetchProjectTests,
-  prepareScriptExecution,
-  startProjectProcess,
-  startProjectTest,
-  startScriptExecution,
-  stopProjectProcess,
-  stopProjectTest,
-} from '../api';
+import { MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { useCommandPaletteItems, type PaletteItem } from '../composables/useCommandPaletteItems';
+import { useCommandPaletteProjectActions } from '../composables/useCommandPaletteProjectActions';
 import { dashboardStore } from '../stores/dashboard';
-import {
-  normalizePaletteText,
-  paletteFuzzyScore,
-  parsePaletteQuery,
-  type CommandPaletteMode,
-} from '../utils/command-palette';
-import { isRunnableProjectScript } from '../utils/project-script-visibility';
+import { normalizePaletteText, paletteFuzzyScore, parsePaletteQuery } from '../utils/command-palette';
 
 const props = defineProps<{
   projects: Project[];
   workspaces: Workspace[];
 }>();
-
-type PaletteGroup = 'Recentes' | 'Projeto atual' | 'Comandos do projeto' | 'Páginas' | 'Workspaces' | 'Projetos';
-type ActionRisk = 'reversivel' | 'atencao';
-type ActionOperation =
-  | { type: 'server-start' }
-  | { type: 'server-stop' }
-  | { type: 'test-start'; commandId: string }
-  | { type: 'test-stop' }
-  | { type: 'script-start'; script: ProjectScript };
-
-interface PaletteItemBase {
-  id: string;
-  group: Exclude<PaletteGroup, 'Recentes'>;
-  label: string;
-  description: string;
-  searchText: string;
-  icon: Component;
-  mode: Exclude<CommandPaletteMode, 'all'>;
-}
-
-interface NavigationPaletteItem extends PaletteItemBase {
-  kind: 'navigation';
-  to: RouteLocationRaw;
-  workspaceId?: string;
-  hint?: string;
-  projectId?: string;
-}
-
-interface ActionPaletteItem extends PaletteItemBase {
-  kind: 'action';
-  operation: ActionOperation;
-  risk: ActionRisk;
-}
-
-type PaletteItem = NavigationPaletteItem | ActionPaletteItem;
-interface PaletteGroupView { name: PaletteGroup; items: PaletteItem[] }
 
 const RECENTS_KEY = 'dev-dashboard:command-palette:recent-items';
 const route = useRoute();
@@ -110,12 +35,6 @@ const query = ref('');
 const activeIndex = ref(0);
 const searchInput = ref<HTMLInputElement>();
 const dialog = ref<HTMLElement>();
-const projectProcess = ref<ManagedProcess | null>();
-const testProcess = ref<ManagedProcess | null>();
-const testOverview = ref<ProjectTestOverview>();
-const scriptCatalog = ref<ProjectScriptCatalog>();
-const loadedProjectId = ref<string>();
-const loadingActions = ref(false);
 const executingAction = ref(false);
 const pendingActionId = ref<string>();
 const feedback = ref('');
@@ -123,6 +42,20 @@ const recentIds = ref<string[]>(readRecents());
 
 useAutoDismiss(feedback, '');
 let previousFocus: HTMLElement | null = null;
+
+const {
+  projectProcess,
+  testProcess,
+  testOverview,
+  scriptCatalog,
+  loadedProjectId,
+  loadingActions,
+  loadProjectActions,
+  executeAction,
+} = useCommandPaletteProjectActions({
+  isOpen: () => open.value,
+  getSelectedProject: () => selectedProject.value,
+});
 
 const currentProject = computed(() => {
   const value = route.params.projectId;
@@ -142,139 +75,19 @@ const selectedProject = computed(() => {
     .sort((left, right) => right.score - left.score)[0]?.project;
 });
 
-const items = computed<PaletteItem[]>(() => {
-  const project = selectedProject.value;
-  const projectItems: PaletteItem[] = project ? buildProjectItems(project) : [];
-  const globalItems: NavigationPaletteItem[] = [
-    navigationItem('pagina-visao-geral', 'Páginas', 'Visão geral', 'Dashboard e repositórios', { name: 'dashboard', hash: '#overview' }, HomeIcon, 'page'),
-    navigationItem('pagina-atividade', 'Páginas', 'Atividade', 'Histórico unificado', { name: 'activity' }, ClockIcon, 'page'),
-    navigationItem('pagina-processos', 'Páginas', 'Processos', 'Processos gerenciados', { name: 'processes' }, PlayCircleIcon, 'page'),
-    navigationItem('pagina-configuracoes', 'Páginas', 'Configurações', 'Preferências e retenção local', { name: 'settings' }, Cog6ToothIcon, 'page'),
-  ];
-  const workspaceItems = props.workspaces.map((workspace) =>
-    navigationItem(`workspace-${workspace.id}`, 'Workspaces', workspace.name, workspace.path, { name: 'dashboard', hash: '#repositories' }, FolderIcon, 'project', workspace.id),
-  );
-  const allProjectItems = [...props.projects]
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .map((item) => ({
-      ...navigationItem(`project-${item.id}`, 'Projetos', item.name, item.path, { name: 'project-details', params: { projectId: item.id } }, FolderIcon, 'project'),
-      projectId: item.id,
-    }));
 
-  return [...projectItems, ...globalItems, ...workspaceItems, ...allProjectItems];
+const { items, orderedItems, groupViews } = useCommandPaletteItems({
+  projects: () => props.projects,
+  workspaces: () => props.workspaces,
+  selectedProject: () => selectedProject.value,
+  parsedQuery: () => parsedQuery.value,
+  recentIds,
+  loadedProjectId,
+  projectProcess,
+  testProcess,
+  testOverview,
+  scriptCatalog,
 });
-
-const orderedItems = computed<PaletteItem[]>(() => {
-  const parsed = parsedQuery.value;
-  const candidates = items.value.filter((item) => parsed.mode === 'all' || item.mode === parsed.mode);
-  if (parsed.value) {
-    return candidates
-      .map((item) => ({ item, score: paletteFuzzyScore(item.searchText, parsed.value) }))
-      .filter(({ score }) => score >= 0)
-      .sort((left, right) => right.score - left.score || left.item.label.localeCompare(right.item.label))
-      .map(({ item }) => item);
-  }
-
-  const recent = recentIds.value
-    .map((id) => candidates.find((item) => item.id === id))
-    .filter((item): item is PaletteItem => Boolean(item));
-  const recentSet = new Set(recent.map((item) => item.id));
-  return [...recent, ...candidates.filter((item) => !recentSet.has(item.id))];
-});
-
-const groupViews = computed<PaletteGroupView[]>(() => {
-  const parsed = parsedQuery.value;
-  const recentSet = !parsed.value
-    ? new Set(recentIds.value.filter((id) => orderedItems.value.some((item) => item.id === id)))
-    : new Set<string>();
-  const result: PaletteGroupView[] = [];
-  for (const item of orderedItems.value) {
-    const name: PaletteGroup = recentSet.has(item.id) ? 'Recentes' : item.group;
-    let group = result.find((entry) => entry.name === name);
-    if (!group) {
-      group = { name, items: [] };
-      result.push(group);
-    }
-    group.items.push(item);
-  }
-  return result;
-});
-
-function buildProjectItems(project: Project): PaletteItem[] {
-  const params = { projectId: project.id };
-  const areas: NavigationPaletteItem[] = [
-    navigationItem(`area-project-details-${project.id}`, 'Projeto atual', 'Visão geral do projeto', project.name, { name: 'project-details', params }, HomeIcon, 'page'),
-    navigationItem(`area-project-server-${project.id}`, 'Projeto atual', 'Servidor', 'Configurar e controlar o servidor', { name: 'project-server', params }, ServerStackIcon, 'page'),
-    navigationItem(`area-project-logs-${project.id}`, 'Projeto atual', 'Logs', 'Acompanhar a saída do servidor', { name: 'project-logs', params }, DocumentTextIcon, 'page'),
-    navigationItem(`area-project-git-${project.id}`, 'Projeto atual', 'Git', 'Branches, diff, commit e sincronização', { name: 'project-git', params }, CodeBracketIcon, 'page'),
-    navigationItem(`area-project-tests-${project.id}`, 'Projeto atual', 'Testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'page'),
-    navigationItem(`area-project-database-${project.id}`, 'Projeto atual', 'Banco de dados', 'Ambientes, snapshots e migrations', { name: 'project-database', params }, CircleStackIcon, 'page'),
-    navigationItem(`area-project-scripts-${project.id}`, 'Projeto atual', 'Scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'page'),
-  ];
-  const shortcuts: NavigationPaletteItem[] = [
-    ...(project.capabilities.includes('server') ? [
-      navigationItem(`command-server-${project.id}`, 'Comandos do projeto', 'Abrir servidor', 'Configuração e status do servidor', { name: 'project-server', params }, ServerStackIcon, 'action', undefined, 'Abrir'),
-      navigationItem(`command-logs-${project.id}`, 'Comandos do projeto', 'Abrir logs', 'Acompanhar a saída do servidor', { name: 'project-logs', params }, DocumentTextIcon, 'action', undefined, 'Abrir'),
-    ] : []),
-    ...(project.capabilities.includes('git') ? [
-      navigationItem(`command-git-${project.id}`, 'Comandos do projeto', 'Abrir Git', 'Branches, diff e histórico', { name: 'project-git', params }, CodeBracketIcon, 'action', undefined, 'Abrir'),
-      navigationItem(`command-git-sync-${project.id}`, 'Comandos do projeto', 'Sincronizar main', 'Abrir sincronização segura do repositório', { name: 'project-git', params, query: { tab: 'sync' } }, ArrowPathIcon, 'action', undefined, 'Abrir'),
-      navigationItem(`command-git-branch-${project.id}`, 'Comandos do projeto', 'Criar branch', 'Abrir gerenciamento de branches', { name: 'project-git', params, query: { tab: 'branches' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
-      navigationItem(`command-git-commit-${project.id}`, 'Comandos do projeto', 'Commitar alterações', 'Abrir criação e correção de commit', { name: 'project-git', params, query: { tab: 'commit' } }, CodeBracketIcon, 'action', undefined, 'Abrir'),
-    ] : []),
-    ...(project.capabilities.includes('tests') ? [navigationItem(`command-tests-${project.id}`, 'Comandos do projeto', 'Abrir testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'action', undefined, 'Abrir')] : []),
-    ...(project.capabilities.includes('database') ? [
-      navigationItem(`command-database-${project.id}`, 'Comandos do projeto', 'Abrir banco de dados', 'Ambientes e ferramentas do banco', { name: 'project-database', params }, CircleStackIcon, 'action', undefined, 'Abrir'),
-      navigationItem(`command-database-snapshot-${project.id}`, 'Comandos do projeto', 'Criar snapshot', 'Abrir snapshots do banco de dados', { name: 'project-database', params, query: { section: 'snapshots' } }, CircleStackIcon, 'action', undefined, 'Abrir'),
-    ] : []),
-    ...(project.capabilities.includes('scripts') ? [navigationItem(`command-scripts-${project.id}`, 'Comandos do projeto', 'Abrir scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'action', undefined, 'Abrir')] : []),
-  ];
-  const actions: ActionPaletteItem[] = [];
-  if (loadedProjectId.value === project.id && project.capabilities.includes('server') && projectProcess.value !== undefined) {
-    const status = projectProcess.value?.status ?? 'stopped';
-    if (status === 'running' || status === 'starting') {
-      actions.push(actionItem(`${project.id}:server-stop`, 'Parar servidor', `Interromper o servidor de ${project.name}`, StopCircleIcon, 'atencao', { type: 'server-stop' }, 'stop server server stop'));
-    } else if (status !== 'stopping') {
-      actions.push(actionItem(`${project.id}:server-start`, 'Iniciar servidor', `Executar o servidor de ${project.name}`, ServerStackIcon, 'reversivel', { type: 'server-start' }, 'start server server start iniciar server'));
-    }
-  }
-  if (loadedProjectId.value === project.id && project.capabilities.includes('tests') && testOverview.value?.supported) {
-    const status = testProcess.value?.status;
-    if (status === 'running' || status === 'starting') {
-      actions.push(actionItem(`${project.id}:test-stop`, 'Parar testes', 'Interromper a suíte em execução', StopCircleIcon, 'atencao', { type: 'test-stop' }));
-    } else {
-      for (const command of testOverview.value.commands) {
-        actions.push(actionItem(`${project.id}:test-${command.id}`, command.label, command.description, BeakerIcon, 'reversivel', { type: 'test-start', commandId: command.id }));
-      }
-    }
-  }
-  if (loadedProjectId.value === project.id && project.capabilities.includes('scripts')) {
-    for (const script of scriptCatalog.value?.items.filter(
-      (item) => item.enabled && isRunnableProjectScript(item, project),
-    ) ?? []) {
-      actions.push(actionItem(`${project.id}:script-${script.id}`, script.name, script.description || script.command, CommandLineIcon, script.risk === 'read-only' ? 'reversivel' : 'atencao', { type: 'script-start', script }));
-    }
-  }
-  return [...areas, ...actions, ...shortcuts];
-}
-
-function navigationItem(
-  id: string,
-  group: NavigationPaletteItem['group'],
-  label: string,
-  description: string,
-  to: RouteLocationRaw,
-  icon: Component,
-  mode: NavigationPaletteItem['mode'],
-  workspaceId?: string,
-  hint?: string,
-): NavigationPaletteItem {
-  return { id, group, label, description, to, icon, mode, kind: 'navigation', searchText: normalizePaletteText(`${label} ${description}`), ...(workspaceId ? { workspaceId } : {}), ...(hint ? { hint } : {}) };
-}
-
-function actionItem(id: string, label: string, description: string, icon: Component, risk: ActionRisk, operation: ActionOperation, aliases = ''): ActionPaletteItem {
-  return { id, group: 'Comandos do projeto', label, description, icon, risk, operation, mode: 'action', kind: 'action', searchText: normalizePaletteText(`${label} ${description} ${aliases}`) };
-}
 
 function readRecents(): string[] {
   try {
@@ -303,37 +116,10 @@ function show(): void {
   activeIndex.value = 0;
   feedback.value = '';
   pendingActionId.value = undefined;
-  void loadProjectActions(selectedProject.value);
+  void loadProjectActions(selectedProject.value).then((result) => {
+    if (result.feedback) feedback.value = result.feedback;
+  });
   void nextTick(() => searchInput.value?.focus());
-}
-
-async function loadProjectActions(project = selectedProject.value): Promise<void> {
-  projectProcess.value = undefined;
-  testProcess.value = undefined;
-  testOverview.value = undefined;
-  scriptCatalog.value = undefined;
-  loadedProjectId.value = undefined;
-  loadingActions.value = false;
-  if (!project) return;
-  loadingActions.value = true;
-  const projectId = project.id;
-  const requests: Promise<void>[] = [];
-  if (project.capabilities.includes('server')) requests.push(fetchProjectProcess(projectId).then((value) => { if (isSelectedProject(projectId)) projectProcess.value = value; }));
-  if (project.capabilities.includes('tests')) requests.push(Promise.all([fetchProjectTests(projectId), fetchProjectTestProcess(projectId)]).then(([overview, process]) => { if (isSelectedProject(projectId)) { testOverview.value = overview; testProcess.value = process; } }));
-  if (project.capabilities.includes('scripts')) {
-    const parameters = new URLSearchParams({ page: '1', pageSize: '100' });
-    requests.push(fetchProjectScripts(projectId, parameters).then((value) => { if (isSelectedProject(projectId)) scriptCatalog.value = value; }));
-  }
-  const results = await Promise.allSettled(requests);
-  if (open.value && requests.length && results.every((result) => result.status === 'rejected')) feedback.value = 'Não foi possível consultar as ações autorizadas.';
-  if (isSelectedProject(projectId)) {
-    loadedProjectId.value = projectId;
-    loadingActions.value = false;
-  }
-}
-
-function isSelectedProject(projectId: string): boolean {
-  return open.value && selectedProject.value?.id === projectId;
 }
 
 function close(): void {
@@ -436,7 +222,7 @@ async function select(item: PaletteItem): Promise<void> {
   executingAction.value = true;
   feedback.value = '';
   try {
-    await executeAction(project.id, item.operation);
+    feedback.value = await executeAction(project.id, item.operation);
     remember(item);
     pendingActionId.value = undefined;
     query.value = parsedQuery.value.project !== undefined ? `@${project.name} > ` : '';
@@ -445,27 +231,6 @@ async function select(item: PaletteItem): Promise<void> {
     feedback.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.';
   } finally {
     executingAction.value = false;
-  }
-}
-
-async function executeAction(projectId: string, operation: ActionOperation): Promise<void> {
-  if (operation.type === 'server-start') {
-    const settings = await fetchProjectServerSettings(projectId);
-    projectProcess.value = await startProjectProcess(projectId, { port: settings.port ?? null });
-    feedback.value = 'Servidor iniciado com sucesso.';
-  } else if (operation.type === 'server-stop') {
-    projectProcess.value = await stopProjectProcess(projectId);
-    feedback.value = 'Servidor interrompido com sucesso.';
-  } else if (operation.type === 'test-start') {
-    testProcess.value = await startProjectTest(projectId, operation.commandId);
-    feedback.value = 'Testes iniciados com sucesso.';
-  } else if (operation.type === 'test-stop') {
-    testProcess.value = await stopProjectTest(projectId);
-    feedback.value = 'Execução de testes interrompida.';
-  } else {
-    const token = operation.script.risk === 'read-only' ? undefined : (await prepareScriptExecution(projectId, operation.script.id)).token;
-    await startScriptExecution(projectId, operation.script.id, token);
-    feedback.value = `Script “${operation.script.name}” iniciado.`;
   }
 }
 
@@ -487,7 +252,9 @@ watch(activeIndex, () => nextTick(() => {
 }));
 watch(() => selectedProject.value?.id, (projectId, previousProjectId) => {
   if (!open.value || parsedQuery.value.project === undefined || projectId === previousProjectId) return;
-  void loadProjectActions(selectedProject.value);
+  void loadProjectActions(selectedProject.value).then((result) => {
+    if (result.feedback) feedback.value = result.feedback;
+  });
 });
 onMounted(() => window.addEventListener('keydown', handleGlobalKeydown));
 onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown));

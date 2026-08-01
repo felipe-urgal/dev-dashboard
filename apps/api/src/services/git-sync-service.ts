@@ -1,6 +1,4 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { promisify } from 'node:util';
 
 import type {
   GitSyncConfirmation,
@@ -9,37 +7,30 @@ import type {
   GitTrackingComparison,
 } from '@dev-dashboard/contracts';
 
-const execFileAsync = promisify(execFile);
-const CONFIRMATION_TTL_MS = 60_000;
-const MAIN_BRANCH = 'main';
-const MAIN_REFERENCE = 'upstream/main';
-const MAIN_STRATEGY: GitSyncStrategy = 'merge';
-const REMOTE_REFERENCE_PATTERN = /^[A-Za-z0-9._-]+\/(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
-const CONFLICT_PATTERN = /conflict|could not apply|automatic merge failed|resolve all conflicts/i;
-const FAST_FORWARD_PATTERN = /not possible to fast-forward|diverging branches|fatal: not possible/i;
+import {
+  CONFIRMATION_TTL_MS,
+  CONFLICT_PATTERN,
+  FAST_FORWARD_PATTERN,
+  MAIN_BRANCH,
+  MAIN_REFERENCE,
+  MAIN_STRATEGY,
+} from './git-sync/constants.js';
+import { GitSyncError } from './git-sync/errors.js';
+import {
+  abortOperation,
+  currentBranch,
+  optionalReferenceHead,
+  requireCleanWorkingTree,
+  requireLocalMain,
+  requireRemote,
+  requireRemoteReference,
+  requireRepository,
+} from './git-sync/repository-guards.js';
+import { failureText, runGit } from './git-sync/run.js';
+import { validateReference, validateStrategy } from './git-sync/validation.js';
 
-export type GitSyncErrorCode =
-  | 'GIT_NOT_REPOSITORY'
-  | 'GIT_REFERENCE_INVALID'
-  | 'GIT_REFERENCE_NOT_FOUND'
-  | 'GIT_BRANCH_NOT_FOUND'
-  | 'GIT_REMOTE_NOT_CONFIGURED'
-  | 'GIT_WORKING_TREE_DIRTY'
-  | 'GIT_SYNC_CONFIRMATION_REQUIRED'
-  | 'GIT_DETACHED_HEAD'
-  | 'GIT_SYNC_CONFLICT'
-  | 'GIT_SYNC_DIVERGED'
-  | 'GIT_SYNC_FAILED';
-
-export class GitSyncError extends Error {
-  public constructor(
-    public readonly code: GitSyncErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'GitSyncError';
-  }
-}
+export { GitSyncError } from './git-sync/errors.js';
+export type { GitSyncErrorCode } from './git-sync/errors.js';
 
 interface StoredConfirmation {
   token: string;
@@ -47,169 +38,6 @@ interface StoredConfirmation {
   reference: string;
   strategy: GitSyncStrategy;
   expiresAt: number;
-}
-
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout.trim();
-}
-
-function failureText(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const withOutput = error as Error & { stdout?: string; stderr?: string };
-  return [withOutput.message, withOutput.stdout, withOutput.stderr]
-    .filter(Boolean)
-    .join('\n');
-}
-
-function validateReference(reference: string): void {
-  if (
-    !reference
-    || reference.length > 300
-    || !REMOTE_REFERENCE_PATTERN.test(reference)
-  ) {
-    throw new GitSyncError(
-      'GIT_REFERENCE_INVALID',
-      'Referência remota inválida.',
-    );
-  }
-}
-
-function validateStrategy(strategy: GitSyncStrategy): void {
-  if (!['ff-only', 'rebase', 'merge'].includes(strategy)) {
-    throw new GitSyncError(
-      'GIT_REFERENCE_INVALID',
-      'Estratégia de sincronização inválida.',
-    );
-  }
-}
-
-async function requireRepository(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitSyncError(
-      'GIT_NOT_REPOSITORY',
-      'O projeto não é um repositório Git.',
-    );
-  }
-}
-
-async function requireRemoteReference(
-  projectPath: string,
-  reference: string,
-): Promise<void> {
-  try {
-    await runGit(projectPath, [
-      'show-ref',
-      '--verify',
-      '--quiet',
-      `refs/remotes/${reference}`,
-    ]);
-  } catch {
-    throw new GitSyncError(
-      'GIT_REFERENCE_NOT_FOUND',
-      `A referência remota "${reference}" não foi encontrada. Execute fetch antes de continuar.`,
-    );
-  }
-}
-
-async function requireRemote(
-  projectPath: string,
-  remote: 'origin' | 'upstream',
-): Promise<void> {
-  try {
-    await runGit(projectPath, ['remote', 'get-url', remote]);
-  } catch {
-    throw new GitSyncError(
-      'GIT_REMOTE_NOT_CONFIGURED',
-      `O remote "${remote}" não está configurado neste projeto.`,
-    );
-  }
-}
-
-async function requireLocalMain(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, [
-      'show-ref',
-      '--verify',
-      '--quiet',
-      'refs/heads/main',
-    ]);
-  } catch {
-    throw new GitSyncError(
-      'GIT_BRANCH_NOT_FOUND',
-      'A branch local "main" não foi encontrada.',
-    );
-  }
-}
-
-async function optionalReferenceHead(
-  projectPath: string,
-  reference: string,
-): Promise<string | undefined> {
-  try {
-    return await runGit(projectPath, ['rev-parse', reference]);
-  } catch {
-    return undefined;
-  }
-}
-
-async function requireCleanWorkingTree(projectPath: string): Promise<void> {
-  const output = await runGit(projectPath, [
-    'status',
-    '--porcelain=v2',
-    '-z',
-    '--untracked-files=all',
-  ]);
-  const dirty = output.split('\0').some((record) =>
-    record.startsWith('1 ')
-    || record.startsWith('2 ')
-    || record.startsWith('u ')
-    || record.startsWith('? '),
-  );
-  if (dirty) {
-    throw new GitSyncError(
-      'GIT_WORKING_TREE_DIRTY',
-      'A árvore de trabalho precisa estar limpa para integrar uma referência remota.',
-    );
-  }
-}
-
-async function currentBranch(projectPath: string): Promise<string> {
-  const branch = await runGit(projectPath, ['branch', '--show-current']);
-  if (!branch) {
-    throw new GitSyncError(
-      'GIT_DETACHED_HEAD',
-      'Não é possível sincronizar um HEAD destacado.',
-    );
-  }
-  return branch;
-}
-
-async function abortOperation(
-  projectPath: string,
-  strategy: GitSyncStrategy,
-): Promise<void> {
-  try {
-    if (strategy === 'rebase') {
-      await runGit(projectPath, ['rebase', '--abort']);
-    } else if (strategy === 'merge') {
-      await runGit(projectPath, ['merge', '--abort']);
-    }
-  } catch {
-    // A operação pode falhar antes de criar estado abortável.
-  }
 }
 
 export class GitSyncService {
