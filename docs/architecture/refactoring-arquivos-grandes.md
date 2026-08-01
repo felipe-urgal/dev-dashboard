@@ -715,7 +715,6 @@ completo direto no arquivo.
  574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
- 666  apps/api/src/routes/tests.ts
  660  apps/api/src/services/script-execution-service.ts
  649  apps/api/src/services/rails-inspection-service.ts        [cresceu com generators, task 060]
  629  apps/web/src/components/ProjectGitPanel.vue
@@ -777,14 +776,26 @@ Fase 6) se o arquivo crescer mais; não foi feito agora porque a classe é coesa
 54 testes de `git-service`/`git-service-mutations`/`git-service-diff`/`git-amend-all-changes`/
 `git-file-confirmation-route`, mais o monorepo completo (248 testes web) — todos verdes.
 
+**`apps/api/src/routes/tests.ts` (666 → 19 linhas) — concluído**, segundo arquivo desta fase.
+Plugin único registrando 9 rotas relacionadas a execução de testes; dividido por sub-domínio em
+`routes/tests/`: `helpers.ts` (tipos, schemas de params/query, `requireProject`, os três mapeadores
+de erro e `serializeTestExecutionEvent`), `process-routes.ts` (overview, processo, logs get/delete,
+stop — 5 rotas), `command-routes.ts` (iniciar comando, listar arquivos, iniciar arquivo — 3 rotas),
+`history-routes.ts` (histórico get/delete) e `events-route.ts` (o endpoint SSE de
+acompanhamento, isolado à parte por ser a rota mais densa e sem schema JSON — usa `reply.hijack()`
+diretamente). O arquivo principal ficou só com o plugin Fastify chamando os 4 `registerX(app,
+options)`. Único símbolo exportado (`testRoutes`) continua no mesmo lugar. Verificado com
+`typecheck`, `build` e os 24 testes de `test-events-route`/`test-file-routes`/`routes`, mais o
+monorepo completo (248 testes web) — todos verdes.
+
 ## Progresso da Fase 7
 
-`process-manager.ts` saiu da lista por completo (tratado como continuação da Fase 6, ver acima).
-`git-service.ts` foi dividido (842 → 574 linhas + 8 módulos novos), mas a classe `GitService` em si
-continua acima de 400 linhas — fica no inventário como candidato a uma segunda passada (dividir a
-classe por domínio), não como pendência ativa agora. Os demais ~33 arquivos do inventário seguem
-pendentes, sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima.
-Arquivos `.vue` com bastante template
+`process-manager.ts` e `routes/tests.ts` saíram da lista por completo. `git-service.ts` foi
+dividido (842 → 574 linhas + 8 módulos novos), mas a classe `GitService` em si continua acima de
+400 linhas — fica no inventário como candidato a uma segunda passada (dividir a classe por
+domínio), não como pendência ativa agora. Os demais ~32 arquivos do inventário seguem pendentes,
+sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
+com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
