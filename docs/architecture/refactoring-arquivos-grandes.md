@@ -719,7 +719,6 @@ completo direto no arquivo.
  629  apps/web/src/components/ProjectGitPanel.vue
  627  apps/web/src/components/ProjectReadmePanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
- 600  apps/api/src/routes/processes.ts
  593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
  588  apps/web/src/components/NoticeCenter.vue
@@ -837,13 +836,23 @@ Verificado com `typecheck`, `build` e os 15 testes de `git-pull-request-service`
 `git-pull-request-status-service`/`git-pull-request-targets`, mais o monorepo completo — todos
 verdes.
 
+**`apps/api/src/routes/processes.ts` (600 → 17 linhas) — concluído**, sexto arquivo desta fase.
+Mesmo padrão de `routes/tests.ts`: plugin único registrando 9 rotas, dividido por sub-domínio em
+`routes/processes/`: `helpers.ts` (tipos, schemas, `requireProject`, os dois mapeadores de erro e
+`processEnvelopeResponseSchema`), `server-settings-routes.ts` (GET/PUT `server-settings` — 2 rotas),
+`server-process-routes.ts` (processo/logs/start/stop do servidor de um projeto — 5 rotas) e
+`process-list-routes.ts` (listagem global `/processes` com filtro por workspace/kind e
+`/processes/cleanup`). Único símbolo exportado (`processRoutes`) continua no mesmo lugar. Verificado
+com `typecheck`, `build` e os 26 testes de `processes-route`/`process-cleanup`/`server-config`/
+`routes`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
-`process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts` e
-`git-pull-request-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
+`git-pull-request-service.ts` e `routes/processes.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~29 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~28 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
