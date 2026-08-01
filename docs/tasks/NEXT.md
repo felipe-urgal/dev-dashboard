@@ -9,13 +9,16 @@ código escrito ainda:
 ## 1. Refatoração pura dos arquivos acima de 400 linhas (em andamento)
 
 Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases
-1–6 concluídas; fase 7 em andamento — `process-manager.ts` e
-`git-service.ts` já feitos, ~33 arquivos do reinventário ainda pendentes).
-Nenhuma API pública muda — é reorganização de arquivo, não de
-comportamento. Recomendação registrada no doc: priorizar os arquivos de
-`apps/api/src` (menor risco) antes dos componentes `.vue` grandes
-(extração de composable pode mudar timing de watcher, como já visto na
-Fase 4).
+1–6 concluídas; fase 7 em andamento — todo o `apps/api/src` está
+concluído, assim como `CommandPalette.vue`, `ProcessesView.vue` e
+`DashboardView.vue`; `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
+`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos; ~8
+componentes `.vue` do reinventário ainda pendentes, ver lista na seção
+"Fase 7" do doc). Nenhuma API pública muda — é reorganização de arquivo,
+não de comportamento. Os arquivos restantes são os mais arriscados
+(`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`,
+`ProjectGitHistoryPage.vue` etc.) — extração de composable pode mudar
+timing de watcher, como já visto na Fase 4.
 
 ## 2. Abrir o editor local do usuário
 
