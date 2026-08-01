@@ -719,7 +719,6 @@ completo direto no arquivo.
  629  apps/web/src/components/ProjectGitPanel.vue
  627  apps/web/src/components/ProjectReadmePanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
- 604  apps/api/src/services/git-pull-request-service.ts
  600  apps/api/src/routes/processes.ts
  593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
@@ -821,14 +820,32 @@ de leitura de opção/singularização). O arquivo principal ficou só com a cla
 `build` e os 33 testes de `rails-inspection-service`/`rails-routes`, mais o monorepo completo —
 todos verdes.
 
+**`apps/api/src/services/git-pull-request-service.ts` (604 → 339 linhas) — concluído**, quinto
+arquivo desta fase. Mesmo padrão de `rails-inspection-service.ts`: a classe
+`GitPullRequestService` é relativamente pequena (~280 linhas), a maior parte do arquivo eram
+funções livres antes dela. Split em `git-pull-request/`: `errors.ts`
+(`GitPullRequestErrorCode`/`GitPullRequestError`), `run.ts` (`runGit`/`runProviderCli`/
+`optionalGit`), `branch-context.ts` (`requireRepository`/`currentBranch`/`publishedReference`/
+`remoteUrl`/`defaultBranch`/`requireBaseBranch`), `remote-parsing.ts` (`parseRemoteUrl`/
+`detectProvider`), `url-compose.ts` (`composeGithubUrl`/`composeGitlabUrl`) e
+`github-lookup-payload.ts` (`asRecord`/`githubRepositoryParts`/`githubLookupFromPayload`). Um
+detalhe que não existia nas divisões anteriores: `ResolvedPullRequestContext` (o tipo que carrega
+branch/remoto/provider já resolvidos) é consumido tanto pela classe principal quanto por
+`github-lookup-payload.ts` — em vez de declará-lo em um dos dois e criar uma dependência cruzada,
+foi para um `context.ts` próprio (junto com `GitPullRequestTargetRemote`), do qual ambos importam.
+Verificado com `typecheck`, `build` e os 15 testes de `git-pull-request-service`/
+`git-pull-request-status-service`/`git-pull-request-targets`, mais o monorepo completo — todos
+verdes.
+
 ## Progresso da Fase 7
 
-`process-manager.ts`, `routes/tests.ts` e `rails-inspection-service.ts` saíram da lista por
-completo. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
-mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
-segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~30
-arquivos do inventário seguem pendentes, sem ordem de execução fixada — a lista completa está na
-seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
+`process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts` e
+`git-pull-request-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
+400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
+domínio), não como pendência ativa agora. Os demais ~29 arquivos do inventário seguem pendentes,
+sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
+com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
