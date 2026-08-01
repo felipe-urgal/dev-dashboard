@@ -1,35 +1,31 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { unlink } from 'node:fs/promises';
-import path from 'node:path';
-import { promisify } from 'node:util';
 
-const execFileAsync = promisify(execFile);
-const CONFIRMATION_TTL_MS = 60_000;
-const FIELD_SEPARATOR = '\u001f';
+import { CONFIRMATION_TTL_MS } from './git-undo/constants.js';
+import { headCommit } from './git-undo/commit-helpers.js';
+import { GitUndoError } from './git-undo/errors.js';
+import {
+  ensurePathInsideProject,
+  pathExistsInHead,
+  renameInfo,
+  unlinkIfPresent,
+} from './git-undo/file-helpers.js';
+import {
+  assertWorkingTreeClean,
+  currentBranch,
+  localAheadOfUpstream,
+  requireRepository,
+} from './git-undo/repository-guards.js';
+import { optionalGit, runGit } from './git-undo/run.js';
+import type { GitUndoConfirmation, GitUndoCommitResult, GitUndoOperation } from './git-undo/types.js';
 
-export type GitUndoOperation = 'commit' | 'file';
-export type GitUndoStrategy = 'reset' | 'revert';
-
-export type GitUndoErrorCode =
-  | 'GIT_NOT_REPOSITORY'
-  | 'GIT_DETACHED_HEAD'
-  | 'GIT_WORKING_TREE_DIRTY'
-  | 'GIT_MUTATION_CONFIRMATION_REQUIRED'
-  | 'GIT_FILE_PATH_INVALID'
-  | 'GIT_FILE_NOT_FOUND'
-  | 'GIT_COMMIT_FAILED'
-  | 'GIT_COMMAND_FAILED';
-
-export class GitUndoError extends Error {
-  public constructor(
-    public readonly code: GitUndoErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'GitUndoError';
-  }
-}
+export { GitUndoError } from './git-undo/errors.js';
+export type { GitUndoErrorCode } from './git-undo/errors.js';
+export type {
+  GitUndoCommitResult,
+  GitUndoConfirmation,
+  GitUndoOperation,
+  GitUndoStrategy,
+} from './git-undo/types.js';
 
 interface StoredConfirmation {
   token: string;
@@ -37,186 +33,6 @@ interface StoredConfirmation {
   operation: GitUndoOperation;
   target: string;
   expiresAt: number;
-}
-
-interface CommitSummary {
-  hash: string;
-  shortHash: string;
-  subject: string;
-}
-
-export interface GitUndoConfirmation {
-  token: string;
-  operation: GitUndoOperation;
-  target: string;
-  expiresAt: string;
-}
-
-export interface GitUndoCommitResult {
-  strategy: GitUndoStrategy;
-  undone: CommitSummary;
-  result?: CommitSummary;
-}
-
-async function runGit(
-  projectPath: string,
-  args: readonly string[],
-): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout;
-}
-
-async function optionalGit(
-  projectPath: string,
-  args: readonly string[],
-): Promise<string | null> {
-  try {
-    return await runGit(projectPath, args);
-  } catch {
-    return null;
-  }
-}
-
-async function requireRepository(projectPath: string): Promise<void> {
-  try {
-    await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
-  } catch {
-    throw new GitUndoError(
-      'GIT_NOT_REPOSITORY',
-      'O projeto não é um repositório Git.',
-    );
-  }
-}
-
-async function currentBranch(projectPath: string): Promise<string> {
-  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
-  if (!branch) {
-    throw new GitUndoError(
-      'GIT_DETACHED_HEAD',
-      'Não é possível desfazer um commit em HEAD destacado.',
-    );
-  }
-  return branch;
-}
-
-function ensurePathInsideProject(projectPath: string, requestedPath: string): string {
-  if (
-    !requestedPath
-    || requestedPath.length > 4096
-    || requestedPath.includes('\0')
-    || requestedPath.includes('\n')
-    || requestedPath.includes('\r')
-    || requestedPath.includes('\t')
-    || path.isAbsolute(requestedPath)
-    || requestedPath.split(/[\\/]/).includes('..')
-  ) {
-    throw new GitUndoError('GIT_FILE_PATH_INVALID', 'Caminho de arquivo inválido.');
-  }
-
-  const root = path.resolve(projectPath);
-  const resolved = path.resolve(root, requestedPath);
-  const relative = path.relative(root, resolved);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new GitUndoError(
-      'GIT_FILE_PATH_INVALID',
-      'O arquivo precisa estar dentro do projeto.',
-    );
-  }
-  return relative.replaceAll('\\', '/');
-}
-
-function parseCommit(value: string): CommitSummary {
-  const [hash = '', shortHash = '', subject = ''] = value.trim().split(FIELD_SEPARATOR);
-  return { hash, shortHash, subject };
-}
-
-async function headCommit(projectPath: string): Promise<CommitSummary> {
-  try {
-    return parseCommit(await runGit(
-      projectPath,
-      ['log', '-1', `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s`],
-    ));
-  } catch {
-    throw new GitUndoError('GIT_COMMIT_FAILED', 'O repositório ainda não possui commit para desfazer.');
-  }
-}
-
-async function assertWorkingTreeClean(projectPath: string): Promise<void> {
-  const status = await runGit(projectPath, [
-    'status', '--porcelain=v2', '-z', '--untracked-files=all',
-  ]);
-  if (status.length > 0) {
-    throw new GitUndoError(
-      'GIT_WORKING_TREE_DIRTY',
-      'Desfaça ou registre as alterações atuais antes de desfazer um commit.',
-    );
-  }
-}
-
-async function localAheadOfUpstream(projectPath: string): Promise<number | null> {
-  const upstream = await optionalGit(projectPath, [
-    'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}',
-  ]);
-  if (!upstream?.trim()) return null;
-
-  const counts = await optionalGit(projectPath, [
-    'rev-list', '--left-right', '--count', 'HEAD...@{upstream}',
-  ]);
-  if (!counts) return null;
-  const [aheadRaw = '0'] = counts.trim().split(/\s+/);
-  return Number.parseInt(aheadRaw, 10) || 0;
-}
-
-interface RenameInfo {
-  kind: 'rename' | 'copy';
-  previousPath: string;
-}
-
-async function renameInfo(
-  projectPath: string,
-  safePath: string,
-): Promise<RenameInfo | null> {
-  const output = await optionalGit(projectPath, [
-    'diff', '--name-status', '-M', '-C', 'HEAD', '--', safePath,
-  ]);
-  if (!output?.trim()) return null;
-
-  for (const line of output.trim().split('\n')) {
-    const [status = '', previousPath = '', currentPath = ''] = line.split('\t');
-    if (currentPath !== safePath || !previousPath) continue;
-    if (status.startsWith('R')) return { kind: 'rename', previousPath };
-    if (status.startsWith('C')) return { kind: 'copy', previousPath };
-  }
-  return null;
-}
-
-async function pathExistsInHead(
-  projectPath: string,
-  safePath: string,
-): Promise<boolean> {
-  const output = await optionalGit(projectPath, [
-    'ls-tree', '--name-only', 'HEAD', '--', safePath,
-  ]);
-  return output?.trim() === safePath;
-}
-
-async function unlinkIfPresent(projectPath: string, safePath: string): Promise<void> {
-  try {
-    await unlink(path.join(projectPath, safePath));
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== 'ENOENT') throw error;
-  }
 }
 
 export class GitUndoService {

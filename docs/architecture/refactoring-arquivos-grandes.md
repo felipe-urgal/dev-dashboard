@@ -735,7 +735,6 @@ completo direto no arquivo.
  425  apps/api/src/routes/projects.ts
  423  apps/api/src/routes/git-stash.ts
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
- 404  apps/api/src/services/git-undo-service.ts
 ```
 
 Regra geral desta fase é a mesma das anteriores (refatoração pura, sem mudar assinatura pública,
@@ -898,15 +897,28 @@ repositório/referência remota/remote configurado/branch local/HEAD destacado/�
 operação). A classe `GitSyncService` fica sozinha no arquivo principal. Verificado com `typecheck`,
 `build` e os 4 testes de `git-sync-service`, mais o monorepo completo — todos verdes.
 
+**`apps/api/src/services/git-undo-service.ts` (404 → 220 linhas) — concluído**, décimo segundo
+arquivo desta fase e o último dos serviços "desfazer"/sincronização Git. Split em `git-undo/`:
+`errors.ts`, `types.ts` (`GitUndoOperation`/`GitUndoStrategy`/`CommitSummary`/
+`GitUndoConfirmation`/`GitUndoCommitResult`), `constants.ts`, `run.ts` (`runGit`/`optionalGit`),
+`repository-guards.ts` (`requireRepository`/`currentBranch`/`assertWorkingTreeClean`/
+`localAheadOfUpstream`), `commit-helpers.ts` (`headCommit`, que usa o `parseCommit` interno) e
+`file-helpers.ts` (`ensurePathInsideProject`/`renameInfo`/`pathExistsInHead`/`unlinkIfPresent`). A
+classe `GitUndoService` fica sozinha no arquivo principal. Verificado com `typecheck`, `build` e os
+5 testes de `git-undo-service`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
-`git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts` e
-`git-sync-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
+`git-sync-service.ts` e `git-undo-service.ts` saíram da lista por completo (`git-service.ts` e
+`script-execution-service.ts` foram divididos mas continuam acima de 400 por causa do tamanho da
+própria classe, ver nota acima). Restam as 4 rotas da API (`git-workspace.ts`/`rails.ts`/
+`projects.ts`/`git-stash.ts`) e os componentes `.vue`. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~23 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~22 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
