@@ -726,7 +726,6 @@ completo direto no arquivo.
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
  530  apps/web/src/test-log-inspector.ts
- 519  apps/api/src/services/git-commit-details-service.ts
  493  apps/web/src/utils/git-diff-view.ts
  471  apps/api/src/services/database-snapshot-service.ts
  467  apps/web/src/stores/dashboard.ts
@@ -869,14 +868,26 @@ ao `FIELD_SEPARATOR` como texto literal `'\u001f'`, não byte cru), `run.ts` (`r
 `GitStashService`. Verificado com `typecheck`, `build` e o teste de `git-stash-service`, mais o
 monorepo completo — todos verdes.
 
+**`apps/api/src/services/git-commit-details-service.ts` (519 → 249 linhas) — concluído**, nono
+arquivo desta fase e o primeiro sem nenhuma classe — só funções livres exportadas diretamente
+(`listBranchCommits`/`listCurrentBranchCommits`/`inspectGitCommit`/`inspectGitCommitFile`), sem
+estado compartilhado, o que tornou a divisão direta. Split em `git-commit-details/`: `types.ts` (os
+8 tipos/interfaces exportados), `errors.ts` (`GitCommitDetailsError`), `constants.ts` (separadores,
+limites, os dois regex e `HISTORY_FORMAT`), `run.ts` (`runGit`/`requireRepository`),
+`file-status-parsing.ts` (`parseNameStatus`/`parseNumstat`) e `history-parsing.ts`
+(`parseHistory`/`filterHistory`/`hasHistoryFilters`/`resolveHistoryReference`). O arquivo principal
+ficou só com as 4 funções de serviço. Verificado com `typecheck`, `build` e os 12 testes de
+`git-commit-details-service`/`git-current-branch-history-service`/
+`git-exclusive-branch-history-service`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
-`git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts` e
-`git-stash-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
+`git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
+`git-stash-service.ts` e `git-commit-details-service.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e
 `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
 400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~26 arquivos do inventário seguem pendentes,
+domínio), não como pendência ativa agora. Os demais ~25 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
