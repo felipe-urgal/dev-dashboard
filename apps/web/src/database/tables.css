@@ -110,11 +110,6 @@
 .database-migrations-table th:nth-child(1) { width: 150px; }
 .database-migrations-table th:nth-child(3) { width: 105px; }
 .database-migrations-table th:nth-child(4) { width: 42px; }
-.database-routes-table th:nth-child(1) { width: 78px; }
-.database-routes-table th:nth-child(2) { width: 28%; }
-.database-routes-table th:nth-child(3) { width: 30%; }
-.database-routes-table th:nth-child(4) { width: 22%; }
-.database-routes-table th:nth-child(5) { width: 42px; }
 .database-columns-table th:nth-child(1) { width: 22%; }
 .database-columns-table th:nth-child(2) { width: 18%; }
 .database-columns-table th:nth-child(3) { width: 80px; }

@@ -66,13 +66,30 @@ test('oferece e inicia o serviço systemd correspondente ao banco local', async 
   });
 
   const overview = await service.getOverview(project);
-  assert.equal(overview.environments[0]?.startAvailable, true);
+  assert.equal(overview.environments[0]?.serviceAvailable, true);
   assert.equal(await service.start(project, overview.environments[0]!.id), true);
   assert.deepEqual(calls, [{
     command: 'pkexec',
     args: ['--disable-internal-agent', 'systemctl', 'start', 'postgresql.service'],
     cwd: project.path,
   }]);
+});
+
+test('pausa e reinicia o serviço systemd correspondente ao banco local', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+  });
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new DatabaseDetectionService(async (command, args) => { calls.push({ command, args }); });
+  const overview = await service.getOverview(project);
+  const environmentId = overview.environments[0]!.id;
+
+  assert.equal(await service.stop(project, environmentId), true);
+  assert.equal(await service.restart(project, environmentId), true);
+  assert.deepEqual(calls, [
+    { command: 'pkexec', args: ['--disable-internal-agent', 'systemctl', 'stop', 'postgresql.service'] },
+    { command: 'pkexec', args: ['--disable-internal-agent', 'systemctl', 'restart', 'postgresql.service'] },
+  ]);
 });
 
 test('seleciona o serviço mysql a partir do adapter mysql2', async () => {
@@ -83,7 +100,7 @@ test('seleciona o serviço mysql a partir do adapter mysql2', async () => {
   const service = new DatabaseDetectionService(async (command, args) => { calls.push({ command, args }); });
   const overview = await service.getOverview(project);
 
-  assert.equal(overview.environments[0]?.startAvailable, true);
+  assert.equal(overview.environments[0]?.serviceAvailable, true);
   assert.equal(await service.start(project, overview.environments[0]!.id), true);
   assert.deepEqual(calls, [{ command: 'pkexec', args: ['--disable-internal-agent', 'systemctl', 'start', 'mysql.service'] }]);
 });
@@ -95,8 +112,10 @@ test('não oferece inicialização local para host remoto', async () => {
   const service = new DatabaseDetectionService(async () => assert.fail('não deveria executar comandos'));
   const overview = await service.getOverview(project);
 
-  assert.equal(overview.environments[0]?.startAvailable, false);
+  assert.equal(overview.environments[0]?.serviceAvailable, false);
   assert.equal(await service.start(project, 'dotenv--env'), false);
+  assert.equal(await service.stop(project, 'dotenv--env'), false);
+  assert.equal(await service.restart(project, 'dotenv--env'), false);
 });
 
 test('informa quando não há agente polkit disponível na sessão', async () => {

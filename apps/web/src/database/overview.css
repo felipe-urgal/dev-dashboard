@@ -147,12 +147,6 @@
   color: var(--text-muted);
 }
 
-.database-overview-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(270px, 0.75fr);
-  gap: 12px;
-}
-
 .database-overview-block > footer {
   display: flex;
   min-height: 41px;
@@ -225,125 +219,6 @@
 .database-preview-dot.is-down {
   background: var(--warning-text);
   box-shadow: 0 0 0 3px var(--warning-surface);
-}
-
-.database-preview-routes {
-  display: grid;
-  padding: 6px 12px;
-}
-
-.database-preview-route-head,
-.database-preview-routes > button {
-  display: grid;
-  grid-template-columns: 48px minmax(76px, 0.75fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-.database-preview-route-head {
-  min-height: 27px;
-  color: var(--text-dim);
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.database-preview-routes > button {
-  min-height: 39px;
-  padding: 4px 0;
-  border: 0;
-  border-top: 1px solid var(--border);
-  color: inherit;
-  background: transparent;
-  text-align: left;
-}
-
-.database-preview-routes > button:hover code,
-.database-preview-routes > button:hover > span:last-child {
-  color: var(--accent);
-}
-
-.database-preview-routes code,
-.database-preview-routes > button > span:last-child {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.database-health-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px;
-  padding: 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-0);
-}
-
-.database-health-card > svg {
-  width: 25px;
-  height: 25px;
-  flex: 0 0 auto;
-}
-
-.database-health-card.is-success > svg {
-  color: var(--success-text);
-}
-
-.database-health-card.is-warning > svg {
-  color: var(--warning-text);
-}
-
-.database-health-card div {
-  display: grid;
-  gap: 3px;
-}
-
-.database-health-card strong {
-  font-size: 10px;
-}
-
-.database-health-card span {
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.database-overview-block h5 {
-  margin: 0;
-  padding: 0 12px 6px;
-  color: var(--text-muted);
-  font-size: 9px;
-}
-
-.database-gem-preview {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0 12px 11px;
-  list-style: none;
-}
-
-.database-gem-preview li {
-  display: flex;
-  min-width: 0;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 9px;
-}
-
-.database-gem-preview code {
-  overflow: hidden;
-  color: var(--text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.database-gem-preview span {
-  flex: 0 0 auto;
-  color: var(--text-muted);
 }
 
 .database-tip {
@@ -535,8 +410,7 @@
   color: var(--text-dim);
 }
 
-.database-table-list > button,
-.database-gem-list > button {
+.database-table-list > button {
   min-height: 58px;
 }
 

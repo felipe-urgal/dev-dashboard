@@ -4,11 +4,10 @@ import { afterEach, beforeEach, test } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 
 import type {
-  BundlerOverview,
+  ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
   RailsMigrationsOverview,
   RailsModelsOverview,
-  RailsRoutesOverview,
 } from '@dev-dashboard/contracts';
 
 import ProjectDatabasePanel from '../src/components/ProjectDatabasePanel.vue';
@@ -22,14 +21,6 @@ const migrationsWithPending: RailsMigrationsOverview = {
   migrations: [
     { version: '20200101010101', name: 'Create users', status: 'up' },
     { version: '20200102020202', name: 'Add index to users', status: 'down' },
-  ],
-};
-
-const routesOverview: RailsRoutesOverview = {
-  supported: true,
-  routes: [
-    { name: 'users', verb: 'GET', path: '/users(.:format)', controllerAction: 'users#index' },
-    { verb: 'POST', path: '/users(.:format)', controllerAction: 'users#create' },
   ],
 };
 
@@ -49,15 +40,6 @@ const modelsOverview: RailsModelsOverview = {
   ],
 };
 
-const bundlerOverview: BundlerOverview = {
-  supported: true,
-  check: { satisfied: true, message: '' },
-  outdated: [
-    { name: 'puma', installed: '6.4.0', newest: '6.4.2', requested: '~> 6.4' },
-    { name: 'rails', installed: '7.1.3', newest: '7.1.4' },
-  ],
-};
-
 let cleanup: (() => void) | undefined;
 beforeEach(() => { cleanup = undefined; });
 afterEach(() => { cleanup?.(); });
@@ -68,12 +50,25 @@ function tab(wrapper: VueWrapper, label: string) {
   return button;
 }
 
-function mockFetchFor(project: 'rails' | 'node', onMutationCall?: (pathname: string, body: unknown) => void) {
+function mockFetchFor(
+  project: 'rails' | 'node',
+  options: {
+    database?: ProjectDatabaseOverview;
+    onMutationCall?: (pathname: string, body: unknown) => void;
+    onServiceAction?: (pathname: string) => void;
+  } = {},
+) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
+    if (/\/database\/[^/]+\/(start|stop|restart)$/.test(url.pathname)) {
+      const action = url.pathname.split('/').at(-1) as 'start' | 'stop' | 'restart';
+      const environmentId = url.pathname.split('/').at(-2) ?? '';
+      options.onServiceAction?.(url.pathname);
+      return new Response(JSON.stringify({ action: { environmentId, action, succeeded: true } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
     if (url.pathname.endsWith('/database')) {
-      return new Response(JSON.stringify({ database: emptyDatabase }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ database: options.database ?? emptyDatabase }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (/\/rails\/migrations\/\d+$/.test(url.pathname)) {
       const version = url.pathname.split('/').at(-1) ?? '';
@@ -98,18 +93,15 @@ function mockFetchFor(project: 'rails' | 'node', onMutationCall?: (pathname: str
     if (url.pathname.endsWith('/rails/models')) {
       return new Response(JSON.stringify({ models: project === 'rails' ? modelsOverview : { supported: false, tables: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
-    if (url.pathname.endsWith('/rails/routes')) {
-      return new Response(JSON.stringify({ routes: project === 'rails' ? routesOverview : { supported: false, routes: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
-    }
-    if (url.pathname.endsWith('/bundler')) {
-      return new Response(JSON.stringify({ bundler: project === 'rails' ? bundlerOverview : { supported: false, outdated: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    if (url.pathname.endsWith('/database/snapshots')) {
+      return new Response(JSON.stringify({ snapshots: { snapshots: [], total: 0, retentionLimit: 10, supportedEnvironmentIds: [] } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/rails/migrations/confirmations')) {
-      onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
+      options.onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
       return new Response(JSON.stringify({ confirmation: { token: 't'.repeat(64), operation: 'migrate', expiresAt: new Date(Date.now() + 60_000).toISOString() } }), { status: 201, headers: { 'content-type': 'application/json' } });
     }
     if (url.pathname.endsWith('/rails/migrations/mutations')) {
-      onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
+      options.onMutationCall?.(url.pathname, init?.body ? JSON.parse(String(init.body)) : undefined);
       return new Response(JSON.stringify({ result: { operation: 'migrate', succeeded: true, output: '== migrating ==', truncated: false, masked: false, redactionCount: 0 } }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     return new Response('not found', { status: 404 });
@@ -117,7 +109,7 @@ function mockFetchFor(project: 'rails' | 'node', onMutationCall?: (pathname: str
   return originalFetch;
 }
 
-test('projeto Rails mostra migrations pendentes e rotas declaradas na visão geral', async () => {
+test('projeto Rails mostra migrations pendentes na visão geral', async () => {
   const originalFetch = mockFetchFor('rails');
   const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
   cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
@@ -126,32 +118,11 @@ test('projeto Rails mostra migrations pendentes e rotas declaradas na visão ger
 
   assert.match(wrapper.text(), /1.*pendente/s);
   assert.match(wrapper.text(), /Create users/);
-  assert.match(wrapper.text(), /users#index/);
-  assert.match(wrapper.text(), /users#create/);
-});
-
-test('filtra rotas pela busca da aba Rotas', async () => {
-  const originalFetch = mockFetchFor('rails');
-  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
-  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
-  await flushPromises();
-  await flushPromises();
-
-  await tab(wrapper, 'Rotas').trigger('click');
-  const input = wrapper.find('input[placeholder="Buscar rota, controller ou helper…"]');
-  assert.ok(input.exists());
-  await input.setValue('create');
-  await flushPromises();
-
-  const rows = wrapper.findAll('.database-routes-table tbody tr');
-  assert.equal(rows.length, 1);
-  assert.match(rows[0]!.text(), /users#create/);
-  assert.ok(!rows[0]!.text().includes('users#index'));
 });
 
 test('roda migrate após confirmação e recarrega o status', async () => {
   const calls: Array<{ pathname: string; body: unknown }> = [];
-  const originalFetch = mockFetchFor('rails', (pathname, body) => calls.push({ pathname, body }));
+  const originalFetch = mockFetchFor('rails', { onMutationCall: (pathname, body) => calls.push({ pathname, body }) });
   const originalConfirm = globalThis.window?.confirm;
   if (globalThis.window) globalThis.window.confirm = () => true;
 
@@ -192,26 +163,107 @@ test('projeto Node oculta as abas exclusivas de Rails', async () => {
   assert.deepEqual(labels, ['Visão geral', 'Ambientes', 'Snapshots']);
 });
 
-test('mostra diagnóstico Bundler com gems desatualizadas e filtro', async () => {
-  const originalFetch = mockFetchFor('rails');
-  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) } });
+function environment(overrides: Partial<ProjectDatabaseEnvironment>): ProjectDatabaseEnvironment {
+  return {
+    id: 'dotenv--env',
+    environment: 'development',
+    driver: 'postgresql',
+    host: 'localhost',
+    port: 5432,
+    database: 'app_development',
+    passwordConfigured: false,
+    source: 'dotenv',
+    sourceDetail: '.env',
+    reachability: 'reachable',
+    serviceAvailable: true,
+    ...overrides,
+  };
+}
+
+test('pausa e reinicia um banco local acessível', async () => {
+  const database: ProjectDatabaseOverview = {
+    supported: true,
+    total: 1,
+    page: 1,
+    pageSize: 20,
+    environments: [environment({ reachability: 'reachable' })],
+  };
+  const calls: string[] = [];
+  const originalFetch = mockFetchFor('node', { database, onServiceAction: (pathname) => calls.push(pathname) });
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });
   cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
   await flushPromises();
   await flushPromises();
 
-  await tab(wrapper, 'Dependências').trigger('click');
-  assert.match(wrapper.text(), /Tudo certo/);
-  assert.match(wrapper.text(), /puma/);
-  assert.match(wrapper.text(), /rails/);
-
-  const bundlerInput = wrapper.find('input[placeholder="Buscar gem…"]');
-  assert.ok(bundlerInput.exists());
-  await bundlerInput.setValue('puma');
+  await tab(wrapper, 'Ambientes').trigger('click');
   await flushPromises();
 
-  const gemRows = wrapper.findAll('.database-gem-list > button');
-  assert.equal(gemRows.length, 1);
-  assert.match(gemRows[0]!.text(), /puma/);
-  assert.match(gemRows[0]!.text(), /6\.4\.2/);
-  assert.ok(!gemRows[0]!.text().includes('rails'));
+  const pauseButton = wrapper.findAll('button').find((button) => button.text() === 'Pausar banco');
+  assert.ok(pauseButton, 'esperava o botão Pausar banco');
+  await pauseButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const restartButton = wrapper.findAll('button').find((button) => button.text() === 'Reiniciar banco');
+  assert.ok(restartButton, 'esperava o botão Reiniciar banco');
+  await restartButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls, [
+    '/api/projects/p1/database/dotenv--env/stop',
+    '/api/projects/p1/database/dotenv--env/restart',
+  ]);
+  assert.ok(!wrapper.findAll('button').some((button) => button.text() === 'Abrir cliente'));
+});
+
+test('inicia um banco local indisponível', async () => {
+  const database: ProjectDatabaseOverview = {
+    supported: true,
+    total: 1,
+    page: 1,
+    pageSize: 20,
+    environments: [environment({ reachability: 'unreachable' })],
+  };
+  const calls: string[] = [];
+  const originalFetch = mockFetchFor('node', { database, onServiceAction: (pathname) => calls.push(pathname) });
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  await tab(wrapper, 'Ambientes').trigger('click');
+  await flushPromises();
+
+  const startButton = wrapper.findAll('button').find((button) => button.text() === 'Iniciar banco local');
+  assert.ok(startButton, 'esperava o botão Iniciar banco local');
+  await startButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls, ['/api/projects/p1/database/dotenv--env/start']);
+  assert.ok(!wrapper.findAll('button').some((button) => button.text() === 'Pausar banco'));
+});
+
+test('avisa quando dois ambientes compartilham o mesmo serviço local', async () => {
+  const database: ProjectDatabaseOverview = {
+    supported: true,
+    total: 2,
+    page: 1,
+    pageSize: 20,
+    environments: [
+      environment({ id: 'rails-development', environment: 'development', driver: 'mysql2', reachability: 'reachable' }),
+      environment({ id: 'rails-test', environment: 'test', driver: 'mysql2', reachability: 'reachable' }),
+    ],
+  };
+  const originalFetch = mockFetchFor('node', { database });
+  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });
+  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
+  await flushPromises();
+  await flushPromises();
+
+  await tab(wrapper, 'Ambientes').trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /também é usado por: test/);
 });

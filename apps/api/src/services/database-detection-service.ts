@@ -14,18 +14,25 @@ import type {
   ProjectDatabaseSource,
 } from '@dev-dashboard/contracts';
 
-export interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'startAvailable'> {
+export interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'serviceAvailable'> {
   databaseUrl?: string;
 }
 
 type CommandRunner = (command: string, args: string[], options: { cwd: string }) => Promise<void>;
 
-export type DatabaseStartFailureReason = 'systemctl-unavailable' | 'authorization-unavailable' | 'permission-denied' | 'command-failed';
+export type DatabaseServiceAction = 'start' | 'stop' | 'restart';
+export type DatabaseServiceActionFailureReason = 'systemctl-unavailable' | 'authorization-unavailable' | 'permission-denied' | 'command-failed';
 
-export class DatabaseStartError extends Error {
-  public constructor(public readonly reason: DatabaseStartFailureReason, options?: ErrorOptions) {
-    super('Falha ao iniciar o serviço de banco de dados.', options);
-    this.name = 'DatabaseStartError';
+const serviceActionVerbs: Record<DatabaseServiceAction, string> = { start: 'iniciar', stop: 'parar', restart: 'reiniciar' };
+
+export class DatabaseServiceActionError extends Error {
+  public constructor(
+    public readonly action: DatabaseServiceAction,
+    public readonly reason: DatabaseServiceActionFailureReason,
+    options?: ErrorOptions,
+  ) {
+    super(`Falha ao ${serviceActionVerbs[action]} o serviço de banco de dados.`, options);
+    this.name = 'DatabaseServiceActionError';
   }
 }
 
@@ -49,7 +56,7 @@ function commandFailureText(error: unknown): string {
     .toLowerCase();
 }
 
-function startFailureReason(error: unknown): DatabaseStartFailureReason {
+function serviceActionFailureReason(error: unknown): DatabaseServiceActionFailureReason {
   const text = commandFailureText(error);
   if (text.includes('spawn pkexec enoent') || text.includes('pkexec: command not found')) return 'authorization-unavailable';
   if (text.includes('authentication agent') || text.includes('authentication dialog was dismissed')) return 'authorization-unavailable';
@@ -236,7 +243,7 @@ export class DatabaseDetectionService {
     const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, ...item }) => ({
       ...item,
       reachability: await checkReachability(item.host, item.port),
-      startAvailable: localSystemdService(item) !== null,
+      serviceAvailable: localSystemdService(item) !== null,
     })));
 
     return { supported: all.length > 0, environments, page, pageSize, total: all.length };
@@ -247,6 +254,18 @@ export class DatabaseDetectionService {
   }
 
   public async start(project: Project, environmentId: string): Promise<boolean> {
+    return this.runServiceAction(project, environmentId, 'start');
+  }
+
+  public async stop(project: Project, environmentId: string): Promise<boolean> {
+    return this.runServiceAction(project, environmentId, 'stop');
+  }
+
+  public async restart(project: Project, environmentId: string): Promise<boolean> {
+    return this.runServiceAction(project, environmentId, 'restart');
+  }
+
+  private async runServiceAction(project: Project, environmentId: string, action: DatabaseServiceAction): Promise<boolean> {
     const item = (await this.detect(project)).find((candidate) => candidate.id === environmentId);
     if (!item) return false;
     const service = localSystemdService(item);
@@ -255,9 +274,9 @@ export class DatabaseDetectionService {
       // A API roda em uma sessão destacada. O agente polkit da sessão do usuário
       // pode autenticar esta ação sem depender do ticket sudo de um terminal.
       // O agente interno fica desabilitado para nunca bloquear a API em um prompt.
-      await this.runCommand('pkexec', ['--disable-internal-agent', 'systemctl', 'start', service], { cwd: project.path });
+      await this.runCommand('pkexec', ['--disable-internal-agent', 'systemctl', action, service], { cwd: project.path });
     } catch (error) {
-      throw new DatabaseStartError(startFailureReason(error), { cause: error });
+      throw new DatabaseServiceActionError(action, serviceActionFailureReason(error), { cause: error });
     }
     return true;
   }

@@ -35,10 +35,6 @@
   gap: 11px;
 }
 
-.database-route-metrics {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
 .database-metric-card {
   display: flex;
   min-width: 0;
@@ -66,14 +62,6 @@
 .database-metric-icon svg {
   width: 18px;
   height: 18px;
-}
-
-.database-metric-card > .route-verb {
-  min-width: 42px;
-  min-height: 28px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
 }
 
 .database-metric-card > div {
@@ -105,7 +93,7 @@
   line-height: 1.35;
 }
 
-.database-metric-card span:not(.database-metric-icon):not(.route-verb) {
+.database-metric-card span:not(.database-metric-icon) {
   overflow: hidden;
   color: var(--text-dim);
   font-size: 9px;

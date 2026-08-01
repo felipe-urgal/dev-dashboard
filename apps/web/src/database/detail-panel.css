@@ -77,8 +77,7 @@
 }
 
 .database-environment-detail-grid > section,
-.database-model-section,
-.database-dependency-note {
+.database-model-section {
   min-width: 0;
   padding: 14px;
   border: 1px solid var(--border);
@@ -87,8 +86,7 @@
 }
 
 .database-environment-detail-grid h5,
-.database-model-section h5,
-.database-dependency-note h5 {
+.database-model-section h5 {
   margin: 0 0 12px;
   font-size: 10px;
 }
@@ -263,6 +261,32 @@
   width: 100%;
   border-style: dashed;
   color: var(--accent);
+}
+
+.database-action-grid > .database-action-danger {
+  border-color: color-mix(in srgb, var(--danger-text) 45%, var(--border));
+  color: var(--danger-text);
+}
+
+.database-action-grid > .database-action-danger:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.database-service-unavailable-hint {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.database-shared-service-hint {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--warning-text) 35%, var(--border));
+  border-radius: 7px;
+  color: var(--warning-text);
+  background: var(--warning-surface);
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .database-toolbar {

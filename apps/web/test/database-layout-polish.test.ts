@@ -38,10 +38,9 @@ test('oferece a navegação completa do explorador de banco', async () => {
   for (const label of [
     'Visão geral',
     'Ambientes',
+    'Snapshots',
     'Migrations',
     'Modelos',
-    'Rotas',
-    'Dependências',
   ]) {
     assert.match(component, new RegExp(label));
   }

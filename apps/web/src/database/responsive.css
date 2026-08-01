@@ -2,22 +2,6 @@
   .database-overview-environments {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .database-overview-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .database-overview-columns > :last-child {
-    grid-column: 1 / -1;
-  }
-
-  .database-route-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .database-route-metrics > :nth-last-child(-n + 2) {
-    grid-column: span 1;
-  }
 }
 
 @media (max-width: 940px) {
@@ -31,8 +15,7 @@
     flex-basis: auto;
   }
 
-  .database-metrics-grid,
-  .database-route-metrics {
+  .database-metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -103,14 +86,8 @@
   }
 
   .database-metrics-grid,
-  .database-route-metrics,
-  .database-overview-environments,
-  .database-overview-columns {
+  .database-overview-environments {
     grid-template-columns: 1fr;
-  }
-
-  .database-overview-columns > :last-child {
-    grid-column: auto;
   }
 
   .database-metric-card {
