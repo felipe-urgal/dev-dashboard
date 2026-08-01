@@ -1,12 +1,10 @@
 .project-logs-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 230px;
   gap: var(--space-4);
-  align-items: start;
 }
 
 .project-logs-card,
-.project-log-status-card,
+.project-logs-topbar,
 .project-log-summary-card,
 .project-log-quick-actions {
   border: 1px solid var(--border);
@@ -845,23 +843,22 @@
   margin: 0 14px 14px;
 }
 
-.project-logs-sidebar {
-  display: grid;
-  gap: var(--space-4);
+.project-logs-topbar,
+.project-log-summary-card {
+  padding: var(--space-4);
 }
 
-.project-log-status-card,
-.project-log-summary-card,
-.project-log-quick-actions {
-  padding: var(--space-4);
+.project-logs-topbar {
+  display: grid;
+  grid-template-columns: minmax(170px, auto) minmax(380px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .project-log-status-title {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border);
 }
 
 .project-log-status-title > svg {
@@ -872,7 +869,7 @@
 
 .project-log-status-title > div {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .project-log-status-title > div > span,
@@ -885,11 +882,28 @@
   letter-spacing: 0.07em;
 }
 
-.project-log-status-card dl,
 .project-log-summary-card dl {
   display: grid;
-  gap: 0;
   margin: 0;
+}
+
+.project-log-status-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.project-log-status-metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 2px var(--space-4);
+  border-right: 1px solid var(--border);
+}
+
+.project-log-status-metrics > div:last-child {
+  border-right: 0;
 }
 
 .project-log-summary-card > span {
@@ -897,29 +911,32 @@
   margin-bottom: 8px;
 }
 
-.project-log-status-card dl > div,
+.project-log-summary-card dl {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
 .project-log-summary-card dl > div {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  align-items: flex-end;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px var(--space-4) 0;
+  border-right: 1px solid var(--border);
 }
 
-.project-log-status-card dl > div:last-child,
 .project-log-summary-card dl > div:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+  border-right: 0;
 }
 
-.project-log-status-card dt,
+.project-log-status-metrics dt,
 .project-log-summary-card dt {
   color: var(--text-dim);
   font-size: var(--font-xs);
 }
 
-.project-log-status-card dd,
+.project-log-status-metrics dd,
 .project-log-summary-card dd {
   margin: 0;
   color: var(--text);
@@ -938,20 +955,25 @@
 
 .project-log-quick-actions {
   display: grid;
-  gap: 8px;
+  gap: 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.project-log-quick-actions > span {
-  margin-bottom: 2px;
+.project-log-quick-actions > div {
+  display: flex;
+  gap: 8px;
 }
 
 .project-log-quick-actions a {
-  display: grid;
-  grid-template-columns: 17px minmax(0, 1fr) 15px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-height: 39px;
-  padding: 0 9px;
+  min-height: 34px;
+  padding: 0 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
@@ -972,6 +994,14 @@
 }
 
 @media (max-width: 1180px) {
+  .project-logs-topbar {
+    grid-template-columns: auto minmax(360px, 1fr);
+  }
+
+  .project-log-quick-actions {
+    grid-column: 1 / -1;
+  }
+
   .project-logs-toolbar {
     flex-wrap: wrap;
   }
@@ -982,17 +1012,49 @@
   }
 }
 
-@media (max-width: 980px) {
-  .project-logs-layout {
+@media (max-width: 720px) {
+  .project-logs-topbar {
     grid-template-columns: 1fr;
   }
 
-  .project-logs-sidebar {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .project-log-status-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
   }
-}
 
-@media (max-width: 720px) {
+  .project-log-status-metrics > div {
+    padding: 8px 10px;
+  }
+
+  .project-log-status-metrics > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .project-log-status-metrics > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .project-log-quick-actions {
+    grid-column: auto;
+  }
+
+  .project-log-quick-actions > div {
+    flex-wrap: wrap;
+  }
+
+  .project-log-quick-actions a {
+    flex: 1 1 150px;
+  }
+
+  .project-log-summary-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-log-summary-card dl > div:nth-child(2n) {
+    border-right: 0;
+  }
+
   .project-logs-toolbar {
     align-items: stretch;
   }
@@ -1045,7 +1107,4 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .project-logs-sidebar {
-    grid-template-columns: 1fr;
-  }
 }
