@@ -725,7 +725,6 @@ completo direto no arquivo.
  573  apps/web/src/components/ProjectGitPullRequestPage.vue
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
- 530  apps/web/src/test-log-inspector.ts
  493  apps/web/src/utils/git-diff-view.ts
  467  apps/web/src/stores/dashboard.ts
  461  apps/web/src/utils/git-syntax-highlight.ts
@@ -933,19 +932,36 @@ schemas, `translateStashError`, `projectFor`), `list-detail-routes.ts` (GET list
 `mutation-routes.ts` (confirmação, criar, e o loop `apply`/`pop`/`drop`). Verificado com
 `typecheck`, `build` e o monorepo completo — todos verdes.
 
+**`apps/web/src/test-log-inspector.ts` (530 → 29 linhas) — concluído**, décimo sétimo arquivo desta
+fase e o primeiro do lado `apps/web`. Mesmo padrão vanilla-DOM já usado nos 19 enhancers da Fase 5
+(`WeakMap<HTMLElement, InspectorState>` por shell, `installX()`/`enhanceX()`/`scan` como fachada
+pública). Split em `test-log-inspector/`: `types.ts`, `constants.ts` (`ANSI_PATTERN`/
+`STACK_PATH_PATTERN`), `state.ts` (o `WeakMap`), `text-helpers.ts` (`cleanLines`/`compact`/
+`isErrorText`/`isWarningText`), `log-parsing.ts` (`parseTestLog` e os 5 parsers privados de
+falha/resumo/exemplos), `dom-helpers.ts` (`el`/`labelValue`/`collectLog`/`modeFor`/`hidden`/
+`updatePressed`), `filters.ts` (`applyFilters`/`toolbarFor`, busca e filtro de linhas),
+`failure-detail.ts` (`failureDetail`/`copyFailure`, o painel de detalhe de uma falha),
+`inspector-render.ts` (`renderInspector`, a lista+detalhe navegável) e `enhance.ts`
+(`enhanceShell`/`enhanceTestLogInspector`, o bootstrap de varredura). O arquivo principal ficou só
+com `installTestLogInspector` (o `MutationObserver`) e os reexports (`parseTestLog`/
+`enhanceTestLogInspector`/os dois tipos), únicos símbolos consumidos fora do módulo. Atenção
+replicada de novo: a assinatura de re-render usa `\u0000` como separador em template literal —
+escrita como texto literal de escape, não byte de controle, mesma armadilha das fases anteriores.
+Verificado com `vue-tsc` (`typecheck` do workspace web), `build` e os 7 testes de
+`test-log-inspector`/`test-log-inspector-mutation-guard`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
-`routes/projects.ts` e `routes/git-stash.ts` saíram da lista por completo — todo o `apps/api/src`
-está concluído (exceto as duas classes ainda acima de 400, ver nota acima). Só restam componentes
-`.vue`/utils de `apps/web/src`. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
+`routes/projects.ts`, `routes/git-stash.ts` e `test-log-inspector.ts` saíram da lista por completo
+— todo o `apps/api/src` está concluído (exceto as duas classes ainda acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
 mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
-segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~18 arquivos do inventário — todos em
-`apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista completa está na seção
-"Fase 7" logo acima. Arquivos `.vue` com bastante template
+segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~17
+arquivos do inventário — todos em `apps/web/src` — seguem pendentes, sem ordem de execução fixada —
+a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
