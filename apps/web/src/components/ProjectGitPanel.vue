@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 
 import type {
-  GitDiffSnapshot,
-  GitFileDiff,
-  GitFileStatus,
   Project,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -16,8 +13,6 @@ import {
   createProjectGitBranch,
   deleteProjectGitBranch,
   fetchProjectGit,
-  fetchProjectGitDiff,
-  fetchProjectGitFileDiff,
   prepareProjectGitBranchDelete,
   prepareProjectGitBranchRename,
   prepareProjectGitMutation,
@@ -35,11 +30,11 @@ import {
   trackProjectGitBranch,
 } from '../api/git-workspace';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { gitFileToneFor } from '../utils/status-tones';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitCommitPage, {
   type CommitMode,
 } from './ProjectGitCommitPage.vue';
+import ProjectGitDiffPage from './ProjectGitDiffPage.vue';
 import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
 import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
@@ -74,18 +69,11 @@ const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
 const activeTab = ref<GitTab>('sync');
 const overview = ref<ProjectGitOverview | null>(null);
 const workspace = ref<ProjectGitWorkspace | null>(null);
-const diff = ref<GitDiffSnapshot | null>(null);
-const selectedFile = ref('');
-const fileDiff = ref<GitFileDiff | null>(null);
 const loading = ref(false);
 const loadingWorkspace = ref(false);
-const loadingDiff = ref(false);
-const loadingFile = ref(false);
 const remoteRefreshRunning = ref(false);
 const errorMessage = ref('');
 const workspaceErrorMessage = ref('');
-const diffErrorMessage = ref('');
-const fileErrorMessage = ref('');
 const mutationRunning = ref(false);
 const mutationMessage = ref('');
 const mutationErrorMessage = ref('');
@@ -93,26 +81,11 @@ const createBranchName = ref('');
 const commitMessage = ref('');
 const commitMode = ref<CommitMode>('create');
 let generation = 0;
-let diffController: AbortController | undefined;
-let fileController: AbortController | undefined;
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(workspaceErrorMessage, '');
-useAutoDismiss(diffErrorMessage, '');
-useAutoDismiss(fileErrorMessage, '');
 useAutoDismiss(mutationMessage, '');
 useAutoDismiss(mutationErrorMessage, '');
-
-const statusLabels: Record<GitFileStatus, string> = {
-  added: 'Adicionado',
-  modified: 'Modificado',
-  deleted: 'Removido',
-  renamed: 'Renomeado',
-  copied: 'Copiado',
-  untracked: 'Não rastreado',
-  conflicted: 'Conflito',
-  'type-changed': 'Tipo alterado',
-};
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -125,9 +98,6 @@ function formatDate(value: string): string {
 
 function openTab(tab: GitTab): void {
   activeTab.value = tab;
-  if (tab === 'diff' && !diff.value && !loadingDiff.value) {
-    void loadDiff();
-  }
   if (tab === 'sync') {
     void refreshRemotesSilently();
   }
@@ -197,68 +167,11 @@ async function refreshRemotesSilently(): Promise<void> {
   }
 }
 
-async function loadDiff(): Promise<void> {
-  diffController?.abort();
-  const local = new AbortController();
-  diffController = local;
-  loadingDiff.value = true;
-  diffErrorMessage.value = '';
-
-  try {
-    const result = await fetchProjectGitDiff(
-      props.project.id,
-      'combined',
-      local.signal,
-    );
-    if (!local.signal.aborted) diff.value = result;
-  } catch (error) {
-    if (!local.signal.aborted) {
-      diffErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível consultar o diff.';
-      diff.value = null;
-    }
-  } finally {
-    if (!local.signal.aborted) loadingDiff.value = false;
-  }
-}
-
-async function loadFileDiff(filePath: string): Promise<void> {
-  fileController?.abort();
-  const local = new AbortController();
-  fileController = local;
-  selectedFile.value = filePath;
-  loadingFile.value = true;
-  fileErrorMessage.value = '';
-
-  try {
-    const result = await fetchProjectGitFileDiff(
-      props.project.id,
-      filePath,
-      'combined',
-      local.signal,
-    );
-    if (!local.signal.aborted) fileDiff.value = result;
-  } catch (error) {
-    if (!local.signal.aborted) {
-      fileErrorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar o diff do arquivo.';
-      fileDiff.value = null;
-    }
-  } finally {
-    if (!local.signal.aborted) loadingFile.value = false;
-  }
-}
-
 async function reloadGitData(): Promise<void> {
   await loadGit();
   await Promise.all([
     loadWorkspace(),
   ]);
-  if (activeTab.value === 'diff') await loadDiff();
 }
 
 async function runMutation(
@@ -582,9 +495,6 @@ watch(
   async () => {
     overview.value = null;
     workspace.value = null;
-    diff.value = null;
-    fileDiff.value = null;
-    selectedFile.value = '';
     commitMessage.value = '';
     commitMode.value = 'create';
     activeTab.value = 'sync';
@@ -597,10 +507,6 @@ watch(
   { immediate: true },
 );
 
-onBeforeUnmount(() => {
-  diffController?.abort();
-  fileController?.abort();
-});
 </script>
 
 <template>
@@ -677,94 +583,10 @@ onBeforeUnmount(() => {
         @delete-remote="runDeleteRemoteBranch"
       />
 
-      <section v-else-if="activeTab === 'diff'" class="git-tab-page">
-        <div class="git-page-heading">
-          <div>
-            <span>Diff</span>
-            <h2>Diferenças por arquivo</h2>
-          </div>
-          <button
-            class="secondary-button"
-            :disabled="loadingDiff"
-            @click="loadDiff"
-          >
-            {{ loadingDiff ? 'Atualizando…' : 'Atualizar diff' }}
-          </button>
-        </div>
-        <div
-          v-if="diffErrorMessage"
-          class="project-error"
-          role="alert"
-        >
-          {{ diffErrorMessage }}
-        </div>
-        <div
-          v-else-if="loadingDiff && !diff"
-          class="git-modern-empty"
-        >
-          Carregando diff…
-        </div>
-        <div
-          v-else-if="diff && diff.files.length === 0"
-          class="git-modern-empty"
-        >
-          Nenhum arquivo alterado desde HEAD.
-        </div>
-        <div v-else-if="diff" class="git-diff-layout-modern">
-          <aside>
-            <button
-              v-for="file in diff.files"
-              :key="file.path"
-              type="button"
-              :class="{ active: selectedFile === file.path }"
-              @click="loadFileDiff(file.path)"
-            >
-              <StatusBadge :tone="gitFileToneFor(file.status)">{{
-                statusLabels[file.status]
-              }}</StatusBadge>
-              <code>{{ file.path }}</code
-              ><small v-if="!file.binary"
-                >+{{ file.additions }} / −{{ file.deletions }}</small
-              ><small v-else>binário</small>
-            </button>
-          </aside>
-          <main>
-            <p
-              v-if="fileErrorMessage"
-              class="project-error"
-              role="alert"
-            >
-              {{ fileErrorMessage }}
-            </p>
-            <p v-else-if="!selectedFile" class="git-inline-empty">
-              Selecione um arquivo para visualizar o diff.
-            </p>
-            <p v-else-if="loadingFile" class="git-inline-empty">
-              Carregando {{ selectedFile }}…
-            </p>
-            <template v-else-if="fileDiff">
-              <p v-if="fileDiff.binary" class="git-inline-empty">
-                Diff binário não é exibido inline.
-              </p>
-              <template v-else>
-                <p
-                  v-if="fileDiff.masked"
-                  class="project-log-redaction-warning"
-                >
-                  Segredos detectados foram mascarados.
-                </p>
-                <p
-                  v-if="fileDiff.truncated"
-                  class="project-log-redaction-warning"
-                >
-                  Diff maior que o limite de leitura.
-                </p>
-                <pre>{{ fileDiff.content || 'Diff vazio.' }}</pre>
-              </template>
-            </template>
-          </main>
-        </div>
-      </section>
+      <ProjectGitDiffPage
+        v-else-if="activeTab === 'diff'"
+        :project-id="project.id"
+      />
 
       <ProjectGitCommitPage
         v-else-if="activeTab === 'commit'"

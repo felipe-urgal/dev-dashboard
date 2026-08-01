@@ -170,6 +170,9 @@ const visibleEntries = computed(() => {
   });
 });
 
+/** Com um único arquivo alterado, o filtro de status não tem o que filtrar. */
+const hasSingleChangedFile = computed(() => entries.value.length <= 1);
+
 const totalAdditions = computed(() =>
   entries.value.reduce((total, entry) => total + entry.file.additions, 0),
 );
@@ -540,7 +543,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="git-diff-page">
+  <section class="git-diff-page" :class="{ 'has-single-diff-file': hasSingleChangedFile }">
     <header class="git-diff-page-heading">
       <div>
         <span class="git-diff-kicker">Revisão de código</span>
@@ -585,7 +588,7 @@ onBeforeUnmount(() => {
         />
       </label>
 
-      <label class="git-diff-status-filter">
+      <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
         <FunnelIcon aria-hidden="true" />
         <select v-model="statusFilter" aria-label="Filtrar arquivos por status">
           <option v-for="option in statusOptions" :key="option.value" :value="option.value">

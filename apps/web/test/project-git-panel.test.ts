@@ -765,43 +765,13 @@ test('altera o último commit pelo modo amend', async () => {
   assert.match(mounted.wrapper.text(), /Commit "2222222" alterado/);
 });
 
-test('abre a página de diff e carrega o arquivo selecionado', async () => {
-  const mounted = await mountPanel({
-    fileDiff: (filePath) => ({
-      path: filePath,
-      scope: 'combined',
-      status: 'modified',
-      binary: false,
-      content: '-const value = 1;\n+const value = 42;\n',
-      truncated: false,
-      masked: true,
-      redactionCount: 1,
-    }),
-  });
+test('abre a aba Diff como o componente dedicado, sem app aninhado', async () => {
+  const mounted = await mountPanel();
   cleanup = mounted.restore;
   await clickTab(mounted.wrapper, 'Diff');
 
-  const files = mounted.wrapper.findAll('.git-diff-layout-modern aside button');
-  assert.equal(files.length, 2);
-  assert.match(files[0]!.text(), /src\/app\.ts/);
-  assert.match(files[0]!.text(), /\+3 \/ −1/);
-
-  await files[0]!.trigger('click');
-  await flushPromises();
-
-  assert.match(mounted.wrapper.text(), /Segredos detectados foram mascarados/);
-  assert.match(mounted.wrapper.find('.git-diff-layout-modern pre').text(), /const value = 42/);
-});
-
-test('mostra o estado vazio na página de diff', async () => {
-  const mounted = await mountPanel({
-    overview: { ...baseOverview, clean: true, files: [] },
-    diff: { repository: true, scope: 'combined', files: [] },
-  });
-  cleanup = mounted.restore;
-  await clickTab(mounted.wrapper, 'Diff');
-
-  assert.match(mounted.wrapper.text(), /Nenhum arquivo alterado desde HEAD/);
+  assert.ok(mounted.wrapper.find('.git-diff-page').exists());
+  assert.equal(mounted.wrapper.findAll('.git-tab-page').length, 0);
 });
 
 test('renderiza a sincronização em uma única ação entre main e origin/main', async () => {
