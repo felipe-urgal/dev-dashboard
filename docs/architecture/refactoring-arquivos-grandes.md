@@ -721,7 +721,6 @@ completo direto no arquivo.
  593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
  571  apps/web/src/views/DashboardView.vue
- 539  apps/web/src/components/CommandPalette.vue
  467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
  434  apps/web/src/composables/useProjectTestsPanel.ts             [avaliado, não dividido — ver nota abaixo]
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
@@ -1007,6 +1006,27 @@ aplica mais a eles (candidatos a composable, mais arriscado, ver nota da Fase 7 
 com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E (incluindo o
 baseline visual da sidebar) — todos verdes, confirmando que a extração não alterou renderização.
 
+**`CommandPalette.vue` (539 → 309) — concluído**, vigésimo terceiro arquivo desta fase e primeiro
+componente `.vue` da Fase 7 dividido por extração de composable em vez de só estilo. Dois
+composables novos: `composables/useCommandPaletteProjectActions.ts` (123 linhas) concentra o
+estado e as ações escopadas ao projeto selecionado na paleta (status de servidor/testes, catálogo
+de scripts, `loadProjectActions`/`executeAction`) e `composables/useCommandPaletteItems.ts` (219
+linhas) concentra os tipos de item da paleta (`PaletteItem`, `NavigationPaletteItem`,
+`ActionPaletteItem`, `PaletteGroupView`) e a montagem/ordenação/agrupamento da lista
+(`items`/`orderedItems`/`groupViews`, `buildProjectItems`, `navigationItem`, `actionItem`).
+Diferença deliberada de assinatura em relação ao original: `loadProjectActions` e `executeAction`
+antes escreviam direto num `ref` `feedback` do componente; nas versões extraídas elas retornam o
+valor (`{ feedback? }` e a mensagem de sucesso, respectivamente) e quem chama — `show()`, o
+`watch(selectedProject)` e `select()` no componente — decide se atualiza `feedback.value`. Durante
+a extração de `navigationItem`/`actionItem` um bug foi introduzido e corrigido antes de qualquer
+verificação: a primeira versão calculava `searchText` com `.toLocaleLowerCase('pt-BR')` direto, em
+vez de chamar `normalizePaletteText()` (que também remove acentos via
+`.normalize('NFD').replace(...)`), o que teria quebrado a busca insensível a acento na paleta;
+corrigido para reusar `normalizePaletteText()` como no original. `CommandPalette.vue` ficou com
+309 linhas — keyboard handling, ciclo de vida, navegação e o template continuam no componente.
+Verificado com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E
+(incluindo os dois específicos da paleta de comandos e o baseline visual da sidebar) — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
@@ -1014,20 +1034,18 @@ baseline visual da sidebar) — todos verdes, confirmando que a extração não 
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
-`utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue` e
-`ProjectGitPullRequestPage.vue` saíram da lista por completo — todo o `apps/api/src` está
-concluído (exceto as duas classes ainda acima de 400, ver nota acima). `git-service.ts` (842 → 574)
-e `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
-400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram
-avaliados e não divididos (ver nota acima). Os demais ~12 arquivos do inventário — todos
-componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista
-completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
-(`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
-mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
-timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
-de `apps/api/src` antes de entrar nos componentes Vue grandes é a ordem recomendada para o restante
-desta fase.
+`utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
+`ProjectGitPullRequestPage.vue` e `CommandPalette.vue` saíram da lista por completo — todo o
+`apps/api/src` está concluído (exceto as duas classes ainda acima de 400, ver nota acima).
+`git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos, mas as
+duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma segunda
+passada (dividir a classe por domínio), não como pendência ativa agora. `stores/dashboard.ts` e
+`useProjectTestsPanel.ts` foram avaliados e não divididos (ver nota acima). Os demais ~11 arquivos
+do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem de
+execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante
+template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
+tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
+pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
 
 ## Ordem de execução
 
