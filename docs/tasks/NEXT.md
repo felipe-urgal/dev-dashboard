@@ -1,15 +1,17 @@
 # Próxima atividade
 
-Duas frentes documentadas e aguardando decisão de início — nenhuma delas tem
+Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
 código escrito ainda:
 
 ## 1. Refatoração pura dos arquivos acima de 400 linhas
 
-Plano completo dos 3 primeiros arquivos (`process-manager.ts`,
-`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`) em
-`docs/refactor/plano-arquivos-grandes.md`, com o inventário dos 36 arquivos
-no total. Nenhuma API pública muda — é reorganização de arquivo, não de
-comportamento. Falta aprovação do plano antes de começar a dividir de fato.
+Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases 1–5
+já concluídas em sessões anteriores; fase 6 com a etapa 1 concluída, etapa 2
+pendente; fase 7 é o reinventário mais recente, 36 arquivos acima de 400
+linhas hoje). Nenhuma API pública muda — é reorganização de arquivo, não de
+comportamento. Falta decidir se a próxima ação é fechar a fase 6 etapa 2
+(`process-manager.ts`) ou começar a fase 7 pelos arquivos que mais
+cresceram.
 
 ## 2. Abrir o editor local do usuário
 
@@ -24,6 +26,20 @@ Monaco/CodeMirror lendo qualquer arquivo do projeto pela API) foi
 propositalmente adiada para o Horizonte 4 — é uma superfície de acesso a
 arquivo muito maior que qualquer endpoint hoje e pede modelo de ameaça
 próprio antes de qualquer código.
+
+## 3. Docker Compose por serviços declarados e allowlist
+
+Item do Horizonte 3 do roadmap. Desenho completo em
+`docs/architecture/docker-compose-design.md`: ler `docker-compose.yml`/
+`compose.yaml` já existente no projeto (nunca criar/buildar imagem),
+catálogo fechado de 4 ações (`start`/`stop`/`restart`/`logs`) via
+`execFile('docker', [...])` sem shell, confirmação em duas etapas para
+`stop`/`restart`. Ponto em aberto que trava o início da implementação: se
+`logs` vira um terceiro `kind` de `ManagedProcess` (`'compose-service'`,
+reaproveitando o rastreamento de PID/log que já existe, mais retrabalho) ou
+uma leitura pontual com `--tail` (mais simples, sem streaming ao vivo) — o
+doc recomenda a primeira opção, mas registra o trade-off para decisão na
+hora de codar.
 
 ## Outras frentes documentadas, sem prioridade definida ainda
 

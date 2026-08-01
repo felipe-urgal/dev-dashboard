@@ -176,7 +176,8 @@ existentes sem regressão funcional.
 
 - detecção de monorepos e scan recursivo opt-in, limitado por profundidade,
   quantidade, timeout e diretórios ignorados;
-- Docker Compose por serviços declarados e allowlist;
+- Docker Compose por serviços declarados e allowlist (desenho completo em
+  `docs/architecture/docker-compose-design.md`, não implementado);
 - health checks configuráveis por tipos fechados;
 - favoritos, recentes e perfis de ambiente sem valores secretos no frontend;
 - GitHub CLI somente após revisão do modelo de autorização.
