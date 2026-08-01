@@ -18,10 +18,7 @@ import {
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
-import { RouterLink } from 'vue-router';
-
 import type {
-  Activity,
   Project,
   ProjectServerSettings,
 } from '@dev-dashboard/contracts';
@@ -35,8 +32,6 @@ import {
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
-import { useProjectServerActivities } from '../composables/useProjectServerActivities';
-import { useProjectServerLogPreview } from '../composables/useProjectServerLogPreview';
 import { noticeCenterStore } from '../stores/notice-center';
 import { RequestGeneration } from '../utils/request-generation';
 import { parseServerPort } from '../utils/server-settings';
@@ -52,7 +47,6 @@ const {
   supportsServer,
   processStatus,
   canStop,
-  hasManagedProcess,
   statusLabel,
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
@@ -64,25 +58,8 @@ const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
 const now = ref(Date.now());
 
-const {
-  logSnapshot,
-  loadingLogs,
-  logErrorMessage,
-  refreshLogs,
-  scheduleLogPolling,
-} = useProjectServerLogPreview(() => props.project, hasManagedProcess);
-
-const {
-  activities,
-  loadingActivities,
-  activityErrorMessage,
-  refreshActivities,
-} = useProjectServerActivities(() => props.project);
-
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
-useAutoDismiss(logErrorMessage, '');
-useAutoDismiss(activityErrorMessage, '');
 
 const projectRequests = new RequestGeneration();
 let clockTimer: ReturnType<typeof setInterval> | undefined;
@@ -162,20 +139,6 @@ const startedAtLabel = computed(() => {
   }).format(date);
 });
 
-const formattedLogSize = computed(() => {
-  const size = logSnapshot.value?.sizeBytes ?? 0;
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
-});
-
-const logPreviewContent = computed(() => {
-  const content = logSnapshot.value?.content.trim();
-  if (!content) return 'Nenhuma saída registrada.';
-
-  return content.split('\n').slice(-10).join('\n');
-});
-
 function formatDuration(milliseconds: number): string {
   const totalSeconds = Math.floor(milliseconds / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -185,32 +148,6 @@ function formatDuration(milliseconds: number): string {
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
-}
-
-function formatActivityTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
-}
-
-function activityStatusLabel(activity: Activity): string {
-  switch (activity.status) {
-    case 'running':
-      return 'Em andamento';
-    case 'succeeded':
-      return 'Concluído';
-    case 'failed':
-      return 'Falhou';
-    case 'cancelled':
-      return 'Cancelado';
-    default:
-      return 'Sem status';
-  }
 }
 
 function isCurrentProject(projectId: string, generation: number): boolean {
@@ -303,8 +240,6 @@ async function startServer(
 
   managedProcess.value = nextProcess;
   scheduleProcessPolling();
-  await Promise.all([refreshLogs(), refreshActivities()]);
-  scheduleLogPolling();
 }
 
 async function handleStart(): Promise<void> {
@@ -341,7 +276,6 @@ async function handleStop(): Promise<void> {
     if (!isCurrentProject(projectId, generation)) return;
 
     managedProcess.value = nextProcess;
-    await Promise.all([refreshLogs(), refreshActivities()]);
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
       errorMessage.value =
@@ -416,12 +350,6 @@ watch(processStatus, (status) => {
     hasObservedRunning = true;
   }
 
-  if (status === 'running' && hasManagedProcess.value) {
-    void refreshLogs();
-    void refreshActivities();
-    scheduleLogPolling();
-  }
-
   if (
     hasObservedRunning &&
     (status === 'stopped' || status === 'failed')
@@ -440,8 +368,6 @@ watch(processStatus, (status) => {
         params: { projectId: props.project.id },
       },
     });
-
-    void refreshActivities();
   }
 });
 
@@ -566,164 +492,97 @@ onBeforeUnmount(() => {
           </footer>
         </section>
 
-        <div class="server-dashboard-side">
-          <section class="server-card server-status-card">
-            <header class="server-card-header">
-              <div>
-                <h3>Status do servidor</h3>
-                <p>Estado atual do processo gerenciado.</p>
-              </div>
-            </header>
-
-            <div
-              class="server-status-banner"
-              :class="`server-status-banner-${processStatus}`"
-            >
-              <span class="server-status-symbol" aria-hidden="true">
-                <BoltIcon />
-              </span>
-              <div>
-                <strong>{{ statusLabel }}</strong>
-                <span>{{ statusDescription }}</span>
-              </div>
+        <section class="server-card server-status-card">
+          <header class="server-card-header">
+            <div>
+              <h3>Status do servidor</h3>
+              <p>Estado atual do processo gerenciado.</p>
             </div>
+          </header>
 
-            <dl class="server-metrics">
-              <div>
-                <dt>PID</dt>
-                <dd>{{ managedProcess?.pid ?? '—' }}</dd>
-              </div>
-              <div>
-                <dt>Porta</dt>
-                <dd>{{ (managedProcess?.port ?? selectedPort) || '—' }}</dd>
-              </div>
-              <div>
-                <dt>Uptime</dt>
-                <dd>{{ uptimeLabel }}</dd>
-              </div>
-              <div>
-                <dt>Iniciado</dt>
-                <dd>{{ startedAtLabel }}</dd>
-              </div>
-            </dl>
-
-            <div v-if="errorMessage" class="server-error" role="alert">
-              {{ errorMessage }}
-            </div>
-
-            <footer class="server-status-actions">
-              <button
-                v-if="!canStop"
-                type="button"
-                class="server-primary-button"
-                :disabled="executingAction || loadingSettings"
-                @click="handleStart"
-              >
-                <PlayIcon aria-hidden="true" />
-                {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar' }}
-              </button>
-
-              <button
-                v-if="canStop"
-                type="button"
-                class="server-danger-button"
-                :disabled="executingAction"
-                @click="handleStop"
-              >
-                <StopIcon aria-hidden="true" />
-                {{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
-              </button>
-
-              <button
-                v-if="canStop"
-                type="button"
-                class="server-secondary-button"
-                :disabled="executingAction"
-                @click="handleRestart"
-              >
-                <ArrowPathIcon aria-hidden="true" />
-                {{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
-              </button>
-
-              <a
-                v-if="primaryProcessUrl"
-                class="server-secondary-button"
-                :href="primaryProcessUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ArrowTopRightOnSquareIcon aria-hidden="true" />
-                Abrir localhost
-              </a>
-            </footer>
-          </section>
-
-          <section class="server-card server-activity-card">
-            <header class="server-card-header server-activity-header">
-              <div>
-                <h3>Atividade recente</h3>
-                <p>Últimos eventos registrados para este servidor.</p>
-              </div>
-              <RouterLink
-                :to="{
-                  name: 'activity',
-                  query: { projectId: project.id, origin: 'server' },
-                }"
-              >
-                Ver tudo
-              </RouterLink>
-            </header>
-
-            <div v-if="loadingActivities" class="server-activity-empty">
-              Carregando atividade...
-            </div>
-            <div v-else-if="activityErrorMessage" class="server-activity-empty">
-              {{ activityErrorMessage }}
-            </div>
-            <div v-else-if="activities.length === 0" class="server-activity-empty">
-              Nenhuma atividade registrada ainda.
-            </div>
-            <ol v-else class="server-activity-list">
-              <li v-for="activity in activities" :key="activity.id">
-                <span
-                  class="server-activity-dot"
-                  :class="`server-activity-dot-${activity.status}`"
-                  :title="activityStatusLabel(activity)"
-                />
-                <span class="server-activity-label">{{ activity.label }}</span>
-                <time :datetime="activity.startedAt">
-                  {{ formatActivityTime(activity.startedAt) }}
-                </time>
-              </li>
-            </ol>
-          </section>
-        </div>
-      </div>
-
-      <section class="server-card server-log-preview-card">
-        <header class="server-card-header server-log-preview-header">
-          <div>
-            <h3>Últimos logs</h3>
-            <p>
-              {{ loadingLogs ? 'Atualizando...' : formattedLogSize }}
-              <template v-if="logSnapshot?.truncated"> · trecho final</template>
-            </p>
-          </div>
-          <RouterLink
-            class="server-log-link"
-            :to="{ name: 'project-logs', params: { projectId: project.id } }"
+          <div
+            class="server-status-banner"
+            :class="`server-status-banner-${processStatus}`"
           >
-            Ver todos os logs
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          </RouterLink>
-        </header>
+            <span class="server-status-symbol" aria-hidden="true">
+              <BoltIcon />
+            </span>
+            <div>
+              <strong>{{ statusLabel }}</strong>
+              <span>{{ statusDescription }}</span>
+            </div>
+          </div>
 
-        <div v-if="logErrorMessage" class="server-error" role="alert">
-          {{ logErrorMessage }}
-        </div>
+          <dl class="server-metrics">
+            <div>
+              <dt>PID</dt>
+              <dd>{{ managedProcess?.pid ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt>Porta</dt>
+              <dd>{{ (managedProcess?.port ?? selectedPort) || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Uptime</dt>
+              <dd>{{ uptimeLabel }}</dd>
+            </div>
+            <div>
+              <dt>Iniciado</dt>
+              <dd>{{ startedAtLabel }}</dd>
+            </div>
+          </dl>
 
-        <pre class="server-log-preview"><code>{{ logPreviewContent }}</code></pre>
-      </section>
+          <div v-if="errorMessage" class="server-error" role="alert">
+            {{ errorMessage }}
+          </div>
+
+          <footer class="server-status-actions">
+            <button
+              v-if="!canStop"
+              type="button"
+              class="server-primary-button"
+              :disabled="executingAction || loadingSettings"
+              @click="handleStart"
+            >
+              <PlayIcon aria-hidden="true" />
+              {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar' }}
+            </button>
+
+            <button
+              v-if="canStop"
+              type="button"
+              class="server-danger-button"
+              :disabled="executingAction"
+              @click="handleStop"
+            >
+              <StopIcon aria-hidden="true" />
+              {{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
+            </button>
+
+            <button
+              v-if="canStop"
+              type="button"
+              class="server-secondary-button"
+              :disabled="executingAction"
+              @click="handleRestart"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+              {{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
+            </button>
+
+            <a
+              v-if="primaryProcessUrl"
+              class="server-secondary-button"
+              :href="primaryProcessUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ArrowTopRightOnSquareIcon aria-hidden="true" />
+              Abrir localhost
+            </a>
+          </footer>
+        </section>
+      </div>
     </template>
   </div>
 </template>
