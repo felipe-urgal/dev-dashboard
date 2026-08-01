@@ -1,377 +1,59 @@
 import { randomBytes } from 'node:crypto';
-import { access, readdir, readFile } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
 
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   Project,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
-  RailsGeneratorFieldType,
   RailsGeneratorKind,
   RailsGeneratorResult,
   RailsMigrationDetail,
-  RailsMigrationEntry,
   RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
   RailsMigrationMutationResult,
   RailsMigrationsOverview,
   RailsModelsOverview,
-  RailsRouteEntry,
   RailsRoutesOverview,
-  RailsSchemaColumn,
-  RailsSchemaForeignKey,
-  RailsSchemaIndex,
-  RailsSchemaTable,
 } from '@dev-dashboard/contracts';
 
-type CommandRunner = (
-  command: string,
-  args: string[],
-  options: { cwd: string },
-) => Promise<{ stdout: string; stderr?: string }>;
+import {
+  defaultCommandRunner,
+  pathExists,
+  resolveRailsCommand,
+  type CommandRunner,
+} from './rails-inspection/command-resolution.js';
+import {
+  GENERATOR_CONFIRMATION_TTL_MS,
+  MIGRATION_SOURCE_LIMIT,
+  MUTATION_ARGS,
+  MUTATION_CONFIRMATION_TTL_MS,
+  MUTATION_OUTPUT_LIMIT,
+} from './rails-inspection/constants.js';
+import { listDatabases } from './rails-inspection/databases.js';
+import { RailsMutationError } from './rails-inspection/errors.js';
+import {
+  buildGeneratorArgs,
+  parseGeneratorCreatedFiles,
+  type StoredGeneratorConfirmation,
+} from './rails-inspection/generator.js';
+import {
+  matchMigrationStatusBlock,
+  migrationsDirectory,
+  parseMigrationStatusBlocks,
+} from './rails-inspection/migrations-parsing.js';
+import { parseRoutes } from './rails-inspection/routes-parsing.js';
+import { parseSchema } from './rails-inspection/schema-parsing.js';
 
-const execFileAsync = promisify(execFile);
-const defaultCommandRunner: CommandRunner = async (command, args, options) => {
-  const { stdout, stderr } = await execFileAsync(command, args, {
-    cwd: options.cwd,
-    encoding: 'utf8',
-    maxBuffer: 5 * 1024 * 1024,
-    timeout: 20_000,
-    windowsHide: true,
-  });
-  return { stdout, stderr };
-};
-
-export type RailsMutationErrorCode =
-  | 'RAILS_MUTATION_UNSUPPORTED'
-  | 'RAILS_MUTATION_CONFIRMATION_REQUIRED'
-  | 'RAILS_GENERATOR_INVALID_INPUT'
-  | 'RAILS_GENERATOR_UNSUPPORTED'
-  | 'RAILS_GENERATOR_CONFIRMATION_REQUIRED';
-
-export class RailsMutationError extends Error {
-  public constructor(public readonly code: RailsMutationErrorCode, message: string) {
-    super(message);
-    this.name = 'RailsMutationError';
-  }
-}
-
-const MUTATION_CONFIRMATION_TTL_MS = 60_000;
-const MUTATION_OUTPUT_LIMIT = 262_144;
-const MIGRATION_SOURCE_LIMIT = 262_144;
-
-const MUTATION_ARGS: Record<RailsMigrationMutationOperation, string[]> = {
-  migrate: ['db:migrate'],
-  rollback: ['db:rollback', 'STEP=1'],
-  seed: ['db:seed'],
-  prepare: ['db:prepare'],
-};
-
-// Catálogo fechado: só os tipos que o Rails aceita nativamente em `t.<tipo>` no schema.
-const GENERATOR_FIELD_TYPES: readonly RailsGeneratorFieldType[] = [
-  'string', 'text', 'integer', 'bigint', 'float', 'decimal',
-  'boolean', 'date', 'datetime', 'time', 'timestamp', 'binary',
-  'references', 'uuid',
-];
-const GENERATOR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
-const GENERATOR_FIELD_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
-const GENERATOR_MAX_FIELDS = 25;
-const GENERATOR_CONFIRMATION_TTL_MS = 60_000;
-
-interface StoredGeneratorConfirmation {
-  token: string;
-  projectId: string;
-  kind: RailsGeneratorKind;
-  name: string;
-  fields: RailsGeneratorField[];
-  database?: string;
-  args: string[];
-  expiresAt: number;
-}
-
-/**
- * Monta `generate <kind> <Nome> <campo:tipo> ...` a partir de entrada já validada —
- * nome e campos batem contra um padrão fechado, tipo contra um catálogo fechado, e o
- * banco (quando informado) precisa já constar em `listDatabases`. Nunca passa por shell:
- * os argumentos vão como array para `execFile`.
- */
-function buildGeneratorArgs(kind: RailsGeneratorKind, name: string, fields: RailsGeneratorField[], database?: string): string[] {
-  if (!GENERATOR_NAME_PATTERN.test(name) || name.length > 60) {
-    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', 'Nome inválido: use letras, números e "_", começando com uma letra.');
-  }
-  if (fields.length > GENERATOR_MAX_FIELDS) {
-    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `No máximo ${GENERATOR_MAX_FIELDS} campos.`);
-  }
-
-  const fieldArgs = fields.map((field) => {
-    if (!GENERATOR_FIELD_NAME_PATTERN.test(field.name) || field.name.length > 60) {
-      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Nome de campo inválido: "${field.name}".`);
-    }
-    if (!GENERATOR_FIELD_TYPES.includes(field.type)) {
-      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Tipo de campo não suportado: "${field.type}".`);
-    }
-    return `${field.name}:${field.type}`;
-  });
-
-  const args = ['generate', kind, name, ...fieldArgs];
-  if (database) args.push(`--database=${database}`);
-  return args;
-}
-
-/** Rails imprime uma linha "create <caminho>" por arquivo novo gerado. */
-function parseGeneratorCreatedFiles(output: string): string[] {
-  const files: string[] = [];
-  for (const line of output.split(/\r?\n/)) {
-    const match = line.match(/^\s*create\s+(\S.*?)\s*$/);
-    if (match?.[1]) files.push(match[1]);
-  }
-  return files;
-}
+export { RailsMutationError } from './rails-inspection/errors.js';
+export type { RailsMutationErrorCode } from './rails-inspection/errors.js';
 
 interface StoredMutationConfirmation {
   token: string;
   projectId: string;
   operation: RailsMigrationMutationOperation;
   expiresAt: number;
-}
-
-interface RailsCommand {
-  command: string;
-  args: string[];
-}
-
-async function pathExists(target: string): Promise<boolean> {
-  try {
-    await access(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function resolveRailsCommand(project: Project): Promise<RailsCommand | null> {
-  if (project.type !== 'rails') return null;
-  if (await pathExists(path.join(project.path, 'bin', 'rails'))) {
-    return { command: path.join(project.path, 'bin', 'rails'), args: [] };
-  }
-  if (!(await pathExists(path.join(project.path, 'Gemfile')))) return null;
-  return { command: 'bundle', args: ['exec', 'rails'] };
-}
-
-/**
- * "primary" sempre existe; um banco secundário aparece como `db/<nome>_schema.rb`
- * (convenção do Rails para múltiplos bancos por ambiente, ver database.yml).
- */
-async function listDatabases(project: Project): Promise<string[]> {
-  try {
-    const files = await readdir(path.join(project.path, 'db'));
-    const secondary = files
-      .filter((file) => file !== 'schema.rb' && /^[a-z][a-z0-9_]*_schema\.rb$/.test(file))
-      .map((file) => file.replace(/_schema\.rb$/, ''))
-      .sort();
-    return ['primary', ...secondary];
-  } catch {
-    return ['primary'];
-  }
-}
-
-function migrationsDirectory(projectPath: string, database: string): string {
-  return path.join(projectPath, 'db', database === 'primary' ? 'migrate' : `migrate_${database}`);
-}
-
-const MIGRATION_ROW = /^\s*(up|down)\s+(\S+)\s+(.+?)\s*$/i;
-const DATABASE_LINE = /^\s*database:\s*(.+?)\s*$/i;
-
-interface MigrationStatusBlock {
-  database?: string;
-  migrations: RailsMigrationEntry[];
-}
-
-/**
- * `db:migrate:status` imprime um bloco `database: <arquivo>` por banco configurado
- * quando o projeto tem mais de um (Rails 6+). Cada bloco vira uma entrada própria,
- * em vez de misturar as migrations de todos os bancos numa lista só.
- */
-function parseMigrationStatusBlocks(output: string): MigrationStatusBlock[] {
-  const blocks: MigrationStatusBlock[] = [];
-  let current: MigrationStatusBlock | undefined;
-
-  for (const line of output.split(/\r?\n/)) {
-    const databaseMatch = line.match(DATABASE_LINE);
-    if (databaseMatch) {
-      current = { database: databaseMatch[1] ?? '', migrations: [] };
-      blocks.push(current);
-      continue;
-    }
-    const rowMatch = line.match(MIGRATION_ROW);
-    if (!rowMatch) continue;
-    if (!current) { current = { migrations: [] }; blocks.push(current); }
-    const [, status, version, name] = rowMatch;
-    current.migrations.push({
-      status: (status ?? '').toLowerCase() as RailsMigrationEntry['status'],
-      version: version ?? '',
-      name: name ?? '',
-    });
-  }
-
-  return blocks;
-}
-
-/**
- * Correlaciona os blocos de status (identificados pelo arquivo/nome do banco impresso
- * pelo Rails, ex. "app_development_data") com os nomes configurados em database.yml
- * (ex. "data"), pela convenção do próprio Rails de sufixar o banco secundário com o
- * nome da configuração. O que sobra vira "primary".
- */
-function matchMigrationStatusBlock(blocks: MigrationStatusBlock[], databases: string[], database: string): MigrationStatusBlock {
-  if (database === 'primary') {
-    const secondary = databases.filter((name) => name !== 'primary');
-    const remaining = blocks.filter((block) => !secondary.some((name) => block.database?.toLowerCase().includes(`_${name}`)));
-    return remaining[0] ?? blocks[0] ?? { migrations: [] };
-  }
-  return blocks.find((block) => block.database?.toLowerCase().includes(`_${database}`)) ?? blocks[0] ?? { migrations: [] };
-}
-
-const ROUTE_VERBS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
-const ROUTE_ROW = new RegExp(
-  `^\\s*(?:([A-Za-z0-9_./]+)\\s+)?(${ROUTE_VERBS.join('|')})\\s+(\\S+)\\s+(.+?)\\s*$`,
-);
-
-function parseRoutes(output: string): RailsRouteEntry[] {
-  const routes: RailsRouteEntry[] = [];
-
-  for (const line of output.split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    if (/^-+$/.test(line.trim())) continue;
-    if (/^\s*Prefix\s+Verb\s+URI Pattern/i.test(line)) continue;
-
-    const match = line.match(ROUTE_ROW);
-    if (!match) continue;
-    const [, prefix, verb, uriPattern, controllerAction] = match;
-    routes.push({
-      ...(prefix ? { name: prefix } : {}),
-      verb: verb ?? '',
-      path: uriPattern ?? '',
-      controllerAction: (controllerAction ?? '').trim(),
-    });
-  }
-
-  return routes;
-}
-
-function readOption(options: string, name: string): string | undefined {
-  const expression = new RegExp(`(?:^|,\\s*)${name}:\\s*(.+?)(?=,\\s*[a-zA-Z_]+:|$)`);
-  return options.match(expression)?.[1]?.trim();
-}
-
-function readStringOption(options: string, name: string): string | undefined {
-  const value = readOption(options, name);
-  if (!value) return undefined;
-  return value.replace(/^:["']?/, '').replace(/["']$/, '');
-}
-
-function readNumberOption(options: string, name: string): number | undefined {
-  const value = readOption(options, name);
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function singularize(table: string): string {
-  if (table.endsWith('ies')) return `${table.slice(0, -3)}y`;
-  if (table.endsWith('ses')) return table.slice(0, -2);
-  if (table.endsWith('s')) return table.slice(0, -1);
-  return table;
-}
-
-function parseQuotedList(value: string): string[] {
-  return [...value.matchAll(/["']([^"']+)["']/g)].map((match) => match[1] ?? '').filter(Boolean);
-}
-
-function parseSchema(source: string): RailsSchemaTable[] {
-  const tables: RailsSchemaTable[] = [];
-  const foreignKeys: RailsSchemaForeignKey[] = [];
-  let current: RailsSchemaTable | null = null;
-
-  for (const line of source.split(/\r?\n/)) {
-    const createMatch = line.match(/^\s*create_table\s+["']([^"']+)["'](.*?)do\s+\|t\|\s*$/);
-    if (createMatch) {
-      const [, tableName = '', options = ''] = createMatch;
-      current = { name: tableName, columns: [], indexes: [], foreignKeys: [] };
-      if (!/\bid:\s*false\b/.test(options)) {
-        const idType = readStringOption(options, 'id') ?? 'bigint';
-        current.columns.push({ name: 'id', type: idType, nullable: false, primaryKey: true });
-      }
-      tables.push(current);
-      continue;
-    }
-
-    if (current && /^\s*end\s*$/.test(line)) {
-      current = null;
-      continue;
-    }
-
-    if (current) {
-      const indexMatch = line.match(/^\s*t\.index\s+\[([^\]]*)\](.*)$/);
-      if (indexMatch) {
-        const [, rawColumns = '', options = ''] = indexMatch;
-        const index: RailsSchemaIndex = {
-          columns: parseQuotedList(rawColumns),
-          unique: /\bunique:\s*true\b/.test(options),
-        };
-        const name = readStringOption(options, 'name');
-        if (name) index.name = name;
-        current.indexes.push(index);
-        continue;
-      }
-
-      const columnMatch = line.match(/^\s*t\.(\w+)\s+["']([^"']+)["'](.*)$/);
-      if (columnMatch) {
-        const [, method = 'string', rawName = '', options = ''] = columnMatch;
-        const reference = method === 'references' || method === 'belongs_to';
-        const column: RailsSchemaColumn = {
-          name: reference ? `${rawName}_id` : rawName,
-          type: reference ? 'bigint' : method,
-          nullable: !/\bnull:\s*false\b/.test(options),
-          primaryKey: false,
-        };
-        const defaultValue = readOption(options, 'default');
-        const limit = readNumberOption(options, 'limit');
-        const precision = readNumberOption(options, 'precision');
-        const scale = readNumberOption(options, 'scale');
-        if (defaultValue !== undefined) column.default = defaultValue;
-        if (limit !== undefined) column.limit = limit;
-        if (precision !== undefined) column.precision = precision;
-        if (scale !== undefined) column.scale = scale;
-        current.columns.push(column);
-        continue;
-      }
-    }
-
-    const foreignKeyMatch = line.match(/^\s*add_foreign_key\s+["']([^"']+)["']\s*,\s*["']([^"']+)["'](.*)$/);
-    if (foreignKeyMatch) {
-      const [, fromTable = '', toTable = '', options = ''] = foreignKeyMatch;
-      const relation: RailsSchemaForeignKey = {
-        fromTable,
-        toTable,
-        column: readStringOption(options, 'column') ?? `${singularize(toTable)}_id`,
-      };
-      const primaryKey = readStringOption(options, 'primary_key');
-      const name = readStringOption(options, 'name');
-      if (primaryKey) relation.primaryKey = primaryKey;
-      if (name) relation.name = name;
-      foreignKeys.push(relation);
-    }
-  }
-
-  for (const relation of foreignKeys) {
-    tables.find((table) => table.name === relation.fromTable)?.foreignKeys.push(relation);
-  }
-
-  return tables;
 }
 
 export class RailsInspectionService {

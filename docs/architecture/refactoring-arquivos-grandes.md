@@ -716,7 +716,6 @@ completo direto no arquivo.
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
  565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
- 649  apps/api/src/services/rails-inspection-service.ts        [cresceu com generators, task 060]
  629  apps/web/src/components/ProjectGitPanel.vue
  627  apps/web/src/components/ProjectReadmePanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
@@ -805,14 +804,31 @@ a própria classe. Candidato a nova subdivisão futura igual ao `GitService`. Ve
 monorepo completo — todos verdes (um teste de timing historicamente flaky em
 `packages/process-manager` falhou uma vez e passou limpo na repetição, sem relação com este split).
 
+**`apps/api/src/services/rails-inspection-service.ts` (649 → 331 linhas) — concluído**, quarto
+arquivo desta fase. Ao contrário de `git-service.ts`/`script-execution-service.ts`, aqui a classe em
+si é pequena (~270 linhas) — a maior parte do arquivo eram parsers e helpers livres antes dela, sem
+nenhum estado compartilhado entre eles. Split em `rails-inspection/`: `errors.ts`
+(`RailsMutationErrorCode`/`RailsMutationError`), `constants.ts` (limites, TTLs, catálogo fechado de
+tipos de campo do generator), `command-resolution.ts` (`resolveRailsCommand`/`pathExists`/
+`defaultCommandRunner`, o equivalente Rails de `resolveServerCommand`), `databases.ts`
+(`listDatabases`, a detecção de bancos secundários via `db/*_schema.rb`), `generator.ts`
+(`buildGeneratorArgs`/`parseGeneratorCreatedFiles`), `migrations-parsing.ts`
+(`migrationsDirectory`/`parseMigrationStatusBlocks`/`matchMigrationStatusBlock`),
+`routes-parsing.ts` (`parseRoutes`) e `schema-parsing.ts` (`parseSchema` e seus 5 helpers privados
+de leitura de opção/singularização). O arquivo principal ficou só com a classe
+`RailsInspectionService` e `StoredMutationConfirmation` (usada só internamente).
+`RailsMutationError`/`RailsMutationErrorCode` continuam reexportados. Verificado com `typecheck`,
+`build` e os 33 testes de `rails-inspection-service`/`rails-routes`, mais o monorepo completo —
+todos verdes.
+
 ## Progresso da Fase 7
 
-`process-manager.ts` e `routes/tests.ts` saíram da lista por completo. `git-service.ts` (842 → 574)
-e `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
-400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~31 arquivos do inventário seguem pendentes,
-sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
-com bastante template
+`process-manager.ts`, `routes/tests.ts` e `rails-inspection-service.ts` saíram da lista por
+completo. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
+mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
+segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~30
+arquivos do inventário seguem pendentes, sem ordem de execução fixada — a lista completa está na
+seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
