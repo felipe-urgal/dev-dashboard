@@ -717,12 +717,9 @@ completo direto no arquivo.
  683  apps/web/src/views/ActivityView.vue
  565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
  629  apps/web/src/components/ProjectGitPanel.vue
- 627  apps/web/src/components/ProjectReadmePanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
  593  apps/web/src/views/ProcessesView.vue
  590  apps/web/src/components/ProjectServerPanel.vue
- 588  apps/web/src/components/NoticeCenter.vue
- 573  apps/web/src/components/ProjectGitPullRequestPage.vue
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
  467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
@@ -996,6 +993,20 @@ alto para um ganho pequeno (só ~67 linhas acima da meta). Mesmo critério já r
 para `ProjectServerPanel.vue`/`ProjectGitPanel.vue`: não dividir quando a alternativa é uma
 divisão artificial que piora a leitura. Ficam no inventário como candidatos, não como pendência.
 
+**`ProjectReadmePanel.vue` (627 → 375), `NoticeCenter.vue` (588 → 264) e
+`ProjectGitPullRequestPage.vue` (573 → 392) — concluídos**, vigésimo/vigésimo primeiro/vigésimo
+segundo arquivos desta fase, os três primeiros componentes `.vue` genuínos da Fase 7. Mesma técnica
+mecânica de risco zero já validada na Fase 4 sub-etapa 1 (extrair `<style scoped>` para um arquivo
+irmão via `<style scoped src="./Componente.css">`, suportado nativamente pelo compilador de SFC do
+Vue) — script e template ficam byte a byte idênticos, só o bloco de estilo muda de lugar. Os outros
+componentes grandes desta lista (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`,
+`ProjectGitHistoryPage.vue`, `ProjectGitPanel.vue`, `ProjectGitBranchesPage.vue`,
+`ProjectServerPanel.vue`, `ProjectTestsGuidedPanel.vue`) já tinham o estilo externalizado desde a
+Fase 4 — cresceram de novo só em script/template por conta de features, então essa técnica não se
+aplica mais a eles (candidatos a composable, mais arriscado, ver nota da Fase 7 acima). Verificado
+com `vue-tsc`, `build`, o monorepo completo (248 testes web) e os 13 testes E2E (incluindo o
+baseline visual da sidebar) — todos verdes, confirmando que a extração não alterou renderização.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
@@ -1003,12 +1014,15 @@ divisão artificial que piora a leitura. Ficam no inventário como candidatos, n
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
-`utils/git-syntax-highlight.ts` saíram da lista por completo — todo o `apps/api/src` está
-concluído (exceto as duas classes ainda acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
-mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
-segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~15
-arquivos do inventário — todos em `apps/web/src` — seguem pendentes, sem ordem de execução fixada —
-a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
+`utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue` e
+`ProjectGitPullRequestPage.vue` saíram da lista por completo — todo o `apps/api/src` está
+concluído (exceto as duas classes ainda acima de 400, ver nota acima). `git-service.ts` (842 → 574)
+e `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
+400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
+domínio), não como pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram
+avaliados e não divididos (ver nota acima). Os demais ~12 arquivos do inventário — todos
+componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista
+completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
