@@ -39,7 +39,7 @@ test.describe('navegação principal', () => {
     await gotoBootstrapped(page, '/processes');
     await page.keyboard.press('ControlOrMeta+KeyK');
 
-    const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
+    const search = page.getByRole('searchbox', { name: 'Buscar ou executar um comando' });
     await expect(search).toBeFocused();
     await search.fill('sample-node-app');
     await page.keyboard.press('Enter');
@@ -52,11 +52,11 @@ test.describe('navegação principal', () => {
     await gotoBootstrapped(page, '/');
     await page.getByRole('link', { name: 'Ver detalhes de sample-node-app' }).click();
     await page.keyboard.press('ControlOrMeta+KeyK');
-    const search = page.getByRole('searchbox', { name: 'Buscar destino ou ação' });
+    const search = page.getByRole('searchbox', { name: 'Buscar ou executar um comando' });
     await search.fill('iniciar servidor');
     await expect(page.getByRole('option', { name: /Iniciar servidor/ })).toBeVisible();
     await page.keyboard.press('Enter');
-    await expect(page.getByText('Confirmar ação')).toBeVisible();
+    await expect(page.getByText('Confirmar', { exact: true })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('status').filter({ hasText: 'Servidor iniciado com sucesso.' })).toBeVisible();
   });
