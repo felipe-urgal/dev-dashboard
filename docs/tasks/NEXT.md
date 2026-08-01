@@ -1,6 +1,6 @@
 # Próxima atividade
 
-A melhoria pontual da task 062 foi concluída. Ela não altera a prioridade das
+A correção e refatoração da task 063 foi concluída. Ela não altera a prioridade das
 frentes abaixo, que continuam aguardando decisão de início.
 
 Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
@@ -11,8 +11,8 @@ código escrito ainda:
 Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases
 1–6 concluídas; fase 7 em andamento — todo o `apps/api/src` está
 concluído, assim como `CommandPalette.vue`, `ProcessesView.vue` e
-`DashboardView.vue`; `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
-`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos; ~8
+`DashboardView.vue` e `ProjectScriptsPanel.vue`; `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
+`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos; ~7
 componentes `.vue` do reinventário ainda pendentes, ver lista na seção
 "Fase 7" do doc). Nenhuma API pública muda — é reorganização de arquivo,
 não de comportamento. Os arquivos restantes são os mais arriscados

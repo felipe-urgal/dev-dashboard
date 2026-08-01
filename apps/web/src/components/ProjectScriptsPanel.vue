@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import {
-  computed,
-  onUnmounted,
-  ref,
-  watch,
-} from 'vue';
-import {
   ArrowPathIcon,
-  BoltIcon,
   CheckCircleIcon,
   ClipboardDocumentIcon,
   ClockIcon,
@@ -15,37 +8,28 @@ import {
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PlayIcon,
-  QueueListIcon,
   StopCircleIcon,
-  WrenchScrewdriverIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 
 import type {
   Project,
-  ProjectScript,
-  ProjectScriptOrigin,
-  ProjectScriptRisk,
-  ScriptExecution,
   ScriptExecutionStatus,
 } from '@dev-dashboard/contracts';
 
-import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { useScriptCatalog } from '../composables/useScriptCatalog';
-import { useScriptExecution } from '../composables/useScriptExecution';
-import { isRunnableProjectScript } from '../utils/project-script-visibility';
+import {
+  categoryFor,
+  formatScriptExecutionDate,
+  scriptExecutionDuration,
+  useProjectScriptsPanel,
+} from '../composables/useProjectScriptsPanel';
 import { riskToneFor } from '../utils/status-tones';
+import ProjectScriptCatalogCard from './ProjectScriptCatalogCard.vue';
+import ProjectScriptCatalogSidebar from './ProjectScriptCatalogSidebar.vue';
+import ProjectScriptExecutionStrip from './ProjectScriptExecutionStrip.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
-
-type ScriptSection = 'catalog' | 'executions';
-type ScriptCategory = 'all' | 'build' | 'development' | 'tests' | 'maintenance' | 'deploy' | 'utilities';
-
-const activeSection = ref<ScriptSection>('catalog');
-const category = ref<ScriptCategory>('all');
-const copiedActionId = ref('');
-const errorMessage = ref('');
 
 const {
   catalog,
@@ -56,156 +40,38 @@ const {
   page,
   selectedActionId,
   load,
-} = useScriptCatalog(() => props.project, activeSection, 'catalog', errorMessage);
-
-const {
   execution,
   history,
   executionLog,
   maskedLogEntries,
   startingActionId,
   run,
-  loadHistory,
   selectHistory,
   cancel,
-} = useScriptExecution(() => props.project, activeSection, selectedActionId, 'executions', errorMessage);
-
-useAutoDismiss(errorMessage, '');
-
-let copiedTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch([origin, risk], () => {
-  category.value = 'all';
-});
-
-watch(() => props.project.id, () => {
-  activeSection.value = 'catalog';
-  category.value = 'all';
-});
-
-const originLabels: Record<ProjectScriptOrigin, string> = {
-  'package-script': 'package.json',
-  'rails-task': 'Tarefa Rails',
-  bin: 'Executável bin/',
-};
-
-const riskLabels: Record<ProjectScriptRisk, string> = {
-  'read-only': 'Somente leitura',
-  mutable: 'Mutável',
-  destructive: 'Destrutivo',
-};
-
-const executionStatusLabels: Record<ScriptExecutionStatus, string> = {
-  running: 'Em execução',
-  succeeded: 'Concluída',
-  failed: 'Falhou',
-  cancelled: 'Cancelada',
-};
-
-const categoryLabels: Record<ScriptCategory, string> = {
-  all: 'Todos os scripts',
-  build: 'Build',
-  development: 'Desenvolvimento',
-  tests: 'Testes',
-  maintenance: 'Manutenção',
-  deploy: 'Deploy',
-  utilities: 'Utilitários',
-};
-
-const categoryIds: ScriptCategory[] = [
-  'all',
-  'build',
-  'development',
-  'tests',
-  'maintenance',
-  'deploy',
-  'utilities',
-];
+  activeSection,
+  category,
+  copiedActionId,
+  errorMessage,
+  originLabels,
+  riskLabels,
+  executionStatusLabels,
+  categoryLabels,
+  sectionTitle,
+  sectionDescription,
+  delegatedScriptsCount,
+  selectedScript,
+  visibleScripts,
+  categoryCounts,
+  riskCounts,
+  isRefreshing,
+  selectSection,
+  copyCommand,
+} = useProjectScriptsPanel(() => props.project);
 
 const sectionTabs = [
   { id: 'catalog' as const, label: 'Catálogo', icon: CommandLineIcon },
   { id: 'executions' as const, label: 'Execuções', icon: ClockIcon },
 ];
-
-const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
-
-const sectionTitle = computed(() => ({
-  catalog: 'Catálogo de scripts',
-  executions: 'Execuções',
-})[activeSection.value]);
-
-const sectionDescription = computed(() => ({
-  catalog: 'Execute somente as tarefas que não pertencem a Servidor, Testes ou Banco de dados.',
-  executions: 'Acompanhe o processo ativo, consulte logs e revise o histórico.',
-})[activeSection.value]);
-
-const catalogScripts = computed(() =>
-  (catalog.value?.items ?? []).filter((item) => isRunnableProjectScript(item, props.project)),
-);
-
-const delegatedScriptsCount = computed(() =>
-  (catalog.value?.items.length ?? 0) - catalogScripts.value.length,
-);
-
-const selectedScript = computed<ProjectScript | null>(() =>
-  catalogScripts.value.find((item) => item.id === selectedActionId.value)
-  ?? catalogScripts.value[0]
-  ?? null,
-);
-
-const visibleScripts = computed(() => {
-  const items = catalogScripts.value;
-  if (category.value === 'all') return items;
-  return items.filter((item) => categoryFor(item) === category.value);
-});
-
-const categoryCounts = computed(() => {
-  const counts: Record<ScriptCategory, number> = {
-    all: catalogScripts.value.length,
-    build: 0,
-    development: 0,
-    tests: 0,
-    maintenance: 0,
-    deploy: 0,
-    utilities: 0,
-  };
-
-  for (const item of catalogScripts.value) {
-    counts[categoryFor(item)] += 1;
-  }
-  return counts;
-});
-
-const riskCounts = computed(() => {
-  const counts: Record<ProjectScriptRisk, number> = {
-    'read-only': 0,
-    mutable: 0,
-    destructive: 0,
-  };
-  for (const item of catalogScripts.value) counts[item.risk] += 1;
-  return counts;
-});
-
-const isRefreshing = computed(() => loading.value);
-
-function categoryFor(item: ProjectScript): Exclude<ScriptCategory, 'all'> {
-  const text = `${item.name} ${item.command}`.toLowerCase();
-  if (/(deploy|release|publish|ship)/.test(text)) return 'deploy';
-  if (/(test|spec|rspec|vitest|jest|lint|rubocop)/.test(text)) return 'tests';
-  if (/(build|compile|assets|css|webpack|vite)/.test(text)) return 'build';
-  if (/(dev|watch|serve|server|start)/.test(text)) return 'development';
-  if (/(setup|prepare|install|migrate|seed|db:|clean|reset)/.test(text)) return 'maintenance';
-  return 'utilities';
-}
-
-function categoryIcon(categoryId: ScriptCategory) {
-  if (categoryId === 'build') return BoltIcon;
-  if (categoryId === 'development') return CommandLineIcon;
-  if (categoryId === 'tests') return CheckCircleIcon;
-  if (categoryId === 'maintenance') return WrenchScrewdriverIcon;
-  if (categoryId === 'deploy') return ArrowPathIcon;
-  return QueueListIcon;
-}
 
 function executionTone(status: ScriptExecutionStatus): 'info' | 'success' | 'danger' | 'warning' {
   if (status === 'running') return 'info';
@@ -221,45 +87,8 @@ function executionIcon(status: ScriptExecutionStatus) {
   return StopCircleIcon;
 }
 
-function formatDate(value?: string): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
-}
-
-function executionDuration(item: ScriptExecution | null): string {
-  if (!item) return '—';
-  const start = new Date(item.startedAt).getTime();
-  const end = item.finishedAt ? new Date(item.finishedAt).getTime() : Date.now();
-  const seconds = Math.max(0, Math.round((end - start) / 1_000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return `${minutes}m ${remaining}s`;
-}
-
-function selectSection(section: ScriptSection): void {
-  activeSection.value = section;
-}
-
-async function copyCommand(item: ProjectScript): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(item.command);
-    copiedActionId.value = item.id;
-    if (copiedTimer) clearTimeout(copiedTimer);
-    copiedTimer = setTimeout(() => {
-      copiedActionId.value = '';
-    }, 2_000);
-  } catch {
-    copiedActionId.value = '';
-  }
-}
-
-onUnmounted(() => {
-  if (copiedTimer) clearTimeout(copiedTimer);
-});
+const formatDate = formatScriptExecutionDate;
+const executionDuration = scriptExecutionDuration;
 </script>
 
 <template>
@@ -314,56 +143,20 @@ onUnmounted(() => {
       {{ errorMessage }}
     </div>
 
-    <aside v-if="execution" class="scripts-execution-strip" aria-live="polite">
-      <span class="scripts-execution-strip-icon" :class="`is-${execution.status}`">
-        <component :is="executionIcon(execution.status)" aria-hidden="true" />
-      </span>
-      <div>
-        <strong>{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</strong>
-        <span>
-          {{ formatDate(execution.startedAt) }}
-          <template v-if="execution.finishedAt"> · {{ executionDuration(execution) }}</template>
-        </span>
-      </div>
-      <StatusBadge :tone="executionTone(execution.status)">
-        {{ executionStatusLabels[execution.status] }}
-      </StatusBadge>
-      <button type="button" @click="selectSection('executions')">
-        Ver execução
-      </button>
-    </aside>
+    <ProjectScriptExecutionStrip
+      v-if="execution"
+      :execution="execution"
+      @open="selectSection('executions')"
+    />
 
     <section v-if="activeSection === 'catalog'" class="scripts-section" role="tabpanel">
       <div class="scripts-catalog-layout">
-        <aside class="scripts-catalog-sidebar">
-          <section>
-            <header>
-              <h4>Categorias</h4>
-            </header>
-            <nav aria-label="Categorias de scripts">
-              <button
-                v-for="categoryId in categoryIds"
-                :key="categoryId"
-                type="button"
-                :class="{ active: category === categoryId }"
-                @click="category = categoryId"
-              >
-                <component :is="categoryIcon(categoryId)" aria-hidden="true" />
-                <span>{{ categoryLabels[categoryId] }}</span>
-                <strong>{{ categoryCounts[categoryId] }}</strong>
-              </button>
-            </nav>
-          </section>
-
-          <section class="scripts-risk-summary">
-            <header><h4>Risco nesta página</h4></header>
-            <dl>
-              <div><dt><span class="is-safe"></span>Somente leitura</dt><dd>{{ riskCounts['read-only'] }}</dd></div>
-              <div><dt><span class="is-warning"></span>Mutáveis</dt><dd>{{ riskCounts.mutable }}</dd></div>
-              <div><dt><span class="is-danger"></span>Destrutivos</dt><dd>{{ riskCounts.destructive }}</dd></div>
-            </dl>
-          </section>
-        </aside>
+        <ProjectScriptCatalogSidebar
+          :category="category"
+          :category-counts="categoryCounts"
+          :risk-counts="riskCounts"
+          @select="category = $event"
+        />
 
         <div class="scripts-catalog-main">
           <div class="scripts-catalog-toolbar">
@@ -397,38 +190,16 @@ onUnmounted(() => {
           </div>
 
           <div v-else class="scripts-list">
-            <article
+            <ProjectScriptCatalogCard
               v-for="item in visibleScripts"
               :key="item.id"
-              class="script-card"
-              :class="{ active: selectedScript?.id === item.id }"
-              @click="selectedActionId = item.id"
-            >
-              <header>
-                <div>
-                  <span>{{ originLabels[item.origin] }}</span>
-                  <h4>{{ item.name }}</h4>
-                </div>
-                <StatusBadge :tone="riskToneFor(item.risk)">
-                  {{ riskLabels[item.risk] }}
-                </StatusBadge>
-              </header>
-              <p>{{ item.description }}</p>
-              <code>{{ item.command }}</code>
-              <footer>
-                <small v-if="!item.enabled">
-                  Ação destrutiva bloqueada
-                </small>
-                <button
-                  type="button"
-                  :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'"
-                  @click.stop="run(item)"
-                >
-                  <PlayIcon aria-hidden="true" />
-                  {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
-                </button>
-              </footer>
-            </article>
+              :item="item"
+              :selected="selectedScript?.id === item.id"
+              :disabled="startingActionId !== null || execution?.status === 'running'"
+              :starting="startingActionId === item.id"
+              @select="selectedActionId = item.id"
+              @run="run(item)"
+            />
           </div>
 
           <nav v-if="catalog && catalog.totalPages > 1" class="scripts-pagination">

@@ -711,7 +711,7 @@ completo direto no arquivo.
  885  apps/web/src/components/ProjectLogsPanel.vue            [Fase 4 já fez sub-etapa 1+2; reavaliar]
  871  apps/web/src/components/ProjectGitDiffPage.vue          [cresceu de novo pós task 058; reavaliar]
  823  apps/web/src/components/ProjectGitHistoryPage.vue
- 605  apps/web/src/components/ProjectScriptsPanel.vue
+ 605  apps/web/src/components/ProjectScriptsPanel.vue          [concluído nesta fase; 605 → 377]
  574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
@@ -1052,6 +1052,18 @@ lote continuam aparecendo nos mesmos alertas da view. Verificado com `vue-tsc`, 
 monorepo completo (248 testes web) e os 13 testes E2E (incluindo o teste de confirmação de início
 de servidor pela paleta) — todos verdes.
 
+**`ProjectScriptsPanel.vue` (605 → 377) — concluído**, vigésimo sexto arquivo desta fase. A lógica
+reativa de catálogo, execução, filtros, contagens, seleção e cópia foi extraída para
+`composables/useProjectScriptsPanel.ts` (238 linhas), preservando os dois composables especializados
+que já existiam (`useScriptCatalog` e `useScriptExecution`). Três blocos de apresentação coesos
+viraram componentes irmãos: `ProjectScriptCatalogCard.vue` (card executável),
+`ProjectScriptCatalogSidebar.vue` (categorias e resumo de risco) e
+`ProjectScriptExecutionStrip.vue` (faixa da execução atual). O componente principal continua dono
+da navegação entre catálogo/execuções, do detalhe selecionado e do histórico completo. Os testes
+que verificavam a arquitetura pelo texto bruto do componente foram ajustados para ler também os
+arquivos extraídos, sem reduzir as mesmas asserções. Verificado com `vue-tsc`, `build` e o monorepo
+web completo (249 testes) — todos verdes.
+
 **`ProjectTestsGuidedPanel.vue` (404 linhas) — avaliado, não dividido.** Diferente dos outros
 componentes grandes desta fase, o `<script setup>` já é enxuto (40 linhas): toda a lógica já mora
 em `composables/useProjectTestsPanel.ts` (avaliado e não dividido acima) desde a Fase 4, e o
@@ -1072,13 +1084,14 @@ acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
 `routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
 `utils/git-syntax-highlight.ts`, `ProjectReadmePanel.vue`, `NoticeCenter.vue`,
-`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue` e `DashboardView.vue`
-saíram da lista por completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda
+`ProjectGitPullRequestPage.vue`, `CommandPalette.vue`, `ProcessesView.vue`, `DashboardView.vue` e
+`ProjectScriptsPanel.vue` saíram da lista por completo — todo o `apps/api/src` está concluído
+(exceto as duas classes ainda
 acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
 (660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
 inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
 pendência ativa agora. `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
-`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~8
+`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~7
 arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem
 de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com
 bastante

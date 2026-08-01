@@ -21,11 +21,21 @@ async function readScriptsExplorerCss(): Promise<string> {
   return [arquivoPrincipal, ...importados].join('\n');
 }
 
+async function readScriptsExplorerSources(): Promise<string> {
+  const files = [
+    'components/ProjectScriptsPanel.vue',
+    'components/ProjectScriptCatalogCard.vue',
+    'components/ProjectScriptCatalogSidebar.vue',
+    'components/ProjectScriptExecutionStrip.vue',
+    'composables/useProjectScriptsPanel.ts',
+  ];
+  return (await Promise.all(
+    files.map((file) => readFile(sourceFile(file), 'utf8')),
+  )).join('\n');
+}
+
 test('estrutura scripts como explorador direto de catálogo e execuções', async () => {
-  const component = await readFile(
-    sourceFile('components/ProjectScriptsPanel.vue'),
-    'utf8',
-  );
+  const component = await readScriptsExplorerSources();
 
   assert.match(component, /type ScriptSection = 'catalog' \| 'executions'/);
   assert.match(component, /ref<ScriptSection>\('catalog'\)/);
@@ -39,10 +49,7 @@ test('estrutura scripts como explorador direto de catálogo e execuções', asyn
 });
 
 test('mantém risco, confirmação e acompanhamento da execução no redesenho', async () => {
-  const component = await readFile(
-    sourceFile('components/ProjectScriptsPanel.vue'),
-    'utf8',
-  );
+  const component = await readScriptsExplorerSources();
   const executionComposable = await readFile(
     sourceFile('composables/useScriptExecution.ts'),
     'utf8',
