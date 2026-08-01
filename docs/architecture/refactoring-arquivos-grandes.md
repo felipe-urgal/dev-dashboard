@@ -725,8 +725,8 @@ completo direto no arquivo.
  573  apps/web/src/components/ProjectGitPullRequestPage.vue
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
- 467  apps/web/src/stores/dashboard.ts
- 434  apps/web/src/composables/useProjectTestsPanel.ts
+ 467  apps/web/src/stores/dashboard.ts                             [avaliado, não dividido — ver nota abaixo]
+ 434  apps/web/src/composables/useProjectTestsPanel.ts             [avaliado, não dividido — ver nota abaixo]
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
 ```
 
@@ -978,6 +978,23 @@ nenhum dos 3 consumidores (`ProjectDatabasePanel.vue`, `git-diff-syntax/code.ts`
 `git-diff-syntax/patch.ts`, este último um enhancer diferente e não relacionado, apesar do nome
 parecido) precisou mudar import. Verificado com `vue-tsc`, `build` e os 13 testes de
 `git-syntax-highlight`/`git-diff-syntax`, mais o monorepo completo — todos verdes.
+
+**`apps/web/src/stores/dashboard.ts` (467 linhas) e
+`apps/web/src/composables/useProjectTestsPanel.ts` (434 linhas) — avaliados, não divididos.**
+Diferente dos utils puros acima, os dois são uma única função-fábrica reativa (`createDashboardStore`/
+`useProjectTestsPanel`) onde praticamente todo helper lê e escreve o mesmo conjunto de `ref`s
+compartilhados, e as funções públicas se chamam umas às outras (`scanSelectedWorkspace` chama
+`scanWorkspaceById`, que chama `replaceWorkspaceProjects`/`activateWorkspace`; `ensureProject` chama
+`scanWorkspaceById` e `activateWorkspace` de novo). Extrair pedaços exigiria ou (a) um objeto de
+contexto explícito carregando várias `ref`s + várias funções de volta entre módulos — o mesmo
+padrão usado em `process-manager.ts`/`git-service.ts`, mas aqui o grafo de chamadas cruzadas é denso
+o bastante para que a divisão vire principalmente indireção, sem separar responsabilidades de
+verdade — ou (b) mudar a forma como o estado é composto (ex. Pinia com múltiplas stores), o que já
+não seria mais refatoração pura. `stores/dashboard.ts` em particular é o estado central do
+dashboard inteiro (toda view depende dele), então o custo de um erro sutil de fechamento reativo é
+alto para um ganho pequeno (só ~67 linhas acima da meta). Mesmo critério já registrado na Fase 4
+para `ProjectServerPanel.vue`/`ProjectGitPanel.vue`: não dividir quando a alternativa é uma
+divisão artificial que piora a leitura. Ficam no inventário como candidatos, não como pendência.
 
 ## Progresso da Fase 7
 
