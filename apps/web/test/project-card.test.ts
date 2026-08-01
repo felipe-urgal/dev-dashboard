@@ -11,6 +11,17 @@ vi.mock('../src/api', () => ({
     status: 'running',
     port: 3003,
   }),
+  fetchProjectGit: vi.fn().mockResolvedValue({
+    repository: true,
+    branch: 'feature/listar-branch',
+    detached: false,
+    ahead: 0,
+    behind: 0,
+    clean: true,
+    files: [],
+    recentCommits: [],
+    stashes: [],
+  }),
 }));
 
 import ProjectCard from '../src/components/ProjectCard.vue';
@@ -27,7 +38,7 @@ const project: Project = {
 };
 
 describe('ProjectCard', () => {
-  it('renderiza somente a porta em destaque nos metadados', async () => {
+  it('renderiza a branch atual e a porta nos metadados', async () => {
     const wrapper = mount(ProjectCard, {
       props: { project },
       global: {
@@ -43,6 +54,8 @@ describe('ProjectCard', () => {
     expect(wrapper.get('.project-row-identity').text())
       .toContain('Projeto sem avatar');
     await vi.waitFor(() => {
+      expect(wrapper.get('.project-branch-badge').text())
+        .toContain('feature/listar-branch');
       expect(wrapper.get('.project-port-badge').text())
         .toBe('Porta 3003');
     });

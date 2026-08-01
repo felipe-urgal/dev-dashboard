@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import {
+  computed,
+  ref,
+  watch,
+} from 'vue';
 import { RouterLink } from 'vue-router';
 import {
   ArrowRightIcon,
@@ -7,6 +11,7 @@ import {
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { fetchProjectGit } from '../api';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
 import { projectTypeLabels } from '../utils/project-labels';
@@ -17,6 +22,36 @@ const props = defineProps<{
 
 const { managedProcess, supportsServer, isRunning } =
   useProjectProcessStatus(() => props.project);
+
+const currentBranch = ref('');
+let branchRequest = 0;
+
+watch(
+  () => ({
+    id: props.project.id,
+    supportsGit: props.project.capabilities.includes('git'),
+  }),
+  async ({ id, supportsGit }) => {
+    const request = ++branchRequest;
+    currentBranch.value = '';
+
+    if (!supportsGit) {
+      return;
+    }
+
+    try {
+      const overview = await fetchProjectGit(id);
+
+      if (request === branchRequest && overview.repository) {
+        currentBranch.value = overview.branch ?? '';
+      }
+    } catch {
+      // A branch é um metadado complementar; a linha continua utilizável
+      // quando o Git não puder ser consultado.
+    }
+  },
+  { immediate: true },
+);
 
 const statusDotClass = computed(() => {
   if (!supportsServer.value) {
@@ -77,10 +112,22 @@ const statusLabel = computed(() => {
         <code class="project-path">{{ project.path }}</code>
 
         <div
-          v-if="managedProcess?.port"
+          v-if="currentBranch || managedProcess?.port"
           class="project-row-meta"
         >
-          <span class="project-port-badge">
+          <span
+            v-if="currentBranch"
+            class="project-branch-badge"
+            :title="`Branch atual: ${currentBranch}`"
+          >
+            <span aria-hidden="true">⑂</span>
+            {{ currentBranch }}
+          </span>
+
+          <span
+            v-if="managedProcess?.port"
+            class="project-port-badge"
+          >
             Porta {{ managedProcess.port }}
           </span>
         </div>
