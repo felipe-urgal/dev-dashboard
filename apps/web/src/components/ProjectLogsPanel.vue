@@ -332,6 +332,97 @@ watch(cappedGroups, (groups) => {
 
 <template>
   <div class="project-logs-layout">
+    <section class="project-logs-topbar">
+      <div class="project-log-status-title">
+        <ServerStackIcon aria-hidden="true" />
+        <div>
+          <span>Status do servidor</span>
+          <strong
+            class="process-status"
+            :class="`process-status-${processStatus}`"
+          >
+            <span />
+            {{ statusLabel }}
+          </strong>
+        </div>
+      </div>
+
+      <dl class="project-log-status-metrics">
+        <div>
+          <dt>Porta</dt>
+          <dd>{{ managedProcess?.port ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>PID</dt>
+          <dd>{{ managedProcess?.pid ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Saída</dt>
+          <dd>{{ managedProcess?.exitCode ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Linhas visíveis</dt>
+          <dd>{{ visibleLineCount }}</dd>
+        </div>
+      </dl>
+
+      <nav class="project-log-quick-actions" aria-label="Ações rápidas">
+        <span>Ações rápidas</span>
+        <div>
+          <RouterLink
+            :to="{
+              name: 'project-server',
+              params: { projectId: project.id },
+            }"
+          >
+            <ServerStackIcon aria-hidden="true" />
+            Ir para Servidor
+          </RouterLink>
+          <a
+            v-if="processUrls[0]"
+            :href="processUrls[0]"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+            Abrir localhost
+          </a>
+        </div>
+      </nav>
+    </section>
+
+    <section v-if="hasStructuredRequests" class="project-log-summary-card">
+      <span>Resumo Rails</span>
+      <dl>
+        <div>
+          <dt>Requests</dt>
+          <dd>{{ parsedLog.summary.totalRequests }}</dd>
+        </div>
+        <div>
+          <dt>Sucesso</dt>
+          <dd class="summary-success">{{ parsedLog.summary.successful }}</dd>
+        </div>
+        <div>
+          <dt>Erros</dt>
+          <dd class="summary-error">
+            {{ parsedLog.summary.clientErrors + parsedLog.summary.serverErrors }}
+          </dd>
+        </div>
+        <div>
+          <dt>Queries</dt>
+          <dd>{{ parsedLog.summary.totalQueries }}</dd>
+        </div>
+        <div>
+          <dt>Tempo médio</dt>
+          <dd>{{ formatDuration(parsedLog.summary.averageDurationMs) }}</dd>
+        </div>
+        <div>
+          <dt>Mais lento</dt>
+          <dd>{{ formatDuration(parsedLog.summary.slowestDurationMs) }}</dd>
+        </div>
+      </dl>
+    </section>
+
     <section class="project-logs-card">
       <div class="project-logs-toolbar">
         <div class="project-log-view-switch" aria-label="Visualização do log">
@@ -788,98 +879,6 @@ watch(cappedGroups, (groups) => {
       </div>
     </section>
 
-    <aside class="project-logs-sidebar">
-      <section class="project-log-status-card">
-        <div class="project-log-status-title">
-          <ServerStackIcon aria-hidden="true" />
-          <div>
-            <span>Status do servidor</span>
-            <strong
-              class="process-status"
-              :class="`process-status-${processStatus}`"
-            >
-              <span />
-              {{ statusLabel }}
-            </strong>
-          </div>
-        </div>
-
-        <dl>
-          <div>
-            <dt>Porta</dt>
-            <dd>{{ managedProcess?.port ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>PID</dt>
-            <dd>{{ managedProcess?.pid ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>Saída</dt>
-            <dd>{{ managedProcess?.exitCode ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt>Linhas visíveis</dt>
-            <dd>{{ visibleLineCount }}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section v-if="hasStructuredRequests" class="project-log-summary-card">
-        <span>Resumo Rails</span>
-        <dl>
-          <div>
-            <dt>Requests</dt>
-            <dd>{{ parsedLog.summary.totalRequests }}</dd>
-          </div>
-          <div>
-            <dt>Sucesso</dt>
-            <dd class="summary-success">{{ parsedLog.summary.successful }}</dd>
-          </div>
-          <div>
-            <dt>Erros</dt>
-            <dd class="summary-error">
-              {{ parsedLog.summary.clientErrors + parsedLog.summary.serverErrors }}
-            </dd>
-          </div>
-          <div>
-            <dt>Queries</dt>
-            <dd>{{ parsedLog.summary.totalQueries }}</dd>
-          </div>
-          <div>
-            <dt>Tempo médio</dt>
-            <dd>{{ formatDuration(parsedLog.summary.averageDurationMs) }}</dd>
-          </div>
-          <div>
-            <dt>Mais lento</dt>
-            <dd>{{ formatDuration(parsedLog.summary.slowestDurationMs) }}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section class="project-log-quick-actions">
-        <span>Ações rápidas</span>
-        <RouterLink
-          :to="{
-            name: 'project-server',
-            params: { projectId: project.id },
-          }"
-        >
-          <ServerStackIcon aria-hidden="true" />
-          Ir para Servidor
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </RouterLink>
-        <a
-          v-if="processUrls[0]"
-          :href="processUrls[0]"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          Abrir localhost
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </a>
-      </section>
-    </aside>
   </div>
 </template>
 
