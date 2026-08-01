@@ -6,12 +6,13 @@ Fases 1, 2, 3 e 4 concluídas (sub-etapa 2 fechada com composables extraídos em
 grandes; os 3 componentes Git restantes foram avaliados e decidiu-se não extrair, ver detalhes na
 Fase 4). **Fase 5 concluída**: os 19 arquivos da camada "enhancer" vanilla-DOM foram quebrados
 mecanicamente em módulos por responsabilidade (de `git-history-page-enhancer.ts`, 1130 linhas, até
-`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. Fase 6 iniciada:
-etapa 1 (funções livres de `process-manager.ts`, 1430 → 1070 linhas) concluída; etapa 2 (métodos
-acoplados ao estado privado da classe) pendente de avaliação. **Fase 7 (reinventário) adicionada**:
-levantamento atualizado dos 36 arquivos acima de 400 linhas hoje no repo, depois de várias entregas
-funcionais terem crescido de novo arquivos já tocados nas fases anteriores — aguardando decisão de
-início, sem código escrito ainda para esta fase.
+`git-diff-page-enhancer.ts`, 73 linhas), sem nenhuma mudança de comportamento. **Fase 6 concluída**:
+etapa 1 (funções livres, 1430 → 1070 linhas) e etapa 2 (métodos acoplados ao estado privado da
+classe, 1070 → 157 linhas, mais 5 módulos novos) — `process-manager.ts` sai da lista de arquivos
+acima de 400 linhas. **Fase 7 (reinventário) adicionada**: levantamento atualizado dos demais
+arquivos acima de 400 linhas hoje no repo, depois de várias entregas funcionais terem crescido de
+novo arquivos já tocados nas fases anteriores — aguardando decisão de início, sem código escrito
+ainda para esta fase.
 
 > Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
 > por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
@@ -645,12 +646,57 @@ Verificação: `npm run build`/`npm run test` do pacote (42 testes, incluindo o 
 historicamente flaky, que passou), `npm run typecheck`/`npm run build`/`npm test` do monorepo
 completo (249 API, 174 web, todos os pacotes) e os 13 testes E2E — todos verdes.
 
-**Etapa 2 — pendente.** Métodos que dependem de campos privados da classe (`observedExits`,
-`exitWaiters`, `startLocks`) são mais difíceis de mover sem introduzir um objeto de estado
-explícito — tratar como sub-tarefa própria, rodando a suíte completa (`process-manager.test.ts`,
-`log-retention.test.ts`) a cada extração. Avaliar se o ganho compensa: a classe restante (~965
-linhas) é coesa em torno do seu estado, e fatiar métodos que compartilham três `Map`s privados
-exigiria exatamente o tipo de refatoração comportamental que este plano evita.
+**Etapa 2 — concluída (1070 → 157 linhas).** Os métodos acoplados a estado privado foram divididos
+por responsabilidade, substituindo `this.<campo>` por um objeto de contexto (`ProcessStoreContext
+= { processDirectory, logDirectory }`) e factories que fecham sobre seu próprio estado — mesmo
+espírito das factories já usadas em `createExitTracker`/`createProcessLifecycle` abaixo, só que
+aplicado à classe inteira em vez de um método isolado:
+
+- **`process-store.ts`** (175 linhas) — persistência em disco pura: `createProjectKey`,
+  `resolveLogFile`, `resolveProcessFile`, `readStoredProcess`, `writeStoredProcess`,
+  `listStoredProcessEntries` (o loop de `readdir` que antes vivia dentro de `listProcesses`) e
+  `terminalProcess` (função livre que já estava solta no topo do arquivo original). Nenhuma dessas
+  funções sabe nada sobre processo vivo ou tracking de saída — só formato de arquivo.
+- **`process-exit-tracking.ts`** (236 linhas) — os dois `Map` (`observedExits`, `exitWaiters`) que
+  antes eram campos da classe agora vivem dentro de `createExitTracker(context)`, uma factory que
+  devolve `{ observeChild, waitForObservedExit, waitForManagedExit, clearObservedExit }`. Inclui
+  também `waitForProcessExit` (função livre já existente) e `recordChildExit` (privada à factory,
+  chamada só por `observeChild`) — este módulo não importa nada de `process-store.ts` além dos
+  tipos e das duas funções de persistência que precisa (`readStoredProcess`/`writeStoredProcess`),
+  recebidas via o mesmo `context` compartilhado.
+- **`process-status.ts`** (138 linhas) — não estava no desenho original desta fase; extraído à
+  parte porque `getManagedProcess`/`listProcesses` (a reconciliação entre o `.json` salvo e o
+  processo do SO de fato) não pertence nem à persistência pura nem ao ciclo de vida start/stop —
+  depende dos dois: lê/escreve via `process-store.ts` e consulta `exitTracker.waitForObservedExit`/
+  `clearObservedExit`. Fábrica `createProcessStatusReader(context, exitTracker)`.
+- **`process-lifecycle.ts`** (402 linhas, acima da meta de ~200 — ver nota abaixo) — start/stop de
+  fato: `startManagedServer` (`startServerLocked`), `startManagedTest` (`startTestLocked`),
+  `stopManagedProcess`, `sendSignal`. Fábrica `createProcessLifecycle(context, exitTracker,
+  statusReader)` — `statusReader` é usado só para a checagem "já está rodando?" no início de cada
+  start; `stopManagedProcess` lê o processo via `readStoredProcess` puro (sem reconciliação), igual
+  ao comportamento original — atenção que vale registrar: era tentador chamar
+  `statusReader.getManagedProcess` também aqui por simetria, mas isso teria mudado o comportamento
+  (a versão original de `stopManagedProcess` nunca reconciliava o status antes de tentar parar).
+- **`process-logs.ts`** (156 linhas) — `readManagedLog`/`clearManagedLog` (antes `readLog`/
+  `clearLog`), leitura/limpeza de arquivo de log com mascaramento, sem nada de processo.
+- **`process-manager.ts`** (orquestrador, 157 linhas) — a classe `ProcessManager` continua
+  exportada com o mesmo nome, construtor e todos os métodos públicos com a mesma assinatura; cada
+  um vira uma chamada de uma linha para as factories acima. `withStartLock` continua na classe (é
+  concorrência do próprio `ProcessManager`, não pertence a nenhum módulo de domínio).
+
+Nota sobre `process-lifecycle.ts` ficar acima da meta de ~200 linhas: `startManagedServer` e
+`startManagedTest` compartilham a mesma estrutura (sweep → checar processo em andamento → `mkdir` →
+abrir log → `spawn` → persistir → observar saída), mas com detalhes suficientemente diferentes
+(resolução de porta/comando só no server; `CI=true` só no teste) que uma função genérica
+parametrizada teria ficado menos legível que as duas versões concretas lado a lado — mesmo
+trade-off já registrado para `git-summary-inline-diff-fix.ts`/`git-history-inline-diff-fix.ts` na
+Fase 5 (arquivos "irmãos" que não foram unificados). Registrado como candidato a nova subdivisão
+futura (`process-lifecycle/server.ts` + `process-lifecycle/test.ts` + `process-lifecycle/stop.ts`)
+se o arquivo crescer mais, não como pendência ativa agora.
+
+Verificação: `npm run typecheck`, `npm run build` e `npm test` do monorepo completo (os 42 testes
+do pacote `process-manager`, incluindo o teste de timing historicamente flaky, mais 321 da API, 248
+do frontend e os demais pacotes) — todos verdes, sem nenhuma mudança de comportamento.
 
 ### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features)
 
@@ -662,7 +708,6 @@ mas está em 871 agora depois de a task 058 substituir o enhancer legado por um 
 completo direto no arquivo.
 
 ```
-1070  packages/process-manager/src/process-manager.ts        [Fase 6 etapa 2 pendente]
  885  apps/web/src/components/ProjectLogsPanel.vue            [Fase 4 já fez sub-etapa 1+2; reavaliar]
  871  apps/web/src/components/ProjectGitDiffPage.vue          [cresceu de novo pós task 058; reavaliar]
  842  apps/api/src/services/git-service.ts

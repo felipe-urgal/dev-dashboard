@@ -5,13 +5,12 @@ código escrito ainda:
 
 ## 1. Refatoração pura dos arquivos acima de 400 linhas
 
-Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases 1–5
-já concluídas em sessões anteriores; fase 6 com a etapa 1 concluída, etapa 2
-pendente; fase 7 é o reinventário mais recente, 36 arquivos acima de 400
-linhas hoje). Nenhuma API pública muda — é reorganização de arquivo, não de
-comportamento. Falta decidir se a próxima ação é fechar a fase 6 etapa 2
-(`process-manager.ts`) ou começar a fase 7 pelos arquivos que mais
-cresceram.
+Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases
+1–6 concluídas; fase 7 é o reinventário mais recente, 35 arquivos acima de
+400 linhas hoje, já sem `process-manager.ts` na lista). Nenhuma API pública
+muda — é reorganização de arquivo, não de comportamento. Próximo passo é
+decidir por onde começar a fase 7 — sem plano detalhado arquivo a arquivo
+ainda, ao contrário das fases anteriores.
 
 ## 2. Abrir o editor local do usuário
 
