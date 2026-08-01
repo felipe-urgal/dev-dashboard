@@ -726,7 +726,6 @@ completo direto no arquivo.
  571  apps/web/src/views/DashboardView.vue
  539  apps/web/src/components/CommandPalette.vue
  467  apps/web/src/stores/dashboard.ts
- 461  apps/web/src/utils/git-syntax-highlight.ts
  434  apps/web/src/composables/useProjectTestsPanel.ts
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
 ```
@@ -964,17 +963,33 @@ nenhum dos 4 consumidores (`GitFileDiffView.vue`, `ProjectGitDiffPage.vue`, e os
 `vue-tsc`, `build` e os 22 testes de `git-diff-view`/`git-diff-syntax`, mais o monorepo completo —
 todos verdes.
 
+**`apps/web/src/utils/git-syntax-highlight.ts` (461 → 4 linhas) — concluído**, décimo nono arquivo
+desta fase. Mesmo espírito de `git-diff-view.ts`: só tipos e funções puras (nenhuma classe, nenhum
+estado). Split em `utils/git-syntax-highlight/`: `types.ts` (`GitSyntaxLanguage`/
+`SyntaxTokenKind`), `keywords.ts` (o dicionário de palavras-chave por linguagem, o maior bloco de
+dados do arquivo original), `language-map.ts` (`gitSyntaxLanguageForPath`, mapa de
+extensão/nome-de-arquivo para linguagem), `render-text.ts` (`renderText`/`renderToken`, escape +
+`<mark>` de busca), `tokenize-helpers.ts` (`commentMarker`/`quotedEnd`/`nextNonWhitespace`),
+`generic-line.ts` (`highlightGenericLine`, o tokenizador principal — maior função do arquivo),
+`markup.ts` (`highlightMarkupLine`/`highlightAttributes`, para HTML/ERB/Vue), `markdown.ts`
+(`highlightMarkdownLine`), `highlight.ts` (`highlightGitDiffCode`, o dispatcher por linguagem) e
+`patch-render.ts` (`highlightGitPatch`). O arquivo principal virou um barrel puro de 4 linhas —
+nenhum dos 3 consumidores (`ProjectDatabasePanel.vue`, `git-diff-syntax/code.ts`,
+`git-diff-syntax/patch.ts`, este último um enhancer diferente e não relacionado, apesar do nome
+parecido) precisou mudar import. Verificado com `vue-tsc`, `build` e os 13 testes de
+`git-syntax-highlight`/`git-diff-syntax`, mais o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
 `git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
-`routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts` e `utils/git-diff-view.ts`
-saíram da lista por completo — todo o `apps/api/src` está concluído (exceto as duas classes ainda
-acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
+`routes/projects.ts`, `routes/git-stash.ts`, `test-log-inspector.ts`, `utils/git-diff-view.ts` e
+`utils/git-syntax-highlight.ts` saíram da lista por completo — todo o `apps/api/src` está
+concluído (exceto as duas classes ainda acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
 mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
-segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~16
+segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~15
 arquivos do inventário — todos em `apps/web/src` — seguem pendentes, sem ordem de execução fixada —
 a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
