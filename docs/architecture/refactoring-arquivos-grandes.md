@@ -730,7 +730,6 @@ completo direto no arquivo.
  467  apps/web/src/stores/dashboard.ts
  461  apps/web/src/utils/git-syntax-highlight.ts
  434  apps/web/src/composables/useProjectTestsPanel.ts
- 423  apps/api/src/routes/git-stash.ts
  404  apps/web/src/components/ProjectTestsGuidedPanel.vue
 ```
 
@@ -928,17 +927,25 @@ ranking de nome preferido — a parte mais densa do arquivo original), `list-rou
 diff-de-arquivo/linhas-de-arquivo). Verificado com `typecheck`, `build` e o monorepo completo —
 todos verdes.
 
+**`apps/api/src/routes/git-stash.ts` (423 → 16 linhas) — concluído**, décimo sexto arquivo desta
+fase e o último do lado `apps/api/src`. Split em `routes/git-stash/`: `helpers.ts` (tipos, todos os
+schemas, `translateStashError`, `projectFor`), `list-detail-routes.ts` (GET lista + GET detalhe) e
+`mutation-routes.ts` (confirmação, criar, e o loop `apply`/`pop`/`drop`). Verificado com
+`typecheck`, `build` e o monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
-`git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts` e
-`routes/projects.ts` saíram da lista por completo. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
+`git-sync-service.ts`, `git-undo-service.ts`, `routes/git-workspace.ts`, `routes/rails.ts`,
+`routes/projects.ts` e `routes/git-stash.ts` saíram da lista por completo — todo o `apps/api/src`
+está concluído (exceto as duas classes ainda acima de 400, ver nota acima). Só restam componentes
+`.vue`/utils de `apps/web/src`. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
 mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
-segunda passada (dividir a classe por domínio), não como pendência ativa agora. Resta a rota `routes/git-stash.ts` e os componentes
-`.vue`. Os demais ~19 arquivos do inventário seguem pendentes, sem ordem de execução fixada — a
-lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com bastante template
+segunda passada (dividir a classe por domínio), não como pendência ativa agora. Os demais ~18 arquivos do inventário — todos em
+`apps/web/src` — seguem pendentes, sem ordem de execução fixada — a lista completa está na seção
+"Fase 7" logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
