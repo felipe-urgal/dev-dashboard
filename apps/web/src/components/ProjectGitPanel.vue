@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { inject, onBeforeUnmount, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 
 import type {
   GitDiffSnapshot,
@@ -47,6 +48,7 @@ import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
+const route = inject(routeLocationKey, undefined);
 
 const emit = defineEmits<{
   'git-updated': [overview: ProjectGitOverview];
@@ -131,6 +133,11 @@ function openTab(tab: GitTab): void {
   if (tab === 'sync') {
     void refreshRemotesSilently();
   }
+}
+
+function tabFromQuery(): GitTab {
+  const value = Array.isArray(route?.query.tab) ? route.query.tab[0] : route?.query.tab;
+  return tabs.some((tab) => tab.id === value) ? value as GitTab : 'sync';
 }
 
 async function loadGit(): Promise<void> {
@@ -587,7 +594,7 @@ watch(
     selectedFile.value = '';
     commitMessage.value = '';
     commitMode.value = 'create';
-    activeTab.value = 'sync';
+    activeTab.value = tabFromQuery();
     await Promise.all([
       loadGit(),
       loadWorkspace(),
@@ -596,6 +603,8 @@ watch(
   },
   { immediate: true },
 );
+
+watch(() => route?.query.tab, () => openTab(tabFromQuery()));
 
 onBeforeUnmount(() => {
   diffController?.abort();

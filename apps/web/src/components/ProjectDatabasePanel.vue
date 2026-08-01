@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import {
   computed,
+  inject,
   onBeforeUnmount,
   ref,
   watch,
 } from 'vue';
+import { routeLocationKey } from 'vue-router';
 import {
   ArchiveBoxIcon,
   ArrowPathIcon,
@@ -48,6 +50,7 @@ import { dbReachabilityToneFor, railsMigrationToneFor } from '../utils/status-to
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
+const route = inject(routeLocationKey, undefined);
 
 type DatabaseSection = 'overview' | 'environments' | 'snapshots' | 'migrations' | 'models' | 'routes' | 'dependencies';
 type MigrationStatusFilter = 'all' | 'up' | 'down';
@@ -323,6 +326,14 @@ function selectSection(section: DatabaseSection): void {
   activeSection.value = section;
 }
 
+function sectionFromQuery(): DatabaseSection {
+  const value = Array.isArray(route?.query.section) ? route.query.section[0] : route?.query.section;
+  const allowed: DatabaseSection[] = ['overview', 'environments', 'snapshots', 'migrations', 'models', 'routes', 'dependencies'];
+  if (!allowed.includes(value as DatabaseSection)) return 'overview';
+  if (!isRailsProject.value && !['overview', 'environments', 'snapshots'].includes(value ?? '')) return 'overview';
+  return value as DatabaseSection;
+}
+
 async function copy(value: string, key: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(value);
@@ -348,13 +359,15 @@ function columnTypeLabel(table: RailsSchemaTable, columnName: string): string {
 }
 
 watch(() => props.project.id, () => {
-  activeSection.value = 'overview';
+  activeSection.value = sectionFromQuery();
   globalFilter.value = '';
   migrationFilter.value = '';
   modelFilter.value = '';
   routeFilter.value = '';
   outdatedFilter.value = '';
 }, { immediate: true });
+
+watch(() => route?.query.section, () => selectSection(sectionFromQuery()));
 
 onBeforeUnmount(() => {
   if (copiedTimer) clearTimeout(copiedTimer);
