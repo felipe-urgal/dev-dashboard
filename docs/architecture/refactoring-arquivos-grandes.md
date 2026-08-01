@@ -715,7 +715,7 @@ completo direto no arquivo.
  574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
- 660  apps/api/src/services/script-execution-service.ts
+ 565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
  649  apps/api/src/services/rails-inspection-service.ts        [cresceu com generators, task 060]
  629  apps/web/src/components/ProjectGitPanel.vue
  627  apps/web/src/components/ProjectReadmePanel.vue
@@ -788,12 +788,29 @@ options)`. Único símbolo exportado (`testRoutes`) continua no mesmo lugar. Ver
 `typecheck`, `build` e os 24 testes de `test-events-route`/`test-file-routes`/`routes`, mais o
 monorepo completo (248 testes web) — todos verdes.
 
+**`apps/api/src/services/script-execution-service.ts` (660 → 565 linhas) — concluído**, terceiro
+arquivo desta fase. Mesma situação de `git-service.ts`: a classe `ScriptExecutionService` concentra
+6 `Map`s privados compartilhados por quase todos os métodos (`executions`/`activeProjects`/
+`confirmations`/`pendingWrites`/`subscribers`/`eventTimers`) — dividir os métodos exigiria o mesmo
+tipo de refatoração por contexto explícito feita em `process-manager.ts` (Fase 6), que não foi
+tentada aqui para manter esta passada como extração pura de funções livres, igual ao que já tinha
+sido validado em `git-service.ts`. Split em `script-execution/`: `errors.ts`
+(`ScriptExecutionErrorCode`/`ScriptExecutionError`), `constants.ts` (limites, TTL, padrão do UUID
+de execução), `command-resolution.ts` (`resolveNodeManager`/`resolveCommand`, o equivalente
+específico de scripts ao `resolveServerCommand` de `process-manager`) e `auth.ts` (`tokensMatch`,
+comparação de token em tempo constante). `ScriptExecutionError`/`ScriptExecutionErrorCode`
+continuam reexportados do arquivo principal — únicos símbolos consumidos fora do módulo, junto com
+a própria classe. Candidato a nova subdivisão futura igual ao `GitService`. Verificado com
+`typecheck`, `build` e os 18 testes de `script-execution-service`/`script-events-route`, mais o
+monorepo completo — todos verdes (um teste de timing historicamente flaky em
+`packages/process-manager` falhou uma vez e passou limpo na repetição, sem relação com este split).
+
 ## Progresso da Fase 7
 
-`process-manager.ts` e `routes/tests.ts` saíram da lista por completo. `git-service.ts` foi
-dividido (842 → 574 linhas + 8 módulos novos), mas a classe `GitService` em si continua acima de
-400 linhas — fica no inventário como candidato a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~32 arquivos do inventário seguem pendentes,
+`process-manager.ts` e `routes/tests.ts` saíram da lista por completo. `git-service.ts` (842 → 574)
+e `script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
+400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
+domínio), não como pendência ativa agora. Os demais ~31 arquivos do inventário seguem pendentes,
 sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
 com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
