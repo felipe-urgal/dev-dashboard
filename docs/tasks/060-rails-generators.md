@@ -1,4 +1,4 @@
-# Task 058 — Gerar model e migration pela interface
+# Task 060 — Gerar model e migration pela interface
 
 ## Status
 
@@ -38,7 +38,7 @@ para o que pode ir no comando.
 - os argumentos vão para `execFile` como array, nunca concatenados numa
   string de shell — mesmo padrão de `db:migrate`/systemctl já usado no
   painel;
-- banco secundário (057): `--database=<nome>` é anexado só quando o banco
+- banco secundário (059): `--database=<nome>` é anexado só quando o banco
   informado já consta em `listDatabases`, senão a confirmação é recusada;
 - a resposta lista os arquivos criados (linhas `create <caminho>` da saída
   do gerador), além da saída bruta mascarada (`maskSensitiveLogContent`,
@@ -55,7 +55,7 @@ para o que pode ir no comando.
   de dentro de Migrations e mora aqui agora;
 - dois cartões, **Gerar model** e **Gerar migration**: nome, lista de campos
   (nome + select de tipo, adicionar/remover linha) e, quando o projeto tem
-  mais de um banco (057), um seletor do banco alvo;
+  mais de um banco (059), um seletor do banco alvo;
 - "Pré-visualizar e gerar" mostra o comando exato antes de qualquer coisa
   rodar; só then aparecem Confirmar/Cancelar;
 - depois de confirmar: sucesso/falha, lista dos arquivos criados e a saída

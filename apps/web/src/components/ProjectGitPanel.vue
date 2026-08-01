@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { inject, ref, watch } from 'vue';
+import { routeLocationKey } from 'vue-router';
 
 import type {
   Project,
@@ -42,6 +43,7 @@ import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
+const route = inject(routeLocationKey, undefined);
 
 const emit = defineEmits<{
   'git-updated': [overview: ProjectGitOverview];
@@ -101,6 +103,11 @@ function openTab(tab: GitTab): void {
   if (tab === 'sync') {
     void refreshRemotesSilently();
   }
+}
+
+function tabFromQuery(): GitTab {
+  const value = Array.isArray(route?.query.tab) ? route.query.tab[0] : route?.query.tab;
+  return tabs.some((tab) => tab.id === value) ? value as GitTab : 'sync';
 }
 
 async function loadGit(): Promise<void> {
@@ -497,7 +504,7 @@ watch(
     workspace.value = null;
     commitMessage.value = '';
     commitMode.value = 'create';
-    activeTab.value = 'sync';
+    activeTab.value = tabFromQuery();
     await Promise.all([
       loadGit(),
       loadWorkspace(),
@@ -507,6 +514,7 @@ watch(
   { immediate: true },
 );
 
+watch(() => route?.query.tab, () => openTab(tabFromQuery()));
 </script>
 
 <template>

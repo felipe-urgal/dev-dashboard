@@ -1,4 +1,4 @@
-# Task 057 — Migrations e Modelos por banco secundário
+# Task 059 — Migrations e Modelos por banco secundário
 
 ## Status
 
@@ -6,7 +6,7 @@ Implementação concluída. `typecheck`, `build` e `test` (API e web) aprovados.
 
 ## Objetivo
 
-A 055 ensinou a detecção de banco a reconhecer múltiplos bancos por ambiente
+A 057 ensinou a detecção de banco a reconhecer múltiplos bancos por ambiente
 (`development: { primary, data }`). As abas **Migrations** e **Modelos**
 ainda assumiam um único banco: `db:migrate:status` imprime um bloco
 `database: ...` por banco configurado, mas o parser concatenava todas as

@@ -5,14 +5,9 @@
 
 .server-dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.92fr) minmax(0, 1.38fr);
+  grid-template-columns: minmax(360px, 0.9fr) minmax(460px, 1.1fr);
   gap: 14px;
   align-items: start;
-}
-
-.server-dashboard-side {
-  display: grid;
-  gap: 14px;
 }
 
 .server-card {
@@ -177,8 +172,7 @@
 
 .server-primary-button,
 .server-secondary-button,
-.server-danger-button,
-.server-log-link {
+.server-danger-button {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -206,15 +200,13 @@
   transform: translateY(-1px);
 }
 
-.server-secondary-button,
-.server-log-link {
+.server-secondary-button {
   border: 1px solid var(--border);
   color: var(--text-muted);
   background: var(--surface-1);
 }
 
-.server-secondary-button:hover:not(:disabled),
-.server-log-link:hover {
+.server-secondary-button:hover:not(:disabled) {
   border-color: var(--border-strong);
   color: var(--text);
   background: var(--surface-2);
@@ -235,8 +227,7 @@
 
 .server-primary-button svg,
 .server-secondary-button svg,
-.server-danger-button svg,
-.server-log-link svg {
+.server-danger-button svg {
   width: 15px;
   height: 15px;
 }
@@ -371,115 +362,6 @@
   font-size: 11px;
 }
 
-.server-activity-header {
-  align-items: center;
-}
-
-.server-activity-header a {
-  flex: 0 0 auto;
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
-}
-
-.server-activity-list {
-  margin: 0;
-  padding: 0 16px 10px;
-  list-style: none;
-}
-
-.server-activity-list li {
-  display: grid;
-  grid-template-columns: 9px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  border-top: 1px solid var(--border);
-}
-
-.server-activity-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--text-dim);
-}
-
-.server-activity-dot-running {
-  background: var(--info-text);
-  box-shadow: 0 0 0 3px var(--info-surface);
-}
-
-.server-activity-dot-succeeded {
-  background: var(--success-text);
-  box-shadow: 0 0 0 3px var(--success-surface);
-}
-
-.server-activity-dot-failed {
-  background: var(--danger-text);
-  box-shadow: 0 0 0 3px var(--danger-surface);
-}
-
-.server-activity-dot-cancelled {
-  background: var(--warning-text);
-  box-shadow: 0 0 0 3px var(--warning-surface);
-}
-
-.server-activity-label {
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.server-activity-list time {
-  color: var(--text-dim);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 9px;
-}
-
-.server-activity-empty {
-  padding: 16px;
-  border-top: 1px solid var(--border);
-  color: var(--text-dim);
-  font-size: 11px;
-}
-
-.server-log-preview-card {
-  padding-bottom: 14px;
-}
-
-.server-log-preview-header {
-  align-items: center;
-}
-
-.server-log-link {
-  flex: 0 0 auto;
-}
-
-.server-log-preview {
-  min-height: 150px;
-  max-height: 210px;
-  overflow: auto;
-  margin: 0 14px;
-  padding: 15px 16px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: var(--radius-md);
-  color: #dce4f2;
-  background:
-    radial-gradient(circle at 90% 0, rgb(69 91 126 / 20%), transparent 42%),
-    #111722;
-  font-size: 11px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
-}
-
-.server-log-preview code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
 .server-empty-state {
   display: flex;
   min-height: 180px;
@@ -512,17 +394,9 @@
   .server-dashboard-grid {
     grid-template-columns: 1fr;
   }
-
-  .server-dashboard-side {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
-  }
 }
 
 @media (max-width: 860px) {
-  .server-dashboard-side {
-    grid-template-columns: 1fr;
-  }
-
   .server-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -552,16 +426,10 @@
     max-width: none;
   }
 
-  .server-card-header,
-  .server-log-preview-header {
+  .server-card-header {
     align-items: flex-start;
     flex-direction: column;
   }
-
-  .server-log-link {
-    align-self: stretch;
-  }
-
   .server-status-actions > * {
     flex: 1 1 140px;
   }
