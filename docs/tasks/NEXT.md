@@ -6,14 +6,16 @@ frentes abaixo, que continuam aguardando decisão de início.
 Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
 código escrito ainda:
 
-## 1. Refatoração pura dos arquivos acima de 400 linhas
+## 1. Refatoração pura dos arquivos acima de 400 linhas (em andamento)
 
 Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases
-1–6 concluídas; fase 7 é o reinventário mais recente, 35 arquivos acima de
-400 linhas hoje, já sem `process-manager.ts` na lista). Nenhuma API pública
-muda — é reorganização de arquivo, não de comportamento. Próximo passo é
-decidir por onde começar a fase 7 — sem plano detalhado arquivo a arquivo
-ainda, ao contrário das fases anteriores.
+1–6 concluídas; fase 7 em andamento — `process-manager.ts` e
+`git-service.ts` já feitos, ~33 arquivos do reinventário ainda pendentes).
+Nenhuma API pública muda — é reorganização de arquivo, não de
+comportamento. Recomendação registrada no doc: priorizar os arquivos de
+`apps/api/src` (menor risco) antes dos componentes `.vue` grandes
+(extração de composable pode mudar timing de watcher, como já visto na
+Fase 4).
 
 ## 2. Abrir o editor local do usuário
 
