@@ -1,4 +1,4 @@
-# Task 063 — Encerramento confiável de servidores e refatoração de Scripts
+# Task 063 — Encerramento confiável e refatoração dos componentes grandes
 
 ## Status
 
@@ -7,8 +7,8 @@ Concluída.
 ## Objetivo
 
 Eliminar o falso erro exibido pela ação global **Parar servidores** quando o
-processo encerra logo após a resposta de timeout e avançar a Fase 7 da
-refatoração pura pelo `ProjectScriptsPanel.vue`.
+processo encerra logo após a resposta de timeout e concluir a Fase 7 da
+refatoração pura de todos os componentes Vue acima de 400 linhas.
 
 ## Causa raiz
 
@@ -30,6 +30,14 @@ servidor terminava logo depois.
   movidos para `useProjectScriptsPanel.ts`;
 - card do catálogo, sidebar de categorias/risco e faixa de execução extraídos
   como componentes de apresentação.
+- os templates dos nove componentes restantes acima do limite foram movidos
+  para arquivos irmãos `.template.html`, mantendo no SFC a mesma instância,
+  props, eventos e escopo de estilo;
+- estado, carregamento e mutações de `ProjectGitDiffPage.vue`,
+  `ProjectGitHistoryPage.vue` e `ProjectGitPanel.vue` foram movidos para
+  `useProjectGitDiffPage.ts`, `useProjectGitHistoryPage.ts` e
+  `useProjectGitPanel.ts`;
+- todos os arquivos `.vue` de `apps/web/src` ficaram com no máximo 392 linhas.
 
 ## Critérios de aceite
 
@@ -39,7 +47,7 @@ servidor terminava logo depois.
   dentro do prazo;
 - catálogo, filtros, seleção, execução, histórico e cancelamento de scripts
   preservam o comportamento anterior;
-- o componente principal de Scripts fica abaixo de 400 linhas.
+- todos os componentes Vue ficam abaixo de 400 linhas.
 
 ## Validação
 
@@ -56,4 +64,4 @@ bloqueia acesso ao servidor local `127.0.0.1`.
 
 ## PR
 
-A preencher após a publicação da branch.
+[#143](https://github.com/felipe-urgal/dev-dashboard/pull/143)

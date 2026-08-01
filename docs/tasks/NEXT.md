@@ -3,24 +3,10 @@
 A correção e refatoração da task 063 foi concluída. Ela não altera a prioridade das
 frentes abaixo, que continuam aguardando decisão de início.
 
-Três frentes documentadas e aguardando decisão de início — nenhuma delas tem
+Duas frentes documentadas e aguardando decisão de início — nenhuma delas tem
 código escrito ainda:
 
-## 1. Refatoração pura dos arquivos acima de 400 linhas (em andamento)
-
-Plano vive em `docs/architecture/refactoring-arquivos-grandes.md` (fases
-1–6 concluídas; fase 7 em andamento — todo o `apps/api/src` está
-concluído, assim como `CommandPalette.vue`, `ProcessesView.vue` e
-`DashboardView.vue` e `ProjectScriptsPanel.vue`; `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
-`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos; ~7
-componentes `.vue` do reinventário ainda pendentes, ver lista na seção
-"Fase 7" do doc). Nenhuma API pública muda — é reorganização de arquivo,
-não de comportamento. Os arquivos restantes são os mais arriscados
-(`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`,
-`ProjectGitHistoryPage.vue` etc.) — extração de composable pode mudar
-timing de watcher, como já visto na Fase 4.
-
-## 2. Abrir o editor local do usuário
+## 1. Abrir o editor local do usuário
 
 Próxima candidata concreta de "paridade CLI→Web" (Horizonte 2 do roadmap):
 a API roda `code <projeto>` (ou `cursor`/outro, catálogo fechado de
@@ -34,7 +20,7 @@ propositalmente adiada para o Horizonte 4 — é uma superfície de acesso a
 arquivo muito maior que qualquer endpoint hoje e pede modelo de ameaça
 próprio antes de qualquer código.
 
-## 3. Docker Compose por serviços declarados e allowlist
+## 2. Docker Compose por serviços declarados e allowlist
 
 Item do Horizonte 3 do roadmap. Desenho completo em
 `docs/architecture/docker-compose-design.md`: ler `docker-compose.yml`/
@@ -47,6 +33,13 @@ reaproveitando o rastreamento de PID/log que já existe, mais retrabalho) ou
 uma leitura pontual com `--tail` (mais simples, sem streaming ao vivo) — o
 doc recomenda a primeira opção, mas registra o trade-off para decisão na
 hora de codar.
+
+## Refatoração concluída
+
+A Fase 7 de `docs/architecture/refactoring-arquivos-grandes.md` deixou todos
+os componentes `.vue` abaixo de 400 linhas. As duas classes de serviço que
+continuam acima desse limite já foram subdivididas por responsabilidade e
+permanecem apenas como candidatas a uma segunda passada, sem prioridade ativa.
 
 ## Outras frentes documentadas, sem prioridade definida ainda
 

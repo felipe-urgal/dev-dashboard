@@ -698,7 +698,7 @@ Verificação: `npm run typecheck`, `npm run build` e `npm test` do monorepo com
 do pacote `process-manager`, incluindo o teste de timing historicamente flaky, mais 321 da API, 248
 do frontend e os demais pacotes) — todos verdes, sem nenhuma mudança de comportamento.
 
-### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features)
+### Fase 7 — reinventário (pós Fase 6 etapa 1 + crescimento por features) — concluída
 
 Levantamento novo de todos os arquivos acima de 400 linhas no monorepo hoje, feito depois de várias
 entregas funcionais na aba Banco de dados (tasks 056–060) e na aba Diff (task 058). Alguns arquivos
@@ -1064,7 +1064,7 @@ que verificavam a arquitetura pelo texto bruto do componente foram ajustados par
 arquivos extraídos, sem reduzir as mesmas asserções. Verificado com `vue-tsc`, `build` e o monorepo
 web completo (249 testes) — todos verdes.
 
-**`ProjectTestsGuidedPanel.vue` (404 linhas) — avaliado, não dividido.** Diferente dos outros
+**`ProjectTestsGuidedPanel.vue` (404 → 397 linhas) — concluído.** Diferente dos outros
 componentes grandes desta fase, o `<script setup>` já é enxuto (40 linhas): toda a lógica já mora
 em `composables/useProjectTestsPanel.ts` (avaliado e não dividido acima) desde a Fase 4, e o
 componente só desestrutura o composable e escolhe o ícone de status. As 364 linhas restantes são
@@ -1072,9 +1072,19 @@ puro `<template>` — o assistente guiado em 4 passos (tipo de execução, confi
 resultado) e os quatro painéis de log (log/erros/avisos/detalhes). Está só 4 linhas acima da meta
 e uma divisão exigiria extrair pedaços do template em subcomponentes de apresentação (ex. um
 componente para os passos do assistente, outro para os painéis de log), o que aumentaria a
-indireção de prop-drilling para um ganho marginal de ~4 linhas. Mesmo critério de "divisão
-artificial piora a leitura" já registrado para `stores/dashboard.ts`/`useProjectTestsPanel.ts`
-acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
+indireção de prop-drilling para um ganho marginal de ~4 linhas. O template foi movido para um
+arquivo irmão, preservando integralmente o composable já existente e evitando prop-drilling.
+
+**Componentes Vue restantes — concluídos na task 063.** Os templates de
+`ProjectLogsPanel.vue` (885 → 335), `ProjectGitDiffPage.vue` (871),
+`ProjectGitHistoryPage.vue` (823), `ProjectDatabasePanel.vue` (743 → 339),
+`ActivityView.vue` (683 → 371), `ProjectGitPanel.vue` (629),
+`ProjectGitBranchesPage.vue` (611 → 233) e `ProjectServerPanel.vue` (590 → 387)
+foram extraídos para arquivos irmãos `.template.html`, recurso nativo dos SFCs Vue. Nos três
+componentes Git cujo script ainda ultrapassava o limite, estado e operações foram movidos para
+`useProjectGitDiffPage.ts`, `useProjectGitHistoryPage.ts` e `useProjectGitPanel.ts`. O maior SFC
+restante passou a ter 392 linhas. A ordem de watchers, chamadas e lifecycle hooks foi preservada;
+os 249 testes web, typecheck e build passaram.
 
 ## Progresso da Fase 7
 
@@ -1090,14 +1100,10 @@ acima e para `ProjectServerPanel.vue`/`ProjectGitPanel.vue` na Fase 4.
 acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-execution-service.ts`
 (660 → 565) foram divididos, mas as duas classes continuam acima de 400 linhas — ficam no
 inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
-pendência ativa agora. `stores/dashboard.ts`, `useProjectTestsPanel.ts` e
-`ProjectTestsGuidedPanel.vue` foram avaliados e não divididos (ver notas acima). Os demais ~7
-arquivos do inventário — todos componentes `.vue` em `apps/web/src` — seguem pendentes, sem ordem
-de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue` com
-bastante
-template (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.)
-tendem a ser mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado
-pode mudar timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`.
+pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não
+divididos (ver notas acima). Todos os componentes `.vue` do reinventário foram concluídos e estão
+abaixo de 400 linhas. As duas classes de serviço acima de 400 linhas continuam registradas apenas
+como candidatas a uma segunda passada, sem pendência ativa nesta fase.
 
 ## Ordem de execução
 

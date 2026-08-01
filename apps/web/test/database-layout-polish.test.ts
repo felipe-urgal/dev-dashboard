@@ -22,10 +22,12 @@ async function readDatabaseLayoutCss(): Promise<string> {
 }
 
 test('oferece a navegação completa do explorador de banco', async () => {
-  const component = await readFile(
-    sourceFile('components/ProjectDatabasePanel.vue'),
-    'utf8',
-  );
+  const component = (
+    await Promise.all([
+      'components/ProjectDatabasePanel.vue',
+      'components/ProjectDatabasePanel.template.html',
+    ].map((file) => readFile(sourceFile(file), 'utf8')))
+  ).join('\n');
   const railsMigrationsComposable = await readFile(
     sourceFile('composables/useRailsMigrations.ts'),
     'utf8',
