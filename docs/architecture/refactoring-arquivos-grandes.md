@@ -729,7 +729,6 @@ completo direto no arquivo.
  493  apps/web/src/utils/git-diff-view.ts
  467  apps/web/src/stores/dashboard.ts
  461  apps/web/src/utils/git-syntax-highlight.ts
- 437  apps/api/src/routes/git-workspace.ts
  434  apps/web/src/composables/useProjectTestsPanel.ts
  430  apps/api/src/routes/rails.ts                             [cresceu com rotas de generator, task 060]
  425  apps/api/src/routes/projects.ts
@@ -907,20 +906,27 @@ arquivo desta fase e o último dos serviços "desfazer"/sincronização Git. Spl
 classe `GitUndoService` fica sozinha no arquivo principal. Verificado com `typecheck`, `build` e os
 5 testes de `git-undo-service`, mais o monorepo completo — todos verdes.
 
+**`apps/api/src/routes/git-workspace.ts` (437 → 17 linhas) — concluído**, décimo terceiro arquivo
+desta fase e o primeiro conjunto de rotas depois dos serviços. Split em `routes/git-workspace/`:
+`helpers.ts` (tipos, todos os schemas JSON, `findProject`, `translateBranchError`),
+`workspace-routes.ts` (GET workspace + POST fetch de remote — 2 rotas) e
+`branch-tracking-routes.ts` (as 4 rotas de rastrear/parar de rastrear branch remota). O arquivo
+principal ficou só com o plugin Fastify instanciando os dois serviços (`GitWorkspaceService`/
+`GitBranchService`) e chamando os 2 registradores. Verificado com `typecheck`, `build` e o
+monorepo completo — todos verdes.
+
 ## Progresso da Fase 7
 
 `process-manager.ts`, `routes/tests.ts`, `rails-inspection-service.ts`,
 `git-pull-request-service.ts`, `routes/processes.ts`, `test-detection-service.ts`,
 `git-stash-service.ts`, `git-commit-details-service.ts`, `database-snapshot-service.ts`,
-`git-sync-service.ts` e `git-undo-service.ts` saíram da lista por completo (`git-service.ts` e
-`script-execution-service.ts` foram divididos mas continuam acima de 400 por causa do tamanho da
-própria classe, ver nota acima). Restam as 4 rotas da API (`git-workspace.ts`/`rails.ts`/
-`projects.ts`/`git-stash.ts`) e os componentes `.vue`. `git-service.ts` (842 → 574) e
-`script-execution-service.ts` (660 → 565) foram divididos, mas as duas classes continuam acima de
-400 linhas — ficam no inventário como candidatas a uma segunda passada (dividir a classe por
-domínio), não como pendência ativa agora. Os demais ~22 arquivos do inventário seguem pendentes,
-sem ordem de execução fixada — a lista completa está na seção "Fase 7" logo acima. Arquivos `.vue`
-com bastante template
+`git-sync-service.ts`, `git-undo-service.ts` e `routes/git-workspace.ts` saíram da lista por
+completo. `git-service.ts` (842 → 574) e `script-execution-service.ts` (660 → 565) foram divididos,
+mas as duas classes continuam acima de 400 linhas — ficam no inventário como candidatas a uma
+segunda passada (dividir a classe por domínio), não como pendência ativa agora. Restam as 3 rotas
+`rails.ts`/`projects.ts`/`git-stash.ts` e os componentes `.vue`. Os demais ~21 arquivos do
+inventário seguem pendentes, sem ordem de execução fixada — a lista completa está na seção "Fase 7"
+logo acima. Arquivos `.vue` com bastante template
 (`ProjectLogsPanel.vue`, `ProjectGitDiffPage.vue`, `ProjectGitHistoryPage.vue` etc.) tendem a ser
 mais arriscados de dividir do que serviços/rotas da API — extrair um composable errado pode mudar
 timing de watchers, como já registrado na Fase 4 para `ProjectLogsPanel.vue`. Priorizar os arquivos
