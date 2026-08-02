@@ -85,6 +85,13 @@ export async function diagnose(options = {}) {
     );
   }
 
+  const dockerComposeVersion = await commandChecker('docker', ['compose', 'version']);
+  results.push(
+    dockerComposeVersion
+      ? result('ok', 'Docker Compose', dockerComposeVersion)
+      : result('warning', 'Docker Compose', 'opcional; comando não encontrado ou indisponível'),
+  );
+
   try {
     await fileChecker(new URL('../node_modules', import.meta.url));
     results.push(result('ok', 'Dependências', 'node_modules encontrado'));

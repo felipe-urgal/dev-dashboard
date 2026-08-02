@@ -51,6 +51,7 @@ export const projectResponseSchema = {
           'sidekiq',
           'rake',
           'bundler',
+          'docker',
         ],
       },
     },

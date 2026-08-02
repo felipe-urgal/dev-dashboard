@@ -18,6 +18,7 @@ import {
   Cog6ToothIcon,
   CommandLineIcon,
   DocumentTextIcon,
+  CubeIcon,
   FolderIcon,
   HomeIcon,
   PlayCircleIcon,
@@ -107,6 +108,9 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
       navigationItem(`area-project-git-${project.id}`, 'Projeto atual', 'Git', 'Branches, diff, commit e sincronização', { name: 'project-git', params }, CodeBracketIcon, 'page'),
       navigationItem(`area-project-tests-${project.id}`, 'Projeto atual', 'Testes', 'Suítes e histórico de execução', { name: 'project-tests', params }, BeakerIcon, 'page'),
       navigationItem(`area-project-database-${project.id}`, 'Projeto atual', 'Banco de dados', 'Ambientes, snapshots e migrations', { name: 'project-database', params }, CircleStackIcon, 'page'),
+      ...(project.capabilities.includes('docker') ? [
+        navigationItem(`area-project-docker-${project.id}`, 'Projeto atual', 'Docker', 'Serviços declarados no Compose', { name: 'project-docker', params }, CubeIcon, 'page'),
+      ] : []),
       navigationItem(`area-project-scripts-${project.id}`, 'Projeto atual', 'Scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'page'),
     ];
     const shortcuts: NavigationPaletteItem[] = [
@@ -124,6 +128,9 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
       ...(project.capabilities.includes('database') ? [
         navigationItem(`command-database-${project.id}`, 'Comandos do projeto', 'Abrir banco de dados', 'Ambientes e ferramentas do banco', { name: 'project-database', params }, CircleStackIcon, 'action', undefined, 'Abrir'),
         navigationItem(`command-database-snapshot-${project.id}`, 'Comandos do projeto', 'Criar snapshot', 'Abrir snapshots do banco de dados', { name: 'project-database', params, query: { section: 'snapshots' } }, CircleStackIcon, 'action', undefined, 'Abrir'),
+      ] : []),
+      ...(project.capabilities.includes('docker') ? [
+        navigationItem(`command-docker-${project.id}`, 'Comandos do projeto', 'Abrir Docker', 'Serviços e logs do Docker Compose', { name: 'project-docker', params }, CubeIcon, 'action', undefined, 'Abrir'),
       ] : []),
       ...(project.capabilities.includes('scripts') ? [navigationItem(`command-scripts-${project.id}`, 'Comandos do projeto', 'Abrir scripts', 'Catálogo autorizado do projeto', { name: 'project-scripts', params }, CommandLineIcon, 'action', undefined, 'Abrir')] : []),
     ];

@@ -2,8 +2,8 @@
 
 ## Status
 
-Desenhado, não implementado. Item do roadmap (Horizonte 3,
-`docs/roadmap.md`), sem código escrito ainda.
+Implementado na task 065 com logs pontuais e limitados. Item do roadmap
+(Horizonte 3).
 
 ## Problema
 
@@ -90,7 +90,7 @@ Catálogo fechado de ações — igual ao `DatabaseServiceAction` já existente
 (`'start' | 'stop' | 'restart'`), com um quarto verbo específico de Compose:
 
 ```ts
-export type ComposeServiceAction = 'start' | 'stop' | 'restart' | 'logs';
+export type ComposeServiceAction = 'start' | 'stop' | 'restart';
 ```
 
 Mapeamento ação → comando (sempre com `-f <arquivo já resolvido na
@@ -108,7 +108,7 @@ string livre do navegador) antes de entrar no array de argumentos — mesma
 validação de allowlist que `resolveServerCommand`
 (`packages/process-manager`) já faz para comandos de servidor conhecidos.
 
-### `logs`: reaproveitar o modelo de leitura de log existente, não SSE novo
+### `logs`: decisão implementada
 
 `docker compose logs -f` (modo follow) seria um processo de vida longa —
 mais próximo do padrão já usado por `ManagedProcess`
@@ -131,8 +131,12 @@ pontual. Duas opções, registradas aqui para decisão na hora de implementar:
   262144 bytes já aplicado a leitura de log de processo gerenciado) — mais
   simples, mas sem streaming ao vivo; o usuário reabre a aba para atualizar.
   - mais simples de implementar corretamente na primeira entrega; streaming
-    ao vivo fica como extensão natural depois, sem mudar o contrato
-    público (só adicionar um parâmetro `follow`).
+    ao vivo fica como extensão separada.
+
+A task 065 implementou a opção **(B)**. O `ProcessManager` atual identifica
+uma única instância por `projectId + kind`; a opção (A) também precisaria de
+identidade por serviço para permitir múltiplos seguidores de log. Essa
+generalização não foi misturada à primeira entrega Compose.
 
 ## Modelo de segurança
 
@@ -159,8 +163,8 @@ caso específico:
   e não precisam do token.
 - **`docker` ausente do PATH**: `dev-doctor` (CLI) e `npm run doctor` (web)
   já verificam dependências do ambiente — adicionar uma checagem
-  opcional de `docker compose version` ali, e a detecção do projeto marca
-  `supported: false` quando o binário não existe, sem erro — mesmo
+  opcional de `docker compose version` ali, e o overview marca
+  `dockerAvailable: false` quando o binário não existe, sem erro — mesmo
   tratamento que `dev-doctor` já dá pra ausência do `gum` (aviso, não erro).
 - **Escopo do processo continua só leitura de config + `execFile` com
   argumentos fechados** — a API nunca ganha acesso a Docker além do que um
@@ -172,7 +176,7 @@ caso específico:
 Seguindo o mesmo formato de `packages/contracts/src/database.ts`:
 
 ```ts
-export type ComposeServiceAction = 'start' | 'stop' | 'restart' | 'logs';
+export type ComposeServiceAction = 'start' | 'stop' | 'restart';
 
 export interface ComposeService {
   name: string;
@@ -184,7 +188,8 @@ export interface ComposeService {
 }
 
 export interface ProjectComposeOverview {
-  supported: boolean;
+  configured: boolean;
+  dockerAvailable: boolean;
   composeFile?: string;
   services: ComposeService[];
 }
@@ -192,19 +197,19 @@ export interface ProjectComposeOverview {
 export interface ComposeServiceActionConfirmation {
   token: string;
   serviceName: string;
-  action: ComposeServiceAction;
+  action: 'stop' | 'restart';
   expiresAt: string;
 }
 
 export interface ComposeServiceActionResult {
   serviceName: string;
   action: ComposeServiceAction;
-  succeeded: boolean;
+  succeeded: true;
 }
 ```
 
-`running` em `ComposeService` vem de `docker compose ps --format json`
-rodado sob demanda quando a aba é aberta (mesmo espírito de "supported"
+`running` em `ComposeService` vem de `docker compose ps --status running --services`
+rodado sob demanda quando a aba é aberta (mesmo espírito de estado
 declarativo + "status" sob demanda que `database-detection-service.ts` já
 usa pra `reachability`), não de um poller contínuo.
 
@@ -212,18 +217,12 @@ usa pra `reachability`), não de um poller contínuo.
 
 Novo painel `ProjectDockerPanel.vue`, mesmo nível de
 `ProjectDatabasePanel.vue`/`ProjectServerPanel.vue` — aba própria "Docker"
-em `ProjectDetailsView.vue`, condicional a `supported` (mesmo padrão já
-usado pra ocultar a aba "Banco de dados" quando o projeto não tem banco,
-task 056). Lista de serviços com badge de porta/estado, ação start/stop/
-restart por linha, e uma view de logs (modal ou seção expansível — decisão
-de UI na hora de implementar, mesmo padrão do modal de migration da task
-057).
+em `ProjectDetailsView.vue`, condicional à capability `docker`. Lista de
+serviços com badge de porta/estado, ação start/stop/restart por linha e uma
+seção expansível de logs recentes.
 
-## Próximo passo
+## Resultado
 
-Sem implementação ainda. Falta decidir entre a opção (A) e (B) de `logs`
-(recomendação acima é (A), mas é o ponto de maior custo de implementação
-do desenho inteiro) antes de abrir a primeira branch. Depois dessa decisão,
-a ordem natural de implementação é: detecção (`docker-compose-service.ts`
-+ contratos) → rotas `start`/`logs` (sem confirmação) → `stop`/`restart`
-(com confirmação) → UI.
+A implementação segue a ordem proposta: detecção e contratos, status e logs
+sem confirmação, `stop`/`restart` com confirmação, UI e diagnóstico opcional.
+Overrides, build de imagens e streaming ao vivo permanecem fora do escopo.

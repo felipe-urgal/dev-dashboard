@@ -70,25 +70,31 @@ async function createNodeProject(
     })
   ]);
 
-  await writeFile(
-    path.join(projectPath, "package.json"),
-    JSON.stringify(
-      {
-        name: "frontend-app",
-        private: true,
-        scripts: {
-          dev: "vite",
-          test: "node --test"
+  await Promise.all([
+    writeFile(
+      path.join(projectPath, "package.json"),
+      JSON.stringify(
+        {
+          name: "frontend-app",
+          private: true,
+          scripts: {
+            dev: "vite",
+            test: "node --test"
+          },
+          devDependencies: {
+            vite: "^8.0.0",
+            webpack: "^5.0.0"
+          }
         },
-        devDependencies: {
-          vite: "^8.0.0",
-          webpack: "^5.0.0"
-        }
-      },
-      null,
-      2
+        null,
+        2
+      )
+    ),
+    writeFile(
+      path.join(projectPath, "compose.yaml"),
+      "services:\n  web:\n    image: node:24\n"
     )
-  );
+  ]);
 }
 
 const workspacePath = await mkdtemp(
@@ -179,6 +185,10 @@ try {
 
   assert.ok(
     nodeProject.capabilities.includes("webpack")
+  );
+
+  assert.ok(
+    nodeProject.capabilities.includes("docker")
   );
 } finally {
   await rm(workspacePath, {

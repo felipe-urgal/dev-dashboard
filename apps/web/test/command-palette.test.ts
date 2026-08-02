@@ -52,6 +52,7 @@ async function mountPalette(path = '/'): Promise<{ wrapper: VueWrapper; router: 
       { path: '/projects/:projectId/git', name: 'project-git', component: { template: '<div />' } },
       { path: '/projects/:projectId/tests', name: 'project-tests', component: { template: '<div />' } },
       { path: '/projects/:projectId/database', name: 'project-database', component: { template: '<div />' } },
+      { path: '/projects/:projectId/docker', name: 'project-docker', component: { template: '<div />' } },
       { path: '/projects/:projectId/scripts', name: 'project-scripts', component: { template: '<div />' } },
     ],
   });
