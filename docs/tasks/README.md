@@ -72,4 +72,5 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `063-stop-servers-and-scripts-refactor.md` — corrige o falso timeout ao parar processos sem observador em memória e conclui a refatoração pura de todos os componentes Vue acima de 400 linhas na Fase 7.
 - `064-local-project-editor.md` — abre o projeto em um editor local conhecido, detectado no `PATH`, por catálogo fechado e processo sem shell.
 - `065-docker-compose-services.md` — detecta serviços declarados no Docker Compose e oferece start, stop, restart e logs limitados por allowlist, sem shell ou build de imagens.
-- `066-docker-compose-build.md` — build assíncrono por serviço Docker Compose como um terceiro `kind` de processo gerenciado (`compose-build`), com identidade por serviço, polling adaptativo na UI, e liberação do `start` só após um build bem-sucedido.
+- `066-rake-task-variables.md` — detecta tarefas Rake e variáveis `ENV` estaticamente, gera formulário e executa com ambiente estruturado e confirmação vinculada aos valores.
+- `067-docker-compose-build.md` — build assíncrono por serviço Docker Compose como um terceiro `kind` de processo gerenciado (`compose-build`), com identidade por serviço, polling adaptativo na UI, e liberação do `start` só após um build bem-sucedido.

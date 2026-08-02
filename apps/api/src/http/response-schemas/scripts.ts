@@ -7,6 +7,12 @@ export const projectScriptCatalogResponseSchema = {
       id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, command: { type: 'string' },
       origin: { type: 'string', enum: ['package-script', 'rails-task', 'bin'] },
       risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] }, enabled: { type: 'boolean' },
+      variables: { type: 'array', maxItems: 20, items: {
+        type: 'object', additionalProperties: false, required: ['name', 'required'], properties: {
+          name: { type: 'string' }, required: { type: 'boolean' },
+          defaultValue: { type: 'string' }, placeholder: { type: 'string' },
+        },
+      } },
     } } },
     page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' },
   },

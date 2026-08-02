@@ -2,7 +2,7 @@
 
 ## Status
 
-Desenhado a partir de um exemplo real. Não implementado ainda.
+Implementado na task 066.
 
 ## Problema
 
@@ -62,20 +62,21 @@ nem `ruby -e`.
 - tasks que chamam outras tasks (`Rake::Task['outra'].invoke`) — cada task
   é analisada isoladamente, sem seguir a cadeia de invocação.
 
-## Execução
+## Execução implementada
 
-Igual ao padrão já usado em `db:migrate`/`rails generate` neste projeto:
-cada `VAR=valor` informado no formulário vira um item **separado** do array
-de argumentos passado para `execFile` — nunca concatenado em string de
-shell. É assim que o próprio `rake` espera receber (ele separa tokens
-`chave=valor` dos argumentos posicionais da task internamente):
+Cada valor informado no formulário entra no objeto `env` passado ao processo.
+O programa e os argumentos continuam fechados (`bin/rails` + nome redetectado)
+e nunca são concatenados em uma string de shell:
 
 ```ts
 // nunca isso (shell):
 // exec(`bin/rails cultural_spaces:import FILE=${filePath}`)
 
-// sempre isso (array, sem shell):
-execFile(railsCommand, [...railsArgs, 'cultural_spaces:import', `FILE=${filePath}`], { cwd, shell: false })
+spawn(railsCommand, [...railsArgs, 'cultural_spaces:import'], {
+  cwd,
+  shell: false,
+  env: { ...process.env, FILE: filePath },
+})
 ```
 
 Validação antes de montar o comando: nome da variável já veio do próprio
@@ -92,10 +93,8 @@ marcadas, com o placeholder extraído do exemplo quando existir), e o
 comando final pré-visualizado antes de confirmar — mesmo padrão de duas
 etapas já usado em `db:migrate`/`rails generate`.
 
-## Próximo passo
+## Resultado
 
-Sem implementação ainda. Falta decidir se isso vira uma extensão do
-`script-execution-service.ts`/`ProjectScriptsPanel.vue` existentes (rake já
-é reconhecido ali) ou um serviço novo dedicado — tende a fazer mais sentido
-como extensão, já que o catálogo de scripts é o lugar que já lista rake
-tasks hoje.
+A implementação estende o catálogo e o motor de execução existentes. A inspeção
+estática ficou isolada em `rake-task-inspection.ts`; formulário, confirmação,
+logs, cancelamento e histórico permanecem no fluxo único de Scripts.

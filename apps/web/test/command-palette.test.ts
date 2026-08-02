@@ -16,10 +16,11 @@ const api = vi.hoisted(() => ({
     items: [
       { id: 'lint', name: 'Verificar lint', description: 'Analisar o código', command: 'npm run lint', origin: 'package-script', risk: 'read-only', enabled: true },
       { id: 'seed', name: 'Popular banco', description: 'Executar seeds locais', command: 'npm run seed', origin: 'package-script', risk: 'mutable', enabled: true },
+      { id: 'rails-task:import', name: 'Importar CSV', description: 'Importar dados', command: 'bin/rails dados:importar FILE=…', origin: 'rails-task', risk: 'mutable', enabled: true, variables: [{ name: 'FILE', required: true }] },
     ],
     page: 1,
     pageSize: 100,
-    total: 2,
+    total: 3,
     totalPages: 1,
   }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({ port: 3100 }),
@@ -187,6 +188,7 @@ describe('paleta de navegação', () => {
 
     const testAction = [...document.querySelectorAll<HTMLButtonElement>('.command-palette-item')]
       .find((button) => button.textContent?.includes('Executar todos os testes'))!;
+    expect(document.body.textContent).not.toContain('Importar CSV');
     testAction.click();
     testAction.click();
     await flushPromises();

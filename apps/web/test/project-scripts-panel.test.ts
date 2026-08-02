@@ -75,13 +75,27 @@ interface FetchScenario {
   catalog?: ProjectScriptCatalog;
   executionsById?: Record<string, ScriptExecution>;
   sseEvents?: ScriptExecutionEvent[];
+  requests?: Array<{ path: string; body: unknown }>;
 }
 
 function installFetchMock(scenario: FetchScenario): () => void {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     const path = url.pathname;
+
+    if (init?.method === 'POST' && path.endsWith('/scripts/confirmations')) {
+      const body = JSON.parse(String(init.body)) as unknown;
+      scenario.requests?.push({ path, body });
+      return jsonResponse({
+        confirmation: { token: 't'.repeat(64), actionId: 'rails-task:import', expiresAt: '2026-08-02T12:01:00.000Z' },
+      }, 201);
+    }
+    if (init?.method === 'POST' && path.endsWith('/scripts/executions')) {
+      const body = JSON.parse(String(init.body)) as unknown;
+      scenario.requests?.push({ path, body });
+      return jsonResponse({ execution: scenario.executionsById?.['exec-rake'] }, 201);
+    }
 
     if (path.endsWith('/scripts/executions/latest')) {
       return jsonResponse({ execution: scenario.latestExecution });
@@ -141,6 +155,55 @@ test('montagem básica renderiza catálogo sem erros', async () => {
   assert.equal(scripts.length, 2);
   assert.match(wrapper.text(), /npm run test/);
   assert.match(wrapper.text(), /npm run build/);
+});
+
+test('monta formulário para variáveis Rake e envia somente os valores declarados', async () => {
+  const execution: ScriptExecution = {
+    id: 'exec-rake', projectId: 'p1', actionId: 'rails-task:import',
+    actionName: 'import', risk: 'mutable', status: 'succeeded',
+    startedAt: '2026-08-02T12:00:00Z', finishedAt: '2026-08-02T12:00:01Z', exitCode: 0,
+  };
+  const requests: Array<{ path: string; body: unknown }> = [];
+  const catalog: ProjectScriptCatalog = {
+    items: [{
+      id: 'rails-task:import', name: 'import', description: 'Importa registros',
+      command: 'bin/rails import FILE=… LIMIT=…', origin: 'rails-task',
+      risk: 'mutable', enabled: true,
+      variables: [
+        { name: 'FILE', required: true, placeholder: 'tmp/import.csv' },
+        { name: 'LIMIT', required: false, defaultValue: '100' },
+      ],
+    }],
+    page: 1, pageSize: 20, total: 1, totalPages: 1,
+  };
+  const restoreFetch = installFetchMock({
+    latestExecution: null, catalog, requests, executionsById: { 'exec-rake': execution },
+  });
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject({ type: 'rails' }) } });
+  cleanup = () => {
+    confirm.mockRestore();
+    wrapper.unmount();
+    restoreFetch();
+  };
+
+  await flushPromises();
+  await wrapper.get('.script-card button').trigger('click');
+  assert.match(wrapper.text(), /Variáveis da tarefa/);
+  const execute = wrapper.get('.scripts-primary-action');
+  assert.notEqual(execute.attributes('disabled'), undefined);
+
+  const inputs = wrapper.findAll('.scripts-variables-form input');
+  await inputs[0]!.setValue('tmp/import.csv');
+  await inputs[1]!.setValue('25');
+  assert.equal(wrapper.get('.scripts-primary-action').attributes('disabled'), undefined);
+  await wrapper.get('.scripts-primary-action').trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(requests.map((request) => request.body), [
+    { actionId: 'rails-task:import', variables: { FILE: 'tmp/import.csv', LIMIT: '25' } },
+    { actionId: 'rails-task:import', variables: { FILE: 'tmp/import.csv', LIMIT: '25' }, confirmationToken: 't'.repeat(64) },
+  ]);
 });
 
 test('catálogo remove hooks e direciona comandos cobertos por outras áreas', async () => {

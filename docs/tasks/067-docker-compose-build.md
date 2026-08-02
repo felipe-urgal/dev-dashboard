@@ -1,4 +1,4 @@
-# Task 066 — Build assíncrono de serviços Docker Compose
+# Task 067 — Build assíncrono de serviços Docker Compose
 
 ## Status
 
@@ -46,7 +46,7 @@ consultável, mantendo o mesmo modelo de segurança (catálogo fechado,
   está em andamento, parado quando todos terminam) — por serviço, não por
   projeto, já que builds são concorrentes.
 - `docs/architecture/docker-compose-design.md` atualizado: build sai da
-  lista "fora do escopo", nova seção "Build assíncrono (task 066)"
+  lista "fora do escopo", nova seção "Build assíncrono (task 067)"
   documenta a decisão de identidade por instância.
 
 ## Critérios de aceite

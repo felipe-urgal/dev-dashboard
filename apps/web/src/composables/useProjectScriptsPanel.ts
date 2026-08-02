@@ -195,9 +195,9 @@ export function useProjectScriptsPanel(getProject: () => Project) {
     activeSection.value = section;
   }
 
-  async function copyCommand(item: ProjectScript): Promise<void> {
+  async function copyCommand(item: ProjectScript, command = item.command): Promise<void> {
     try {
-      await navigator.clipboard.writeText(item.command);
+      await navigator.clipboard.writeText(command);
       copiedActionId.value = item.id;
       if (copiedTimer) clearTimeout(copiedTimer);
       copiedTimer = setTimeout(() => {

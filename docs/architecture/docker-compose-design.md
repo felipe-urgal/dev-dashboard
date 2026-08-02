@@ -3,7 +3,7 @@
 ## Status
 
 Implementado na task 065 (start/stop/restart/logs) com logs pontuais e
-limitados, e estendido na task 066 com build assíncrono por serviço. Item do
+limitados, e estendido na task 067 com build assíncrono por serviço. Item do
 roadmap (Horizonte 3).
 
 ## Problema
@@ -23,7 +23,7 @@ demais para uma única entrega:
 
 - **Dentro do escopo**: ler o `docker-compose.yml`/`compose.yaml` que já
   existe no projeto, listar os serviços declarados, permitir
-  start/stop/restart/logs por serviço, e (desde a task 066) `docker compose
+  start/stop/restart/logs por serviço, e (desde a task 067) `docker compose
   build <serviço>` para os serviços que só declaram `build:` — nunca criar
   ou editar Dockerfile/compose file pela UI.
 - **Fora do escopo**: `docker exec` interativo, editar o compose file ou o
@@ -68,7 +68,7 @@ parsear o arquivo declarado, nunca inferir rodando comando algum.
   exigiria replicar a mesma lógica de precedência de `.env` que o Compose
   usa, fora de escopo da primeira entrega;
 - serviços que só têm `build:` sem `image:`: aparecem na lista marcados
-  como "requer build"; a partir da task 066 o dashboard oferece uma ação
+  como "requer build"; a partir da task 067 o dashboard oferece uma ação
   dedicada de build para esse caso (ver seção "Build assíncrono" abaixo) —
   antes disso, e ainda hoje quando o `ProcessManager` não está disponível
   (`DOCKER_BUILD_UNSUPPORTED`), o serviço fica só informativo até o usuário
@@ -142,7 +142,7 @@ uma única instância por `projectId + kind`; a opção (A) também precisaria d
 identidade por serviço para permitir múltiplos seguidores de log. Essa
 generalização não foi misturada à primeira entrega Compose.
 
-## Build assíncrono (task 066)
+## Build assíncrono (task 067)
 
 `docker compose build <serviço>` pode levar minutos — ao contrário de
 `start`/`stop`/`restart`/`logs`, que são chamadas pontuais com timeout curto
@@ -253,7 +253,7 @@ export interface ComposeServiceActionResult {
 }
 ```
 
-Build (task 066) não introduz um contrato novo — reaproveita `ManagedProcess`
+Build (task 067) não introduz um contrato novo — reaproveita `ManagedProcess`
 de `packages/contracts/src/process.ts` (`kind: 'compose-build'`, novo campo
 opcional `composeServiceName`) e `ProcessLogSnapshot`, os mesmos tipos já
 usados por `server`/`test`.
@@ -275,6 +275,6 @@ seção expansível de logs recentes.
 
 A implementação segue a ordem proposta: detecção e contratos, status e logs
 sem confirmação, `stop`/`restart` com confirmação, UI e diagnóstico opcional
-(task 065); build assíncrono por serviço via `ManagedProcess` (task 066).
+(task 065); build assíncrono por serviço via `ManagedProcess` (task 067).
 Overrides e streaming ao vivo (`docker compose logs -f`) permanecem fora do
 escopo.

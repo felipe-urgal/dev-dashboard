@@ -156,7 +156,7 @@ export function useCommandPaletteItems(options: UseCommandPaletteItemsOptions) {
     }
     if (loadedProjectId.value === project.id && project.capabilities.includes('scripts')) {
       for (const script of scriptCatalog.value?.items.filter(
-        (item) => item.enabled && isRunnableProjectScript(item, project),
+        (item) => item.enabled && !item.variables?.length && isRunnableProjectScript(item, project),
       ) ?? []) {
         actions.push(actionItem(`${project.id}:script-${script.id}`, script.name, script.description || script.command, CommandLineIcon, script.risk === 'read-only' ? 'reversivel' : 'atencao', { type: 'script-start', script }));
       }

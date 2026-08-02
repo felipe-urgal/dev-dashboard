@@ -74,11 +74,12 @@ compromissos de versão.
 - [x] múltiplos bancos por ambiente (`database.yml`, migrations e modelos —
   tasks 057 e 059) e generators de model/migration com catálogo fechado de
   tipo e confirmação em duas etapas (task 060);
-- [ ] Rake tasks fora de `db:*` (`lib/tasks/**/*.rake`) — desenho em
+- [x] Rake tasks fora de `db:*` (`lib/tasks/**/*.rake`) — concluído na task
+  066 a partir do desenho em
   `docs/refactor/rake-tasks-mapeamento.md`: detecção estática de variáveis
   `ENV['X']` obrigatórias/opcionais a partir do próprio código-fonte da
   task, formulário gerado a partir disso, execução com os mesmos princípios
-  de `db:migrate`/generators (argumentos em array, sem shell);
+  de `db:migrate`/generators (ambiente estruturado, sem shell);
 - [ ] Sidekiq, Webpack e credenciais.
 
 ### CLI Bash — mantido e funcional

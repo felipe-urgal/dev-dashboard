@@ -15,6 +15,7 @@ import type {
   ScriptExecutionLog,
   ScriptExecutionHistory,
   ScriptExecutionEvent,
+  ScriptExecutionVariables,
 } from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
@@ -33,6 +34,7 @@ import {
   MAX_TOTAL_SUBSCRIBERS,
 } from './script-execution/constants.js';
 import { resolveCommand } from './script-execution/command-resolution.js';
+import { isProtectedScriptEnvironmentVariable } from './script-execution/environment-variables.js';
 import { ScriptExecutionError } from './script-execution/errors.js';
 
 export { ScriptExecutionError } from './script-execution/errors.js';
@@ -48,6 +50,7 @@ interface RunningExecution {
 
 interface StoredConfirmation extends ScriptExecutionConfirmation {
   projectId: string;
+  variablesSignature: string;
 }
 
 interface StoredExecution { version: 1; execution: ScriptExecution }
@@ -134,8 +137,10 @@ export class ScriptExecutionService {
   public async prepareConfirmation(
     project: Project,
     actionId: string,
+    receivedVariables: ScriptExecutionVariables = {},
   ): Promise<ScriptExecutionConfirmation> {
     const action = await this.findEnabledAction(project, actionId);
+    const variables = this.normalizeVariables(action, receivedVariables);
     if (action.risk === 'read-only') {
       throw new ScriptExecutionError(
         'SCRIPT_CONFIRMATION_REQUIRED',
@@ -148,6 +153,7 @@ export class ScriptExecutionService {
       projectId: project.id,
       actionId: action.id,
       expiresAt: new Date(Date.now() + CONFIRMATION_TTL_MS).toISOString(),
+      variablesSignature: this.variablesSignature(variables),
     };
     this.confirmations.set(confirmation.token, confirmation);
     return {
@@ -161,6 +167,7 @@ export class ScriptExecutionService {
     project: Project,
     actionId: string,
     confirmationToken?: string,
+    receivedVariables: ScriptExecutionVariables = {},
   ): Promise<ScriptExecution> {
     await this.ready;
     if (this.activeProjects.has(project.id)) {
@@ -174,10 +181,16 @@ export class ScriptExecutionService {
 
     try {
       const action = await this.findEnabledAction(project, actionId);
+      const variables = this.normalizeVariables(action, receivedVariables);
       if (action.risk !== 'read-only') {
-        this.consumeConfirmation(project.id, action.id, confirmationToken);
+        this.consumeConfirmation(
+          project.id,
+          action.id,
+          this.variablesSignature(variables),
+          confirmationToken,
+        );
       }
-      const resolved = await resolveCommand(project, action);
+      const resolved = await resolveCommand(project, action, variables);
       return await this.spawnExecution(project, action, resolved);
     } catch (error) {
       this.activeProjects.delete(project.id);
@@ -304,6 +317,7 @@ export class ScriptExecutionService {
   private consumeConfirmation(
     projectId: string,
     actionId: string,
+    variablesSignature: string,
     receivedToken?: string,
   ): void {
     const stored = receivedToken
@@ -318,6 +332,7 @@ export class ScriptExecutionService {
       !tokensMatch(receivedToken, stored.token) ||
       stored.projectId !== projectId ||
       stored.actionId !== actionId ||
+      stored.variablesSignature !== variablesSignature ||
       Date.parse(stored.expiresAt) <= Date.now()
     ) {
       throw new ScriptExecutionError(
@@ -327,10 +342,57 @@ export class ScriptExecutionService {
     }
   }
 
+  private normalizeVariables(
+    action: ProjectScript,
+    received: ScriptExecutionVariables,
+  ): ScriptExecutionVariables {
+    const declared = action.variables ?? [];
+    const entries = Object.entries(received);
+    if (entries.length > 20) {
+      throw new ScriptExecutionError('SCRIPT_VARIABLES_INVALID', 'A tarefa aceita no máximo 20 variáveis.');
+    }
+    const allowed = new Map(declared.map((variable) => [variable.name, variable]));
+    const normalized: ScriptExecutionVariables = {};
+    for (const [name, value] of entries) {
+      if (
+        isProtectedScriptEnvironmentVariable(name)
+        || !allowed.has(name)
+        || typeof value !== 'string'
+      ) {
+        throw new ScriptExecutionError(
+          'SCRIPT_VARIABLES_INVALID',
+          'A requisição contém uma variável não aceita pela tarefa atual.',
+        );
+      }
+      if (value.length > 4_096 || /[\0\r\n]/.test(value)) {
+        throw new ScriptExecutionError(
+          'SCRIPT_VARIABLES_INVALID',
+          `O valor de ${name} é inválido ou excede 4 KiB.`,
+        );
+      }
+      if (value !== '') normalized[name] = value;
+    }
+    for (const variable of declared) {
+      if (variable.required && normalized[variable.name] === undefined) {
+        throw new ScriptExecutionError(
+          'SCRIPT_VARIABLES_INVALID',
+          `Informe a variável obrigatória ${variable.name}.`,
+        );
+      }
+    }
+    return Object.fromEntries(
+      Object.entries(normalized).sort(([left], [right]) => left.localeCompare(right)),
+    );
+  }
+
+  private variablesSignature(variables: ScriptExecutionVariables): string {
+    return JSON.stringify(variables);
+  }
+
   private async spawnExecution(
     project: Project,
     action: ProjectScript,
-    resolved: { command: string; args: string[] },
+    resolved: { command: string; args: string[]; env?: ScriptExecutionVariables },
   ): Promise<ScriptExecution> {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const id = randomUUID();
@@ -369,6 +431,7 @@ export class ScriptExecutionService {
         shell: false,
         detached: process.platform !== 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],
+        ...(resolved.env ? { env: { ...process.env, ...resolved.env } } : {}),
       });
       record.child.stdout?.pipe(output, { end: false });
       record.child.stderr?.pipe(output, { end: false });

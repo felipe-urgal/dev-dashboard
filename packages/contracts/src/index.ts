@@ -164,10 +164,12 @@ export type {
   ProjectScriptCatalog,
   ProjectScriptOrigin,
   ProjectScriptRisk,
+  ProjectScriptVariable,
   ScriptExecution,
   ScriptExecutionHistory,
   ScriptExecutionEvent,
   ScriptExecutionConfirmation,
   ScriptExecutionLog,
   ScriptExecutionStatus,
+  ScriptExecutionVariables,
 } from './script.js';
