@@ -16,6 +16,7 @@ import { BundlerInspectionService } from './services/bundler-inspection-service.
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
+import { ProjectEditorService } from './services/project-editor-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -33,6 +34,7 @@ export interface AppContext {
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
+  projectEditorService: ProjectEditorService;
 }
 
 export function createAppContext(): AppContext {
@@ -59,5 +61,6 @@ export function createAppContext(): AppContext {
     scriptDetectionService,
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
+    projectEditorService: new ProjectEditorService(),
   };
 }

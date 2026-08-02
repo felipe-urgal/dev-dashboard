@@ -21,6 +21,7 @@ import type {
 
 import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
+import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
@@ -174,11 +175,14 @@ watch(projectId, () => {
           </div>
         </div>
 
-        <ProjectPullRequestSummary
-          v-if="gitOverview"
-          :project-id="project.id"
-          :overview="gitOverview"
-        />
+        <div class="project-details-actions">
+          <ProjectEditorLauncher :project-id="project.id" />
+          <ProjectPullRequestSummary
+            v-if="gitOverview"
+            :project-id="project.id"
+            :overview="gitOverview"
+          />
+        </div>
       </header>
 
       <nav class="project-details-tabs" aria-label="Áreas do projeto">

@@ -1,59 +1,31 @@
 # Próxima atividade
 
-A correção e refatoração da task 063 foi concluída. Ela não altera a prioridade das
-frentes abaixo, que continuam aguardando decisão de início.
+A task 064 concluiu a abertura segura do projeto em um editor local conhecido.
 
-Duas frentes documentadas e aguardando decisão de início — nenhuma delas tem
-código escrito ainda:
+## Docker Compose por serviços declarados e allowlist
 
-## 1. Abrir o editor local do usuário
+Próxima frente candidata do Horizonte 3. O desenho completo está em
+`docs/architecture/docker-compose-design.md`: a API lê um arquivo
+`docker-compose.yml`, `docker-compose.yaml`, `compose.yml` ou `compose.yaml`
+já existente no projeto e oferece somente serviços declarados nele.
 
-Próxima candidata concreta de "paridade CLI→Web" (Horizonte 2 do roadmap):
-a API roda `code <projeto>` (ou `cursor`/outro, catálogo fechado de
-editores conhecidos), sem shell — igual ao adaptador que o CLI Bash já tem
-para terminal/Claude. Ainda não tem doc de desenho próprio; é o próximo
-passo antes de codar.
+### Escopo proposto
 
-Fase 2 dessa mesma frente (editor completo dentro do navegador, tipo
-Monaco/CodeMirror lendo qualquer arquivo do projeto pela API) foi
-propositalmente adiada para o Horizonte 4 — é uma superfície de acesso a
-arquivo muito maior que qualquer endpoint hoje e pede modelo de ameaça
-próprio antes de qualquer código.
+- detectar um único arquivo Compose reconhecido na raiz do projeto;
+- listar os serviços declarados sem criar ou buildar imagens;
+- catálogo fechado de `start`, `stop`, `restart` e `logs`;
+- executar `docker compose` com argumentos em array, `cwd` canônico e sem
+  shell;
+- confirmação em duas etapas para `stop` e `restart`;
+- limitar logs por tamanho e aplicar o mascaramento já usado nas demais fontes;
+- nunca aceitar nome de arquivo, serviço ou comando livre do navegador.
 
-## 2. Docker Compose por serviços declarados e allowlist
+### Decisão antes da implementação
 
-Item do Horizonte 3 do roadmap. Desenho completo em
-`docs/architecture/docker-compose-design.md`: ler `docker-compose.yml`/
-`compose.yaml` já existente no projeto (nunca criar/buildar imagem),
-catálogo fechado de 4 ações (`start`/`stop`/`restart`/`logs`) via
-`execFile('docker', [...])` sem shell, confirmação em duas etapas para
-`stop`/`restart`. Ponto em aberto que trava o início da implementação: se
-`logs` vira um terceiro `kind` de `ManagedProcess` (`'compose-service'`,
-reaproveitando o rastreamento de PID/log que já existe, mais retrabalho) ou
-uma leitura pontual com `--tail` (mais simples, sem streaming ao vivo) — o
-doc recomenda a primeira opção, mas registra o trade-off para decisão na
-hora de codar.
+Definir se `logs` será acompanhado ao vivo como um terceiro `kind` de
+`ManagedProcess` (`compose-service`) ou lido pontualmente com `--tail`. O
+desenho recomenda o primeiro caminho para manter a experiência dos painéis de
+processo, mas ele exige generalizar persistência, arquivos de log, observação
+de saída e limpeza de estados no `ProcessManager`.
 
-## Refatoração concluída
-
-A Fase 7 de `docs/architecture/refactoring-arquivos-grandes.md` deixou todos
-os componentes `.vue` abaixo de 400 linhas. As duas classes de serviço que
-continuam acima desse limite já foram subdivididas por responsabilidade e
-permanecem apenas como candidatas a uma segunda passada, sem prioridade ativa.
-
-## Outras frentes documentadas, sem prioridade definida ainda
-
-- **Rake tasks com variáveis** (`ENV['FILE']` etc.): desenho completo em
-  `docs/refactor/rake-tasks-mapeamento.md`, a partir de um exemplo real
-  fornecido. Detecção estática das variáveis obrigatórias/opcionais direto
-  do código-fonte da task, formulário gerado a partir disso.
-- candidatos observados nas entregas 057–060 da aba Banco de dados:
-  - os arquivos criados por `rails generate` (060) aparecem só como texto,
-    sem ação de abrir no editor — conecta com a frente 2 acima quando ela
-    sair;
-  - `runMigrationMutation` (migrate/rollback/seed/db:prepare) sempre opera
-    em todos os bancos configurados de uma vez; não há como escolher rodar
-    só num banco secundário pela interface (059);
-  - a correlação entre bloco de `db:migrate:status` e banco configurado
-    (059) é heurística (nome do arquivo contém o nome da configuração); não
-    há um jeito formal de confirmar a correspondência.
+Nenhum código desta frente foi escrito ainda.

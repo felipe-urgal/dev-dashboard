@@ -29,6 +29,7 @@ import { bundlerRoutes } from './routes/bundler.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
+import { projectEditorRoutes } from './routes/project-editor.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -178,6 +179,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectReadmeRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+  });
+
+  app.register(projectEditorRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectEditorService: context.projectEditorService,
   });
 
   app.register(processRoutes, {

@@ -145,7 +145,7 @@ todos os projetos.
    API de provedor nem exigir token de terceiros — concluído, task 043),
    snapshot/restore de banco reconhecido (concluído, task 051), e **abrir o
    editor local do usuário** (`code <projeto>`/`cursor`/etc., catálogo
-   fechado de editores conhecidos, sem shell — próxima candidata concreta).
+   fechado de editores conhecidos, sem shell — concluído, task 064).
    Integrações IA (`dev-claude`, `dev-ai-*`) permanecem opcionais e
    isoladas em um painel próprio, sem virar dependência do fluxo principal.
 
