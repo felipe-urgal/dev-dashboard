@@ -9,6 +9,9 @@ const api = vi.hoisted(() => ({
   prepareComposeServiceAction: vi.fn(),
   runComposeServiceAction: vi.fn(),
   fetchComposeServiceLogs: vi.fn(),
+  fetchComposeServiceBuild: vi.fn(),
+  startComposeServiceBuild: vi.fn(),
+  fetchComposeServiceBuildLog: vi.fn(),
 }));
 
 vi.mock('../src/api', async (importOriginal) => ({
@@ -84,5 +87,43 @@ describe('painel Docker Compose', () => {
     await flushPromises();
     expect(wrapper.get('.docker-logs').text()).toContain('CONTEUDO_MASCARADO');
     expect(wrapper.get('.docker-logs').text()).toContain('1 conteúdo(s) sensível(is)');
+  });
+
+  it('inicia o build de um serviço que exige build e libera o start após sucesso', async () => {
+    api.fetchProjectDocker.mockResolvedValue(overview);
+    api.fetchComposeServiceBuild.mockResolvedValue(null);
+    api.startComposeServiceBuild.mockResolvedValue({
+      id: 'p1:compose-build:web', projectId: 'p1', kind: 'compose-build', status: 'running',
+    });
+    const wrapper = mount(ProjectDockerPanel, {
+      props: { project: makeProject({ capabilities: ['docker'] }) },
+    });
+    await flushPromises();
+
+    let web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
+    expect(web.text()).toContain('Requer build');
+    const buildButton = web.findAll('button').find((button) => button.text().includes('Buildar'))!;
+    await buildButton.trigger('click');
+    await flushPromises();
+
+    expect(api.startComposeServiceBuild).toHaveBeenCalledWith('p1', 'web');
+    web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
+    expect(web.text()).toContain('Buildando');
+    expect(web.findAll('button')[0]!.attributes('disabled')).toBeDefined();
+  });
+
+  it('desabilita o botão Iniciar quando o último build falhou', async () => {
+    api.fetchProjectDocker.mockResolvedValue(overview);
+    api.fetchComposeServiceBuild.mockResolvedValue({
+      id: 'p1:compose-build:web', projectId: 'p1', kind: 'compose-build', status: 'failed', exitCode: 1,
+    });
+    const wrapper = mount(ProjectDockerPanel, {
+      props: { project: makeProject({ capabilities: ['docker'] }) },
+    });
+    await flushPromises();
+
+    const web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
+    expect(web.text()).toContain('Build falhou');
+    expect(web.findAll('button')[0]!.attributes('disabled')).toBeDefined();
   });
 });

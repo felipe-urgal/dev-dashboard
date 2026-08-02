@@ -3,6 +3,8 @@ import type {
   ComposeServiceActionConfirmation,
   ComposeServiceActionResult,
   ComposeServiceLogs,
+  ManagedProcess,
+  ProcessLogSnapshot,
   ProjectComposeOverview,
 } from '@dev-dashboard/contracts';
 
@@ -12,9 +14,15 @@ interface OverviewResponse { docker: ProjectComposeOverview }
 interface ConfirmationResponse { confirmation: ComposeServiceActionConfirmation }
 interface ActionResponse { result: ComposeServiceActionResult }
 interface LogsResponse { logs: ComposeServiceLogs }
+interface BuildProcessResponse { process: ManagedProcess | null }
+interface BuildLogResponse { log: ProcessLogSnapshot }
 
 function dockerPath(projectId: string): string {
   return `/api/projects/${encodeURIComponent(projectId)}/docker`;
+}
+
+function buildPath(projectId: string, serviceName: string): string {
+  return `${dockerPath(projectId)}/services/${encodeURIComponent(serviceName)}/build`;
 }
 
 export async function fetchProjectDocker(projectId: string): Promise<ProjectComposeOverview> {
@@ -57,4 +65,56 @@ export async function fetchComposeServiceLogs(
     `${dockerPath(projectId)}/services/${encodeURIComponent(serviceName)}/logs`,
   );
   return response.logs;
+}
+
+export async function fetchComposeServiceBuild(
+  projectId: string,
+  serviceName: string,
+): Promise<ManagedProcess | null> {
+  const response = await requestJson<BuildProcessResponse>(buildPath(projectId, serviceName));
+  return response.process;
+}
+
+export async function startComposeServiceBuild(
+  projectId: string,
+  serviceName: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<BuildProcessResponse>(`${buildPath(projectId, serviceName)}/start`, {
+    method: 'POST',
+  });
+  if (!response.process) {
+    throw new Error('A API não retornou o build iniciado.');
+  }
+  return response.process;
+}
+
+export async function stopComposeServiceBuild(
+  projectId: string,
+  serviceName: string,
+): Promise<ManagedProcess> {
+  const response = await requestJson<BuildProcessResponse>(`${buildPath(projectId, serviceName)}/stop`, {
+    method: 'POST',
+  });
+  if (!response.process) {
+    throw new Error('A API não retornou o build interrompido.');
+  }
+  return response.process;
+}
+
+export async function fetchComposeServiceBuildLog(
+  projectId: string,
+  serviceName: string,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<BuildLogResponse>(`${buildPath(projectId, serviceName)}/logs`);
+  return response.log;
+}
+
+export async function clearComposeServiceBuildLog(
+  projectId: string,
+  serviceName: string,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<BuildLogResponse>(`${buildPath(projectId, serviceName)}/logs`, {
+    method: 'DELETE',
+  });
+  return response.log;
 }

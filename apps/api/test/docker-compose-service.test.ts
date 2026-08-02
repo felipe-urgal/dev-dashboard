@@ -137,6 +137,74 @@ test('limita e mascara logs antes de devolvê-los', async () => {
   }
 });
 
+test('exige build via ProcessManager e libera o start após sucesso', async () => {
+  const item = await fixture();
+  const buildCalls: Array<{ projectId: string; serviceName: string; command: unknown }> = [];
+  let buildProcess: { status: string; exitCode?: number } | null = null;
+  const fakeProcessManager = {
+    getComposeBuildProcess: async (projectId: string, serviceName: string) => (
+      buildProcess ? { id: `${projectId}:compose-build:${serviceName}`, projectId, kind: 'compose-build', ...buildProcess } : null
+    ),
+    startComposeBuild: async (project: Project, serviceName: string, command: unknown) => {
+      buildCalls.push({ projectId: project.id, serviceName, command });
+      buildProcess = { status: 'running' };
+      return { id: `${project.id}:compose-build:${serviceName}`, projectId: project.id, kind: 'compose-build', status: 'running' };
+    },
+  };
+  const runCommandCalls: string[][] = [];
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => {
+      runCommandCalls.push(args);
+      return { stdout: '', stderr: '' };
+    },
+    processManager: fakeProcessManager as never,
+  });
+  try {
+    await assert.rejects(
+      service.runAction(item.project, 'web', 'start'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_SERVICE_REQUIRES_BUILD',
+    );
+
+    await service.startBuild(item.project, 'web');
+    assert.deepEqual(buildCalls[0], {
+      projectId: item.project.id,
+      serviceName: 'web',
+      command: { command: 'docker', args: ['compose', '-f', path.join(item.directory, 'compose.yaml'), 'build', 'web'] },
+    });
+
+    await assert.rejects(
+      service.runAction(item.project, 'web', 'start'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_SERVICE_REQUIRES_BUILD',
+    );
+
+    buildProcess = { status: 'stopped', exitCode: 0 };
+    await service.runAction(item.project, 'web', 'start');
+    assert.deepEqual(runCommandCalls.at(-1), [
+      'compose', '-f', path.join(item.directory, 'compose.yaml'), 'up', '-d', 'web',
+    ]);
+  } finally {
+    await item.cleanup();
+  }
+});
+
+test('rejeita operações de build sem ProcessManager configurado', async () => {
+  const item = await fixture();
+  const service = new DockerComposeService({
+    runCommand: async () => ({ stdout: '', stderr: '' }),
+  });
+  try {
+    await assert.rejects(
+      service.startBuild(item.project, 'web'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_BUILD_UNSUPPORTED',
+    );
+  } finally {
+    await item.cleanup();
+  }
+});
+
 test('retorna estado vazio sem arquivo e erro seguro para YAML inválido', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-empty-'));
   const project: Project = {

@@ -57,8 +57,9 @@ export class ProcessManager {
     projectId: string,
     kind: ManagedKind,
     action: () => Promise<T>,
+    instance?: string,
   ): Promise<T> {
-    const key = `${projectId}:${kind}`;
+    const key = `${projectId}:${kind}:${instance ?? ''}`;
     const previous = this.startLocks.get(key) ?? Promise.resolve();
     const current = previous.catch(() => undefined).then(action);
     const tail = current.then(
@@ -153,5 +154,53 @@ export class ProcessManager {
     projectId: string,
   ): Promise<ManagedProcess> {
     return this.lifecycle.stopManagedProcess(projectId, 'test');
+  }
+
+  public getComposeBuildProcess(
+    projectId: string,
+    serviceName: string,
+  ): Promise<ManagedProcess | null> {
+    return this.statusReader.getManagedProcess(projectId, 'compose-build', serviceName);
+  }
+
+  public readComposeBuildLog(
+    projectId: string,
+    serviceName: string,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    return readManagedLog(this.context, projectId, 'compose-build', options, serviceName);
+  }
+
+  public clearComposeBuildLog(
+    projectId: string,
+    serviceName: string,
+  ): Promise<ProcessLogSnapshot> {
+    return clearManagedLog(this.context, projectId, 'compose-build', serviceName);
+  }
+
+  public startComposeBuild(
+    project: Project,
+    serviceName: string,
+    command: { command: string; args: string[] },
+  ): Promise<ManagedProcess> {
+    return this.withStartLock(
+      project.id,
+      'compose-build',
+      () =>
+        this.lifecycle.startManagedComposeBuild(
+          project,
+          serviceName,
+          command,
+          this.stateDirectory,
+        ),
+      serviceName,
+    );
+  }
+
+  public stopComposeBuild(
+    projectId: string,
+    serviceName: string,
+  ): Promise<ManagedProcess> {
+    return this.lifecycle.stopManagedProcess(projectId, 'compose-build', serviceName);
   }
 }

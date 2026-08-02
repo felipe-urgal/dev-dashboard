@@ -609,6 +609,87 @@ test(
   }
 );
 
+async function waitForComposeBuildCompletion(
+  manager: ProcessManager,
+  projectId: string,
+  serviceName: string,
+  timeoutMs = 5_000
+) {
+  const startedAt = Date.now();
+  for (;;) {
+    const current = await manager.getComposeBuildProcess(projectId, serviceName);
+    if (current && current.status !== "running" && current.status !== "starting") {
+      return current;
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`timed out waiting for compose build of ${serviceName}`);
+    }
+    await new Promise((resolve) => { setTimeout(resolve, 25); });
+  }
+}
+
+test(
+  "runs concurrent compose builds for different services independently",
+  async (context) => {
+    const fixture = await createFixture({ name: "fixture" });
+    context.after(fixture.cleanup);
+
+    const db = await fixture.manager.startComposeBuild(fixture.project, "db", {
+      command: "node",
+      args: ["-e", "console.log('building db'); process.exit(0)"]
+    });
+    const web = await fixture.manager.startComposeBuild(fixture.project, "web", {
+      command: "node",
+      args: ["-e", "console.log('building web'); process.exit(1)"]
+    });
+
+    assert.notEqual(db.id, web.id);
+
+    const finishedDb = await waitForComposeBuildCompletion(fixture.manager, fixture.project.id, "db");
+    const finishedWeb = await waitForComposeBuildCompletion(fixture.manager, fixture.project.id, "web");
+
+    assert.equal(finishedDb.status, "stopped");
+    assert.equal(finishedDb.exitCode, 0);
+    assert.equal(finishedWeb.status, "failed");
+    assert.equal(finishedWeb.exitCode, 1);
+
+    const dbLog = await fixture.manager.readComposeBuildLog(fixture.project.id, "db");
+    assert.match(dbLog.content, /building db/);
+    const webLog = await fixture.manager.readComposeBuildLog(fixture.project.id, "web");
+    assert.match(webLog.content, /building web/);
+  }
+);
+
+test(
+  "rejects a second build for the same service while one is running",
+  async (context) => {
+    const fixture = await createFixture({ name: "fixture" });
+    context.after(fixture.cleanup);
+
+    const command = {
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    const results = await Promise.allSettled([
+      fixture.manager.startComposeBuild(fixture.project, "db", command),
+      fixture.manager.startComposeBuild(fixture.project, "db", command)
+    ]);
+
+    const fulfilled = results.filter((entry) => entry.status === "fulfilled");
+    const rejected = results.filter((entry) => entry.status === "rejected");
+
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    const rejection = rejected[0];
+    assert.ok(rejection && rejection.status === "rejected");
+    assert.ok(rejection.reason instanceof ProcessManagerError);
+    assert.equal((rejection.reason as ProcessManagerError).code, "PROCESS_ALREADY_RUNNING");
+
+    await fixture.manager.stopComposeBuild(fixture.project.id, "db");
+  }
+);
+
 test(
   "rejects a configured port that is already occupied",
   async (context) => {

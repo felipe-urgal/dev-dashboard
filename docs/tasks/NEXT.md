@@ -1,7 +1,9 @@
 # Próxima atividade
 
 A task 065 concluiu a primeira integração segura com Docker Compose por
-serviços declarados.
+serviços declarados; a task 066, fora de sequência, adicionou build
+assíncrono por serviço em cima dela. O plano abaixo (Rake tasks com
+variáveis) continua sendo a próxima frente aprovada.
 
 ## Rake tasks com variáveis
 

@@ -64,6 +64,6 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
-    dockerComposeService: new DockerComposeService(),
+    dockerComposeService: new DockerComposeService({ processManager }),
   };
 }

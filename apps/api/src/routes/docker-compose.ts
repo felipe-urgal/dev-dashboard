@@ -1,14 +1,20 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import type { ComposeServiceAction } from '@dev-dashboard/contracts';
 
+import { ProcessManagerError } from '@dev-dashboard/process-manager';
+
 import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
   composeServiceActionResultSchema,
   composeServiceConfirmationSchema,
   composeServiceLogsSchema,
+  managedProcessResponseSchema,
+  nullableManagedProcessResponseSchema,
+  processLogSnapshotResponseSchema,
   projectComposeOverviewSchema,
 } from '../http/response-schemas.js';
+import { processManagerApiError, type ProcessLogQuery } from './processes/helpers.js';
 import {
   DockerComposeError,
   type DockerComposeService,
@@ -57,6 +63,7 @@ function translateDockerError(error: unknown): never {
       DOCKER_SERVICE_REQUIRES_BUILD: 409,
       DOCKER_CONFIRMATION_REQUIRED: 409,
       DOCKER_ACTION_FAILED: 500,
+      DOCKER_BUILD_UNSUPPORTED: 501,
     };
     throw new ApiError({
       statusCode: statusByCode[error.code],
@@ -184,6 +191,139 @@ export const dockerComposeRoutes: FastifyPluginAsync<
         };
       } catch (error) {
         translateDockerError(error);
+      }
+    },
+  );
+
+  function translateBuildError(error: unknown): never {
+    if (error instanceof ProcessManagerError) {
+      throw processManagerApiError(error);
+    }
+    translateDockerError(error);
+  }
+
+  app.get<{ Params: ServiceParams }>(
+    '/projects/:projectId/docker/services/:serviceName/build',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        response: {
+          200: { type: 'object', additionalProperties: false, required: ['process'], properties: { process: nullableManagedProcessResponseSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          process: await options.dockerComposeService.getBuildStatus(
+            projectFor(request.params.projectId), request.params.serviceName,
+          ),
+        };
+      } catch (error) {
+        translateBuildError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ServiceParams }>(
+    '/projects/:projectId/docker/services/:serviceName/build/start',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        response: {
+          201: { type: 'object', additionalProperties: false, required: ['process'], properties: { process: managedProcessResponseSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const process = await options.dockerComposeService.startBuild(
+          projectFor(request.params.projectId), request.params.serviceName,
+        );
+        return reply.code(201).send({ process });
+      } catch (error) {
+        translateBuildError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ServiceParams }>(
+    '/projects/:projectId/docker/services/:serviceName/build/stop',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        response: {
+          200: { type: 'object', additionalProperties: false, required: ['process'], properties: { process: managedProcessResponseSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          process: await options.dockerComposeService.stopBuild(
+            projectFor(request.params.projectId), request.params.serviceName,
+          ),
+        };
+      } catch (error) {
+        translateBuildError(error);
+      }
+    },
+  );
+
+  app.get<{ Params: ServiceParams; Querystring: ProcessLogQuery }>(
+    '/projects/:projectId/docker/services/:serviceName/build/logs',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { maxBytes: { type: 'integer', minimum: 1, maximum: 262_144 } },
+        },
+        response: {
+          200: { type: 'object', additionalProperties: false, required: ['log'], properties: { log: processLogSnapshotResponseSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          log: await options.dockerComposeService.readBuildLog(
+            projectFor(request.params.projectId),
+            request.params.serviceName,
+            request.query.maxBytes !== undefined ? { maxBytes: request.query.maxBytes } : {},
+          ),
+        };
+      } catch (error) {
+        translateBuildError(error);
+      }
+    },
+  );
+
+  app.delete<{ Params: ServiceParams }>(
+    '/projects/:projectId/docker/services/:serviceName/build/logs',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        response: {
+          200: { type: 'object', additionalProperties: false, required: ['log'], properties: { log: processLogSnapshotResponseSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      try {
+        return {
+          log: await options.dockerComposeService.clearBuildLog(
+            projectFor(request.params.projectId), request.params.serviceName,
+          ),
+        };
+      } catch (error) {
+        translateBuildError(error);
       }
     },
   );

@@ -42,9 +42,16 @@ export interface ProcessLifecycle {
     command: { id: string; command: string; args: string[] },
     stateDirectory: string,
   ): Promise<ManagedProcess>;
+  startManagedComposeBuild(
+    project: Project,
+    serviceName: string,
+    command: { command: string; args: string[] },
+    stateDirectory: string,
+  ): Promise<ManagedProcess>;
   stopManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    instance?: string,
   ): Promise<ManagedProcess>;
   sendSignal(pid: number, signal: NodeJS.Signals): void;
 }
@@ -310,11 +317,117 @@ export function createProcessLifecycle(
     return managedProcess;
   }
 
+  async function startManagedComposeBuild(
+    project: Project,
+    serviceName: string,
+    command: { command: string; args: string[] },
+    stateDirectory: string,
+  ): Promise<ManagedProcess> {
+    try {
+      await sweepStaleProcesses(stateDirectory);
+    } catch {
+      // best-effort
+    }
+
+    const currentProcess = await statusReader.getManagedProcess(
+      project.id,
+      'compose-build',
+      serviceName,
+    );
+
+    if (
+      currentProcess?.status === 'running' ||
+      currentProcess?.status === 'starting' ||
+      currentProcess?.status === 'stopping'
+    ) {
+      throw new ProcessManagerError(
+        'PROCESS_ALREADY_RUNNING',
+        `Já existe um build em andamento para o serviço ${serviceName}.`,
+      );
+    }
+
+    await Promise.all([
+      mkdir(context.processDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+      mkdir(context.logDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+    ]);
+
+    const logPath = resolveLogFile(context, project.id, 'compose-build', serviceName);
+
+    const logHandle = await open(logPath, 'a', 0o600);
+
+    let child: ReturnType<typeof spawn>;
+
+    try {
+      child = spawn(command.command, command.args, {
+        cwd: project.path,
+        detached: true,
+        shell: false,
+        windowsHide: true,
+        stdio: ['ignore', logHandle.fd, logHandle.fd],
+        env: process.env,
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        child.once('spawn', resolve);
+        child.once('error', reject);
+      });
+    } finally {
+      await logHandle.close();
+    }
+
+    if (!child.pid) {
+      throw new Error(
+        `Não foi possível obter o PID do build do serviço ${serviceName}.`,
+      );
+    }
+
+    const managedProcess: StoredProcess = {
+      id: `${project.id}:compose-build:${serviceName}`,
+      projectId: project.id,
+      ...(project.workspaceId
+        ? { workspaceId: project.workspaceId }
+        : {}),
+      kind: 'compose-build',
+      status: 'running',
+      pid: child.pid,
+      command: command.command,
+      args: command.args,
+      cwd: project.path,
+      logPath,
+      startedAt: new Date().toISOString(),
+      composeServiceName: serviceName,
+    };
+
+    try {
+      await writeStoredProcess(context, managedProcess);
+    } catch (error) {
+      try {
+        sendSignal(child.pid, 'SIGKILL');
+      } catch {
+        // preserva o erro original
+      }
+
+      throw error;
+    }
+
+    exitTracker.observeChild(child, managedProcess);
+    child.unref();
+
+    return managedProcess;
+  }
+
   async function stopManagedProcess(
     projectId: string,
     kind: ManagedKind,
+    instance?: string,
   ): Promise<ManagedProcess> {
-    const storedProcess = await readStoredProcess(context, projectId, kind);
+    const storedProcess = await readStoredProcess(context, projectId, kind, instance);
 
     if (!storedProcess) {
       throw new ProcessManagerError(
@@ -362,6 +475,8 @@ export function createProcessLifecycle(
       kind,
       storedProcess.pid,
       5_000,
+      false,
+      instance,
     );
 
     if (!exitedGracefully) {
@@ -373,6 +488,7 @@ export function createProcessLifecycle(
         storedProcess.pid,
         2_000,
         true,
+        instance,
       );
 
       if (!exitedAfterKill) {
@@ -396,6 +512,7 @@ export function createProcessLifecycle(
   return {
     startManagedServer,
     startManagedTest,
+    startManagedComposeBuild,
     stopManagedProcess,
     sendSignal,
   };

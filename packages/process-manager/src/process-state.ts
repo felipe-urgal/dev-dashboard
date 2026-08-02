@@ -21,6 +21,7 @@ const managedProcessKinds = new Set<ManagedProcessKind>([
   'worker',
   'test',
   'script',
+  'compose-build',
 ]);
 
 const managedProcessStatuses = new Set<ManagedProcessStatus>([
