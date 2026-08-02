@@ -20,8 +20,9 @@ export async function readManagedLog(
   projectId: string,
   kind: ManagedKind,
   options: ReadServerLogOptions = {},
+  instance?: string,
 ): Promise<ProcessLogSnapshot> {
-  const storedProcess = await readStoredProcess(context, projectId, kind);
+  const storedProcess = await readStoredProcess(context, projectId, kind, instance);
 
   if (!storedProcess) {
     throw new ProcessManagerError(
@@ -44,7 +45,7 @@ export async function readManagedLog(
   }
 
   try {
-    const logPath = resolveLogFile(context, projectId, kind);
+    const logPath = resolveLogFile(context, projectId, kind, instance);
 
     const logStats = await stat(logPath);
 
@@ -109,8 +110,9 @@ export async function clearManagedLog(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
+  instance?: string,
 ): Promise<ProcessLogSnapshot> {
-  const storedProcess = await readStoredProcess(context, projectId, kind);
+  const storedProcess = await readStoredProcess(context, projectId, kind, instance);
 
   if (!storedProcess) {
     throw new ProcessManagerError(
@@ -119,7 +121,7 @@ export async function clearManagedLog(
     );
   }
 
-  const logPath = resolveLogFile(context, projectId, kind);
+  const logPath = resolveLogFile(context, projectId, kind, instance);
 
   try {
     await truncate(logPath, 0);

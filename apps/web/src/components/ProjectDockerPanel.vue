@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CommandLineIcon,
   PauseIcon,
   PlayIcon,
+  WrenchIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -12,15 +13,21 @@ import type {
   ComposeService,
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
+  ManagedProcess,
   Project,
   ProjectComposeOverview,
 } from '@dev-dashboard/contracts';
 import {
+  fetchComposeServiceBuild,
+  fetchComposeServiceBuildLog,
   fetchComposeServiceLogs,
   fetchProjectDocker,
   prepareComposeServiceAction,
+  prepareComposeServiceBuild,
   runComposeServiceAction,
+  startComposeServiceBuild,
 } from '../api';
 import Card from './Card.vue';
 import StatusBadge from './StatusBadge.vue';
@@ -35,9 +42,52 @@ const activeService = ref('');
 const logs = ref<ComposeServiceLogs>();
 const logsLoading = ref(false);
 const pendingConfirmation = ref<ComposeServiceActionConfirmation>();
+const pendingBuildConfirmation = ref<ComposeServiceBuildConfirmation>();
+const builds = ref<Record<string, ManagedProcess | null>>({});
+let buildPollingTimer: ReturnType<typeof setTimeout> | undefined;
 let logsGeneration = 0;
 
 const services = computed(() => overview.value?.services ?? []);
+
+function buildStatus(serviceName: string): ManagedProcess | null {
+  return builds.value[serviceName] ?? null;
+}
+
+function isBuilding(serviceName: string): boolean {
+  const status = buildStatus(serviceName)?.status;
+  return status === 'running' || status === 'starting';
+}
+
+function canStartService(service: ComposeService): boolean {
+  if (!service.requiresBuild) return true;
+  const status = buildStatus(service.name);
+  return status?.status === 'stopped' && status.exitCode === 0;
+}
+
+function stopBuildPolling(): void {
+  if (buildPollingTimer) {
+    clearTimeout(buildPollingTimer);
+    buildPollingTimer = undefined;
+  }
+}
+
+function scheduleBuildPolling(): void {
+  stopBuildPolling();
+  const inFlight = Object.keys(builds.value).filter((name) => isBuilding(name));
+  if (inFlight.length === 0) return;
+  const requestedProjectId = props.project.id;
+  buildPollingTimer = setTimeout(async () => {
+    await Promise.all(inFlight.map(async (serviceName) => {
+      try {
+        const status = await fetchComposeServiceBuild(requestedProjectId, serviceName);
+        if (props.project.id === requestedProjectId) builds.value[serviceName] = status;
+      } catch {
+        // Erros pontuais de polling não devem interromper o acompanhamento do build.
+      }
+    }));
+    if (props.project.id === requestedProjectId) scheduleBuildPolling();
+  }, 1_500);
+}
 
 async function load(): Promise<void> {
   const requestedProjectId = props.project.id;
@@ -45,7 +95,18 @@ async function load(): Promise<void> {
   errorMessage.value = '';
   try {
     const result = await fetchProjectDocker(requestedProjectId);
-    if (props.project.id === requestedProjectId) overview.value = result;
+    if (props.project.id !== requestedProjectId) return;
+    overview.value = result;
+    const buildableServices = result.services.filter((service) => service.requiresBuild);
+    await Promise.all(buildableServices.map(async (service) => {
+      try {
+        const status = await fetchComposeServiceBuild(requestedProjectId, service.name);
+        if (props.project.id === requestedProjectId) builds.value[service.name] = status;
+      } catch {
+        // Estado de build é informativo; uma falha pontual não deve travar o painel.
+      }
+    }));
+    if (props.project.id === requestedProjectId) scheduleBuildPolling();
   } catch (error) {
     if (props.project.id === requestedProjectId) {
       errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar o Docker Compose.';
@@ -53,6 +114,38 @@ async function load(): Promise<void> {
   } finally {
     if (props.project.id === requestedProjectId) loading.value = false;
   }
+}
+
+async function requestBuild(serviceName: string): Promise<void> {
+  if (activeService.value || isBuilding(serviceName)) return;
+  errorMessage.value = '';
+  feedback.value = '';
+  try {
+    pendingBuildConfirmation.value = await prepareComposeServiceBuild(props.project.id, serviceName);
+    feedback.value = `Buildar “${serviceName}” executa instruções do projeto e altera o cache de imagens do Docker. Confirme para continuar.`;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível preparar a confirmação do build.';
+  }
+}
+
+async function confirmPendingBuild(): Promise<void> {
+  const pending = pendingBuildConfirmation.value;
+  if (!pending) return;
+  errorMessage.value = '';
+  feedback.value = '';
+  try {
+    builds.value[pending.serviceName] = await startComposeServiceBuild(props.project.id, pending.serviceName, pending.token);
+    pendingBuildConfirmation.value = undefined;
+    feedback.value = `Build do serviço “${pending.serviceName}” iniciado.`;
+    scheduleBuildPolling();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o build.';
+  }
+}
+
+function cancelPendingBuild(): void {
+  pendingBuildConfirmation.value = undefined;
+  feedback.value = '';
 }
 
 async function run(service: ComposeService, action: ComposeServiceAction): Promise<void> {
@@ -123,14 +216,42 @@ async function showLogs(serviceName: string): Promise<void> {
   }
 }
 
+async function showBuildLogs(serviceName: string): Promise<void> {
+  const requestedProjectId = props.project.id;
+  const requestGeneration = ++logsGeneration;
+  logsLoading.value = true;
+  errorMessage.value = '';
+  try {
+    const log = await fetchComposeServiceBuildLog(requestedProjectId, serviceName);
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logs.value = { serviceName: `${serviceName} (build)`, ...log };
+    }
+  } catch (error) {
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs do build.';
+    }
+  } finally {
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logsLoading.value = false;
+    }
+  }
+}
+
 watch(() => props.project.id, () => {
+  stopBuildPolling();
   logsGeneration += 1;
   overview.value = undefined;
   logs.value = undefined;
   logsLoading.value = false;
   pendingConfirmation.value = undefined;
+  pendingBuildConfirmation.value = undefined;
+  builds.value = {};
   void load();
 }, { immediate: true });
+
+onBeforeUnmount(() => {
+  stopBuildPolling();
+});
 </script>
 
 <template>
@@ -169,6 +290,15 @@ watch(() => props.project.id, () => {
         </div>
       </div>
 
+      <div v-if="pendingBuildConfirmation" class="docker-confirmation">
+        <strong>Confirmar build</strong>
+        <span>Serviço: {{ pendingBuildConfirmation.serviceName }}</span>
+        <div>
+          <button class="danger-button" type="button" :disabled="Boolean(activeService)" @click="confirmPendingBuild">Confirmar</button>
+          <button class="secondary-button" type="button" :disabled="Boolean(activeService)" @click="cancelPendingBuild">Cancelar</button>
+        </div>
+      </div>
+
       <div class="docker-service-list">
         <article v-for="service in services" :key="service.name" class="docker-service-card">
           <header>
@@ -176,8 +306,13 @@ watch(() => props.project.id, () => {
               <h4>{{ service.name }}</h4>
               <code>{{ service.image ?? 'imagem definida por build' }}</code>
             </div>
-            <StatusBadge :tone="service.running ? 'success' : service.requiresBuild ? 'warning' : 'neutral'">
-              {{ service.running ? 'Rodando' : service.requiresBuild ? 'Requer build' : 'Parado' }}
+            <StatusBadge :tone="service.running ? 'success' : isBuilding(service.name) ? 'warning' : buildStatus(service.name)?.status === 'failed' ? 'danger' : service.requiresBuild ? 'warning' : 'neutral'">
+              {{ service.running ? 'Rodando'
+                : isBuilding(service.name) ? 'Buildando'
+                : buildStatus(service.name)?.status === 'failed' ? 'Build falhou'
+                : service.requiresBuild && !canStartService(service) ? 'Requer build'
+                : service.requiresBuild ? 'Build concluído'
+                : 'Parado' }}
             </StatusBadge>
           </header>
           <dl>
@@ -185,7 +320,7 @@ watch(() => props.project.id, () => {
             <div><dt>Dependências</dt><dd>{{ service.dependsOn.join(', ') || '—' }}</dd></div>
           </dl>
           <footer>
-            <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || service.requiresBuild || Boolean(activeService)" @click="run(service, 'start')">
+            <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || !canStartService(service) || Boolean(activeService)" @click="run(service, 'start')">
               <PlayIcon aria-hidden="true" /> Iniciar
             </button>
             <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || !service.running || Boolean(activeService)" @click="run(service, 'stop')">
@@ -194,8 +329,14 @@ watch(() => props.project.id, () => {
             <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || !service.running || Boolean(activeService)" @click="run(service, 'restart')">
               <ArrowPathIcon aria-hidden="true" /> Reiniciar
             </button>
+            <button v-if="service.requiresBuild" class="secondary-button" type="button" :disabled="!overview.dockerAvailable || isBuilding(service.name) || Boolean(activeService)" @click="requestBuild(service.name)">
+              <WrenchIcon aria-hidden="true" /> {{ isBuilding(service.name) ? 'Buildando…' : 'Buildar' }}
+            </button>
             <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || logsLoading" @click="showLogs(service.name)">
               <CommandLineIcon aria-hidden="true" /> Logs
+            </button>
+            <button v-if="buildStatus(service.name)" class="secondary-button" type="button" :disabled="logsLoading" @click="showBuildLogs(service.name)">
+              <CommandLineIcon aria-hidden="true" /> Logs do build
             </button>
           </footer>
         </article>

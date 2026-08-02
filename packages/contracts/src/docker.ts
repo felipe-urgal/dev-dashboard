@@ -23,6 +23,12 @@ export interface ComposeServiceActionConfirmation {
   expiresAt: string;
 }
 
+export interface ComposeServiceBuildConfirmation {
+  token: string;
+  serviceName: string;
+  expiresAt: string;
+}
+
 export interface ComposeServiceActionResult {
   serviceName: string;
   action: ComposeServiceAction;

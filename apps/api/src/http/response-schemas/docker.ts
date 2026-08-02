@@ -41,6 +41,17 @@ export const composeServiceConfirmationSchema = {
   },
 } as const;
 
+export const composeServiceBuildConfirmationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['token', 'serviceName', 'expiresAt'],
+  properties: {
+    token: { type: 'string' },
+    serviceName: { type: 'string' },
+    expiresAt: { type: 'string' },
+  },
+} as const;
+
 export const composeServiceActionResultSchema = {
   type: 'object',
   additionalProperties: false,

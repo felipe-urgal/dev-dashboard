@@ -1,7 +1,11 @@
 # Próxima atividade
 
-A task 066 concluiu o formulário seguro para Rake tasks com variáveis
-declaradas no próprio projeto.
+A task 065 concluiu a primeira integração segura com Docker Compose por
+serviços declarados. A task 066 concluiu o formulário seguro para Rake
+tasks com variáveis declaradas no próprio projeto. A task 067, fora de
+sequência, adicionou build assíncrono por serviço em cima da 065. O plano
+abaixo (Health checks locais declarativos) continua sendo a próxima frente
+aprovada.
 
 ## Health checks locais declarativos
 

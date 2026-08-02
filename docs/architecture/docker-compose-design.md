@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementado na task 065 com logs pontuais e limitados. Item do roadmap
-(Horizonte 3).
+Implementado na task 065 (start/stop/restart/logs) com logs pontuais e
+limitados, e estendido na task 067 com build assíncrono por serviço. Item do
+roadmap (Horizonte 3).
 
 ## Problema
 
@@ -21,11 +22,12 @@ Importante recortar o escopo desde já, porque "Docker" é um espaço grande
 demais para uma única entrega:
 
 - **Dentro do escopo**: ler o `docker-compose.yml`/`compose.yaml` que já
-  existe no projeto, listar os serviços declarados, e permitir
-  start/stop/restart/logs por serviço — nunca criar, editar ou buildar
-  imagem.
-- **Fora do escopo**: `docker build`, `docker exec` interativo, editar o
-  compose file pela UI, gerenciar volumes/redes/imagens soltos fora de um
+  existe no projeto, listar os serviços declarados, permitir
+  start/stop/restart/logs por serviço, e (desde a task 067) `docker compose
+  build <serviço>` para os serviços que só declaram `build:` — nunca criar
+  ou editar Dockerfile/compose file pela UI.
+- **Fora do escopo**: `docker exec` interativo, editar o compose file ou o
+  Dockerfile pela UI, gerenciar volumes/redes/imagens soltos fora de um
   projeto, Docker Swarm/Kubernetes. Esses ficam registrados como não-metas,
   não como fases futuras — se algum dia fizerem sentido, é uma decisão de
   produto separada, não uma continuação natural deste desenho.
@@ -66,9 +68,11 @@ parsear o arquivo declarado, nunca inferir rodando comando algum.
   exigiria replicar a mesma lógica de precedência de `.env` que o Compose
   usa, fora de escopo da primeira entrega;
 - serviços que só têm `build:` sem `image:`: aparecem na lista marcados
-  como "requer build" e **sem** ação de start disponível — buildar imagem
-  está fora do escopo (seção acima), então esses serviços ficam somente
-  informativos até o usuário buildar manualmente fora do dashboard.
+  como "requer build"; a partir da task 067 o dashboard oferece uma ação
+  dedicada de build para esse caso (ver seção "Build assíncrono" abaixo) —
+  antes disso, e ainda hoje quando o `ProcessManager` não está disponível
+  (`DOCKER_BUILD_UNSUPPORTED`), o serviço fica só informativo até o usuário
+  buildar manualmente fora do dashboard.
 
 ## Execução: catálogo fechado de ações, `execFile` sem shell
 
@@ -137,6 +141,57 @@ A task 065 implementou a opção **(B)**. O `ProcessManager` atual identifica
 uma única instância por `projectId + kind`; a opção (A) também precisaria de
 identidade por serviço para permitir múltiplos seguidores de log. Essa
 generalização não foi misturada à primeira entrega Compose.
+
+## Build assíncrono (task 067)
+
+`docker compose build <serviço>` pode levar minutos — ao contrário de
+`start`/`stop`/`restart`/`logs`, que são chamadas pontuais com timeout curto
+(`execFile`, 30s), build precisa rodar em background com progresso
+consultável. Diferente da decisão de `logs` (opção B, chamada pontual), aqui
+foi adotada a opção **(A)** que a seção "logs: decisão implementada" acima
+já cogitava: build vira um terceiro `kind` de `ManagedProcess`,
+`'compose-build'`, reaproveitando todo o rastreamento de PID/log/exit do
+`packages/process-manager`.
+
+Diferença importante em relação a `server`/`test`: o `ProcessManager`
+original identificava no máximo uma instância por `projectId + kind`, o que
+não serve para build — dois serviços do mesmo projeto (`app`, `sidekiq`)
+podem buildar ao mesmo tempo. `resolveLogFile`/`resolveProcessFile`, as
+chaves de `observedExits`/`exitWaiters`, e os regexes de
+`sweepStaleProcesses` foram generalizados para aceitar um segmento de
+instância opcional (`slugifyProcessInstance(serviceName)`) além do `kind` —
+`server`/`test` continuam sem instância, compatíveis com os arquivos já
+existentes em disco; `compose-build` sempre informa o nome do serviço como
+instância, permitindo builds concorrentes por serviço no mesmo projeto. O
+slug da instância combina um prefixo legível com um hash do nome original
+(mesmo padrão de `createProjectKey`) — nomes que normalizam para o mesmo
+prefixo (`api.v1`/`api_v1`) continuam com identidade e arquivos distintos
+em disco, e `isStoredProcess` exige `composeServiceName` não vazio sempre
+que `kind === 'compose-build'`.
+
+- `POST /projects/:id/docker/services/:serviceName/build/confirmations` —
+  gera um token de uso único (60s de validade), mesmo padrão de
+  `prepareConfirmation` para `stop`/`restart`.
+- `POST /projects/:id/docker/services/:serviceName/build/start` — exige
+  `confirmationToken` no corpo; inicia `docker compose -f <file> build
+  <serviço>` como processo gerenciado (spawn destacado, sem shell) só após
+  validar o token, rejeita com `PROCESS_ALREADY_RUNNING` (409) se já houver
+  um build em andamento para aquele serviço.
+- `GET /projects/:id/docker/services/:serviceName/build` — status pollável
+  (`ManagedProcess | null`), mesmo formato de `GET /process` do servidor.
+- `POST .../build/stop`, `GET/DELETE .../build/logs` — mesmo padrão de
+  `server-process-routes.ts`, log limitado a 262144 bytes e mascarado.
+- `DockerComposeService.runAction('start', …)` continua rejeitando serviços
+  `requiresBuild` com `DOCKER_SERVICE_REQUIRES_BUILD`, exceto quando o
+  último build desse serviço (via `ProcessManager`) terminou com
+  `status: 'stopped'` e `exitCode: 0` — só então `up -d` fica liberado.
+- Build exige confirmação em duas etapas, mesmo padrão de `stop`/`restart`:
+  executa instruções do Dockerfile/Compose do projeto e altera o cache de
+  imagens do daemon Docker global, então não é uma ação sem efeito colateral.
+- UI: `ProjectDockerPanel.vue` faz polling adaptativo (1,5s enquanto algum
+  build está `running`/`starting`, para quando todos terminam) — mesmo
+  espírito de `useProjectProcessStatus`, mas por serviço em vez de por
+  projeto, já que builds são concorrentes.
 
 ## Modelo de segurança
 
@@ -208,6 +263,11 @@ export interface ComposeServiceActionResult {
 }
 ```
 
+Build (task 067) não introduz um contrato novo — reaproveita `ManagedProcess`
+de `packages/contracts/src/process.ts` (`kind: 'compose-build'`, novo campo
+opcional `composeServiceName`) e `ProcessLogSnapshot`, os mesmos tipos já
+usados por `server`/`test`.
+
 `running` em `ComposeService` vem de `docker compose ps --status running --services`
 rodado sob demanda quando a aba é aberta (mesmo espírito de estado
 declarativo + "status" sob demanda que `database-detection-service.ts` já
@@ -224,5 +284,7 @@ seção expansível de logs recentes.
 ## Resultado
 
 A implementação segue a ordem proposta: detecção e contratos, status e logs
-sem confirmação, `stop`/`restart` com confirmação, UI e diagnóstico opcional.
-Overrides, build de imagens e streaming ao vivo permanecem fora do escopo.
+sem confirmação, `stop`/`restart` com confirmação, UI e diagnóstico opcional
+(task 065); build assíncrono por serviço via `ManagedProcess` (task 067).
+Overrides e streaming ao vivo (`docker compose logs -f`) permanecem fora do
+escopo.

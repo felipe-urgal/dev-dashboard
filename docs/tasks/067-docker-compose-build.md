@@ -1,0 +1,122 @@
+# Task 067 — Build assíncrono de serviços Docker Compose
+
+## Status
+
+Concluída.
+
+## Objetivo
+
+A task 065 detecta serviços `build:`-only e marca "requer build", mas sem
+nenhuma ação disponível — o usuário precisava sair do dashboard para
+`docker compose build` manualmente antes de conseguir usar "Iniciar". Esta
+task adiciona uma ação de build por serviço, assíncrona e com progresso
+consultável, mantendo o mesmo modelo de segurança (catálogo fechado,
+`execFile`/`spawn` sem shell, logs limitados e mascarados).
+
+## Escopo entregue
+
+- `packages/process-manager`: novo `kind` `'compose-build'`, com identidade
+  por instância (nome do serviço, via `slugifyProcessInstance`) além de
+  `projectId + kind` — permite builds concorrentes de serviços diferentes do
+  mesmo projeto, diferente de `server`/`test` (uma instância por projeto). O
+  slug combina um prefixo legível com um hash do valor original (mesmo
+  padrão de `createProjectKey`), então nomes que normalizam para o mesmo
+  prefixo (`api.v1`/`api_v1`) continuam com identidade distinta.
+  `resolveLogFile`/`resolveProcessFile`, as chaves de
+  `observedExits`/`exitWaiters`, e os regexes de `sweepStaleProcesses`
+  (`MANAGED_STATE_SUFFIX_PATTERN`/`MANAGED_LOG_SUFFIX_PATTERN`) foram
+  generalizados para aceitar esse segmento de instância opcional, mantendo
+  compatibilidade com os arquivos `server`/`test` já existentes em disco.
+  `isStoredProcess` exige `composeServiceName` como string não vazia sempre
+  que `kind === 'compose-build'`. `ProcessManager` ganhou
+  `startComposeBuild`/`stopComposeBuild`/`getComposeBuildProcess`/
+  `readComposeBuildLog`/`clearComposeBuildLog`.
+- `apps/api`: `DockerComposeService` recebe um `ProcessManager` opcional via
+  DI (`DOCKER_BUILD_UNSUPPORTED` quando ausente) e ganha
+  `prepareBuildConfirmation`/`startBuild`/`stopBuild`/`getBuildStatus`/
+  `readBuildLog`/`clearBuildLog`. Build reaproveita o mesmo mecanismo de
+  confirmação de uso único de `stop`/`restart` (`ConfirmableComposeAction`
+  passa a incluir `'build'`) — `startBuild` exige `confirmationToken` e só o
+  consome depois de confirmar que o Docker está disponível, mesmo padrão já
+  corrigido para `runAction`. `runAction('start', …)` continua rejeitando
+  serviços `requiresBuild` com `DOCKER_SERVICE_REQUIRES_BUILD`, exceto
+  quando o build mais recente desse serviço terminou com
+  `status: 'stopped'` e `exitCode: 0`.
+- Rotas novas em `apps/api/src/routes/docker-compose.ts`:
+  `GET /projects/:id/docker/services/:serviceName/build`,
+  `POST .../build/confirmations`, `POST .../build/start` (exige
+  `confirmationToken` no corpo), `POST .../build/stop`,
+  `GET/DELETE .../build/logs` — mesmo envelope e mapeamento de erro que as
+  rotas de processo gerenciado (`processManagerApiError`), reaproveitando
+  `managedProcessResponseSchema`/`processLogSnapshotResponseSchema`.
+- `packages/contracts`: `ManagedProcessKind` ganha `'compose-build'`,
+  `ManagedProcess` ganha o campo opcional `composeServiceName`,
+  `ComposeServiceBuildConfirmation` é o novo contrato de confirmação de
+  build.
+- `apps/web`: `ProjectDockerPanel.vue` ganha botão "Buildar" por serviço
+  `requiresBuild` (que abre um banner de confirmação, mesmo padrão do
+  `stop`/`restart`), badge de status (Buildando/Build concluído/Build
+  falhou), botão "Logs do build", e polling adaptativo (1,5s enquanto algum
+  build está em andamento, parado quando todos terminam) — por serviço, não
+  por projeto, já que builds são concorrentes.
+- `docs/architecture/docker-compose-design.md` atualizado: build sai da
+  lista "fora do escopo", nova seção "Build assíncrono (task 067)"
+  documenta a decisão de identidade por instância e a exigência de
+  confirmação.
+
+## Critérios de aceite
+
+- `startBuild` só chega a `execFile`/`spawn` depois de validar o serviço
+  contra a lista já detectada (mesmo `requireService` de 065) e um token de
+  confirmação válido e não expirado (`DOCKER_CONFIRMATION_REQUIRED`, 409,
+  caso contrário);
+- dois builds do mesmo serviço não rodam simultaneamente
+  (`PROCESS_ALREADY_RUNNING`, 409); builds de serviços diferentes do mesmo
+  projeto rodam em paralelo, com identidade em disco garantidamente distinta
+  mesmo quando os nomes normalizam para o mesmo prefixo legível;
+- `start` de um serviço `requiresBuild` continua bloqueado até um build
+  bem-sucedido existir; falha de build não libera o `start`;
+- logs de build têm o mesmo limite (262144 bytes) e mascaramento de
+  segredos que logs de processo gerenciado;
+- um estado persistido de `kind: 'compose-build'` sem `composeServiceName`
+  (ou com um valor não-string/vazio) é rejeitado por `isStoredProcess`.
+
+## Validação
+
+- testes novos: 7 do `process-manager` (build concorrente por serviço,
+  serialização por serviço, log/exit code, identidade distinta para nomes
+  colidentes após normalização — unitário e de integração —, validação de
+  `composeServiceName` no estado persistido), 2 do `DockerComposeService`
+  (guarda de build + confirmação + liberação após sucesso, erro sem
+  `ProcessManager`), 1 de rota (`docker-compose-routes.test.ts`),
+  2 do painel Vue;
+- smoke manual ponta a ponta contra a API real (`docker` presente, sem
+  daemon no ambiente): `POST build/start` sem token → `409
+  DOCKER_CONFIRMATION_REQUIRED`; `POST build/confirmations` → `201`;
+  `POST build/start` com o token → `201`; polling de `GET build` até
+  `status: 'failed'` (esperado sem daemon); reuso do mesmo token → `409`
+  de novo (confirma que é de uso único); `GET build/logs` com a mensagem de
+  erro do Docker; `POST /docker/actions start` continuando bloqueado com
+  `DOCKER_SERVICE_REQUIRES_BUILD` após a falha;
+- `npm run typecheck` passou em todos os workspaces;
+- `npm run build` passou (packages, api, web);
+- `npm test` passou: scripts (6), API (337), core (8), process-manager (49),
+  project-discovery (1), web (259).
+
+## Limitações
+
+- builds concorrentes são só por serviço — dois builds do mesmo serviço
+  continuam serializados (mesma regra de `server`/`test`);
+- sem streaming incremental de log durante o build; a UI faz polling do
+  status e busca o log sob demanda (mesmo padrão pontual de `logs` da
+  task 065), não segue `docker compose build` com `-f`;
+- `requiresBuild` continua vindo só do parse estático do compose file — não
+  verifica se uma imagem já existe localmente fora de um build feito pelo
+  próprio dashboard;
+- `DOCKER_BUILD_UNSUPPORTED` é só uma salvaguarda de injeção de dependência
+  para testes; em produção o `ProcessManager` sempre está disponível via
+  `app-context.ts`.
+
+## PR
+
+[#148 — Adiciona build assíncrono de serviços Docker Compose](https://github.com/felipe-urgal/dev-dashboard/pull/148)

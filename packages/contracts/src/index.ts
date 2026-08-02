@@ -25,6 +25,7 @@ export type {
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
   ComposeServiceActionResult,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
   ProjectComposeOverview,
 } from './docker.js';

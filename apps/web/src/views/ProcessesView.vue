@@ -170,6 +170,7 @@ const {
           <option value="">Todos</option>
           <option value="server">Servidor</option>
           <option value="test">Testes</option>
+          <option value="compose-build">Build Docker Compose</option>
         </select>
       </label>
 

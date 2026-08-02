@@ -49,7 +49,7 @@ export function useProcessesView() {
 
   const workspaceFilter = ref('');
   const projectFilter = ref('');
-  const kindFilter = ref<'' | 'server' | 'test'>('');
+  const kindFilter = ref<'' | 'server' | 'test' | 'compose-build'>('');
   const statusFilter = ref<ProcessStatusFilter>('');
 
   const loading = ref(false);

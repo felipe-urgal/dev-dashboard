@@ -9,11 +9,18 @@ import type {
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
   ComposeServiceActionResult,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
+  ManagedProcess,
+  ProcessLogSnapshot,
   Project,
   ProjectComposeOverview,
 } from '@dev-dashboard/contracts';
-import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
+import {
+  maskSensitiveLogContent,
+  type ProcessManager,
+  type ReadServerLogOptions,
+} from '@dev-dashboard/process-manager';
 import { parse as parseYaml } from 'yaml';
 
 const COMPOSE_FILES = [
@@ -33,7 +40,8 @@ export type DockerComposeErrorCode =
   | 'DOCKER_SERVICE_NOT_FOUND'
   | 'DOCKER_SERVICE_REQUIRES_BUILD'
   | 'DOCKER_CONFIRMATION_REQUIRED'
-  | 'DOCKER_ACTION_FAILED';
+  | 'DOCKER_ACTION_FAILED'
+  | 'DOCKER_BUILD_UNSUPPORTED';
 
 export class DockerComposeError extends Error {
   public constructor(
@@ -62,16 +70,19 @@ interface DetectedCompose {
   services: Omit<ComposeService, 'running'>[];
 }
 
+type ConfirmableComposeAction = 'stop' | 'restart' | 'build';
+
 interface ConfirmationRecord {
   projectId: string;
   serviceName: string;
-  action: 'stop' | 'restart';
+  action: ConfirmableComposeAction;
   expiresAt: number;
 }
 
 export interface DockerComposeServiceOptions {
   runCommand?: CommandRunner;
   now?: () => number;
+  processManager?: ProcessManager;
 }
 
 const execFileAsync = promisify(execFile);
@@ -158,11 +169,15 @@ function truncateLog(content: string): { content: string; sizeBytes: number; tru
 export class DockerComposeService {
   private readonly runCommand: CommandRunner;
   private readonly now: () => number;
+  private readonly processManager?: ProcessManager;
   private readonly confirmations = new Map<string, ConfirmationRecord>();
 
   public constructor(options: DockerComposeServiceOptions = {}) {
     this.runCommand = options.runCommand ?? defaultCommandRunner;
     this.now = options.now ?? Date.now;
+    if (options.processManager) {
+      this.processManager = options.processManager;
+    }
   }
 
   private async detect(project: Project): Promise<DetectedCompose | null> {
@@ -268,7 +283,7 @@ export class DockerComposeService {
   private requireConfirmation(
     projectId: string,
     serviceName: string,
-    action: 'stop' | 'restart',
+    action: ConfirmableComposeAction,
     token: string | undefined,
   ): string {
     this.pruneExpiredConfirmations();
@@ -291,7 +306,7 @@ export class DockerComposeService {
   private consumeConfirmation(
     projectId: string,
     serviceName: string,
-    action: 'stop' | 'restart',
+    action: ConfirmableComposeAction,
     token: string | undefined,
   ): void {
     this.confirmations.delete(
@@ -314,10 +329,10 @@ export class DockerComposeService {
   ): Promise<ComposeServiceActionResult> {
     const detected = await this.detect(project);
     const service = this.requireService(detected, serviceName);
-    if (action === 'start' && service.requiresBuild) {
+    if (action === 'start' && service.requiresBuild && !(await this.hasSuccessfulBuild(project.id, serviceName))) {
       throw new DockerComposeError(
         'DOCKER_SERVICE_REQUIRES_BUILD',
-        'Este serviço exige build manual antes de poder ser iniciado pelo dashboard.',
+        'Este serviço exige build antes de poder ser iniciado pelo dashboard.',
       );
     }
     const needsConfirmation = action === 'stop' || action === 'restart';
@@ -381,5 +396,78 @@ export class DockerComposeService {
       redactionCount: masked.redactionCount,
       readAt: new Date(this.now()).toISOString(),
     };
+  }
+
+  private requireProcessManager(): ProcessManager {
+    if (!this.processManager) {
+      throw new DockerComposeError(
+        'DOCKER_BUILD_UNSUPPORTED',
+        'O build de serviços Docker não está disponível nesta instância da API.',
+      );
+    }
+    return this.processManager;
+  }
+
+  private async hasSuccessfulBuild(projectId: string, serviceName: string): Promise<boolean> {
+    if (!this.processManager) return false;
+    const build = await this.processManager.getComposeBuildProcess(projectId, serviceName);
+    return build?.status === 'stopped' && build.exitCode === 0;
+  }
+
+  public async prepareBuildConfirmation(
+    project: Project,
+    serviceName: string,
+  ): Promise<ComposeServiceBuildConfirmation> {
+    this.requireService(await this.detect(project), serviceName);
+    this.pruneExpiredConfirmations();
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = this.now() + CONFIRMATION_TTL_MS;
+    this.confirmations.set(token, { projectId: project.id, serviceName, action: 'build', expiresAt });
+    return { token, serviceName, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
+  public async startBuild(
+    project: Project,
+    serviceName: string,
+    confirmationToken?: string,
+  ): Promise<ManagedProcess> {
+    const detected = await this.detect(project);
+    this.requireService(detected, serviceName);
+    this.requireConfirmation(project.id, serviceName, 'build', confirmationToken);
+    if (!detected || !(await this.dockerAvailable(project))) {
+      throw new DockerComposeError(
+        'DOCKER_UNAVAILABLE',
+        'Docker Compose não está disponível no PATH da API.',
+      );
+    }
+    this.consumeConfirmation(project.id, serviceName, 'build', confirmationToken);
+    return this.requireProcessManager().startComposeBuild(project, serviceName, {
+      command: 'docker',
+      args: ['compose', '-f', detected.composeFile, 'build', serviceName],
+    });
+  }
+
+  public async stopBuild(project: Project, serviceName: string): Promise<ManagedProcess> {
+    this.requireService(await this.detect(project), serviceName);
+    return this.requireProcessManager().stopComposeBuild(project.id, serviceName);
+  }
+
+  public async getBuildStatus(project: Project, serviceName: string): Promise<ManagedProcess | null> {
+    this.requireService(await this.detect(project), serviceName);
+    return this.requireProcessManager().getComposeBuildProcess(project.id, serviceName);
+  }
+
+  public async readBuildLog(
+    project: Project,
+    serviceName: string,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    this.requireService(await this.detect(project), serviceName);
+    return this.requireProcessManager().readComposeBuildLog(project.id, serviceName, options);
+  }
+
+  public async clearBuildLog(project: Project, serviceName: string): Promise<ProcessLogSnapshot> {
+    this.requireService(await this.detect(project), serviceName);
+    return this.requireProcessManager().clearComposeBuildLog(project.id, serviceName);
   }
 }
