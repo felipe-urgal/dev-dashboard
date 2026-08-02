@@ -71,4 +71,4 @@ entrega segura do catálogo Compose.
 
 ## PR
 
-A preencher após a abertura do PR.
+[#146 — Adiciona controle seguro de serviços Docker Compose](https://github.com/felipe-urgal/dev-dashboard/pull/146)
