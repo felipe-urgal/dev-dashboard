@@ -1,31 +1,32 @@
 # Próxima atividade
 
-A task 064 concluiu a abertura segura do projeto em um editor local conhecido.
+A task 065 concluiu a primeira integração segura com Docker Compose por
+serviços declarados.
 
-## Docker Compose por serviços declarados e allowlist
+## Rake tasks com variáveis
 
-Próxima frente candidata do Horizonte 3. O desenho completo está em
-`docs/architecture/docker-compose-design.md`: a API lê um arquivo
-`docker-compose.yml`, `docker-compose.yaml`, `compose.yml` ou `compose.yaml`
-já existente no projeto e oferece somente serviços declarados nele.
+Próxima frente candidata de ferramentas Rails. O desenho existente em
+`docs/refactor/rake-tasks-mapeamento.md` parte de tasks reais que usam
+`ENV['FILE']`, `ENV.fetch('LIMIT')` e valores opcionais.
 
 ### Escopo proposto
 
-- detectar um único arquivo Compose reconhecido na raiz do projeto;
-- listar os serviços declarados sem criar ou buildar imagens;
-- catálogo fechado de `start`, `stop`, `restart` e `logs`;
-- executar `docker compose` com argumentos em array, `cwd` canônico e sem
-  shell;
-- confirmação em duas etapas para `stop` e `restart`;
-- limitar logs por tamanho e aplicar o mascaramento já usado nas demais fontes;
-- nunca aceitar nome de arquivo, serviço ou comando livre do navegador.
+- detectar estaticamente tasks em `lib/tasks/**/*.rake`;
+- identificar variáveis `ENV` obrigatórias, opcionais e seus valores padrão;
+- gerar um formulário somente a partir desse catálogo detectado;
+- validar nomes, quantidade e tamanho dos valores;
+- executar `bin/rails <task>` com ambiente estruturado e sem shell;
+- reutilizar confirmação e logs do catálogo seguro;
+- nunca aceitar nome de task ou variável que não tenha sido redetectado pela
+  API no código-fonte do projeto.
 
-### Decisão antes da implementação
+### Decisões antes da implementação
 
-Definir se `logs` será acompanhado ao vivo como um terceiro `kind` de
-`ManagedProcess` (`compose-service`) ou lido pontualmente com `--tail`. O
-desenho recomenda o primeiro caminho para manter a experiência dos painéis de
-processo, mas ele exige generalizar persistência, arquivos de log, observação
-de saída e limpeza de estados no `ProcessManager`.
+- definir a gramática estática mínima reconhecida para `ENV[]` e `ENV.fetch`,
+  recusando construções dinâmicas;
+- classificar o risco inicial das tasks detectadas, já que o nome sozinho não
+  prova se uma task é somente leitura ou mutável;
+- decidir se toda task com variáveis exige confirmação na primeira versão ou
+  se apenas tasks explicitamente allowlisted podem ser executadas.
 
 Nenhum código desta frente foi escrito ainda.

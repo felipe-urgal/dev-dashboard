@@ -22,6 +22,7 @@ import type {
 import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
+import ProjectDockerPanel from '../components/ProjectDockerPanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
@@ -53,6 +54,7 @@ const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
+const isDockerRoute = computed(() => route.name === 'project-docker');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
 
 function updateGitOverview(git: ProjectGitOverview): void {
@@ -239,6 +241,15 @@ watch(projectId, () => {
         </RouterLink>
 
         <RouterLink
+          v-if="project.capabilities.includes('docker')"
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isDockerRoute }"
+          :to="{ name: 'project-docker', params: { projectId: project.id } }"
+        >
+          Docker
+        </RouterLink>
+
+        <RouterLink
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isScriptsRoute }"
           :to="{ name: 'project-scripts', params: { projectId: project.id } }"
@@ -281,6 +292,12 @@ watch(projectId, () => {
       <ProjectDatabasePanel
         v-else-if="isDatabaseRoute"
         :key="`database-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDockerPanel
+        v-else-if="isDockerRoute"
+        :key="`docker-${project.id}`"
         :project="project"
       />
 

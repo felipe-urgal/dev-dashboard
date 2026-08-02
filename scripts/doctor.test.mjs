@@ -27,4 +27,25 @@ test('diagnóstico diferencia erros obrigatórios de portas ocupadas', async () 
   assert.equal(results.find((item) => item.label === 'git')?.status, 'error');
   assert.equal(results.find((item) => item.label === 'Porta API')?.status, 'warning');
   assert.equal(results.find((item) => item.label === 'Porta Web')?.status, 'ok');
+  assert.equal(results.find((item) => item.label === 'Docker Compose')?.status, 'warning');
+});
+
+test('diagnóstico reconhece Docker Compose como dependência opcional', async () => {
+  const calls = [];
+  const results = await diagnose({
+    rootDirectory: '/projeto',
+    nodeVersion: '22.12.0',
+    commandChecker: async (command, args) => {
+      calls.push([command, args]);
+      return command === 'docker' ? 'Docker Compose version v2.30.0' : 'disponível';
+    },
+    portChecker: async () => true,
+    fileChecker: async () => undefined,
+  });
+
+  assert.deepEqual(calls.find(([command]) => command === 'docker'), [
+    'docker',
+    ['compose', 'version'],
+  ]);
+  assert.equal(results.find((item) => item.label === 'Docker Compose')?.status, 'ok');
 });

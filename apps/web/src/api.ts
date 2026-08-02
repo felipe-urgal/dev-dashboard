@@ -9,3 +9,4 @@ export * from './api/rails';
 export * from './api/activities';
 export * from './api/settings';
 export * from './api/editor';
+export * from './api/docker';

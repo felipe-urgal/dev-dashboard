@@ -22,6 +22,7 @@ export const capabilityLabels: Record<
   sidekiq: 'Sidekiq',
   rake: 'Rake',
   bundler: 'Bundler',
+  docker: 'Docker',
 };
 
 export function capabilityLabel(

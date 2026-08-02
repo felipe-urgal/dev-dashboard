@@ -17,6 +17,7 @@ import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
 import { ProjectEditorService } from './services/project-editor-service.js';
+import { DockerComposeService } from './services/docker-compose-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -35,6 +36,7 @@ export interface AppContext {
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
   projectEditorService: ProjectEditorService;
+  dockerComposeService: DockerComposeService;
 }
 
 export function createAppContext(): AppContext {
@@ -62,5 +64,6 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
+    dockerComposeService: new DockerComposeService(),
   };
 }
