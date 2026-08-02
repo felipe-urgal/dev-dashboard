@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -51,30 +51,52 @@ test('inclui apenas executáveis conhecidos de bin', async () => {
   } finally { await rm(project.path, { recursive: true, force: true }); }
 });
 
-test('encerra todo o grupo do Rails quando a listagem atinge o timeout', { timeout: 8_000, skip: process.platform === 'win32' }, async () => {
+test('detecta tasks Rake e variáveis de forma estática sem executar o projeto', async () => {
   const project = await fixture({});
   const rails = path.join(project.path, 'bin', 'rails');
-  let descendantPid: number | undefined;
   try {
     project.type = 'rails';
     await mkdir(path.dirname(rails));
-    await writeFile(rails, '#!/bin/sh\nsleep 30 &\necho "$!" > descendant.pid\nwait\n');
-    await chmod(rails, 0o755);
+    await writeFile(rails, '#!/bin/sh\ntouch NAO_EXECUTAR_RAILS\n');
+    await mkdir(path.join(project.path, 'lib', 'tasks'), { recursive: true });
+    await writeFile(path.join(project.path, 'lib', 'tasks', 'imports.rake'), `
+namespace :cultural_spaces do
+  desc 'Importa espaços culturais de um CSV'
+  task import: :environment do
+    file_path = ENV['FILE']
+    raise 'Use bin/rails cultural_spaces:import FILE=tmp/espacos.csv' if file_path.blank?
+    limit = ENV.fetch('LIMIT', 100)
+    note = ENV["NOTE"]
+  end
 
-    const startedAt = Date.now();
-    await new ScriptDetectionService().getCatalog(project);
-    assert.ok(Date.now() - startedAt < 7_000, 'a detecção deve retornar logo após o timeout');
+  task dynamic: :environment do
+    name = 'SECRET'
+    puts ENV[name]
+  end
 
-    descendantPid = Number.parseInt(await readFile(path.join(project.path, 'descendant.pid'), 'utf8'), 10);
-    const descendantState = await readFile(`/proc/${descendantPid}/stat`, 'utf8').then(
-      (stat) => stat.slice(stat.lastIndexOf(') ') + 2, stat.lastIndexOf(') ') + 3),
-      (error: NodeJS.ErrnoException) => error.code === 'ENOENT' ? undefined : Promise.reject(error),
-    );
-    assert.ok(descendantState === undefined || descendantState === 'Z', 'o descendente não pode permanecer em execução');
+  task process_environment: :environment do
+    puts ENV['PATH']
+  end
+end
+`);
+
+    const catalog = await new ScriptDetectionService().getCatalog(project);
+    const task = catalog.items.find((item) => item.id === 'rails-task:cultural_spaces:import');
+    assert.equal(task?.description, 'Importa espaços culturais de um CSV');
+    assert.equal(task?.risk, 'mutable');
+    assert.equal(task?.command, 'bin/rails cultural_spaces:import FILE=… LIMIT=… NOTE=…');
+    assert.deepEqual(task?.variables, [
+      { name: 'FILE', required: true, placeholder: 'tmp/espacos.csv' },
+      { name: 'LIMIT', required: false, defaultValue: '100' },
+      { name: 'NOTE', required: false },
+    ]);
+    assert.equal(catalog.items.some((item) => item.id === 'rails-task:cultural_spaces:dynamic'), false);
+    assert.equal(catalog.items.some(
+      (item) => item.id === 'rails-task:cultural_spaces:process_environment',
+    ), false);
+    assert.equal(await import('node:fs/promises').then(({ access }) =>
+      access(path.join(project.path, 'NAO_EXECUTAR_RAILS')).then(() => true, () => false)), false);
   } finally {
-    if (descendantPid !== undefined) {
-      try { process.kill(descendantPid, 'SIGKILL'); } catch { /* O grupo já foi encerrado como esperado. */ }
-    }
     await rm(project.path, { recursive: true, force: true });
   }
 });

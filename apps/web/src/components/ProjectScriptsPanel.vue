@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -14,6 +15,8 @@ import {
 
 import type {
   Project,
+  ProjectScript,
+  ScriptExecutionVariables,
   ScriptExecutionStatus,
 } from '@dev-dashboard/contracts';
 
@@ -89,6 +92,36 @@ function executionIcon(status: ScriptExecutionStatus) {
 
 const formatDate = formatScriptExecutionDate;
 const executionDuration = scriptExecutionDuration;
+const variableValues = ref<ScriptExecutionVariables>({});
+
+watch(() => selectedScript.value?.id, () => {
+  variableValues.value = {};
+});
+
+const selectedVariables = computed(() => selectedScript.value?.variables ?? []);
+const variablesValid = computed(() => selectedVariables.value.every(
+  (variable) => !variable.required || Boolean(variableValues.value[variable.name]),
+));
+const commandPreview = computed(() => {
+  const selected = selectedScript.value;
+  if (!selected) return '';
+  const values = selectedVariables.value.flatMap((variable) => {
+    const value = variableValues.value[variable.name];
+    return value ? [`${variable.name}=${JSON.stringify(value)}`] : [];
+  });
+  return [selected.command.replace(/(?:\s+[A-Z][A-Z0-9_]*=…)+$/, ''), ...values].join(' ');
+});
+
+function requestRun(item: ProjectScript): void {
+  selectedActionId.value = item.id;
+  if (!item.variables?.length) void run(item);
+}
+
+function executeSelected(): void {
+  if (selectedScript.value && variablesValid.value) {
+    void run(selectedScript.value, variableValues.value);
+  }
+}
 </script>
 
 <template>
@@ -198,7 +231,7 @@ const executionDuration = scriptExecutionDuration;
               :disabled="startingActionId !== null || execution?.status === 'running'"
               :starting="startingActionId === item.id"
               @select="selectedActionId = item.id"
-              @run="run(item)"
+              @run="requestRun(item)"
             />
           </div>
 
@@ -237,12 +270,31 @@ const executionDuration = scriptExecutionDuration;
           <section>
             <h5>Comando</h5>
             <div class="scripts-command-box">
-              <code>{{ selectedScript.command }}</code>
-              <button type="button" @click="copyCommand(selectedScript)">
+              <code>{{ commandPreview }}</code>
+              <button type="button" @click="copyCommand(selectedScript, commandPreview)">
                 <ClipboardDocumentIcon aria-hidden="true" />
                 {{ copiedActionId === selectedScript.id ? 'Copiado' : 'Copiar' }}
               </button>
             </div>
+          </section>
+
+          <section v-if="selectedVariables.length" class="scripts-variables-form">
+            <h5>Variáveis da tarefa</h5>
+            <p>Os campos foram detectados estaticamente no arquivo Rake e serão enviados pelo ambiente do processo.</p>
+            <label v-for="variable in selectedVariables" :key="variable.name">
+              <span>
+                <strong>{{ variable.name }}</strong>
+                <small>{{ variable.required ? 'Obrigatória' : 'Opcional' }}</small>
+              </span>
+              <input
+                v-model="variableValues[variable.name]"
+                type="text"
+                maxlength="4096"
+                :required="variable.required"
+                :placeholder="variable.placeholder ?? (variable.defaultValue ? `Padrão: ${variable.defaultValue}` : 'Valor')"
+              >
+              <small v-if="variable.defaultValue">Se vazio, a tarefa usa {{ variable.defaultValue }}.</small>
+            </label>
           </section>
 
           <section>
@@ -253,8 +305,8 @@ const executionDuration = scriptExecutionDuration;
           <button
             class="scripts-primary-action"
             type="button"
-            :disabled="!selectedScript.enabled || startingActionId !== null || execution?.status === 'running'"
-            @click="run(selectedScript)"
+            :disabled="!selectedScript.enabled || !variablesValid || startingActionId !== null || execution?.status === 'running'"
+            @click="executeSelected"
           >
             <PlayIcon aria-hidden="true" />
             {{ startingActionId === selectedScript.id ? 'Iniciando…' : 'Executar script' }}
@@ -339,12 +391,20 @@ const executionDuration = scriptExecutionDuration;
               Cancelar execução
             </button>
             <button
-              v-else-if="selectedScript && selectedScript.enabled"
+              v-else-if="selectedScript && selectedScript.enabled && !selectedScript.variables?.length"
               type="button"
               @click="run(selectedScript)"
             >
               <PlayIcon aria-hidden="true" />
               Executar novamente
+            </button>
+            <button
+              v-else-if="selectedScript && selectedScript.enabled"
+              type="button"
+              @click="selectSection('catalog')"
+            >
+              <PlayIcon aria-hidden="true" />
+              Preencher e executar novamente
             </button>
           </div>
 

@@ -1,32 +1,31 @@
 # Próxima atividade
 
-A task 065 concluiu a primeira integração segura com Docker Compose por
-serviços declarados.
+A task 066 concluiu o formulário seguro para Rake tasks com variáveis
+declaradas no próprio projeto.
 
-## Rake tasks com variáveis
+## Health checks locais declarativos
 
-Próxima frente candidata de ferramentas Rails. O desenho existente em
-`docs/refactor/rake-tasks-mapeamento.md` parte de tasks reais que usam
-`ENV['FILE']`, `ENV.fetch('LIMIT')` e valores opcionais.
+Próxima frente candidata para tornar o status do projeto mais útil sem aceitar
+comandos livres nem acessar hosts externos.
 
 ### Escopo proposto
 
-- detectar estaticamente tasks em `lib/tasks/**/*.rake`;
-- identificar variáveis `ENV` obrigatórias, opcionais e seus valores padrão;
-- gerar um formulário somente a partir desse catálogo detectado;
-- validar nomes, quantidade e tamanho dos valores;
-- executar `bin/rails <task>` com ambiente estruturado e sem shell;
-- reutilizar confirmação e logs do catálogo seguro;
-- nunca aceitar nome de task ou variável que não tenha sido redetectado pela
-  API no código-fonte do projeto.
+- detectar automaticamente o health check HTTP do servidor gerenciado;
+- permitir somente `GET` para `127.0.0.1`/`localhost` e para a porta já
+  resolvida nas configurações do projeto;
+- oferecer uma allowlist pequena de caminhos comuns (`/`, `/up`, `/health`,
+  `/healthz`) ou um caminho relativo validado e persistido por projeto;
+- impor timeout curto, limite de resposta e nenhum redirecionamento externo;
+- exibir latência, status HTTP e horário da última verificação no painel do
+  servidor;
+- nunca enviar headers, cookies, corpo, credenciais ou URL absoluta vindos do
+  navegador.
 
 ### Decisões antes da implementação
 
-- definir a gramática estática mínima reconhecida para `ENV[]` e `ENV.fetch`,
-  recusando construções dinâmicas;
-- classificar o risco inicial das tasks detectadas, já que o nome sozinho não
-  prova se uma task é somente leitura ou mutável;
-- decidir se toda task com variáveis exige confirmação na primeira versão ou
-  se apenas tasks explicitamente allowlisted podem ser executadas.
+- decidir se o caminho será somente detectado ou também configurável;
+- definir quais códigos HTTP representam saudável, degradado e indisponível;
+- decidir se a primeira versão será apenas sob demanda ou terá polling enquanto
+  a aba Servidor estiver aberta.
 
 Nenhum código desta frente foi escrito ainda.

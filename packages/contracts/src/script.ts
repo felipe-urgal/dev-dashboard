@@ -1,6 +1,15 @@
 export type ProjectScriptOrigin = 'package-script' | 'rails-task' | 'bin';
 export type ProjectScriptRisk = 'read-only' | 'mutable' | 'destructive';
 
+export interface ProjectScriptVariable {
+  name: string;
+  required: boolean;
+  defaultValue?: string;
+  placeholder?: string;
+}
+
+export type ScriptExecutionVariables = Record<string, string>;
+
 export interface ProjectScript {
   id: string;
   name: string;
@@ -9,6 +18,7 @@ export interface ProjectScript {
   origin: ProjectScriptOrigin;
   risk: ProjectScriptRisk;
   enabled: boolean;
+  variables?: ProjectScriptVariable[];
 }
 
 export interface ProjectScriptCatalog {

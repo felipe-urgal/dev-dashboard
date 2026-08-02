@@ -50,7 +50,7 @@ defineEmits<{
         @click.stop="$emit('run')"
       >
         <PlayIcon aria-hidden="true" />
-        {{ starting ? 'Iniciando…' : 'Executar' }}
+        {{ starting ? 'Iniciando…' : item.variables?.length ? 'Preencher' : 'Executar' }}
       </button>
     </footer>
   </article>
