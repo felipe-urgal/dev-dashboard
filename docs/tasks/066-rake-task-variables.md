@@ -66,4 +66,4 @@ tarefa ou de variável livres do navegador.
 
 ## PR
 
-A preencher após a abertura do PR.
+- [#147 — Adiciona variáveis seguras em tarefas Rake](https://github.com/felipe-urgal/dev-dashboard/pull/147)
