@@ -57,4 +57,4 @@ ou contratos desta task.
 
 ## PR
 
-A preencher após a abertura do PR.
+[#145](https://github.com/felipe-urgal/dev-dashboard/pull/145)
