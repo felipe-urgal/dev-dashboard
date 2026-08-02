@@ -39,6 +39,8 @@ tarefa ou de variável livres do navegador.
   de executar;
 - valores não são persistidos no histórico nem incorporados aos argumentos do
   processo;
+- variáveis que controlam a inicialização do processo, como `PATH`, `HOME`,
+  `RUBYOPT` e `LD_PRELOAD`, não podem virar campos nem ser enviadas à execução;
 - tarefas classificadas como destrutivas continuam bloqueadas;
 - uma confirmação não pode ser reutilizada com valores diferentes.
 

@@ -34,6 +34,7 @@ import {
   MAX_TOTAL_SUBSCRIBERS,
 } from './script-execution/constants.js';
 import { resolveCommand } from './script-execution/command-resolution.js';
+import { isProtectedScriptEnvironmentVariable } from './script-execution/environment-variables.js';
 import { ScriptExecutionError } from './script-execution/errors.js';
 
 export { ScriptExecutionError } from './script-execution/errors.js';
@@ -353,10 +354,14 @@ export class ScriptExecutionService {
     const allowed = new Map(declared.map((variable) => [variable.name, variable]));
     const normalized: ScriptExecutionVariables = {};
     for (const [name, value] of entries) {
-      if (!allowed.has(name) || typeof value !== 'string') {
+      if (
+        isProtectedScriptEnvironmentVariable(name)
+        || !allowed.has(name)
+        || typeof value !== 'string'
+      ) {
         throw new ScriptExecutionError(
           'SCRIPT_VARIABLES_INVALID',
-          'A requisição contém uma variável não declarada pela tarefa atual.',
+          'A requisição contém uma variável não aceita pela tarefa atual.',
         );
       }
       if (value.length > 4_096 || /[\0\r\n]/.test(value)) {

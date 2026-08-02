@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { ProjectScriptVariable } from '@dev-dashboard/contracts';
+import { isProtectedScriptEnvironmentVariable } from './script-execution/environment-variables.js';
 
 const MAX_RAKE_FILES = 200;
 const MAX_RAKE_FILE_BYTES = 262_144;
@@ -105,7 +106,8 @@ function inspectVariables(body: string): {
   return {
     variables,
     hasUnsupportedVariables:
-      /ENV\[(?!\s*['"])/.test(body)
+      variables.some((variable) => isProtectedScriptEnvironmentVariable(variable.name))
+      || /ENV\[(?!\s*['"])/.test(body)
       || /ENV\.fetch\b(?!\s*\()/.test(body)
       || /ENV\.fetch\((?!\s*['"])/.test(body),
   };

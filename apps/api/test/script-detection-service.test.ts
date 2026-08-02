@@ -73,6 +73,10 @@ namespace :cultural_spaces do
     name = 'SECRET'
     puts ENV[name]
   end
+
+  task process_environment: :environment do
+    puts ENV['PATH']
+  end
 end
 `);
 
@@ -87,6 +91,9 @@ end
       { name: 'NOTE', required: false },
     ]);
     assert.equal(catalog.items.some((item) => item.id === 'rails-task:cultural_spaces:dynamic'), false);
+    assert.equal(catalog.items.some(
+      (item) => item.id === 'rails-task:cultural_spaces:process_environment',
+    ), false);
     assert.equal(await import('node:fs/promises').then(({ access }) =>
       access(path.join(project.path, 'NAO_EXECUTAR_RAILS')).then(() => true, () => false)), false);
   } finally {
