@@ -387,11 +387,10 @@ incluindo logs órfãos sem estado correspondente (task 042).
 
 Ainda faltam:
 
-- `git-pr` (compor e abrir a URL de criação de PR/MR a partir do remote
-  `origin`, sem chamar API de provedor — próxima entrega, ver
-  `docs/tasks/NEXT.md`);
-- adaptador para abrir editor e navegador local;
+- adaptador para navegador local;
 - jobs/histórico de ações unificado entre Git, Rails e processos.
+
+`git-pr` foi concluído na task 043 e o adaptador de editor local na task 064.
 
 `dev-kill-port` do CLI foi avaliado e adiado (task 042): encerra qualquer
 PID dono de uma porta sem validar sua identidade, o que conflita com a

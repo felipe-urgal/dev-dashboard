@@ -14,6 +14,13 @@ export type {
 } from './project.js';
 
 export type {
+  ProjectEditor,
+  ProjectEditorAvailability,
+  ProjectEditorId,
+  ProjectEditorLaunchResult,
+} from './editor.js';
+
+export type {
   ManagedProcess,
   ManagedProcessKind,
   ManagedProcessStatus,

@@ -70,3 +70,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `061-scripts-refinement.md` — Scripts abre diretamente no catálogo, com lista compacta e curadoria compartilhada que remove hooks e delega servidor, testes e migrations às áreas especializadas.
 - `062-dashboard-project-branch.md` — visão geral exibe a branch Git atual em cada projeto, ao lado da porta, sem bloquear a linha quando a consulta complementar falha.
 - `063-stop-servers-and-scripts-refactor.md` — corrige o falso timeout ao parar processos sem observador em memória e conclui a refatoração pura de todos os componentes Vue acima de 400 linhas na Fase 7.
+- `064-local-project-editor.md` — abre o projeto em um editor local conhecido, detectado no `PATH`, por catálogo fechado e processo sem shell.
