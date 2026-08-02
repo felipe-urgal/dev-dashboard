@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -54,6 +54,61 @@ test('exige confirmação vinculada para ação mutável', async (t) => {
   for (let attempt = 0; attempt < 50 && current.status === 'running'; attempt += 1) { await new Promise((resolve) => setTimeout(resolve, 20)); current = await service.get(project.id, started.id); }
   assert.equal(current.status, 'succeeded');
   await assert.rejects(() => service.start(project, 'package-script:build', confirmation.token), (error: unknown) => error instanceof ScriptExecutionError && error.code === 'SCRIPT_CONFIRMATION_REQUIRED');
+});
+
+test('valida variáveis redetectadas, vincula a confirmação e usa ambiente estruturado', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'dashboard-rake-variables-'));
+  const rails = path.join(root, 'bin', 'rails');
+  await mkdir(path.dirname(rails), { recursive: true });
+  await mkdir(path.join(root, 'lib', 'tasks'), { recursive: true });
+  await writeFile(rails, '#!/bin/sh\nprintf "%s|%s\\n" "$FILE" "$LIMIT"\n');
+  await chmod(rails, 0o755);
+  await writeFile(path.join(root, 'lib', 'tasks', 'imports.rake'), `
+desc 'Importa registros'
+task import: :environment do
+  file = ENV['FILE']
+  raise 'Use bin/rails import FILE=tmp/import.csv' if file.blank?
+  limit = ENV.fetch('LIMIT', 100)
+end
+`);
+  const project = {
+    id: 'rails-1', name: 'Rails', path: root, type: 'rails',
+    source: 'standalone', favorite: false, capabilities: ['scripts'],
+  } as Project;
+  const service = new ScriptExecutionService(new ScriptDetectionService(), root);
+  t.after(() => { service.close(); return rm(root, { recursive: true, force: true }); });
+
+  await assert.rejects(
+    () => service.prepareConfirmation(project, 'rails-task:import'),
+    (error: unknown) => error instanceof ScriptExecutionError
+      && error.code === 'SCRIPT_VARIABLES_INVALID',
+  );
+  await assert.rejects(
+    () => service.prepareConfirmation(project, 'rails-task:import', { FILE: 'ok', EXTRA: 'não' }),
+    (error: unknown) => error instanceof ScriptExecutionError
+      && error.code === 'SCRIPT_VARIABLES_INVALID',
+  );
+  const mismatched = await service.prepareConfirmation(
+    project, 'rails-task:import', { FILE: 'tmp/um.csv' },
+  );
+  await assert.rejects(
+    () => service.start(
+      project, 'rails-task:import', mismatched.token, { FILE: 'tmp/outro.csv' },
+    ),
+    (error: unknown) => error instanceof ScriptExecutionError
+      && error.code === 'SCRIPT_CONFIRMATION_REQUIRED',
+  );
+
+  const variables = { FILE: 'tmp/import.csv', LIMIT: '25' };
+  const confirmation = await service.prepareConfirmation(project, 'rails-task:import', variables);
+  const started = await service.start(project, 'rails-task:import', confirmation.token, variables);
+  let current = started;
+  for (let attempt = 0; attempt < 50 && current.status === 'running'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    current = await service.get(project.id, started.id);
+  }
+  assert.equal(current.status, 'succeeded');
+  assert.match((await service.log(project.id, started.id)).content, /tmp\/import\.csv\|25/);
 });
 
 test('reserva o projeto antes da detecção assíncrona', async (t) => {

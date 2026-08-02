@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
-import type { ProjectScriptOrigin, ProjectScriptRisk, ScriptExecutionEvent } from '@dev-dashboard/contracts';
+import type { ProjectScriptOrigin, ProjectScriptRisk, ScriptExecutionEvent, ScriptExecutionVariables } from '@dev-dashboard/contracts';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas, latestScriptExecutionResponseSchema, projectScriptCatalogResponseSchema, scriptExecutionConfirmationResponseSchema, scriptExecutionHistoryResponseSchema, scriptExecutionLogResponseSchema, scriptExecutionResponseSchema } from '../http/response-schemas.js';
 import type { ScriptDetectionService } from '../services/script-detection-service.js';
@@ -8,11 +8,17 @@ import type { ProjectStore } from '../store/project-store.js';
 
 interface Params { projectId: string }
 interface Query { page?: number; pageSize?: number; search?: string; origin?: ProjectScriptOrigin; risk?: ProjectScriptRisk }
-interface StartBody { actionId: string; confirmationToken?: string }
+interface StartBody { actionId: string; confirmationToken?: string; variables?: ScriptExecutionVariables }
 interface ExecutionParams extends Params { executionId: string }
 interface Options extends FastifyPluginOptions { projectStore: ProjectStore; scriptDetectionService: ScriptDetectionService; scriptExecutionService: ScriptExecutionService }
 
 const executionParamsSchema = { type: 'object', additionalProperties: false, required: ['projectId', 'executionId'], properties: { projectId: { type: 'string', minLength: 1 }, executionId: { type: 'string', minLength: 1 } } } as const;
+const variablesSchema = {
+  type: 'object',
+  additionalProperties: { type: 'string', maxLength: 4096, pattern: '^[^\\u0000\\r\\n]*$' },
+  propertyNames: { pattern: '^[A-Z][A-Z0-9_]{0,63}$' },
+  maxProperties: 20,
+} as const;
 
 function serializeEvent(event: ScriptExecutionEvent): string {
   if (event.type === 'state') {
@@ -34,7 +40,7 @@ function serializeEvent(event: ScriptExecutionEvent): string {
 
 function translate(error: unknown): never {
   if (!(error instanceof ScriptExecutionError)) throw error;
-  const statuses: Record<string, number> = { SCRIPT_NOT_FOUND: 404, SCRIPT_EXECUTION_NOT_FOUND: 404, SCRIPT_DISABLED: 409, SCRIPT_CONFIRMATION_REQUIRED: 409, SCRIPT_ALREADY_RUNNING: 409, SCRIPT_MANAGER_AMBIGUOUS: 409, SCRIPT_MANAGER_NOT_FOUND: 409, SCRIPT_SUBSCRIBER_LIMIT: 429 };
+  const statuses: Record<string, number> = { SCRIPT_NOT_FOUND: 404, SCRIPT_EXECUTION_NOT_FOUND: 404, SCRIPT_VARIABLES_INVALID: 400, SCRIPT_DISABLED: 409, SCRIPT_CONFIRMATION_REQUIRED: 409, SCRIPT_ALREADY_RUNNING: 409, SCRIPT_MANAGER_AMBIGUOUS: 409, SCRIPT_MANAGER_NOT_FOUND: 409, SCRIPT_SUBSCRIBER_LIMIT: 429 };
   throw new ApiError({ statusCode: statuses[error.code] ?? 500, code: error.code, message: error.message });
 }
 
@@ -52,24 +58,24 @@ export const scriptRoutes: FastifyPluginAsync<Options> = async (app, options) =>
     return { catalog: await options.scriptDetectionService.getCatalog(project, request.query) };
   });
 
-  app.post<{ Params: Params; Body: { actionId: string } }>('/projects/:projectId/scripts/confirmations', { schema: {
+  app.post<{ Params: Params; Body: { actionId: string; variables?: ScriptExecutionVariables } }>('/projects/:projectId/scripts/confirmations', { schema: {
     params: { type: 'object', additionalProperties: false, required: ['projectId'], properties: { projectId: { type: 'string', minLength: 1 } } },
-    body: { type: 'object', additionalProperties: false, required: ['actionId'], properties: { actionId: { type: 'string', minLength: 1, maxLength: 200 } } },
+    body: { type: 'object', additionalProperties: false, required: ['actionId'], properties: { actionId: { type: 'string', minLength: 1, maxLength: 200 }, variables: variablesSchema } },
     response: { 201: { type: 'object', additionalProperties: false, required: ['confirmation'], properties: { confirmation: scriptExecutionConfirmationResponseSchema } }, ...commonErrorResponseSchemas },
   } }, async (request, reply) => {
     const project = options.projectStore.findProject(request.params.projectId);
     if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
-    try { return reply.code(201).send({ confirmation: await options.scriptExecutionService.prepareConfirmation(project, request.body.actionId) }); } catch (error) { translate(error); }
+    try { return reply.code(201).send({ confirmation: await options.scriptExecutionService.prepareConfirmation(project, request.body.actionId, request.body.variables) }); } catch (error) { translate(error); }
   });
 
   app.post<{ Params: Params; Body: StartBody }>('/projects/:projectId/scripts/executions', { schema: {
     params: { type: 'object', additionalProperties: false, required: ['projectId'], properties: { projectId: { type: 'string', minLength: 1 } } },
-    body: { type: 'object', additionalProperties: false, required: ['actionId'], properties: { actionId: { type: 'string', minLength: 1, maxLength: 200 }, confirmationToken: { type: 'string', minLength: 64, maxLength: 64 } } },
+    body: { type: 'object', additionalProperties: false, required: ['actionId'], properties: { actionId: { type: 'string', minLength: 1, maxLength: 200 }, confirmationToken: { type: 'string', minLength: 64, maxLength: 64 }, variables: variablesSchema } },
     response: { 201: { type: 'object', additionalProperties: false, required: ['execution'], properties: { execution: scriptExecutionResponseSchema } }, ...commonErrorResponseSchemas },
   } }, async (request, reply) => {
     const project = options.projectStore.findProject(request.params.projectId);
     if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
-    try { return reply.code(201).send({ execution: await options.scriptExecutionService.start(project, request.body.actionId, request.body.confirmationToken) }); } catch (error) { translate(error); }
+    try { return reply.code(201).send({ execution: await options.scriptExecutionService.start(project, request.body.actionId, request.body.confirmationToken, request.body.variables) }); } catch (error) { translate(error); }
   });
 
   app.get<{ Params: Params }>('/projects/:projectId/scripts/executions/latest', { schema: {

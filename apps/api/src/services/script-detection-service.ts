@@ -1,8 +1,8 @@
-import { spawn } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { Project, ProjectScript, ProjectScriptCatalog, ProjectScriptOrigin, ProjectScriptRisk } from '@dev-dashboard/contracts';
+import { inspectRakeTasks } from './rake-task-inspection.js';
 
 interface Manifest { scripts?: Record<string, unknown> }
 export interface CatalogOptions { page?: number; pageSize?: number; search?: string; origin?: ProjectScriptOrigin; risk?: ProjectScriptRisk }
@@ -41,35 +41,26 @@ async function knownBins(project: Project): Promise<ProjectScript[]> {
   return items;
 }
 
-function listRailsTasks(projectPath: string): Promise<string> {
-  return new Promise((resolve) => {
-    const detached = process.platform !== 'win32';
-    const child = spawn(path.join(projectPath, 'bin', 'rails'), ['-T'], { cwd: projectPath, detached, shell: false, env: { ...process.env, RAILS_ENV: 'development' }, stdio: ['ignore', 'pipe', 'ignore'] });
-    let output = '';
-    const timer = setTimeout(() => {
-      if (detached && child.pid !== undefined) {
-        try {
-          process.kill(-child.pid, 'SIGKILL');
-          return;
-        } catch {
-          // O processo pode ter encerrado entre o timeout e o envio do sinal.
-        }
-      }
-      child.kill('SIGKILL');
-    }, 5_000);
-    child.stdout.on('data', (chunk: Buffer) => { if (output.length < 262_144) output += chunk.toString('utf8'); });
-    child.on('error', () => { clearTimeout(timer); resolve(''); });
-    child.on('close', () => { clearTimeout(timer); resolve(output); });
-  });
-}
-
 async function railsTasks(project: Project): Promise<ProjectScript[]> {
   if (project.type !== 'rails' || !(await exists(path.join(project.path, 'bin', 'rails')))) return [];
-  return (await listRailsTasks(project.path)).split('\n').flatMap((line): ProjectScript[] => {
-    const match = /^rails\s+([^\s#]+)\s*(?:#\s*(.*))?$/.exec(line.trim());
-    if (!match?.[1]) return [];
-    const name = match[1]; const risk = classify(name);
-    return [{ id: `rails-task:${name}`, name, description: match[2]?.trim() || 'Tarefa pública do Rails.', command: `bin/rails ${name}`, origin: 'rails-task', risk, enabled: risk !== 'destructive' }];
+  return (await inspectRakeTasks(project.path)).filter(
+    (task) => !task.hasUnsupportedVariables,
+  ).map((task) => {
+    const classified = classify(task.name);
+    const risk = task.variables.length > 0 && classified !== 'destructive'
+      ? 'mutable'
+      : classified;
+    const variablePreview = task.variables.map((variable) => `${variable.name}=…`).join(' ');
+    return {
+      id: `rails-task:${task.name}`,
+      name: task.name,
+      description: task.description || 'Tarefa declarada estaticamente no projeto Rails.',
+      command: `bin/rails ${task.name}${variablePreview ? ` ${variablePreview}` : ''}`,
+      origin: 'rails-task',
+      risk,
+      enabled: risk !== 'destructive',
+      ...(task.variables.length ? { variables: task.variables } : {}),
+    };
   });
 }
 

@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { Project, ProjectScript } from '@dev-dashboard/contracts';
+import type { Project, ProjectScript, ScriptExecutionVariables } from '@dev-dashboard/contracts';
 
 import { ScriptExecutionError } from './errors.js';
 
@@ -48,7 +48,8 @@ export async function resolveNodeManager(projectPath: string): Promise<NodeManag
 export async function resolveCommand(
   project: Project,
   action: ProjectScript,
-): Promise<{ command: string; args: string[] }> {
+  variables: ScriptExecutionVariables = {},
+): Promise<{ command: string; args: string[]; env?: ScriptExecutionVariables }> {
   const separator = action.id.indexOf(':');
   const origin = action.id.slice(0, separator);
   const name = action.id.slice(separator + 1);
@@ -63,7 +64,11 @@ export async function resolveCommand(
     return { command: await resolveNodeManager(project.path), args: ['run', name] };
   }
   if (origin === 'rails-task') {
-    return { command: path.join(project.path, 'bin', 'rails'), args: [name] };
+    return {
+      command: path.join(project.path, 'bin', 'rails'),
+      args: [name],
+      ...(Object.keys(variables).length ? { env: variables } : {}),
+    };
   }
   if (
     origin === 'bin' &&

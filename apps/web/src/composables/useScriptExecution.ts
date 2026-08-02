@@ -5,6 +5,7 @@ import type {
   ProjectScript,
   ScriptExecution,
   ScriptExecutionHistory,
+  ScriptExecutionVariables,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -140,14 +141,17 @@ export function useScriptExecution<ScriptSection extends string>(
     }
   }
 
-  async function run(item: ProjectScript): Promise<void> {
+  async function run(
+    item: ProjectScript,
+    variables: ScriptExecutionVariables = {},
+  ): Promise<void> {
     if (startingActionId.value || execution.value?.status === 'running') return;
     const projectId = getProject().id;
     const current = generation;
 
     if (
       item.risk !== 'read-only'
-      && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente.`)
+      && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente com os valores exibidos.`)
     ) return;
 
     selectedActionId.value = item.id;
@@ -158,8 +162,8 @@ export function useScriptExecution<ScriptSection extends string>(
     try {
       const confirmation = item.risk === 'read-only'
         ? undefined
-        : await prepareScriptExecution(projectId, item.id);
-      const started = await startScriptExecution(projectId, item.id, confirmation?.token);
+        : await prepareScriptExecution(projectId, item.id, variables);
+      const started = await startScriptExecution(projectId, item.id, confirmation?.token, variables);
       execution.value = started;
       activeSection.value = executionsSection;
       startingActionId.value = null;
