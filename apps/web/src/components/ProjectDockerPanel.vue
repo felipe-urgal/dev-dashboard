@@ -35,6 +35,7 @@ const activeService = ref('');
 const logs = ref<ComposeServiceLogs>();
 const logsLoading = ref(false);
 const pendingConfirmation = ref<ComposeServiceActionConfirmation>();
+let logsGeneration = 0;
 
 const services = computed(() => overview.value?.services ?? []);
 
@@ -102,20 +103,31 @@ function cancelPending(): void {
 }
 
 async function showLogs(serviceName: string): Promise<void> {
+  const requestedProjectId = props.project.id;
+  const requestGeneration = ++logsGeneration;
   logsLoading.value = true;
   errorMessage.value = '';
   try {
-    logs.value = await fetchComposeServiceLogs(props.project.id, serviceName);
+    const result = await fetchComposeServiceLogs(requestedProjectId, serviceName);
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logs.value = result;
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs.';
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs.';
+    }
   } finally {
-    logsLoading.value = false;
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logsLoading.value = false;
+    }
   }
 }
 
 watch(() => props.project.id, () => {
+  logsGeneration += 1;
   overview.value = undefined;
   logs.value = undefined;
+  logsLoading.value = false;
   pendingConfirmation.value = undefined;
   void load();
 }, { immediate: true });

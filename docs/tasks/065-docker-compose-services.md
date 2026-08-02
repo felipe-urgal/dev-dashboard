@@ -51,11 +51,11 @@ entrega segura do catálogo Compose.
 
 ## Validação
 
-- testes focados da entrega: 5 do serviço e rotas Compose, 3 do painel
+- testes focados da entrega: 6 do serviço e rotas Compose, 4 do painel
   Vue, 3 do diagnóstico e 1 da descoberta da capability;
 - `npm run typecheck` passou;
 - `npm run build` passou;
-- `npm test` passou nos scripts (6), API (332), web (255), core (8) e
+- `npm test` passou nos scripts (6), API (333), web (256), core (8) e
   project-discovery (1). O pacote process-manager manteve 31 testes passando e
   as mesmas 12 falhas conhecidas deste ambiente isolado, relacionadas a
   `os.networkInterfaces()`, processos detached e temporização de locks; nenhuma
