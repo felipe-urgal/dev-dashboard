@@ -126,4 +126,31 @@ describe('painel Docker Compose', () => {
     expect(web.text()).toContain('Build falhou');
     expect(web.findAll('button')[0]!.attributes('disabled')).toBeDefined();
   });
+
+  it('ignora logs que chegam depois da troca de projeto', async () => {
+    api.fetchProjectDocker.mockResolvedValue(overview);
+    let resolveLogs!: (value: {
+      serviceName: string; content: string; sizeBytes: number; truncated: boolean;
+      masked: boolean; redactionCount: number; readAt: string;
+    }) => void;
+    api.fetchComposeServiceLogs.mockImplementation(() => new Promise((resolve) => {
+      resolveLogs = resolve;
+    }));
+    const wrapper = mount(ProjectDockerPanel, {
+      props: { project: makeProject({ id: 'p1', capabilities: ['docker'] }) },
+    });
+    await flushPromises();
+    const db = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('db'))!;
+    await db.findAll('button')[3]!.trigger('click');
+
+    await wrapper.setProps({ project: makeProject({ id: 'p2', capabilities: ['docker'] }) });
+    resolveLogs({
+      serviceName: 'db', content: 'logs do projeto antigo', sizeBytes: 22,
+      truncated: false, masked: false, redactionCount: 0, readAt: '2026-08-02T12:00:00.000Z',
+    });
+    await flushPromises();
+
+    expect(wrapper.find('.docker-logs').exists()).toBe(false);
+    expect(api.fetchComposeServiceLogs).toHaveBeenCalledWith('p1', 'db');
+  });
 });

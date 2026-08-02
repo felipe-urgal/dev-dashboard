@@ -42,6 +42,7 @@ const logsLoading = ref(false);
 const pendingConfirmation = ref<ComposeServiceActionConfirmation>();
 const builds = ref<Record<string, ManagedProcess | null>>({});
 let buildPollingTimer: ReturnType<typeof setTimeout> | undefined;
+let logsGeneration = 0;
 
 const services = computed(() => overview.value?.services ?? []);
 
@@ -173,34 +174,53 @@ function cancelPending(): void {
 }
 
 async function showLogs(serviceName: string): Promise<void> {
+  const requestedProjectId = props.project.id;
+  const requestGeneration = ++logsGeneration;
   logsLoading.value = true;
   errorMessage.value = '';
   try {
-    logs.value = await fetchComposeServiceLogs(props.project.id, serviceName);
+    const result = await fetchComposeServiceLogs(requestedProjectId, serviceName);
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logs.value = result;
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs.';
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs.';
+    }
   } finally {
-    logsLoading.value = false;
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logsLoading.value = false;
+    }
   }
 }
 
 async function showBuildLogs(serviceName: string): Promise<void> {
+  const requestedProjectId = props.project.id;
+  const requestGeneration = ++logsGeneration;
   logsLoading.value = true;
   errorMessage.value = '';
   try {
-    const log = await fetchComposeServiceBuildLog(props.project.id, serviceName);
-    logs.value = { serviceName: `${serviceName} (build)`, ...log };
+    const log = await fetchComposeServiceBuildLog(requestedProjectId, serviceName);
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logs.value = { serviceName: `${serviceName} (build)`, ...log };
+    }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs do build.';
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os logs do build.';
+    }
   } finally {
-    logsLoading.value = false;
+    if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
+      logsLoading.value = false;
+    }
   }
 }
 
 watch(() => props.project.id, () => {
   stopBuildPolling();
+  logsGeneration += 1;
   overview.value = undefined;
   logs.value = undefined;
+  logsLoading.value = false;
   pendingConfirmation.value = undefined;
   builds.value = {};
   void load();

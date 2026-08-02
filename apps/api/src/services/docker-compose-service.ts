@@ -270,20 +270,21 @@ export class DockerComposeService {
     action: 'stop' | 'restart',
   ): Promise<ComposeServiceActionConfirmation> {
     this.requireService(await this.detect(project), serviceName);
+    this.pruneExpiredConfirmations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = this.now() + CONFIRMATION_TTL_MS;
     this.confirmations.set(token, { projectId: project.id, serviceName, action, expiresAt });
     return { token, serviceName, action, expiresAt: new Date(expiresAt).toISOString() };
   }
 
-  private consumeConfirmation(
+  private requireConfirmation(
     projectId: string,
     serviceName: string,
     action: 'stop' | 'restart',
     token: string | undefined,
-  ): void {
+  ): string {
+    this.pruneExpiredConfirmations();
     const record = token ? this.confirmations.get(token) : undefined;
-    if (token) this.confirmations.delete(token);
     if (
       !record
       || record.projectId !== projectId
@@ -295,6 +296,25 @@ export class DockerComposeService {
         'DOCKER_CONFIRMATION_REQUIRED',
         'Confirme novamente a ação sobre o serviço Docker.',
       );
+    }
+    return token!;
+  }
+
+  private consumeConfirmation(
+    projectId: string,
+    serviceName: string,
+    action: 'stop' | 'restart',
+    token: string | undefined,
+  ): void {
+    this.confirmations.delete(
+      this.requireConfirmation(projectId, serviceName, action, token),
+    );
+  }
+
+  private pruneExpiredConfirmations(): void {
+    const now = this.now();
+    for (const [token, confirmation] of this.confirmations) {
+      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
     }
   }
 
@@ -312,14 +332,18 @@ export class DockerComposeService {
         'Este serviço exige build antes de poder ser iniciado pelo dashboard.',
       );
     }
-    if (action === 'stop' || action === 'restart') {
-      this.consumeConfirmation(project.id, serviceName, action, confirmationToken);
+    const needsConfirmation = action === 'stop' || action === 'restart';
+    if (needsConfirmation) {
+      this.requireConfirmation(project.id, serviceName, action, confirmationToken);
     }
     if (!detected || !(await this.dockerAvailable(project))) {
       throw new DockerComposeError(
         'DOCKER_UNAVAILABLE',
         'Docker Compose não está disponível no PATH da API.',
       );
+    }
+    if (needsConfirmation) {
+      this.consumeConfirmation(project.id, serviceName, action, confirmationToken);
     }
     const args = action === 'start'
       ? ['compose', '-f', detected.composeFile, 'up', '-d', serviceName]

@@ -112,6 +112,59 @@ test('executa somente o catálogo conhecido e exige confirmação vinculada', as
   }
 });
 
+test('preserva a confirmação quando Docker está indisponível e remove confirmações expiradas', async () => {
+  const item = await fixture();
+  let now = Date.parse('2026-08-02T12:00:00.000Z');
+  let dockerAvailable = true;
+  let actionFails = false;
+  const calls: string[][] = [];
+  const service = new DockerComposeService({
+    now: () => now,
+    runCommand: async (_command, args) => {
+      calls.push(args);
+      if (args.includes('version') && !dockerAvailable) throw new Error('Docker indisponível');
+      if (actionFails && args.includes('restart')) throw new Error('Falha depois da tentativa');
+      return { stdout: '', stderr: '' };
+    },
+  });
+  try {
+    const abandoned = await service.prepareConfirmation(item.project, 'db', 'restart');
+    now += 60_001;
+    const confirmation = await service.prepareConfirmation(item.project, 'db', 'stop');
+    const stored = (service as unknown as {
+      confirmations: Map<string, unknown>;
+    }).confirmations;
+    assert.equal(stored.has(abandoned.token), false);
+    assert.equal(stored.has(confirmation.token), true);
+
+    dockerAvailable = false;
+    await assert.rejects(
+      service.runAction(item.project, 'db', 'stop', confirmation.token),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_UNAVAILABLE',
+    );
+    assert.equal(stored.has(confirmation.token), true);
+
+    dockerAvailable = true;
+    await service.runAction(item.project, 'db', 'stop', confirmation.token);
+    assert.deepEqual(calls.at(-1), [
+      'compose', '-f', path.join(item.directory, 'compose.yaml'), 'stop', 'db',
+    ]);
+    assert.equal(stored.has(confirmation.token), false);
+
+    const attempted = await service.prepareConfirmation(item.project, 'db', 'restart');
+    actionFails = true;
+    await assert.rejects(
+      service.runAction(item.project, 'db', 'restart', attempted.token),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_ACTION_FAILED',
+    );
+    assert.equal(stored.has(attempted.token), false);
+  } finally {
+    await item.cleanup();
+  }
+});
+
 test('limita e mascara logs antes de devolvê-los', async () => {
   const item = await fixture();
   const oversizedOutput = `${'x'.repeat(262_200)}\ndb | password=segredo\ndb | pronto\n`;
