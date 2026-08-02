@@ -95,4 +95,4 @@ consultável, mantendo o mesmo modelo de segurança (catálogo fechado,
 
 ## PR
 
-[#147 — Adiciona build assíncrono de serviços Docker Compose](https://github.com/felipe-urgal/dev-dashboard/pull/147)
+[#148 — Adiciona build assíncrono de serviços Docker Compose](https://github.com/felipe-urgal/dev-dashboard/pull/148)
