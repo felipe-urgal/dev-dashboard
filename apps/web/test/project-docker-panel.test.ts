@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   runComposeServiceAction: vi.fn(),
   fetchComposeServiceLogs: vi.fn(),
   fetchComposeServiceBuild: vi.fn(),
+  prepareComposeServiceBuild: vi.fn(),
   startComposeServiceBuild: vi.fn(),
   fetchComposeServiceBuildLog: vi.fn(),
 }));
@@ -89,9 +90,12 @@ describe('painel Docker Compose', () => {
     expect(wrapper.get('.docker-logs').text()).toContain('1 conteúdo(s) sensível(is)');
   });
 
-  it('inicia o build de um serviço que exige build e libera o start após sucesso', async () => {
+  it('exige confirmação antes de iniciar o build e libera o start após sucesso', async () => {
     api.fetchProjectDocker.mockResolvedValue(overview);
     api.fetchComposeServiceBuild.mockResolvedValue(null);
+    api.prepareComposeServiceBuild.mockResolvedValue({
+      token: 'b'.repeat(64), serviceName: 'web', expiresAt: '2026-08-02T12:01:00.000Z',
+    });
     api.startComposeServiceBuild.mockResolvedValue({
       id: 'p1:compose-build:web', projectId: 'p1', kind: 'compose-build', status: 'running',
     });
@@ -106,7 +110,13 @@ describe('painel Docker Compose', () => {
     await buildButton.trigger('click');
     await flushPromises();
 
-    expect(api.startComposeServiceBuild).toHaveBeenCalledWith('p1', 'web');
+    expect(api.prepareComposeServiceBuild).toHaveBeenCalledWith('p1', 'web');
+    expect(api.startComposeServiceBuild).not.toHaveBeenCalled();
+
+    await wrapper.find('.docker-confirmation .danger-button').trigger('click');
+    await flushPromises();
+
+    expect(api.startComposeServiceBuild).toHaveBeenCalledWith('p1', 'web', 'b'.repeat(64));
     web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
     expect(web.text()).toContain('Buildando');
     expect(web.findAll('button')[0]!.attributes('disabled')).toBeDefined();

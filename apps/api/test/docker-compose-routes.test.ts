@@ -86,12 +86,14 @@ test('expõe status, start, stop e logs de build por serviço', async (context) 
     id: 'painel:compose-build:app', projectId: 'painel', kind: 'compose-build' as const,
     status: 'running' as const,
   };
-  const startCalls: string[] = [];
+  const startCalls: Array<{ serviceName: string; confirmationToken?: string }> = [];
   const stopCalls: string[] = [];
+  const buildConfirmation = { token: 'b'.repeat(64), serviceName: 'app', expiresAt: new Date().toISOString() };
   const fakeDockerComposeService = {
     getBuildStatus: async () => buildProcess,
-    startBuild: async (_project: Project, serviceName: string) => {
-      startCalls.push(serviceName);
+    prepareBuildConfirmation: async () => buildConfirmation,
+    startBuild: async (_project: Project, serviceName: string, confirmationToken?: string) => {
+      startCalls.push({ serviceName, confirmationToken });
       return { ...buildProcess, status: 'running' as const };
     },
     stopBuild: async (_project: Project, serviceName: string) => {
@@ -119,11 +121,18 @@ test('expõe status, start, stop e logs de build por serviço', async (context) 
   assert.equal(status.statusCode, 200);
   assert.equal(status.json().process.status, 'running');
 
+  const buildPrepared = await app.inject({
+    method: 'POST', url: '/api/projects/painel/docker/services/app/build/confirmations', headers,
+  });
+  assert.equal(buildPrepared.statusCode, 201);
+  assert.equal(buildPrepared.json().confirmation.token, buildConfirmation.token);
+
   const started = await app.inject({
     method: 'POST', url: '/api/projects/painel/docker/services/app/build/start', headers,
+    payload: { confirmationToken: buildConfirmation.token },
   });
   assert.equal(started.statusCode, 201);
-  assert.deepEqual(startCalls, ['app']);
+  assert.deepEqual(startCalls, [{ serviceName: 'app', confirmationToken: buildConfirmation.token }]);
 
   const stopped = await app.inject({
     method: 'POST', url: '/api/projects/painel/docker/services/app/build/stop', headers,

@@ -162,12 +162,21 @@ chaves de `observedExits`/`exitWaiters`, e os regexes de
 instância opcional (`slugifyProcessInstance(serviceName)`) além do `kind` —
 `server`/`test` continuam sem instância, compatíveis com os arquivos já
 existentes em disco; `compose-build` sempre informa o nome do serviço como
-instância, permitindo builds concorrentes por serviço no mesmo projeto.
+instância, permitindo builds concorrentes por serviço no mesmo projeto. O
+slug da instância combina um prefixo legível com um hash do nome original
+(mesmo padrão de `createProjectKey`) — nomes que normalizam para o mesmo
+prefixo (`api.v1`/`api_v1`) continuam com identidade e arquivos distintos
+em disco, e `isStoredProcess` exige `composeServiceName` não vazio sempre
+que `kind === 'compose-build'`.
 
-- `POST /projects/:id/docker/services/:serviceName/build/start` — inicia
-  `docker compose -f <file> build <serviço>` como processo gerenciado
-  (spawn destacado, sem shell), rejeita com `PROCESS_ALREADY_RUNNING` (409)
-  se já houver um build em andamento para aquele serviço.
+- `POST /projects/:id/docker/services/:serviceName/build/confirmations` —
+  gera um token de uso único (60s de validade), mesmo padrão de
+  `prepareConfirmation` para `stop`/`restart`.
+- `POST /projects/:id/docker/services/:serviceName/build/start` — exige
+  `confirmationToken` no corpo; inicia `docker compose -f <file> build
+  <serviço>` como processo gerenciado (spawn destacado, sem shell) só após
+  validar o token, rejeita com `PROCESS_ALREADY_RUNNING` (409) se já houver
+  um build em andamento para aquele serviço.
 - `GET /projects/:id/docker/services/:serviceName/build` — status pollável
   (`ManagedProcess | null`), mesmo formato de `GET /process` do servidor.
 - `POST .../build/stop`, `GET/DELETE .../build/logs` — mesmo padrão de
@@ -176,8 +185,9 @@ instância, permitindo builds concorrentes por serviço no mesmo projeto.
   `requiresBuild` com `DOCKER_SERVICE_REQUIRES_BUILD`, exceto quando o
   último build desse serviço (via `ProcessManager`) terminou com
   `status: 'stopped'` e `exitCode: 0` — só então `up -d` fica liberado.
-- Build não exige confirmação em duas etapas (diferente de `stop`/`restart`):
-  não é destrutivo nem afeta outros projetos que compartilhem o serviço.
+- Build exige confirmação em duas etapas, mesmo padrão de `stop`/`restart`:
+  executa instruções do Dockerfile/Compose do projeto e altera o cache de
+  imagens do daemon Docker global, então não é uma ação sem efeito colateral.
 - UI: `ProjectDockerPanel.vue` faz polling adaptativo (1,5s enquanto algum
   build está `running`/`starting`, para quando todos terminam) — mesmo
   espírito de `useProjectProcessStatus`, mas por serviço em vez de por

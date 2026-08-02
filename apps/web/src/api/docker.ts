@@ -2,6 +2,7 @@ import type {
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
   ComposeServiceActionResult,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
   ManagedProcess,
   ProcessLogSnapshot,
@@ -12,6 +13,7 @@ import { requestJson } from './core';
 
 interface OverviewResponse { docker: ProjectComposeOverview }
 interface ConfirmationResponse { confirmation: ComposeServiceActionConfirmation }
+interface BuildConfirmationResponse { confirmation: ComposeServiceBuildConfirmation }
 interface ActionResponse { result: ComposeServiceActionResult }
 interface LogsResponse { logs: ComposeServiceLogs }
 interface BuildProcessResponse { process: ManagedProcess | null }
@@ -75,12 +77,25 @@ export async function fetchComposeServiceBuild(
   return response.process;
 }
 
+export async function prepareComposeServiceBuild(
+  projectId: string,
+  serviceName: string,
+): Promise<ComposeServiceBuildConfirmation> {
+  const response = await requestJson<BuildConfirmationResponse>(`${buildPath(projectId, serviceName)}/confirmations`, {
+    method: 'POST',
+  });
+  return response.confirmation;
+}
+
 export async function startComposeServiceBuild(
   projectId: string,
   serviceName: string,
+  confirmationToken: string,
 ): Promise<ManagedProcess> {
   const response = await requestJson<BuildProcessResponse>(`${buildPath(projectId, serviceName)}/start`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmationToken }),
   });
   if (!response.process) {
     throw new Error('A API não retornou o build iniciado.');

@@ -691,6 +691,40 @@ test(
 );
 
 test(
+  "keeps compose-build identity distinct for service names that normalize to the same slug",
+  async (context) => {
+    const fixture = await createFixture({ name: "fixture" });
+    context.after(fixture.cleanup);
+
+    await fixture.manager.startComposeBuild(fixture.project, "api.v1", {
+      command: "node",
+      args: ["-e", "console.log('building api.v1'); process.exit(0)"]
+    });
+    await fixture.manager.startComposeBuild(fixture.project, "api_v1", {
+      command: "node",
+      args: ["-e", "console.log('building api_v1'); process.exit(1)"]
+    });
+
+    const finishedDotted = await waitForComposeBuildCompletion(fixture.manager, fixture.project.id, "api.v1");
+    const finishedUnderscored = await waitForComposeBuildCompletion(fixture.manager, fixture.project.id, "api_v1");
+
+    assert.notEqual(finishedDotted.id, finishedUnderscored.id);
+    assert.equal(finishedDotted.status, "stopped");
+    assert.equal(finishedDotted.exitCode, 0);
+    assert.equal(finishedUnderscored.status, "failed");
+    assert.equal(finishedUnderscored.exitCode, 1);
+
+    const dottedLog = await fixture.manager.readComposeBuildLog(fixture.project.id, "api.v1");
+    assert.match(dottedLog.content, /building api\.v1/);
+    assert.doesNotMatch(dottedLog.content, /building api_v1/);
+
+    const underscoredLog = await fixture.manager.readComposeBuildLog(fixture.project.id, "api_v1");
+    assert.match(underscoredLog.content, /building api_v1/);
+    assert.doesNotMatch(underscoredLog.content, /building api\.v1/);
+  }
+);
+
+test(
   "rejects a configured port that is already occupied",
   async (context) => {
     const fixture = await createFixture({

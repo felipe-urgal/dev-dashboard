@@ -13,6 +13,7 @@ import type {
   ComposeService,
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
   ManagedProcess,
   Project,
@@ -24,6 +25,7 @@ import {
   fetchComposeServiceLogs,
   fetchProjectDocker,
   prepareComposeServiceAction,
+  prepareComposeServiceBuild,
   runComposeServiceAction,
   startComposeServiceBuild,
 } from '../api';
@@ -40,6 +42,7 @@ const activeService = ref('');
 const logs = ref<ComposeServiceLogs>();
 const logsLoading = ref(false);
 const pendingConfirmation = ref<ComposeServiceActionConfirmation>();
+const pendingBuildConfirmation = ref<ComposeServiceBuildConfirmation>();
 const builds = ref<Record<string, ManagedProcess | null>>({});
 let buildPollingTimer: ReturnType<typeof setTimeout> | undefined;
 let logsGeneration = 0;
@@ -113,17 +116,36 @@ async function load(): Promise<void> {
   }
 }
 
-async function startBuild(serviceName: string): Promise<void> {
+async function requestBuild(serviceName: string): Promise<void> {
   if (activeService.value || isBuilding(serviceName)) return;
   errorMessage.value = '';
   feedback.value = '';
   try {
-    builds.value[serviceName] = await startComposeServiceBuild(props.project.id, serviceName);
-    feedback.value = `Build do serviço “${serviceName}” iniciado.`;
+    pendingBuildConfirmation.value = await prepareComposeServiceBuild(props.project.id, serviceName);
+    feedback.value = `Buildar “${serviceName}” executa instruções do projeto e altera o cache de imagens do Docker. Confirme para continuar.`;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Não foi possível preparar a confirmação do build.';
+  }
+}
+
+async function confirmPendingBuild(): Promise<void> {
+  const pending = pendingBuildConfirmation.value;
+  if (!pending) return;
+  errorMessage.value = '';
+  feedback.value = '';
+  try {
+    builds.value[pending.serviceName] = await startComposeServiceBuild(props.project.id, pending.serviceName, pending.token);
+    pendingBuildConfirmation.value = undefined;
+    feedback.value = `Build do serviço “${pending.serviceName}” iniciado.`;
     scheduleBuildPolling();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar o build.';
   }
+}
+
+function cancelPendingBuild(): void {
+  pendingBuildConfirmation.value = undefined;
+  feedback.value = '';
 }
 
 async function run(service: ComposeService, action: ComposeServiceAction): Promise<void> {
@@ -222,6 +244,7 @@ watch(() => props.project.id, () => {
   logs.value = undefined;
   logsLoading.value = false;
   pendingConfirmation.value = undefined;
+  pendingBuildConfirmation.value = undefined;
   builds.value = {};
   void load();
 }, { immediate: true });
@@ -267,6 +290,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div v-if="pendingBuildConfirmation" class="docker-confirmation">
+        <strong>Confirmar build</strong>
+        <span>Serviço: {{ pendingBuildConfirmation.serviceName }}</span>
+        <div>
+          <button class="danger-button" type="button" :disabled="Boolean(activeService)" @click="confirmPendingBuild">Confirmar</button>
+          <button class="secondary-button" type="button" :disabled="Boolean(activeService)" @click="cancelPendingBuild">Cancelar</button>
+        </div>
+      </div>
+
       <div class="docker-service-list">
         <article v-for="service in services" :key="service.name" class="docker-service-card">
           <header>
@@ -297,7 +329,7 @@ onBeforeUnmount(() => {
             <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || !service.running || Boolean(activeService)" @click="run(service, 'restart')">
               <ArrowPathIcon aria-hidden="true" /> Reiniciar
             </button>
-            <button v-if="service.requiresBuild" class="secondary-button" type="button" :disabled="!overview.dockerAvailable || isBuilding(service.name) || Boolean(activeService)" @click="startBuild(service.name)">
+            <button v-if="service.requiresBuild" class="secondary-button" type="button" :disabled="!overview.dockerAvailable || isBuilding(service.name) || Boolean(activeService)" @click="requestBuild(service.name)">
               <WrenchIcon aria-hidden="true" /> {{ isBuilding(service.name) ? 'Buildando…' : 'Buildar' }}
             </button>
             <button class="secondary-button" type="button" :disabled="!overview.dockerAvailable || logsLoading" @click="showLogs(service.name)">

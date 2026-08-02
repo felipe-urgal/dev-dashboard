@@ -44,3 +44,5 @@ export type {
   SweptOrphanLog,
   SweptProcess,
 } from './log-retention.js';
+
+export { slugifyProcessInstance } from './process-store.js';

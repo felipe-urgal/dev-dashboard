@@ -9,6 +9,7 @@ import type {
   ComposeServiceAction,
   ComposeServiceActionConfirmation,
   ComposeServiceActionResult,
+  ComposeServiceBuildConfirmation,
   ComposeServiceLogs,
   ManagedProcess,
   ProcessLogSnapshot,
@@ -69,10 +70,12 @@ interface DetectedCompose {
   services: Omit<ComposeService, 'running'>[];
 }
 
+type ConfirmableComposeAction = 'stop' | 'restart' | 'build';
+
 interface ConfirmationRecord {
   projectId: string;
   serviceName: string;
-  action: 'stop' | 'restart';
+  action: ConfirmableComposeAction;
   expiresAt: number;
 }
 
@@ -280,7 +283,7 @@ export class DockerComposeService {
   private requireConfirmation(
     projectId: string,
     serviceName: string,
-    action: 'stop' | 'restart',
+    action: ConfirmableComposeAction,
     token: string | undefined,
   ): string {
     this.pruneExpiredConfirmations();
@@ -303,7 +306,7 @@ export class DockerComposeService {
   private consumeConfirmation(
     projectId: string,
     serviceName: string,
-    action: 'stop' | 'restart',
+    action: ConfirmableComposeAction,
     token: string | undefined,
   ): void {
     this.confirmations.delete(
@@ -411,15 +414,33 @@ export class DockerComposeService {
     return build?.status === 'stopped' && build.exitCode === 0;
   }
 
-  public async startBuild(project: Project, serviceName: string): Promise<ManagedProcess> {
+  public async prepareBuildConfirmation(
+    project: Project,
+    serviceName: string,
+  ): Promise<ComposeServiceBuildConfirmation> {
+    this.requireService(await this.detect(project), serviceName);
+    this.pruneExpiredConfirmations();
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = this.now() + CONFIRMATION_TTL_MS;
+    this.confirmations.set(token, { projectId: project.id, serviceName, action: 'build', expiresAt });
+    return { token, serviceName, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
+  public async startBuild(
+    project: Project,
+    serviceName: string,
+    confirmationToken?: string,
+  ): Promise<ManagedProcess> {
     const detected = await this.detect(project);
     this.requireService(detected, serviceName);
+    this.requireConfirmation(project.id, serviceName, 'build', confirmationToken);
     if (!detected || !(await this.dockerAvailable(project))) {
       throw new DockerComposeError(
         'DOCKER_UNAVAILABLE',
         'Docker Compose não está disponível no PATH da API.',
       );
     }
+    this.consumeConfirmation(project.id, serviceName, 'build', confirmationToken);
     return this.requireProcessManager().startComposeBuild(project, serviceName, {
       command: 'docker',
       args: ['compose', '-f', detected.composeFile, 'build', serviceName],

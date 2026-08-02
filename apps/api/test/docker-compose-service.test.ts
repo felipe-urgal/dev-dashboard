@@ -219,12 +219,25 @@ test('exige build via ProcessManager e libera o start após sucesso', async () =
         && error.code === 'DOCKER_SERVICE_REQUIRES_BUILD',
     );
 
-    await service.startBuild(item.project, 'web');
+    await assert.rejects(
+      service.startBuild(item.project, 'web'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_CONFIRMATION_REQUIRED',
+    );
+
+    const buildConfirmation = await service.prepareBuildConfirmation(item.project, 'web');
+    await service.startBuild(item.project, 'web', buildConfirmation.token);
     assert.deepEqual(buildCalls[0], {
       projectId: item.project.id,
       serviceName: 'web',
       command: { command: 'docker', args: ['compose', '-f', path.join(item.directory, 'compose.yaml'), 'build', 'web'] },
     });
+
+    await assert.rejects(
+      service.startBuild(item.project, 'web', buildConfirmation.token),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_CONFIRMATION_REQUIRED',
+    );
 
     await assert.rejects(
       service.runAction(item.project, 'web', 'start'),
@@ -248,8 +261,9 @@ test('rejeita operações de build sem ProcessManager configurado', async () => 
     runCommand: async () => ({ stdout: '', stderr: '' }),
   });
   try {
+    const confirmation = await service.prepareBuildConfirmation(item.project, 'web');
     await assert.rejects(
-      service.startBuild(item.project, 'web'),
+      service.startBuild(item.project, 'web', confirmation.token),
       (error: unknown) => error instanceof DockerComposeError
         && error.code === 'DOCKER_BUILD_UNSUPPORTED',
     );

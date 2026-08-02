@@ -33,11 +33,23 @@ export function createProjectKey(projectId: string): string {
 // `compose-build` por serviço Compose) — o slug da instância vira um
 // segmento extra no nome do arquivo, mantendo `server`/`test` (sem
 // instância) compatíveis com os arquivos já existentes em disco.
+//
+// Mesmo padrão de `createProjectKey`: a parte legível é só para leitura
+// humana do nome do arquivo, nunca a chave de identidade — nomes que
+// colidem depois de normalizados (`api.v1` e `api_v1`, por exemplo, ambos
+// viram `api_v1`) continuam distintos graças ao hash do valor original.
 export function slugifyProcessInstance(value: string): string {
-  return value
+  const readable = value
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, '_')
-    .slice(0, 80);
+    .slice(0, 40);
+
+  const hash = createHash('sha256')
+    .update(value)
+    .digest('hex')
+    .slice(0, 8);
+
+  return `${readable}-${hash}`;
 }
 
 function instanceSuffix(instance?: string): string {

@@ -7,6 +7,7 @@ import { ApiError } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
   composeServiceActionResultSchema,
+  composeServiceBuildConfirmationSchema,
   composeServiceConfirmationSchema,
   composeServiceLogsSchema,
   managedProcessResponseSchema,
@@ -40,6 +41,10 @@ interface ActionBody {
 interface ConfirmationBody {
   serviceName: string;
   action: 'stop' | 'restart';
+}
+
+interface BuildStartBody {
+  confirmationToken: string;
 }
 
 const serviceNameSchema = { type: 'string', minLength: 1, maxLength: 128 } as const;
@@ -227,10 +232,37 @@ export const dockerComposeRoutes: FastifyPluginAsync<
   );
 
   app.post<{ Params: ServiceParams }>(
+    '/projects/:projectId/docker/services/:serviceName/build/confirmations',
+    {
+      schema: {
+        params: serviceParamsSchema,
+        response: {
+          201: { type: 'object', additionalProperties: false, required: ['confirmation'], properties: { confirmation: composeServiceBuildConfirmationSchema } },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const confirmation = await options.dockerComposeService.prepareBuildConfirmation(
+          projectFor(request.params.projectId), request.params.serviceName,
+        );
+        return reply.code(201).send({ confirmation });
+      } catch (error) {
+        translateBuildError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: ServiceParams; Body: BuildStartBody }>(
     '/projects/:projectId/docker/services/:serviceName/build/start',
     {
       schema: {
         params: serviceParamsSchema,
+        body: {
+          type: 'object', additionalProperties: false, required: ['confirmationToken'],
+          properties: { confirmationToken: { type: 'string', minLength: 64, maxLength: 64 } },
+        },
         response: {
           201: { type: 'object', additionalProperties: false, required: ['process'], properties: { process: managedProcessResponseSchema } },
           ...commonErrorResponseSchemas,
@@ -240,7 +272,7 @@ export const dockerComposeRoutes: FastifyPluginAsync<
     async (request, reply) => {
       try {
         const process = await options.dockerComposeService.startBuild(
-          projectFor(request.params.projectId), request.params.serviceName,
+          projectFor(request.params.projectId), request.params.serviceName, request.body.confirmationToken,
         );
         return reply.code(201).send({ process });
       } catch (error) {
