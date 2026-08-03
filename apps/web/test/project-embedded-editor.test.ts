@@ -21,7 +21,6 @@ const monaco = vi.hoisted(() => {
     listener: (() => void) | undefined;
     uri: unknown;
   } = { value: '', listener: undefined, uri: '' };
-  const disposable = () => ({ dispose: vi.fn() });
   const model = {
     get uri() { return state.uri; },
     dispose: vi.fn(),
@@ -97,11 +96,11 @@ vi.mock('monaco-editor', () => ({
     CompletionItemKind: new Proxy({}, { get: (_target, key) => String(key) }),
     SymbolKind: new Proxy({}, { get: (_target, key) => String(key) }),
     CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
-    registerHoverProvider: vi.fn(disposable),
-    registerDefinitionProvider: vi.fn(disposable),
-    registerReferenceProvider: vi.fn(disposable),
-    registerCompletionItemProvider: vi.fn(disposable),
-    registerDocumentSymbolProvider: vi.fn(disposable),
+    registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerDefinitionProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerReferenceProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerCompletionItemProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerDocumentSymbolProvider: vi.fn(() => ({ dispose: vi.fn() })),
   },
 }));
 
