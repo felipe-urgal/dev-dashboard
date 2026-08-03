@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   Bars3Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   Cog6ToothIcon,
   HomeIcon,
   MagnifyingGlassIcon,
@@ -30,10 +32,15 @@ import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
 import NoticeCenter from './components/NoticeCenter.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
+import {
+  readSidebarCollapsed,
+  storeSidebarCollapsed,
+} from './utils/sidebar-preferences';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 const workspaceManagerOpen = ref(false);
 const sidebarOpen = ref(false);
+const sidebarCollapsed = ref(readSidebarCollapsed());
 
 const route = useRoute();
 const router = useRouter();
@@ -53,6 +60,14 @@ function handleWorkspaceSwitch(event: Event): void {
   const target = event.target as HTMLSelectElement;
   void switchWorkspace(target.value);
 }
+
+function toggleSidebarCollapsed(): void {
+  sidebarCollapsed.value = !sidebarCollapsed.value;
+}
+
+watch(sidebarCollapsed, (collapsed) => {
+  storeSidebarCollapsed(collapsed);
+});
 
 watch(
   () => route.fullPath,
@@ -79,7 +94,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div
+    class="app-shell"
+    :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
+  >
     <button
       v-if="sidebarOpen"
       class="sidebar-backdrop"
@@ -91,12 +109,20 @@ onMounted(() => {
     <aside
       id="primary-sidebar"
       class="sidebar"
-      :class="{ 'sidebar-open': sidebarOpen }"
+      :class="{
+        'sidebar-open': sidebarOpen,
+        'sidebar-collapsed': sidebarCollapsed,
+      }"
     >
-      <RouterLink class="brand brand-link" to="/">
+      <RouterLink
+        class="brand brand-link"
+        to="/"
+        :aria-label="sidebarCollapsed ? 'Dev Dashboard' : undefined"
+        :title="sidebarCollapsed ? 'Dev Dashboard' : undefined"
+      >
         <div class="brand-mark">DD</div>
 
-        <div>
+        <div class="brand-copy">
           <strong>Dev Dashboard</strong>
           <span>Local workspace</span>
         </div>
@@ -109,6 +135,19 @@ onMounted(() => {
         @click="sidebarOpen = false"
       >
         <XMarkIcon aria-hidden="true" />
+      </button>
+
+      <button
+        class="sidebar-collapse-button"
+        type="button"
+        aria-controls="primary-sidebar"
+        :aria-expanded="!sidebarCollapsed"
+        :aria-label="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
+        :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
+        @click="toggleSidebarCollapsed"
+      >
+        <ChevronRightIcon v-if="sidebarCollapsed" aria-hidden="true" />
+        <ChevronLeftIcon v-else aria-hidden="true" />
       </button>
 
       <div class="sidebar-section">
@@ -152,32 +191,44 @@ onMounted(() => {
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'dashboard' }"
           :to="{ name: 'dashboard' }"
+          :aria-label="sidebarCollapsed ? 'Visão geral' : undefined"
+          :title="sidebarCollapsed ? 'Visão geral' : undefined"
         >
           <HomeIcon class="navigation-icon" aria-hidden="true" />
-          Visão geral
+          <span class="navigation-text">Visão geral</span>
         </RouterLink>
 
         <RouterLink
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'processes' }"
           :to="{ name: 'processes' }"
+          :aria-label="sidebarCollapsed ? 'Processos' : undefined"
+          :title="sidebarCollapsed ? 'Processos' : undefined"
         >
           <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
-          Processos
+          <span class="navigation-text">Processos</span>
         </RouterLink>
 
         <RouterLink
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'activity' }"
           :to="{ name: 'activity' }"
+          :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
+          :title="sidebarCollapsed ? 'Atividade' : undefined"
         >
           <QueueListIcon class="navigation-icon" aria-hidden="true" />
-          Atividade
+          <span class="navigation-text">Atividade</span>
         </RouterLink>
 
-        <RouterLink class="navigation-item" :class="{ 'navigation-item-active': route.name === 'settings' }" :to="{ name: 'settings' }">
+        <RouterLink
+          class="navigation-item"
+          :class="{ 'navigation-item-active': route.name === 'settings' }"
+          :to="{ name: 'settings' }"
+          :aria-label="sidebarCollapsed ? 'Configurações' : undefined"
+          :title="sidebarCollapsed ? 'Configurações' : undefined"
+        >
           <Cog6ToothIcon class="navigation-icon" aria-hidden="true" />
-          Configurações
+          <span class="navigation-text">Configurações</span>
         </RouterLink>
       </nav>
 

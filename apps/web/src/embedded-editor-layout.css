@@ -90,7 +90,6 @@ body.embedded-ide-resizing * {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  overscroll-behavior: contain;
 }
 
 .embedded-ide .embedded-ide-monaco,
@@ -102,7 +101,7 @@ body.embedded-ide-resizing * {
 }
 
 .embedded-ide .monaco-scrollable-element {
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
 }
 
 .embedded-ide-fullscreen-button {

@@ -86,3 +86,76 @@ export interface ProjectFileSearchResult {
   truncated: boolean;
   scannedFiles: number;
 }
+
+export interface ProjectFileWatchEntry {
+  path: string;
+  version: string;
+}
+
+export interface ProjectFileWatchRequest {
+  files: ProjectFileWatchEntry[];
+}
+
+export type ProjectFileWatchState =
+  | 'unchanged'
+  | 'changed'
+  | 'deleted'
+  | 'unavailable';
+
+export interface ProjectFileWatchItem {
+  path: string;
+  state: ProjectFileWatchState;
+  file?: ProjectFileContent;
+}
+
+export interface ProjectFileWatchResult {
+  checkedAt: string;
+  items: ProjectFileWatchItem[];
+}
+
+export interface ProjectTextPosition {
+  line: number;
+  column: number;
+}
+
+export interface ProjectTextRange {
+  start: ProjectTextPosition;
+  end: ProjectTextPosition;
+}
+
+export interface ProjectWorkspaceTextEdit {
+  range: ProjectTextRange;
+  newText: string;
+}
+
+export interface ProjectWorkspaceFileEdit {
+  path: string;
+  expectedVersion: string;
+  edits: ProjectWorkspaceTextEdit[];
+}
+
+export interface ProjectWorkspaceEditRequest {
+  files: ProjectWorkspaceFileEdit[];
+}
+
+export interface ProjectWorkspaceEditFilePreview {
+  path: string;
+  language: string;
+  beforeVersion: string;
+  beforeContent: string;
+  afterContent: string;
+}
+
+export interface ProjectWorkspaceEditPreview {
+  confirmationToken: string;
+  files: ProjectWorkspaceEditFilePreview[];
+  expiresAt: string;
+}
+
+export interface ProjectWorkspaceEditApplyRequest {
+  confirmationToken: string;
+}
+
+export interface ProjectWorkspaceEditResult {
+  files: ProjectFileContent[];
+}

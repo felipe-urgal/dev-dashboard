@@ -83,3 +83,5 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `074-database-runtime-and-dependencies-layout.md` — distingue banco local de Docker pela porta publicada, coordena start/stop entre runtimes e compacta o layout responsivo de Dependências.
 - `075-initial-accessibility-audit.md` — auditoria de landmarks, nomes, descrições, comunicação de estado, teclado e contraste nas páginas globais, com guardas automatizadas na suíte web.
 - `076-embedded-ide-foundation-plan.md` — planejamento documental da IDE embutida com Monaco, leitura segura, escrita posterior, LSP JavaScript/TypeScript e Ruby/Rails, além de IA gratuita local com Ollama nas tasks 076–081.
+- `077-safe-editor-save.md` — editor de texto seguro com salvamento versionado, operações estruturais confirmadas, watcher dos arquivos abertos, comparação em três vias e `WorkspaceEdit` textual com rollback.
+- `078-javascript-typescript-lsp.md` — plano do LSP JavaScript/TypeScript com gateway autenticado, processo sob demanda, recursos semânticos e revisão segura de `WorkspaceEdit`.
