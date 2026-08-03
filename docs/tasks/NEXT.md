@@ -1,10 +1,13 @@
 # Próxima atividade
 
-A task 071 validou o componente compartilhado de skeleton na Visão geral. A
-próxima entrega aplica o mesmo padrão às outras páginas globais e fecha a
-matriz de estados diretamente afetada.
+A task 072 adicionou dependências e build por projeto para Rails e Node,
+reaproveitando o motor seguro de Scripts, e corrigiu a leitura do status de
+migrations em wrappers Rails/Docker.
 
-## Task 072 — Skeletons nas demais páginas globais
+A próxima entrega retoma a expansão do skeleton compartilhado iniciado na task
+071 e aplica o padrão às demais páginas globais.
+
+## Task 073 — Skeletons nas demais páginas globais
 
 Aplicar carregamentos acessíveis e visualmente estáveis a Atividade, Processos
 e Configurações, reutilizando o padrão já aprovado sem esconder dados válidos

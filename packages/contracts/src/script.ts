@@ -1,4 +1,9 @@
-export type ProjectScriptOrigin = 'package-script' | 'rails-task' | 'bin';
+export type ProjectScriptOrigin =
+  | 'package-script'
+  | 'package-manager'
+  | 'bundler'
+  | 'rails-task'
+  | 'bin';
 export type ProjectScriptRisk = 'read-only' | 'mutable' | 'destructive';
 
 export interface ProjectScriptVariable {

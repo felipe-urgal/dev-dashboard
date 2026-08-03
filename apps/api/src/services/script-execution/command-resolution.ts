@@ -1,7 +1,11 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { Project, ProjectScript, ScriptExecutionVariables } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectScript,
+  ScriptExecutionVariables,
+} from '@dev-dashboard/contracts';
 
 import { ScriptExecutionError } from './errors.js';
 
@@ -45,6 +49,26 @@ export async function resolveNodeManager(projectPath: string): Promise<NodeManag
   return candidates[0]!;
 }
 
+export function formatNodeScriptCommand(
+  manager: NodeManager,
+  scriptName: string,
+): string {
+  return manager === 'yarn'
+    ? `yarn ${scriptName}`
+    : `${manager} run ${scriptName}`;
+}
+
+async function resolveBundlerCommand(projectPath: string): Promise<string> {
+  const candidates = [
+    path.join(projectPath, 'bin', 'docker-bundle'),
+    path.join(projectPath, 'bin', 'bundle'),
+  ];
+  for (const candidate of candidates) {
+    if (await exists(candidate)) return candidate;
+  }
+  return 'bundle';
+}
+
 export async function resolveCommand(
   project: Project,
   action: ProjectScript,
@@ -61,7 +85,26 @@ export async function resolveCommand(
     );
   }
   if (origin === 'package-script') {
-    return { command: await resolveNodeManager(project.path), args: ['run', name] };
+    const manager = await resolveNodeManager(project.path);
+    return {
+      command: manager,
+      args: manager === 'yarn' ? [name] : ['run', name],
+    };
+  }
+  if (origin === 'package-manager' && name === 'install') {
+    return {
+      command: await resolveNodeManager(project.path),
+      args: ['install'],
+    };
+  }
+  if (
+    origin === 'bundler'
+    && ['check', 'install', 'update'].includes(name)
+  ) {
+    return {
+      command: await resolveBundlerCommand(project.path),
+      args: [name],
+    };
   }
   if (origin === 'rails-task') {
     return {
@@ -71,8 +114,8 @@ export async function resolveCommand(
     };
   }
   if (
-    origin === 'bin' &&
-    ['rails', 'rake', 'rspec', 'rubocop', 'setup'].includes(name)
+    origin === 'bin'
+    && ['rails', 'rake', 'rspec', 'rubocop', 'setup'].includes(name)
   ) {
     return { command: path.join(project.path, 'bin', name), args: [] };
   }

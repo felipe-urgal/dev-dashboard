@@ -1,6 +1,12 @@
 import type { Project, ProjectScript } from '@dev-dashboard/contracts';
 
-export type ProjectScriptDestination = 'catalog' | 'server' | 'tests' | 'database' | 'hidden';
+export type ProjectScriptDestination =
+  | 'catalog'
+  | 'server'
+  | 'tests'
+  | 'database'
+  | 'dependencies'
+  | 'hidden';
 
 const LIFECYCLE_HOOK = /^(?:pre|post).+/;
 const SERVER_SCRIPT = /^(?:dev|develop|start|serve|server|watch)(?::|$)/;
@@ -22,10 +28,16 @@ export function projectScriptDestination(
   script: ProjectScript,
   project: Project,
 ): ProjectScriptDestination {
+  if (
+    script.origin === 'bundler'
+    || script.origin === 'package-manager'
+  ) return 'dependencies';
+
   if (script.origin !== 'package-script') return 'catalog';
 
   const name = scriptName(script);
   if (LIFECYCLE_HOOK.test(name)) return 'hidden';
+  if (script.id === 'package-script:build') return 'dependencies';
   if (project.capabilities.includes('server') && SERVER_SCRIPT.test(name)) return 'server';
   if (project.capabilities.includes('tests') && TEST_SCRIPT.test(name)) return 'tests';
   if (project.capabilities.includes('database') && DATABASE_SCRIPT.test(name)) return 'database';
