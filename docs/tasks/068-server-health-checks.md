@@ -76,4 +76,4 @@ livres do navegador.
 
 ## PR
 
-A preencher após a abertura do pull request.
+[#149 — Adiciona health checks locais declarativos](https://github.com/felipe-urgal/dev-dashboard/pull/149)
