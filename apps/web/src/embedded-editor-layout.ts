@@ -150,26 +150,50 @@ function installResizeSeparator(section: HTMLElement): void {
   });
 }
 
-function installEditorWheelContainment(section: HTMLElement): void {
+function wheelDeltaInPixels(event: WheelEvent): number {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return event.deltaY * window.innerHeight;
+  }
+  return event.deltaY;
+}
+
+function installEditorWheelChaining(section: HTMLElement): void {
   const area = section.querySelector<HTMLElement>('.embedded-ide-editor-area');
-  if (!area || area.dataset.editorWheelContainment === 'true') return;
-  area.dataset.editorWheelContainment = 'true';
+  if (!area || area.dataset.editorWheelChaining === 'true') return;
+  area.dataset.editorWheelChaining = 'true';
 
   area.addEventListener('wheel', (event) => {
+    if (
+      section.classList.contains('embedded-ide-fullscreen')
+      || event.deltaY === 0
+      || Math.abs(event.deltaY) < Math.abs(event.deltaX)
+    ) return;
+
     const target = event.target instanceof Element ? event.target : null;
     const scrollable = target?.closest<HTMLElement>('.monaco-scrollable-element')
       ?? area.querySelector<HTMLElement>('.monaco-scrollable-element');
-    if (!scrollable || Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
+    if (!scrollable) return;
 
-    const maxScrollTop = scrollable.scrollHeight - scrollable.clientHeight;
-    const canScrollUp = event.deltaY < 0 && scrollable.scrollTop > 0;
-    const canScrollDown = event.deltaY > 0 && scrollable.scrollTop < maxScrollTop;
-    if (canScrollUp || canScrollDown) {
-      // O elemento interno continua processando a roda; apenas impedimos que o
-      // evento alcance a página e transforme o editor em uma armadilha de scroll.
-      event.stopPropagation();
-    }
-  }, { passive: true });
+    const maxScrollTop = Math.max(
+      0,
+      scrollable.scrollHeight - scrollable.clientHeight,
+    );
+    const canScrollUp = event.deltaY < 0 && scrollable.scrollTop > 1;
+    const canScrollDown = event.deltaY > 0
+      && scrollable.scrollTop < maxScrollTop - 1;
+    if (canScrollUp || canScrollDown) return;
+
+    // O Monaco consome a roda mesmo no limite. Interceptamos antes dele e
+    // continuamos a rolagem no documento para o editor não prender a página.
+    event.preventDefault();
+    event.stopPropagation();
+    window.scrollBy({
+      top: wheelDeltaInPixels(event),
+      left: 0,
+      behavior: 'auto',
+    });
+  }, { passive: false, capture: true });
 }
 
 function enhanceEditor(section: HTMLElement): void {
@@ -177,7 +201,7 @@ function enhanceEditor(section: HTMLElement): void {
   section.dataset.editorLayoutEnhanced = 'true';
   installFullscreenButton(section);
   installResizeSeparator(section);
-  installEditorWheelContainment(section);
+  installEditorWheelChaining(section);
 }
 
 function enhanceEditors(): void {
