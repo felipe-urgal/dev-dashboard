@@ -116,7 +116,12 @@ const {
 </script>
 
 <template>
-  <section id="overview" class="content" :aria-busy="loadingProjects">
+  <section
+    id="overview"
+    class="content"
+    :aria-busy="loadingProjects"
+    aria-labelledby="overview-title"
+  >
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <div class="alert-body">
         <strong>Não foi possível concluir a ação.</strong>
@@ -147,7 +152,12 @@ const {
       </button>
     </div>
 
-    <div v-if="warningCount > 0" class="alert alert-warning">
+    <div
+      v-if="warningCount > 0"
+      class="alert alert-warning"
+      role="status"
+      aria-live="polite"
+    >
       <div class="alert-body">
         <strong>Scan concluído com avisos.</strong>
         <span>
@@ -195,7 +205,7 @@ const {
       <template #header>
         <div>
           <span class="section-kicker">Repositórios</span>
-          <h2>Projetos detectados</h2>
+          <h2 id="overview-title">Projetos detectados</h2>
         </div>
       </template>
       <template #actions>
@@ -277,11 +287,15 @@ const {
             aria-label="Limpar busca"
             @click="projectSearch = ''"
           >
-              <XMarkIcon aria-hidden="true" />
+            <XMarkIcon aria-hidden="true" />
           </button>
         </div>
 
-        <div class="project-type-filters" aria-label="Filtrar por tecnologia">
+        <div
+          class="project-type-filters"
+          role="group"
+          aria-label="Filtrar por tecnologia"
+        >
           <button
             v-for="filter in projectTypeFilters"
             :key="filter.value"
@@ -294,6 +308,17 @@ const {
           </button>
         </div>
       </div>
+
+      <p
+        v-if="hasActiveProjectFilters"
+        class="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {{ filteredProjects.length }}
+        {{ filteredProjects.length === 1 ? 'projeto encontrado' : 'projetos encontrados' }}.
+      </p>
 
       <LoadingSkeleton
         v-if="loadingProjects"
@@ -316,6 +341,7 @@ const {
       <div
         v-else-if="filteredProjects.length === 0"
         class="empty-state empty-state-filtered"
+        role="status"
       >
         <MagnifyingGlassIcon class="empty-state-icon" aria-hidden="true" />
         <h3>Nenhum projeto encontrado</h3>
