@@ -121,30 +121,34 @@ function stringList(value: unknown): string[] {
 }
 
 // O YAML do compose pode trazer interpolação de shell (`${MYSQL_PORT:-3306}`), que o
-// parser YAML devolve como texto literal. Resolvemos só a forma com valor padrão
-// (a única com informação útil sem ler .env/ambiente do host) para exibição.
-const COMPOSE_VAR_WITH_DEFAULT = /\$\{[A-Za-z_][A-Za-z0-9_]*:-([^}]*)\}/g;
-
-function resolveComposeVars(value: string): string {
-  return value.replace(COMPOSE_VAR_WITH_DEFAULT, '$1');
-}
-
+// parser YAML devolve como texto literal — não sabemos aqui se o ambiente real
+// sobrescreve o valor padrão (ex.: MYSQL_PORT=3307 num .env), então exibimos a
+// expressão como está em vez de arriscar mostrar um valor errado. `overview()`
+// tenta substituir isso pela porta de fato resolvida via `docker compose config`
+// quando o Docker está disponível.
 function portList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
-    if (typeof entry === 'string') return [resolveComposeVars(entry)];
-    if (typeof entry === 'number') return [String(entry)];
+    if (typeof entry === 'string' || typeof entry === 'number') return [String(entry)];
     const port = asRecord(entry);
     if (!port) return [];
     const target = typeof port.target === 'string' || typeof port.target === 'number'
-      ? resolveComposeVars(String(port.target))
+      ? String(port.target)
       : '';
     const published = typeof port.published === 'string' || typeof port.published === 'number'
-      ? resolveComposeVars(String(port.published))
+      ? String(port.published)
       : '';
     if (!target) return [];
     return [published ? `${published}:${target}` : target];
   });
+}
+
+function hasRunnableDefinition(service: Omit<ComposeService, 'running'>): boolean {
+  return Boolean(service.image) || service.requiresBuild;
+}
+
+function isDevVariant(composeFileName: string): boolean {
+  return /\.dev\.ya?ml$/.test(composeFileName);
 }
 
 function serviceFrom(name: string, value: unknown): Omit<ComposeService, 'running'> {
@@ -220,20 +224,7 @@ export class DockerComposeService {
     }
   }
 
-  private async detect(project: Project): Promise<DetectedCompose | null> {
-    let composeFileName: string | undefined;
-    for (const candidate of COMPOSE_FILES) {
-      try {
-        await access(path.join(project.path, candidate));
-        composeFileName = candidate;
-        break;
-      } catch {
-        // Tenta o próximo nome conhecido.
-      }
-    }
-    if (!composeFileName) return null;
-
-    const composeFile = path.join(project.path, composeFileName);
+  private async parseComposeFile(composeFile: string, composeFileName: string): Promise<DetectedCompose> {
     try {
       const parsed = asRecord(parseYaml(await readFile(composeFile, 'utf8')));
       const services = asRecord(parsed?.services);
@@ -251,6 +242,29 @@ export class DockerComposeService {
         `O arquivo ${composeFileName} não contém uma configuração Compose válida.`,
       );
     }
+  }
+
+  private async detect(project: Project): Promise<DetectedCompose | null> {
+    for (const candidate of COMPOSE_FILES) {
+      const composeFile = path.join(project.path, candidate);
+      try {
+        await access(composeFile);
+      } catch {
+        continue; // Tenta o próximo nome conhecido.
+      }
+      const parsed = await this.parseComposeFile(composeFile, candidate);
+      // Um `docker-compose.dev.yml` costuma ser um arquivo completo e standalone
+      // (o caso comum: `-f docker-compose.dev.yml up` sozinho), mas também pode ser
+      // só um override parcial pensado para rodar junto da base (`-f compose.yml -f
+      // compose.dev.yml`) — nesse caso nenhum serviço declara `image`/`build` própria.
+      // Tratá-lo como standalone quebraria a listagem/execução, então nesse caso
+      // seguimos para o próximo candidato (normalmente o arquivo base).
+      if (isDevVariant(candidate) && !parsed.services.some(hasRunnableDefinition)) {
+        continue;
+      }
+      return parsed;
+    }
+    return null;
   }
 
   private requireService(detected: DetectedCompose | null, serviceName: string) {
@@ -286,6 +300,7 @@ export class DockerComposeService {
     }
     const dockerAvailable = await this.dockerAvailable(project);
     let runningServices = new Set<string>();
+    let resolvedPorts: Map<string, string[]> | null = null;
     if (dockerAvailable) {
       try {
         const result = await this.runCommand('docker', [
@@ -295,6 +310,12 @@ export class DockerComposeService {
       } catch {
         // O arquivo continua configurado mesmo quando o daemon está indisponível.
       }
+      // Só paga o custo de um `docker compose config` extra quando alguma porta
+      // realmente usa interpolação de shell (ex.: `${MYSQL_PORT:-3306}`) — na maioria
+      // dos projetos as portas já são literais e o `ps` acima basta.
+      if (detected.services.some((service) => service.ports.some((port) => port.includes('${')))) {
+        resolvedPorts = await this.resolveConfiguredPorts(project, detected);
+      }
     }
     return {
       configured: true,
@@ -302,9 +323,36 @@ export class DockerComposeService {
       composeFile: detected.composeFileName,
       services: detected.services.map((service) => ({
         ...service,
+        ports: resolvedPorts?.get(service.name) ?? service.ports,
         running: runningServices.has(service.name),
       })),
     };
+  }
+
+  // `docker compose config` resolve interpolação de shell (${VAR:-default}) com a
+  // mesma precedência que o próprio Compose usaria para subir os serviços (ambiente
+  // do processo, .env do projeto). Preferível a tentar reimplementar essa resolução
+  // aqui — se o comando falhar, mantemos as portas cruas já presentes em `detected`.
+  private async resolveConfiguredPorts(
+    project: Project,
+    detected: DetectedCompose,
+  ): Promise<Map<string, string[]> | null> {
+    try {
+      const result = await this.runCommand('docker', [
+        'compose', '-f', detected.composeFile, 'config', '--format', 'json',
+      ], { cwd: project.path });
+      const parsed = asRecord(JSON.parse(result.stdout));
+      const services = asRecord(parsed?.services);
+      if (!services) return null;
+      const map = new Map<string, string[]>();
+      for (const [name, value] of Object.entries(services)) {
+        const service = asRecord(value);
+        map.set(name, portList(service?.ports));
+      }
+      return map;
+    } catch {
+      return null;
+    }
   }
 
   public async prepareConfirmation(

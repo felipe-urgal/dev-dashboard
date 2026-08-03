@@ -62,6 +62,112 @@ test('detecta serviços, metadados e estado sem executar configuração livre', 
   }
 });
 
+test('ignora um docker-compose.dev.yml que é só override e usa o arquivo base', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-override-'));
+  // Sem `image`/`build` em nenhum serviço — típico de um arquivo pensado para rodar
+  // junto da base (`-f compose.yml -f docker-compose.dev.yml`), não sozinho.
+  await writeFile(path.join(directory, 'docker-compose.dev.yml'), [
+    'services:',
+    '  db:',
+    '    environment:',
+    '      DEBUG: "true"',
+    '',
+  ].join('\n'));
+  await writeFile(path.join(directory, 'docker-compose.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:17',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => ({ stdout: args.includes('ps') ? 'db\n' : '', stderr: '' }),
+  });
+  try {
+    const overview = await service.overview(project);
+    assert.equal(overview.composeFile, 'docker-compose.yml');
+    assert.deepEqual(overview.services, [
+      { name: 'db', image: 'postgres:17', requiresBuild: false, ports: [], dependsOn: [], running: true },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('usa um docker-compose.dev.yml standalone quando ele já define image/build', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-standalone-dev-'));
+  await writeFile(path.join(directory, 'docker-compose.dev.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:17',
+    '',
+  ].join('\n'));
+  await writeFile(path.join(directory, 'docker-compose.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:16',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+  const service = new DockerComposeService({
+    runCommand: async () => ({ stdout: '', stderr: '' }),
+  });
+  try {
+    const overview = await service.overview(project);
+    assert.equal(overview.composeFile, 'docker-compose.dev.yml');
+    assert.equal(overview.services[0]?.image, 'postgres:17');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolve porta com interpolação de shell via docker compose config, com fallback para o literal', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-var-port-'));
+  await writeFile(path.join(directory, 'compose.yaml'), [
+    'services:',
+    '  db:',
+    '    image: mysql:8.0',
+    '    ports:',
+    '      - "${MYSQL_PORT:-3306}:3306"',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+
+  try {
+    const resolved = new DockerComposeService({
+      runCommand: async (_command, args) => {
+        if (args.includes('config')) {
+          return { stdout: JSON.stringify({ services: { db: { ports: [{ target: 3306, published: 3307 }] } } }), stderr: '' };
+        }
+        return { stdout: '', stderr: '' };
+      },
+    });
+    const resolvedOverview = await resolved.overview(project);
+    assert.deepEqual(resolvedOverview.services[0]?.ports, ['3307:3306']);
+
+    const unavailable = new DockerComposeService({
+      runCommand: async (_command, args) => {
+        if (args.includes('config')) throw new Error('config indisponível');
+        if (args.includes('version')) return { stdout: '', stderr: '' };
+        return { stdout: '', stderr: '' };
+      },
+    });
+    const fallbackOverview = await unavailable.overview(project);
+    assert.deepEqual(fallbackOverview.services[0]?.ports, ['${MYSQL_PORT:-3306}:3306']);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('executa somente o catálogo conhecido e exige confirmação vinculada', async () => {
   const item = await fixture();
   const calls: string[][] = [];
