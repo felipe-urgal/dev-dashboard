@@ -1,0 +1,111 @@
+.app-shell,
+.sidebar,
+.navigation-item,
+.brand {
+  transition:
+    grid-template-columns 180ms ease,
+    padding 180ms ease,
+    gap 180ms ease;
+}
+
+.sidebar-collapse-button {
+  position: absolute;
+  z-index: 2;
+  top: 72px;
+  right: -14px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  box-shadow: 0 4px 12px rgb(15 23 42 / 12%);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.sidebar-collapse-button:hover,
+.sidebar-collapse-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  outline: none;
+  transform: scale(1.05);
+}
+
+.sidebar-collapse-button:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.sidebar-collapse-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (min-width: 761px) {
+  .app-shell-sidebar-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .sidebar-collapsed {
+    padding-inline: 10px;
+  }
+
+  .sidebar-collapsed .brand {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .sidebar-collapsed .brand-copy,
+  .sidebar-collapsed .sidebar-section,
+  .sidebar-collapsed .sidebar-label,
+  .sidebar-collapsed .navigation-text,
+  .sidebar-collapsed .sidebar-footer > span:last-child {
+    display: none;
+  }
+
+  .sidebar-collapsed .navigation {
+    gap: 6px;
+    margin-top: 28px;
+  }
+
+  .sidebar-collapsed .navigation-item {
+    justify-content: center;
+    min-height: 42px;
+    gap: 0;
+    padding: 10px;
+  }
+
+  .sidebar-collapsed .navigation-item::before {
+    left: -10px;
+  }
+
+  .sidebar-collapsed .navigation-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebar-collapsed .sidebar-footer {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sidebar-collapsed .connection-dot {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .sidebar-collapse-button {
+    display: none;
+  }
+}
