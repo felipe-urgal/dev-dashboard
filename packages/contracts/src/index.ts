@@ -21,16 +21,6 @@ export type {
 } from './editor.js';
 
 export type {
-  ComposeService,
-  ComposeServiceAction,
-  ComposeServiceActionConfirmation,
-  ComposeServiceActionResult,
-  ComposeServiceBuildConfirmation,
-  ComposeServiceLogs,
-  ProjectComposeOverview,
-} from './docker.js';
-
-export type {
   ManagedProcess,
   ManagedProcessKind,
   ManagedProcessStatus,
