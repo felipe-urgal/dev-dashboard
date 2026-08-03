@@ -31,11 +31,9 @@ import {
 } from '@heroicons/vue/24/outline';
 
 import type {
-  DatabaseRuntime,
   DatabaseServiceAction,
   Project,
   ProjectDatabaseEnvironment,
-  RailsExecutionRuntime,
   RailsMigrationEntry,
   RailsSchemaTable,
 } from '@dev-dashboard/contracts';
@@ -68,19 +66,8 @@ const {
   selectedEnvironmentId,
   loadDatabase,
   reveal,
-  runAction: runDatabaseAction,
+  runAction,
 } = useProjectDatabaseOverview(() => props.project);
-
-const selectedEnvironment = computed<ProjectDatabaseEnvironment | null>(() =>
-  overview.value?.environments.find((item) => item.id === selectedEnvironmentId.value)
-  ?? overview.value?.environments[0]
-  ?? null,
-);
-
-const railsRuntime = computed<RailsExecutionRuntime>(() => {
-  const runtime = selectedEnvironment.value?.runtime;
-  return runtime === 'local' || runtime === 'docker' ? runtime : 'auto';
-});
 
 const {
   migrations,
@@ -100,7 +87,7 @@ const {
   selectMigration,
   selectDatabase: selectMigrationsDatabase,
   runMigrationMutation,
-} = useRailsMigrations(() => props.project, isRailsProject, () => railsRuntime.value);
+} = useRailsMigrations(() => props.project, isRailsProject);
 
 const {
   models,
@@ -157,21 +144,8 @@ const totalIndexes = computed(() => models.value?.tables.reduce((total, table) =
 const totalRelations = computed(() => models.value?.tables.reduce((total, table) => total + table.foreignKeys.length, 0) ?? 0);
 
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
-const runtimeLabels: Record<DatabaseRuntime, string> = {
-  local: 'Serviço local',
-  docker: 'Docker Compose',
-  stopped: 'Parado',
-  unknown: 'Origem desconhecida',
-};
 const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
-const serviceActionLabels: Record<DatabaseServiceAction, string> = { start: 'Iniciando…', stop: 'Parando…', restart: 'Reiniciando…' };
-
-function runtimeTone(runtime: DatabaseRuntime): 'info' | 'success' | 'warning' | 'neutral' {
-  if (runtime === 'local') return 'success';
-  if (runtime === 'docker') return 'info';
-  if (runtime === 'stopped') return 'neutral';
-  return 'warning';
-}
+const serviceActionLabels: Record<DatabaseServiceAction, string> = { start: 'Iniciando…', stop: 'Pausando…', restart: 'Reiniciando…' };
 
 const sectionTabs = computed(() => [
   { id: 'overview' as const, label: 'Visão geral', icon: CircleStackIcon },
@@ -239,6 +213,12 @@ const filteredTables = computed(() => {
   );
 });
 
+const selectedEnvironment = computed<ProjectDatabaseEnvironment | null>(() =>
+  overview.value?.environments.find((item) => item.id === selectedEnvironmentId.value)
+  ?? overview.value?.environments[0]
+  ?? null,
+);
+
 const selectedMigrationEntry = computed<RailsMigrationEntry | null>(() =>
   migrations.value?.migrations.find((item) => item.version === selectedMigrationVersion.value)
   ?? migrations.value?.migrations[0]
@@ -293,14 +273,12 @@ const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
   return (overview.value?.environments ?? []).filter((item) => item.id !== env.id && systemdServiceFor(item) === service);
 });
 
-async function runAction(id: string, action: DatabaseServiceAction): Promise<void> {
-  await runDatabaseAction(id, action);
-  await Promise.all([loadMigrations(), loadModels()]);
-}
-
 async function refreshAll(): Promise<void> {
-  await loadDatabase(1);
-  await Promise.all([loadMigrations(), loadModels()]);
+  await Promise.all([
+    loadDatabase(1),
+    loadMigrations(),
+    loadModels(),
+  ]);
 }
 
 async function refreshActive(): Promise<void> {

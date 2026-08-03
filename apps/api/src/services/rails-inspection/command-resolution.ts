@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import type { Project, RailsExecutionRuntime } from '@dev-dashboard/contracts';
+import type { Project } from '@dev-dashboard/contracts';
 
 export type CommandRunner = (
   command: string,
@@ -20,19 +20,12 @@ export const defaultCommandRunner: CommandRunner = async (command, args, options
     timeout: 20_000,
     windowsHide: true,
   });
-
-  // Alguns wrappers Docker encaminham a saída normal do Rails para stderr.
-  // A inspeção trata ambos os streams como uma única saída textual para não
-  // perder migrations, rotas ou diagnósticos válidos.
-  return {
-    stdout: [stdout, stderr].filter(Boolean).join('\n'),
-  };
+  return { stdout, stderr };
 };
 
 export interface RailsCommand {
   command: string;
   args: string[];
-  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
 }
 
 export async function pathExists(target: string): Promise<boolean> {
@@ -44,41 +37,11 @@ export async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-async function localRailsCommand(project: Project): Promise<RailsCommand | null> {
+export async function resolveRailsCommand(project: Project): Promise<RailsCommand | null> {
+  if (project.type !== 'rails') return null;
   if (await pathExists(path.join(project.path, 'bin', 'rails'))) {
-    return { command: path.join(project.path, 'bin', 'rails'), args: [], runtime: 'local' };
+    return { command: path.join(project.path, 'bin', 'rails'), args: [] };
   }
   if (!(await pathExists(path.join(project.path, 'Gemfile')))) return null;
-  return { command: 'bundle', args: ['exec', 'rails'], runtime: 'local' };
-}
-
-async function dockerRailsCommand(project: Project): Promise<RailsCommand | null> {
-  if (!(await pathExists(path.join(project.path, 'bin', 'docker-rails')))) return null;
-  return { command: path.join(project.path, 'bin', 'docker-rails'), args: [], runtime: 'docker' };
-}
-
-/**
- * Retorna comandos compatíveis com o runtime solicitado. Em `auto`, preserva a
- * preferência histórica pelo wrapper Docker, mas mantém o comando local como
- * fallback para inspeções somente leitura.
- */
-export async function resolveRailsCommands(
-  project: Project,
-  runtime: RailsExecutionRuntime = 'auto',
-): Promise<RailsCommand[]> {
-  if (project.type !== 'rails') return [];
-  const [local, docker] = await Promise.all([
-    localRailsCommand(project),
-    dockerRailsCommand(project),
-  ]);
-  if (runtime === 'local') return local ? [local] : [];
-  if (runtime === 'docker') return docker ? [docker] : [];
-  return [docker, local].filter((command): command is RailsCommand => command !== null);
-}
-
-export async function resolveRailsCommand(
-  project: Project,
-  runtime: RailsExecutionRuntime = 'auto',
-): Promise<RailsCommand | null> {
-  return (await resolveRailsCommands(project, runtime))[0] ?? null;
+  return { command: 'bundle', args: ['exec', 'rails'] };
 }

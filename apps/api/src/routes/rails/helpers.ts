@@ -1,9 +1,4 @@
-import type {
-  RailsExecutionRuntime,
-  RailsGeneratorField,
-  RailsGeneratorKind,
-  RailsMigrationMutationOperation,
-} from '@dev-dashboard/contracts';
+import type { RailsGeneratorField, RailsGeneratorKind, RailsMigrationMutationOperation } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../../http/api-error.js';
 import { RailsMutationError, type RailsInspectionService } from '../../services/rails-inspection-service.js';
@@ -24,12 +19,10 @@ export interface MigrationParams extends Params {
 
 export interface DatabaseQuery {
   database?: string;
-  runtime?: RailsExecutionRuntime;
 }
 
 export interface MutationConfirmationBody {
   operation: RailsMigrationMutationOperation;
-  runtime?: RailsExecutionRuntime;
 }
 
 export interface MutationBody {
@@ -42,7 +35,6 @@ export interface GeneratorConfirmationBody {
   name: string;
   fields: RailsGeneratorField[];
   database?: string;
-  runtime?: RailsExecutionRuntime;
 }
 
 export interface GeneratorMutationBody {
@@ -62,24 +54,16 @@ export const migrationParamsSchema = {
   },
 } as const;
 
-const railsRuntimeEnum = ['auto', 'local', 'docker'] as const;
-
 export const databaseQuerySchema = {
   type: 'object', additionalProperties: false,
-  properties: {
-    database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 },
-    runtime: { type: 'string', enum: railsRuntimeEnum },
-  },
+  properties: { database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 } },
 } as const;
 
 const mutationOperationEnum = ['migrate', 'rollback', 'seed', 'prepare'] as const;
 
 export const mutationConfirmationBodySchema = {
   type: 'object', additionalProperties: false, required: ['operation'],
-  properties: {
-    operation: { type: 'string', enum: mutationOperationEnum },
-    runtime: { type: 'string', enum: railsRuntimeEnum },
-  },
+  properties: { operation: { type: 'string', enum: mutationOperationEnum } },
 } as const;
 
 export const mutationBodySchema = {
@@ -185,7 +169,6 @@ export const generatorConfirmationBodySchema = {
     name: { type: 'string', minLength: 1, maxLength: 60 },
     fields: { type: 'array', maxItems: 25, items: generatorFieldSchema },
     database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 },
-    runtime: { type: 'string', enum: railsRuntimeEnum },
   },
 } as const;
 
@@ -196,14 +179,13 @@ export const generatorMutationBodySchema = {
 
 export const railsGeneratorConfirmationResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['token', 'kind', 'name', 'fields', 'runtime', 'command', 'expiresAt'],
+  required: ['token', 'kind', 'name', 'fields', 'command', 'expiresAt'],
   properties: {
     token: { type: 'string' },
     kind: { type: 'string', enum: generatorKindEnum },
     name: { type: 'string' },
     fields: { type: 'array', items: generatorFieldSchema },
     database: { type: 'string' },
-    runtime: { type: 'string', enum: ['local', 'docker'] },
     command: { type: 'string' },
     expiresAt: { type: 'string' },
   },

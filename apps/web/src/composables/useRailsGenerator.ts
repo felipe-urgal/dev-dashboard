@@ -2,7 +2,6 @@ import { ref } from 'vue';
 
 import type {
   Project,
-  RailsExecutionRuntime,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
   RailsGeneratorKind,
@@ -11,10 +10,7 @@ import type {
 
 import { prepareProjectRailsGenerator, runProjectRailsGenerator } from '../api';
 
-export function useRailsGenerator(
-  getProject: () => Project,
-  getRuntime: () => RailsExecutionRuntime = () => 'auto',
-) {
+export function useRailsGenerator(getProject: () => Project) {
   const pendingConfirmation = ref<RailsGeneratorConfirmation | null>(null);
   const preparing = ref(false);
   const running = ref(false);
@@ -27,14 +23,7 @@ export function useRailsGenerator(
     errorMessage.value = '';
     result.value = null;
     try {
-      pendingConfirmation.value = await prepareProjectRailsGenerator(
-        getProject().id,
-        kind,
-        name,
-        fields,
-        database,
-        getRuntime(),
-      );
+      pendingConfirmation.value = await prepareProjectRailsGenerator(getProject().id, kind, name, fields, database);
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Não foi possível preparar a geração.';
     } finally {

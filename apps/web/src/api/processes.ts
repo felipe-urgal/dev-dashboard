@@ -1,7 +1,6 @@
 import type {
   ManagedProcess,
   ProcessLogSnapshot,
-  ProjectServerHealth,
   ProjectServerSettings,
 } from '@dev-dashboard/contracts';
 
@@ -17,10 +16,6 @@ interface ProcessLogResponse {
 
 interface ServerSettingsResponse {
   settings: ProjectServerSettings;
-}
-
-interface ServerHealthResponse {
-  health: ProjectServerHealth;
 }
 
 export async function fetchProjectProcess(
@@ -71,7 +66,6 @@ export async function saveProjectServerSettings(
   projectId: string,
   input: {
     port: number | null;
-    healthCheckPath: string | null;
   },
 ): Promise<ProjectServerSettings> {
   const response = await requestJson<ServerSettingsResponse>(
@@ -86,16 +80,6 @@ export async function saveProjectServerSettings(
   );
 
   return response.settings;
-}
-
-export async function fetchProjectServerHealth(
-  projectId: string,
-): Promise<ProjectServerHealth> {
-  const response = await requestJson<ServerHealthResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/server-health`,
-  );
-
-  return response.health;
 }
 
 export async function stopProjectProcess(
@@ -146,7 +130,7 @@ export async function clearProjectProcessLog(
 export interface ProcessesQuery {
   workspaceId?: string;
   projectId?: string;
-  kind?: 'server' | 'test' | 'compose-build';
+  kind?: 'server' | 'test';
   signal?: AbortSignal;
 }
 

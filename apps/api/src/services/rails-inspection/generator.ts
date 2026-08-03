@@ -1,4 +1,4 @@
-import type { RailsExecutionRuntime, RailsGeneratorField, RailsGeneratorKind } from '@dev-dashboard/contracts';
+import type { RailsGeneratorField, RailsGeneratorKind } from '@dev-dashboard/contracts';
 
 import {
   GENERATOR_FIELD_NAME_PATTERN,
@@ -15,7 +15,6 @@ export interface StoredGeneratorConfirmation {
   name: string;
   fields: RailsGeneratorField[];
   database?: string;
-  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
   args: string[];
   expiresAt: number;
 }
