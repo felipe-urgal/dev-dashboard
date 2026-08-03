@@ -1,0 +1,188 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "dompurify": {
+      "name": "dompurify",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124022,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+          "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4",
+          "severity": "low",
+          "cwe": [
+            "CWE-79",
+            "CWE-184",
+            "CWE-693"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=3.4.11"
+        },
+        {
+          "source": 1124233,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+          "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-79",
+            "CWE-471",
+            "CWE-665"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=3.4.10"
+        },
+        {
+          "source": 1124234,
+          "name": "dompurify",
+          "dependency": "dompurify",
+          "title": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+          "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9",
+          "severity": "low",
+          "cwe": [
+            "CWE-693"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<3.4.9"
+        }
+      ],
+      "effects": [
+        "monaco-editor"
+      ],
+      "range": "<=3.4.11",
+      "nodes": [
+        "node_modules/dompurify"
+      ],
+      "fixAvailable": {
+        "name": "monaco-editor",
+        "version": "0.53.0",
+        "isSemVerMajor": true
+      }
+    },
+    "fast-uri": {
+      "name": "fast-uri",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1130719,
+          "name": "fast-uri",
+          "dependency": "fast-uri",
+          "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+          "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7",
+          "severity": "high",
+          "cwe": [
+            "CWE-436"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": ">=4.0.0 <4.1.2"
+        },
+        {
+          "source": 1130720,
+          "name": "fast-uri",
+          "dependency": "fast-uri",
+          "title": "fast-uri vulnerable to host confusion via backslash authority introducer",
+          "url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7",
+          "severity": "high",
+          "cwe": [
+            "CWE-436"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": ">=3.0.0 <3.1.5"
+        }
+      ],
+      "effects": [],
+      "range": "3.0.0 - 3.1.4 || 4.0.0 - 4.1.1",
+      "nodes": [
+        "node_modules/fast-json-stringify/node_modules/fast-uri",
+        "node_modules/fast-uri"
+      ],
+      "fixAvailable": true
+    },
+    "monaco-editor": {
+      "name": "monaco-editor",
+      "severity": "low",
+      "isDirect": true,
+      "via": [
+        "dompurify"
+      ],
+      "effects": [],
+      "range": ">=0.54.0-dev-20250909",
+      "nodes": [
+        "node_modules/monaco-editor"
+      ],
+      "fixAvailable": {
+        "name": "monaco-editor",
+        "version": "0.53.0",
+        "isSemVerMajor": true
+      }
+    },
+    "postcss": {
+      "name": "postcss",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1130709,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+          "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22",
+            "CWE-200"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=8.5.22"
+        }
+      ],
+      "effects": [],
+      "range": "<=8.5.22",
+      "nodes": [
+        "node_modules/postcss"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 2,
+      "high": 1,
+      "critical": 0,
+      "total": 4
+    },
+    "dependencies": {
+      "prod": 161,
+      "dev": 156,
+      "optional": 62,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 376
+    }
+  }
+}
