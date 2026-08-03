@@ -13,10 +13,10 @@ export interface RailsMigrationsOverview {
   databases: string[];
   database?: string;
   migrations: RailsMigrationEntry[];
-  /** Indica se o status foi confirmado consultando o banco ativo. */
-  statusAvailable: boolean;
-  /** Runtime usado para consultar o Rails; `auto` significa que nenhum comando chegou a executar com sucesso. */
-  runtime: RailsExecutionRuntime;
+  /** Indica se o status foi confirmado consultando o banco ativo. Obrigatório nas respostas novas; opcional no tipo para consumidores antigos. */
+  statusAvailable?: boolean;
+  /** Runtime usado para consultar o Rails. Obrigatório nas respostas novas; opcional no tipo para consumidores antigos. */
+  runtime?: RailsExecutionRuntime;
   /** Diagnóstico seguro quando os arquivos existem, mas o banco/runtime não pôde ser consultado. */
   warning?: string;
 }
