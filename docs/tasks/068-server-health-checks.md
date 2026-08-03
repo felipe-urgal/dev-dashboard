@@ -55,8 +55,8 @@ livres do navegador.
 
 - `npm run typecheck` passou em todos os workspaces;
 - `npm run build` passou para packages, API e frontend;
-- testes focados novos passaram: serviço de health check (3), rota (1),
-  persistência/validação (2) e painel Vue (1);
+- testes focados novos passaram: serviço de health check (5), rota com três
+  cenários, persistência/validação (2), polling Vue (2) e painel Vue (1);
 - suíte completa: scripts (6), API (341), web (260), core (8) e
   project-discovery (1) passaram;
 - `process-manager`: 38 passaram e 13 falharam por limitações conhecidas do

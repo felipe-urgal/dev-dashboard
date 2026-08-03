@@ -49,7 +49,9 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
   });
 
   let receivedInput: unknown;
+  let serviceCalls = 0;
   appContext.serverHealthCheckService.check = async (input) => {
+    serviceCalls += 1;
     receivedInput = input;
 
     return {
@@ -93,4 +95,35 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
     latencyMs: 5,
     checkedAt: '2026-08-03T10:00:00.000Z',
   });
+
+  appContext.processManager.getServerProcess = async () => null;
+  const stoppedResponse = await app.inject({
+    method: 'GET',
+    url: `/api/projects/${project.id}/server-health`,
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+
+  assert.equal(stoppedResponse.statusCode, 200);
+  assert.equal(stoppedResponse.json().health.status, 'unavailable');
+  assert.match(
+    stoppedResponse.json().health.message,
+    /precisa estar em execução/i,
+  );
+  assert.equal(serviceCalls, 1);
+
+  const maliciousPathResponse = await app.inject({
+    method: 'PUT',
+    url: `/api/projects/${project.id}/server-settings`,
+    headers: { 'x-dev-dashboard-token': TOKEN },
+    payload: {
+      port: 3_210,
+      healthCheckPath: 'http://example.com/health',
+    },
+  });
+
+  assert.equal(maliciousPathResponse.statusCode, 400);
+  assert.equal(
+    maliciousPathResponse.json().error,
+    'INVALID_HEALTH_CHECK_PATH',
+  );
 });
