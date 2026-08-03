@@ -77,3 +77,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `068-server-health-checks.md` — health checks HTTP locais declarativos, com detecção de caminhos comuns, configuração relativa validada, timeout curto, classificação por status, polling apenas na aba Servidor e destino fixo em `127.0.0.1`.
 - `069-project-favorites.md` — favoritos persistentes por projeto, reaplicados após scans, com arquivo privado, rota autenticada, atualização otimista e ordenação no topo da visão geral.
 - `070-native-notifications.md` — notificações nativas opt-in para testes, scripts e builds com ao menos 30 segundos, somente com a aba oculta, deduplicadas pela central de avisos e com preferência local do navegador.
+- `071-overview-loading-skeleton.md` — skeleton compartilhado e acessível na Visão geral, com anúncio imediato, atraso visual curto, espaço reservado e movimento reduzido.

@@ -521,7 +521,9 @@ smoke E2E de workspace → projeto → execução → log.
 
 Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
 para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
-próxima entrega e [`docs/roadmap.md`](docs/roadmap.md) para os horizontes futuros.
+próxima entrega, [`docs/PENDENCIAS.md`](docs/PENDENCIAS.md) para o inventário
+consolidado do que falta implementar e [`docs/roadmap.md`](docs/roadmap.md) para
+os horizontes futuros.
 
 ## Licença
 

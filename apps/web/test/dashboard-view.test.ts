@@ -1,6 +1,6 @@
 import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Project, Workspace } from '@dev-dashboard/contracts';
 
@@ -92,6 +92,10 @@ beforeEach(() => {
   dashboardStore.favoriteUpdatingIds.value = [];
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('dashboard principal', () => {
   it('não renderiza hero nem formulário de workspace, só repositórios em Card', () => {
     const wrapper = mountView();
@@ -121,12 +125,19 @@ describe('dashboard principal', () => {
   });
 
   it('mantém os estados de carregamento, vazio e projetos favoritos', async () => {
+    vi.useFakeTimers();
     dashboardStore.loadingProjects.value = true;
     const wrapper = mountView();
-    expect(wrapper.text()).toContain('Carregando projetos');
+    expect(wrapper.get('#overview').attributes('aria-busy')).toBe('true');
+    expect(wrapper.get('[role="status"]').text()).toContain('Carregando projetos detectados');
+    expect(wrapper.find('.loading-skeleton-list').exists()).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(150);
+    expect(wrapper.findAll('.loading-skeleton-row')).toHaveLength(3);
 
     dashboardStore.loadingProjects.value = false;
     await nextTick();
+    expect(wrapper.get('#overview').attributes('aria-busy')).toBe('false');
     expect(wrapper.text()).toContain('Nenhum projeto carregado');
 
     dashboardStore.projects.value = [project];

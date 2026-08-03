@@ -13,6 +13,7 @@ import {
 import type { ProjectType } from '@dev-dashboard/contracts';
 
 import Card from '../components/Card.vue';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useDashboardServerActions } from '../composables/useDashboardServerActions';
@@ -115,7 +116,7 @@ const {
 </script>
 
 <template>
-  <section id="overview" class="content">
+  <section id="overview" class="content" :aria-busy="loadingProjects">
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <div class="alert-body">
         <strong>Não foi possível concluir a ação.</strong>
@@ -199,7 +200,7 @@ const {
       </template>
       <template #actions>
         <div class="repositories-actions">
-          <span class="section-count">
+          <span v-if="!loadingProjects" class="section-count">
             {{ projects.length }}
             {{ projects.length === 1 ? 'projeto' : 'projetos' }}
           </span>
@@ -294,11 +295,11 @@ const {
         </div>
       </div>
 
-      <div v-if="loadingProjects" class="empty-state">
-        <div class="empty-icon">•••</div>
-        <h3>Carregando projetos</h3>
-        <p>Consultando a API local.</p>
-      </div>
+      <LoadingSkeleton
+        v-if="loadingProjects"
+        label="Carregando projetos detectados…"
+        :rows="3"
+      />
 
       <div
         v-else-if="sortedProjects.length === 0"

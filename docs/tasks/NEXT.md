@@ -1,33 +1,33 @@
 # Próxima atividade
 
-A task 070 concluiu as notificações nativas opt-in. A próxima frente candidata
-é substituir os carregamentos textuais das páginas globais por skeletons
-acessíveis e reduzir mudanças bruscas de layout durante a carga inicial.
+A task 071 validou o componente compartilhado de skeleton na Visão geral. A
+próxima entrega aplica o mesmo padrão às outras páginas globais e fecha a
+matriz de estados diretamente afetada.
 
-## Loading skeletons acessíveis
+## Task 072 — Skeletons nas demais páginas globais
 
-Aplicar um padrão compartilhado e discreto de carregamento à Visão geral,
-Atividade, Processos e Configurações, preservando a leitura por tecnologias
-assistivas e sem simular conteúdo inexistente.
+Aplicar carregamentos acessíveis e visualmente estáveis a Atividade, Processos
+e Configurações, reutilizando o padrão já aprovado sem esconder dados válidos
+durante atualizações em segundo plano.
 
 ### Escopo proposto
 
-- criar um componente compartilhado de skeleton baseado nos tokens visuais;
-- manter mensagens reais com `role="status"` disponíveis para leitores de tela;
-- respeitar `prefers-reduced-motion` e desativar a animação nesse modo;
-- reservar o espaço aproximado do conteúdo para reduzir layout shift;
-- cobrir listas, métricas e painéis sem reproduzir dados sensíveis ou valores
-  falsos;
-- adicionar testes montados para carregamento, sucesso, erro e movimento
-  reduzido nas páginas migradas.
+- mapear o carregamento inicial real de cada página e não criar estados
+  artificiais;
+- reutilizar `LoadingSkeleton` e compor apenas as variantes necessárias para
+  listas ou painéis com forma materialmente diferente;
+- manter mensagens com `role="status"`, `aria-busy` no contêiner correto e o
+  atraso visual de 150 ms;
+- preservar conteúdo já carregado durante refresh silencioso sempre que isso
+  representar corretamente o estado;
+- manter erros acionáveis e estados vazios reais depois da carga;
+- adicionar testes montados para carregamento, sucesso, erro, desmontagem do
+  timer e ausência de flash;
+- validar `prefers-reduced-motion` e os tamanhos responsivos sem depender da
+  animação para comunicar estado.
 
-### Decisões antes da implementação
+### Fora desta fatia
 
-- definir se a primeira fatia cobre as quatro páginas globais ou começa apenas
-  pela Visão geral;
-- escolher entre um skeleton genérico configurável e pequenas variantes por
-  composição;
-- definir um atraso mínimo de exibição para evitar flashes em respostas muito
-  rápidas.
-
-Nenhum código desta frente foi escrito ainda.
+- auditoria abrangente de teclado, foco e contraste das páginas globais;
+- validação E2E específica para tablet;
+- mudanças nos contratos ou endpoints da API.

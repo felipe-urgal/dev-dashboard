@@ -18,7 +18,7 @@ Este documento registra capacidades e prioridade. O plano executável da próxim
 entrega fica em `docs/tasks/NEXT.md`; ideias nos horizontes posteriores não são
 compromissos de versão.
 
-## Estado consolidado em 26/07/2026
+## Estado consolidado em 03/08/2026
 
 ### Fundação e distribuição local — concluídas
 
@@ -42,7 +42,8 @@ compromissos de versão.
 - [x] command palette de navegação e ações (tasks 033 e 034);
 - [x] configurações globais — tema, densidade (task 022) e retenção (task 035);
 - [x] avisos locais e notificações nativas opt-in (tasks 040 e 070);
-- [ ] loading skeletons e acessibilidade auditada;
+- [ ] loading skeletons nas páginas globais (Visão geral entregue na task 071;
+  Atividade, Processos e Configurações pendentes) e acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.
 
 ### Git — leitura entregue, mutações pendentes
