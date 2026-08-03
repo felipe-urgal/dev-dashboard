@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 
-import { ApiError } from '../http/api-error.js';
+import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import {
   ProjectFileError,
@@ -92,7 +92,7 @@ function translateProjectFileError(error: unknown): never {
 
   throw new ApiError({
     statusCode: statusByCode[error.code],
-    code: error.code,
+    code: error.code as ApiErrorCode,
     message: error.message,
   });
 }
