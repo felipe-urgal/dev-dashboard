@@ -57,7 +57,7 @@ descobertos nem sincronizar a preferência externamente.
 
 - `npm run typecheck` passou em todos os workspaces;
 - `npm run build` passou para packages, API e frontend;
-- scripts (6), API (350), web (265), core (11) e project-discovery (1)
+- scripts (6), API (351), web (266), core (11) e project-discovery (1)
   passaram na suíte completa;
 - `process-manager`: 37 passaram e 14 falharam por limitações conhecidas do
   ambiente isolado (`os.networkInterfaces()`, processos destacados e

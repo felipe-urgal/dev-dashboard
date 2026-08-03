@@ -19,6 +19,13 @@ const workspace: Workspace = {
   enabled: true,
 };
 
+const secondWorkspace: Workspace = {
+  id: 'workspace-2',
+  name: 'Second workspace',
+  path: '/tmp/second-workspace',
+  enabled: true,
+};
+
 const project: Project = {
   id: 'project-1',
   workspaceId: workspace.id,
@@ -178,4 +185,51 @@ test('dashboard store desfaz a alteração otimista quando a API falha', async (
   assert.equal(store.projects.value[0]?.favorite, false);
   assert.equal(store.errorMessage.value, 'Falha ao salvar favorito');
   assert.deepEqual(store.favoriteUpdatingIds.value, []);
+});
+
+test('dashboard store mantém o favorito consistente em todos os workspaces', async () => {
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace, secondWorkspace],
+      scanWorkspace: async (workspaceId) => {
+        const targetWorkspace = workspaceId === workspace.id
+          ? workspace
+          : secondWorkspace;
+
+        return {
+          ...scanResult([
+            {
+              ...project,
+              workspaceId: targetWorkspace.id,
+            },
+          ]),
+          workspaceId: targetWorkspace.id,
+          workspacePath: targetWorkspace.path,
+        };
+      },
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+  await store.switchWorkspace(secondWorkspace.id);
+  await store.toggleProjectFavorite(store.projects.value[0]!);
+
+  assert.deepEqual(
+    Object.values(store.projectsByWorkspace.value).map(
+      (items) => ({
+        workspaceId: items[0]?.workspaceId,
+        favorite: items[0]?.favorite,
+      }),
+    ),
+    [
+      {
+        workspaceId: workspace.id,
+        favorite: true,
+      },
+      {
+        workspaceId: secondWorkspace.id,
+        favorite: true,
+      },
+    ],
+  );
 });

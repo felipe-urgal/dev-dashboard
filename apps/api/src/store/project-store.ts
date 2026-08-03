@@ -61,35 +61,35 @@ export class ProjectStore {
     projectId: string,
     favorite: boolean,
   ): Project | null {
+    let updatedProject: Project | null = null;
+
     for (const [workspaceId, scan] of this.workspaceScans) {
-      const projectIndex = scan.projects.findIndex(
-        (project) => project.id === projectId,
-      );
+      let scanChanged = false;
+      const projects = scan.projects.map((project) => {
+        if (project.id !== projectId) {
+          return project;
+        }
 
-      if (projectIndex < 0) {
+        const updated = {
+          ...project,
+          favorite,
+        };
+        updatedProject ??= updated;
+        scanChanged = true;
+
+        return updated;
+      });
+
+      if (!scanChanged) {
         continue;
       }
 
-      const existingProject = scan.projects[projectIndex];
-
-      if (!existingProject) {
-        continue;
-      }
-
-      const project = {
-        ...existingProject,
-        favorite,
-      };
-      const projects = [...scan.projects];
-      projects[projectIndex] = project;
       this.workspaceScans.set(workspaceId, {
         ...scan,
         projects,
       });
-
-      return project;
     }
 
-    return null;
+    return updatedProject;
   }
 }

@@ -101,28 +101,40 @@ export function createDashboardStore(
     projectIndex.value = nextIndex;
   }
 
-  function replaceProject(project: Project): void {
+  function replaceProjectFavorite(
+    projectId: string,
+    favorite: boolean,
+  ): void {
     projects.value = projects.value.map((item) =>
-      item.id === project.id ? project : item,
+      item.id === projectId
+        ? { ...item, favorite }
+        : item,
     );
-    projectIndex.value = {
-      ...projectIndex.value,
-      [project.id]: project,
-    };
 
-    const workspaceId = project.workspaceId;
-    const workspaceProjects = workspaceId
-      ? projectsByWorkspace.value[workspaceId]
-      : undefined;
+    const indexedProject = projectIndex.value[projectId];
 
-    if (workspaceId && workspaceProjects) {
-      projectsByWorkspace.value = {
-        ...projectsByWorkspace.value,
-        [workspaceId]: workspaceProjects.map((item) =>
-          item.id === project.id ? project : item,
-        ),
+    if (indexedProject) {
+      projectIndex.value = {
+        ...projectIndex.value,
+        [projectId]: {
+          ...indexedProject,
+          favorite,
+        },
       };
     }
+
+    projectsByWorkspace.value = Object.fromEntries(
+      Object.entries(projectsByWorkspace.value).map(
+        ([workspaceId, workspaceProjects]) => [
+          workspaceId,
+          workspaceProjects.map((item) =>
+            item.id === projectId
+              ? { ...item, favorite }
+              : item,
+          ),
+        ],
+      ),
+    );
   }
 
   async function toggleProjectFavorite(
@@ -137,19 +149,19 @@ export function createDashboardStore(
       ...favoriteUpdatingIds.value,
       project.id,
     ];
-    replaceProject({
-      ...project,
-      favorite,
-    });
+    replaceProjectFavorite(project.id, favorite);
 
     try {
       const updatedProject = await updateProjectFavorite(
         project.id,
         favorite,
       );
-      replaceProject(updatedProject);
+      replaceProjectFavorite(
+        updatedProject.id,
+        updatedProject.favorite,
+      );
     } catch (error) {
-      replaceProject(project);
+      replaceProjectFavorite(project.id, project.favorite);
       errorMessage.value =
         error instanceof Error
           ? error.message
@@ -502,6 +514,7 @@ export function createDashboardStore(
 
   return {
     projects,
+    projectsByWorkspace,
     workspaces,
     selectedWorkspaceId,
     newWorkspaceName,
