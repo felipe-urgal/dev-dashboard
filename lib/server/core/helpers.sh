@@ -11,6 +11,35 @@ _is_port_in_use() {
   lsof -i :"$1" >/dev/null 2>&1
 }
 
+# Comando do primeiro processo dono da porta, ou vazio se a porta estiver livre.
+_dev_port_owner_cmd() {
+  local pid
+  pid=$(lsof -t -i :"$1" 2>/dev/null | head -n1)
+  [ -z "$pid" ] && return 1
+  ps -p "$pid" -o command= 2>/dev/null | head -n1
+}
+
+# Detecta se o dono da porta é um processo Docker (docker-proxy, containerd-shim,
+# com.docker.backend etc.) em vez do servidor local gerenciado por este dashboard.
+_dev_port_owned_by_docker() {
+  local cmd="$1"
+  [[ "$cmd" == *docker* || "$cmd" == *containerd-shim* || "$cmd" == *com.docker* ]]
+}
+
+# PID numérico e ativo registrado pelo dashboard, ou vazio quando o arquivo está
+# ausente, inválido ou obsoleto.
+_dev_live_pid_from_file() {
+  local pid_file="$1"
+  [ -f "$pid_file" ] || return 1
+
+  local pid
+  pid=$(cat "$pid_file" 2>/dev/null)
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+
+  printf '%s\n' "$pid"
+}
+
 _kill_port() {
   local port="$1"
   if _is_port_in_use "$port"; then

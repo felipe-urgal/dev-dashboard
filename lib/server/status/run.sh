@@ -111,21 +111,34 @@ dev-status-all() {
 
   local project
   for project in "${projects[@]}"; do
-    local port has_webpack
+    local port has_webpack id pid_file managed_pid
     port=$(project-port "$project") || port=""
     has_webpack=$(project-has-webpack "$project")
+    id=$(_dev_project_id "$project")
+    pid_file="$DEV_RUN_DIR/${id}.pid"
+    managed_pid=$(_dev_live_pid_from_file "$pid_file") || managed_pid=""
 
     if [ -n "$port" ] && _is_port_in_use "$port"; then
-      local pids
-      pids=$(lsof -t -i :"$port" 2>/dev/null)
-      local pid_info=""
-      if [ -n "$pids" ]; then
-        local first_pid="${pids%%$'\n'*}"
-        local cmd
-        cmd=$(ps -p "$first_pid" -o command= 2>/dev/null | head -n1 | cut -c1-50)
-        pid_info="PID $first_pid ${cmd:+$cmd}"
+      local owner_pid owner_cmd pid_info
+      owner_pid=$(lsof -t -i :"$port" 2>/dev/null | head -n1)
+      owner_cmd=""
+      pid_info="processo desconhecido"
+      if [ -n "$owner_pid" ]; then
+        owner_cmd=$(ps -p "$owner_pid" -o command= 2>/dev/null | head -n1 | cut -c1-50)
+        pid_info="PID $owner_pid ${owner_cmd:+$owner_cmd}"
       fi
-      _dev_ok "$project (porta $port) → rodando (${pid_info})"
+
+      if [ -n "$managed_pid" ]; then
+        local managed_cmd
+        managed_cmd=$(ps -p "$managed_pid" -o command= 2>/dev/null | head -n1 | cut -c1-50)
+        _dev_ok "$project (porta $port) → rodando (PID $managed_pid ${managed_cmd:+$managed_cmd})"
+      elif _dev_port_owned_by_docker "$owner_cmd"; then
+        _dev_warn "$project (porta $port) → ocupada por container Docker, não pelo servidor local (${pid_info})"
+      else
+        _dev_warn "$project (porta $port) → ocupada por outro processo, não gerenciado por este dashboard (${pid_info})"
+      fi
+    elif [ -n "$managed_pid" ]; then
+      _dev_warn "$project (porta ${port:-N/A}) → processo gerenciado ativo (PID $managed_pid), mas a porta não está respondendo"
     else
       _dev_err "$project (porta ${port:-N/A}) → parado"
     fi

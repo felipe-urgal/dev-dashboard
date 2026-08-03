@@ -204,6 +204,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     serverHealthCheckService:
       context.serverHealthCheckService,
     projectStore: context.projectStore,
+    dockerComposeService: context.dockerComposeService,
   });
 
   app.register(testRoutes, {

@@ -185,8 +185,25 @@ dev-start-all() {
     port=$(project-port "$project") || port=""
     type=$(project-type "$project") || type=""
 
+    local id="$(_dev_project_id "$project")"
+    local pid_file="$DEV_RUN_DIR/${id}.pid"
+    local managed_pid
+    managed_pid=$(_dev_live_pid_from_file "$pid_file") || managed_pid=""
+
+    if [ -n "$managed_pid" ]; then
+      _dev_ok "$project já está rodando (PID $managed_pid). Pulando..."
+      ((skipped++))
+      continue
+    fi
+
     if [ -n "$port" ] && _is_port_in_use "$port"; then
-      _dev_ok "$project já está rodando (porta $port). Pulando..."
+      local owner_cmd
+      owner_cmd=$(_dev_port_owner_cmd "$port")
+      if _dev_port_owned_by_docker "$owner_cmd"; then
+        _dev_warn "$project: porta $port ocupada por um container Docker (${owner_cmd:-desconhecido}), não pelo servidor local. Pare o container ou libere a porta antes de iniciar. Pulando..."
+      else
+        _dev_warn "$project: porta $port ocupada por outro processo (${owner_cmd:-desconhecido}), não gerenciado por este dashboard. Pulando..."
+      fi
       ((skipped++))
       continue
     fi

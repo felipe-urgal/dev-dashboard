@@ -19,5 +19,7 @@ if [[ -n "$BASH_VERSION" ]]; then
   export -f dev-start-all _dev_start_server _wait_for_port \
          dev-clean dev-stop dev-stop-all dev-kill-port dev-restart \
          _dev_project_id _is_port_in_use _kill_port \
+         _dev_port_owner_cmd _dev_port_owned_by_docker \
+         _dev_live_pid_from_file \
          _dev_has_any_server _dev_is_webpack_running 2>/dev/null || true
 fi
