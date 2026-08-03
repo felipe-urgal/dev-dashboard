@@ -198,7 +198,7 @@ test('carrega o explorer e abre um arquivo editável', async () => {
     readOnly: false,
   });
   assert.equal(
-    monaco.createEditor.mock.calls[0]?.[1]?.alwaysConsumeMouseWheel,
+    monaco.createEditor.mock.calls[0]?.[1]?.scrollbar?.alwaysConsumeMouseWheel,
     false,
   );
   assert.match(wrapper.text(), /Edição segura/);

@@ -536,7 +536,7 @@ async function initializeMonaco(): Promise<void> {
       fontSize: 13,
       lineHeight: 21,
       scrollBeyondLastLine: false,
-      alwaysConsumeMouseWheel: false,
+      scrollbar: { alwaysConsumeMouseWheel: false },
       renderWhitespace: 'selection',
       wordWrap: 'off',
       theme: themeName(),
