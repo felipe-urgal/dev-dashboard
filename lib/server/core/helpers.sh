@@ -26,6 +26,20 @@ _dev_port_owned_by_docker() {
   [[ "$cmd" == *docker* || "$cmd" == *containerd-shim* || "$cmd" == *com.docker* ]]
 }
 
+# PID numérico e ativo registrado pelo dashboard, ou vazio quando o arquivo está
+# ausente, inválido ou obsoleto.
+_dev_live_pid_from_file() {
+  local pid_file="$1"
+  [ -f "$pid_file" ] || return 1
+
+  local pid
+  pid=$(cat "$pid_file" 2>/dev/null)
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+
+  printf '%s\n' "$pid"
+}
+
 _kill_port() {
   local port="$1"
   if _is_port_in_use "$port"; then

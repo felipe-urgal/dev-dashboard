@@ -56,4 +56,40 @@ export class ProjectStore {
       ) ?? null
     );
   }
+
+  public setFavorite(
+    projectId: string,
+    favorite: boolean,
+  ): Project | null {
+    let updatedProject: Project | null = null;
+
+    for (const [workspaceId, scan] of this.workspaceScans) {
+      let scanChanged = false;
+      const projects = scan.projects.map((project) => {
+        if (project.id !== projectId) {
+          return project;
+        }
+
+        const updated = {
+          ...project,
+          favorite,
+        };
+        updatedProject ??= updated;
+        scanChanged = true;
+
+        return updated;
+      });
+
+      if (!scanChanged) {
+        continue;
+      }
+
+      this.workspaceScans.set(workspaceId, {
+        ...scan,
+        projects,
+      });
+    }
+
+    return updatedProject;
+  }
 }

@@ -87,6 +87,19 @@ export function serverSettingsApiError(
   });
 }
 
+function publishesHostPort(mapping: string, port: number): boolean {
+  const withoutProtocol = mapping.replace(/\/(?:tcp|udp|sctp)$/i, '');
+  const segments = withoutProtocol.split(':');
+
+  // Na sintaxe curta do Compose, o penúltimo segmento é sempre a porta
+  // publicada no host. Isso cobre tanto `3000:3000` quanto os formatos com
+  // endereço explícito (`127.0.0.1:3000:3000` e `[::1]:3000:3000`). Uma porta
+  // isolada representa apenas a porta do container e não prova conflito no host.
+  if (segments.length < 2) return false;
+
+  return segments.at(-2) === String(port);
+}
+
 // Quando o bind da porta do servidor local falha, o container Docker do próprio
 // projeto (docker-compose.dev.yml publicando a mesma porta no host) é a causa mais
 // comum e a menos óbvia para quem só olha o erro genérico de porta ocupada.
@@ -99,10 +112,9 @@ export async function describeDockerPortConflict(
 
   try {
     const overview = await dockerComposeService.overview(project);
-    const requestedPort = String(port);
     const conflicting = overview.services.find((service) =>
       service.running &&
-      service.ports.some((mapping) => mapping.split(':')[0] === requestedPort));
+      service.ports.some((mapping) => publishesHostPort(mapping, port)));
 
     if (!conflicting) return undefined;
 

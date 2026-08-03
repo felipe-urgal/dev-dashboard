@@ -55,3 +55,43 @@ test('replaces the latest scan for the same workspace', () => {
   assert.equal(store.findProject('old-project'), null);
   assert.equal(store.findProject('new-project')?.id, 'new-project');
 });
+
+test('updates every occurrence of a favorite shared by workspace scans', () => {
+  const store = new ProjectStore();
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [project('shared-project', 'workspace-a')],
+    warnings: [],
+  });
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-b',
+    workspacePath: '/tmp/workspace-b',
+    projects: [project('shared-project', 'workspace-b')],
+    warnings: [],
+  });
+
+  const updatedProject = store.setFavorite('shared-project', true);
+
+  assert.equal(updatedProject?.favorite, true);
+  assert.deepEqual(
+    store.listWorkspaceScans().map((scan) => ({
+      workspaceId: scan.workspaceId,
+      projectWorkspaceId: scan.projects[0]?.workspaceId,
+      favorite: scan.projects[0]?.favorite,
+    })),
+    [
+      {
+        workspaceId: 'workspace-a',
+        projectWorkspaceId: 'workspace-a',
+        favorite: true,
+      },
+      {
+        workspaceId: 'workspace-b',
+        projectWorkspaceId: 'workspace-b',
+        favorite: true,
+      },
+    ],
+  );
+});

@@ -187,9 +187,11 @@ dev-start-all() {
 
     local id="$(_dev_project_id "$project")"
     local pid_file="$DEV_RUN_DIR/${id}.pid"
+    local managed_pid
+    managed_pid=$(_dev_live_pid_from_file "$pid_file") || managed_pid=""
 
-    if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
-      _dev_ok "$project já está rodando (PID $(cat "$pid_file")). Pulando..."
+    if [ -n "$managed_pid" ]; then
+      _dev_ok "$project já está rodando (PID $managed_pid). Pulando..."
       ((skipped++))
       continue
     fi

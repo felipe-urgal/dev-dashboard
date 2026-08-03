@@ -7,7 +7,9 @@ import {
 import { RouterLink } from 'vue-router';
 import {
   ArrowRightIcon,
+  StarIcon,
 } from '@heroicons/vue/24/outline';
+import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -18,6 +20,11 @@ import { projectTypeLabels } from '../utils/project-labels';
 
 const props = defineProps<{
   project: Project;
+  favoriteUpdating?: boolean;
+}>();
+
+const emit = defineEmits<{
+  'toggle-favorite': [project: Project];
 }>();
 
 const { managedProcess, supportsServer, isRunning } =
@@ -74,6 +81,21 @@ const statusLabel = computed(() => {
 
 <template>
   <li class="project-row">
+    <button
+      type="button"
+      class="project-favorite-button"
+      :class="{ active: project.favorite }"
+      :aria-label="project.favorite
+        ? `Remover ${project.name} dos favoritos`
+        : `Adicionar ${project.name} aos favoritos`"
+      :aria-pressed="project.favorite"
+      :disabled="favoriteUpdating"
+      @click="emit('toggle-favorite', project)"
+    >
+      <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
+      <StarIcon v-else aria-hidden="true" />
+    </button>
+
     <RouterLink
       class="project-row-link"
       :aria-label="`Ver detalhes de ${project.name}`"

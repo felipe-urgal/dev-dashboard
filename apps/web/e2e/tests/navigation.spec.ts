@@ -10,6 +10,30 @@ test.describe('navegação principal', () => {
     await expect(page.getByRole('heading', { level: 3, name: 'sample-node-app' })).toBeVisible();
   });
 
+  test('favorita o projeto e preserva a preferência após recarregar', async ({ page }) => {
+    await gotoBootstrapped(page, '/');
+
+    const favoriteButton = page.getByRole('button', {
+      name: 'Adicionar sample-node-app aos favoritos',
+    });
+    await expect(favoriteButton).toHaveAttribute('aria-pressed', 'false');
+
+    await favoriteButton.click();
+
+    const unfavoriteButton = page.getByRole('button', {
+      name: 'Remover sample-node-app dos favoritos',
+    });
+    await expect(unfavoriteButton).toHaveAttribute('aria-pressed', 'true');
+
+    await page.reload();
+
+    await expect(
+      page.getByRole('button', {
+        name: 'Remover sample-node-app dos favoritos',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   test('página global de processos renderiza', async ({ page }) => {
     await gotoBootstrapped(page, '/processes');
     await expect(page.getByRole('heading', { level: 1, name: 'Processos gerenciados' })).toBeVisible();

@@ -57,6 +57,24 @@ export async function fetchProjects(): Promise<Project[]> {
   return response.projects;
 }
 
+export async function updateProjectFavorite(
+  projectId: string,
+  favorite: boolean,
+): Promise<Project> {
+  const response = await requestJson<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/favorite`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ favorite }),
+    },
+  );
+
+  return response.project;
+}
+
 export async function fetchWorkspaces(): Promise<Workspace[]> {
   const response =
     await requestJson<WorkspacesResponse>('/api/workspaces');
