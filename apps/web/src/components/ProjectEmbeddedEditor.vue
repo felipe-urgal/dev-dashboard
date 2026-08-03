@@ -21,6 +21,7 @@ import type {
   Project,
   ProjectFileContent,
   ProjectFileEntry,
+  ProjectFileMutationResult,
   ProjectFileSearchMatch,
 } from '@dev-dashboard/contracts';
 
@@ -33,6 +34,7 @@ import {
 } from '../api';
 import { configureMonacoEnvironment } from '../monaco-environment';
 import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
+import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
 
 interface FlatTreeEntry {
   entry: ProjectFileEntry;
@@ -48,6 +50,7 @@ const expandedDirectories = ref(new Set<string>());
 const openFiles = ref<ProjectFileContent[]>([]);
 const dirtyPaths = ref(new Set<string>());
 const activePath = ref('');
+const selectedPath = ref('');
 const fallbackContent = ref('');
 const loadingTree = ref(true);
 const loadingFile = ref(false);
@@ -96,8 +99,32 @@ const flatTree = computed<FlatTreeEntry[]>(() => {
   return items;
 });
 
+const selectedEntry = computed(() =>
+  flatTree.value.find((node) => node.entry.path === selectedPath.value)?.entry,
+);
+const mutationBlocked = computed(() => {
+  const selected = selectedEntry.value;
+  if (!selected) return false;
+  return [...dirtyPaths.value].some((filePath) =>
+    filePath === selected.path
+    || (
+      selected.kind === 'directory'
+      && filePath.startsWith(`${selected.path}/`)
+    ),
+  );
+});
+
 function readableError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function parentPath(value: string): string {
+  const index = value.lastIndexOf('/');
+  return index < 0 ? '' : value.slice(0, index);
+}
+
+function affectsPath(filePath: string, targetPath: string): boolean {
+  return filePath === targetPath || filePath.startsWith(`${targetPath}/`);
 }
 
 function replaceSet(
@@ -121,8 +148,11 @@ function replaceOpenFile(file: ProjectFileContent): void {
   );
 }
 
-async function loadDirectory(relativePath: string): Promise<void> {
-  if (loadedDirectories.value.has(relativePath)) return;
+async function loadDirectory(
+  relativePath: string,
+  force = false,
+): Promise<void> {
+  if (!force && loadedDirectories.value.has(relativePath)) return;
   try {
     const listing = await fetchProjectDirectory(props.project.id, relativePath);
     const next = new Map(directoryEntries.value);
@@ -149,6 +179,12 @@ async function toggleDirectory(entry: ProjectFileEntry): Promise<void> {
     opening,
   );
   if (opening) await loadDirectory(entry.path);
+}
+
+async function selectEntry(entry: ProjectFileEntry): Promise<void> {
+  selectedPath.value = entry.path;
+  if (entry.kind === 'directory') await toggleDirectory(entry);
+  else await openFile(entry.path);
 }
 
 function modelUri(filePath: string): Monaco.Uri {
@@ -193,6 +229,7 @@ function displayFile(
   position?: { line: number; column: number },
 ): void {
   activePath.value = file.path;
+  selectedPath.value = file.path;
   pendingClosePath.value = '';
   const model = modelFor(file);
   fallbackContent.value = model?.getValue() ?? file.content;
@@ -216,6 +253,7 @@ async function openFile(
   filePath: string,
   position?: { line: number; column: number },
 ): Promise<void> {
+  selectedPath.value = filePath;
   errorMessage.value = '';
   statusMessage.value = '';
   const opened = openFiles.value.find((file) => file.path === filePath);
@@ -261,6 +299,12 @@ function closeFileNow(filePath: string): void {
     activePath.value = '';
     fallbackContent.value = '';
     editor?.setModel(null);
+  }
+}
+
+function closeAffectedFiles(targetPath: string): void {
+  for (const file of [...openFiles.value]) {
+    if (affectsPath(file.path, targetPath)) closeFileNow(file.path);
   }
 }
 
@@ -336,6 +380,51 @@ async function saveActiveFile(): Promise<void> {
   } finally {
     savingPath.value = '';
   }
+}
+
+async function handleFileMutation(
+  result: ProjectFileMutationResult,
+): Promise<void> {
+  errorMessage.value = '';
+  statusMessage.value = '';
+
+  if (result.operation === 'create') {
+    await loadDirectory(parentPath(result.path), true);
+    selectedPath.value = result.path;
+    if (result.kind === 'directory') {
+      expandedDirectories.value = replaceSet(
+        expandedDirectories.value,
+        result.path,
+        true,
+      );
+      await loadDirectory(result.path, true);
+    } else {
+      await openFile(result.path);
+    }
+    statusMessage.value = `${result.path} criado.`;
+    return;
+  }
+
+  if (result.operation === 'rename' && result.destinationPath) {
+    const reopenFile =
+      result.kind === 'file'
+      && openFiles.value.some((file) => file.path === result.path);
+    closeAffectedFiles(result.path);
+    const parents = new Set([
+      parentPath(result.path),
+      parentPath(result.destinationPath),
+    ]);
+    await Promise.all([...parents].map((parent) => loadDirectory(parent, true)));
+    selectedPath.value = result.destinationPath;
+    if (reopenFile) await openFile(result.destinationPath);
+    statusMessage.value = `${result.path} renomeado para ${result.destinationPath}.`;
+    return;
+  }
+
+  closeAffectedFiles(result.path);
+  await loadDirectory(parentPath(result.path), true);
+  selectedPath.value = '';
+  statusMessage.value = `${result.path} excluído.`;
 }
 
 async function submitSearch(): Promise<void> {
@@ -431,6 +520,7 @@ async function resetProject(): Promise<void> {
   openFiles.value = [];
   dirtyPaths.value = new Set();
   activePath.value = '';
+  selectedPath.value = '';
   fallbackContent.value = '';
   searchResults.value = [];
   searchQuery.value = '';
@@ -555,6 +645,13 @@ onBeforeUnmount(() => {
           </button>
         </form>
 
+        <ProjectFileMutationPanel
+          :project-id="project.id"
+          :selected="selectedEntry"
+          :blocked="mutationBlocked"
+          @completed="handleFileMutation"
+        />
+
         <div v-if="searchResults.length || searching" class="embedded-ide-results">
           <header>
             <strong>Resultados</strong>
@@ -587,15 +684,14 @@ onBeforeUnmount(() => {
             class="embedded-ide-tree-item"
             :class="{
               'embedded-ide-tree-item-active': activePath === node.entry.path,
+              'embedded-ide-tree-item-selected': selectedPath === node.entry.path,
             }"
             role="treeitem"
             :aria-expanded="node.entry.kind === 'directory'
               ? expandedDirectories.has(node.entry.path)
               : undefined"
             :style="{ paddingInlineStart: `${10 + node.depth * 15}px` }"
-            @click="node.entry.kind === 'directory'
-              ? toggleDirectory(node.entry)
-              : openFile(node.entry.path)"
+            @click="selectEntry(node.entry)"
           >
             <template v-if="node.entry.kind === 'directory'">
               <ChevronDownIcon
@@ -778,7 +874,7 @@ onBeforeUnmount(() => {
 
 .embedded-ide-sidebar {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   border-right: 1px solid var(--border);
   background: var(--surface-1);
@@ -859,7 +955,8 @@ onBeforeUnmount(() => {
 
 .embedded-ide-tree-item:hover,
 .embedded-ide-tree-item:focus-visible,
-.embedded-ide-tree-item-active {
+.embedded-ide-tree-item-active,
+.embedded-ide-tree-item-selected {
   outline: none;
   background: var(--accent-soft);
 }

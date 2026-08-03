@@ -10,3 +10,4 @@ export * from './api/activities';
 export * from './api/settings';
 export * from './api/editor';
 export * from './api/project-files';
+export * from './api/project-file-mutations';

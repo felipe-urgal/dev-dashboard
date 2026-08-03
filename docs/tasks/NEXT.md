@@ -1,39 +1,42 @@
 # Próxima atividade
 
-A primeira fatia da task 077 habilitou edição de arquivos existentes, estado
-sujo por aba e salvamento atômico com `expectedVersion`. A próxima entrega
-completa as operações estruturais sem ampliar a fronteira de confiança.
+A task 077 já possui leitura, busca, edição versionada, salvamento atômico e
+operações estruturais com preview e confirmação proporcional ao risco. A última
+fatia fecha coerência externa e mudanças em múltiplos arquivos antes do LSP.
 
-## Continuação da Task 077 — Operações estruturais e preview
+## Conclusão da Task 077 — WorkspaceEdit, watcher e conflito em três vias
 
-Adicionar criação, renomeação e exclusão seguras, além de uma revisão explícita
-para mudanças que afetem um ou mais arquivos.
+Introduzir uma unidade central de mudanças que possa ser reutilizada pelo LSP e
+pela assistência local sem permitir aplicação autônoma ou estado parcial.
 
 ### Escopo proposto
 
-- criar arquivo e diretório por caminho relativo validado;
-- renomear dentro da raiz canônica, recusando sobrescrita implícita;
-- excluir arquivo vazio ou diretório vazio com confirmação inline;
-- exigir confirmação reforçada para exclusões com conteúdo;
-- gerar preview de diff antes de renomear, excluir ou aplicar múltiplas mudanças;
-- mostrar conflito em três vias entre conteúdo original, disco atual e edição;
-- introduzir um serviço central de `WorkspaceEdit` reutilizável por LSP e IA;
-- aplicar múltiplas alterações somente após preview e confirmação;
-- implementar rollback quando uma operação intermediária falhar;
-- adicionar watcher limitado apenas aos arquivos abertos;
-- atualizar explorer, abas e modelos sem recarregar toda a página;
-- cobrir colisão de nomes, symlink, TOCTOU, rollback e mudanças externas.
+- criar um contrato `WorkspaceEdit` com criação, alteração, renomeação e
+  exclusão de um ou mais arquivos;
+- gerar preview consolidado por arquivo antes de qualquer aplicação;
+- exigir confirmação explícita para o conjunto completo;
+- vincular a confirmação às versões e fingerprints observadas no preview;
+- aplicar mudanças em ordem determinística;
+- criar backups temporários privados somente durante a aplicação;
+- executar rollback quando uma etapa intermediária falhar;
+- reportar claramente operações aplicadas, revertidas e que exigem intervenção;
+- adicionar watcher limitado somente aos arquivos abertos no Monaco;
+- sinalizar alteração, renomeação ou exclusão externa sem polling global;
+- apresentar comparação em três vias: versão aberta, disco atual e edição;
+- permitir escolher recarregar disco, manter edição ou copiar trechos, sem merge
+  automático;
+- atualizar explorer, abas e modelos incrementalmente;
+- cobrir rollback, colisão, expiração, TOCTOU e eventos externos duplicados.
 
 ### Critérios principais
 
-- nenhuma operação aceita caminho absoluto ou comando vindo do navegador;
-- criação não pode escapar por symlink do diretório pai;
-- renomeação nunca substitui um destino existente silenciosamente;
-- exclusão sempre mostra claramente o caminho e o impacto;
-- mudanças em múltiplos arquivos possuem preview obrigatório;
-- rollback não deixa estado parcial quando possível;
+- nenhuma mudança múltipla é aplicada sem preview e confirmação;
+- versões divergentes invalidam o conjunto inteiro antes da primeira escrita;
+- rollback restaura o estado anterior quando todas as etapas são reversíveis;
+- falha parcial nunca é apresentada como sucesso;
+- watcher observa somente caminhos já autorizados e abertos;
+- eventos externos não descartam modelos sujos;
 - arquivos sensíveis continuam bloqueados por padrão;
-- o editor mantém modo somente leitura quando uma mutação falha;
 - build, typecheck, testes de API, testes montados e smoke E2E passam.
 
 ### Sequência posterior

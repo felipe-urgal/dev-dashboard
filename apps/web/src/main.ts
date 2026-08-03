@@ -24,6 +24,8 @@ import './git-diff-compact-enhancer.css';
 import './git-diff-layout-fix.css';
 import './git-diff-github-theme.css';
 import './git-syntax-highlight.css';
+import './embedded-editor-layout.css';
+import { installEmbeddedEditorLayout } from './embedded-editor-layout';
 import { installGitActionFeedback } from './git-action-feedback';
 import { installGitDiffHeaderCleanup } from './git-diff-header-cleanup';
 import { installGitDiffSyntaxEnhancer } from './git-diff-syntax-enhancer';
@@ -42,6 +44,7 @@ import { installTestLogToneEnhancer } from './test-log-tone-enhancer';
 import { loadVisualPreferences } from './utils/visual-preferences';
 
 loadVisualPreferences();
+installEmbeddedEditorLayout();
 installGitIconEnhancer();
 installGitActionFeedback();
 installGitSummaryCurrentBranchHistory();

@@ -1,101 +1,109 @@
-# Task 077 — Salvamento seguro no editor
+# Task 077 — Editor seguro no projeto
 
 ## Status
 
-Implementação em revisão. Esta primeira fatia da task 077 habilita edição e
-salvamento de arquivos existentes; operações estruturais ficam para a próxima
-entrega.
+Segunda fatia em revisão. O editor já salva arquivos existentes com controle de
+versão e agora adiciona criação, renomeação e exclusão seguras pelo explorer.
 
 ## Objetivo
 
-Permitir editar arquivos autorizados dentro do Monaco sem sobrescrever
-silenciosamente mudanças feitas por outro editor ou processo.
+Permitir trabalhar nos arquivos autorizados do projeto pelo Monaco sem expor o
+filesystem inteiro, aceitar comandos do navegador ou sobrescrever mudanças
+externas silenciosamente.
 
 ## Escopo entregue
 
-- `ProjectFileContent.writable` passa a refletir a permissão real do arquivo;
+### Edição e salvamento
+
+- `ProjectFileContent.writable` reflete a permissão real do arquivo;
 - contrato `ProjectFileWriteRequest` com caminho relativo, conteúdo e
   `expectedVersion`;
 - endpoint autenticado `PUT /api/projects/:projectId/files/content`;
-- validação do hash SHA-256 esperado antes da gravação e imediatamente antes do
-  `rename`;
+- validação SHA-256 antes da gravação e imediatamente antes do `rename`;
 - resposta `409 FILE_CHANGED_EXTERNALLY` quando o arquivo mudou no disco;
-- escrita em arquivo temporário exclusivo no mesmo diretório;
-- `fsync`, preservação do modo existente e `rename` atômico;
-- limpeza do temporário em falhas intermediárias;
-- Monaco editável somente quando a API indica `writable: true`;
-- estado sujo independente por aba;
-- salvamento pelo botão ou por `Ctrl/Cmd+S`;
-- bloqueio de fechamento acidental com decisão inline para descartar;
-- aviso antes de descarregar a página quando existem alterações abertas;
-- conflito externo preserva tanto o conteúdo do disco quanto o modelo editado;
-- ação explícita para recarregar a versão atual do disco;
-- fallback textual continua somente leitura quando o Monaco falha.
+- arquivo temporário exclusivo no mesmo diretório, `fsync`, preservação do modo
+  e substituição atômica;
+- estado sujo independente por aba, botão Salvar e `Ctrl/Cmd+S`;
+- decisão inline ao fechar uma aba alterada;
+- conflito externo preserva o disco e o modelo editado.
+
+### Operações estruturais
+
+- criação exclusiva de arquivo vazio ou diretório por caminho relativo;
+- preview obrigatório antes de renomear ou excluir;
+- token de confirmação de uso único, vinculado ao projeto, operação, caminho,
+  destino e fingerprint do impacto;
+- token expira após cinco minutos;
+- renomeação nunca substitui um destino existente;
+- exclusão de arquivo ou diretório vazio exige confirmação simples;
+- exclusão de diretório com conteúdo exige digitar o caminho completo;
+- preview informa quantidade de arquivos, diretórios e bytes afetados;
+- alteração externa entre preview e aplicação invalida a operação;
+- explorer atualiza apenas os diretórios envolvidos, sem recarregar a página;
+- abas limpas afetadas por renomeação ou exclusão são fechadas e um arquivo
+  renomeado que estava aberto é reaberto no novo caminho;
+- ações estruturais ficam bloqueadas quando existe edição não salva no caminho.
 
 ## Segurança
 
-A mutação reaproveita a fronteira da task 076 e adiciona:
-
-- somente arquivos existentes e previamente autorizados podem ser gravados;
-- caminhos absolutos, traversal, arquivos sensíveis e symlinks externos
-  continuam recusados;
-- conteúdo acima de 512 KiB é recusado por bytes, além da validação HTTP;
-- arquivos binários não entram no fluxo de escrita;
-- a versão enviada deve ser um SHA-256 válido;
-- o arquivo temporário usa nome aleatório, criação exclusiva e o mesmo
-  diretório canônico do destino;
-- o destino é revalidado antes do `rename`;
-- falta de permissão mantém o editor utilizável em modo somente leitura;
+- somente caminhos relativos e normalizados são aceitos;
+- raiz do projeto, traversal, barras invertidas e segmentos vazios são recusados;
+- diretório pai e destino são resolvidos pela raiz canônica;
+- symlinks no caminho ou no impacto bloqueiam a operação;
+- `.git`, `node_modules`, builds, cobertura e arquivos sensíveis continuam fora
+  da fronteira do editor;
+- uma pasta que contém item protegido não pode ser renomeada ou excluída;
+- criação usa `wx` para impedir sobrescrita implícita;
+- preview recursivo é limitado a 2.000 itens e 100 MB;
+- conteúdo inicial de arquivo continua limitado a 512 KiB;
 - nenhuma operação aceita comando, glob ou caminho absoluto do navegador.
 
-## Endpoint
+## Endpoints
 
 ```http
-PUT /api/projects/:projectId/files/content
-Content-Type: application/json
-
-{
-  "path": "src/main.ts",
-  "content": "...",
-  "expectedVersion": "<sha256>"
-}
+POST /api/projects/:projectId/files/entries
+POST /api/projects/:projectId/files/mutations/preview
+POST /api/projects/:projectId/files/mutations/apply
 ```
 
-A resposta é um novo `ProjectFileContent`, com versão, tamanho e data de
-modificação atualizados.
+Criação é não destrutiva e aplicada diretamente. Renomeação e exclusão passam
+por preview e confirmação de uso único.
 
 ## Arquivos principais
 
 - `packages/contracts/src/project-files.ts`;
 - `apps/api/src/services/project-file-service.ts`;
+- `apps/api/src/services/project-file-mutation-service.ts`;
 - `apps/api/src/routes/project-files.ts`;
+- `apps/api/src/routes/project-file-mutations.ts`;
 - `apps/web/src/api/project-files.ts`;
+- `apps/web/src/api/project-file-mutations.ts`;
 - `apps/web/src/components/ProjectEmbeddedEditor.vue`;
-- `apps/api/test/project-file-service.test.ts`;
-- `apps/api/test/project-file-routes.test.ts`;
-- `apps/web/test/project-embedded-editor.test.ts`.
+- `apps/web/src/components/ProjectFileMutationPanel.vue`;
+- testes de serviço, rotas e componentes do editor.
 
 ## Critérios de aceite
 
 - salvar renova a versão e preserva o modo do arquivo;
-- uma alteração externa nunca é substituída sem decisão explícita;
-- falha de gravação não deixa arquivo parcial ou temporário;
-- cada aba mantém seu próprio estado não salvo;
-- fechar uma aba suja exige descarte explícito;
-- `Ctrl/Cmd+S` salva somente a aba ativa;
-- arquivos sem permissão continuam legíveis e não editáveis;
+- alteração externa nunca é substituída silenciosamente;
+- criação não sobrescreve e não escapa por symlink;
+- renomeação mostra origem, destino e impacto antes de aplicar;
+- exclusão mostra caminho e impacto, com confirmação reforçada para conteúdo;
+- token expirado, reutilizado ou divergente não altera o disco;
+- colisão de destino não remove nem substitui o item existente;
+- explorer e abas permanecem coerentes depois da operação;
 - build, typecheck, testes de API, testes web e smoke E2E passam.
 
-## Limitações desta fatia
+## Limitações atuais
 
-- não cria arquivos ou diretórios;
-- não renomeia nem exclui;
 - conflito externo ainda não possui diff em três vias;
-- não há watcher contínuo; o conflito é detectado no salvamento;
-- não existe `WorkspaceEdit` para múltiplos arquivos;
+- não há watcher contínuo; o conflito é detectado no salvamento ou aplicação;
+- operações múltiplas ainda não usam `WorkspaceEdit` com rollback;
+- criação de arquivo começa vazia, sem templates;
 - LSP, IA e terminal continuam fora do escopo.
 
 ## Próxima atividade
 
-Continuar a task 077 com criação, renomeação e exclusão seguras, preview de diff,
-confirmações proporcionais ao risco e um serviço central de `WorkspaceEdit`.
+Concluir a task 077 com watcher limitado aos arquivos abertos, comparação em
+três vias e `WorkspaceEdit` para preview e aplicação atômica de mudanças em
+múltiplos arquivos. Depois disso, iniciar a task 078 de LSP JavaScript/TypeScript.

@@ -11,6 +11,7 @@ import {
 
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
+import { DashboardGitService } from './services/dashboard-git-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -61,7 +62,7 @@ export function createAppContext(): AppContext {
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
     projectStore,
-    gitService: new GitService(),
+    gitService: new DashboardGitService(),
     testDetectionService: new TestDetectionService(),
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService,

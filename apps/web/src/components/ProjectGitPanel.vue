@@ -15,7 +15,7 @@ import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
 import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
-import { useProjectGitPanel } from '../composables/useProjectGitPanel';
+import { useProjectGitPanelPolicy } from '../composables/useProjectGitPanelPolicy';
 
 const props = defineProps<{ project: Project }>();
 const route = inject(routeLocationKey, undefined);
@@ -58,7 +58,7 @@ const {
   runMainSynchronization,
   currentBranchOrHead,
   runCommit,
-} = useProjectGitPanel(props, route, emit);
+} = useProjectGitPanelPolicy(props, route, emit);
 </script>
 
 <template src="./ProjectGitPanel.template.html"></template>
