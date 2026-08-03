@@ -12,7 +12,11 @@ const api = vi.hoisted(() => ({
 
 const monaco = vi.hoisted(() => ({
   setModel: vi.fn(),
-  createModel: vi.fn(() => ({ dispose: vi.fn() })),
+  createModel: vi.fn((
+    _content: string,
+    _language: string,
+    _uri: unknown,
+  ) => ({ dispose: vi.fn() })),
   createEditor: vi.fn(() => ({
     setModel: monaco.setModel,
     setPosition: vi.fn(),
