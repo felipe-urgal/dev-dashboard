@@ -55,8 +55,9 @@ ordem do documento e não há lógica local que capture `Tab` ou crie armadilha 
 foco. Os estilos existentes de `focus-within`, `focus-visible` específicos e o
 outline padrão do navegador não foram removidos.
 
-O modal global em desenvolvimento no PR #160 possui escopo próprio e não foi
-incorporado a esta branch para evitar sobreposição entre entregas.
+O modal global foi entregue separadamente no PR #160, com captura e restauração
+de foco próprias. Esta branch não altera esse fluxo e será validada sobre a
+`main` que já contém o modal.
 
 ### Contraste
 
@@ -94,7 +95,8 @@ erros, filtros e preservação de dados durante refresh.
 - `apps/web/src/styles/tokens.css`;
 - `apps/web/test/global-accessibility-guard.test.ts`;
 - `docs/tasks/075-initial-accessibility-audit.md`;
-- `docs/tasks/NEXT.md`.
+- `docs/tasks/NEXT.md`;
+- `docs/tasks/README.md`.
 
 ## Critérios de aceite
 
