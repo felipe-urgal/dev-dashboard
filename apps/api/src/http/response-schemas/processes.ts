@@ -14,7 +14,6 @@ export const managedProcessResponseSchema = {
         'worker',
         'test',
         'script',
-        'compose-build',
       ],
     },
     status: {
@@ -42,7 +41,6 @@ export const managedProcessResponseSchema = {
     startedAt: { type: 'string' },
     stoppedAt: { type: 'string' },
     exitCode: { type: 'integer' },
-    composeServiceName: { type: 'string' },
   },
 } as const;
 
