@@ -1,5 +1,4 @@
 export type RailsMigrationStatus = 'up' | 'down';
-export type RailsExecutionRuntime = 'auto' | 'local' | 'docker';
 
 export interface RailsMigrationEntry {
   version: string;
@@ -13,12 +12,6 @@ export interface RailsMigrationsOverview {
   databases: string[];
   database?: string;
   migrations: RailsMigrationEntry[];
-  /** Indica se o status foi confirmado consultando o banco ativo. Obrigatório nas respostas novas; opcional no tipo para consumidores antigos. */
-  statusAvailable?: boolean;
-  /** Runtime usado para consultar o Rails. Obrigatório nas respostas novas; opcional no tipo para consumidores antigos. */
-  runtime?: RailsExecutionRuntime;
-  /** Diagnóstico seguro quando os arquivos existem, mas o banco/runtime não pôde ser consultado. */
-  warning?: string;
 }
 
 export interface RailsMigrationDetail {
@@ -88,8 +81,6 @@ export type RailsMigrationMutationOperation = 'migrate' | 'rollback' | 'seed' | 
 export interface RailsMigrationMutationConfirmation {
   token: string;
   operation: RailsMigrationMutationOperation;
-  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
-  command: string;
   expiresAt: string;
 }
 
@@ -120,7 +111,6 @@ export interface RailsGeneratorConfirmation {
   name: string;
   fields: RailsGeneratorField[];
   database?: string;
-  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
   /** Prévia do comando exato que vai rodar, montado a partir da entrada já validada. */
   command: string;
   expiresAt: string;
