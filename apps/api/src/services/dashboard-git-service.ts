@@ -42,8 +42,8 @@ function isDashboardOperation(
  *
  * - criar uma branch a partir do HEAD atual mantém alterações locais, como o
  *   próprio `git switch --create` permite;
- * - confirmações de commit e amend são vinculadas à mensagem exibida no modal,
- *   em vez de depender da branch consultada em outra requisição.
+ * - confirmações de commit e amend continuam de uso único e vinculadas ao
+ *   projeto/operação, sem depender de uma segunda leitura da branch atual.
  */
 export class DashboardGitService extends GitService {
   private readonly dashboardConfirmations = new Map<
@@ -60,9 +60,7 @@ export class DashboardGitService extends GitService {
       return super.prepareMutationConfirmation(projectId, operation, target);
     }
 
-    if (operation === 'create-branch') validateBranchName(target);
-    else validateCommitMessage(target);
-
+    validateBranchName(target);
     this.pruneDashboardConfirmations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
@@ -86,18 +84,20 @@ export class DashboardGitService extends GitService {
     projectId: string,
     operation: StoredDashboardConfirmation['operation'],
     token: string | undefined,
-    expectedTarget: string,
+    expectedTarget?: string,
   ): void {
     this.pruneDashboardConfirmations();
     const record = token
       ? this.dashboardConfirmations.get(token)
       : undefined;
+    const invalidTarget = expectedTarget !== undefined
+      && record?.target !== expectedTarget;
 
     if (
       !record
       || record.projectId !== projectId
       || record.operation !== operation
-      || record.target !== expectedTarget
+      || invalidTarget
     ) {
       throw new GitMutationError(
         'GIT_MUTATION_CONFIRMATION_REQUIRED',
@@ -173,7 +173,6 @@ export class DashboardGitService extends GitService {
       projectId,
       'commit',
       confirmationToken,
-      message,
     );
 
     if (includeAllChanges) {
@@ -217,7 +216,6 @@ export class DashboardGitService extends GitService {
       projectId,
       'amend',
       confirmationToken,
-      message,
     );
 
     try {
