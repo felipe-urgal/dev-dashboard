@@ -28,4 +28,24 @@ estado, corrigindo apenas problemas confirmados.
 
 - redesenho visual ou mudança de arquitetura da informação;
 - certificação formal de conformidade;
-- otimização e validação E2E específica para tablet.
+- otimização e validação E2E específica para tablet;
+- implementação da IDE embutida.
+
+## Sequência aprovada depois da task 075
+
+A IDE dentro do dashboard foi aprovada como uma série incremental. O desenho
+completo está em
+[`docs/architecture/embedded-ide-ai-design.md`](../architecture/embedded-ide-ai-design.md).
+
+- **Task 076:** Monaco, explorer, abas e leitura segura de arquivos;
+- **Task 077:** escrita atômica, conflitos e operações de arquivo;
+- **Task 078:** LSP JavaScript/TypeScript;
+- **Task 079:** Ruby/Rails LSP;
+- **Task 080:** assistência de IA gratuita e local com Ollama;
+- **Task 081:** completion inline, fill-in-the-middle e contexto semântico
+  opt-in.
+
+A task 076 está detalhada em
+[`076-embedded-ide-foundation-plan.md`](./076-embedded-ide-foundation-plan.md).
+A sequência não autoriza terminal livre, extensões arbitrárias, provedores
+cloud ou alterações autônomas sem revisão em diff.

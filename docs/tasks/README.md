@@ -81,3 +81,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `072-project-dependencies-build.md` — aba de dependências e build para Rails e Node, com Bundler, lockfile Node, execução segura, histórico e correção da leitura de migrations em wrappers Docker.
 - `073-global-loading-skeletons.md` — aplica o mesmo skeleton a Atividade, Processos e Configurações, preserva dados durante refresh e mapeia toda a documentação Markdown.
 - `074-database-runtime-and-dependencies-layout.md` — distingue banco local de Docker pela porta publicada, coordena start/stop entre runtimes e compacta o layout responsivo de Dependências.
+- `076-embedded-ide-foundation-plan.md` — planejamento documental da IDE embutida com Monaco, leitura segura, escrita posterior, LSP JavaScript/TypeScript e Ruby/Rails, além de IA gratuita local com Ollama nas tasks 076–081.
