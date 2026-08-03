@@ -97,7 +97,6 @@ export type {
 
 export type {
   DatabaseReachability,
-  DatabaseRuntime,
   DatabaseRestoreResult,
   DatabaseServiceAction,
   DatabaseSnapshot,
@@ -118,7 +117,6 @@ export type {
 } from './bundler.js';
 
 export type {
-  RailsExecutionRuntime,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
   RailsGeneratorFieldType,
