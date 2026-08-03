@@ -91,11 +91,15 @@ onMounted(() => void load());
 </script>
 
 <template>
-  <section class="content settings-page" :aria-busy="loading">
+  <section
+    class="content settings-page"
+    :aria-busy="loading"
+    aria-labelledby="settings-title"
+  >
     <header class="settings-heading">
       <div>
         <span class="section-kicker">Ambiente local</span>
-        <h2>Configurações</h2>
+        <h2 id="settings-title">Configurações</h2>
         <p class="section-description">
           Ajuste notificações do navegador e defina por quanto tempo estados e logs terminais permanecem locais.
         </p>
@@ -124,6 +128,7 @@ onMounted(() => void load());
       v-else-if="snapshot"
       id="retention-settings"
       class="settings-form"
+      aria-label="Configurações de notificações e retenção"
       @submit.prevent="save"
     >
       <section class="settings-panel" aria-labelledby="native-notifications-title">
@@ -137,11 +142,11 @@ onMounted(() => void load());
 
         <label class="settings-row">
           <span class="settings-row-copy">
-            <strong>Notificações nativas</strong>
-            <span>Testes, scripts e builds com pelo menos 30 segundos, somente enquanto esta aba estiver oculta.</span>
-            <small v-if="nativeNotificationStatus === 'denied'">Permissão bloqueada nas configurações do navegador.</small>
-            <small v-else-if="nativeNotificationStatus === 'unsupported'">Recurso indisponível neste navegador.</small>
-            <small v-else>A preferência fica salva somente neste navegador.</small>
+            <strong id="native-notifications-label">Notificações nativas</strong>
+            <span id="native-notifications-description">Testes, scripts e builds com pelo menos 30 segundos, somente enquanto esta aba estiver oculta.</span>
+            <small v-if="nativeNotificationStatus === 'denied'" id="native-notifications-status">Permissão bloqueada nas configurações do navegador.</small>
+            <small v-else-if="nativeNotificationStatus === 'unsupported'" id="native-notifications-status">Recurso indisponível neste navegador.</small>
+            <small v-else id="native-notifications-status">A preferência fica salva somente neste navegador.</small>
           </span>
           <span class="settings-switch-control">
             <input
@@ -149,7 +154,8 @@ onMounted(() => void load());
               :disabled="nativeNotificationStatus === 'unsupported'"
               type="checkbox"
               role="switch"
-              aria-label="Ativar notificações nativas"
+              aria-labelledby="native-notifications-label"
+              aria-describedby="native-notifications-description native-notifications-status"
               @change="updateNativeNotifications"
             >
             <span>{{ nativeNotificationsEnabled ? 'Ativadas' : 'Desativadas' }}</span>
@@ -170,22 +176,25 @@ onMounted(() => void load());
           </div>
         </header>
 
-        <label class="settings-row">
+        <label class="settings-row" for="retention-days-input">
           <span class="settings-row-copy">
-            <strong>Retenção de logs</strong>
-            <span>Tempo que os arquivos de logs permanecem no disco local.</span>
-            <small>Entre {{ snapshot.limits.retentionDays.minimum }} e {{ snapshot.limits.retentionDays.maximum }} dias.</small>
+            <strong id="retention-days-label">Retenção de logs</strong>
+            <span id="retention-days-description">Tempo que os arquivos de logs permanecem no disco local.</span>
+            <small id="retention-days-limits">Entre {{ snapshot.limits.retentionDays.minimum }} e {{ snapshot.limits.retentionDays.maximum }} dias.</small>
           </span>
           <span class="settings-number-control">
             <input
+              id="retention-days-input"
               v-model.number="form.retentionDays"
               type="number"
               step="1"
               required
               :min="snapshot.limits.retentionDays.minimum"
               :max="snapshot.limits.retentionDays.maximum"
+              aria-labelledby="retention-days-label"
+              aria-describedby="retention-days-description retention-days-limits"
             >
-            <span>dia{{ form.retentionDays === 1 ? '' : 's' }}</span>
+            <span aria-hidden="true">dia{{ form.retentionDays === 1 ? '' : 's' }}</span>
           </span>
         </label>
 
@@ -200,41 +209,47 @@ onMounted(() => void load());
         </header>
 
         <div class="settings-row-group">
-          <label class="settings-row">
+          <label class="settings-row" for="script-history-limit-input">
             <span class="settings-row-copy">
-              <strong>Histórico de scripts</strong>
-              <span>Quantidade máxima de registros mantidos no histórico de scripts.</span>
-              <small>Entre {{ snapshot.limits.scriptHistoryLimit.minimum }} e {{ snapshot.limits.scriptHistoryLimit.maximum }} registros.</small>
+              <strong id="script-history-limit-label">Histórico de scripts</strong>
+              <span id="script-history-limit-description">Quantidade máxima de registros mantidos no histórico de scripts.</span>
+              <small id="script-history-limit-limits">Entre {{ snapshot.limits.scriptHistoryLimit.minimum }} e {{ snapshot.limits.scriptHistoryLimit.maximum }} registros.</small>
             </span>
             <span class="settings-number-control">
               <input
+                id="script-history-limit-input"
                 v-model.number="form.scriptHistoryLimit"
                 type="number"
                 step="1"
                 required
                 :min="snapshot.limits.scriptHistoryLimit.minimum"
                 :max="snapshot.limits.scriptHistoryLimit.maximum"
+                aria-labelledby="script-history-limit-label"
+                aria-describedby="script-history-limit-description script-history-limit-limits"
               >
-              <span>registros</span>
+              <span aria-hidden="true">registros</span>
             </span>
           </label>
 
-          <label class="settings-row">
+          <label class="settings-row" for="test-history-limit-input">
             <span class="settings-row-copy">
-              <strong>Histórico de testes</strong>
-              <span>Quantidade máxima de registros mantidos no histórico de testes.</span>
-              <small>Entre {{ snapshot.limits.testHistoryLimit.minimum }} e {{ snapshot.limits.testHistoryLimit.maximum }} registros.</small>
+              <strong id="test-history-limit-label">Histórico de testes</strong>
+              <span id="test-history-limit-description">Quantidade máxima de registros mantidos no histórico de testes.</span>
+              <small id="test-history-limit-limits">Entre {{ snapshot.limits.testHistoryLimit.minimum }} e {{ snapshot.limits.testHistoryLimit.maximum }} registros.</small>
             </span>
             <span class="settings-number-control">
               <input
+                id="test-history-limit-input"
                 v-model.number="form.testHistoryLimit"
                 type="number"
                 step="1"
                 required
                 :min="snapshot.limits.testHistoryLimit.minimum"
                 :max="snapshot.limits.testHistoryLimit.maximum"
+                aria-labelledby="test-history-limit-label"
+                aria-describedby="test-history-limit-description test-history-limit-limits"
               >
-              <span>registros</span>
+              <span aria-hidden="true">registros</span>
             </span>
           </label>
         </div>
