@@ -20,6 +20,7 @@ test('mantém migrations locais visíveis e consulta Rails no runtime Docker ati
   const originalConfirm = globalThis.window?.confirm;
   const migrationRuntimes: string[] = [];
   const confirmationBodies: unknown[] = [];
+  const confirmationMessages: string[] = [];
   let migrationLoads = 0;
 
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -126,7 +127,12 @@ test('mantém migrations locais visíveis e consulta Rails no runtime Docker ati
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  if (globalThis.window) globalThis.window.confirm = vi.fn(() => true);
+  if (globalThis.window) {
+    globalThis.window.confirm = vi.fn((message?: string) => {
+      confirmationMessages.push(message ?? '');
+      return true;
+    });
+  }
 
   const wrapper = mount(ProjectDatabasePanel, {
     props: { project: makeProject({ type: 'rails', capabilities: ['database'] }) },
@@ -152,7 +158,7 @@ test('mantém migrations locais visíveis e consulta Rails no runtime Docker ati
   await flushPromises();
 
   assert.deepEqual(confirmationBodies, [{ operation: 'migrate', runtime: 'docker' }]);
-  assert.ok((globalThis.window?.confirm as ReturnType<typeof vi.fn>).mock.calls[0]?.[0].includes('bin/docker-rails db:migrate'));
+  assert.match(confirmationMessages[0] ?? '', /bin\/docker-rails db:migrate/);
 
   const beforeRuntimeChange = migrationLoads;
   await tab(wrapper, 'Ambientes').trigger('click');
