@@ -143,6 +143,38 @@ function portList(value: unknown): string[] {
   });
 }
 
+function publishedPort(value: string): number | null {
+  const withoutProtocol = value.replace(/\/(?:tcp|udp)$/i, '');
+  const parts = withoutProtocol.split(':');
+  if (parts.length < 2) return null;
+  const candidate = Number(parts.at(-2));
+  return Number.isInteger(candidate) && candidate > 0 ? candidate : null;
+}
+
+function databaseAliases(driver: string): string[] {
+  const normalized = driver.toLowerCase();
+  if (['mysql', 'mysql2', 'mariadb'].includes(normalized)) return ['mysql', 'mariadb'];
+  if (['postgres', 'postgresql'].includes(normalized)) return ['postgres'];
+  if (normalized === 'mongodb') return ['mongo'];
+  if (normalized === 'redis') return ['redis'];
+  return [];
+}
+
+export function matchingComposeDatabaseServices(
+  overview: ProjectComposeOverview,
+  driver: string,
+  port: number | undefined,
+): ComposeService[] {
+  if (!port) return [];
+  const aliases = databaseAliases(driver);
+  if (aliases.length === 0) return [];
+  return overview.services.filter((service) => {
+    if (!service.running || !service.ports.some((entry) => publishedPort(entry) === port)) return false;
+    const identity = `${service.name} ${service.image ?? ''}`.toLowerCase();
+    return aliases.some((alias) => identity.includes(alias));
+  });
+}
+
 function hasRunnableDefinition(service: Omit<ComposeService, 'running'>): boolean {
   return Boolean(service.image) || service.requiresBuild;
 }
@@ -327,6 +359,33 @@ export class DockerComposeService {
         running: runningServices.has(service.name),
       })),
     };
+  }
+
+  /**
+   * Encerra somente serviços Compose ativos que correspondem ao driver e à porta
+   * de um ambiente já detectado pela API. Este catálogo interno não aceita nomes
+   * enviados pelo navegador e é usado para evitar dois runtimes disputando a
+   * mesma porta quando a aba Banco assume o controle local.
+   */
+  public async stopDatabaseServices(
+    project: Project,
+    driver: string,
+    port: number | undefined,
+  ): Promise<string[]> {
+    const detected = await this.detect(project);
+    if (!detected) return [];
+    const overview = await this.overview(project);
+    const services = matchingComposeDatabaseServices(overview, driver, port);
+    if (services.length === 0) return [];
+    if (!overview.dockerAvailable) return [];
+    try {
+      await this.runCommand('docker', [
+        'compose', '-f', detected.composeFile, 'stop', ...services.map((service) => service.name),
+      ], { cwd: project.path });
+    } catch (error) {
+      throw this.buildActionError('stop', error);
+    }
+    return services.map((service) => service.name);
   }
 
   // `docker compose config` resolve interpolação de shell (${VAR:-default}) com a

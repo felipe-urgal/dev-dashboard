@@ -107,6 +107,7 @@ export type {
 
 export type {
   DatabaseReachability,
+  DatabaseRuntime,
   DatabaseRestoreResult,
   DatabaseServiceAction,
   DatabaseSnapshot,

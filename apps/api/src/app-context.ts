@@ -52,7 +52,8 @@ export function createAppContext(): AppContext {
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
-  const databaseDetectionService = new DatabaseDetectionService();
+  const dockerComposeService = new DockerComposeService({ processManager });
+  const databaseDetectionService = new DatabaseDetectionService(undefined, dockerComposeService);
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -72,7 +73,7 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
-    dockerComposeService: new DockerComposeService({ processManager }),
+    dockerComposeService,
     serverHealthCheckService: new ServerHealthCheckService(),
   };
 }

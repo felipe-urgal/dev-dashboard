@@ -34,7 +34,7 @@ segundo plano.
 - Erros e estados vazios continuam sendo apresentados somente depois do fim da
   tentativa de carga.
 - O mapa Markdown referencia o índice individual de tasks em vez de duplicar
-  72 descrições históricas.
+  73 descrições históricas.
 
 ## Arquivos principais
 
@@ -65,7 +65,7 @@ segundo plano.
 
 ## Limitações
 
-- A auditoria abrangente de acessibilidade permanece para a task 074.
+- A auditoria abrangente de acessibilidade permanece para a task 075.
 - A validação E2E específica para tablet continua como atividade separada.
 - O navegador em nuvem bloqueou `127.0.0.1` com `ERR_BLOCKED_BY_CLIENT`, então
   não foi possível produzir evidência visual das páginas renderizadas neste

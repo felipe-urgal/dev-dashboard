@@ -70,6 +70,8 @@ compromissos de versão.
 
 - [x] detecção de configurações, disponibilidade e segredo sob demanda;
 - [x] inicialização segura de serviço local reconhecido;
+- [x] identificação do runtime local ou Docker e coordenação de start/stop pela
+  aba Banco (task 074);
 - [x] migrations status e routes no web (task 030, somente leitura);
 - [x] migrate, rollback, seed e prepare com política de risco (task 031);
 - [x] diagnóstico Bundler — check e outdated, somente leitura (task 032);

@@ -10,6 +10,7 @@ import {
 } from '../http/response-schemas.js';
 import { DatabaseServiceActionError, type DatabaseDetectionService, type DatabaseServiceAction } from '../services/database-detection-service.js';
 import { DatabaseSnapshotError, type DatabaseSnapshotService } from '../services/database-snapshot-service.js';
+import { DockerComposeError } from '../services/docker-compose-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -99,7 +100,11 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
         throw new ApiError({
           statusCode: 500,
           code: 'DATABASE_SERVICE_ACTION_FAILED',
-          message: error instanceof DatabaseServiceActionError ? messages[error.reason] : messages['command-failed'],
+          message: error instanceof DockerComposeError
+            ? error.message
+            : error instanceof DatabaseServiceActionError
+              ? messages[error.reason]
+              : messages['command-failed'],
         });
       }
     });

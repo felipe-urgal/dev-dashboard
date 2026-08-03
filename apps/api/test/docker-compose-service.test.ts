@@ -62,6 +62,36 @@ test('detecta serviços, metadados e estado sem executar configuração livre', 
   }
 });
 
+test('encerra somente o serviço Compose que corresponde ao banco e à porta publicada', async () => {
+  const item = await fixture();
+  const calls: string[][] = [];
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => {
+      calls.push(args);
+      if (args.includes('ps')) return { stdout: 'db\nweb\n', stderr: '' };
+      return { stdout: 'Docker Compose version v2\n', stderr: '' };
+    },
+  });
+  try {
+    assert.deepEqual(
+      await service.stopDatabaseServices(item.project, 'postgresql', 5433),
+      ['db'],
+    );
+    assert.deepEqual(calls.at(-1), [
+      'compose', '-f', path.join(item.directory, 'compose.yaml'), 'stop', 'db',
+    ]);
+
+    const callCount = calls.length;
+    assert.deepEqual(
+      await service.stopDatabaseServices(item.project, 'mysql2', 5433),
+      [],
+    );
+    assert.equal(calls.length, callCount + 2, 'deve apenas consultar version e ps quando não há correspondência');
+  } finally {
+    await item.cleanup();
+  }
+});
+
 test('ignora um docker-compose.dev.yml que é só override e usa o arquivo base', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-override-'));
   // Sem `image`/`build` em nenhum serviço — típico de um arquivo pensado para rodar

@@ -1,9 +1,10 @@
 # Próxima atividade
 
-A task 073 concluiu os skeletons das páginas globais. A próxima entrega faz a
-primeira auditoria transversal de acessibilidade sobre os fluxos mais usados.
+A task 074 coordenou os runtimes local e Docker do banco e refinou o painel de
+Dependências. A próxima entrega faz a primeira auditoria transversal de
+acessibilidade sobre os fluxos mais usados.
 
-## Task 074 — Auditoria inicial de acessibilidade
+## Task 075 — Auditoria inicial de acessibilidade
 
 Revisar Visão geral, Atividade, Processos e Configurações com critérios
 objetivos de teclado, foco, nomes acessíveis, contraste e comunicação de

@@ -501,8 +501,9 @@ A interface web já permite:
    locais (criar, trocar, renomear e remover) e executar mutações com
    confirmação (pull, push, commit e stash);
 8. detectar e executar testes reconhecidos, incluindo um arquivo específico;
-9. inspecionar bancos locais, iniciar serviços reconhecidos e criar/restaurar
-   snapshots de banco com confirmação explícita;
+9. inspecionar bancos locais, distinguir runtime local de Docker, coordenar
+   start/stop de serviços reconhecidos e criar/restaurar snapshots de banco
+   com confirmação explícita;
 10. consultar e executar com segurança scripts e tarefas catalogados;
 11. cancelar execuções e consultar seu histórico persistente (scripts e testes);
 12. acompanhar execuções do catálogo e de testes em tempo real por SSE;
