@@ -14,6 +14,7 @@ import {
   runProjectRailsMutation,
 } from '../api';
 import { fetchProjectRailsMigrationDetail } from '../rails-explorer-api';
+import { confirmDialog } from '../stores/app-dialog';
 
 const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
   migrate: 'Rodar migrations pendentes (db:migrate)',
@@ -23,10 +24,17 @@ const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
 };
 
 const mutationConfirmationText: Record<RailsMigrationMutationOperation, string> = {
-  migrate: 'Rodar todas as migrations pendentes neste banco?',
-  rollback: 'Desfazer a última migration aplicada (um passo)? Isso pode apagar dados dessa migration.',
-  seed: 'Rodar db:seed neste banco? Scripts de seed podem criar ou alterar dados.',
-  prepare: 'Rodar db:prepare neste banco? Isso pode criar o banco e carregar o schema mais recente.',
+  migrate: 'Todas as migrations pendentes serão executadas neste banco.',
+  rollback: 'A última migration aplicada será desfeita em um passo. Dados criados por ela podem ser apagados.',
+  seed: 'O comando db:seed será executado neste banco e pode criar ou alterar dados.',
+  prepare: 'O comando db:prepare será executado e pode criar o banco ou carregar o schema mais recente.',
+};
+
+const mutationConfirmLabels: Record<RailsMigrationMutationOperation, string> = {
+  migrate: 'Rodar migrations',
+  rollback: 'Desfazer migration',
+  seed: 'Rodar seeds',
+  prepare: 'Preparar banco',
 };
 
 export function useRailsMigrations(
@@ -105,7 +113,12 @@ export function useRailsMigrations(
 
   async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
     if (mutationRunning.value) return;
-    const confirmed = typeof window === 'undefined' || window.confirm(mutationConfirmationText[operation]);
+    const confirmed = await confirmDialog({
+      title: `${mutationConfirmLabels[operation]}?`,
+      message: mutationConfirmationText[operation],
+      confirmLabel: mutationConfirmLabels[operation],
+      tone: operation === 'rollback' ? 'danger' : 'warning',
+    });
     if (!confirmed) return;
 
     mutationRunning.value = operation;

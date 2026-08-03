@@ -25,6 +25,7 @@ import {
 
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
+import AppDialog from './components/AppDialog.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
 import NoticeCenter from './components/NoticeCenter.vue';
@@ -245,5 +246,7 @@ onMounted(() => {
       :open="workspaceManagerOpen"
       @close="workspaceManagerOpen = false"
     />
+
+    <AppDialog />
   </div>
 </template>

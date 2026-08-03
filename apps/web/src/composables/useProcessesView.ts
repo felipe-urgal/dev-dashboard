@@ -14,6 +14,7 @@ import {
   fetchWorkspaces,
   type ProcessesQuery,
 } from '../api';
+import { confirmDialog } from '../stores/app-dialog';
 import { useAutoDismiss } from './useAutoDismiss';
 import { RequestGeneration } from '../utils/request-generation';
 
@@ -250,11 +251,15 @@ export function useProcessesView() {
     }
 
     const total = terminalCount.value;
-    const confirmed =
-      typeof window === 'undefined' ||
-      window.confirm(
-        `Remover ${total} processo${total === 1 ? '' : 's'} finalizado${total === 1 ? '' : 's'} e seus logs? Processos em execução serão preservados.`,
-      );
+    const confirmed = await confirmDialog({
+      title: 'Limpar processos finalizados?',
+      message:
+        `Serão removidos ${total} processo${total === 1 ? '' : 's'} ` +
+        `finalizado${total === 1 ? '' : 's'} e seus logs. ` +
+        'Processos em execução serão preservados.',
+      confirmLabel: 'Limpar processos',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     cleanupRunning.value = true;

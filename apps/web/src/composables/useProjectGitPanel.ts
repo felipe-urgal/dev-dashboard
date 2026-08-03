@@ -29,6 +29,7 @@ import {
   trackProjectGitBranch,
 } from '../api/git-workspace';
 import type { CommitMode } from '../components/ProjectGitCommitPage.vue';
+import { confirmDialog } from '../stores/app-dialog';
 import { useAutoDismiss } from './useAutoDismiss';
 
 export function useProjectGitPanel(
@@ -180,15 +181,16 @@ export function useProjectGitPanel(
       return;
     }
 
-    const confirmationText =
-      operation === 'create-branch'
-        ? `Criar a branch "${trimmed}" a partir do HEAD atual? A árvore de trabalho deve estar limpa.`
-        : `Trocar para a branch "${trimmed}"? A árvore de trabalho deve estar limpa.`;
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm(confirmationText)
-    )
-      return;
+    const creatingBranch = operation === 'create-branch';
+    const confirmed = await confirmDialog({
+      title: creatingBranch ? 'Criar branch?' : 'Trocar de branch?',
+      message: creatingBranch
+        ? `A branch "${trimmed}" será criada a partir do HEAD atual. A árvore de trabalho deve estar limpa.`
+        : `O projeto trocará para a branch "${trimmed}". A árvore de trabalho deve estar limpa.`,
+      confirmLabel: creatingBranch ? 'Criar branch' : 'Trocar de branch',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
 
     mutationRunning.value = true;
     mutationMessage.value = '';
@@ -321,14 +323,15 @@ export function useProjectGitPanel(
 
   async function runTrackRemoteBranch(remoteBranch: string): Promise<void> {
     if (mutationRunning.value || remoteRefreshRunning.value) return;
-    const message =
-      `Trazer "${remoteBranch}" para uma branch local e trocar para ela? A árvore de trabalho deve estar limpa.`;
-    if (
-      typeof window !== 'undefined'
-      && !window.confirm(message)
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: 'Criar branch local?',
+      message:
+        `A branch remota "${remoteBranch}" será trazida para uma branch ` +
+        'local e selecionada. A árvore de trabalho deve estar limpa.',
+      confirmLabel: 'Criar e trocar',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
 
     mutationRunning.value = true;
     mutationMessage.value = '';
@@ -387,14 +390,15 @@ export function useProjectGitPanel(
 
   async function runMainSynchronization(): Promise<void> {
     if (mutationRunning.value || remoteRefreshRunning.value) return;
-    const message =
-      'Sincronizar a main com o repositório principal e publicar em origin/main? A árvore de trabalho deve estar limpa.';
-    if (
-      typeof window !== 'undefined'
-      && !window.confirm(message)
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: 'Sincronizar main?',
+      message:
+        'A main será atualizada a partir do repositório principal e ' +
+        'publicada em origin/main. A árvore de trabalho deve estar limpa.',
+      confirmLabel: 'Sincronizar main',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
 
     mutationRunning.value = true;
     mutationMessage.value = '';
@@ -435,15 +439,15 @@ export function useProjectGitPanel(
     }
 
     const amend = commitMode.value === 'amend';
-    const confirmationText = amend
-      ? `Alterar o último commit para "${message}"?`
-      : `Criar o commit "${message}" com todas as alterações rastreadas?`;
-    if (
-      typeof window !== 'undefined'
-      && !window.confirm(confirmationText)
-    ) {
-      return;
-    }
+    const confirmed = await confirmDialog({
+      title: amend ? 'Alterar último commit?' : 'Criar commit?',
+      message: amend
+        ? `O último commit será alterado para "${message}" e incluirá as alterações atuais.`
+        : `O commit "${message}" incluirá todas as alterações rastreadas.`,
+      confirmLabel: amend ? 'Alterar commit' : 'Criar commit',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
 
     mutationRunning.value = true;
     mutationMessage.value = '';
