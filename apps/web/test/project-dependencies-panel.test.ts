@@ -73,12 +73,13 @@ test('mostra instalação e build do gerenciador Node detectado', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Node \/ Frontend/);
+  assert.match(wrapper.text(), /Node \/ Yarn/);
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
   assert.equal(wrapper.get('.dependencies-panel').attributes('aria-busy'), 'false');
-  assert.equal(wrapper.get('.dependencies-execution').attributes('aria-label'), 'Detalhes da execução');
+  assert.equal(wrapper.get('.dependencies-console').attributes('aria-label'), 'Detalhes da execução');
+  assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 2);
   wrapper.unmount();
 });
 
@@ -124,9 +125,10 @@ test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
   await flushPromises();
 
   assert.match(wrapper.text(), /Ruby \/ Bundler/);
-  assert.match(wrapper.text(), /Node \/ Frontend/);
+  assert.match(wrapper.text(), /Node \/ npm/);
   assert.match(wrapper.text(), /bundle check/);
   assert.match(wrapper.text(), /bundle update/);
   assert.match(wrapper.text(), /npm run build/);
+  assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 5);
   wrapper.unmount();
 });
