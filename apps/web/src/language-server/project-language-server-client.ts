@@ -284,7 +284,7 @@ export class ProjectLanguageServerClient {
   private readonly providers: Monaco.IDisposable[] = [];
   private readonly pending = new Map<number | string, PendingRequest>();
   private readonly diagnosticCounts = new Map<string, { errors: number; warnings: number }>();
-  private socket?: WebSocket;
+  private socket: WebSocket | undefined;
   private nextRequestId = 1;
   private ready = false;
   private disposed = false;
@@ -945,6 +945,7 @@ export class ProjectLanguageServerClient {
           this.monaco,
           typeof item.kind === 'number' ? item.kind : undefined,
         ),
+        tags: [],
         range: monacoRange(range),
         selectionRange: monacoRange(selectionRange),
         children: Array.isArray(item.children)

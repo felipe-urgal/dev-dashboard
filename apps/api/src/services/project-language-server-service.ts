@@ -25,11 +25,11 @@ interface LanguageServerSession {
   executable: string;
   process: ChildProcessWithoutNullStreams;
   decoder: LspMessageDecoder;
-  socket?: WebSocket;
+  socket: WebSocket | undefined;
   state: 'starting' | 'ready' | 'failed';
   lastStartedAt: string;
-  idleTimer?: NodeJS.Timeout;
-  forceKillTimer?: NodeJS.Timeout;
+  idleTimer: NodeJS.Timeout | undefined;
+  forceKillTimer: NodeJS.Timeout | undefined;
 }
 
 export interface ProjectLanguageServerServiceOptions {
@@ -518,8 +518,11 @@ export class ProjectLanguageServerService {
       executable,
       process: child,
       decoder: new LspMessageDecoder(),
+      socket: undefined,
       state: 'starting',
       lastStartedAt: new Date(now).toISOString(),
+      idleTimer: undefined,
+      forceKillTimer: undefined,
     };
     this.sessions.set(project.id, session);
 
