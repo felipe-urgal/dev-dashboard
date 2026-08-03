@@ -33,6 +33,7 @@ vi.mock('../src/api', () => ({
 }));
 
 vi.mock('monaco-editor', () => ({
+  __v_isRef: false,
   Uri: { parse: (value: string) => value },
   editor: {
     create: monaco.createEditor,
