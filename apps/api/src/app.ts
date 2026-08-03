@@ -9,6 +9,7 @@ import { gitMutationRoutes } from './routes/git-mutations.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
 import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
+import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -42,6 +43,7 @@ import { registerLocalSecurity } from './security/local-security.js';
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
+import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 
 import {
   createAppContext,
@@ -72,6 +74,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   const context = options.context ?? createAppContext();
   const projectFileMutationService = new ProjectFileMutationService(
+    options.now ?? Date.now,
+  );
+  const projectWorkspaceEditService = new ProjectWorkspaceEditService(
+    context.projectFileService,
     options.now ?? Date.now,
   );
   app.addHook('onClose', async () => {
@@ -199,6 +205,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectFileMutationService,
+  });
+
+  app.register(projectWorkspaceEditRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectWorkspaceEditService,
   });
 
   app.register(projectEditorRoutes, {
