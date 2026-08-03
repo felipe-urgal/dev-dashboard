@@ -159,6 +159,7 @@ function replaceOpenFile(file: ProjectFileContent): void {
   openFiles.value = openFiles.value.map((opened) =>
     opened.path === file.path ? file : opened,
   );
+  languageServerClient?.savedFile(file);
 }
 
 function replaceModelContent(file: ProjectFileContent): void {
@@ -412,7 +413,6 @@ async function saveActiveFile(): Promise<void> {
       expectedVersion: file.version,
     });
     replaceOpenFile(saved);
-    languageServerClient?.savedFile(saved);
     setDirty(file.path, false);
     conflictPath.value = '';
     fallbackContent.value = saved.content;
@@ -532,7 +532,6 @@ function handleWorkspaceEditApplied(files: ProjectFileContent[]): void {
     replaceOpenFile(file);
     replaceModelContent(file);
     setDirty(file.path, false);
-    languageServerClient?.savedFile(file);
   }
   workspaceEditPreview.value = null;
   errorMessage.value = '';
@@ -624,6 +623,11 @@ async function initializeMonaco(): Promise<void> {
 }
 
 async function resetProject(): Promise<void> {
+  languageServerClient?.dispose();
+  languageServerClient = undefined;
+  languageServerStatus.value = null;
+  languageServerDiagnostics.value = '';
+  workspaceEditPreview.value = null;
   editor?.setModel(null);
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
@@ -643,7 +647,7 @@ async function resetProject(): Promise<void> {
   conflictPath.value = '';
   errorMessage.value = '';
   statusMessage.value = '';
-  createLanguageServerClient();
+  if (monaco) createLanguageServerClient();
   loadingTree.value = true;
   await loadDirectory('');
   loadingTree.value = false;
