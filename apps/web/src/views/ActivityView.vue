@@ -30,6 +30,7 @@ import {
   fetchWorkspaces,
   type ActivityQuery,
 } from '../api';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import {

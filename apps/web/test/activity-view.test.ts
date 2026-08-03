@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, test } from 'vitest';
+import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import { mount, RouterLinkStub, flushPromises } from '@vue/test-utils';
 
@@ -73,18 +73,29 @@ async function mountView(args: MountArgs) {
 
 let cleanup: (() => void) | undefined;
 beforeEach(() => { cleanup = undefined; });
-afterEach(() => { cleanup?.(); });
+afterEach(() => {
+  cleanup?.();
+  vi.useRealTimers();
+});
 
 test('mostra estado de carregamento enquanto a lista de atividades está pendente', async () => {
+  vi.useFakeTimers();
   const pending = deferred<ActivityList>();
   const { wrapper, restore } = await mountView({ activities: () => pending.promise });
   cleanup = restore;
 
   await flushPromises();
-  assert.match(wrapper.text(), /Carregando atividades/);
+  assert.equal(wrapper.get('#activity').attributes('aria-busy'), 'true');
+  assert.match(wrapper.get('[role="status"]').text(), /Carregando atividades/);
+  assert.equal(wrapper.find('.loading-skeleton-list').exists(), false);
+
+  await vi.advanceTimersByTimeAsync(150);
+  assert.equal(wrapper.findAll('.loading-skeleton-row').length, 5);
 
   pending.resolve(makeActivityList([]));
   await flushPromises();
+  assert.equal(wrapper.get('#activity').attributes('aria-busy'), 'false');
+  assert.equal(wrapper.find('.loading-skeleton').exists(), false);
 });
 
 test('mostra estado vazio quando não há atividades e nenhuma falha ocorreu', async () => {
@@ -94,6 +105,34 @@ test('mostra estado vazio quando não há atividades e nenhuma falha ocorreu', a
   await flushPromises();
 
   assert.match(wrapper.text(), /Nenhuma atividade encontrada/);
+});
+
+test('preserva atividades válidas durante uma atualização manual', async () => {
+  const pending = deferred<ActivityList>();
+  let calls = 0;
+  const { wrapper, restore } = await mountView({
+    activities: () => {
+      calls += 1;
+      return calls === 1
+        ? Promise.resolve(makeActivityList([
+          makeScriptActivity({ label: 'Execução preservada' }),
+        ]))
+        : pending.promise;
+    },
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.get('.activity-refresh-button').trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Execução preservada/);
+  assert.equal(wrapper.get('#activity').attributes('aria-busy'), 'true');
+  assert.equal(wrapper.find('.loading-skeleton').exists(), false);
+
+  pending.resolve(makeActivityList([]));
+  await flushPromises();
 });
 
 test('renderiza as atividades recebidas com origem e estado formatados', async () => {

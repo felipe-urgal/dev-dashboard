@@ -42,8 +42,8 @@ compromissos de versão.
 - [x] command palette de navegação e ações (tasks 033 e 034);
 - [x] configurações globais — tema, densidade (task 022) e retenção (task 035);
 - [x] avisos locais e notificações nativas opt-in (tasks 040 e 070);
-- [ ] loading skeletons nas páginas globais (Visão geral entregue na task 071;
-  Atividade, Processos e Configurações pendentes) e acessibilidade auditada;
+- [x] loading skeletons nas páginas globais (tasks 071 e 072);
+- [ ] acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.
 
 ### Git — leitura entregue, mutações pendentes

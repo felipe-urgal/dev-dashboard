@@ -16,6 +16,7 @@ import {
 } from 'vue';
 import type { RetentionSettings, RetentionSettingsSnapshot } from '@dev-dashboard/contracts';
 import { fetchRetentionSettings, updateRetentionSettings } from '../api';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { nativeNotificationStore } from '../stores/native-notifications';
 
@@ -90,7 +91,7 @@ onMounted(() => void load());
 </script>
 
 <template>
-  <section class="content settings-page">
+  <section class="content settings-page" :aria-busy="loading">
     <header class="settings-heading">
       <div>
         <span class="section-kicker">Ambiente local</span>
@@ -113,7 +114,11 @@ onMounted(() => void load());
       </div>
     </header>
 
-    <p v-if="loading" class="settings-loading" role="status">Carregando configurações…</p>
+    <LoadingSkeleton
+      v-if="loading"
+      label="Carregando configurações…"
+      :rows="4"
+    />
 
     <form
       v-else-if="snapshot"

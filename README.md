@@ -512,7 +512,8 @@ A interface web já permite:
 15. navegar por uma command palette (`Cmd/Ctrl+K`);
 16. ajustar preferências de tema, densidade e retenção;
 17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
-18. continuar utilizando o CLI existente de forma independente.
+18. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
+19. continuar utilizando o CLI existente de forma independente.
 
 A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
 smoke E2E de workspace → projeto → execução → log.

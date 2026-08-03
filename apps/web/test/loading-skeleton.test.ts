@@ -5,6 +5,7 @@ import LoadingSkeleton from '../src/components/LoadingSkeleton.vue';
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 it('anuncia o carregamento imediatamente e atrasa apenas a parte visual', async () => {
@@ -32,4 +33,14 @@ it('pode aparecer imediatamente sem perder o estado acessível', () => {
   expect(wrapper.findAll('.loading-skeleton-row')).toHaveLength(2);
   expect(wrapper.get('.loading-skeleton').attributes('aria-busy')).toBe('true');
   expect(wrapper.get('[role="status"]').text()).toBe('Carregando conteúdo…');
+});
+
+it('cancela o atraso visual quando é desmontado', () => {
+  vi.useFakeTimers();
+  const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+  const wrapper = mount(LoadingSkeleton);
+
+  wrapper.unmount();
+
+  expect(clearTimeoutSpy).toHaveBeenCalledOnce();
 });

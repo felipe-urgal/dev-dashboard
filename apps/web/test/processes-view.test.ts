@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, beforeEach, test } from 'vitest';
+import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import { mount, RouterLinkStub, flushPromises } from '@vue/test-utils';
 
@@ -77,17 +77,29 @@ async function mountView(args: MountArgs) {
 
 let cleanup: (() => void) | undefined;
 beforeEach(() => { cleanup = undefined; });
-afterEach(() => { cleanup?.(); });
+afterEach(() => {
+  cleanup?.();
+  vi.useRealTimers();
+});
 
 test('mostra estado de carregamento enquanto a lista está pendente', async () => {
+  vi.useFakeTimers();
   const pending = deferred<ManagedProcess[]>();
   const { wrapper, restore } = await mountView({ processes: () => pending.promise });
   cleanup = restore;
 
   await flushPromises();
-  assert.match(wrapper.text(), /Carregando processos/);
+  assert.equal(wrapper.get('#processes').attributes('aria-busy'), 'true');
+  assert.match(wrapper.get('[role="status"]').text(), /Carregando processos/);
+  assert.equal(wrapper.find('.loading-skeleton-list').exists(), false);
+
+  await vi.advanceTimersByTimeAsync(150);
+  assert.equal(wrapper.findAll('.loading-skeleton-row').length, 4);
+
   pending.resolve([]);
   await flushPromises();
+  assert.equal(wrapper.get('#processes').attributes('aria-busy'), 'false');
+  assert.equal(wrapper.find('.loading-skeleton').exists(), false);
 });
 
 test('mostra estado vazio quando não há processos gerenciados', async () => {
@@ -97,6 +109,41 @@ test('mostra estado vazio quando não há processos gerenciados', async () => {
   await flushPromises();
 
   assert.match(wrapper.text(), /Nenhum processo gerenciado/);
+});
+
+test('preserva processos válidos durante uma atualização manual', async () => {
+  const pending = deferred<ManagedProcess[]>();
+  let calls = 0;
+  const existingProcess: ManagedProcess = {
+    id: 'srv-preserved',
+    projectId: 'p1',
+    workspaceId: 'w1',
+    kind: 'server',
+    status: 'running',
+    port: 3000,
+    startedAt: '2026-07-26T09:00:00Z',
+  };
+  const { wrapper, restore } = await mountView({
+    processes: () => {
+      calls += 1;
+      return calls === 1
+        ? Promise.resolve([existingProcess])
+        : pending.promise;
+    },
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.get('.processes-refresh-button').trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /srv-preserved/);
+  assert.equal(wrapper.get('#processes').attributes('aria-busy'), 'true');
+  assert.equal(wrapper.find('.loading-skeleton').exists(), false);
+
+  pending.resolve([]);
+  await flushPromises();
 });
 
 test('renderiza processos com nome do projeto, tipo, estado e detalhes', async () => {

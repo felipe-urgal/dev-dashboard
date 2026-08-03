@@ -86,17 +86,6 @@
   cursor: not-allowed;
 }
 
-.settings-loading {
-  min-height: 160px;
-  margin: 0;
-  padding: 24px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  background: var(--surface-1);
-  font-size: 11px;
-}
-
 .settings-form {
   display: grid;
   gap: 12px;
