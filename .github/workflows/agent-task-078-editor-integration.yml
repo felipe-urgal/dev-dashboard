@@ -1,0 +1,121 @@
+name: Agent task 078 editor integration
+
+on:
+  push:
+    branches:
+      - agent/task-078-js-ts-lsp
+    paths:
+      - .github/workflows/agent-task-078-editor-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/task-078-js-ts-lsp
+
+      - name: Integrate language server client
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/src/components/ProjectEmbeddedEditor.vue')
+          content = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global content
+              if old not in content:
+                  raise SystemExit(f'pattern not found:\n{old}')
+              content = content.replace(old, new, 1)
+
+          replace_once(
+              "  ProjectFileMutationResult,\n  ProjectFileSearchMatch,\n} from '@dev-dashboard/contracts';",
+              "  ProjectFileMutationResult,\n  ProjectFileSearchMatch,\n  ProjectLanguageServerStatus,\n  ProjectWorkspaceEditPreview,\n} from '@dev-dashboard/contracts';",
+          )
+          replace_once(
+              "import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';\nimport { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';",
+              "import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';\nimport ProjectWorkspaceEditReview from './ProjectWorkspaceEditReview.vue';\nimport { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';\nimport {\n  ProjectLanguageServerClient,\n  projectLanguageServerModelUri,\n} from '../language-server/project-language-server-client';",
+          )
+          replace_once(
+              "const searchTruncated = ref(false);\n\nlet monaco: typeof Monaco | undefined;",
+              "const searchTruncated = ref(false);\nconst languageServerStatus = ref<ProjectLanguageServerStatus | null>(null);\nconst languageServerDiagnostics = ref('');\nconst workspaceEditPreview = ref<ProjectWorkspaceEditPreview | null>(null);\n\nlet monaco: typeof Monaco | undefined;",
+          )
+          replace_once(
+              "let themeObserver: MutationObserver | undefined;\nconst models = new Map<string, Monaco.editor.ITextModel>();",
+              "let themeObserver: MutationObserver | undefined;\nlet languageServerClient: ProjectLanguageServerClient | undefined;\nconst models = new Map<string, Monaco.editor.ITextModel>();",
+          )
+          replace_once(
+              "function modelUri(filePath: string): Monaco.Uri {\n  const encodedPath = filePath\n    .split('/')\n    .map((segment) => encodeURIComponent(segment))\n    .join('/');\n  return monaco!.Uri.parse(\n    `file:///dev-dashboard/projects/${encodeURIComponent(props.project.id)}/${encodedPath}`,\n  );\n}",
+              "function modelUri(filePath: string): Monaco.Uri {\n  return monaco!.Uri.parse(\n    projectLanguageServerModelUri(props.project.id, filePath),\n  );\n}",
+          )
+          replace_once(
+              "  models.set(file.path, model);\n  modelListeners.set(file.path, listener);\n  return model;",
+              "  models.set(file.path, model);\n  modelListeners.set(file.path, listener);\n  languageServerClient?.openFile(file, model);\n  return model;",
+          )
+          replace_once(
+              "function disposeModel(filePath: string): void {\n  modelListeners.get(filePath)?.dispose();",
+              "function disposeModel(filePath: string): void {\n  languageServerClient?.closeFile(filePath);\n  modelListeners.get(filePath)?.dispose();",
+          )
+          replace_once(
+              "    replaceOpenFile(saved);\n    setDirty(file.path, false);",
+              "    replaceOpenFile(saved);\n    languageServerClient?.savedFile(saved);\n    setDirty(file.path, false);",
+          )
+          replace_once(
+              "async function submitSearch(): Promise<void> {\n  const query = searchQuery.value.trim();\n  if (query.length < 2 || searching.value) return;\n  searching.value = true;\n  errorMessage.value = '';\n  try {\n    const result = await searchProjectFiles(props.project.id, query);\n    searchResults.value = result.items;\n    searchTruncated.value = result.truncated;",
+              "async function submitSearch(): Promise<void> {\n  const query = searchQuery.value.trim();\n  if (query.length < 2 || searching.value) return;\n  searching.value = true;\n  errorMessage.value = '';\n  try {\n    if (query.startsWith('@')) {\n      const symbolQuery = query.slice(1).trim();\n      searchResults.value = symbolQuery && languageServerClient\n        ? await languageServerClient.workspaceSymbols(symbolQuery)\n        : [];\n      searchTruncated.value = false;\n      return;\n    }\n    const result = await searchProjectFiles(props.project.id, query);\n    searchResults.value = result.items;\n    searchTruncated.value = result.truncated;",
+          )
+          replace_once(
+              "function handleKeydown(event: KeyboardEvent): void {",
+              "function handleWorkspaceEditApplied(files: ProjectFileContent[]): void {\n  for (const file of files) {\n    replaceOpenFile(file);\n    replaceModelContent(file);\n    setDirty(file.path, false);\n    languageServerClient?.savedFile(file);\n  }\n  workspaceEditPreview.value = null;\n  errorMessage.value = '';\n  statusMessage.value = `${files.length} ${files.length === 1 ? 'arquivo atualizado' : 'arquivos atualizados'} pelo fluxo seguro.`;\n}\n\nfunction createLanguageServerClient(): void {\n  languageServerClient?.dispose();\n  languageServerClient = undefined;\n  languageServerStatus.value = null;\n  languageServerDiagnostics.value = '';\n  workspaceEditPreview.value = null;\n  if (!monaco) return;\n  languageServerClient = new ProjectLanguageServerClient(\n    monaco,\n    props.project.id,\n    props.project.name,\n    {\n      onStatus: (status) => {\n        languageServerStatus.value = status;\n      },\n      onDiagnostics: (message) => {\n        languageServerDiagnostics.value = message;\n      },\n      onWorkspaceEdit: (preview) => {\n        workspaceEditPreview.value = preview;\n      },\n      onError: (message) => {\n        if (!errorMessage.value) errorMessage.value = message;\n      },\n    },\n  );\n}\n\nfunction handleKeydown(event: KeyboardEvent): void {",
+          )
+          replace_once(
+              "    configureMonacoEnvironment();\n    monaco = await import('monaco-editor');\n    await nextTick();",
+              "    configureMonacoEnvironment();\n    monaco = await import('monaco-editor');\n    createLanguageServerClient();\n    await nextTick();",
+          )
+          replace_once(
+              "  statusMessage.value = '';\n  loadingTree.value = true;",
+              "  statusMessage.value = '';\n  createLanguageServerClient();\n  loadingTree.value = true;",
+          )
+          replace_once(
+              "  themeObserver?.disconnect();\n  editor?.dispose();",
+              "  themeObserver?.disconnect();\n  languageServerClient?.dispose();\n  editor?.dispose();",
+          )
+          replace_once(
+              "      <div class=\"embedded-ide-header-actions\">\n        <span class=\"embedded-ide-readonly\">",
+              "      <div class=\"embedded-ide-header-actions\">\n        <span\n          v-if=\"languageServerStatus\"\n          class=\"embedded-ide-language-server\"\n          :data-state=\"languageServerStatus.state\"\n          :title=\"languageServerStatus.message\"\n        >\n          LSP {{ languageServerStatus.state === 'ready'\n            ? 'ativo'\n            : languageServerStatus.state === 'unavailable'\n              ? 'indisponível'\n              : languageServerStatus.state === 'failed'\n                ? 'falhou'\n                : 'iniciando' }}\n        </span>\n        <span class=\"embedded-ide-readonly\">",
+          )
+          replace_once(
+              "    <p v-else-if=\"statusMessage\" class=\"alert embedded-ide-status\" role=\"status\">\n      {{ statusMessage }}\n    </p>",
+              "    <p v-else-if=\"statusMessage\" class=\"alert embedded-ide-status\" role=\"status\">\n      {{ statusMessage }}\n    </p>\n    <p class=\"sr-only\" role=\"status\" aria-live=\"polite\">\n      {{ languageServerDiagnostics }}\n    </p>",
+          )
+          replace_once(
+              "    <ProjectEditorConflictReview\n      v-if=\"activeExternalConflict\"",
+              "    <ProjectWorkspaceEditReview\n      v-if=\"workspaceEditPreview\"\n      :project-id=\"project.id\"\n      :preview=\"workspaceEditPreview\"\n      @applied=\"handleWorkspaceEditApplied\"\n      @cancel=\"workspaceEditPreview = null\"\n    />\n\n    <ProjectEditorConflictReview\n      v-if=\"activeExternalConflict\"",
+          )
+          replace_once(
+              "            placeholder=\"Buscar no projeto\"",
+              "            placeholder=\"Buscar no projeto ou @símbolo\"",
+          )
+          replace_once(
+              ".embedded-ide-readonly {\n  padding: 5px 8px;",
+              ".embedded-ide-language-server,\n.embedded-ide-readonly {\n  padding: 5px 8px;",
+          )
+          replace_once(
+              "  white-space: nowrap;\n}\n\n.embedded-ide-save {",
+              "  white-space: nowrap;\n}\n\n.embedded-ide-language-server[data-state='ready'] {\n  border-color: var(--success);\n  color: var(--success);\n}\n\n.embedded-ide-language-server[data-state='failed'],\n.embedded-ide-language-server[data-state='unavailable'] {\n  color: var(--text-dim);\n}\n\n.embedded-ide-save {",
+          )
+
+          path.write_text(content)
+          PY
+
+      - name: Commit integration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/web/src/components/ProjectEmbeddedEditor.vue
+          git commit -m "Integra LSP JavaScript TypeScript ao editor"
+          git push origin HEAD:agent/task-078-js-ts-lsp
