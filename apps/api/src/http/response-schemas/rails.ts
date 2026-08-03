@@ -82,12 +82,15 @@ export const railsMigrationEntryResponseSchema = {
 
 export const railsMigrationsOverviewResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['supported', 'databases', 'migrations'],
+  required: ['supported', 'databases', 'migrations', 'statusAvailable', 'runtime'],
   properties: {
     supported: { type: 'boolean' },
     databases: { type: 'array', items: { type: 'string' } },
     database: { type: 'string' },
     migrations: { type: 'array', items: railsMigrationEntryResponseSchema },
+    statusAvailable: { type: 'boolean' },
+    runtime: { type: 'string', enum: ['auto', 'local', 'docker'] },
+    warning: { type: 'string' },
   },
 } as const;
 
@@ -133,10 +136,12 @@ export const bundlerOverviewResponseSchema = {
 
 export const railsMigrationMutationConfirmationResponseSchema = {
   type: 'object', additionalProperties: false,
-  required: ['token', 'operation', 'expiresAt'],
+  required: ['token', 'operation', 'runtime', 'command', 'expiresAt'],
   properties: {
     token: { type: 'string' },
     operation: { type: 'string', enum: ['migrate', 'rollback', 'seed', 'prepare'] },
+    runtime: { type: 'string', enum: ['local', 'docker'] },
+    command: { type: 'string' },
     expiresAt: { type: 'string' },
   },
 } as const;

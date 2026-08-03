@@ -35,6 +35,7 @@ import type {
   DatabaseServiceAction,
   Project,
   ProjectDatabaseEnvironment,
+  RailsExecutionRuntime,
   RailsMigrationEntry,
   RailsSchemaTable,
 } from '@dev-dashboard/contracts';
@@ -67,8 +68,19 @@ const {
   selectedEnvironmentId,
   loadDatabase,
   reveal,
-  runAction,
+  runAction: runDatabaseAction,
 } = useProjectDatabaseOverview(() => props.project);
+
+const selectedEnvironment = computed<ProjectDatabaseEnvironment | null>(() =>
+  overview.value?.environments.find((item) => item.id === selectedEnvironmentId.value)
+  ?? overview.value?.environments[0]
+  ?? null,
+);
+
+const railsRuntime = computed<RailsExecutionRuntime>(() => {
+  const runtime = selectedEnvironment.value?.runtime;
+  return runtime === 'local' || runtime === 'docker' ? runtime : 'auto';
+});
 
 const {
   migrations,
@@ -88,7 +100,7 @@ const {
   selectMigration,
   selectDatabase: selectMigrationsDatabase,
   runMigrationMutation,
-} = useRailsMigrations(() => props.project, isRailsProject);
+} = useRailsMigrations(() => props.project, isRailsProject, () => railsRuntime.value);
 
 const {
   models,
@@ -227,12 +239,6 @@ const filteredTables = computed(() => {
   );
 });
 
-const selectedEnvironment = computed<ProjectDatabaseEnvironment | null>(() =>
-  overview.value?.environments.find((item) => item.id === selectedEnvironmentId.value)
-  ?? overview.value?.environments[0]
-  ?? null,
-);
-
 const selectedMigrationEntry = computed<RailsMigrationEntry | null>(() =>
   migrations.value?.migrations.find((item) => item.version === selectedMigrationVersion.value)
   ?? migrations.value?.migrations[0]
@@ -287,12 +293,14 @@ const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
   return (overview.value?.environments ?? []).filter((item) => item.id !== env.id && systemdServiceFor(item) === service);
 });
 
+async function runAction(id: string, action: DatabaseServiceAction): Promise<void> {
+  await runDatabaseAction(id, action);
+  await Promise.all([loadMigrations(), loadModels()]);
+}
+
 async function refreshAll(): Promise<void> {
-  await Promise.all([
-    loadDatabase(1),
-    loadMigrations(),
-    loadModels(),
-  ]);
+  await loadDatabase(1);
+  await Promise.all([loadMigrations(), loadModels()]);
 }
 
 async function refreshActive(): Promise<void> {

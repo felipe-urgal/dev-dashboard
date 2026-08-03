@@ -40,6 +40,7 @@
     </nav>
 
     <div v-if="errorMessage" class="database-explorer-alert" role="alert">{{ errorMessage }}</div>
+    <div v-if="migrations?.warning && activeSection !== 'migrations'" class="database-explorer-alert" role="status">{{ migrations.warning }}</div>
 
     <section v-if="activeSection === 'overview'" class="database-section database-overview" role="tabpanel">
       <div class="database-metrics-grid">
@@ -178,7 +179,7 @@
                 A conexão atual vem de {{ selectedEnvironment.dockerServices.join(', ') }} no Docker. “Usar banco local” interrompe o container antes de iniciar o serviço do sistema.
               </p>
               <p v-if="selectedEnvironment.runtime === 'local' || selectedEnvironment.runtime === 'docker'" class="database-shared-service-hint">
-                “Parar banco” encerra o serviço local e os containers compatíveis deste projeto.
+                “Parar banco” encerra somente o runtime ativo exibido acima.
               </p>
             </section>
           </div>
@@ -269,7 +270,7 @@
         <article class="database-metric-card"><span class="database-metric-icon"><DocumentTextIcon aria-hidden="true" /></span><div><small>Total</small><strong>{{ migrations?.migrations.length ?? 0 }}</strong><span>migrations</span></div></article>
         <article class="database-metric-card database-metric-card-warning"><span class="database-metric-icon"><ArrowPathIcon aria-hidden="true" /></span><div><small>Pendentes</small><strong>{{ pendingMigrationsCount }}</strong><span>aguardando</span></div></article>
         <article class="database-metric-card"><span class="database-metric-icon"><CheckCircleIcon aria-hidden="true" /></span><div><small>Aplicadas</small><strong>{{ appliedMigrationsCount }}</strong><span>concluídas</span></div></article>
-        <article class="database-metric-card"><span class="database-metric-icon"><CircleStackIcon aria-hidden="true" /></span><div><small>Banco</small><strong class="database-metric-text">{{ migrations?.database ?? 'Não informado' }}</strong><span>status atual</span></div></article>
+        <article class="database-metric-card"><span class="database-metric-icon"><CircleStackIcon aria-hidden="true" /></span><div><small>Runtime</small><strong class="database-metric-text">{{ migrations?.runtime === 'docker' ? 'Docker' : migrations?.runtime === 'local' ? 'Local' : 'Automático' }}</strong><span>{{ migrations?.statusAvailable ? 'status confirmado' : 'somente arquivos locais' }}</span></div></article>
       </div>
 
       <div class="database-toolbar">
@@ -278,8 +279,9 @@
       </div>
 
       <div v-if="migrationsErrorMessage" class="database-explorer-alert" role="alert">{{ migrationsErrorMessage }}</div>
-      <div v-else-if="migrationsLoading && !migrations" class="database-empty-state">Consultando migrations…</div>
-      <div v-else-if="migrations && !migrations.supported" class="database-empty-state"><strong>Status de migrations indisponível.</strong><span>Não encontramos bin/rails ou o comando falhou.</span></div>
+      <div v-if="migrations?.warning" class="database-explorer-alert" role="status">{{ migrations.warning }}</div>
+      <div v-if="migrationsLoading && !migrations" class="database-empty-state">Consultando migrations…</div>
+      <div v-else-if="migrations && !migrations.supported" class="database-empty-state"><strong>Status de migrations indisponível.</strong><span>Não encontramos arquivos de migration nem um comando Rails compatível.</span></div>
       <div v-else class="database-table-shell">
         <table class="database-data-table database-migrations-table">
           <thead><tr><th>Versão</th><th>Nome</th><th>Status</th><th></th></tr></thead>
@@ -347,7 +349,7 @@
 
     <section v-else-if="activeSection === 'operations'" class="database-section" role="tabpanel">
       <section class="database-mutation-panel">
-        <header><div><strong>Operações Rails</strong><span>Cada comando pede confirmação antes de executar.</span></div></header>
+        <header><div><strong>Operações Rails</strong><span>Runtime {{ railsRuntime === 'docker' ? 'Docker' : railsRuntime === 'local' ? 'local' : 'automático' }}. Cada comando pede confirmação antes de executar.</span></div></header>
         <div class="database-mutation-actions"><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('migrate')">{{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('rollback')">{{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('seed')">{{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}</button><button type="button" :disabled="mutationRunning !== ''" @click="runMigrationMutation('prepare')">{{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}</button></div>
         <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">{{ mutationErrorMessage }}</p><p v-else-if="mutationMessage" class="database-success-message">{{ mutationMessage }}</p><pre v-if="mutationOutput" class="database-command-output">{{ mutationOutput }}</pre>
       </section>
@@ -359,6 +361,7 @@
           title="Gerar model"
           hint="Cria o model e a migration que cria a tabela, a partir dos campos informados."
           :databases="migrations?.databases ?? ['primary']"
+          :runtime="railsRuntime"
         />
         <RailsGeneratorForm
           :project="props.project"
@@ -366,6 +369,7 @@
           title="Gerar migration"
           hint="Cria só a migration — para atualizar uma tabela já existente, por exemplo."
           :databases="migrations?.databases ?? ['primary']"
+          :runtime="railsRuntime"
         />
       </div>
     </section>

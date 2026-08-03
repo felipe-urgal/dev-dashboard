@@ -44,15 +44,17 @@ test('usa bin/rails quando disponível e reporta migrations pendentes e aplicada
 
   const overview = await service.getMigrationsOverview(project);
   assert.equal(overview.supported, true);
+  assert.equal(overview.statusAvailable, true);
+  assert.equal(overview.runtime, 'local');
   assert.equal(overview.database, 'myapp_development');
   assert.deepEqual(overview.migrations, [
-    { status: 'up', version: '20200101010101', name: 'Create users' },
     { status: 'down', version: '20200102020202', name: 'Add index to users' },
+    { status: 'up', version: '20200101010101', name: 'Create users' },
   ]);
   assert.deepEqual(calls, [{ command: path.join(project.path, 'bin', 'rails'), args: ['db:migrate:status'] }]);
 });
 
-test('prefere bin/docker-rails a bin/rails quando o projeto roda dentro do Docker', async () => {
+test('prefere bin/docker-rails em auto, mas respeita runtime local explícito', async () => {
   const project = await fixture({
     'bin/docker-rails': '#!/bin/sh\n',
     'bin/rails': '#!/bin/sh\n',
@@ -64,9 +66,58 @@ test('prefere bin/docker-rails a bin/rails quando o projeto roda dentro do Docke
     return { stdout: MIGRATE_STATUS_OUTPUT };
   });
 
-  const overview = await service.getMigrationsOverview(project);
+  const automatic = await service.getMigrationsOverview(project);
+  const local = await service.getMigrationsOverview(project, 'primary', 'local');
+
+  assert.equal(automatic.runtime, 'docker');
+  assert.equal(local.runtime, 'local');
+  assert.deepEqual(calls, [
+    { command: path.join(project.path, 'bin', 'docker-rails'), args: ['db:migrate:status'] },
+    { command: path.join(project.path, 'bin', 'rails'), args: ['db:migrate:status'] },
+  ]);
+});
+
+test('mantém migration recente do checkout quando a imagem Docker está atrasada', async () => {
+  const project = await fixture({
+    'bin/docker-rails': '#!/bin/sh\n',
+    Gemfile: 'gem "rails"\n',
+    'db/migrate/20200101010101_create_users.rb': 'class CreateUsers < ActiveRecord::Migration[7.0]\nend\n',
+    'db/migrate/20260803090000_add_status_to_users.rb': 'class AddStatusToUsers < ActiveRecord::Migration[7.0]\nend\n',
+  });
+  const service = new RailsInspectionService(async () => ({ stdout: `
+database: myapp_development
+   up     20200101010101  Create users
+` }));
+
+  const overview = await service.getMigrationsOverview(project, 'primary', 'docker');
+
+  assert.equal(overview.statusAvailable, true);
+  assert.equal(overview.runtime, 'docker');
+  assert.deepEqual(overview.migrations, [
+    { status: 'down', version: '20260803090000', name: 'Add status to users' },
+    { status: 'up', version: '20200101010101', name: 'Create users' },
+  ]);
+});
+
+test('mantém arquivos visíveis e diagnóstico quando o banco está indisponível', async () => {
+  const project = await fixture({
+    'bin/rails': '#!/bin/sh\n',
+    Gemfile: 'gem "rails"\n',
+    'db/migrate/20260803100000_create_audit_logs.rb': 'class CreateAuditLogs < ActiveRecord::Migration[7.0]\nend\n',
+  });
+  const service = new RailsInspectionService(async () => {
+    throw Object.assign(new Error('connection refused'), { stderr: 'Mysql2::Error::ConnectionError: connection refused' });
+  });
+
+  const overview = await service.getMigrationsOverview(project, 'primary', 'local');
+
   assert.equal(overview.supported, true);
-  assert.deepEqual(calls, [{ command: path.join(project.path, 'bin', 'docker-rails'), args: ['db:migrate:status'] }]);
+  assert.equal(overview.statusAvailable, false);
+  assert.equal(overview.runtime, 'local');
+  assert.match(overview.warning ?? '', /connection refused/i);
+  assert.deepEqual(overview.migrations, [
+    { status: 'down', version: '20260803100000', name: 'Create audit logs' },
+  ]);
 });
 
 const MULTI_DB_MIGRATE_STATUS_OUTPUT = `
@@ -103,8 +154,8 @@ test('separa migrations por banco quando o projeto tem mais de um', async () => 
   const secondary = await service.getMigrationsOverview(project, 'data');
   assert.equal(secondary.database, 'myapp_development_data');
   assert.deepEqual(secondary.migrations, [
-    { status: 'up', version: '20200201010101', name: 'Create logs' },
     { status: 'down', version: '20200202020202', name: 'Add index to logs' },
+    { status: 'up', version: '20200201010101', name: 'Create logs' },
   ]);
 
   const invalid = await service.getMigrationsOverview(project, 'nope');
@@ -159,25 +210,25 @@ test('projeto sem Rails não é suportado', async () => {
   const project = await fixture({ 'package.json': '{}' }, 'node');
   const service = new RailsInspectionService(async () => assert.fail('não deveria executar comandos'));
 
-  assert.deepEqual(await service.getMigrationsOverview(project), { supported: false, databases: ['primary'], migrations: [] });
+  const migrations = await service.getMigrationsOverview(project);
+  assert.equal(migrations.supported, false);
+  assert.equal(migrations.statusAvailable, false);
+  assert.deepEqual(migrations.migrations, []);
   assert.deepEqual(await service.getRoutesOverview(project), { supported: false, routes: [] });
 });
 
-test('projeto Rails sem bin/rails nem Gemfile fica sem suporte', async () => {
-  const project = await fixture({});
+test('projeto Rails sem comando continua suportado para inventário local', async () => {
+  const project = await fixture({
+    'db/migrate/20260803110000_create_events.rb': 'class CreateEvents < ActiveRecord::Migration[7.0]\nend\n',
+  });
   const service = new RailsInspectionService(async () => assert.fail('não deveria executar comandos'));
 
-  assert.deepEqual(await service.getMigrationsOverview(project), { supported: false, databases: ['primary'], migrations: [] });
-});
-
-test('falha de execução (ex. banco indisponível) degrada para não suportado sem lançar', async () => {
-  const project = await fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
-  const service = new RailsInspectionService(async () => {
-    throw new Error('could not connect to server');
-  });
-
-  assert.deepEqual(await service.getMigrationsOverview(project), { supported: false, databases: ['primary'], migrations: [] });
-  assert.deepEqual(await service.getRoutesOverview(project), { supported: false, routes: [] });
+  const migrations = await service.getMigrationsOverview(project);
+  assert.equal(migrations.supported, true);
+  assert.equal(migrations.statusAvailable, false);
+  assert.deepEqual(migrations.migrations, [
+    { status: 'down', version: '20260803110000', name: 'Create events' },
+  ]);
 });
 
 test('saída sem rotas reconhecidas resulta em lista vazia mas suportada', async () => {
@@ -187,15 +238,21 @@ test('saída sem rotas reconhecidas resulta em lista vazia mas suportada', async
   assert.deepEqual(await service.getRoutesOverview(project), { supported: true, routes: [] });
 });
 
-test('executa migrate após confirmação válida, com o comando esperado', async () => {
-  const project = await fixture({ 'bin/rails': '#!/bin/sh\n', Gemfile: 'gem "rails"\n' });
+test('executa migrate após confirmação válida, com o runtime e comando esperados', async () => {
+  const project = await fixture({
+    'bin/docker-rails': '#!/bin/sh\n',
+    'bin/rails': '#!/bin/sh\n',
+    Gemfile: 'gem "rails"\n',
+  });
   const calls: Array<{ command: string; args: string[] }> = [];
   const service = new RailsInspectionService(async (command, args) => {
     calls.push({ command, args });
     return { stdout: '== 20200102020202 AddIndexToUsers: migrating ==\n' };
   });
 
-  const confirmation = await service.prepareMutationConfirmation(project, 'migrate');
+  const confirmation = await service.prepareMutationConfirmation(project, 'migrate', 'local');
+  assert.equal(confirmation.runtime, 'local');
+  assert.equal(confirmation.command, 'bin/rails db:migrate');
   const result = await service.runMutation(project, 'migrate', confirmation.token);
 
   assert.equal(result.succeeded, true);
@@ -296,7 +353,8 @@ test('gera um model após confirmação, com o comando fechado montado a partir 
     { name: 'name', type: 'string' },
     { name: 'price', type: 'decimal' },
   ]);
-  assert.equal(confirmation.command, 'rails generate model Product name:string price:decimal');
+  assert.equal(confirmation.runtime, 'local');
+  assert.equal(confirmation.command, 'bin/rails generate model Product name:string price:decimal');
 
   const result = await service.runGenerator(project, confirmation.token);
   assert.equal(result.succeeded, true);
@@ -328,7 +386,7 @@ test('gera uma migration para o banco secundário com --database', async () => {
     { name: 'message', type: 'text' },
   ], 'data');
   assert.equal(confirmation.database, 'data');
-  assert.equal(confirmation.command, 'rails generate migration CreateLogs message:text --database=data');
+  assert.equal(confirmation.command, 'bin/rails generate migration CreateLogs message:text --database=data');
 
   await service.runGenerator(project, confirmation.token);
   assert.deepEqual(calls, [{ args: ['generate', 'migration', 'CreateLogs', 'message:text', '--database=data'] }]);

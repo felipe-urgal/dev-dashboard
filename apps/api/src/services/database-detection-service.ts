@@ -227,7 +227,7 @@ function fromEnv(values: Record<string, string>, detail: string): DetectedDataba
   } else if (values.DB_HOST || values.DB_NAME || values.DB_DATABASE) {
     const driver = values.DB_ADAPTER ?? values.DB_CONNECTION ?? 'desconhecido';
     const port = Number(values.DB_PORT) || defaultPorts[driver];
-    results.push({ id: `dotenv-${detail.replace(/\W/g, '-')}`, environment: detail === '.env' ? 'development' : detail.replace(/^\.env\.?/, ''), driver, ...(values.DB_HOST ? { host: values.DB_HOST } : {}), ...(port ? { port } : {}), ...(values.DB_NAME ?? values.DB_DATABASE ? { database: values.DB_NAME ?? values.DB_DATABASE } : {}), ...(values.DB_USER ?? values.DB_USERNAME ? { username: values.DB_USER ?? values.DB_USERNAME } : {}), passwordConfigured: Boolean(values.DB_PASSWORD), source: 'dotenv', sourceDetail: detail });
+    results.push({ id: `dotenv-${detail.replace(/\W/g, '-')}`, environment: detail === '.env' ? 'development' : detail.replace(/^\.env\.?/, '') || 'development', driver, ...(values.DB_HOST ? { host: values.DB_HOST } : {}), ...(port ? { port } : {}), ...(values.DB_NAME ?? values.DB_DATABASE ? { database: values.DB_NAME ?? values.DB_DATABASE } : {}), ...(values.DB_USER ?? values.DB_USERNAME ? { username: values.DB_USER ?? values.DB_USERNAME } : {}), passwordConfigured: Boolean(values.DB_PASSWORD), source: 'dotenv', sourceDetail: detail });
   }
   return results;
 }
@@ -264,7 +264,7 @@ export class DatabaseDetectionService {
       const values = parseDotenv(contents); Object.assign(env, values); detected.push(...fromEnv(values, file));
     }
     const rails = await safeRead(project.path, 'config/database.yml');
-    
+
     // O processo da API pode conter credenciais alheias ao projeto. Apenas os
     // arquivos de ambiente do próprio projeto participam da interpolação.
     if (rails !== null) detected.push(...parseRails(rails, env));
@@ -342,10 +342,17 @@ export class DatabaseDetectionService {
     if (!item) return false;
     const service = localSystemdService(item);
     if (!service) return false;
-    // A aba Banco sempre assume o runtime local. Ao iniciar/reiniciar, libera a
-    // porta antes do systemd; ao parar, garante que nenhum Compose correspondente
-    // permaneça ativo mesmo que a ação local falhe depois.
-    await this.dockerComposeService?.stopDatabaseServices(project, item.driver, item.port);
+
+    // Parar atua somente sobre o runtime Docker quando ele está ativo. Iniciar ou
+    // reiniciar o banco local primeiro libera a porta ocupada pelo Compose e só
+    // então chama o systemd. Assim, uma ação nunca encerra os dois runtimes.
+    if (action === 'stop') {
+      const stoppedDockerServices = await this.dockerComposeService?.stopDatabaseServices(project, item.driver, item.port) ?? [];
+      if (stoppedDockerServices.length > 0) return true;
+    } else {
+      await this.dockerComposeService?.stopDatabaseServices(project, item.driver, item.port);
+    }
+
     try {
       // A API roda em uma sessão destacada. O agente polkit da sessão do usuário
       // pode autenticar esta ação sem depender do ticket sudo de um terminal.

@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, RailsExecutionRuntime } from '@dev-dashboard/contracts';
 
 export type CommandRunner = (
   command: string,
@@ -32,6 +32,7 @@ export const defaultCommandRunner: CommandRunner = async (command, args, options
 export interface RailsCommand {
   command: string;
   args: string[];
+  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
 }
 
 export async function pathExists(target: string): Promise<boolean> {
@@ -43,18 +44,41 @@ export async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-export async function resolveRailsCommand(project: Project): Promise<RailsCommand | null> {
-  if (project.type !== 'rails') return null;
-  // Projetos que rodam o Rails dentro do Docker costumam expor um wrapper (`bin/docker-rails`,
-  // seguindo a mesma convenção de `bin/rails`) que decide entre `compose exec`/`compose run --rm`
-  // e repassa os argumentos. Preferimos esse wrapper quando existe: rodar `bin/rails` direto no
-  // host falharia (gems vivem só na imagem) ou usaria um ambiente local desalinhado do container.
-  if (await pathExists(path.join(project.path, 'bin', 'docker-rails'))) {
-    return { command: path.join(project.path, 'bin', 'docker-rails'), args: [] };
-  }
+async function localRailsCommand(project: Project): Promise<RailsCommand | null> {
   if (await pathExists(path.join(project.path, 'bin', 'rails'))) {
-    return { command: path.join(project.path, 'bin', 'rails'), args: [] };
+    return { command: path.join(project.path, 'bin', 'rails'), args: [], runtime: 'local' };
   }
   if (!(await pathExists(path.join(project.path, 'Gemfile')))) return null;
-  return { command: 'bundle', args: ['exec', 'rails'] };
+  return { command: 'bundle', args: ['exec', 'rails'], runtime: 'local' };
+}
+
+async function dockerRailsCommand(project: Project): Promise<RailsCommand | null> {
+  if (!(await pathExists(path.join(project.path, 'bin', 'docker-rails')))) return null;
+  return { command: path.join(project.path, 'bin', 'docker-rails'), args: [], runtime: 'docker' };
+}
+
+/**
+ * Retorna comandos compatíveis com o runtime solicitado. Em `auto`, preserva a
+ * preferência histórica pelo wrapper Docker, mas mantém o comando local como
+ * fallback para inspeções somente leitura.
+ */
+export async function resolveRailsCommands(
+  project: Project,
+  runtime: RailsExecutionRuntime = 'auto',
+): Promise<RailsCommand[]> {
+  if (project.type !== 'rails') return [];
+  const [local, docker] = await Promise.all([
+    localRailsCommand(project),
+    dockerRailsCommand(project),
+  ]);
+  if (runtime === 'local') return local ? [local] : [];
+  if (runtime === 'docker') return docker ? [docker] : [];
+  return [docker, local].filter((command): command is RailsCommand => command !== null);
+}
+
+export async function resolveRailsCommand(
+  project: Project,
+  runtime: RailsExecutionRuntime = 'auto',
+): Promise<RailsCommand | null> {
+  return (await resolveRailsCommands(project, runtime))[0] ?? null;
 }

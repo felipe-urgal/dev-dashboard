@@ -7,6 +7,7 @@ import type {
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseServiceActionResult,
+  RailsExecutionRuntime,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
   RailsGeneratorKind,
@@ -82,19 +83,30 @@ export async function restoreProjectDatabaseSnapshot(projectId: string, snapshot
 
 interface ProjectRailsMigrationsResponse { migrations: RailsMigrationsOverview; }
 
-export async function fetchProjectRailsMigrations(projectId: string, database?: string): Promise<RailsMigrationsOverview> {
-  const query = database ? `?${new URLSearchParams({ database })}` : '';
-  const response = await requestJson<ProjectRailsMigrationsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/migrations${query}`);
+export async function fetchProjectRailsMigrations(
+  projectId: string,
+  database?: string,
+  runtime: RailsExecutionRuntime = 'auto',
+): Promise<RailsMigrationsOverview> {
+  const query = new URLSearchParams({ runtime });
+  if (database) query.set('database', database);
+  const response = await requestJson<ProjectRailsMigrationsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations?${query}`,
+  );
   return response.migrations;
 }
 
 interface RailsMutationConfirmationResponse { confirmation: RailsMigrationMutationConfirmation }
 interface RailsMutationResultResponse { result: RailsMigrationMutationResult }
 
-export async function prepareProjectRailsMutation(projectId: string, operation: RailsMigrationMutationOperation): Promise<RailsMigrationMutationConfirmation> {
+export async function prepareProjectRailsMutation(
+  projectId: string,
+  operation: RailsMigrationMutationOperation,
+  runtime: RailsExecutionRuntime = 'auto',
+): Promise<RailsMigrationMutationConfirmation> {
   const response = await requestJson<RailsMutationConfirmationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation }) },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, runtime }) },
   );
   return response.confirmation;
 }
@@ -116,10 +128,15 @@ export async function prepareProjectRailsGenerator(
   name: string,
   fields: RailsGeneratorField[],
   database?: string,
+  runtime: RailsExecutionRuntime = 'auto',
 ): Promise<RailsGeneratorConfirmation> {
   const response = await requestJson<RailsGeneratorConfirmationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/generate/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, name, fields, ...(database ? { database } : {}) }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, name, fields, ...(database ? { database } : {}), runtime }),
+    },
   );
   return response.confirmation;
 }
