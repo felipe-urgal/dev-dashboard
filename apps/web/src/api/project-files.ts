@@ -2,6 +2,7 @@ import type {
   ProjectDirectoryListing,
   ProjectFileContent,
   ProjectFileSearchResult,
+  ProjectFileWriteRequest,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -28,6 +29,20 @@ export function fetchProjectFileContent(
 ): Promise<ProjectFileContent> {
   return requestJson<ProjectFileContent>(
     `${projectFilesPath(projectId)}/content?path=${encodeURIComponent(relativePath)}`,
+  );
+}
+
+export function saveProjectFileContent(
+  projectId: string,
+  input: ProjectFileWriteRequest,
+): Promise<ProjectFileContent> {
+  return requestJson<ProjectFileContent>(
+    `${projectFilesPath(projectId)}/content`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
   );
 }
 
