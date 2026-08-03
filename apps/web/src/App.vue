@@ -20,9 +20,11 @@ import {
   RouterLink,
   RouterView,
   useRoute,
+  useRouter,
 } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
+import { nativeNotificationStore } from './stores/native-notifications';
 import VisualPreferences from './components/VisualPreferences.vue';
 import CommandPalette from './components/CommandPalette.vue';
 import NoticeCenter from './components/NoticeCenter.vue';
@@ -33,6 +35,11 @@ const workspaceManagerOpen = ref(false);
 const sidebarOpen = ref(false);
 
 const route = useRoute();
+const router = useRouter();
+
+nativeNotificationStore.setNavigator((target) => {
+  void router.push(target);
+});
 
 const {
   apiConnected,

@@ -23,9 +23,11 @@ test('carrega limites e informa que a alteração exige reinício', async () => 
   }) as typeof fetch;
   const wrapper = mount(SettingsView);
   await flushPromises();
+  assert.match(wrapper.text(), /Notificações do navegador/);
+  assert.match(wrapper.text(), /pelo menos 30 segundos/);
   assert.match(wrapper.text(), /Entre 1 e 365 dias/);
   assert.equal(wrapper.get('.settings-save-button').attributes('disabled'), '');
-  await wrapper.get('input').setValue(8);
+  await wrapper.get('input[type="number"]').setValue(8);
   assert.equal(wrapper.get('.settings-save-button').attributes('disabled'), undefined);
   await wrapper.get('form').trigger('submit');
   await flushPromises();

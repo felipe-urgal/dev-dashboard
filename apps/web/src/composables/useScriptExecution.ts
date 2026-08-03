@@ -19,6 +19,7 @@ import {
   startScriptExecution,
 } from '../api';
 import { noticeCenterStore } from '../stores/notice-center';
+import { durationInMilliseconds } from '../stores/native-notifications';
 
 const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
@@ -240,6 +241,7 @@ export function useScriptExecution<ScriptSection extends string>(
       projectId: getProject().id,
       projectName: getProject().name,
       label: exec.actionName,
+      durationMs: durationInMilliseconds(exec.startedAt, exec.finishedAt),
       routeTo: {
         name: 'project-scripts',
         params: { projectId: getProject().id },

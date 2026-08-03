@@ -5,7 +5,9 @@ import {
 
 import type { ComputedRef, Ref } from 'vue';
 
-export type NoticeOrigin = 'test' | 'script' | 'server';
+import { nativeNotificationStore } from './native-notifications';
+
+export type NoticeOrigin = 'test' | 'script' | 'server' | 'build';
 export type NoticeOutcome = 'succeeded' | 'failed' | 'cancelled' | 'stopped';
 
 export interface Notice {
@@ -23,7 +25,13 @@ export interface Notice {
 
 export const NOTICE_LIST_LIMIT = 20;
 
-export function createNoticeCenterStore() {
+export interface TerminalNoticeInput extends Omit<Notice, 'id' | 'createdAt' | 'read'> {
+  durationMs?: number | undefined;
+}
+
+export function createNoticeCenterStore(options: {
+  publishNativeNotification?: (notice: Notice, durationMs?: number) => void;
+} = {}) {
   const notices: Ref<Notice[]> = ref([]);
   const dedupeSet = new Set<string>();
 
@@ -32,14 +40,15 @@ export function createNoticeCenterStore() {
   );
 
   function publishTerminalNotice(
-    input: Omit<Notice, 'id' | 'createdAt' | 'read'>,
+    input: TerminalNoticeInput,
   ): void {
     if (dedupeSet.has(input.dedupeKey)) {
       return;
     }
 
+    const { durationMs, ...noticeInput } = input;
     const notice: Notice = {
-      ...input,
+      ...noticeInput,
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       read: false,
@@ -51,6 +60,8 @@ export function createNoticeCenterStore() {
     if (notices.value.length > NOTICE_LIST_LIMIT) {
       notices.value = notices.value.slice(0, NOTICE_LIST_LIMIT);
     }
+
+    options.publishNativeNotification?.(notice, durationMs);
   }
 
   function markRead(id: string): void {
@@ -87,4 +98,6 @@ export function createNoticeCenterStore() {
 
 export type NoticeCenterStore = ReturnType<typeof createNoticeCenterStore>;
 
-export const noticeCenterStore = createNoticeCenterStore();
+export const noticeCenterStore = createNoticeCenterStore({
+  publishNativeNotification: nativeNotificationStore.publish,
+});

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'vitest';
+import { test, vi } from 'vitest';
 
 import {
   createNoticeCenterStore,
@@ -32,7 +32,8 @@ test('publicar um aviso terminal uma vez aparece na lista com unreadCount = 1', 
 });
 
 test('publicar novamente com o mesmo dedupeKey não duplica', () => {
-  const store = createNoticeCenterStore();
+  const publishNativeNotification = vi.fn();
+  const store = createNoticeCenterStore({ publishNativeNotification });
 
   const input = createTestNoticeInput('test:1:succeeded');
 
@@ -41,6 +42,7 @@ test('publicar novamente com o mesmo dedupeKey não duplica', () => {
 
   assert.equal(store.notices.value.length, 1);
   assert.equal(store.unreadCount.value, 1);
+  assert.equal(publishNativeNotification.mock.calls.length, 1);
 });
 
 test('publicar dois avisos com dedupeKeys diferentes cria dois itens distintos', () => {
