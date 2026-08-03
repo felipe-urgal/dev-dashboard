@@ -1,36 +1,30 @@
 # Próxima atividade
 
-A task 068 concluiu os health checks locais declarativos. A próxima frente
-candidata é transformar o campo `favorite`, hoje sempre vindo como `false` da
-descoberta, em uma preferência local persistente e acionável na visão geral.
+A task 069 concluiu os favoritos persistentes por projeto. A próxima frente
+candidata é aproveitar os eventos e avisos locais já existentes para oferecer
+notificações nativas opt-in ao término de execuções longas.
 
-## Favoritos persistentes por projeto
+## Notificações nativas opt-in
 
-Permitir destacar os projetos usados com mais frequência sem alterar arquivos
-dos repositórios nem sincronizar essa preferência externamente.
+Avisar fora da aba quando testes, scripts ou builds demorados terminarem, sem
+enviar dados a serviços externos e sem pedir permissão antes de uma ação
+explícita do usuário.
 
 ### Escopo proposto
 
-- persistir favoritos em arquivo privado da configuração local, associados ao
-  identificador estável do projeto;
-- aplicar a preferência depois de cada scan, sem misturá-la ao resultado bruto
-  da descoberta;
-- oferecer uma rota autenticada e fechada para marcar ou desmarcar um projeto;
-- adicionar uma ação compacta e acessível no `ProjectCard`;
-- manter favoritos no topo da lista, preservando a ordenação alfabética dentro
-  de cada grupo;
-- atualizar a tela imediatamente e reconciliar com a resposta da API em caso de
-  falha;
-- remover ou ignorar com segurança referências a projetos que deixaram de ser
-  descobertos, sem tocar no filesystem desses projetos.
+- adicionar uma preferência local, desativada por padrão, em Configurações;
+- solicitar permissão da Notification API somente após clique explícito;
+- notificar conclusões de testes, scripts e builds quando a aba estiver oculta;
+- reutilizar a deduplicação da central de avisos para não emitir alertas em
+  duplicidade;
+- limitar título e corpo a metadados seguros já exibidos no dashboard;
+- manter fallback integral para a central de avisos quando a API não existir ou
+  a permissão for negada.
 
 ### Decisões antes da implementação
 
-- decidir se favoritos ausentes devem ser apenas ignorados ou removidos durante
-  o scan;
-- decidir se a ação ficará sempre visível no card ou aparecerá apenas no hover,
-  mantendo acesso por teclado;
-- definir se a primeira versão precisa de um filtro "Somente favoritos" ou se a
-  ordenação no topo já é suficiente.
+- definir se a preferência deve ser global ou separada por tipo de execução;
+- definir um limiar de duração para evitar notificações de tarefas rápidas;
+- decidir se clicar na notificação abre diretamente o projeto e a execução.
 
 Nenhum código desta frente foi escrito ainda.

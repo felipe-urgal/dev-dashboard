@@ -75,3 +75,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `066-rake-task-variables.md` — detecta tarefas Rake e variáveis `ENV` estaticamente, gera formulário e executa com ambiente estruturado e confirmação vinculada aos valores.
 - `067-docker-compose-build.md` — build assíncrono por serviço Docker Compose como um terceiro `kind` de processo gerenciado (`compose-build`), com identidade por serviço, polling adaptativo na UI, e liberação do `start` só após um build bem-sucedido.
 - `068-server-health-checks.md` — health checks HTTP locais declarativos, com detecção de caminhos comuns, configuração relativa validada, timeout curto, classificação por status, polling apenas na aba Servidor e destino fixo em `127.0.0.1`.
+- `069-project-favorites.md` — favoritos persistentes por projeto, reaplicados após scans, com arquivo privado, rota autenticada, atualização otimista e ordenação no topo da visão geral.

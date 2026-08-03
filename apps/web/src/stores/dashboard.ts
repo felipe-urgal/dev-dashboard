@@ -23,6 +23,7 @@ export interface DashboardApi {
   fetchProjects: typeof dashboardApi.fetchProjects;
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
+  updateProjectFavorite: typeof dashboardApi.updateProjectFavorite;
 }
 
 export function createDashboardStore(
@@ -36,6 +37,7 @@ export function createDashboardStore(
     fetchProjects,
     fetchWorkspaces,
     scanWorkspace,
+    updateProjectFavorite,
   } = api;
 
   const projects = ref<Project[]>([]);
@@ -52,6 +54,7 @@ export function createDashboardStore(
   const scanningWorkspace = ref(false);
   const creatingWorkspace = ref(false);
   const deletingWorkspace = ref(false);
+  const favoriteUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
   const successMessage = ref('');
@@ -68,8 +71,10 @@ export function createDashboardStore(
   );
 
   const sortedProjects = computed(() =>
-    [...projects.value].sort((left, right) =>
-      left.name.localeCompare(right.name),
+    [...projects.value].sort(
+      (left, right) =>
+        Number(right.favorite) - Number(left.favorite) ||
+        left.name.localeCompare(right.name),
     ),
   );
 
@@ -94,6 +99,78 @@ export function createDashboardStore(
     }
 
     projectIndex.value = nextIndex;
+  }
+
+  function replaceProjectFavorite(
+    projectId: string,
+    favorite: boolean,
+  ): void {
+    projects.value = projects.value.map((item) =>
+      item.id === projectId
+        ? { ...item, favorite }
+        : item,
+    );
+
+    const indexedProject = projectIndex.value[projectId];
+
+    if (indexedProject) {
+      projectIndex.value = {
+        ...projectIndex.value,
+        [projectId]: {
+          ...indexedProject,
+          favorite,
+        },
+      };
+    }
+
+    projectsByWorkspace.value = Object.fromEntries(
+      Object.entries(projectsByWorkspace.value).map(
+        ([workspaceId, workspaceProjects]) => [
+          workspaceId,
+          workspaceProjects.map((item) =>
+            item.id === projectId
+              ? { ...item, favorite }
+              : item,
+          ),
+        ],
+      ),
+    );
+  }
+
+  async function toggleProjectFavorite(
+    project: Project,
+  ): Promise<void> {
+    if (favoriteUpdatingIds.value.includes(project.id)) {
+      return;
+    }
+
+    const favorite = !project.favorite;
+    favoriteUpdatingIds.value = [
+      ...favoriteUpdatingIds.value,
+      project.id,
+    ];
+    replaceProjectFavorite(project.id, favorite);
+
+    try {
+      const updatedProject = await updateProjectFavorite(
+        project.id,
+        favorite,
+      );
+      replaceProjectFavorite(
+        updatedProject.id,
+        updatedProject.favorite,
+      );
+    } catch (error) {
+      replaceProjectFavorite(project.id, project.favorite);
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar o favorito.';
+    } finally {
+      favoriteUpdatingIds.value = favoriteUpdatingIds.value.filter(
+        (projectId) => projectId !== project.id,
+      );
+    }
   }
 
 
@@ -437,6 +514,7 @@ export function createDashboardStore(
 
   return {
     projects,
+    projectsByWorkspace,
     workspaces,
     selectedWorkspaceId,
     newWorkspaceName,
@@ -446,6 +524,7 @@ export function createDashboardStore(
     scanningWorkspace,
     creatingWorkspace,
     deletingWorkspace,
+    favoriteUpdatingIds,
     errorMessage,
     successMessage,
     warningCount,
@@ -459,6 +538,7 @@ export function createDashboardStore(
     switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
+    toggleProjectFavorite,
   };
 }
 

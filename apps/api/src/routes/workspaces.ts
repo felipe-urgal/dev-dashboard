@@ -6,6 +6,7 @@ import type {
 import path from "node:path";
 
 import {
+  type ProjectFavoriteRepository,
   WorkspaceRepositoryError,
   type WorkspaceRepository,
 } from "@dev-dashboard/core";
@@ -37,6 +38,7 @@ import {
 
 interface WorkspaceRouteOptions extends FastifyPluginOptions {
   workspaceRepository: WorkspaceRepository;
+  projectFavoriteRepository: ProjectFavoriteRepository;
   processManager: ProcessManager;
   projectStore: ProjectStore;
   testDetectionService: TestDetectionService;
@@ -101,6 +103,7 @@ export const workspaceRoutes: FastifyPluginAsync<
 > = async (app, options) => {
     const {
       workspaceRepository,
+      projectFavoriteRepository,
       processManager,
       projectStore,
       testDetectionService,
@@ -283,9 +286,19 @@ export const workspaceRoutes: FastifyPluginAsync<
             workspace
           );
 
+          const favoriteProjectIds =
+            projectFavoriteRepository.list();
+          const resultWithFavorites = {
+            ...result,
+            projects: result.projects.map((project) => ({
+              ...project,
+              favorite: favoriteProjectIds.has(project.id),
+            })),
+          };
+
           testDetectionService.invalidate();
 
-          return projectStore.saveWorkspaceScan(result);
+          return projectStore.saveWorkspaceScan(resultWithFavorites);
         } catch (error) {
           request.log.warn(
             {

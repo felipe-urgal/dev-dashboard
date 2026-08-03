@@ -272,13 +272,17 @@
   list-style: none;
 }
 
+.project-row {
+  position: relative;
+}
+
 .project-row-link {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-4);
   min-height: 82px;
-  padding: 14px 14px 14px 16px;
+  padding: 14px 14px 14px 54px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: inherit;
@@ -290,6 +294,49 @@
     background 160ms ease,
     transform 160ms ease,
     box-shadow 160ms ease;
+}
+
+.project-favorite-button {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 14px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  place-items: center;
+  color: var(--text-dim);
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.project-favorite-button:hover,
+.project-favorite-button:focus-visible,
+.project-favorite-button.active {
+  color: var(--warning-text);
+  background: var(--warning-surface);
+}
+
+.project-favorite-button:focus-visible {
+  outline: 2px solid var(--warning-text);
+  outline-offset: 2px;
+}
+
+.project-favorite-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.project-favorite-button svg {
+  width: 17px;
+  height: 17px;
 }
 
 .project-row-link:hover,
