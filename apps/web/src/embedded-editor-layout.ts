@@ -12,7 +12,9 @@ function clampSidebarWidth(value: number): number {
 
 function readStoredWidth(): number {
   try {
-    const stored = Number(window.localStorage.getItem(STORAGE_KEY));
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw === null || raw.trim() === '') return DEFAULT_SIDEBAR_WIDTH;
+    const stored = Number(raw);
     return Number.isFinite(stored)
       ? clampSidebarWidth(stored)
       : DEFAULT_SIDEBAR_WIDTH;
