@@ -1,42 +1,39 @@
 # Próxima atividade
 
-A task 076 entregou a fundação somente leitura da IDE com Monaco, explorer,
-abas, busca e acesso confinado aos arquivos do projeto. A próxima entrega
-habilita edição e operações de arquivo sem perder a revisão explícita das
-mudanças.
+A primeira fatia da task 077 habilitou edição de arquivos existentes, estado
+sujo por aba e salvamento atômico com `expectedVersion`. A próxima entrega
+completa as operações estruturais sem ampliar a fronteira de confiança.
 
-## Task 077 — Escrita segura no editor
+## Continuação da Task 077 — Operações estruturais e preview
 
-Adicionar salvamento, conflitos externos e operações estruturais sobre a mesma
-fronteira de segurança criada na task 076.
+Adicionar criação, renomeação e exclusão seguras, além de uma revisão explícita
+para mudanças que afetem um ou mais arquivos.
 
 ### Escopo proposto
 
-- habilitar edição nos modelos Monaco de arquivos permitidos;
-- manter dirty state por aba e confirmação ao descartar mudanças;
-- salvar com `expectedVersion` para impedir sobrescrita silenciosa;
-- responder `409 FILE_CHANGED_EXTERNALLY` quando o disco mudar;
-- abrir diff entre conteúdo original, versão atual do disco e conteúdo editado;
-- gravar atomicamente com arquivo temporário e `rename` no mesmo diretório;
-- preservar permissões compatíveis do arquivo existente;
 - criar arquivo e diretório por caminho relativo validado;
-- renomear e excluir com preview e confirmação proporcional ao risco;
-- autorizar `WorkspaceEdit` somente por um serviço central reutilizável pelas
-  futuras integrações LSP e IA;
-- adicionar watcher limitado para informar mudanças externas nos arquivos
-  abertos;
-- cobrir concorrência, symlink, TOCTOU, falha de gravação e rollback.
+- renomear dentro da raiz canônica, recusando sobrescrita implícita;
+- excluir arquivo vazio ou diretório vazio com confirmação inline;
+- exigir confirmação reforçada para exclusões com conteúdo;
+- gerar preview de diff antes de renomear, excluir ou aplicar múltiplas mudanças;
+- mostrar conflito em três vias entre conteúdo original, disco atual e edição;
+- introduzir um serviço central de `WorkspaceEdit` reutilizável por LSP e IA;
+- aplicar múltiplas alterações somente após preview e confirmação;
+- implementar rollback quando uma operação intermediária falhar;
+- adicionar watcher limitado apenas aos arquivos abertos;
+- atualizar explorer, abas e modelos sem recarregar toda a página;
+- cobrir colisão de nomes, symlink, TOCTOU, rollback e mudanças externas.
 
 ### Critérios principais
 
-- toda mutação permanece dentro da raiz canônica do projeto;
-- nenhum caminho absoluto ou comando chega do navegador;
-- salvamento nunca substitui uma versão externa sem decisão explícita;
-- alterações em múltiplos arquivos sempre possuem preview de diff;
-- arquivo temporário não pode escapar do diretório autorizado;
-- falhas intermediárias não deixam arquivo parcial;
+- nenhuma operação aceita caminho absoluto ou comando vindo do navegador;
+- criação não pode escapar por symlink do diretório pai;
+- renomeação nunca substitui um destino existente silenciosamente;
+- exclusão sempre mostra claramente o caminho e o impacto;
+- mudanças em múltiplos arquivos possuem preview obrigatório;
+- rollback não deixa estado parcial quando possível;
 - arquivos sensíveis continuam bloqueados por padrão;
-- a IDE permanece utilizável em modo somente leitura quando a escrita falha;
+- o editor mantém modo somente leitura quando uma mutação falha;
 - build, typecheck, testes de API, testes montados e smoke E2E passam.
 
 ### Sequência posterior
