@@ -32,6 +32,8 @@ import {
 } from '../api';
 import Card from './Card.vue';
 import StatusBadge from './StatusBadge.vue';
+import { noticeCenterStore } from '../stores/notice-center';
+import { durationInMilliseconds } from '../stores/native-notifications';
 
 const props = defineProps<{ project: Project }>();
 
@@ -47,6 +49,7 @@ const pendingBuildConfirmation = ref<ComposeServiceBuildConfirmation>();
 const builds = ref<Record<string, ManagedProcess | null>>({});
 let buildPollingTimer: ReturnType<typeof setTimeout> | undefined;
 let logsGeneration = 0;
+const observedBuildIds = new Set<string>();
 
 const services = computed(() => overview.value?.services ?? []);
 
@@ -256,8 +259,35 @@ watch(() => props.project.id, () => {
   pendingConfirmation.value = undefined;
   pendingBuildConfirmation.value = undefined;
   builds.value = {};
+  observedBuildIds.clear();
   void load();
 }, { immediate: true });
+
+watch(builds, (currentBuilds) => {
+  for (const [serviceName, process] of Object.entries(currentBuilds)) {
+    if (!process) continue;
+    if (process.status === 'starting' || process.status === 'running') {
+      observedBuildIds.add(process.id);
+      continue;
+    }
+    if (!observedBuildIds.has(process.id)) continue;
+    if (process.status !== 'stopped' && process.status !== 'failed') continue;
+
+    noticeCenterStore.publishTerminalNotice({
+      origin: 'build',
+      dedupeKey: `build:${process.id}:${process.status}`,
+      outcome: process.status === 'stopped' && process.exitCode === 0 ? 'succeeded' : 'failed',
+      projectId: props.project.id,
+      projectName: props.project.name,
+      label: serviceName,
+      durationMs: durationInMilliseconds(process.startedAt, process.stoppedAt),
+      routeTo: {
+        name: 'project-docker',
+        params: { projectId: props.project.id },
+      },
+    });
+  }
+}, { deep: true });
 
 onBeforeUnmount(() => {
   stopBuildPolling();

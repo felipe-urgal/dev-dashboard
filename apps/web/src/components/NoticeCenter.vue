@@ -47,6 +47,7 @@ const originLabels: Record<NoticeOrigin, string> = {
   test: 'Testes',
   script: 'Script',
   server: 'Servidor',
+  build: 'Build',
 };
 
 const noticeTitles: Record<NoticeOrigin, Record<NoticeOutcome, string>> = {
@@ -67,6 +68,12 @@ const noticeTitles: Record<NoticeOrigin, Record<NoticeOutcome, string>> = {
     failed: 'Servidor terminou com falha',
     cancelled: 'Operação do servidor cancelada',
     stopped: 'Servidor interrompido',
+  },
+  build: {
+    succeeded: 'Build concluído com sucesso',
+    failed: 'Build terminou com falha',
+    cancelled: 'Build cancelado',
+    stopped: 'Build interrompido',
   },
 };
 
@@ -201,7 +208,7 @@ onBeforeUnmount(() => {
         <div v-if="notices.length === 0" class="notice-empty">
           <BellIcon aria-hidden="true" />
           <p>Nenhuma notificação no momento.</p>
-          <span>Conclusões de testes, scripts e servidores aparecerão aqui.</span>
+          <span>Conclusões de testes, scripts, builds e servidores aparecerão aqui.</span>
         </div>
 
         <ul v-else role="list" class="notice-list">

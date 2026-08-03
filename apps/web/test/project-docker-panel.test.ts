@@ -14,10 +14,15 @@ const api = vi.hoisted(() => ({
   startComposeServiceBuild: vi.fn(),
   fetchComposeServiceBuildLog: vi.fn(),
 }));
+const notices = vi.hoisted(() => ({ publishTerminalNotice: vi.fn() }));
 
 vi.mock('../src/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/api')>()),
   ...api,
+}));
+
+vi.mock('../src/stores/notice-center', () => ({
+  noticeCenterStore: notices,
 }));
 
 const overview = {
@@ -135,6 +140,58 @@ describe('painel Docker Compose', () => {
     const web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
     expect(web.text()).toContain('Build falhou');
     expect(web.findAll('button')[0]!.attributes('disabled')).toBeDefined();
+  });
+
+  it('publica aviso ao concluir um build observado em execução', async () => {
+    vi.useFakeTimers();
+    api.fetchProjectDocker.mockResolvedValue(overview);
+    api.fetchComposeServiceBuild
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'p1:compose-build:web',
+        projectId: 'p1',
+        kind: 'compose-build',
+        status: 'stopped',
+        startedAt: '2026-08-03T10:00:00.000Z',
+        stoppedAt: '2026-08-03T10:00:31.000Z',
+        exitCode: 0,
+      });
+    api.prepareComposeServiceBuild.mockResolvedValue({
+      token: 'b'.repeat(64), serviceName: 'web', expiresAt: '2026-08-03T10:01:00.000Z',
+    });
+    api.startComposeServiceBuild.mockResolvedValue({
+      id: 'p1:compose-build:web',
+      projectId: 'p1',
+      kind: 'compose-build',
+      status: 'running',
+      startedAt: '2026-08-03T10:00:00.000Z',
+    });
+    const wrapper = mount(ProjectDockerPanel, {
+      props: { project: makeProject({ capabilities: ['docker'] }) },
+    });
+    await flushPromises();
+
+    const web = wrapper.findAll('.docker-service-card').find((card) => card.text().includes('web'))!;
+    await web.findAll('button').find((button) => button.text().includes('Buildar'))!.trigger('click');
+    await flushPromises();
+    await wrapper.find('.docker-confirmation .danger-button').trigger('click');
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(1_500);
+    await flushPromises();
+
+    expect(notices.publishTerminalNotice).toHaveBeenCalledWith({
+      origin: 'build',
+      dedupeKey: 'build:p1:compose-build:web:stopped',
+      outcome: 'succeeded',
+      projectId: 'p1',
+      projectName: 'sample-node',
+      label: 'web',
+      durationMs: 31_000,
+      routeTo: { name: 'project-docker', params: { projectId: 'p1' } },
+    });
+
+    wrapper.unmount();
+    vi.useRealTimers();
   });
 
   it('ignora logs que chegam depois da troca de projeto', async () => {

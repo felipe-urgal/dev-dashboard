@@ -1,30 +1,33 @@
 # Próxima atividade
 
-A task 069 concluiu os favoritos persistentes por projeto. A próxima frente
-candidata é aproveitar os eventos e avisos locais já existentes para oferecer
-notificações nativas opt-in ao término de execuções longas.
+A task 070 concluiu as notificações nativas opt-in. A próxima frente candidata
+é substituir os carregamentos textuais das páginas globais por skeletons
+acessíveis e reduzir mudanças bruscas de layout durante a carga inicial.
 
-## Notificações nativas opt-in
+## Loading skeletons acessíveis
 
-Avisar fora da aba quando testes, scripts ou builds demorados terminarem, sem
-enviar dados a serviços externos e sem pedir permissão antes de uma ação
-explícita do usuário.
+Aplicar um padrão compartilhado e discreto de carregamento à Visão geral,
+Atividade, Processos e Configurações, preservando a leitura por tecnologias
+assistivas e sem simular conteúdo inexistente.
 
 ### Escopo proposto
 
-- adicionar uma preferência local, desativada por padrão, em Configurações;
-- solicitar permissão da Notification API somente após clique explícito;
-- notificar conclusões de testes, scripts e builds quando a aba estiver oculta;
-- reutilizar a deduplicação da central de avisos para não emitir alertas em
-  duplicidade;
-- limitar título e corpo a metadados seguros já exibidos no dashboard;
-- manter fallback integral para a central de avisos quando a API não existir ou
-  a permissão for negada.
+- criar um componente compartilhado de skeleton baseado nos tokens visuais;
+- manter mensagens reais com `role="status"` disponíveis para leitores de tela;
+- respeitar `prefers-reduced-motion` e desativar a animação nesse modo;
+- reservar o espaço aproximado do conteúdo para reduzir layout shift;
+- cobrir listas, métricas e painéis sem reproduzir dados sensíveis ou valores
+  falsos;
+- adicionar testes montados para carregamento, sucesso, erro e movimento
+  reduzido nas páginas migradas.
 
 ### Decisões antes da implementação
 
-- definir se a preferência deve ser global ou separada por tipo de execução;
-- definir um limiar de duração para evitar notificações de tarefas rápidas;
-- decidir se clicar na notificação abre diretamente o projeto e a execução.
+- definir se a primeira fatia cobre as quatro páginas globais ou começa apenas
+  pela Visão geral;
+- escolher entre um skeleton genérico configurável e pequenas variantes por
+  composição;
+- definir um atraso mínimo de exibição para evitar flashes em respostas muito
+  rápidas.
 
 Nenhum código desta frente foi escrito ainda.

@@ -23,6 +23,7 @@ import {
   stopProjectTest,
 } from '../api';
 import { noticeCenterStore } from '../stores/notice-center';
+import { durationInMilliseconds } from '../stores/native-notifications';
 import { useAutoDismiss } from './useAutoDismiss';
 import {
   formatDurationBetween,
@@ -332,6 +333,7 @@ export function useProjectTestProcess(
       projectId: props.project.id,
       projectName: props.project.name,
       label: commandLabel,
+      durationMs: durationInMilliseconds(process.startedAt, process.stoppedAt),
       routeTo: { name: 'project-tests', params: { projectId: props.project.id } },
     });
   });
