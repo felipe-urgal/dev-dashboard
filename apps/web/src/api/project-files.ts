@@ -2,7 +2,13 @@ import type {
   ProjectDirectoryListing,
   ProjectFileContent,
   ProjectFileSearchResult,
+  ProjectFileWatchRequest,
+  ProjectFileWatchResult,
   ProjectFileWriteRequest,
+  ProjectWorkspaceEditApplyRequest,
+  ProjectWorkspaceEditPreview,
+  ProjectWorkspaceEditRequest,
+  ProjectWorkspaceEditResult,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -40,6 +46,48 @@ export function saveProjectFileContent(
     `${projectFilesPath(projectId)}/content`,
     {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function watchProjectFiles(
+  projectId: string,
+  input: ProjectFileWatchRequest,
+): Promise<ProjectFileWatchResult> {
+  return requestJson<ProjectFileWatchResult>(
+    `${projectFilesPath(projectId)}/watch`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function previewProjectWorkspaceEdit(
+  projectId: string,
+  input: ProjectWorkspaceEditRequest,
+): Promise<ProjectWorkspaceEditPreview> {
+  return requestJson<ProjectWorkspaceEditPreview>(
+    `${projectFilesPath(projectId)}/workspace-edits/preview`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function applyProjectWorkspaceEdit(
+  projectId: string,
+  input: ProjectWorkspaceEditApplyRequest,
+): Promise<ProjectWorkspaceEditResult> {
+  return requestJson<ProjectWorkspaceEditResult>(
+    `${projectFilesPath(projectId)}/workspace-edits/apply`,
+    {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     },
