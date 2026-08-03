@@ -39,16 +39,17 @@ function hexToRgb(value: string): [number, number, number] {
   ) as [number, number, number];
 }
 
-function relativeLuminance(value: string): number {
-  const channels = hexToRgb(value).map((channel) =>
-    channel <= 0.04045
-      ? channel / 12.92
-      : ((channel + 0.055) / 1.055) ** 2.4,
-  );
+function linearChannel(channel: number): number {
+  return channel <= 0.04045
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4;
+}
 
-  return 0.2126 * channels[0]
-    + 0.7152 * channels[1]
-    + 0.0722 * channels[2];
+function relativeLuminance(value: string): number {
+  const [red, green, blue] = hexToRgb(value);
+  return 0.2126 * linearChannel(red)
+    + 0.7152 * linearChannel(green)
+    + 0.0722 * linearChannel(blue);
 }
 
 function contrastRatio(first: string, second: string): number {
