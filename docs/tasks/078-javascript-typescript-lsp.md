@@ -57,8 +57,10 @@ GET /api/projects/:projectId/language-server/connect  # WebSocket
 ```
 
 O WebSocket é registrado antes das rotas e atravessa os mesmos hooks de sessão
-e origem da API local. Cada mensagem possui limite de 1 MiB e compressão por
-mensagem permanece desabilitada.
+e origem da API local. Cada mensagem possui limite de 1 MiB, compressão por
+mensagem permanece desabilitada e cada conexão pode encaminhar no máximo 600
+mensagens por minuto. Ao exceder a janela, a API encerra a conexão com código
+1008 antes de entregar a mensagem ao processo LSP.
 
 A API mantém no máximo uma conexão ativa por projeto e compartilha um processo
 por projeto. A sessão é encerrada após 60 segundos sem cliente; o processo
@@ -110,11 +112,13 @@ automaticamente e foi encaminhada para revisão.
 
 - `packages/contracts/src/language-server.ts`;
 - `apps/api/src/services/project-language-server-service.ts`;
+- `apps/api/src/security/rate-limited-websocket.ts`;
 - `apps/api/src/routes/project-language-server.ts`;
 - `apps/web/src/language-server/project-language-server-client.ts`;
 - `apps/web/src/components/ProjectEmbeddedEditor.vue`;
 - `apps/web/src/components/ProjectWorkspaceEditReview.vue`;
 - `apps/api/test/project-language-server-service.test.ts`;
+- `apps/api/test/rate-limited-websocket.test.ts`;
 - `apps/web/test/project-language-server-client.test.ts`.
 
 ## Testes automatizados
@@ -126,6 +130,7 @@ A cobertura adicionada valida:
 - remoção de localizações externas;
 - início sob demanda e encerramento por inatividade;
 - bloqueio de `workspace/executeCommand`;
+- limite de frequência e renovação da janela por conexão;
 - ausência do executável sem instalação automática;
 - inicialização JSON-RPC e sincronização do documento;
 - markers e resumo de diagnósticos;
@@ -154,6 +159,7 @@ A cobertura adicionada valida:
 - completion funciona sem bloquear digitação ou scroll;
 - fechar a última conexão e atingir o timeout encerra o processo;
 - servidor ausente produz orientação clara, sem instalação automática;
+- mensagens acima da janela são bloqueadas antes do processo LSP;
 - `WorkspaceEdit` inválido ou estrutural é recusado;
 - typecheck, build, testes automatizados e smoke E2E passam.
 
