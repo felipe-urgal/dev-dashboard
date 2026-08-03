@@ -217,9 +217,17 @@ export function registerServerProcessRoutes(
           settings =
             await serverSettingsRepository.save(
               project.id,
-              request.body.port !== null
-                ? { port: request.body.port }
-                : {},
+              {
+                ...(request.body.port !== null
+                  ? { port: request.body.port }
+                  : {}),
+                ...(settings.healthCheckPath
+                  ? {
+                      healthCheckPath:
+                        settings.healthCheckPath,
+                    }
+                  : {}),
+              },
             );
         }
 

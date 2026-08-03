@@ -1,35 +1,36 @@
 # Próxima atividade
 
-A task 065 concluiu a primeira integração segura com Docker Compose por
-serviços declarados. A task 066 concluiu o formulário seguro para Rake
-tasks com variáveis declaradas no próprio projeto. A task 067, fora de
-sequência, adicionou build assíncrono por serviço em cima da 065. O plano
-abaixo (Health checks locais declarativos) continua sendo a próxima frente
-aprovada.
+A task 068 concluiu os health checks locais declarativos. A próxima frente
+candidata é transformar o campo `favorite`, hoje sempre vindo como `false` da
+descoberta, em uma preferência local persistente e acionável na visão geral.
 
-## Health checks locais declarativos
+## Favoritos persistentes por projeto
 
-Próxima frente candidata para tornar o status do projeto mais útil sem aceitar
-comandos livres nem acessar hosts externos.
+Permitir destacar os projetos usados com mais frequência sem alterar arquivos
+dos repositórios nem sincronizar essa preferência externamente.
 
 ### Escopo proposto
 
-- detectar automaticamente o health check HTTP do servidor gerenciado;
-- permitir somente `GET` para `127.0.0.1`/`localhost` e para a porta já
-  resolvida nas configurações do projeto;
-- oferecer uma allowlist pequena de caminhos comuns (`/`, `/up`, `/health`,
-  `/healthz`) ou um caminho relativo validado e persistido por projeto;
-- impor timeout curto, limite de resposta e nenhum redirecionamento externo;
-- exibir latência, status HTTP e horário da última verificação no painel do
-  servidor;
-- nunca enviar headers, cookies, corpo, credenciais ou URL absoluta vindos do
-  navegador.
+- persistir favoritos em arquivo privado da configuração local, associados ao
+  identificador estável do projeto;
+- aplicar a preferência depois de cada scan, sem misturá-la ao resultado bruto
+  da descoberta;
+- oferecer uma rota autenticada e fechada para marcar ou desmarcar um projeto;
+- adicionar uma ação compacta e acessível no `ProjectCard`;
+- manter favoritos no topo da lista, preservando a ordenação alfabética dentro
+  de cada grupo;
+- atualizar a tela imediatamente e reconciliar com a resposta da API em caso de
+  falha;
+- remover ou ignorar com segurança referências a projetos que deixaram de ser
+  descobertos, sem tocar no filesystem desses projetos.
 
 ### Decisões antes da implementação
 
-- decidir se o caminho será somente detectado ou também configurável;
-- definir quais códigos HTTP representam saudável, degradado e indisponível;
-- decidir se a primeira versão será apenas sob demanda ou terá polling enquanto
-  a aba Servidor estiver aberta.
+- decidir se favoritos ausentes devem ser apenas ignorados ou removidos durante
+  o scan;
+- decidir se a ação ficará sempre visível no card ou aparecerá apenas no hover,
+  mantendo acesso por teclado;
+- definir se a primeira versão precisa de um filtro "Somente favoritos" ou se a
+  ordenação no topo já é suficiente.
 
 Nenhum código desta frente foi escrito ainda.
