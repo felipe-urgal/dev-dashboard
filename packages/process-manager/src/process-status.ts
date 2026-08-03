@@ -17,7 +17,6 @@ export interface ProcessStatusReader {
   getManagedProcess(
     projectId: string,
     kind: ManagedKind,
-    instance?: string,
   ): Promise<ManagedProcess | null>;
   listProcesses(): Promise<ManagedProcess[]>;
 }
@@ -29,9 +28,8 @@ export function createProcessStatusReader(
   async function getManagedProcess(
     projectId: string,
     kind: ManagedKind,
-    instance?: string,
   ): Promise<ManagedProcess | null> {
-    const storedProcess = await readStoredProcess(context, projectId, kind, instance);
+    const storedProcess = await readStoredProcess(context, projectId, kind);
 
     if (!storedProcess) {
       return null;
@@ -54,8 +52,6 @@ export function createProcessStatusReader(
                 projectId,
                 kind,
                 storedProcess.pid,
-                undefined,
-                instance,
               )
             : undefined;
         const exitCode = observedExit?.exitCode;
@@ -63,7 +59,7 @@ export function createProcessStatusReader(
         const finalStatus: 'stopped' | 'failed' =
           storedProcess.status === 'stopping'
             ? 'stopped'
-            : (kind === 'test' || kind === 'compose-build') && exitCode === 0
+            : kind === 'test' && exitCode === 0
               ? 'stopped'
               : 'failed';
 
@@ -76,7 +72,7 @@ export function createProcessStatusReader(
         await writeStoredProcess(context, finishedProcess);
 
         if (storedProcess.pid !== undefined) {
-          exitTracker.clearObservedExit(projectId, kind, storedProcess.pid, instance);
+          exitTracker.clearObservedExit(projectId, kind, storedProcess.pid);
         }
 
         return finishedProcess;
@@ -126,7 +122,6 @@ export function createProcessStatusReader(
       const managedProcess = await getManagedProcess(
         entry.projectId,
         entry.kind as ManagedKind,
-        entry.composeServiceName,
       );
 
       if (managedProcess) {

@@ -21,7 +21,6 @@ const managedProcessKinds = new Set<ManagedProcessKind>([
   'worker',
   'test',
   'script',
-  'compose-build',
 ]);
 
 const managedProcessStatuses = new Set<ManagedProcessStatus>([
@@ -123,10 +122,7 @@ export function isStoredProcess(
     candidate.logPath.length > 0 &&
     isOptionalTimestamp(candidate.startedAt) &&
     isOptionalTimestamp(candidate.stoppedAt) &&
-    isOptionalExitCode(candidate.exitCode) &&
-    (candidate.kind !== 'compose-build' ||
-      (typeof candidate.composeServiceName === 'string' &&
-        candidate.composeServiceName.length > 0))
+    isOptionalExitCode(candidate.exitCode)
   );
 }
 

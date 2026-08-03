@@ -39,26 +39,3 @@ test('rejects invalid status, pid, port and timestamps', () => {
     false,
   );
 });
-
-test('requires a non-empty composeServiceName for the compose-build kind', () => {
-  const composeBuildProcess = {
-    ...validProcess,
-    id: 'project:compose-build:web',
-    kind: 'compose-build',
-    composeServiceName: 'web',
-  };
-
-  assert.equal(isStoredProcess(composeBuildProcess), true);
-  assert.equal(
-    isStoredProcess({ ...composeBuildProcess, composeServiceName: undefined }),
-    false,
-  );
-  assert.equal(
-    isStoredProcess({ ...composeBuildProcess, composeServiceName: '' }),
-    false,
-  );
-  assert.equal(
-    isStoredProcess({ ...composeBuildProcess, composeServiceName: 42 }),
-    false,
-  );
-});

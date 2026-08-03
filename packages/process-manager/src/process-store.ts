@@ -9,7 +9,7 @@ import type { ManagedProcessStatus } from '@dev-dashboard/contracts';
 import { isErrnoException } from './errors.js';
 import { isStoredProcess, type StoredProcess } from './process-state.js';
 
-export type ManagedKind = 'server' | 'test' | 'compose-build';
+export type ManagedKind = 'server' | 'test';
 
 export interface ProcessStoreContext {
   readonly processDirectory: string;
@@ -29,42 +29,14 @@ export function createProjectKey(projectId: string): string {
   return `${readable}-${hash}`;
 }
 
-// Um `kind` pode ter várias instâncias simultâneas por projeto (ex.
-// `compose-build` por serviço Compose) — o slug da instância vira um
-// segmento extra no nome do arquivo, mantendo `server`/`test` (sem
-// instância) compatíveis com os arquivos já existentes em disco.
-//
-// Mesmo padrão de `createProjectKey`: a parte legível é só para leitura
-// humana do nome do arquivo, nunca a chave de identidade — nomes que
-// colidem depois de normalizados (`api.v1` e `api_v1`, por exemplo, ambos
-// viram `api_v1`) continuam distintos graças ao hash do valor original.
-export function slugifyProcessInstance(value: string): string {
-  const readable = value
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '_')
-    .slice(0, 40);
-
-  const hash = createHash('sha256')
-    .update(value)
-    .digest('hex')
-    .slice(0, 8);
-
-  return `${readable}-${hash}`;
-}
-
-function instanceSuffix(instance?: string): string {
-  return instance ? `.${slugifyProcessInstance(instance)}` : '';
-}
-
 export function resolveLogFile(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
-  instance?: string,
 ): string {
   return path.join(
     context.logDirectory,
-    `${createProjectKey(projectId)}.${kind}${instanceSuffix(instance)}.log`,
+    `${createProjectKey(projectId)}.${kind}.log`,
   );
 }
 
@@ -72,11 +44,10 @@ export function resolveProcessFile(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
-  instance?: string,
 ): string {
   return path.join(
     context.processDirectory,
-    `${createProjectKey(projectId)}.${kind}${instanceSuffix(instance)}.json`,
+    `${createProjectKey(projectId)}.${kind}.json`,
   );
 }
 
@@ -84,11 +55,10 @@ export async function readStoredProcess(
   context: ProcessStoreContext,
   projectId: string,
   kind: ManagedKind,
-  instance?: string,
 ): Promise<StoredProcess | null> {
   try {
     const contents = await readFile(
-      resolveProcessFile(context, projectId, kind, instance),
+      resolveProcessFile(context, projectId, kind),
       'utf8',
     );
 
@@ -123,7 +93,6 @@ export async function writeStoredProcess(
     context,
     managedProcess.projectId,
     managedProcess.kind as ManagedKind,
-    managedProcess.composeServiceName,
   );
 
   const temporaryFile =
@@ -159,7 +128,7 @@ export async function listStoredProcessEntries(
   for (const entry of entries) {
     if (
       !entry.isFile() ||
-      !/\.(server|test|compose-build)(?:\.[a-z0-9_-]+)?\.json$/.test(entry.name)
+      !/\.(server|test)\.json$/.test(entry.name)
     ) {
       continue;
     }
