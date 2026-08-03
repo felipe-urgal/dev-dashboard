@@ -56,7 +56,7 @@ test('cria arquivo relativo ao item selecionado', async () => {
 
   await wrapper.get('button[aria-label="Criar arquivo"]').trigger('click');
   const input = wrapper.get('input');
-  assert.equal(input.element.value, 'src/');
+  assert.equal((input.element as HTMLInputElement).value, 'src/');
   await input.setValue('src/new.ts');
   await wrapper.get('form').trigger('submit');
   await flushPromises();
@@ -112,7 +112,10 @@ test('revisa impacto e exige frase para excluir diretório com conteúdo', async
       confirmationPhrase: 'src/nested',
     },
   ]);
-  assert.equal(wrapper.emitted('completed')?.[0]?.[0].operation, 'delete');
+  const completed = wrapper.emitted('completed')?.[0]?.[0] as
+    | { operation: string }
+    | undefined;
+  assert.equal(completed?.operation, 'delete');
 });
 
 test('bloqueia renomear e excluir quando há edição não salva', () => {
