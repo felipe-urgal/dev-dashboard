@@ -46,11 +46,7 @@ export function registerRailsMutationRoutes(
       const project = requireProject(options.projectStore, request.params.projectId);
       try {
         return reply.code(201).send({
-          confirmation: await options.railsInspectionService.prepareMutationConfirmation(
-            project,
-            request.body.operation,
-            request.body.runtime,
-          ),
+          confirmation: await options.railsInspectionService.prepareMutationConfirmation(project, request.body.operation),
         });
       } catch (error) {
         translateMutationError(error);
@@ -110,7 +106,6 @@ export function registerRailsMutationRoutes(
             request.body.name,
             request.body.fields,
             request.body.database,
-            request.body.runtime,
           ),
         });
       } catch (error) {

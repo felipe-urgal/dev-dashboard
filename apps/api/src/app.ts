@@ -30,7 +30,6 @@ import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectEditorRoutes } from './routes/project-editor.js';
-import { dockerComposeRoutes } from './routes/docker-compose.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -190,12 +189,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectEditorService: context.projectEditorService,
   });
 
-  app.register(dockerComposeRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    dockerComposeService: context.dockerComposeService,
-  });
-
   app.register(processRoutes, {
     prefix: '/api',
     processManager: context.processManager,
@@ -204,7 +197,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     serverHealthCheckService:
       context.serverHealthCheckService,
     projectStore: context.projectStore,
-    dockerComposeService: context.dockerComposeService,
   });
 
   app.register(testRoutes, {

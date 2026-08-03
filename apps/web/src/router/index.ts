@@ -102,12 +102,6 @@ export const router = createRouter({
       meta: { eyebrow: 'Projeto local', title: 'Dependências e build do projeto' },
     },
     {
-      path: '/projects/:projectId/docker',
-      name: 'project-docker',
-      component: ProjectDetailsView,
-      meta: { eyebrow: 'Projeto local', title: 'Docker Compose do projeto' },
-    },
-    {
       path: '/projects/:projectId/scripts',
       name: 'project-scripts',
       component: ProjectDetailsView,

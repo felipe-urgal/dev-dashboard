@@ -10,7 +10,6 @@ import {
 
 import type {
   Project,
-  RailsExecutionRuntime,
   RailsGeneratorField,
   RailsGeneratorFieldType,
   RailsGeneratorKind,
@@ -25,7 +24,6 @@ const props = defineProps<{
   title: string;
   hint: string;
   databases: string[];
-  runtime: RailsExecutionRuntime;
 }>();
 
 const FIELD_TYPES: RailsGeneratorFieldType[] = [
@@ -48,7 +46,7 @@ const {
   cancel,
   confirm,
   reset,
-} = useRailsGenerator(() => props.project, () => props.runtime);
+} = useRailsGenerator(() => props.project);
 
 useAutoDismiss(errorMessage, '');
 
@@ -76,7 +74,7 @@ async function confirmAndReset(): Promise<void> {
   }
 }
 
-watch([() => props.project.id, () => props.runtime], () => {
+watch(() => props.project.id, () => {
   reset();
   name.value = '';
   fields.value = [{ name: '', type: 'string' }];
@@ -123,7 +121,6 @@ watch([() => props.project.id, () => props.runtime], () => {
     </div>
 
     <div v-else class="database-generator-confirm">
-      <small>Runtime: {{ pendingConfirmation.runtime === 'docker' ? 'Docker' : 'local' }}</small>
       <p class="database-generator-command"><code>{{ pendingConfirmation.command }}</code></p>
       <div class="database-generator-confirm-actions">
         <button type="button" :disabled="running" @click="confirmAndReset">{{ running ? 'Gerando…' : 'Confirmar' }}</button>

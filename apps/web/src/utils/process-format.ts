@@ -9,7 +9,6 @@ export function kindLabel(kind: ManagedProcessKind): string {
     case 'webpack': return 'Webpack';
     case 'worker': return 'Worker';
     case 'script': return 'Script';
-    case 'compose-build': return 'Build Docker Compose';
   }
 }
 
@@ -26,7 +25,6 @@ export function processStatusLabel(status: ManagedProcessStatus): string {
 export function processDetailPath(process: ManagedProcess): string {
   const base = `/projects/${encodeURIComponent(process.projectId)}`;
   if (process.kind === 'test') return `${base}/tests`;
-  if (process.kind === 'compose-build') return `${base}/docker`;
   return base;
 }
 

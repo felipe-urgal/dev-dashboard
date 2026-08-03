@@ -10,7 +10,6 @@ import {
 } from '../http/response-schemas.js';
 import { DatabaseServiceActionError, type DatabaseDetectionService, type DatabaseServiceAction } from '../services/database-detection-service.js';
 import { DatabaseSnapshotError, type DatabaseSnapshotService } from '../services/database-snapshot-service.js';
-import { DockerComposeError } from '../services/docker-compose-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
@@ -100,11 +99,7 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
         throw new ApiError({
           statusCode: 500,
           code: 'DATABASE_SERVICE_ACTION_FAILED',
-          message: error instanceof DockerComposeError
-            ? error.message
-            : error instanceof DatabaseServiceActionError
-              ? messages[error.reason]
-              : messages['command-failed'],
+          message: error instanceof DatabaseServiceActionError ? messages[error.reason] : messages['command-failed'],
         });
       }
     });
@@ -114,7 +109,6 @@ export const databaseRoutes: FastifyPluginAsync<Options> = async (app, options) 
     type: 'object', additionalProperties: false, required: ['projectId', 'snapshotId'],
     properties: {
       projectId: { type: 'string', minLength: 1 },
-      // Só o formato de UUID gerado pela própria API é aceito.
       snapshotId: {
         type: 'string',
         pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',

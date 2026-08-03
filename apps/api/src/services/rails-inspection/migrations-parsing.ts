@@ -15,7 +15,6 @@ const DATABASE_LINE = new RegExp(
   String.raw`^${COMPOSE_PREFIX}\s*database:\s*(.+?)\s*$`,
   'i',
 );
-const MIGRATION_FILE = /^(\d{8,20})_(.+)\.rb$/;
 const ANSI_ESCAPE = /\u001B\[[0-?]*[ -/]*[@-~]/g;
 
 export interface MigrationStatusBlock {
@@ -55,40 +54,6 @@ export function parseMigrationStatusBlocks(output: string): MigrationStatusBlock
   }
 
   return blocks;
-}
-
-/**
- * O filesystem é a fonte de verdade para saber quais migrations existem no
- * checkout atual. Sem isso, uma imagem Docker antiga pode esconder arquivos
- * recentes que ainda não foram copiados ou montados no container.
- */
-export function parseMigrationFiles(fileNames: string[]): RailsMigrationEntry[] {
-  return fileNames.flatMap((fileName) => {
-    const match = fileName.match(MIGRATION_FILE);
-    if (!match) return [];
-    const rawName = match[2] ?? '';
-    const normalizedName = rawName.replace(/_+/g, ' ').trim();
-    return [{
-      version: match[1] ?? '',
-      name: normalizedName ? normalizedName[0]!.toUpperCase() + normalizedName.slice(1) : rawName,
-      status: 'down' as const,
-    }];
-  });
-}
-
-/**
- * O status consultado no banco prevalece; arquivos ainda ausentes na saída do
- * runtime continuam visíveis como pendentes. Entradas aplicadas cujo arquivo foi
- * removido também são preservadas para diagnóstico.
- */
-export function mergeMigrationEntries(
-  files: RailsMigrationEntry[],
-  status: RailsMigrationEntry[],
-): RailsMigrationEntry[] {
-  const merged = new Map<string, RailsMigrationEntry>();
-  for (const entry of files) merged.set(entry.version, entry);
-  for (const entry of status) merged.set(entry.version, entry);
-  return [...merged.values()].sort((left, right) => right.version.localeCompare(left.version));
 }
 
 /**

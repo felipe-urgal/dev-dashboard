@@ -5,7 +5,6 @@ export type ProjectDatabaseSource =
   | 'knex';
 
 export type DatabaseReachability = 'reachable' | 'unreachable' | 'unknown';
-export type DatabaseRuntime = 'local' | 'docker' | 'stopped' | 'unknown';
 
 export interface ProjectDatabaseEnvironment {
   id: string;
@@ -22,10 +21,6 @@ export interface ProjectDatabaseEnvironment {
   reachability: DatabaseReachability;
   /** Existe uma unidade systemd local reconhecida para iniciar, pausar ou reiniciar este banco. */
   serviceAvailable: boolean;
-  /** Runtime que atualmente responde pela porta local configurada. */
-  runtime: DatabaseRuntime;
-  /** Serviços Compose ativos que correspondem ao driver e à porta deste ambiente. */
-  dockerServices: string[];
 }
 
 export interface ProjectDatabaseOverview {

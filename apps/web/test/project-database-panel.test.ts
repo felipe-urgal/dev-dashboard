@@ -323,8 +323,6 @@ function environment(overrides: Partial<ProjectDatabaseEnvironment>): ProjectDat
     sourceDetail: '.env',
     reachability: 'reachable',
     serviceAvailable: true,
-    runtime: 'local',
-    dockerServices: [],
     ...overrides,
   };
 }
@@ -347,14 +345,14 @@ test('pausa e reinicia um banco local acessível', async () => {
   await tab(wrapper, 'Ambientes').trigger('click');
   await flushPromises();
 
-  const pauseButton = wrapper.findAll('button').find((button) => button.text() === 'Parar banco');
-  assert.ok(pauseButton, 'esperava o botão Parar banco');
+  const pauseButton = wrapper.findAll('button').find((button) => button.text() === 'Pausar banco');
+  assert.ok(pauseButton, 'esperava o botão Pausar banco');
   await pauseButton!.trigger('click');
   await flushPromises();
   await flushPromises();
 
-  const restartButton = wrapper.findAll('button').find((button) => button.text() === 'Reiniciar banco local');
-  assert.ok(restartButton, 'esperava o botão Reiniciar banco local');
+  const restartButton = wrapper.findAll('button').find((button) => button.text() === 'Reiniciar banco');
+  assert.ok(restartButton, 'esperava o botão Reiniciar banco');
   await restartButton!.trigger('click');
   await flushPromises();
   await flushPromises();
@@ -372,7 +370,7 @@ test('inicia um banco local indisponível', async () => {
     total: 1,
     page: 1,
     pageSize: 20,
-    environments: [environment({ reachability: 'unreachable', runtime: 'stopped' })],
+    environments: [environment({ reachability: 'unreachable' })],
   };
   const calls: string[] = [];
   const originalFetch = mockFetchFor('node', { database, onServiceAction: (pathname) => calls.push(pathname) });
@@ -391,31 +389,7 @@ test('inicia um banco local indisponível', async () => {
   await flushPromises();
 
   assert.deepEqual(calls, ['/api/projects/p1/database/dotenv--env/start']);
-  assert.ok(!wrapper.findAll('button').some((button) => button.text() === 'Parar banco'));
-});
-
-test('diferencia runtime Docker e permite migrar para local ou parar todos', async () => {
-  const database: ProjectDatabaseOverview = {
-    supported: true,
-    total: 1,
-    page: 1,
-    pageSize: 20,
-    environments: [environment({ runtime: 'docker', dockerServices: ['mysql'], driver: 'mysql2', port: 3306 })],
-  };
-  const originalFetch = mockFetchFor('node', { database });
-  const wrapper = mount(ProjectDatabasePanel, { props: { project: makeProject({ type: 'node' }) } });
-  cleanup = () => { wrapper.unmount(); globalThis.fetch = originalFetch; };
-  await flushPromises();
-  await flushPromises();
-
-  await tab(wrapper, 'Ambientes').trigger('click');
-  await flushPromises();
-
-  assert.match(wrapper.text(), /Docker Compose/);
-  assert.match(wrapper.text(), /mysql no Docker/);
-  assert.ok(wrapper.findAll('button').some((button) => button.text() === 'Usar banco local'));
-  assert.ok(wrapper.findAll('button').some((button) => button.text() === 'Parar banco'));
-  assert.ok(!wrapper.findAll('button').some((button) => button.text() === 'Reiniciar banco local'));
+  assert.ok(!wrapper.findAll('button').some((button) => button.text() === 'Pausar banco'));
 });
 
 test('avisa quando dois ambientes compartilham o mesmo serviço local', async () => {

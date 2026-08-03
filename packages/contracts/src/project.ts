@@ -11,8 +11,7 @@ export type ProjectCapability =
   | "webpack"
   | "sidekiq"
   | "rake"
-  | "bundler"
-  | "docker";
+  | "bundler";
 
 export interface Project {
   id: string;

@@ -2,7 +2,6 @@ import { ref, watch, type ComputedRef, type Ref } from 'vue';
 
 import type {
   Project,
-  RailsExecutionRuntime,
   RailsMigrationDetail,
   RailsMigrationEntry,
   RailsMigrationMutationOperation,
@@ -33,7 +32,6 @@ const mutationConfirmationText: Record<RailsMigrationMutationOperation, string> 
 export function useRailsMigrations(
   getProject: () => Project,
   isRailsProject: Ref<boolean> | ComputedRef<boolean>,
-  getRuntime: () => RailsExecutionRuntime = () => 'auto',
 ) {
   const migrations = ref<RailsMigrationsOverview | null>(null);
   const migrationsLoading = ref(false);
@@ -58,17 +56,11 @@ export function useRailsMigrations(
     }
     const current = generation;
     const database = selectedDatabase.value;
-    const runtime = getRuntime();
     migrationDetailLoading.value = true;
     migrationDetailErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrationDetail(getProject().id, version, database, runtime);
-      if (
-        current === generation
-        && selectedMigrationVersion.value === version
-        && selectedDatabase.value === database
-        && getRuntime() === runtime
-      ) migrationDetail.value = result;
+      const result = await fetchProjectRailsMigrationDetail(getProject().id, version, database);
+      if (current === generation && selectedMigrationVersion.value === version && selectedDatabase.value === database) migrationDetail.value = result;
     } catch (error) {
       if (current === generation) migrationDetailErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar os detalhes da migration.';
     } finally {
@@ -79,12 +71,11 @@ export function useRailsMigrations(
   async function loadMigrations(): Promise<void> {
     if (!isRailsProject.value) return;
     const current = generation;
-    const runtime = getRuntime();
     migrationsLoading.value = true;
     migrationsErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrations(getProject().id, selectedDatabase.value, runtime);
-      if (current !== generation || getRuntime() !== runtime) return;
+      const result = await fetchProjectRailsMigrations(getProject().id, selectedDatabase.value);
+      if (current !== generation) return;
       migrations.value = result;
       const preferred = result.migrations.find((item) => item.version === selectedMigrationVersion.value)
         ?? result.migrations.find((item) => item.status === 'down')
@@ -114,19 +105,15 @@ export function useRailsMigrations(
 
   async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
     if (mutationRunning.value) return;
+    const confirmed = typeof window === 'undefined' || window.confirm(mutationConfirmationText[operation]);
+    if (!confirmed) return;
 
     mutationRunning.value = operation;
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
     mutationOutput.value = '';
     try {
-      const confirmation = await prepareProjectRailsMutation(getProject().id, operation, getRuntime());
-      const runtimeLabel = confirmation.runtime === 'docker' ? 'Docker' : 'local';
-      const confirmed = typeof window === 'undefined' || window.confirm(
-        `${mutationConfirmationText[operation]}\n\nRuntime: ${runtimeLabel}\nComando: ${confirmation.command}`,
-      );
-      if (!confirmed) return;
-
+      const confirmation = await prepareProjectRailsMutation(getProject().id, operation);
       const result = await runProjectRailsMutation(getProject().id, operation, confirmation.token);
       mutationOutput.value = result.output;
       if (result.succeeded) mutationMessage.value = `${mutationLabels[operation]} concluído.`;
@@ -155,12 +142,6 @@ export function useRailsMigrations(
     },
     { immediate: true },
   );
-
-  watch(getRuntime, () => {
-    generation += 1;
-    migrationDetail.value = null;
-    void loadMigrations();
-  });
 
   return {
     migrations,

@@ -89,6 +89,23 @@ const currentAction = computed(() =>
   actions.value.find((item) => item.id === currentExecution.value?.actionId) ?? null,
 );
 
+const nodeManager = computed(() => {
+  const command = nodeActions.value[0]?.command.trim().split(/\s+/)[0]?.toLowerCase();
+  if (command === 'yarn') return 'Yarn';
+  if (command === 'pnpm') return 'pnpm';
+  if (command === 'bun') return 'Bun';
+  if (command === 'npm') return 'npm';
+  return 'Node';
+});
+
+function managerName(item: ProjectScript): string {
+  return item.origin === 'bundler' ? 'Bundler' : nodeManager.value;
+}
+
+function managerClass(item: ProjectScript): string {
+  return item.origin === 'bundler' ? 'is-ruby' : 'is-node';
+}
+
 function executionTone(
   status: ScriptExecutionStatus,
 ): 'info' | 'success' | 'danger' | 'warning' {
@@ -171,147 +188,153 @@ watch(
       Detectando gerenciadores e ações disponíveis…
     </div>
 
-    <div v-else class="dependencies-layout">
-      <div class="dependencies-actions">
-        <section v-if="railsActions.length" class="dependencies-group">
-          <header>
-            <span class="dependencies-group-icon"><CubeIcon aria-hidden="true" /></span>
-            <div>
-              <h4>Ruby / Bundler</h4>
-              <p>Verifique, instale ou atualize as gems do projeto.</p>
-            </div>
-          </header>
+    <template v-else>
+      <div v-if="actions.length" class="dependencies-manager-bar" aria-label="Gerenciadores detectados">
+        <article v-if="railsActions.length" class="dependencies-manager-card">
+          <span class="dependencies-manager-icon"><CubeIcon aria-hidden="true" /></span>
+          <div>
+            <strong>Ruby / Bundler</strong>
+            <small>Gemfile e Gemfile.lock detectados</small>
+          </div>
+          <StatusBadge tone="success">Pronto</StatusBadge>
+        </article>
 
-          <article
-            v-for="item in railsActions"
-            :key="item.id"
-            class="dependencies-action-card"
-          >
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.description }}</p>
-              <code>{{ item.command }}</code>
-              <small v-if="item.id === 'bundler:update'" class="dependencies-warning">
-                <ExclamationTriangleIcon aria-hidden="true" />
-                Pode alterar o Gemfile.lock.
-              </small>
-            </div>
-            <button
-              type="button"
-              :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'"
-              @click="execute(item)"
-            >
-              <PlayIcon aria-hidden="true" />
-              {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
-            </button>
-          </article>
-        </section>
+        <article v-if="nodeActions.length" class="dependencies-manager-card">
+          <span class="dependencies-manager-icon"><CommandLineIcon aria-hidden="true" /></span>
+          <div>
+            <strong>Node / {{ nodeManager }}</strong>
+            <small>Lockfile e script build detectados</small>
+          </div>
+          <StatusBadge tone="success">Pronto</StatusBadge>
+        </article>
 
-        <section v-if="nodeActions.length" class="dependencies-group">
-          <header>
-            <span class="dependencies-group-icon"><CommandLineIcon aria-hidden="true" /></span>
-            <div>
-              <h4>Node / Frontend</h4>
-              <p>Use o lockfile detectado para instalar dependências e gerar o build.</p>
-            </div>
-          </header>
-
-          <article
-            v-for="item in nodeActions"
-            :key="item.id"
-            class="dependencies-action-card"
-          >
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.description }}</p>
-              <code>{{ item.command }}</code>
-            </div>
-            <button
-              type="button"
-              :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'"
-              @click="execute(item)"
-            >
-              <PlayIcon aria-hidden="true" />
-              {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
-            </button>
-          </article>
-        </section>
-
-        <div v-if="actions.length === 0" class="dependencies-empty">
-          <strong>Nenhuma ação disponível</strong>
-          <span>O projeto precisa ter Gemfile, um lockfile Node ou o script build no package.json.</span>
-        </div>
+        <button type="button" class="dependencies-detect-button" :disabled="loading" @click="load">
+          <ArrowPathIcon aria-hidden="true" />
+          Detectar novamente
+        </button>
       </div>
 
-      <aside class="dependencies-execution" aria-label="Detalhes da execução">
+      <div v-if="actions.length" class="dependencies-table-wrap">
+        <table class="dependencies-table">
+          <colgroup>
+            <col class="dependencies-manager-column">
+            <col class="dependencies-action-column">
+            <col class="dependencies-command-column">
+            <col class="dependencies-button-column">
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">Gerenciador</th>
+              <th scope="col">Ação</th>
+              <th scope="col">Comando</th>
+              <th scope="col"><span class="sr-only">Executar</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in actions" :key="item.id">
+              <td data-label="Gerenciador">
+                <span class="dependencies-manager-name" :class="managerClass(item)">
+                  <i aria-hidden="true"></i>
+                  {{ managerName(item) }}
+                </span>
+              </td>
+              <td data-label="Ação">
+                <strong>{{ item.name }}</strong>
+                <small>{{ item.description }}</small>
+                <span v-if="item.id === 'bundler:update'" class="dependencies-warning">
+                  <ExclamationTriangleIcon aria-hidden="true" />
+                  Pode alterar o Gemfile.lock.
+                </span>
+              </td>
+              <td data-label="Comando"><code>{{ item.command }}</code></td>
+              <td class="dependencies-row-action">
+                <button
+                  type="button"
+                  :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'"
+                  @click="execute(item)"
+                >
+                  <PlayIcon aria-hidden="true" />
+                  {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-else class="dependencies-empty">
+        <strong>Nenhuma ação disponível</strong>
+        <span>O projeto precisa ter Gemfile, um lockfile Node ou o script build no package.json.</span>
+      </div>
+
+      <section class="dependencies-console" aria-label="Detalhes da execução">
         <template v-if="currentExecution">
-          <header class="dependencies-execution-header">
-            <div class="dependencies-execution-title">
+          <header class="dependencies-console-header">
+            <div class="dependencies-console-title">
               <span :class="`is-${currentExecution.status}`">
                 <component :is="executionIcon(currentExecution.status)" aria-hidden="true" />
               </span>
-              <div>
-                <small>Última execução</small>
-                <h4>{{ currentExecution.actionName }}</h4>
-              </div>
+              <strong>{{ currentExecution.actionName }}</strong>
+              <small>{{ formatScriptExecutionDate(currentExecution.startedAt) }}</small>
+              <small>{{ scriptExecutionDuration(currentExecution) }}</small>
+              <small>exit {{ currentExecution.exitCode ?? '—' }}</small>
             </div>
-            <StatusBadge :tone="executionTone(currentExecution.status)">
-              {{ scriptExecutionStatusLabels[currentExecution.status] }}
-            </StatusBadge>
+            <div class="dependencies-console-actions">
+              <StatusBadge :tone="executionTone(currentExecution.status)">
+                {{ scriptExecutionStatusLabels[currentExecution.status] }}
+              </StatusBadge>
+              <button
+                v-if="currentExecution.status === 'running'"
+                type="button"
+                class="is-danger"
+                @click="cancel"
+              >
+                <StopCircleIcon aria-hidden="true" />
+                Cancelar
+              </button>
+              <button v-else-if="currentAction" type="button" @click="rerun">
+                <PlayIcon aria-hidden="true" />
+                Executar novamente
+              </button>
+            </div>
           </header>
 
-          <dl>
-            <div><dt>Início</dt><dd>{{ formatScriptExecutionDate(currentExecution.startedAt) }}</dd></div>
-            <div><dt>Duração</dt><dd>{{ scriptExecutionDuration(currentExecution) }}</dd></div>
-            <div><dt>Exit code</dt><dd>{{ currentExecution.exitCode ?? '—' }}</dd></div>
-          </dl>
+          <div class="dependencies-console-body">
+            <pre><code>$ {{ currentAction?.command ?? currentExecution.actionName }}
+{{ executionLog || 'A execução ainda não produziu saída.' }}</code></pre>
 
-          <div class="dependencies-execution-actions">
-            <button
-              v-if="currentExecution.status === 'running'"
-              type="button"
-              class="is-danger"
-              @click="cancel"
-            >
-              <StopCircleIcon aria-hidden="true" />
-              Cancelar
-            </button>
-            <button v-else-if="currentAction" type="button" @click="rerun">
-              <PlayIcon aria-hidden="true" />
-              Executar novamente
-            </button>
+            <aside class="dependencies-history" aria-label="Execuções recentes">
+              <header>
+                <strong>Execuções recentes</strong>
+                <small v-if="maskedLogEntries">{{ maskedLogEntries }} item(ns) mascarado(s)</small>
+              </header>
+              <button
+                v-for="item in relevantHistory.slice(0, 5)"
+                :key="item.id"
+                type="button"
+                @click="selectHistory(item)"
+              >
+                <component :is="executionIcon(item.status)" aria-hidden="true" />
+                <span>
+                  <strong>{{ item.actionName }}</strong>
+                  <small>{{ formatScriptExecutionDate(item.startedAt) }} · {{ scriptExecutionDuration(item) }}</small>
+                </span>
+                <StatusBadge :tone="executionTone(item.status)">{{ scriptExecutionStatusLabels[item.status] }}</StatusBadge>
+              </button>
+              <span v-if="relevantHistory.length === 0" class="dependencies-history-empty">
+                Nenhuma execução recente.
+              </span>
+            </aside>
           </div>
-
-          <section class="dependencies-log" aria-label="Saída da execução">
-            <header>
-              <span><CommandLineIcon aria-hidden="true" /> Saída</span>
-              <small v-if="maskedLogEntries">{{ maskedLogEntries }} item(ns) mascarado(s)</small>
-            </header>
-            <pre>{{ executionLog || 'A execução ainda não produziu saída.' }}</pre>
-          </section>
         </template>
 
-        <div v-else class="dependencies-empty dependencies-execution-empty">
+        <div v-else class="dependencies-empty dependencies-console-empty">
           <ClockIcon aria-hidden="true" />
           <strong>Nenhuma execução selecionada</strong>
           <span>Execute uma ação para acompanhar status, duração e saída.</span>
         </div>
-
-        <section v-if="relevantHistory.length" class="dependencies-history">
-          <h5>Histórico recente</h5>
-          <button
-            v-for="item in relevantHistory.slice(0, 5)"
-            :key="item.id"
-            type="button"
-            @click="selectHistory(item)"
-          >
-            <component :is="executionIcon(item.status)" aria-hidden="true" />
-            <span><strong>{{ item.actionName }}</strong><small>{{ formatScriptExecutionDate(item.startedAt) }}</small></span>
-            <StatusBadge :tone="executionTone(item.status)">{{ scriptExecutionStatusLabels[item.status] }}</StatusBadge>
-          </button>
-        </section>
-      </aside>
-    </div>
+      </section>
+    </template>
   </section>
 </template>
 

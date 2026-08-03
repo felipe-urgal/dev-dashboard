@@ -114,16 +114,15 @@ async function isEligibleForRemoval(
 }
 
 const MANAGED_STATE_SUFFIX_PATTERN =
-  /\.(server|test|compose-build)(\.[a-z0-9_-]+)?\.json$/;
+  /\.(server|test)\.json$/;
 
 function resolveManagedLogPath(
   logDirectory: string,
   stateFileName: string,
 ): string {
   const logFileName = stateFileName.replace(
-    /\.(server|test|compose-build)(\.[a-z0-9_-]+)?\.json$/,
-    (_match, kind: string, instance: string | undefined) =>
-      `.${kind}${instance ?? ''}.log`,
+    /\.(server|test)\.json$/,
+    (_match, kind: string) => `.${kind}.log`,
   );
 
   return path.join(logDirectory, logFileName);
@@ -230,15 +229,14 @@ export async function sweepStaleProcesses(
   return [...swept, ...sweptOrphanLogs];
 }
 
-const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test|compose-build)(\.[a-z0-9_-]+)?\.log$/;
+const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test)\.log$/;
 
 function resolveManagedStateFileName(
   logFileName: string,
 ): string {
   return logFileName.replace(
     MANAGED_LOG_SUFFIX_PATTERN,
-    (_match, kind: string, instance: string | undefined) =>
-      `.${kind}${instance ?? ''}.json`,
+    (_match, kind: string) => `.${kind}.json`,
   );
 }
 

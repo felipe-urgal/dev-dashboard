@@ -209,15 +209,6 @@ async function detectCapabilities(
     capabilities.add('git');
   }
 
-  if (await hasAnyPath(projectPath, [
-    'docker-compose.yml',
-    'docker-compose.yaml',
-    'compose.yml',
-    'compose.yaml',
-  ])) {
-    capabilities.add('docker');
-  }
-
   if (type === 'rails') {
     capabilities.add('server');
     capabilities.add('bundler');

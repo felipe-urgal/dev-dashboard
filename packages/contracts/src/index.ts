@@ -21,16 +21,6 @@ export type {
 } from './editor.js';
 
 export type {
-  ComposeService,
-  ComposeServiceAction,
-  ComposeServiceActionConfirmation,
-  ComposeServiceActionResult,
-  ComposeServiceBuildConfirmation,
-  ComposeServiceLogs,
-  ProjectComposeOverview,
-} from './docker.js';
-
-export type {
   ManagedProcess,
   ManagedProcessKind,
   ManagedProcessStatus,
@@ -107,7 +97,6 @@ export type {
 
 export type {
   DatabaseReachability,
-  DatabaseRuntime,
   DatabaseRestoreResult,
   DatabaseServiceAction,
   DatabaseSnapshot,
@@ -128,7 +117,6 @@ export type {
 } from './bundler.js';
 
 export type {
-  RailsExecutionRuntime,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
   RailsGeneratorFieldType,

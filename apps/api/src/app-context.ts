@@ -21,7 +21,6 @@ import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
 import { ProjectEditorService } from './services/project-editor-service.js';
-import { DockerComposeService } from './services/docker-compose-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 
 export interface AppContext {
@@ -42,7 +41,6 @@ export interface AppContext {
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
   projectEditorService: ProjectEditorService;
-  dockerComposeService: DockerComposeService;
   serverHealthCheckService: ServerHealthCheckService;
 }
 
@@ -52,8 +50,7 @@ export function createAppContext(): AppContext {
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
-  const dockerComposeService = new DockerComposeService({ processManager });
-  const databaseDetectionService = new DatabaseDetectionService(undefined, dockerComposeService);
+  const databaseDetectionService = new DatabaseDetectionService();
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -73,7 +70,6 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
-    dockerComposeService,
     serverHealthCheckService: new ServerHealthCheckService(),
   };
 }
