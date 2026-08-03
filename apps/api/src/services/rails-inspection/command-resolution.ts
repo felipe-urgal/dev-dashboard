@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, RailsExecutionRuntime } from '@dev-dashboard/contracts';
 
 export type CommandRunner = (
   command: string,
@@ -32,10 +32,8 @@ export const defaultCommandRunner: CommandRunner = async (command, args, options
 export interface RailsCommand {
   command: string;
   args: string[];
-  runtime: 'local' | 'docker';
+  runtime: Exclude<RailsExecutionRuntime, 'auto'>;
 }
-
-export type RailsExecutionRuntime = 'auto' | RailsCommand['runtime'];
 
 export async function pathExists(target: string): Promise<boolean> {
   try {
