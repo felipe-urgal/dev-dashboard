@@ -41,6 +41,24 @@
               />
             </label>
 
+            <label class="server-config-row">
+              <span class="server-config-icon">
+                <HeartIcon aria-hidden="true" />
+              </span>
+              <span class="server-config-copy">
+                <strong>Health check</strong>
+                <small>Vazio detecta /up, /health, /healthz ou /.</small>
+              </span>
+              <input
+                v-model="selectedHealthCheckPath"
+                class="server-config-control server-health-path-input"
+                type="text"
+                maxlength="128"
+                placeholder="Detectar automaticamente"
+                :disabled="loadingSettings"
+              />
+            </label>
+
             <div class="server-config-row">
               <span class="server-config-icon">
                 <GlobeAltIcon aria-hidden="true" />
@@ -76,30 +94,13 @@
               </span>
             </div>
 
-            <div class="server-config-row">
-              <span class="server-config-icon">
-                <HeartIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Acesso local</strong>
-                <small>Disponibilidade do endereço principal.</small>
-              </span>
-              <span
-                class="server-config-state"
-                :class="{
-                  'server-config-state-on': Boolean(primaryProcessUrl),
-                }"
-              >
-                {{ primaryProcessUrl ? 'Disponível' : 'Aguardando' }}
-              </span>
-            </div>
           </div>
 
           <footer class="server-config-footer">
             <button
               type="button"
               class="server-primary-button"
-              :disabled="savingSettings || loadingSettings || canStop"
+              :disabled="savingSettings || loadingSettings"
               @click="handleSaveSettings"
             >
               {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
@@ -127,6 +128,51 @@
               <span>{{ statusDescription }}</span>
             </div>
           </div>
+
+          <section
+            class="server-health-summary"
+            :class="health ? `server-health-summary-${health.status}` : ''"
+            aria-live="polite"
+          >
+            <span class="server-health-icon" aria-hidden="true">
+              <HeartIcon />
+            </span>
+            <div class="server-health-copy">
+              <span>Health check</span>
+              <strong>{{ healthLabel }}</strong>
+              <small v-if="healthError">{{ healthError }}</small>
+              <small v-else-if="health?.message">{{ health.message }}</small>
+              <small v-else-if="processStatus !== 'running'">
+                Inicie o servidor para verificar.
+              </small>
+              <small v-else>
+                {{ health?.path ?? 'Detectando endpoint local' }}
+              </small>
+            </div>
+            <dl class="server-health-metrics">
+              <div>
+                <dt>HTTP</dt>
+                <dd>{{ health?.httpStatus ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt>Latência</dt>
+                <dd>{{ health?.latencyMs !== undefined ? `${health.latencyMs} ms` : '—' }}</dd>
+              </div>
+              <div>
+                <dt>Verificado</dt>
+                <dd>{{ healthCheckedAtLabel }}</dd>
+              </div>
+            </dl>
+            <button
+              type="button"
+              class="server-health-refresh"
+              :disabled="processStatus !== 'running' || loadingHealth"
+              aria-label="Atualizar health check"
+              @click="refreshHealth"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+            </button>
+          </section>
 
           <dl class="server-metrics">
             <div>

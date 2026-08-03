@@ -4,6 +4,7 @@ import { ProjectServerSettingsError } from '@dev-dashboard/process-manager';
 
 import {
   commonErrorResponseSchemas,
+  projectServerHealthResponseSchema,
   projectServerSettingsResponseSchema,
 } from '../../http/response-schemas.js';
 import {
@@ -19,7 +20,12 @@ export function registerServerSettingsRoutes(
   app: FastifyInstance,
   options: ProcessRouteOptions,
 ): void {
-  const { serverSettingsRepository, projectStore } = options;
+  const {
+    processManager,
+    serverHealthCheckService,
+    serverSettingsRepository,
+    projectStore,
+  } = options;
 
   app.get<{
     Params: ProjectParams;
@@ -81,6 +87,18 @@ export function registerServerSettingsRoutes(
                 },
               ],
             },
+            healthCheckPath: {
+              anyOf: [
+                {
+                  type: 'string',
+                  minLength: 1,
+                  maxLength: 128,
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
           },
         },
         response: {
@@ -114,6 +132,13 @@ export function registerServerSettingsRoutes(
                     port: request.body.port,
                   }
                 : {}),
+              ...(request.body.healthCheckPath !== undefined &&
+              request.body.healthCheckPath !== null
+                ? {
+                    healthCheckPath:
+                      request.body.healthCheckPath,
+                  }
+                : {}),
             },
           );
 
@@ -129,6 +154,68 @@ export function registerServerSettingsRoutes(
 
         throw error;
       }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+  }>(
+    '/projects/:projectId/server-health',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['health'],
+            properties: {
+              health: projectServerHealthResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        projectStore,
+        request.params.projectId,
+      );
+      const [process, settings] = await Promise.all([
+        processManager.getServerProcess(project.id),
+        serverSettingsRepository.find(project.id),
+      ]);
+      const port = process?.port ?? settings.port;
+
+      if (
+        process?.status !== 'running' ||
+        port === undefined
+      ) {
+        return {
+          health: {
+            projectId: project.id,
+            path: settings.healthCheckPath ?? '/',
+            pathSource: settings.healthCheckPath
+              ? 'configured' as const
+              : 'detected' as const,
+            status: 'unavailable' as const,
+            checkedAt: new Date().toISOString(),
+            message:
+              'O servidor precisa estar em execução para verificar a saúde.',
+          },
+        };
+      }
+
+      return {
+        health: await serverHealthCheckService.check({
+          projectId: project.id,
+          port,
+          ...(settings.healthCheckPath
+            ? { healthCheckPath: settings.healthCheckPath }
+            : {}),
+        }),
+      };
     },
   );
 }

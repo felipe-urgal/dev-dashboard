@@ -7,6 +7,7 @@ import type {
 
 import { ApiError } from '../../http/api-error.js';
 import type { ProjectStore } from '../../store/project-store.js';
+import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
 
 export const processEnvelopeResponseSchema = (
   processSchema: object,
@@ -22,6 +23,7 @@ export const processEnvelopeResponseSchema = (
 export interface ProcessRouteOptions {
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
+  serverHealthCheckService: ServerHealthCheckService;
   projectStore: ProjectStore;
 }
 
@@ -35,6 +37,7 @@ export interface StartProcessBody {
 
 export interface SaveServerSettingsBody {
   port?: number | null;
+  healthCheckPath?: string | null;
 }
 
 export interface ProcessLogQuery {

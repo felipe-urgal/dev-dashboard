@@ -38,7 +38,9 @@ export type {
 } from './process.js';
 
 export type {
+  ProjectServerHealth,
   ProjectServerSettings,
+  ServerHealthStatus,
   UpdateProjectServerSettingsInput,
 } from './server.js';
 
