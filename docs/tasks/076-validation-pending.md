@@ -1,1 +1,0 @@
-Validação temporária do CI. Este arquivo será removido antes da revisão final.
