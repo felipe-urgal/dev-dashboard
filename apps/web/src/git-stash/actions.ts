@@ -1,3 +1,4 @@
+import { confirmDialog } from '../stores/app-dialog';
 import { refreshControls } from './controls';
 import { requestJson } from './dom-helpers';
 import { persistAndReload, setNotice } from './notice';
@@ -26,8 +27,13 @@ export async function runCreate(section: HTMLElement): Promise<void> {
   const includeUntracked = section.querySelector<HTMLInputElement>('[data-stash-field="untracked"]');
   const keepIndex = section.querySelector<HTMLInputElement>('[data-stash-field="keep-index"]');
   const message = messageInput?.value.trim() ?? '';
-  const confirmation = `Guardar ${state.changedFiles} alteração(ões) da branch "${state.branch}" no stash${message ? ` como "${message}"` : ''}?`;
-  if (!window.confirm(confirmation)) return;
+  const confirmed = await confirmDialog({
+    title: 'Criar stash?',
+    message: `As ${state.changedFiles} alteração(ões) da branch "${state.branch}" serão guardadas no stash${message ? ` como "${message}"` : ''}.`,
+    confirmLabel: 'Criar stash',
+    tone: 'warning',
+  });
+  if (!confirmed) return;
 
   state.busy = true;
   refreshControls(section);
@@ -73,12 +79,28 @@ export async function runStashMutation(
     return;
   }
 
-  const question = operation === 'apply'
-    ? `Aplicar "${detail.message}" e manter o stash salvo?`
+  const dialog = operation === 'apply'
+    ? {
+        title: 'Aplicar stash?',
+        message: `As alterações de "${detail.message}" serão aplicadas e o stash continuará salvo.`,
+        confirmLabel: 'Aplicar stash',
+        tone: 'warning' as const,
+      }
     : operation === 'pop'
-      ? `Restaurar "${detail.message}" e remover o stash da lista?`
-      : `Excluir definitivamente "${detail.message}" sem restaurar as alterações?`;
-  if (!window.confirm(question)) return;
+      ? {
+          title: 'Restaurar stash?',
+          message: `As alterações de "${detail.message}" serão restauradas e o stash será removido da lista.`,
+          confirmLabel: 'Restaurar stash',
+          tone: 'warning' as const,
+        }
+      : {
+          title: 'Excluir stash?',
+          message: `O stash "${detail.message}" será excluído definitivamente sem restaurar as alterações.`,
+          confirmLabel: 'Excluir stash',
+          tone: 'danger' as const,
+        };
+  const confirmed = await confirmDialog(dialog);
+  if (!confirmed) return;
 
   state.busy = true;
   refreshControls(section);
@@ -92,12 +114,12 @@ export async function runStashMutation(
         body: JSON.stringify({ confirmationToken: token }),
       },
     );
-    const message = operation === 'apply'
+    const resultMessage = operation === 'apply'
       ? `Stash aplicado e preservado: ${response.result.stash.message}`
       : operation === 'pop'
         ? `Stash restaurado e removido: ${response.result.stash.message}`
         : `Stash excluído: ${response.result.stash.message}`;
-    persistAndReload(message, operation === 'apply' ? detail.reference : undefined);
+    persistAndReload(resultMessage, operation === 'apply' ? detail.reference : undefined);
   } catch (error) {
     state.busy = false;
     setNotice(
