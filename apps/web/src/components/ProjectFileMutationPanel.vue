@@ -29,8 +29,8 @@ type MutationMode =
 
 const props = defineProps<{
   projectId: string;
-  selected?: ProjectFileEntry;
-  blocked?: boolean;
+  selected?: ProjectFileEntry | undefined;
+  blocked?: boolean | undefined;
 }>();
 
 const emit = defineEmits<{
