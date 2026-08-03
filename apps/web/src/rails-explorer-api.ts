@@ -1,4 +1,5 @@
 import type {
+  RailsExecutionRuntime,
   RailsMigrationDetail,
   RailsModelsOverview,
 } from '@dev-dashboard/contracts';
@@ -32,10 +33,12 @@ export async function fetchProjectRailsMigrationDetail(
   projectId: string,
   version: string,
   database?: string,
+  runtime: RailsExecutionRuntime = 'auto',
 ): Promise<RailsMigrationDetail> {
-  const query = database ? `?${new URLSearchParams({ database })}` : '';
+  const query = new URLSearchParams({ runtime });
+  if (database) query.set('database', database);
   const response = await requestRailsJson<{ migration: RailsMigrationDetail }>(
-    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/${encodeURIComponent(version)}${query}`,
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/${encodeURIComponent(version)}?${query}`,
   );
   return response.migration;
 }
