@@ -1,0 +1,73 @@
+/* Tipografia da área Dependências e build alinhada aos tokens globais. */
+.project-details-page > .dependencies-panel {
+  font-size: var(--font-md);
+  font-weight: var(--font-weight-body);
+  line-height: 1.45;
+}
+
+.project-details-page > .dependencies-panel .dependencies-header h3 {
+  color: var(--text);
+  font-size: var(--font-xl);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.project-details-page > .dependencies-panel .dependencies-header p {
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.project-details-page > .dependencies-panel .dependencies-header button,
+.project-details-page > .dependencies-panel .dependencies-detect-button,
+.project-details-page > .dependencies-panel .dependencies-row-action button,
+.project-details-page > .dependencies-panel .dependencies-console-actions button,
+.project-details-page > .dependencies-panel .dependencies-history button {
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.2;
+}
+
+.project-details-page > .dependencies-panel .dependencies-manager-card strong,
+.project-details-page > .dependencies-panel .dependencies-table td > strong,
+.project-details-page > .dependencies-panel .dependencies-console-title strong,
+.project-details-page > .dependencies-panel .dependencies-history button strong,
+.project-details-page > .dependencies-panel .dependencies-empty strong {
+  font-size: var(--font-md);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.35;
+}
+
+.project-details-page > .dependencies-panel .dependencies-manager-card small,
+.project-details-page > .dependencies-panel .dependencies-table td small,
+.project-details-page > .dependencies-panel .dependencies-console-title small,
+.project-details-page > .dependencies-panel .dependencies-history small,
+.project-details-page > .dependencies-panel .dependencies-empty span {
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+
+.project-details-page > .dependencies-panel .dependencies-manager-name {
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
+}
+
+.project-details-page > .dependencies-panel .dependencies-table th,
+.project-details-page > .dependencies-panel .dependencies-table td::before,
+.project-details-page > .dependencies-panel .dependencies-warning {
+  line-height: 1.3;
+}
+
+.project-details-page > .dependencies-panel .dependencies-table code,
+.project-details-page > .dependencies-panel .dependencies-console-body > pre {
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.project-details-page > .dependencies-panel .dependencies-history > header strong,
+.project-details-page > .dependencies-panel .dependencies-history-empty {
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.4;
+}
