@@ -14,6 +14,7 @@ import {
 } from '../api';
 
 import * as dashboardApi from '../api';
+import { confirmDialog } from './app-dialog';
 
 export interface DashboardApi {
   createWorkspace: typeof dashboardApi.createWorkspace;
@@ -446,10 +447,14 @@ export function createDashboardStore(
       return;
     }
 
-    const confirmed = window.confirm(
-      `Remover o workspace "${workspace.name}" do dashboard? ` +
+    const confirmed = await confirmDialog({
+      title: 'Remover workspace?',
+      message:
+        `O workspace "${workspace.name}" será removido do dashboard. ` +
         'Os arquivos locais não serão apagados.',
-    );
+      confirmLabel: 'Remover workspace',
+      tone: 'danger',
+    });
 
     if (!confirmed) {
       return;
