@@ -38,6 +38,7 @@ export function registerRailsReadRoutes(
     migrations: await options.railsInspectionService.getMigrationsOverview(
       requireProject(options.projectStore, request.params.projectId),
       request.query.database,
+      request.query.runtime,
     ),
   }));
 
@@ -58,6 +59,7 @@ export function registerRailsReadRoutes(
       requireProject(options.projectStore, request.params.projectId),
       request.params.version,
       request.query.database,
+      request.query.runtime,
     ),
   }));
 
