@@ -22,6 +22,7 @@ import type {
 import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
+import ProjectEmbeddedEditor from '../components/ProjectEmbeddedEditor.vue';
 import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
@@ -49,6 +50,7 @@ const projectId = computed(() => {
 });
 
 const isReadmeRoute = computed(() => route.name === 'project-details');
+const isEditorRoute = computed(() => route.name === 'project-editor');
 const isServerRoute = computed(() => route.name === 'project-server');
 const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
@@ -198,6 +200,14 @@ watch(projectId, () => {
 
         <RouterLink
           class="project-details-tab"
+          :class="{ 'project-details-tab-active': isEditorRoute }"
+          :to="{ name: 'project-editor', params: { projectId: project.id } }"
+        >
+          Editor
+        </RouterLink>
+
+        <RouterLink
+          class="project-details-tab"
           :class="{ 'project-details-tab-active': isServerRoute }"
           :to="{ name: 'project-server', params: { projectId: project.id } }"
         >
@@ -261,6 +271,12 @@ watch(projectId, () => {
       <ProjectReadmePanel
         v-if="isReadmeRoute"
         :key="`readme-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectEmbeddedEditor
+        v-else-if="isEditorRoute"
+        :key="`editor-${project.id}`"
         :project="project"
       />
 
