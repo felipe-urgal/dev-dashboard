@@ -22,7 +22,13 @@ export interface ProjectFileContent {
   version: string;
   size: number;
   modifiedAt: string;
-  writable: false;
+  writable: boolean;
+}
+
+export interface ProjectFileWriteRequest {
+  path: string;
+  content: string;
+  expectedVersion: string;
 }
 
 export interface ProjectFileSearchMatch {
