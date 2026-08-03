@@ -117,6 +117,7 @@ onMounted(() => {
       <RouterLink
         class="brand brand-link"
         to="/"
+        :aria-label="sidebarCollapsed ? 'Dev Dashboard' : undefined"
         :title="sidebarCollapsed ? 'Dev Dashboard' : undefined"
       >
         <div class="brand-mark">DD</div>
@@ -190,6 +191,7 @@ onMounted(() => {
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'dashboard' }"
           :to="{ name: 'dashboard' }"
+          :aria-label="sidebarCollapsed ? 'Visão geral' : undefined"
           :title="sidebarCollapsed ? 'Visão geral' : undefined"
         >
           <HomeIcon class="navigation-icon" aria-hidden="true" />
@@ -200,6 +202,7 @@ onMounted(() => {
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'processes' }"
           :to="{ name: 'processes' }"
+          :aria-label="sidebarCollapsed ? 'Processos' : undefined"
           :title="sidebarCollapsed ? 'Processos' : undefined"
         >
           <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
@@ -210,6 +213,7 @@ onMounted(() => {
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'activity' }"
           :to="{ name: 'activity' }"
+          :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
           :title="sidebarCollapsed ? 'Atividade' : undefined"
         >
           <QueueListIcon class="navigation-icon" aria-hidden="true" />
@@ -220,6 +224,7 @@ onMounted(() => {
           class="navigation-item"
           :class="{ 'navigation-item-active': route.name === 'settings' }"
           :to="{ name: 'settings' }"
+          :aria-label="sidebarCollapsed ? 'Configurações' : undefined"
           :title="sidebarCollapsed ? 'Configurações' : undefined"
         >
           <Cog6ToothIcon class="navigation-icon" aria-hidden="true" />
