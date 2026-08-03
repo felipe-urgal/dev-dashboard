@@ -8,13 +8,18 @@ import path from 'node:path';
 
 import type {
   DatabaseReachability,
+  ProjectComposeOverview,
   Project,
   ProjectDatabaseEnvironment,
   ProjectDatabaseOverview,
   ProjectDatabaseSource,
 } from '@dev-dashboard/contracts';
+import {
+  matchingComposeDatabaseServices,
+  type DockerComposeService,
+} from './docker-compose-service.js';
 
-export interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'serviceAvailable'> {
+export interface DetectedDatabase extends Omit<ProjectDatabaseEnvironment, 'reachability' | 'serviceAvailable' | 'runtime' | 'dockerServices'> {
   databaseUrl?: string;
 }
 
@@ -244,7 +249,10 @@ async function checkReachability(host?: string, port?: number): Promise<Database
 }
 
 export class DatabaseDetectionService {
-  public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
+  public constructor(
+    private readonly runCommand: CommandRunner = defaultCommandRunner,
+    private readonly dockerComposeService?: Pick<DockerComposeService, 'overview' | 'stopDatabaseServices'>,
+  ) {}
 
   public async detect(project: Project): Promise<DetectedDatabase[]> {
     const dotenvFiles = ['.env', '.env.local', '.env.development', '.env.test', '.env.production'];
@@ -281,12 +289,34 @@ export class DatabaseDetectionService {
   public async getOverview(project: Project, page = 1, pageSize = 20): Promise<ProjectDatabaseOverview> {
     const all = await this.detect(project);
     const selected = all.slice((page - 1) * pageSize, page * pageSize);
+    let composeOverview: ProjectComposeOverview | null = null;
+    if (this.dockerComposeService) {
+      try {
+        composeOverview = await this.dockerComposeService.overview(project);
+      } catch {
+        // A detecção do banco continua útil mesmo com Compose inválido ou indisponível.
+      }
+    }
 
-    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, ...item }) => ({
-      ...item,
-      reachability: await checkReachability(item.host, item.port),
-      serviceAvailable: localSystemdService(item) !== null,
-    })));
+    const environments = await Promise.all(selected.map(async ({ databaseUrl: _secret, ...item }) => {
+      const reachability = await checkReachability(item.host, item.port);
+      const dockerServices = composeOverview
+        ? matchingComposeDatabaseServices(composeOverview, item.driver, item.port).map((service) => service.name)
+        : [];
+      return {
+        ...item,
+        reachability,
+        serviceAvailable: localSystemdService(item) !== null,
+        runtime: dockerServices.length > 0
+          ? 'docker' as const
+          : reachability === 'reachable'
+            ? 'local' as const
+            : reachability === 'unreachable'
+              ? 'stopped' as const
+              : 'unknown' as const,
+        dockerServices,
+      };
+    }));
 
     return { supported: all.length > 0, environments, page, pageSize, total: all.length };
   }
@@ -312,6 +342,10 @@ export class DatabaseDetectionService {
     if (!item) return false;
     const service = localSystemdService(item);
     if (!service) return false;
+    // A aba Banco sempre assume o runtime local. Ao iniciar/reiniciar, libera a
+    // porta antes do systemd; ao parar, garante que nenhum Compose correspondente
+    // permaneça ativo mesmo que a ação local falhe depois.
+    await this.dockerComposeService?.stopDatabaseServices(project, item.driver, item.port);
     try {
       // A API roda em uma sessão destacada. O agente polkit da sessão do usuário
       // pode autenticar esta ação sem depender do ticket sudo de um terminal.

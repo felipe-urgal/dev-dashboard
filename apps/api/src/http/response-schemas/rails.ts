@@ -1,7 +1,7 @@
 export const projectDatabaseEnvironmentResponseSchema = {
   type: 'object', additionalProperties: false,
 
-  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'serviceAvailable'],
+  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'serviceAvailable', 'runtime', 'dockerServices'],
 
   properties: {
     id: { type: 'string' }, environment: { type: 'string' }, driver: { type: 'string' },
@@ -11,6 +11,8 @@ export const projectDatabaseEnvironmentResponseSchema = {
     sourceDetail: { type: 'string' }, reachability: { type: 'string', enum: ['reachable', 'unreachable', 'unknown'] },
 
     serviceAvailable: { type: 'boolean' },
+    runtime: { type: 'string', enum: ['local', 'docker', 'stopped', 'unknown'] },
+    dockerServices: { type: 'array', items: { type: 'string' } },
 
   },
 } as const;

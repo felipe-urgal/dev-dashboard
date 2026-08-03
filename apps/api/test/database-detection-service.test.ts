@@ -109,6 +109,56 @@ test('pausa e reinicia o serviço systemd correspondente ao banco local', async 
   ]);
 });
 
+test('identifica o runtime Docker e libera o container antes de assumir o banco local', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=mysql2://user@localhost:3306/example\n',
+  });
+  const calls: string[] = [];
+  const dockerComposeService = {
+    overview: async () => ({
+      configured: true,
+      dockerAvailable: true,
+      composeFile: 'compose.yaml',
+      services: [{
+        name: 'mysql', image: 'mysql:8.0', requiresBuild: false,
+        ports: ['3306:3306'], dependsOn: [], running: true,
+      }],
+    }),
+    stopDatabaseServices: async (_project: Project, driver: string, port: number | undefined) => {
+      calls.push(`docker:${driver}:${port}`);
+      return ['mysql'];
+    },
+  };
+  const service = new DatabaseDetectionService(
+    async (_command, args) => { calls.push(`systemd:${args.at(-2)}:${args.at(-1)}`); },
+    dockerComposeService,
+  );
+
+  const overview = await service.getOverview(project);
+  assert.equal(overview.environments[0]?.runtime, 'docker');
+  assert.deepEqual(overview.environments[0]?.dockerServices, ['mysql']);
+
+  assert.equal(await service.start(project, overview.environments[0]!.id), true);
+  assert.deepEqual(calls, ['docker:mysql2:3306', 'systemd:start:mysql.service']);
+});
+
+test('ao parar encerra o Compose correspondente antes do serviço local', async () => {
+  const project = await fixture({
+    '.env': 'DATABASE_URL=postgresql://user@localhost:5432/example\n',
+  });
+  const calls: string[] = [];
+  const service = new DatabaseDetectionService(
+    async (_command, args) => { calls.push(`systemd:${args.at(-2)}`); },
+    {
+      overview: async () => ({ configured: false, dockerAvailable: false, services: [] }),
+      stopDatabaseServices: async () => { calls.push('docker:stop'); return []; },
+    },
+  );
+
+  assert.equal(await service.stop(project, 'dotenv--env'), true);
+  assert.deepEqual(calls, ['docker:stop', 'systemd:stop']);
+});
+
 test('seleciona o serviço mysql a partir do adapter mysql2', async () => {
   const project = await fixture({
     'config/database.yml': 'development:\n  adapter: mysql2\n  host: localhost\n  database: example\n',

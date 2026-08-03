@@ -31,6 +31,7 @@ import {
 } from '@heroicons/vue/24/outline';
 
 import type {
+  DatabaseRuntime,
   DatabaseServiceAction,
   Project,
   ProjectDatabaseEnvironment,
@@ -144,8 +145,21 @@ const totalIndexes = computed(() => models.value?.tables.reduce((total, table) =
 const totalRelations = computed(() => models.value?.tables.reduce((total, table) => total + table.foreignKeys.length, 0) ?? 0);
 
 const reachabilityLabels = { reachable: 'Acessível', unreachable: 'Indisponível', unknown: 'Não verificado' } as const;
+const runtimeLabels: Record<DatabaseRuntime, string> = {
+  local: 'Serviço local',
+  docker: 'Docker Compose',
+  stopped: 'Parado',
+  unknown: 'Origem desconhecida',
+};
 const migrationStatusLabels = { up: 'Aplicada', down: 'Pendente' } as const;
-const serviceActionLabels: Record<DatabaseServiceAction, string> = { start: 'Iniciando…', stop: 'Pausando…', restart: 'Reiniciando…' };
+const serviceActionLabels: Record<DatabaseServiceAction, string> = { start: 'Iniciando…', stop: 'Parando…', restart: 'Reiniciando…' };
+
+function runtimeTone(runtime: DatabaseRuntime): 'info' | 'success' | 'warning' | 'neutral' {
+  if (runtime === 'local') return 'success';
+  if (runtime === 'docker') return 'info';
+  if (runtime === 'stopped') return 'neutral';
+  return 'warning';
+}
 
 const sectionTabs = computed(() => [
   { id: 'overview' as const, label: 'Visão geral', icon: CircleStackIcon },

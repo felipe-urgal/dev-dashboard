@@ -5,6 +5,7 @@ import {
   TrashIcon,
 } from '@heroicons/vue/24/outline';
 
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import { useProcessesView } from '../composables/useProcessesView';
 import {
@@ -80,6 +81,7 @@ const {
     </div>
 
     <dl
+      v-if="!loading || items.length > 0"
       class="processes-summary"
       aria-label="Resumo dos processos"
     >
@@ -216,13 +218,11 @@ const {
       {{ processesErrorMessage }}
     </p>
 
-    <div
+    <LoadingSkeleton
       v-if="loading && items.length === 0"
-      class="activity-empty"
-      aria-live="polite"
-    >
-      Carregando processos…
-    </div>
+      label="Carregando processos…"
+      :rows="4"
+    />
 
     <div
       v-else-if="

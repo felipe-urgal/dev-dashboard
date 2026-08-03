@@ -7,8 +7,6 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Aplicar o skeleton compartilhado às páginas Atividade, Processos e
-  Configurações, cobrindo carregamento inicial, erro e movimento reduzido.
 - [ ] Fazer a auditoria inicial de acessibilidade das páginas globais, com
   teclado, foco, nomes acessíveis, contraste e anúncios de estado.
 - [ ] Validar e otimizar a navegação em tablet com E2E responsivo.
@@ -92,10 +90,73 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - shell livre, plugins remotos arbitrários e exposição da API na rede;
 - integrações de IA como dependência do fluxo principal.
 
+## Mapa da documentação Markdown
+
+O repositório possui 95 arquivos Markdown versionados após a task 074. O mapa
+abaixo cobre todos eles; os 74 registros numerados são detalhados
+individualmente pelo índice de tasks para evitar manter duas listas históricas
+paralelas.
+
+### Raiz e operação do repositório
+
+| Arquivo | Papel | Estado de uso |
+| --- | --- | --- |
+| [`AGENTS.md`](../AGENTS.md) | Regras para agentes de implementação | Ativo |
+| [`CLAUDE.md`](../CLAUDE.md) | Convenções equivalentes para outro agente | Ativo |
+| [`README.md`](../README.md) | Entrada do projeto, instalação, uso e estado atual | Ativo |
+| [`design-qa.md`](../design-qa.md) | Registro de QA visual dos painéis Git | Referência histórica |
+
+### Aplicações
+
+| Arquivo | Papel | Estado de uso |
+| --- | --- | --- |
+| [`apps/web/e2e/README.md`](../apps/web/e2e/README.md) | Execução e escopo do smoke E2E web | Ativo |
+
+### Planejamento e produto
+
+| Arquivo | Papel | Estado de uso |
+| --- | --- | --- |
+| [`docs/PENDENCIAS.md`](./PENDENCIAS.md) | Inventário consolidado e este mapa | Ativo, fonte de pendências |
+| [`docs/roadmap.md`](./roadmap.md) | Horizontes, critérios e capacidades | Ativo, visão estratégica |
+| [`docs/product/vision.md`](./product/vision.md) | Visão e limites do produto local | Ativo, referência de produto |
+
+### Arquitetura e segurança
+
+| Arquivo | Papel | Estado de uso |
+| --- | --- | --- |
+| [`docs/architecture/overview.md`](./architecture/overview.md) | Arquitetura atual e critérios de módulos | Ativo |
+| [`docs/architecture/security.md`](./architecture/security.md) | Modelo de segurança e limites locais | Ativo |
+| [`docs/architecture/docker-compose-design.md`](./architecture/docker-compose-design.md) | Desenho da integração Docker Compose | Referência implementada |
+| [`docs/architecture/local-editor-design.md`](./architecture/local-editor-design.md) | Desenho do adaptador de editor local | Referência implementada |
+| [`docs/architecture/refactoring-arquivos-grandes.md`](./architecture/refactoring-arquivos-grandes.md) | Inventário e plano de refatoração | Ativo, parcialmente pendente |
+
+### Design, protótipos e refatoração
+
+| Arquivo | Papel | Estado de uso |
+| --- | --- | --- |
+| [`docs/design/information-architecture.md`](./design/information-architecture.md) | Organização das áreas e navegação | Ativo |
+| [`docs/design/redesign-2026.md`](./design/redesign-2026.md) | Decisões do redesign e tokens visuais | Ativo |
+| [`docs/prototypes/README.md`](./prototypes/README.md) | Índice dos protótipos versionados | Referência |
+| [`docs/prototypes/notice-center-options.md`](./prototypes/notice-center-options.md) | Alternativas da central de avisos | Referência histórica |
+| [`docs/prototypes/tests-visualization/README.md`](./prototypes/tests-visualization/README.md) | Alternativas para visualização de testes | Referência histórica |
+| [`docs/refactor/rake-tasks-mapeamento.md`](./refactor/rake-tasks-mapeamento.md) | Desenho da detecção de Rake tasks | Referência implementada |
+
+### Tasks
+
+| Arquivo ou conjunto | Papel | Estado de uso |
+| --- | --- | --- |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `074`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-074-*.md` | Objetivo, decisões, arquivos e validação reais de cada entrega | Histórico concluído |
+| [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
+
+Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
+deve entrar na seção correspondente acima ou, se for uma task numerada, no
+índice `docs/tasks/README.md`.
+
 ## Como manter este inventário
 
 Ao concluir uma atividade, remova-a daqui, registre o resultado no documento da
-task e reconcilie `docs/roadmap.md` e `docs/tasks/NEXT.md`. Ideias novas só
-entram nesta lista quando representarem trabalho de produto, engenharia ou
-governança ainda necessário; limitações deliberadas permanecem em “Fora do
-escopo atual”.
+task e reconcilie `docs/roadmap.md`, `docs/tasks/NEXT.md` e o mapa acima. Ideias
+novas só entram nesta lista quando representarem trabalho de produto,
+engenharia ou governança ainda necessário; limitações deliberadas permanecem
+em “Fora do escopo atual”.

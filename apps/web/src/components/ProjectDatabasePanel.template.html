@@ -131,11 +131,13 @@
                 <div><dt>Database</dt><dd>{{ selectedEnvironment.database ?? 'Não informado' }}</dd></div>
                 <div><dt>Usuário</dt><dd>{{ selectedEnvironment.username ?? 'Não informado' }}</dd></div>
                 <div><dt>Origem</dt><dd>{{ selectedEnvironment.sourceDetail }}</dd></div>
+                <div><dt>Runtime</dt><dd>{{ runtimeLabels[selectedEnvironment.runtime] }}</dd></div>
               </dl>
             </section>
 
             <section class="database-environment-actions-panel">
               <div class="database-health-summary"><span>Saúde da conexão</span><StatusBadge :tone="dbReachabilityToneFor(selectedEnvironment.reachability)">{{ reachabilityLabels[selectedEnvironment.reachability] }}</StatusBadge></div>
+              <div class="database-health-summary"><span>Runtime ativo</span><StatusBadge :tone="runtimeTone(selectedEnvironment.runtime)">{{ runtimeLabels[selectedEnvironment.runtime] }}</StatusBadge></div>
               <div v-if="selectedEnvironment.maskedUrl || revealed[selectedEnvironment.id]" class="database-connection-url">
                 <header><strong>URL de conexão</strong><button v-if="selectedEnvironment.passwordConfigured" type="button" @click="reveal(selectedEnvironment.id)"><component :is="revealed[selectedEnvironment.id] ? EyeSlashIcon : EyeIcon" aria-hidden="true" />{{ revealed[selectedEnvironment.id] ? 'Ocultar senha' : 'Revelar senha' }}</button></header>
                 <code>{{ revealed[selectedEnvironment.id] ?? selectedEnvironment.maskedUrl }}</code>
@@ -145,30 +147,38 @@
 
                 <template v-if="selectedEnvironment.serviceAvailable">
                   <button
-                    v-if="selectedEnvironment.reachability === 'unreachable'"
+                    v-if="selectedEnvironment.runtime !== 'local'"
                     class="database-action-primary"
                     type="button"
                     :disabled="pendingAction[selectedEnvironment.id] !== undefined"
                     @click="runAction(selectedEnvironment.id, 'start')"
-                  ><PlayIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : 'Iniciar banco local' }}</button>
+                  ><PlayIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : selectedEnvironment.runtime === 'docker' ? 'Usar banco local' : 'Iniciar banco local' }}</button>
                   <template v-else>
                     <button
                       type="button"
                       :disabled="pendingAction[selectedEnvironment.id] !== undefined"
                       @click="runAction(selectedEnvironment.id, 'restart')"
-                    ><ArrowPathIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco' }}</button>
+                    ><ArrowPathIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco local' }}</button>
+                  </template>
+                  <template v-if="selectedEnvironment.runtime === 'local' || selectedEnvironment.runtime === 'docker'">
                     <button
                       class="database-action-danger"
                       type="button"
                       :disabled="pendingAction[selectedEnvironment.id] !== undefined"
                       @click="runAction(selectedEnvironment.id, 'stop')"
-                    ><PauseIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Pausar banco' }}</button>
+                    ><PauseIcon aria-hidden="true" />{{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Parar banco' }}</button>
                   </template>
                 </template>
                 <span v-else class="database-service-unavailable-hint">Início, pausa e reinício automáticos não estão disponíveis para este ambiente.</span>
               </div>
               <p v-if="sharedServiceEnvironments.length" class="database-shared-service-hint">
-                Este serviço também é usado por: {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}. Pausar ou reiniciar afeta esses ambientes também.
+                Este serviço também é usado por: {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}. Parar ou reiniciar afeta esses ambientes também.
+              </p>
+              <p v-if="selectedEnvironment.runtime === 'docker'" class="database-shared-service-hint">
+                A conexão atual vem de {{ selectedEnvironment.dockerServices.join(', ') }} no Docker. “Usar banco local” interrompe o container antes de iniciar o serviço do sistema.
+              </p>
+              <p v-if="selectedEnvironment.runtime === 'local' || selectedEnvironment.runtime === 'docker'" class="database-shared-service-hint">
+                “Parar banco” encerra o serviço local e os containers compatíveis deste projeto.
               </p>
             </section>
           </div>

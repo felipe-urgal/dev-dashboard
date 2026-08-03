@@ -150,7 +150,7 @@ watch(
 </script>
 
 <template>
-  <section class="dependencies-panel" aria-labelledby="dependencies-title">
+  <section class="dependencies-panel" aria-labelledby="dependencies-title" :aria-busy="loading">
     <header class="dependencies-header">
       <div>
         <span>Projeto / Dependências</span>
@@ -243,15 +243,17 @@ watch(
         </div>
       </div>
 
-      <aside class="dependencies-execution">
+      <aside class="dependencies-execution" aria-label="Detalhes da execução">
         <template v-if="currentExecution">
-          <header>
-            <span :class="`is-${currentExecution.status}`">
-              <component :is="executionIcon(currentExecution.status)" aria-hidden="true" />
-            </span>
-            <div>
-              <small>Última execução</small>
-              <h4>{{ currentExecution.actionName }}</h4>
+          <header class="dependencies-execution-header">
+            <div class="dependencies-execution-title">
+              <span :class="`is-${currentExecution.status}`">
+                <component :is="executionIcon(currentExecution.status)" aria-hidden="true" />
+              </span>
+              <div>
+                <small>Última execução</small>
+                <h4>{{ currentExecution.actionName }}</h4>
+              </div>
             </div>
             <StatusBadge :tone="executionTone(currentExecution.status)">
               {{ scriptExecutionStatusLabels[currentExecution.status] }}
@@ -280,7 +282,7 @@ watch(
             </button>
           </div>
 
-          <section class="dependencies-log">
+          <section class="dependencies-log" aria-label="Saída da execução">
             <header>
               <span><CommandLineIcon aria-hidden="true" /> Saída</span>
               <small v-if="maskedLogEntries">{{ maskedLogEntries }} item(ns) mascarado(s)</small>

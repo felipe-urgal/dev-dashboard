@@ -33,6 +33,7 @@
     </div>
 
     <dl
+      v-if="!loading || hasItems"
       class="activity-summary"
       aria-label="Resumo das atividades"
     >
@@ -165,13 +166,11 @@
       {{ activityErrorMessage }}
     </p>
 
-    <div
+    <LoadingSkeleton
       v-if="loading && !hasItems"
-      class="activity-empty"
-      aria-live="polite"
-    >
-      Carregando atividades…
-    </div>
+      label="Carregando atividades…"
+      :rows="5"
+    />
 
     <div
       v-else-if="

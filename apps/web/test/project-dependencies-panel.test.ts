@@ -77,6 +77,8 @@ test('mostra instalação e build do gerenciador Node detectado', async () => {
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
+  assert.equal(wrapper.get('.dependencies-panel').attributes('aria-busy'), 'false');
+  assert.equal(wrapper.get('.dependencies-execution').attributes('aria-label'), 'Detalhes da execução');
   wrapper.unmount();
 });
 
