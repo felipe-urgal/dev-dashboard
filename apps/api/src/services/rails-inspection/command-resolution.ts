@@ -20,7 +20,13 @@ export const defaultCommandRunner: CommandRunner = async (command, args, options
     timeout: 20_000,
     windowsHide: true,
   });
-  return { stdout, stderr };
+
+  // Alguns wrappers Docker encaminham a saída normal do Rails para stderr.
+  // A inspeção trata ambos os streams como uma única saída textual para não
+  // perder migrations, rotas ou diagnósticos válidos.
+  return {
+    stdout: [stdout, stderr].filter(Boolean).join('\n'),
+  };
 };
 
 export interface RailsCommand {

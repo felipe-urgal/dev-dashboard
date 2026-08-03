@@ -31,6 +31,8 @@ export type ScriptCategory =
 
 export const projectScriptOriginLabels: Record<ProjectScriptOrigin, string> = {
   'package-script': 'package.json',
+  'package-manager': 'Gerenciador Node',
+  bundler: 'Bundler',
   'rails-task': 'Tarefa Rails',
   bin: 'Executável bin/',
 };
@@ -140,7 +142,7 @@ export function useProjectScriptsPanel(getProject: () => Project) {
   })[activeSection.value]);
 
   const sectionDescription = computed(() => ({
-    catalog: 'Execute somente as tarefas que não pertencem a Servidor, Testes ou Banco de dados.',
+    catalog: 'Execute somente as tarefas que não pertencem a Servidor, Testes, Banco de dados ou Dependências.',
     executions: 'Acompanhe o processo ativo, consulte logs e revise o histórico.',
   })[activeSection.value]);
 

@@ -8,7 +8,7 @@ import { projectScriptDestination } from '../src/utils/project-script-visibility
 
 function script(name: string, origin: ProjectScript['origin'] = 'package-script'): ProjectScript {
   return {
-    id: name,
+    id: origin === 'package-script' ? `package-script:${name}` : `${origin}:${name}`,
     name,
     description: name,
     command: `npm run ${name}`,
@@ -24,14 +24,17 @@ test('direciona comandos já atendidos por áreas especializadas', () => {
   assert.equal(projectScriptDestination(script('dev'), project), 'server');
   assert.equal(projectScriptDestination(script('test:unit'), project), 'tests');
   assert.equal(projectScriptDestination(script('db:migrate'), project), 'database');
+  assert.equal(projectScriptDestination(script('build'), project), 'dependencies');
   assert.equal(projectScriptDestination(script('postbuild'), project), 'hidden');
+  assert.equal(projectScriptDestination(script('install', 'package-manager'), project), 'dependencies');
+  assert.equal(projectScriptDestination(script('check', 'bundler'), project), 'dependencies');
 });
 
 test('preserva tarefas explícitas e scripts sem área especializada', () => {
   const completeProject = makeProject({ capabilities: ['scripts', 'server', 'tests'] });
   const scriptsOnlyProject = makeProject({ capabilities: ['scripts'] });
 
-  assert.equal(projectScriptDestination(script('build'), completeProject), 'catalog');
+  assert.equal(projectScriptDestination(script('build:docs'), completeProject), 'catalog');
   assert.equal(projectScriptDestination(script('lint'), completeProject), 'catalog');
   assert.equal(projectScriptDestination(script('test'), scriptsOnlyProject), 'catalog');
   assert.equal(projectScriptDestination(script('maintenance', 'rails-task'), completeProject), 'catalog');

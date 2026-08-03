@@ -5,7 +5,7 @@ export const projectScriptCatalogResponseSchema = {
   properties: {
     items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'name', 'description', 'command', 'origin', 'risk', 'enabled'], properties: {
       id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, command: { type: 'string' },
-      origin: { type: 'string', enum: ['package-script', 'rails-task', 'bin'] },
+      origin: { type: 'string', enum: ['package-script', 'package-manager', 'bundler', 'rails-task', 'bin'] },
       risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] }, enabled: { type: 'boolean' },
       variables: { type: 'array', maxItems: 20, items: {
         type: 'object', additionalProperties: false, required: ['name', 'required'], properties: {
