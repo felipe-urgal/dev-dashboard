@@ -51,11 +51,12 @@ const {
     id="processes"
     class="content processes-page"
     :aria-busy="loading"
+    aria-labelledby="processes-title"
   >
     <div class="processes-heading">
       <div>
         <span class="section-kicker">Ambiente local</span>
-        <h2>Processos gerenciados</h2>
+        <h2 id="processes-title">Processos gerenciados</h2>
         <p class="section-description">
           Acompanhe servidores e testes iniciados pelo dashboard.
           Limpar finalizados remove estados parados ou com falha e
@@ -218,6 +219,15 @@ const {
       {{ processesErrorMessage }}
     </p>
 
+    <p
+      v-if="loading && items.length > 0"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    >
+      Atualizando processos…
+    </p>
+
     <LoadingSkeleton
       v-if="loading && items.length === 0"
       label="Carregando processos…"
@@ -231,6 +241,7 @@ const {
         !referenceErrorMessage
       "
       class="activity-empty"
+      role="status"
     >
       {{
         items.length === 0
@@ -241,6 +252,9 @@ const {
 
     <div v-else class="processes-table-shell">
       <table class="processes-table">
+        <caption class="sr-only">
+          Processos gerenciados pelo dashboard
+        </caption>
         <thead>
           <tr>
             <th scope="col">Processo</th>
@@ -303,7 +317,7 @@ const {
                 {{ processStatusLabel(process.status) }}
               </StatusBadge>
             </td>
-            <td class="processes-table-action">
+            <td class="processes-table-action" data-label="Ações">
               <RouterLink
                 :to="processDetailPath(process)"
                 class="processes-open-button"
