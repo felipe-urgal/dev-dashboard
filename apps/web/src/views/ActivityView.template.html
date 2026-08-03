@@ -2,11 +2,12 @@
     id="activity"
     class="content activity-page"
     :aria-busy="loading"
+    aria-labelledby="activity-title"
   >
     <div class="activity-heading">
       <div>
         <span class="section-kicker">Ambiente local</span>
-        <h2>Painel de atividade</h2>
+        <h2 id="activity-title">Painel de atividade</h2>
         <p class="section-description">
           Acompanhe execuções de catálogo, testes e servidores em um
           único histórico.
@@ -26,7 +27,12 @@
           />
           {{ loading ? 'Atualizando…' : 'Atualizar' }}
         </button>
-        <span v-if="lastUpdatedAt">
+        <span
+          v-if="lastUpdatedAt"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           Atualizado em {{ formatInstant(lastUpdatedAt) }}
         </span>
       </div>
@@ -166,6 +172,15 @@
       {{ activityErrorMessage }}
     </p>
 
+    <p
+      v-if="loading && hasItems"
+      class="sr-only"
+      role="status"
+      aria-live="polite"
+    >
+      Atualizando atividades…
+    </p>
+
     <LoadingSkeleton
       v-if="loading && !hasItems"
       label="Carregando atividades…"
@@ -179,6 +194,7 @@
         !referenceErrorMessage
       "
       class="activity-empty"
+      role="status"
     >
       Nenhuma atividade encontrada para os filtros escolhidos.
     </div>
