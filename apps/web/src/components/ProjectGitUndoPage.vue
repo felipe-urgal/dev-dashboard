@@ -15,6 +15,7 @@ import {
   undoProjectGitCommit,
   undoProjectGitFile,
 } from '../api';
+import { confirmDialog } from '../stores/app-dialog';
 import { gitFileToneFor } from '../utils/status-tones';
 import StatusBadge from './StatusBadge.vue';
 
@@ -72,12 +73,13 @@ async function undoCommit(): Promise<void> {
   const explanation = publishedLatestCommit.value
     ? 'O commit já foi publicado. O painel criará um novo commit de reversão sem reescrever o histórico.'
     : 'O commit será removido da branch e as alterações continuarão disponíveis para editar e commitar novamente.';
-  if (
-    typeof window !== 'undefined'
-    && !window.confirm(`${commitActionLabel.value}?\n\n${explanation}`)
-  ) {
-    return;
-  }
+  const confirmed = await confirmDialog({
+    title: `${commitActionLabel.value}?`,
+    message: explanation,
+    confirmLabel: commitActionLabel.value,
+    tone: 'warning',
+  });
+  if (!confirmed) return;
 
   running.value = true;
   clearFeedback();
@@ -106,14 +108,15 @@ async function undoCommit(): Promise<void> {
 
 async function undoFile(filePath: string): Promise<void> {
   if (props.busy || running.value) return;
-  if (
-    typeof window !== 'undefined'
-    && !window.confirm(
-      `Desfazer todas as alterações de "${filePath}"?\n\nEssa ação restaura o arquivo para o estado do último commit. Arquivos novos serão removidos.`,
-    )
-  ) {
-    return;
-  }
+  const confirmed = await confirmDialog({
+    title: 'Desfazer alterações do arquivo?',
+    message:
+      `O arquivo "${filePath}" será restaurado para o estado do último commit. ` +
+      'Arquivos novos serão removidos.',
+    confirmLabel: 'Desfazer arquivo',
+    tone: 'danger',
+  });
+  if (!confirmed) return;
 
   running.value = true;
   clearFeedback();
