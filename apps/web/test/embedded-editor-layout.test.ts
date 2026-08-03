@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { afterEach, test } from 'vitest';
+import { afterEach, test, vi } from 'vitest';
 
 import { installEmbeddedEditorLayout } from '../src/embedded-editor-layout';
 
@@ -7,9 +7,10 @@ afterEach(() => {
   document.body.className = '';
   document.body.innerHTML = '';
   window.localStorage.clear();
+  vi.restoreAllMocks();
 });
 
-test('expande editor, redimensiona explorer e contém o scroll do Monaco', () => {
+test('expande editor, redimensiona explorer e encadeia o scroll para a página', () => {
   document.body.innerHTML = `
     <section class="embedded-ide">
       <header class="embedded-ide-header">
@@ -75,13 +76,36 @@ test('expande editor, redimensiona explorer e contém o scroll do Monaco', () =>
     scrollTop: { value: 100, writable: true },
   });
 
-  let reachedPage = false;
-  document.body.addEventListener('wheel', () => {
-    reachedPage = true;
-  }, { once: true });
+  const scrollPage = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
+
   scrollable.dispatchEvent(new WheelEvent('wheel', {
     bubbles: true,
+    cancelable: true,
     deltaY: 80,
   }));
-  assert.equal(reachedPage, false);
+  assert.equal(scrollPage.mock.calls.length, 0);
+
+  scrollable.scrollTop = 0;
+  scrollable.dispatchEvent(new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    deltaY: -80,
+  }));
+  assert.deepEqual(scrollPage.mock.calls[0], [{
+    top: -80,
+    left: 0,
+    behavior: 'auto',
+  }]);
+
+  scrollable.scrollTop = 800;
+  scrollable.dispatchEvent(new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    deltaY: 120,
+  }));
+  assert.deepEqual(scrollPage.mock.calls[1], [{
+    top: 120,
+    left: 0,
+    behavior: 'auto',
+  }]);
 });
