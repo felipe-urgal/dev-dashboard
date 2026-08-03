@@ -24,6 +24,10 @@ import {
 import { parse as parseYaml } from 'yaml';
 
 const COMPOSE_FILES = [
+  'docker-compose.dev.yml',
+  'docker-compose.dev.yaml',
+  'compose.dev.yml',
+  'compose.dev.yaml',
   'docker-compose.yml',
   'docker-compose.yaml',
   'compose.yml',
@@ -41,6 +45,8 @@ export type DockerComposeErrorCode =
   | 'DOCKER_SERVICE_REQUIRES_BUILD'
   | 'DOCKER_CONFIRMATION_REQUIRED'
   | 'DOCKER_ACTION_FAILED'
+  | 'DOCKER_PORT_CONFLICT'
+  | 'DOCKER_SERVICE_EXITED'
   | 'DOCKER_BUILD_UNSUPPORTED';
 
 export class DockerComposeError extends Error {
@@ -114,17 +120,27 @@ function stringList(value: unknown): string[] {
   return record ? Object.keys(record) : [];
 }
 
+// O YAML do compose pode trazer interpolação de shell (`${MYSQL_PORT:-3306}`), que o
+// parser YAML devolve como texto literal. Resolvemos só a forma com valor padrão
+// (a única com informação útil sem ler .env/ambiente do host) para exibição.
+const COMPOSE_VAR_WITH_DEFAULT = /\$\{[A-Za-z_][A-Za-z0-9_]*:-([^}]*)\}/g;
+
+function resolveComposeVars(value: string): string {
+  return value.replace(COMPOSE_VAR_WITH_DEFAULT, '$1');
+}
+
 function portList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
-    if (typeof entry === 'string' || typeof entry === 'number') return [String(entry)];
+    if (typeof entry === 'string') return [resolveComposeVars(entry)];
+    if (typeof entry === 'number') return [String(entry)];
     const port = asRecord(entry);
     if (!port) return [];
     const target = typeof port.target === 'string' || typeof port.target === 'number'
-      ? String(port.target)
+      ? resolveComposeVars(String(port.target))
       : '';
     const published = typeof port.published === 'string' || typeof port.published === 'number'
-      ? String(port.published)
+      ? resolveComposeVars(String(port.published))
       : '';
     if (!target) return [];
     return [published ? `${published}:${target}` : target];
@@ -149,6 +165,30 @@ function isNotFoundError(error: unknown): boolean {
       && 'code' in error
       && (error as { code?: unknown }).code === 'ENOENT',
   );
+}
+
+const PORT_CONFLICT_PATTERN = /already in use|already allocated/i;
+const PORT_NUMBER_PATTERN = /:(\d{2,5})(?:\/tcp|\/udp)?\b/;
+
+// Erros de execFile trazem stdout/stderr do processo filho; usamos a última linha
+// não vazia (onde o Compose/Docker normalmente coloca a causa) em vez do erro
+// genérico "Command failed" do Node.
+function commandErrorDetail(error: unknown): string | undefined {
+  const stderr = error && typeof error === 'object' && 'stderr' in error
+    ? (error as { stderr?: unknown }).stderr
+    : undefined;
+  const raw = typeof stderr === 'string' && stderr.trim()
+    ? stderr
+    : error instanceof Error ? error.message : undefined;
+  if (!raw) return undefined;
+  const lastLine = raw.trim().split(/\r?\n/).filter(Boolean).at(-1);
+  if (!lastLine) return undefined;
+  return maskSensitiveLogContent(lastLine).content.slice(0, 300);
+}
+
+function portConflictFrom(detail: string): string | undefined {
+  if (!PORT_CONFLICT_PATTERN.test(detail)) return undefined;
+  return PORT_NUMBER_PATTERN.exec(detail)?.[1];
 }
 
 function truncateLog(content: string): { content: string; sizeBytes: number; truncated: boolean } {
@@ -354,14 +394,77 @@ export class DockerComposeService {
     try {
       await this.runCommand('docker', args, { cwd: project.path });
     } catch (error) {
-      throw new DockerComposeError(
-        isNotFoundError(error) ? 'DOCKER_UNAVAILABLE' : 'DOCKER_ACTION_FAILED',
-        isNotFoundError(error)
-          ? 'Docker Compose não está disponível no PATH da API.'
-          : `Não foi possível ${action === 'start' ? 'iniciar' : action === 'stop' ? 'parar' : 'reiniciar'} o serviço.`,
-      );
+      throw this.buildActionError(action, error);
+    }
+    if (action === 'start') {
+      await this.verifyServiceStayedUp(project, detected, serviceName);
     }
     return { serviceName, action, succeeded: true };
+  }
+
+  private buildActionError(action: ComposeServiceAction, error: unknown): DockerComposeError {
+    if (isNotFoundError(error)) {
+      return new DockerComposeError(
+        'DOCKER_UNAVAILABLE',
+        'Docker Compose não está disponível no PATH da API.',
+      );
+    }
+    const verb = action === 'start' ? 'iniciar' : action === 'stop' ? 'parar' : 'reiniciar';
+    const detail = commandErrorDetail(error);
+    const port = detail ? portConflictFrom(detail) : undefined;
+    if (port) {
+      return new DockerComposeError(
+        'DOCKER_PORT_CONFLICT',
+        `Não foi possível ${verb} o serviço: a porta ${port} já está em uso por outro processo.`,
+      );
+    }
+    return new DockerComposeError(
+      'DOCKER_ACTION_FAILED',
+      detail ? `Não foi possível ${verb} o serviço: ${detail}` : `Não foi possível ${verb} o serviço.`,
+    );
+  }
+
+  // O `docker compose up -d` retorna sucesso assim que o container é criado e
+  // colocado para rodar, mesmo que ele morra logo em seguida (ex.: dependência
+  // nativa faltando, gem ausente). Sem essa checagem, a ação é reportada como
+  // sucesso e o usuário só descobre a falha real ao consultar os logs manualmente.
+  private async verifyServiceStayedUp(
+    project: Project,
+    detected: DetectedCompose,
+    serviceName: string,
+  ): Promise<void> {
+    let running = false;
+    try {
+      const result = await this.runCommand('docker', [
+        'compose', '-f', detected.composeFile, 'ps', '--status', 'running', '--services',
+      ], { cwd: project.path });
+      running = result.stdout.split(/\r?\n/).filter(Boolean).includes(serviceName);
+    } catch {
+      return;
+    }
+    if (running) return;
+    const excerpt = await this.quickLogExcerpt(project, detected, serviceName);
+    throw new DockerComposeError(
+      'DOCKER_SERVICE_EXITED',
+      `O serviço "${serviceName}" iniciou mas saiu logo em seguida.${excerpt ? ` Últimas linhas: ${excerpt}` : ''}`,
+    );
+  }
+
+  private async quickLogExcerpt(
+    project: Project,
+    detected: DetectedCompose,
+    serviceName: string,
+  ): Promise<string | undefined> {
+    try {
+      const result = await this.runCommand('docker', [
+        'compose', '-f', detected.composeFile, 'logs', '--no-color', '--tail=5', serviceName,
+      ], { cwd: project.path });
+      const trimmed = result.stdout.trim();
+      if (!trimmed) return undefined;
+      return maskSensitiveLogContent(trimmed).content.slice(-400);
+    } catch {
+      return undefined;
+    }
   }
 
   public async logs(project: Project, serviceName: string): Promise<ComposeServiceLogs> {
@@ -379,10 +482,11 @@ export class DockerComposeService {
         'compose', '-f', detected.composeFile, 'logs', '--no-color', `--tail=${LOG_TAIL_LINES}`, serviceName,
       ], { cwd: project.path });
       stdout = result.stdout;
-    } catch {
+    } catch (error) {
+      const detail = commandErrorDetail(error);
       throw new DockerComposeError(
         'DOCKER_ACTION_FAILED',
-        'Não foi possível consultar os logs do serviço.',
+        detail ? `Não foi possível consultar os logs do serviço: ${detail}` : 'Não foi possível consultar os logs do serviço.',
       );
     }
     const limited = truncateLog(stdout);

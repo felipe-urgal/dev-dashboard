@@ -68,6 +68,8 @@ function translateDockerError(error: unknown): never {
       DOCKER_SERVICE_REQUIRES_BUILD: 409,
       DOCKER_CONFIRMATION_REQUIRED: 409,
       DOCKER_ACTION_FAILED: 500,
+      DOCKER_PORT_CONFLICT: 409,
+      DOCKER_SERVICE_EXITED: 500,
       DOCKER_BUILD_UNSUPPORTED: 501,
     };
     throw new ApiError({

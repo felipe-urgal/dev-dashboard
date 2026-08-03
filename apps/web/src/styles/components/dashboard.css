@@ -1,5 +1,8 @@
 .primary-button,
 .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-strong);
   transition:

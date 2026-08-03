@@ -52,6 +52,23 @@ test('usa bin/rails quando disponível e reporta migrations pendentes e aplicada
   assert.deepEqual(calls, [{ command: path.join(project.path, 'bin', 'rails'), args: ['db:migrate:status'] }]);
 });
 
+test('prefere bin/docker-rails a bin/rails quando o projeto roda dentro do Docker', async () => {
+  const project = await fixture({
+    'bin/docker-rails': '#!/bin/sh\n',
+    'bin/rails': '#!/bin/sh\n',
+    Gemfile: 'gem "rails"\n',
+  });
+  const calls: Array<{ command: string; args: string[] }> = [];
+  const service = new RailsInspectionService(async (command, args) => {
+    calls.push({ command, args });
+    return { stdout: MIGRATE_STATUS_OUTPUT };
+  });
+
+  const overview = await service.getMigrationsOverview(project);
+  assert.equal(overview.supported, true);
+  assert.deepEqual(calls, [{ command: path.join(project.path, 'bin', 'docker-rails'), args: ['db:migrate:status'] }]);
+});
+
 const MULTI_DB_MIGRATE_STATUS_OUTPUT = `
 database: myapp_development
 

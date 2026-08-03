@@ -20,6 +20,7 @@ import type {
   ProjectComposeOverview,
 } from '@dev-dashboard/contracts';
 import {
+  ApiRequestError,
   fetchComposeServiceBuild,
   fetchComposeServiceBuildLog,
   fetchComposeServiceLogs,
@@ -179,6 +180,11 @@ async function execute(
     await load();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Não foi possível executar a ação.';
+    // O serviço subiu e morreu logo em seguida (ex.: dependência nativa faltando) —
+    // já traz os logs à tona em vez de exigir mais um clique para descobrir a causa.
+    if (error instanceof ApiRequestError && error.code === 'DOCKER_SERVICE_EXITED') {
+      await loadLogs(serviceName);
+    }
   } finally {
     activeService.value = '';
   }
@@ -195,11 +201,10 @@ function cancelPending(): void {
   feedback.value = '';
 }
 
-async function showLogs(serviceName: string): Promise<void> {
+async function loadLogs(serviceName: string): Promise<void> {
   const requestedProjectId = props.project.id;
   const requestGeneration = ++logsGeneration;
   logsLoading.value = true;
-  errorMessage.value = '';
   try {
     const result = await fetchComposeServiceLogs(requestedProjectId, serviceName);
     if (props.project.id === requestedProjectId && requestGeneration === logsGeneration) {
@@ -214,6 +219,11 @@ async function showLogs(serviceName: string): Promise<void> {
       logsLoading.value = false;
     }
   }
+}
+
+async function showLogs(serviceName: string): Promise<void> {
+  errorMessage.value = '';
+  await loadLogs(serviceName);
 }
 
 async function showBuildLogs(serviceName: string): Promise<void> {

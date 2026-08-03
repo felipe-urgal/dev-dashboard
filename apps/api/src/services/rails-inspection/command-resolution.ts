@@ -39,6 +39,13 @@ export async function pathExists(target: string): Promise<boolean> {
 
 export async function resolveRailsCommand(project: Project): Promise<RailsCommand | null> {
   if (project.type !== 'rails') return null;
+  // Projetos que rodam o Rails dentro do Docker costumam expor um wrapper (`bin/docker-rails`,
+  // seguindo a mesma convenção de `bin/rails`) que decide entre `compose exec`/`compose run --rm`
+  // e repassa os argumentos. Preferimos esse wrapper quando existe: rodar `bin/rails` direto no
+  // host falharia (gems vivem só na imagem) ou usaria um ambiente local desalinhado do container.
+  if (await pathExists(path.join(project.path, 'bin', 'docker-rails'))) {
+    return { command: path.join(project.path, 'bin', 'docker-rails'), args: [] };
+  }
   if (await pathExists(path.join(project.path, 'bin', 'rails'))) {
     return { command: path.join(project.path, 'bin', 'rails'), args: [] };
   }
