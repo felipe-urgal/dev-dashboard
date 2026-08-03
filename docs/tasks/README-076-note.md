@@ -1,0 +1,1 @@
+Este arquivo temporário será removido antes do PR final. Ele força uma nova execução do CI após a documentação da task 076.
