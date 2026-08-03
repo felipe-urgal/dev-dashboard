@@ -70,4 +70,4 @@ descobertos nem sincronizar a preferência externamente.
 
 ## PR
 
-A preencher após a abertura do pull request.
+[#151 — Adiciona favoritos persistentes por projeto](https://github.com/felipe-urgal/dev-dashboard/pull/151)
