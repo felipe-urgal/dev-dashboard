@@ -8,13 +8,13 @@ import type { Project } from '@dev-dashboard/contracts';
 
 const TOKEN = 'r'.repeat(64);
 
-interface MigrationsResponse { migrations: { supported: boolean; migrations: Array<{ version: string; name: string; status: string }> } }
+interface MigrationsResponse { migrations: { supported: boolean; statusAvailable: boolean; runtime: string; migrations: Array<{ version: string; name: string; status: string }> } }
 interface MigrationDetailResponse { migration: { supported: boolean; version: string; filePath?: string; source?: string } }
 interface ModelsResponse { models: { supported: boolean; schemaPath?: string; tables: Array<{ name: string; columns: Array<{ name: string; type: string; nullable: boolean; primaryKey: boolean }>; indexes: Array<{ columns: string[]; unique: boolean }>; foreignKeys: Array<{ fromTable: string; toTable: string; column: string }> }> } }
 interface RoutesResponse { routes: { supported: boolean; routes: Array<{ name?: string; verb: string; path: string; controllerAction: string }> } }
-interface ConfirmationResponse { confirmation: { token: string; operation: string; expiresAt: string } }
+interface ConfirmationResponse { confirmation: { token: string; operation: string; runtime: string; command: string; expiresAt: string } }
 interface MutationResultResponse { result: { operation: string; succeeded: boolean; output: string } }
-interface GeneratorConfirmationResponse { confirmation: { token: string; command: string; expiresAt: string } }
+interface GeneratorConfirmationResponse { confirmation: { token: string; runtime: string; command: string; expiresAt: string } }
 interface GeneratorResultResponse { result: { succeeded: boolean; createdFiles: string[]; output: string } }
 interface ErrorResponse { error?: string }
 
@@ -92,15 +92,17 @@ end
   const headers = { 'x-dev-dashboard-token': TOKEN };
 
   await context.test('retorna status de migrations', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/migrations', headers });
+    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/migrations?runtime=local', headers });
     assert.equal(response.statusCode, 200);
     const { migrations } = response.json<MigrationsResponse>();
     assert.equal(migrations.supported, true);
+    assert.equal(migrations.statusAvailable, true);
+    assert.equal(migrations.runtime, 'local');
     assert.deepEqual(migrations.migrations, [{ version: '20200101010101', name: 'Create users', status: 'up' }]);
   });
 
   await context.test('retorna o arquivo e o código de uma migration', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/migrations/20200101010101', headers });
+    const response = await app.inject({ method: 'GET', url: '/api/projects/p1/rails/migrations/20200101010101?runtime=local', headers });
     assert.equal(response.statusCode, 200);
     const { migration } = response.json<MigrationDetailResponse>();
     assert.equal(migration.supported, true);
@@ -146,11 +148,13 @@ end
   await context.test('prepara confirmação e executa migrate', async () => {
     const confirmationResponse = await app.inject({
       method: 'POST', url: '/api/projects/p1/rails/migrations/confirmations', headers: jsonHeaders,
-      payload: JSON.stringify({ operation: 'migrate' }),
+      payload: JSON.stringify({ operation: 'migrate', runtime: 'local' }),
     });
     assert.equal(confirmationResponse.statusCode, 201);
     const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
     assert.equal(confirmation.operation, 'migrate');
+    assert.equal(confirmation.runtime, 'local');
+    assert.equal(confirmation.command, 'bin/rails db:migrate');
 
     const mutationResponse = await app.inject({
       method: 'POST', url: '/api/projects/p1/rails/migrations/mutations', headers: jsonHeaders,
@@ -174,11 +178,12 @@ end
   await context.test('prepara confirmação e gera um model', async () => {
     const confirmationResponse = await app.inject({
       method: 'POST', url: '/api/projects/p1/rails/generate/confirmations', headers: jsonHeaders,
-      payload: JSON.stringify({ kind: 'model', name: 'Product', fields: [{ name: 'name', type: 'string' }] }),
+      payload: JSON.stringify({ kind: 'model', name: 'Product', fields: [{ name: 'name', type: 'string' }], runtime: 'local' }),
     });
     assert.equal(confirmationResponse.statusCode, 201);
     const { confirmation } = confirmationResponse.json<GeneratorConfirmationResponse>();
-    assert.equal(confirmation.command, 'rails generate model Product name:string');
+    assert.equal(confirmation.runtime, 'local');
+    assert.equal(confirmation.command, 'bin/rails generate model Product name:string');
 
     const mutationResponse = await app.inject({
       method: 'POST', url: '/api/projects/p1/rails/generate/mutations', headers: jsonHeaders,
