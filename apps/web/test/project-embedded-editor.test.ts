@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   file: vi.fn(),
   save: vi.fn(),
   search: vi.fn(),
+  watch: vi.fn(),
 }));
 
 const monaco = vi.hoisted(() => {
@@ -62,6 +63,7 @@ vi.mock('../src/api', () => ({
   fetchProjectFileContent: api.file,
   saveProjectFileContent: api.save,
   searchProjectFiles: api.search,
+  watchProjectFiles: api.watch,
 }));
 
 vi.mock('monaco-editor', () => ({
@@ -165,6 +167,7 @@ beforeEach(() => {
     ...openedFile('# Projeto alterado\n'),
     version: 'b'.repeat(64),
   });
+  api.watch.mockResolvedValue({ checkedAt: new Date().toISOString(), items: [] });
   api.search.mockResolvedValue({
     query: 'Projeto',
     items: [{
@@ -194,6 +197,10 @@ test('carrega o explorer e abre um arquivo editável', async () => {
   assert.deepEqual(monaco.updateOptions.mock.calls.at(-1)?.[0], {
     readOnly: false,
   });
+  assert.equal(
+    monaco.createEditor.mock.calls[0]?.[1]?.alwaysConsumeMouseWheel,
+    false,
+  );
   assert.match(wrapper.text(), /Edição segura/);
   assert.match(wrapper.get('.embedded-ide-statusbar').text(), /markdown/);
   wrapper.unmount();

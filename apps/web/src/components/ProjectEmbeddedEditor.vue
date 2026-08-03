@@ -34,7 +34,9 @@ import {
 } from '../api';
 import { configureMonacoEnvironment } from '../monaco-environment';
 import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
+import ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';
 import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
+import { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';
 
 interface FlatTreeEntry {
   entry: ProjectFileEntry;
@@ -147,6 +149,46 @@ function replaceOpenFile(file: ProjectFileContent): void {
     opened.path === file.path ? file : opened,
   );
 }
+
+function replaceModelContent(file: ProjectFileContent): void {
+  const model = models.get(file.path);
+  if (model && model.getValue() !== file.content) model.setValue(file.content);
+  if (activePath.value === file.path) {
+    fallbackContent.value = file.content;
+    displayFile(file);
+  }
+}
+
+const {
+  conflicts: externalConflicts,
+  checking: checkingExternalFiles,
+  keepLocal: keepExternalLocal,
+  registerSaveConflict,
+  removeConflict: removeExternalConflict,
+  useDisk: useExternalDisk,
+} = useProjectOpenFileWatcher({
+  projectId: () => props.project.id,
+  openFiles,
+  dirtyPaths,
+  getLocalContent: (filePath) =>
+    models.get(filePath)?.getValue()
+      ?? openFiles.value.find((file) => file.path === filePath)?.content
+      ?? '',
+  replaceOpenFile,
+  replaceModelContent,
+  setDirty,
+  onStatus: (message) => {
+    errorMessage.value = '';
+    statusMessage.value = message;
+  },
+  onError: (message) => {
+    if (!errorMessage.value) errorMessage.value = message;
+  },
+});
+
+const activeExternalConflict = computed(() =>
+  externalConflicts.value.get(activePath.value),
+);
 
 async function loadDirectory(
   relativePath: string,
@@ -289,6 +331,7 @@ function closeFileNow(filePath: string): void {
   openFiles.value = openFiles.value.filter((file) => file.path !== filePath);
   setDirty(filePath, false);
   disposeModel(filePath);
+  removeExternalConflict(filePath);
   pendingClosePath.value = '';
   if (conflictPath.value === filePath) conflictPath.value = '';
 
@@ -326,6 +369,7 @@ async function reloadFile(filePath: string): Promise<void> {
     if (model && model.getValue() !== fresh.content) model.setValue(fresh.content);
     setDirty(filePath, false);
     conflictPath.value = '';
+    removeExternalConflict(filePath);
     pendingClosePath.value = '';
     statusMessage.value = `${fresh.name} recarregado do disco.`;
     if (activePath.value === filePath) displayFile(fresh);
@@ -368,9 +412,20 @@ async function saveActiveFile(): Promise<void> {
       error instanceof ApiRequestError
       && error.code === 'FILE_CHANGED_EXTERNALLY'
     ) {
-      conflictPath.value = file.path;
-      errorMessage.value =
-        'O arquivo mudou fora do dashboard. Recarregue o disco ou mantenha sua edição aberta.';
+      try {
+        const diskFile = await fetchProjectFileContent(
+          props.project.id,
+          file.path,
+        );
+        registerSaveConflict(file, diskFile);
+        errorMessage.value =
+          'O arquivo mudou fora do dashboard. Compare a base, sua edição e o disco.';
+      } catch (reloadError) {
+        errorMessage.value = readableError(
+          reloadError,
+          'O arquivo mudou no disco e não pôde ser recarregado para comparação.',
+        );
+      }
     } else {
       errorMessage.value = readableError(
         error,
@@ -481,6 +536,7 @@ async function initializeMonaco(): Promise<void> {
       fontSize: 13,
       lineHeight: 21,
       scrollBeyondLastLine: false,
+      alwaysConsumeMouseWheel: false,
       renderWhitespace: 'selection',
       wordWrap: 'off',
       theme: themeName(),
@@ -620,6 +676,16 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+
+    <ProjectEditorConflictReview
+      v-if="activeExternalConflict"
+      :path="activeExternalConflict.path"
+      :base-content="activeExternalConflict.baseContent"
+      :local-content="activeExternalConflict.localContent"
+      :disk-content="activeExternalConflict.diskFile.content"
+      @use-disk="useExternalDisk(activeExternalConflict.path)"
+      @keep-local="keepExternalLocal(activeExternalConflict.path)"
+    />
 
     <div class="embedded-ide-shell">
       <aside class="embedded-ide-sidebar" aria-label="Arquivos do projeto">
@@ -764,7 +830,11 @@ onBeforeUnmount(() => {
         <footer class="embedded-ide-statusbar">
           <span>{{ activeFile?.path ?? project.name }}</span>
           <span>
-            {{ activeDirty ? 'Alterações não salvas' : (activeFile?.language ?? 'Nenhum arquivo') }}
+            {{ checkingExternalFiles
+              ? 'Verificando mudanças externas…'
+              : activeDirty
+                ? 'Alterações não salvas'
+                : (activeFile?.language ?? 'Nenhum arquivo') }}
           </span>
         </footer>
       </div>
