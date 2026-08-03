@@ -62,6 +62,112 @@ test('detecta serviços, metadados e estado sem executar configuração livre', 
   }
 });
 
+test('ignora um docker-compose.dev.yml que é só override e usa o arquivo base', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-override-'));
+  // Sem `image`/`build` em nenhum serviço — típico de um arquivo pensado para rodar
+  // junto da base (`-f compose.yml -f docker-compose.dev.yml`), não sozinho.
+  await writeFile(path.join(directory, 'docker-compose.dev.yml'), [
+    'services:',
+    '  db:',
+    '    environment:',
+    '      DEBUG: "true"',
+    '',
+  ].join('\n'));
+  await writeFile(path.join(directory, 'docker-compose.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:17',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => ({ stdout: args.includes('ps') ? 'db\n' : '', stderr: '' }),
+  });
+  try {
+    const overview = await service.overview(project);
+    assert.equal(overview.composeFile, 'docker-compose.yml');
+    assert.deepEqual(overview.services, [
+      { name: 'db', image: 'postgres:17', requiresBuild: false, ports: [], dependsOn: [], running: true },
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('usa um docker-compose.dev.yml standalone quando ele já define image/build', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-standalone-dev-'));
+  await writeFile(path.join(directory, 'docker-compose.dev.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:17',
+    '',
+  ].join('\n'));
+  await writeFile(path.join(directory, 'docker-compose.yml'), [
+    'services:',
+    '  db:',
+    '    image: postgres:16',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+  const service = new DockerComposeService({
+    runCommand: async () => ({ stdout: '', stderr: '' }),
+  });
+  try {
+    const overview = await service.overview(project);
+    assert.equal(overview.composeFile, 'docker-compose.dev.yml');
+    assert.equal(overview.services[0]?.image, 'postgres:17');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('resolve porta com interpolação de shell via docker compose config, com fallback para o literal', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-compose-var-port-'));
+  await writeFile(path.join(directory, 'compose.yaml'), [
+    'services:',
+    '  db:',
+    '    image: mysql:8.0',
+    '    ports:',
+    '      - "${MYSQL_PORT:-3306}:3306"',
+    '',
+  ].join('\n'));
+  const project: Project = {
+    id: 'painel', name: 'Painel', path: directory, type: 'node',
+    source: 'standalone', favorite: false, capabilities: ['docker'],
+  };
+
+  try {
+    const resolved = new DockerComposeService({
+      runCommand: async (_command, args) => {
+        if (args.includes('config')) {
+          return { stdout: JSON.stringify({ services: { db: { ports: [{ target: 3306, published: 3307 }] } } }), stderr: '' };
+        }
+        return { stdout: '', stderr: '' };
+      },
+    });
+    const resolvedOverview = await resolved.overview(project);
+    assert.deepEqual(resolvedOverview.services[0]?.ports, ['3307:3306']);
+
+    const unavailable = new DockerComposeService({
+      runCommand: async (_command, args) => {
+        if (args.includes('config')) throw new Error('config indisponível');
+        if (args.includes('version')) return { stdout: '', stderr: '' };
+        return { stdout: '', stderr: '' };
+      },
+    });
+    const fallbackOverview = await unavailable.overview(project);
+    assert.deepEqual(fallbackOverview.services[0]?.ports, ['${MYSQL_PORT:-3306}:3306']);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('executa somente o catálogo conhecido e exige confirmação vinculada', async () => {
   const item = await fixture();
   const calls: string[][] = [];
@@ -70,13 +176,17 @@ test('executa somente o catálogo conhecido e exige confirmação vinculada', as
     now: () => now,
     runCommand: async (_command, args) => {
       calls.push(args);
+      if (args.includes('ps')) return { stdout: 'db\n', stderr: '' };
       return { stdout: '', stderr: '' };
     },
   });
   try {
     await service.runAction(item.project, 'db', 'start');
-    assert.deepEqual(calls.at(-1), [
+    assert.deepEqual(calls.at(-2), [
       'compose', '-f', path.join(item.directory, 'compose.yaml'), 'up', '-d', 'db',
+    ]);
+    assert.deepEqual(calls.at(-1), [
+      'compose', '-f', path.join(item.directory, 'compose.yaml'), 'ps', '--status', 'running', '--services',
     ]);
 
     await assert.rejects(
@@ -165,6 +275,57 @@ test('preserva a confirmação quando Docker está indisponível e remove confir
   }
 });
 
+test('identifica conflito de porta a partir do stderr do Docker', async () => {
+  const item = await fixture();
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => {
+      if (args.includes('up')) {
+        const error = new Error('Command failed') as Error & { stderr?: string };
+        error.stderr = [
+          ' Container painel-db-1  Starting',
+          'Error response from daemon: driver failed programming external connectivity on endpoint painel-db-1: '
+            + 'failed to bind port 0.0.0.0:5433/tcp: Error starting userland proxy: listen tcp4 0.0.0.0:5433: bind: address already in use',
+        ].join('\n');
+        throw error;
+      }
+      return { stdout: '', stderr: '' };
+    },
+  });
+  try {
+    await assert.rejects(
+      service.runAction(item.project, 'db', 'start'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_PORT_CONFLICT'
+        && /porta 5433/.test(error.message),
+    );
+  } finally {
+    await item.cleanup();
+  }
+});
+
+test('reporta quando o serviço sai logo após o start, com um trecho dos logs', async () => {
+  const item = await fixture();
+  const service = new DockerComposeService({
+    runCommand: async (_command, args) => {
+      if (args.includes('ps')) return { stdout: '', stderr: '' };
+      if (args.includes('logs')) {
+        return { stdout: 'db  | Could not open library \'vips.so.42\': cannot open shared object file\n', stderr: '' };
+      }
+      return { stdout: '', stderr: '' };
+    },
+  });
+  try {
+    await assert.rejects(
+      service.runAction(item.project, 'db', 'start'),
+      (error: unknown) => error instanceof DockerComposeError
+        && error.code === 'DOCKER_SERVICE_EXITED'
+        && /vips\.so\.42/.test(error.message),
+    );
+  } finally {
+    await item.cleanup();
+  }
+});
+
 test('limita e mascara logs antes de devolvê-los', async () => {
   const item = await fixture();
   const oversizedOutput = `${'x'.repeat(262_200)}\ndb | password=segredo\ndb | pronto\n`;
@@ -208,6 +369,7 @@ test('exige build via ProcessManager e libera o start após sucesso', async () =
   const service = new DockerComposeService({
     runCommand: async (_command, args) => {
       runCommandCalls.push(args);
+      if (args.includes('ps')) return { stdout: 'web\n', stderr: '' };
       return { stdout: '', stderr: '' };
     },
     processManager: fakeProcessManager as never,
@@ -247,7 +409,7 @@ test('exige build via ProcessManager e libera o start após sucesso', async () =
 
     buildProcess = { status: 'stopped', exitCode: 0 };
     await service.runAction(item.project, 'web', 'start');
-    assert.deepEqual(runCommandCalls.at(-1), [
+    assert.deepEqual(runCommandCalls.at(-2), [
       'compose', '-f', path.join(item.directory, 'compose.yaml'), 'up', '-d', 'web',
     ]);
   } finally {
