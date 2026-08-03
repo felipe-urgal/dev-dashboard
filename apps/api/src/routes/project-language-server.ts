@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
+import { withWebSocketMessageRateLimit } from '../security/rate-limited-websocket.js';
 import type { ProjectLanguageServerService } from '../services/project-language-server-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import {
@@ -80,9 +81,13 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
         socket.close(1008, 'Projeto não encontrado');
         return;
       }
-      void options.projectLanguageServerService.attach(project, socket).catch(() => {
-        socket.close(1011, 'Falha ao iniciar servidor de linguagem');
-      });
+
+      const limitedSocket = withWebSocketMessageRateLimit(socket);
+      void options.projectLanguageServerService
+        .attach(project, limitedSocket)
+        .catch(() => {
+          limitedSocket.close(1011, 'Falha ao iniciar servidor de linguagem');
+        });
     },
   );
 };
