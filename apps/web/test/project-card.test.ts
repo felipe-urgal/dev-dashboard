@@ -61,4 +61,36 @@ describe('ProjectCard', () => {
     });
     expect(wrapper.text()).not.toContain('Git');
   });
+
+  it('expõe uma ação acessível para alternar o favorito', async () => {
+    const wrapper = mount(ProjectCard, {
+      props: { project },
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>',
+          },
+        },
+      },
+    });
+    const button = wrapper.get('.project-favorite-button');
+
+    expect(button.attributes('aria-label'))
+      .toBe('Adicionar Projeto sem avatar aos favoritos');
+    expect(button.attributes('aria-pressed')).toBe('false');
+
+    await button.trigger('click');
+
+    expect(wrapper.emitted('toggle-favorite')).toEqual([[project]]);
+
+    await wrapper.setProps({
+      project: {
+        ...project,
+        favorite: true,
+      },
+    });
+    expect(button.attributes('aria-label'))
+      .toBe('Remover Projeto sem avatar dos favoritos');
+    expect(button.attributes('aria-pressed')).toBe('true');
+  });
 });

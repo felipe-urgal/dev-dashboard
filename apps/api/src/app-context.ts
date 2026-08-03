@@ -1,4 +1,8 @@
-import { RetentionSettingsRepository, WorkspaceRepository } from '@dev-dashboard/core';
+import {
+  ProjectFavoriteRepository,
+  RetentionSettingsRepository,
+  WorkspaceRepository,
+} from '@dev-dashboard/core';
 
 import {
   ProcessManager,
@@ -23,6 +27,7 @@ import { ServerHealthCheckService } from './services/server-health-check-service
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
+  projectFavoriteRepository: ProjectFavoriteRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -51,6 +56,7 @@ export function createAppContext(): AppContext {
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
+    projectFavoriteRepository: new ProjectFavoriteRepository(),
     processManager,
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),

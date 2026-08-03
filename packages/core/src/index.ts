@@ -15,6 +15,11 @@ export {
 
 export { RetentionSettingsRepository, RETENTION_SETTINGS_LIMITS } from './retention-settings-repository.js';
 
+export {
+  ProjectFavoriteRepository,
+  ProjectFavoriteRepositoryError,
+} from './project-favorite-repository.js';
+
 export type {
   CreateWorkspaceInput,
   WorkspaceRepositoryErrorCode

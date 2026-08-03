@@ -55,6 +55,10 @@ function createApi(
     fetchProjects: async () => [],
     fetchWorkspaces: async () => [],
     scanWorkspace: async () => scanResult([]),
+    updateProjectFavorite: async (_projectId, favorite) => ({
+      ...project,
+      favorite,
+    }),
     ...overrides,
   };
 }
@@ -122,4 +126,56 @@ test('dashboard store evicts projects removed by a rescan', async () => {
 
   assert.deepEqual(store.projects.value, []);
   assert.equal(await store.ensureProject(project.id), null);
+});
+
+test('dashboard store ordena favoritos primeiro e persiste a alteração', async () => {
+  const otherProject: Project = {
+    ...project,
+    id: 'project-2',
+    name: 'Alpha',
+    favorite: true,
+  };
+  const store = createDashboardStore(
+    createApi({
+      fetchProjects: async () => [project, otherProject],
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+
+  assert.deepEqual(
+    store.sortedProjects.value.map((item) => item.id),
+    ['project-2', 'project-1'],
+  );
+
+  await store.toggleProjectFavorite(project);
+
+  assert.equal(store.projects.value[0]?.favorite, true);
+  assert.deepEqual(store.favoriteUpdatingIds.value, []);
+});
+
+test('dashboard store desfaz a alteração otimista quando a API falha', async () => {
+  let rejectUpdate!: (error: Error) => void;
+  const updatePromise = new Promise<Project>((_resolve, reject) => {
+    rejectUpdate = reject;
+  });
+  const store = createDashboardStore(
+    createApi({
+      fetchProjects: async () => [project],
+      updateProjectFavorite: async () => updatePromise,
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+  const update = store.toggleProjectFavorite(project);
+
+  assert.equal(store.projects.value[0]?.favorite, true);
+  assert.deepEqual(store.favoriteUpdatingIds.value, [project.id]);
+
+  rejectUpdate(new Error('Falha ao salvar favorito'));
+  await update;
+
+  assert.equal(store.projects.value[0]?.favorite, false);
+  assert.equal(store.errorMessage.value, 'Falha ao salvar favorito');
+  assert.deepEqual(store.favoriteUpdatingIds.value, []);
 });

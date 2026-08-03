@@ -245,6 +245,17 @@ corpo assim que os headers chegam. A resposta pública contém somente caminho,
 origem da configuração, classificação, código HTTP, latência e horário. Erros de
 rede são resumidos sem endereço, stack ou mensagem bruta do runtime.
 
+### Favoritos de projetos
+
+Favoritos são preferências locais associadas somente ao identificador estável
+do projeto. A API não grava metadados dentro do repositório descoberto e só
+aceita alterações para projetos presentes no `ProjectStore` após um scan.
+
+A configuração é limitada, validada e persistida atomicamente em
+`project-favorites.json`, dentro do diretório de configuração `0700`, com modo
+`0600`. A rota de alteração usa autenticação local e schema fechado; ela não
+aceita caminhos nem conteúdo livre para gravação.
+
 ## Autenticação local
 
 No primeiro uso, o Dev Dashboard gera um token criptograficamente aleatório de

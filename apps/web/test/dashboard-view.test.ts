@@ -10,6 +10,7 @@ const actions = vi.hoisted(() => ({
   buscarProcessos: vi.fn(),
   iniciarProcesso: vi.fn(),
   pararProcesso: vi.fn(),
+  favoritar: vi.fn(),
 }));
 
 vi.mock('../src/api', () => ({
@@ -32,6 +33,7 @@ vi.mock('../src/stores/dashboard', async () => {
       loadingProjects: ref(false),
       scanningWorkspace: ref(false),
       deletingWorkspace: ref(false),
+      favoriteUpdatingIds: ref<string[]>([]),
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
@@ -40,6 +42,7 @@ vi.mock('../src/stores/dashboard', async () => {
       sortedProjects: computed(() => [...projects.value].sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name))),
       scanSelectedWorkspace: actions.escanear,
       handleDeleteWorkspace: actions.remover,
+      toggleProjectFavorite: actions.favoritar,
     },
   };
 });
@@ -56,7 +59,11 @@ function mountView() {
   return mount(DashboardView, {
     global: {
       stubs: {
-        ProjectCard: { props: ['project'], template: '<li class="project-stub">{{ project.name }}</li>' },
+        ProjectCard: {
+          props: ['project', 'favoriteUpdating'],
+          emits: ['toggle-favorite'],
+          template: '<li class="project-stub" @click="$emit(\'toggle-favorite\', project)">{{ project.name }}</li>',
+        },
       },
     },
   });
@@ -82,6 +89,7 @@ beforeEach(() => {
   dashboardStore.selectedWorkspaceId.value = '';
   dashboardStore.loadingProjects.value = false;
   dashboardStore.lastScannedPath.value = '';
+  dashboardStore.favoriteUpdatingIds.value = [];
 });
 
 describe('dashboard principal', () => {
@@ -124,6 +132,9 @@ describe('dashboard principal', () => {
     dashboardStore.projects.value = [project];
     await nextTick();
     expect(wrapper.get('.project-stub').text()).toBe('Favorito');
+
+    await wrapper.get('.project-stub').trigger('click');
+    expect(actions.favoritar).toHaveBeenCalledWith(project);
   });
 
   it('filtra projetos por busca e tecnologia e permite limpar os filtros', async () => {

@@ -56,4 +56,40 @@ export class ProjectStore {
       ) ?? null
     );
   }
+
+  public setFavorite(
+    projectId: string,
+    favorite: boolean,
+  ): Project | null {
+    for (const [workspaceId, scan] of this.workspaceScans) {
+      const projectIndex = scan.projects.findIndex(
+        (project) => project.id === projectId,
+      );
+
+      if (projectIndex < 0) {
+        continue;
+      }
+
+      const existingProject = scan.projects[projectIndex];
+
+      if (!existingProject) {
+        continue;
+      }
+
+      const project = {
+        ...existingProject,
+        favorite,
+      };
+      const projects = [...scan.projects];
+      projects[projectIndex] = project;
+      this.workspaceScans.set(workspaceId, {
+        ...scan,
+        projects,
+      });
+
+      return project;
+    }
+
+    return null;
+  }
 }

@@ -29,8 +29,10 @@ const {
   lastScannedPath,
   selectedWorkspaceId,
   sortedProjects,
+  favoriteUpdatingIds,
   scanSelectedWorkspace,
   handleDeleteWorkspace,
+  toggleProjectFavorite,
 } = dashboardStore;
 
 useAutoDismiss(errorMessage, '');
@@ -332,6 +334,8 @@ const {
           v-for="project in filteredProjects"
           :key="project.id"
           :project="project"
+          :favorite-updating="favoriteUpdatingIds.includes(project.id)"
+          @toggle-favorite="toggleProjectFavorite"
         />
       </ul>
     </Card>

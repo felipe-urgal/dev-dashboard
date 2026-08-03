@@ -25,6 +25,7 @@ interface JsonResponse {
   projects?: Array<{
     id: string;
     name: string;
+    favorite: boolean;
   }>;
   process?: unknown;
   workspaces?: unknown[];
@@ -444,6 +445,65 @@ test(
         assert.match(
           String(faviconResponse.headers["content-type"]),
           /image\/svg\+xml/
+        );
+      }
+    );
+
+    await context.test(
+      "persists a project favorite across workspace scans",
+      async () => {
+        const favoriteResponse = await app.inject({
+          method: "PUT",
+          url: `/api/projects/${projectId}/favorite`,
+          headers,
+          payload: {
+            favorite: true
+          }
+        });
+
+        assert.equal(favoriteResponse.statusCode, 200);
+        assert.equal(
+          favoriteResponse.json<{
+            project: { favorite: boolean };
+          }>().project.favorite,
+          true
+        );
+
+        const invalidResponse = await app.inject({
+          method: "PUT",
+          url: `/api/projects/${projectId}/favorite`,
+          headers,
+          payload: {
+            favorite: "yes"
+          }
+        });
+
+        assert.equal(invalidResponse.statusCode, 400);
+
+        const scanResponse = await app.inject({
+          method: "POST",
+          url: `/api/workspaces/${workspaceId}/scan`,
+          headers
+        });
+
+        assert.equal(scanResponse.statusCode, 200);
+        assert.equal(
+          scanResponse.json<{
+            projects: Array<{ favorite: boolean }>;
+          }>().projects[0]?.favorite,
+          true
+        );
+
+        const projectsResponse = await app.inject({
+          method: "GET",
+          url: "/api/projects",
+          headers
+        });
+
+        assert.equal(
+          projectsResponse.json<JsonResponse>()
+            .projects?.[0]?.favorite,
+          true
         );
       }
     );

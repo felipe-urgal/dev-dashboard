@@ -397,6 +397,7 @@ DELETE /api/workspaces/:workspaceId
 
 GET    /api/projects
 GET    /api/projects/:projectId
+PUT    /api/projects/:projectId/favorite
 GET    /api/projects/:projectId/favicon
 GET    /api/projects/:projectId/readme
 GET    /api/projects/:projectId/git
@@ -510,7 +511,8 @@ A interface web já permite:
 14. acompanhar um painel global de atividade e uma página global de processos;
 15. navegar por uma command palette (`Cmd/Ctrl+K`);
 16. ajustar preferências de tema, densidade e retenção;
-17. continuar utilizando o CLI existente de forma independente.
+17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
+18. continuar utilizando o CLI existente de forma independente.
 
 A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
 smoke E2E de workspace → projeto → execução → log.
