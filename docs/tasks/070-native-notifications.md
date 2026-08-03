@@ -25,6 +25,9 @@ explícita e sem substituir a central de avisos do dashboard.
   transição observada usada pelos demais processos.
 - Ausência da API, permissão negada, duração curta, aba visível ou falha ao
   criar a notificação preservam integralmente o aviso interno.
+- Indisponibilidade ou falha transitória da Notification API suspendem o envio
+  sem apagar a preferência; somente a desativação explícita remove a escolha
+  salva.
 
 ## Decisões
 
@@ -56,7 +59,7 @@ explícita e sem substituir a central de avisos do dashboard.
 
 - `npm run typecheck`: aprovado em todos os workspaces.
 - `npm run build`: aprovado.
-- `apps/web`: 271 testes aprovados em 63 arquivos, incluindo permissão
+- `apps/web`: 274 testes aprovados em 63 arquivos, incluindo permissão
   explícita, persistência, limiar, visibilidade da aba, clique/navegação,
   deduplicação e conclusão de build.
 - `apps/api`: 354 testes aprovados.

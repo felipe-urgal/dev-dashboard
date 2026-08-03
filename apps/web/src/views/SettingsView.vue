@@ -26,10 +26,8 @@ const saving = ref(false);
 const error = ref('');
 const feedback = ref('');
 const notificationFeedback = ref('');
-const {
-  enabled: nativeNotificationsEnabled,
-  status: nativeNotificationStatus,
-} = nativeNotificationStore;
+const nativeNotificationsEnabled = nativeNotificationStore.enabled;
+const nativeNotificationStatus = nativeNotificationStore.status;
 
 function fill(values: RetentionSettings): void { Object.assign(form, values); }
 

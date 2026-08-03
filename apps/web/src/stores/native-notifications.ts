@@ -14,7 +14,7 @@ export type NativeNotificationEnableResult =
 type NoticeRoute = Notice['routeTo'];
 
 function browserSupportsNotifications(): boolean {
-  return typeof window !== 'undefined' && 'Notification' in window;
+  return typeof window !== 'undefined' && typeof window.Notification === 'function';
 }
 
 function readStoredPreference(): boolean {
@@ -45,9 +45,9 @@ function currentPermission(): NotificationPermission | 'unsupported' {
   return browserSupportsNotifications() ? Notification.permission : 'unsupported';
 }
 
-const nativeOrigins = new Set<NoticeOrigin>(['test', 'script', 'build']);
+type NativeNoticeOrigin = Exclude<NoticeOrigin, 'server'>;
 
-const titles: Record<Exclude<NoticeOrigin, 'server'>, Record<NoticeOutcome, string>> = {
+const titles = {
   test: {
     succeeded: 'Testes concluídos com sucesso',
     failed: 'Testes concluídos com falhas',
@@ -66,7 +66,13 @@ const titles: Record<Exclude<NoticeOrigin, 'server'>, Record<NoticeOutcome, stri
     cancelled: 'Build cancelado',
     stopped: 'Build interrompido',
   },
-};
+} as const satisfies Record<NativeNoticeOrigin, Record<NoticeOutcome, string>>;
+
+const nativeOrigins: ReadonlySet<NoticeOrigin> = new Set(Object.keys(titles) as NativeNoticeOrigin[]);
+
+function isNativeNoticeOrigin(origin: NoticeOrigin): origin is NativeNoticeOrigin {
+  return nativeOrigins.has(origin);
+}
 
 export function durationInMilliseconds(
   startedAt?: string,
@@ -107,11 +113,15 @@ export function createNativeNotificationStore() {
     storePreference(false);
   }
 
+  function suspend(): void {
+    enabled.value = false;
+  }
+
   async function enable(): Promise<NativeNotificationEnableResult> {
     supported.value = browserSupportsNotifications();
     if (!supported.value) {
       permission.value = 'unsupported';
-      disable();
+      suspend();
       return 'unsupported';
     }
 
@@ -121,7 +131,7 @@ export function createNativeNotificationStore() {
         permission.value = await Notification.requestPermission();
       }
       if (permission.value !== 'granted') {
-        disable();
+        suspend();
         return 'denied';
       }
 
@@ -129,26 +139,31 @@ export function createNativeNotificationStore() {
       storePreference(true);
       return 'enabled';
     } catch {
-      disable();
+      suspend();
       return 'error';
     }
   }
 
   function publish(notice: Notice, durationMs?: number): void {
-    if (!enabled.value || !nativeOrigins.has(notice.origin)) return;
+    if (!enabled.value || !isNativeNoticeOrigin(notice.origin)) return;
     if (durationMs === undefined || durationMs < NATIVE_NOTIFICATION_MINIMUM_DURATION_MS) return;
     if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
 
     supported.value = browserSupportsNotifications();
+    if (!supported.value) {
+      permission.value = 'unsupported';
+      suspend();
+      return;
+    }
+
     permission.value = currentPermission();
-    if (!supported.value || permission.value !== 'granted') {
-      disable();
+    if (permission.value !== 'granted') {
+      suspend();
       return;
     }
 
     try {
-      const origin = notice.origin as Exclude<NoticeOrigin, 'server'>;
-      const systemNotification = new Notification(titles[origin][notice.outcome], {
+      const systemNotification = new Notification(titles[notice.origin][notice.outcome], {
         body: `${notice.projectName} · ${notice.label}`,
         tag: notice.dedupeKey,
       });

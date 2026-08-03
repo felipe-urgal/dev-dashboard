@@ -87,6 +87,46 @@ test('notifica somente execução longa concluída enquanto a aba está oculta',
   assert.equal(FakeNotification.instances[0]!.options?.tag, notice.dedupeKey);
 });
 
+test('preserva a preferência quando a permissão fica temporariamente sem decisão', () => {
+  FakeNotification.permission = 'granted';
+  window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  const store = createNativeNotificationStore();
+
+  FakeNotification.permission = 'default';
+  store.publish(makeNotice(), 30_000);
+
+  assert.equal(store.enabled.value, false);
+  assert.equal(store.permission.value, 'default');
+  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+  assert.equal(FakeNotification.instances.length, 0);
+});
+
+test('preserva a preferência quando a API deixa de estar disponível', () => {
+  FakeNotification.permission = 'granted';
+  window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  const store = createNativeNotificationStore();
+
+  vi.stubGlobal('Notification', undefined);
+  store.publish(makeNotice(), 30_000);
+
+  assert.equal(store.enabled.value, false);
+  assert.equal(store.permission.value, 'unsupported');
+  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+});
+
+test('preserva a preferência quando a solicitação de permissão falha', async () => {
+  FakeNotification.permission = 'default';
+  FakeNotification.requestPermission.mockRejectedValue(new Error('API indisponível'));
+  window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
+  const store = createNativeNotificationStore();
+
+  assert.equal(await store.enable(), 'error');
+  assert.equal(store.enabled.value, false);
+  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+});
+
 test('clique foca a janela e abre a rota vinculada ao aviso', () => {
   FakeNotification.permission = 'granted';
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
