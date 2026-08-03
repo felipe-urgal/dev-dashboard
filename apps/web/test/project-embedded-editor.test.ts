@@ -41,15 +41,25 @@ vi.mock('monaco-editor', () => ({
   },
 }));
 
-for (const worker of [
-  'monaco-editor/editor/editor.worker?worker',
-  'monaco-editor/language/css/css.worker?worker',
-  'monaco-editor/language/html/html.worker?worker',
-  'monaco-editor/language/json/json.worker?worker',
-  'monaco-editor/language/typescript/ts.worker?worker',
-]) {
-  vi.mock(worker, () => ({ default: class MockWorker {} }));
-}
+vi.mock('monaco-editor/editor/editor.worker?worker', () => ({
+  default: class MockEditorWorker {},
+}));
+
+vi.mock('monaco-editor/language/css/css.worker?worker', () => ({
+  default: class MockCssWorker {},
+}));
+
+vi.mock('monaco-editor/language/html/html.worker?worker', () => ({
+  default: class MockHtmlWorker {},
+}));
+
+vi.mock('monaco-editor/language/json/json.worker?worker', () => ({
+  default: class MockJsonWorker {},
+}));
+
+vi.mock('monaco-editor/language/typescript/ts.worker?worker', () => ({
+  default: class MockTypeScriptWorker {},
+}));
 
 import ProjectEmbeddedEditor from '../src/components/ProjectEmbeddedEditor.vue';
 
