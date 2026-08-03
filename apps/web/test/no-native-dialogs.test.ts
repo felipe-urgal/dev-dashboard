@@ -1,14 +1,33 @@
 import assert from 'node:assert/strict';
 import {
+  access,
   readdir,
   readFile,
 } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'vitest';
 
-const sourceRoot = fileURLToPath(new URL('../src', import.meta.url));
 const nativeDialogPattern = /\b(?:window|globalThis)\.(?:alert|confirm|prompt)\s*\(/g;
+
+async function resolveSourceRoot(): Promise<string> {
+  const candidates = [
+    path.resolve(process.cwd(), 'src'),
+    path.resolve(process.cwd(), 'apps/web/src'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Tenta o próximo diretório compatível com a execução do workspace.
+    }
+  }
+
+  throw new Error(
+    `Diretório fonte do frontend não encontrado a partir de ${process.cwd()}.`,
+  );
+}
 
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -23,6 +42,7 @@ async function sourceFiles(directory: string): Promise<string[]> {
 }
 
 test('não usa alertas, confirmações ou prompts nativos no frontend', async () => {
+  const sourceRoot = await resolveSourceRoot();
   const violations: string[] = [];
 
   for (const filePath of await sourceFiles(sourceRoot)) {
