@@ -10,14 +10,19 @@ const api = vi.hoisted(() => ({
   save: vi.fn(),
   search: vi.fn(),
   watch: vi.fn(),
+  languageStatus: vi.fn(),
+  workspacePreview: vi.fn(),
+  workspaceApply: vi.fn(),
 }));
 
 const monaco = vi.hoisted(() => {
   const state: {
     value: string;
     listener: (() => void) | undefined;
-  } = { value: '', listener: undefined };
+    uri: unknown;
+  } = { value: '', listener: undefined, uri: '' };
   const model = {
+    get uri() { return state.uri; },
     dispose: vi.fn(),
     getValue: vi.fn(() => state.value),
     setValue: vi.fn((value: string) => {
@@ -42,6 +47,7 @@ const monaco = vi.hoisted(() => {
       _uri: unknown,
     ) => {
       state.value = content;
+      state.uri = _uri;
       return model;
     }),
     createEditor: vi.fn((
@@ -69,6 +75,10 @@ vi.mock('../src/api', () => ({
   saveProjectFileContent: api.save,
   searchProjectFiles: api.search,
   watchProjectFiles: api.watch,
+  fetchProjectLanguageServerStatus: api.languageStatus,
+  projectLanguageServerWebSocketUrl: vi.fn(() => 'ws://localhost/lsp'),
+  previewProjectWorkspaceEdit: api.workspacePreview,
+  applyProjectWorkspaceEdit: api.workspaceApply,
 }));
 
 vi.mock('monaco-editor', () => ({
@@ -78,6 +88,19 @@ vi.mock('monaco-editor', () => ({
     create: monaco.createEditor,
     createModel: monaco.createModel,
     setTheme: vi.fn(),
+    setModelMarkers: vi.fn(),
+  },
+  MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
+  MarkerTag: { Unnecessary: 1, Deprecated: 2 },
+  languages: {
+    CompletionItemKind: new Proxy({}, { get: (_target, key) => String(key) }),
+    SymbolKind: new Proxy({}, { get: (_target, key) => String(key) }),
+    CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+    registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerDefinitionProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerReferenceProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerCompletionItemProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerDocumentSymbolProvider: vi.fn(() => ({ dispose: vi.fn() })),
   },
 }));
 
@@ -153,6 +176,21 @@ beforeEach(() => {
   vi.clearAllMocks();
   monaco.state.value = '';
   monaco.state.listener = undefined;
+  monaco.state.uri = '';
+  api.languageStatus.mockResolvedValue({
+    kind: 'javascript-typescript',
+    supported: true,
+    available: false,
+    state: 'unavailable',
+    activeConnections: 0,
+    message: 'Servidor indisponível no teste.',
+  });
+  api.workspacePreview.mockResolvedValue({
+    confirmationToken: 'c'.repeat(64),
+    expiresAt: new Date().toISOString(),
+    files: [],
+  });
+  api.workspaceApply.mockResolvedValue({ files: [] });
   api.directory.mockResolvedValue({
     path: '',
     entries: [

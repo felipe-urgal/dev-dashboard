@@ -51,6 +51,12 @@ export type {
 } from './project-files.js';
 
 export type {
+  ProjectLanguageServerKind,
+  ProjectLanguageServerState,
+  ProjectLanguageServerStatus,
+} from './language-server.js';
+
+export type {
   ManagedProcess,
   ManagedProcessKind,
   ManagedProcessStatus,

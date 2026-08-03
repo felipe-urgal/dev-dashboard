@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import websocket from '@fastify/websocket';
 
 import { directoryRoutes } from './routes/directories.js';
 
@@ -10,6 +11,7 @@ import { projectReadmeRoutes } from './routes/project-readme.js';
 import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
 import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js';
+import { projectLanguageServerRoutes } from './routes/project-language-server.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -44,6 +46,7 @@ import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
+import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
 import {
   createAppContext,
@@ -61,12 +64,20 @@ export interface BuildAppOptions {
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
   now?: () => number;
+  projectLanguageServerService?: ProjectLanguageServerService;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
+    },
+  });
+
+  await app.register(websocket, {
+    options: {
+      maxPayload: 1024 * 1024,
+      perMessageDeflate: false,
     },
   });
 
@@ -80,9 +91,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     context.projectFileService,
     options.now ?? Date.now,
   );
+  const projectLanguageServerService =
+    options.projectLanguageServerService ?? new ProjectLanguageServerService();
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
+    projectLanguageServerService.close();
   });
 
   const localToken =
@@ -211,6 +225,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectWorkspaceEditService,
+  });
+
+  app.register(projectLanguageServerRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectLanguageServerService,
   });
 
   app.register(projectEditorRoutes, {
