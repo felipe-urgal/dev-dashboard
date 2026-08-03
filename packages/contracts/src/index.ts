@@ -21,6 +21,15 @@ export type {
 } from './editor.js';
 
 export type {
+  ProjectDirectoryListing,
+  ProjectFileContent,
+  ProjectFileEntry,
+  ProjectFileKind,
+  ProjectFileSearchMatch,
+  ProjectFileSearchResult,
+} from './project-files.js';
+
+export type {
   ManagedProcess,
   ManagedProcessKind,
   ManagedProcessStatus,
