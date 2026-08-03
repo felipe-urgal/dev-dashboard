@@ -38,11 +38,11 @@ vi.mock('monaco-editor', () => ({
 }));
 
 for (const worker of [
-  'monaco-editor/esm/vs/editor/editor.worker?worker',
-  'monaco-editor/esm/vs/language/css/css.worker?worker',
-  'monaco-editor/esm/vs/language/html/html.worker?worker',
-  'monaco-editor/esm/vs/language/json/json.worker?worker',
-  'monaco-editor/esm/vs/language/typescript/ts.worker?worker',
+  'monaco-editor/esm/vs/editor/editor.worker.js?worker',
+  'monaco-editor/esm/vs/language/css/css.worker.js?worker',
+  'monaco-editor/esm/vs/language/html/html.worker.js?worker',
+  'monaco-editor/esm/vs/language/json/json.worker.js?worker',
+  'monaco-editor/esm/vs/language/typescript/ts.worker.js?worker',
 ]) {
   vi.mock(worker, () => ({ default: class MockWorker {} }));
 }
