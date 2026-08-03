@@ -25,8 +25,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  ApiRequestError,
   fetchProjectDirectory,
   fetchProjectFileContent,
+  saveProjectFileContent,
   searchProjectFiles,
 } from '../api';
 import { configureMonacoEnvironment } from '../monaco-environment';
@@ -44,13 +46,19 @@ const directoryEntries = ref(new Map<string, ProjectFileEntry[]>());
 const loadedDirectories = ref(new Set<string>());
 const expandedDirectories = ref(new Set<string>());
 const openFiles = ref<ProjectFileContent[]>([]);
+const dirtyPaths = ref(new Set<string>());
 const activePath = ref('');
 const fallbackContent = ref('');
 const loadingTree = ref(true);
 const loadingFile = ref(false);
 const loadingMonaco = ref(true);
+const monacoReady = ref(false);
 const searching = ref(false);
+const savingPath = ref('');
+const pendingClosePath = ref('');
+const conflictPath = ref('');
 const errorMessage = ref('');
+const statusMessage = ref('');
 const searchQuery = ref('');
 const searchResults = ref<ProjectFileSearchMatch[]>([]);
 const searchTruncated = ref(false);
@@ -59,9 +67,14 @@ let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 let themeObserver: MutationObserver | undefined;
 const models = new Map<string, Monaco.editor.ITextModel>();
+const modelListeners = new Map<string, Monaco.IDisposable>();
 
 const activeFile = computed(() =>
   openFiles.value.find((file) => file.path === activePath.value),
+);
+const activeDirty = computed(() => dirtyPaths.value.has(activePath.value));
+const pendingCloseFile = computed(() =>
+  openFiles.value.find((file) => file.path === pendingClosePath.value),
 );
 
 const flatTree = computed<FlatTreeEntry[]>(() => {
@@ -96,6 +109,16 @@ function replaceSet(
   if (enabled) next.add(value);
   else next.delete(value);
   return next;
+}
+
+function setDirty(filePath: string, dirty: boolean): void {
+  dirtyPaths.value = replaceSet(dirtyPaths.value, filePath, dirty);
+}
+
+function replaceOpenFile(file: ProjectFileContent): void {
+  openFiles.value = openFiles.value.map((opened) =>
+    opened.path === file.path ? file : opened,
+  );
 }
 
 async function loadDirectory(relativePath: string): Promise<void> {
@@ -146,12 +169,22 @@ function modelFor(file: ProjectFileContent): Monaco.editor.ITextModel | undefine
   if (!monaco) return undefined;
   const existing = models.get(file.path);
   if (existing) return existing;
+
   const model = monaco.editor.createModel(
     file.content,
     file.language,
     modelUri(file.path),
   );
+  const listener = model.onDidChangeContent(() => {
+    const opened = openFiles.value.find((item) => item.path === file.path);
+    if (!opened) return;
+    const value = model.getValue();
+    setDirty(file.path, value !== opened.content);
+    if (activePath.value === file.path) fallbackContent.value = value;
+    statusMessage.value = '';
+  });
   models.set(file.path, model);
+  modelListeners.set(file.path, listener);
   return model;
 }
 
@@ -160,10 +193,12 @@ function displayFile(
   position?: { line: number; column: number },
 ): void {
   activePath.value = file.path;
-  fallbackContent.value = file.content;
+  pendingClosePath.value = '';
   const model = modelFor(file);
+  fallbackContent.value = model?.getValue() ?? file.content;
   if (!editor || !model) return;
   editor.setModel(model);
+  editor.updateOptions({ readOnly: !file.writable });
   if (position) {
     editor.setPosition({
       lineNumber: position.line,
@@ -182,6 +217,7 @@ async function openFile(
   position?: { line: number; column: number },
 ): Promise<void> {
   errorMessage.value = '';
+  statusMessage.value = '';
   const opened = openFiles.value.find((file) => file.path === filePath);
   if (opened) {
     displayFile(opened, position);
@@ -203,17 +239,103 @@ async function openFile(
   }
 }
 
-function closeFile(filePath: string): void {
-  const index = openFiles.value.findIndex((file) => file.path === filePath);
-  openFiles.value = openFiles.value.filter((file) => file.path !== filePath);
+function disposeModel(filePath: string): void {
+  modelListeners.get(filePath)?.dispose();
+  modelListeners.delete(filePath);
   models.get(filePath)?.dispose();
   models.delete(filePath);
+}
+
+function closeFileNow(filePath: string): void {
+  const index = openFiles.value.findIndex((file) => file.path === filePath);
+  openFiles.value = openFiles.value.filter((file) => file.path !== filePath);
+  setDirty(filePath, false);
+  disposeModel(filePath);
+  pendingClosePath.value = '';
+  if (conflictPath.value === filePath) conflictPath.value = '';
 
   if (activePath.value !== filePath) return;
   const next = openFiles.value[Math.max(0, index - 1)] ?? openFiles.value[0];
-  activePath.value = next?.path ?? '';
-  fallbackContent.value = next?.content ?? '';
-  editor?.setModel(next ? modelFor(next) ?? null : null);
+  if (next) displayFile(next);
+  else {
+    activePath.value = '';
+    fallbackContent.value = '';
+    editor?.setModel(null);
+  }
+}
+
+function requestCloseFile(filePath: string): void {
+  if (dirtyPaths.value.has(filePath)) {
+    pendingClosePath.value = filePath;
+    return;
+  }
+  closeFileNow(filePath);
+}
+
+async function reloadFile(filePath: string): Promise<void> {
+  loadingFile.value = true;
+  errorMessage.value = '';
+  try {
+    const fresh = await fetchProjectFileContent(props.project.id, filePath);
+    replaceOpenFile(fresh);
+    const model = models.get(filePath);
+    if (model && model.getValue() !== fresh.content) model.setValue(fresh.content);
+    setDirty(filePath, false);
+    conflictPath.value = '';
+    pendingClosePath.value = '';
+    statusMessage.value = `${fresh.name} recarregado do disco.`;
+    if (activePath.value === filePath) displayFile(fresh);
+  } catch (error) {
+    errorMessage.value = readableError(
+      error,
+      'Não foi possível recarregar o arquivo.',
+    );
+  } finally {
+    loadingFile.value = false;
+  }
+}
+
+async function saveActiveFile(): Promise<void> {
+  const file = activeFile.value;
+  if (
+    !file
+    || !file.writable
+    || !dirtyPaths.value.has(file.path)
+    || savingPath.value
+  ) return;
+
+  const content = models.get(file.path)?.getValue() ?? fallbackContent.value;
+  savingPath.value = file.path;
+  errorMessage.value = '';
+  statusMessage.value = '';
+  try {
+    const saved = await saveProjectFileContent(props.project.id, {
+      path: file.path,
+      content,
+      expectedVersion: file.version,
+    });
+    replaceOpenFile(saved);
+    setDirty(file.path, false);
+    conflictPath.value = '';
+    fallbackContent.value = saved.content;
+    statusMessage.value = `${saved.name} salvo.`;
+  } catch (error) {
+    if (
+      error instanceof ApiRequestError
+      && error.code === 'FILE_CHANGED_EXTERNALLY'
+    ) {
+      conflictPath.value = file.path;
+      errorMessage.value =
+        'O arquivo mudou fora do dashboard. Recarregue o disco ou mantenha sua edição aberta.';
+    } else {
+      errorMessage.value = readableError(
+        error,
+        'Não foi possível salvar o arquivo.',
+      );
+    }
+  } finally {
+    savingPath.value = '';
+  }
 }
 
 async function submitSearch(): Promise<void> {
@@ -243,6 +365,19 @@ function clearSearch(): void {
   searchTruncated.value = false;
 }
 
+function handleKeydown(event: KeyboardEvent): void {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    void saveActiveFile();
+  }
+}
+
+function handleBeforeUnload(event: BeforeUnloadEvent): void {
+  if (dirtyPaths.value.size === 0) return;
+  event.preventDefault();
+  event.returnValue = '';
+}
+
 async function initializeMonaco(): Promise<void> {
   loadingMonaco.value = true;
   try {
@@ -261,8 +396,9 @@ async function initializeMonaco(): Promise<void> {
       wordWrap: 'off',
       theme: themeName(),
       accessibilitySupport: 'auto',
-      ariaLabel: 'Editor de código somente leitura',
+      ariaLabel: 'Editor de código do projeto',
     });
+    monacoReady.value = true;
     if (activeFile.value) displayFile(activeFile.value);
 
     themeObserver = new MutationObserver(() => {
@@ -273,6 +409,7 @@ async function initializeMonaco(): Promise<void> {
       attributeFilter: ['data-theme'],
     });
   } catch (error) {
+    monacoReady.value = false;
     errorMessage.value = readableError(
       error,
       'O Monaco não pôde ser carregado. A visualização simplificada permanece disponível.',
@@ -284,17 +421,23 @@ async function initializeMonaco(): Promise<void> {
 
 async function resetProject(): Promise<void> {
   editor?.setModel(null);
+  for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
+  modelListeners.clear();
   models.clear();
   directoryEntries.value = new Map();
   loadedDirectories.value = new Set();
   expandedDirectories.value = new Set();
   openFiles.value = [];
+  dirtyPaths.value = new Set();
   activePath.value = '';
   fallbackContent.value = '';
   searchResults.value = [];
   searchQuery.value = '';
+  pendingClosePath.value = '';
+  conflictPath.value = '';
   errorMessage.value = '';
+  statusMessage.value = '';
   loadingTree.value = true;
   await loadDirectory('');
   loadingTree.value = false;
@@ -306,13 +449,19 @@ watch(
 );
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('beforeunload', handleBeforeUnload);
   await Promise.all([resetProject(), initializeMonaco()]);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   themeObserver?.disconnect();
   editor?.dispose();
+  for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
+  modelListeners.clear();
   models.clear();
 });
 </script>
@@ -321,19 +470,29 @@ onBeforeUnmount(() => {
   <section
     class="embedded-ide"
     aria-labelledby="embedded-ide-title"
-    :aria-busy="loadingTree || loadingFile"
+    :aria-busy="loadingTree || loadingFile || Boolean(savingPath)"
   >
     <header class="embedded-ide-header">
       <div>
         <span class="section-kicker">IDE local</span>
         <h3 id="embedded-ide-title">Editor</h3>
         <p>
-          Explore e leia arquivos do projeto com Monaco. Salvamento, LSP e IA
-          entram nas próximas etapas.
+          Edite arquivos permitidos com salvamento versionado. Mudanças externas
+          nunca são sobrescritas automaticamente.
         </p>
       </div>
       <div class="embedded-ide-header-actions">
-        <span class="embedded-ide-readonly">Somente leitura</span>
+        <span class="embedded-ide-readonly">
+          {{ activeFile?.writable ? 'Edição segura' : 'Somente leitura' }}
+        </span>
+        <button
+          type="button"
+          class="button button-primary embedded-ide-save"
+          :disabled="!activeFile?.writable || !activeDirty || Boolean(savingPath)"
+          @click="saveActiveFile"
+        >
+          {{ savingPath ? 'Salvando…' : 'Salvar' }}
+        </button>
         <ProjectEditorLauncher :project-id="project.id" />
       </div>
     </header>
@@ -341,6 +500,36 @@ onBeforeUnmount(() => {
     <p v-if="errorMessage" class="alert alert-error embedded-ide-error" role="alert">
       {{ errorMessage }}
     </p>
+    <p v-else-if="statusMessage" class="alert embedded-ide-status" role="status">
+      {{ statusMessage }}
+    </p>
+
+    <div v-if="conflictPath" class="embedded-ide-decision" role="alert">
+      <span>Sua edição continua aberta e o arquivo no disco foi preservado.</span>
+      <div>
+        <button type="button" @click="reloadFile(conflictPath)">
+          Recarregar do disco
+        </button>
+        <button
+          type="button"
+          @click="conflictPath = ''; errorMessage = ''"
+        >
+          Manter edição
+        </button>
+      </div>
+    </div>
+
+    <div v-if="pendingCloseFile" class="embedded-ide-decision" role="alert">
+      <span>{{ pendingCloseFile.name }} possui alterações não salvas.</span>
+      <div>
+        <button type="button" @click="closeFileNow(pendingCloseFile.path)">
+          Descartar e fechar
+        </button>
+        <button type="button" @click="pendingClosePath = ''">
+          Cancelar
+        </button>
+      </div>
+    </div>
 
     <div class="embedded-ide-shell">
       <aside class="embedded-ide-sidebar" aria-label="Arquivos do projeto">
@@ -439,12 +628,12 @@ onBeforeUnmount(() => {
               :aria-selected="activePath === file.path"
               @click="displayFile(file)"
             >
-              {{ file.name }}
+              {{ file.name }}<span v-if="dirtyPaths.has(file.path)" aria-label="alterado"> •</span>
             </button>
             <button
               type="button"
               :aria-label="`Fechar ${file.name}`"
-              @click="closeFile(file.path)"
+              @click="requestCloseFile(file.path)"
             >
               <XMarkIcon aria-hidden="true" />
             </button>
@@ -453,12 +642,12 @@ onBeforeUnmount(() => {
 
         <div class="embedded-ide-editor-area">
           <div
-            v-show="!loadingMonaco && monaco"
+            v-show="!loadingMonaco && monacoReady"
             ref="editorHost"
             class="embedded-ide-monaco"
           />
           <pre
-            v-if="!monaco && fallbackContent"
+            v-if="!monacoReady && fallbackContent"
             class="embedded-ide-fallback"
             tabindex="0"
             aria-label="Conteúdo do arquivo em visualização simplificada"
@@ -469,7 +658,7 @@ onBeforeUnmount(() => {
           >
             <DocumentTextIcon aria-hidden="true" />
             <strong>Selecione um arquivo</strong>
-            <span>O conteúdo será aberto em modo somente leitura.</span>
+            <span>Arquivos permitidos podem ser editados e salvos com Ctrl+S.</span>
           </div>
           <p v-if="loadingMonaco" class="embedded-ide-loading" role="status">
             Carregando Monaco…
@@ -478,7 +667,9 @@ onBeforeUnmount(() => {
 
         <footer class="embedded-ide-statusbar">
           <span>{{ activeFile?.path ?? project.name }}</span>
-          <span>{{ activeFile?.language ?? 'Nenhum arquivo' }}</span>
+          <span>
+            {{ activeDirty ? 'Alterações não salvas' : (activeFile?.language ?? 'Nenhum arquivo') }}
+          </span>
         </footer>
       </div>
     </div>
@@ -517,7 +708,7 @@ onBeforeUnmount(() => {
 .embedded-ide-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .embedded-ide-readonly {
@@ -531,8 +722,48 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.embedded-ide-error {
+.embedded-ide-save {
+  min-width: 72px;
+}
+
+.embedded-ide-error,
+.embedded-ide-status {
   margin: 0;
+}
+
+.embedded-ide-status {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+}
+
+.embedded-ide-decision {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  font-size: var(--font-sm);
+}
+
+.embedded-ide-decision > div {
+  display: flex;
+  gap: 8px;
+}
+
+.embedded-ide-decision button {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-0);
+  font: inherit;
+  cursor: pointer;
 }
 
 .embedded-ide-shell {
@@ -815,7 +1046,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 860px) {
   .embedded-ide-header,
-  .embedded-ide-header-actions {
+  .embedded-ide-header-actions,
+  .embedded-ide-decision {
     align-items: stretch;
     flex-direction: column;
   }
