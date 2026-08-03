@@ -1,9 +1,15 @@
-import { createHash } from 'node:crypto';
-import type { Dirent } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { constants as fsConstants, type Dirent } from 'node:fs';
 import {
+  access,
+  chmod,
+  lstat,
+  open,
   readFile,
   readdir,
   realpath,
+  rename,
+  rm,
   stat,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -27,6 +33,10 @@ export type ProjectFileErrorCode =
   | 'FILE_TOO_LARGE'
   | 'FILE_BINARY'
   | 'FILE_NOT_READABLE'
+  | 'FILE_NOT_WRITABLE'
+  | 'FILE_VERSION_INVALID'
+  | 'FILE_CHANGED_EXTERNALLY'
+  | 'FILE_WRITE_FAILED'
   | 'FILE_SEARCH_INVALID';
 
 export class ProjectFileError extends Error {
@@ -178,6 +188,10 @@ function isBinary(buffer: Buffer): boolean {
   }
 }
 
+function versionFor(buffer: Uint8Array): string {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
 function publicPath(parent: string, name: string): string {
   return parent ? `${parent}/${name}` : name;
 }
@@ -228,6 +242,15 @@ async function resolveExistingPath(
   }
 
   return canonical;
+}
+
+async function isWritable(target: string): Promise<boolean> {
+  try {
+    await access(target, fsConstants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function safeEntry(
@@ -362,11 +385,134 @@ export class ProjectFileService {
       name: path.posix.basename(normalized),
       language: languageFor(normalized),
       content,
-      version: createHash('sha256').update(buffer).digest('hex'),
+      version: versionFor(buffer),
       size: stats.size,
       modifiedAt: stats.mtime.toISOString(),
-      writable: false,
+      writable: await isWritable(target),
     };
+  }
+
+  public async writeFile(
+    projectPath: string,
+    relativePath: string,
+    content: string,
+    expectedVersion: string,
+  ): Promise<ProjectFileContent> {
+    if (!/^[a-f0-9]{64}$/.test(expectedVersion)) {
+      throw new ProjectFileError(
+        'FILE_VERSION_INVALID',
+        'A versão esperada do arquivo não é válida.',
+      );
+    }
+    if (Buffer.byteLength(content, 'utf8') > MAX_FILE_SIZE) {
+      throw new ProjectFileError(
+        'FILE_TOO_LARGE',
+        'O conteúdo ultrapassa o limite de 512 KB.',
+      );
+    }
+
+    const root = await canonicalRoot(projectPath);
+    const normalized = normalizeRelativePath(relativePath);
+    if (!normalized) {
+      throw new ProjectFileError(
+        'FILE_PATH_INVALID',
+        'Informe o caminho relativo do arquivo.',
+      );
+    }
+    const target = await resolveExistingPath(root, normalized);
+    const stats = await stat(target);
+    if (!stats.isFile()) {
+      throw new ProjectFileError(
+        'FILE_NOT_FILE',
+        'O caminho solicitado não é um arquivo.',
+      );
+    }
+
+    let currentBuffer: Buffer;
+    try {
+      currentBuffer = await readFile(target);
+    } catch {
+      throw new ProjectFileError(
+        'FILE_NOT_READABLE',
+        'Não foi possível ler o arquivo antes de salvar.',
+      );
+    }
+    if (isBinary(currentBuffer)) {
+      throw new ProjectFileError(
+        'FILE_BINARY',
+        'Arquivos binários não podem ser alterados no editor.',
+      );
+    }
+    if (versionFor(currentBuffer) !== expectedVersion) {
+      throw new ProjectFileError(
+        'FILE_CHANGED_EXTERNALLY',
+        'O arquivo mudou no disco desde que foi aberto.',
+      );
+    }
+    if (!(await isWritable(target))) {
+      throw new ProjectFileError(
+        'FILE_NOT_WRITABLE',
+        'O arquivo não possui permissão de escrita.',
+      );
+    }
+
+    const mode = stats.mode & 0o777;
+    const temporaryPath = path.join(
+      path.dirname(target),
+      `.${path.basename(target)}.dev-dashboard-${randomUUID()}.tmp`,
+    );
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+
+    try {
+      handle = await open(temporaryPath, 'wx', mode);
+      await handle.writeFile(content, { encoding: 'utf8' });
+      await handle.sync();
+      await handle.close();
+      handle = undefined;
+      await chmod(temporaryPath, mode);
+
+      const latestStats = await lstat(target);
+      if (!latestStats.isFile() || latestStats.isSymbolicLink()) {
+        throw new ProjectFileError(
+          'FILE_CHANGED_EXTERNALLY',
+          'O arquivo mudou no disco durante o salvamento.',
+        );
+      }
+      const latestCanonical = await realpath(target);
+      if (latestCanonical !== target || !isWithinRoot(root, latestCanonical)) {
+        throw new ProjectFileError(
+          'FILE_OUTSIDE_PROJECT',
+          'O destino do salvamento saiu da raiz do projeto.',
+        );
+      }
+      const latestBuffer = await readFile(target);
+      if (versionFor(latestBuffer) !== expectedVersion) {
+        throw new ProjectFileError(
+          'FILE_CHANGED_EXTERNALLY',
+          'O arquivo mudou no disco durante o salvamento.',
+        );
+      }
+
+      await rename(temporaryPath, target);
+    } catch (error) {
+      if (error instanceof ProjectFileError) throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
+        throw new ProjectFileError(
+          'FILE_NOT_WRITABLE',
+          'O arquivo não pôde ser gravado por falta de permissão.',
+        );
+      }
+      throw new ProjectFileError(
+        'FILE_WRITE_FAILED',
+        'Não foi possível salvar o arquivo de forma atômica.',
+      );
+    } finally {
+      await handle?.close().catch(() => undefined);
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
+
+    return this.readFile(projectPath, normalized);
   }
 
   public async search(
