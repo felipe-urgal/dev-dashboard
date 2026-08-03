@@ -1,0 +1,111 @@
+name: Agent editor watcher patch
+
+on:
+  push:
+    branches:
+      - agent/fix-editor-page-scroll
+    paths:
+      - .github/workflows/agent-editor-watcher-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fix-editor-page-scroll
+
+      - name: Patch editor integration
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          component_path = Path('apps/web/src/components/ProjectEmbeddedEditor.vue')
+          content = component_path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global content
+              if old not in content:
+                  raise SystemExit(f'Anchor not found:\n{old}')
+              content = content.replace(old, new, 1)
+
+          replace_once(
+              "import ProjectEditorLauncher from './ProjectEditorLauncher.vue';\nimport ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';",
+              "import ProjectEditorLauncher from './ProjectEditorLauncher.vue';\nimport ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';\nimport ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';\nimport { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';",
+          )
+
+          replace_once(
+              "function replaceOpenFile(file: ProjectFileContent): void {\n  openFiles.value = openFiles.value.map((opened) =>\n    opened.path === file.path ? file : opened,\n  );\n}\n",
+              "function replaceOpenFile(file: ProjectFileContent): void {\n  openFiles.value = openFiles.value.map((opened) =>\n    opened.path === file.path ? file : opened,\n  );\n}\n\nfunction replaceModelContent(file: ProjectFileContent): void {\n  const model = models.get(file.path);\n  if (model && model.getValue() !== file.content) model.setValue(file.content);\n  if (activePath.value === file.path) {\n    fallbackContent.value = file.content;\n    displayFile(file);\n  }\n}\n\nconst {\n  conflicts: externalConflicts,\n  checking: checkingExternalFiles,\n  keepLocal: keepExternalLocal,\n  registerSaveConflict,\n  removeConflict: removeExternalConflict,\n  useDisk: useExternalDisk,\n} = useProjectOpenFileWatcher({\n  projectId: () => props.project.id,\n  openFiles,\n  dirtyPaths,\n  getLocalContent: (filePath) =>\n    models.get(filePath)?.getValue()\n      ?? openFiles.value.find((file) => file.path === filePath)?.content\n      ?? '',\n  replaceOpenFile,\n  replaceModelContent,\n  setDirty,\n  onStatus: (message) => {\n    errorMessage.value = '';\n    statusMessage.value = message;\n  },\n  onError: (message) => {\n    if (!errorMessage.value) errorMessage.value = message;\n  },\n});\n\nconst activeExternalConflict = computed(() =>\n  externalConflicts.value.get(activePath.value),\n);\n",
+          )
+
+          replace_once(
+              "  disposeModel(filePath);\n  pendingClosePath.value = '';",
+              "  disposeModel(filePath);\n  removeExternalConflict(filePath);\n  pendingClosePath.value = '';",
+          )
+
+          replace_once(
+              "    conflictPath.value = '';\n    pendingClosePath.value = '';",
+              "    conflictPath.value = '';\n    removeExternalConflict(filePath);\n    pendingClosePath.value = '';",
+          )
+
+          replace_once(
+              "    if (\n      error instanceof ApiRequestError\n      && error.code === 'FILE_CHANGED_EXTERNALLY'\n    ) {\n      conflictPath.value = file.path;\n      errorMessage.value =\n        'O arquivo mudou fora do dashboard. Recarregue o disco ou mantenha sua edição aberta.';\n    } else {",
+              "    if (\n      error instanceof ApiRequestError\n      && error.code === 'FILE_CHANGED_EXTERNALLY'\n    ) {\n      try {\n        const diskFile = await fetchProjectFileContent(\n          props.project.id,\n          file.path,\n        );\n        registerSaveConflict(file, diskFile);\n        errorMessage.value =\n          'O arquivo mudou fora do dashboard. Compare a base, sua edição e o disco.';\n      } catch (reloadError) {\n        errorMessage.value = readableError(\n          reloadError,\n          'O arquivo mudou no disco e não pôde ser recarregado para comparação.',\n        );\n      }\n    } else {",
+          )
+
+          replace_once(
+              "      scrollBeyondLastLine: false,\n      renderWhitespace: 'selection',",
+              "      scrollBeyondLastLine: false,\n      alwaysConsumeMouseWheel: false,\n      renderWhitespace: 'selection',",
+          )
+
+          replace_once(
+              "    <div class=\"embedded-ide-shell\">",
+              "    <ProjectEditorConflictReview\n      v-if=\"activeExternalConflict\"\n      :path=\"activeExternalConflict.path\"\n      :base-content=\"activeExternalConflict.baseContent\"\n      :local-content=\"activeExternalConflict.localContent\"\n      :disk-content=\"activeExternalConflict.diskFile.content\"\n      @use-disk=\"useExternalDisk(activeExternalConflict.path)\"\n      @keep-local=\"keepExternalLocal(activeExternalConflict.path)\"\n    />\n\n    <div class=\"embedded-ide-shell\">",
+          )
+
+          replace_once(
+              "            {{ activeDirty ? 'Alterações não salvas' : (activeFile?.language ?? 'Nenhum arquivo') }}",
+              "            {{ checkingExternalFiles\n              ? 'Verificando mudanças externas…'\n              : activeDirty\n                ? 'Alterações não salvas'\n                : (activeFile?.language ?? 'Nenhum arquivo') }}",
+          )
+
+          component_path.write_text(content)
+
+          test_path = Path('apps/web/test/project-embedded-editor.test.ts')
+          test_content = test_path.read_text()
+
+          def replace_test(old: str, new: str) -> None:
+              global test_content
+              if old not in test_content:
+                  raise SystemExit(f'Test anchor not found:\n{old}')
+              test_content = test_content.replace(old, new, 1)
+
+          replace_test(
+              "  search: vi.fn(),\n}));",
+              "  search: vi.fn(),\n  watch: vi.fn(),\n}));",
+          )
+          replace_test(
+              "  searchProjectFiles: api.search,\n}));",
+              "  searchProjectFiles: api.search,\n  watchProjectFiles: api.watch,\n}));",
+          )
+          replace_test(
+              "  api.search.mockResolvedValue({",
+              "  api.watch.mockResolvedValue({ checkedAt: new Date().toISOString(), items: [] });\n  api.search.mockResolvedValue({",
+          )
+          replace_test(
+              "  assert.match(wrapper.text(), /Edição segura/);",
+              "  assert.equal(\n    monaco.createEditor.mock.calls[0]?.[1]?.alwaysConsumeMouseWheel,\n    false,\n  );\n  assert.match(wrapper.text(), /Edição segura/);",
+          )
+          test_path.write_text(test_content)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/web/src/components/ProjectEmbeddedEditor.vue apps/web/test/project-embedded-editor.test.ts
+          git commit -m "Integra watcher e comparação em três vias"
+          git push origin HEAD:agent/fix-editor-page-scroll
