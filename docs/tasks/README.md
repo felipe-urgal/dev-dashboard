@@ -85,3 +85,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `076-embedded-ide-foundation-plan.md` — planejamento documental da IDE embutida com Monaco, leitura segura, escrita posterior, LSP JavaScript/TypeScript e Ruby/Rails, além de IA gratuita local com Ollama nas tasks 076–081.
 - `077-safe-editor-save.md` — editor de texto seguro com salvamento versionado, operações estruturais confirmadas, watcher dos arquivos abertos, comparação em três vias e `WorkspaceEdit` textual com rollback.
 - `078-javascript-typescript-lsp.md` — plano do LSP JavaScript/TypeScript com gateway autenticado, processo sob demanda, recursos semânticos e revisão segura de `WorkspaceEdit`.
+- `079-ruby-rails-lsp.md` — plano do LSP Ruby/Rails com catálogo fechado, Ruby estático, Rails runtime opt-in e reutilização do gateway e do `WorkspaceEdit` seguro.
