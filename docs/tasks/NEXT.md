@@ -1,9 +1,9 @@
 # Próxima atividade
 
-A task 072 concluiu os skeletons das páginas globais. A próxima entrega faz a
+A task 073 concluiu os skeletons das páginas globais. A próxima entrega faz a
 primeira auditoria transversal de acessibilidade sobre os fluxos mais usados.
 
-## Task 073 — Auditoria inicial de acessibilidade
+## Task 074 — Auditoria inicial de acessibilidade
 
 Revisar Visão geral, Atividade, Processos e Configurações com critérios
 objetivos de teclado, foco, nomes acessíveis, contraste e comunicação de

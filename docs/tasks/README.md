@@ -78,4 +78,5 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `069-project-favorites.md` — favoritos persistentes por projeto, reaplicados após scans, com arquivo privado, rota autenticada, atualização otimista e ordenação no topo da visão geral.
 - `070-native-notifications.md` — notificações nativas opt-in para testes, scripts e builds com ao menos 30 segundos, somente com a aba oculta, deduplicadas pela central de avisos e com preferência local do navegador.
 - `071-overview-loading-skeleton.md` — skeleton compartilhado e acessível na Visão geral, com anúncio imediato, atraso visual curto, espaço reservado e movimento reduzido.
-- `072-global-loading-skeletons.md` — aplica o mesmo skeleton a Atividade, Processos e Configurações, preserva dados durante refresh e mapeia toda a documentação Markdown.
+- `072-project-dependencies-build.md` — aba de dependências e build para Rails e Node, com Bundler, lockfile Node, execução segura, histórico e correção da leitura de migrations em wrappers Docker.
+- `073-global-loading-skeletons.md` — aplica o mesmo skeleton a Atividade, Processos e Configurações, preserva dados durante refresh e mapeia toda a documentação Markdown.

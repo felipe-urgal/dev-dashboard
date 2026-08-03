@@ -1,4 +1,4 @@
-# Task 072 — Skeletons nas demais páginas globais
+# Task 073 — Skeletons nas demais páginas globais
 
 ## Status
 
@@ -22,7 +22,7 @@ segundo plano.
 - Dados existentes preservados durante atualizações de Atividade e Processos;
   o skeleton aparece apenas quando a coleção ainda está vazia.
 - Timer visual cancelado quando o componente compartilhado é desmontado.
-- Inventário de pendências ampliado com um mapa dos 93 arquivos Markdown
+- Inventário de pendências ampliado com um mapa dos 94 arquivos Markdown
   versionados.
 
 ## Decisões
@@ -52,10 +52,10 @@ segundo plano.
 ## Testes e verificação
 
 - 17 testes direcionados aprovados em 4 arquivos.
-- `apps/web`: 280 testes aprovados em 64 arquivos.
+- `apps/web`: 282 testes aprovados em 65 arquivos após a integração da `main`.
 - `npm run typecheck`: aprovado em todos os workspaces.
 - `npm run build`: aprovado.
-- `apps/api`: 354 testes aprovados.
+- `apps/api`: 359 testes aprovados.
 - `packages/core`: 11 testes aprovados.
 - `packages/project-discovery`: 1 teste aprovado.
 - `scripts`: 6 testes aprovados.
@@ -65,7 +65,7 @@ segundo plano.
 
 ## Limitações
 
-- A auditoria abrangente de acessibilidade permanece para a task 073.
+- A auditoria abrangente de acessibilidade permanece para a task 074.
 - A validação E2E específica para tablet continua como atividade separada.
 - O navegador em nuvem bloqueou `127.0.0.1` com `ERR_BLOCKED_BY_CLIENT`, então
   não foi possível produzir evidência visual das páginas renderizadas neste

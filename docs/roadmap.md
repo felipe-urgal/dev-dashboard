@@ -42,7 +42,7 @@ compromissos de versão.
 - [x] command palette de navegação e ações (tasks 033 e 034);
 - [x] configurações globais — tema, densidade (task 022) e retenção (task 035);
 - [x] avisos locais e notificações nativas opt-in (tasks 040 e 070);
-- [x] loading skeletons nas páginas globais (tasks 071 e 072);
+- [x] loading skeletons nas páginas globais (tasks 071 e 073);
 - [ ] acessibilidade auditada;
 - [ ] navegação otimizada para tablet validada por E2E.
 

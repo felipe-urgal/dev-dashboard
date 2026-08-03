@@ -92,8 +92,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Mapa da documentação Markdown
 
-O repositório possui 93 arquivos Markdown versionados após a task 072. O mapa
-abaixo cobre todos eles; os 72 registros numerados são detalhados
+O repositório possui 94 arquivos Markdown versionados após a task 073. O mapa
+abaixo cobre todos eles; os 73 registros numerados são detalhados
 individualmente pelo índice de tasks para evitar manter duas listas históricas
 paralelas.
 
@@ -145,8 +145,8 @@ paralelas.
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `072`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-072-*.md` | Objetivo, decisões, arquivos e validação reais de cada entrega | Histórico concluído |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `073`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-073-*.md` | Objetivo, decisões, arquivos e validação reais de cada entrega | Histórico concluído |
 | [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
