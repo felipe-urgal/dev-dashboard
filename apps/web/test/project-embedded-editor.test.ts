@@ -14,8 +14,8 @@ const api = vi.hoisted(() => ({
 const monaco = vi.hoisted(() => {
   const state: {
     value: string;
-    listener?: () => void;
-  } = { value: '' };
+    listener: (() => void) | undefined;
+  } = { value: '', listener: undefined };
   const model = {
     dispose: vi.fn(),
     getValue: vi.fn(() => state.value),
