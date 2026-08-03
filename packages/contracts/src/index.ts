@@ -33,7 +33,21 @@ export type {
   ProjectFileMutationResult,
   ProjectFileSearchMatch,
   ProjectFileSearchResult,
+  ProjectFileWatchEntry,
+  ProjectFileWatchItem,
+  ProjectFileWatchRequest,
+  ProjectFileWatchResult,
+  ProjectFileWatchState,
   ProjectFileWriteRequest,
+  ProjectTextPosition,
+  ProjectTextRange,
+  ProjectWorkspaceEditApplyRequest,
+  ProjectWorkspaceEditFilePreview,
+  ProjectWorkspaceEditPreview,
+  ProjectWorkspaceEditRequest,
+  ProjectWorkspaceEditResult,
+  ProjectWorkspaceFileEdit,
+  ProjectWorkspaceTextEdit,
 } from './project-files.js';
 
 export type {
