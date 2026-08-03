@@ -6,8 +6,25 @@ Permitir que o dashboard abra o projeto atual em um editor gráfico já
 instalado no computador, preservando o modelo local e o catálogo fechado de
 ações da API.
 
-Esta entrega não lê nem escreve arquivos pelo navegador. Um editor embutido
-continua fora do escopo e exige um modelo de ameaça próprio.
+Esta entrega não lê nem escreve arquivos pelo navegador. A IDE embutida é uma
+capacidade separada, planejada em
+[`embedded-ide-ai-design.md`](./embedded-ide-ai-design.md), com Monaco, LSP e
+assistência de IA local.
+
+## Relação com a IDE embutida
+
+A abertura externa continua sendo mantida mesmo depois da implementação da IDE:
+
+- o botão atual permanece no cabeçalho do projeto;
+- a futura aba **Editor** também oferece **Abrir no editor local**;
+- Monaco cobre o fluxo integrado de arquivos, LSP e IA;
+- o editor externo continua indicado para extensões, depuração e ferramentas
+  que não façam parte do dashboard;
+- nenhuma das duas opções transforma o navegador em um terminal livre.
+
+A implementação da IDE foi dividida nas tasks 076–081. A IA gratuita padrão
+será local e opcional, mediada pela API do dashboard; a ausência do runtime de
+IA não bloqueia o editor nem o LSP.
 
 ## Contrato
 
@@ -51,4 +68,6 @@ no `PATH` da API.
 - aliases, funções de shell e comandos configurados livremente não são
   aceitos;
 - a compatibilidade oficial permanece Linux; macOS e Windows continuam
-  dependentes de uma estratégia de distribuição e processo própria.
+  dependentes de uma estratégia de distribuição e processo própria;
+- abrir o editor externo não fornece arquivos, LSP ou contexto à futura IA do
+  dashboard; esses recursos pertencem exclusivamente à IDE embutida.
