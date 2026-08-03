@@ -1,5 +1,5 @@
 export type ManagedProcessKind =
-  'server' | 'webpack' | 'worker' | 'test' | 'script' | 'compose-build';
+  'server' | 'webpack' | 'worker' | 'test' | 'script';
 
 export type ManagedProcessStatus =
   'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
@@ -22,7 +22,6 @@ export interface ManagedProcess {
   startedAt?: string;
   stoppedAt?: string;
   exitCode?: number;
-  composeServiceName?: string;
 }
 
 export interface ProcessLogSnapshot {
