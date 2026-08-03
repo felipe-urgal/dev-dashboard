@@ -32,6 +32,8 @@ import {
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
+import { useProjectServerHealth } from '../composables/useProjectServerHealth';
+import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
 import { noticeCenterStore } from '../stores/notice-center';
 import { RequestGeneration } from '../utils/request-generation';
 import { parseServerPort } from '../utils/server-settings';
@@ -51,18 +53,41 @@ const {
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
 
+const {
+  health,
+  healthCheckedAtLabel,
+  healthError,
+  healthLabel,
+  loadingHealth,
+  refreshHealth,
+  resetHealth,
+} = useProjectServerHealth(
+  () => props.project.id,
+  processStatus,
+);
+
+const {
+  commandLabel,
+  environmentLabel,
+  startedAtLabel,
+  uptimeLabel,
+} = useProjectServerMetrics(
+  () => props.project,
+  managedProcess,
+  processStatus,
+);
+
 const selectedPort = ref<string | number>('');
+const selectedHealthCheckPath = ref('');
 const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
-const now = ref(Date.now());
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
 
 const projectRequests = new RequestGeneration();
-let clockTimer: ReturnType<typeof setInterval> | undefined;
 let hasObservedRunning = false;
 
 const executingAction = computed(() => currentAction.value !== null);
@@ -77,25 +102,6 @@ const processUrls = computed<string[]>(() => {
 });
 
 const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
-
-const environmentLabel = computed(() => {
-  if (props.project.type === 'rails' || props.project.type === 'node') {
-    return 'development';
-  }
-
-  return 'local';
-});
-
-const commandLabel = computed(() => {
-  const process = managedProcess.value;
-  if (process?.command) {
-    return [process.command, ...(process.args ?? [])].join(' ');
-  }
-
-  if (props.project.type === 'rails') return 'bin/dev';
-  if (props.project.type === 'node') return 'npm run dev';
-  return 'Detectado ao iniciar';
-});
 
 const statusDescription = computed(() => {
   if (!supportsServer.value) return 'Este projeto não expõe um servidor gerenciável.';
@@ -114,41 +120,6 @@ const statusDescription = computed(() => {
       return 'Servidor pronto para ser iniciado.';
   }
 });
-
-const uptimeLabel = computed(() => {
-  const startedAt = managedProcess.value?.startedAt;
-  if (!startedAt || processStatus.value !== 'running') return '—';
-
-  const started = new Date(startedAt).getTime();
-  if (!Number.isFinite(started)) return '—';
-
-  return formatDuration(Math.max(0, now.value - started));
-});
-
-const startedAtLabel = computed(() => {
-  const startedAt = managedProcess.value?.startedAt;
-  if (!startedAt) return '—';
-
-  const date = new Date(startedAt);
-  if (Number.isNaN(date.getTime())) return '—';
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
-});
-
-function formatDuration(milliseconds: number): string {
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
 
 function isCurrentProject(projectId: string, generation: number): boolean {
   return (
@@ -170,6 +141,8 @@ async function refreshServerSettings(): Promise<void> {
 
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
+    selectedHealthCheckPath.value =
+      settings.healthCheckPath ?? '';
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
       errorMessage.value =
@@ -189,7 +162,12 @@ async function persistServerSettings(
   generation: number,
 ): Promise<ProjectServerSettings> {
   const port = parseServerPort(selectedPort.value);
-  const settings = await saveProjectServerSettings(projectId, { port });
+  const healthCheckPath =
+    selectedHealthCheckPath.value.trim() || null;
+  const settings = await saveProjectServerSettings(projectId, {
+    port,
+    healthCheckPath,
+  });
 
   if (!isCurrentProject(projectId, generation)) {
     throw new Error('O projeto ativo mudou durante a operação.');
@@ -197,6 +175,8 @@ async function persistServerSettings(
 
   selectedPort.value =
     settings.port !== undefined ? String(settings.port) : '';
+  selectedHealthCheckPath.value =
+    settings.healthCheckPath ?? '';
 
   return settings;
 }
@@ -212,6 +192,9 @@ async function handleSaveSettings(): Promise<void> {
     await persistServerSettings(projectId, generation);
     if (isCurrentProject(projectId, generation)) {
       settingsMessage.value = 'Configurações salvas.';
+      if (processStatus.value === 'running') {
+        await refreshHealth();
+      }
     }
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
@@ -323,10 +306,12 @@ function resetPanelState(): void {
   projectRequests.invalidate();
 
   selectedPort.value = '';
+  selectedHealthCheckPath.value = '';
   loadingSettings.value = false;
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
+  resetHealth();
 }
 
 async function initializeProject(): Promise<void> {
@@ -371,14 +356,8 @@ watch(processStatus, (status) => {
   }
 });
 
-clockTimer = setInterval(() => {
-  now.value = Date.now();
-}, 1_000);
-
 onBeforeUnmount(() => {
   projectRequests.invalidate();
-
-  if (clockTimer) clearInterval(clockTimer);
 });
 </script>
 

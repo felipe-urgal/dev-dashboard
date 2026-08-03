@@ -199,6 +199,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     processManager: context.processManager,
     serverSettingsRepository:
       context.serverSettingsRepository,
+    serverHealthCheckService:
+      context.serverHealthCheckService,
     projectStore: context.projectStore,
   });
 

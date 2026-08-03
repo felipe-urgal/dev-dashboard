@@ -10,6 +10,15 @@ import ProjectServerPanel from '../src/components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 
 const fetchProjectProcess = vi.fn().mockResolvedValue(null);
+const fetchProjectServerHealth = vi.fn().mockResolvedValue({
+  projectId: 'projeto-card',
+  path: '/health',
+  pathSource: 'detected',
+  status: 'healthy',
+  httpStatus: 200,
+  latencyMs: 12,
+  checkedAt: '2026-08-03T10:00:00.000Z',
+});
 
 vi.mock('../src/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/api')>()),
@@ -22,6 +31,7 @@ vi.mock('../src/api', async (importOriginal) => ({
     summary: { running: 0, succeeded: 0, failed: 0, total: 0 },
   }),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
+  fetchProjectServerHealth: (...args: unknown[]) => fetchProjectServerHealth(...args),
   fetchProjectProcessLog: vi.fn().mockResolvedValue({
     projectId: 'projeto-card',
     processId: 'proc-1',
@@ -113,6 +123,27 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-status-card').exists()).toBe(true);
     expect(wrapper.text()).not.toContain('Atividade recente');
     expect(wrapper.text()).not.toContain('Últimos logs');
+
+    wrapper.unmount();
+  });
+
+  it('exibe o health check do servidor em execução', async () => {
+    fetchProjectProcess.mockResolvedValueOnce({
+      id: 'proc-health',
+      projectId: project.id,
+      kind: 'server',
+      status: 'running',
+      port: 3_000,
+    });
+
+    const wrapper = mountServerPanel();
+    await flushPromises();
+
+    expect(fetchProjectServerHealth).toHaveBeenCalledWith(project.id);
+    expect(wrapper.get('.server-health-summary').text()).toContain('Saudável');
+    expect(wrapper.get('.server-health-summary').text()).toContain('/health');
+    expect(wrapper.get('.server-health-summary').text()).toContain('200');
+    expect(wrapper.get('.server-health-summary').text()).toContain('12 ms');
 
     wrapper.unmount();
   });
