@@ -23,6 +23,8 @@ import type {
   ProjectFileEntry,
   ProjectFileMutationResult,
   ProjectFileSearchMatch,
+  ProjectLanguageServerStatus,
+  ProjectWorkspaceEditPreview,
 } from '@dev-dashboard/contracts';
 
 import {
@@ -36,7 +38,12 @@ import { configureMonacoEnvironment } from '../monaco-environment';
 import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
 import ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';
 import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
+import ProjectWorkspaceEditReview from './ProjectWorkspaceEditReview.vue';
 import { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';
+import {
+  ProjectLanguageServerClient,
+  projectLanguageServerModelUri,
+} from '../language-server/project-language-server-client';
 
 interface FlatTreeEntry {
   entry: ProjectFileEntry;
@@ -67,10 +74,14 @@ const statusMessage = ref('');
 const searchQuery = ref('');
 const searchResults = ref<ProjectFileSearchMatch[]>([]);
 const searchTruncated = ref(false);
+const languageServerStatus = ref<ProjectLanguageServerStatus | null>(null);
+const languageServerDiagnostics = ref('');
+const workspaceEditPreview = ref<ProjectWorkspaceEditPreview | null>(null);
 
 let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 let themeObserver: MutationObserver | undefined;
+let languageServerClient: ProjectLanguageServerClient | undefined;
 const models = new Map<string, Monaco.editor.ITextModel>();
 const modelListeners = new Map<string, Monaco.IDisposable>();
 
@@ -230,12 +241,8 @@ async function selectEntry(entry: ProjectFileEntry): Promise<void> {
 }
 
 function modelUri(filePath: string): Monaco.Uri {
-  const encodedPath = filePath
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
   return monaco!.Uri.parse(
-    `file:///dev-dashboard/projects/${encodeURIComponent(props.project.id)}/${encodedPath}`,
+    projectLanguageServerModelUri(props.project.id, filePath),
   );
 }
 
@@ -263,6 +270,7 @@ function modelFor(file: ProjectFileContent): Monaco.editor.ITextModel | undefine
   });
   models.set(file.path, model);
   modelListeners.set(file.path, listener);
+  languageServerClient?.openFile(file, model);
   return model;
 }
 
@@ -320,6 +328,7 @@ async function openFile(
 }
 
 function disposeModel(filePath: string): void {
+  languageServerClient?.closeFile(filePath);
   modelListeners.get(filePath)?.dispose();
   modelListeners.delete(filePath);
   models.get(filePath)?.dispose();
@@ -403,6 +412,7 @@ async function saveActiveFile(): Promise<void> {
       expectedVersion: file.version,
     });
     replaceOpenFile(saved);
+    languageServerClient?.savedFile(saved);
     setDirty(file.path, false);
     conflictPath.value = '';
     fallbackContent.value = saved.content;
@@ -488,6 +498,14 @@ async function submitSearch(): Promise<void> {
   searching.value = true;
   errorMessage.value = '';
   try {
+    if (query.startsWith('@')) {
+      const symbolQuery = query.slice(1).trim();
+      searchResults.value = symbolQuery && languageServerClient
+        ? await languageServerClient.workspaceSymbols(symbolQuery)
+        : [];
+      searchTruncated.value = false;
+      return;
+    }
     const result = await searchProjectFiles(props.project.id, query);
     searchResults.value = result.items;
     searchTruncated.value = result.truncated;
@@ -509,6 +527,46 @@ function clearSearch(): void {
   searchTruncated.value = false;
 }
 
+function handleWorkspaceEditApplied(files: ProjectFileContent[]): void {
+  for (const file of files) {
+    replaceOpenFile(file);
+    replaceModelContent(file);
+    setDirty(file.path, false);
+    languageServerClient?.savedFile(file);
+  }
+  workspaceEditPreview.value = null;
+  errorMessage.value = '';
+  statusMessage.value = `${files.length} ${files.length === 1 ? 'arquivo atualizado' : 'arquivos atualizados'} pelo fluxo seguro.`;
+}
+
+function createLanguageServerClient(): void {
+  languageServerClient?.dispose();
+  languageServerClient = undefined;
+  languageServerStatus.value = null;
+  languageServerDiagnostics.value = '';
+  workspaceEditPreview.value = null;
+  if (!monaco) return;
+  languageServerClient = new ProjectLanguageServerClient(
+    monaco,
+    props.project.id,
+    props.project.name,
+    {
+      onStatus: (status) => {
+        languageServerStatus.value = status;
+      },
+      onDiagnostics: (message) => {
+        languageServerDiagnostics.value = message;
+      },
+      onWorkspaceEdit: (preview) => {
+        workspaceEditPreview.value = preview;
+      },
+      onError: (message) => {
+        if (!errorMessage.value) errorMessage.value = message;
+      },
+    },
+  );
+}
+
 function handleKeydown(event: KeyboardEvent): void {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
@@ -527,6 +585,7 @@ async function initializeMonaco(): Promise<void> {
   try {
     configureMonacoEnvironment();
     monaco = await import('monaco-editor');
+    createLanguageServerClient();
     await nextTick();
     if (!editorHost.value) return;
     editor = monaco.editor.create(editorHost.value, {
@@ -584,6 +643,7 @@ async function resetProject(): Promise<void> {
   conflictPath.value = '';
   errorMessage.value = '';
   statusMessage.value = '';
+  createLanguageServerClient();
   loadingTree.value = true;
   await loadDirectory('');
   loadingTree.value = false;
@@ -604,6 +664,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown);
   window.removeEventListener('beforeunload', handleBeforeUnload);
   themeObserver?.disconnect();
+  languageServerClient?.dispose();
   editor?.dispose();
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
@@ -628,6 +689,20 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="embedded-ide-header-actions">
+        <span
+          v-if="languageServerStatus"
+          class="embedded-ide-language-server"
+          :data-state="languageServerStatus.state"
+          :title="languageServerStatus.message"
+        >
+          LSP {{ languageServerStatus.state === 'ready'
+            ? 'ativo'
+            : languageServerStatus.state === 'unavailable'
+              ? 'indisponível'
+              : languageServerStatus.state === 'failed'
+                ? 'falhou'
+                : 'iniciando' }}
+        </span>
         <span class="embedded-ide-readonly">
           {{ activeFile?.writable ? 'Edição segura' : 'Somente leitura' }}
         </span>
@@ -648,6 +723,9 @@ onBeforeUnmount(() => {
     </p>
     <p v-else-if="statusMessage" class="alert embedded-ide-status" role="status">
       {{ statusMessage }}
+    </p>
+    <p class="sr-only" role="status" aria-live="polite">
+      {{ languageServerDiagnostics }}
     </p>
 
     <div v-if="conflictPath" class="embedded-ide-decision" role="alert">
@@ -677,6 +755,14 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <ProjectWorkspaceEditReview
+      v-if="workspaceEditPreview"
+      :project-id="project.id"
+      :preview="workspaceEditPreview"
+      @applied="handleWorkspaceEditApplied"
+      @cancel="workspaceEditPreview = null"
+    />
+
     <ProjectEditorConflictReview
       v-if="activeExternalConflict"
       :path="activeExternalConflict.path"
@@ -699,7 +785,7 @@ onBeforeUnmount(() => {
             v-model="searchQuery"
             type="search"
             autocomplete="off"
-            placeholder="Buscar no projeto"
+            placeholder="Buscar no projeto ou @símbolo"
           >
           <button
             v-if="searchQuery"
@@ -877,6 +963,7 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.embedded-ide-language-server,
 .embedded-ide-readonly {
   padding: 5px 8px;
   border: 1px solid var(--border);
@@ -886,6 +973,16 @@ onBeforeUnmount(() => {
   font-size: var(--font-xs);
   font-weight: var(--font-weight-strong);
   white-space: nowrap;
+}
+
+.embedded-ide-language-server[data-state='ready'] {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.embedded-ide-language-server[data-state='failed'],
+.embedded-ide-language-server[data-state='unavailable'] {
+  color: var(--text-dim);
 }
 
 .embedded-ide-save {
