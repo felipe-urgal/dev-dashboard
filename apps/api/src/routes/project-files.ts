@@ -26,6 +26,12 @@ interface FileSearchQuery {
   limit?: number;
 }
 
+interface FileWriteBody {
+  path: string;
+  content: string;
+  expectedVersion: string;
+}
+
 const fileEntrySchema = {
   type: 'object',
   additionalProperties: false,
@@ -60,7 +66,7 @@ const fileContentSchema = {
     version: { type: 'string' },
     size: { type: 'integer', minimum: 0 },
     modifiedAt: { type: 'string' },
-    writable: { type: 'boolean', const: false },
+    writable: { type: 'boolean' },
   },
 } as const;
 
@@ -77,6 +83,10 @@ function translateProjectFileError(error: unknown): never {
     FILE_TOO_LARGE: 413,
     FILE_BINARY: 415,
     FILE_NOT_READABLE: 500,
+    FILE_NOT_WRITABLE: 403,
+    FILE_VERSION_INVALID: 400,
+    FILE_CHANGED_EXTERNALLY: 409,
+    FILE_WRITE_FAILED: 500,
     FILE_SEARCH_INVALID: 400,
   };
 
@@ -167,6 +177,45 @@ export const projectFileRoutes: FastifyPluginAsync<
         return await options.projectFileService.readFile(
           project.path,
           request.query.path ?? '',
+        );
+      } catch (error) {
+        translateProjectFileError(error);
+      }
+    },
+  );
+
+  app.put<{ Params: ProjectParams; Body: FileWriteBody }>(
+    '/projects/:projectId/files/content',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['path', 'content', 'expectedVersion'],
+          properties: {
+            path: { type: 'string', minLength: 1, maxLength: 2_048 },
+            content: { type: 'string', maxLength: 524_288 },
+            expectedVersion: {
+              type: 'string',
+              pattern: '^[a-f0-9]{64}$',
+            },
+          },
+        },
+        response: {
+          200: fileContentSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return await options.projectFileService.writeFile(
+          project.path,
+          request.body.path,
+          request.body.content,
+          request.body.expectedVersion,
         );
       } catch (error) {
         translateProjectFileError(error);

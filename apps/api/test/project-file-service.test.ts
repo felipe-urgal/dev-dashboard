@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -68,8 +78,55 @@ test('lê texto com versão estável e linguagem detectada', async (context) => 
   const file = await service.readFile(root, 'src/main.ts');
   assert.equal(file.language, 'typescript');
   assert.equal(file.content, 'const answer = 42;\n');
-  assert.equal(file.writable, false);
+  assert.equal(file.writable, true);
   assert.match(file.version, /^[a-f0-9]{64}$/);
+});
+
+test('salva atomicamente, renova a versão e preserva permissões', async (context) => {
+  const { root } = await fixture(context);
+  const service = new ProjectFileService();
+  const target = path.join(root, 'src', 'main.ts');
+  await chmod(target, 0o640);
+  const opened = await service.readFile(root, 'src/main.ts');
+
+  const saved = await service.writeFile(
+    root,
+    'src/main.ts',
+    'const answer = 43;\n',
+    opened.version,
+  );
+
+  assert.equal(saved.content, 'const answer = 43;\n');
+  assert.notEqual(saved.version, opened.version);
+  assert.equal(await readFile(target, 'utf8'), saved.content);
+  assert.equal((await stat(target)).mode & 0o777, 0o640);
+  assert.equal(
+    (await readdir(path.dirname(target))).some((name) => name.includes('.dev-dashboard-')),
+    false,
+  );
+});
+
+test('não sobrescreve uma alteração externa e remove o temporário', async (context) => {
+  const { root } = await fixture(context);
+  const service = new ProjectFileService();
+  const target = path.join(root, 'src', 'main.ts');
+  const opened = await service.readFile(root, 'src/main.ts');
+  await writeFile(target, 'const answer = 99;\n');
+
+  await assert.rejects(
+    service.writeFile(
+      root,
+      'src/main.ts',
+      'const answer = 43;\n',
+      opened.version,
+    ),
+    (error) => assertProjectFileError(error, 'FILE_CHANGED_EXTERNALLY'),
+  );
+  assert.equal(await readFile(target, 'utf8'), 'const answer = 99;\n');
+  assert.equal(
+    (await readdir(path.dirname(target))).some((name) => name.includes('.dev-dashboard-')),
+    false,
+  );
 });
 
 test('recusa traversal, symlink externo, arquivos sensíveis, binários e grandes', async (context) => {

@@ -27,6 +27,7 @@ export type {
   ProjectFileKind,
   ProjectFileSearchMatch,
   ProjectFileSearchResult,
+  ProjectFileWriteRequest,
 } from './project-files.js';
 
 export type {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,11 +10,12 @@ import { createAppContext } from '../src/app-context.js';
 
 const TOKEN = 'f'.repeat(64);
 
-test('lista, lê e busca arquivos do projeto autorizado', async (context) => {
+test('lista, lê, salva e busca arquivos do projeto autorizado', async (context) => {
   const projectPath = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-route-files-'));
   context.after(() => rm(projectPath, { recursive: true, force: true }));
   await mkdir(path.join(projectPath, 'src'), { recursive: true });
-  await writeFile(path.join(projectPath, 'src', 'index.ts'), 'export const value = 1;\n');
+  const target = path.join(projectPath, 'src', 'index.ts');
+  await writeFile(target, 'export const value = 1;\n');
 
   const appContext = createAppContext();
   const project: Project = {
@@ -55,7 +56,37 @@ test('lista, lê e busca arquivos do projeto autorizado', async (context) => {
   });
   assert.equal(content.statusCode, 200);
   assert.equal(content.json().content, 'export const value = 1;\n');
-  assert.equal(content.json().writable, false);
+  assert.equal(content.json().writable, true);
+
+  const saved = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/painel/files/content',
+    headers,
+    payload: {
+      path: 'src/index.ts',
+      content: 'export const value = 2;\n',
+      expectedVersion: content.json().version,
+    },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.json().content, 'export const value = 2;\n');
+  assert.notEqual(saved.json().version, content.json().version);
+  assert.equal(await readFile(target, 'utf8'), 'export const value = 2;\n');
+
+  await writeFile(target, 'export const value = 3;\n');
+  const conflict = await app.inject({
+    method: 'PUT',
+    url: '/api/projects/painel/files/content',
+    headers,
+    payload: {
+      path: 'src/index.ts',
+      content: 'export const value = 4;\n',
+      expectedVersion: saved.json().version,
+    },
+  });
+  assert.equal(conflict.statusCode, 409);
+  assert.equal(conflict.json().error, 'FILE_CHANGED_EXTERNALLY');
+  assert.equal(await readFile(target, 'utf8'), 'export const value = 3;\n');
 
   const search = await app.inject({
     method: 'GET',
