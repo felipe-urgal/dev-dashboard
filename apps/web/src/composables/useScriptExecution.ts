@@ -18,6 +18,7 @@ import {
   prepareScriptExecution,
   startScriptExecution,
 } from '../api';
+import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
 import { durationInMilliseconds } from '../stores/native-notifications';
 
@@ -157,10 +158,20 @@ export function useScriptExecution<ScriptSection extends string>(
     const projectId = getProject().id;
     const current = generation;
 
-    if (
-      item.risk !== 'read-only'
-      && !window.confirm(`Executar a ação mutável “${item.name}”? O código do projeto será executado localmente com os valores exibidos.`)
-    ) return;
+    if (item.risk !== 'read-only') {
+      const riskLabel = item.risk === 'destructive'
+        ? 'destrutiva'
+        : 'mutável';
+      const confirmed = await confirmDialog({
+        title: `Executar ação ${riskLabel}?`,
+        message:
+          `A ação “${item.name}” executará código do projeto localmente ` +
+          'com os valores exibidos.',
+        confirmLabel: 'Executar ação',
+        tone: item.risk === 'destructive' ? 'danger' : 'warning',
+      });
+      if (!confirmed) return;
+    }
 
     selectedActionId.value = item.id;
     startingActionId.value = item.id;
