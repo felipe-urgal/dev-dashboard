@@ -44,7 +44,12 @@ const monaco = vi.hoisted(() => {
       state.value = content;
       return model;
     }),
-    createEditor: vi.fn(() => ({
+    createEditor: vi.fn((
+      _host: unknown,
+      _options: {
+        scrollbar?: { alwaysConsumeMouseWheel?: boolean };
+      },
+    ) => ({
       setModel,
       updateOptions,
       setPosition: vi.fn(),
