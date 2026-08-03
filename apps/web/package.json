@@ -16,6 +16,7 @@
     "@dev-dashboard/core": "0.1.0",
     "@heroicons/vue": "^2.2.0",
     "highlight.js": "^11.11.1",
+    "monaco-editor": "0.56.0",
     "vue": "3.5.40",
     "vue-router": "5.2.0"
   },

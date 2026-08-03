@@ -21,6 +21,7 @@ import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
 import { ProjectEditorService } from './services/project-editor-service.js';
+import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 
 export interface AppContext {
@@ -41,6 +42,7 @@ export interface AppContext {
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
   projectEditorService: ProjectEditorService;
+  projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
 }
 
@@ -70,6 +72,7 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
+    projectFileService: new ProjectFileService(),
     serverHealthCheckService: new ServerHealthCheckService(),
   };
 }

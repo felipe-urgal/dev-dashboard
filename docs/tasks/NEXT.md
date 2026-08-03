@@ -1,52 +1,50 @@
 # Próxima atividade
 
-A task 075 concluiu a primeira auditoria transversal de acessibilidade das
-páginas globais e adicionou guardas de landmarks, comunicação de estado e
-contraste. A próxima entrega inicia a IDE embutida aprovada no PR #161.
+A task 076 entregou a fundação somente leitura da IDE com Monaco, explorer,
+abas, busca e acesso confinado aos arquivos do projeto. A próxima entrega
+habilita edição e operações de arquivo sem perder a revisão explícita das
+mudanças.
 
-## Task 076 — Fundação da IDE embutida
+## Task 077 — Escrita segura no editor
 
-Entregar a primeira fatia segura do editor dentro do Dev Dashboard, usando
-Monaco desde o início e mantendo a experiência somente leitura nesta etapa.
-
-O plano completo está em
-[`076-embedded-ide-foundation-plan.md`](./076-embedded-ide-foundation-plan.md) e
-a arquitetura em
-[`../architecture/embedded-ide-ai-design.md`](../architecture/embedded-ide-ai-design.md).
+Adicionar salvamento, conflitos externos e operações estruturais sobre a mesma
+fronteira de segurança criada na task 076.
 
 ### Escopo proposto
 
-- adicionar uma nova aba **Editor** aos detalhes do projeto;
-- integrar Monaco Editor e os workers necessários ao Vite;
-- criar explorer, abas e modelos por URI lógica do projeto;
-- listar diretórios e ler arquivos textuais por caminhos relativos validados;
-- oferecer busca textual limitada;
-- preservar a ação **Abrir no editor local** dentro da IDE;
-- manter a primeira versão somente leitura;
-- definir contratos compartilhados de arquivo, versão e erros públicos;
-- adicionar testes de path traversal, symlink, binário, tamanho, paginação e
-  troca de projeto;
-- fixar e documentar as versões de Monaco e `monaco-languageclient` antes do
-  primeiro código LSP.
+- habilitar edição nos modelos Monaco de arquivos permitidos;
+- manter dirty state por aba e confirmação ao descartar mudanças;
+- salvar com `expectedVersion` para impedir sobrescrita silenciosa;
+- responder `409 FILE_CHANGED_EXTERNALLY` quando o disco mudar;
+- abrir diff entre conteúdo original, versão atual do disco e conteúdo editado;
+- gravar atomicamente com arquivo temporário e `rename` no mesmo diretório;
+- preservar permissões compatíveis do arquivo existente;
+- criar arquivo e diretório por caminho relativo validado;
+- renomear e excluir com preview e confirmação proporcional ao risco;
+- autorizar `WorkspaceEdit` somente por um serviço central reutilizável pelas
+  futuras integrações LSP e IA;
+- adicionar watcher limitado para informar mudanças externas nos arquivos
+  abertos;
+- cobrir concorrência, symlink, TOCTOU, falha de gravação e rollback.
 
 ### Critérios principais
 
-- nenhum caminho fora da raiz canônica do projeto pode ser lido;
-- symlinks que escapem da raiz são recusados;
-- arquivos binários, sensíveis e acima do limite ficam fora da leitura padrão;
-- projetos grandes não bloqueiam a interface;
-- troca de projeto cancela requests e descarta modelos anteriores;
-- tema, densidade, teclado e foco seguem os padrões do dashboard;
-- nenhum código de escrita, LSP ou IA é habilitado nesta fatia.
+- toda mutação permanece dentro da raiz canônica do projeto;
+- nenhum caminho absoluto ou comando chega do navegador;
+- salvamento nunca substitui uma versão externa sem decisão explícita;
+- alterações em múltiplos arquivos sempre possuem preview de diff;
+- arquivo temporário não pode escapar do diretório autorizado;
+- falhas intermediárias não deixam arquivo parcial;
+- arquivos sensíveis continuam bloqueados por padrão;
+- a IDE permanece utilizável em modo somente leitura quando a escrita falha;
+- build, typecheck, testes de API, testes montados e smoke E2E passam.
 
-### Sequência aprovada
+### Sequência posterior
 
-- **076:** Monaco, explorer, abas e leitura segura;
-- **077:** escrita atômica, conflitos e operações de arquivo;
 - **078:** LSP JavaScript/TypeScript;
 - **079:** Ruby/Rails LSP;
 - **080:** assistência de IA gratuita e local com Ollama;
 - **081:** completion inline, fill-in-the-middle e contexto semântico opt-in.
 
-Terminal livre, extensões arbitrárias, provedores cloud e alterações autônomas
-sem revisão em diff continuam fora do escopo aprovado.
+Terminal livre, extensões arbitrárias, provedores cloud e aplicação autônoma de
+alterações continuam fora do escopo aprovado.

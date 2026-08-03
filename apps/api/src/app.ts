@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
+import { projectFileRoutes } from './routes/project-files.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -181,6 +182,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectReadmeRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+  });
+
+  app.register(projectFileRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectFileService: context.projectFileService,
   });
 
   app.register(projectEditorRoutes, {

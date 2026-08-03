@@ -2,68 +2,89 @@
 
 ## Status
 
-Planejada. A implementação começa somente depois da task 075 e deve seguir o
-desenho em `docs/architecture/embedded-ide-ai-design.md`.
-
-Este registro foi criado em uma entrega exclusivamente documental. Nenhum
-endpoint, dependência ou comportamento do produto foi alterado.
+Implementada em branch para revisão. A entrega adiciona a primeira versão da
+IDE somente leitura, usando Monaco desde o início e sem habilitar escrita, LSP
+ou IA.
 
 ## Objetivo
 
-Entregar a primeira fatia segura da IDE dentro do Dev Dashboard, usando Monaco
-desde o início e preparando os contratos necessários para escrita, LSP e IA
-local nas tasks seguintes.
+Entregar uma área **Editor** dentro do detalhe do projeto, com explorer, abas,
+busca textual e leitura segura dos arquivos locais.
 
-## Escopo proposto
+## Escopo entregue
 
-- adicionar uma nova aba **Editor** aos detalhes do projeto;
-- integrar Monaco Editor e seus workers ao Vite;
-- criar explorer, abas e modelos por URI lógica do projeto;
-- listar diretórios e ler arquivos textuais por caminhos relativos validados;
-- oferecer busca textual limitada;
-- preservar a ação **Abrir no editor local** dentro da IDE;
-- manter a primeira versão somente leitura;
-- definir contratos compartilhados de arquivo, versão e erros públicos;
-- adicionar testes de path traversal, symlink, binário, limite de tamanho,
-  paginação e troca de projeto;
-- documentar as versões fixadas de Monaco e `monaco-languageclient` antes do
-  primeiro código LSP.
+- rota `/projects/:projectId/editor` e aba **Editor**;
+- Monaco Editor `0.56.0`, carregado sob demanda e configurado com workers do
+  Vite para editor, JSON, CSS, HTML e TypeScript;
+- explorer lazy, ordenado com diretórios antes de arquivos;
+- abas de arquivos abertas e modelos por URI lógica sem expor o caminho
+  absoluto;
+- busca textual limitada no projeto;
+- posicionamento do cursor ao abrir um resultado;
+- tema claro/escuro sincronizado com o dashboard;
+- fallback textual quando o Monaco não puder inicializar;
+- ação existente de abrir no editor local preservada dentro da IDE;
+- API e contratos compartilhados para listar, ler e buscar arquivos;
+- testes de serviço, rota e componente.
 
-## Decisões
+## Segurança
 
-- Monaco entra na primeira implementação; não será criado um editor temporário
-  com outra biblioteca.
-- A primeira fatia é somente leitura para validar confinamento, performance e
-  experiência antes de permitir gravação.
-- Caminhos absolutos nunca chegam ao navegador.
-- A API recupera a raiz canônica do projeto pelo `ProjectStore`.
-- Arquivos sensíveis, binários e diretórios pesados ficam fora da árvore
-  padrão.
-- A IDE é desktop-first; telas pequenas podem oferecer leitura simplificada e
-  abertura no editor local.
-- LSP e IA não fazem parte desta task, mas os contratos e URIs não podem impedir
-  as tasks 078–081.
+O navegador envia somente `projectId` e caminhos relativos. A API recupera a
+raiz pelo `ProjectStore` e aplica:
 
-## Sequência aprovada
+- `realpath` na raiz e no destino;
+- recusa de caminhos absolutos, `..`, segmentos ambíguos, NUL e barras de
+  plataforma não autorizadas;
+- recusa de symlinks que escapem da raiz;
+- exclusão de `.git`, `node_modules`, `vendor/bundle`, `coverage`, `dist`,
+  `build` e `tmp/log`;
+- exclusão automática de `.env*`, chaves privadas, PEM e `config/master.key`;
+- limite de 512 KiB por arquivo;
+- detecção de binário por NUL e UTF-8 inválido;
+- limite de 500 entradas por diretório, 2.000 arquivos por busca, profundidade
+  12 e até 100 resultados;
+- nenhuma escrita ou execução de comandos.
 
-- **076:** Monaco, explorer e leitura segura;
-- **077:** escrita atômica, conflitos e operações de arquivo;
-- **078:** LSP JavaScript/TypeScript;
-- **079:** Ruby/Rails LSP;
-- **080:** IA local gratuita com Ollama;
-- **081:** completion inline, FIM e contexto semântico opt-in.
+## Contratos
+
+Foram adicionados:
+
+- `ProjectFileEntry`;
+- `ProjectDirectoryListing`;
+- `ProjectFileContent`;
+- `ProjectFileSearchMatch`;
+- `ProjectFileSearchResult`.
+
+Endpoints:
+
+```http
+GET /api/projects/:projectId/files?path=<relativePath>
+GET /api/projects/:projectId/files/content?path=<relativePath>
+GET /api/projects/:projectId/files/search?query=<term>&limit=<n>
+```
+
+## Arquivos principais
+
+- `packages/contracts/src/project-files.ts`;
+- `apps/api/src/services/project-file-service.ts`;
+- `apps/api/src/routes/project-files.ts`;
+- `apps/web/src/components/ProjectEmbeddedEditor.vue`;
+- `apps/web/src/monaco-environment.ts`;
+- `apps/web/src/api/project-files.ts`;
+- `apps/api/test/project-file-service.test.ts`;
+- `apps/api/test/project-file-routes.test.ts`;
+- `apps/web/test/project-embedded-editor.test.ts`.
 
 ## Critérios de aceite
 
 - nenhum caminho fora da raiz do projeto pode ser lido;
 - symlinks que escapem da raiz são recusados;
-- arquivos binários e acima do limite retornam erro público específico;
-- a árvore não bloqueia a interface em projetos grandes;
-- troca de projeto cancela requests e descarta modelos anteriores;
-- tema, densidade, teclado e foco seguem os padrões do dashboard;
-- build, typecheck, testes montados e testes de API passam;
-- a UI continua funcional quando Monaco falha ao carregar;
-- nenhum código de escrita, LSP ou IA é habilitado nesta fatia.
+- arquivos sensíveis, binários e acima do limite não são abertos;
+- a árvore não carrega recursivamente todo o projeto;
+- troca de projeto descarta árvore, abas e modelos anteriores;
+- Monaco possui fallback funcional;
+- a interface deixa explícito que a versão é somente leitura;
+- build, typecheck e testes passam no CI.
 
 ## Fora desta task
 
@@ -75,9 +96,7 @@ local nas tasks seguintes.
 - extensões do VS Code;
 - suporte mobile completo.
 
-## Próximos documentos
+## Próxima atividade
 
-- arquitetura: `docs/architecture/embedded-ide-ai-design.md`;
-- editor externo existente: `docs/architecture/local-editor-design.md`;
-- segurança geral: `docs/architecture/security.md`;
-- fila executável atual: `docs/tasks/NEXT.md`.
+Task 077 — escrita atômica, conflitos externos e operações estruturais de
+arquivo, sempre com preview proporcional ao risco.
