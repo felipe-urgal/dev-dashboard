@@ -1,51 +1,52 @@
 # Próxima atividade
 
-A task 074 coordenou os runtimes local e Docker do banco e refinou o painel de
-Dependências. A próxima entrega faz a primeira auditoria transversal de
-acessibilidade sobre os fluxos mais usados.
+A task 075 concluiu a primeira auditoria transversal de acessibilidade das
+páginas globais e adicionou guardas de landmarks, comunicação de estado e
+contraste. A próxima entrega inicia a IDE embutida aprovada no PR #161.
 
-## Task 075 — Auditoria inicial de acessibilidade
+## Task 076 — Fundação da IDE embutida
 
-Revisar Visão geral, Atividade, Processos e Configurações com critérios
-objetivos de teclado, foco, nomes acessíveis, contraste e comunicação de
-estado, corrigindo apenas problemas confirmados.
+Entregar a primeira fatia segura do editor dentro do Dev Dashboard, usando
+Monaco desde o início e mantendo a experiência somente leitura nesta etapa.
+
+O plano completo está em
+[`076-embedded-ide-foundation-plan.md`](./076-embedded-ide-foundation-plan.md) e
+a arquitetura em
+[`../architecture/embedded-ide-ai-design.md`](../architecture/embedded-ide-ai-design.md).
 
 ### Escopo proposto
 
-- percorrer as quatro páginas somente por teclado e registrar ordem de foco,
-  foco visível e ausência de armadilhas;
-- verificar landmarks, títulos, labels, nomes acessíveis e relações
-  `aria-describedby`;
-- revisar `role="status"`, `role="alert"` e `aria-busy` para evitar silêncio ou
-  anúncios duplicados;
-- medir contraste dos tokens usados em texto, bordas, badges e controles;
-- adicionar uma verificação automatizada de acessibilidade compatível com a
-  suíte montada ou E2E existente;
-- corrigir os achados confirmados e documentar os casos que exigirem uma task
-  própria.
+- adicionar uma nova aba **Editor** aos detalhes do projeto;
+- integrar Monaco Editor e os workers necessários ao Vite;
+- criar explorer, abas e modelos por URI lógica do projeto;
+- listar diretórios e ler arquivos textuais por caminhos relativos validados;
+- oferecer busca textual limitada;
+- preservar a ação **Abrir no editor local** dentro da IDE;
+- manter a primeira versão somente leitura;
+- definir contratos compartilhados de arquivo, versão e erros públicos;
+- adicionar testes de path traversal, symlink, binário, tamanho, paginação e
+  troca de projeto;
+- fixar e documentar as versões de Monaco e `monaco-languageclient` antes do
+  primeiro código LSP.
 
-### Fora desta fatia
+### Critérios principais
 
-- redesenho visual ou mudança de arquitetura da informação;
-- certificação formal de conformidade;
-- otimização e validação E2E específica para tablet;
-- implementação da IDE embutida.
+- nenhum caminho fora da raiz canônica do projeto pode ser lido;
+- symlinks que escapem da raiz são recusados;
+- arquivos binários, sensíveis e acima do limite ficam fora da leitura padrão;
+- projetos grandes não bloqueiam a interface;
+- troca de projeto cancela requests e descarta modelos anteriores;
+- tema, densidade, teclado e foco seguem os padrões do dashboard;
+- nenhum código de escrita, LSP ou IA é habilitado nesta fatia.
 
-## Sequência aprovada depois da task 075
+### Sequência aprovada
 
-A IDE dentro do dashboard foi aprovada como uma série incremental. O desenho
-completo está em
-[`docs/architecture/embedded-ide-ai-design.md`](../architecture/embedded-ide-ai-design.md).
+- **076:** Monaco, explorer, abas e leitura segura;
+- **077:** escrita atômica, conflitos e operações de arquivo;
+- **078:** LSP JavaScript/TypeScript;
+- **079:** Ruby/Rails LSP;
+- **080:** assistência de IA gratuita e local com Ollama;
+- **081:** completion inline, fill-in-the-middle e contexto semântico opt-in.
 
-- **Task 076:** Monaco, explorer, abas e leitura segura de arquivos;
-- **Task 077:** escrita atômica, conflitos e operações de arquivo;
-- **Task 078:** LSP JavaScript/TypeScript;
-- **Task 079:** Ruby/Rails LSP;
-- **Task 080:** assistência de IA gratuita e local com Ollama;
-- **Task 081:** completion inline, fill-in-the-middle e contexto semântico
-  opt-in.
-
-A task 076 está detalhada em
-[`076-embedded-ide-foundation-plan.md`](./076-embedded-ide-foundation-plan.md).
-A sequência não autoriza terminal livre, extensões arbitrárias, provedores
-cloud ou alterações autônomas sem revisão em diff.
+Terminal livre, extensões arbitrárias, provedores cloud e alterações autônomas
+sem revisão em diff continuam fora do escopo aprovado.
