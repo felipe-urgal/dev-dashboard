@@ -13,6 +13,7 @@ import {
   processLogSnapshotResponseSchema,
 } from '../../http/response-schemas.js';
 import {
+  describeDockerPortConflict,
   processEnvelopeResponseSchema,
   processManagerApiError,
   projectParamsSchema,
@@ -28,7 +29,12 @@ export function registerServerProcessRoutes(
   app: FastifyInstance,
   options: ProcessRouteOptions,
 ): void {
-  const { processManager, serverSettingsRepository, projectStore } = options;
+  const {
+    processManager,
+    serverSettingsRepository,
+    projectStore,
+    dockerComposeService,
+  } = options;
 
   app.get<{
     Params: ProjectParams;
@@ -207,6 +213,8 @@ export function registerServerProcessRoutes(
         request.params.projectId,
       );
 
+      let attemptedPort: number | undefined;
+
       try {
         let settings =
           await serverSettingsRepository.find(
@@ -231,6 +239,8 @@ export function registerServerProcessRoutes(
             );
         }
 
+        attemptedPort = settings.port ?? project.port;
+
         const managedProcess =
           await processManager.startServer(
             project,
@@ -248,6 +258,20 @@ export function registerServerProcessRoutes(
         });
       } catch (error) {
         if (error instanceof ProcessManagerError) {
+          if (error.code === 'PORT_NOT_AVAILABLE' && attemptedPort !== undefined) {
+            const dockerHint = await describeDockerPortConflict(
+              dockerComposeService,
+              project,
+              attemptedPort,
+            );
+            if (dockerHint) {
+              throw new ApiError({
+                statusCode: 409,
+                code: error.code,
+                message: dockerHint,
+              });
+            }
+          }
           throw processManagerApiError(error);
         }
 

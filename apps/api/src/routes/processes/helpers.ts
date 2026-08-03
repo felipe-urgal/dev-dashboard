@@ -1,3 +1,4 @@
+import type { Project } from '@dev-dashboard/contracts';
 import type {
   ProcessManager,
   ProcessManagerError,
@@ -6,6 +7,7 @@ import type {
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
+import type { DockerComposeService } from '../../services/docker-compose-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
 import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
 
@@ -25,6 +27,7 @@ export interface ProcessRouteOptions {
   serverSettingsRepository: ProjectServerSettingsRepository;
   serverHealthCheckService: ServerHealthCheckService;
   projectStore: ProjectStore;
+  dockerComposeService?: DockerComposeService;
 }
 
 export interface ProjectParams {
@@ -82,6 +85,31 @@ export function serverSettingsApiError(
     code: error.code,
     message: error.message,
   });
+}
+
+// Quando o bind da porta do servidor local falha, o container Docker do próprio
+// projeto (docker-compose.dev.yml publicando a mesma porta no host) é a causa mais
+// comum e a menos óbvia para quem só olha o erro genérico de porta ocupada.
+export async function describeDockerPortConflict(
+  dockerComposeService: DockerComposeService | undefined,
+  project: Project,
+  port: number,
+): Promise<string | undefined> {
+  if (!dockerComposeService) return undefined;
+
+  try {
+    const overview = await dockerComposeService.overview(project);
+    const requestedPort = String(port);
+    const conflicting = overview.services.find((service) =>
+      service.running &&
+      service.ports.some((mapping) => mapping.split(':')[0] === requestedPort));
+
+    if (!conflicting) return undefined;
+
+    return `A porta ${port} já está sendo usada pelo container Docker "${conflicting.name}" deste projeto. Pare o serviço no painel Docker ou configure outra porta para o servidor local.`;
+  } catch {
+    return undefined;
+  }
 }
 
 export function requireProject(

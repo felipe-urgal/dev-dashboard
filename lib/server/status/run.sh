@@ -125,7 +125,11 @@ dev-status-all() {
         cmd=$(ps -p "$first_pid" -o command= 2>/dev/null | head -n1 | cut -c1-50)
         pid_info="PID $first_pid ${cmd:+$cmd}"
       fi
-      _dev_ok "$project (porta $port) → rodando (${pid_info})"
+      if _dev_port_owned_by_docker "$cmd"; then
+        _dev_warn "$project (porta $port) → ocupada por container Docker, não pelo servidor local (${pid_info})"
+      else
+        _dev_ok "$project (porta $port) → rodando (${pid_info})"
+      fi
     else
       _dev_err "$project (porta ${port:-N/A}) → parado"
     fi
