@@ -1,0 +1,34 @@
+name: Agent task 078 dependencies
+
+on:
+  push:
+    branches:
+      - agent/task-078-js-ts-lsp
+    paths:
+      - .github/workflows/agent-task-078-dependencies.yml
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/task-078-js-ts-lsp
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Update package lock
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit package lock
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package-lock.json
+          git commit -m "Atualiza lockfile do transporte WebSocket"
+          git push origin HEAD:agent/task-078-js-ts-lsp
