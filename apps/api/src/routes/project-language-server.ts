@@ -146,7 +146,11 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
       const limitedSocket = withWebSocketMessageRateLimit(socket);
       void options.projectLanguageServerService
         .attach(project, request.params.kind, limitedSocket)
-        .catch(() => {
+        .catch((error: unknown) => {
+          request.log.error(
+            { err: error, projectId: request.params.projectId, kind: request.params.kind },
+            'Falha ao anexar o WebSocket ao servidor de linguagem.',
+          );
           limitedSocket.close(1011, 'Falha ao iniciar servidor de linguagem');
         });
     },

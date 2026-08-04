@@ -6,6 +6,7 @@
 
 .embedded-ide {
   --embedded-editor-sidebar-width: 280px;
+  --embedded-editor-ai-width: 320px;
   min-width: 0;
 }
 
@@ -21,21 +22,23 @@
 }
 
 /*
- * O painel de IA é um 4º item de grid (sidebar, separador, workbench, IA).
- * A regra acima define só 3 trilhas com `!important`; sem esta variante, o
- * painel de IA aberto fica sem coluna própria e quebra para uma segunda
- * linha, empilhado sob a barra lateral em vez de aparecer ao lado do editor.
+ * O painel de IA e seu separador de redimensionamento são o 4º e 5º itens de
+ * grid (sidebar, separador, workbench, separador da IA, IA). A regra acima
+ * define só 3 trilhas com `!important`; sem esta variante, os itens extras
+ * ficam sem coluna própria e quebram para uma segunda linha, empilhados sob
+ * a barra lateral em vez de aparecer ao lado do editor.
  */
 .embedded-ide .embedded-ide-shell-with-ai {
   grid-template-columns:
     minmax(190px, var(--embedded-editor-sidebar-width))
     6px
     minmax(0, 1fr)
-    minmax(260px, 320px) !important;
+    6px
+    minmax(220px, var(--embedded-editor-ai-width)) !important;
 }
 
 .embedded-ide .embedded-ide-ai-panel {
-  grid-column: 4;
+  grid-column: 5;
   min-height: 0;
   overflow: hidden;
 }
@@ -89,6 +92,16 @@ body.embedded-ide-resizing .embedded-ide-resize-separator {
 .embedded-ide .embedded-ide-resize-separator:focus-visible::after,
 body.embedded-ide-resizing .embedded-ide-resize-separator::after {
   opacity: 1;
+}
+
+/*
+ * Sobrescreve só a coluna: o separador da IA reaproveita todo o visual acima
+ * (`.embedded-ide-resize-separator`) via classe compartilhada, precisando
+ * apenas de uma posição de grid diferente. Precisa vir depois da regra
+ * acima para vencer o empate de especificidade (mesma classe única).
+ */
+.embedded-ide .embedded-ide-ai-resize-separator {
+  grid-column: 4;
 }
 
 body.embedded-ide-resizing,

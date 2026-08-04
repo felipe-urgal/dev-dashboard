@@ -7,10 +7,6 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Task 083 (planejada, `docs/tasks/083-ai-proposed-edits-plan.md`):
-  quinta ferramenta do assistente de IA, `propose_workspace_edit`, aplicando
-  edições propostas pelo modelo através do mesmo preview/confirmação/rollback
-  da task 077 — sem rota nova para aplicar, sem escrita autônoma.
 - [ ] Validar e otimizar a navegação em tablet com E2E responsivo.
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
@@ -27,6 +23,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   interna do editor (`InlineCompletionsSource`), não por um bug no produto.
   Não reabrir sem uma estratégia diferente (ex. mockar o provider em vez de
   depender do ciclo real do Monaco).
+- Smoke E2E dedicado para `propose_workspace_edit` (task 083 cobriu esse
+  caminho com testes de unidade; estender o double do Ollama da task 082
+  para emitir `tool_calls` dessa ferramenta fica como possibilidade
+  futura, não bloqueante).
 
 ## Produto e fluxos operacionais
 
@@ -141,7 +141,7 @@ tasks numeradas são detalhadas individualmente pelo índice de
 | --- | --- | --- |
 | [`docs/architecture/overview.md`](./architecture/overview.md) | Arquitetura atual e critérios de módulos | Ativo |
 | [`docs/architecture/security.md`](./architecture/security.md) | Modelo de segurança e limites locais | Ativo |
-| [`docs/architecture/embedded-ide-ai-design.md`](./architecture/embedded-ide-ai-design.md) | Desenho da IDE embutida, LSP e assistente de IA local | Implementado (tasks 076–082); task 083 planejada |
+| [`docs/architecture/embedded-ide-ai-design.md`](./architecture/embedded-ide-ai-design.md) | Desenho da IDE embutida, LSP e assistente de IA local | Implementado (tasks 076–083) |
 | [`docs/architecture/docker-compose-design.md`](./architecture/docker-compose-design.md) | Desenho da integração Docker Compose | Referência implementada |
 | [`docs/architecture/local-editor-design.md`](./architecture/local-editor-design.md) | Desenho do adaptador de editor local | Referência implementada |
 | [`docs/architecture/refactoring-arquivos-grandes.md`](./architecture/refactoring-arquivos-grandes.md) | Inventário e plano de refatoração | Ativo, parcialmente pendente |
