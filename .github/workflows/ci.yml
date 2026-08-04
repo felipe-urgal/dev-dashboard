@@ -40,6 +40,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verifica docs/architecture/api-reference.md
+        run: npm run docs:api:check
+
       - name: Test
         run: npm test
 

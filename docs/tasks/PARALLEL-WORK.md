@@ -27,7 +27,6 @@ atual de `docs/PENDENCIAS.md`.
 | Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
-| Documentação da API a partir dos JSON Schemas | script novo + `docs/`, leitura de `apps/api/src/routes/*` (sem alterar rotas) | pequeno/médio | somente leitura das rotas — seguro mesmo com rotas em edição, mas pode gerar diffs de doc se a rota mudar no meio do trabalho |
 | Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
@@ -58,6 +57,9 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 089 — Projetos recentes por workspace, complementando os favoritos.
 - Task 090 — Cache da detecção inicial do CLI (`lib/projects/cache.sh`) por
   assinatura de mtime, com `detect_projects --force` para ignorar.
+- Task 091 — Documentação da API gerada a partir dos JSON Schemas
+  (`scripts/generate-api-docs.mjs`, `docs/architecture/api-reference.md`,
+  `npm run docs:api`/`docs:api:check`).
 - Task 092 — Adaptador seguro para abrir o destino do servidor gerenciado no
   navegador padrão do sistema operacional, com catálogo fechado de destino e
   de comando por sistema operacional, sem shell.
