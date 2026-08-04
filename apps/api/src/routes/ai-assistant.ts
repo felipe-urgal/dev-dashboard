@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import type { AiChatStreamEvent } from '@dev-dashboard/contracts';
 
@@ -94,10 +94,11 @@ const completionResultSchema = {
   properties: { text: { type: 'string' } },
 } as const;
 
-function translateAiError(error: unknown): never {
+function translateAiError(request: FastifyRequest, error: unknown, context: Record<string, unknown>): never {
   if (error instanceof AiAssistantError) {
     throw new ApiError({ statusCode: 400, code: 'AI_ASSISTANT_INVALID_REQUEST', message: error.message });
   }
+  request.log.warn({ err: error, ...context }, 'AI assistant request failed');
   throw new ApiError({
     statusCode: 502,
     code: 'AI_ASSISTANT_FAILED',
@@ -170,6 +171,12 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
           { send: write, signal: controller.signal },
         );
       } catch (error) {
+        if (!(error instanceof AiAssistantError)) {
+          request.log.warn(
+            { err: error, projectId: project.id, model: request.body.model },
+            'AI assistant chat failed',
+          );
+        }
         write({
           type: 'error',
           message: error instanceof Error ? error.message : 'Falha ao conversar com o assistente de IA.',
@@ -193,7 +200,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
       },
     },
     async (request, reply) => {
-      projectFor(request.params.projectId);
+      const project = projectFor(request.params.projectId);
       const controller = new AbortController();
       request.raw.once('close', () => controller.abort());
       try {
@@ -211,7 +218,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
           reply.hijack();
           return;
         }
-        translateAiError(error);
+        translateAiError(request, error, { projectId: project.id, model: request.body.model });
       }
     },
   );

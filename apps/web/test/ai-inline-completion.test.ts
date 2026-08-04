@@ -178,3 +178,83 @@ test('reaproveita o cache para o mesmo prefixo/sufixo sem chamar a API de novo',
 
   assert.equal(api.complete.mock.calls.length, 1);
 });
+
+test('cache tem tamanho máximo e descarta a entrada mais antiga', async () => {
+  api.status.mockResolvedValue({
+    available: true,
+    models: [{ name: 'llama3.1', capabilities: ['chat'] }],
+    message: 'ok',
+  } satisfies ProjectAiStatus);
+  api.complete.mockImplementation(async (_projectId: string, _model: string, prefix: string) => ({
+    text: `sugestao para ${prefix}`,
+  }));
+
+  const monaco = fakeMonaco();
+  const provider = new AiInlineCompletionProvider(monaco.instance, 'project-1');
+  await provider.initialize();
+
+  async function ask(prefix: string): Promise<void> {
+    const model = fakeModel(prefix, '');
+    const token = fakeToken();
+    const resultPromise = monaco.provider()!.provideInlineCompletions(
+      model,
+      position,
+      {} as Monaco.languages.InlineCompletionContext,
+      token as unknown as Monaco.CancellationToken,
+    );
+    await vi.advanceTimersByTimeAsync(500);
+    await resultPromise;
+  }
+
+  for (let i = 0; i < 51; i += 1) await ask(`prefixo-${i}`);
+  assert.equal(api.complete.mock.calls.length, 51);
+
+  // A primeira entrada (prefixo-0) deve ter sido descartada ao inserir a
+  // 51ª — o cache tem limite de 50 — então pedi-la de novo é uma nova
+  // chamada à API, não um acerto de cache.
+  await ask('prefixo-0');
+  assert.equal(api.complete.mock.calls.length, 52);
+});
+
+test('aborta a chamada em andamento quando o token cancela durante a requisição', async () => {
+  api.status.mockResolvedValue({
+    available: true,
+    models: [{ name: 'llama3.1', capabilities: ['chat'] }],
+    message: 'ok',
+  } satisfies ProjectAiStatus);
+
+  let capturedSignal: AbortSignal | undefined;
+  let resolveComplete: (() => void) | undefined;
+  api.complete.mockImplementation(
+    (_projectId: string, _model: string, _prefix: string, _suffix: string, signal: AbortSignal) => {
+      capturedSignal = signal;
+      return new Promise((resolve) => {
+        resolveComplete = () => resolve({ text: '' });
+      });
+    },
+  );
+
+  const monaco = fakeMonaco();
+  const provider = new AiInlineCompletionProvider(monaco.instance, 'project-1');
+  await provider.initialize();
+
+  const model = fakeModel('const x = ', '');
+  const token = fakeToken();
+  const resultPromise = monaco.provider()!.provideInlineCompletions(
+    model,
+    position,
+    {} as Monaco.languages.InlineCompletionContext,
+    token as unknown as Monaco.CancellationToken,
+  );
+  await vi.advanceTimersByTimeAsync(500);
+
+  assert.ok(capturedSignal);
+  assert.equal(capturedSignal?.aborted, false);
+
+  token.trigger();
+  assert.equal(capturedSignal?.aborted, true);
+
+  resolveComplete?.();
+  const result = await resultPromise;
+  assert.deepEqual(result, { items: [] });
+});
