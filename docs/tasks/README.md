@@ -4,6 +4,8 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 
 `NEXT.md` descreve a próxima atividade aprovada em detalhe. Ao concluir uma task, o registro atual deve ser atualizado com os resultados reais e `NEXT.md` deve ser substituído pelo próximo plano.
 
+`PARALLEL-WORK.md` é diferente: uma lista de candidatas do inventário (`docs/PENDENCIAS.md`) sem sobreposição de arquivos entre si, para quando mais de uma frente está em implementação ao mesmo tempo.
+
 ## Status
 
 - `001-project-git.md` — implementação da visão Git somente leitura.

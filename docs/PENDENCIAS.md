@@ -114,11 +114,12 @@ de saída concretos.
 
 ## Mapa da documentação Markdown
 
-O repositório possui 106 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 88 em `docs/tasks/` (86 tasks numeradas, mais
-`README.md` e `NEXT.md`). O mapa abaixo cobre os 18 arquivos restantes; as
-tasks numeradas são detalhadas individualmente pelo índice de
-`docs/tasks/README.md` para evitar manter duas listas históricas paralelas.
+O repositório possui 108 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 89 em `docs/tasks/` (87 tasks numeradas, mais
+`README.md`, `NEXT.md` e `PARALLEL-WORK.md`). O mapa abaixo cobre os 19
+arquivos restantes; as tasks numeradas são detalhadas individualmente pelo
+índice de `docs/tasks/README.md` para evitar manter duas listas históricas
+paralelas.
 
 ### Raiz e operação do repositório
 
@@ -167,9 +168,10 @@ tasks numeradas são detalhadas individualmente pelo índice de
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `086`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-086-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
-| [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `088`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-088-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
+| [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega (única, sequencial) | Ativo, substituído a cada task |
+| [`docs/tasks/PARALLEL-WORK.md`](./tasks/PARALLEL-WORK.md) | Candidatas do inventário sem sobreposição de arquivos entre si, para múltiplas frentes simultâneas | Ativo, revisado conforme frentes começam/terminam |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
 deve entrar na seção correspondente acima ou, se for uma task numerada, no
