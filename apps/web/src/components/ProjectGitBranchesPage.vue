@@ -35,6 +35,7 @@ const emit = defineEmits<{
   switch: [name: string];
   rename: [currentName: string, nextName: string];
   delete: [name: string];
+  publish: [name: string];
   'refresh-remotes': [];
   track: [remoteBranch: string];
   'delete-remote': [remoteBranch: string];
