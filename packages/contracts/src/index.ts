@@ -51,6 +51,17 @@ export type {
 } from './project-files.js';
 
 export type {
+  AiCapability,
+  AiChatMessage,
+  AiChatRequest,
+  AiChatRole,
+  AiChatStreamEvent,
+  AiModelInfo,
+  AiTool,
+  ProjectAiStatus,
+} from './ai-assistant.js';
+
+export type {
   ProjectLanguageServerKind,
   ProjectLanguageServerState,
   ProjectLanguageServerStatus,

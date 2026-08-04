@@ -103,17 +103,20 @@ export function fetchHealth(): Promise<HealthResponse> {
 export function followEventStream<T>(
   url: string,
   onEvent: (event: T) => void,
+  init?: RequestInit,
 ): { close: () => void; done: Promise<void> } {
   const controller = new AbortController();
+  const requestInit: RequestInit = {
+    ...init,
+    credentials: 'same-origin',
+    signal: controller.signal,
+    headers: { Accept: 'text/event-stream', ...init?.headers },
+  };
   const done = (async () => {
-    let response = await fetch(url, {
-      credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
-    });
+    let response = await fetch(url, requestInit);
     if (response.status === 401) {
       await bootstrapBrowserSession();
-      response = await fetch(url, {
-        credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'text/event-stream' },
-      });
+      response = await fetch(url, requestInit);
     }
     if (!response.ok || !response.body) throw new Error(`Não foi possível acompanhar a execução (HTTP ${response.status}).`);
     const reader = response.body.getReader();

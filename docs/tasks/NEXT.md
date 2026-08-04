@@ -1,69 +1,63 @@
 # Próxima atividade
 
-A task 079 generalizou o gateway LSP para múltiplas linguagens e adicionou
-Ruby/Rails: sessões independentes por `(projeto, kind)`, catálogo fechado de
-detecção do `ruby-lsp` sem instalação automática, e a capacidade Rails runtime
-com opt-in explícito confirmado — o `bundle exec` que carregaria o add-on
-`ruby-lsp-rails` só é liberado depois da confirmação; sem ela, o serviço cai
-para um `ruby-lsp` global (fora do bundle do projeto), que nunca inicializa a
-aplicação Rails.
+A task 080 adicionou o assistente de IA local com Ollama ao editor embutido:
+painel de chat, ações rápidas, detecção de modelos instalados e um catálogo
+fechado de quatro ferramentas somente leitura (`read_project_file`,
+`search_project_text`, `list_project_files`, `get_git_diff`), tudo
+intermediado pela API — o navegador nunca fala com o Ollama diretamente.
+Duas coisas do plano original ficaram para depois: ferramentas de símbolo
+via LSP (exigem uma sessão LSP sem navegador, ainda não projetada) e
+aplicação de edições propostas pela IA (exige um formato de tool-calling
+estruturado e validado, tratado como um incremento à parte, não a task 081).
 
-## Task 080 — IA local com Ollama
+## Task 081 — Compleção inline e contexto semântico ampliado
 
-Adicionar assistência de IA ao editor embutido usando Ollama local como
-provedor padrão, sem chave de API, sem cobrança por token e sem enviar código
-para um serviço remoto.
+Adicionar sugestões de código "ghost text" no editor usando o mesmo Ollama
+local, com debounce, cancelamento agressivo e um cache curto.
 
 ### Objetivo
 
-Painel de IA no editor com chat contextual, ações rápidas (explicar, corrigir,
-gerar testes, refatorar) e streaming cancelável, com a API intermediando toda
-chamada ao Ollama local.
+Compleção inline (e FIM quando o modelo suportar) sem enviar o projeto
+inteiro a cada tecla digitada, mais um contexto semântico opt-in via
+embeddings locais.
 
 ### Escopo proposto
 
-- `AiAssistantService` na API, destino fixo em loopback
-  (`DEV_DASHBOARD_OLLAMA_URL`), sem aceitar URL remota;
-- detecção de modelos instalados via `GET /api/tags` / `POST /api/show`, sem
-  baixar nada automaticamente;
-- catálogo fechado de ferramentas (`AiTool`) que o modelo pode invocar:
-  leitura de arquivo, busca textual, listagem de arquivos, definição/referências
-  de símbolo (via LSP das tasks 078/079) e diff Git — tudo limitado ao projeto
-  atual, nunca caminho absoluto ou shell;
-- conversão do streaming NDJSON do Ollama para um contrato próprio,
-  autenticado e cancelável;
-- painel lateral **IA** no `ProjectEmbeddedEditor.vue` com ações rápidas por
-  seleção/símbolo;
-- qualquer edição proposta pela IA reaproveita o preview/confirmação de
-  `WorkspaceEdit` já existente (tasks 077–079) — nunca aplicação direta;
-- nenhuma persistência de conversa por padrão.
+- endpoint dedicado de completion (`POST /api/projects/:projectId/ai/complete`),
+  sem tool-calling, com prefixo/sufixo limitados em bytes;
+- detecção de suporte a FIM pelas capacidades já reportadas por
+  `/api/show` (task 080);
+- `registerInlineCompletionsProvider` no Monaco com debounce e
+  `AbortController` cancelando a requisição anterior a cada tecla;
+- cache curto em memória por `(caminho, prefixo, sufixo)`;
+- embeddings locais opt-in para contexto adicional, desligados por padrão,
+  com controle e limpeza na tela de Configurações;
+- restauração opcional de abas/estado do editor entre sessões, também
+  opt-in.
 
 ### Segurança
 
-- o navegador nunca chama o Ollama diretamente;
-- limites de bytes, arquivos e mensagens por requisição;
-- resposta de raciocínio interno do modelo (quando exposta) não é armazenada
-  nem exibida;
-- cancelamento ao trocar de projeto, fechar o painel ou iniciar outra
-  solicitação incompatível;
-- nenhum modelo é baixado ou instalado pelo dashboard.
+- API continua intermediando toda chamada ao Ollama;
+- nenhuma ferramenta é chamada durante a compleção inline (chamada direta,
+  sem tools, para manter latência previsível);
+- embeddings ficam no diretório privado de estado, nunca no navegador, e são
+  removidos ao excluir o projeto ou trocar de modelo de embedding;
+- nenhum arquivo sensível ou ignorado entra no índice.
 
 ### Critérios principais
 
-- painel de IA funciona apenas com Ollama local detectado; ausência produz
-  orientação clara sem instalar nada;
-- ferramentas do modelo restritas ao catálogo fechado e à raiz do projeto;
-- streaming cancelável sem requisições penduradas;
-- qualquer edição proposta exige preview e confirmação explícita;
+- ghost text não interfere na digitação normal nem no undo/redo do Monaco;
+- nenhuma requisição de completion sobrevive a uma tecla digitada depois
+  dela;
+- ausência de suporte a completion/FIM desativa o recurso com estado claro;
 - typecheck, build, testes de API, testes web e smoke E2E passam.
 
 ### Fora do escopo
 
-- download ou gerenciamento de modelos Ollama pelo dashboard;
-- provedores de IA remotos/pagos;
-- busca semântica com embeddings, avaliada só como fase posterior opt-in;
-- completion inline/FIM, planejada para a task 081;
-- persistência de histórico de conversa.
+- aplicação automática de sugestão sem a tecla de aceite padrão do Monaco;
+- geração de commits, PRs ou textos fora do editor;
+- embeddings multi-projeto ou compartilhados entre usuários;
+- provedores de IA além do Ollama local.
 
-O plano completo está em `docs/tasks/080-ollama-local-ai.md`, com a
+O plano completo está em `docs/tasks/081-inline-completion.md`, com a
 arquitetura de referência em `docs/architecture/embedded-ide-ai-design.md`.
