@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { ProjectFavoriteRepositoryError } from '@dev-dashboard/core';
+import {
+  ProjectFavoriteRepositoryError,
+  ProjectRecentRepository,
+} from '@dev-dashboard/core';
 
 import { ApiError } from '../../http/api-error.js';
 import {
@@ -17,6 +20,7 @@ export function registerProjectListRoutes(
   options: ProjectRouteOptions,
 ): void {
   const { projectFavoriteRepository, projectStore } = options;
+  const projectRecentRepository = new ProjectRecentRepository();
 
   app.get(
     '/projects',
@@ -79,6 +83,63 @@ export function registerProjectListRoutes(
       return {
         project,
       };
+    },
+  );
+
+  app.post<{
+    Params: ProjectParams;
+    Body: Record<string, never>;
+  }>(
+    '/projects/:projectId/access',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          maxProperties: 0,
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['project'],
+            properties: {
+              project: projectResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+      if (!project || !project.workspaceId) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      const recent = await projectRecentRepository.record(
+        project.id,
+        project.workspaceId,
+      );
+      const updatedProject = projectStore.setLastAccessedAt(
+        project.id,
+        recent.lastAccessedAt,
+      );
+
+      if (!updatedProject) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      return { project: updatedProject };
     },
   );
 
