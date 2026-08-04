@@ -60,8 +60,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Criar cache da detecção inicial para workspaces grandes.
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
   a independência do CLI existente.
-- [ ] Criar uma suíte própria para helpers não interativos, incluindo smoke de
-  `git-*` e `_dev_*` puros.
+- [x] Criar uma suíte própria para helpers não interativos, incluindo smoke de
+  `git-*` e `_dev_*` puros — `tests/cli/run.sh`, task 088.
 
 ## Qualidade e manutenção
 
