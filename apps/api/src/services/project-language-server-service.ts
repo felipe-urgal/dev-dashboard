@@ -48,6 +48,14 @@ interface LanguageServerSession {
   forceKillTimer: NodeJS.Timeout | undefined;
   usesRailsRuntime: boolean;
   rails: ProjectRailsLanguageServerStatus | undefined;
+  /**
+   * Distinto de `state === 'failed'`: marca que a sessão já foi limpa (processo
+   * morto, removida do mapa), seja por falha real ou por reinício controlado
+   * (opt-in do Rails runtime). Evita que o handler de `exit` do processo
+   * repita a limpeza sem confundir observabilidade — reinício controlado
+   * nunca vira `state: 'failed'`.
+   */
+  terminated: boolean;
 }
 
 interface RailsRuntimeConfirmationRecord {
@@ -782,6 +790,7 @@ export class ProjectLanguageServerService {
       forceKillTimer: undefined,
       usesRailsRuntime: command.usesRailsRuntime,
       rails: kind === 'ruby' ? await this.railsStatus(project) : undefined,
+      terminated: false,
     };
     this.sessions.set(key, session);
 
@@ -807,7 +816,7 @@ export class ProjectLanguageServerService {
       this.failSession(session, 'Não foi possível iniciar o servidor de linguagem.');
     });
     child.once('exit', () => {
-      if (session.state !== 'failed') {
+      if (!session.terminated) {
         this.failSession(session, 'O servidor de linguagem foi encerrado.');
       }
     });
@@ -890,7 +899,7 @@ export class ProjectLanguageServerService {
     session: LanguageServerSession,
     message: string,
   ): void {
-    if (session.state === 'failed') return;
+    if (session.terminated) return;
     this.clearTimers(session);
     if (session.socket) {
       const socket = session.socket;
@@ -906,26 +915,32 @@ export class ProjectLanguageServerService {
       });
       socket.close(1012, message);
     }
-    // Marca a sessão como encerrada para que o handler de `exit` do processo
-    // (que também chamaria `failSession`) não repita a limpeza — o mesmo
-    // guard usado por `failSession`.
-    session.state = 'failed';
+    // `terminated` (não `state: 'failed'`) evita que o handler de `exit` do
+    // processo repita a limpeza. Um reinício controlado não é uma falha, então
+    // `session.state` propositalmente não vira `'failed'` aqui — isso ficaria
+    // incorreto em métricas/observabilidade que distinguem os dois casos.
+    session.terminated = true;
     if (session.process.exitCode === null) session.process.kill('SIGTERM');
     this.sessions.delete(sessionKey(session.project.id, session.kind));
   }
 
   private failSession(session: LanguageServerSession, message: string): void {
-    if (session.state === 'failed') return;
+    if (session.terminated) return;
     session.state = 'failed';
+    this.clearTimers(session);
     if (session.socket) {
-      sendStatus(session.socket, {
+      const socket = session.socket;
+      // Zera antes de fechar: o fechamento síncrono do socket fake usado nos
+      // testes emite 'close' de imediato, e `detach` só arma um novo idle
+      // timer se `session.socket` ainda apontar para este socket.
+      session.socket = undefined;
+      sendStatus(socket, {
         ...this.sessionStatus(session, true),
         message,
       });
-      session.socket.close(1011, 'Servidor de linguagem encerrado');
-      session.socket = undefined;
+      socket.close(1011, 'Servidor de linguagem encerrado');
     }
-    this.clearTimers(session);
+    session.terminated = true;
     if (session.process.exitCode === null) session.process.kill('SIGTERM');
     this.sessions.delete(sessionKey(session.project.id, session.kind));
   }

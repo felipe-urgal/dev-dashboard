@@ -50,6 +50,7 @@ import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
 import ProjectWorkspaceEditReview from './ProjectWorkspaceEditReview.vue';
 import { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';
 import {
+  LANGUAGE_SERVER_MONACO_LANGUAGES,
   ProjectLanguageServerClient,
   projectLanguageServerModelUri,
 } from '../language-server/project-language-server-client';
@@ -59,10 +60,11 @@ interface FlatTreeEntry {
   depth: number;
 }
 
-const LANGUAGE_SERVER_KINDS: readonly ProjectLanguageServerKind[] = [
-  'javascript-typescript',
-  'ruby',
-];
+// Deriva do mapa já mantido pelo client (única fonte de verdade do lado web
+// para quais kinds existem) em vez de duplicar a lista aqui.
+const LANGUAGE_SERVER_KINDS = Object.keys(
+  LANGUAGE_SERVER_MONACO_LANGUAGES,
+) as ProjectLanguageServerKind[];
 
 const props = defineProps<{ project: Project }>();
 
@@ -298,15 +300,14 @@ function readStoredEditorTheme(): EmbeddedEditorThemePreference {
 
 const editorThemePreference = ref<EmbeddedEditorThemePreference>(readStoredEditorTheme());
 
-function setEditorThemePreference(value: EmbeddedEditorThemePreference): void {
-  editorThemePreference.value = value;
+watch(editorThemePreference, (value) => {
   try {
     window.localStorage.setItem(EDITOR_THEME_STORAGE_KEY, value);
   } catch {
     // Preferência local é opcional; o editor continua funcional sem ela.
   }
   if (monaco) monaco.editor.setTheme(themeName());
-}
+});
 
 function themeName(): string {
   if (editorThemePreference.value === 'monokai') return 'monokai';
@@ -896,10 +897,7 @@ onBeforeUnmount(() => {
         </span>
         <label class="embedded-ide-theme-picker">
           <span class="sr-only">Tema do editor</span>
-          <select
-            :value="editorThemePreference"
-            @change="setEditorThemePreference(($event.target as HTMLSelectElement).value as EmbeddedEditorThemePreference)"
-          >
+          <select v-model="editorThemePreference">
             <option
               v-for="option in EMBEDDED_EDITOR_THEME_OPTIONS"
               :key="option.value"
