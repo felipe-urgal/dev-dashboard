@@ -97,6 +97,15 @@
 
           <div class="branch-row-actions">
             <button
+              v-if="row.local && !row.origin"
+              type="button"
+              class="secondary-button branch-publish-button"
+              :disabled="busy"
+              @click="emit('publish', row.name)"
+            >
+              Publicar
+            </button>
+            <button
               v-if="row.local && !row.local.current"
               type="button"
               class="secondary-button"
