@@ -13,6 +13,7 @@
     "dev:api": "npm run dev --workspace=@dev-dashboard/api",
     "dev:web": "npm run dev --workspace=@dev-dashboard/web",
     "doctor": "node scripts/doctor.mjs",
+    "changelog": "node scripts/generate-changelog.mjs",
     "build": "npm run build:packages && npm run build:apps",
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
