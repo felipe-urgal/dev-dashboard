@@ -1,12 +1,16 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { access, realpath } from 'node:fs/promises';
+import { access, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type {
   Project,
+  ProjectLanguageServerKind,
   ProjectLanguageServerStatus,
+  ProjectRailsLanguageServerStatus,
+  ProjectRailsRuntimeConfirmation,
 } from '@dev-dashboard/contracts';
 import type { RawData, WebSocket } from 'ws';
 
@@ -15,12 +19,24 @@ const IDLE_TIMEOUT_MS = 60_000;
 const FORCE_KILL_DELAY_MS = 2_000;
 const RESTART_WINDOW_MS = 60_000;
 const MAX_STARTS_PER_WINDOW = 3;
-const LSP_EXECUTABLE = 'typescript-language-server';
-const LSP_ARGUMENTS = ['--stdio'] as const;
+const RAILS_RUNTIME_CONFIRMATION_TTL_MS = 60_000;
 const OMIT = Symbol('omit');
+
+export const LANGUAGE_SERVER_KINDS: readonly ProjectLanguageServerKind[] = [
+  'javascript-typescript',
+  'ruby',
+];
+
+interface ResolvedLanguageServerCommand {
+  executable: string;
+  args: readonly string[];
+  /** A sessão carrega o add-on ruby-lsp-rails com introspecção habilitada. */
+  usesRailsRuntime: boolean;
+}
 
 interface LanguageServerSession {
   project: Project;
+  kind: ProjectLanguageServerKind;
   root: string;
   executable: string;
   process: ChildProcessWithoutNullStreams;
@@ -30,12 +46,33 @@ interface LanguageServerSession {
   lastStartedAt: string;
   idleTimer: NodeJS.Timeout | undefined;
   forceKillTimer: NodeJS.Timeout | undefined;
+  usesRailsRuntime: boolean;
+  rails: ProjectRailsLanguageServerStatus | undefined;
+  /**
+   * Distinto de `state === 'failed'`: marca que a sessão já foi limpa (processo
+   * morto, removida do mapa), seja por falha real ou por reinício controlado
+   * (opt-in do Rails runtime). Evita que o handler de `exit` do processo
+   * repita a limpeza sem confundir observabilidade — reinício controlado
+   * nunca vira `state: 'failed'`.
+   */
+  terminated: boolean;
+}
+
+interface RailsRuntimeConfirmationRecord {
+  token: string;
+  projectId: string;
+  expiresAt: number;
 }
 
 export interface ProjectLanguageServerServiceOptions {
   idleTimeoutMs?: number;
   now?: () => number;
-  findExecutable?: (projectRoot: string) => Promise<string | undefined>;
+  findCommand?: (
+    project: Project,
+    projectRoot: string,
+    kind: ProjectLanguageServerKind,
+    railsRuntimeEnabled: boolean,
+  ) => Promise<ResolvedLanguageServerCommand | undefined>;
   spawnProcess?: (
     executable: string,
     args: readonly string[],
@@ -330,15 +367,25 @@ async function executableCandidate(candidate: string): Promise<string | undefine
   }
 }
 
+async function findExecutableOnPath(name: string): Promise<string | undefined> {
+  const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  for (const directory of directories) {
+    const found = await executableCandidate(path.join(directory, name));
+    if (found) return found;
+  }
+  return undefined;
+}
+
 export async function findTypeScriptLanguageServer(
   projectRoot: string,
 ): Promise<string | undefined> {
+  const executable = 'typescript-language-server';
   const candidates = [
-    path.join(projectRoot, 'node_modules', '.bin', LSP_EXECUTABLE),
+    path.join(projectRoot, 'node_modules', '.bin', executable),
     ...(process.env.PATH ?? '')
       .split(path.delimiter)
       .filter(Boolean)
-      .map((directory) => path.join(directory, LSP_EXECUTABLE)),
+      .map((directory) => path.join(directory, executable)),
   ];
 
   for (const candidate of candidates) {
@@ -346,6 +393,77 @@ export async function findTypeScriptLanguageServer(
     if (found) return found;
   }
   return undefined;
+}
+
+/**
+ * Confere apenas o texto de `Gemfile.lock`, sem invocar `bundle`: evita
+ * qualquer resolução, instalação ou side-effect a partir de uma checagem de
+ * disponibilidade.
+ */
+export async function gemfileLockHasGem(
+  projectRoot: string,
+  gemName: string,
+): Promise<boolean> {
+  let contents: string;
+  try {
+    contents = await readFile(path.join(projectRoot, 'Gemfile.lock'), 'utf8');
+  } catch {
+    return false;
+  }
+  const escaped = gemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^\\s+${escaped} \\(`, 'm').test(contents);
+}
+
+/**
+ * Resolve o comando do Ruby LSP sem instalar nada:
+ *  - se o bundle do projeto já resolveu `ruby-lsp` (via `Gemfile.lock`) e não
+ *    carrega o add-on Rails, ou o add-on Rails já foi habilitado
+ *    explicitamente, usa `bundle exec ruby-lsp --stdio`;
+ *  - caso contrário, cai para um `ruby-lsp` global no PATH, que nunca herda o
+ *    bundle do projeto e portanto nunca carrega o add-on Rails;
+ *  - sem candidato, a capacidade fica indisponível — nunca dispara
+ *    `bundle install` nem download de gems.
+ */
+export async function findRubyLanguageServer(
+  projectRoot: string,
+  railsRuntimeEnabled: boolean,
+): Promise<ResolvedLanguageServerCommand | undefined> {
+  const bundleResolvesLsp = await gemfileLockHasGem(projectRoot, 'ruby-lsp');
+  const bundleHasRailsAddon = bundleResolvesLsp
+    && (await gemfileLockHasGem(projectRoot, 'ruby-lsp-rails'));
+
+  if (bundleResolvesLsp && (!bundleHasRailsAddon || railsRuntimeEnabled)) {
+    const bundle = await findExecutableOnPath('bundle');
+    if (bundle) {
+      return {
+        executable: bundle,
+        args: ['exec', 'ruby-lsp', '--stdio'],
+        usesRailsRuntime: bundleHasRailsAddon && railsRuntimeEnabled,
+      };
+    }
+  }
+
+  const globalRubyLsp = await findExecutableOnPath('ruby-lsp');
+  if (globalRubyLsp) {
+    return { executable: globalRubyLsp, args: ['--stdio'], usesRailsRuntime: false };
+  }
+
+  return undefined;
+}
+
+async function defaultFindCommand(
+  _project: Project,
+  projectRoot: string,
+  kind: ProjectLanguageServerKind,
+  railsRuntimeEnabled: boolean,
+): Promise<ResolvedLanguageServerCommand | undefined> {
+  if (kind === 'javascript-typescript') {
+    const executable = await findTypeScriptLanguageServer(projectRoot);
+    return executable
+      ? { executable, args: ['--stdio'], usesRailsRuntime: false }
+      : undefined;
+  }
+  return findRubyLanguageServer(projectRoot, railsRuntimeEnabled);
 }
 
 async function supportsJavaScriptTypeScript(project: Project): Promise<boolean> {
@@ -361,14 +479,45 @@ async function supportsJavaScriptTypeScript(project: Project): Promise<boolean> 
   return false;
 }
 
+async function supportsRuby(project: Project): Promise<boolean> {
+  if (project.type === 'rails') return true;
+  for (const signal of ['Gemfile', '.ruby-version']) {
+    try {
+      await access(path.join(project.path, signal), fsConstants.R_OK);
+      return true;
+    } catch {
+      // Continue through the closed list of project signals.
+    }
+  }
+  return false;
+}
+
+async function supports(
+  project: Project,
+  kind: ProjectLanguageServerKind,
+): Promise<boolean> {
+  return kind === 'javascript-typescript'
+    ? supportsJavaScriptTypeScript(project)
+    : supportsRuby(project);
+}
+
+function sessionKey(projectId: string, kind: ProjectLanguageServerKind): string {
+  return `${projectId}:${kind}`;
+}
+
 export class ProjectLanguageServerService {
   private readonly sessions = new Map<string, LanguageServerSession>();
   private readonly starts = new Map<string, number[]>();
+  private readonly railsRuntimeEnabled = new Map<string, boolean>();
+  private readonly railsRuntimeConfirmations = new Map<string, RailsRuntimeConfirmationRecord>();
   private readonly idleTimeoutMs: number;
   private readonly now: () => number;
-  private readonly findExecutable: (
+  private readonly findCommand: (
+    project: Project,
     projectRoot: string,
-  ) => Promise<string | undefined>;
+    kind: ProjectLanguageServerKind,
+    railsRuntimeEnabled: boolean,
+  ) => Promise<ResolvedLanguageServerCommand | undefined>;
   private readonly spawnProcess: (
     executable: string,
     args: readonly string[],
@@ -378,59 +527,135 @@ export class ProjectLanguageServerService {
   public constructor(options: ProjectLanguageServerServiceOptions = {}) {
     this.idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
     this.now = options.now ?? Date.now;
-    this.findExecutable = options.findExecutable ?? findTypeScriptLanguageServer;
+    this.findCommand = options.findCommand ?? defaultFindCommand;
     this.spawnProcess = options.spawnProcess ?? defaultSpawnProcess;
   }
 
-  public async status(project: Project): Promise<ProjectLanguageServerStatus> {
-    const supported = await supportsJavaScriptTypeScript(project);
-    const session = this.sessions.get(project.id);
+  public async status(
+    project: Project,
+    kind: ProjectLanguageServerKind,
+  ): Promise<ProjectLanguageServerStatus> {
+    const supported = await supports(project, kind);
+    const rails = kind === 'ruby' ? await this.railsStatus(project) : undefined;
+    const session = this.sessions.get(sessionKey(project.id, kind));
     if (session) {
       return this.sessionStatus(session, supported);
     }
     if (!supported) {
       return {
-        kind: 'javascript-typescript',
+        kind,
         supported: false,
         available: false,
         state: 'unavailable',
         activeConnections: 0,
-        message: 'Este projeto não possui sinais JavaScript/TypeScript reconhecidos.',
+        message: kind === 'javascript-typescript'
+          ? 'Este projeto não possui sinais JavaScript/TypeScript reconhecidos.'
+          : 'Este projeto não possui sinais Ruby reconhecidos.',
+        ...(rails ? { rails } : {}),
       };
     }
 
     const root = await realpath(project.path).catch(() => project.path);
-    const executable = await this.findExecutable(root);
-    if (!executable) {
+    const railsRuntimeEnabled = this.railsRuntimeEnabled.get(project.id) ?? false;
+    const command = await this.findCommand(project, root, kind, railsRuntimeEnabled);
+    if (!command) {
       return {
-        kind: 'javascript-typescript',
+        kind,
         supported: true,
         available: false,
         state: 'unavailable',
         activeConnections: 0,
-        message:
-          'typescript-language-server não está disponível. Instale-o manualmente para ativar recursos semânticos.',
+        message: kind === 'javascript-typescript'
+          ? 'typescript-language-server não está disponível. Instale-o manualmente para ativar recursos semânticos.'
+          : 'ruby-lsp não está disponível. Instale-o globalmente ou resolva-o no bundle do projeto para ativar recursos semânticos.',
+        ...(rails ? { rails } : {}),
       };
     }
     return {
-      kind: 'javascript-typescript',
+      kind,
       supported: true,
       available: true,
       state: 'idle',
       activeConnections: 0,
-      message: 'Servidor de linguagem disponível e aguardando um arquivo JavaScript ou TypeScript.',
+      message: kind === 'javascript-typescript'
+        ? 'Servidor de linguagem disponível e aguardando um arquivo JavaScript ou TypeScript.'
+        : 'Servidor de linguagem disponível e aguardando um arquivo Ruby.',
+      ...(rails ? { rails } : {}),
     };
   }
 
-  public async attach(project: Project, socket: WebSocket): Promise<void> {
-    const initialStatus = await this.status(project);
+  public async prepareRailsRuntimeConfirmation(
+    project: Project,
+  ): Promise<ProjectRailsRuntimeConfirmation> {
+    this.sweepRailsRuntimeConfirmations();
+    const rails = await this.railsStatus(project);
+    if (!rails.addonAvailable) {
+      throw new LanguageServerProtocolError(
+        'A gem ruby-lsp-rails não está resolvida no bundle deste projeto.',
+      );
+    }
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = this.now() + RAILS_RUNTIME_CONFIRMATION_TTL_MS;
+    this.railsRuntimeConfirmations.set(token, {
+      token,
+      projectId: project.id,
+      expiresAt,
+    });
+    return { token, expiresAt: new Date(expiresAt).toISOString() };
+  }
+
+  public async setRailsRuntimeEnabled(
+    project: Project,
+    enabled: boolean,
+    confirmationToken: string | undefined,
+  ): Promise<ProjectLanguageServerStatus> {
+    this.sweepRailsRuntimeConfirmations();
+    if (enabled) {
+      const record = confirmationToken
+        ? this.railsRuntimeConfirmations.get(confirmationToken)
+        : undefined;
+      if (!record || record.projectId !== project.id) {
+        throw new LanguageServerProtocolError(
+          'Confirmação de introspecção Rails ausente, inválida ou expirada.',
+        );
+      }
+      this.railsRuntimeConfirmations.delete(confirmationToken!);
+      this.railsRuntimeEnabled.set(project.id, true);
+    } else {
+      this.railsRuntimeEnabled.set(project.id, false);
+    }
+
+    // A sessão Ruby ativa, se existir, foi resolvida com o valor anterior de
+    // `railsRuntimeEnabled` (usado em `findCommand`). Ela precisa ser
+    // reiniciada para que a próxima conexão resolva o comando correto —
+    // caso contrário `status()` continuaria devolvendo o `session.rails`
+    // desatualizado e o processo em execução não mudaria.
+    const session = this.sessions.get(sessionKey(project.id, 'ruby'));
+    if (session) {
+      this.restartSessionForConfigChange(
+        session,
+        enabled
+          ? 'Introspecção em tempo de execução Rails habilitada; reiniciando a sessão Ruby.'
+          : 'Introspecção em tempo de execução Rails desabilitada; reiniciando a sessão Ruby.',
+      );
+    }
+    return this.status(project, 'ruby');
+  }
+
+  public async attach(
+    project: Project,
+    kind: ProjectLanguageServerKind,
+    socket: WebSocket,
+  ): Promise<void> {
+    const initialStatus = await this.status(project, kind);
     if (!initialStatus.supported || !initialStatus.available) {
       sendStatus(socket, initialStatus);
       socket.close(1000, 'Servidor de linguagem indisponível');
       return;
     }
 
-    let session = this.sessions.get(project.id);
+    const key = sessionKey(project.id, kind);
+    let session = this.sessions.get(key);
     if (session?.socket && session.socket.readyState === session.socket.OPEN) {
       sendStatus(socket, {
         ...initialStatus,
@@ -443,7 +668,7 @@ export class ProjectLanguageServerService {
     }
 
     if (!session || session.process.exitCode !== null) {
-      session = await this.start(project, initialStatus);
+      session = await this.start(project, kind, initialStatus);
       if (!session) {
         sendStatus(socket, {
           ...initialStatus,
@@ -475,12 +700,47 @@ export class ProjectLanguageServerService {
     this.sessions.clear();
   }
 
+  private async railsStatus(project: Project): Promise<ProjectRailsLanguageServerStatus> {
+    if (project.type !== 'rails') {
+      return {
+        addonAvailable: false,
+        runtimeState: 'unavailable',
+        message: 'Este projeto não é reconhecido como Rails.',
+      };
+    }
+    const root = await realpath(project.path).catch(() => project.path);
+    const addonAvailable = await gemfileLockHasGem(root, 'ruby-lsp-rails');
+    if (!addonAvailable) {
+      return {
+        addonAvailable: false,
+        runtimeState: 'unavailable',
+        message: 'A gem ruby-lsp-rails não está resolvida no bundle deste projeto.',
+      };
+    }
+    const enabled = this.railsRuntimeEnabled.get(project.id) ?? false;
+    return {
+      addonAvailable: true,
+      runtimeState: enabled ? 'enabled' : 'disabled',
+      message: enabled
+        ? 'Introspecção em tempo de execução Rails habilitada; o add-on pode inicializar a aplicação.'
+        : 'Introspecção em tempo de execução Rails desabilitada. Habilite explicitamente para liberar recursos que inicializam a aplicação.',
+    };
+  }
+
+  private sweepRailsRuntimeConfirmations(): void {
+    const now = this.now();
+    for (const [token, record] of this.railsRuntimeConfirmations) {
+      if (record.expiresAt <= now) this.railsRuntimeConfirmations.delete(token);
+    }
+  }
+
   private sessionStatus(
     session: LanguageServerSession,
     supported: boolean,
   ): ProjectLanguageServerStatus {
+    const label = session.kind === 'javascript-typescript' ? 'JavaScript/TypeScript' : 'Ruby';
     return {
-      kind: 'javascript-typescript',
+      kind: session.kind,
       supported,
       available: true,
       state: session.state,
@@ -488,34 +748,39 @@ export class ProjectLanguageServerService {
         session.socket && session.socket.readyState === session.socket.OPEN ? 1 : 0,
       message:
         session.state === 'ready'
-          ? 'Recursos semânticos JavaScript/TypeScript ativos.'
+          ? `Recursos semânticos ${label} ativos.`
           : session.state === 'failed'
             ? 'O servidor de linguagem encerrou inesperadamente.'
-            : 'Iniciando recursos semânticos JavaScript/TypeScript…',
+            : `Iniciando recursos semânticos ${label}…`,
       lastStartedAt: session.lastStartedAt,
+      ...(session.rails ? { rails: session.rails } : {}),
     };
   }
 
   private async start(
     project: Project,
+    kind: ProjectLanguageServerKind,
     initialStatus: ProjectLanguageServerStatus,
   ): Promise<LanguageServerSession | undefined> {
+    const key = sessionKey(project.id, kind);
     const now = this.now();
-    const recentStarts = (this.starts.get(project.id) ?? []).filter(
+    const recentStarts = (this.starts.get(key) ?? []).filter(
       (startedAt) => now - startedAt < RESTART_WINDOW_MS,
     );
     if (recentStarts.length >= MAX_STARTS_PER_WINDOW) return undefined;
     recentStarts.push(now);
-    this.starts.set(project.id, recentStarts);
+    this.starts.set(key, recentStarts);
 
     const root = await realpath(project.path);
-    const executable = await this.findExecutable(root);
-    if (!executable || !initialStatus.available) return undefined;
-    const child = this.spawnProcess(executable, LSP_ARGUMENTS, root);
+    const railsRuntimeEnabled = this.railsRuntimeEnabled.get(project.id) ?? false;
+    const command = await this.findCommand(project, root, kind, railsRuntimeEnabled);
+    if (!command || !initialStatus.available) return undefined;
+    const child = this.spawnProcess(command.executable, command.args, root);
     const session: LanguageServerSession = {
       project,
+      kind,
       root,
-      executable,
+      executable: command.executable,
       process: child,
       decoder: new LspMessageDecoder(),
       socket: undefined,
@@ -523,8 +788,11 @@ export class ProjectLanguageServerService {
       lastStartedAt: new Date(now).toISOString(),
       idleTimer: undefined,
       forceKillTimer: undefined,
+      usesRailsRuntime: command.usesRailsRuntime,
+      rails: kind === 'ruby' ? await this.railsStatus(project) : undefined,
+      terminated: false,
     };
-    this.sessions.set(project.id, session);
+    this.sessions.set(key, session);
 
     child.stdout.on('data', (chunk: Buffer) => {
       try {
@@ -548,7 +816,7 @@ export class ProjectLanguageServerService {
       this.failSession(session, 'Não foi possível iniciar o servidor de linguagem.');
     });
     child.once('exit', () => {
-      if (session.state !== 'failed') {
+      if (!session.terminated) {
         this.failSession(session, 'O servidor de linguagem foi encerrado.');
       }
     });
@@ -620,20 +888,61 @@ export class ProjectLanguageServerService {
     }, this.idleTimeoutMs);
   }
 
-  private failSession(session: LanguageServerSession, message: string): void {
-    if (session.state === 'failed') return;
-    session.state = 'failed';
+  /**
+   * Encerra uma sessão saudável porque a configuração que determina o comando
+   * usado para iniciá-la mudou (opt-in do Rails runtime). Diferente de
+   * `failSession`, isto não é uma falha: o cliente reconecta automaticamente
+   * (código 1012, "service restart") e a próxima chamada a `start()` resolve
+   * o comando com o valor atual de `railsRuntimeEnabled`.
+   */
+  private restartSessionForConfigChange(
+    session: LanguageServerSession,
+    message: string,
+  ): void {
+    if (session.terminated) return;
+    this.clearTimers(session);
     if (session.socket) {
-      sendStatus(session.socket, {
+      const socket = session.socket;
+      // Zera antes de fechar: o fechamento síncrono do socket fake usado nos
+      // testes emite 'close' de imediato, e o handler registrado em `attach`
+      // chama `detach`, que só arma um novo idle timer se `session.socket`
+      // ainda apontar para este socket.
+      session.socket = undefined;
+      sendStatus(socket, {
+        ...this.sessionStatus(session, true),
+        state: 'starting',
+        message,
+      });
+      socket.close(1012, message);
+    }
+    // `terminated` (não `state: 'failed'`) evita que o handler de `exit` do
+    // processo repita a limpeza. Um reinício controlado não é uma falha, então
+    // `session.state` propositalmente não vira `'failed'` aqui — isso ficaria
+    // incorreto em métricas/observabilidade que distinguem os dois casos.
+    session.terminated = true;
+    if (session.process.exitCode === null) session.process.kill('SIGTERM');
+    this.sessions.delete(sessionKey(session.project.id, session.kind));
+  }
+
+  private failSession(session: LanguageServerSession, message: string): void {
+    if (session.terminated) return;
+    session.state = 'failed';
+    this.clearTimers(session);
+    if (session.socket) {
+      const socket = session.socket;
+      // Zera antes de fechar: o fechamento síncrono do socket fake usado nos
+      // testes emite 'close' de imediato, e `detach` só arma um novo idle
+      // timer se `session.socket` ainda apontar para este socket.
+      session.socket = undefined;
+      sendStatus(socket, {
         ...this.sessionStatus(session, true),
         message,
       });
-      session.socket.close(1011, 'Servidor de linguagem encerrado');
-      session.socket = undefined;
+      socket.close(1011, 'Servidor de linguagem encerrado');
     }
-    this.clearTimers(session);
+    session.terminated = true;
     if (session.process.exitCode === null) session.process.kill('SIGTERM');
-    this.sessions.delete(session.project.id);
+    this.sessions.delete(sessionKey(session.project.id, session.kind));
   }
 
   private clearTimers(session: LanguageServerSession): void {
