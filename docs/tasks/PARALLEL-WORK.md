@@ -14,14 +14,13 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-Nenhuma frente paralela registrada. A task 089 — projetos recentes por
-workspace — está reservada em `NEXT.md` como próxima entrega sequencial.
+Nenhuma frente paralela registrada no momento.
 
 ## Livres para pegar em paralelo
 
-Cada uma toca uma área de arquivos distinta das outras linhas desta tabela e
-da task 089 reservada. "Tamanho" e "Conflito conhecido" seguem a classificação
-da task 086 e o texto atual de `docs/PENDENCIAS.md`.
+Cada uma toca uma área de arquivos distinta das outras linhas desta tabela.
+"Tamanho" e "Conflito conhecido" seguem a classificação da task 086 e o texto
+atual de `docs/PENDENCIAS.md`.
 
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
@@ -29,7 +28,6 @@ da task 086 e o texto atual de `docs/PENDENCIAS.md`.
 | Adaptador seguro para abrir destino no navegador local | rota nova em `apps/api`, sem tocar painéis existentes | pequeno | nenhum |
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
-| Documentação da API a partir dos JSON Schemas | script novo + `docs/`, leitura de `apps/api/src/routes/*` (sem alterar rotas) | pequeno/médio | somente leitura das rotas — seguro mesmo com rotas em edição, mas pode gerar diffs de doc se a rota mudar no meio do trabalho |
 | Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
@@ -57,8 +55,12 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 088 — Suíte de testes para helpers não interativos do CLI bash
   (`tests/cli/`), PR #177; ampliada com testes Bats e do orquestrador no PR
   #179.
+- Task 089 — Projetos recentes por workspace, complementando os favoritos.
 - Task 090 — Cache da detecção inicial do CLI (`lib/projects/cache.sh`) por
   assinatura de mtime, com `detect_projects --force` para ignorar.
+- Task 091 — Documentação da API gerada a partir dos JSON Schemas
+  (`scripts/generate-api-docs.mjs`, `docs/architecture/api-reference.md`,
+  `npm run docs:api`/`docs:api:check`).
 - Task 093 — Changelog automatizado (`scripts/generate-changelog.mjs`,
   `npm run changelog`), agrupado por task numerada ou data a partir do
   `git log`. Só a parte de changelog; release e tags de versão continuam
