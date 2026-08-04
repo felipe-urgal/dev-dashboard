@@ -5,6 +5,7 @@ import type {
   ProjectScript,
   ScriptExecution,
   ScriptExecutionHistory,
+  ScriptExecutionLog,
   ScriptExecutionVariables,
 } from '@dev-dashboard/contracts';
 
@@ -36,6 +37,7 @@ export function useScriptExecution<ScriptSection extends string>(
 ) {
   const execution = ref<ScriptExecution | null>(null);
   const history = ref<ScriptExecutionHistory | null>(null);
+  const executionLogSnapshot = ref<ScriptExecutionLog | null>(null);
   const executionLog = ref('');
   const maskedLogEntries = ref(0);
   const startingActionId = ref<string | null>(null);
@@ -48,6 +50,12 @@ export function useScriptExecution<ScriptSection extends string>(
   let executionGeneration = 0;
   let hasObservedRunning = false;
   let closeExecutionEvents: (() => void) | null = null;
+
+  function applyLogSnapshot(log: ScriptExecutionLog | null): void {
+    executionLogSnapshot.value = log;
+    executionLog.value = log?.content ?? '';
+    maskedLogEntries.value = log?.redactionCount ?? 0;
+  }
 
   async function followExecution(
     initial: ScriptExecution,
@@ -73,8 +81,7 @@ export function useScriptExecution<ScriptSection extends string>(
 
       currentExecution = recoveredExecution;
       execution.value = recoveredExecution;
-      executionLog.value = recoveredLog.content;
-      maskedLogEntries.value = recoveredLog.redactionCount;
+      applyLogSnapshot(recoveredLog);
       if (errorMessage.value === realtimeRecoveryMessage) errorMessage.value = '';
       if (currentExecution.status !== 'running') return;
 
@@ -84,8 +91,7 @@ export function useScriptExecution<ScriptSection extends string>(
           currentExecution = event.execution;
           execution.value = event.execution;
         } else {
-          executionLog.value = event.log.content;
-          maskedLogEntries.value = event.log.redactionCount;
+          applyLogSnapshot(event.log);
         }
       });
       closeExecutionEvents = stream.close;
@@ -102,8 +108,7 @@ export function useScriptExecution<ScriptSection extends string>(
       if (currentExecution.status !== 'running') {
         const finalLog = await fetchScriptExecutionLog(projectId, initial.id);
         if (current === generation && currentExecutionGeneration === executionGeneration) {
-          executionLog.value = finalLog.content;
-          maskedLogEntries.value = finalLog.redactionCount;
+          applyLogSnapshot(finalLog);
         }
         return;
       }
@@ -184,6 +189,7 @@ export function useScriptExecution<ScriptSection extends string>(
         : await prepareScriptExecution(projectId, item.id, variables);
       const started = await startScriptExecution(projectId, item.id, confirmation?.token, variables);
       execution.value = started;
+      applyLogSnapshot(null);
       activeSection.value = executionsSection;
       startingActionId.value = null;
       await followExecution(started, projectId, current, currentExecution);
@@ -206,8 +212,7 @@ export function useScriptExecution<ScriptSection extends string>(
     const current = generation;
     const projectId = getProject().id;
     execution.value = item;
-    executionLog.value = '';
-    maskedLogEntries.value = 0;
+    applyLogSnapshot(null);
     activeSection.value = executionsSection;
     await followExecution(item, projectId, current, currentExecution);
   }
@@ -234,8 +239,7 @@ export function useScriptExecution<ScriptSection extends string>(
       const projectId = getProject().id;
       history.value = null;
       execution.value = null;
-      executionLog.value = '';
-      maskedLogEntries.value = 0;
+      applyLogSnapshot(null);
       startingActionId.value = null;
       hasObservedRunning = false;
       void loadHistory(projectId, current);
@@ -278,6 +282,7 @@ export function useScriptExecution<ScriptSection extends string>(
     execution,
     history,
     executionLog,
+    executionLogSnapshot,
     maskedLogEntries,
     startingActionId,
     errorMessage,
