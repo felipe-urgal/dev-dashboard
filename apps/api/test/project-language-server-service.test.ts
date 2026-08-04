@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -15,6 +15,7 @@ import {
   ProjectLanguageServerService,
   clientUriToServerUri,
   encodeLspMessage,
+  gemfileLockHasGem,
   serverUriToClientUri,
   translateServerMessage,
 } from '../src/services/project-language-server-service.js';
@@ -57,7 +58,7 @@ class FakeSocket extends EventEmitter {
   }
 }
 
-function project(root: string): Project {
+function project(root: string, overrides: Partial<Project> = {}): Project {
   return {
     id: 'project-1',
     name: 'Painel',
@@ -66,6 +67,7 @@ function project(root: string): Project {
     source: 'workspace',
     favorite: false,
     capabilities: [],
+    ...overrides,
   };
 }
 
@@ -161,13 +163,21 @@ test('inicia sob demanda, bloqueia executeCommand e encerra após inatividade', 
   child.stdin.on('data', (chunk: Buffer) => writes.push(chunk));
   const service = new ProjectLanguageServerService({
     idleTimeoutMs: 5,
-    findExecutable: async () => '/usr/bin/typescript-language-server',
+    findCommand: async () => ({
+      executable: '/usr/bin/typescript-language-server',
+      args: ['--stdio'],
+      usesRailsRuntime: false,
+    }),
     spawnProcess: () => child as unknown as ChildProcessWithoutNullStreams,
   });
   const socket = new FakeSocket();
 
   try {
-    await service.attach(project(root), socket as unknown as WebSocket);
+    await service.attach(
+      project(root),
+      'javascript-typescript',
+      socket as unknown as WebSocket,
+    );
     assert.equal(socket.closeCode, undefined);
     assert.match(socket.sent[0] ?? '', /languageServerStatus/);
 
@@ -223,13 +233,129 @@ test('informa indisponibilidade sem instalar ferramentas', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-missing-'));
   try {
     const service = new ProjectLanguageServerService({
-      findExecutable: async () => undefined,
+      findCommand: async () => undefined,
     });
-    const status = await service.status(project(root));
+    const status = await service.status(project(root), 'javascript-typescript');
     assert.equal(status.supported, true);
     assert.equal(status.available, false);
     assert.equal(status.state, 'unavailable');
     assert.match(status.message, /Instale-o manualmente/);
+    service.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('sessões Ruby e JavaScript/TypeScript têm lifecycle independente', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-multi-'));
+  await writeFile(path.join(root, 'Gemfile'), 'source "https://rubygems.org"\n');
+  const jsChild = new FakeChild();
+  const rubyChild = new FakeChild();
+  const service = new ProjectLanguageServerService({
+    findCommand: async (_project, _root, kind) =>
+      kind === 'javascript-typescript'
+        ? { executable: '/usr/bin/typescript-language-server', args: ['--stdio'], usesRailsRuntime: false }
+        : { executable: '/usr/bin/ruby-lsp', args: ['--stdio'], usesRailsRuntime: false },
+    spawnProcess: (executable) =>
+      (executable.includes('ruby-lsp') ? rubyChild : jsChild) as unknown as ChildProcessWithoutNullStreams,
+  });
+  const jsSocket = new FakeSocket();
+  const rubySocket = new FakeSocket();
+
+  try {
+    await service.attach(project(root), 'javascript-typescript', jsSocket as unknown as WebSocket);
+    await service.attach(project(root), 'ruby', rubySocket as unknown as WebSocket);
+    assert.equal(jsSocket.closeCode, undefined);
+    assert.equal(rubySocket.closeCode, undefined);
+
+    jsChild.kill('SIGTERM');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(rubySocket.closeCode, undefined);
+    assert.ok(!rubyChild.signals.includes('SIGTERM'));
+  } finally {
+    service.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('checagem de Gemfile.lock não executa bundler', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-lock-'));
+  try {
+    assert.equal(await gemfileLockHasGem(root, 'ruby-lsp'), false);
+    await writeFile(
+      path.join(root, 'Gemfile.lock'),
+      'GEM\n  remote: https://rubygems.org/\n  specs:\n    ruby-lsp (0.20.0)\n      language_server-protocol\n\nPLATFORMS\n  ruby\n',
+    );
+    assert.equal(await gemfileLockHasGem(root, 'ruby-lsp'), true);
+    assert.equal(await gemfileLockHasGem(root, 'ruby-lsp-rails'), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('não inicia bundle exec com add-on Rails presente sem opt-in explícito', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-rails-gate-'));
+  await writeFile(
+    path.join(root, 'Gemfile.lock'),
+    'GEM\n  remote: https://rubygems.org/\n  specs:\n    ruby-lsp (0.20.0)\n    ruby-lsp-rails (0.3.0)\n\nPLATFORMS\n  ruby\n',
+  );
+  try {
+    const { findRubyLanguageServer } = await import(
+      '../src/services/project-language-server-service.js'
+    );
+    const withoutRuntime = await findRubyLanguageServer(root, false);
+    assert.ok(
+      withoutRuntime === undefined || !withoutRuntime.usesRailsRuntime,
+      'não deve carregar o add-on Rails sem habilitação explícita',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('opt-in de Rails runtime exige confirmação válida e pode ser desabilitado sem token', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-rails-opt-'));
+  await writeFile(
+    path.join(root, 'Gemfile.lock'),
+    'GEM\n  remote: https://rubygems.org/\n  specs:\n    ruby-lsp (0.20.0)\n    ruby-lsp-rails (0.3.0)\n\nPLATFORMS\n  ruby\n',
+  );
+  try {
+    const service = new ProjectLanguageServerService();
+    const railsProject = project(root, { type: 'rails' });
+
+    await assert.rejects(
+      () => service.setRailsRuntimeEnabled(railsProject, true, 'invalid-token'),
+      /ausente, inválida ou expirada/,
+    );
+
+    const confirmation = await service.prepareRailsRuntimeConfirmation(railsProject);
+    const enabledStatus = await service.setRailsRuntimeEnabled(
+      railsProject,
+      true,
+      confirmation.token,
+    );
+    assert.equal(enabledStatus.rails?.runtimeState, 'enabled');
+
+    const disabledStatus = await service.setRailsRuntimeEnabled(railsProject, false, undefined);
+    assert.equal(disabledStatus.rails?.runtimeState, 'disabled');
+    service.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('reconhece sinais Rails/Ruby: Gemfile, .ruby-version e tipo do projeto', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-signals-'));
+  try {
+    const service = new ProjectLanguageServerService({
+      findCommand: async () => undefined,
+    });
+    const withoutSignals = await service.status(project(root), 'ruby');
+    assert.equal(withoutSignals.supported, false);
+
+    await writeFile(path.join(root, '.ruby-version'), '3.3.0\n');
+    const withRubyVersion = await service.status(project(root), 'ruby');
+    assert.equal(withRubyVersion.supported, true);
     service.close();
   } finally {
     await rm(root, { recursive: true, force: true });

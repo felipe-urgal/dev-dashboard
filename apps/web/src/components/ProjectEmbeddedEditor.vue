@@ -23,6 +23,7 @@ import type {
   ProjectFileEntry,
   ProjectFileMutationResult,
   ProjectFileSearchMatch,
+  ProjectLanguageServerKind,
   ProjectLanguageServerStatus,
   ProjectWorkspaceEditPreview,
 } from '@dev-dashboard/contracts';
@@ -31,10 +32,18 @@ import {
   ApiRequestError,
   fetchProjectDirectory,
   fetchProjectFileContent,
+  prepareProjectRailsRuntimeConfirmation,
   saveProjectFileContent,
   searchProjectFiles,
+  setProjectRailsRuntimeEnabled,
 } from '../api';
+import { confirmDialog } from '../stores/app-dialog';
 import { configureMonacoEnvironment } from '../monaco-environment';
+import {
+  defineEmbeddedEditorCustomThemes,
+  EMBEDDED_EDITOR_THEME_OPTIONS,
+  type EmbeddedEditorThemePreference,
+} from '../monaco-themes';
 import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
 import ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';
 import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
@@ -50,6 +59,11 @@ interface FlatTreeEntry {
   depth: number;
 }
 
+const LANGUAGE_SERVER_KINDS: readonly ProjectLanguageServerKind[] = [
+  'javascript-typescript',
+  'ruby',
+];
+
 const props = defineProps<{ project: Project }>();
 
 const editorHost = ref<HTMLElement | null>(null);
@@ -58,6 +72,7 @@ const loadedDirectories = ref(new Set<string>());
 const expandedDirectories = ref(new Set<string>());
 const openFiles = ref<ProjectFileContent[]>([]);
 const dirtyPaths = ref(new Set<string>());
+const previewPath = ref('');
 const activePath = ref('');
 const selectedPath = ref('');
 const fallbackContent = ref('');
@@ -74,16 +89,21 @@ const statusMessage = ref('');
 const searchQuery = ref('');
 const searchResults = ref<ProjectFileSearchMatch[]>([]);
 const searchTruncated = ref(false);
-const languageServerStatus = ref<ProjectLanguageServerStatus | null>(null);
+const languageServerStatuses = ref<
+  Partial<Record<ProjectLanguageServerKind, ProjectLanguageServerStatus>>
+>({});
 const languageServerDiagnostics = ref('');
 const workspaceEditPreview = ref<ProjectWorkspaceEditPreview | null>(null);
+const railsRuntimeBusy = ref(false);
 
 let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 let themeObserver: MutationObserver | undefined;
-let languageServerClient: ProjectLanguageServerClient | undefined;
+let languageServerClients: Partial<Record<ProjectLanguageServerKind, ProjectLanguageServerClient>> = {};
 const models = new Map<string, Monaco.editor.ITextModel>();
 const modelListeners = new Map<string, Monaco.IDisposable>();
+
+const rubyRailsStatus = computed(() => languageServerStatuses.value.ruby?.rails);
 
 const activeFile = computed(() =>
   openFiles.value.find((file) => file.path === activePath.value),
@@ -155,11 +175,19 @@ function setDirty(filePath: string, dirty: boolean): void {
   dirtyPaths.value = replaceSet(dirtyPaths.value, filePath, dirty);
 }
 
+function forEachLanguageServerClient(
+  action: (client: ProjectLanguageServerClient) => void,
+): void {
+  for (const client of Object.values(languageServerClients)) {
+    if (client) action(client);
+  }
+}
+
 function replaceOpenFile(file: ProjectFileContent): void {
   openFiles.value = openFiles.value.map((opened) =>
     opened.path === file.path ? file : opened,
   );
-  languageServerClient?.savedFile(file);
+  forEachLanguageServerClient((client) => client.savedFile(file));
 }
 
 function replaceModelContent(file: ProjectFileContent): void {
@@ -241,13 +269,47 @@ async function selectEntry(entry: ProjectFileEntry): Promise<void> {
   else await openFile(entry.path);
 }
 
+async function pinEntry(entry: ProjectFileEntry): Promise<void> {
+  if (entry.kind === 'directory') return;
+  selectedPath.value = entry.path;
+  await openFile(entry.path, undefined, { pin: true });
+}
+
+function pinPreview(filePath: string): void {
+  if (previewPath.value === filePath) previewPath.value = '';
+}
+
 function modelUri(filePath: string): Monaco.Uri {
   return monaco!.Uri.parse(
     projectLanguageServerModelUri(props.project.id, filePath),
   );
 }
 
-function themeName(): 'vs' | 'vs-dark' {
+const EDITOR_THEME_STORAGE_KEY = 'dev-dashboard:embedded-editor-theme';
+
+function readStoredEditorTheme(): EmbeddedEditorThemePreference {
+  try {
+    const stored = window.localStorage.getItem(EDITOR_THEME_STORAGE_KEY);
+    return stored === 'monokai' ? 'monokai' : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+const editorThemePreference = ref<EmbeddedEditorThemePreference>(readStoredEditorTheme());
+
+function setEditorThemePreference(value: EmbeddedEditorThemePreference): void {
+  editorThemePreference.value = value;
+  try {
+    window.localStorage.setItem(EDITOR_THEME_STORAGE_KEY, value);
+  } catch {
+    // Preferência local é opcional; o editor continua funcional sem ela.
+  }
+  if (monaco) monaco.editor.setTheme(themeName());
+}
+
+function themeName(): string {
+  if (editorThemePreference.value === 'monokai') return 'monokai';
   return document.documentElement.dataset.theme === 'light' ? 'vs' : 'vs-dark';
 }
 
@@ -265,13 +327,15 @@ function modelFor(file: ProjectFileContent): Monaco.editor.ITextModel | undefine
     const opened = openFiles.value.find((item) => item.path === file.path);
     if (!opened) return;
     const value = model.getValue();
-    setDirty(file.path, value !== opened.content);
+    const changed = value !== opened.content;
+    setDirty(file.path, changed);
+    if (changed) pinPreview(file.path);
     if (activePath.value === file.path) fallbackContent.value = value;
     statusMessage.value = '';
   });
   models.set(file.path, model);
   modelListeners.set(file.path, listener);
-  languageServerClient?.openFile(file, model);
+  forEachLanguageServerClient((client) => client.openFile(file, model));
   return model;
 }
 
@@ -303,12 +367,15 @@ function displayFile(
 async function openFile(
   filePath: string,
   position?: { line: number; column: number },
+  options?: { pin?: boolean },
 ): Promise<void> {
+  const pin = options?.pin ?? false;
   selectedPath.value = filePath;
   errorMessage.value = '';
   statusMessage.value = '';
   const opened = openFiles.value.find((file) => file.path === filePath);
   if (opened) {
+    if (pin) pinPreview(filePath);
     displayFile(opened, position);
     return;
   }
@@ -316,7 +383,19 @@ async function openFile(
   loadingFile.value = true;
   try {
     const file = await fetchProjectFileContent(props.project.id, filePath);
+    if (
+      !pin
+      && previewPath.value
+      && previewPath.value !== filePath
+      && !dirtyPaths.value.has(previewPath.value)
+    ) {
+      const stalePath = previewPath.value;
+      openFiles.value = openFiles.value.filter((item) => item.path !== stalePath);
+      disposeModel(stalePath);
+      removeExternalConflict(stalePath);
+    }
     openFiles.value = [...openFiles.value, file];
+    if (!pin) previewPath.value = filePath;
     displayFile(file, position);
   } catch (error) {
     errorMessage.value = readableError(
@@ -329,7 +408,7 @@ async function openFile(
 }
 
 function disposeModel(filePath: string): void {
-  languageServerClient?.closeFile(filePath);
+  forEachLanguageServerClient((client) => client.closeFile(filePath));
   modelListeners.get(filePath)?.dispose();
   modelListeners.delete(filePath);
   models.get(filePath)?.dispose();
@@ -344,6 +423,7 @@ function closeFileNow(filePath: string): void {
   removeExternalConflict(filePath);
   pendingClosePath.value = '';
   if (conflictPath.value === filePath) conflictPath.value = '';
+  if (previewPath.value === filePath) previewPath.value = '';
 
   if (activePath.value !== filePath) return;
   const next = openFiles.value[Math.max(0, index - 1)] ?? openFiles.value[0];
@@ -500,8 +580,11 @@ async function submitSearch(): Promise<void> {
   try {
     if (query.startsWith('@')) {
       const symbolQuery = query.slice(1).trim();
-      searchResults.value = symbolQuery && languageServerClient
-        ? await languageServerClient.workspaceSymbols(symbolQuery)
+      const clients = Object.values(languageServerClients).filter(
+        (client): client is ProjectLanguageServerClient => Boolean(client),
+      );
+      searchResults.value = symbolQuery && clients.length > 0
+        ? (await Promise.all(clients.map((client) => client.workspaceSymbols(symbolQuery)))).flat()
         : [];
       searchTruncated.value = false;
       return;
@@ -538,32 +621,91 @@ function handleWorkspaceEditApplied(files: ProjectFileContent[]): void {
   statusMessage.value = `${files.length} ${files.length === 1 ? 'arquivo atualizado' : 'arquivos atualizados'} pelo fluxo seguro.`;
 }
 
-function createLanguageServerClient(): void {
-  languageServerClient?.dispose();
-  languageServerClient = undefined;
-  languageServerStatus.value = null;
+function disposeLanguageServerClients(): void {
+  forEachLanguageServerClient((client) => client.dispose());
+  languageServerClients = {};
+  languageServerStatuses.value = {};
   languageServerDiagnostics.value = '';
   workspaceEditPreview.value = null;
+}
+
+function createLanguageServerClients(): void {
+  disposeLanguageServerClients();
   if (!monaco) return;
-  languageServerClient = new ProjectLanguageServerClient(
-    monaco,
-    props.project.id,
-    props.project.name,
-    {
-      onStatus: (status) => {
-        languageServerStatus.value = status;
+  for (const kind of LANGUAGE_SERVER_KINDS) {
+    languageServerClients[kind] = new ProjectLanguageServerClient(
+      monaco,
+      props.project.id,
+      props.project.name,
+      kind,
+      {
+        onStatus: (status) => {
+          languageServerStatuses.value = {
+            ...languageServerStatuses.value,
+            [kind]: status,
+          };
+        },
+        onDiagnostics: (message) => {
+          languageServerDiagnostics.value = message;
+        },
+        onWorkspaceEdit: (preview) => {
+          workspaceEditPreview.value = preview;
+        },
+        onError: (message) => {
+          if (!errorMessage.value) errorMessage.value = message;
+        },
       },
-      onDiagnostics: (message) => {
-        languageServerDiagnostics.value = message;
-      },
-      onWorkspaceEdit: (preview) => {
-        workspaceEditPreview.value = preview;
-      },
-      onError: (message) => {
-        if (!errorMessage.value) errorMessage.value = message;
-      },
-    },
-  );
+    );
+  }
+}
+
+async function enableRailsRuntime(): Promise<void> {
+  if (railsRuntimeBusy.value) return;
+  const confirmed = await confirmDialog({
+    title: 'Habilitar introspecção Rails',
+    message:
+      'O add-on ruby-lsp-rails poderá inicializar a aplicação Rails deste projeto (banco, cache e configuração local) para oferecer recursos semânticos mais precisos. Habilitar agora?',
+    tone: 'warning',
+    confirmLabel: 'Habilitar',
+  });
+  if (!confirmed) return;
+  railsRuntimeBusy.value = true;
+  errorMessage.value = '';
+  try {
+    const confirmation = await prepareProjectRailsRuntimeConfirmation(props.project.id);
+    const status = await setProjectRailsRuntimeEnabled(
+      props.project.id,
+      true,
+      confirmation.token,
+    );
+    languageServerStatuses.value = { ...languageServerStatuses.value, ruby: status };
+    statusMessage.value = 'Introspecção Rails habilitada.';
+  } catch (error) {
+    errorMessage.value = readableError(
+      error,
+      'Não foi possível habilitar a introspecção Rails.',
+    );
+  } finally {
+    railsRuntimeBusy.value = false;
+  }
+}
+
+async function disableRailsRuntime(): Promise<void> {
+  if (railsRuntimeBusy.value) return;
+  railsRuntimeBusy.value = true;
+  errorMessage.value = '';
+  try {
+    const status = await setProjectRailsRuntimeEnabled(props.project.id, false);
+    languageServerStatuses.value = { ...languageServerStatuses.value, ruby: status };
+    statusMessage.value = 'Introspecção Rails desabilitada.';
+  } catch (error) {
+    errorMessage.value = readableError(
+      error,
+      'Não foi possível desabilitar a introspecção Rails.',
+    );
+  } finally {
+    railsRuntimeBusy.value = false;
+  }
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -584,7 +726,8 @@ async function initializeMonaco(): Promise<void> {
   try {
     configureMonacoEnvironment();
     monaco = await import('monaco-editor');
-    createLanguageServerClient();
+    defineEmbeddedEditorCustomThemes(monaco);
+    createLanguageServerClients();
     await nextTick();
     if (!editorHost.value) return;
     editor = monaco.editor.create(editorHost.value, {
@@ -623,11 +766,7 @@ async function initializeMonaco(): Promise<void> {
 }
 
 async function resetProject(): Promise<void> {
-  languageServerClient?.dispose();
-  languageServerClient = undefined;
-  languageServerStatus.value = null;
-  languageServerDiagnostics.value = '';
-  workspaceEditPreview.value = null;
+  disposeLanguageServerClients();
   editor?.setModel(null);
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
@@ -647,7 +786,7 @@ async function resetProject(): Promise<void> {
   conflictPath.value = '';
   errorMessage.value = '';
   statusMessage.value = '';
-  if (monaco) createLanguageServerClient();
+  if (monaco) createLanguageServerClients();
   loadingTree.value = true;
   await loadDirectory('');
   loadingTree.value = false;
@@ -668,7 +807,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown);
   window.removeEventListener('beforeunload', handleBeforeUnload);
   themeObserver?.disconnect();
-  languageServerClient?.dispose();
+  forEachLanguageServerClient((client) => client.dispose());
   editor?.dispose();
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
@@ -693,20 +832,62 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="embedded-ide-header-actions">
+        <template v-for="kind in LANGUAGE_SERVER_KINDS" :key="kind">
+          <span
+            v-if="languageServerStatuses[kind]?.supported"
+            class="embedded-ide-language-server"
+            :data-state="languageServerStatuses[kind]!.state"
+            :title="languageServerStatuses[kind]!.message"
+          >
+            LSP {{ kind === 'ruby' ? 'Ruby' : 'JS/TS' }}
+            {{ languageServerStatuses[kind]!.state === 'ready'
+              ? 'ativo'
+              : languageServerStatuses[kind]!.state === 'unavailable'
+                ? 'indisponível'
+                : languageServerStatuses[kind]!.state === 'failed'
+                  ? 'falhou'
+                  : 'iniciando' }}
+          </span>
+        </template>
         <span
-          v-if="languageServerStatus"
-          class="embedded-ide-language-server"
-          :data-state="languageServerStatus.state"
-          :title="languageServerStatus.message"
+          v-if="rubyRailsStatus?.addonAvailable"
+          class="embedded-ide-rails-runtime"
+          :data-state="rubyRailsStatus.runtimeState"
+          :title="rubyRailsStatus.message"
         >
-          LSP {{ languageServerStatus.state === 'ready'
-            ? 'ativo'
-            : languageServerStatus.state === 'unavailable'
-              ? 'indisponível'
-              : languageServerStatus.state === 'failed'
-                ? 'falhou'
-                : 'iniciando' }}
+          <span>Rails runtime {{ rubyRailsStatus.runtimeState === 'enabled' ? 'habilitado' : 'desabilitado' }}</span>
+          <button
+            v-if="rubyRailsStatus.runtimeState === 'disabled'"
+            type="button"
+            :disabled="railsRuntimeBusy"
+            @click="enableRailsRuntime"
+          >
+            Habilitar
+          </button>
+          <button
+            v-else
+            type="button"
+            :disabled="railsRuntimeBusy"
+            @click="disableRailsRuntime"
+          >
+            Desabilitar
+          </button>
         </span>
+        <label class="embedded-ide-theme-picker">
+          <span class="sr-only">Tema do editor</span>
+          <select
+            :value="editorThemePreference"
+            @change="setEditorThemePreference(($event.target as HTMLSelectElement).value as EmbeddedEditorThemePreference)"
+          >
+            <option
+              v-for="option in EMBEDDED_EDITOR_THEME_OPTIONS"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
         <span class="embedded-ide-readonly">
           {{ activeFile?.writable ? 'Edição segura' : 'Somente leitura' }}
         </span>
@@ -848,6 +1029,7 @@ onBeforeUnmount(() => {
               : undefined"
             :style="{ paddingInlineStart: `${10 + node.depth * 15}px` }"
             @click="selectEntry(node.entry)"
+            @dblclick="pinEntry(node.entry)"
           >
             <template v-if="node.entry.kind === 'directory'">
               <ChevronDownIcon
@@ -861,7 +1043,14 @@ onBeforeUnmount(() => {
               <span class="embedded-ide-tree-spacer" aria-hidden="true" />
               <DocumentTextIcon aria-hidden="true" />
             </template>
-            <span>{{ node.entry.name }}</span>
+            <span class="embedded-ide-tree-item-name">
+              {{ node.entry.name }}
+              <span
+                v-if="dirtyPaths.has(node.entry.path)"
+                class="embedded-ide-tree-item-dirty"
+                aria-label="alterado"
+              >•</span>
+            </span>
           </button>
         </div>
       </aside>
@@ -872,13 +1061,17 @@ onBeforeUnmount(() => {
             v-for="file in openFiles"
             :key="file.path"
             class="embedded-ide-tab"
-            :class="{ 'embedded-ide-tab-active': activePath === file.path }"
+            :class="{
+              'embedded-ide-tab-active': activePath === file.path,
+              'embedded-ide-tab-preview': previewPath === file.path,
+            }"
           >
             <button
               type="button"
               role="tab"
               :aria-selected="activePath === file.path"
               @click="displayFile(file)"
+              @dblclick="pinPreview(file.path)"
             >
               {{ file.name }}<span v-if="dirtyPaths.has(file.path)" aria-label="alterado"> •</span>
             </button>
@@ -967,6 +1160,17 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.embedded-ide-theme-picker select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
 .embedded-ide-language-server,
 .embedded-ide-readonly {
   padding: 5px 8px;
@@ -987,6 +1191,36 @@ onBeforeUnmount(() => {
 .embedded-ide-language-server[data-state='failed'],
 .embedded-ide-language-server[data-state='unavailable'] {
   color: var(--text-dim);
+}
+
+.embedded-ide-rails-runtime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.embedded-ide-rails-runtime[data-state='enabled'] {
+  border-color: var(--warning-text);
+  color: var(--warning-text);
+}
+
+.embedded-ide-rails-runtime button {
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .embedded-ide-save {
@@ -1114,14 +1348,14 @@ onBeforeUnmount(() => {
 
 .embedded-ide-tree-item {
   display: grid;
-  grid-template-columns: 14px 16px minmax(0, 1fr);
+  grid-template-columns: 15px 17px minmax(0, 1fr);
   align-items: center;
-  gap: 5px;
-  min-height: 29px;
+  gap: 6px;
+  min-height: 31px;
   padding-block: 4px;
   padding-right: 8px;
   border-radius: 5px;
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
 }
 
 .embedded-ide-tree-item:hover,
@@ -1133,12 +1367,23 @@ onBeforeUnmount(() => {
 }
 
 .embedded-ide-tree-item svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 .embedded-ide-tree-spacer {
-  width: 14px;
+  width: 15px;
+}
+
+.embedded-ide-tree-item-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.embedded-ide-tree-item-dirty {
+  color: var(--warning-text);
+  font-weight: 700;
 }
 
 .embedded-ide-results header {
@@ -1217,6 +1462,10 @@ onBeforeUnmount(() => {
   color: var(--text);
   background: var(--surface-0);
   box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.embedded-ide-tab-preview button:first-child {
+  font-style: italic;
 }
 
 .embedded-ide-tab button {

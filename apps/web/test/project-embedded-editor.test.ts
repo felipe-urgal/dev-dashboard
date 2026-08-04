@@ -87,6 +87,7 @@ vi.mock('monaco-editor', () => ({
   editor: {
     create: monaco.createEditor,
     createModel: monaco.createModel,
+    defineTheme: vi.fn(),
     setTheme: vi.fn(),
     setModelMarkers: vi.fn(),
   },
@@ -288,5 +289,57 @@ test('busca no projeto e abre a ocorrência selecionada', async () => {
   await wrapper.get('.embedded-ide-result').trigger('click');
   await flushPromises();
   assert.equal(api.file.mock.calls[0]?.[1], 'README.md');
+  wrapper.unmount();
+});
+
+test('clique único abre em aba de preview e substitui a anterior; duplo clique fixa', async () => {
+  api.directory.mockResolvedValue({
+    path: '',
+    entries: [
+      { path: 'README.md', name: 'README.md', kind: 'file', language: 'markdown', size: 10 },
+      { path: 'NOTES.md', name: 'NOTES.md', kind: 'file', language: 'markdown', size: 8 },
+    ],
+    truncated: false,
+  });
+  api.file.mockImplementation((_projectId: string, filePath: string) =>
+    Promise.resolve({
+      ...openedFile(`# ${filePath}\n`),
+      path: filePath,
+      name: filePath,
+    }));
+
+  const wrapper = mountEditor();
+  await flushPromises();
+
+  async function clickFile(name: string): Promise<void> {
+    const button = wrapper
+      .findAll('.embedded-ide-tree-item')
+      .find((candidate) => candidate.text().includes(name));
+    assert.ok(button);
+    await button.trigger('click');
+    await flushPromises();
+  }
+
+  await clickFile('README.md');
+  assert.equal(wrapper.findAll('.embedded-ide-tab').length, 1);
+
+  await clickFile('NOTES.md');
+  assert.equal(wrapper.findAll('.embedded-ide-tab').length, 1);
+  assert.match(wrapper.get('.embedded-ide-tab').text(), /NOTES\.md/);
+
+  const readmeButton = wrapper
+    .findAll('.embedded-ide-tree-item')
+    .find((candidate) => candidate.text().includes('README.md'));
+  assert.ok(readmeButton);
+  await readmeButton.trigger('dblclick');
+  await flushPromises();
+  assert.equal(wrapper.findAll('.embedded-ide-tab').length, 2);
+
+  await clickFile('NOTES.md');
+  assert.equal(
+    wrapper.findAll('.embedded-ide-tab').length,
+    2,
+    'aba fixada do README.md não deve ser substituída pela preview de NOTES.md',
+  );
   wrapper.unmount();
 });

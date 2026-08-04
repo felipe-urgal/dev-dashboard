@@ -137,6 +137,8 @@ export type ApiErrorCode =
   | 'SCRIPT_MANAGER_AMBIGUOUS'
   | 'SCRIPT_MANAGER_NOT_FOUND'
   | 'SCRIPT_SUBSCRIBER_LIMIT'
+  | 'LANGUAGE_SERVER_CONFIRMATION_INVALID'
+  | 'LANGUAGE_SERVER_FAILED'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

@@ -162,6 +162,19 @@ function openedTypeScript(content = 'export const value = 1;\n'): ProjectFileCon
   };
 }
 
+function openedRuby(content = 'def value\n  1\nend\n'): ProjectFileContent {
+  return {
+    path: 'app/models/value.rb',
+    name: 'value.rb',
+    language: 'ruby',
+    content,
+    version: 'a'.repeat(64),
+    size: content.length,
+    modifiedAt: '2026-08-03T12:00:00.000Z',
+    writable: true,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   sockets.length = 0;
@@ -203,6 +216,7 @@ test('inicializa, sincroniza mudanças e publica diagnósticos no Monaco', async
     monaco.instance,
     'project-1',
     'Painel',
+    'javascript-typescript',
     {
       onStatus: (status) => statuses.push(status),
       onDiagnostics: (message) => diagnostics.push(message),
@@ -262,6 +276,7 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
     monaco.instance,
     'project-1',
     'Painel',
+    'javascript-typescript',
     {
       onStatus: vi.fn(),
       onDiagnostics: vi.fn(),
@@ -342,5 +357,56 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
       failureReason: 'A alteração foi encaminhada para revisão segura no dashboard.',
     },
   });
+  client.dispose();
+});
+
+test('sessão ruby não envia preferências específicas de TypeScript e registra o kind correto', async () => {
+  const monaco = fakeMonaco();
+  const statuses: ProjectLanguageServerStatus[] = [];
+  api.status.mockResolvedValue({
+    kind: 'ruby',
+    supported: true,
+    available: true,
+    state: 'idle',
+    activeConnections: 0,
+    message: 'Disponível.',
+  } satisfies ProjectLanguageServerStatus);
+  api.file.mockResolvedValue(openedRuby());
+
+  const client = new ProjectLanguageServerClient(
+    monaco.instance,
+    'project-1',
+    'Painel',
+    'ruby',
+    {
+      onStatus: (status) => statuses.push(status),
+      onDiagnostics: vi.fn(),
+      onWorkspaceEdit: vi.fn(),
+      onError: vi.fn(),
+    },
+  );
+  const file = openedRuby();
+  const uri = projectLanguageServerModelUri('project-1', file.path);
+  const model = fakeModel(uri, file.content);
+
+  client.openFile(file, model.model);
+  await nextTick();
+  const socket = sockets[0];
+  assert.ok(socket);
+  socket.open();
+  await nextTick();
+
+  const initialize = takeRequest(socket, 'initialize');
+  assert.equal(initialize.initializationOptions, undefined);
+  socket.receive({ jsonrpc: '2.0', id: initialize.id, result: { capabilities: {} } });
+  await nextTick();
+
+  assert.equal(statuses.at(-1)?.kind, 'ruby');
+  assert.equal(statuses.at(-1)?.state, 'ready');
+  assert.ok(
+    monaco.instance.languages.registerHoverProvider
+      && (monaco.instance.languages.registerHoverProvider as unknown as ReturnType<typeof vi.fn>)
+        .mock.calls.some((call: unknown[]) => call[0] === 'ruby'),
+  );
   client.dispose();
 });

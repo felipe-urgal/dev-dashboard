@@ -1,67 +1,69 @@
 # Próxima atividade
 
-A task 078 adicionou o primeiro servidor de linguagem à IDE embutida: gateway
-WebSocket autenticado, processo JavaScript/TypeScript sob demanda, isolamento de
-URI, providers semânticos no Monaco e revisão obrigatória de `WorkspaceEdit`.
+A task 079 generalizou o gateway LSP para múltiplas linguagens e adicionou
+Ruby/Rails: sessões independentes por `(projeto, kind)`, catálogo fechado de
+detecção do `ruby-lsp` sem instalação automática, e a capacidade Rails runtime
+com opt-in explícito confirmado — o `bundle exec` que carregaria o add-on
+`ruby-lsp-rails` só é liberado depois da confirmação; sem ela, o serviço cai
+para um `ruby-lsp` global (fora do bundle do projeto), que nunca inicializa a
+aplicação Rails.
 
-## Task 079 — LSP Ruby/Rails
+## Task 080 — IA local com Ollama
 
-Estender a infraestrutura semântica para arquivos Ruby e projetos Rails sem
-permitir instalação automática, comandos arbitrários ou inicialização silenciosa
-da aplicação.
+Adicionar assistência de IA ao editor embutido usando Ollama local como
+provedor padrão, sem chave de API, sem cobrança por token e sem enviar código
+para um serviço remoto.
 
 ### Objetivo
 
-Oferecer diagnósticos, hover, definição, referências, símbolos e completion
-Ruby, adicionando capacidades Rails somente quando as ferramentas já estiverem
-disponíveis e o risco de introspecção em tempo de execução estiver explícito.
+Painel de IA no editor com chat contextual, ações rápidas (explicar, corrigir,
+gerar testes, refatorar) e streaming cancelável, com a API intermediando toda
+chamada ao Ollama local.
 
 ### Escopo proposto
 
-- generalizar o gateway atual para múltiplos tipos de servidor;
-- manter catálogo fechado de executável, argumentos e sinais do projeto;
-- reconhecer projetos Rails, `Gemfile`, `.ruby-version` e arquivos `.rb`;
-- usar `ruby-lsp` já instalado ou o bundle já resolvido, sem instalar gems;
-- recusar qualquer fluxo que exija alteração de `Gemfile.lock` ou bundle
-  auxiliar automático;
-- compartilhar isolamento de URI, framing, limite de mensagem, idle timeout e
-  limite de reinício da task 078;
-- registrar providers Monaco para Ruby;
-- sincronizar `didOpen`, `didChange`, `didSave` e `didClose`;
-- manter busca de símbolos pelo prefixo `@`;
-- reutilizar o preview e a confirmação de `WorkspaceEdit` da task 077;
-- manter operações estruturais e `workspace/executeCommand` bloqueados;
-- distinguir estado do Ruby LSP, add-on Rails e introspecção Rails;
-- não iniciar `rails runner` apenas por abrir um arquivo;
-- exigir ação explícita antes de qualquer introspecção que inicialize a
-  aplicação Rails.
+- `AiAssistantService` na API, destino fixo em loopback
+  (`DEV_DASHBOARD_OLLAMA_URL`), sem aceitar URL remota;
+- detecção de modelos instalados via `GET /api/tags` / `POST /api/show`, sem
+  baixar nada automaticamente;
+- catálogo fechado de ferramentas (`AiTool`) que o modelo pode invocar:
+  leitura de arquivo, busca textual, listagem de arquivos, definição/referências
+  de símbolo (via LSP das tasks 078/079) e diff Git — tudo limitado ao projeto
+  atual, nunca caminho absoluto ou shell;
+- conversão do streaming NDJSON do Ollama para um contrato próprio,
+  autenticado e cancelável;
+- painel lateral **IA** no `ProjectEmbeddedEditor.vue` com ações rápidas por
+  seleção/símbolo;
+- qualquer edição proposta pela IA reaproveita o preview/confirmação de
+  `WorkspaceEdit` já existente (tasks 077–079) — nunca aplicação direta;
+- nenhuma persistência de conversa por padrão.
 
 ### Segurança
 
-- o navegador continua sem escolher executável, cwd, argumentos ou ambiente;
-- nenhuma gem é instalada, atualizada ou adicionada automaticamente;
-- respostas fora da raiz autorizada são descartadas;
-- falha de Ruby, Bundler ou Ruby LSP degrada para o Monaco local;
-- Rails runtime permanece desabilitado por padrão;
-- logs internos não expõem credenciais, variáveis ou caminhos absolutos;
-- alterações propostas não são gravadas sem revisão explícita.
+- o navegador nunca chama o Ollama diretamente;
+- limites de bytes, arquivos e mensagens por requisição;
+- resposta de raciocínio interno do modelo (quando exposta) não é armazenada
+  nem exibida;
+- cancelamento ao trocar de projeto, fechar o painel ou iniciar outra
+  solicitação incompatível;
+- nenhum modelo é baixado ou instalado pelo dashboard.
 
 ### Critérios principais
 
-- arquivos Ruby recebem recursos semânticos quando o servidor já está
-  disponível;
-- servidor ausente produz orientação clara e não altera o ambiente;
-- sessões Ruby e JavaScript/TypeScript possuem lifecycle independente;
-- localização e edição não escapam da raiz do projeto;
-- Rails runtime não inicia sem consentimento específico;
-- `WorkspaceEdit` inválido, estrutural ou fora da raiz é recusado;
+- painel de IA funciona apenas com Ollama local detectado; ausência produz
+  orientação clara sem instalar nada;
+- ferramentas do modelo restritas ao catálogo fechado e à raiz do projeto;
+- streaming cancelável sem requisições penduradas;
+- qualquer edição proposta exige preview e confirmação explícita;
 - typecheck, build, testes de API, testes web e smoke E2E passam.
 
 ### Fora do escopo
 
-- instalação automática de Ruby LSP ou do add-on Rails;
-- terminal livre, generators, migrations e testes disparados pelo LSP;
-- assistência de IA local, planejada para a task 080;
-- completion inline/FIM e contexto semântico, planejados para a task 081.
+- download ou gerenciamento de modelos Ollama pelo dashboard;
+- provedores de IA remotos/pagos;
+- busca semântica com embeddings, avaliada só como fase posterior opt-in;
+- completion inline/FIM, planejada para a task 081;
+- persistência de histórico de conversa.
 
-O plano completo está em `docs/tasks/079-ruby-rails-lsp.md`.
+O plano completo está em `docs/tasks/080-ollama-local-ai.md`, com a
+arquitetura de referência em `docs/architecture/embedded-ide-ai-design.md`.

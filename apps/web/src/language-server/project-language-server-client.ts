@@ -3,6 +3,7 @@ import type * as Monaco from 'monaco-editor';
 import type {
   ProjectFileContent,
   ProjectFileSearchMatch,
+  ProjectLanguageServerKind,
   ProjectLanguageServerStatus,
   ProjectWorkspaceEditPreview,
   ProjectWorkspaceEditRequest,
@@ -19,7 +20,16 @@ import {
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 2;
 const MARKER_OWNER = 'dev-dashboard-lsp';
-const SUPPORTED_LANGUAGES = new Set(['javascript', 'typescript']);
+
+export const LANGUAGE_SERVER_MONACO_LANGUAGES: Record<ProjectLanguageServerKind, readonly string[]> = {
+  'javascript-typescript': ['javascript', 'typescript'],
+  ruby: ['ruby'],
+};
+
+const KIND_LABEL: Record<ProjectLanguageServerKind, string> = {
+  'javascript-typescript': 'JavaScript/TypeScript',
+  ruby: 'Ruby',
+};
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -273,6 +283,24 @@ function locations(value: unknown): Array<LspLocation | LspLocationLink> {
   );
 }
 
+/**
+ * O Monaco só possui tokenizer embutido para `typescript`/`javascript`, então
+ * o modelo do editor usa sempre esses dois ids. O servidor de linguagem, no
+ * entanto, precisa do languageId `typescriptreact`/`javascriptreact` para
+ * arquivos `.tsx`/`.jsx` — sem isso o tsserver interpreta o arquivo sem JSX
+ * habilitado e cai para um projeto não configurado (perdendo `tsconfig.json`
+ * e seus path aliases), mesmo a extensão real do arquivo sendo `.tsx`.
+ */
+function lspLanguageId(filePath: string, monacoLanguage: string): string {
+  if (monacoLanguage === 'typescript' && filePath.endsWith('.tsx')) {
+    return 'typescriptreact';
+  }
+  if (monacoLanguage === 'javascript' && filePath.endsWith('.jsx')) {
+    return 'javascriptreact';
+  }
+  return monacoLanguage;
+}
+
 function messageData(event: MessageEvent): Promise<string> {
   if (typeof event.data === 'string') return Promise.resolve(event.data);
   if (event.data instanceof Blob) return event.data.text();
@@ -291,17 +319,23 @@ export class ProjectLanguageServerClient {
   private reconnectAttempts = 0;
   private reconnectTimer?: number;
 
+  private readonly languages: Set<string>;
+  private readonly defaultLanguage: string;
+
   public constructor(
     private readonly monaco: typeof Monaco,
     private readonly projectId: string,
     private readonly projectName: string,
+    private readonly kind: ProjectLanguageServerKind,
     private readonly callbacks: ProjectLanguageServerClientCallbacks,
   ) {
+    this.languages = new Set(LANGUAGE_SERVER_MONACO_LANGUAGES[kind]);
+    this.defaultLanguage = LANGUAGE_SERVER_MONACO_LANGUAGES[kind][0] ?? kind;
     this.registerProviders();
   }
 
   public openFile(file: ProjectFileContent, model: Monaco.editor.ITextModel): void {
-    if (!SUPPORTED_LANGUAGES.has(file.language)) return;
+    if (!this.languages.has(file.language)) return;
     const existing = this.documents.get(file.path);
     if (existing) {
       existing.version = file.version;
@@ -383,7 +417,7 @@ export class ProjectLanguageServerClient {
       return [{
         path: filePath,
         name: filePath.split('/').at(-1) ?? filePath,
-        language: this.documents.get(filePath)?.language ?? 'typescript',
+        language: this.documents.get(filePath)?.language ?? this.defaultLanguage,
         line: range.start.line + 1,
         column: range.start.character + 1,
         preview: item.name,
@@ -414,7 +448,7 @@ export class ProjectLanguageServerClient {
 
     let status: ProjectLanguageServerStatus;
     try {
-      status = await fetchProjectLanguageServerStatus(this.projectId);
+      status = await fetchProjectLanguageServerStatus(this.projectId, this.kind);
     } catch (error) {
       this.callbacks.onError(
         error instanceof Error
@@ -426,7 +460,9 @@ export class ProjectLanguageServerClient {
     this.callbacks.onStatus(status);
     if (!status.available) return;
 
-    const socket = new WebSocket(projectLanguageServerWebSocketUrl(this.projectId));
+    const socket = new WebSocket(
+      projectLanguageServerWebSocketUrl(this.projectId, this.kind),
+    );
     this.socket = socket;
     socket.addEventListener('open', () => void this.initialize());
     socket.addEventListener('message', (event) => void this.handleMessage(event));
@@ -490,24 +526,28 @@ export class ProjectLanguageServerClient {
             },
           },
         },
-        initializationOptions: {
-          preferences: {
-            includeCompletionsForModuleExports: true,
-            includeCompletionsWithInsertText: true,
-          },
-        },
+        ...(this.kind === 'javascript-typescript'
+          ? {
+              initializationOptions: {
+                preferences: {
+                  includeCompletionsForModuleExports: true,
+                  includeCompletionsWithInsertText: true,
+                },
+              },
+            }
+          : {}),
       });
       this.notify('initialized', {});
       this.ready = true;
       this.reconnectAttempts = 0;
       for (const document of this.documents.values()) this.didOpen(document);
       this.callbacks.onStatus({
-        kind: 'javascript-typescript',
+        kind: this.kind,
         supported: true,
         available: true,
         state: 'ready',
         activeConnections: 1,
-        message: 'Recursos semânticos JavaScript/TypeScript ativos.',
+        message: `Recursos semânticos ${KIND_LABEL[this.kind]} ativos.`,
       });
     } catch (error) {
       this.callbacks.onError(
@@ -523,7 +563,7 @@ export class ProjectLanguageServerClient {
     this.notify('textDocument/didOpen', {
       textDocument: {
         uri: document.model.uri.toString(),
-        languageId: document.language,
+        languageId: lspLanguageId(document.path, document.language),
         version: document.lspVersion,
         text: document.model.getValue(),
       },
@@ -768,7 +808,7 @@ export class ProjectLanguageServerClient {
   }
 
   private registerProviders(): void {
-    for (const language of SUPPORTED_LANGUAGES) {
+    for (const language of this.languages) {
       this.providers.push(
         this.monaco.languages.registerHoverProvider(language, {
           provideHover: async (model, position, token) => {
@@ -1042,7 +1082,7 @@ export class ProjectLanguageServerClient {
     this.ready = false;
     if (intentional) this.reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
     if (socket && socket.readyState < WebSocket.CLOSING) {
-      socket.close(1000, 'Editor sem documentos JavaScript/TypeScript');
+      socket.close(1000, `Editor sem documentos ${KIND_LABEL[this.kind]}`);
     }
   }
 }

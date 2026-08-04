@@ -54,6 +54,9 @@ export type {
   ProjectLanguageServerKind,
   ProjectLanguageServerState,
   ProjectLanguageServerStatus,
+  ProjectRailsLanguageServerStatus,
+  ProjectRailsRuntimeConfirmation,
+  ProjectRailsRuntimeState,
 } from './language-server.js';
 
 export type {

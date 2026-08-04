@@ -2,7 +2,7 @@
 
 ## Status
 
-Planejada. Começa após a revisão e o merge da task 078.
+Implementada e aguardando revisão.
 
 ## Objetivo
 
@@ -10,15 +10,41 @@ Estender a infraestrutura semântica do editor para arquivos Ruby e projetos
 Rails, reaproveitando o gateway, o lifecycle de processos, o isolamento de URI
 e o fluxo seguro de `WorkspaceEdit` já entregues para JavaScript/TypeScript.
 
-## Resultado esperado
+## Resultado entregue
 
-- diagnósticos Ruby nos arquivos abertos;
-- hover, definição, referências, completion e símbolos;
-- navegação entre classes, módulos e métodos do projeto;
-- suporte Rails quando as ferramentas necessárias já estiverem instaladas;
-- estado claro quando Ruby LSP, Bundler ou o add-on Rails estiverem ausentes;
-- nenhuma instalação, atualização de bundle ou inicialização da aplicação sem
-  decisão explícita.
+- diagnósticos, hover, definição, referências, completion e símbolos Ruby nos
+  arquivos abertos, reaproveitando o mesmo cliente Monaco genérico por `kind`;
+- busca de símbolos com prefixo `@` combinando as sessões JavaScript/TypeScript
+  e Ruby simultaneamente;
+- detecção estática de projetos Ruby/Rails (`project.type === 'rails'`,
+  `Gemfile`, `.ruby-version`), sem depender de arquivos `.rb` já abertos;
+- catálogo fechado de resolução do `ruby-lsp`, sem `bundle install` nem
+  qualquer execução do Bundler — apenas leitura de texto de `Gemfile.lock`;
+- capacidade Rails runtime separada, com opt-in explícito por confirmação de
+  uso único (mesmo padrão de `confirmationToken` já usado em Git/Rails/Scripts);
+- gateway generalizado por `(projectId, kind)`, permitindo sessões
+  JavaScript/TypeScript e Ruby simultâneas e independentes no mesmo projeto;
+- `ProjectLanguageServerStatus.rails` informa `addonAvailable` e `runtimeState`
+  (`unavailable` | `disabled` | `enabled`) separadamente do estado da sessão
+  Ruby estática.
+
+## Decisões que divergiram do plano original
+
+- em vez de expor três estados de `kind` (`ruby`, `rails-static`,
+  `rails-runtime`), o contrato manteve um único `kind: 'ruby'` e acrescentou um
+  objeto `rails` opcional ao `ProjectLanguageServerStatus` — mais simples de
+  consumir no cliente e suficiente para diferenciar as duas capacidades;
+- o gate do Rails runtime não tenta controlar o protocolo interno do add-on
+  `ruby-lsp-rails` (que carrega automaticamente quando presente no bundle).
+  Em vez disso, o próprio **caminho de execução** é condicionado: com o add-on
+  resolvido no `Gemfile.lock` e a introspecção **desabilitada**, o serviço
+  recusa `bundle exec ruby-lsp --stdio` (o único caminho que carregaria o
+  add-on, pois ele vive dentro do bundle do projeto) e cai para um `ruby-lsp`
+  global do `PATH` quando disponível — que nunca herda o bundle do projeto e
+  portanto nunca inicializa a aplicação Rails. Só com a introspecção
+  **habilitada** o `bundle exec` é liberado. Esse é o mecanismo real de
+  bloqueio, documentado em
+  `findRubyLanguageServer` (`apps/api/src/services/project-language-server-service.ts`).
 
 ## Decisão de segurança principal
 
@@ -133,3 +159,73 @@ O catálogo deve avaliar, sem executar instalação:
 - code actions ou comandos sem confirmação;
 - assistência de IA local, planejada para a task 080;
 - completion inline/FIM e contexto semântico, planejados para a task 081.
+
+## Arquivos alterados
+
+- `packages/contracts/src/language-server.ts` — `ProjectLanguageServerKind`
+  ganha `'ruby'`, novo `ProjectRailsLanguageServerStatus` e
+  `ProjectRailsRuntimeConfirmation`;
+- `apps/api/src/services/project-language-server-service.ts` — sessões
+  chaveadas por `(projectId, kind)`, catálogo `findCommand` por linguagem,
+  `findRubyLanguageServer`, `gemfileLockHasGem`, confirmação e gate do Rails
+  runtime;
+- `apps/api/src/routes/project-language-server.ts` — rotas com segmento
+  `:kind`, `POST .../ruby/rails-runtime/confirmations` e
+  `POST .../ruby/rails-runtime`;
+- `apps/api/src/http/api-error.ts` — novos códigos
+  `LANGUAGE_SERVER_CONFIRMATION_INVALID` e `LANGUAGE_SERVER_FAILED`;
+- `apps/web/src/api/language-server.ts` — funções recebem `kind` e novas
+  chamadas de confirmação/opt-in do Rails runtime;
+- `apps/web/src/language-server/project-language-server-client.ts` —
+  `SUPPORTED_LANGUAGES` fixo virou `languages` por instância, `kind` explícito,
+  `initializationOptions` específico do `typescript-language-server` só é
+  enviado para esse `kind`, correção do `languageId` de `.tsx`/`.jsx`
+  (`typescriptreact`/`javascriptreact`) para preservar JSX e `paths` do
+  `tsconfig.json` no tsserver;
+- `apps/web/src/components/ProjectEmbeddedEditor.vue` — duas sessões de
+  cliente (JS/TS e Ruby) simultâneas, badge de status por `kind`, controle de
+  opt-in do Rails runtime, indicador de arquivo alterado no explorer, abas de
+  preview (clique único) e fixação (duplo clique), seletor de tema do editor
+  (padrão/Monokai);
+- `apps/web/src/monaco-themes.ts` — novo, define o tema Monokai;
+- testes: `apps/api/test/project-language-server-service.test.ts`,
+  `apps/api/test/project-language-server-routes.test.ts` (novo),
+  `apps/web/test/project-language-server-client.test.ts`,
+  `apps/web/test/project-embedded-editor.test.ts`.
+
+## Testes automatizados
+
+- catálogo fechado de detecção Ruby, incluindo leitura de `Gemfile.lock` sem
+  invocar `bundle`;
+- recusa de `bundle exec` com add-on Rails presente sem opt-in, com fallback
+  para `ruby-lsp` global;
+- lifecycle independente das sessões JavaScript/TypeScript e Ruby no mesmo
+  projeto (matar uma sessão não afeta a outra);
+- opt-in do Rails runtime exige `confirmationToken` válido e de uso único;
+  desabilitar não exige token;
+- rotas HTTP: status por `kind`, `kind` inválido rejeitado pelo schema, 404
+  para projeto inexistente, 401 sem token, fluxo completo de confirmação e
+  habilitação/desabilitação do Rails runtime;
+- cliente Monaco: sessão `ruby` não envia `initializationOptions` específico
+  de TypeScript e registra `kind` correto no status;
+- componente: clique único abre em aba de preview substituindo a anterior;
+  duplo clique fixa a aba.
+
+## Limitações conhecidas
+
+- o gate do Rails runtime é best-effort sobre o caminho de execução (bundle
+  exec vs. `ruby-lsp` global); não há como o dashboard inspecionar ou
+  interromper introspecção específica dentro do próprio add-on
+  `ruby-lsp-rails` depois que o processo está rodando com o bundle liberado;
+- `ruby-lsp` global (fora do bundle do projeto) não tem acesso às gems do
+  projeto, então diagnósticos podem ser menos precisos até o Rails runtime ser
+  habilitado;
+- como no JS/TS, existe apenas uma conexão de navegador ativa por
+  `(projeto, kind)`;
+- rename, code actions, formatação e semantic tokens continuam fora do
+  escopo.
+
+## Próxima atividade
+
+Task 080 — IA local com Ollama, conforme
+`docs/architecture/embedded-ide-ai-design.md` e `docs/tasks/080-ollama-local-ai.md`.
