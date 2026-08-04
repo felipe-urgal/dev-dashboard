@@ -58,7 +58,14 @@ function exportButton(wrapper: ReturnType<typeof mount>) {
 test('servidor exporta o snapshot mascarado já carregado', async () => {
   const originalFetch = globalThis.fetch;
   const process: ManagedProcess = {
-    id: 'server-1', projectId: 'p1', kind: 'server', status: 'running', port: 3000,
+    id: 'server-1',
+    projectId: 'p1',
+    kind: 'server',
+    status: 'running',
+    pid: 4242,
+    port: 3000,
+    command: 'bin/rails s',
+    startedAt: '2026-08-04T20:59:00.000Z',
   };
   const snapshot: ProcessLogSnapshot = {
     projectId: 'p1', processId: 'server-1',
@@ -74,7 +81,7 @@ test('servidor exporta o snapshot mascarado já carregado', async () => {
   }) as typeof fetch;
 
   const wrapper = mount(ProjectLogsPanel, {
-    props: { project: makeProject({ id: 'p1', capabilities: ['server'] }) },
+    props: { project: makeProject({ id: 'p1', type: 'rails', capabilities: ['server'] }) },
     global: { stubs: { RouterLink: RouterLinkStub } },
   });
   cleanup = () => {
