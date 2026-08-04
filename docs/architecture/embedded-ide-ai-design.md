@@ -2,9 +2,19 @@
 
 ## Status
 
-Arquitetura aprovada para implementação incremental após a auditoria inicial de
-acessibilidade (task 075). Este documento registra decisões; não adiciona código,
-endpoints ou dependências ao produto.
+Implementada nas tasks 076–082: fundação Monaco somente leitura (076),
+escrita segura com preview/rollback (077), LSP JavaScript/TypeScript (078),
+LSP Ruby/Rails (079), assistente de IA local via Ollama com catálogo fechado
+de quatro ferramentas somente leitura (080), compleção inline/ghost text
+(081) e smoke E2E do assistente com um double do Ollama em CI (082). As
+decisões abaixo continuam sendo a referência de arquitetura para essa área;
+onde o texto e o código divergirem, o código e os documentos de task
+numerados (`docs/tasks/076-*.md` a `082-*.md`) prevalecem.
+
+Uma quinta ferramenta do assistente, `propose_workspace_edit` (aplicação de
+edições propostas pela IA através do mesmo preview/confirmação da task 077),
+está planejada e ainda não implementada — ver
+`docs/tasks/083-ai-proposed-edits-plan.md`.
 
 ## Objetivo
 

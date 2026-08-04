@@ -298,9 +298,13 @@ const EDITOR_THEME_STORAGE_KEY = 'dev-dashboard:embedded-editor-theme';
 function readStoredEditorTheme(): EmbeddedEditorThemePreference {
   try {
     const stored = window.localStorage.getItem(EDITOR_THEME_STORAGE_KEY);
-    return stored === 'monokai' ? 'monokai' : 'auto';
+    if (stored === 'monokai' || stored === 'auto') return stored;
+    // Sem preferência salva, o padrão é Monokai (visual próximo ao Sublime
+    // Text) em vez do tema genérico do Monaco, que tem pouco contraste de
+    // sintaxe.
+    return 'monokai';
   } catch {
-    return 'auto';
+    return 'monokai';
   }
 }
 
