@@ -7,6 +7,10 @@ import {
   createProjectGitBranch,
   prepareProjectGitMutation,
 } from '../api';
+import {
+  prepareProjectGitBranchPublish,
+  publishProjectGitBranch,
+} from '../api/git-branch-publish';
 import { confirmDialog } from '../stores/app-dialog';
 import { useProjectGitPanel } from './useProjectGitPanel';
 
@@ -72,8 +76,51 @@ export function useProjectGitPanelPolicy(
     }
   }
 
+  async function runPublishBranch(branch: string): Promise<void> {
+    if (panel.mutationRunning.value || panel.remoteRefreshRunning.value) return;
+    const trimmed = branch.trim();
+    if (!trimmed) return;
+
+    const confirmed = await confirmDialog({
+      title: 'Publicar branch?',
+      message:
+        `A branch "${trimmed}" será enviada para origin e passará a rastrear `
+        + `origin/${trimmed}.`,
+      confirmLabel: 'Publicar',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+
+    panel.mutationRunning.value = true;
+    panel.mutationMessage.value = '';
+    panel.mutationErrorMessage.value = '';
+
+    try {
+      const confirmation = await prepareProjectGitBranchPublish(
+        props.project.id,
+        trimmed,
+      );
+      const publishedBranch = await publishProjectGitBranch(
+        props.project.id,
+        trimmed,
+        confirmation.token,
+      );
+      panel.mutationMessage.value =
+        `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
+      await panel.reloadGitData();
+    } catch (error) {
+      panel.mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível publicar a branch no origin.';
+    } finally {
+      panel.mutationRunning.value = false;
+    }
+  }
+
   return {
     ...panel,
     runMutation,
+    runPublishBranch,
   };
 }
