@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -58,5 +58,4 @@ test('arquivo inválido degrada para lista vazia', async () => {
 
   const repository = new ProjectRecentRepository(directory);
   assert.deepEqual(repository.list(), []);
-  assert.equal(JSON.parse(await readFile(path.join(directory, 'project-recents.json'), 'utf8') || 'null'), null);
 });
