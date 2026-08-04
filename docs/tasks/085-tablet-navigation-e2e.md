@@ -81,15 +81,12 @@ links completos, garante que o botão de recolher está oculto, navega para
 
 ## Validação
 
-```bash
-npm run typecheck
-npm run build
-npm test
-npm run test:e2e
-```
+CI do PR #175:
 
-O ambiente desta implementação não possui checkout executável nem GitHub CLI;
-a validação completa fica registrada para o CI do pull request.
+- typecheck — passou;
+- build — passou;
+- testes automatizados — passaram;
+- smoke E2E Playwright, incluindo a nova viewport de tablet — passou.
 
 ## Fora do escopo
 
