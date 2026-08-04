@@ -10,6 +10,15 @@ import {
 const originalCreateObjectURL = URL.createObjectURL;
 const originalRevokeObjectURL = URL.revokeObjectURL;
 
+function readBlobText(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
+    reader.addEventListener('error', () => reject(reader.error ?? new Error('Falha ao ler o Blob.')));
+    reader.readAsText(blob);
+  });
+}
+
 afterEach(() => {
   URL.createObjectURL = originalCreateObjectURL;
   URL.revokeObjectURL = originalRevokeObjectURL;
@@ -84,6 +93,6 @@ test('cria Blob, dispara o download e revoga o ObjectURL', async () => {
   assert.equal(click.mock.calls.length, 1);
   assert.deepEqual(vi.mocked(URL.revokeObjectURL).mock.calls, [['blob:dev-dashboard-log']]);
   assert.ok(exportedBlob);
-  assert.match(await exportedBlob.text(), /saída segura/);
+  assert.match(await readBlobText(exportedBlob), /saída segura/);
   assert.equal(document.querySelector('a[download]'), null);
 });
