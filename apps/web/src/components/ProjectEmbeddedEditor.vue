@@ -364,6 +364,8 @@ function displayFile(
   }
 }
 
+const pendingFileLoads = new Map<string, Promise<void>>();
+
 async function openFile(
   filePath: string,
   position?: { line: number; column: number },
@@ -380,31 +382,50 @@ async function openFile(
     return;
   }
 
-  loadingFile.value = true;
-  try {
-    const file = await fetchProjectFileContent(props.project.id, filePath);
-    if (
-      !pin
-      && previewPath.value
-      && previewPath.value !== filePath
-      && !dirtyPaths.value.has(previewPath.value)
-    ) {
-      const stalePath = previewPath.value;
-      openFiles.value = openFiles.value.filter((item) => item.path !== stalePath);
-      disposeModel(stalePath);
-      removeExternalConflict(stalePath);
-    }
-    openFiles.value = [...openFiles.value, file];
-    if (!pin) previewPath.value = filePath;
-    displayFile(file, position);
-  } catch (error) {
-    errorMessage.value = readableError(
-      error,
-      'Não foi possível abrir o arquivo.',
-    );
-  } finally {
-    loadingFile.value = false;
+  // O navegador dispara `click` duas vezes antes de um `dblclick`. Sem essa
+  // deduplicação, cada evento chamaria `fetchProjectFileContent` para o
+  // mesmo caminho antes do primeiro terminar, inserindo o arquivo mais de
+  // uma vez em `openFiles`. Chamadas concorrentes para o mesmo caminho
+  // aguardam a busca já em andamento em vez de iniciar uma nova.
+  const pending = pendingFileLoads.get(filePath);
+  if (pending) {
+    await pending;
+    if (pin) pinPreview(filePath);
+    const loaded = openFiles.value.find((file) => file.path === filePath);
+    if (loaded) displayFile(loaded, position);
+    return;
   }
+
+  loadingFile.value = true;
+  const load = (async () => {
+    try {
+      const file = await fetchProjectFileContent(props.project.id, filePath);
+      if (
+        !pin
+        && previewPath.value
+        && previewPath.value !== filePath
+        && !dirtyPaths.value.has(previewPath.value)
+      ) {
+        const stalePath = previewPath.value;
+        openFiles.value = openFiles.value.filter((item) => item.path !== stalePath);
+        disposeModel(stalePath);
+        removeExternalConflict(stalePath);
+      }
+      openFiles.value = [...openFiles.value, file];
+      if (!pin) previewPath.value = filePath;
+      displayFile(file, position);
+    } catch (error) {
+      errorMessage.value = readableError(
+        error,
+        'Não foi possível abrir o arquivo.',
+      );
+    } finally {
+      loadingFile.value = false;
+      pendingFileLoads.delete(filePath);
+    }
+  })();
+  pendingFileLoads.set(filePath, load);
+  await load;
 }
 
 function disposeModel(filePath: string): void {

@@ -344,6 +344,55 @@ test('opt-in de Rails runtime exige confirmação válida e pode ser desabilitad
   }
 });
 
+test('habilitar o Rails runtime reinicia uma sessão Ruby já ativa', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-rails-restart-'));
+  await writeFile(
+    path.join(root, 'Gemfile.lock'),
+    'GEM\n  remote: https://rubygems.org/\n  specs:\n    ruby-lsp (0.20.0)\n    ruby-lsp-rails (0.3.0)\n\nPLATFORMS\n  ruby\n',
+  );
+  const globalChild = new FakeChild();
+  const bundleChild = new FakeChild();
+  const service = new ProjectLanguageServerService({
+    idleTimeoutMs: 5,
+    // Espelha o comportamento real de findRubyLanguageServer: só usa o
+    // bundle (que carrega o add-on Rails) quando o runtime está habilitado.
+    findCommand: async (_project, _root, kind, railsRuntimeEnabled) => {
+      if (kind !== 'ruby') return undefined;
+      return railsRuntimeEnabled
+        ? { executable: '/usr/bin/bundle', args: ['exec', 'ruby-lsp', '--stdio'], usesRailsRuntime: true }
+        : { executable: '/usr/bin/ruby-lsp', args: ['--stdio'], usesRailsRuntime: false };
+    },
+    spawnProcess: (executable) =>
+      (executable.includes('bundle') ? bundleChild : globalChild) as unknown as ChildProcessWithoutNullStreams,
+  });
+  const railsProject = project(root, { type: 'rails' });
+  const firstSocket = new FakeSocket();
+
+  try {
+    await service.attach(railsProject, 'ruby', firstSocket as unknown as WebSocket);
+    assert.equal(firstSocket.closeCode, undefined);
+    assert.equal(globalChild.signals.length, 0, 'sessão inicial usa o ruby-lsp global, ainda sem sinais');
+
+    const confirmation = await service.prepareRailsRuntimeConfirmation(railsProject);
+    const status = await service.setRailsRuntimeEnabled(railsProject, true, confirmation.token);
+    assert.equal(status.rails?.runtimeState, 'enabled');
+
+    assert.equal(firstSocket.closeCode, 1012, 'a sessão antiga deve ser encerrada para forçar reconexão');
+    assert.ok(
+      globalChild.signals.includes('SIGTERM'),
+      'o processo ruby-lsp global antigo deve ser encerrado ao habilitar o runtime',
+    );
+
+    const secondSocket = new FakeSocket();
+    await service.attach(railsProject, 'ruby', secondSocket as unknown as WebSocket);
+    assert.equal(secondSocket.closeCode, undefined);
+    assert.equal(bundleChild.signals.length, 0, 'a nova sessão via bundle exec deve estar rodando');
+  } finally {
+    service.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('reconhece sinais Rails/Ruby: Gemfile, .ruby-version e tipo do projeto', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-signals-'));
   try {

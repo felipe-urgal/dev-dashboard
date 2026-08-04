@@ -343,3 +343,44 @@ test('clique único abre em aba de preview e substitui a anterior; duplo clique 
   );
   wrapper.unmount();
 });
+
+test('clique, clique e duplo clique concorrentes no mesmo arquivo não duplicam abas', async () => {
+  api.directory.mockResolvedValue({
+    path: '',
+    entries: [
+      { path: 'README.md', name: 'README.md', kind: 'file', language: 'markdown', size: 10 },
+    ],
+    truncated: false,
+  });
+  let resolveFile: (() => void) | undefined;
+  api.file.mockImplementation(() => new Promise((resolve) => {
+    resolveFile = () => resolve(openedFile());
+  }));
+
+  const wrapper = mountEditor();
+  await flushPromises();
+
+  const button = wrapper
+    .findAll('.embedded-ide-tree-item')
+    .find((candidate) => candidate.text().includes('README.md'));
+  assert.ok(button);
+
+  // Reproduz a sequência real do navegador: click, click e só então dblclick,
+  // todos antes da primeira leitura do arquivo terminar.
+  await button.trigger('click');
+  await button.trigger('click');
+  await button.trigger('dblclick');
+  await flushPromises();
+
+  assert.equal(
+    api.file.mock.calls.length,
+    1,
+    'chamadas concorrentes para o mesmo caminho devem aguardar a busca em andamento',
+  );
+
+  resolveFile?.();
+  await flushPromises();
+
+  assert.equal(wrapper.findAll('.embedded-ide-tab').length, 1);
+  wrapper.unmount();
+});

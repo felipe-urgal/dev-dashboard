@@ -615,13 +615,21 @@ export class ProjectLanguageServerService {
       this.railsRuntimeEnabled.set(project.id, true);
     } else {
       this.railsRuntimeEnabled.set(project.id, false);
-      const session = this.sessions.get(sessionKey(project.id, 'ruby'));
-      if (session?.usesRailsRuntime) {
-        this.failSession(
-          session,
-          'Introspecção em tempo de execução Rails foi desabilitada; a sessão foi encerrada.',
-        );
-      }
+    }
+
+    // A sessão Ruby ativa, se existir, foi resolvida com o valor anterior de
+    // `railsRuntimeEnabled` (usado em `findCommand`). Ela precisa ser
+    // reiniciada para que a próxima conexão resolva o comando correto —
+    // caso contrário `status()` continuaria devolvendo o `session.rails`
+    // desatualizado e o processo em execução não mudaria.
+    const session = this.sessions.get(sessionKey(project.id, 'ruby'));
+    if (session) {
+      this.restartSessionForConfigChange(
+        session,
+        enabled
+          ? 'Introspecção em tempo de execução Rails habilitada; reiniciando a sessão Ruby.'
+          : 'Introspecção em tempo de execução Rails desabilitada; reiniciando a sessão Ruby.',
+      );
     }
     return this.status(project, 'ruby');
   }
@@ -869,6 +877,41 @@ export class ProjectLanguageServerService {
         if (session.process.exitCode === null) session.process.kill('SIGKILL');
       }, FORCE_KILL_DELAY_MS);
     }, this.idleTimeoutMs);
+  }
+
+  /**
+   * Encerra uma sessão saudável porque a configuração que determina o comando
+   * usado para iniciá-la mudou (opt-in do Rails runtime). Diferente de
+   * `failSession`, isto não é uma falha: o cliente reconecta automaticamente
+   * (código 1012, "service restart") e a próxima chamada a `start()` resolve
+   * o comando com o valor atual de `railsRuntimeEnabled`.
+   */
+  private restartSessionForConfigChange(
+    session: LanguageServerSession,
+    message: string,
+  ): void {
+    if (session.state === 'failed') return;
+    this.clearTimers(session);
+    if (session.socket) {
+      const socket = session.socket;
+      // Zera antes de fechar: o fechamento síncrono do socket fake usado nos
+      // testes emite 'close' de imediato, e o handler registrado em `attach`
+      // chama `detach`, que só arma um novo idle timer se `session.socket`
+      // ainda apontar para este socket.
+      session.socket = undefined;
+      sendStatus(socket, {
+        ...this.sessionStatus(session, true),
+        state: 'starting',
+        message,
+      });
+      socket.close(1012, message);
+    }
+    // Marca a sessão como encerrada para que o handler de `exit` do processo
+    // (que também chamaria `failSession`) não repita a limpeza — o mesmo
+    // guard usado por `failSession`.
+    session.state = 'failed';
+    if (session.process.exitCode === null) session.process.kill('SIGTERM');
+    this.sessions.delete(sessionKey(session.project.id, session.kind));
   }
 
   private failSession(session: LanguageServerSession, message: string): void {
