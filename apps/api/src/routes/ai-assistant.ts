@@ -1,10 +1,13 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 import type { AiChatStreamEvent } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
-import type { AiAssistantService } from '../services/ai-assistant-service.js';
+import {
+  AiAssistantError,
+  type AiAssistantService,
+} from '../services/ai-assistant-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import {
   projectParamsSchema,
@@ -19,6 +22,12 @@ interface AiAssistantRouteOptions {
 interface ChatBody {
   model: string;
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+}
+
+interface CompletionBody {
+  model: string;
+  prefix: string;
+  suffix?: string;
 }
 
 const chatMessageSchema = {
@@ -57,12 +66,45 @@ const statusSchema = {
         required: ['name', 'capabilities'],
         properties: {
           name: { type: 'string' },
-          capabilities: { type: 'array', items: { type: 'string', enum: ['chat', 'tools'] } },
+          capabilities: {
+            type: 'array',
+            items: { type: 'string', enum: ['chat', 'tools', 'fill-in-the-middle'] },
+          },
         },
       },
     },
   },
 } as const;
+
+const completionBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['model', 'prefix'],
+  properties: {
+    model: { type: 'string', minLength: 1, maxLength: 200 },
+    prefix: { type: 'string', maxLength: 4_000 },
+    suffix: { type: 'string', maxLength: 1_000 },
+  },
+} as const;
+
+const completionResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['text'],
+  properties: { text: { type: 'string' } },
+} as const;
+
+function translateAiError(request: FastifyRequest, error: unknown, context: Record<string, unknown>): never {
+  if (error instanceof AiAssistantError) {
+    throw new ApiError({ statusCode: 400, code: 'AI_ASSISTANT_INVALID_REQUEST', message: error.message });
+  }
+  request.log.warn({ err: error, ...context }, 'AI assistant request failed');
+  throw new ApiError({
+    statusCode: 502,
+    code: 'AI_ASSISTANT_FAILED',
+    message: error instanceof Error ? error.message : 'Falha ao conversar com o assistente de IA.',
+  });
+}
 
 export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = async (
   app,
@@ -129,12 +171,54 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
           { send: write, signal: controller.signal },
         );
       } catch (error) {
+        if (!(error instanceof AiAssistantError)) {
+          request.log.warn(
+            { err: error, projectId: project.id, model: request.body.model },
+            'AI assistant chat failed',
+          );
+        }
         write({
           type: 'error',
           message: error instanceof Error ? error.message : 'Falha ao conversar com o assistente de IA.',
         });
       } finally {
         if (!reply.raw.writableEnded) reply.raw.end();
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: CompletionBody }>(
+    '/projects/:projectId/ai/complete',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: completionBodySchema,
+        response: {
+          200: completionResultSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+      const controller = new AbortController();
+      request.raw.once('close', () => controller.abort());
+      try {
+        return await options.aiAssistantService.complete(
+          request.body.model,
+          request.body.prefix,
+          request.body.suffix ?? '',
+          controller.signal,
+        );
+      } catch (error) {
+        if (controller.signal.aborted) {
+          // O cliente cancelou (nova tecla digitada); não há mais ninguém
+          // ouvindo a resposta — evita que o Fastify tente serializar uma
+          // resposta para uma conexão já fechada.
+          reply.hijack();
+          return;
+        }
+        translateAiError(request, error, { projectId: project.id, model: request.body.model });
       }
     },
   );

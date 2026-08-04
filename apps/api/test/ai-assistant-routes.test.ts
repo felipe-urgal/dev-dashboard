@@ -50,6 +50,9 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
         ].join('\n');
         return new Response(body, { status: 200 });
       }
+      if (url.endsWith('/api/generate')) {
+        return new Response(JSON.stringify({ response: 'sum(a, b)' }), { status: 200 });
+      }
       throw new Error(`chamada inesperada: ${url}`);
     },
   );
@@ -103,6 +106,37 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
       payload: { model: 'llama3.1', messages: [] },
     });
     assert.equal(response.statusCode, 400);
+  });
+
+  await context.test('complete retorna o texto sugerido pelo modelo', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/p1/ai/complete',
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: { model: 'llama3.1', prefix: 'function sum(a, b) {\n  return ', suffix: '\n}' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.json(), { text: 'sum(a, b)' });
+  });
+
+  await context.test('complete recusa prefixo acima do limite pelo schema', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/p1/ai/complete',
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: { model: 'llama3.1', prefix: 'a'.repeat(5_000) },
+    });
+    assert.equal(response.statusCode, 400);
+  });
+
+  await context.test('complete de projeto inexistente retorna 404', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/projects/does-not-exist/ai/complete',
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: { model: 'llama3.1', prefix: 'const x = ' },
+    });
+    assert.equal(response.statusCode, 404);
   });
 
   await context.test('rota exige autenticação', async () => {

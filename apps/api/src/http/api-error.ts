@@ -139,6 +139,8 @@ export type ApiErrorCode =
   | 'SCRIPT_SUBSCRIBER_LIMIT'
   | 'LANGUAGE_SERVER_CONFIRMATION_INVALID'
   | 'LANGUAGE_SERVER_FAILED'
+  | 'AI_ASSISTANT_INVALID_REQUEST'
+  | 'AI_ASSISTANT_FAILED'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

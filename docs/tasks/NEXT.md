@@ -1,63 +1,43 @@
 # Próxima atividade
 
-A task 080 adicionou o assistente de IA local com Ollama ao editor embutido:
-painel de chat, ações rápidas, detecção de modelos instalados e um catálogo
-fechado de quatro ferramentas somente leitura (`read_project_file`,
-`search_project_text`, `list_project_files`, `get_git_diff`), tudo
-intermediado pela API — o navegador nunca fala com o Ollama diretamente.
-Duas coisas do plano original ficaram para depois: ferramentas de símbolo
-via LSP (exigem uma sessão LSP sem navegador, ainda não projetada) e
-aplicação de edições propostas pela IA (exige um formato de tool-calling
-estruturado e validado, tratado como um incremento à parte, não a task 081).
+A task 081 encerra o arco de planejamento documental de `docs/architecture/embedded-ide-ai-design.md`
+(tasks 076–081): fundação da IDE embutida com Monaco, salvamento seguro,
+LSP JavaScript/TypeScript, LSP Ruby/Rails, IA local com Ollama (chat +
+catálogo fechado de ferramentas) e agora compleção inline (ghost text/FIM),
+além de correções de legibilidade do editor (realce de sintaxe Haml, tokens
+Ruby que faltavam no tema Monokai). Não há uma task 082 pré-planejada nesse
+arco — os documentos de arquitetura que guiaram as tasks 076–081 não
+descrevem nada além da compleção inline.
 
-## Task 081 — Compleção inline e contexto semântico ampliado
+## O que isso significa para a próxima atividade
 
-Adicionar sugestões de código "ghost text" no editor usando o mesmo Ollama
-local, com debounce, cancelamento agressivo e um cache curto.
+Diferente das entregas anteriores, não existe um plano detalhado esperando
+para ser implementado. A próxima atividade deveria começar por uma auditoria
+curta do estado atual do produto e do backlog — no espírito da
+`docs/tasks/011-product-audit-and-planning.md` — para decidir com intenção o
+que vem a seguir, em vez de inventar uma task nova sem lastro. Candidatos
+plausíveis, todos mencionados como "fora de escopo" em tasks recentes e
+ainda não comprometidos com um plano:
 
-### Objetivo
+- **Contexto semântico via embeddings locais e restauração de abas/estado**
+  (explicitamente adiados da task 081) — exigiria seu próprio desenho de
+  índice, política de exclusão e tela de configurações;
+- **Aplicação de edições propostas pela IA** (adiada da task 080) — exige
+  um formato de tool-calling estruturado e validado para patches, mapeado
+  com segurança para `ProjectWorkspaceEditRequest`;
+- **Ferramentas de símbolo para o assistente de IA**
+  (`get_symbol_definition`/`get_symbol_references`, adiadas da task 080) —
+  exigem uma sessão de LSP iniciada pela própria API, sem depender do
+  WebSocket do navegador;
+- **Smoke E2E automatizado do assistente de IA em CI**, com um "test double"
+  do Ollama (um serviço mínimo expondo `/api/tags`, `/api/show`,
+  `/api/chat`, `/api/generate`) — as tasks 080/081 documentaram que o smoke
+  E2E não roda contra um Ollama real neste ambiente; um double permitiria
+  cobrir o caminho ponta a ponta sem depender de instalação local;
+- outras lacunas do produto fora do arco de IA/editor, a serem levantadas
+  numa auditoria própria.
 
-Compleção inline (e FIM quando o modelo suportar) sem enviar o projeto
-inteiro a cada tecla digitada, mais um contexto semântico opt-in via
-embeddings locais.
-
-### Escopo proposto
-
-- endpoint dedicado de completion (`POST /api/projects/:projectId/ai/complete`),
-  sem tool-calling, com prefixo/sufixo limitados em bytes;
-- detecção de suporte a FIM pelas capacidades já reportadas por
-  `/api/show` (task 080);
-- `registerInlineCompletionsProvider` no Monaco com debounce e
-  `AbortController` cancelando a requisição anterior a cada tecla;
-- cache curto em memória por `(caminho, prefixo, sufixo)`;
-- embeddings locais opt-in para contexto adicional, desligados por padrão,
-  com controle e limpeza na tela de Configurações;
-- restauração opcional de abas/estado do editor entre sessões, também
-  opt-in.
-
-### Segurança
-
-- API continua intermediando toda chamada ao Ollama;
-- nenhuma ferramenta é chamada durante a compleção inline (chamada direta,
-  sem tools, para manter latência previsível);
-- embeddings ficam no diretório privado de estado, nunca no navegador, e são
-  removidos ao excluir o projeto ou trocar de modelo de embedding;
-- nenhum arquivo sensível ou ignorado entra no índice.
-
-### Critérios principais
-
-- ghost text não interfere na digitação normal nem no undo/redo do Monaco;
-- nenhuma requisição de completion sobrevive a uma tecla digitada depois
-  dela;
-- ausência de suporte a completion/FIM desativa o recurso com estado claro;
-- typecheck, build, testes de API, testes web e smoke E2E passam.
-
-### Fora do escopo
-
-- aplicação automática de sugestão sem a tecla de aceite padrão do Monaco;
-- geração de commits, PRs ou textos fora do editor;
-- embeddings multi-projeto ou compartilhados entre usuários;
-- provedores de IA além do Ollama local.
-
-O plano completo está em `docs/tasks/081-inline-completion.md`, com a
-arquitetura de referência em `docs/architecture/embedded-ide-ai-design.md`.
+Antes de começar a próxima implementação, revisar `docs/tasks/README.md`
+(lista completa de entregas) e os documentos em `docs/architecture/` para
+confirmar que a escolha não duplica algo já decidido ou já fora de escopo
+por um motivo registrado.

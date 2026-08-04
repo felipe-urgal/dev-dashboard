@@ -79,6 +79,7 @@ const languageByExtension: Record<string, string> = {
   '.go': 'go',
   '.graphql': 'graphql',
   '.h': 'c',
+  '.haml': 'haml',
   '.hpp': 'cpp',
   '.html': 'html',
   '.java': 'java',

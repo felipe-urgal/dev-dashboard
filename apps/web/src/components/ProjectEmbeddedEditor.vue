@@ -44,6 +44,7 @@ import {
   EMBEDDED_EDITOR_THEME_OPTIONS,
   type EmbeddedEditorThemePreference,
 } from '../monaco-themes';
+import { registerEmbeddedEditorCustomLanguages } from '../monaco-languages';
 import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
 import ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';
 import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
@@ -55,6 +56,7 @@ import {
   ProjectLanguageServerClient,
   projectLanguageServerModelUri,
 } from '../language-server/project-language-server-client';
+import { AiInlineCompletionProvider } from '../language-server/ai-inline-completion';
 
 interface FlatTreeEntry {
   entry: ProjectFileEntry;
@@ -105,6 +107,7 @@ let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 let themeObserver: MutationObserver | undefined;
 let languageServerClients: Partial<Record<ProjectLanguageServerKind, ProjectLanguageServerClient>> = {};
+let aiInlineCompletionProvider: AiInlineCompletionProvider | undefined;
 const models = new Map<string, Monaco.editor.ITextModel>();
 const modelListeners = new Map<string, Monaco.IDisposable>();
 
@@ -655,6 +658,19 @@ function disposeLanguageServerClients(): void {
   workspaceEditPreview.value = null;
 }
 
+function disposeAiInlineCompletionProvider(): void {
+  aiInlineCompletionProvider?.dispose();
+  aiInlineCompletionProvider = undefined;
+}
+
+function createAiInlineCompletionProvider(): void {
+  disposeAiInlineCompletionProvider();
+  if (!monaco) return;
+  const provider = new AiInlineCompletionProvider(monaco, props.project.id);
+  aiInlineCompletionProvider = provider;
+  void provider.initialize();
+}
+
 function createLanguageServerClients(): void {
   disposeLanguageServerClients();
   if (!monaco) return;
@@ -753,7 +769,9 @@ async function initializeMonaco(): Promise<void> {
     configureMonacoEnvironment();
     monaco = await import('monaco-editor');
     defineEmbeddedEditorCustomThemes(monaco);
+    registerEmbeddedEditorCustomLanguages(monaco);
     createLanguageServerClients();
+    createAiInlineCompletionProvider();
     await nextTick();
     if (!editorHost.value) return;
     editor = monaco.editor.create(editorHost.value, {
@@ -800,6 +818,7 @@ async function initializeMonaco(): Promise<void> {
 
 async function resetProject(): Promise<void> {
   disposeLanguageServerClients();
+  disposeAiInlineCompletionProvider();
   selectedText.value = '';
   editor?.setModel(null);
   for (const listener of modelListeners.values()) listener.dispose();
@@ -820,7 +839,10 @@ async function resetProject(): Promise<void> {
   conflictPath.value = '';
   errorMessage.value = '';
   statusMessage.value = '';
-  if (monaco) createLanguageServerClients();
+  if (monaco) {
+    createLanguageServerClients();
+    createAiInlineCompletionProvider();
+  }
   loadingTree.value = true;
   await loadDirectory('');
   loadingTree.value = false;
@@ -842,6 +864,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload);
   themeObserver?.disconnect();
   forEachLanguageServerClient((client) => client.dispose());
+  disposeAiInlineCompletionProvider();
   editor?.dispose();
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();

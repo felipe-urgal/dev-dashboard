@@ -82,6 +82,15 @@ test('lê texto com versão estável e linguagem detectada', async (context) => 
   assert.match(file.version, /^[a-f0-9]{64}$/);
 });
 
+test('reconhece a linguagem de arquivos .haml pela extensão final', async (context) => {
+  const { root } = await fixture(context);
+  const service = new ProjectFileService();
+  await writeFile(path.join(root, 'view.html.haml'), '%div.card\n  = title\n');
+
+  const file = await service.readFile(root, 'view.html.haml');
+  assert.equal(file.language, 'haml');
+});
+
 test('salva atomicamente, renova a versão e preserva permissões', async (context) => {
   const { root } = await fixture(context);
   const service = new ProjectFileService();
