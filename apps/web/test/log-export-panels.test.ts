@@ -13,7 +13,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
-  exportLogSnapshot: vi.fn(() => true),
+  exportLogSnapshot: vi.fn((_options: unknown) => true),
   publishTerminalNotice: vi.fn(),
 }));
 
