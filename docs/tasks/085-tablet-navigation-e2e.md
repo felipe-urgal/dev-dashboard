@@ -72,6 +72,7 @@ links completos, garante que o botão de recolher está oculto, navega para
 - `apps/web/e2e/tests/responsive.spec.ts`;
 - `apps/web/e2e/README.md`;
 - `docs/PENDENCIAS.md`;
+- `docs/roadmap.md`;
 - `docs/tasks/085-tablet-navigation-e2e.md`;
 - `docs/tasks/README.md`;
 - `docs/tasks/NEXT.md`.
