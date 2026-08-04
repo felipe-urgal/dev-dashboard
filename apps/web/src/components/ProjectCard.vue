@@ -21,6 +21,7 @@ import { projectTypeLabels } from '../utils/project-labels';
 const props = defineProps<{
   project: Project;
   favoriteUpdating?: boolean;
+  recent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -77,6 +78,17 @@ const statusLabel = computed(() => {
 
   return isRunning.value ? 'Em execução' : 'Parado';
 });
+
+const recentAccessTitle = computed(() => {
+  if (!props.project.lastAccessedAt) return '';
+  const date = new Date(props.project.lastAccessedAt);
+  return Number.isNaN(date.getTime())
+    ? 'Acessado recentemente'
+    : `Último acesso: ${new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date)}`;
+});
 </script>
 
 <template>
@@ -113,6 +125,15 @@ const statusLabel = computed(() => {
           </div>
 
           <div class="project-row-badges">
+            <span
+              v-if="recent"
+              class="project-recent-badge"
+              :title="recentAccessTitle"
+              aria-label="Acessado recentemente"
+            >
+              Recente
+            </span>
+
             <span class="project-status">
               <span
                 class="project-status-dot"
