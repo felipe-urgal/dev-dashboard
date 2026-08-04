@@ -20,6 +20,26 @@
   max-height: 1080px;
 }
 
+/*
+ * O painel de IA é um 4º item de grid (sidebar, separador, workbench, IA).
+ * A regra acima define só 3 trilhas com `!important`; sem esta variante, o
+ * painel de IA aberto fica sem coluna própria e quebra para uma segunda
+ * linha, empilhado sob a barra lateral em vez de aparecer ao lado do editor.
+ */
+.embedded-ide .embedded-ide-shell-with-ai {
+  grid-template-columns:
+    minmax(190px, var(--embedded-editor-sidebar-width))
+    6px
+    minmax(0, 1fr)
+    minmax(260px, 320px) !important;
+}
+
+.embedded-ide .embedded-ide-ai-panel {
+  grid-column: 4;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .embedded-ide .embedded-ide-sidebar {
   grid-column: 1;
   min-height: 0;
@@ -164,12 +184,25 @@ body.embedded-ide-fullscreen-open {
     overflow-x: auto;
   }
 
+  .embedded-ide .embedded-ide-shell-with-ai {
+    grid-template-columns: 210px minmax(520px, 1fr) !important;
+    grid-template-rows: auto minmax(280px, 360px);
+    height: auto;
+  }
+
   .embedded-ide .embedded-ide-resize-separator {
     display: none;
   }
 
   .embedded-ide .embedded-ide-workbench {
     grid-column: 2;
+  }
+
+  .embedded-ide .embedded-ide-ai-panel {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-inline-start: none;
+    border-top: 1px solid var(--border);
   }
 
   .embedded-ide-fullscreen-button {
