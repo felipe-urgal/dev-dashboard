@@ -45,7 +45,7 @@ compromissos de versão.
 - [x] loading skeletons nas páginas globais (tasks 071 e 073);
 - [x] auditoria inicial de acessibilidade — landmarks, nomes, estado, teclado
   e contraste nas páginas globais (task 075);
-- [ ] navegação otimizada para tablet validada por E2E.
+- [x] navegação otimizada para tablet validada por E2E (task 085).
 
 ### IDE embutida, LSP e IA local — entregues (tasks 076–084)
 
