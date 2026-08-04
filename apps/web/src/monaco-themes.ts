@@ -51,6 +51,12 @@ const MONOKAI_THEME_DATA: Monaco.editor.IStandaloneThemeData = {
     { token: 'operator.sql', foreground: '778899' },
     { token: 'predefined.sql', foreground: 'ff00ff' },
     { token: 'identifier.function', foreground: 'a6e22e' },
+    // Ruby (constantes/classes, variáveis de instância/classe, globais e símbolos).
+    { token: 'constructor.identifier', foreground: '66d9ef', fontStyle: 'italic' },
+    { token: 'namespace.instance.identifier', foreground: 'fd971f' },
+    { token: 'namespace.class.identifier', foreground: 'fd971f' },
+    { token: 'global.constant', foreground: 'ae81ff' },
+    { token: 'constant.other.symbol', foreground: 'ae81ff' },
   ],
   colors: {
     'editor.foreground': '#F8F8F2',

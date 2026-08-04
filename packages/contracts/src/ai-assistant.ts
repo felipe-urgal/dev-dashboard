@@ -1,4 +1,4 @@
-export type AiCapability = 'chat' | 'tools';
+export type AiCapability = 'chat' | 'tools' | 'fill-in-the-middle';
 
 export interface AiModelInfo {
   name: string;
@@ -36,3 +36,13 @@ export type AiChatStreamEvent =
   | { type: 'tool-result'; tool: AiTool; ok: boolean; summary: string }
   | { type: 'done' }
   | { type: 'error'; message: string };
+
+export interface AiCompletionRequest {
+  model: string;
+  prefix: string;
+  suffix?: string;
+}
+
+export interface AiCompletionResult {
+  text: string;
+}

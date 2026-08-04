@@ -56,6 +56,8 @@ export type {
   AiChatRequest,
   AiChatRole,
   AiChatStreamEvent,
+  AiCompletionRequest,
+  AiCompletionResult,
   AiModelInfo,
   AiTool,
   ProjectAiStatus,

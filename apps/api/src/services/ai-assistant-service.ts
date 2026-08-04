@@ -2,6 +2,7 @@ import type {
   AiCapability,
   AiChatMessage,
   AiChatStreamEvent,
+  AiCompletionResult,
   AiModelInfo,
   AiTool,
   Project,
@@ -23,6 +24,10 @@ const MAX_MESSAGE_CHARS = 8_000;
 const MAX_TOOL_RESULT_CHARS = 8_000;
 const MAX_TOOL_ROUNDS = 4;
 const MAX_MODELS_INSPECTED = 20;
+const COMPLETION_TIMEOUT_MS = 15_000;
+const MAX_COMPLETION_PREFIX_CHARS = 4_000;
+const MAX_COMPLETION_SUFFIX_CHARS = 1_000;
+const MAX_COMPLETION_RESPONSE_CHARS = 2_000;
 
 const TOOL_NAMES: readonly AiTool[] = [
   'read_project_file',
@@ -266,6 +271,58 @@ export class AiAssistantService {
     }
   }
 
+  /**
+   * Compleção inline curta (ghost text): uma chamada direta e sem
+   * tool-calling a `/api/generate`, para manter a latência previsível
+   * enquanto o usuário digita. `suffix` só é enviado quando presente,
+   * habilitando fill-in-the-middle nos modelos que o suportam.
+   */
+  public async complete(
+    model: string,
+    prefix: string,
+    suffix: string,
+    signal: AbortSignal,
+  ): Promise<AiCompletionResult> {
+    const baseUrl = resolveOllamaBaseUrl();
+    if (!baseUrl) {
+      throw new AiAssistantError('O assistente de IA está desabilitado neste ambiente.');
+    }
+    if (!model.trim()) {
+      throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
+    }
+    if (prefix.length > MAX_COMPLETION_PREFIX_CHARS || suffix.length > MAX_COMPLETION_SUFFIX_CHARS) {
+      throw new AiAssistantError('O contexto de compleção excede o limite permitido.');
+    }
+    if (!prefix.trim() && !suffix.trim()) return { text: '' };
+
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(() => timeoutController.abort(), COMPLETION_TIMEOUT_MS);
+    const onAbort = (): void => timeoutController.abort();
+    signal.addEventListener('abort', onAbort);
+    try {
+      const response = await this.fetchImpl(`${baseUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          prompt: prefix,
+          ...(suffix ? { suffix } : {}),
+          stream: false,
+          options: { num_predict: 128 },
+        }),
+        signal: timeoutController.signal,
+      });
+      if (!response.ok) {
+        throw new AiAssistantError(`O Ollama respondeu com status ${response.status}.`);
+      }
+      const body = (await response.json()) as { response?: string };
+      return { text: truncate(body.response ?? '', MAX_COMPLETION_RESPONSE_CHARS).text };
+    } finally {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', onAbort);
+    }
+  }
+
   private async capabilitiesFor(baseUrl: string, name: string): Promise<AiCapability[]> {
     try {
       const response = await this.postJson<{ capabilities?: string[] }>(
@@ -275,6 +332,9 @@ export class AiAssistantService {
       );
       const capabilities: AiCapability[] = ['chat'];
       if (response.capabilities?.includes('tools')) capabilities.push('tools');
+      // Ollama reporta 'insert' para modelos que aceitam o parâmetro `suffix`
+      // de /api/generate (fill-in-the-middle).
+      if (response.capabilities?.includes('insert')) capabilities.push('fill-in-the-middle');
       return capabilities;
     } catch {
       return ['chat'];

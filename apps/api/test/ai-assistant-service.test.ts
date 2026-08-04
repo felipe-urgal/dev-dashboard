@@ -322,3 +322,85 @@ test('chat() emite um erro claro quando o Ollama envia NDJSON malformado', async
   assert.equal(events[0]?.type, 'error');
   assert.match((events[0] as { message: string }).message, /não pôde ser interpretad/);
 });
+
+test('status() reporta fill-in-the-middle quando o Ollama anuncia a capacidade insert', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async (input) => {
+      const url = String(input);
+      if (url.endsWith('/api/tags')) {
+        return new Response(JSON.stringify({ models: [{ name: 'qwen2.5-coder' }] }));
+      }
+      if (url.endsWith('/api/show')) {
+        return new Response(JSON.stringify({ capabilities: ['completion', 'insert'] }));
+      }
+      throw new Error(`chamada inesperada: ${url}`);
+    },
+  );
+  const status = await service.status();
+  assert.deepEqual(status.models, [
+    { name: 'qwen2.5-coder', capabilities: ['chat', 'fill-in-the-middle'] },
+  ]);
+});
+
+test('complete() não chama o Ollama quando prefixo e sufixo estão vazios', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async () => {
+      throw new Error('não deveria chamar o Ollama');
+    },
+  );
+  const result = await service.complete('llama3.1', '', '', new AbortController().signal);
+  assert.deepEqual(result, { text: '' });
+});
+
+test('complete() recusa modelo vazio e contexto acima do limite sem chamar o Ollama', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async () => {
+      throw new Error('não deveria chamar o Ollama');
+    },
+  );
+  await assert.rejects(
+    () => service.complete('', 'const x = 1;', '', new AbortController().signal),
+    /Selecione um modelo/,
+  );
+  await assert.rejects(
+    () => service.complete('llama3.1', 'a'.repeat(5_000), '', new AbortController().signal),
+    /excede o limite/,
+  );
+});
+
+test('complete() envia suffix apenas quando presente e devolve o texto truncado', async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({ response: 'return a + b;' }));
+    },
+  );
+
+  const withoutSuffix = await service.complete('llama3.1', 'function sum(a, b) {\n', '', new AbortController().signal);
+  assert.equal(withoutSuffix.text, 'return a + b;');
+  assert.equal('suffix' in calls[0]!, false);
+
+  await service.complete('llama3.1', 'function sum(a, b) {\n', '\n}', new AbortController().signal);
+  assert.equal(calls[1]?.suffix, '\n}');
+});
+
+test('complete() propaga falha do Ollama como erro claro', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async () => new Response('erro interno', { status: 500 }),
+  );
+  await assert.rejects(
+    () => service.complete('llama3.1', 'const x = ', '', new AbortController().signal),
+    /status 500/,
+  );
+});

@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   languageStatus: vi.fn(),
   workspacePreview: vi.fn(),
   workspaceApply: vi.fn(),
+  aiStatus: vi.fn(),
+  aiComplete: vi.fn(),
 }));
 
 const monaco = vi.hoisted(() => {
@@ -79,6 +81,8 @@ vi.mock('../src/api', () => ({
   projectLanguageServerWebSocketUrl: vi.fn(() => 'ws://localhost/lsp'),
   previewProjectWorkspaceEdit: api.workspacePreview,
   applyProjectWorkspaceEdit: api.workspaceApply,
+  fetchProjectAiStatus: api.aiStatus,
+  completeProjectAi: api.aiComplete,
 }));
 
 vi.mock('monaco-editor', () => ({
@@ -102,6 +106,10 @@ vi.mock('monaco-editor', () => ({
     registerReferenceProvider: vi.fn(() => ({ dispose: vi.fn() })),
     registerCompletionItemProvider: vi.fn(() => ({ dispose: vi.fn() })),
     registerDocumentSymbolProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerInlineCompletionsProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    getLanguages: vi.fn(() => []),
+    register: vi.fn(),
+    setMonarchTokensProvider: vi.fn(),
   },
 }));
 
@@ -192,6 +200,11 @@ beforeEach(() => {
     files: [],
   });
   api.workspaceApply.mockResolvedValue({ files: [] });
+  api.aiStatus.mockResolvedValue({
+    available: false,
+    models: [],
+    message: 'Assistente de IA indisponível no teste.',
+  });
   api.directory.mockResolvedValue({
     path: '',
     entries: [
