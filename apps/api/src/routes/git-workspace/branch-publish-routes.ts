@@ -1,0 +1,140 @@
+import type { FastifyInstance } from 'fastify';
+
+import {
+  commonErrorResponseSchemas,
+  gitBranchMutationResponseSchema,
+  gitMutationConfirmationResponseSchema,
+} from '../../http/response-schemas.js';
+import { ApiError } from '../../http/api-error.js';
+import type { GitBranchPublishService } from '../../services/git-branch-publish-service.js';
+import { GitMutationError } from '../../services/git-service/errors.js';
+import {
+  findProject,
+  projectParamsSchema,
+  type GitWorkspaceRouteOptions,
+  type ProjectParams,
+} from './helpers.js';
+
+const branchBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['branch'],
+  properties: {
+    branch: { type: 'string', minLength: 1, maxLength: 200 },
+  },
+} as const;
+
+const publishBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['branch', 'confirmationToken'],
+  properties: {
+    branch: { type: 'string', minLength: 1, maxLength: 200 },
+    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+  },
+} as const;
+
+function translatePublishError(error: unknown): never {
+  if (error instanceof GitMutationError) {
+    const statusByCode: Record<string, number> = {
+      GIT_NOT_REPOSITORY: 400,
+      GIT_BRANCH_INVALID: 400,
+      GIT_BRANCH_NOT_FOUND: 404,
+      GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
+      GIT_REMOTE_NOT_CONFIGURED: 409,
+      GIT_PUSH_REJECTED: 409,
+      GIT_REMOTE_UNAVAILABLE: 502,
+      GIT_PUSH_FAILED: 500,
+    };
+    throw new ApiError({
+      statusCode: statusByCode[error.code] ?? 400,
+      code: error.code,
+      message: error.message,
+    });
+  }
+
+  throw new ApiError({
+    statusCode: 500,
+    code: 'GIT_PUSH_FAILED',
+    message: error instanceof Error
+      ? error.message
+      : 'Não foi possível publicar a branch no origin.',
+  });
+}
+
+export function registerBranchPublishRoutes(
+  app: FastifyInstance,
+  options: GitWorkspaceRouteOptions,
+  publishService: GitBranchPublishService,
+): void {
+  app.post<{ Params: ProjectParams; Body: { branch: string } }>(
+    '/projects/:projectId/git/branches/publish/confirmations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: branchBodySchema,
+        response: {
+          201: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: gitMutationConfirmationResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return reply.code(201).send({
+          confirmation: publishService.preparePublishConfirmation(
+            project.id,
+            request.body.branch,
+          ),
+        });
+      } catch (error) {
+        translatePublishError(error);
+      }
+    },
+  );
+
+  app.post<{
+    Params: ProjectParams;
+    Body: { branch: string; confirmationToken: string };
+  }>(
+    '/projects/:projectId/git/branches/publish',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: publishBodySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['branch'],
+            properties: { branch: gitBranchMutationResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = findProject(options, request.params.projectId);
+      try {
+        return {
+          branch: await publishService.publishLocalBranch(
+            project.path,
+            project.id,
+            request.body.branch,
+            request.body.confirmationToken,
+          ),
+        };
+      } catch (error) {
+        translatePublishError(error);
+      }
+    },
+  );
+}
