@@ -32,6 +32,20 @@ Os testes navegam usando `#bootstrap=<token>` na primeira carga de cada
 página, replicando o fluxo real de sessão segura do navegador. Ao final da
 suíte, o servidor é encerrado e os diretórios temporários são removidos.
 
+## Cobertura responsiva
+
+`tests/responsive.spec.ts` exercita três faixas:
+
+- desktop em 1280 × 800, com sidebar persistente;
+- tablet em 820 × 1180, com drawer e uma preferência desktop de sidebar
+  recolhida previamente salva;
+- tela estreita em 375 × 700, com o drawer móvel.
+
+Os cenários verificam ausência de overflow horizontal, acesso ao tema e uso da
+navegação principal. Em tablet e mobile o teste abre o drawer, confirma que os
+rótulos completos continuam disponíveis, navega para outra rota e verifica o
+fechamento automático.
+
 ## Baselines visuais
 
 `tests/visual-baseline.spec.ts` protege a aparência da sidebar com
@@ -54,6 +68,4 @@ por plataforma.
 - Cobertura E2E de mutações (Git, scripts, banco) ou de processos do sistema
   operacional.
 - Testes contra projetos reais do diretório pessoal do desenvolvedor.
-- Navegação por drawer móvel — abaixo de 760px a navegação lateral hoje
-  recolhe sem substituto, comportamento existente e não alterado aqui.
 - Outros motores além do Chromium.
