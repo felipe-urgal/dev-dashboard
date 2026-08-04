@@ -20,6 +20,15 @@ export {
   ProjectFavoriteRepositoryError,
 } from './project-favorite-repository.js';
 
+export {
+  ProjectRecentRepository,
+  PROJECT_RECENT_LIMITS,
+} from './project-recent-repository.js';
+
+export type {
+  ProjectRecentAccess,
+} from './project-recent-repository.js';
+
 export type {
   CreateWorkspaceInput,
   WorkspaceRepositoryErrorCode

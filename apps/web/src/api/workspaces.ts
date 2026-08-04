@@ -57,6 +57,23 @@ export async function fetchProjects(): Promise<Project[]> {
   return response.projects;
 }
 
+export async function recordProjectAccess(
+  projectId: string,
+): Promise<Project> {
+  const response = await requestJson<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/access`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    },
+  );
+
+  return response.project;
+}
+
 export async function updateProjectFavorite(
   projectId: string,
   favorite: boolean,
