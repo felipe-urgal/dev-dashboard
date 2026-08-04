@@ -1,8 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import {
-  ProjectFavoriteRepositoryError,
-  ProjectRecentRepository,
-} from '@dev-dashboard/core';
+import { ProjectFavoriteRepositoryError } from '@dev-dashboard/core';
 
 import { ApiError } from '../../http/api-error.js';
 import {
@@ -20,7 +17,6 @@ export function registerProjectListRoutes(
   options: ProjectRouteOptions,
 ): void {
   const { projectFavoriteRepository, projectStore } = options;
-  const projectRecentRepository = new ProjectRecentRepository();
 
   app.get(
     '/projects',
@@ -113,22 +109,8 @@ export function registerProjectListRoutes(
       },
     },
     async (request) => {
-      const project = projectStore.findProject(request.params.projectId);
-      if (!project || !project.workspaceId) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
-
-      const recent = await projectRecentRepository.record(
-        project.id,
-        project.workspaceId,
-      );
-      const updatedProject = projectStore.setLastAccessedAt(
-        project.id,
-        recent.lastAccessedAt,
+      const updatedProject = await projectStore.recordAccess(
+        request.params.projectId,
       );
 
       if (!updatedProject) {
