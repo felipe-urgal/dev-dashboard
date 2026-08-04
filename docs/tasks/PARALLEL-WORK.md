@@ -14,23 +14,21 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-| Atividade | Área principal | Branch/PR |
-| --- | --- | --- |
-| Task 087 — Exportação segura de logs | `apps/web/src/components/Project{Logs,Tests,Scripts}Panel.vue`, `ProjectServerPanel.vue`, nova utilidade de export compartilhada em `apps/web/src/` | em andamento pelo usuário |
+Nenhuma frente paralela registrada. A task 089 — projetos recentes por
+workspace — está reservada em `NEXT.md` como próxima entrega sequencial.
 
 ## Livres para pegar em paralelo
 
 Cada uma toca uma área de arquivos distinta das outras linhas desta tabela e
-da Task 087 acima. "Tamanho" e "Conflito conhecido" seguem a classificação da
-task 086 e o texto atual de `docs/PENDENCIAS.md`.
+da task 089 reservada. "Tamanho" e "Conflito conhecido" seguem a classificação
+da task 086 e o texto atual de `docs/PENDENCIAS.md`.
 
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
-| Projetos recentes por workspace | `packages/core` (persistência), rota nova em `apps/api/src/routes`, view de Visão geral em `apps/web` | médio | nenhum com a 087; toca `apps/web` mas em componentes de overview/favoritos, não nos painéis de log |
 | Cache da detecção inicial (CLI) | `lib/projects/detect.sh` | pequeno | nenhum — CLI bash, independente do monorepo web |
-| Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 087; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
+| Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
 | Adaptador seguro para abrir destino no navegador local | rota nova em `apps/api`, sem tocar painéis existentes | pequeno | nenhum |
-| Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | toca `settings.ts`/`SettingsView` — evitar rodar junto com outra mudança em Configurações |
+| Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
 | Automatizar changelog/release/tags | `.github/workflows/`, config na raiz | pequeno/médio | nenhum com código de `apps/`/`lib/` |
 | Documentação da API a partir dos JSON Schemas | script novo + `docs/`, leitura de `apps/api/src/routes/*` (sem alterar rotas) | pequeno/médio | somente leitura das rotas — seguro mesmo com rotas em edição, mas pode gerar diffs de doc se a rota mudar no meio do trabalho |
@@ -56,5 +54,8 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 
 ## Concluídas recentemente (referência)
 
+- Task 087 — Exportação segura de logs no navegador para servidor, testes e
+  scripts, sem rota de arquivo bruto.
 - Task 088 — Suíte de testes para helpers não interativos do CLI bash
-  (`tests/cli/`), PR #177.
+  (`tests/cli/`), PR #177; ampliada com testes Bats e do orquestrador no PR
+  #179.
