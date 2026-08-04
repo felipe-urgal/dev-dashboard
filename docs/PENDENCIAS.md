@@ -73,8 +73,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Padronizar lint e formatação com ESLint e Prettier entre `apps/` e
   `packages/`.
 - [ ] Medir cobertura e definir metas por camada.
-- [ ] Gerar ou verificar a documentação da API a partir dos JSON Schemas e das
-  rotas Fastify registradas.
+- [x] Gerar ou verificar a documentação da API a partir dos JSON Schemas e das
+  rotas Fastify registradas — `scripts/generate-api-docs.mjs`,
+  `docs/architecture/api-reference.md`, `npm run docs:api`/`docs:api:check`
+  (ligado ao CI), task 091.
 - [ ] Fazer uma revisão dirigida do `npm audit`, inventariando dependências
   transitivas e upgrades seguros sem `npm audit fix --force`.
 - [ ] Fazer a segunda etapa de refatoração de

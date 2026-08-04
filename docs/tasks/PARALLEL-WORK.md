@@ -30,7 +30,6 @@ da task 086 e o texto atual de `docs/PENDENCIAS.md`.
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
 | Automatizar changelog/release/tags | `.github/workflows/`, config na raiz | pequeno/médio | nenhum com código de `apps/`/`lib/` |
-| Documentação da API a partir dos JSON Schemas | script novo + `docs/`, leitura de `apps/api/src/routes/*` (sem alterar rotas) | pequeno/médio | somente leitura das rotas — seguro mesmo com rotas em edição, mas pode gerar diffs de doc se a rota mudar no meio do trabalho |
 | Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
@@ -60,3 +59,6 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
   #179.
 - Task 090 — Cache da detecção inicial do CLI (`lib/projects/cache.sh`) por
   assinatura de mtime, com `detect_projects --force` para ignorar.
+- Task 091 — Documentação da API gerada a partir dos JSON Schemas
+  (`scripts/generate-api-docs.mjs`, `docs/architecture/api-reference.md`,
+  `npm run docs:api`/`docs:api:check`).
