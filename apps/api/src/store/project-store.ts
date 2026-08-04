@@ -83,6 +83,17 @@ export class ProjectStore {
     }));
   }
 
+  public async recordAccess(projectId: string): Promise<Project | null> {
+    const project = this.findProject(projectId);
+    if (!project?.workspaceId) return null;
+
+    const recent = await this.projectRecentRepository.record(
+      project.id,
+      project.workspaceId,
+    );
+    return this.setLastAccessedAt(project.id, recent.lastAccessedAt);
+  }
+
   public setLastAccessedAt(
     projectId: string,
     lastAccessedAt: string,
