@@ -7,10 +7,15 @@ import type {
   AiTool,
   Project,
   ProjectAiStatus,
+  ProjectTextPosition,
+  ProjectTextRange,
+  ProjectWorkspaceFileEdit,
+  ProjectWorkspaceTextEdit,
 } from '@dev-dashboard/contracts';
 
 import { ProjectFileError, ProjectFileService } from './project-file-service.js';
 import { GitService } from './git-service.js';
+import { ProjectWorkspaceEditService } from './project-workspace-edit-service.js';
 
 const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 // `new URL(...).hostname` mantém colchetes para literais IPv6 (ex.: '[::1]',
@@ -34,6 +39,7 @@ const TOOL_NAMES: readonly AiTool[] = [
   'search_project_text',
   'list_project_files',
   'get_git_diff',
+  'propose_workspace_edit',
 ];
 
 /**
@@ -97,6 +103,67 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_workspace_edit',
+      description:
+        'Propõe uma edição de texto em um ou mais arquivos do projeto atual. A edição não é '
+        + 'aplicada automaticamente: o usuário revisa um preview e confirma antes de qualquer '
+        + 'escrita em disco.',
+      parameters: {
+        type: 'object',
+        required: ['files'],
+        properties: {
+          files: {
+            type: 'array',
+            description: 'Lista de arquivos a editar (até 20).',
+            items: {
+              type: 'object',
+              required: ['path', 'edits'],
+              properties: {
+                path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+                edits: {
+                  type: 'array',
+                  description: 'Edições de texto a aplicar no arquivo (até 200), sem sobreposição.',
+                  items: {
+                    type: 'object',
+                    required: ['range', 'newText'],
+                    properties: {
+                      range: {
+                        type: 'object',
+                        required: ['start', 'end'],
+                        description: 'Faixa de texto a substituir, com linha e coluna baseadas em 1.',
+                        properties: {
+                          start: {
+                            type: 'object',
+                            required: ['line', 'column'],
+                            properties: {
+                              line: { type: 'number' },
+                              column: { type: 'number' },
+                            },
+                          },
+                          end: {
+                            type: 'object',
+                            required: ['line', 'column'],
+                            properties: {
+                              line: { type: 'number' },
+                              column: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
+                      newText: { type: 'string', description: 'Texto que substitui a faixa indicada.' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 ] as const;
 
 interface OllamaToolCall {
@@ -138,6 +205,17 @@ export function resolveOllamaBaseUrl(): string | undefined {
   }
 }
 
+/**
+ * O `timeoutController` interno de cada rodada aborta o fetch ao Ollama por
+ * conta própria (não é o cancelamento do usuário, já tratado antes de chegar
+ * aqui via `handlers.signal.aborted`). Sem esta tradução, o erro nativo do
+ * `AbortController` ("This operation was aborted"/"The operation was
+ * aborted.") vazava para o usuário sem nenhum contexto do que aconteceu.
+ */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 function truncate(value: string, maxChars: number): { text: string; truncated: boolean } {
   if (value.length <= maxChars) return { text: value, truncated: false };
   return { text: value.slice(0, maxChars), truncated: true };
@@ -152,6 +230,8 @@ export class AiAssistantService {
     private readonly projectFileService: ProjectFileService = new ProjectFileService(),
     private readonly gitService: GitService = new GitService(),
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly workspaceEditService: ProjectWorkspaceEditService =
+      new ProjectWorkspaceEditService(projectFileService),
   ) {}
 
   public async status(): Promise<ProjectAiStatus> {
@@ -264,10 +344,11 @@ export class AiAssistantService {
       });
     } catch (error) {
       if (handlers.signal.aborted) return;
-      handlers.send({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Falha ao conversar com o Ollama local.',
-      });
+      const message = isAbortError(error)
+        ? `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente `
+          + 'ou reformule a pergunta em partes menores.'
+        : error instanceof Error ? error.message : 'Falha ao conversar com o Ollama local.';
+      handlers.send({ type: 'error', message });
     }
   }
 
@@ -420,7 +501,7 @@ export class AiAssistantService {
     handlers.send({ type: 'tool-call', tool: name, arguments: args });
 
     try {
-      const result = await this.executeTool(project, name, args);
+      const result = await this.executeTool(project, name, args, handlers);
       handlers.send({ type: 'tool-result', tool: name, ok: true, summary: summaryFor(name) });
       return result;
     } catch (error) {
@@ -434,6 +515,7 @@ export class AiAssistantService {
     project: Project,
     tool: AiTool,
     args: Record<string, unknown>,
+    handlers: AiChatHandlers,
   ): Promise<Record<string, unknown>> {
     try {
       switch (tool) {
@@ -471,6 +553,21 @@ export class AiAssistantService {
           const { text, truncated } = truncate(diff.content, MAX_TOOL_RESULT_CHARS);
           return { path: diff.path, content: text, truncated: truncated || diff.truncated };
         }
+        case 'propose_workspace_edit': {
+          const files = parseWorkspaceEditFiles(args);
+          const request = await this.buildWorkspaceEditRequest(project, files);
+          const preview = await this.workspaceEditService.previewWorkspaceEdit(
+            project.path,
+            project.id,
+            request,
+          );
+          handlers.send({ type: 'workspace-edit-proposed', preview });
+          return {
+            status: 'pending_confirmation',
+            files: preview.files.map((file) => file.path),
+            expiresAt: preview.expiresAt,
+          };
+        }
       }
     } catch (error) {
       if (error instanceof ProjectFileError || error instanceof Error) {
@@ -478,6 +575,25 @@ export class AiAssistantService {
       }
       throw error;
     }
+  }
+
+  /**
+   * A versão esperada de cada arquivo é sempre lida aqui, no servidor —
+   * nunca aceita do modelo. O modelo não tem acesso ao hash de versão e não
+   * pode ser a fonte de verdade sobre qual estado do arquivo está editando;
+   * confiar nele abriria a possibilidade de o modelo forçar uma escrita
+   * "por cima" de uma versão que nunca viu de fato.
+   */
+  private async buildWorkspaceEditRequest(
+    project: Project,
+    files: readonly WorkspaceEditFileInput[],
+  ): Promise<{ files: ProjectWorkspaceFileEdit[] }> {
+    const prepared: ProjectWorkspaceFileEdit[] = [];
+    for (const file of files) {
+      const current = await this.projectFileService.readFile(project.path, file.path);
+      prepared.push({ path: file.path, expectedVersion: current.version, edits: file.edits });
+    }
+    return { files: prepared };
   }
 
   private async getJson<T>(url: string, timeoutMs: number): Promise<T> {
@@ -518,11 +634,72 @@ function requireStringArg(args: Record<string, unknown>, key: string): string {
   return value;
 }
 
+interface WorkspaceEditFileInput {
+  path: string;
+  edits: ProjectWorkspaceTextEdit[];
+}
+
+function asRecord(value: unknown, message: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object') throw new AiAssistantError(message);
+  return value as Record<string, unknown>;
+}
+
+function parseTextPosition(value: unknown, filePath: string): ProjectTextPosition {
+  const record = asRecord(value, `Uma posição de edição de "${filePath}" é inválida.`);
+  const { line, column } = record;
+  if (typeof line !== 'number' || typeof column !== 'number') {
+    throw new AiAssistantError(
+      `Uma posição de edição de "${filePath}" precisa de "line" e "column" numéricos.`,
+    );
+  }
+  return { line, column };
+}
+
+function parseTextRange(value: unknown, filePath: string): ProjectTextRange {
+  const record = asRecord(value, `O campo "range" é obrigatório em uma edição de "${filePath}".`);
+  return {
+    start: parseTextPosition(record.start, filePath),
+    end: parseTextPosition(record.end, filePath),
+  };
+}
+
+function parseWorkspaceTextEdit(value: unknown, filePath: string): ProjectWorkspaceTextEdit {
+  const record = asRecord(value, `Uma edição de "${filePath}" não é um objeto válido.`);
+  const range = parseTextRange(record.range, filePath);
+  const newText = record.newText;
+  if (typeof newText !== 'string') {
+    throw new AiAssistantError(`O campo "newText" é obrigatório em uma edição de "${filePath}".`);
+  }
+  return { range, newText };
+}
+
+function parseWorkspaceEditFile(value: unknown): WorkspaceEditFileInput {
+  const record = asRecord(value, 'Cada item de "files" deve ser um objeto.');
+  const path = record.path;
+  if (typeof path !== 'string' || !path.trim()) {
+    throw new AiAssistantError('O campo "path" é obrigatório em cada arquivo.');
+  }
+  const edits = record.edits;
+  if (!Array.isArray(edits) || edits.length === 0) {
+    throw new AiAssistantError(`O arquivo "${path}" precisa de ao menos uma edição.`);
+  }
+  return { path, edits: edits.map((edit) => parseWorkspaceTextEdit(edit, path)) };
+}
+
+function parseWorkspaceEditFiles(args: Record<string, unknown>): WorkspaceEditFileInput[] {
+  const files = args.files;
+  if (!Array.isArray(files) || files.length === 0) {
+    throw new AiAssistantError('O argumento "files" deve ser uma lista não vazia.');
+  }
+  return files.map((file) => parseWorkspaceEditFile(file));
+}
+
 function summaryFor(tool: AiTool): string {
   switch (tool) {
     case 'read_project_file': return 'Arquivo lido.';
     case 'search_project_text': return 'Busca concluída.';
     case 'list_project_files': return 'Diretório listado.';
     case 'get_git_diff': return 'Diff obtido.';
+    case 'propose_workspace_edit': return 'Edição proposta, aguardando confirmação do usuário.';
   }
 }

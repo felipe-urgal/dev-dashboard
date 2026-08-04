@@ -260,6 +260,151 @@ test('chat() obtém diff Git de um arquivo do projeto', async () => {
   }
 });
 
+test('chat() propõe uma edição de workspace e emite um preview aguardando confirmação', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-edit-'));
+  await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
+  try {
+    let round = 0;
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => {
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([{
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                function: {
+                  name: 'propose_workspace_edit',
+                  arguments: {
+                    files: [{
+                      path: 'app.rb',
+                      edits: [{
+                        range: { start: { line: 1, column: 1 }, end: { line: 1, column: 9 } },
+                        newText: 'new text',
+                      }],
+                    }],
+                  },
+                },
+              }],
+            },
+            done: true,
+          }]);
+        }
+        return ndjsonResponse([{ message: { role: 'assistant', content: 'Propus a edição.' }, done: true }]);
+      },
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Corrija o texto de app.rb.' },
+    ]);
+    const proposed = events.find((event) => event.type === 'workspace-edit-proposed');
+    assert.ok(proposed && proposed.type === 'workspace-edit-proposed');
+    assert.equal(proposed.preview.files.length, 1);
+    assert.equal(proposed.preview.files[0]?.path, 'app.rb');
+    assert.equal(proposed.preview.files[0]?.afterContent, 'new text\n');
+    assert.ok(proposed.preview.confirmationToken.length > 0);
+
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === true);
+    assert.equal(events.at(-1)?.type, 'done');
+
+    // Nada foi escrito em disco: só o preview foi gerado, aplicar exige o
+    // fluxo HTTP separado (POST /workspace-edits/apply) com o token acima.
+    const fileService = new ProjectFileService();
+    const onDisk = await fileService.readFile(root, 'app.rb');
+    assert.equal(onDisk.content, 'old text\n');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() ignora expectedVersion vindo do modelo e sempre lê a versão atual do servidor', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-edit-version-'));
+  await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
+  try {
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => ndjsonResponse([{
+        message: {
+          role: 'assistant',
+          content: '',
+          tool_calls: [{
+            function: {
+              name: 'propose_workspace_edit',
+              arguments: {
+                files: [{
+                  path: 'app.rb',
+                  // Um modelo mal-intencionado ou confuso poderia tentar enviar uma versão
+                  // "de outro momento" — este campo não faz parte do schema da ferramenta e
+                  // deve ser ignorado; o servidor sempre relê a versão atual do disco.
+                  expectedVersion: 'f'.repeat(64),
+                  edits: [{
+                    range: { start: { line: 1, column: 1 }, end: { line: 1, column: 9 } },
+                    newText: 'new text',
+                  }],
+                }],
+              },
+            },
+          }],
+        },
+        done: true,
+      }]),
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Corrija app.rb.' },
+    ]);
+    const proposed = events.find((event) => event.type === 'workspace-edit-proposed');
+    assert.ok(proposed && proposed.type === 'workspace-edit-proposed');
+    assert.equal(proposed.preview.files[0]?.afterContent, 'new text\n');
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() recusa propose_workspace_edit sem edições e não gera preview', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-edit-invalid-'));
+  await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
+  try {
+    let round = 0;
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => {
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([{
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                function: {
+                  name: 'propose_workspace_edit',
+                  arguments: { files: [{ path: 'app.rb', edits: [] }] },
+                },
+              }],
+            },
+            done: true,
+          }]);
+        }
+        return ndjsonResponse([{ message: { role: 'assistant', content: 'Não consegui propor a edição.' }, done: true }]);
+      },
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Corrija app.rb.' },
+    ]);
+    assert.equal(events.some((event) => event.type === 'workspace-edit-proposed'), false);
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('chat() não emite eventos quando o sinal já está abortado', async () => {
   const controller = new AbortController();
   controller.abort();
@@ -321,6 +466,27 @@ test('chat() emite um erro claro quando o Ollama envia NDJSON malformado', async
   assert.equal(events.length, 1);
   assert.equal(events[0]?.type, 'error');
   assert.match((events[0] as { message: string }).message, /não pôde ser interpretad/);
+});
+
+test('chat() traduz o timeout interno da rodada num erro claro em vez do texto nativo do AbortController', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async () => {
+      // Simula o que o `fetch` nativo lança quando o `timeoutController` interno
+      // (não o cancelamento do usuário) aborta a requisição por estourar o
+      // tempo limite da rodada.
+      throw new DOMException('This operation was aborted', 'AbortError');
+    },
+  );
+  const events = await collect(service, project('/tmp/inexistente'), 'llama3.1', [
+    { role: 'user', content: 'Oi' },
+  ]);
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.type, 'error');
+  const message = (events[0] as { message: string }).message;
+  assert.match(message, /não respondeu em \d+ segundos/);
+  assert.doesNotMatch(message, /This operation was aborted/);
 });
 
 test('status() reporta fill-in-the-middle quando o Ollama anuncia a capacidade insert', async () => {

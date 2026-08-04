@@ -25,6 +25,7 @@ import { ProjectEditorService } from './services/project-editor-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
+import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -46,6 +47,7 @@ export interface AppContext {
   projectEditorService: ProjectEditorService;
   projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
+  projectWorkspaceEditService: ProjectWorkspaceEditService;
   aiAssistantService: AiAssistantService;
 }
 
@@ -58,6 +60,7 @@ export function createAppContext(): AppContext {
   const databaseDetectionService = new DatabaseDetectionService();
   const gitService = new DashboardGitService();
   const projectFileService = new ProjectFileService();
+  const projectWorkspaceEditService = new ProjectWorkspaceEditService(projectFileService);
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -79,6 +82,12 @@ export function createAppContext(): AppContext {
     projectEditorService: new ProjectEditorService(),
     projectFileService,
     serverHealthCheckService: new ServerHealthCheckService(),
-    aiAssistantService: new AiAssistantService(projectFileService, gitService),
+    projectWorkspaceEditService,
+    aiAssistantService: new AiAssistantService(
+      projectFileService,
+      gitService,
+      undefined,
+      projectWorkspaceEditService,
+    ),
   };
 }

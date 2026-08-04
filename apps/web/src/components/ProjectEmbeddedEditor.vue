@@ -1198,6 +1198,7 @@ onBeforeUnmount(() => {
         :active-file-path="activeFile?.path ?? ''"
         :active-file-language="activeFile?.language ?? ''"
         :selected-text="selectedText"
+        @workspace-edit-proposed="(preview) => { workspaceEditPreview = preview; }"
       />
     </div>
   </section>

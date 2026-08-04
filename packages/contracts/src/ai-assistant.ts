@@ -1,3 +1,5 @@
+import type { ProjectWorkspaceEditPreview } from './project-files.js';
+
 export type AiCapability = 'chat' | 'tools' | 'fill-in-the-middle';
 
 export interface AiModelInfo {
@@ -16,7 +18,8 @@ export type AiTool =
   | 'read_project_file'
   | 'search_project_text'
   | 'list_project_files'
-  | 'get_git_diff';
+  | 'get_git_diff'
+  | 'propose_workspace_edit';
 
 export type AiChatRole = 'user' | 'assistant' | 'system';
 
@@ -34,6 +37,7 @@ export type AiChatStreamEvent =
   | { type: 'message-delta'; content: string }
   | { type: 'tool-call'; tool: AiTool; arguments: Record<string, unknown> }
   | { type: 'tool-result'; tool: AiTool; ok: boolean; summary: string }
+  | { type: 'workspace-edit-proposed'; preview: ProjectWorkspaceEditPreview }
   | { type: 'done' }
   | { type: 'error'; message: string };
 

@@ -5,6 +5,7 @@ import type {
   AiChatMessage,
   AiChatStreamEvent,
   ProjectAiStatus,
+  ProjectWorkspaceEditPreview,
 } from '@dev-dashboard/contracts';
 
 import { fetchProjectAiStatus, streamProjectAiChat } from '../api';
@@ -14,6 +15,10 @@ const props = defineProps<{
   activeFilePath: string;
   activeFileLanguage: string;
   selectedText: string;
+}>();
+
+const emit = defineEmits<{
+  'workspace-edit-proposed': [preview: ProjectWorkspaceEditPreview];
 }>();
 
 interface TranscriptEntry {
@@ -29,7 +34,8 @@ const transcript = ref<TranscriptEntry[]>([]);
 const streaming = ref(false);
 const errorMessage = ref('');
 const activityLog = ref<string[]>([]);
-const transcriptEnd = ref<HTMLElement | null>(null);
+const transcriptContainer = ref<HTMLElement | null>(null);
+let stickToBottom = true;
 
 let activeStream: { close: () => void; done: Promise<void> } | undefined;
 
@@ -71,9 +77,29 @@ function quickAction(instruction: string): void {
   draft.value = `${instruction}${contextBlock()}`;
 }
 
-async function scrollToEnd(): Promise<void> {
+const STICK_TO_BOTTOM_THRESHOLD_PX = 24;
+
+function handleTranscriptScroll(): void {
+  const container = transcriptContainer.value;
+  if (!container) return;
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  stickToBottom = distanceFromBottom <= STICK_TO_BOTTOM_THRESHOLD_PX;
+}
+
+/**
+ * Rola só o próprio container do transcript (nunca a página): `scrollIntoView`
+ * rolaria qualquer ancestral necessário para trazer o elemento à vista,
+ * incluindo o documento, arrastando a página inteira a cada delta de streaming.
+ * Fora do envio de uma mensagem nova (`force`), só gruda no fim se o usuário já
+ * estava lá — assim dá para rolar para cima e ler durante o streaming sem ser
+ * puxado de volta a cada token.
+ */
+async function scrollToEnd(force = false): Promise<void> {
   await nextTick();
-  transcriptEnd.value?.scrollIntoView({ block: 'end' });
+  const container = transcriptContainer.value;
+  if (!container || (!force && !stickToBottom)) return;
+  container.scrollTop = container.scrollHeight;
+  stickToBottom = true;
 }
 
 async function send(): Promise<void> {
@@ -88,7 +114,7 @@ async function send(): Promise<void> {
   errorMessage.value = '';
   activityLog.value = [];
   streaming.value = true;
-  void scrollToEnd();
+  void scrollToEnd(true);
 
   let assistantContent = '';
   const finish = (): void => {
@@ -116,6 +142,10 @@ async function send(): Promise<void> {
       }
       if (event.type === 'tool-result') {
         activityLog.value = [...activityLog.value, `${event.tool}: ${event.summary}`];
+        return;
+      }
+      if (event.type === 'workspace-edit-proposed') {
+        emit('workspace-edit-proposed', event.preview);
         return;
       }
       if (event.type === 'done') {
@@ -202,7 +232,13 @@ onBeforeUnmount(() => cancel());
         </button>
       </div>
 
-      <div class="ai-panel-transcript" role="log" aria-label="Conversa com o assistente de IA">
+      <div
+        ref="transcriptContainer"
+        class="ai-panel-transcript"
+        role="log"
+        aria-label="Conversa com o assistente de IA"
+        @scroll="handleTranscriptScroll"
+      >
         <p v-if="transcript.length === 0" class="ai-panel-placeholder">
           Pergunte sobre o arquivo atual, uma seleção ou o projeto. As respostas não são
           salvas entre sessões.
@@ -219,7 +255,6 @@ onBeforeUnmount(() => cancel());
         <p v-if="activityLog.length > 0" class="ai-panel-activity" role="status">
           {{ activityLog.at(-1) }}
         </p>
-        <div ref="transcriptEnd" />
       </div>
 
       <p v-if="errorMessage" class="alert alert-error ai-panel-error" role="alert">

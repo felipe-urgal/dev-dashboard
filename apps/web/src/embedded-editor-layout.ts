@@ -3,6 +3,11 @@ const MAX_SIDEBAR_WIDTH = 520;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 const STORAGE_KEY = 'dev-dashboard:embedded-editor-sidebar-width';
 
+const MIN_AI_WIDTH = 260;
+const MAX_AI_WIDTH = 640;
+const DEFAULT_AI_WIDTH = 320;
+const AI_STORAGE_KEY = 'dev-dashboard:embedded-editor-ai-width';
+
 let observer: MutationObserver | undefined;
 let escapeListenerInstalled = false;
 
@@ -31,6 +36,29 @@ function storeWidth(value: number): void {
   }
 }
 
+function clampAiWidth(value: number): number {
+  return Math.min(MAX_AI_WIDTH, Math.max(MIN_AI_WIDTH, value));
+}
+
+function readStoredAiWidth(): number {
+  try {
+    const raw = window.localStorage.getItem(AI_STORAGE_KEY);
+    if (raw === null || raw.trim() === '') return DEFAULT_AI_WIDTH;
+    const stored = Number(raw);
+    return Number.isFinite(stored) ? clampAiWidth(stored) : DEFAULT_AI_WIDTH;
+  } catch {
+    return DEFAULT_AI_WIDTH;
+  }
+}
+
+function storeAiWidth(value: number): void {
+  try {
+    window.localStorage.setItem(AI_STORAGE_KEY, String(value));
+  } catch {
+    // Preferências locais são opcionais; o editor continua funcional sem elas.
+  }
+}
+
 function requestMonacoLayout(): void {
   window.dispatchEvent(new Event('resize'));
 }
@@ -44,6 +72,18 @@ function setSidebarWidth(
   section.style.setProperty('--embedded-editor-sidebar-width', `${next}px`);
   separator.setAttribute('aria-valuenow', String(next));
   storeWidth(next);
+  requestAnimationFrame(requestMonacoLayout);
+}
+
+function setAiWidth(
+  section: HTMLElement,
+  separator: HTMLElement,
+  width: number,
+): void {
+  const next = clampAiWidth(width);
+  section.style.setProperty('--embedded-editor-ai-width', `${next}px`);
+  separator.setAttribute('aria-valuenow', String(next));
+  storeAiWidth(next);
   requestAnimationFrame(requestMonacoLayout);
 }
 
@@ -150,6 +190,77 @@ function installResizeSeparator(section: HTMLElement): void {
   });
 }
 
+/**
+ * Instalado/removido a cada mutação (chamado fora da guarda de
+ * `editorLayoutEnhanced`, que só roda uma vez): o painel de IA aparece e
+ * desaparece via `v-if` do Vue, então o separador precisa acompanhar —
+ * deixar um separador órfão quando o painel fecha faria o grid de 3 colunas
+ * (sem IA) receber um 4º item sem coluna própria, reproduzindo o mesmo bug
+ * de quebra de layout já corrigido para o próprio painel.
+ */
+function installAiResizeSeparator(section: HTMLElement): void {
+  const shell = section.querySelector<HTMLElement>('.embedded-ide-shell');
+  const aiPanel = shell?.querySelector<HTMLElement>('.embedded-ide-ai-panel');
+  const existing = shell?.querySelector<HTMLElement>('[data-editor-ai-resize-separator]');
+
+  if (!shell || !aiPanel) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+
+  const separator = document.createElement('div');
+  separator.className = 'embedded-ide-resize-separator embedded-ide-ai-resize-separator';
+  separator.dataset.editorAiResizeSeparator = 'true';
+  separator.tabIndex = 0;
+  separator.setAttribute('role', 'separator');
+  separator.setAttribute('aria-label', 'Redimensionar painel de IA');
+  separator.setAttribute('aria-orientation', 'vertical');
+  separator.setAttribute('aria-valuemin', String(MIN_AI_WIDTH));
+  separator.setAttribute('aria-valuemax', String(MAX_AI_WIDTH));
+
+  shell.insertBefore(separator, aiPanel);
+  setAiWidth(section, separator, readStoredAiWidth());
+
+  let startX = 0;
+  let startWidth = DEFAULT_AI_WIDTH;
+
+  const stopResize = (): void => {
+    document.body.classList.remove('embedded-ide-resizing');
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', stopResize);
+    window.removeEventListener('pointercancel', stopResize);
+  };
+
+  // O painel fica à direita do separador: arrastar para a esquerda deve
+  // aumentar sua largura, o oposto do separador da sidebar (à esquerda do
+  // conteúdo que redimensiona).
+  const handlePointerMove = (event: PointerEvent): void => {
+    setAiWidth(section, separator, startWidth - (event.clientX - startX));
+  };
+
+  separator.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    startX = event.clientX;
+    startWidth = aiPanel.getBoundingClientRect().width;
+    document.body.classList.add('embedded-ide-resizing');
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+  });
+
+  separator.addEventListener('dblclick', () => {
+    setAiWidth(section, separator, DEFAULT_AI_WIDTH);
+  });
+
+  separator.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const current = Number(separator.getAttribute('aria-valuenow')) || DEFAULT_AI_WIDTH;
+    setAiWidth(section, separator, current + (event.key === 'ArrowLeft' ? 16 : -16));
+  });
+}
+
 function wheelDeltaInPixels(event: WheelEvent): number {
   if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
   if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
@@ -197,11 +308,16 @@ function installEditorWheelChaining(section: HTMLElement): void {
 }
 
 function enhanceEditor(section: HTMLElement): void {
-  if (section.dataset.editorLayoutEnhanced === 'true') return;
-  section.dataset.editorLayoutEnhanced = 'true';
-  installFullscreenButton(section);
-  installResizeSeparator(section);
-  installEditorWheelChaining(section);
+  if (section.dataset.editorLayoutEnhanced !== 'true') {
+    section.dataset.editorLayoutEnhanced = 'true';
+    installFullscreenButton(section);
+    installResizeSeparator(section);
+    installEditorWheelChaining(section);
+  }
+  // Ao contrário das instalações acima (idempotentes, uma vez por seção), o
+  // painel de IA some e reaparece com o toggle do usuário — precisa ser
+  // reavaliado em toda mutação, não só na primeira vez.
+  installAiResizeSeparator(section);
 }
 
 function enhanceEditors(): void {

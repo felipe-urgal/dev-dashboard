@@ -60,8 +60,9 @@ compromissos de versão.
 - [x] compleção inline (ghost text/FIM) com debounce e cache curto (task 081);
 - [x] smoke E2E do assistente em CI com um double HTTP do Ollama, sem
   depender de instalação local (task 082);
-- [ ] aplicação de edições propostas pela IA — planejada em detalhe,
-  `docs/tasks/083-ai-proposed-edits-plan.md`, ainda não implementada;
+- [x] aplicação de edições propostas pela IA — quinta ferramenta
+  `propose_workspace_edit`, reaproveitando preview/confirmação/rollback da
+  task 077 sem rota nova para aplicar (task 083);
 - [ ] ferramentas de símbolo para o assistente e contexto via embeddings
   locais — candidatos sem plano detalhado, ver `docs/tasks/NEXT.md`.
 
@@ -221,9 +222,8 @@ e integrações revogáveis.
 - temas e painéis adicionais sem execução remota;
 - [x] **editor de código embutido no navegador** — entregue como a IDE
   embutida (Monaco, LSP JavaScript/TypeScript e Ruby/Rails, escrita segura
-  com preview/rollback, assistente de IA local; tasks 076–082, ver seção
-  própria acima). Aplicação de edições propostas pela IA segue planejada
-  (task 083);
+  com preview/rollback, assistente de IA local com aplicação de edições
+  propostas; tasks 076–083, ver seção própria acima);
 - compatibilidade macOS;
 - estratégia separada para Windows, onde processos, sinais e filesystem têm
   semânticas diferentes;

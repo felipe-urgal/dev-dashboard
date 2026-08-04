@@ -136,7 +136,8 @@ baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,
 notificações locais, serviços Docker Compose (start/stop/logs/build) e uma
 IDE embutida (Monaco, LSP JavaScript/TypeScript e Ruby/Rails, escrita segura
 com preview/rollback) com um assistente de IA local via Ollama (chat com
-catálogo fechado de ferramentas somente leitura e compleção inline).
+catálogo fechado de ferramentas — incluindo aplicação de edições propostas
+através do mesmo preview/confirmação seguro — e compleção inline).
 
 O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
 extensível com:
@@ -144,8 +145,6 @@ extensível com:
 - histórico de jobs unificado (Git, Rails e processos numa única linha do
   tempo);
 - GitHub CLI (`git-pr` e além);
-- aplicação de edições propostas pelo assistente de IA (planejada, ver
-  `docs/tasks/083-ai-proposed-edits-plan.md`);
 - plugins;
 - perfis de workspace;
 - automações configuráveis;

@@ -157,3 +157,39 @@ test('erro do assistente é exibido e a conversa não trava em "enviando"', asyn
   assert.equal(wrapper.find('#ai-panel-input').attributes('disabled'), undefined);
   wrapper.unmount();
 });
+
+test('emite workspace-edit-proposed quando o assistente propõe uma edição', async () => {
+  const preview = {
+    confirmationToken: 'token-abc',
+    files: [{
+      path: 'app/models/user.rb',
+      language: 'ruby',
+      beforeVersion: 'a'.repeat(64),
+      beforeContent: 'old',
+      afterContent: 'new',
+    }],
+    expiresAt: new Date().toISOString(),
+  };
+  installFetchMock({
+    status: {
+      available: true,
+      models: [{ name: 'llama3.1', capabilities: ['chat', 'tools'] }],
+      message: '1 modelo instalado.',
+    },
+    chatEvents: [
+      { type: 'workspace-edit-proposed', preview },
+      { type: 'done' },
+    ],
+  });
+  const wrapper = mountPanel();
+  await flushPromises();
+
+  await wrapper.get('#ai-panel-input').setValue('Corrija este arquivo.');
+  await wrapper.get('.ai-panel-composer').trigger('submit');
+  await flushPromises();
+
+  const emitted = wrapper.emitted('workspace-edit-proposed');
+  assert.ok(emitted);
+  assert.deepEqual(emitted?.[0]?.[0], preview);
+  wrapper.unmount();
+});

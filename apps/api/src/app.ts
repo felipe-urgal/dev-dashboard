@@ -46,7 +46,6 @@ import { registerLocalSecurity } from './security/local-security.js';
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
-import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
 import {
@@ -88,10 +87,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
-  const projectWorkspaceEditService = new ProjectWorkspaceEditService(
-    context.projectFileService,
-    options.now ?? Date.now,
-  );
+  const projectWorkspaceEditService = context.projectWorkspaceEditService;
   const projectLanguageServerService =
     options.projectLanguageServerService ?? new ProjectLanguageServerService();
   app.addHook('onClose', async () => {
