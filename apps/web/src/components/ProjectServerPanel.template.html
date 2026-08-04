@@ -241,7 +241,22 @@
               <ArrowTopRightOnSquareIcon aria-hidden="true" />
               Abrir localhost
             </a>
+
+            <button
+              v-if="processStatus === 'running'"
+              type="button"
+              class="server-secondary-button"
+              :disabled="openingBrowser"
+              @click="handleOpenInSystemBrowser"
+            >
+              <ArrowTopRightOnSquareIcon aria-hidden="true" />
+              {{ openingBrowser ? 'Abrindo...' : 'Abrir no navegador do sistema' }}
+            </button>
           </footer>
+
+          <p v-if="browserOpenMessage" class="server-saved-message">
+            {{ browserOpenMessage }}
+          </p>
         </section>
       </div>
     </template>

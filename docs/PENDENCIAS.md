@@ -39,7 +39,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   runners e formatos de relatório diferem.
 - [ ] Adicionar operações reconhecidas para Sidekiq, Webpack e credenciais
   Rails, mantendo catálogo fechado e mascaramento de segredos.
-- [ ] Implementar um adaptador seguro para abrir destinos no navegador local.
+- [x] Implementar um adaptador seguro para abrir destinos no navegador local
+  — task 092: catálogo fechado de destino (`server`), URL resolvida pela API
+  a partir do processo gerenciado em execução, `spawn` sem shell por
+  sistema operacional (`open`/`xdg-open`/`cmd /c start`).
 - [ ] Adicionar projetos recentes por workspace, complementando os favoritos
   já entregues — próxima entrega, task 089; requer semântica e persistência
   próprias.

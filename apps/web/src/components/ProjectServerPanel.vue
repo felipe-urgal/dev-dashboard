@@ -25,6 +25,7 @@ import type {
 
 import {
   fetchProjectServerSettings,
+  openProjectBrowserTarget,
   saveProjectServerSettings,
   startProjectProcess,
   stopProjectProcess,
@@ -83,9 +84,12 @@ const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
+const openingBrowser = ref(false);
+const browserOpenMessage = ref('');
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
+useAutoDismiss(browserOpenMessage, '');
 
 const projectRequests = new RequestGeneration();
 let hasObservedRunning = false;
@@ -302,6 +306,32 @@ async function handleRestart(): Promise<void> {
   }
 }
 
+async function handleOpenInSystemBrowser(): Promise<void> {
+  const projectId = props.project.id;
+  const generation = projectRequests.capture();
+  openingBrowser.value = true;
+  browserOpenMessage.value = '';
+  errorMessage.value = '';
+
+  try {
+    await openProjectBrowserTarget(projectId, 'server');
+    if (isCurrentProject(projectId, generation)) {
+      browserOpenMessage.value = 'Aberto no navegador padrão do sistema.';
+    }
+  } catch (error) {
+    if (isCurrentProject(projectId, generation)) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível abrir o navegador padrão do sistema.';
+    }
+  } finally {
+    if (isCurrentProject(projectId, generation)) {
+      openingBrowser.value = false;
+    }
+  }
+}
+
 function resetPanelState(): void {
   projectRequests.invalidate();
 
@@ -311,6 +341,8 @@ function resetPanelState(): void {
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
+  openingBrowser.value = false;
+  browserOpenMessage.value = '';
   resetHealth();
 }
 

@@ -26,7 +26,6 @@ da task 086 e o texto atual de `docs/PENDENCIAS.md`.
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
 | Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
-| Adaptador seguro para abrir destino no navegador local | rota nova em `apps/api`, sem tocar painéis existentes | pequeno | nenhum |
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
 | Automatizar changelog/release/tags | `.github/workflows/`, config na raiz | pequeno/médio | nenhum com código de `apps/`/`lib/` |
@@ -60,3 +59,6 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
   #179.
 - Task 090 — Cache da detecção inicial do CLI (`lib/projects/cache.sh`) por
   assinatura de mtime, com `detect_projects --force` para ignorar.
+- Task 092 — Adaptador seguro para abrir o destino do servidor gerenciado no
+  navegador padrão do sistema operacional, com catálogo fechado de destino e
+  de comando por sistema operacional, sem shell.
