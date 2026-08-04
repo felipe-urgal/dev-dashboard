@@ -7,7 +7,9 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Validar e otimizar a navegação em tablet com E2E responsivo.
+- [ ] Executar a auditoria de prioridades pós-IDE descrita em
+  `docs/tasks/NEXT.md`, comparar as frentes pendentes com evidência do código e
+  escolher uma única próxima implementação.
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
@@ -108,8 +110,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Mapa da documentação Markdown
 
-O repositório possui 104 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 86 em `docs/tasks/` (84 tasks numeradas, mais
+O repositório possui 105 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 87 em `docs/tasks/` (85 tasks numeradas, mais
 `README.md` e `NEXT.md`). O mapa abaixo cobre os 18 arquivos restantes; as
 tasks numeradas são detalhadas individualmente pelo índice de
 `docs/tasks/README.md` para evitar manter duas listas históricas paralelas.
@@ -161,8 +163,8 @@ tasks numeradas são detalhadas individualmente pelo índice de
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `084`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-084-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `085`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-085-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
 | [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
