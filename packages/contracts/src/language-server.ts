@@ -1,3 +1,5 @@
+import type { ProjectTextRange } from './project-files.js';
+
 export type ProjectLanguageServerKind = 'javascript-typescript' | 'ruby';
 
 export type ProjectLanguageServerState =
@@ -34,4 +36,9 @@ export interface ProjectLanguageServerStatus {
 export interface ProjectRailsRuntimeConfirmation {
   token: string;
   expiresAt: string;
+}
+
+export interface ProjectSymbolLocation {
+  path: string;
+  range: ProjectTextRange;
 }

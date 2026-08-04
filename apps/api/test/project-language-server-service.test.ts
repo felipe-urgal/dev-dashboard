@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Project } from '@dev-dashboard/contracts';
@@ -407,6 +408,117 @@ test('reconhece sinais Rails/Ruby: Gemfile, .ruby-version e tipo do projeto', as
     assert.equal(withRubyVersion.supported, true);
     service.close();
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('requestSymbolLocations envia uma requisição LSP one-shot sem exigir socket de navegador', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-symbol-'));
+  await writeFile(path.join(root, 'Gemfile'), 'source "https://rubygems.org"\n');
+  await writeFile(path.join(root, 'app.rb'), 'class Foo\nend\n');
+  const child = new FakeChild();
+  const writes: Buffer[] = [];
+  child.stdin.on('data', (chunk: Buffer) => writes.push(chunk));
+  const service = new ProjectLanguageServerService({
+    idleTimeoutMs: 5,
+    findCommand: async () => ({ executable: '/usr/bin/ruby-lsp', args: ['--stdio'], usesRailsRuntime: false }),
+    spawnProcess: () => child as unknown as ChildProcessWithoutNullStreams,
+  });
+
+  try {
+    const decoder = new LspMessageDecoder();
+    const decodeNewWrites = (): unknown[] => {
+      const messages = decoder.push(Buffer.concat(writes));
+      writes.length = 0;
+      return messages;
+    };
+
+    const requestPromise = service.requestSymbolLocations(
+      project(root),
+      'ruby',
+      'app.rb',
+      { line: 1, column: 7 },
+      'textDocument/definition',
+    );
+    // `requestSymbolLocations` lê o arquivo via fs assíncrono antes de
+    // escrever o didOpen — um único `setImmediate` nem sempre é suficiente.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const beforeResponse = decodeNewWrites();
+    assert.equal((beforeResponse[0] as { method: string }).method, 'textDocument/didOpen');
+    const request = beforeResponse[1] as { id: number; method: string };
+    assert.equal(request.method, 'textDocument/definition');
+    assert.equal(request.id, -1, 'o primeiro pedido one-shot usa um id negativo, sem colidir com o navegador');
+
+    const targetUri = pathToFileURL(path.join(root, 'app.rb')).href;
+    child.stdout.write(encodeLspMessage({
+      jsonrpc: '2.0',
+      id: -1,
+      result: {
+        uri: targetUri,
+        range: { start: { line: 0, character: 6 }, end: { line: 0, character: 9 } },
+      },
+    }));
+
+    const locations = await requestPromise;
+    assert.deepEqual(locations, [{
+      path: 'app.rb',
+      range: { start: { line: 1, column: 7 }, end: { line: 1, column: 10 } },
+    }]);
+
+    await new Promise((resolve) => setImmediate(resolve));
+    const afterResponse = decodeNewWrites();
+    assert.equal((afterResponse[0] as { method: string }).method, 'textDocument/didClose');
+  } finally {
+    service.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('requestSymbolLocations retorna undefined sem spawnar quando o LSP não está disponível', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-symbol-unavailable-'));
+  try {
+    const service = new ProjectLanguageServerService({
+      findCommand: async () => undefined,
+    });
+    const locations = await service.requestSymbolLocations(
+      project(root),
+      'ruby',
+      'app.rb',
+      { line: 1, column: 1 },
+      'textDocument/references',
+    );
+    assert.equal(locations, undefined);
+    service.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('requestSymbolLocations rejeita com clareza quando o servidor não responde a tempo', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-lsp-symbol-timeout-'));
+  await writeFile(path.join(root, 'Gemfile'), 'source "https://rubygems.org"\n');
+  await writeFile(path.join(root, 'app.rb'), 'class Foo\nend\n');
+  const child = new FakeChild();
+  const service = new ProjectLanguageServerService({
+    symbolRequestTimeoutMs: 5,
+    findCommand: async () => ({ executable: '/usr/bin/ruby-lsp', args: ['--stdio'], usesRailsRuntime: false }),
+    spawnProcess: () => child as unknown as ChildProcessWithoutNullStreams,
+  });
+
+  try {
+    await assert.rejects(
+      service.requestSymbolLocations(
+        project(root),
+        'ruby',
+        'app.rb',
+        { line: 1, column: 1 },
+        'textDocument/definition',
+      ),
+      /não respondeu a tempo/,
+    );
+  } finally {
+    service.close();
     await rm(root, { recursive: true, force: true });
   }
 });

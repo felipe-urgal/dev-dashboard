@@ -1,3 +1,5 @@
+import { extname } from 'node:path';
+
 import type {
   AiCapability,
   AiChatMessage,
@@ -16,6 +18,7 @@ import type {
 import { ProjectFileError, ProjectFileService } from './project-file-service.js';
 import { GitService } from './git-service.js';
 import { ProjectWorkspaceEditService } from './project-workspace-edit-service.js';
+import { ProjectLanguageServerService } from './project-language-server-service.js';
 
 const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 // `new URL(...).hostname` mantém colchetes para literais IPv6 (ex.: '[::1]',
@@ -40,6 +43,8 @@ const TOOL_NAMES: readonly AiTool[] = [
   'list_project_files',
   'get_git_diff',
   'propose_workspace_edit',
+  'get_symbol_definition',
+  'get_symbol_references',
 ];
 
 /**
@@ -164,6 +169,42 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_symbol_definition',
+      description:
+        'Localiza a definição de um símbolo (variável, método, classe) numa posição de um '
+        + 'arquivo do projeto atual, usando o servidor de linguagem (LSP) já ativo para o projeto.',
+      parameters: {
+        type: 'object',
+        required: ['path', 'line', 'column'],
+        properties: {
+          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          line: { type: 'number', description: 'Linha do símbolo (1-based).' },
+          column: { type: 'number', description: 'Coluna do símbolo (1-based).' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_symbol_references',
+      description:
+        'Lista onde um símbolo (variável, método, classe) numa posição de um arquivo do projeto '
+        + 'atual é referenciado, usando o servidor de linguagem (LSP) já ativo para o projeto.',
+      parameters: {
+        type: 'object',
+        required: ['path', 'line', 'column'],
+        properties: {
+          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          line: { type: 'number', description: 'Linha do símbolo (1-based).' },
+          column: { type: 'number', description: 'Coluna do símbolo (1-based).' },
+        },
+      },
+    },
+  },
 ] as const;
 
 interface OllamaToolCall {
@@ -232,6 +273,8 @@ export class AiAssistantService {
     private readonly fetchImpl: typeof fetch = fetch,
     private readonly workspaceEditService: ProjectWorkspaceEditService =
       new ProjectWorkspaceEditService(projectFileService),
+    private readonly languageServerService: ProjectLanguageServerService =
+      new ProjectLanguageServerService({ projectFileService }),
   ) {}
 
   public async status(): Promise<ProjectAiStatus> {
@@ -568,6 +611,33 @@ export class AiAssistantService {
             expiresAt: preview.expiresAt,
           };
         }
+        case 'get_symbol_definition':
+        case 'get_symbol_references': {
+          const path = requireStringArg(args, 'path');
+          const line = requireNumberArg(args, 'line');
+          const column = requireNumberArg(args, 'column');
+          const kind = languageServerKindForPath(path);
+          if (!kind) {
+            return { available: false, message: 'Nenhum servidor de linguagem reconhece este tipo de arquivo.' };
+          }
+          const method = tool === 'get_symbol_definition'
+            ? 'textDocument/definition' as const
+            : 'textDocument/references' as const;
+          const locations = await this.languageServerService.requestSymbolLocations(
+            project,
+            kind,
+            path,
+            { line, column },
+            method,
+          );
+          if (locations === undefined) {
+            return {
+              available: false,
+              message: 'O servidor de linguagem não está disponível para este projeto.',
+            };
+          }
+          return { available: true, locations };
+        }
       }
     } catch (error) {
       if (error instanceof ProjectFileError || error instanceof Error) {
@@ -632,6 +702,25 @@ function requireStringArg(args: Record<string, unknown>, key: string): string {
     throw new AiAssistantError(`O argumento "${key}" é obrigatório.`);
   }
   return value;
+}
+
+function requireNumberArg(args: Record<string, unknown>, key: string): number {
+  const value = args[key];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new AiAssistantError(`O argumento "${key}" deve ser um número.`);
+  }
+  return value;
+}
+
+const JAVASCRIPT_TYPESCRIPT_EXTENSIONS = new Set([
+  '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts',
+]);
+
+function languageServerKindForPath(filePath: string): 'javascript-typescript' | 'ruby' | undefined {
+  const extension = extname(filePath).toLowerCase();
+  if (extension === '.rb') return 'ruby';
+  if (JAVASCRIPT_TYPESCRIPT_EXTENSIONS.has(extension)) return 'javascript-typescript';
+  return undefined;
 }
 
 interface WorkspaceEditFileInput {
@@ -701,5 +790,7 @@ function summaryFor(tool: AiTool): string {
     case 'list_project_files': return 'Diretório listado.';
     case 'get_git_diff': return 'Diff obtido.';
     case 'propose_workspace_edit': return 'Edição proposta, aguardando confirmação do usuário.';
+    case 'get_symbol_definition': return 'Definição consultada.';
+    case 'get_symbol_references': return 'Referências consultadas.';
   }
 }

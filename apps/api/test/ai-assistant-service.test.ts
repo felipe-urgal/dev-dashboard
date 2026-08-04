@@ -7,10 +7,18 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 
 import type { AiChatMessage, AiChatStreamEvent, Project } from '@dev-dashboard/contracts';
+import type { ProjectLanguageServerService } from '../src/services/project-language-server-service.js';
 
 import { AiAssistantService, resolveOllamaBaseUrl } from '../src/services/ai-assistant-service.js';
 import { GitService } from '../src/services/git-service.js';
 import { ProjectFileService } from '../src/services/project-file-service.js';
+import { ProjectWorkspaceEditService } from '../src/services/project-workspace-edit-service.js';
+
+function fakeLanguageServerService(
+  requestSymbolLocations: ProjectLanguageServerService['requestSymbolLocations'],
+): ProjectLanguageServerService {
+  return { requestSymbolLocations } as unknown as ProjectLanguageServerService;
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -569,4 +577,137 @@ test('complete() propaga falha do Ollama como erro claro', async () => {
     () => service.complete('llama3.1', 'const x = ', '', new AbortController().signal),
     /status 500/,
   );
+});
+
+test('chat() consulta a definição de um símbolo via LSP e devolve os locais ao modelo', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-symbol-def-'));
+  try {
+    let round = 0;
+    const languageServerService = fakeLanguageServerService(async (project, kind, filePath, position, method) => {
+      assert.equal(kind, 'ruby');
+      assert.equal(filePath, 'app.rb');
+      assert.deepEqual(position, { line: 3, column: 5 });
+      assert.equal(method, 'textDocument/definition');
+      return [{ path: 'app/models/user.rb', range: { start: { line: 1, column: 1 }, end: { line: 1, column: 10 } } }];
+    });
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => {
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([{
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                function: {
+                  name: 'get_symbol_definition',
+                  arguments: { path: 'app.rb', line: 3, column: 5 },
+                },
+              }],
+            },
+            done: true,
+          }]);
+        }
+        return ndjsonResponse([{ message: { role: 'assistant', content: 'Definido em user.rb.' }, done: true }]);
+      },
+      new ProjectWorkspaceEditService(new ProjectFileService()),
+      languageServerService,
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Onde isso é definido?' },
+    ]);
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === true);
+    assert.equal(events.at(-1)?.type, 'done');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() consulta referências de um símbolo e informa quando o LSP não está disponível', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-symbol-refs-'));
+  try {
+    const languageServerService = fakeLanguageServerService(async () => undefined);
+    let round = 0;
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => {
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([{
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                function: {
+                  name: 'get_symbol_references',
+                  arguments: { path: 'app.js', line: 1, column: 1 },
+                },
+              }],
+            },
+            done: true,
+          }]);
+        }
+        return ndjsonResponse([{ message: { role: 'assistant', content: 'Não há LSP disponível.' }, done: true }]);
+      },
+      new ProjectWorkspaceEditService(new ProjectFileService()),
+      languageServerService,
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Onde isso é usado?' },
+    ]);
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === true);
+    assert.equal(events.at(-1)?.type, 'done');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() recusa get_symbol_definition para extensão sem servidor de linguagem reconhecido', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-symbol-unknown-'));
+  try {
+    let calledLanguageServer = false;
+    const languageServerService = fakeLanguageServerService(async () => {
+      calledLanguageServer = true;
+      return [];
+    });
+    let round = 0;
+    const service = new AiAssistantService(
+      new ProjectFileService(),
+      new GitService(),
+      async () => {
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([{
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [{
+                function: {
+                  name: 'get_symbol_definition',
+                  arguments: { path: 'README.md', line: 1, column: 1 },
+                },
+              }],
+            },
+            done: true,
+          }]);
+        }
+        return ndjsonResponse([{ message: { role: 'assistant', content: 'Sem suporte para este arquivo.' }, done: true }]);
+      },
+      new ProjectWorkspaceEditService(new ProjectFileService()),
+      languageServerService,
+    );
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Onde isso é definido?' },
+    ]);
+    assert.equal(calledLanguageServer, false);
+    const toolResult = events.find((event) => event.type === 'tool-result');
+    assert.ok(toolResult && toolResult.type === 'tool-result' && toolResult.ok === true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

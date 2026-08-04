@@ -89,7 +89,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   );
   const projectWorkspaceEditService = context.projectWorkspaceEditService;
   const projectLanguageServerService =
-    options.projectLanguageServerService ?? new ProjectLanguageServerService();
+    options.projectLanguageServerService ?? context.projectLanguageServerService;
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();

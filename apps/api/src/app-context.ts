@@ -26,6 +26,7 @@ import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
+import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -48,6 +49,7 @@ export interface AppContext {
   projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
   projectWorkspaceEditService: ProjectWorkspaceEditService;
+  projectLanguageServerService: ProjectLanguageServerService;
   aiAssistantService: AiAssistantService;
 }
 
@@ -61,6 +63,7 @@ export function createAppContext(): AppContext {
   const gitService = new DashboardGitService();
   const projectFileService = new ProjectFileService();
   const projectWorkspaceEditService = new ProjectWorkspaceEditService(projectFileService);
+  const projectLanguageServerService = new ProjectLanguageServerService({ projectFileService });
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -83,11 +86,13 @@ export function createAppContext(): AppContext {
     projectFileService,
     serverHealthCheckService: new ServerHealthCheckService(),
     projectWorkspaceEditService,
+    projectLanguageServerService,
     aiAssistantService: new AiAssistantService(
       projectFileService,
       gitService,
       undefined,
       projectWorkspaceEditService,
+      projectLanguageServerService,
     ),
   };
 }
