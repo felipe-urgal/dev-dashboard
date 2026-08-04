@@ -8,6 +8,7 @@ import {
 } from 'vue';
 import type {
   ManagedProcess,
+  ProcessLogSnapshot,
   Project,
   ProjectTestOverview,
 } from '@dev-dashboard/contracts';
@@ -46,6 +47,7 @@ export function useProjectTestProcess(
   overview: Ref<ProjectTestOverview | null>,
 ) {
   const managedProcess = ref<ManagedProcess | null>(null);
+  const logSnapshot = ref<ProcessLogSnapshot | null>(null);
   const logContent = ref('');
   const logTruncated = ref(false);
   const startingCommandId = ref<string | null>(null);
@@ -121,6 +123,12 @@ export function useProjectTestProcess(
     return process ? [process.command, ...(process.args ?? [])].filter(Boolean).join(' ') : '—';
   });
 
+  function applyLogSnapshot(log: ProcessLogSnapshot | null): void {
+    logSnapshot.value = log;
+    logContent.value = log?.content ?? '';
+    logTruncated.value = log?.truncated ?? false;
+  }
+
   function cancelSuccessResultReset(): void {
     if (successResultResetTimer === null) return;
     clearTimeout(successResultResetTimer);
@@ -137,8 +145,7 @@ export function useProjectTestProcess(
     ) return;
 
     managedProcess.value = null;
-    logContent.value = '';
-    logTruncated.value = false;
+    applyLogSnapshot(null);
     copyMessage.value = '';
     activeLogTab.value = 'log';
   }
@@ -166,13 +173,9 @@ export function useProjectTestProcess(
       if (result) {
         const log = await fetchProjectTestLog(projectId).catch(() => null);
         if (!currentRequest(projectId, requestGeneration)) return true;
-        if (log) {
-          logContent.value = log.content;
-          logTruncated.value = log.truncated;
-        }
+        if (log) applyLogSnapshot(log);
       } else {
-        logContent.value = '';
-        logTruncated.value = false;
+        applyLogSnapshot(null);
       }
       if (errorMessage.value === recoveryMessage) errorMessage.value = '';
       return true;
@@ -206,10 +209,7 @@ export function useProjectTestProcess(
       const stream = followTestExecutionEvents(projectId, (event) => {
         if (!currentRequest(projectId, requestGeneration)) return;
         if (event.type === 'state') managedProcess.value = event.process;
-        else {
-          logContent.value = event.log.content;
-          logTruncated.value = event.log.truncated;
-        }
+        else applyLogSnapshot(event.log);
       });
       closeExecutionEvents = stream.close;
       try {
@@ -245,8 +245,7 @@ export function useProjectTestProcess(
           : await startProjectTest(projectId, target.commandId);
       if (!currentRequest(projectId, requestGeneration)) return;
       managedProcess.value = result;
-      logContent.value = '';
-      logTruncated.value = false;
+      applyLogSnapshot(null);
       void followProcess();
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
@@ -283,8 +282,7 @@ export function useProjectTestProcess(
     try {
       const log = await clearProjectTestLog(projectId);
       if (!currentRequest(projectId, requestGeneration)) return;
-      logContent.value = log.content;
-      logTruncated.value = log.truncated;
+      applyLogSnapshot(log);
       activeLogTab.value = 'log';
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
@@ -348,8 +346,7 @@ export function useProjectTestProcess(
       hasObservedRunning = false;
       lastStartedCommandId = null;
       managedProcess.value = null;
-      logContent.value = '';
-      logTruncated.value = false;
+      applyLogSnapshot(null);
       startingCommandId.value = null;
       stopping.value = false;
       errorMessage.value = '';
@@ -379,6 +376,7 @@ export function useProjectTestProcess(
     handleStop,
     isRunning,
     logContent,
+    logSnapshot,
     logTruncated,
     logViewport,
     managedProcess,
