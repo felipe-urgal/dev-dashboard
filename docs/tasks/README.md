@@ -4,6 +4,8 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 
 `NEXT.md` descreve a próxima atividade aprovada em detalhe. Ao concluir uma task, o registro atual deve ser atualizado com os resultados reais e `NEXT.md` deve ser substituído pelo próximo plano.
 
+`PARALLEL-WORK.md` é diferente: uma lista de candidatas do inventário (`docs/PENDENCIAS.md`) sem sobreposição de arquivos entre si, para quando mais de uma frente está em implementação ao mesmo tempo.
+
 ## Status
 
 - `001-project-git.md` — implementação da visão Git somente leitura.
@@ -93,3 +95,4 @@ Cada entrega funcional deve possuir um documento numerado nesta pasta. O documen
 - `084-ai-symbol-tools-plan.md` — sexta e sétima ferramentas do assistente, `get_symbol_definition`/`get_symbol_references`: uma requisição LSP "de uma vez" disparada pelo próprio servidor, sem depender de WebSocket do navegador — correlator de requisição/resposta com IDs negativos, mesma sessão/processo que o navegador usaria, nenhuma rota HTTP nova.
 - `085-tablet-navigation-e2e.md` — app shell usa drawer entre 761 e 900 px, preserva a sidebar completa mesmo com a preferência desktop recolhida e amplia o smoke Playwright para desktop, tablet e tela estreita.
 - `086-post-ide-priority-audit.md` — auditoria documental pós-IDE que compara pendências com o código atual, prioriza exportação segura de logs e divide frentes grandes antes de novas implementações.
+- `088-cli-non-interactive-tests.md` — primeira suíte automatizada do CLI bash: `tests/cli/run.sh` cobre helpers não interativos (`_dev_*`, `_project_*`, `_git_*`, `_new_*`) sem framework externo, distinta dos menus de `lib/*/tests/`.

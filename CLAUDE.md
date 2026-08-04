@@ -9,10 +9,11 @@ O projeto possui **duas interfaces compartilhando um mesmo repositório**, confo
 1. **O CLI bash original** — um dashboard interativo para alternar entre projetos locais (Rails e
    Node), iniciado a partir de qualquer shell via `dev-tools`. É uma biblioteca de funções shell
    carregadas no shell interativo do usuário (`~/.bashrc`), no espírito dos plugins do oh-my-zsh.
-   Sem build step, sem compilador, sem suíte de testes automatizados própria (`lib/*/tests/` são
-   menus para rodar a suíte de testes *do projeto alvo*, ex. `bundle exec rspec`, não testes deste
-   codebase). Essa interface não é afetada pelo monorepo abaixo — nada em `apps/` ou `packages/`
-   referencia `lib/`, e `init.sh` continua carregando-a exatamente como antes.
+   Sem build step, sem compilador. Possui uma suíte própria pequena para os helpers não
+   interativos, em `tests/cli/` (`lib/*/tests/` é outra coisa: menus para rodar a suíte de testes
+   *do projeto alvo*, ex. `bundle exec rspec`, não testes deste codebase). Essa interface não é
+   afetada pelo monorepo abaixo — nada em `apps/` ou `packages/` referencia `lib/`, e `init.sh`
+   continua carregando-a exatamente como antes.
 2. **Um dashboard web mais recente** — um monorepo TypeScript com npm workspaces (`apps/api`
    backend Fastify, `apps/web` frontend Vue 3 + Vite, `packages/*` bibliotecas compartilhadas) que
    reimplementa as mesmas capacidades (descoberta de workspaces/projetos, iniciar/parar servidores,
@@ -49,6 +50,17 @@ dev-tools
 Como a maioria das funções é interativa (menus, prompts, subshells), verificar uma mudança
 geralmente significa rodar a função específica diretamente em um shell com o dashboard carregado
 (ex. `git-save "test"`, `dev-status-all`) em vez de escrever um teste automatizado.
+
+Os helpers **não interativos** (`_dev_*`, `_project_*`, `_git_*`, `_new_*` puros — sem `gum`, sem
+`read -r -p`) têm uma suíte própria em `tests/cli/` (só `bash` + `git`, sem dependência externa):
+
+```bash
+tests/cli/run.sh
+```
+
+Veja `tests/cli/README.md` para a convenção de casos. Isso é diferente de `lib/*/tests/`, que são
+menus para rodar a suíte de testes *do projeto alvo* (ex. `bundle exec rspec`), não testes deste
+codebase.
 
 `init.sh` protege contra carregamento duplicado via `DEV_LOADED`; se você estiver testando mudanças
 em múltiplas passagens de source no mesmo shell, faça `unset DEV_LOADED` primeiro ou inicie um
