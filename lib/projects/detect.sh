@@ -16,7 +16,32 @@ _project_detect_type() {
   fi
 }
 
+# Ponto de entrada público. Usa o cache de lib/projects/cache.sh quando a
+# assinatura (mtimes de DEV_BASE, do arquivo de overrides e de cada projeto)
+# não mudou desde a última varredura — evita reabrir Gemfile/package.json/
+# database.yml de cada projeto a cada shell novo em workspaces grandes.
+# `detect_projects --force` ignora o cache e varre de novo.
 detect_projects() {
+  local force="${1:-}"
+  local base="${DEV_BASE:-$HOME/Caiena/Projetos}"
+
+  if [ "$force" != "--force" ] && declare -f _detect_cache_signature &>/dev/null; then
+    local signature
+    signature="$(_detect_cache_signature)" && _detect_cache_read "$signature" && return 0
+  fi
+
+  _detect_projects_scan
+  local status=$?
+
+  if [ $status -eq 0 ] && [ -d "$base" ] && declare -f _detect_cache_write &>/dev/null; then
+    local signature
+    signature="$(_detect_cache_signature 2>/dev/null)" && _detect_cache_write "$signature"
+  fi
+
+  return $status
+}
+
+_detect_projects_scan() {
   PROJECT_META=()
   local base="${DEV_BASE:-$HOME/Caiena/Projetos}"
 
@@ -48,7 +73,7 @@ detect_projects() {
   fi
 
   for project in "${projects_found[@]}"; do
-    local cfg="${PROJECT_CONFIG[$project]}"
+    local cfg="${PROJECT_CONFIG[$project]:-}"
     if [[ -n "$cfg" && "$cfg" =~ ^[0-9]+$ ]]; then
       used_ports+=("$cfg")
     fi
@@ -68,7 +93,7 @@ detect_projects() {
       fi
     fi
 
-    local port="${PROJECT_CONFIG[$project]}"
+    local port="${PROJECT_CONFIG[$project]:-}"
     if [[ ! "$port" =~ ^[0-9]+$ ]]; then
       port=""
       while : ; do

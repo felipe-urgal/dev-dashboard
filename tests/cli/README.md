@@ -34,6 +34,11 @@ caso contrário.
 5. Para funções que dependem de um comando externo opcional (`lsof`, etc.),
    verifique com `command -v` e use `skip_case` quando ausente, em vez de
    falhar o ambiente que não o tem instalado.
+6. Se o caso sobrescrever variáveis de ambiente globais (`DEV_BASE`, `HOME`,
+   `DEV_RUN_DIR`, etc.) para isolar um cenário — ver
+   `cases/06-projects-cache.sh` —, guarde o valor original no início e
+   restaure no final. `run.sh` só isola o diretório de trabalho entre casos,
+   não variáveis de ambiente.
 
 ## Escopo
 

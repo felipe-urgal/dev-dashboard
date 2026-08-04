@@ -19,6 +19,7 @@ _projects_source() {
 
 _projects_source "$DEV_DASHBOARD_DIR/lib/projects/helpers.sh"
 _projects_source "$DEV_DASHBOARD_DIR/lib/projects/config.sh"
+_projects_source "$DEV_DASHBOARD_DIR/lib/projects/cache.sh"
 _projects_source "$DEV_DASHBOARD_DIR/lib/projects/detect.sh"
 _projects_source "$DEV_DASHBOARD_DIR/lib/projects/databases.sh"
 _projects_source "$DEV_DASHBOARD_DIR/lib/projects/accessors.sh"

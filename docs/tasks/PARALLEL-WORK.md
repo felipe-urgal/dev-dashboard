@@ -25,7 +25,6 @@ da task 086 e o texto atual de `docs/PENDENCIAS.md`.
 
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
-| Cache da detecção inicial (CLI) | `lib/projects/detect.sh` | pequeno | nenhum — CLI bash, independente do monorepo web |
 | Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
 | Adaptador seguro para abrir destino no navegador local | rota nova em `apps/api`, sem tocar painéis existentes | pequeno | nenhum |
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
@@ -59,3 +58,5 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 088 — Suíte de testes para helpers não interativos do CLI bash
   (`tests/cli/`), PR #177; ampliada com testes Bats e do orquestrador no PR
   #179.
+- Task 090 — Cache da detecção inicial do CLI (`lib/projects/cache.sh`) por
+  assinatura de mtime, com `detect_projects --force` para ignorar.
