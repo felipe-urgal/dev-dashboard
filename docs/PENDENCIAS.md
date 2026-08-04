@@ -7,9 +7,9 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Implementar a exportação segura de logs descrita em
-  `docs/tasks/NEXT.md`, usando somente o snapshot já limitado e mascarado pela
-  API, sem rota para o arquivo bruto.
+- [ ] Implementar projetos recentes por workspace conforme
+  `docs/tasks/NEXT.md`, registrando somente navegações deliberadas para o
+  detalhe de um projeto conhecido e mantendo favoritos como prioridade.
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
@@ -41,7 +41,7 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   Rails, mantendo catálogo fechado e mascaramento de segredos.
 - [ ] Implementar um adaptador seguro para abrir destinos no navegador local.
 - [ ] Adicionar projetos recentes por workspace, complementando os favoritos
-  já entregues — segunda candidata na task 086; requer semântica e persistência
+  já entregues — próxima entrega, task 089; requer semântica e persistência
   próprias.
 - [ ] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
   frontend.
@@ -61,7 +61,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
   a independência do CLI existente.
 - [x] Criar uma suíte própria para helpers não interativos, incluindo smoke de
-  `git-*` e `_dev_*` puros — `tests/cli/run.sh`, task 088.
+  `git-*` e `_dev_*` puros — `tests/cli/run.sh`, task 088; ampliada com testes
+  Bats de Git e testes de `scripts/dev.mjs` no PR #179.
 
 ## Qualidade e manutenção
 
@@ -114,9 +115,9 @@ de saída concretos.
 
 ## Mapa da documentação Markdown
 
-O repositório possui 108 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 89 em `docs/tasks/` (87 tasks numeradas, mais
-`README.md`, `NEXT.md` e `PARALLEL-WORK.md`). O mapa abaixo cobre os 19
+O repositório possui 109 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 91 em `docs/tasks/` (88 tasks numeradas, mais
+`README.md`, `NEXT.md` e `PARALLEL-WORK.md`). O mapa abaixo cobre os 18
 arquivos restantes; as tasks numeradas são detalhadas individualmente pelo
 índice de `docs/tasks/README.md` para evitar manter duas listas históricas
 paralelas.
@@ -169,13 +170,13 @@ paralelas.
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
 | [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `088`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-088-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
-| [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega (única, sequencial) | Ativo, substituído a cada task |
+| `docs/tasks/001-088-*.md` | Objetivo, decisões, arquivos e validação reais de cada entrega concluída | Histórico |
+| [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega (task 089, única e sequencial) | Ativo, substituído a cada task |
 | [`docs/tasks/PARALLEL-WORK.md`](./tasks/PARALLEL-WORK.md) | Candidatas do inventário sem sobreposição de arquivos entre si, para múltiplas frentes simultâneas | Ativo, revisado conforme frentes começam/terminam |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
 deve entrar na seção correspondente acima ou, se for uma task numerada, no
-índice `docs/tasks/README.md`. Protótipos cuja proposta já foi implementada
+índice de `docs/tasks/README.md`. Protótipos cuja proposta já foi implementada
 são removidos (não catalogados aqui) — ver a política em
 `docs/prototypes/README.md`.
 
