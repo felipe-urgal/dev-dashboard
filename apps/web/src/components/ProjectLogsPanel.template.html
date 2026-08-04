@@ -145,6 +145,15 @@
           </button>
           <button
             type="button"
+            :disabled="!logSnapshot?.content.trim()"
+            title="Exportar log"
+            @click="handleExportLog"
+          >
+            <ArrowDownTrayIcon aria-hidden="true" />
+            <span>Exportar</span>
+          </button>
+          <button
+            type="button"
             :disabled="loadingLogs || !hasManagedProcess"
             title="Limpar logs"
             @click="clearLogView"

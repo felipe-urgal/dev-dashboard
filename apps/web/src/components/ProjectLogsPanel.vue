@@ -6,6 +6,7 @@ import {
 } from 'vue';
 
 import {
+  ArrowDownTrayIcon,
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   ClipboardDocumentIcon,
@@ -28,6 +29,7 @@ import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { explainSql } from '../sql-explanation/describe';
+import { exportLogSnapshot } from '../utils/log-export';
 import type {
   RailsLogGroup,
   RailsLogLine,
@@ -298,6 +300,19 @@ function rawLineClass(line: RailsLogLine): string {
     default:
       return 'project-log-line-neutral';
   }
+}
+
+function handleExportLog(): void {
+  const snapshot = logSnapshot.value;
+  if (!snapshot) return;
+
+  exportLogSnapshot({
+    projectName: props.project.name,
+    origin: 'servidor',
+    identifier: snapshot.processId,
+    capturedAt: snapshot.readAt,
+    snapshot,
+  });
 }
 
 async function copyRequestId(requestId: string): Promise<void> {

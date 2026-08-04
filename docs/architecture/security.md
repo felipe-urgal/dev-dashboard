@@ -173,6 +173,14 @@ prefixos de tokens reconhecidos. A resposta explicita a quantidade de
 substituições e a interface apresenta um aviso. O arquivo local original não é
 reescrito e permanece protegido por permissão `0600`.
 
+A exportação da task 087 não cria uma segunda leitura nem uma rota de download.
+Servidor, testes e scripts geram o arquivo no próprio navegador por `Blob`,
+usando somente o snapshot que já foi limitado e mascarado pela API. O cliente
+não envia caminho, diretório ou nome de arquivo ao backend; identificadores e
+metadados usados no cabeçalho são públicos e o nome do download é sanitizado.
+Conteúdo vazio não gera arquivo, o log bruto não é relido e o `ObjectURL`
+temporário é revogado após o clique.
+
 A retenção padrão de processos terminais é de sete dias, configurável por
 `DEV_DASHBOARD_LOG_RETENTION_DAYS`. A limpeza deriva os caminhos exclusivamente
 do diretório de estado gerenciado, e leituras continuam limitadas a 262144 bytes.

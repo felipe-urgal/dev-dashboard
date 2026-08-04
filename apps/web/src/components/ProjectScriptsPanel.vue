@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
+  ArrowDownTrayIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   ClipboardDocumentIcon,
@@ -26,6 +27,7 @@ import {
   scriptExecutionDuration,
   useProjectScriptsPanel,
 } from '../composables/useProjectScriptsPanel';
+import { exportLogSnapshot } from '../utils/log-export';
 import { riskToneFor } from '../utils/status-tones';
 import ProjectScriptCatalogCard from './ProjectScriptCatalogCard.vue';
 import ProjectScriptCatalogSidebar from './ProjectScriptCatalogSidebar.vue';
@@ -46,6 +48,7 @@ const {
   execution,
   history,
   executionLog,
+  executionLogSnapshot,
   maskedLogEntries,
   startingActionId,
   run,
@@ -121,6 +124,18 @@ function executeSelected(): void {
   if (selectedScript.value && variablesValid.value) {
     void run(selectedScript.value, variableValues.value);
   }
+}
+
+function handleExportLog(): void {
+  const snapshot = executionLogSnapshot.value;
+  if (!snapshot) return;
+
+  exportLogSnapshot({
+    projectName: props.project.name,
+    origin: 'script',
+    identifier: snapshot.executionId,
+    snapshot,
+  });
 }
 </script>
 
@@ -417,6 +432,15 @@ function executeSelected(): void {
               <span v-if="maskedLogEntries">
                 {{ maskedLogEntries }} ocorrência(s) sensível(is) mascarada(s)
               </span>
+              <button
+                type="button"
+                class="scripts-explorer-refresh"
+                :disabled="!executionLogSnapshot?.content.trim()"
+                @click="handleExportLog"
+              >
+                <ArrowDownTrayIcon aria-hidden="true" />
+                Exportar log
+              </button>
             </header>
             <pre>{{ executionLog || 'A execução ainda não produziu saída.' }}</pre>
           </section>

@@ -68,7 +68,7 @@ compromissos de versão.
   "de uma vez" disparada pelo servidor, sem depender de WebSocket do
   navegador (task 084);
 - [ ] contexto via embeddings locais e restauração de abas/estado —
-  candidato sem plano detalhado, ver `docs/tasks/NEXT.md`.
+  candidatos grandes e independentes, mantidos em `docs/PENDENCIAS.md`.
 
 ### Git — leitura entregue, mutações pendentes
 
@@ -116,7 +116,8 @@ compromissos de versão.
 - [x] operações Git, Rails, Node, processos, banco e testes;
 - [ ] cache da detecção inicial;
 - [ ] estratégia deliberada para compartilhar regras com o web;
-- [ ] suíte própria de testes para helpers não interativos.
+- [x] suíte própria para helpers não interativos (task 088, ampliada pelo PR
+  #179 com testes Bats e testes de `scripts/dev.mjs`).
 
 ## Horizonte 1 — coerência operacional
 
@@ -242,8 +243,8 @@ e integrações revogáveis.
   frontend;
 - [x] notificações locais opt-in (Notification API) ao terminar execuções
   longas de catálogo, testes ou build (task 070);
-- exportação de log com o mesmo mascaramento aplicado na tela, respeitando
-  o limite de leitura já existente;
+- [x] exportação de log com o mesmo mascaramento aplicado na tela, respeitando
+  o limite de leitura já existente (task 087);
 - [x] health checks declarativos por projeto, restritos a tipos fechados
   (HTTP GET em `127.0.0.1`, comando reconhecido do catálogo).
 
@@ -265,8 +266,8 @@ parte deste horizonte.
   release-please), inclusive tag de versão da API;
 - [ ] cache de detecção inicial no CLI Bash para reduzir custo de
   `detect_projects` em workspaces grandes;
-- [ ] suíte própria de smoke para helpers Bash não interativos
-  (ex.: `bats-core` para `git-*`/`_dev_*` puros);
+- [x] suíte própria de smoke para helpers Bash não interativos (task 088,
+  ampliada pelo PR #179);
 - [ ] revisão dirigida do `npm audit` (a instalação atual sinaliza
   vulnerabilidades altas em dependências transitivas — devDeps novas
   como `vitest`/`jsdom`): abrir uma task específica para inventariar,
@@ -287,7 +288,7 @@ parte deste horizonte.
 - [ ] política geral de migração/backup do estado;
 - [ ] matriz de suporte de sistemas e runtimes;
 - [x] diagnóstico local;
-- [x] logs com retenção e proteção de conteúdo.
+- [x] logs com retenção, proteção de conteúdo e exportação segura.
 
 ### Descoberta e compatibilidade
 

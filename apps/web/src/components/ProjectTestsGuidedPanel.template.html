@@ -303,6 +303,15 @@
               <button
                 type="button"
                 class="secondary-button tests-button-with-icon"
+                :disabled="!logSnapshot?.content.trim()"
+                @click="handleExportLog"
+              >
+                <ArrowDownTrayIcon aria-hidden="true" />
+                Exportar log
+              </button>
+              <button
+                type="button"
+                class="secondary-button tests-button-with-icon"
                 :disabled="isRunning"
                 @click="handleClearLogs"
               >
