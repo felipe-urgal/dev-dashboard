@@ -1,4 +1,5 @@
 import type { Project } from '@dev-dashboard/contracts';
+import { ProjectRecentRepository } from '@dev-dashboard/core';
 
 import type { WorkspaceScanResult } from '@dev-dashboard/project-discovery';
 
@@ -12,11 +13,26 @@ export class ProjectStore {
     StoredWorkspaceScan
   >();
 
+  public constructor(
+    private readonly projectRecentRepository = new ProjectRecentRepository(),
+  ) {}
+
   public saveWorkspaceScan(
     result: WorkspaceScanResult,
   ): StoredWorkspaceScan {
+    const recentsByProjectId = new Map(
+      this.projectRecentRepository.list().map((entry) => [
+        entry.projectId,
+        entry,
+      ]),
+    );
     const storedScan: StoredWorkspaceScan = {
       ...result,
+      projects: result.projects.map((project) => {
+        const recent = recentsByProjectId.get(project.id);
+        if (!recent || recent.workspaceId !== result.workspaceId) return project;
+        return { ...project, lastAccessedAt: recent.lastAccessedAt };
+      }),
       scannedAt: new Date().toISOString(),
     };
 
