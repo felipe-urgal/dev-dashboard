@@ -82,6 +82,49 @@ export function registerProjectListRoutes(
     },
   );
 
+  app.post<{
+    Params: ProjectParams;
+    Body: Record<string, never>;
+  }>(
+    '/projects/:projectId/access',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          maxProperties: 0,
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['project'],
+            properties: {
+              project: projectResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const updatedProject = await projectStore.recordAccess(
+        request.params.projectId,
+      );
+
+      if (!updatedProject) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      return { project: updatedProject };
+    },
+  );
+
   app.put<{
     Params: ProjectParams;
     Body: {

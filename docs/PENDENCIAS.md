@@ -91,7 +91,13 @@ de saída concretos.
 
 ## Distribuição, governança e compatibilidade
 
-- [ ] Automatizar changelog, release e tags de versão.
+- [x] Automatizar changelog. Ver task 093 (`scripts/generate-changelog.mjs`,
+  `npm run changelog`, `CHANGELOG.md` na raiz).
+- [ ] Automatizar release e tags de versão. Fica pendente de uma decisão de
+  política de versionamento (cadência de release, formato de tag, se o
+  projeto algum dia será publicado — hoje `package.json` raiz tem
+  `"private": true`) que não cabe a uma única frente paralela decidir
+  sozinha; ver task 093 para o raciocínio da redução de escopo.
 - [ ] Definir e adicionar a licença do projeto.
 - [ ] Criar uma política versionada de migração e backup do estado local.
 - [ ] Publicar a matriz de suporte de sistemas operacionais e runtimes.

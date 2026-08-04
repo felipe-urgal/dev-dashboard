@@ -18,6 +18,7 @@ import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useDashboardServerActions } from '../composables/useDashboardServerActions';
 import { dashboardStore } from '../stores/dashboard';
+import { recentProjectIds, sortProjectsByPriority } from '../utils/project-priority';
 
 const {
   projects,
@@ -29,7 +30,6 @@ const {
   warningCount,
   lastScannedPath,
   selectedWorkspaceId,
-  sortedProjects,
   favoriteUpdatingIds,
   scanSelectedWorkspace,
   handleDeleteWorkspace,
@@ -44,6 +44,8 @@ type ProjectFilter = 'all' | ProjectType;
 
 const projectSearch = ref('');
 const projectFilter = ref<ProjectFilter>('all');
+const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
+const visibleRecentProjectIds = computed(() => recentProjectIds(projects.value));
 
 const projectTypeFilters: Array<{
   value: ProjectFilter;
@@ -361,6 +363,7 @@ const {
           v-for="project in filteredProjects"
           :key="project.id"
           :project="project"
+          :recent="visibleRecentProjectIds.has(project.id)"
           :favorite-updating="favoriteUpdatingIds.includes(project.id)"
           @toggle-favorite="toggleProjectFavorite"
         />

@@ -9646,6 +9646,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "favorite": {
               "type": "boolean"
             },
+            "lastAccessedAt": {
+              "type": "string"
+            },
             "capabilities": {
               "type": "array",
               "items": {
@@ -9754,6 +9757,130 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "favorite": {
             "type": "boolean"
+          },
+          "lastAccessedAt": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "server",
+                "git",
+                "tests",
+                "database",
+                "scripts",
+                "webpack",
+                "sidekiq",
+                "rake",
+                "bundler",
+                "docker"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/access`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "project"
+    ],
+    "properties": {
+      "project": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "path",
+          "type",
+          "source",
+          "favorite",
+          "capabilities"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "rails",
+              "node",
+              "unknown"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "standalone"
+            ]
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "favorite": {
+            "type": "boolean"
+          },
+          "lastAccessedAt": {
+            "type": "string"
           },
           "capabilities": {
             "type": "array",
@@ -9899,6 +10026,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "favorite": {
             "type": "boolean"
+          },
+          "lastAccessedAt": {
+            "type": "string"
           },
           "capabilities": {
             "type": "array",
@@ -14408,6 +14538,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             },
             "favorite": {
               "type": "boolean"
+            },
+            "lastAccessedAt": {
+              "type": "string"
             },
             "capabilities": {
               "type": "array",
