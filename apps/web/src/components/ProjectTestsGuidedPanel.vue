@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowDownIcon,
+  ArrowDownTrayIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   ClipboardDocumentIcon,
@@ -16,6 +17,7 @@ import {
 import type { Project } from '@dev-dashboard/contracts';
 
 import { useProjectTestsPanel } from '../composables/useProjectTestsPanel';
+import { exportLogSnapshot } from '../utils/log-export';
 import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -25,7 +27,7 @@ const {
   executionChoices, executionPreview, fileErrorMessage, formatTimestamp, handleClearLogs,
   handleCopyLogs, handleExecutionChoiceChange, handleExecuteSelection, handleRepeat, handleStop,
   isRunning, loadOverview, loadingFilesCommandId, loadingOverview, loadingRelatedCommandId,
-  logTruncated, managedProcess, overview, relatedErrorMessage, relatedTests, runSummary,
+  logSnapshot, logTruncated, managedProcess, overview, relatedErrorMessage, relatedTests, runSummary,
   scrollLogToEnd, selectedChoice, selectedExecutionKey, selectedFilePath, selectionConfigured,
   startingCommandId, statusLabel, stopping, testFiles, totalTests, visibleLogLines, warningLogLines,
 } = useProjectTestsPanel(props);
@@ -36,6 +38,19 @@ function statusIconForTone(tone: 'success' | 'danger' | 'warning' | 'info' | 'ne
   if (tone === 'warning') return ExclamationTriangleIcon;
   if (tone === 'info') return ClockIcon;
   return InformationCircleIcon;
+}
+
+function handleExportLog(): void {
+  const snapshot = logSnapshot.value;
+  if (!snapshot) return;
+
+  exportLogSnapshot({
+    projectName: props.project.name,
+    origin: 'testes',
+    identifier: snapshot.processId,
+    capturedAt: snapshot.readAt,
+    snapshot,
+  });
 }
 </script>
 
