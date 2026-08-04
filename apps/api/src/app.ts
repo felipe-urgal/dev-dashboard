@@ -35,6 +35,7 @@ import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectEditorRoutes } from './routes/project-editor.js';
+import { aiAssistantRoutes } from './routes/ai-assistant.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -237,6 +238,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectEditorService: context.projectEditorService,
+  });
+
+  app.register(aiAssistantRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    aiAssistantService: context.aiAssistantService,
   });
 
   app.register(processRoutes, {

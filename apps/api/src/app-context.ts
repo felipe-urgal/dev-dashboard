@@ -24,6 +24,7 @@ import { ActivityService } from './services/activity-service.js';
 import { ProjectEditorService } from './services/project-editor-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
+import { AiAssistantService } from './services/ai-assistant-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -45,6 +46,7 @@ export interface AppContext {
   projectEditorService: ProjectEditorService;
   projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
+  aiAssistantService: AiAssistantService;
 }
 
 export function createAppContext(): AppContext {
@@ -54,6 +56,8 @@ export function createAppContext(): AppContext {
   const projectStore = new ProjectStore();
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
   const databaseDetectionService = new DatabaseDetectionService();
+  const gitService = new DashboardGitService();
+  const projectFileService = new ProjectFileService();
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -62,7 +66,7 @@ export function createAppContext(): AppContext {
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
     projectStore,
-    gitService: new DashboardGitService(),
+    gitService,
     testDetectionService: new TestDetectionService(),
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService,
@@ -73,7 +77,8 @@ export function createAppContext(): AppContext {
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
     projectEditorService: new ProjectEditorService(),
-    projectFileService: new ProjectFileService(),
+    projectFileService,
     serverHealthCheckService: new ServerHealthCheckService(),
+    aiAssistantService: new AiAssistantService(projectFileService, gitService),
   };
 }

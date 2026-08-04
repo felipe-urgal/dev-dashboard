@@ -48,6 +48,7 @@ import ProjectEditorLauncher from './ProjectEditorLauncher.vue';
 import ProjectEditorConflictReview from './ProjectEditorConflictReview.vue';
 import ProjectFileMutationPanel from './ProjectFileMutationPanel.vue';
 import ProjectWorkspaceEditReview from './ProjectWorkspaceEditReview.vue';
+import ProjectAiPanel from './ProjectAiPanel.vue';
 import { useProjectOpenFileWatcher } from '../composables/useProjectOpenFileWatcher';
 import {
   LANGUAGE_SERVER_MONACO_LANGUAGES,
@@ -97,6 +98,8 @@ const languageServerStatuses = ref<
 const languageServerDiagnostics = ref('');
 const workspaceEditPreview = ref<ProjectWorkspaceEditPreview | null>(null);
 const railsRuntimeBusy = ref(false);
+const selectedText = ref('');
+const aiPanelOpen = ref(false);
 
 let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
@@ -347,6 +350,7 @@ function displayFile(
   activePath.value = file.path;
   selectedPath.value = file.path;
   pendingClosePath.value = '';
+  selectedText.value = '';
   const model = modelFor(file);
   fallbackContent.value = model?.getValue() ?? file.content;
   if (!editor || !model) return;
@@ -769,6 +773,13 @@ async function initializeMonaco(): Promise<void> {
     monacoReady.value = true;
     if (activeFile.value) displayFile(activeFile.value);
 
+    editor.onDidChangeCursorSelection((event) => {
+      const model = editor?.getModel();
+      selectedText.value = model && !event.selection.isEmpty()
+        ? model.getValueInRange(event.selection)
+        : '';
+    });
+
     themeObserver = new MutationObserver(() => {
       if (monaco) monaco.editor.setTheme(themeName());
     });
@@ -789,6 +800,7 @@ async function initializeMonaco(): Promise<void> {
 
 async function resetProject(): Promise<void> {
   disposeLanguageServerClients();
+  selectedText.value = '';
   editor?.setModel(null);
   for (const listener of modelListeners.values()) listener.dispose();
   for (const model of models.values()) model.dispose();
@@ -918,6 +930,14 @@ onBeforeUnmount(() => {
         >
           {{ savingPath ? 'Salvando…' : 'Salvar' }}
         </button>
+        <button
+          type="button"
+          class="button embedded-ide-ai-toggle"
+          :aria-pressed="aiPanelOpen"
+          @click="aiPanelOpen = !aiPanelOpen"
+        >
+          IA
+        </button>
         <ProjectEditorLauncher :project-id="project.id" />
       </div>
     </header>
@@ -977,7 +997,10 @@ onBeforeUnmount(() => {
       @keep-local="keepExternalLocal(activeExternalConflict.path)"
     />
 
-    <div class="embedded-ide-shell">
+    <div
+      class="embedded-ide-shell"
+      :class="{ 'embedded-ide-shell-with-ai': aiPanelOpen }"
+    >
       <aside class="embedded-ide-sidebar" aria-label="Arquivos do projeto">
         <form class="embedded-ide-search" role="search" @submit.prevent="submitSearch">
           <MagnifyingGlassIcon aria-hidden="true" />
@@ -1140,6 +1163,15 @@ onBeforeUnmount(() => {
           </span>
         </footer>
       </div>
+
+      <ProjectAiPanel
+        v-if="aiPanelOpen"
+        class="embedded-ide-ai-panel"
+        :project-id="project.id"
+        :active-file-path="activeFile?.path ?? ''"
+        :active-file-language="activeFile?.language ?? ''"
+        :selected-text="selectedText"
+      />
     </div>
   </section>
 </template>
@@ -1246,6 +1278,11 @@ onBeforeUnmount(() => {
   min-width: 72px;
 }
 
+.embedded-ide-ai-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .embedded-ide-error,
 .embedded-ide-status {
   margin: 0;
@@ -1294,6 +1331,14 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-0);
+}
+
+.embedded-ide-shell-with-ai {
+  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr) minmax(260px, 320px);
+}
+
+.embedded-ide-ai-panel {
+  min-height: 0;
 }
 
 .embedded-ide-sidebar {
