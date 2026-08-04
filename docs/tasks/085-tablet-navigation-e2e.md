@@ -27,15 +27,17 @@ o drawer móvel já existente.
 
 ## Escopo entregue
 
-- nova faixa responsiva entre 761 px e 900 px em
-  `apps/web/src/tablet-navigation.css`;
-- nessa faixa, a sidebar fixa vira drawer, liberando toda a largura para o
-  conteúdo e exibindo o botão **Abrir navegação** na topbar;
+- o breakpoint existente do drawer em `apps/web/src/styles/layout.css` passa
+  de 760 px para 900 px;
+- a sidebar recolhível em `apps/web/src/sidebar-collapse.css` fica restrita a
+  larguras a partir de 901 px, evitando que a preferência desktop compacte o
+  drawer;
+- entre 761 px e 900 px, a sidebar fixa vira drawer, liberando toda a largura
+  para o conteúdo e exibindo o botão **Abrir navegação** na topbar;
 - comando de busca e status textual da API deixam de competir por espaço na
   topbar de tablet, mantendo notificações e seletor de tema acessíveis;
-- o drawer restaura sempre a versão completa da sidebar, mesmo quando
+- o drawer mostra sempre workspace, rótulos e textos completos, mesmo quando
   `dev-dashboard:primary-sidebar-collapsed` está salvo como `true`;
-- o controle de recolher/expandir fica restrito ao layout desktop;
 - movimento reduzido continua removendo a transição do drawer;
 - o smoke responsivo ganha uma viewport de tablet em 820 × 1180.
 
@@ -67,8 +69,8 @@ links completos, garante que o botão de recolher está oculto, navega para
 
 ## Arquivos alterados
 
-- `apps/web/src/main.ts`;
-- `apps/web/src/tablet-navigation.css`;
+- `apps/web/src/styles/layout.css`;
+- `apps/web/src/sidebar-collapse.css`;
 - `apps/web/e2e/tests/responsive.spec.ts`;
 - `apps/web/e2e/README.md`;
 - `docs/PENDENCIAS.md`;
