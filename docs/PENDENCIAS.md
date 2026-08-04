@@ -7,16 +7,17 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Executar a auditoria de prioridades pós-IDE descrita em
-  `docs/tasks/NEXT.md`, comparar as frentes pendentes com evidência do código e
-  escolher uma única próxima implementação.
+- [ ] Implementar a exportação segura de logs descrita em
+  `docs/tasks/NEXT.md`, usando somente o snapshot já limitado e mascarado pela
+  API, sem rota para o arquivo bruto.
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
 - [ ] Contexto semântico via embeddings locais e restauração de abas/estado
   entre sessões, adiados da task 081 — exigem desenho próprio de índice,
-  política de exclusão e tela de configurações. Maior candidato
-  remanescente do arco de IA/editor.
+  política de exclusão e tela de configurações. A task 086 concluiu que são
+  duas frentes distintas, grandes e não bloqueantes; devem permanecer atrás de
+  melhorias operacionais menores.
 - Teste E2E dedicado para compleção inline (ghost text): **tentado e
   descartado** na task 082 — o Monaco real cancela deterministicamente a
   requisição do provider por causa da própria máquina de debounce/versionamento
@@ -27,32 +28,31 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   de símbolo (tasks 083/084 cobriram esses caminhos com testes de unidade;
   estender o double do Ollama da task 082 para emitir os `tool_calls`
   correspondentes fica como possibilidade futura, não bloqueante).
-- Reavaliar se o próximo ciclo deveria sair do arco de IA/editor (tasks
-  076–084) para outra área do produto, já que as capacidades centrais do
-  desenho original (`docs/architecture/embedded-ide-ai-design.md`) estão
-  entregues.
 
 ## Produto e fluxos operacionais
 
 - [ ] Unificar a política de confirmação por risco e o histórico das mutações
-  Git.
+  Git — terceira candidata na task 086; exige inventário transversal das
+  operações e um contrato comum de evento.
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
-  cobertura.
+  cobertura — dividir em entregas separadas antes de implementar, porque os
+  runners e formatos de relatório diferem.
 - [ ] Adicionar operações reconhecidas para Sidekiq, Webpack e credenciais
   Rails, mantendo catálogo fechado e mascaramento de segredos.
 - [ ] Implementar um adaptador seguro para abrir destinos no navegador local.
 - [ ] Adicionar projetos recentes por workspace, complementando os favoritos
-  já entregues.
+  já entregues — segunda candidata na task 086; requer semântica e persistência
+  próprias.
 - [ ] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
   frontend.
-- [ ] Exportar logs com o mesmo mascaramento e os mesmos limites aplicados na
-  tela.
 - [ ] Avaliar GitHub CLI somente depois de definir seu modelo de autorização.
 
 ## Descoberta e projetos complexos
 
 - [ ] Detectar monorepos e oferecer scans recursivos opt-in com limites de
-  profundidade, quantidade, timeout e diretórios ignorados.
+  profundidade, quantidade, timeout e diretórios ignorados — a task 086
+  confirmou que a descoberta atual lê apenas filhos diretos e que a recursão
+  depende também de política explícita para symlinks e deduplicação.
 - [ ] Definir e implementar uma política explícita para symlinks.
 
 ## CLI Bash
@@ -79,6 +79,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   último cresceu de novo desde a Fase 7, ver
   `docs/architecture/refactoring-arquivos-grandes.md`), sem mudar a API
   pública.
+
+A task 086 confirmou que esses itens não formam uma única frente coerente:
+cada um deve ganhar uma task própria quando houver motivação, escopo e critério
+de saída concretos.
 
 ## Distribuição, governança e compatibilidade
 
@@ -110,8 +114,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Mapa da documentação Markdown
 
-O repositório possui 105 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 87 em `docs/tasks/` (85 tasks numeradas, mais
+O repositório possui 106 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 88 em `docs/tasks/` (86 tasks numeradas, mais
 `README.md` e `NEXT.md`). O mapa abaixo cobre os 18 arquivos restantes; as
 tasks numeradas são detalhadas individualmente pelo índice de
 `docs/tasks/README.md` para evitar manter duas listas históricas paralelas.
@@ -163,8 +167,8 @@ tasks numeradas são detalhadas individualmente pelo índice de
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `085`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-085-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `086`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-086-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
 | [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
