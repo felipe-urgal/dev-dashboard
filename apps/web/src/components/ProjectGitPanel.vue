@@ -52,6 +52,7 @@ const {
   runMutation,
   runRenameBranch,
   runDeleteBranch,
+  runPublishBranch,
   runRefreshRemotes,
   runTrackRemoteBranch,
   runDeleteRemoteBranch,
