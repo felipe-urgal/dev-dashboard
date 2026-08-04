@@ -66,6 +66,7 @@
         @switch="(name) => runMutation('switch-branch', name)"
         @rename="runRenameBranch"
         @delete="runDeleteBranch"
+        @publish="runPublishBranch"
         @refresh-remotes="runRefreshRemotes"
         @track="runTrackRemoteBranch"
         @delete-remote="runDeleteRemoteBranch"
