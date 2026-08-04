@@ -1,5 +1,6 @@
 import {
   ProjectFavoriteRepository,
+  ProjectRecentRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
 } from '@dev-dashboard/core';
@@ -32,6 +33,7 @@ export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
   projectFavoriteRepository: ProjectFavoriteRepository;
+  projectRecentRepository: ProjectRecentRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -68,6 +70,7 @@ export function createAppContext(): AppContext {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
     projectFavoriteRepository: new ProjectFavoriteRepository(),
+    projectRecentRepository: new ProjectRecentRepository(),
     processManager,
     serverSettingsRepository:
       new ProjectServerSettingsRepository(),
