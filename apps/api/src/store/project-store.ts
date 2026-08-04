@@ -61,33 +61,41 @@ export class ProjectStore {
     projectId: string,
     favorite: boolean,
   ): Project | null {
+    return this.updateProject(projectId, (project) => ({
+      ...project,
+      favorite,
+    }));
+  }
+
+  public setLastAccessedAt(
+    projectId: string,
+    lastAccessedAt: string,
+  ): Project | null {
+    return this.updateProject(projectId, (project) => ({
+      ...project,
+      lastAccessedAt,
+    }));
+  }
+
+  private updateProject(
+    projectId: string,
+    update: (project: Project) => Project,
+  ): Project | null {
     let updatedProject: Project | null = null;
 
     for (const [workspaceId, scan] of this.workspaceScans) {
       let scanChanged = false;
       const projects = scan.projects.map((project) => {
-        if (project.id !== projectId) {
-          return project;
-        }
-
-        const updated = {
-          ...project,
-          favorite,
-        };
+        if (project.id !== projectId) return project;
+        const updated = update(project);
         updatedProject ??= updated;
         scanChanged = true;
-
         return updated;
       });
 
-      if (!scanChanged) {
-        continue;
+      if (scanChanged) {
+        this.workspaceScans.set(workspaceId, { ...scan, projects });
       }
-
-      this.workspaceScans.set(workspaceId, {
-        ...scan,
-        projects,
-      });
     }
 
     return updatedProject;
