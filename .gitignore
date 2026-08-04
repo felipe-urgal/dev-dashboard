@@ -31,3 +31,4 @@ tmp/
 
 # Scratch de agentes (ledgers, briefs, relatórios de review)
 .superpowers/
+.claude/
