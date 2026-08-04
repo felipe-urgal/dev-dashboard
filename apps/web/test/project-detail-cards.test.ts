@@ -10,6 +10,11 @@ import ProjectServerPanel from '../src/components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 
 const fetchProjectProcess = vi.fn().mockResolvedValue(null);
+const openProjectBrowserTarget = vi.fn().mockResolvedValue({
+  target: 'server',
+  url: 'http://localhost:3000',
+  opened: true,
+});
 const fetchProjectServerHealth = vi.fn().mockResolvedValue({
   projectId: 'projeto-card',
   path: '/health',
@@ -32,6 +37,7 @@ vi.mock('../src/api', async (importOriginal) => ({
   }),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
   fetchProjectServerHealth: (...args: unknown[]) => fetchProjectServerHealth(...args),
+  openProjectBrowserTarget: (...args: unknown[]) => openProjectBrowserTarget(...args),
   fetchProjectProcessLog: vi.fn().mockResolvedValue({
     projectId: 'projeto-card',
     processId: 'proc-1',
@@ -144,6 +150,44 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.get('.server-health-summary').text()).toContain('/health');
     expect(wrapper.get('.server-health-summary').text()).toContain('200');
     expect(wrapper.get('.server-health-summary').text()).toContain('12 ms');
+
+    wrapper.unmount();
+  });
+
+  it('abre o navegador do sistema pelo botão dedicado quando o servidor está rodando', async () => {
+    fetchProjectProcess.mockResolvedValueOnce({
+      id: 'proc-browser',
+      projectId: project.id,
+      kind: 'server',
+      status: 'running',
+      port: 3_000,
+      url: 'http://localhost:3000',
+    });
+
+    const wrapper = mountServerPanel();
+    await flushPromises();
+
+    const buttons = wrapper.findAll('button');
+    const openButton = buttons.find((button) =>
+      button.text().includes('Abrir no navegador do sistema'));
+    expect(openButton).toBeDefined();
+
+    await openButton!.trigger('click');
+    await flushPromises();
+
+    expect(openProjectBrowserTarget).toHaveBeenCalledWith(project.id, 'server');
+    expect(wrapper.text()).toContain('Aberto no navegador padrão do sistema.');
+
+    wrapper.unmount();
+  });
+
+  it('não exibe o botão de abrir no navegador do sistema quando o servidor não está rodando', async () => {
+    fetchProjectProcess.mockResolvedValueOnce(null);
+
+    const wrapper = mountServerPanel();
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
 
     wrapper.unmount();
   });

@@ -21,6 +21,11 @@ export type {
 } from './editor.js';
 
 export type {
+  ProjectBrowserOpenResult,
+  ProjectBrowserTarget,
+} from './browser.js';
+
+export type {
   ProjectDirectoryListing,
   ProjectFileContent,
   ProjectFileCreateRequest,

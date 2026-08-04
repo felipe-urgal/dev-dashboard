@@ -25,7 +25,6 @@ atual de `docs/PENDENCIAS.md`.
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
 | Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
-| Adaptador seguro para abrir destino no navegador local | rota nova em `apps/api`, sem tocar painéis existentes | pequeno | nenhum |
 | Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
 | Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
@@ -61,6 +60,9 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 091 — Documentação da API gerada a partir dos JSON Schemas
   (`scripts/generate-api-docs.mjs`, `docs/architecture/api-reference.md`,
   `npm run docs:api`/`docs:api:check`).
+- Task 092 — Adaptador seguro para abrir o destino do servidor gerenciado no
+  navegador padrão do sistema operacional, com catálogo fechado de destino e
+  de comando por sistema operacional, sem shell.
 - Task 093 — Changelog automatizado (`scripts/generate-changelog.mjs`,
   `npm run changelog`), agrupado por task numerada ou data a partir do
   `git log`. Só a parte de changelog; release e tags de versão continuam

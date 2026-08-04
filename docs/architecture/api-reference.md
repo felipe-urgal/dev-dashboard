@@ -7868,6 +7868,85 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Project Browser
+
+### `POST /api/projects/:projectId/browser/open`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target"
+  ],
+  "properties": {
+    "target": {
+      "type": "string",
+      "enum": [
+        "server"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "target",
+      "url",
+      "opened"
+    ],
+    "properties": {
+      "target": {
+        "type": "string",
+        "enum": [
+          "server"
+        ]
+      },
+      "url": {
+        "type": "string"
+      },
+      "opened": {
+        "type": "boolean",
+        "const": true
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Project Editor
 
 ### `POST /api/projects/:projectId/editor`
