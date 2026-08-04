@@ -19,7 +19,9 @@ export type AiTool =
   | 'search_project_text'
   | 'list_project_files'
   | 'get_git_diff'
-  | 'propose_workspace_edit';
+  | 'propose_workspace_edit'
+  | 'get_symbol_definition'
+  | 'get_symbol_references';
 
 export type AiChatRole = 'user' | 'assistant' | 'system';
 

@@ -11,22 +11,24 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
-- [ ] Ferramentas de símbolo para o assistente (`get_symbol_definition`/
-  `get_symbol_references`), adiadas da task 080 — exigem uma sessão de LSP
-  iniciada pela própria API, sem depender do WebSocket do navegador.
 - [ ] Contexto semântico via embeddings locais e restauração de abas/estado
   entre sessões, adiados da task 081 — exigem desenho próprio de índice,
-  política de exclusão e tela de configurações.
+  política de exclusão e tela de configurações. Maior candidato
+  remanescente do arco de IA/editor.
 - Teste E2E dedicado para compleção inline (ghost text): **tentado e
   descartado** na task 082 — o Monaco real cancela deterministicamente a
   requisição do provider por causa da própria máquina de debounce/versionamento
   interna do editor (`InlineCompletionsSource`), não por um bug no produto.
   Não reabrir sem uma estratégia diferente (ex. mockar o provider em vez de
   depender do ciclo real do Monaco).
-- Smoke E2E dedicado para `propose_workspace_edit` (task 083 cobriu esse
-  caminho com testes de unidade; estender o double do Ollama da task 082
-  para emitir `tool_calls` dessa ferramenta fica como possibilidade
-  futura, não bloqueante).
+- Smoke E2E dedicado para `propose_workspace_edit` e para as ferramentas
+  de símbolo (tasks 083/084 cobriram esses caminhos com testes de unidade;
+  estender o double do Ollama da task 082 para emitir os `tool_calls`
+  correspondentes fica como possibilidade futura, não bloqueante).
+- Reavaliar se o próximo ciclo deveria sair do arco de IA/editor (tasks
+  076–084) para outra área do produto, já que as capacidades centrais do
+  desenho original (`docs/architecture/embedded-ide-ai-design.md`) estão
+  entregues.
 
 ## Produto e fluxos operacionais
 
@@ -106,8 +108,8 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Mapa da documentação Markdown
 
-O repositório possui 103 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 85 em `docs/tasks/` (83 tasks numeradas, mais
+O repositório possui 104 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 86 em `docs/tasks/` (84 tasks numeradas, mais
 `README.md` e `NEXT.md`). O mapa abaixo cobre os 18 arquivos restantes; as
 tasks numeradas são detalhadas individualmente pelo índice de
 `docs/tasks/README.md` para evitar manter duas listas históricas paralelas.
@@ -141,7 +143,7 @@ tasks numeradas são detalhadas individualmente pelo índice de
 | --- | --- | --- |
 | [`docs/architecture/overview.md`](./architecture/overview.md) | Arquitetura atual e critérios de módulos | Ativo |
 | [`docs/architecture/security.md`](./architecture/security.md) | Modelo de segurança e limites locais | Ativo |
-| [`docs/architecture/embedded-ide-ai-design.md`](./architecture/embedded-ide-ai-design.md) | Desenho da IDE embutida, LSP e assistente de IA local | Implementado (tasks 076–083) |
+| [`docs/architecture/embedded-ide-ai-design.md`](./architecture/embedded-ide-ai-design.md) | Desenho da IDE embutida, LSP e assistente de IA local | Implementado (tasks 076–084) |
 | [`docs/architecture/docker-compose-design.md`](./architecture/docker-compose-design.md) | Desenho da integração Docker Compose | Referência implementada |
 | [`docs/architecture/local-editor-design.md`](./architecture/local-editor-design.md) | Desenho do adaptador de editor local | Referência implementada |
 | [`docs/architecture/refactoring-arquivos-grandes.md`](./architecture/refactoring-arquivos-grandes.md) | Inventário e plano de refatoração | Ativo, parcialmente pendente |
@@ -159,8 +161,8 @@ tasks numeradas são detalhadas individualmente pelo índice de
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `083`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-083-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `084`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-084-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
 | [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo

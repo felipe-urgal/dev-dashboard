@@ -47,7 +47,7 @@ compromissos de versão.
   e contraste nas páginas globais (task 075);
 - [ ] navegação otimizada para tablet validada por E2E.
 
-### IDE embutida, LSP e IA local — entregues (tasks 076–082)
+### IDE embutida, LSP e IA local — entregues (tasks 076–084)
 
 - [x] Monaco Editor com explorer, abas, busca e leitura segura (task 076);
 - [x] escrita segura com `expectedVersion`, conflito externo, operações
@@ -63,8 +63,12 @@ compromissos de versão.
 - [x] aplicação de edições propostas pela IA — quinta ferramenta
   `propose_workspace_edit`, reaproveitando preview/confirmação/rollback da
   task 077 sem rota nova para aplicar (task 083);
-- [ ] ferramentas de símbolo para o assistente e contexto via embeddings
-  locais — candidatos sem plano detalhado, ver `docs/tasks/NEXT.md`.
+- [x] ferramentas de símbolo — sexta e sétima ferramentas,
+  `get_symbol_definition`/`get_symbol_references`, via uma requisição LSP
+  "de uma vez" disparada pelo servidor, sem depender de WebSocket do
+  navegador (task 084);
+- [ ] contexto via embeddings locais e restauração de abas/estado —
+  candidato sem plano detalhado, ver `docs/tasks/NEXT.md`.
 
 ### Git — leitura entregue, mutações pendentes
 
@@ -223,7 +227,8 @@ e integrações revogáveis.
 - [x] **editor de código embutido no navegador** — entregue como a IDE
   embutida (Monaco, LSP JavaScript/TypeScript e Ruby/Rails, escrita segura
   com preview/rollback, assistente de IA local com aplicação de edições
-  propostas; tasks 076–083, ver seção própria acima);
+  propostas e ferramentas de símbolo; tasks 076–084, ver seção própria
+  acima);
 - compatibilidade macOS;
 - estratégia separada para Windows, onde processos, sinais e filesystem têm
   semânticas diferentes;

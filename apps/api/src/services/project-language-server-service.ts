@@ -11,10 +11,15 @@ import type {
   ProjectLanguageServerStatus,
   ProjectRailsLanguageServerStatus,
   ProjectRailsRuntimeConfirmation,
+  ProjectSymbolLocation,
+  ProjectTextPosition,
 } from '@dev-dashboard/contracts';
 import type { RawData, WebSocket } from 'ws';
 
+import { ProjectFileService } from './project-file-service.js';
+
 const MAX_MESSAGE_BYTES = 1024 * 1024;
+const SYMBOL_REQUEST_TIMEOUT_MS = 10_000;
 const IDLE_TIMEOUT_MS = 60_000;
 const FORCE_KILL_DELAY_MS = 2_000;
 const RESTART_WINDOW_MS = 60_000;
@@ -32,6 +37,12 @@ interface ResolvedLanguageServerCommand {
   args: readonly string[];
   /** A sessão carrega o add-on ruby-lsp-rails com introspecção habilitada. */
   usesRailsRuntime: boolean;
+}
+
+interface PendingOneShotRequest {
+  resolve: (message: unknown) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
 }
 
 interface LanguageServerSession {
@@ -56,6 +67,14 @@ interface LanguageServerSession {
    * nunca vira `state: 'failed'`.
    */
   terminated: boolean;
+  /**
+   * Correlator de requisição/resposta para chamadas "de uma vez" (ex.
+   * ferramentas de símbolo do assistente de IA), simétrico ao `pending` map
+   * que já existe do lado do cliente Monaco
+   * (`project-language-server-client.ts`). Requisições de navegador não
+   * passam por aqui — só as originadas pelo próprio servidor.
+   */
+  pending: Map<number, PendingOneShotRequest>;
 }
 
 interface RailsRuntimeConfirmationRecord {
@@ -66,6 +85,7 @@ interface RailsRuntimeConfirmationRecord {
 
 export interface ProjectLanguageServerServiceOptions {
   idleTimeoutMs?: number;
+  symbolRequestTimeoutMs?: number;
   now?: () => number;
   findCommand?: (
     project: Project,
@@ -78,6 +98,7 @@ export interface ProjectLanguageServerServiceOptions {
     args: readonly string[],
     cwd: string,
   ) => ChildProcessWithoutNullStreams;
+  projectFileService?: ProjectFileService;
 }
 
 export class LanguageServerProtocolError extends Error {
@@ -290,6 +311,56 @@ export function translateServerMessage(
     serverUriToClientUri(project.id, projectRoot, uri),
   );
   return translated === OMIT ? undefined : translated;
+}
+
+/**
+ * `textDocument/definition` aceita `Location | Location[] | LocationLink[] |
+ * null`; `textDocument/references` aceita `Location[] | null`. As URIs (`uri`
+ * em `Location`, `targetUri` em `LocationLink`) já chegam aqui traduzidas
+ * para a URI sintética do cliente pelo `transformUris` genérico do
+ * `translateServerMessage` — só falta extrair caminho relativo e converter
+ * posições LSP (0-based) para `ProjectTextPosition` (1-based).
+ */
+function toSymbolLocations(projectId: string, result: unknown): ProjectSymbolLocation[] {
+  if (!result) return [];
+  const items = Array.isArray(result) ? result : [result];
+  const locations: ProjectSymbolLocation[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const uri = typeof record.uri === 'string'
+      ? record.uri
+      : typeof record.targetUri === 'string' ? record.targetUri : undefined;
+    const range = (record.range ?? record.targetSelectionRange ?? record.targetRange) as
+      | { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }
+      | undefined;
+    if (!uri || !range?.start || !range.end) continue;
+
+    let relativePath: string;
+    try {
+      relativePath = relativePathFromSyntheticUri(projectId, uri);
+    } catch {
+      continue;
+    }
+
+    locations.push({
+      path: relativePath,
+      range: {
+        start: { line: (range.start.line ?? 0) + 1, column: (range.start.character ?? 0) + 1 },
+        end: { line: (range.end.line ?? 0) + 1, column: (range.end.character ?? 0) + 1 },
+      },
+    });
+  }
+  return locations;
+}
+
+function languageIdForPath(kind: ProjectLanguageServerKind, filePath: string): string {
+  if (kind === 'ruby') return 'ruby';
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === '.tsx') return 'typescriptreact';
+  if (extension === '.jsx') return 'javascriptreact';
+  if (extension === '.ts' || extension === '.mts' || extension === '.cts') return 'typescript';
+  return 'javascript';
 }
 
 function jsonRpcId(value: unknown): string | number | undefined {
@@ -511,6 +582,7 @@ export class ProjectLanguageServerService {
   private readonly railsRuntimeEnabled = new Map<string, boolean>();
   private readonly railsRuntimeConfirmations = new Map<string, RailsRuntimeConfirmationRecord>();
   private readonly idleTimeoutMs: number;
+  private readonly symbolRequestTimeoutMs: number;
   private readonly now: () => number;
   private readonly findCommand: (
     project: Project,
@@ -523,12 +595,16 @@ export class ProjectLanguageServerService {
     args: readonly string[],
     cwd: string,
   ) => ChildProcessWithoutNullStreams;
+  private readonly projectFileService: ProjectFileService;
+  private nextOneShotRequestId = -1;
 
   public constructor(options: ProjectLanguageServerServiceOptions = {}) {
     this.idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
+    this.symbolRequestTimeoutMs = options.symbolRequestTimeoutMs ?? SYMBOL_REQUEST_TIMEOUT_MS;
     this.now = options.now ?? Date.now;
     this.findCommand = options.findCommand ?? defaultFindCommand;
     this.spawnProcess = options.spawnProcess ?? defaultSpawnProcess;
+    this.projectFileService = options.projectFileService ?? new ProjectFileService();
   }
 
   public async status(
@@ -691,9 +767,84 @@ export class ProjectLanguageServerService {
     socket.once('error', () => this.detach(session!, socket));
   }
 
+  /**
+   * Requisição de LSP "de uma vez", disparada pelo servidor (ferramentas de
+   * símbolo do assistente de IA) — sem depender de um WebSocket do
+   * navegador. Reaproveita a mesma sessão/processo que o navegador usaria
+   * (mesmo limite de reinícios), nunca um segundo processo. Retorna
+   * `undefined` quando o LSP não é suportado/disponível para o
+   * projeto/kind; `[]` quando a busca foi feita mas nada foi encontrado.
+   */
+  public async requestSymbolLocations(
+    project: Project,
+    kind: ProjectLanguageServerKind,
+    filePath: string,
+    position: ProjectTextPosition,
+    method: 'textDocument/definition' | 'textDocument/references',
+  ): Promise<ProjectSymbolLocation[] | undefined> {
+    const initialStatus = await this.status(project, kind);
+    if (!initialStatus.supported || !initialStatus.available) return undefined;
+
+    const key = sessionKey(project.id, kind);
+    let session = this.sessions.get(key);
+    if (!session || session.process.exitCode !== null) {
+      session = await this.start(project, kind, initialStatus);
+      if (!session) return undefined;
+    }
+    this.clearTimers(session);
+
+    const file = await this.projectFileService.readFile(project.path, filePath);
+    const uri = pathToFileURL(path.resolve(session.root, filePath)).href;
+    const languageId = languageIdForPath(kind, filePath);
+
+    this.notifyProcess(session, 'textDocument/didOpen', {
+      textDocument: { uri, languageId, version: 1, text: file.content },
+    });
+
+    try {
+      const result = await this.sendOneShotRequest(session, method, {
+        textDocument: { uri },
+        position: {
+          line: Math.max(0, position.line - 1),
+          character: Math.max(0, position.column - 1),
+        },
+      });
+      return toSymbolLocations(project.id, result);
+    } finally {
+      this.notifyProcess(session, 'textDocument/didClose', { textDocument: { uri } });
+      if (!session.socket) this.scheduleIdleTeardown(session);
+    }
+  }
+
+  private notifyProcess(session: LanguageServerSession, method: string, params: unknown): void {
+    session.process.stdin.write(encodeLspMessage({ jsonrpc: '2.0', method, params }));
+  }
+
+  private sendOneShotRequest(
+    session: LanguageServerSession,
+    method: string,
+    params: unknown,
+  ): Promise<unknown> {
+    const id = this.nextOneShotRequestId;
+    this.nextOneShotRequestId -= 1;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        session.pending.delete(id);
+        reject(new LanguageServerProtocolError('O servidor de linguagem não respondeu a tempo.'));
+      }, this.symbolRequestTimeoutMs);
+      session.pending.set(id, { resolve, reject, timeout });
+      session.process.stdin.write(encodeLspMessage({ jsonrpc: '2.0', id, method, params }));
+    });
+  }
+
   public close(): void {
     for (const session of this.sessions.values()) {
       this.clearTimers(session);
+      for (const [id, request] of session.pending) {
+        clearTimeout(request.timeout);
+        request.reject(new LanguageServerProtocolError('API encerrando.'));
+        session.pending.delete(id);
+      }
       session.socket?.close(1001, 'API encerrando');
       if (session.process.exitCode === null) session.process.kill('SIGTERM');
     }
@@ -791,6 +942,7 @@ export class ProjectLanguageServerService {
       usesRailsRuntime: command.usesRailsRuntime,
       rails: kind === 'ruby' ? await this.railsStatus(project) : undefined,
       terminated: false,
+      pending: new Map(),
     };
     this.sessions.set(key, session);
 
@@ -798,6 +950,26 @@ export class ProjectLanguageServerService {
       try {
         for (const message of session.decoder.push(chunk)) {
           const translated = translateServerMessage(project, root, message);
+          const id = jsonRpcId(message);
+          const pending = typeof id === 'number' ? session.pending.get(id) : undefined;
+          if (pending) {
+            session.pending.delete(id as number);
+            clearTimeout(pending.timeout);
+            if (translated === undefined) {
+              pending.reject(new LanguageServerProtocolError(
+                'O servidor de linguagem respondeu com uma URI fora do projeto.',
+              ));
+            } else {
+              const errorField = (translated as { error?: { message?: string } }).error;
+              if (errorField) {
+                pending.reject(new LanguageServerProtocolError(
+                  errorField.message ?? 'O servidor de linguagem respondeu com erro.',
+                ));
+              } else {
+                pending.resolve((translated as { result?: unknown }).result ?? null);
+              }
+            }
+          }
           if (translated === undefined || !session.socket) continue;
           session.state = 'ready';
           sendJson(session.socket, translated);
@@ -878,6 +1050,16 @@ export class ProjectLanguageServerService {
   private detach(session: LanguageServerSession, socket: WebSocket): void {
     if (session.socket !== socket) return;
     session.socket = undefined;
+    this.scheduleIdleTeardown(session);
+  }
+
+  /**
+   * Reaproveitado por `detach` (navegador desconectou) e por
+   * `requestSymbolLocations` (chamada one-shot terminou): sem isso, uma
+   * sessão de LSP criada só para responder uma ferramenta de IA, sem
+   * nenhum navegador jamais anexado, nunca seria encerrada.
+   */
+  private scheduleIdleTeardown(session: LanguageServerSession): void {
     this.clearTimers(session);
     session.idleTimer = setTimeout(() => {
       if (session.socket || session.process.exitCode !== null) return;
@@ -928,6 +1110,11 @@ export class ProjectLanguageServerService {
     if (session.terminated) return;
     session.state = 'failed';
     this.clearTimers(session);
+    for (const [id, request] of session.pending) {
+      clearTimeout(request.timeout);
+      request.reject(new LanguageServerProtocolError(message));
+      session.pending.delete(id);
+    }
     if (session.socket) {
       const socket = session.socket;
       // Zera antes de fechar: o fechamento síncrono do socket fake usado nos

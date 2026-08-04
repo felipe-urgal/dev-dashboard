@@ -70,6 +70,7 @@ export type {
   ProjectRailsLanguageServerStatus,
   ProjectRailsRuntimeConfirmation,
   ProjectRailsRuntimeState,
+  ProjectSymbolLocation,
 } from './language-server.js';
 
 export type {
