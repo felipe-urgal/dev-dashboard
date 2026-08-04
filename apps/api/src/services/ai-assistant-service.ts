@@ -12,7 +12,10 @@ import { ProjectFileError, ProjectFileService } from './project-file-service.js'
 import { GitService } from './git-service.js';
 
 const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
-const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+// `new URL(...).hostname` mantém colchetes para literais IPv6 (ex.: '[::1]',
+// não '::1') — confirmado no runtime desta versão do Node. `[::1]` é a única
+// forma que `.hostname` de fato produz para o loopback IPv6.
+const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const STATUS_TIMEOUT_MS = 5_000;
 const CHAT_ROUND_TIMEOUT_MS = 120_000;
 const MAX_MESSAGES = 40;
@@ -118,7 +121,7 @@ export interface AiChatHandlers {
   signal: AbortSignal;
 }
 
-function resolveOllamaBaseUrl(): string | undefined {
+export function resolveOllamaBaseUrl(): string | undefined {
   const raw = process.env.DEV_DASHBOARD_OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
   try {
     const url = new URL(raw);
@@ -313,7 +316,12 @@ export class AiAssistantService {
       const handleLine = (rawLine: string): void => {
         const line = rawLine.trim();
         if (!line) return;
-        const chunk = JSON.parse(line) as OllamaChatChunk;
+        let chunk: OllamaChatChunk;
+        try {
+          chunk = JSON.parse(line) as OllamaChatChunk;
+        } catch {
+          throw new AiAssistantError('O Ollama enviou um trecho de resposta que não pôde ser interpretado.');
+        }
         const content = chunk.message?.content;
         if (content) {
           assistantContent += content;

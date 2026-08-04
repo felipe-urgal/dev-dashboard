@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 
 import type { AiChatMessage, AiChatStreamEvent, Project } from '@dev-dashboard/contracts';
 
-import { AiAssistantService } from '../src/services/ai-assistant-service.js';
+import { AiAssistantService, resolveOllamaBaseUrl } from '../src/services/ai-assistant-service.js';
 import { GitService } from '../src/services/git-service.js';
 import { ProjectFileService } from '../src/services/project-file-service.js';
 
@@ -278,4 +278,47 @@ test('chat() não emite eventos quando o sinal já está abortado', async () => 
     controller.signal,
   );
   assert.deepEqual(events, []);
+});
+
+test('resolveOllamaBaseUrl() aceita loopback IPv4/IPv6 e recusa hosts remotos', () => {
+  const previous = process.env.DEV_DASHBOARD_OLLAMA_URL;
+  try {
+    delete process.env.DEV_DASHBOARD_OLLAMA_URL;
+    assert.equal(resolveOllamaBaseUrl(), 'http://127.0.0.1:11434');
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'http://127.0.0.1:9999';
+    assert.equal(resolveOllamaBaseUrl(), 'http://127.0.0.1:9999');
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'http://[::1]:11434';
+    assert.equal(resolveOllamaBaseUrl(), 'http://[::1]:11434');
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'http://localhost:11434';
+    assert.equal(resolveOllamaBaseUrl(), 'http://localhost:11434');
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'http://example.com:11434';
+    assert.equal(resolveOllamaBaseUrl(), undefined);
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'https://127.0.0.1:11434';
+    assert.equal(resolveOllamaBaseUrl(), undefined);
+
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'não é uma url';
+    assert.equal(resolveOllamaBaseUrl(), undefined);
+  } finally {
+    if (previous === undefined) delete process.env.DEV_DASHBOARD_OLLAMA_URL;
+    else process.env.DEV_DASHBOARD_OLLAMA_URL = previous;
+  }
+});
+
+test('chat() emite um erro claro quando o Ollama envia NDJSON malformado', async () => {
+  const service = new AiAssistantService(
+    new ProjectFileService(),
+    new GitService(),
+    async () => new Response('{ isto não é json válido', { status: 200 }),
+  );
+  const events = await collect(service, project('/tmp/inexistente'), 'llama3.1', [
+    { role: 'user', content: 'Oi' },
+  ]);
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.type, 'error');
+  assert.match((events[0] as { message: string }).message, /não pôde ser interpretad/);
 });

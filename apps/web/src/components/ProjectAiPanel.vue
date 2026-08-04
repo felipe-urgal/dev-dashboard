@@ -102,10 +102,11 @@ async function send(): Promise<void> {
     history,
     (event: AiChatStreamEvent) => {
       if (event.type === 'message-delta') {
-        if (!assistantContent) transcript.value = [...transcript.value, { role: 'assistant', content: '' }];
         assistantContent += event.content;
-        const last = transcript.value.at(-1);
-        if (last && last.role === 'assistant') last.content = assistantContent;
+        const withoutLast = assistantContent === event.content
+          ? transcript.value
+          : transcript.value.slice(0, -1);
+        transcript.value = [...withoutLast, { role: 'assistant', content: assistantContent }];
         void scrollToEnd();
         return;
       }
