@@ -29,6 +29,11 @@ ainda não comprometidos com um plano:
   (`get_symbol_definition`/`get_symbol_references`, adiadas da task 080) —
   exigem uma sessão de LSP iniciada pela própria API, sem depender do
   WebSocket do navegador;
+- **Smoke E2E automatizado do assistente de IA em CI**, com um "test double"
+  do Ollama (um serviço mínimo expondo `/api/tags`, `/api/show`,
+  `/api/chat`, `/api/generate`) — as tasks 080/081 documentaram que o smoke
+  E2E não roda contra um Ollama real neste ambiente; um double permitiria
+  cobrir o caminho ponta a ponta sem depender de instalação local;
 - outras lacunas do produto fora do arco de IA/editor, a serem levantadas
   numa auditoria própria.
 
