@@ -15,6 +15,8 @@ import type {
 const mocks = vi.hoisted(() => ({
   exportLogSnapshot: vi.fn((_options: unknown) => true),
   publishTerminalNotice: vi.fn(),
+  serverProcess: null as ManagedProcess | null,
+  serverSnapshot: null as ProcessLogSnapshot | null,
 }));
 
 vi.mock('../src/utils/log-export', () => ({
@@ -27,6 +29,43 @@ vi.mock('../src/stores/notice-center', () => ({
   },
 }));
 
+vi.mock('../src/composables/useProjectProcessStatus', async () => {
+  const { computed, ref } = await import('vue');
+  return {
+    useProjectProcessStatus: () => {
+      const managedProcess = ref(mocks.serverProcess);
+      const processStatus = computed(() => managedProcess.value?.status ?? 'idle');
+      return {
+        managedProcess,
+        loadingStatus: ref(false),
+        errorMessage: ref(''),
+        supportsServer: computed(() => true),
+        processStatus,
+        hasManagedProcess: computed(() => Boolean(managedProcess.value)),
+        statusLabel: computed(() => processStatus.value === 'running' ? 'Em execução' : 'Parado'),
+      };
+    },
+  };
+});
+
+vi.mock('../src/composables/useProjectLogsPolling', async () => {
+  const { ref } = await import('vue');
+  return {
+    useProjectLogsPolling: () => ({
+      loadingLogs: ref(false),
+      logSnapshot: ref(mocks.serverSnapshot),
+      logErrorMessage: ref(''),
+      followLogs: ref(true),
+      streamPaused: ref(false),
+      refreshLogs: vi.fn(),
+      scrollLogsToLatest: vi.fn(async () => undefined),
+      handleLogScroll: vi.fn(),
+      clearLogView: vi.fn(),
+      toggleStream: vi.fn(),
+    }),
+  };
+});
+
 import ProjectLogsPanel from '../src/components/ProjectLogsPanel.vue';
 import ProjectScriptsPanel from '../src/components/ProjectScriptsPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
@@ -38,6 +77,8 @@ beforeEach(() => {
   cleanup = undefined;
   mocks.exportLogSnapshot.mockClear();
   mocks.publishTerminalNotice.mockClear();
+  mocks.serverProcess = null;
+  mocks.serverSnapshot = null;
 });
 
 afterEach(() => {
@@ -56,7 +97,6 @@ function exportButton(wrapper: ReturnType<typeof mount>) {
 }
 
 test('servidor exporta o snapshot mascarado já carregado', async () => {
-  const originalFetch = globalThis.fetch;
   const process: ManagedProcess = {
     id: 'server-1',
     projectId: 'p1',
@@ -73,22 +113,14 @@ test('servidor exporta o snapshot mascarado já carregado', async () => {
     truncated: true, masked: true, redactionCount: 1,
     readAt: '2026-08-04T21:00:00.000Z',
   };
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const path = new URL(String(input), 'http://localhost').pathname;
-    if (path === '/api/projects/p1/process') return jsonResponse({ process });
-    if (path === '/api/projects/p1/process/logs') return jsonResponse({ log: snapshot });
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
+  mocks.serverProcess = process;
+  mocks.serverSnapshot = snapshot;
 
   const wrapper = mount(ProjectLogsPanel, {
     props: { project: makeProject({ id: 'p1', type: 'rails', capabilities: ['server'] }) },
     global: { stubs: { RouterLink: RouterLinkStub } },
   });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
+  cleanup = () => wrapper.unmount();
   await flushPromises();
 
   const button = exportButton(wrapper);
