@@ -121,8 +121,6 @@ else
 fi
 
 if declare -f detect_projects &>/dev/null; then
-    # TODO: implementar cache de detecção (ex.: comparar timestamp do diretório base)
-    # Se um cache existir e for recente, pular a detecção pesada.
     detect_projects
 else
     echo "Função 'detect_projects' não encontrada. Verifique projects.sh." >&2

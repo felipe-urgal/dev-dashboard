@@ -57,7 +57,9 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## CLI Bash
 
-- [ ] Criar cache da detecção inicial para workspaces grandes.
+- [x] Criar cache da detecção inicial para workspaces grandes — assinatura por
+  mtime em `lib/projects/cache.sh`, `detect_projects --force` para ignorar,
+  task 090.
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
   a independência do CLI existente.
 - [x] Criar uma suíte própria para helpers não interativos, incluindo smoke de
@@ -115,8 +117,8 @@ de saída concretos.
 
 ## Mapa da documentação Markdown
 
-O repositório possui 109 arquivos Markdown versionados (confira com `git ls-files
-'*.md' | wc -l`), sendo 91 em `docs/tasks/` (88 tasks numeradas, mais
+O repositório possui 110 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 92 em `docs/tasks/` (89 tasks numeradas, mais
 `README.md`, `NEXT.md` e `PARALLEL-WORK.md`). O mapa abaixo cobre os 18
 arquivos restantes; as tasks numeradas são detalhadas individualmente pelo
 índice de `docs/tasks/README.md` para evitar manter duas listas históricas
