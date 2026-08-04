@@ -32,6 +32,7 @@ import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
+import { recordProjectVisit } from '../stores/project-recents';
 import { projectTypeLabels } from '../utils/project-labels';
 
 const route = useRoute();
@@ -78,6 +79,7 @@ async function loadProject(): Promise<void> {
     if (projectId.value !== requestedProjectId || !loadedProject) return;
 
     project.value = loadedProject;
+    void recordProjectVisit(loadedProject.id);
 
     if (loadedProject.capabilities.includes('git')) {
       try {

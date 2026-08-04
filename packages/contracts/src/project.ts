@@ -22,5 +22,6 @@ export interface Project {
   workspaceId?: string;
   port?: number;
   favorite: boolean;
+  lastAccessedAt?: string;
   capabilities: ProjectCapability[];
 }
