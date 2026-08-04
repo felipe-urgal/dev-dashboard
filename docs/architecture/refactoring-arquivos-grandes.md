@@ -715,7 +715,7 @@ completo direto no arquivo.
  574  apps/api/src/services/git-service.ts                      [já dividido nesta fase; classe ainda acima de 400, ver nota abaixo]
  743  apps/web/src/components/ProjectDatabasePanel.vue        [Fase 4 já extraiu 5 composables; cresceu por tasks 056-060]
  683  apps/web/src/views/ActivityView.vue
- 565  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; classe ainda acima de 400]
+ 628  apps/api/src/services/script-execution-service.ts                [já dividido nesta fase; cresceu de novo (565→628) com features pós-Fase 7; classe ainda acima de 400]
  629  apps/web/src/components/ProjectGitPanel.vue
  611  apps/web/src/components/ProjectGitBranchesPage.vue
  590  apps/web/src/components/ProjectServerPanel.vue
@@ -1249,3 +1249,56 @@ start de teste (1321–1430). Confirma o plano da Fase 6: extrair funções livr
 (`command-resolution.ts`, `port-utils.ts`, `state-directory.ts`) primeiro; os métodos que dependem
 de campos privados (`observedExits`, `startLocks`) exigem mais cuidado — provável introduzir um
 objeto de estado explícito passado entre módulos.
+
+## Achados pós-Fase 7 (tasks 076–083, levantamento em 04/08/2026)
+
+A Fase 7 fechou todos os componentes Vue e deixou só `git-service.ts`/
+`script-execution-service.ts` como classes de serviço acima de 400 linhas
+(ver nota acima). O arco de IDE embutida/LSP/IA (tasks 076–082) adicionou
+arquivos novos e grandes que não estavam neste inventário; um levantamento
+específico encontrou três candidatos reais e uma duplicação de segurança,
+nenhum deles pendência bloqueante, todos candidatos a uma próxima fase:
+
+- **`apps/web/src/components/ProjectEmbeddedEditor.vue` (1668 linhas — o
+  maior arquivo do repositório)**: `<script setup>` sozinho já tem ~880
+  linhas (ciclo de vida do Monaco, wiring de LSP, abas, árvore de arquivos e
+  diagnósticos, tudo junto). Não contradiz a Fase 7 (que fechou antes deste
+  arquivo existir) mas é exatamente o padrão que ela corrigiu em outros
+  componentes. Recomendação: extrair o wiring de Monaco/LSP para um
+  composable (`useProjectEditorLanguageServer.ts`), no mesmo padrão já usado
+  pelos `useProjectGit*.ts`.
+- **`apps/api/src/services/project-language-server-service.ts` (954 linhas)**
+  e **`apps/web/src/language-server/project-language-server-client.ts`
+  (1090 linhas)**: o serviço mistura spawn/gestão de sessão de processo,
+  tradução de URI e descoberta de `ruby-lsp`/TypeScript LS num arquivo só; o
+  cliente mistura framing JSON-RPC, tradução de método LSP e adaptação
+  específica do Monaco numa única classe (`ProjectLanguageServerClient`,
+  ~780 linhas). Recomendação: separar tradução de URI e descoberta de
+  servidor do serviço; separar transporte JSON-RPC de tradução de método no
+  cliente.
+- **Duplicação de path safety entre serviços da API** — `isWithinRoot`,
+  `normalizeRelativePath`, `isIgnoredPath` e `isSensitivePath` estão
+  reimplementados de forma quase idêntica (com pequena divergência de
+  comportamento) em `project-file-service.ts`, `project-file-mutation-service.ts`
+  e parcialmente em `project-language-server-service.ts`. A divergência
+  encontrada — ordem de checagem de `master.key` antes vs. depois de
+  normalizar o nome base do arquivo — é sensível o suficiente (path
+  containment é o item 1 do checklist de `docs/architecture/security.md`)
+  para justificar extrair um `apps/api/src/services/path-safety.ts`
+  compartilhado em vez de deixar cada serviço reimplementar a mesma
+  garantia de segurança de formas ligeiramente diferentes.
+- **Carregamento do Monaco não é preguiçoso** — `ProjectEmbeddedEditor.vue`
+  é importado estaticamente por `ProjectDetailsView.vue`, então os chunks
+  `editor.api` (~2.6 MB) e `toggleHighContrast` (~1.1 MB) carregam em toda
+  visita ao detalhe de um projeto, não só ao abrir a aba Editor. Diferente
+  dos outros itens acima, este é uma otimização de carregamento, não uma
+  refatoração de responsabilidade — trocar o import estático em
+  `ProjectDetailsView.vue` por `defineAsyncComponent(() => import(...))`
+  resolve sem tocar no conteúdo do componente. Tentar reduzir os chunks do
+  próprio `monaco-editor` (ex. remover gramáticas de linguagem) não é
+  proveitoso — é o custo inerente de empacotar o pacote completo.
+
+Nenhum destes é regressão de segurança confirmada nem bloqueia release —
+são candidatos para quando a próxima fase de refatoração for aberta, na
+mesma régua das fases 1–7 acima (arquivo novo por vez, sem mudar assinatura
+pública, testes rodando a cada passo).

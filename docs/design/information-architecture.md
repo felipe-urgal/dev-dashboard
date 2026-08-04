@@ -220,19 +220,23 @@ Ações rápidas:
 
 ## Página de detalhes do projeto
 
-Estrutura planejada:
+Estrutura atual (`apps/web/src/router/index.ts`):
 
 ```text
-Visão geral
+README
+Editor
 Servidor
+Logs
 Git
 Testes
-Banco
+Banco de dados
+Dependências
 Scripts
-Logs
 ```
 
-As abas disponíveis dependem das capacidades detectadas.
+As abas disponíveis dependem das capacidades detectadas. **Editor** (task
+076 em diante) é a IDE embutida com Monaco, LSP e o assistente de IA local;
+**Dependências** (task 072) reúne Bundler/lockfile Node e build.
 
 ### Visão geral
 

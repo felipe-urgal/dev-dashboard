@@ -18,7 +18,7 @@ Este documento registra capacidades e prioridade. O plano executável da próxim
 entrega fica em `docs/tasks/NEXT.md`; ideias nos horizontes posteriores não são
 compromissos de versão.
 
-## Estado consolidado em 03/08/2026
+## Estado consolidado em 04/08/2026
 
 ### Fundação e distribuição local — concluídas
 
@@ -43,8 +43,27 @@ compromissos de versão.
 - [x] configurações globais — tema, densidade (task 022) e retenção (task 035);
 - [x] avisos locais e notificações nativas opt-in (tasks 040 e 070);
 - [x] loading skeletons nas páginas globais (tasks 071 e 073);
-- [ ] acessibilidade auditada;
+- [x] auditoria inicial de acessibilidade — landmarks, nomes, estado, teclado
+  e contraste nas páginas globais (task 075);
 - [ ] navegação otimizada para tablet validada por E2E.
+
+### IDE embutida, LSP e IA local — entregues (tasks 076–082)
+
+- [x] Monaco Editor com explorer, abas, busca e leitura segura (task 076);
+- [x] escrita segura com `expectedVersion`, conflito externo, operações
+  estruturais e `WorkspaceEdit` textual com preview/rollback (task 077);
+- [x] LSP JavaScript/TypeScript com gateway autenticado e processo sob
+  demanda (task 078);
+- [x] LSP Ruby/Rails, incluindo capacidade Rails runtime opt-in (task 079);
+- [x] assistente de IA local via Ollama — chat com catálogo fechado de
+  quatro ferramentas somente leitura, streaming SSE cancelável (task 080);
+- [x] compleção inline (ghost text/FIM) com debounce e cache curto (task 081);
+- [x] smoke E2E do assistente em CI com um double HTTP do Ollama, sem
+  depender de instalação local (task 082);
+- [ ] aplicação de edições propostas pela IA — planejada em detalhe,
+  `docs/tasks/083-ai-proposed-edits-plan.md`, ainda não implementada;
+- [ ] ferramentas de símbolo para o assistente e contexto via embeddings
+  locais — candidatos sem plano detalhado, ver `docs/tasks/NEXT.md`.
 
 ### Git — leitura entregue, mutações pendentes
 
@@ -182,10 +201,15 @@ existentes sem regressão funcional.
 - detecção de monorepos e scan recursivo opt-in, limitado por profundidade,
   quantidade, timeout e diretórios ignorados;
 - [x] Docker Compose por serviços declarados e allowlist (task 065, com logs
-  pontuais limitados; streaming permanece fora da primeira entrega);
-- health checks configuráveis por tipos fechados;
-- favoritos, recentes e perfis de ambiente sem valores secretos no frontend;
-- GitHub CLI somente após revisão do modelo de autorização.
+  pontuais limitados; streaming permanece fora da primeira entrega), com
+  build assíncrono por serviço como um terceiro `kind` de processo
+  gerenciado (task 067);
+- [x] health checks HTTP locais declarativos, por tipos fechados e restritos
+  a `127.0.0.1` (task 068);
+- [x] favoritos persistentes por projeto (task 069) — recentes por workspace
+  seguem pendentes;
+- [ ] perfis de ambiente sem valores secretos no frontend;
+- [ ] GitHub CLI somente após revisão do modelo de autorização.
 
 Critério de saída: atender repositórios complexos mantendo descoberta previsível
 e integrações revogáveis.
@@ -195,14 +219,11 @@ e integrações revogáveis.
 - manifesto declarativo de extensões e capacidades;
 - adaptadores versionados e revisados;
 - temas e painéis adicionais sem execução remota;
-- **editor de código embutido no navegador** (Monaco/CodeMirror lendo — e
-  possivelmente escrevendo — arquivos do projeto pela API): fase 2 de
-  "abrir editor", depois do adaptador local (Horizonte 2). Maior superfície
-  de acesso a arquivo que a API já teria — qualquer arquivo do projeto, não
-  um conjunto fechado como hoje (schema, migration, README, log). Pede
-  modelo de ameaça próprio antes de qualquer endpoint (allowlist de
-  caminho contra a raiz do projeto, limite de tamanho, e decidir se
-  escrita entra na v1 ou só leitura);
+- [x] **editor de código embutido no navegador** — entregue como a IDE
+  embutida (Monaco, LSP JavaScript/TypeScript e Ruby/Rails, escrita segura
+  com preview/rollback, assistente de IA local; tasks 076–082, ver seção
+  própria acima). Aplicação de edições propostas pela IA segue planejada
+  (task 083);
 - compatibilidade macOS;
 - estratégia separada para Windows, onde processos, sinais e filesystem têm
   semânticas diferentes;
@@ -210,14 +231,15 @@ e integrações revogáveis.
 
 ### Produtividade no navegador
 
-- favoritos e recentes por workspace, sem sincronização remota;
+- [x] favoritos por projeto (task 069) — recentes por workspace seguem
+  pendentes, sem sincronização remota;
 - perfis de ambiente reutilizáveis, sem armazenar valores secretos no
   frontend;
-- notificações locais opt-in (Notification API) ao terminar execuções
-  longas de catálogo, testes ou build;
+- [x] notificações locais opt-in (Notification API) ao terminar execuções
+  longas de catálogo, testes ou build (task 070);
 - exportação de log com o mesmo mascaramento aplicado na tela, respeitando
   o limite de leitura já existente;
-- health checks declarativos por projeto, restritos a tipos fechados
+- [x] health checks declarativos por projeto, restritos a tipos fechados
   (HTTP GET em `127.0.0.1`, comando reconhecido do catálogo).
 
 Plugins remotos arbitrários, shell livre e exposição da API na rede não fazem

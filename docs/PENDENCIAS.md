@@ -1,23 +1,37 @@
 # Atividades pendentes
 
 Inventário consolidado do que ainda falta implementar no Dev Dashboard em
-03/08/2026. Este documento elimina duplicações entre o roadmap, a visão de
+04/08/2026. Este documento elimina duplicações entre o roadmap, a visão de
 arquitetura e os planos de task; itens concluídos continuam registrados em
 `docs/tasks/`.
 
 ## Próximas entregas
 
-- [ ] Fazer a auditoria inicial de acessibilidade das páginas globais, com
-  teclado, foco, nomes acessíveis, contraste e anúncios de estado.
+- [ ] Task 083 (planejada, `docs/tasks/083-ai-proposed-edits-plan.md`):
+  quinta ferramenta do assistente de IA, `propose_workspace_edit`, aplicando
+  edições propostas pelo modelo através do mesmo preview/confirmação/rollback
+  da task 077 — sem rota nova para aplicar, sem escrita autônoma.
 - [ ] Validar e otimizar a navegação em tablet com E2E responsivo.
+
+## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
+
+- [ ] Ferramentas de símbolo para o assistente (`get_symbol_definition`/
+  `get_symbol_references`), adiadas da task 080 — exigem uma sessão de LSP
+  iniciada pela própria API, sem depender do WebSocket do navegador.
+- [ ] Contexto semântico via embeddings locais e restauração de abas/estado
+  entre sessões, adiados da task 081 — exigem desenho próprio de índice,
+  política de exclusão e tela de configurações.
+- Teste E2E dedicado para compleção inline (ghost text): **tentado e
+  descartado** na task 082 — o Monaco real cancela deterministicamente a
+  requisição do provider por causa da própria máquina de debounce/versionamento
+  interna do editor (`InlineCompletionsSource`), não por um bug no produto.
+  Não reabrir sem uma estratégia diferente (ex. mockar o provider em vez de
+  depender do ciclo real do Monaco).
 
 ## Produto e fluxos operacionais
 
 - [ ] Unificar a política de confirmação por risco e o histórico das mutações
   Git.
-- [ ] Criar uma projeção global de atividade que reúna catálogo, testes,
-  servidores, Git, Rails e processos sem duplicar suas fontes de verdade nem
-  esconder diferenças de retenção.
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
   cobertura.
 - [ ] Adicionar operações reconhecidas para Sidekiq, Webpack e credenciais
@@ -57,8 +71,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Fazer uma revisão dirigida do `npm audit`, inventariando dependências
   transitivas e upgrades seguros sem `npm audit fix --force`.
 - [ ] Fazer a segunda etapa de refatoração de
-  `git-service.ts` e `script-execution-service.ts`, que ainda ultrapassam 400
-  linhas, sem mudar a API pública.
+  `git-service.ts` e `script-execution-service.ts` (574 e 628 linhas — este
+  último cresceu de novo desde a Fase 7, ver
+  `docs/architecture/refactoring-arquivos-grandes.md`), sem mudar a API
+  pública.
 
 ## Distribuição, governança e compatibilidade
 
@@ -75,9 +91,6 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Definir um manifesto declarativo de extensões e capacidades.
 - [ ] Criar adaptadores versionados e revisados.
 - [ ] Permitir temas e painéis adicionais sem execução remota.
-- [ ] Projetar o editor de código embutido no navegador com modelo de ameaça
-  próprio, allowlist de caminhos, limite de tamanho e decisão explícita entre
-  leitura e escrita.
 
 ## Avaliado e adiado
 
@@ -88,14 +101,16 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 ## Fora do escopo atual
 
 - shell livre, plugins remotos arbitrários e exposição da API na rede;
-- integrações de IA como dependência do fluxo principal.
+- integrações de IA como dependência do fluxo principal (o assistente
+  continua opcional, local e isolado em seu próprio painel).
 
 ## Mapa da documentação Markdown
 
-O repositório possui 95 arquivos Markdown versionados após a task 074. O mapa
-abaixo cobre todos eles; os 74 registros numerados são detalhados
-individualmente pelo índice de tasks para evitar manter duas listas históricas
-paralelas.
+O repositório possui 103 arquivos Markdown versionados (confira com `git ls-files
+'*.md' | wc -l`), sendo 85 em `docs/tasks/` (83 tasks numeradas, mais
+`README.md` e `NEXT.md`). O mapa abaixo cobre os 18 arquivos restantes; as
+tasks numeradas são detalhadas individualmente pelo índice de
+`docs/tasks/README.md` para evitar manter duas listas históricas paralelas.
 
 ### Raiz e operação do repositório
 
@@ -104,7 +119,7 @@ paralelas.
 | [`AGENTS.md`](../AGENTS.md) | Regras para agentes de implementação | Ativo |
 | [`CLAUDE.md`](../CLAUDE.md) | Convenções equivalentes para outro agente | Ativo |
 | [`README.md`](../README.md) | Entrada do projeto, instalação, uso e estado atual | Ativo |
-| [`design-qa.md`](../design-qa.md) | Registro de QA visual dos painéis Git | Referência histórica |
+| [`design-qa.md`](../design-qa.md) | Registro de QA visual dos painéis Git, referenciado por `docs/tasks/049-git-commit-simple.md` | Referência histórica |
 
 ### Aplicações
 
@@ -126,6 +141,7 @@ paralelas.
 | --- | --- | --- |
 | [`docs/architecture/overview.md`](./architecture/overview.md) | Arquitetura atual e critérios de módulos | Ativo |
 | [`docs/architecture/security.md`](./architecture/security.md) | Modelo de segurança e limites locais | Ativo |
+| [`docs/architecture/embedded-ide-ai-design.md`](./architecture/embedded-ide-ai-design.md) | Desenho da IDE embutida, LSP e assistente de IA local | Implementado (tasks 076–082); task 083 planejada |
 | [`docs/architecture/docker-compose-design.md`](./architecture/docker-compose-design.md) | Desenho da integração Docker Compose | Referência implementada |
 | [`docs/architecture/local-editor-design.md`](./architecture/local-editor-design.md) | Desenho do adaptador de editor local | Referência implementada |
 | [`docs/architecture/refactoring-arquivos-grandes.md`](./architecture/refactoring-arquivos-grandes.md) | Inventário e plano de refatoração | Ativo, parcialmente pendente |
@@ -136,22 +152,22 @@ paralelas.
 | --- | --- | --- |
 | [`docs/design/information-architecture.md`](./design/information-architecture.md) | Organização das áreas e navegação | Ativo |
 | [`docs/design/redesign-2026.md`](./design/redesign-2026.md) | Decisões do redesign e tokens visuais | Ativo |
-| [`docs/prototypes/README.md`](./prototypes/README.md) | Índice dos protótipos versionados | Referência |
-| [`docs/prototypes/notice-center-options.md`](./prototypes/notice-center-options.md) | Alternativas da central de avisos | Referência histórica |
-| [`docs/prototypes/tests-visualization/README.md`](./prototypes/tests-visualization/README.md) | Alternativas para visualização de testes | Referência histórica |
-| [`docs/refactor/rake-tasks-mapeamento.md`](./refactor/rake-tasks-mapeamento.md) | Desenho da detecção de Rake tasks | Referência implementada |
+| [`docs/prototypes/README.md`](./prototypes/README.md) | Índice e política dos protótipos versionados | Referência |
+| [`docs/refactor/rake-tasks-mapeamento.md`](./refactor/rake-tasks-mapeamento.md) | Desenho e heurísticas da detecção de Rake tasks (task 066) | Referência implementada |
 
 ### Tasks
 
 | Arquivo ou conjunto | Papel | Estado de uso |
 | --- | --- | --- |
-| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `074`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
-| `docs/tasks/001-074-*.md` | Objetivo, decisões, arquivos e validação reais de cada entrega | Histórico concluído |
+| [`docs/tasks/README.md`](./tasks/README.md) | Índice individual de `001` a `083`, com uma entrada para cada arquivo numerado | Ativo, mapa do histórico |
+| `docs/tasks/001-083-*.md` | Objetivo, decisões, arquivos e validação reais (ou plano, quando ainda não implementada) de cada entrega | Histórico + planos em aberto |
 | [`docs/tasks/NEXT.md`](./tasks/NEXT.md) | Plano executável da próxima entrega | Ativo, substituído a cada task |
 
 Para conferir a cobertura do mapa, use `git ls-files '*.md'`. Um Markdown novo
 deve entrar na seção correspondente acima ou, se for uma task numerada, no
-índice `docs/tasks/README.md`.
+índice `docs/tasks/README.md`. Protótipos cuja proposta já foi implementada
+são removidos (não catalogados aqui) — ver a política em
+`docs/prototypes/README.md`.
 
 ## Como manter este inventário
 
