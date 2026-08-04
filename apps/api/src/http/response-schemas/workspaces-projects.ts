@@ -37,6 +37,7 @@ export const projectResponseSchema = {
     workspaceId: { type: 'string' },
     port: { type: 'integer' },
     favorite: { type: 'boolean' },
+    lastAccessedAt: { type: 'string' },
     capabilities: {
       type: 'array',
       items: {
