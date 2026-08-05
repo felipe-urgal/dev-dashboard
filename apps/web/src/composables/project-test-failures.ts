@@ -74,22 +74,29 @@ function collectRspecBlocks(lines: string[]): FailureBlock[] {
 
 function collectMinitestBlocks(lines: string[]): FailureBlock[] {
   const blocks: FailureBlock[] = [];
+  const failureStart = /^\s*\d+\)\s+Failure:\s*$/;
+  const structuredName = /^[A-Za-z_][\w:]*#[^\s\[]+\s+\[[^\]]+\]:?\s*$/;
+
   for (let index = 0; index < lines.length; index += 1) {
-    if (!/^\s*(?:Failure|Error):\s*$/.test(lines[index] ?? '')) continue;
-    const nameLine = (lines[index + 1] ?? '').trim();
-    const location = extractLocation([nameLine], undefined);
-    const name = nameLine
-      .replace(/\s*\[[^\]]+\]:?\s*$/, '')
-      .replace(/:\s*$/, '')
-      .trim() || 'Teste com falha';
-    const blockLines = [nameLine];
-    index += 2;
-    while (index < lines.length && !/^\s*(?:Failure|Error):\s*$/.test(lines[index] ?? '')) {
-      const line = lines[index] ?? '';
-      if (/^\s*\d+\s+runs?,/i.test(line)) break;
+    if (!failureStart.test(lines[index] ?? '')) continue;
+    const blockLines: string[] = [];
+    index += 1;
+    while (index < lines.length) {
+      const line = lines[index]!;
+      if (index > 0 && failureStart.test(line)) break;
+      if (/^Finished in\s+/i.test(line.trim())) break;
       blockLines.push(line);
       index += 1;
     }
+
+    const structuredNameLine = blockLines.find((line) =>
+      structuredName.test(line.trim()),
+    );
+    const name = (structuredNameLine ?? blockLines[0] ?? '')
+      .trim()
+      .replace(/\s*\[[^\]]+\]:?\s*$/, '')
+      || 'Teste Minitest falhou';
+    const location = extractLocation(blockLines, undefined);
     if (location && !blockLines.some((line) => line.includes(location.path))) {
       blockLines.unshift(`${location.path}:${location.line ?? 1}`);
     }

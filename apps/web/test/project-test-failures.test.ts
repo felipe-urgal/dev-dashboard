@@ -89,4 +89,21 @@ not ok 1 - externo
 `, 'node-test', { projectPath: '/workspace/app' });
     expect(outside[0]?.location).toBeUndefined();
   });
+
+  it('prioriza o identificador estruturado sobre o título genérico do Minitest', () => {
+    const failures = parseTestFailures(`
+1) Failure:
+test: test_requires_email.
+Expected false to be truthy.
+UserTest#test_requires_email [/workspace/app/test/models/user_test.rb:18]:
+`, 'rails-test', { projectPath: '/workspace/app' });
+
+    expect(failures[0]).toMatchObject({
+      name: 'UserTest#test_requires_email',
+      location: {
+        path: 'test/models/user_test.rb',
+        line: 18,
+      },
+    });
+  });
 });
