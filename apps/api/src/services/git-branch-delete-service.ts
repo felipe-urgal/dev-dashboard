@@ -1,10 +1,16 @@
 import { execFile } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
+
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
 const BRANCH_NAME_PATTERN = /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+/** Identificador do catálogo (`git-mutation-catalog.ts`) para esta operação. */
+const CATALOG_OPERATION_ID = 'branch-delete';
 
 export type GitBranchDeleteErrorCode =
   | 'GIT_NOT_REPOSITORY'
@@ -32,12 +38,6 @@ export interface GitBranchDeleteConfirmation {
   expiresAt: string;
 }
 
-interface StoredConfirmation {
-  token: string;
-  projectId: string;
-  branch: string;
-  expiresAt: number;
-}
 
 async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
   const result = await execFileAsync('git', [...args], {
@@ -94,28 +94,20 @@ async function protectedBranches(projectPath: string): Promise<Set<string>> {
 }
 
 export class GitBranchDeleteService {
-  private readonly confirmations = new Map<string, StoredConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
 
   public prepareConfirmation(
     projectId: string,
     branch: string,
   ): GitBranchDeleteConfirmation {
     const target = validateBranch(branch);
-    this.pruneExpired();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
-      projectId,
-      branch: target,
-      expiresAt,
-    });
-    return {
-      token,
-      operation: 'delete-branch',
-      target,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    const { token, expiresAt } = this.confirmations.prepare(projectId, CATALOG_OPERATION_ID, target);
+    return { token, operation: 'delete-branch', target, expiresAt };
   }
 
   public async deleteLocalBranch(
@@ -181,25 +173,16 @@ export class GitBranchDeleteService {
     branch: string,
     token: string | undefined,
   ): void {
-    this.pruneExpired();
-    const confirmation = token ? this.confirmations.get(token) : undefined;
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.branch !== branch
-    ) {
-      throw new GitBranchDeleteError(
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para remover a branch.',
-      );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpired(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, CATALOG_OPERATION_ID, branch, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitBranchDeleteError(
+          'GIT_MUTATION_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para remover a branch.',
+        );
+      }
+      throw error;
     }
   }
 }
