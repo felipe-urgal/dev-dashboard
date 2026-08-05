@@ -5,4 +5,5 @@
 @import './components/navigation.css';
 @import './components/activity.css';
 @import './components/processes.css';
+@import './components/processes-table-layout.css';
 @import './components/git-diff.css';
