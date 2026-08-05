@@ -24,6 +24,8 @@
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
+    "lint:fix": "npm run lint -- --fix",
     "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager",
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",
     "predev": "npm run build:packages",
@@ -38,6 +40,11 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsx": "4.23.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-plugin-vue": "10.10.0",
+    "globals": "17.7.0",
+    "typescript-eslint": "8.65.0"
   }
 }

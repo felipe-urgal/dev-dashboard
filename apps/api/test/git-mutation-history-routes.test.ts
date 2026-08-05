@@ -147,7 +147,6 @@ test('histórico de mutações Git: gravação por operação, paginação e aut
         payload: JSON.stringify({ operation: 'switch-branch', target: 'main' }),
       });
       const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
-      // eslint-disable-next-line no-await-in-loop
       await app.inject({
         method: 'POST', url: '/api/projects/p1/git/switch', headers,
         payload: JSON.stringify({ name: 'main', confirmationToken: confirmation.token }),

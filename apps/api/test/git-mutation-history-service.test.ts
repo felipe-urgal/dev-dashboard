@@ -76,7 +76,6 @@ test('history pagina, mais recente primeiro', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
     for (let index = 0; index < 5; index += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await service.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
     }
     const pageOne = await service.history('p1', 1, 2);
@@ -97,7 +96,6 @@ test('limite de 200 eventos por projeto é respeitado, preservando os mais recen
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
     for (let index = 0; index < 205; index += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await service.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
     }
     const page = await service.history('p1', 1, 500);
@@ -111,13 +109,11 @@ test('limite global de 2000 eventos corta os mais antigos entre projetos', async
     // 11 projetos * 200 = 2200 tentativas; o limite global de 2000 corta as mais antigas.
     for (let project = 0; project < 11; project += 1) {
       for (let index = 0; index < 200; index += 1) {
-        // eslint-disable-next-line no-await-in-loop
         await service.record({ projectId: `p${project}`, operationId: 'commit', result: 'succeeded' });
       }
     }
     let total = 0;
     for (let project = 0; project < 11; project += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const page = await service.history(`p${project}`, 1, 500);
       total += page.total;
     }
