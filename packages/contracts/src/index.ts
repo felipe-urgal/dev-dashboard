@@ -287,6 +287,7 @@ export type {
   ProjectEnvironmentFile,
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
+  ProjectEnvironmentVariableValue,
 } from './project-environment.js';
 
 export type {

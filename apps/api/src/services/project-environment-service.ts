@@ -5,12 +5,20 @@ import type {
   Project,
   ProjectEnvironmentFile,
   ProjectEnvironmentOverview,
+  ProjectEnvironmentVariable,
+  ProjectEnvironmentVariableValue,
 } from '@dev-dashboard/contracts';
 import { isSensitiveEnvironmentProfileVariableName } from '@dev-dashboard/core';
 
 // Mesma lista já usada por DatabaseDetectionService para detectar DATABASE_URL —
 // mantém um único catálogo fechado de nomes de arquivo .env reconhecidos.
 const DOTENV_FILES = ['.env', '.env.local', '.env.development', '.env.test', '.env.production'];
+
+interface ParsedEnvironmentVariable {
+  name: string;
+  value: string;
+  sensitive: boolean;
+}
 
 async function readDotenvFile(projectPath: string, file: string): Promise<string | null> {
   const target = path.resolve(projectPath, file);
@@ -23,8 +31,8 @@ async function readDotenvFile(projectPath: string, file: string): Promise<string
   }
 }
 
-function parseDotenv(contents: string): ProjectEnvironmentFile['variables'] {
-  const variables: ProjectEnvironmentFile['variables'] = [];
+function parseDotenv(contents: string): ParsedEnvironmentVariable[] {
+  const variables: ParsedEnvironmentVariable[] = [];
   const seen = new Set<string>();
   for (const line of contents.split(/\r?\n/)) {
     const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
@@ -38,17 +46,25 @@ function parseDotenv(contents: string): ProjectEnvironmentFile['variables'] {
       rawValue = rawValue.slice(1, -1);
     }
 
-    const sensitive = isSensitiveEnvironmentProfileVariableName(name);
-    variables.push(sensitive ? { name, sensitive } : { name, value: rawValue, sensitive });
+    variables.push({
+      name,
+      value: rawValue,
+      sensitive: isSensitiveEnvironmentProfileVariableName(name),
+    });
   }
   return variables;
 }
 
+function maskSensitiveValue(variable: ParsedEnvironmentVariable): ProjectEnvironmentVariable {
+  if (variable.sensitive) return { name: variable.name, sensitive: true };
+  return variable;
+}
+
 /**
  * Lista, somente leitura, as variáveis declaradas nos arquivos .env
- * reconhecidos de um projeto. Nunca lê arquivo fora da lista fechada nem
- * fora do diretório do projeto, e nunca inclui o valor de uma variável cujo
- * nome pareça um segredo (mesma heurística de EnvironmentProfileRepository).
+ * reconhecidos de um projeto. O resumo nunca inclui o valor de uma variável
+ * cujo nome pareça um segredo; esse valor só pode ser consultado separadamente
+ * e de forma explícita pelo usuário.
  */
 export class ProjectEnvironmentService {
   public async getOverview(project: Project): Promise<ProjectEnvironmentOverview> {
@@ -56,9 +72,30 @@ export class ProjectEnvironmentService {
     for (const file of DOTENV_FILES) {
       const contents = await readDotenvFile(project.path, file);
       if (contents === null) continue;
-      const variables = parseDotenv(contents);
+      const variables = parseDotenv(contents).map(maskSensitiveValue);
       if (variables.length > 0) files.push({ file, variables });
     }
     return { files };
+  }
+
+  public async getVariableValue(
+    project: Project,
+    file: string,
+    name: string,
+  ): Promise<ProjectEnvironmentVariableValue | null> {
+    if (!DOTENV_FILES.includes(file)) return null;
+
+    const contents = await readDotenvFile(project.path, file);
+    if (contents === null) return null;
+
+    const variable = parseDotenv(contents).find((entry) => entry.name === name);
+    if (!variable) return null;
+
+    return {
+      file,
+      name: variable.name,
+      value: variable.value,
+      sensitive: variable.sensitive,
+    };
   }
 }

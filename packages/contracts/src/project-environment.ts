@@ -4,6 +4,13 @@ export interface ProjectEnvironmentVariable {
   sensitive: boolean;
 }
 
+export interface ProjectEnvironmentVariableValue {
+  file: string;
+  name: string;
+  value: string;
+  sensitive: boolean;
+}
+
 export interface ProjectEnvironmentFile {
   file: string;
   variables: ProjectEnvironmentVariable[];
