@@ -566,8 +566,9 @@ watch(
           :is="`h${Math.min(block.level, 4)}`"
           v-if="block.type === 'heading'"
           class="readme-heading"
-          v-html="renderInlineMarkdown(block.text)"
-        />
+        >
+          <span v-html="renderInlineMarkdown(block.text)"></span>
+        </component>
 
         <p
           v-else-if="block.type === 'paragraph'"
