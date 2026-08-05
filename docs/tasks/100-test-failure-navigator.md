@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementada no PR #191, em validação após a correção do runner atual.
+Implementada no PR #191, em validação final após cobrir a variação de saída do Minitest.
 
 ## Contexto
 
