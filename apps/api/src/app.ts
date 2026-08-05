@@ -287,6 +287,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
+    railsRuntimeService: context.railsRuntimeService,
   });
 
   app.register(bundlerRoutes, {
