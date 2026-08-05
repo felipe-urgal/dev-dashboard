@@ -56,3 +56,16 @@ falhas, mantendo o log original como fonte de verdade.
 - `npm run docs:api:check`;
 - `npm test`;
 - Smoke E2E.
+
+## Roteiro de QA
+
+1. Executar um teste com falha reconhecida e confirmar que o navegador aparece
+   acima do log sem esconder a saída original.
+2. Abrir uma falha com arquivo e linha e confirmar que o editor embutido
+   posiciona o cursor no local indicado.
+3. Usar “Executar arquivo” e confirmar que somente o arquivo associado é
+   iniciado após a ação explícita.
+4. Em um projeto que use apenas `.env.sample`, verificar que o Doctor compara
+   os nomes com `.env` e não exibe valores.
+5. Confirmar que o título “Diagnóstico do projeto” usa a mesma família
+   tipográfica das demais páginas.
