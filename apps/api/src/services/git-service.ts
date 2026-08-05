@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
+  GitBranchMutationResult,
   GitCommit,
   GitCommitResult,
   GitDiffScope,
@@ -42,6 +43,7 @@ import {
   validateMutationPath,
 } from './git-service/mutation-guards.js';
 import { runGit, commandFailureText } from './git-service/run.js';
+import { computeProjectChangeImpact } from './project-change-impact-service.js';
 import { resolveSavePrefix } from './git-service/save-prefix.js';
 import { parseCommits, parseStatus } from './git-service/status-parsing.js';
 import { listStashEntries } from './git-service/stash.js';
@@ -241,7 +243,7 @@ export class GitService {
     return { branch: name };
   }
 
-  public async switchBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<{ branch: string }> {
+  public async switchBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<GitBranchMutationResult> {
     validateBranchName(name);
     await requireRepository(projectPath);
     this.consumeMutationConfirmation(projectId, 'switch-branch', name, confirmationToken);
@@ -251,15 +253,18 @@ export class GitService {
       throw new GitMutationError('GIT_BRANCH_NOT_FOUND', 'Branch não encontrado.');
     }
     await assertWorkingTreeClean(projectPath);
+    const previousSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
     try {
       await runGit(projectPath, ['switch', name]);
     } catch (error) {
       throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao trocar de branch.');
     }
-    return { branch: name };
+    const currentSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
+    const impact = await computeProjectChangeImpact(projectPath, previousSha, currentSha);
+    return { branch: name, impact };
   }
 
-  public async pull(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ branch: string }> {
+  public async pull(projectPath: string, projectId: string, confirmationToken?: string): Promise<GitBranchMutationResult> {
     await requireRepository(projectPath);
     const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
     if (status.detached || !status.branch) {
@@ -271,6 +276,7 @@ export class GitService {
       throw new GitMutationError('GIT_NO_UPSTREAM', 'O branch atual não tem upstream configurado.');
     }
     await assertWorkingTreeClean(projectPath);
+    const previousSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
     try {
       await runGit(projectPath, ['pull', '--ff-only']);
     } catch (error) {
@@ -283,7 +289,9 @@ export class GitService {
       }
       throw new GitMutationError('GIT_PULL_FAILED', details);
     }
-    return { branch };
+    const currentSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
+    const impact = await computeProjectChangeImpact(projectPath, previousSha, currentSha);
+    return { branch, impact };
   }
 
   public async push(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ branch: string }> {

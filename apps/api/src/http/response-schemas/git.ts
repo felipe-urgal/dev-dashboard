@@ -66,10 +66,33 @@ export const gitMutationConfirmationResponseSchema = {
   },
 } as const;
 
+export const projectChangeImpactActionResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['category', 'label', 'description', 'matchedPaths'],
+  properties: {
+    category: { type: 'string', enum: ['dependencies', 'database', 'environment', 'server', 'tests'] },
+    label: { type: 'string' },
+    description: { type: 'string' },
+    routeName: { type: 'string' },
+    matchedPaths: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
+export const projectChangeImpactResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['previousSha', 'currentSha', 'changedPaths', 'actions'],
+  properties: {
+    previousSha: { type: 'string' },
+    currentSha: { type: 'string' },
+    changedPaths: { type: 'array', items: { type: 'string' } },
+    actions: { type: 'array', items: projectChangeImpactActionResponseSchema },
+  },
+} as const;
+
 export const gitBranchMutationResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['branch'],
-  properties: { branch: { type: 'string' } },
+  properties: { branch: { type: 'string' }, impact: projectChangeImpactResponseSchema },
 } as const;
 
 export const gitCommitMutationResponseSchema = {

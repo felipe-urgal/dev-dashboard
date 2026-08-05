@@ -2,6 +2,7 @@ import { ref, watch } from 'vue';
 
 import type {
   Project,
+  ProjectChangeImpact,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
@@ -75,7 +76,13 @@ export function useProjectGitPanel(
   const commitMessage = ref('');
   const commitMode = ref<CommitMode>('create');
   const amendedBranch = ref<string | null>(null);
+  const changeImpact = ref<ProjectChangeImpact | null>(null);
   let generation = 0;
+
+  /** Só vale a pena mostrar o banner quando há alguma recomendação real. */
+  function applyChangeImpact(impact: ProjectChangeImpact | undefined): void {
+    changeImpact.value = impact && impact.actions.length > 0 ? impact : null;
+  }
 
   useAutoDismiss(errorMessage, '');
   useAutoDismiss(workspaceErrorMessage, '');
@@ -199,6 +206,7 @@ export function useProjectGitPanel(
     mutationRunning.value = true;
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
+    changeImpact.value = null;
 
     try {
       const confirmation = await prepareProjectGitMutation(
@@ -206,23 +214,22 @@ export function useProjectGitPanel(
         operation,
         trimmed,
       );
-      const branch =
-        operation === 'create-branch'
-          ? await createProjectGitBranch(
-              props.project.id,
-              trimmed,
-              confirmation.token,
-            )
-          : await switchProjectGitBranch(
-              props.project.id,
-              trimmed,
-              confirmation.token,
-            );
-
-      mutationMessage.value =
-        operation === 'create-branch'
-          ? `Branch "${branch}" criada e selecionada.`
-          : `Agora na branch "${branch}".`;
+      if (operation === 'create-branch') {
+        const branch = await createProjectGitBranch(
+          props.project.id,
+          trimmed,
+          confirmation.token,
+        );
+        mutationMessage.value = `Branch "${branch}" criada e selecionada.`;
+      } else {
+        const result = await switchProjectGitBranch(
+          props.project.id,
+          trimmed,
+          confirmation.token,
+        );
+        mutationMessage.value = `Agora na branch "${result.branch}".`;
+        applyChangeImpact(result.impact);
+      }
       createBranchName.value = '';
       await reloadGitData();
     } catch (error) {
@@ -426,6 +433,7 @@ export function useProjectGitPanel(
     mutationRunning.value = true;
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
+    changeImpact.value = null;
 
     try {
       const confirmation = await prepareProjectGitMutation(
@@ -433,12 +441,13 @@ export function useProjectGitPanel(
         'pull',
         branch,
       );
-      const updatedBranch = await pullProjectGitBranch(
+      const result = await pullProjectGitBranch(
         props.project.id,
         confirmation.token,
       );
       mutationMessage.value =
-        `Branch "${updatedBranch}" atualizada a partir de ${upstream}.`;
+        `Branch "${result.branch}" atualizada a partir de ${upstream}.`;
+      applyChangeImpact(result.impact);
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =
@@ -465,6 +474,7 @@ export function useProjectGitPanel(
     mutationRunning.value = true;
     mutationMessage.value = '';
     mutationErrorMessage.value = '';
+    changeImpact.value = null;
 
     try {
       const confirmation = await prepareProjectGitMainSync(
@@ -477,6 +487,7 @@ export function useProjectGitPanel(
       mutationMessage.value = result.changed
         ? 'Main atualizada e publicada em origin/main.'
         : 'Main e origin/main já estavam sincronizadas.';
+      applyChangeImpact(result.impact);
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =
@@ -570,6 +581,7 @@ export function useProjectGitPanel(
       commitMessage.value = '';
       commitMode.value = 'create';
       amendedBranch.value = null;
+      changeImpact.value = null;
       activeTab.value = tabFromQuery();
       await Promise.all([
         loadGit(),
@@ -599,6 +611,7 @@ export function useProjectGitPanel(
     commitMessage,
     commitMode,
     amendedBranch,
+    changeImpact,
     generation,
     formatDate,
     openTab,

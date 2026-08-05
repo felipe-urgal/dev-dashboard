@@ -125,6 +125,25 @@ test('switchBranch em árvore suja falha com GIT_WORKING_TREE_DIRTY', async (con
   );
 });
 
+test('switchBranch devolve o impacto entre o SHA anterior e o novo', async (context) => {
+  const root = await makeRepo();
+  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  const service = new GitService();
+  const created = service.prepareMutationConfirmation('p1', 'create-branch', 'feature/lockfile');
+  await service.createBranch(root, 'p1', 'feature/lockfile', created.token);
+  await writeFile(path.join(root, 'package-lock.json'), '{}\n');
+  await git(root, ['add', '.']);
+  await git(root, ['commit', '-q', '-m', 'chore: adiciona lockfile']);
+  await git(root, ['switch', 'main']);
+
+  const confirmation = service.prepareMutationConfirmation('p1', 'switch-branch', 'feature/lockfile');
+  const result = await service.switchBranch(root, 'p1', 'feature/lockfile', confirmation.token);
+  assert.equal(result.branch, 'feature/lockfile');
+  assert.deepEqual(result.impact.changedPaths, ['package-lock.json']);
+  assert.equal(result.impact.actions.length, 1);
+  assert.equal(result.impact.actions[0]?.category, 'dependencies');
+});
+
 test('switchBranch para branch inexistente falha com GIT_BRANCH_NOT_FOUND', async (context) => {
   const root = await makeRepo();
   context.after(async () => { await rm(root, { recursive: true, force: true }); });
@@ -218,6 +237,8 @@ test('pull avança em fast-forward após confirmação', async (context) => {
   assert.equal(result.branch, 'main');
   const content = await execFileAsync('git', ['show', 'HEAD:README.md'], { cwd: secondClone });
   assert.equal(content.stdout, 'v2\n');
+  assert.deepEqual(result.impact.changedPaths, ['README.md']);
+  assert.deepEqual(result.impact.actions, []);
 });
 
 test('pull sem upstream falha com GIT_NO_UPSTREAM', async (context) => {

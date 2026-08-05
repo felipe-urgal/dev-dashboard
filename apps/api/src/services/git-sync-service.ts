@@ -5,6 +5,8 @@ import type {
   GitTrackingComparison,
 } from '@dev-dashboard/contracts';
 
+import { computeProjectChangeImpact } from './project-change-impact-service.js';
+
 import {
   CONFIRMATION_TTL_MS,
   CONFLICT_PATTERN,
@@ -171,6 +173,7 @@ export class GitSyncService {
       changed: currentHead !== previousHead,
       previousHead,
       currentHead,
+      impact: await computeProjectChangeImpact(projectPath, previousHead, currentHead),
     };
   }
 
@@ -253,6 +256,7 @@ export class GitSyncService {
         || previousOriginHead !== currentHead,
       previousHead,
       currentHead,
+      impact: await computeProjectChangeImpact(projectPath, previousHead, currentHead),
     };
   }
 
