@@ -34,6 +34,11 @@
     <p v-if="mutationErrorMessage" class="project-error" role="alert">
       {{ mutationErrorMessage }}
     </p>
+    <ProjectGitChangeImpactBanner
+      v-if="changeImpact"
+      :project-id="project.id"
+      :impact="changeImpact"
+    />
 
     <div v-if="loading && !overview" class="git-modern-empty">
       Consultando o repositório…

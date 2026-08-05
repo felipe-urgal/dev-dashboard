@@ -1,3 +1,5 @@
+import type { ProjectChangeImpact } from './project-change-impact.js';
+
 export type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'conflicted' | 'type-changed';
 export interface GitFileChange { path: string; previousPath?: string; indexStatus: string; worktreeStatus: string; status: GitFileStatus; }
 export interface GitCommit { hash: string; shortHash: string; subject: string; authorName: string; authorEmail: string; authoredAt: string; }
@@ -53,6 +55,13 @@ export interface GitSyncResult {
   changed: boolean;
   previousHead: string;
   currentHead: string;
+  impact: ProjectChangeImpact;
+}
+
+/** Retorno de `switch-branch` e `pull`: além do branch, o impacto calculado entre o SHA anterior e o novo. */
+export interface GitBranchMutationResult {
+  branch: string;
+  impact: ProjectChangeImpact;
 }
 
 export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; stashes: GitStashEntry[]; }

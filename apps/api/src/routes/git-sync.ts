@@ -6,7 +6,7 @@ import type {
 import type { GitSyncStrategy } from '@dev-dashboard/contracts';
 
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
-import { commonErrorResponseSchemas } from '../http/response-schemas.js';
+import { commonErrorResponseSchemas, projectChangeImpactResponseSchema } from '../http/response-schemas.js';
 import {
   GitSyncError,
   GitSyncService,
@@ -110,6 +110,7 @@ const resultSchema = {
     'changed',
     'previousHead',
     'currentHead',
+    'impact',
   ],
   properties: {
     branch: { type: 'string' },
@@ -118,6 +119,7 @@ const resultSchema = {
     changed: { type: 'boolean' },
     previousHead: { type: 'string' },
     currentHead: { type: 'string' },
+    impact: projectChangeImpactResponseSchema,
   },
 } as const;
 

@@ -1,53 +1,63 @@
-
 # Próxima atividade
 
-## Task 102 — Conselheiro de impacto após mudanças Git
+## Task 103 — Dividir `GitService` e `ScriptExecutionService` por domínio
 
 ### Objetivo
 
-Depois de uma troca de branch, pull ou sincronização, comparar o SHA
-anterior com o novo SHA e transformar os caminhos alterados em
-recomendações claras, sem executar nenhuma ação automaticamente.
+Reduzir as duas classes de serviço que voltaram a crescer acima de 400
+linhas depois da Fase 7 de refatoração (`docs/architecture/refactoring-arquivos-grandes.md`),
+sem alterar nenhuma assinatura pública nem comportamento externo. `git-service.ts`
+está em 583 linhas (já cresceu mais com a task 102) e `script-execution-service.ts`
+em 628. Ambas já tiveram uma primeira passada de extração de funções livres
+na Fase 7; falta dividir a própria classe por domínio, como já foi feito com
+`ProcessManager` na Fase 6.
 
 ### Decisão principal
 
-A primeira versão será um classificador puro e declarativo de paths.
-Ela recebe somente dois commits já conhecidos pela mutação Git e usa
-`git diff --name-only` com argumentos estruturados. O resultado aponta
-para ações existentes; não lê conteúdo dos arquivos e não cria um
-executor genérico.
+Seguir exatamente o padrão da Fase 6: cada classe vira um orquestrador fino
+que delega para módulos por domínio, mantendo um único `Map`/mecanismo de
+confirmação compartilhado (já extraído para `GitMutationConfirmationService`
+no caso de `GitService`) injetado nos módulos que precisam dele, em vez de
+duplicado. Nenhuma rota, contrato ou schema muda — é refatoração pura,
+verificada pelos testes existentes de cada serviço.
 
 ### Escopo
 
-- contrato `ProjectChangeImpact`;
-- regras testáveis para lockfiles Node, `Gemfile.lock`, migrations,
-  Dockerfile/Compose, `.env.example`, configuração de servidor/worker e
-  arquivos de teste;
-- captura dos SHAs anterior/novo nas mutações de troca, pull e
-  sincronização;
-- apresentação do impacto no resultado da operação Git e na visão do
-  projeto;
-- deep links para Dependências, Banco, Servidor, Variáveis de ambiente
-  e Testes quando a ação correspondente já existir;
-- lista limitada, deduplicada e ordenada por prioridade.
+- `GitService` (`apps/api/src/services/git-service.ts`, 16 métodos públicos):
+  dividir em módulos por domínio dentro de `git-service/` — branch
+  (`createBranch`/`switchBranch`/`pull`/`push`), arquivo
+  (`stageFile`/`unstageFile`/`discardFile`/`removeUntrackedFile`), commit
+  (`commit`/`amend`/`save`) e stash (`stashPush`/`stashPop`), além dos
+  métodos de leitura (`getOverview`/`getDiffSnapshot`/`getFileDiff`/
+  `getFileLines`) que podem continuar juntos por não compartilharem mutação;
+- `ScriptExecutionService` (`apps/api/src/services/script-execution-service.ts`):
+  mesma divisão por domínio das responsabilidades já visíveis nos 6 `Map`s
+  privados (`executions`/`activeProjects`/`confirmations`/`pendingWrites`/
+  `subscribers`/`eventTimers`) — provavelmente execução (start/stop),
+  confirmação e eventos/subscribers como três frentes, a confirmar durante a
+  implementation;
+- meta de ~200 linhas por arquivo novo, mesma régua das fases anteriores;
+- todos os símbolos hoje exportados de `git-service.ts`/`script-execution-service.ts`
+  continuam reexportados de lá — nenhum import externo muda.
 
 ### Critérios de aceite
 
-- uma mudança de lockfile recomenda revisar/instalar dependências;
-- migrations recomendam abrir Banco de dados;
-- `.env.example` ou `.env.sample` recomenda revisar nomes de variáveis;
-- configuração de servidor/worker recomenda reiniciar somente por ação
-  explícita;
-- arquivos de teste recomendam executar testes, sem iniciar execução;
-- diff inválido ou commits iguais produzem resultado vazio e seguro;
-- nenhum conteúdo de arquivo, segredo ou caminho absoluto é devolvido;
-- nenhuma recomendação dispara comando automaticamente.
+- `git-service.ts` e `script-execution-service.ts` ficam abaixo de ~400
+  linhas cada, contendo só a classe orquestradora;
+- `npm run typecheck`, `npm run build` e `npm test` continuam verdes sem
+  nenhuma mudança nos testes existentes de `git-service`/`git-service-mutations`/
+  `git-service-diff`/`git-amend-all-changes`/`git-file-confirmation-route`/
+  `git-sync-service`/`script-execution-service`/`script-events-route`;
+- nenhuma rota, schema de resposta ou tipo em `packages/contracts` muda;
+- `docs/architecture/refactoring-arquivos-grandes.md` ganha uma nova entrada
+  de fase registrando a divisão e o inventário atualizado de arquivos acima
+  de 400 linhas.
 
 ### Fora de escopo
 
-- analisar conteúdo ou AST;
-- instalar dependências, migrar banco ou reiniciar processos
-  automaticamente;
-- comparar commits arbitrários enviados pelo navegador;
-- IA ou recomendação probabilística;
-- persistência histórica dos impactos na primeira versão.
+- mudar comportamento de qualquer operação Git ou de script;
+- extrair `ProjectGitPanel.vue`/`ProjectGitBranchesPage.vue` ou os demais
+  componentes Vue acima de 400 linhas listados no reinventário da Fase 7 —
+  ficam para uma entrega própria de frontend;
+- revisitar o mecanismo de confirmação compartilhado além de injetá-lo nos
+  novos módulos.

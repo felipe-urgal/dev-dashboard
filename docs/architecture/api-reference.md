@@ -3322,6 +3322,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3683,6 +3747,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3756,6 +3884,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -4086,6 +4278,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -5545,7 +5801,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "strategy",
           "changed",
           "previousHead",
-          "currentHead"
+          "currentHead",
+          "impact"
         ],
         "properties": {
           "branch": {
@@ -5570,6 +5827,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "currentHead": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -5825,7 +6146,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "strategy",
           "changed",
           "previousHead",
-          "currentHead"
+          "currentHead",
+          "impact"
         ],
         "properties": {
           "branch": {
@@ -5850,6 +6172,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "currentHead": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -6280,6 +6666,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -6453,6 +6903,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -6626,6 +7140,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -6794,6 +7372,70 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "properties": {
           "branch": {
             "type": "string"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "previousSha",
+              "currentSha",
+              "changedPaths",
+              "actions"
+            ],
+            "properties": {
+              "previousSha": {
+                "type": "string"
+              },
+              "currentSha": {
+                "type": "string"
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "label",
+                    "description",
+                    "matchedPaths"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "database",
+                        "environment",
+                        "server",
+                        "tests"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "routeName": {
+                      "type": "string"
+                    },
+                    "matchedPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

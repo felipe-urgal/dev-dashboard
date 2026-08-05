@@ -119,6 +119,7 @@ export type { Job, JobStatus } from './job.js';
 export type {
   GitBranch,
   GitBranchKind,
+  GitBranchMutationResult,
   GitCommit,
   GitCommitDetailFile,
   GitCommitDetails,
@@ -287,3 +288,9 @@ export type {
   ProjectEnvironmentOverview,
   ProjectEnvironmentVariable,
 } from './project-environment.js';
+
+export type {
+  ProjectChangeImpact,
+  ProjectChangeImpactAction,
+  ProjectChangeImpactCategory,
+} from './project-change-impact.js';

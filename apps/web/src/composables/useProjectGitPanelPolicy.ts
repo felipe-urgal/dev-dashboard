@@ -52,6 +52,7 @@ export function useProjectGitPanelPolicy(
     panel.mutationRunning.value = true;
     panel.mutationMessage.value = '';
     panel.mutationErrorMessage.value = '';
+    panel.changeImpact.value = null;
 
     try {
       const confirmation = await prepareProjectGitMutation(

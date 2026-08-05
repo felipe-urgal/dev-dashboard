@@ -1,4 +1,5 @@
 import type {
+  GitBranchMutationResult,
   GitCommitDetails,
   GitCommitFileDiff,
   GitCommitHistoryKind,
@@ -201,6 +202,7 @@ export function removeProjectGitUntrackedFile(
 
 interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
 interface GitBranchMutationResponse { branch: { branch: string } }
+interface GitBranchMutationWithImpactResponse { branch: GitBranchMutationResult }
 interface GitBranchRenameConfirmationResponse {
   confirmation: {
     token: string;
@@ -235,12 +237,12 @@ export async function createProjectGitBranch(projectId: string, name: string, co
   return response.branch.branch;
 }
 
-export async function switchProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
-  const response = await requestJson<GitBranchMutationResponse>(
+export async function switchProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<GitBranchMutationResult> {
+  const response = await requestJson<GitBranchMutationWithImpactResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/switch`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
   );
-  return response.branch.branch;
+  return response.branch;
 }
 
 export async function prepareProjectGitBranchRename(
@@ -307,12 +309,12 @@ export async function deleteProjectGitBranch(
   return response.branch.branch;
 }
 
-export async function pullProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
-  const response = await requestJson<GitBranchMutationResponse>(
+export async function pullProjectGitBranch(projectId: string, confirmationToken: string): Promise<GitBranchMutationResult> {
+  const response = await requestJson<GitBranchMutationWithImpactResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/pull`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
   );
-  return response.branch.branch;
+  return response.branch;
 }
 
 export async function pushProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {

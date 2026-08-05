@@ -101,6 +101,8 @@ test('compara e integra uma referência remota com fast-forward', async () => {
       await git(fixture.local, 'rev-list', '--count', 'HEAD..upstream/main'),
       '0',
     );
+    assert.equal(result.impact.previousSha, result.previousHead);
+    assert.equal(result.impact.currentSha, result.currentHead);
   } finally {
     await fixture.cleanup();
   }
@@ -160,6 +162,8 @@ test('sincroniza a main a partir de upstream/main e publica em origin/main', asy
       await git(fixture.origin, 'rev-parse', 'main'),
       result.currentHead,
     );
+    assert.equal(result.impact.previousSha, result.previousHead);
+    assert.equal(result.impact.currentSha, result.currentHead);
   } finally {
     await fixture.cleanup();
   }
