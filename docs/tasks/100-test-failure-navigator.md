@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementada no PR #191, aguardando validação e merge.
+Implementada no PR #191, em validação após a correção do runner atual.
 
 ## Contexto
 
