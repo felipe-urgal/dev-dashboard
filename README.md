@@ -15,7 +15,7 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Detecção automática de portas disponíveis
 - Persistência segura de PIDs e metadados dos processos
 - Visualização de logs no navegador
-- Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (CRUD de branches locais, pull, push, commit e stash)
+- Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (CRUD de branches locais, pull, push, commit)
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations, routes e geradores (model/migration) do Rails, com operações mutáveis sob confirmação, e diagnóstico Bundler somente leitura
@@ -409,7 +409,7 @@ A interface web já permite:
 6. abrir URLs e acompanhar logs protegidos;
 7. consultar Git (status, diff, branches, commits), administrar branches
    locais (criar, trocar, renomear e remover) e executar mutações com
-   confirmação (pull, push, commit e stash);
+   confirmação (pull, push, commit);
 8. detectar e executar testes reconhecidos, incluindo um arquivo específico;
 9. inspecionar bancos locais, distinguir runtime local de Docker, coordenar
    start/stop de serviços reconhecidos e criar/restaurar snapshots de banco

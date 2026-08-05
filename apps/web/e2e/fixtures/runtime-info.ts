@@ -8,6 +8,7 @@ const RUNTIME_INFO_FILE = path.join(HERE, '../.runtime/server-info.json');
 export interface RuntimeInfo {
   baseUrl: string;
   bootstrapToken: string;
+  workspaceDirectory: string;
 }
 
 export async function writeRuntimeInfo(info: RuntimeInfo): Promise<void> {

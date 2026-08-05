@@ -6,6 +6,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   await writeRuntimeInfo({
     baseUrl: server.baseUrl,
     bootstrapToken: server.bootstrapToken,
+    workspaceDirectory: server.workspaceDirectory,
   });
 
   return async () => {
