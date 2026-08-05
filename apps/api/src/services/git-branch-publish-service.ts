@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import type { GitMutationConfirmation } from '@dev-dashboard/contracts';
 
 import {
@@ -13,39 +11,29 @@ import {
   validateBranchName,
 } from './git-service/mutation-guards.js';
 import { commandFailureText, runGit } from './git-service/run.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
-interface StoredPublishConfirmation {
-  token: string;
-  projectId: string;
-  branch: string;
-  expiresAt: number;
-}
+/** Identificador do catálogo (`git-mutation-catalog.ts`) para esta operação. */
+const CATALOG_OPERATION_ID = 'branch-publish';
 
 export class GitBranchPublishService {
-  private readonly confirmations = new Map<string, StoredPublishConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(GIT_MUTATION_CONFIRMATION_TTL_MS);
 
   public preparePublishConfirmation(
     projectId: string,
     branch: string,
   ): GitMutationConfirmation {
     validateBranchName(branch);
-    this.pruneExpired();
-
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
-      projectId,
-      branch,
-      expiresAt,
-    });
-
-    return {
-      token,
-      operation: 'push',
-      target: branch,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    const { token, expiresAt } = this.confirmations.prepare(projectId, CATALOG_OPERATION_ID, branch);
+    return { token, operation: 'push', target: branch, expiresAt };
   }
 
   public async publishLocalBranch(
@@ -105,25 +93,16 @@ export class GitBranchPublishService {
     branch: string,
     token: string | undefined,
   ): void {
-    this.pruneExpired();
-    const confirmation = token ? this.confirmations.get(token) : undefined;
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.branch !== branch
-    ) {
-      throw new GitMutationError(
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para publicar a branch no origin.',
-      );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpired(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, CATALOG_OPERATION_ID, branch, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitMutationError(
+          'GIT_MUTATION_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para publicar a branch no origin.',
+        );
+      }
+      throw error;
     }
   }
 }
