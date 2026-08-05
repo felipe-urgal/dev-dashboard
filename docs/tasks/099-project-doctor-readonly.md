@@ -4,6 +4,9 @@
 
 Em revisão na branch `agent/project-doctor-readonly`.
 
+Branch rebaseado sobre a `main` após a incorporação do PR #189, com os pontos
+compartilhados reconciliados e a numeração atualizada para Task 099.
+
 ## Contexto
 
 Esta entrega promove a OPP-01 de
