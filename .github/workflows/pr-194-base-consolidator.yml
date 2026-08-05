@@ -1,0 +1,12 @@
+name: PR 194 Base Consolidator
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Preparando consolidação do PR 194"
