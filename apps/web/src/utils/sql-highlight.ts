@@ -30,7 +30,6 @@ export function highlightSqlHtml(text: string): string {
   TOKEN_PATTERN.lastIndex = 0;
 
   let match: RegExpExecArray | null;
-  // eslint-disable-next-line no-cond-assign
   while ((match = TOKEN_PATTERN.exec(text))) {
     result += escapeHtml(text.slice(lastIndex, match.index));
     const [full, ident, str, num, placeholder, keyword] = match;
