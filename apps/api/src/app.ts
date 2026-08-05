@@ -238,6 +238,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectReadmeRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    projectFileService: context.projectFileService,
   });
 
   app.register(projectFileRoutes, {

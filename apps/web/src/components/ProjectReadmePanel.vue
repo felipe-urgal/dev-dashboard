@@ -12,12 +12,12 @@ import {
   DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
 
-import type { Project } from '@dev-dashboard/contracts';
+import type { Project, ProjectFileEntry } from '@dev-dashboard/contracts';
 
 import {
-  fetchProjectReadme,
-  type ProjectReadme,
-} from '../project-readme-api';
+  fetchProjectFileContent,
+  fetchProjectMarkdownFiles,
+} from '../api';
 
 interface HeadingBlock {
   id: string;
@@ -71,7 +71,10 @@ const props = defineProps<{
 
 const loading = ref(false);
 const errorMessage = ref('');
-const readme = ref<ProjectReadme | null>(null);
+const files = ref<ProjectFileEntry[]>([]);
+const filesTruncated = ref(false);
+const selectedPath = ref('');
+const content = ref('');
 const copiedBlockId = ref('');
 
 function cleanInlineMarkdown(value: string): string {
@@ -224,31 +227,66 @@ function parseMarkdown(source: string): MarkdownBlock[] {
   return blocks;
 }
 
-const blocks = computed(() =>
-  readme.value ? parseMarkdown(readme.value.content) : [],
+const blocks = computed(() => (content.value ? parseMarkdown(content.value) : []));
+
+const selectedFile = computed(
+  () => files.value.find((file) => file.path === selectedPath.value) ?? null,
 );
 
-async function loadReadme(): Promise<void> {
+async function selectFile(path: string): Promise<void> {
+  const projectId = props.project.id;
+  selectedPath.value = path;
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const file = await fetchProjectFileContent(projectId, path);
+    if (props.project.id === projectId && selectedPath.value === path) {
+      content.value = file.content;
+    }
+  } catch (error) {
+    if (props.project.id === projectId && selectedPath.value === path) {
+      content.value = '';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o arquivo selecionado.';
+    }
+  } finally {
+    if (props.project.id === projectId && selectedPath.value === path) {
+      loading.value = false;
+    }
+  }
+}
+
+async function loadFiles(): Promise<void> {
   const projectId = props.project.id;
   loading.value = true;
   errorMessage.value = '';
-  readme.value = null;
+  files.value = [];
+  filesTruncated.value = false;
+  selectedPath.value = '';
+  content.value = '';
 
   try {
-    const result = await fetchProjectReadme(projectId);
+    const result = await fetchProjectMarkdownFiles(projectId);
+    if (props.project.id !== projectId) return;
 
-    if (props.project.id === projectId) {
-      readme.value = result;
+    files.value = result.files;
+    filesTruncated.value = result.truncated;
+
+    const first = result.files[0];
+    if (first) {
+      await selectFile(first.path);
+    } else {
+      loading.value = false;
     }
   } catch (error) {
     if (props.project.id === projectId) {
       errorMessage.value =
         error instanceof Error
           ? error.message
-          : 'Não foi possível carregar o README do projeto.';
-    }
-  } finally {
-    if (props.project.id === projectId) {
+          : 'Não foi possível listar a documentação do projeto.';
       loading.value = false;
     }
   }
@@ -271,7 +309,7 @@ async function copyCode(block: CodeBlock): Promise<void> {
 watch(
   () => props.project.id,
   () => {
-    void loadReadme();
+    void loadFiles();
   },
   { immediate: true },
 );
@@ -284,9 +322,15 @@ watch(
         <DocumentTextIcon aria-hidden="true" />
         <div>
           <strong id="project-readme-title">
-            {{ readme?.filename ?? 'README.md' }}
+            {{ selectedFile?.name ?? 'Documentação' }}
           </strong>
-          <span>Documentação principal do projeto</span>
+          <span>
+            {{
+              files.length > 1
+                ? `${files.length} arquivos Markdown encontrados`
+                : 'Documentação principal do projeto'
+            }}
+          </span>
         </div>
       </div>
 
@@ -294,34 +338,57 @@ watch(
         type="button"
         class="readme-refresh-button"
         :disabled="loading"
-        @click="loadReadme"
+        @click="loadFiles"
       >
         <ArrowPathIcon aria-hidden="true" />
         {{ loading ? 'Atualizando...' : 'Atualizar' }}
       </button>
     </header>
 
-    <div v-if="loading" class="readme-state" aria-live="polite">
+    <nav
+      v-if="files.length > 1"
+      class="readme-file-list"
+      aria-label="Arquivos Markdown do projeto"
+    >
+      <button
+        v-for="file in files"
+        :key="file.path"
+        type="button"
+        class="readme-file-item"
+        :class="{ 'readme-file-item-active': file.path === selectedPath }"
+        :aria-current="file.path === selectedPath ? 'true' : undefined"
+        :disabled="loading && file.path === selectedPath"
+        @click="selectFile(file.path)"
+      >
+        {{ file.path }}
+      </button>
+    </nav>
+
+    <p v-if="filesTruncated" class="readme-truncated-warning" role="status">
+      A lista foi limitada aos primeiros arquivos Markdown encontrados.
+    </p>
+
+    <div v-if="loading && !content" class="readme-state" aria-live="polite">
       <span class="readme-loading-icon">•••</span>
-      <strong>Carregando README</strong>
-      <p>Lendo a documentação na raiz do projeto.</p>
+      <strong>Carregando documentação</strong>
+      <p>Lendo os arquivos Markdown do projeto.</p>
     </div>
 
     <div v-else-if="errorMessage" class="readme-state readme-state-error">
       <span class="readme-loading-icon">!</span>
-      <strong>Não foi possível abrir o README</strong>
+      <strong>Não foi possível abrir a documentação</strong>
       <p>{{ errorMessage }}</p>
-      <button type="button" class="secondary-button" @click="loadReadme">
+      <button type="button" class="secondary-button" @click="loadFiles">
         Tentar novamente
       </button>
     </div>
 
-    <div v-else-if="!readme" class="readme-state">
+    <div v-else-if="!selectedFile" class="readme-state">
       <DocumentTextIcon class="readme-empty-icon" aria-hidden="true" />
-      <strong>README não encontrado</strong>
+      <strong>Nenhum arquivo Markdown encontrado</strong>
       <p>
-        Adicione um arquivo README.md na raiz do projeto para exibir a
-        documentação nesta página.
+        Adicione um arquivo <code>.md</code> ao projeto (por exemplo, um
+        README.md na raiz) para exibir a documentação nesta página.
       </p>
     </div>
 

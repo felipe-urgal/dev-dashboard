@@ -32,7 +32,7 @@ interface FileWriteBody {
   expectedVersion: string;
 }
 
-const fileEntrySchema = {
+export const fileEntrySchema = {
   type: 'object',
   additionalProperties: false,
   required: ['path', 'name', 'kind'],

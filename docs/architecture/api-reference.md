@@ -10627,7 +10627,7 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
 ## Project Readme
 
-### `GET /api/projects/:projectId/readme`
+### `GET /api/projects/:projectId/readme/files`
 
 **Parâmetros de rota (`params`)**
 
@@ -10656,31 +10656,46 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "readme"
+      "files",
+      "truncated"
     ],
     "properties": {
-      "readme": {
-        "anyOf": [
-          {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "filename",
-              "content"
-            ],
-            "properties": {
-              "filename": {
-                "type": "string"
-              },
-              "content": {
-                "type": "string"
-              }
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "name",
+            "kind"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "file",
+                "directory"
+              ]
+            },
+            "language": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
             }
-          },
-          {
-            "type": "null"
           }
-        ]
+        }
+      },
+      "truncated": {
+        "type": "boolean"
       }
     }
   }
