@@ -118,7 +118,7 @@ test('cria um perfil de ambiente e não envia valor para variável de nome sens�
   await valueInput?.setValue('não deveria ser salvo');
   assert.equal(valueInput?.attributes('disabled'), '');
 
-  await wrapper.get('.environment-profile-form').trigger('submit');
+  await wrapper.get('form.environment-profile-editor').trigger('submit');
   await flushPromises();
 
   const createRequest = requests.find((entry) => entry.url.includes('/settings/environment-profiles') && entry.init.method === 'POST');
