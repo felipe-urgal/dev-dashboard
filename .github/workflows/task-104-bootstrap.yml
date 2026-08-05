@@ -1,0 +1,27 @@
+name: Task 104 bootstrap
+
+on:
+  push:
+    branches:
+      - chore/task-104-eslint
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Archive source
+        run: tar --exclude=.git -czf /tmp/dev-dashboard-source.tgz .
+
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-104-source
+          path: /tmp/dev-dashboard-source.tgz
+          retention-days: 1
