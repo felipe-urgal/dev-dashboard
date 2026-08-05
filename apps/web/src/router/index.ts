@@ -117,6 +117,12 @@ export const router = createRouter({
       meta: { eyebrow: 'Projeto local', title: 'Scripts e tarefas do projeto' },
     },
     {
+      path: '/projects/:projectId/rails-runtime',
+      name: 'project-rails-runtime',
+      component: ProjectDetailsView,
+      meta: { eyebrow: 'Projeto local', title: 'Sidekiq, webpack e credentials' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,
