@@ -42,22 +42,19 @@ const replacement = `function collectMinitestBlocks(lines: string[]): FailureBlo
   return blocks;
 }
 `;
-
 parser = parser.slice(0, functionStart) + replacement + parser.slice(functionEnd);
 await writeFile(parserPath, parser, 'utf8');
 
 const testPath = 'apps/web/test/project-test-failures.test.ts';
 let tests = await readFile(testPath, 'utf8');
-const oldFixture = `1) Failure:\nUserTest#test_name [/workspace/app/test/models/user_test.rb:7]:\nExpected false to be truthy.`;
-const newFixture = `1) Failure:\ntest: test_requires_email.\nExpected false to be truthy.\nUserTest#test_requires_email [/workspace/app/test/models/user_test.rb:18]:`;
-if (!tests.includes(oldFixture)) {
-  throw new Error('Fixture Minitest esperada não encontrada.');
+const regressionName = 'prioriza o identificador estruturado sobre o título genérico do Minitest';
+if (!tests.includes(regressionName)) {
+  const insertionPoint = tests.lastIndexOf('\n});');
+  if (insertionPoint < 0) throw new Error('Fechamento da suíte de parsers não encontrado.');
+  const regression = `\n\n  it('${regressionName}', () => {\n    const failures = parseTestFailures(\`\n1) Failure:\ntest: test_requires_email.\nExpected false to be truthy.\nUserTest#test_requires_email [/workspace/app/test/models/user_test.rb:18]:\n\`, 'rails-test', { projectPath: '/workspace/app' });\n\n    expect(failures[0]).toMatchObject({\n      name: 'UserTest#test_requires_email',\n      location: {\n        path: 'test/models/user_test.rb',\n        line: 18,\n      },\n    });\n  });`;
+  tests = tests.slice(0, insertionPoint) + regression + tests.slice(insertionPoint);
+  await writeFile(testPath, tests, 'utf8');
 }
-tests = tests
-  .replace(oldFixture, newFixture)
-  .replace("name: 'UserTest#test_name'", "name: 'UserTest#test_requires_email'")
-  .replace("line: 7", "line: 18");
-await writeFile(testPath, tests, 'utf8');
 
 await unlink('scripts/task-100-minitest-fix.mjs');
 await unlink('.github/workflows/task-100-minitest-fix.yml');
