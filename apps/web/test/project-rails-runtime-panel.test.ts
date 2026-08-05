@@ -1,38 +1,17 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Project, RailsWorkerOverview } from '@dev-dashboard/contracts';
+import type { Project, RailsWorkerId, RailsWorkerOverview } from '@dev-dashboard/contracts';
 
 const {
   fetchProjectRailsWorker,
-  fetchProjectRailsCredentials,
   startProjectRailsWorker,
   stopProjectRailsWorker,
   restartProjectRailsWorker,
   fetchProjectRailsWorkerLog,
   clearProjectRailsWorkerLog,
 } = vi.hoisted(() => ({
-  fetchProjectRailsWorker: vi.fn(
-    async (_projectId: string, workerId: 'sidekiq' | 'webpack'): Promise<RailsWorkerOverview> => {
-      if (workerId === 'sidekiq') {
-        return { id: 'sidekiq', detected: true, process: null };
-      }
-      return { id: 'webpack', detected: false, process: null };
-    },
-  ),
-  fetchProjectRailsCredentials: vi.fn().mockResolvedValue({
-    supported: true,
-    environments: [
-      {
-        name: 'default',
-        credentialsPath: 'config/credentials.yml.enc',
-        credentialsFileExists: true,
-        keyPath: 'config/master.key',
-        keyFileExists: true,
-        keySource: 'file',
-      },
-    ],
-  }),
+  fetchProjectRailsWorker: vi.fn(),
   startProjectRailsWorker: vi.fn(),
   stopProjectRailsWorker: vi.fn(),
   restartProjectRailsWorker: vi.fn(),
@@ -42,7 +21,6 @@ const {
 
 vi.mock('../src/api', () => ({
   fetchProjectRailsWorker,
-  fetchProjectRailsCredentials,
   startProjectRailsWorker,
   stopProjectRailsWorker,
   restartProjectRailsWorker,
@@ -63,28 +41,62 @@ const project: Project = {
   capabilities: ['server'],
 };
 
+function overview(workerId: RailsWorkerId, detected = workerId === 'sidekiq'): RailsWorkerOverview {
+  return { id: workerId, detected, process: null };
+}
+
 describe('ProjectRailsRuntimePanel', () => {
-  it('mostra apenas o Sidekiq detectado; o card do webpack fica oculto', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    fetchProjectRailsWorker.mockImplementation(
+      async (_projectId: string, workerId: RailsWorkerId) => overview(workerId),
+    );
+    fetchProjectRailsWorkerLog.mockImplementation(
+      async (_projectId: string, workerId: RailsWorkerId) => ({
+        projectId: 'p1',
+        processId: `p1:${workerId}`,
+        content: `${workerId} log de exemplo`,
+        sizeBytes: 20,
+        truncated: false,
+        masked: false,
+        redactionCount: 0,
+        readAt: '2026-08-05T12:00:00.000Z',
+      }),
+    );
+  });
+
+  it('separa Sidekiq e Webpack em abas e remove credentials da interface', async () => {
     const wrapper = mount(ProjectRailsRuntimePanel, {
       props: { project },
     });
 
     await flushPromises();
 
-    const cards = wrapper.findAll('.rails-worker-card');
-    expect(cards).toHaveLength(2);
+    const tabs = wrapper.findAll('[role="tab"]');
+    expect(tabs).toHaveLength(2);
+    expect(tabs[0]?.text()).toContain('Sidekiq');
+    expect(tabs[0]?.attributes('aria-selected')).toBe('true');
+    expect(tabs[1]?.text()).toContain('Webpack');
 
-    const sidekiqCard = cards[0];
-    expect(sidekiqCard?.text()).toContain('Sidekiq');
-    expect(sidekiqCard?.isVisible()).toBe(true);
-    expect(sidekiqCard?.find('button.primary-button').exists()).toBe(true);
+    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
+    const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
+    expect(sidekiqPanel.isVisible()).toBe(true);
+    expect(webpackPanel.isVisible()).toBe(false);
+    expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
 
-    const webpackCard = cards[1];
-    expect(webpackCard?.text()).toContain('webpack-dev-server');
-    expect(webpackCard?.isVisible()).toBe(false);
+    await tabs[1]?.trigger('click');
+
+    expect(sidekiqPanel.isVisible()).toBe(false);
+    expect(webpackPanel.isVisible()).toBe(true);
+    expect(webpackPanel.text()).toContain('webpack-dev-server não foi detectado');
+    expect(wrapper.find('.rails-credentials-card').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Credentials');
+
+    wrapper.unmount();
   });
 
-  it('inicia o Sidekiq ao clicar em Iniciar', async () => {
+  it('inicia o Sidekiq pela aba dedicada', async () => {
     startProjectRailsWorker.mockResolvedValueOnce({
       id: 'p1:worker:sidekiq',
       projectId: 'p1',
@@ -92,6 +104,7 @@ describe('ProjectRailsRuntimePanel', () => {
       status: 'running',
       pid: 4242,
       command: '/projetos/api-rails/bin/sidekiq',
+      startedAt: '2026-08-05T12:00:00.000Z',
     });
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
@@ -100,25 +113,44 @@ describe('ProjectRailsRuntimePanel', () => {
 
     await flushPromises();
 
-    const startButton = wrapper.findAll('.rails-worker-card')[0]?.find('button.primary-button');
-    await startButton?.trigger('click');
+    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
+    await sidekiqPanel.find('button.primary-button').trigger('click');
     await flushPromises();
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
-    expect(wrapper.text()).toContain('4242');
+    expect(sidekiqPanel.text()).toContain('4242');
+    expect(sidekiqPanel.text()).toContain('Processo ativo e respondendo');
+
+    wrapper.unmount();
   });
 
-  it('mostra o status somente leitura das credentials sem expor conteúdo', async () => {
+  it('mantém um painel de logs independente para cada processo', async () => {
+    fetchProjectRailsWorker.mockImplementation(
+      async (_projectId: string, workerId: RailsWorkerId) => overview(workerId, true),
+    );
+
     const wrapper = mount(ProjectRailsRuntimePanel, {
       props: { project },
     });
 
     await flushPromises();
 
-    const credentialsCard = wrapper.find('.rails-credentials-card');
-    expect(credentialsCard.text()).toContain('default');
-    expect(credentialsCard.text()).toContain('Presente');
-    expect(credentialsCard.text()).not.toContain('config/master.key');
-    expect(credentialsCard.html()).not.toMatch(/[0-9a-f]{32,}/);
+    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
+    await sidekiqPanel.find('.rails-worker-log-toggle').trigger('click');
+    await flushPromises();
+
+    expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'sidekiq');
+    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain('sidekiq log de exemplo');
+
+    await wrapper.findAll('[role="tab"]')[1]?.trigger('click');
+    const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
+    await webpackPanel.find('.rails-worker-log-toggle').trigger('click');
+    await flushPromises();
+
+    expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'webpack');
+    expect(webpackPanel.find('.rails-worker-log-content').text()).toContain('webpack log de exemplo');
+    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain('sidekiq log de exemplo');
+
+    wrapper.unmount();
   });
 });
