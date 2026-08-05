@@ -14,7 +14,8 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-Nenhuma frente paralela registrada no momento.
+- Task 098 — Migração completa da política de risco e histórico Git (ver
+  `docs/tasks/NEXT.md`) — branch `claude/task-098-git-mutation-risk-policy`.
 
 ## Livres para pegar em paralelo
 
