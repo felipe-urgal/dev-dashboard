@@ -7195,6 +7195,206 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 ## Processes
 
+### `GET /api/ports`
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "inspection"
+    ],
+    "properties": {
+      "inspection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "platform",
+          "inspectedAt",
+          "entries",
+          "truncated"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unsupported",
+              "unavailable"
+            ]
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "linux",
+              "unsupported"
+            ]
+          },
+          "inspectedAt": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "port",
+                "address",
+                "scope",
+                "state",
+                "conflict",
+                "expected"
+              ],
+              "properties": {
+                "port": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535
+                },
+                "address": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "loopback",
+                    "all-interfaces"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "occupied"
+                  ]
+                },
+                "conflict": {
+                  "type": "boolean"
+                },
+                "expected": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "projectId",
+                      "projectName",
+                      "service"
+                    ],
+                    "properties": {
+                      "projectId": {
+                        "type": "string"
+                      },
+                      "projectName": {
+                        "type": "string"
+                      },
+                      "service": {
+                        "type": "string",
+                        "enum": [
+                          "server"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "managedProcess": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "projectId",
+                    "projectName",
+                    "kind",
+                    "status"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "projectName": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "server",
+                        "webpack",
+                        "worker",
+                        "test",
+                        "script",
+                        "compose-build"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "starting",
+                        "running",
+                        "stopping",
+                        "stopped",
+                        "failed"
+                      ]
+                    }
+                  }
+                },
+                "externalProcess": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "pid",
+                    "name"
+                  ],
+                  "properties": {
+                    "pid": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  }
+                },
+                "suggestedPort": {
+                  "type": "integer",
+                  "minimum": 1024,
+                  "maximum": 65535
+                }
+              }
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "warning": {
+            "type": "string",
+            "maxLength": 240
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `GET /api/processes`
 
 **Query string (`querystring`)**

@@ -8,6 +8,7 @@ import type {
 import { ApiError } from '../../http/api-error.js';
 import type { ProjectStore } from '../../store/project-store.js';
 import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
+import type { PortInspectorService } from '../../services/port-inspector-service.js';
 
 export const processEnvelopeResponseSchema = (
   processSchema: object,
@@ -25,6 +26,7 @@ export interface ProcessRouteOptions {
   serverSettingsRepository: ProjectServerSettingsRepository;
   serverHealthCheckService: ServerHealthCheckService;
   projectStore: ProjectStore;
+  portInspectorService?: PortInspectorService;
 }
 
 export interface ProjectParams {

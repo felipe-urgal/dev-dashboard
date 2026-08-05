@@ -47,6 +47,26 @@ async function mountView(args: MountArgs) {
       );
     }
     if (
+      url.pathname === '/api/ports' &&
+      (!init?.method || init.method === 'GET')
+    ) {
+      return new Response(
+        JSON.stringify({
+          inspection: {
+            status: 'ready',
+            platform: 'linux',
+            inspectedAt: '2026-08-05T14:00:00.000Z',
+            entries: [],
+            truncated: false,
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+    if (
       url.pathname === '/api/processes' &&
       (!init?.method || init.method === 'GET')
     ) {

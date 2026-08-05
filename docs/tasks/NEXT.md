@@ -1,32 +1,53 @@
+
 # Próxima atividade
 
-A task 098 concluiu a migração faseada iniciada na task 096: todas as 24
-operações do catálogo de mutações Git (`packages/contracts/src/git-mutation-catalog.ts`)
-agora passam pelo mesmo mecanismo de confirmação e pelo mesmo histórico
-persistente. Ver `docs/tasks/098-git-mutation-risk-policy-completa.md`.
+## Task 102 — Conselheiro de impacto após mudanças Git
 
-Com isso, a política unificada de risco e histórico Git — item registrado em
-`docs/PENDENCIAS.md` desde a auditoria da task 086 — está concluída.
+### Objetivo
 
-## Escolhendo a próxima entrega
+Depois de uma troca de branch, pull ou sincronização, comparar o SHA
+anterior com o novo SHA e transformar os caminhos alterados em
+recomendações claras, sem executar nenhuma ação automaticamente.
 
-`docs/product/feature-opportunities-2026-08.md` (PR #188) traz uma auditoria
-recente de oportunidades ainda sem entrega equivalente, com valor, tamanho,
-risco e uma primeira fatia implementável já esboçada para cada uma. Os
-candidatos priorizados como P0 são:
+### Decisão principal
 
-- **OPP-01** — Doctor por projeto e onboarding guiado (somente leitura,
-  tamanho M, risco baixo);
-- **OPP-02** — Conselheiro de impacto após mudanças Git (compara commit
-  anterior/novo e recomenda ações, tamanho M, risco baixo);
-- **OPP-03** — Gerenciador seguro de Git worktrees (tamanho M/L, risco
-  médio);
-- **OPP-05** — Inspetor seguro de portas locais (tamanho S/M, risco baixo);
-- **OPP-06** — Preflight local antes de push/PR (tamanho M, risco baixo).
+A primeira versão será um classificador puro e declarativo de paths.
+Ela recebe somente dois commits já conhecidos pela mutação Git e usa
+`git diff --name-only` com argumentos estruturados. O resultado aponta
+para ações existentes; não lê conteúdo dos arquivos e não cria um
+executor genérico.
 
-Conforme a nota do próprio documento, uma oportunidade só deve virar o plano
-detalhado desta seção depois de ser escolhida e ganhar critérios de aceite
-completos — isso ainda não foi feito. Ao decidir qual candidata puxar,
-substituir esta seção pelo plano detalhado (objetivo, decisão principal,
-escopo, critérios de aceite, fora de escopo) seguindo o padrão das entradas
-anteriores deste arquivo.
+### Escopo
+
+- contrato `ProjectChangeImpact`;
+- regras testáveis para lockfiles Node, `Gemfile.lock`, migrations,
+  Dockerfile/Compose, `.env.example`, configuração de servidor/worker e
+  arquivos de teste;
+- captura dos SHAs anterior/novo nas mutações de troca, pull e
+  sincronização;
+- apresentação do impacto no resultado da operação Git e na visão do
+  projeto;
+- deep links para Dependências, Banco, Servidor, Variáveis de ambiente
+  e Testes quando a ação correspondente já existir;
+- lista limitada, deduplicada e ordenada por prioridade.
+
+### Critérios de aceite
+
+- uma mudança de lockfile recomenda revisar/instalar dependências;
+- migrations recomendam abrir Banco de dados;
+- `.env.example` ou `.env.sample` recomenda revisar nomes de variáveis;
+- configuração de servidor/worker recomenda reiniciar somente por ação
+  explícita;
+- arquivos de teste recomendam executar testes, sem iniciar execução;
+- diff inválido ou commits iguais produzem resultado vazio e seguro;
+- nenhum conteúdo de arquivo, segredo ou caminho absoluto é devolvido;
+- nenhuma recomendação dispara comando automaticamente.
+
+### Fora de escopo
+
+- analisar conteúdo ou AST;
+- instalar dependências, migrar banco ou reiniciar processos
+  automaticamente;
+- comparar commits arbitrários enviados pelo navegador;
+- IA ou recomendação probabilística;
+- persistência histórica dos impactos na primeira versão.

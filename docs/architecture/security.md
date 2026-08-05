@@ -455,3 +455,19 @@ Antes de adicionar uma rota, confirmar:
 - É necessária confirmação?
 - O erro retornado é seguro?
 - Existe teste para o comportamento?
+
+## Inspeção segura de portas locais
+
+`GET /api/ports` é uma leitura autenticada e limitada do ambiente Linux.
+A API executa somente `ss -H -ltnp` com `execFile`, argumentos fixos,
+timeout curto e buffer limitado. A primeira versão considera loopback e
+binds em todas as interfaces que também ocupam loopback.
+
+Um PID externo só é devolvido quando `/proc/<pid>/status` confirma que
+ele pertence ao mesmo UID da API. O payload limita o nome a 64
+caracteres e não inclui comando, argumentos, cwd, arquivo executável ou
+ambiente. Processos de outro usuário permanecem não identificados.
+
+O inspetor nunca encerra processo externo. Ações de parada continuam
+restritas aos estados cuja identidade o `ProcessManager` valida pelo
+projeto, PID e diretório conhecidos.
