@@ -14,8 +14,7 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-- Task 098 — Migração completa da política de risco e histórico Git (ver
-  `docs/tasks/NEXT.md`) — branch `claude/task-098-git-mutation-risk-policy`.
+Nenhuma frente paralela registrada no momento.
 
 ## Livres para pegar em paralelo
 
@@ -68,3 +67,12 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
   credenciais Rails, sem ler o conteúdo dos arquivos criptografados.
 - Licença do projeto — MIT, `LICENSE` na raiz e campo `license` em
   `package.json` (item trivial, sem arquivo de task próprio).
+- Task 096 — Primeira etapa da política unificada de risco e histórico Git:
+  catálogo fechado, confirmação e histórico compartilhados, `GitService`
+  migrado.
+- Task 097 — Aba "Variáveis de ambiente" por projeto, lendo o catálogo
+  fechado de arquivos `.env`, sem expor valor de variável sensível.
+- Task 098 — Conclui a migração da task 096: os sete serviços Git restantes
+  (sync, stash avançado, renomear/excluir/publicar branch, desfazer,
+  `DashboardGitService`) passaram a usar a mesma confirmação e o mesmo
+  histórico compartilhados — as 24 operações do catálogo geram evento.
