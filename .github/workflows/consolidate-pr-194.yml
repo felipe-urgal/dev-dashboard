@@ -1,29 +1,28 @@
 name: Consolidate PR 194
 
 on:
-  push:
-    branches:
-      - fix/git-commit-tracked-default
   pull_request:
     branches:
-      - main
+      - fix/git-commit-tracked-default
     types:
+      - opened
       - reopened
+      - synchronize
 
 permissions:
   contents: write
 
 jobs:
   consolidate:
-    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'fix/git-commit-tracked-default'
+    if: github.event.pull_request.head.ref == 'automation/pr-194-consolidate'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
-      - name: Checkout da branch
+      - name: Checkout da branch técnica
         uses: actions/checkout@v4
         with:
-          ref: fix/git-commit-tracked-default
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Setup Node
@@ -109,4 +108,4 @@ jobs:
             exit 0
           fi
           git commit -m "fix: corrige commit e ambiente do servidor"
-          git push origin HEAD:fix/git-commit-tracked-default
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
