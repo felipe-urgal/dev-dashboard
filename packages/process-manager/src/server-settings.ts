@@ -24,7 +24,11 @@ interface ServerSettingsConfig {
 export type ProjectServerSettingsErrorCode =
   | 'INVALID_PROJECT_ID'
   | 'INVALID_SERVER_PORT'
-  | 'INVALID_HEALTH_CHECK_PATH';
+  | 'INVALID_HEALTH_CHECK_PATH'
+  | 'INVALID_SERVER_ENVIRONMENT'
+  | 'SERVER_ENVIRONMENT_REQUIRED'
+  | 'SERVER_ENVIRONMENT_NOT_FOUND'
+  | 'SERVER_ENVIRONMENT_FILE_TOO_LARGE';
 
 export class ProjectServerSettingsError extends Error {
   public readonly code: ProjectServerSettingsErrorCode;
@@ -95,6 +99,8 @@ function parseServerSettings(
       typeof candidate.port !== 'number') ||
     (candidate.healthCheckPath !== undefined &&
       typeof candidate.healthCheckPath !== 'string') ||
+    (candidate.environment !== undefined &&
+      typeof candidate.environment !== 'string') ||
     (candidate.updatedAt !== undefined &&
       typeof candidate.updatedAt !== 'string')
   ) {
@@ -104,6 +110,7 @@ function parseServerSettings(
   // Arquivos criados pela implementação anterior podem
   // conter `host`. Esse campo é ignorado durante a migração.
   let healthCheckPath: string | undefined;
+  let environment: string | undefined;
 
   if (candidate.healthCheckPath !== undefined) {
     try {
@@ -115,6 +122,15 @@ function parseServerSettings(
     }
   }
 
+  if (candidate.environment !== undefined) {
+    try {
+      validateServerEnvironment(candidate.environment);
+      environment = candidate.environment;
+    } catch {
+      // Configuração local inválida não pode virar nome de arquivo.
+    }
+  }
+
   return {
     projectId: candidate.projectId,
     ...(candidate.port !== undefined
@@ -122,6 +138,9 @@ function parseServerSettings(
       : {}),
     ...(healthCheckPath !== undefined
       ? { healthCheckPath }
+      : {}),
+    ...(environment !== undefined
+      ? { environment }
       : {}),
     ...(candidate.updatedAt !== undefined
       ? { updatedAt: candidate.updatedAt }
@@ -207,6 +226,25 @@ export function validateHealthCheckPath(
   }
 }
 
+export function validateServerEnvironment(
+  environment: string | undefined,
+): void {
+  if (environment === undefined) {
+    return;
+  }
+
+  if (
+    environment.length > 64 ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(environment) ||
+    /(?:^|\.)(?:local|sample|example)$/i.test(environment)
+  ) {
+    throw new ProjectServerSettingsError(
+      'INVALID_SERVER_ENVIRONMENT',
+      'O ambiente selecionado é inválido.',
+    );
+  }
+}
+
 export class ProjectServerSettingsRepository {
   private readonly configDirectory: string;
   private readonly configFile: string;
@@ -252,6 +290,7 @@ export class ProjectServerSettingsRepository {
 
     validateServerPort(input.port);
     validateHealthCheckPath(input.healthCheckPath);
+    validateServerEnvironment(input.environment);
 
     const settings: ProjectServerSettings = {
       projectId: normalizedProjectId,
@@ -260,6 +299,9 @@ export class ProjectServerSettingsRepository {
         : {}),
       ...(input.healthCheckPath !== undefined
         ? { healthCheckPath: input.healthCheckPath }
+        : {}),
+      ...(input.environment !== undefined
+        ? { environment: input.environment }
         : {}),
       updatedAt: new Date().toISOString(),
     };
