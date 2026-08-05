@@ -1,0 +1,78 @@
+name: Task 101 Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.pull_request.head.ref == 'agent/task-101-safe-port-inspector'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Corrigir script de aplicação
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/task-101-apply.yml')
+          content = path.read_text(encoding='utf-8')
+
+          old_stdout = """                resolve(
+                    typeof stdout === 'string'
+                      ? stdout
+                      : stdout.toString('utf8'),
+                  );"""
+          new_stdout = """                resolve(stdout);"""
+
+          old_pid = """          const parsedPid = processMatch?.[2]
+              ? Number(processMatch[2])
+              : undefined;
+
+            return {
+              ...endpoint,
+              ...(Number.isInteger(parsedPid) && parsedPid! > 0
+                ? { pid: parsedPid }
+                : {}),"""
+          new_pid = """          const parsedPid = processMatch?.[2]
+              ? Number(processMatch[2])
+              : undefined;
+            const pid =
+              parsedPid !== undefined &&
+              Number.isInteger(parsedPid) &&
+              parsedPid > 0
+                ? parsedPid
+                : undefined;
+
+            return {
+              ...endpoint,
+              ...(pid !== undefined ? { pid } : {}),"""
+
+          if old_stdout not in content:
+              raise SystemExit('Trecho stdout não encontrado')
+          if old_pid not in content:
+              raise SystemExit('Trecho PID não encontrado')
+
+          content = content.replace(old_stdout, new_stdout, 1)
+          content = content.replace(old_pid, new_pid, 1)
+          path.write_text(content, encoding='utf-8')
+          PY
+
+          rm .github/workflows/task-101-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: ajusta tipagem do inspetor de portas"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
