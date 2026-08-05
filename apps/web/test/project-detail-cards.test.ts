@@ -8,6 +8,7 @@ import ProjectGitPanel from '../src/components/ProjectGitPanel.vue';
 import ProjectScriptsPanel from '../src/components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../src/components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import { createTestRouter } from './support/test-router';
 
 const fetchProjectProcess = vi.fn().mockResolvedValue(null);
 const openProjectBrowserTarget = vi.fn().mockResolvedValue({
@@ -218,7 +219,10 @@ describe('cards dos painéis de detalhe', () => {
   });
 
   it('renderiza o painel de testes dentro de Card', async () => {
-    const wrapper = mount(ProjectTestsPanel, { props: { project } });
+    const wrapper = mount(ProjectTestsPanel, {
+      props: { project },
+      global: { plugins: [createTestRouter()] },
+    });
     await flushPromises();
 
     expect(wrapper.get('.dd-card').classes()).toContain('project-detail-card');

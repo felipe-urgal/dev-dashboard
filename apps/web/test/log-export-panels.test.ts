@@ -70,6 +70,7 @@ import ProjectLogsPanel from '../src/components/ProjectLogsPanel.vue';
 import ProjectScriptsPanel from '../src/components/ProjectScriptsPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+import { createTestRouter } from './support/test-router';
 
 let cleanup: (() => void) | undefined;
 
@@ -173,6 +174,7 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
 
   const wrapper = mount(ProjectTestsPanel, {
     props: { project: makeProject({ id: 'p1', capabilities: ['tests'] }) },
+    global: { plugins: [createTestRouter()] },
   });
   cleanup = () => {
     wrapper.unmount();

@@ -13,12 +13,7 @@ import type {
 
 import { createBranchOperations } from './git-service/branch-operations.js';
 import { createCommitOperations } from './git-service/commit-operations.js';
-import {
-  GIT_DIFF_FILE_LIMIT,
-  GIT_DIFF_LINES_LIMIT,
-  GIT_MUTATION_CONFIRMATION_TTL_MS,
-} from './git-service/constants.js';
-import { GitDiffError, GitMutationError } from './git-service/errors.js';
+import { GIT_MUTATION_CONFIRMATION_TTL_MS } from './git-service/constants.js';
 import { createFileOperations } from './git-service/file-operations.js';
 import { validateBranchName, validateMutationPath } from './git-service/mutation-guards.js';
 import {
