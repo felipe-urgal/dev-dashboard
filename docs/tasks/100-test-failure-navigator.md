@@ -63,7 +63,8 @@ falhas, mantendo o log original como fonte de verdade.
 - teste do fallback `.env.sample` no Project Doctor;
 - testes de sucesso e rejeição por lease desatualizado;
 - teste do fluxo amend → reenvio com lease na interface;
-- testes da atualização da branch atual, incluindo bloqueio por divergência;
+- testes independentes para o card da branch atual e para a sincronização da
+  `main`, incluindo atualização por fast-forward e bloqueio por divergência;
 - `npm run typecheck`;
 - `npm run build`;
 - `npm run docs:api:check`;
