@@ -117,7 +117,6 @@ export class GitMutationHistoryService {
       items.unshift(event);
       await this.save(enforceLimits(items));
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('[git-mutation-history] falha ao registrar evento de mutação Git', error);
     }
   }
