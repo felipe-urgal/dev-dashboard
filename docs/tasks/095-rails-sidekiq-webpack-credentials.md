@@ -174,6 +174,13 @@ somente leitura da existência de arquivos.
   a esta task, `records a non-zero exit after the server was running`,
   reproduzida também na branch anterior a esta entrega e ausente em reruns
   sequenciais; ver Limitações).
+- `apps/web/e2e/tests/rails-runtime.spec.ts` (adicionado depois, fechando o
+  item "Playwright para fluxos privilegiados adicionais" de
+  `PARALLEL-WORK.md`): novo projeto de fixture `sample-rails-app` em
+  `apps/web/e2e/fixtures/server-harness.ts` (`Gemfile` com `sidekiq` e um
+  `bin/sidekiq` controlável por `TERM`, sem depender de Ruby/Redis
+  instalados no runner); smoke real de iniciar e parar o Sidekiq pela UI,
+  webpack mostrado como não detectado e credentials como ausente.
 
 ## Limitações conhecidas
 

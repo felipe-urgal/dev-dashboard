@@ -25,7 +25,6 @@ atual de `docs/PENDENCIAS.md`.
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
 | Licença do projeto | arquivo `LICENSE` na raiz | trivial | requer decisão de qual licença adotar antes de criar o arquivo — não é uma escolha técnica |
-| Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
 
