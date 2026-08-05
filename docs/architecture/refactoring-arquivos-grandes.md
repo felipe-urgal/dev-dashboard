@@ -12,7 +12,11 @@ classe, 1070 → 157 linhas, mais 5 módulos novos) — `process-manager.ts` sai
 acima de 400 linhas. **Fase 7 (reinventário) concluída**: levantamento atualizado dos demais
 arquivos grandes depois do crescimento causado por novas entregas, com todos os componentes Vue
 reduzidos para menos de 400 linhas. Duas classes de serviço já subdivididas permanecem registradas
-como candidatas a uma segunda passada, sem prioridade ativa.
+como candidatas a uma segunda passada, sem prioridade ativa. **Fase 8 concluída**: a segunda passada
+das duas classes — `GitService` (583 → 149 linhas) e `ScriptExecutionService` (628 → 143 linhas)
+divididas por domínio (branch/arquivo/commit/stash para a primeira; autorização/ciclo de
+vida/eventos/armazenamento para a segunda), no mesmo padrão de contexto compartilhado já usado em
+`ProcessManager` na Fase 6. Nenhuma classe de serviço acima de 400 linhas permanece no inventário.
 
 > Nota de histórico: um plano concorrente (`docs/refactor/plano-arquivos-grandes.md`) foi escrito
 > por engano numa sessão anterior sem localizar este documento, tratando `process-manager.ts` e
@@ -1102,8 +1106,60 @@ acima de 400, ver nota acima). `git-service.ts` (842 → 574) e `script-executio
 inventário como candidatas a uma segunda passada (dividir a classe por domínio), não como
 pendência ativa agora. `stores/dashboard.ts` e `useProjectTestsPanel.ts` foram avaliados e não
 divididos (ver notas acima). Todos os componentes `.vue` do reinventário foram concluídos e estão
-abaixo de 400 linhas. As duas classes de serviço acima de 400 linhas continuam registradas apenas
-como candidatas a uma segunda passada, sem pendência ativa nesta fase.
+abaixo de 400 linhas.
+
+### Fase 8 — dividir `GitService` e `ScriptExecutionService` por domínio — concluída
+
+A segunda passada anunciada na Fase 7: em vez de extrair só funções livres sem estado (o que a
+Fase 7 já tinha feito para as duas classes), esta fase divide a própria classe por domínio,
+seguindo o padrão de "contexto compartilhado" já validado em `process-manager.ts` na Fase 6
+(`ProcessStoreContext`) — cada módulo por domínio recebe o contexto com os `Map`s/`Set`s
+compartilhados em vez de manter estado próprio duplicado, e a classe original vira um orquestrador
+fino que só delega.
+
+**`apps/api/src/services/git-service.ts` (583 → 149 linhas) — concluído**, primeiro arquivo desta
+fase. A classe tinha 16 métodos públicos girando em torno de um único mecanismo de confirmação
+compartilhado (`GitMutationConfirmationService`, já extraído na Fase 7). Dividido por domínio
+dentro de `git-service/`: `confirmation.ts` (`consumeMutationConfirmation`, a tradução de
+`GitMutationConfirmationError` para `GitMutationError` que cada mutação repetia),
+`branch-operations.ts` (`createBranch`/`switchBranch`/`pull`/`push`, cada um recebendo o
+`GitMutationConfirmationService` por injeção via `createBranchOperations(confirmations)`),
+`file-operations.ts` (`stageFile`/`unstageFile`/`discardFile`/`removeUntrackedFile`),
+`commit-operations.ts` (`commit`/`amend`/`save`), `stash-operations.ts`
+(`stashPush`/`stashPop`) e `read-operations.ts` (`getOverview`/`getDiffSnapshot`/`getFileDiff`/
+`getFileLines` como funções livres, já que não têm mutação nem confirmação para compartilhar). O
+arquivo principal instancia as quatro fábricas de operações com a mesma instância de
+`GitMutationConfirmationService` e delega cada método público em uma linha. Verificado com
+`typecheck`, `build` e os 86 testes de `git-service`/`git-service-mutations`/`git-service-diff`/
+`git-amend-all-changes`/`git-file-confirmation-route`/`git-mutation-routes`/`git-sync-service`/
+`git-sync-routes`/`project-change-impact-service`, mais o monorepo completo — todos verdes.
+
+**`apps/api/src/services/script-execution-service.ts` (628 → 143 linhas) — concluído**, segundo
+arquivo desta fase e o mais denso: 6 `Map`s/`Set`s privados (`executions`/`activeProjects`/
+`confirmations`/`pendingWrites`/`subscribers`/`eventTimers`) referenciados de forma cruzada por
+quase todo método (ex. `spawnExecution` grava em `executions`, agenda persistência e emite
+eventos na mesma chamada). A divisão usou um `ScriptExecutionContext` único
+(`script-execution/state.ts`) bundling os 6 `Map`s/`Set`s mais configuração
+(`stateDirectory`/`historyLimit`/`retentionMs`/`createLogStream`/`detection`), passado por
+parâmetro para quatro módulos por domínio em vez de cada um manter sua fatia do estado: `store.ts`
+(persistência em disco, `restoreExecutions` na inicialização, `pruneHistory`, leitura de
+histórico/log — o equivalente ao snapshot único do `ProcessManager`), `events.ts` (assinatura SSE
+com limite por execução/total, `emitEvent`/`scheduleLogEvent` com o throttle de 200ms),
+`authorization.ts` (catálogo fechado de ações, validação de variáveis declaradas, token de
+confirmação vinculado a projeto+ação+assinatura das variáveis) e `lifecycle.ts` (`startExecution`
+reservando o projeto antes do primeiro `await` para fechar a corrida entre starts concorrentes,
+`spawnExecution`, `cancelExecution` com a checagem de identidade via `/proc/<pid>/cwd`). O
+`Promise` de restauração (`ready`) ficou fora do contexto — cada método público do orquestrador
+`await`s `this.ready` antes de delegar, exatamente onde o método original fazia isso, para não
+duplicar a garantia de ordenação dentro dos módulos de domínio. `ScriptExecutionError`/
+`ScriptExecutionErrorCode`/`ScriptExecutionServiceOptions` continuam no arquivo principal, únicos
+símbolos consumidos fora do módulo junto com a própria classe. Verificado com `typecheck`, `build`
+e os 14 testes de `script-execution-service`/`script-events-route` (incluindo o caso de reserva
+antes da detecção assíncrona e o de publicação de log durante saída contínua, os dois mais
+sensíveis a reordenação), mais o monorepo completo — todos verdes.
+
+As duas classes de serviço saem da lista de arquivos acima de 400 linhas. Nenhuma rota, schema de
+resposta ou tipo em `packages/contracts` mudou; comportamento externo idêntico ao anterior à fase.
 
 ## Ordem de execução
 
@@ -1254,7 +1310,8 @@ objeto de estado explícito passado entre módulos.
 
 A Fase 7 fechou todos os componentes Vue e deixou só `git-service.ts`/
 `script-execution-service.ts` como classes de serviço acima de 400 linhas
-(ver nota acima). O arco de IDE embutida/LSP/IA (tasks 076–082) adicionou
+(ver nota acima; a Fase 8 depois dividiu as duas por domínio, ver seção
+própria). O arco de IDE embutida/LSP/IA (tasks 076–082) adicionou
 arquivos novos e grandes que não estavam neste inventário; um levantamento
 específico encontrou três candidatos reais e uma duplicação de segurança,
 nenhum deles pendência bloqueante, todos candidatos a uma próxima fase:
