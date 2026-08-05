@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import {
+  prepareNodeServerEnvironment,
   ProcessManagerError,
   ProjectServerSettingsError,
 } from '@dev-dashboard/process-manager';
@@ -227,8 +228,18 @@ export function registerServerProcessRoutes(
                         settings.healthCheckPath,
                     }
                   : {}),
+                ...(settings.environment
+                  ? { environment: settings.environment }
+                  : {}),
               },
             );
+        }
+
+        if (project.type === 'node') {
+          await prepareNodeServerEnvironment(
+            project.path,
+            settings.environment,
+          );
         }
 
         const managedProcess =

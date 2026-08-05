@@ -24,7 +24,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
-  fetchProjectServerSettings,
+  fetchProjectServerConfiguration,
   openProjectBrowserTarget,
   saveProjectServerSettings,
   startProjectProcess,
@@ -35,6 +35,7 @@ import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectServerHealth } from '../composables/useProjectServerHealth';
 import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
+import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
 import { RequestGeneration } from '../utils/request-generation';
 import { parseServerPort } from '../utils/server-settings';
@@ -69,7 +70,6 @@ const {
 
 const {
   commandLabel,
-  environmentLabel,
   startedAtLabel,
   uptimeLabel,
 } = useProjectServerMetrics(
@@ -80,6 +80,8 @@ const {
 
 const selectedPort = ref<string | number>('');
 const selectedHealthCheckPath = ref('');
+const selectedEnvironment = ref('');
+const availableEnvironments = ref<string[]>([]);
 const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
@@ -95,6 +97,47 @@ const projectRequests = new RequestGeneration();
 let hasObservedRunning = false;
 
 const executingAction = computed(() => currentAction.value !== null);
+
+const requiresEnvironmentSelection = computed(() =>
+  props.project.type === 'node' &&
+  availableEnvironments.value.length > 0,
+);
+
+const environmentSelectionMissing = computed(() =>
+  requiresEnvironmentSelection.value &&
+  !selectedEnvironment.value,
+);
+
+const environmentDisplayLabel = computed(() => {
+  if (props.project.type === 'rails') return 'development';
+
+  return selectedEnvironment.value
+    ? `.env.${selectedEnvironment.value}`
+    : 'Padrão (.env / .env.local)';
+});
+
+async function confirmEnvironmentReplacement(
+  action: 'iniciar' | 'reiniciar',
+): Promise<boolean> {
+  if (
+    props.project.type !== 'node' ||
+    !selectedEnvironment.value
+  ) {
+    return true;
+  }
+
+  return await confirmDialog({
+    title: `Usar .env.${selectedEnvironment.value}?`,
+    message:
+      `Antes de ${action} o servidor, .env.${selectedEnvironment.value} ` +
+      'substituirá .env.local. Nenhum valor será exibido no dashboard.',
+    confirmLabel:
+      action === 'iniciar'
+        ? 'Usar e iniciar'
+        : 'Usar e reiniciar',
+    tone: 'warning',
+  });
+}
 
 const processUrls = computed<string[]>(() => {
   if (processStatus.value !== 'running') return [];
@@ -140,13 +183,23 @@ async function refreshServerSettings(): Promise<void> {
   loadingSettings.value = true;
 
   try {
-    const settings = await fetchProjectServerSettings(projectId);
+    const configuration =
+      await fetchProjectServerConfiguration(projectId);
+    const settings = configuration.settings;
     if (!isCurrentProject(projectId, generation)) return;
 
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
     selectedHealthCheckPath.value =
       settings.healthCheckPath ?? '';
+    availableEnvironments.value = configuration.environments;
+    selectedEnvironment.value =
+      settings.environment &&
+      configuration.environments.includes(settings.environment)
+        ? settings.environment
+        : configuration.environments.length === 1
+          ? configuration.environments[0] ?? ''
+          : '';
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
       errorMessage.value =
@@ -171,6 +224,10 @@ async function persistServerSettings(
   const settings = await saveProjectServerSettings(projectId, {
     port,
     healthCheckPath,
+    environment:
+      props.project.type === 'node' && selectedEnvironment.value
+        ? selectedEnvironment.value
+        : null,
   });
 
   if (!isCurrentProject(projectId, generation)) {
@@ -181,6 +238,7 @@ async function persistServerSettings(
     settings.port !== undefined ? String(settings.port) : '';
   selectedHealthCheckPath.value =
     settings.healthCheckPath ?? '';
+  selectedEnvironment.value = settings.environment ?? '';
 
   return settings;
 }
@@ -230,6 +288,14 @@ async function startServer(
 }
 
 async function handleStart(): Promise<void> {
+  if (environmentSelectionMissing.value) {
+    errorMessage.value =
+      'Escolha um ambiente antes de iniciar o servidor.';
+    return;
+  }
+
+  if (!(await confirmEnvironmentReplacement('iniciar'))) return;
+
   const projectId = props.project.id;
   const generation = projectRequests.capture();
   currentAction.value = 'start';
@@ -278,6 +344,14 @@ async function handleStop(): Promise<void> {
 }
 
 async function handleRestart(): Promise<void> {
+  if (environmentSelectionMissing.value) {
+    errorMessage.value =
+      'Escolha um ambiente antes de reiniciar o servidor.';
+    return;
+  }
+
+  if (!(await confirmEnvironmentReplacement('reiniciar'))) return;
+
   const projectId = props.project.id;
   const generation = projectRequests.capture();
   currentAction.value = 'restart';
@@ -337,6 +411,8 @@ function resetPanelState(): void {
 
   selectedPort.value = '';
   selectedHealthCheckPath.value = '';
+  selectedEnvironment.value = '';
+  availableEnvironments.value = [];
   loadingSettings.value = false;
   savingSettings.value = false;
   settingsMessage.value = '';

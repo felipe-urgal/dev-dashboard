@@ -24,12 +24,18 @@ export type {
 export {
   ProjectServerSettingsError,
   ProjectServerSettingsRepository,
+  validateServerEnvironment,
   validateServerPort,
 } from './server-settings.js';
 
 export type {
   ProjectServerSettingsErrorCode,
 } from './server-settings.js';
+
+export {
+  listNodeServerEnvironments,
+  prepareNodeServerEnvironment,
+} from './server-environment.js';
 
 export { sweepStaleProcesses } from './log-retention.js';
 

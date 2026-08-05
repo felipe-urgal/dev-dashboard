@@ -16,8 +16,9 @@ interface ProcessLogResponse {
   log: ProcessLogSnapshot;
 }
 
-interface ServerSettingsResponse {
+export interface ProjectServerConfiguration {
   settings: ProjectServerSettings;
+  environments: string[];
 }
 
 interface ServerHealthResponse {
@@ -58,13 +59,18 @@ export async function startProjectProcess(
   return response.process;
 }
 
+export async function fetchProjectServerConfiguration(
+  projectId: string,
+): Promise<ProjectServerConfiguration> {
+  return await requestJson<ProjectServerConfiguration>(
+    `/api/projects/${encodeURIComponent(projectId)}/server-settings`,
+  );
+}
+
 export async function fetchProjectServerSettings(
   projectId: string,
 ): Promise<ProjectServerSettings> {
-  const response = await requestJson<ServerSettingsResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/server-settings`,
-  );
-
+  const response = await fetchProjectServerConfiguration(projectId);
   return response.settings;
 }
 
@@ -73,9 +79,10 @@ export async function saveProjectServerSettings(
   input: {
     port: number | null;
     healthCheckPath: string | null;
+    environment: string | null;
   },
 ): Promise<ProjectServerSettings> {
-  const response = await requestJson<ServerSettingsResponse>(
+  const response = await requestJson<ProjectServerConfiguration>(
     `/api/projects/${encodeURIComponent(projectId)}/server-settings`,
     {
       method: 'PUT',
@@ -192,4 +199,3 @@ export async function fetchLocalPorts(
 
   return response.inspection;
 }
-

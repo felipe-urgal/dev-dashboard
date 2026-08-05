@@ -283,7 +283,7 @@ export const gitMutationRoutes: FastifyPluginAsync<
       try {
         return reply.code(201).send({
           commit: await withGitMutationHistory(gitMutationHistoryService, project, 'commit', () =>
-            gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken)),
+            gitService.commit(project.path, project.id, request.body.message, true, request.body.confirmationToken)),
         });
       } catch (error) {
         translateMutationError(error);

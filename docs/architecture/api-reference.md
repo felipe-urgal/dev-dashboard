@@ -8890,7 +8890,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "settings"
+      "settings",
+      "environments"
     ],
     "properties": {
       "settings": {
@@ -8909,9 +8910,23 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "healthCheckPath": {
             "type": "string"
           },
+          "environment": {
+            "type": "string",
+            "maxLength": 64
+          },
           "updatedAt": {
             "type": "string"
           }
+        }
+      },
+      "environments": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         }
       }
     }
@@ -8974,6 +8989,19 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "type": "null"
         }
       ]
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }
@@ -8988,7 +9016,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "settings"
+      "settings",
+      "environments"
     ],
     "properties": {
       "settings": {
@@ -9007,9 +9036,23 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "healthCheckPath": {
             "type": "string"
           },
+          "environment": {
+            "type": "string",
+            "maxLength": 64
+          },
           "updatedAt": {
             "type": "string"
           }
+        }
+      },
+      "environments": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         }
       }
     }

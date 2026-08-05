@@ -59,16 +59,38 @@
               />
             </label>
 
-            <div class="server-config-row">
+            <label class="server-config-row">
               <span class="server-config-icon">
                 <GlobeAltIcon aria-hidden="true" />
               </span>
               <span class="server-config-copy">
                 <strong>Ambiente</strong>
-                <small>Contexto local usado na execução.</small>
+                <small v-if="availableEnvironments.length > 0">
+                  O arquivo escolhido substituirá .env.local ao iniciar.
+                </small>
+                <small v-else>
+                  Usa .env e .env.local existentes no projeto.
+                </small>
               </span>
-              <span class="server-config-value">{{ environmentLabel }}</span>
-            </div>
+              <select
+                v-if="project.type === 'node' && availableEnvironments.length > 0"
+                v-model="selectedEnvironment"
+                class="server-config-control server-environment-select"
+                :disabled="loadingSettings || canStop"
+              >
+                <option value="" disabled>Escolha</option>
+                <option
+                  v-for="environment in availableEnvironments"
+                  :key="environment"
+                  :value="environment"
+                >
+                  {{ `.env.${environment}` }}
+                </option>
+              </select>
+              <span v-else class="server-config-value">
+                {{ environmentDisplayLabel }}
+              </span>
+            </label>
 
             <div class="server-config-row">
               <span class="server-config-icon">
@@ -100,7 +122,7 @@
             <button
               type="button"
               class="server-primary-button"
-              :disabled="savingSettings || loadingSettings"
+              :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
               @click="handleSaveSettings"
             >
               {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
@@ -202,7 +224,7 @@
               v-if="!canStop"
               type="button"
               class="server-primary-button"
-              :disabled="executingAction || loadingSettings"
+              :disabled="executingAction || loadingSettings || environmentSelectionMissing"
               @click="handleStart"
             >
               <PlayIcon aria-hidden="true" />
