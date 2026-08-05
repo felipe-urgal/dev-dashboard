@@ -4,9 +4,12 @@ import type {
   DatabaseSnapshot,
   DatabaseSnapshotConfirmation,
   DatabaseSnapshotList,
+  ManagedProcess,
+  ProcessLogSnapshot,
   ProjectDatabaseOverview,
   ProjectDatabaseSecret,
   ProjectDatabaseServiceActionResult,
+  RailsCredentialsOverview,
   RailsGeneratorConfirmation,
   RailsGeneratorField,
   RailsGeneratorKind,
@@ -15,6 +18,8 @@ import type {
   RailsMigrationMutationOperation,
   RailsMigrationMutationResult,
   RailsMigrationsOverview,
+  RailsWorkerId,
+  RailsWorkerOverview,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -130,4 +135,56 @@ export async function runProjectRailsGenerator(projectId: string, confirmationTo
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
   );
   return response.result;
+}
+
+interface RailsWorkerOverviewResponse { worker: RailsWorkerOverview }
+interface RailsWorkerProcessResponse { process: ManagedProcess }
+interface RailsWorkerLogResponse { log: ProcessLogSnapshot }
+interface RailsCredentialsResponse { credentials: RailsCredentialsOverview }
+
+function workerPath(projectId: string, workerId: RailsWorkerId): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/rails/workers/${encodeURIComponent(workerId)}`;
+}
+
+export async function fetchProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<RailsWorkerOverview> {
+  const response = await requestJson<RailsWorkerOverviewResponse>(workerPath(projectId, workerId));
+  return response.worker;
+}
+
+export async function startProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/start`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+  });
+  return response.process;
+}
+
+export async function stopProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/stop`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+  });
+  return response.process;
+}
+
+export async function restartProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/restart`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+  });
+  return response.process;
+}
+
+export async function fetchProjectRailsWorkerLog(projectId: string, workerId: RailsWorkerId): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<RailsWorkerLogResponse>(`${workerPath(projectId, workerId)}/logs`);
+  return response.log;
+}
+
+export async function clearProjectRailsWorkerLog(projectId: string, workerId: RailsWorkerId): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<RailsWorkerLogResponse>(`${workerPath(projectId, workerId)}/logs`, {
+    method: 'DELETE',
+  });
+  return response.log;
+}
+
+export async function fetchProjectRailsCredentials(projectId: string): Promise<RailsCredentialsOverview> {
+  const response = await requestJson<RailsCredentialsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/credentials`);
+  return response.credentials;
 }

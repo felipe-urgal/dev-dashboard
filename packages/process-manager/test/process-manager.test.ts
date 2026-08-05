@@ -657,3 +657,119 @@ test(
     );
   }
 );
+
+test(
+  "starts, reports and stops a worker process (sidekiq-like)",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
+    });
+
+    context.after(fixture.cleanup);
+
+    const command = {
+      id: "sidekiq",
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    const started = await fixture.manager.startWorker(
+      fixture.project,
+      "worker",
+      command
+    );
+
+    assert.equal(started.kind, "worker");
+    assert.equal(started.status, "running");
+    assert.ok(started.pid);
+
+    const fetched = await fixture.manager.getWorkerProcess(
+      fixture.project.id,
+      "worker"
+    );
+
+    assert.equal(fetched?.pid, started.pid);
+
+    const stopped = await fixture.manager.stopWorker(
+      fixture.project.id,
+      "worker"
+    );
+
+    assert.equal(stopped.status, "stopped");
+  }
+);
+
+test(
+  "keeps sidekiq and webpack workers as independent processes for the same project",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
+    });
+
+    context.after(fixture.cleanup);
+
+    const sidekiqCommand = {
+      id: "sidekiq",
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    const webpackCommand = {
+      id: "webpack",
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    const [sidekiqProcess, webpackProcess] = await Promise.all([
+      fixture.manager.startWorker(fixture.project, "worker", sidekiqCommand),
+      fixture.manager.startWorker(fixture.project, "webpack", webpackCommand)
+    ]);
+
+    assert.notEqual(sidekiqProcess.pid, webpackProcess.pid);
+
+    await fixture.manager.stopWorker(fixture.project.id, "worker");
+    await fixture.manager.stopWorker(fixture.project.id, "webpack");
+
+    const remainingWebpack = await fixture.manager.getWorkerProcess(
+      fixture.project.id,
+      "webpack"
+    );
+
+    assert.equal(remainingWebpack?.status, "stopped");
+  }
+);
+
+test(
+  "rejects starting a worker that is already running",
+  async (context) => {
+    const fixture = await createFixture({
+      name: "fixture",
+      scripts: { dev: "node -e \"setInterval(() => {}, 60000)\"" }
+    });
+
+    context.after(fixture.cleanup);
+
+    const command = {
+      id: "sidekiq",
+      command: "node",
+      args: ["-e", "setInterval(() => {}, 60_000)"]
+    };
+
+    await fixture.manager.startWorker(fixture.project, "worker", command);
+
+    context.after(async () => {
+      await fixture.manager.stopWorker(fixture.project.id, "worker").catch(() => undefined);
+    });
+
+    await assert.rejects(
+      fixture.manager.startWorker(fixture.project, "worker", command),
+      (error: unknown) => {
+        assert.ok(error instanceof ProcessManagerError);
+        assert.equal(error.code, "PROCESS_ALREADY_RUNNING");
+        return true;
+      }
+    );
+  }
+);

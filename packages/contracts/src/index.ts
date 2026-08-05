@@ -197,6 +197,14 @@ export type {
 } from './rails.js';
 
 export type {
+  RailsCredentialsEnvironmentStatus,
+  RailsCredentialsKeySource,
+  RailsCredentialsOverview,
+  RailsWorkerId,
+  RailsWorkerOverview,
+} from './rails-runtime.js';
+
+export type {
   Activity,
   ActivityBase,
   ActivityList,

@@ -114,14 +114,14 @@ async function isEligibleForRemoval(
 }
 
 const MANAGED_STATE_SUFFIX_PATTERN =
-  /\.(server|test)\.json$/;
+  /\.(server|test|worker|webpack)\.json$/;
 
 function resolveManagedLogPath(
   logDirectory: string,
   stateFileName: string,
 ): string {
   const logFileName = stateFileName.replace(
-    /\.(server|test)\.json$/,
+    /\.(server|test|worker|webpack)\.json$/,
     (_match, kind: string) => `.${kind}.log`,
   );
 
@@ -229,7 +229,7 @@ export async function sweepStaleProcesses(
   return [...swept, ...sweptOrphanLogs];
 }
 
-const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test)\.log$/;
+const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test|worker|webpack)\.log$/;
 
 function resolveManagedStateFileName(
   logFileName: string,
