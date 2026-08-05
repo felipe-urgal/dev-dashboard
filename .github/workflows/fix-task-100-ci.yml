@@ -1,0 +1,66 @@
+name: Fix Task 100 CI
+
+on:
+  push:
+    branches:
+      - agent/task-100-test-failure-navigator
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/task-100-test-failure-navigator
+          fetch-depth: 0
+
+      - name: Apply targeted fixes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          parser = Path('apps/web/src/composables/project-test-failures.ts')
+          parser_text = parser.read_text()
+          parser_old = "    return [{ name, lines: [target, match[2] ?? 'Teste falhou.'] }];"
+          parser_new = "    return [{ name, lines: [match[2] ?? 'Teste falhou.', target] }];"
+          if parser_old not in parser_text:
+              raise SystemExit('pytest parser target not found')
+          parser.write_text(parser_text.replace(parser_old, parser_new, 1))
+
+          editor = Path('apps/web/src/components/ProjectEmbeddedEditor.vue')
+          editor_text = editor.read_text()
+          editor_old = """function routeEditorTarget(): { path: string; line: number; column: number } | null {
+            const rawPath = Array.isArray(route.query.file) ? route.query.file[0] : route.query.file;
+            if (typeof rawPath !== 'string') return null;
+          """
+          editor_new = """function routeEditorTarget(): { path: string; line: number; column: number } | null {
+            const query = route?.query;
+            if (!query) return null;
+            const rawPath = Array.isArray(query.file) ? query.file[0] : query.file;
+            if (typeof rawPath !== 'string') return null;
+          """
+          if editor_old not in editor_text:
+              raise SystemExit('editor route target header not found')
+          editor_text = editor_text.replace(editor_old, editor_new, 1)
+          editor_text = editor_text.replace(
+              "  const rawLine = Array.isArray(route.query.line) ? route.query.line[0] : route.query.line;\n  const rawColumn = Array.isArray(route.query.column) ? route.query.column[0] : route.query.column;",
+              "  const rawLine = Array.isArray(query.line) ? query.line[0] : query.line;\n  const rawColumn = Array.isArray(query.column) ? query.column[0] : query.column;",
+              1,
+          )
+          editor.write_text(editor_text)
+          PY
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm .github/workflows/fix-task-100-ci.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/src/composables/project-test-failures.ts apps/web/src/components/ProjectEmbeddedEditor.vue .github/workflows/fix-task-100-ci.yml
+          git commit -m "fix: corrige parser pytest e rota opcional do editor"
+          git push origin HEAD:agent/task-100-test-failure-navigator
