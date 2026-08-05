@@ -15,6 +15,7 @@ import {
 import {
   createProcessLifecycle,
   type StartServerOptions,
+  type StartWorkerCommand,
 } from './process-lifecycle.js';
 import { createProcessStatusReader } from './process-status.js';
 import type { ManagedKind, ProcessStoreContext } from './process-store.js';
@@ -23,7 +24,12 @@ import { resolveStateDirectory } from './state-directory.js';
 export { ProcessManagerError } from './errors.js';
 export type { ProcessManagerErrorCode } from './errors.js';
 export type { ReadServerLogOptions } from './process-logs.js';
-export type { StartServerOptions } from './process-lifecycle.js';
+export type {
+  StartServerOptions,
+  StartWorkerCommand,
+} from './process-lifecycle.js';
+
+export type WorkerKind = Extract<ManagedKind, 'worker' | 'webpack'>;
 
 export class ProcessManager {
   public readonly stateDirectory: string;
@@ -87,6 +93,13 @@ export class ProcessManager {
     return this.statusReader.getManagedProcess(projectId, 'test');
   }
 
+  public getWorkerProcess(
+    projectId: string,
+    kind: WorkerKind,
+  ): Promise<ManagedProcess | null> {
+    return this.statusReader.getManagedProcess(projectId, kind);
+  }
+
   public listProcesses(): Promise<ManagedProcess[]> {
     return this.statusReader.listProcesses();
   }
@@ -117,6 +130,21 @@ export class ProcessManager {
     return clearManagedLog(this.context, projectId, 'test');
   }
 
+  public readWorkerLog(
+    projectId: string,
+    kind: WorkerKind,
+    options: ReadServerLogOptions = {},
+  ): Promise<ProcessLogSnapshot> {
+    return readManagedLog(this.context, projectId, kind, options);
+  }
+
+  public clearWorkerLog(
+    projectId: string,
+    kind: WorkerKind,
+  ): Promise<ProcessLogSnapshot> {
+    return clearManagedLog(this.context, projectId, kind);
+  }
+
   public startServer(
     project: Project,
     options: StartServerOptions = {},
@@ -143,6 +171,21 @@ export class ProcessManager {
     );
   }
 
+  public startWorker(
+    project: Project,
+    kind: WorkerKind,
+    command: StartWorkerCommand,
+  ): Promise<ManagedProcess> {
+    return this.withStartLock(project.id, kind, () =>
+      this.lifecycle.startManagedWorker(
+        project,
+        kind,
+        command,
+        this.stateDirectory,
+      ),
+    );
+  }
+
   public stopServer(
     projectId: string,
   ): Promise<ManagedProcess> {
@@ -153,5 +196,12 @@ export class ProcessManager {
     projectId: string,
   ): Promise<ManagedProcess> {
     return this.lifecycle.stopManagedProcess(projectId, 'test');
+  }
+
+  public stopWorker(
+    projectId: string,
+    kind: WorkerKind,
+  ): Promise<ManagedProcess> {
+    return this.lifecycle.stopManagedProcess(projectId, kind);
   }
 }

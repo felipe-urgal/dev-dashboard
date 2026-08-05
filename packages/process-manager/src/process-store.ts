@@ -9,7 +9,7 @@ import type { ManagedProcessStatus } from '@dev-dashboard/contracts';
 import { isErrnoException } from './errors.js';
 import { isStoredProcess, type StoredProcess } from './process-state.js';
 
-export type ManagedKind = 'server' | 'test';
+export type ManagedKind = 'server' | 'test' | 'worker' | 'webpack';
 
 export interface ProcessStoreContext {
   readonly processDirectory: string;
@@ -128,7 +128,7 @@ export async function listStoredProcessEntries(
   for (const entry of entries) {
     if (
       !entry.isFile() ||
-      !/\.(server|test)\.json$/.test(entry.name)
+      !/\.(server|test|worker|webpack)\.json$/.test(entry.name)
     ) {
       continue;
     }

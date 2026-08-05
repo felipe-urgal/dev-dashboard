@@ -60,3 +60,37 @@ export const retentionSettingsSnapshotResponseSchema = {
     appliesAfterRestart: { type: 'boolean' },
   },
 } as const;
+
+const environmentProfileVariableResponseSchema = {
+  type: 'object', additionalProperties: false, required: ['name'],
+  properties: { name: { type: 'string' }, value: { type: 'string' } },
+} as const;
+
+export const environmentProfileResponseSchema = {
+  type: 'object', additionalProperties: false, required: ['id', 'name', 'variables', 'createdAt', 'updatedAt'],
+  properties: {
+    id: { type: 'string' },
+    name: { type: 'string' },
+    variables: { type: 'array', items: environmentProfileVariableResponseSchema },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+  },
+} as const;
+
+const environmentProfileLimitsResponseSchema = {
+  type: 'object', additionalProperties: false, required: ['maxProfiles', 'maxVariablesPerProfile', 'maxNameLength', 'maxValueLength'],
+  properties: {
+    maxProfiles: { type: 'integer' },
+    maxVariablesPerProfile: { type: 'integer' },
+    maxNameLength: { type: 'integer' },
+    maxValueLength: { type: 'integer' },
+  },
+} as const;
+
+export const environmentProfileListResponseSchema = {
+  type: 'object', additionalProperties: false, required: ['profiles', 'limits'],
+  properties: {
+    profiles: { type: 'array', items: environmentProfileResponseSchema },
+    limits: environmentProfileLimitsResponseSchema,
+  },
+} as const;

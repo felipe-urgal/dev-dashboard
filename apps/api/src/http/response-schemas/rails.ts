@@ -1,3 +1,5 @@
+import { nullableManagedProcessResponseSchema } from './processes.js';
+
 export const projectDatabaseEnvironmentResponseSchema = {
   type: 'object', additionalProperties: false,
 
@@ -149,5 +151,37 @@ export const railsMigrationMutationResultResponseSchema = {
     truncated: { type: 'boolean' },
     masked: { type: 'boolean' },
     redactionCount: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+export const railsWorkerOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['id', 'detected', 'process'],
+  properties: {
+    id: { type: 'string', enum: ['sidekiq', 'webpack'] },
+    detected: { type: 'boolean' },
+    process: nullableManagedProcessResponseSchema,
+  },
+} as const;
+
+export const railsCredentialsEnvironmentStatusResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['name', 'credentialsPath', 'credentialsFileExists', 'keyPath', 'keyFileExists', 'keySource'],
+  properties: {
+    name: { type: 'string' },
+    credentialsPath: { type: 'string' },
+    credentialsFileExists: { type: 'boolean' },
+    keyPath: { type: 'string' },
+    keyFileExists: { type: 'boolean' },
+    keySource: { type: 'string', enum: ['file', 'environment-variable', 'missing'] },
+  },
+} as const;
+
+export const railsCredentialsOverviewResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['supported', 'environments'],
+  properties: {
+    supported: { type: 'boolean' },
+    environments: { type: 'array', items: railsCredentialsEnvironmentStatusResponseSchema },
   },
 } as const;

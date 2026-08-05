@@ -1,4 +1,5 @@
 import {
+  EnvironmentProfileRepository,
   ProjectFavoriteRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
@@ -17,6 +18,7 @@ import { TestExecutionHistoryService } from './services/test-execution-history-s
 import { DatabaseDetectionService } from './services/database-detection-service.js';
 import { DatabaseSnapshotService } from './services/database-snapshot-service.js';
 import { RailsInspectionService } from './services/rails-inspection-service.js';
+import { RailsRuntimeService } from './services/rails-runtime-service.js';
 import { BundlerInspectionService } from './services/bundler-inspection-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
@@ -32,6 +34,7 @@ import { ProjectLanguageServerService } from './services/project-language-server
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
+  environmentProfileRepository: EnvironmentProfileRepository;
   projectFavoriteRepository: ProjectFavoriteRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
@@ -42,6 +45,7 @@ export interface AppContext {
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
   railsInspectionService: RailsInspectionService;
+  railsRuntimeService: RailsRuntimeService;
   bundlerInspectionService: BundlerInspectionService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
@@ -69,6 +73,7 @@ export function createAppContext(): AppContext {
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
+    environmentProfileRepository: new EnvironmentProfileRepository(),
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     processManager,
     serverSettingsRepository:
@@ -80,6 +85,7 @@ export function createAppContext(): AppContext {
     databaseDetectionService,
     databaseSnapshotService: new DatabaseSnapshotService(databaseDetectionService, processManager.stateDirectory),
     railsInspectionService: new RailsInspectionService(),
+    railsRuntimeService: new RailsRuntimeService(processManager),
     bundlerInspectionService: new BundlerInspectionService(),
     scriptDetectionService,
     scriptExecutionService,

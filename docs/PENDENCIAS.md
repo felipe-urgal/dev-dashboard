@@ -37,8 +37,11 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
   cobertura — dividir em entregas separadas antes de implementar, porque os
   runners e formatos de relatório diferem.
-- [ ] Adicionar operações reconhecidas para Sidekiq, Webpack e credenciais
-  Rails, mantendo catálogo fechado e mascaramento de segredos.
+- [x] Adicionar operações reconhecidas para Sidekiq, Webpack e credenciais
+  Rails, mantendo catálogo fechado e mascaramento de segredos — task 095:
+  start/stop/restart/logs de Sidekiq e webpack-dev-server via novos `kind`
+  de processo gerenciado, status somente leitura de credenciais; editar
+  credenciais criptografadas fica fora de escopo.
 - [x] Implementar um adaptador seguro para abrir destinos no navegador local
   — task 092: catálogo fechado de destino (`server`), URL resolvida pela API
   a partir do processo gerenciado em execução, `spawn` sem shell por
@@ -46,8 +49,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Adicionar projetos recentes por workspace, complementando os favoritos
   já entregues — próxima entrega, task 089; requer semântica e persistência
   próprias.
-- [ ] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
-  frontend.
+- [x] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
+  frontend — task 094: cadastro em Configurações, valor nunca persistido para
+  nomes de variável sensíveis; aplicar automaticamente a um script fica para
+  depois.
 - [ ] Avaliar GitHub CLI somente depois de definir seu modelo de autorização.
 
 ## Descoberta e projetos complexos

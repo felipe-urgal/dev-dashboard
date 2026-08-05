@@ -1,12 +1,15 @@
-import type { RailsGeneratorField, RailsGeneratorKind, RailsMigrationMutationOperation } from '@dev-dashboard/contracts';
+import type { RailsGeneratorField, RailsGeneratorKind, RailsMigrationMutationOperation, RailsWorkerId } from '@dev-dashboard/contracts';
+import { ProcessManagerError } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
 import { RailsMutationError, type RailsInspectionService } from '../../services/rails-inspection-service.js';
+import { RailsWorkerError, type RailsRuntimeService } from '../../services/rails-runtime-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
 
 export interface RailsRouteOptions {
   projectStore: ProjectStore;
   railsInspectionService: RailsInspectionService;
+  railsRuntimeService: RailsRuntimeService;
 }
 
 export interface Params {
@@ -206,10 +209,50 @@ export const railsGeneratorResultResponseSchema = {
   },
 } as const;
 
+export interface WorkerParams extends Params {
+  workerId: RailsWorkerId;
+}
+
+export interface WorkerLogQuery {
+  maxBytes?: number;
+}
+
+export const workerParamsSchema = {
+  type: 'object', additionalProperties: false, required: ['projectId', 'workerId'],
+  properties: {
+    projectId: { type: 'string', minLength: 1 },
+    workerId: { type: 'string', enum: ['sidekiq', 'webpack'] },
+  },
+} as const;
+
+export const workerLogQuerySchema = {
+  type: 'object', additionalProperties: false,
+  properties: { maxBytes: { type: 'integer', minimum: 1, maximum: 262_144 } },
+} as const;
+
 export function requireProject(store: ProjectStore, id: string) {
   const project = store.findProject(id);
   if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
   return project;
+}
+
+export function translateWorkerError(error: unknown): never {
+  if (error instanceof RailsWorkerError) {
+    throw new ApiError({ statusCode: 409, code: error.code, message: error.message });
+  }
+  if (error instanceof ProcessManagerError) {
+    const statuses: Record<string, number> = {
+      PROCESS_NOT_FOUND: 404,
+      PROCESS_ALREADY_RUNNING: 409,
+      PROCESS_IDENTITY_MISMATCH: 409,
+      PROCESS_STOP_TIMEOUT: 409,
+    };
+    throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
+  }
+  throw new ApiError({
+    statusCode: 500, code: 'RAILS_MUTATION_FAILED',
+    message: error instanceof Error ? error.message : 'Não foi possível concluir a operação do worker.',
+  });
 }
 
 export function translateMutationError(error: unknown): never {

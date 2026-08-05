@@ -27,6 +27,7 @@ import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
+import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
 import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
@@ -59,6 +60,7 @@ const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(() => route.name === 'project-dependencies');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
+const isRailsRuntimeRoute = computed(() => route.name === 'project-rails-runtime');
 
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
@@ -268,6 +270,15 @@ watch(projectId, () => {
         >
           Scripts
         </RouterLink>
+
+        <RouterLink
+          v-if="project.type === 'rails'"
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
+          :to="{ name: 'project-rails-runtime', params: { projectId: project.id } }"
+        >
+          Sidekiq/webpack
+        </RouterLink>
       </nav>
 
       <ProjectReadmePanel
@@ -322,6 +333,12 @@ watch(projectId, () => {
       <ProjectScriptsPanel
         v-else-if="isScriptsRoute"
         :key="`scripts-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectRailsRuntimePanel
+        v-else-if="isRailsRuntimeRoute"
+        :key="`rails-runtime-${project.id}`"
         :project="project"
       />
     </template>

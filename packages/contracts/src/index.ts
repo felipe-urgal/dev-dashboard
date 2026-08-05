@@ -197,6 +197,14 @@ export type {
 } from './rails.js';
 
 export type {
+  RailsCredentialsEnvironmentStatus,
+  RailsCredentialsKeySource,
+  RailsCredentialsOverview,
+  RailsWorkerId,
+  RailsWorkerOverview,
+} from './rails-runtime.js';
+
+export type {
   Activity,
   ActivityBase,
   ActivityList,
@@ -224,3 +232,12 @@ export type {
   ScriptExecutionStatus,
   ScriptExecutionVariables,
 } from './script.js';
+
+export type {
+  CreateEnvironmentProfileInput,
+  EnvironmentProfile,
+  EnvironmentProfileLimits,
+  EnvironmentProfileList,
+  EnvironmentProfileVariable,
+  UpdateEnvironmentProfileInput,
+} from './environment-profile.js';

@@ -287,6 +287,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
+    railsRuntimeService: context.railsRuntimeService,
   });
 
   app.register(bundlerRoutes, {
@@ -310,6 +311,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(settingsRoutes, {
     prefix: '/api',
     retentionSettingsRepository: context.retentionSettingsRepository,
+    environmentProfileRepository: context.environmentProfileRepository,
   });
 
   if (options.staticDashboardEnabled) {

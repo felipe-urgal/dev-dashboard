@@ -19,7 +19,9 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations e routes do Rails somente leitura, com migrate/rollback/seed/prepare mutáveis sob confirmação, e diagnóstico Bundler somente leitura
+- Sidekiq e webpack-dev-server como processos de fundo geridos (start/stop/restart/logs), com status somente leitura de credentials Rails
 - Inspeção de configurações e disponibilidade de bancos locais
+- Perfis de ambiente reutilizáveis, sem persistir valor de variáveis com nome de segredo
 - Painel global de atividade com resumo, busca e histórico; página global de processos com limpeza segura de finalizados
 - Command palette (`Cmd/Ctrl+K`) para busca e navegação
 - Preferências de tema, densidade e retenção configuráveis pela interface

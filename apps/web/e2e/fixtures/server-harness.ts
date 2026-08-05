@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +42,21 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   );
 }
 
+// Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado
+// via TERM/KILL) para exercitar start/stop real do worker sem depender de
+// Ruby, Redis ou de um app Rails de verdade instalados no runner de CI.
+async function writeSampleRailsProject(workspaceDirectory: string): Promise<void> {
+  const projectDirectory = path.join(workspaceDirectory, 'sample-rails-app');
+  await mkdir(path.join(projectDirectory, 'bin'), { recursive: true });
+  await writeFile(
+    path.join(projectDirectory, 'Gemfile'),
+    "source 'https://rubygems.org'\n\ngem 'rails'\ngem 'sidekiq'\n",
+  );
+  const sidekiqScript = path.join(projectDirectory, 'bin', 'sidekiq');
+  await writeFile(sidekiqScript, '#!/usr/bin/env bash\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n');
+  await chmod(sidekiqScript, 0o755);
+}
+
 async function seedConfig(configDirectory: string, workspaceDirectory: string): Promise<void> {
   const resolvedWorkspace = await realpath(workspaceDirectory);
   const config = {
@@ -80,6 +95,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
 
   await mkdir(workspaceDirectory, { recursive: true });
   await writeSampleProject(workspaceDirectory);
+  await writeSampleRailsProject(workspaceDirectory);
   await seedConfig(configDirectory, workspaceDirectory);
 
   const bootstrapToken = randomBytes(32).toString('hex');
