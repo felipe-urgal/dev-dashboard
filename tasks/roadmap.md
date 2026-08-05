@@ -22,8 +22,10 @@ página global de processos — todos entregues.
 
 ## Horizonte 2 — produtividade diária (concluído)
 
-Git em etapas (diff, branch, pull/push, commit, stash, sincronização,
-mutações com confirmação e histórico unificado), testes focados com
+Git em etapas (diff, branch, pull/push, commit, sincronização, mutações
+com confirmação e histórico unificado — stash foi entregue na task 026,
+mas ficou sem UI depois do redesenho do painel Git nas tasks 047–050; ver
+`tasks/PENDENCIAS.md`), testes focados com
 histórico e eventos SSE, Rails de baixo risco (migrations, routes,
 Bundler, geradores), command palette, configurações e notificações, e
 paridade seletiva CLI→Web (`git-save`, `dev-clean`, `git-pr`,

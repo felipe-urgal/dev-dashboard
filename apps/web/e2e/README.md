@@ -89,11 +89,21 @@ existente, sobre o repositório Git real do `sample-node-app`. O estado vazio
 tem `.git`, e também prova a troca de projeto: nenhuma branch ou mensagem do
 `sample-node-app` sobrevive à navegação.
 
+## Commit
+
+`tests/project-git-commit.spec.ts` cobre o estado vazio ("0 alterações
+rastreadas", botão desabilitado), sucesso (modifica um arquivo já
+rastreado direto no disco da fixture via Node, fora do navegador — não há
+editor de arquivo neste fluxo — e cria o commit com confirmação) e a troca
+de projeto.
+
 ## Fora do escopo desta base
 
-- Cobertura E2E de commit, stash e operações de banco de dados
-  (snapshot/restore) — exigem fixtures mais elaboradas (árvore de trabalho
-  suja controlada, serviço de banco) do que as duas mutações de branch já
-  cobertas.
+- Cobertura E2E de operações de banco de dados (snapshot/restore) — exige
+  um serviço de banco na fixture.
+- Cobertura E2E de stash: não é um fluxo fora de escopo por decisão, é
+  simplesmente inalcançável — o painel Git atual não tem nenhuma aba, botão
+  ou rota para stash (`git-stash-enhancer.ts` existe no código mas não é
+  mais importado por `main.ts`). Ver `tasks/PENDENCIAS.md`.
 - Testes contra projetos reais do diretório pessoal do desenvolvedor.
 - Outros motores além do Chromium.

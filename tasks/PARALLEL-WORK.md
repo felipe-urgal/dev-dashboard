@@ -30,7 +30,10 @@ virar código:
 - detecção de monorepos e scans recursivos (`packages/project-discovery`);
 - Prettier e política de formatação automática — definir regras antes,
   porque rodar `--fix` depois toca praticamente todo `apps/`/`packages/` e
-  colide com qualquer branch aberto.
+  colide com qualquer branch aberto;
+- stash sem UI: remover o código órfão (`git-stash-enhancer.ts`, rotas e
+  serviço de stash) ou reconstruir a UI como componente Vue — decisão de
+  produto, não só técnica.
 
 ## Concluídas recentemente (referência)
 
@@ -50,3 +53,7 @@ virar código:
   duplicado, vazio (projeto sem `.git`) e troca de projeto, sobre um
   repositório Git real na fixture `sample-node-app`. Commit, stash e banco
   de dados continuam fora de escopo.
+- Task 108 — E2E de commit Git: vazio, sucesso e troca de projeto. Achado
+  ao planejar: stash não tem UI (código órfão desde o redesenho do painel
+  Git nas tasks 047–050), registrado como item próprio em
+  `tasks/PENDENCIAS.md`. Banco de dados continua fora de escopo da E2E.
