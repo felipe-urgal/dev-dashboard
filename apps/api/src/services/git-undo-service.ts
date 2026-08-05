@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import { CONFIRMATION_TTL_MS } from './git-undo/constants.js';
 import { headCommit } from './git-undo/commit-helpers.js';
 import { GitUndoError } from './git-undo/errors.js';
@@ -17,6 +15,10 @@ import {
 } from './git-undo/repository-guards.js';
 import { optionalGit, runGit } from './git-undo/run.js';
 import type { GitUndoConfirmation, GitUndoCommitResult, GitUndoOperation } from './git-undo/types.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 export { GitUndoError } from './git-undo/errors.js';
 export type { GitUndoErrorCode } from './git-undo/errors.js';
@@ -27,16 +29,21 @@ export type {
   GitUndoStrategy,
 } from './git-undo/types.js';
 
-interface StoredConfirmation {
-  token: string;
-  projectId: string;
-  operation: GitUndoOperation;
-  target: string;
-  expiresAt: number;
+/**
+ * `GitUndoOperation` ('commit'|'file') é o vocabulário deste serviço; o
+ * catálogo (`git-mutation-catalog.ts`) usa `undo-commit`/`undo-file`.
+ */
+function undoCatalogOperationId(operation: GitUndoOperation): string {
+  return operation === 'commit' ? 'undo-commit' : 'undo-file';
 }
 
 export class GitUndoService {
-  private readonly confirmations = new Map<string, StoredConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
 
   public async prepareConfirmation(
     projectPath: string,
@@ -56,22 +63,12 @@ export class GitUndoService {
       );
     }
 
-    this.pruneExpiredConfirmations();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
+    const { token, expiresAt } = this.confirmations.prepare(
       projectId,
-      operation,
+      undoCatalogOperationId(operation),
       target,
-      expiresAt,
-    });
-    return {
-      token,
-      operation,
-      target,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    );
+    return { token, operation, target, expiresAt };
   }
 
   public async undoLastCommit(
@@ -195,26 +192,16 @@ export class GitUndoService {
     target: string,
     token: string | undefined,
   ): void {
-    this.pruneExpiredConfirmations();
-    const confirmation = token ? this.confirmations.get(token) : undefined;
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.operation !== operation
-      || confirmation.target !== target
-    ) {
-      throw new GitUndoError(
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para esta operação.',
-      );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpiredConfirmations(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, undoCatalogOperationId(operation), target, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitUndoError(
+          'GIT_MUTATION_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para esta operação.',
+        );
+      }
+      throw error;
     }
   }
 }
