@@ -26,27 +26,29 @@ jobs:
         run: |
           python <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('.github/workflows/task-101-apply.yml')
           content = path.read_text(encoding='utf-8')
 
-          old_stdout = """                resolve(
-                    typeof stdout === 'string'
-                      ? stdout
-                      : stdout.toString('utf8'),
-                  );"""
-          new_stdout = """                resolve(stdout);"""
+          content, stdout_count = re.subn(
+              r"resolve\(\s*typeof stdout === 'string'\s*\? stdout\s*:\s*stdout\.toString\('utf8'\),\s*\);",
+              "resolve(stdout);",
+              content,
+              count=1,
+          )
 
-          old_pid = """          const parsedPid = processMatch?.[2]
-              ? Number(processMatch[2])
-              : undefined;
-
-            return {
-              ...endpoint,
-              ...(Number.isInteger(parsedPid) && parsedPid! > 0
-                ? { pid: parsedPid }
-                : {}),"""
-          new_pid = """          const parsedPid = processMatch?.[2]
+          pid_pattern = (
+              r"const parsedPid = processMatch\?\.\[2\]\s*"
+              r"\? Number\(processMatch\[2\]\)\s*"
+              r": undefined;\s*"
+              r"return \{\s*"
+              r"\.\.\.endpoint,\s*"
+              r"\.\.\.\(Number\.isInteger\(parsedPid\) && parsedPid! > 0\s*"
+              r"\? \{ pid: parsedPid \}\s*"
+              r": \{\}\),"
+          )
+          pid_replacement = """const parsedPid = processMatch?.[2]
               ? Number(processMatch[2])
               : undefined;
             const pid =
@@ -59,14 +61,18 @@ jobs:
             return {
               ...endpoint,
               ...(pid !== undefined ? { pid } : {}),"""
+          content, pid_count = re.subn(
+              pid_pattern,
+              pid_replacement,
+              content,
+              count=1,
+          )
 
-          if old_stdout not in content:
-              raise SystemExit('Trecho stdout não encontrado')
-          if old_pid not in content:
-              raise SystemExit('Trecho PID não encontrado')
+          if stdout_count != 1:
+              raise SystemExit('Correção stdout não aplicada')
+          if pid_count != 1:
+              raise SystemExit('Correção PID não aplicada')
 
-          content = content.replace(old_stdout, new_stdout, 1)
-          content = content.replace(old_pid, new_pid, 1)
           path.write_text(content, encoding='utf-8')
           PY
 
