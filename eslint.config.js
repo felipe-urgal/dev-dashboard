@@ -44,6 +44,7 @@ module.exports = tseslint.config(
       globals: nodeGlobals,
     },
     rules: {
+      'prefer-const': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -74,15 +75,8 @@ module.exports = tseslint.config(
     },
     rules: {
       'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          argsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
-      ],
       'vue/multi-word-component-names': 'off',
     },
   },
