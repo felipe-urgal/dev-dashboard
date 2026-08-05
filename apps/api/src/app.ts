@@ -6,6 +6,7 @@ import { directoryRoutes } from './routes/directories.js';
 import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
+import { projectDoctorRoutes } from './routes/project-doctor.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
@@ -48,6 +49,7 @@ import { registerLocalSecurity } from './security/local-security.js';
 
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
+import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
@@ -67,6 +69,7 @@ export interface BuildAppOptions {
   browserBootstrapToken?: string;
   sessionTtlSeconds?: number;
   now?: () => number;
+  projectDoctorService?: ProjectDoctorService;
   projectLanguageServerService?: ProjectLanguageServerService;
 }
 
@@ -87,6 +90,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   registerApiErrorHandling(app, { registerNotFound: !options.staticDashboardEnabled });
 
   const context = options.context ?? createAppContext();
+  const projectDoctorService =
+    options.projectDoctorService ??
+    new ProjectDoctorService(options.now ? { now: options.now } : {});
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
@@ -140,6 +146,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     projectFavoriteRepository: context.projectFavoriteRepository,
     gitService: context.gitService,
+  });
+
+  app.register(projectDoctorRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectDoctorService,
   });
 
   app.register(gitMutationRoutes, {

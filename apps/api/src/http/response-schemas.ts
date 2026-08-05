@@ -7,3 +7,4 @@ export * from './response-schemas/git.js';
 export * from './response-schemas/rails.js';
 export * from './response-schemas/activity.js';
 export * from './response-schemas/project-environment.js';
+export * from './response-schemas/project-doctor.js';
