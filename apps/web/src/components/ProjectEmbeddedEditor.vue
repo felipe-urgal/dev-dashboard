@@ -825,8 +825,17 @@ async function initializeMonaco(): Promise<void> {
 function routeEditorTarget(): { path: string; line: number; column: number } | null {
   const rawPath = Array.isArray(route.query.file) ? route.query.file[0] : route.query.file;
   if (typeof rawPath !== 'string') return null;
-  const filePath = rawPath.replace(/\/g, '/').replace(/^\.\//, '');
-  if (!filePath || filePath.startsWith('/') || /^[A-Za-z]:\//.test(filePath)) return null;
+  const normalizedPath = rawPath.split(String.fromCharCode(92)).join('/');
+  const filePath = normalizedPath.startsWith('./')
+    ? normalizedPath.slice(2)
+    : normalizedPath;
+  const firstCharacter = filePath.charCodeAt(0);
+  const windowsAbsolute = filePath.length >= 3
+    && ((firstCharacter >= 65 && firstCharacter <= 90)
+      || (firstCharacter >= 97 && firstCharacter <= 122))
+    && filePath[1] === ':'
+    && filePath[2] === '/';
+  if (!filePath || filePath.startsWith('/') || windowsAbsolute) return null;
   if (filePath.split('/').some((segment) => segment === '..' || segment === '')) return null;
   const rawLine = Array.isArray(route.query.line) ? route.query.line[0] : route.query.line;
   const rawColumn = Array.isArray(route.query.column) ? route.query.column[0] : route.query.column;

@@ -79,7 +79,7 @@ function collectMinitestBlocks(lines: string[]): FailureBlock[] {
     const nameLine = (lines[index + 1] ?? '').trim();
     const location = extractLocation([nameLine], undefined);
     const name = nameLine
-      .replace(/\s*\[[^\]]+\]\s*$/, '')
+      .replace(/\s*\[[^\]]+\]:?\s*$/, '')
       .replace(/:\s*$/, '')
       .trim() || 'Teste com falha';
     const blockLines = [nameLine];

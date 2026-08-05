@@ -2,7 +2,7 @@
 
 ## Status
 
-Em implementação na branch `agent/task-100-test-failure-navigator`.
+Implementada no PR #191, aguardando validação e merge.
 
 ## Contexto
 
