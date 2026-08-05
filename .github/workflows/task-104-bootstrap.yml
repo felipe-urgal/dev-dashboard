@@ -24,19 +24,44 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Install and refresh lockfile
+      - name: Install dependencies
         run: npm install
 
-      - name: Persist lockfile
+      - name: Apply safe lint cleanup
         shell: bash
         run: |
-          if git diff --quiet -- package-lock.json; then
+          python - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path('apps/api/src/services/git-mutation-history-service.ts'),
+              Path('apps/api/test/git-mutation-history-routes.test.ts'),
+              Path('apps/api/test/git-mutation-history-service.test.ts'),
+              Path('apps/web/src/utils/sql-highlight.ts'),
+          ]
+          directives = (
+              'eslint-disable-next-line no-console',
+              'eslint-disable-next-line no-await-in-loop',
+              'eslint-disable-next-line no-cond-assign',
+          )
+          for path in paths:
+              lines = path.read_text().splitlines()
+              path.write_text('\n'.join(
+                  line for line in lines
+                  if not any(directive in line for directive in directives)
+              ) + '\n')
+          PY
+
+      - name: Persist generated changes
+        shell: bash
+        run: |
+          if git diff --quiet -- package-lock.json apps/api/src/services/git-mutation-history-service.ts apps/api/test/git-mutation-history-routes.test.ts apps/api/test/git-mutation-history-service.test.ts apps/web/src/utils/sql-highlight.ts; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: atualiza lockfile do ESLint"
+          git add package-lock.json apps/api/src/services/git-mutation-history-service.ts apps/api/test/git-mutation-history-routes.test.ts apps/api/test/git-mutation-history-service.test.ts apps/web/src/utils/sql-highlight.ts
+          git commit -m "chore: aplica correções seguras do ESLint"
           git push origin HEAD:chore/task-104-eslint
 
       - name: Run lint
