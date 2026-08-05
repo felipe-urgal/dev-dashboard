@@ -1,0 +1,12 @@
+/* Mantém as células como table-cell no desktop para que cada linha compartilhe
+   a mesma altura e o border-bottom permaneça contínuo entre as colunas. */
+@media (min-width: 801px) {
+  .processes-table td:first-child {
+    display: table-cell;
+  }
+
+  .processes-table td:first-child small {
+    display: block;
+    margin-top: 5px;
+  }
+}
