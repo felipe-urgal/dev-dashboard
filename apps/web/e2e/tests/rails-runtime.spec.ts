@@ -21,11 +21,11 @@ test.describe('Sidekiq/webpack do projeto Rails', () => {
     await expect(sidekiqPanel.getByRole('button', { name: 'Iniciar' })).toBeVisible();
     await sidekiqPanel.getByRole('button', { name: 'Iniciar' }).click();
 
-    await expect(sidekiqPanel.getByText('Executando')).toBeVisible({ timeout: 15_000 });
+    await expect(sidekiqPanel.getByText('Executando', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     await expect(sidekiqPanel.getByRole('button', { name: 'Parar' })).toBeVisible();
 
     await sidekiqPanel.getByRole('button', { name: 'Parar' }).click();
-    await expect(sidekiqPanel.getByText('Parado')).toBeVisible({ timeout: 15_000 });
+    await expect(sidekiqPanel.getByText('Parado', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
 
     await webpackTab.click();
     await expect(webpackTab).toHaveAttribute('aria-selected', 'true');
