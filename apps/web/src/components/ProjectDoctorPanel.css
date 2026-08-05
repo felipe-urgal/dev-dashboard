@@ -1,5 +1,9 @@
 .project-doctor-panel {
   width: 100%;
+  font-family: var(--font-family);
+  font-size: var(--font-sm);
+  font-weight: var(--font-weight-body);
+  line-height: 1.4;
 }
 
 .project-doctor-card {
@@ -61,6 +65,8 @@
 
 .project-doctor-heading h3 {
   font-size: var(--font-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
 }
 
 .project-doctor-heading p,
@@ -184,6 +190,7 @@
 
 .project-doctor-metric strong {
   font-size: var(--font-xl);
+  font-weight: var(--font-weight-strong);
   line-height: 1;
 }
 
@@ -223,6 +230,8 @@
 
 .project-doctor-areas > header h4 {
   font-size: var(--font-md);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
 }
 
 .project-doctor-areas > header span {
@@ -285,6 +294,16 @@
 .project-doctor-category-main > div > span {
   color: var(--text-muted);
   font-size: var(--font-sm);
+}
+
+.project-doctor-alert strong,
+.project-doctor-empty strong,
+.project-doctor-category-main strong,
+.project-doctor-check-copy strong,
+.project-doctor-result strong {
+  font-size: var(--font-md);
+  font-weight: var(--font-weight-strong);
+  line-height: 1.3;
 }
 
 .project-doctor-category-icon {
