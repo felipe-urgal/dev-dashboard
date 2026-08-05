@@ -1,63 +1,64 @@
 # Próxima atividade
 
-## Task 103 — Dividir `GitService` e `ScriptExecutionService` por domínio
+## Task 104 — Padronizar lint com ESLint entre `apps/` e `packages/`
 
 ### Objetivo
 
-Reduzir as duas classes de serviço que voltaram a crescer acima de 400
-linhas depois da Fase 7 de refatoração (`docs/architecture/refactoring-arquivos-grandes.md`),
-sem alterar nenhuma assinatura pública nem comportamento externo. `git-service.ts`
-está em 583 linhas (já cresceu mais com a task 102) e `script-execution-service.ts`
-em 628. Ambas já tiveram uma primeira passada de extração de funções livres
-na Fase 7; falta dividir a própria classe por domínio, como já foi feito com
-`ProcessManager` na Fase 6.
+O monorepo hoje não tem nenhum lint automatizado — `docs/PENDENCIAS.md`
+("Qualidade e manutenção") registra isso como pendência desde a auditoria da
+task 011/086. `npm run typecheck` pega erros de tipo, mas não pega import
+não usado, `any` implícito evitável, código morto óbvio ou inconsistência de
+estilo entre os workspaces TS (`apps/api`, `apps/web`, `packages/*`).
 
 ### Decisão principal
 
-Seguir exatamente o padrão da Fase 6: cada classe vira um orquestrador fino
-que delega para módulos por domínio, mantendo um único `Map`/mecanismo de
-confirmação compartilhado (já extraído para `GitMutationConfirmationService`
-no caso de `GitService`) injetado nos módulos que precisam dele, em vez de
-duplicado. Nenhuma rota, contrato ou schema muda — é refatoração pura,
-verificada pelos testes existentes de cada serviço.
+Primeira versão: só ESLint (regras de correção — `@typescript-eslint`,
+`eslint-plugin-vue` para `apps/web`), sem Prettier. Formatação automática é
+uma frente separada com risco de diff gigante em arquivos que não vão
+mudar por motivo funcional; lint de correção primeiro, formatação depois se
+fizer sentido. Rodar em modo não-bloqueante nesta entrega — reportar o
+inventário de violações, corrigir apenas o que `--fix` resolve com segurança
+(imports não usados, ordenação), e decidir arquivo a arquivo o que vale a
+pena consertar manualmente vs. registrar como pendência futura. Não é
+aceitável essa entrega reescrever centenas de arquivos de uma vez só por
+causa de uma regra nova.
 
 ### Escopo
 
-- `GitService` (`apps/api/src/services/git-service.ts`, 16 métodos públicos):
-  dividir em módulos por domínio dentro de `git-service/` — branch
-  (`createBranch`/`switchBranch`/`pull`/`push`), arquivo
-  (`stageFile`/`unstageFile`/`discardFile`/`removeUntrackedFile`), commit
-  (`commit`/`amend`/`save`) e stash (`stashPush`/`stashPop`), além dos
-  métodos de leitura (`getOverview`/`getDiffSnapshot`/`getFileDiff`/
-  `getFileLines`) que podem continuar juntos por não compartilharem mutação;
-- `ScriptExecutionService` (`apps/api/src/services/script-execution-service.ts`):
-  mesma divisão por domínio das responsabilidades já visíveis nos 6 `Map`s
-  privados (`executions`/`activeProjects`/`confirmations`/`pendingWrites`/
-  `subscribers`/`eventTimers`) — provavelmente execução (start/stop),
-  confirmação e eventos/subscribers como três frentes, a confirmar durante a
-  implementation;
-- meta de ~200 linhas por arquivo novo, mesma régua das fases anteriores;
-- todos os símbolos hoje exportados de `git-service.ts`/`script-execution-service.ts`
-  continuam reexportados de lá — nenhum import externo muda.
+- `eslint.config.js` na raiz (flat config, compatível com o `engines.node`
+  do `package.json` raiz), com overrides por workspace onde a base
+  `@typescript-eslint/recommended` precisar de ajuste (ex. `packages/contracts`
+  é só tipos, `apps/web` precisa do parser/plugin Vue);
+- `npm run lint` na raiz (`--workspaces --if-present` ou script único
+  cobrindo tudo, a definir durante a implementação) e `npm run lint:fix`;
+- rodar `eslint --fix` uma vez no repositório inteiro só para as categorias
+  seguras (imports não usados, ordenação de imports) e commitar o resultado
+  separado de qualquer mudança de configuração;
+- inventariar (não necessariamente corrigir) as violações restantes que
+  exigem julgamento humano (`any` implícito, variáveis não usadas em
+  parâmetros de callback, etc.) — decidir por categoria se entra nesta
+  entrega ou fica registrada como pendência;
+- adicionar `npm run lint` ao `.github/workflows/ci.yml`, depois de
+  `typecheck` e antes de `build` (mesma ordem de `docs:api:check` já
+  descrita no `CLAUDE.md`), **só depois que o repositório já estiver
+  passando** — nunca habilitar o gate de CI com violações pendentes.
 
 ### Critérios de aceite
 
-- `git-service.ts` e `script-execution-service.ts` ficam abaixo de ~400
-  linhas cada, contendo só a classe orquestradora;
-- `npm run typecheck`, `npm run build` e `npm test` continuam verdes sem
-  nenhuma mudança nos testes existentes de `git-service`/`git-service-mutations`/
-  `git-service-diff`/`git-amend-all-changes`/`git-file-confirmation-route`/
-  `git-sync-service`/`script-execution-service`/`script-events-route`;
-- nenhuma rota, schema de resposta ou tipo em `packages/contracts` muda;
-- `docs/architecture/refactoring-arquivos-grandes.md` ganha uma nova entrada
-  de fase registrando a divisão e o inventário atualizado de arquivos acima
-  de 400 linhas.
+- `npm run lint` roda sem erro de configuração em todos os workspaces TS;
+- nenhuma mudança de comportamento — só formatação/imports mecânicos e,
+  quando fizer sentido, correções pontuais já revisadas;
+- CI (`ci.yml`) passa com o novo passo de lint habilitado;
+- `docs/PENDENCIAS.md` atualizado removendo o item "Padronizar lint e
+  formatação com ESLint e Prettier" (ou reduzindo-o só a Prettier, se essa
+  parte ficar para depois).
 
 ### Fora de escopo
 
-- mudar comportamento de qualquer operação Git ou de script;
-- extrair `ProjectGitPanel.vue`/`ProjectGitBranchesPage.vue` ou os demais
-  componentes Vue acima de 400 linhas listados no reinventário da Fase 7 —
-  ficam para uma entrega própria de frontend;
-- revisitar o mecanismo de confirmação compartilhado além de injetá-lo nos
-  novos módulos.
+- Prettier / formatação automática de estilo (espaçamento, aspas, etc.) —
+  fica para uma entrega própria se for decidida depois;
+- reescrever lógica para satisfazer regras mais rígidas do que
+  `recommended` (ex. `strict-boolean-expressions`) — começar permissivo e
+  apertar depois, não o contrário;
+- lint do CLI Bash (`lib/`, `init.sh`) — isso é `shellcheck`, uma frente
+  totalmente separada, não coberta por ESLint.

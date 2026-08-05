@@ -1,64 +1,42 @@
-import { spawn, type ChildProcess } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { randomBytes, randomUUID } from 'node:crypto';
-import { once } from 'node:events';
 import type { Writable } from 'node:stream';
-import { mkdir, open, readFile, readdir, readlink, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 import type {
   Project,
-  ProjectScript,
   ScriptExecution,
   ScriptExecutionConfirmation,
-  ScriptExecutionLog,
   ScriptExecutionHistory,
-  ScriptExecutionEvent,
+  ScriptExecutionLog,
   ScriptExecutionVariables,
 } from '@dev-dashboard/contracts';
-import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import type { ScriptDetectionService } from './script-detection-service.js';
-import { tokensMatch } from './script-execution/auth.js';
+import { prepareScriptConfirmation } from './script-execution/authorization.js';
 import {
-  CONFIRMATION_TTL_MS,
   DEFAULT_HISTORY_LIMIT,
   DEFAULT_RETENTION_DAYS,
-  EVENT_THROTTLE_MS,
-  EXECUTION_ID_PATTERN,
-  HISTORY_VERSION,
-  LOG_LIMIT,
-  MAX_EXECUTION_SUBSCRIBERS,
   MAX_RETENTION_SWEEP_INTERVAL_MS,
-  MAX_TOTAL_SUBSCRIBERS,
 } from './script-execution/constants.js';
-import { resolveCommand } from './script-execution/command-resolution.js';
-import { isProtectedScriptEnvironmentVariable } from './script-execution/environment-variables.js';
+import { closeAllSubscribers, subscribeToExecution } from './script-execution/events.js';
 import { ScriptExecutionError } from './script-execution/errors.js';
+import { cancelExecution, startExecution } from './script-execution/lifecycle.js';
+import type {
+  ExecutionSubscriber,
+  ScriptExecutionContext,
+} from './script-execution/state.js';
+import {
+  executionHistory,
+  getExecution,
+  latestExecution,
+  pruneHistory,
+  readExecutionLog,
+  restoreExecutions,
+} from './script-execution/store.js';
 
 export { ScriptExecutionError } from './script-execution/errors.js';
 export type { ScriptExecutionErrorCode } from './script-execution/errors.js';
-
-interface RunningExecution {
-  execution: ScriptExecution;
-  projectPath: string;
-  logPath: string;
-  child?: ChildProcess;
-  logFlush?: Promise<void>;
-}
-
-interface StoredConfirmation extends ScriptExecutionConfirmation {
-  projectId: string;
-  variablesSignature: string;
-}
-
-interface StoredExecution { version: 1; execution: ScriptExecution }
-
-interface ExecutionSubscriber {
-  send: (event: ScriptExecutionEvent) => void;
-  close: () => void;
-}
 
 export interface ScriptExecutionServiceOptions {
   historyLimit?: number;
@@ -67,71 +45,57 @@ export interface ScriptExecutionServiceOptions {
   createLogStream?: (logPath: string) => Writable;
 }
 
+function readPositiveInteger(raw: string | undefined, fallback: number): number {
+  const value = Number(raw); return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function positiveOption(value: number | undefined, fallback: number): number {
+  return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value! : fallback;
+}
+
 export class ScriptExecutionService {
-  private readonly executions = new Map<string, RunningExecution>();
-  private readonly activeProjects = new Set<string>();
-  private readonly confirmations = new Map<string, StoredConfirmation>();
-  private readonly pendingWrites = new Map<string, Promise<void>>();
-  private readonly subscribers = new Map<string, Set<ExecutionSubscriber>>();
-  private readonly eventTimers = new Map<string, NodeJS.Timeout>();
-  private readonly stateDirectory: string;
+  private readonly context: ScriptExecutionContext;
   private readonly ready: Promise<void>;
-  private readonly historyLimit: number;
-  private readonly retentionMs: number;
   private readonly retentionTimer: NodeJS.Timeout;
-  private readonly createLogStream: (logPath: string) => Writable;
 
   public constructor(
-    private readonly detection: ScriptDetectionService,
+    detection: ScriptDetectionService,
     stateDirectory =
       process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
       path.join(homedir(), '.local', 'state', 'dev-dashboard'),
     options: ScriptExecutionServiceOptions = {},
   ) {
-    this.stateDirectory = path.resolve(stateDirectory, 'scripts');
-    this.historyLimit = this.positiveOption(options.historyLimit, this.readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT));
-    this.retentionMs = this.positiveOption(options.retentionMs, this.readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000);
-    this.createLogStream = options.createLogStream ?? ((logPath) =>
-      createWriteStream(logPath, { flags: 'w', mode: 0o600 }));
-    this.ready = this.restore();
+    const historyLimit = positiveOption(options.historyLimit, readPositiveInteger(process.env.DEV_DASHBOARD_SCRIPT_HISTORY_LIMIT, DEFAULT_HISTORY_LIMIT));
+    const retentionMs = positiveOption(options.retentionMs, readPositiveInteger(process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS, DEFAULT_RETENTION_DAYS) * 86_400_000);
+    this.context = {
+      executions: new Map(),
+      activeProjects: new Set(),
+      confirmations: new Map(),
+      pendingWrites: new Map(),
+      subscribers: new Map(),
+      eventTimers: new Map(),
+      stateDirectory: path.resolve(stateDirectory, 'scripts'),
+      historyLimit,
+      retentionMs,
+      createLogStream: options.createLogStream ?? ((logPath) =>
+        createWriteStream(logPath, { flags: 'w', mode: 0o600 })),
+      detection,
+    };
+    this.ready = restoreExecutions(this.context);
     this.retentionTimer = setInterval(() => {
-      void this.ready.then(() => this.pruneHistory()).catch(() => undefined);
-    }, this.positiveOption(options.sweepIntervalMs, Math.min(this.retentionMs, MAX_RETENTION_SWEEP_INTERVAL_MS)));
+      void this.ready.then(() => pruneHistory(this.context)).catch(() => undefined);
+    }, positiveOption(options.sweepIntervalMs, Math.min(retentionMs, MAX_RETENTION_SWEEP_INTERVAL_MS)));
     this.retentionTimer.unref();
   }
 
   public close(): void {
     clearInterval(this.retentionTimer);
-    for (const timer of this.eventTimers.values()) clearTimeout(timer);
-    for (const subscribers of this.subscribers.values()) {
-      for (const subscriber of subscribers) subscriber.close();
-    }
-    this.eventTimers.clear();
-    this.subscribers.clear();
+    closeAllSubscribers(this.context);
   }
 
   public async subscribe(projectId: string, executionId: string, subscriber: ExecutionSubscriber): Promise<() => void> {
-    const execution = await this.get(projectId, executionId);
-    const current = this.subscribers.get(executionId) ?? new Set<ExecutionSubscriber>();
-    const total = Array.from(this.subscribers.values()).reduce((sum, items) => sum + items.size, 0);
-    if (current.size >= MAX_EXECUTION_SUBSCRIBERS || total >= MAX_TOTAL_SUBSCRIBERS) {
-      throw new ScriptExecutionError('SCRIPT_SUBSCRIBER_LIMIT', 'O limite de acompanhamentos simultâneos foi atingido.');
-    }
-    current.add(subscriber);
-    this.subscribers.set(executionId, current);
-    try {
-      subscriber.send({ type: 'state', execution });
-      subscriber.send({ type: 'log', log: await this.log(projectId, executionId) });
-    } catch (error) {
-      current.delete(subscriber);
-      if (current.size === 0) this.subscribers.delete(executionId);
-      throw error;
-    }
-    if (execution.status !== 'running') queueMicrotask(subscriber.close);
-    return () => {
-      current.delete(subscriber);
-      if (current.size === 0) this.subscribers.delete(executionId);
-    };
+    await this.ready;
+    return subscribeToExecution(this.context, projectId, executionId, subscriber);
   }
 
   public async prepareConfirmation(
@@ -139,28 +103,7 @@ export class ScriptExecutionService {
     actionId: string,
     receivedVariables: ScriptExecutionVariables = {},
   ): Promise<ScriptExecutionConfirmation> {
-    const action = await this.findEnabledAction(project, actionId);
-    const variables = this.normalizeVariables(action, receivedVariables);
-    if (action.risk === 'read-only') {
-      throw new ScriptExecutionError(
-        'SCRIPT_CONFIRMATION_REQUIRED',
-        'Ações somente leitura não precisam de confirmação.',
-      );
-    }
-
-    const confirmation: StoredConfirmation = {
-      token: randomBytes(32).toString('hex'),
-      projectId: project.id,
-      actionId: action.id,
-      expiresAt: new Date(Date.now() + CONFIRMATION_TTL_MS).toISOString(),
-      variablesSignature: this.variablesSignature(variables),
-    };
-    this.confirmations.set(confirmation.token, confirmation);
-    return {
-      token: confirmation.token,
-      actionId: confirmation.actionId,
-      expiresAt: confirmation.expiresAt,
-    };
+    return prepareScriptConfirmation(this.context, project, actionId, receivedVariables);
   }
 
   public async start(
@@ -170,459 +113,31 @@ export class ScriptExecutionService {
     receivedVariables: ScriptExecutionVariables = {},
   ): Promise<ScriptExecution> {
     await this.ready;
-    if (this.activeProjects.has(project.id)) {
-      throw new ScriptExecutionError(
-        'SCRIPT_ALREADY_RUNNING',
-        'Já existe uma ação em execução neste projeto.',
-      );
-    }
-    // A reserva acontece antes do primeiro await para fechar a corrida entre starts concorrentes.
-    this.activeProjects.add(project.id);
-
-    try {
-      const action = await this.findEnabledAction(project, actionId);
-      const variables = this.normalizeVariables(action, receivedVariables);
-      if (action.risk !== 'read-only') {
-        this.consumeConfirmation(
-          project.id,
-          action.id,
-          this.variablesSignature(variables),
-          confirmationToken,
-        );
-      }
-      const resolved = await resolveCommand(project, action, variables);
-      return await this.spawnExecution(project, action, resolved);
-    } catch (error) {
-      this.activeProjects.delete(project.id);
-      throw error;
-    }
+    return startExecution(this.context, project, actionId, confirmationToken, receivedVariables);
   }
 
   public async get(projectId: string, executionId: string): Promise<ScriptExecution> {
     await this.ready;
-    const record = this.findExecution(projectId, executionId);
-    await record.logFlush;
-    await this.waitForPersistence(executionId);
-    return { ...record.execution };
+    return getExecution(this.context, projectId, executionId);
   }
 
   public async latest(projectId: string): Promise<ScriptExecution | null> {
     await this.ready;
-    await this.waitForAllPersistence();
-    const records = Array.from(this.executions.values());
-    for (let index = records.length - 1; index >= 0; index -= 1) {
-      const execution = records[index]?.execution;
-      if (execution?.projectId === projectId) return { ...execution };
-    }
-    return null;
+    return latestExecution(this.context, projectId);
   }
 
   public async history(projectId: string, page = 1, pageSize = 20): Promise<ScriptExecutionHistory> {
     await this.ready;
-    await this.waitForAllPersistence();
-    const items = Array.from(this.executions.values())
-      .map((record) => record.execution)
-      .filter((execution) => execution.projectId === projectId)
-      .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
-    const total = items.length;
-    return {
-      items: items.slice((page - 1) * pageSize, page * pageSize).map((item) => ({ ...item })),
-      page,
-      pageSize,
-      total,
-      totalPages: total === 0 ? 0 : Math.ceil(total / pageSize),
-    };
+    return executionHistory(this.context, projectId, page, pageSize);
   }
 
-  public async log(
-    projectId: string,
-    executionId: string,
-  ): Promise<ScriptExecutionLog> {
+  public async log(projectId: string, executionId: string): Promise<ScriptExecutionLog> {
     await this.ready;
-    const record = this.findExecution(projectId, executionId);
-    const size = (await stat(record.logPath)).size;
-    const start = Math.max(0, size - LOG_LIMIT);
-    const handle = await open(record.logPath, 'r');
-    const buffer = Buffer.alloc(size - start);
-    try {
-      await handle.read(buffer, 0, buffer.length, start);
-    } finally {
-      await handle.close();
-    }
-    let content = buffer.toString('utf8');
-    if (start > 0) {
-      const firstLineEnd = content.indexOf('\n');
-      content = firstLineEnd >= 0 ? content.slice(firstLineEnd + 1) : '';
-    }
-    const maskedContent = maskSensitiveLogContent(content);
-    return {
-      executionId,
-      content: maskedContent.content,
-      truncated: start > 0,
-      masked: maskedContent.masked,
-      redactionCount: maskedContent.redactionCount,
-    };
+    return readExecutionLog(this.context, projectId, executionId);
   }
 
-  public async cancel(
-    projectId: string,
-    executionId: string,
-  ): Promise<ScriptExecution> {
+  public async cancel(projectId: string, executionId: string): Promise<ScriptExecution> {
     await this.ready;
-    const record = this.findExecution(projectId, executionId);
-    if (record.execution.status !== 'running' || !record.child?.pid) {
-      return { ...record.execution };
-    }
-    const actualCwd = await readlink(`/proc/${record.child.pid}/cwd`).catch(
-      () => '',
-    );
-    if (
-      process.platform === 'linux' &&
-      path.resolve(actualCwd) !== path.resolve(record.projectPath)
-    ) {
-      throw new ScriptExecutionError(
-        'SCRIPT_EXECUTION_NOT_FOUND',
-        'A identidade do processo não pôde ser confirmada.',
-      );
-    }
-    this.signal(record, 'SIGTERM');
-    setTimeout(() => {
-      if (record.execution.status === 'running') {
-        this.signal(record, 'SIGKILL');
-      }
-    }, 3_000).unref();
-    return { ...record.execution };
-  }
-
-  private async findEnabledAction(
-    project: Project,
-    actionId: string,
-  ): Promise<ProjectScript> {
-    const action = await this.detection.findAction(project, actionId);
-    if (!action) {
-      throw new ScriptExecutionError(
-        'SCRIPT_NOT_FOUND',
-        'A ação não existe no catálogo atual.',
-      );
-    }
-    if (!action.enabled) {
-      throw new ScriptExecutionError(
-        'SCRIPT_DISABLED',
-        'Ações destrutivas permanecem bloqueadas.',
-      );
-    }
-    return action;
-  }
-
-  private consumeConfirmation(
-    projectId: string,
-    actionId: string,
-    variablesSignature: string,
-    receivedToken?: string,
-  ): void {
-    const stored = receivedToken
-      ? this.confirmations.get(receivedToken)
-      : undefined;
-    if (receivedToken) {
-      this.confirmations.delete(receivedToken);
-    }
-    if (
-      !receivedToken ||
-      !stored ||
-      !tokensMatch(receivedToken, stored.token) ||
-      stored.projectId !== projectId ||
-      stored.actionId !== actionId ||
-      stored.variablesSignature !== variablesSignature ||
-      Date.parse(stored.expiresAt) <= Date.now()
-    ) {
-      throw new ScriptExecutionError(
-        'SCRIPT_CONFIRMATION_REQUIRED',
-        'Solicite e confirme uma autorização nova para esta ação.',
-      );
-    }
-  }
-
-  private normalizeVariables(
-    action: ProjectScript,
-    received: ScriptExecutionVariables,
-  ): ScriptExecutionVariables {
-    const declared = action.variables ?? [];
-    const entries = Object.entries(received);
-    if (entries.length > 20) {
-      throw new ScriptExecutionError('SCRIPT_VARIABLES_INVALID', 'A tarefa aceita no máximo 20 variáveis.');
-    }
-    const allowed = new Map(declared.map((variable) => [variable.name, variable]));
-    const normalized: ScriptExecutionVariables = {};
-    for (const [name, value] of entries) {
-      if (
-        isProtectedScriptEnvironmentVariable(name)
-        || !allowed.has(name)
-        || typeof value !== 'string'
-      ) {
-        throw new ScriptExecutionError(
-          'SCRIPT_VARIABLES_INVALID',
-          'A requisição contém uma variável não aceita pela tarefa atual.',
-        );
-      }
-      if (value.length > 4_096 || /[\0\r\n]/.test(value)) {
-        throw new ScriptExecutionError(
-          'SCRIPT_VARIABLES_INVALID',
-          `O valor de ${name} é inválido ou excede 4 KiB.`,
-        );
-      }
-      if (value !== '') normalized[name] = value;
-    }
-    for (const variable of declared) {
-      if (variable.required && normalized[variable.name] === undefined) {
-        throw new ScriptExecutionError(
-          'SCRIPT_VARIABLES_INVALID',
-          `Informe a variável obrigatória ${variable.name}.`,
-        );
-      }
-    }
-    return Object.fromEntries(
-      Object.entries(normalized).sort(([left], [right]) => left.localeCompare(right)),
-    );
-  }
-
-  private variablesSignature(variables: ScriptExecutionVariables): string {
-    return JSON.stringify(variables);
-  }
-
-  private async spawnExecution(
-    project: Project,
-    action: ProjectScript,
-    resolved: { command: string; args: string[]; env?: ScriptExecutionVariables },
-  ): Promise<ScriptExecution> {
-    await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
-    const id = randomUUID();
-    const logPath = path.join(this.stateDirectory, `${id}.log`);
-    const output = this.createLogStream(logPath);
-    await once(output, 'open');
-    const execution: ScriptExecution = {
-      id,
-      projectId: project.id,
-      actionId: action.id,
-      actionName: action.name,
-      risk: action.risk,
-      status: 'running',
-      startedAt: new Date().toISOString(),
-    };
-    const record: RunningExecution = {
-      execution,
-      projectPath: project.path,
-      logPath,
-    };
-    this.executions.set(id, record);
-    await this.persist(execution);
-
-    let finish: (
-      status: ScriptExecution['status'],
-      exitCode?: number | null,
-    ) => void = () => undefined;
-    const outputSettled = new Promise<void>((resolve) => {
-      output.once('close', resolve);
-      output.once('error', resolve);
-    });
-
-    try {
-      record.child = spawn(resolved.command, resolved.args, {
-        cwd: project.path,
-        shell: false,
-        detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
-        ...(resolved.env ? { env: { ...process.env, ...resolved.env } } : {}),
-      });
-      record.child.stdout?.pipe(output, { end: false });
-      record.child.stderr?.pipe(output, { end: false });
-      record.child.stdout?.on('data', () => this.scheduleLogEvent(record));
-      record.child.stderr?.on('data', () => this.scheduleLogEvent(record));
-    } catch (error) {
-      execution.status = 'failed';
-      execution.finishedAt = new Date().toISOString();
-      await this.persist(execution);
-      await new Promise<void>((resolve) => output.end(resolve));
-      throw error;
-    }
-
-    finish = (
-      status: ScriptExecution['status'],
-      exitCode?: number | null,
-    ): void => {
-      if (execution.status !== 'running') return;
-      execution.status = status;
-      execution.finishedAt = new Date().toISOString();
-      if (exitCode !== undefined && exitCode !== null) execution.exitCode = exitCode;
-      this.activeProjects.delete(project.id);
-      this.schedulePersistence(execution);
-      record.logFlush = outputSettled;
-      if (!output.destroyed) output.end();
-      void record.logFlush.then(() => {
-        this.scheduleLogEvent(record, true);
-        this.emit(record, { type: 'state', execution: { ...execution } });
-      });
-    };
-    // Erros de escrita podem ocorrer depois de `open`; eles não devem escapar
-    // como eventos sem listener nem deixar a espera pelo log pendente.
-    output.on('error', () => {
-      finish('failed');
-      this.signal(record, 'SIGTERM');
-    });
-    record.child.once('error', () => finish('failed'));
-    record.child.once('close', (code, signal) =>
-      finish(signal ? 'cancelled' : code === 0 ? 'succeeded' : 'failed', code),
-    );
-    return { ...execution };
-  }
-
-  private findExecution(projectId: string, executionId: string): RunningExecution {
-    const record = this.executions.get(executionId);
-    if (!record || record.execution.projectId !== projectId) {
-      throw new ScriptExecutionError(
-        'SCRIPT_EXECUTION_NOT_FOUND',
-        'Execução não encontrada.',
-      );
-    }
-    return record;
-  }
-
-  private signal(record: RunningExecution, signal: NodeJS.Signals): void {
-    const pid = record.child?.pid;
-    if (!pid) return;
-    try {
-      process.kill(process.platform === 'win32' ? pid : -pid, signal);
-    } catch {
-      // O processo pode ter encerrado entre a verificação e o sinal.
-    }
-  }
-
-  private emit(record: RunningExecution, event: ScriptExecutionEvent): void {
-    for (const subscriber of this.subscribers.get(record.execution.id) ?? []) subscriber.send(event);
-    if (event.type === 'state' && event.execution.status !== 'running') {
-      const subscribers = this.subscribers.get(record.execution.id);
-      if (subscribers) queueMicrotask(() => { for (const subscriber of subscribers) subscriber.close(); });
-    }
-  }
-
-  private scheduleLogEvent(record: RunningExecution, immediate = false): void {
-    if (!this.subscribers.has(record.execution.id)) return;
-    const existing = this.eventTimers.get(record.execution.id);
-    if (existing && !immediate) return;
-    if (existing) clearTimeout(existing);
-    const publish = (): void => {
-      this.eventTimers.delete(record.execution.id);
-      void this.log(record.execution.projectId, record.execution.id)
-        .then((log) => this.emit(record, { type: 'log', log }))
-        .catch(() => undefined);
-    };
-    if (immediate) queueMicrotask(publish);
-    else this.eventTimers.set(record.execution.id, setTimeout(publish, EVENT_THROTTLE_MS));
-  }
-
-  private statePath(id: string): string { return path.join(this.stateDirectory, `${id}.json`); }
-
-  private async persist(execution: ScriptExecution): Promise<void> {
-    const stored: StoredExecution = {
-      version: HISTORY_VERSION,
-      execution: { ...execution },
-    };
-    await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
-    const target = this.statePath(execution.id);
-    const temporary = `${target}.${randomUUID()}.tmp`;
-    await writeFile(temporary, JSON.stringify(stored), { mode: 0o600 });
-    await rename(temporary, target);
-  }
-
-  private schedulePersistence(execution: ScriptExecution): void {
-    const previous = this.pendingWrites.get(execution.id) ?? Promise.resolve();
-    const pending = previous
-      .then(() => this.persist(execution))
-      .then(() => this.pruneHistory());
-    this.pendingWrites.set(execution.id, pending);
-    // O erro continua observável pelas leituras, mas não vira rejeição não tratada no listener.
-    void pending.catch(() => undefined);
-    void pending.finally(() => {
-      if (this.pendingWrites.get(execution.id) === pending) {
-        this.pendingWrites.delete(execution.id);
-      }
-    }).catch(() => undefined);
-  }
-
-  private async waitForPersistence(executionId: string): Promise<void> {
-    await this.pendingWrites.get(executionId);
-  }
-
-  private async waitForAllPersistence(): Promise<void> {
-    await Promise.all(this.pendingWrites.values());
-  }
-
-  private async pruneHistory(): Promise<void> {
-    const now = Date.now();
-    const terminal = Array.from(this.executions.values())
-      .filter((record) => record.execution.status !== 'running')
-      .sort((left, right) => right.execution.startedAt.localeCompare(left.execution.startedAt));
-    const expired = terminal.filter((record) =>
-      now - Date.parse(record.execution.finishedAt ?? record.execution.startedAt) > this.retentionMs,
-    );
-    const overLimit = terminal.slice(this.historyLimit);
-    const removable = new Map(
-      [...expired, ...overLimit].map((record) => [record.execution.id, record]),
-    );
-    for (const record of removable.values()) {
-      this.executions.delete(record.execution.id);
-      await this.removeStored(record.execution.id);
-    }
-  }
-
-  private async restore(): Promise<void> {
-    await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
-    const names = await readdir(this.stateDirectory).catch(() => [] as string[]);
-    const restored: ScriptExecution[] = [];
-    for (const name of names.filter((item) => EXECUTION_ID_PATTERN.test(item.slice(0, -5)) && item.endsWith('.json'))) {
-      try {
-        const parsed = JSON.parse(await readFile(path.join(this.stateDirectory, name), 'utf8')) as Partial<StoredExecution>;
-        const execution = parsed.execution;
-        if (parsed.version !== HISTORY_VERSION || !this.validExecution(execution) || name !== `${execution.id}.json`) continue;
-        if (Date.now() - Date.parse(execution.finishedAt ?? execution.startedAt) > this.retentionMs) {
-          await this.removeStored(execution.id); continue;
-        }
-        if (execution.status === 'running') {
-          execution.status = 'failed';
-          execution.finishedAt = new Date().toISOString();
-          await this.persist(execution);
-        }
-        restored.push(execution);
-      } catch { /* Um registro corrompido não impede a recuperação dos demais. */ }
-    }
-    restored.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
-    const kept = restored.slice(-this.historyLimit);
-    for (const execution of restored.slice(0, -this.historyLimit)) await this.removeStored(execution.id);
-    for (const execution of kept) this.executions.set(execution.id, { execution, projectPath: '', logPath: path.join(this.stateDirectory, `${execution.id}.log`) });
-  }
-
-  private async removeStored(id: string): Promise<void> {
-    await Promise.all([rm(this.statePath(id), { force: true }), rm(path.join(this.stateDirectory, `${id}.log`), { force: true })]);
-  }
-
-  private validExecution(value: unknown): value is ScriptExecution {
-    if (!value || typeof value !== 'object') return false;
-    const item = value as Record<string, unknown>;
-    return typeof item.id === 'string' && EXECUTION_ID_PATTERN.test(item.id)
-      && typeof item.projectId === 'string' && item.projectId.length > 0
-      && typeof item.actionId === 'string' && item.actionId.length > 0
-      && typeof item.actionName === 'string' && item.actionName.length > 0
-      && ['read-only', 'mutable', 'destructive'].includes(String(item.risk))
-      && ['running', 'succeeded', 'failed', 'cancelled'].includes(String(item.status))
-      && typeof item.startedAt === 'string' && Number.isFinite(Date.parse(item.startedAt))
-      && (item.finishedAt === undefined || (typeof item.finishedAt === 'string' && Number.isFinite(Date.parse(item.finishedAt))))
-      && (item.exitCode === undefined || Number.isInteger(item.exitCode));
-  }
-
-  private readPositiveInteger(raw: string | undefined, fallback: number): number {
-    const value = Number(raw); return Number.isSafeInteger(value) && value > 0 ? value : fallback;
-  }
-
-  private positiveOption(value: number | undefined, fallback: number): number {
-    return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value! : fallback;
+    return cancelExecution(this.context, projectId, executionId);
   }
 }
