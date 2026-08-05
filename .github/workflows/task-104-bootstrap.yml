@@ -18,216 +18,44 @@ jobs:
         with:
           ref: chore/task-104-eslint
 
-      - name: Finalize task documentation and CI
+      - name: Finalize task
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import base64
 
           ci_path = Path('.github/workflows/ci.yml')
           ci = ci_path.read_text()
-          old_ci = """      - name: Typecheck
-                run: npm run typecheck
-
-              - name: Build
-                run: npm run build
-          """
-          new_ci = """      - name: Typecheck
-                run: npm run typecheck
-
-              - name: Lint
-                run: npm run lint
-
-              - name: Build
-                run: npm run build
-          """
-          if old_ci not in ci:
-              raise SystemExit('bloco esperado do CI não encontrado')
-          ci_path.write_text(ci.replace(old_ci, new_ci, 1))
+          old = "      - name: Typecheck\n        run: npm run typecheck\n\n      - name: Build\n        run: npm run build\n"
+          new = "      - name: Typecheck\n        run: npm run typecheck\n\n      - name: Lint\n        run: npm run lint\n\n      - name: Build\n        run: npm run build\n"
+          if old not in ci:
+              raise SystemExit('bloco do CI não encontrado')
+          ci_path.write_text(ci.replace(old, new, 1))
 
           pending_path = Path('docs/PENDENCIAS.md')
           pending = pending_path.read_text()
-          replacements = {
-              """- [ ] Implementar projetos recentes por workspace conforme
-            `docs/tasks/NEXT.md`, registrando somente navegações deliberadas para o
-            detalhe de um projeto conhecido e mantendo favoritos como prioridade.
-          """: """- [ ] Fazer a revisão dirigida do `npm audit` conforme
-            `docs/tasks/NEXT.md`, separando risco real, dependências de desenvolvimento e
-            upgrades compatíveis sem usar `npm audit fix --force`.
-          """,
-              """- [ ] Padronizar lint e formatação com ESLint e Prettier entre `apps/` e
-            `packages/`.
-          """: """- [x] Padronizar lint com ESLint entre `apps/` e `packages/` — task 104:
-            flat config na raiz, TypeScript/Vue/scripts cobertos, comandos `npm run lint` e
-            `npm run lint:fix`, inventário incremental e gate no CI.
-          - [ ] Avaliar Prettier e uma política de formatação automática em entrega própria,
-            evitando um diff massivo misturado com mudanças funcionais.
-          """,
-              """- [ ] Fazer a segunda etapa de refatoração de
-            `git-service.ts` e `script-execution-service.ts` (574 e 628 linhas — este
-            último cresceu de novo desde a Fase 7, ver
-            `docs/architecture/refactoring-arquivos-grandes.md`), sem mudar a API
-            pública.
-          """: """- [x] Fazer a segunda etapa de refatoração de `git-service.ts` e
-            `script-execution-service.ts` — task 103: ambos viraram orquestradores finos
-            com módulos por domínio, sem mudar a API pública.
-          """,
-          }
-          for old, new in replacements.items():
+          replacements = [
+              ("- [ ] Implementar projetos recentes por workspace conforme\n  `docs/tasks/NEXT.md`, registrando somente navegações deliberadas para o\n  detalhe de um projeto conhecido e mantendo favoritos como prioridade.\n", "- [ ] Fazer a revisão dirigida do `npm audit` conforme\n  `docs/tasks/NEXT.md`, separando risco real, dependências de desenvolvimento e\n  upgrades compatíveis sem usar `npm audit fix --force`.\n"),
+              ("- [ ] Padronizar lint e formatação com ESLint e Prettier entre `apps/` e\n  `packages/`.\n", "- [x] Padronizar lint com ESLint entre `apps/` e `packages/` — task 104:\n  flat config na raiz, TypeScript/Vue/scripts cobertos, comandos `npm run lint`\n  e `npm run lint:fix`, inventário incremental e gate no CI.\n- [ ] Avaliar Prettier e uma política de formatação automática em entrega\n  própria, evitando um diff massivo misturado com mudanças funcionais.\n"),
+              ("- [ ] Fazer a segunda etapa de refatoração de\n  `git-service.ts` e `script-execution-service.ts` (574 e 628 linhas — este\n  último cresceu de novo desde a Fase 7, ver\n  `docs/architecture/refactoring-arquivos-grandes.md`), sem mudar a API\n  pública.\n", "- [x] Fazer a segunda etapa de refatoração de `git-service.ts` e\n  `script-execution-service.ts` — task 103: ambos viraram orquestradores finos\n  com módulos por domínio, sem mudar a API pública.\n"),
+          ]
+          for old, new in replacements:
               if old not in pending:
-                  raise SystemExit(f'trecho esperado de PENDENCIAS.md não encontrado: {old[:60]!r}')
+                  raise SystemExit('trecho de PENDENCIAS.md não encontrado')
               pending = pending.replace(old, new, 1)
           pending_path.write_text(pending)
 
           readme_path = Path('docs/tasks/README.md')
-          readme = readme_path.read_text()
+          readme = readme_path.read_text().rstrip() + '\n'
           entry = "- `104-eslint-monorepo.md` — ESLint 9 em flat config para TypeScript, Vue e scripts do monorepo, com comandos de lint, inventário incremental sem falsos positivos de template e gate no CI.\n"
           if entry not in readme:
-              readme_path.write_text(readme.rstrip() + '\n' + entry)
+              readme += entry
+          readme_path.write_text(readme)
 
-          Path('docs/tasks/104-eslint-monorepo.md').write_text('''# Task 104 — Padronizar lint com ESLint no monorepo
-
-## Status
-
-Concluída.
-
-## Objetivo
-
-Adicionar uma verificação estática compartilhada para os workspaces TypeScript,
-os componentes Vue e os scripts Node da raiz, sem introduzir uma reforma de
-formatação ou mudanças funcionais em massa.
-
-## Resultado
-
-- ESLint 9 configurado em `eslint.config.js` usando flat config;
-- base `@eslint/js` para scripts JavaScript;
-- `typescript-eslint` recomendado para `apps/**/*.ts` e `packages/**/*.ts`;
-- `eslint-plugin-vue` com o preset essencial e parser TypeScript para SFCs;
-- globals explícitos de Node e navegador conforme o contexto;
-- scripts raiz `npm run lint` e `npm run lint:fix`;
-- `npm run lint` adicionado ao CI depois de `typecheck` e antes de `build`;
-- lockfile atualizado com versões fixadas das novas dependências de desenvolvimento;
-- sete diretivas `eslint-disable` obsoletas removidas pela limpeza segura inicial.
-
-## Decisões
-
-### Sem Prettier nesta entrega
-
-A task cobre apenas lint de correção. Formatação automática fica separada para
-não gerar um diff grande e sem relação funcional.
-
-### Adoção incremental
-
-`no-unused-vars`, `no-explicit-any` e `prefer-const` começam como avisos. Isso
-permite ligar o gate de CI agora e corrigir o legado por domínio antes de elevar
-regras específicas a erro.
-
-A primeira execução reportou 506 problemas. Desses, 495 eram falsos positivos
-de variáveis do `<script setup>` usadas no template Vue. A regra de variáveis
-não usadas foi desativada apenas para arquivos `.vue`; o preset essencial do
-Vue e as demais regras continuam ativos.
-
-Depois do ajuste e da limpeza segura, o inventário final ficou em:
-
-- 0 erros;
-- 22 avisos;
-- 9 ocorrências de `prefer-const`;
-- 13 variáveis/imports não usados em arquivos TypeScript ou scripts Node.
-
-Os avisos restantes exigem julgamento por arquivo e não bloqueiam o CI nesta
-primeira versão.
-
-## Escopo verificado
-
-```text
-apps/**/*.{ts,vue}
-packages/**/*.ts
-scripts/**/*.mjs
-eslint.config.js
-```
-
-Diretórios gerados, cobertura, dependências e runtime do Playwright permanecem
-ignorados.
-
-## Arquivos principais
-
-- `eslint.config.js`;
-- `package.json`;
-- `package-lock.json`;
-- `.github/workflows/ci.yml`;
-- `docs/PENDENCIAS.md`;
-- `docs/tasks/README.md`;
-- `docs/tasks/NEXT.md`.
-
-## Validação executada
-
-- `npm install` com atualização do lockfile;
-- `npm run lint` — 0 erros e 22 avisos catalogados;
-- execução de `npm run lint:fix` durante o inventário inicial;
-- remoção manualmente revisada das sete diretivas obsoletas encontradas pelo
-  autofix;
-- CI final do PR como validação de `typecheck`, lint, build, documentação da API,
-  testes e smoke E2E.
-
-## Limitações e próximos passos
-
-- Prettier não foi introduzido;
-- avisos legados não foram convertidos em erro;
-- o CLI Bash continua fora do ESLint e exigiria uma frente própria com
-  ShellCheck;
-- a próxima elevação de severidade deve ocorrer por categoria, somente depois
-  de zerar o inventário correspondente.
-''')
-
-          Path('docs/tasks/NEXT.md').write_text('''# Próxima atividade
-
-## Task 105 — Revisão dirigida do `npm audit`
-
-### Objetivo
-
-Transformar o resultado atual do `npm audit` em um inventário confiável e
-acionável, separando vulnerabilidades relevantes para o runtime local das que
-existem apenas em ferramentas de desenvolvimento, sem usar correções forçadas
-ou upgrades principais automáticos.
-
-### Decisões principais
-
-- executar `npm audit --json` a partir do lockfile atual e registrar o resultado
-  de forma resumida na task, sem versionar saída bruta volátil;
-- classificar cada achado por dependência direta/transitiva, runtime/dev,
-  severidade, caminho de dependência e exposição real no modelo local do
-  produto;
-- preferir upgrades patch/minor compatíveis e deliberados;
-- nunca executar `npm audit fix --force`;
-- vulnerabilidades sem correção compatível devem ficar documentadas com risco,
-  mitigação existente e condição objetiva para reavaliação.
-
-### Escopo
-
-- conferir `npm audit`, `npm outdated` e os manifests dos workspaces;
-- identificar quais pacotes diretos controlam cada cadeia vulnerável;
-- aplicar somente upgrades compatíveis que não exijam migração funcional;
-- regenerar `package-lock.json` de forma determinística;
-- validar lint, typecheck, build, documentação da API, testes e smoke E2E;
-- atualizar `docs/PENDENCIAS.md`, o registro da task e este `NEXT.md`.
-
-### Critérios de aceite
-
-- inventário dos achados com decisão explícita para cada cadeia relevante;
-- nenhum uso de `--force` e nenhum major upgrade escondido;
-- upgrades aplicados têm justificativa e permanecem dentro do escopo;
-- lockfile consistente com `npm ci`;
-- CI completo aprovado.
-
-### Fora de escopo
-
-- modernização geral de dependências sem relação com vulnerabilidades;
-- troca de framework, bundler ou runner de testes;
-- correção de alertas do CLI Bash ou de dependências dos projetos gerenciados
-  pelo dashboard;
-- automatizar atualização recorrente de dependências nesta mesma entrega.
-''')
-
+          Path('docs/tasks/104-eslint-monorepo.md').write_bytes(base64.b64decode('IyBUYXNrIDEwNCDigJQgUGFkcm9uaXphciBsaW50IGNvbSBFU0xpbnQgbm8gbW9ub3JlcG8KCiMjIFN0YXR1cwoKQ29uY2x1w61kYS4KCiMjIE9iamV0aXZvCgpBZGljaW9uYXIgdW1hIHZlcmlmaWNhw6fDo28gZXN0w6F0aWNhIGNvbXBhcnRpbGhhZGEgcGFyYSBvcyB3b3Jrc3BhY2VzIFR5cGVTY3JpcHQsCm9zIGNvbXBvbmVudGVzIFZ1ZSBlIG9zIHNjcmlwdHMgTm9kZSBkYSByYWl6LCBzZW0gaW50cm9kdXppciB1bWEgcmVmb3JtYSBkZQpmb3JtYXRhw6fDo28gb3UgbXVkYW7Dp2FzIGZ1bmNpb25haXMgZW0gbWFzc2EuCgojIyBSZXN1bHRhZG8KCi0gRVNMaW50IDkgY29uZmlndXJhZG8gZW0gYGVzbGludC5jb25maWcuanNgIHVzYW5kbyBmbGF0IGNvbmZpZzsKLSBiYXNlIGBAZXNsaW50L2pzYCBwYXJhIHNjcmlwdHMgSmF2YVNjcmlwdDsKLSBgdHlwZXNjcmlwdC1lc2xpbnRgIHJlY29tZW5kYWRvIHBhcmEgYGFwcHMvKiovKi50c2AgZSBgcGFja2FnZXMvKiovKi50c2A7Ci0gYGVzbGludC1wbHVnaW4tdnVlYCBjb20gbyBwcmVzZXQgZXNzZW5jaWFsIGUgcGFyc2VyIFR5cGVTY3JpcHQgcGFyYSBTRkNzOwotIGdsb2JhbHMgZXhwbMOtY2l0b3MgZGUgTm9kZSBlIG5hdmVnYWRvciBjb25mb3JtZSBvIGNvbnRleHRvOwotIHNjcmlwdHMgcmFpeiBgbnBtIHJ1biBsaW50YCBlIGBucG0gcnVuIGxpbnQ6Zml4YDsKLSBgbnBtIHJ1biBsaW50YCBhZGljaW9uYWRvIGFvIENJIGRlcG9pcyBkZSBgdHlwZWNoZWNrYCBlIGFudGVzIGRlIGBidWlsZGA7Ci0gbG9ja2ZpbGUgYXR1YWxpemFkbyBjb20gdmVyc8O1ZXMgZml4YWRhcyBkYXMgbm92YXMgZGVwZW5kw6puY2lhcyBkZSBkZXNlbnZvbHZpbWVudG87Ci0gc2V0ZSBkaXJldGl2YXMgYGVzbGludC1kaXNhYmxlYCBvYnNvbGV0YXMgcmVtb3ZpZGFzIHBlbGEgbGltcGV6YSBzZWd1cmEgaW5pY2lhbC4KCiMjIERlY2lzw7VlcwoKIyMjIFNlbSBQcmV0dGllciBuZXN0YSBlbnRyZWdhCgpBIHRhc2sgY29icmUgYXBlbmFzIGxpbnQgZGUgY29ycmXDp8Ojby4gRm9ybWF0YcOnw6NvIGF1dG9tw6F0aWNhIGZpY2Egc2VwYXJhZGEgcGFyYQpuw6NvIGdlcmFyIHVtIGRpZmYgZ3JhbmRlIGUgc2VtIHJlbGHDp8OjbyBmdW5jaW9uYWwuCgojIyMgQWRvw6fDo28gaW5jcmVtZW50YWwKCmBuby11bnVzZWQtdmFyc2AsIGBuby1leHBsaWNpdC1hbnlgIGUgYHByZWZlci1jb25zdGAgY29tZcOnYW0gY29tbyBhdmlzb3MuIElzc28KcGVybWl0ZSBsaWdhciBvIGdhdGUgZGUgQ0kgYWdvcmEgZSBjb3JyaWdpciBvIGxlZ2FkbyBwb3IgZG9tw61uaW8gYW50ZXMgZGUgZWxldmFyCnJlZ3JhcyBlc3BlY8OtZmljYXMgYSBlcnJvLgoKQSBwcmltZWlyYSBleGVjdcOnw6NvIHJlcG9ydG91IDUwNiBwcm9ibGVtYXMuIERlc3NlcywgNDk1IGVyYW0gZmFsc29zIHBvc2l0aXZvcwpkZSB2YXJpw6F2ZWlzIGRvIGA8c2NyaXB0IHNldHVwPmAgdXNhZGFzIG5vIHRlbXBsYXRlIFZ1ZS4gQSByZWdyYSBkZSB2YXJpw6F2ZWlzCm7Do28gdXNhZGFzIGZvaSBkZXNhdGl2YWRhIGFwZW5hcyBwYXJhIGFycXVpdm9zIGAudnVlYDsgbyBwcmVzZXQgZXNzZW5jaWFsIGRvClZ1ZSBlIGFzIGRlbWFpcyByZWdyYXMgY29udGludWFtIGF0aXZvcy4KCkRlcG9pcyBkbyBhanVzdGUgZSBkYSBsaW1wZXphIHNlZ3VyYSwgbyBpbnZlbnTDoXJpbyBmaW5hbCBmaWNvdSBlbToKCi0gMCBlcnJvczsKLSAyMiBhdmlzb3M7Ci0gOSBvY29ycsOqbmNpYXMgZGUgYHByZWZlci1jb25zdGA7Ci0gMTMgdmFyacOhdmVpcy9pbXBvcnRzIG7Do28gdXNhZG9zIGVtIGFycXVpdm9zIFR5cGVTY3JpcHQgb3Ugc2NyaXB0cyBOb2RlLgoKT3MgYXZpc29zIHJlc3RhbnRlcyBleGlnZW0ganVsZ2FtZW50byBwb3IgYXJxdWl2byBlIG7Do28gYmxvcXVlaWFtIG8gQ0kgbmVzdGEKcHJpbWVpcmEgdmVyc8Ojby4KCiMjIEVzY29wbyB2ZXJpZmljYWRvCgpgYGB0ZXh0CmFwcHMvKiovKi57dHMsdnVlfQpwYWNrYWdlcy8qKi8qLnRzCnNjcmlwdHMvKiovKi5tanMKZXNsaW50LmNvbmZpZy5qcwpgYGAKCkRpcmV0w7NyaW9zIGdlcmFkb3MsIGNvYmVydHVyYSwgZGVwZW5kw6puY2lhcyBlIHJ1bnRpbWUgZG8gUGxheXdyaWdodCBwZXJtYW5lY2VtCmlnbm9yYWRvcy4KCiMjIEFycXVpdm9zIHByaW5jaXBhaXMKCi0gYGVzbGludC5jb25maWcuanNgOwotIGBwYWNrYWdlLmpzb25gOwotIGBwYWNrYWdlLWxvY2suanNvbmA7Ci0gYC5naXRodWIvd29ya2Zsb3dzL2NpLnltbGA7Ci0gYGRvY3MvUEVOREVOQ0lBUy5tZGA7Ci0gYGRvY3MvdGFza3MvUkVBRE1FLm1kYDsKLSBgZG9jcy90YXNrcy9ORVhULm1kYC4KCiMjIFZhbGlkYcOnw6NvIGV4ZWN1dGFkYQoKLSBgbnBtIGluc3RhbGxgIGNvbSBhdHVhbGl6YcOnw6NvIGRvIGxvY2tmaWxlOwotIGBucG0gcnVuIGxpbnRgIOKAlCAwIGVycm9zIGUgMjIgYXZpc29zIGNhdGFsb2dhZG9zOwotIGV4ZWN1w6fDo28gZGUgYG5wbSBydW4gbGludDpmaXhgIGR1cmFudGUgbyBpbnZlbnTDoXJpbyBpbmljaWFsOwotIHJlbW/Dp8OjbyByZXZpc2FkYSBkYXMgc2V0ZSBkaXJldGl2YXMgb2Jzb2xldGFzIGVuY29udHJhZGFzIHBlbG8gYXV0b2ZpeDsKLSBDSSBmaW5hbCBkbyBQUiBjb21vIHZhbGlkYcOnw6NvIGRlIGB0eXBlY2hlY2tgLCBsaW50LCBidWlsZCwgZG9jdW1lbnRhw6fDo28gZGEgQVBJLAogIHRlc3RlcyBlIHNtb2tlIEUyRS4KCiMjIExpbWl0YcOnw7VlcyBlIHByw7N4aW1vcyBwYXNzb3MKCi0gUHJldHRpZXIgbsOjbyBmb2kgaW50cm9kdXppZG87Ci0gYXZpc29zIGxlZ2Fkb3MgbsOjbyBmb3JhbSBjb252ZXJ0aWRvcyBlbSBlcnJvOwotIG8gQ0xJIEJhc2ggY29udGludWEgZm9yYSBkbyBFU0xpbnQgZSBleGlnaXJpYSB1bWEgZnJlbnRlIHByw7NwcmlhIGNvbQogIFNoZWxsQ2hlY2s7Ci0gYSBwcsOzeGltYSBlbGV2YcOnw6NvIGRlIHNldmVyaWRhZGUgZGV2ZSBvY29ycmVyIHBvciBjYXRlZ29yaWEsIHNvbWVudGUgZGVwb2lzCiAgZGUgemVyYXIgbyBpbnZlbnTDoXJpbyBjb3JyZXNwb25kZW50ZS4K'))
+          Path('docs/tasks/NEXT.md').write_bytes(base64.b64decode('IyBQcsOzeGltYSBhdGl2aWRhZGUKCiMjIFRhc2sgMTA1IOKAlCBSZXZpc8OjbyBkaXJpZ2lkYSBkbyBgbnBtIGF1ZGl0YAoKIyMjIE9iamV0aXZvCgpUcmFuc2Zvcm1hciBvIHJlc3VsdGFkbyBhdHVhbCBkbyBgbnBtIGF1ZGl0YCBlbSB1bSBpbnZlbnTDoXJpbyBjb25macOhdmVsIGUKYWNpb27DoXZlbCwgc2VwYXJhbmRvIHZ1bG5lcmFiaWxpZGFkZXMgcmVsZXZhbnRlcyBwYXJhIG8gcnVudGltZSBsb2NhbCBkYXMgcXVlCmV4aXN0ZW0gYXBlbmFzIGVtIGZlcnJhbWVudGFzIGRlIGRlc2Vudm9sdmltZW50bywgc2VtIHVzYXIgY29ycmXDp8O1ZXMgZm9yw6dhZGFzCm91IHVwZ3JhZGVzIHByaW5jaXBhaXMgYXV0b23DoXRpY29zLgoKIyMjIERlY2lzw7VlcyBwcmluY2lwYWlzCgotIGV4ZWN1dGFyIGBucG0gYXVkaXQgLS1qc29uYCBhIHBhcnRpciBkbyBsb2NrZmlsZSBhdHVhbCBlIHJlZ2lzdHJhciBvIHJlc3VsdGFkbwogIGRlIGZvcm1hIHJlc3VtaWRhIG5hIHRhc2ssIHNlbSB2ZXJzaW9uYXIgc2HDrWRhIGJydXRhIHZvbMOhdGlsOwotIGNsYXNzaWZpY2FyIGNhZGEgYWNoYWRvIHBvciBkZXBlbmTDqm5jaWEgZGlyZXRhL3RyYW5zaXRpdmEsIHJ1bnRpbWUvZGV2LAogIHNldmVyaWRhZGUsIGNhbWluaG8gZGUgZGVwZW5kw6puY2lhIGUgZXhwb3Npw6fDo28gcmVhbCBubyBtb2RlbG8gbG9jYWwgZG8KICBwcm9kdXRvOwotIHByZWZlcmlyIHVwZ3JhZGVzIHBhdGNoL21pbm9yIGNvbXBhdMOtdmVpcyBlIGRlbGliZXJhZG9zOwotIG51bmNhIGV4ZWN1dGFyIGBucG0gYXVkaXQgZml4IC0tZm9yY2VgOwotIHZ1bG5lcmFiaWxpZGFkZXMgc2VtIGNvcnJlw6fDo28gY29tcGF0w612ZWwgZGV2ZW0gZmljYXIgZG9jdW1lbnRhZGFzIGNvbSByaXNjbywKICBtaXRpZ2HDp8OjbyBleGlzdGVudGUgZSBjb25kacOnw6NvIG9iamV0aXZhIHBhcmEgcmVhdmFsaWHDp8Ojby4KCiMjIyBFc2NvcG8KCi0gY29uZmVyaXIgYG5wbSBhdWRpdGAsIGBucG0gb3V0ZGF0ZWRgIGUgb3MgbWFuaWZlc3RzIGRvcyB3b3Jrc3BhY2VzOwotIGlkZW50aWZpY2FyIHF1YWlzIHBhY290ZXMgZGlyZXRvcyBjb250cm9sYW0gY2FkYSBjYWRlaWEgdnVsbmVyw6F2ZWw7Ci0gYXBsaWNhciBzb21lbnRlIHVwZ3JhZGVzIGNvbXBhdMOtdmVpcyBxdWUgbsOjbyBleGlqYW0gbWlncmHDp8OjbyBmdW5jaW9uYWw7Ci0gcmVnZW5lcmFyIGBwYWNrYWdlLWxvY2suanNvbmAgZGUgZm9ybWEgZGV0ZXJtaW7DrXN0aWNhOwotIHZhbGlkYXIgbGludCwgdHlwZWNoZWNrLCBidWlsZCwgZG9jdW1lbnRhw6fDo28gZGEgQVBJLCB0ZXN0ZXMgZSBzbW9rZSBFMkU7Ci0gYXR1YWxpemFyIGBkb2NzL1BFTkRFTkNJQVMubWRgLCBvIHJlZ2lzdHJvIGRhIHRhc2sgZSBlc3RlIGBORVhULm1kYC4KCiMjIyBDcml0w6lyaW9zIGRlIGFjZWl0ZQoKLSBpbnZlbnTDoXJpbyBkb3MgYWNoYWRvcyBjb20gZGVjaXPDo28gZXhwbMOtY2l0YSBwYXJhIGNhZGEgY2FkZWlhIHJlbGV2YW50ZTsKLSBuZW5odW0gdXNvIGRlIGAtLWZvcmNlYCBlIG5lbmh1bSBtYWpvciB1cGdyYWRlIGVzY29uZGlkbzsKLSB1cGdyYWRlcyBhcGxpY2Fkb3MgdMOqbSBqdXN0aWZpY2F0aXZhIGUgcGVybWFuZWNlbSBkZW50cm8gZG8gZXNjb3BvOwotIGxvY2tmaWxlIGNvbnNpc3RlbnRlIGNvbSBgbnBtIGNpYDsKLSBDSSBjb21wbGV0byBhcHJvdmFkby4KCiMjIyBGb3JhIGRlIGVzY29wbwoKLSBtb2Rlcm5pemHDp8OjbyBnZXJhbCBkZSBkZXBlbmTDqm5jaWFzIHNlbSByZWxhw6fDo28gY29tIHZ1bG5lcmFiaWxpZGFkZXM7Ci0gdHJvY2EgZGUgZnJhbWV3b3JrLCBidW5kbGVyIG91IHJ1bm5lciBkZSB0ZXN0ZXM7Ci0gY29ycmXDp8OjbyBkZSBhbGVydGFzIGRvIENMSSBCYXNoIG91IGRlIGRlcGVuZMOqbmNpYXMgZG9zIHByb2pldG9zIGdlcmVuY2lhZG9zCiAgcGVsbyBkYXNoYm9hcmQ7Ci0gYXV0b21hdGl6YXIgYXR1YWxpemHDp8OjbyByZWNvcnJlbnRlIGRlIGRlcGVuZMOqbmNpYXMgbmVzdGEgbWVzbWEgZW50cmVnYS4K'))
+          Path('docs/tasks/.task-104-trigger').unlink(missing_ok=True)
           Path('.github/workflows/task-104-bootstrap.yml').unlink()
           PY
 
