@@ -7,9 +7,6 @@ import {
   CodeBracketIcon,
   DocumentTextIcon,
   ExclamationTriangleIcon,
-  KeyIcon,
-  PlusIcon,
-  TrashIcon,
 } from '@heroicons/vue/24/outline';
 import {
   computed,
@@ -18,20 +15,14 @@ import {
   ref,
 } from 'vue';
 import type {
-  CreateEnvironmentProfileInput,
-  EnvironmentProfile,
-  EnvironmentProfileList,
   RetentionSettings,
   RetentionSettingsSnapshot,
 } from '@dev-dashboard/contracts';
 import {
-  createEnvironmentProfile,
-  deleteEnvironmentProfile,
-  fetchEnvironmentProfiles,
   fetchRetentionSettings,
-  updateEnvironmentProfile,
   updateRetentionSettings,
 } from '../api';
+import EnvironmentProfilesPanel from '../components/EnvironmentProfilesPanel.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { nativeNotificationStore } from '../stores/native-notifications';
@@ -103,73 +94,7 @@ async function save(): Promise<void> {
   finally { saving.value = false; }
 }
 
-const SENSITIVE_VARIABLE_NAME_PATTERN = /SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|APIKEY/i;
-function isSensitiveVariableName(name: string): boolean {
-  return SENSITIVE_VARIABLE_NAME_PATTERN.test(name);
-}
-
-interface ProfileVariableRow { name: string; value: string }
-
-const profileList = ref<EnvironmentProfileList>();
-const profilesLoading = ref(true);
-const profilesError = ref('');
-const profileForm = reactive<{ id: string | undefined; name: string; variables: ProfileVariableRow[] }>({ id: undefined, name: '', variables: [{ name: '', value: '' }] });
-const profileSaving = ref(false);
-
-useAutoDismiss(profilesError, '');
-
-async function loadProfiles(): Promise<void> {
-  profilesLoading.value = true; profilesError.value = '';
-  try { profileList.value = await fetchEnvironmentProfiles(); }
-  catch (cause) { profilesError.value = cause instanceof Error ? cause.message : 'Não foi possível carregar os perfis de ambiente.'; }
-  finally { profilesLoading.value = false; }
-}
-
-function resetProfileForm(): void {
-  profileForm.id = undefined;
-  profileForm.name = '';
-  profileForm.variables = [{ name: '', value: '' }];
-}
-
-function editProfile(profile: EnvironmentProfile): void {
-  profileForm.id = profile.id;
-  profileForm.name = profile.name;
-  profileForm.variables = profile.variables.length > 0
-    ? profile.variables.map((variable) => ({ name: variable.name, value: variable.value ?? '' }))
-    : [{ name: '', value: '' }];
-}
-
-function addVariableRow(): void { profileForm.variables.push({ name: '', value: '' }); }
-function removeVariableRow(index: number): void { profileForm.variables.splice(index, 1); }
-
-async function saveProfile(): Promise<void> {
-  profileSaving.value = true; profilesError.value = '';
-  try {
-    const input: CreateEnvironmentProfileInput = {
-      name: profileForm.name,
-      variables: profileForm.variables
-        .filter((variable) => variable.name.trim().length > 0)
-        .map((variable) => (variable.value.trim().length > 0 ? { name: variable.name.trim(), value: variable.value } : { name: variable.name.trim() })),
-    };
-    if (profileForm.id) await updateEnvironmentProfile(profileForm.id, input);
-    else await createEnvironmentProfile(input);
-    resetProfileForm();
-    await loadProfiles();
-  } catch (cause) { profilesError.value = cause instanceof Error ? cause.message : 'Não foi possível salvar o perfil de ambiente.'; }
-  finally { profileSaving.value = false; }
-}
-
-async function removeProfile(profile: EnvironmentProfile): Promise<void> {
-  profilesError.value = '';
-  try {
-    await deleteEnvironmentProfile(profile.id);
-    if (profileForm.id === profile.id) resetProfileForm();
-    await loadProfiles();
-  } catch (cause) { profilesError.value = cause instanceof Error ? cause.message : 'Não foi possível remover o perfil de ambiente.'; }
-}
-
 onMounted(() => void load());
-onMounted(() => void loadProfiles());
 </script>
 
 <template>
@@ -368,91 +293,6 @@ onMounted(() => void loadProfiles());
       <p v-if="feedback" class="alert alert-success settings-feedback" role="status">{{ feedback }}</p>
     </form>
 
-    <section class="settings-panel" aria-labelledby="environment-profiles-title">
-      <header class="settings-section-heading">
-        <KeyIcon aria-hidden="true" />
-        <div>
-          <h3 id="environment-profiles-title">Perfis de ambiente</h3>
-          <p>
-            Guarde conjuntos reutilizáveis de variáveis para preencher execuções mais rápido. Variáveis com nome de
-            segredo (token, senha, chave, credencial) nunca têm o valor salvo — apenas o nome é lembrado.
-          </p>
-        </div>
-      </header>
-
-      <LoadingSkeleton
-        v-if="profilesLoading"
-        label="Carregando perfis de ambiente…"
-        :rows="2"
-      />
-
-      <template v-else-if="profileList">
-        <ul v-if="profileList.profiles.length > 0" class="environment-profile-list">
-          <li v-for="profile in profileList.profiles" :key="profile.id" class="environment-profile-item">
-            <div class="environment-profile-summary">
-              <strong>{{ profile.name }}</strong>
-              <span>{{ profile.variables.length }} variável{{ profile.variables.length === 1 ? '' : 'is' }}</span>
-              <span class="environment-profile-variables">
-                <code v-for="variable in profile.variables" :key="variable.name">{{ variable.name }}{{ variable.value !== undefined ? '=…' : '' }}</code>
-              </span>
-            </div>
-            <div class="environment-profile-actions">
-              <button type="button" class="secondary-button" @click="editProfile(profile)">Editar</button>
-              <button type="button" class="secondary-button" @click="removeProfile(profile)">
-                <TrashIcon aria-hidden="true" />
-                Remover
-              </button>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="settings-empty">Nenhum perfil de ambiente cadastrado ainda.</p>
-
-        <form class="environment-profile-form" aria-label="Criar ou editar perfil de ambiente" @submit.prevent="saveProfile">
-          <label class="settings-row" for="environment-profile-name-input">
-            <span class="settings-row-copy">
-              <strong id="environment-profile-name-label">{{ profileForm.id ? 'Editar perfil' : 'Novo perfil' }}</strong>
-              <span>Nome do perfil</span>
-            </span>
-            <input
-              id="environment-profile-name-input"
-              v-model="profileForm.name"
-              type="text"
-              required
-              maxlength="100"
-              aria-labelledby="environment-profile-name-label"
-            >
-          </label>
-
-          <div v-for="(variable, index) in profileForm.variables" :key="index" class="environment-profile-variable-row">
-            <input v-model="variable.name" type="text" placeholder="NOME_DA_VARIAVEL" maxlength="128" :aria-label="`Nome da variável ${index + 1}`">
-            <input
-              v-model="variable.value"
-              type="text"
-              :placeholder="isSensitiveVariableName(variable.name) ? 'não será salvo (nome de segredo)' : 'valor (opcional)'"
-              :disabled="isSensitiveVariableName(variable.name)"
-              maxlength="4096"
-              :aria-label="`Valor da variável ${index + 1}`"
-            >
-            <button type="button" class="secondary-button" :disabled="profileForm.variables.length <= 1" @click="removeVariableRow(index)">
-              <TrashIcon aria-hidden="true" />
-            </button>
-          </div>
-
-          <button type="button" class="secondary-button" @click="addVariableRow">
-            <PlusIcon aria-hidden="true" />
-            Adicionar variável
-          </button>
-
-          <div class="environment-profile-form-actions">
-            <button type="submit" class="primary-button" :disabled="profileSaving || !profileForm.name.trim()">
-              {{ profileSaving ? 'Salvando…' : profileForm.id ? 'Salvar alterações' : 'Criar perfil' }}
-            </button>
-            <button v-if="profileForm.id" type="button" class="secondary-button" @click="resetProfileForm">Cancelar edição</button>
-          </div>
-        </form>
-      </template>
-
-      <p v-if="profilesError" class="alert alert-error settings-feedback" role="alert">{{ profilesError }}</p>
-    </section>
+    <EnvironmentProfilesPanel />
   </section>
 </template>
