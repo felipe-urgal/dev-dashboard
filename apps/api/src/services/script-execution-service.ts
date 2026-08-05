@@ -20,7 +20,6 @@ import {
   MAX_RETENTION_SWEEP_INTERVAL_MS,
 } from './script-execution/constants.js';
 import { closeAllSubscribers, subscribeToExecution } from './script-execution/events.js';
-import { ScriptExecutionError } from './script-execution/errors.js';
 import { cancelExecution, startExecution } from './script-execution/lifecycle.js';
 import type {
   ExecutionSubscriber,
