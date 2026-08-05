@@ -25,11 +25,23 @@ const CORE_PRIORITY = new Map([
   ['docs/roadmap.md', 120],
   ['docs/PENDENCIAS.md', 130],
   ['docs/tasks/NEXT.md', 140],
+  ['docs/guia/README.md', 0],
+  ['docs/guia/readme.md', 10],
+  ['docs/guia/diagnostico.md', 20],
+  ['docs/guia/editor.md', 30],
+  ['docs/guia/servidor.md', 40],
+  ['docs/guia/logs.md', 50],
+  ['docs/guia/git.md', 60],
+  ['docs/guia/testes.md', 70],
+  ['docs/guia/dependencias.md', 80],
+  ['docs/guia/scripts.md', 90],
+  ['docs/guia/variaveis-de-ambiente.md', 100],
 ]);
 
 const GROUP_PRIORITY = new Map([
   ['Visão geral', 0],
   ['Primeiros passos', 10],
+  ['Guia de uso', 15],
   ['Arquitetura', 20],
   ['Desenvolvimento', 30],
   ['Operação', 40],
@@ -45,6 +57,7 @@ function normalizeRepositoryPath(value) {
 function documentGroup(repositoryPath) {
   if (repositoryPath === 'docs/index.md' || repositoryPath === 'README.md') return 'Visão geral';
   if (repositoryPath === 'docs/getting-started.md') return 'Primeiros passos';
+  if (repositoryPath.startsWith('docs/guia/')) return 'Guia de uso';
   if (repositoryPath.startsWith('docs/architecture/')) return 'Arquitetura';
   if (repositoryPath === 'docs/development-guide.md' || repositoryPath === 'CONTRIBUTING.md') return 'Desenvolvimento';
   if (repositoryPath === 'docs/operations-and-troubleshooting.md') return 'Operação';

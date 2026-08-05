@@ -151,6 +151,12 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 - [Estrutura do repositório](architecture/repository-structure.md): diretórios, camadas e dependências.
 - [Fluxos de execução](architecture/runtime-flows.md): o que acontece em cada operação importante.
 
+### Para usar o dashboard web, aba por aba
+
+- [Guia passo a passo do dashboard web](guia/README.md): o que cada aba do projeto mostra, o que
+  cada botão faz e qual comando roda por trás — README, Diagnóstico, Editor, Servidor, Logs, Git,
+  Testes, Dependências, Scripts e Variáveis de ambiente.
+
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
