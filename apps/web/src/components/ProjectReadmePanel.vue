@@ -19,6 +19,8 @@ import {
   fetchProjectMarkdownFiles,
 } from '../api';
 
+type TableAlignment = 'left' | 'center' | 'right' | null;
+
 interface HeadingBlock {
   id: string;
   type: 'heading';
@@ -57,13 +59,22 @@ interface DividerBlock {
   type: 'divider';
 }
 
+interface TableBlock {
+  id: string;
+  type: 'table';
+  headers: string[];
+  alignments: TableAlignment[];
+  rows: string[][];
+}
+
 type MarkdownBlock =
   | HeadingBlock
   | ParagraphBlock
   | CodeBlock
   | ListBlock
   | QuoteBlock
-  | DividerBlock;
+  | DividerBlock
+  | TableBlock;
 
 const props = defineProps<{
   project: Project;
@@ -77,15 +88,154 @@ const selectedPath = ref('');
 const content = ref('');
 const copiedBlockId = ref('');
 
-function cleanInlineMarkdown(value: string): string {
+function escapeHtml(value: string): string {
   return value
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/(^|\s)[*_]([^*_]+)[*_](?=\s|$)/g, '$1$2')
-    .trim();
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function safeLinkTarget(value: string): string | null {
+  const target = value.trim().replace(/^<|>$/g, '');
+  if (!target || /[\u0000-\u001f\u007f]/.test(target)) return null;
+
+  const scheme = target.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme && !['http', 'https', 'mailto'].includes(scheme)) return null;
+
+  return target;
+}
+
+function resolveProjectPath(target: string): string | null {
+  const rawPath = target.split(/[?#]/, 1)[0] ?? '';
+  if (!rawPath) return null;
+
+  let decodedPath = rawPath;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    // Mantém o caminho original quando a codificação do link for inválida.
+  }
+
+  const normalizedPath = decodedPath.replace(/\\/g, '/');
+  const segments = normalizedPath.startsWith('/')
+    ? []
+    : selectedPath.value.split('/').slice(0, -1);
+
+  for (const segment of normalizedPath.replace(/^\/+/, '').split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!segments.length) return null;
+      segments.pop();
+    } else {
+      segments.push(segment);
+    }
+  }
+
+  return segments.join('/') || null;
+}
+
+function linkHref(target: string): string {
+  if (/^(?:https?:\/\/|mailto:)/i.test(target) || target.startsWith('#')) {
+    return target;
+  }
+
+  const projectPath = resolveProjectPath(target);
+  if (!projectPath) return '#';
+
+  return `/projects/${encodeURIComponent(props.project.id)}/editor?file=${encodeURIComponent(projectPath)}`;
+}
+
+function renderInlineMarkdown(value: string): string {
+  const pattern = /!\[([^\]]*)\]\(\s*(?:<[^>]+>|[^)]+)\s*\)|\[([^\]]+)\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\s*\)|`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
+  let result = '';
+  let cursor = 0;
+
+  for (const match of value.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    result += escapeHtml(value.slice(cursor, index));
+
+    if (match[1] !== undefined) {
+      result += escapeHtml(match[1]);
+    } else if (match[2] !== undefined) {
+      const label = escapeHtml(match[2]);
+      const target = safeLinkTarget(match[3] ?? '');
+      if (!target) {
+        result += label;
+      } else {
+        const external = /^(?:https?:\/\/|mailto:)/i.test(target);
+        const attributes = external
+          ? ' target="_blank" rel="noreferrer noopener"'
+          : '';
+        result += `<a class="readme-inline-link" href="${escapeHtml(linkHref(target))}"${attributes}>${label}</a>`;
+      }
+    } else if (match[4] !== undefined) {
+      result += `<code class="readme-inline-code">${escapeHtml(match[4])}</code>`;
+    } else if (match[5] !== undefined || match[6] !== undefined) {
+      result += `<strong>${escapeHtml(match[5] ?? match[6] ?? '')}</strong>`;
+    } else {
+      result += `<em>${escapeHtml(match[7] ?? match[8] ?? '')}</em>`;
+    }
+
+    cursor = index + match[0].length;
+  }
+
+  result += escapeHtml(value.slice(cursor));
+  return result;
+}
+
+function splitTableRow(value: string): string[] {
+  let row = value.trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1);
+
+  const cells: string[] = [];
+  let cell = '';
+  let escaped = false;
+  let insideCode = false;
+
+  for (const character of row) {
+    if (escaped) {
+      cell += character;
+      escaped = false;
+    } else if (character === '\\') {
+      escaped = true;
+    } else if (character === '`') {
+      insideCode = !insideCode;
+      cell += character;
+    } else if (character === '|' && !insideCode) {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += character;
+    }
+  }
+
+  if (escaped) cell += '\\';
+  cells.push(cell.trim());
+  return cells;
+}
+
+function parseTableDelimiter(value: string): TableAlignment[] | null {
+  if (!value.includes('|')) return null;
+  const cells = splitTableRow(value);
+  if (!cells.length || cells.some((cell) => !/^:?-{3,}:?$/.test(cell))) {
+    return null;
+  }
+
+  return cells.map((cell) => {
+    const left = cell.startsWith(':');
+    const right = cell.endsWith(':');
+    if (left && right) return 'center';
+    if (right) return 'right';
+    if (left) return 'left';
+    return null;
+  });
+}
+
+function normalizeTableRow(cells: string[], width: number): string[] {
+  return Array.from({ length: width }, (_, index) => cells[index] ?? '');
 }
 
 function parseMarkdown(source: string): MarkdownBlock[] {
@@ -102,31 +252,24 @@ function parseMarkdown(source: string): MarkdownBlock[] {
   const nextId = (prefix: string) => `${prefix}-${sequence++}`;
 
   const flushParagraph = () => {
-    const text = cleanInlineMarkdown(paragraph.join(' '));
+    const text = paragraph.join(' ').trim();
     paragraph = [];
-
-    if (text) {
-      blocks.push({
-        id: nextId('paragraph'),
-        type: 'paragraph',
-        text,
-      });
-    }
+    if (text) blocks.push({ id: nextId('paragraph'), type: 'paragraph', text });
   };
 
   const flushList = () => {
     if (!listItems.length) return;
-
     blocks.push({
       id: nextId('list'),
       type: 'list',
       ordered: listOrdered,
-      items: listItems.map(cleanInlineMarkdown),
+      items: listItems,
     });
     listItems = [];
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
     const fence = line.match(/^\s*```\s*([^\s`]*)\s*$/);
 
     if (fence) {
@@ -154,6 +297,36 @@ function parseMarkdown(source: string): MarkdownBlock[] {
       continue;
     }
 
+    const alignments = parseTableDelimiter(lines[index + 1] ?? '');
+    if (line.includes('|') && alignments) {
+      flushParagraph();
+      flushList();
+      const headerCells = splitTableRow(line);
+      const width = Math.max(headerCells.length, alignments.length);
+      const rows: string[][] = [];
+      let rowIndex = index + 2;
+
+      while (rowIndex < lines.length) {
+        const rowLine = lines[rowIndex] ?? '';
+        if (!rowLine.trim() || !rowLine.includes('|')) break;
+        rows.push(normalizeTableRow(splitTableRow(rowLine), width));
+        rowIndex += 1;
+      }
+
+      blocks.push({
+        id: nextId('table'),
+        type: 'table',
+        headers: normalizeTableRow(headerCells, width),
+        alignments: Array.from(
+          { length: width },
+          (_, column) => alignments[column] ?? null,
+        ),
+        rows,
+      });
+      index = rowIndex - 1;
+      continue;
+    }
+
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       flushParagraph();
@@ -162,7 +335,7 @@ function parseMarkdown(source: string): MarkdownBlock[] {
         id: nextId('heading'),
         type: 'heading',
         level: heading[1]?.length ?? 1,
-        text: cleanInlineMarkdown(heading[2] ?? ''),
+        text: heading[2] ?? '',
       });
       continue;
     }
@@ -181,11 +354,7 @@ function parseMarkdown(source: string): MarkdownBlock[] {
     if (listMatch) {
       flushParagraph();
       const ordered = Boolean(orderedItem);
-
-      if (listItems.length && listOrdered !== ordered) {
-        flushList();
-      }
-
+      if (listItems.length && listOrdered !== ordered) flushList();
       listOrdered = ordered;
       listItems.push(listMatch[1] ?? '');
       continue;
@@ -198,7 +367,7 @@ function parseMarkdown(source: string): MarkdownBlock[] {
       blocks.push({
         id: nextId('quote'),
         type: 'quote',
-        text: cleanInlineMarkdown(quote[1] ?? ''),
+        text: quote[1] ?? '',
       });
       continue;
     }
@@ -223,7 +392,6 @@ function parseMarkdown(source: string): MarkdownBlock[] {
 
   flushParagraph();
   flushList();
-
   return blocks;
 }
 
@@ -232,6 +400,10 @@ const blocks = computed(() => (content.value ? parseMarkdown(content.value) : []
 const selectedFile = computed(
   () => files.value.find((file) => file.path === selectedPath.value) ?? null,
 );
+
+function tableAlignmentClass(alignment: TableAlignment | undefined): string | undefined {
+  return alignment ? `readme-table-align-${alignment}` : undefined;
+}
 
 async function selectFile(path: string): Promise<void> {
   const projectId = props.project.id;
@@ -297,9 +469,7 @@ async function copyCode(block: CodeBlock): Promise<void> {
     await navigator.clipboard.writeText(block.content);
     copiedBlockId.value = block.id;
     window.setTimeout(() => {
-      if (copiedBlockId.value === block.id) {
-        copiedBlockId.value = '';
-      }
+      if (copiedBlockId.value === block.id) copiedBlockId.value = '';
     }, 1_500);
   } catch {
     copiedBlockId.value = '';
@@ -325,11 +495,9 @@ watch(
             {{ selectedFile?.name ?? 'Documentação' }}
           </strong>
           <span>
-            {{
-              files.length > 1
-                ? `${files.length} arquivos Markdown encontrados`
-                : 'Documentação principal do projeto'
-            }}
+            {{ files.length > 1
+              ? `${files.length} arquivos Markdown encontrados`
+              : 'Documentação principal do projeto' }}
           </span>
         </div>
       </div>
@@ -398,36 +566,68 @@ watch(
           :is="`h${Math.min(block.level, 4)}`"
           v-if="block.type === 'heading'"
           class="readme-heading"
-        >
-          {{ block.text }}
-        </component>
+          v-html="renderInlineMarkdown(block.text)"
+        />
 
-        <p v-else-if="block.type === 'paragraph'">
-          {{ block.text }}
-        </p>
+        <p
+          v-else-if="block.type === 'paragraph'"
+          v-html="renderInlineMarkdown(block.text)"
+        />
 
         <ol v-else-if="block.type === 'list' && block.ordered">
-          <li v-for="item in block.items" :key="item">{{ item }}</li>
+          <li
+            v-for="(item, itemIndex) in block.items"
+            :key="itemIndex"
+            v-html="renderInlineMarkdown(item)"
+          />
         </ol>
 
         <ul v-else-if="block.type === 'list'">
-          <li v-for="item in block.items" :key="item">{{ item }}</li>
+          <li
+            v-for="(item, itemIndex) in block.items"
+            :key="itemIndex"
+            v-html="renderInlineMarkdown(item)"
+          />
         </ul>
 
-        <blockquote v-else-if="block.type === 'quote'">
-          {{ block.text }}
-        </blockquote>
+        <blockquote
+          v-else-if="block.type === 'quote'"
+          v-html="renderInlineMarkdown(block.text)"
+        />
 
         <hr v-else-if="block.type === 'divider'" />
+
+        <div v-else-if="block.type === 'table'" class="readme-table-scroll">
+          <table class="readme-table">
+            <thead>
+              <tr>
+                <th
+                  v-for="(header, columnIndex) in block.headers"
+                  :key="columnIndex"
+                  :class="tableAlignmentClass(block.alignments[columnIndex])"
+                  scope="col"
+                  v-html="renderInlineMarkdown(header)"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, rowIndex) in block.rows" :key="rowIndex">
+                <td
+                  v-for="(cell, columnIndex) in row"
+                  :key="columnIndex"
+                  :class="tableAlignmentClass(block.alignments[columnIndex])"
+                  v-html="renderInlineMarkdown(cell)"
+                />
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <div v-else-if="block.type === 'code'" class="readme-code-block">
           <div class="readme-code-toolbar">
             <span>{{ block.language || 'texto' }}</span>
             <button type="button" @click="copyCode(block)">
-              <CheckIcon
-                v-if="copiedBlockId === block.id"
-                aria-hidden="true"
-              />
+              <CheckIcon v-if="copiedBlockId === block.id" aria-hidden="true" />
               <ClipboardDocumentIcon v-else aria-hidden="true" />
               {{ copiedBlockId === block.id ? 'Copiado' : 'Copiar' }}
             </button>
@@ -440,3 +640,80 @@ watch(
 </template>
 
 <style scoped src="./ProjectReadmePanel.css"></style>
+
+<style scoped>
+.readme-document :deep(.readme-inline-link) {
+  color: var(--accent);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.readme-document :deep(.readme-inline-link:hover) {
+  text-decoration: underline;
+}
+
+.readme-document :deep(.readme-inline-code) {
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--surface-3);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.readme-table-scroll {
+  overflow-x: auto;
+  margin: 18px 0 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.readme-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.readme-table th,
+.readme-table td {
+  padding: 9px 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.readme-table th:last-child,
+.readme-table td:last-child {
+  border-right: 0;
+}
+
+.readme-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.readme-table th {
+  color: var(--text);
+  background: var(--surface-2);
+  font-weight: var(--font-weight-strong);
+}
+
+.readme-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--surface-2) 52%, transparent);
+}
+
+.readme-table-align-center {
+  text-align: center !important;
+}
+
+.readme-table-align-right {
+  text-align: right !important;
+}
+
+.readme-table-align-left {
+  text-align: left !important;
+}
+</style>
