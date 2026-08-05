@@ -118,7 +118,7 @@ function collectPytestBlocks(lines: string[]): FailureBlock[] {
     if (!match) return [];
     const target = match[1]!.trim();
     const name = target.split('::').at(-1) || target;
-    return [{ name, lines: [target, match[2] ?? 'Teste falhou.'] }];
+    return [{ name, lines: [match[2] ?? 'Teste falhou.', target] }];
   });
 }
 

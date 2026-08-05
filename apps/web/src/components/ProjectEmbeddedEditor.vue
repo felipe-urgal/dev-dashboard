@@ -823,7 +823,9 @@ async function initializeMonaco(): Promise<void> {
 }
 
 function routeEditorTarget(): { path: string; line: number; column: number } | null {
-  const rawPath = Array.isArray(route.query.file) ? route.query.file[0] : route.query.file;
+  const query = route?.query;
+  if (!query) return null;
+  const rawPath = Array.isArray(query.file) ? query.file[0] : query.file;
   if (typeof rawPath !== 'string') return null;
   const normalizedPath = rawPath.split(String.fromCharCode(92)).join('/');
   const filePath = normalizedPath.startsWith('./')
@@ -837,8 +839,8 @@ function routeEditorTarget(): { path: string; line: number; column: number } | n
     && filePath[2] === '/';
   if (!filePath || filePath.startsWith('/') || windowsAbsolute) return null;
   if (filePath.split('/').some((segment) => segment === '..' || segment === '')) return null;
-  const rawLine = Array.isArray(route.query.line) ? route.query.line[0] : route.query.line;
-  const rawColumn = Array.isArray(route.query.column) ? route.query.column[0] : route.query.column;
+  const rawLine = Array.isArray(query.line) ? query.line[0] : query.line;
+  const rawColumn = Array.isArray(query.column) ? query.column[0] : query.column;
   const line = Math.max(1, Number.parseInt(String(rawLine ?? '1'), 10) || 1);
   const column = Math.max(1, Number.parseInt(String(rawColumn ?? '1'), 10) || 1);
   return { path: filePath, line, column };
