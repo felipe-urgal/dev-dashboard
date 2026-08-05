@@ -15,8 +15,6 @@ import {
   gitBranchMutationResponseSchema,
   gitCommitMutationResponseSchema,
   gitMutationConfirmationResponseSchema,
-  gitStashPopResponseSchema,
-  gitStashPushResponseSchema,
 } from '../http/response-schemas.js';
 
 interface ProjectParams {
@@ -49,7 +47,7 @@ export const gitMutationRoutes: FastifyPluginAsync<
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
     properties: {
-      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'amend', 'save', 'stash-push', 'stash-pop', 'discard-file', 'remove-untracked-file'] },
+      operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit', 'amend', 'save', 'discard-file', 'remove-untracked-file'] },
       target: { type: 'string', minLength: 1, maxLength: 4096 },
     },
   } as const;
@@ -110,11 +108,6 @@ export const gitMutationRoutes: FastifyPluginAsync<
         GIT_FILE_NOT_FOUND: 404,
         GIT_FILE_OPERATION_NOT_ALLOWED: 409,
         GIT_FILE_MUTATION_FAILED: 500,
-        GIT_NOTHING_TO_STASH: 409,
-        GIT_STASH_PUSH_FAILED: 500,
-        GIT_STASH_EMPTY: 404,
-        GIT_STASH_CONFLICT: 409,
-        GIT_STASH_POP_FAILED: 500,
       };
       throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
     }
@@ -124,7 +117,7 @@ export const gitMutationRoutes: FastifyPluginAsync<
     });
   }
 
-  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file'; target: string } }>(
+  app.post<{ Params: ProjectParams; Body: { operation: 'create-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'discard-file' | 'remove-untracked-file'; target: string } }>(
     '/projects/:projectId/git/mutations/confirmations',
     {
       schema: {
@@ -343,54 +336,6 @@ export const gitMutationRoutes: FastifyPluginAsync<
           commit: await withGitMutationHistory(gitMutationHistoryService, project, 'save', () =>
             gitService.save(project.path, project.id, request.body.message, request.body.confirmationToken)),
         });
-      } catch (error) {
-        translateMutationError(error);
-      }
-    },
-  );
-
-  app.post<{ Params: ProjectParams; Body: { confirmationToken: string } }>(
-    '/projects/:projectId/git/stash',
-    {
-      schema: {
-        params: projectParamsSchema,
-        body: syncMutationBodySchema,
-        response: {
-          201: gitStashPushResponseSchema,
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      const project = projectStore.findProject(request.params.projectId);
-      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
-      try {
-        return reply.code(201).send(await withGitMutationHistory(gitMutationHistoryService, project, 'stash-push', () =>
-          gitService.stashPush(project.path, project.id, request.body.confirmationToken)));
-      } catch (error) {
-        translateMutationError(error);
-      }
-    },
-  );
-
-  app.post<{ Params: ProjectParams; Body: { confirmationToken: string } }>(
-    '/projects/:projectId/git/stash/pop',
-    {
-      schema: {
-        params: projectParamsSchema,
-        body: syncMutationBodySchema,
-        response: {
-          200: gitStashPopResponseSchema,
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = projectStore.findProject(request.params.projectId);
-      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
-      try {
-        return await withGitMutationHistory(gitMutationHistoryService, project, 'stash-pop', () =>
-          gitService.stashPop(project.path, project.id, request.body.confirmationToken));
       } catch (error) {
         translateMutationError(error);
       }

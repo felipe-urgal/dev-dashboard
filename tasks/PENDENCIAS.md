@@ -24,16 +24,6 @@ o histórico de entregas.
 
 ## Produto e fluxos operacionais
 
-- [ ] **Stash sem UI**: a task 026 entregou stash no painel Git, mas o
-  redesenho das tasks 047–050 não migrou essa parte — hoje não existe
-  nenhuma aba, botão ou rota para stash em `ProjectGitPanel.vue`.
-  `apps/web/src/git-stash-enhancer.ts` (e seu CSS/diretório `git-stash/`)
-  ainda existem no repositório mas não são mais importados por `main.ts`;
-  a API (`apps/api/src/routes/git-stash.ts`, `GitStashService`) continua
-  ativa e testada, só sem nenhum consumidor no frontend. Decisão pendente:
-  remover o código órfão (frontend morto + rotas/serviço não utilizados) ou
-  reconstruir a UI de stash como componente Vue, no padrão atual do painel
-  Git. Descoberto ao planejar a task 108 (E2E de commit).
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
   cobertura — dividir em entregas separadas antes de implementar, porque os
   runners e formatos de relatório diferem.
@@ -57,7 +47,7 @@ o histórico de entregas.
 - [ ] Expandir o Playwright para operações de banco de dados
   (snapshot/restore) — exige um serviço de banco na fixture. Scripts (task
   106), mutações de branch Git (task 107) e commit (task 108) já ganharam
-  cobertura; stash não tem UI para testar (ver item acima).
+  cobertura.
 - [ ] Avaliar Prettier e uma política de formatação automática em entrega
   própria, evitando um diff massivo misturado com mudanças funcionais.
 - [ ] Medir cobertura e definir metas por camada.

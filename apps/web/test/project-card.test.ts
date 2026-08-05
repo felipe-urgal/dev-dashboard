@@ -20,7 +20,6 @@ vi.mock('../src/api', () => ({
     clean: true,
     files: [],
     recentCommits: [],
-    stashes: [],
   }),
 }));
 

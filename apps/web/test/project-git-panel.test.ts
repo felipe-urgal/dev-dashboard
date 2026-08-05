@@ -58,7 +58,6 @@ const baseOverview: ProjectGitOverview = {
   ],
   latestCommit,
   recentCommits: [latestCommit],
-  stashes: [],
 };
 
 const baseWorkspace: ProjectGitWorkspace = {
@@ -366,7 +365,6 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
       'Mutações',
     ],
   );
-  assert.doesNotMatch(text, /Stash/);
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
 

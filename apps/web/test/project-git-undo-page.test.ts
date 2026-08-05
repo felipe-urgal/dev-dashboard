@@ -36,7 +36,6 @@ function overview(
     files: [],
     latestCommit,
     recentCommits: [latestCommit],
-    stashes: [],
     ...overrides,
   };
 }

@@ -61,7 +61,6 @@ vi.mock('../src/api', async (importOriginal) => ({
     clean: true,
     files: [],
     recentCommits: [],
-    stashes: [],
   }),
   fetchProjectGitDiff: vi.fn().mockResolvedValue({
     repository: false,
@@ -209,7 +208,6 @@ describe('cards dos painéis de detalhe', () => {
       'Mutações',
     ]);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
-    expect(wrapper.find('.git-subtabs').text()).not.toContain('Stash');
     expect(wrapper.find('.git-subtabs button')?.text()).toContain('Sincronização');
 
     wrapper.unmount();

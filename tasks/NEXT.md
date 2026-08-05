@@ -2,9 +2,8 @@
 
 Nenhuma entrega sequencial está aprovada no momento.
 
-A task mais recente concluída foi a **108 — E2E de commit Git: vazio,
-sucesso e troca de projeto; achado do stash sem UI** (ver
-`tasks/108-playwright-git-commit.md`).
+A task mais recente concluída foi a **109 — Remove o código órfão de
+stash** (ver `tasks/109-remove-orphaned-stash-code.md`).
 
 Para escolher a próxima, veja os itens em aberto em `tasks/PENDENCIAS.md` e,
 se mais de uma frente for avançar ao mesmo tempo, confira `tasks/PARALLEL-WORK.md`

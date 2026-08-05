@@ -26,7 +26,6 @@ const overview: ProjectGitOverview = {
   clean: true,
   files: [],
   recentCommits: [],
-  stashes: [],
 };
 
 const workspace: ProjectGitWorkspace = {

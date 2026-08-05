@@ -36,8 +36,7 @@
 }
 
 .git-summary-detail-files li.git-inline-file-row,
-.git-history-page-detail-files li.git-inline-file-row,
-.git-stash-files li.git-inline-file-row {
+.git-history-page-detail-files li.git-inline-file-row {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 

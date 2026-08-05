@@ -54,7 +54,7 @@ Os objetivos principais são:
 - status, diff, histórico e detalhes de commits;
 - criação, troca, acompanhamento, renomeação e exclusão de branches;
 - sincronização com remotos permitidos;
-- pull, push, commit, stash e recuperação;
+- pull, push e commit;
 - histórico de mutações;
 - operações destrutivas protegidas por confirmação;
 - integração com pull requests e desfazer de operações reconhecidas.

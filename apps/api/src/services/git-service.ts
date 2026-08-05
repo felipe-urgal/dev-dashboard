@@ -7,7 +7,6 @@ import type {
   GitFileLines,
   GitMutationConfirmation,
   GitMutationOperation,
-  GitStashEntry,
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
 
@@ -22,7 +21,6 @@ import {
   getFileLines,
   getOverview,
 } from './git-service/read-operations.js';
-import { createStashOperations } from './git-service/stash-operations.js';
 import { GitMutationConfirmationService } from './git-mutation-confirmation-service.js';
 
 export {
@@ -39,14 +37,13 @@ export { resolveSavePrefix } from './git-service/save-prefix.js';
 export class GitService {
   /**
    * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
-   * injetado em cada módulo de operações por domínio (branch/arquivo/commit/
-   * stash) em vez de duplicado — mesma TTL e mesmo comportamento de antes.
+   * injetado em cada módulo de operações por domínio (branch/arquivo/commit)
+   * em vez de duplicado — mesma TTL e mesmo comportamento de antes.
    */
   private readonly confirmations = new GitMutationConfirmationService(GIT_MUTATION_CONFIRMATION_TTL_MS);
   private readonly branchOperations = createBranchOperations(this.confirmations);
   private readonly fileOperations = createFileOperations(this.confirmations);
   private readonly commitOperations = createCommitOperations(this.confirmations);
-  private readonly stashOperations = createStashOperations(this.confirmations);
 
   public getOverview(projectPath: string): Promise<ProjectGitOverview> {
     return getOverview(projectPath);
@@ -132,13 +129,5 @@ export class GitService {
 
   public save(projectPath: string, projectId: string, message: string, confirmationToken?: string): Promise<GitCommitResult> {
     return this.commitOperations.save(projectPath, projectId, message, confirmationToken);
-  }
-
-  public stashPush(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ stash: GitStashEntry }> {
-    return this.stashOperations.stashPush(projectPath, projectId, confirmationToken);
-  }
-
-  public stashPop(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ popped: GitStashEntry }> {
-    return this.stashOperations.stashPop(projectPath, projectId, confirmationToken);
   }
 }

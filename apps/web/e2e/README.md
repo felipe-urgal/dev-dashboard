@@ -101,9 +101,5 @@ de projeto.
 
 - Cobertura E2E de operações de banco de dados (snapshot/restore) — exige
   um serviço de banco na fixture.
-- Cobertura E2E de stash: não é um fluxo fora de escopo por decisão, é
-  simplesmente inalcançável — o painel Git atual não tem nenhuma aba, botão
-  ou rota para stash (`git-stash-enhancer.ts` existe no código mas não é
-  mais importado por `main.ts`). Ver `tasks/PENDENCIAS.md`.
 - Testes contra projetos reais do diretório pessoal do desenvolvedor.
 - Outros motores além do Chromium.

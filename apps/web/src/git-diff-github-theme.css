@@ -170,7 +170,7 @@
   filter: brightness(1.035);
 }
 
-/* Diffs por arquivo abertos no Resumo, Histórico e Stash. */
+/* Diffs por arquivo abertos no Resumo e Histórico. */
 .git-inline-file-diff {
   --git-inline-row-border: var(--git-diff-row-border);
   --git-inline-addition-bg: var(--git-diff-addition-bg);
@@ -243,14 +243,12 @@
   color: var(--text-muted);
 }
 
-/* Patches completos exibidos em Commit, Resumo, Histórico e Stash. */
+/* Patches completos exibidos em Commit, Resumo e Histórico. */
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) {
   overflow: auto;
   border: 1px solid var(--git-diff-row-border);
@@ -266,10 +264,8 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span {
   display: block;
   min-width: 0;
@@ -286,10 +282,8 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span.is-addition {
   background: var(--git-diff-addition-bg);
   box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
@@ -298,10 +292,8 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span.is-deletion {
   background: var(--git-diff-deletion-bg);
   box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
@@ -310,10 +302,8 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span.is-hunk {
   background: var(--git-diff-hunk-bg);
   color: var(--git-diff-hunk-text);
@@ -323,18 +313,14 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span.is-meta,
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span.is-file {
   background: var(--git-diff-meta-bg);
   color: var(--text-muted);
@@ -343,10 +329,8 @@
 :is(
   .git-commit-detail-patch,
   .git-history-page-patch,
-  .git-stash-patch,
   .git-summary-detail-diff pre,
-  .git-history-page-diff pre,
-  .git-stash-diff pre
+  .git-history-page-diff pre
 ) > span:hover {
   filter: brightness(1.035);
 }
