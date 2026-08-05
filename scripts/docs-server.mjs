@@ -22,9 +22,6 @@ const CORE_PRIORITY = new Map([
   ['docs/documentation-api.md', 90],
   ['CONTRIBUTING.md', 100],
   ['docs/architecture/api-reference.md', 110],
-  ['docs/roadmap.md', 120],
-  ['docs/PENDENCIAS.md', 130],
-  ['docs/tasks/NEXT.md', 140],
   ['docs/guia/README.md', 0],
   ['docs/guia/readme.md', 10],
   ['docs/guia/diagnostico.md', 20],
@@ -46,8 +43,7 @@ const GROUP_PRIORITY = new Map([
   ['Desenvolvimento', 30],
   ['Operação', 40],
   ['Referência', 50],
-  ['Planejamento e histórico', 60],
-  ['Outros documentos', 70],
+  ['Outros documentos', 60],
 ]);
 
 function normalizeRepositoryPath(value) {
@@ -62,11 +58,6 @@ function documentGroup(repositoryPath) {
   if (repositoryPath === 'docs/development-guide.md' || repositoryPath === 'CONTRIBUTING.md') return 'Desenvolvimento';
   if (repositoryPath === 'docs/operations-and-troubleshooting.md') return 'Operação';
   if (repositoryPath === 'docs/documentation-api.md') return 'Referência';
-  if (
-    repositoryPath.startsWith('docs/tasks/') ||
-    repositoryPath === 'docs/roadmap.md' ||
-    repositoryPath === 'docs/PENDENCIAS.md'
-  ) return 'Planejamento e histórico';
   if (repositoryPath.startsWith('docs/')) return 'Referência';
   return 'Outros documentos';
 }
@@ -148,7 +139,6 @@ export async function buildCatalog(rootDirectory = process.cwd()) {
       priority: CORE_PRIORITY.get(repositoryPath) ?? 10_000,
       bytes: TEXT_ENCODER.encode(markdown).byteLength,
       headings: headingsFromMarkdown(markdown),
-      archived: repositoryPath.startsWith('docs/tasks/') && repositoryPath !== 'docs/tasks/NEXT.md',
     });
   }
 
@@ -239,7 +229,6 @@ export async function searchDocuments(rootDirectory, catalog, query) {
       if (headingText.includes(term)) score += 8;
       if (bodyText.includes(term)) score += 2;
     }
-    if (page.archived) score -= 2;
     results.push({
       path: page.path,
       title: page.title,

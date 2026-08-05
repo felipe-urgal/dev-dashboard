@@ -92,15 +92,15 @@ regenerar. Regenerar reescreve o arquivo inteiro a partir do histórico
 completo do branch atual (não é um append incremental).
 
 Commits são agrupados por "Task NNN" quando o assunto referencia uma task
-numerada (convenção deste repo, ver \`docs/tasks/\`); commits sem task
+numerada (convenção deste repo, ver \`tasks/\`); commits sem task
 numerada são agrupados por data. A ordem segue o histórico do Git, do mais
 recente para o mais antigo.
 
 Isto cobre só a parte de **changelog** do item "Automatizar changelog,
-release e tags de versão" de \`docs/PENDENCIAS.md\`. Release e tags de
+release e tags de versão" de \`tasks/PENDENCIAS.md\`. Release e tags de
 versão continuam pendentes de uma decisão de política de versionamento (o
-projeto é \`"private": true\`) — ver a task 093 e o item correspondente em
-\`docs/PENDENCIAS.md\`.
+projeto é \`"private": true\`) — ver o item correspondente em
+\`tasks/PENDENCIAS.md\`.
 
 `;
 

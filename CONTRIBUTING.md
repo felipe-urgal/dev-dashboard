@@ -218,7 +218,7 @@ Uma mudança está incompleta quando altera o comportamento sem atualizar a expl
 | variável, porta ou persistência | `docs/operations-and-troubleshooting.md` |
 | processo de engenharia | `docs/development-guide.md` ou este arquivo |
 | endpoint | referência gerada da API |
-| planejamento | `docs/roadmap.md`, `docs/PENDENCIAS.md` ou `docs/tasks/*` |
+| planejamento | `tasks/roadmap.md`, `tasks/PENDENCIAS.md` ou `tasks/*` |
 
 Abra `http://127.0.0.1:4545` durante o desenvolvimento para revisar a navegação e a renderização.
 

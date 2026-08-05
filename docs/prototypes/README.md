@@ -7,4 +7,4 @@ e não conversam com a API — todo dado é fixo no próprio arquivo.
 Para abrir, basta apontar o navegador para o arquivo.
 
 Protótipos cuja proposta já foi implementada são removidos deste diretório; a
-tela real e a task correspondente em `docs/tasks/` passam a ser a referência.
+tela real e a task correspondente em `tasks/` passam a ser a referência.

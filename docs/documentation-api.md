@@ -39,8 +39,12 @@ O servidor inclui:
 - `CONTRIBUTING.md`, quando existente;
 - todos os arquivos `docs/**/*.md`;
 - documentos de arquitetura;
-- referência gerada da API;
-- roadmap, pendências e tarefas históricas.
+- referência gerada da API.
+
+O planejamento e o histórico de tasks vivem em `tasks/` (`roadmap.md`,
+`PENDENCIAS.md`, `NEXT.md`, os documentos numerados `tasks/NNN-*.md`), fora
+de `docs/` e portanto fora deste catálogo — a central de documentação é só
+documentação de produto/arquitetura.
 
 São ignorados:
 
@@ -107,8 +111,7 @@ Gera o catálogo atual.
   "bytes": 12345,
   "headings": [
     { "level": 1, "title": "Visão geral da arquitetura" }
-  ],
-  "archived": false
+  ]
 }
 ```
 
@@ -152,7 +155,6 @@ Busca por título, headings e conteúdo.
 - normalização de acentos e caixa;
 - todos os termos precisam aparecer em título, headings ou corpo;
 - título recebe maior peso;
-- resultados arquivados recebem prioridade menor;
 - máximo de trinta resultados;
 - documentos muito grandes podem ser ignorados na busca, mas continuam navegáveis.
 
@@ -179,7 +181,6 @@ Busca por título, headings e conteúdo.
 Recursos:
 
 - navegação agrupada;
-- arquivo de tarefas recolhível;
 - busca com atalho `/`;
 - renderização de headings, listas, tabelas, citações e blocos de código;
 - sumário da página;

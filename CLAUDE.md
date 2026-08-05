@@ -150,10 +150,12 @@ Narrativa completa, diagramas e sequências de fluxo de dados: `docs/architectur
 
 ### Documentação de tasks
 
-Cada entrega funcional do dashboard web tem um arquivo numerado em `docs/tasks/NNN-*.md`. Ao
-concluir uma task: atualize esse arquivo com o resultado real (status, arquivos, decisões,
-limitações), substitua `docs/tasks/NEXT.md` pelo plano detalhado da próxima entrega, e atualize
-`docs/tasks/README.md` com a nova entrada. Leia `docs/tasks/NEXT.md` antes de começar um trabalho
+Cada entrega funcional do dashboard web tem um arquivo numerado em `tasks/NNN-*.md`. `docs/` é
+apenas documentação viva do produto (arquitetura, guias, segurança); planejamento e histórico de
+entregas vivem em `tasks/` (`roadmap.md`, `PENDENCIAS.md`, `NEXT.md`, `PARALLEL-WORK.md`,
+`README.md`). Ao concluir uma task: registre esse arquivo com o resultado real (status, arquivos,
+decisões, limitações), substitua `tasks/NEXT.md` pelo plano detalhado da próxima entrega, e
+atualize `tasks/README.md` com a nova entrada. Leia `tasks/NEXT.md` antes de começar um trabalho
 novo nessa parte do repositório.
 
 ## Modelo de segurança da API
