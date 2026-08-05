@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import type {
   GitCommitResult,
   GitMutationConfirmation,
@@ -20,22 +18,31 @@ import {
   validateCommitMessage,
 } from './git-service/mutation-guards.js';
 import { runGit } from './git-service/run.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
-interface StoredDashboardConfirmation {
-  token: string;
-  projectId: string;
-  operation: 'create-branch' | 'commit' | 'amend';
-  target: string;
-  expiresAt: number;
-}
+type DashboardOperation = 'create-branch' | 'commit' | 'amend';
 
 function isDashboardOperation(
   operation: GitMutationOperation,
-): operation is StoredDashboardConfirmation['operation'] {
+): operation is DashboardOperation {
   return operation === 'create-branch'
     || operation === 'commit'
     || operation === 'amend';
 }
+
+/**
+ * `commit`/`amend` nunca validaram o alvo (a branch pode mudar entre a
+ * confirmação e a execução — ver `consumeDashboardConfirmation` abaixo); só
+ * `create-branch` valida. Para reaproveitar o mecanismo compartilhado, que
+ * sempre exige que o alvo usado em `prepare` bata com o de `consume`, as
+ * confirmações de commit/amend usam este alvo fixo, e o alvo real (branch no
+ * momento em que o token é pedido) é ignorado — igual ao comportamento
+ * anterior, que nunca o comparava.
+ */
+const UNSCOPED_TARGET = '*';
 
 /**
  * Ajustes de política do dashboard sobre o serviço Git base.
@@ -46,10 +53,17 @@ function isDashboardOperation(
  *   projeto/operação, sem depender de uma segunda leitura da branch atual.
  */
 export class DashboardGitService extends GitService {
-  private readonly dashboardConfirmations = new Map<
-    string,
-    StoredDashboardConfirmation
-  >();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha antes — mesma TTL e
+   * mesmo comportamento externo. Uma instância própria (não a de `GitService`,
+   * que esta classe estende mas não reaproveita para as três operações que
+   * sobrescreve) preserva o isolamento que já existia entre o `Map` do
+   * dashboard e o `Map` genérico de `GitService` para as demais operações.
+   */
+  private readonly dashboardConfirmations = new GitMutationConfirmationService(
+    GIT_MUTATION_CONFIRMATION_TTL_MS,
+  );
 
   public override prepareMutationConfirmation(
     projectId: string,
@@ -61,59 +75,33 @@ export class DashboardGitService extends GitService {
     }
 
     validateBranchName(target);
-    this.pruneDashboardConfirmations();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
-    this.dashboardConfirmations.set(token, {
-      token,
+    const confirmationTarget = operation === 'create-branch' ? target : UNSCOPED_TARGET;
+    const { token, expiresAt } = this.dashboardConfirmations.prepare(
       projectId,
       operation,
-      target,
-      expiresAt,
-    });
+      confirmationTarget,
+    );
 
-    return {
-      token,
-      operation,
-      target,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    return { token, operation, target, expiresAt };
   }
 
   private consumeDashboardConfirmation(
     projectId: string,
-    operation: StoredDashboardConfirmation['operation'],
+    operation: DashboardOperation,
     token: string | undefined,
     expectedTarget?: string,
   ): void {
-    this.pruneDashboardConfirmations();
-    const record = token
-      ? this.dashboardConfirmations.get(token)
-      : undefined;
-    const invalidTarget = expectedTarget !== undefined
-      && record?.target !== expectedTarget;
-
-    if (
-      !record
-      || record.projectId !== projectId
-      || record.operation !== operation
-      || invalidTarget
-    ) {
-      throw new GitMutationError(
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para esta operação.',
-      );
-    }
-
-    this.dashboardConfirmations.delete(token!);
-  }
-
-  private pruneDashboardConfirmations(): void {
-    const now = Date.now();
-    for (const [token, record] of this.dashboardConfirmations) {
-      if (record.expiresAt <= now) {
-        this.dashboardConfirmations.delete(token);
+    const confirmationTarget = expectedTarget ?? UNSCOPED_TARGET;
+    try {
+      this.dashboardConfirmations.consume(projectId, operation, confirmationTarget, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitMutationError(
+          'GIT_MUTATION_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para esta operação.',
+        );
       }
+      throw error;
     }
   }
 
