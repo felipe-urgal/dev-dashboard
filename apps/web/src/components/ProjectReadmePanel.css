@@ -73,6 +73,47 @@
   height: 15px;
 }
 
+.readme-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.readme-file-item {
+  overflow: hidden;
+  max-width: 260px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.readme-file-item:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.readme-file-item-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.readme-truncated-warning {
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  color: var(--warning-text);
+  font-size: var(--font-xs);
+}
+
 .readme-state {
   display: grid;
   min-height: 420px;
