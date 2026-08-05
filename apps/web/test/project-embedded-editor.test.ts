@@ -256,7 +256,7 @@ test('carrega o explorer e abre um arquivo editável', async () => {
   });
   assert.equal(
     monaco.createEditor.mock.calls[0]?.[1]?.scrollbar?.alwaysConsumeMouseWheel,
-    false,
+    true,
   );
   assert.match(wrapper.text(), /Edição segura/);
   assert.match(wrapper.get('.embedded-ide-statusbar').text(), /markdown/);

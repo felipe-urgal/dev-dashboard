@@ -787,7 +787,19 @@ async function initializeMonaco(): Promise<void> {
       fontSize: 13,
       lineHeight: 21,
       scrollBeyondLastLine: false,
-      scrollbar: { alwaysConsumeMouseWheel: false },
+      /*
+       * A task 077 desativou isso para deixar o scroll "vazar" para a
+       * página ao chegar no limite do arquivo. Só que o Monaco não
+       * encadeia o scroll via `overscroll-behavior` nativo — ele
+       * simplesmente deixa de chamar `preventDefault()` no limite, e o
+       * evento de wheel cru sobe até a página. Depois que a página começa a
+       * rolar, o cursor passa a apontar para um trecho diferente dela (que
+       * também pode capturar o scroll), e o usuário perde a capacidade de
+       * voltar a rolar o arquivo mesmo com o mouse ainda sobre o editor.
+       * Volta ao padrão do Monaco (sempre consumir a roda do mouse sobre o
+       * editor) para eliminar esse travamento.
+       */
+      scrollbar: { alwaysConsumeMouseWheel: true },
       renderWhitespace: 'selection',
       wordWrap: 'off',
       theme: themeName(),
