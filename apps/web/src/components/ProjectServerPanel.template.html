@@ -152,6 +152,7 @@
           </div>
 
           <section
+            v-show="false"
             class="server-health-summary"
             :class="health ? `server-health-summary-${health.status}` : ''"
             aria-live="polite"
