@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import type {
   GitSyncConfirmation,
   GitSyncResult,
@@ -28,20 +26,33 @@ import {
 } from './git-sync/repository-guards.js';
 import { failureText, runGit } from './git-sync/run.js';
 import { validateReference, validateStrategy } from './git-sync/validation.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 export { GitSyncError } from './git-sync/errors.js';
 export type { GitSyncErrorCode } from './git-sync/errors.js';
 
-interface StoredConfirmation {
-  token: string;
-  projectId: string;
-  reference: string;
-  strategy: GitSyncStrategy;
-  expiresAt: number;
+/** Identificadores do catálogo (`git-mutation-catalog.ts`) usados pelas duas confirmações deste serviço. */
+type GitSyncOperationId = 'sync-integrate' | 'sync-main';
+
+function syncTarget(reference: string, strategy: GitSyncStrategy): string {
+  return `${reference}::${strategy}`;
 }
 
 export class GitSyncService {
-  private readonly confirmations = new Map<string, StoredConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_SYNC_CONFIRMATION_REQUIRED`). `sync-integrate`
+   * e `sync-main` são operações distintas no catálogo mesmo quando
+   * reference/strategy coincidem com os valores fixos da main, então um
+   * token preparado por uma nunca é aceito pela outra — igual ao
+   * comportamento anterior, em que os dois fluxos nunca compartilhavam
+   * confirmação na prática (rotas e chamadas diferentes).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
 
   public prepareConfirmation(
     projectId: string,
@@ -50,34 +61,31 @@ export class GitSyncService {
   ): GitSyncConfirmation {
     validateReference(reference);
     validateStrategy(strategy);
-    this.pruneExpiredConfirmations();
 
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
+    const { token, expiresAt } = this.confirmations.prepare(
       projectId,
-      reference,
-      strategy,
-      expiresAt,
-    });
+      'sync-integrate' satisfies GitSyncOperationId,
+      syncTarget(reference, strategy),
+    );
 
-    return {
-      token,
-      reference,
-      strategy,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    return { token, reference, strategy, expiresAt };
   }
 
   public prepareMainConfirmation(
     projectId: string,
   ): GitSyncConfirmation {
-    return this.prepareConfirmation(
+    const { token, expiresAt } = this.confirmations.prepare(
       projectId,
-      MAIN_REFERENCE,
-      MAIN_STRATEGY,
+      'sync-main' satisfies GitSyncOperationId,
+      syncTarget(MAIN_REFERENCE, MAIN_STRATEGY),
     );
+
+    return {
+      token,
+      reference: MAIN_REFERENCE,
+      strategy: MAIN_STRATEGY,
+      expiresAt,
+    };
   }
 
   public async compare(
@@ -115,8 +123,8 @@ export class GitSyncService {
     await requireRepository(projectPath);
     this.consumeConfirmation(
       projectId,
-      reference,
-      strategy,
+      'sync-integrate',
+      syncTarget(reference, strategy),
       confirmationToken,
     );
     await requireRemoteReference(projectPath, reference);
@@ -174,8 +182,8 @@ export class GitSyncService {
     await requireRepository(projectPath);
     this.consumeConfirmation(
       projectId,
-      MAIN_REFERENCE,
-      MAIN_STRATEGY,
+      'sync-main',
+      syncTarget(MAIN_REFERENCE, MAIN_STRATEGY),
       confirmationToken,
     );
     await requireCleanWorkingTree(projectPath);
@@ -250,35 +258,20 @@ export class GitSyncService {
 
   private consumeConfirmation(
     projectId: string,
-    reference: string,
-    strategy: GitSyncStrategy,
+    operationId: GitSyncOperationId,
+    target: string,
     token: string | undefined,
   ): void {
-    this.pruneExpiredConfirmations();
-    const confirmation = token
-      ? this.confirmations.get(token)
-      : undefined;
-
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.reference !== reference
-      || confirmation.strategy !== strategy
-    ) {
-      throw new GitSyncError(
-        'GIT_SYNC_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para sincronizar a branch.',
-      );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpiredConfirmations(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) {
-        this.confirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, operationId, target, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitSyncError(
+          'GIT_SYNC_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para sincronizar a branch.',
+        );
       }
+      throw error;
     }
   }
 }

@@ -8,6 +8,7 @@ import {
 import { ApiError } from '../../http/api-error.js';
 import type { GitBranchPublishService } from '../../services/git-branch-publish-service.js';
 import { GitMutationError } from '../../services/git-service/errors.js';
+import { withGitMutationHistory } from '../git-mutation-history-helpers.js';
 import {
   findProject,
   projectParamsSchema,
@@ -125,12 +126,13 @@ export function registerBranchPublishRoutes(
       const project = findProject(options, request.params.projectId);
       try {
         return {
-          branch: await publishService.publishLocalBranch(
-            project.path,
-            project.id,
-            request.body.branch,
-            request.body.confirmationToken,
-          ),
+          branch: await withGitMutationHistory(options.gitMutationHistoryService, project, 'branch-publish', () =>
+            publishService.publishLocalBranch(
+              project.path,
+              project.id,
+              request.body.branch,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translatePublishError(error);
