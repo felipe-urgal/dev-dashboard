@@ -132,24 +132,25 @@ async function saveProfile(): Promise<void> {
   profileSaving.value = true;
   profilesError.value = '';
   profilesFeedback.value = '';
+  const wasEditing = Boolean(profileForm.id);
 
   try {
     const input: CreateEnvironmentProfileInput = {
       name: profileForm.name.trim(),
       variables: profileForm.variables
         .filter((variable) => variable.name.trim().length > 0)
-        .map((variable) => (
-          variable.value.trim().length > 0
-            ? { name: variable.name.trim(), value: variable.value }
-            : { name: variable.name.trim() }
-        )),
+        .map((variable) => {
+          const name = variable.name.trim();
+          if (isSensitiveVariableName(name) || variable.value.trim().length === 0) return { name };
+          return { name, value: variable.value };
+        }),
     };
     const savedProfile = profileForm.id
       ? await updateEnvironmentProfile(profileForm.id, input)
       : await createEnvironmentProfile(input);
 
     await loadProfiles(savedProfile.id);
-    profilesFeedback.value = profileForm.id
+    profilesFeedback.value = wasEditing
       ? 'Perfil atualizado com sucesso.'
       : 'Perfil criado com sucesso.';
   } catch (cause) {
@@ -242,7 +243,7 @@ onMounted(() => void loadProfiles());
             </button>
           </div>
           <p v-else class="environment-profiles-empty">
-            Nenhum perfil cadastrado. Crie o primeiro ao lado.
+            Nenhum perfil de ambiente cadastrado. Crie o primeiro ao lado.
           </p>
 
           <footer class="environment-profiles-sidebar-footer">
@@ -263,7 +264,7 @@ onMounted(() => void loadProfiles());
               <strong>{{ profileForm.id ? profileForm.name || 'Perfil sem nome' : 'Novo perfil' }}</strong>
               <span>
                 {{ profileForm.id
-                  ? `${configuredVariableCount} variável${configuredVariableCount === 1 ? '' : 'is'} configurada${configuredVariableCount === 1 ? '' : 's'}`
+                  ? `${configuredVariableCount} ${configuredVariableCount === 1 ? 'variável configurada' : 'variáveis configuradas'}`
                   : 'Defina um nome e adicione as variáveis necessárias' }}
               </span>
             </div>
