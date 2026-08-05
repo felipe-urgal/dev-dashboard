@@ -59,6 +59,7 @@ const {
   runRefreshRemotes,
   runTrackRemoteBranch,
   runDeleteRemoteBranch,
+  runUpdateCurrentBranch,
   runMainSynchronization,
   currentBranchOrHead,
   runCommit,

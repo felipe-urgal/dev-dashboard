@@ -172,3 +172,110 @@ test('branches page exposes an explicit remote refresh action', async () => {
   await refresh.trigger('click');
   assert.equal(wrapper.emitted('refresh-remotes')?.length, 1);
 });
+
+
+test('branch atual atrasada oferece atualização local por fast-forward', async () => {
+  const branchName = 'agent/redesign-home-observatorio';
+  const branchOverview: ProjectGitOverview = {
+    ...overview,
+    branch: branchName,
+    upstream: `origin/${branchName}`,
+    behind: 2,
+  };
+  const branchWorkspace: ProjectGitWorkspace = {
+    ...workspace,
+    branches: [
+      ...workspace.branches.map((branch) =>
+        branch.name === 'main'
+          ? { ...branch, current: false }
+          : branch,
+      ),
+      {
+        name: branchName,
+        shortName: branchName,
+        kind: 'local',
+        current: true,
+        upstream: `origin/${branchName}`,
+        ahead: 0,
+        behind: 2,
+        latestCommit: commit,
+      },
+      {
+        name: `origin/${branchName}`,
+        shortName: branchName,
+        kind: 'remote',
+        current: false,
+        remote: 'origin',
+        ahead: 0,
+        behind: 0,
+        latestCommit: commit,
+      },
+    ],
+  };
+
+  const wrapper = mount(ProjectGitSyncPage, {
+    props: {
+      overview: branchOverview,
+      workspace: branchWorkspace,
+      busy: false,
+      checking: false,
+    },
+  });
+
+  const card = wrapper.find('.git-sync-current-card');
+  assert.ok(card.exists());
+  assert.match(
+    card.text(),
+    /agent\/redesign-home-observatorio\s*←\s*origin\/agent\/redesign-home-observatorio/,
+  );
+  assert.match(card.text(), /2 commits novos no remoto/);
+
+  const update = card.find('.git-sync-button');
+  assert.equal(update.attributes('disabled'), undefined);
+  await update.trigger('click');
+  assert.equal(wrapper.emitted('update-current-branch')?.length, 1);
+});
+
+test('branch divergente não permite atualização automática', () => {
+  const branchName = 'feature/colaborativa';
+  const branchOverview: ProjectGitOverview = {
+    ...overview,
+    branch: branchName,
+    upstream: `origin/${branchName}`,
+    ahead: 1,
+    behind: 2,
+  };
+  const branchWorkspace: ProjectGitWorkspace = {
+    ...workspace,
+    branches: [
+      ...workspace.branches.map((branch) =>
+        branch.name === 'main'
+          ? { ...branch, current: false }
+          : branch,
+      ),
+      {
+        name: branchName,
+        shortName: branchName,
+        kind: 'local',
+        current: true,
+        upstream: `origin/${branchName}`,
+        ahead: 1,
+        behind: 2,
+        latestCommit: commit,
+      },
+    ],
+  };
+
+  const wrapper = mount(ProjectGitSyncPage, {
+    props: {
+      overview: branchOverview,
+      workspace: branchWorkspace,
+      busy: false,
+      checking: false,
+    },
+  });
+
+  const card = wrapper.find('.git-sync-current-card');
+  assert.match(card.text(), /divergiram/);
+  assert.ok(card.find('.git-sync-button').attributes('disabled') !== undefined);
+});

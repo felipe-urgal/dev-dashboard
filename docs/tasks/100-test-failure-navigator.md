@@ -52,7 +52,10 @@ falhas, mantendo o log original como fonte de verdade.
   para identificar teste e arquivo;
 - após um amend em branch publicada no origin, o painel oferece reenvio manual
   com `--force-with-lease` explícito, confirmação vinculada ao SHA remoto,
-  recusa de branch protegida e registro no histórico de mutações.
+  recusa de branch protegida e registro no histórico de mutações;
+- a aba Sincronização mostra a branch atual quando ela não é `main` e permite
+  trazer commits do upstream configurado por `pull --ff-only`, sem merge ou
+  rebase automático; branches divergentes e árvores sujas permanecem bloqueadas.
 
 ## Validação
 
@@ -81,3 +84,6 @@ falhas, mantendo o log original como fonte de verdade.
 6. Alterar o último commit de uma branch publicada e confirmar que “Reenviar
    com lease” aparece; a ação deve falhar caso o origin tenha mudado desde a
    confirmação.
+7. Em uma branch rastreada que esteja atrás do origin, abrir Sincronização e
+   usar “Atualizar local”; confirmar fast-forward sem commit de merge. Em uma
+   branch divergente, confirmar que a ação permanece bloqueada.

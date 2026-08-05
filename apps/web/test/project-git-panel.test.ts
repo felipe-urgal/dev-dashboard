@@ -370,6 +370,78 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
 });
 
+test('atualiza a branch atual a partir do upstream por pull confirmado', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const collaborativeOverview: ProjectGitOverview = {
+    ...baseOverview,
+    behind: 2,
+    ahead: 0,
+    clean: true,
+  };
+  const collaborativeWorkspace: ProjectGitWorkspace = {
+    ...baseWorkspace,
+    branches: baseWorkspace.branches.map((branch) =>
+      branch.name === 'feature/git-ui'
+        ? { ...branch, behind: 2, ahead: 0 }
+        : branch,
+    ),
+  };
+
+  const mounted = await mountPanel({
+    overview: collaborativeOverview,
+    workspace: collaborativeWorkspace,
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        return jsonResponse({
+          confirmation: {
+            token: 'p'.repeat(64),
+            operation: 'pull',
+            target: 'feature/git-ui',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/pull')) {
+        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+
+  const card = mounted.wrapper.find('.git-sync-current-card');
+  assert.ok(card.exists());
+  const update = card.find('.git-sync-button');
+  assert.match(update.text(), /Atualizar local/);
+  await update.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmation = mounted.requests.find((request) =>
+    request.path.endsWith('/git/mutations/confirmations')
+      && (request.body as { operation?: string } | undefined)?.operation === 'pull',
+  );
+  const pull = mounted.requests.find((request) =>
+    request.path.endsWith('/git/pull'),
+  );
+  assert.deepEqual(confirmation?.body, {
+    operation: 'pull',
+    target: 'feature/git-ui',
+  });
+  assert.deepEqual(pull?.body, {
+    confirmationToken: 'p'.repeat(64),
+  });
+  assert.match(
+    mounted.wrapper.text(),
+    /Branch "feature\/git-ui" atualizada a partir de origin\/feature\/git-ui/,
+  );
+});
+
 test('lista branches locais e origin sem expor ações de sincronização', async () => {
   const mounted = await mountPanel({
     workspace: {
