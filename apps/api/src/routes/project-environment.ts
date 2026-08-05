@@ -94,7 +94,7 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (app,
       if (!variable) {
         throw new ApiError({
           statusCode: 404,
-          code: 'ENVIRONMENT_VARIABLE_NOT_FOUND',
+          code: 'NOT_FOUND',
           message: 'Variável de ambiente não encontrada.',
         });
       }
