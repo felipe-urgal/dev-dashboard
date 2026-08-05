@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 
-import { ProjectServerSettingsError } from '@dev-dashboard/process-manager';
+import {
+  listNodeServerEnvironments,
+  ProjectServerSettingsError,
+} from '@dev-dashboard/process-manager';
 
 import {
   commonErrorResponseSchemas,
@@ -16,6 +19,25 @@ import {
   type SaveServerSettingsBody,
 } from './helpers.js';
 
+const serverSettingsEnvelopeResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['settings', 'environments'],
+  properties: {
+    settings: projectServerSettingsResponseSchema,
+    environments: {
+      type: 'array',
+      maxItems: 50,
+      items: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 64,
+        pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$',
+      },
+    },
+  },
+} as const;
+
 export function registerServerSettingsRoutes(
   app: FastifyInstance,
   options: ProcessRouteOptions,
@@ -27,6 +49,14 @@ export function registerServerSettingsRoutes(
     projectStore,
   } = options;
 
+  async function environmentsForProject(
+    project: ReturnType<typeof requireProject>,
+  ): Promise<string[]> {
+    return project.type === 'node'
+      ? await listNodeServerEnvironments(project.path)
+      : [];
+  }
+
   app.get<{
     Params: ProjectParams;
   }>(
@@ -35,15 +65,7 @@ export function registerServerSettingsRoutes(
       schema: {
         params: projectParamsSchema,
         response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['settings'],
-            properties: {
-              settings:
-                projectServerSettingsResponseSchema,
-            },
-          },
+          200: serverSettingsEnvelopeResponseSchema,
           ...commonErrorResponseSchemas,
         },
       },
@@ -53,13 +75,12 @@ export function registerServerSettingsRoutes(
         projectStore,
         request.params.projectId,
       );
+      const [settings, environments] = await Promise.all([
+        serverSettingsRepository.find(project.id),
+        environmentsForProject(project),
+      ]);
 
-      return {
-        settings:
-          await serverSettingsRepository.find(
-            project.id,
-          ),
-      };
+      return { settings, environments };
     },
   );
 
@@ -99,18 +120,23 @@ export function registerServerSettingsRoutes(
                 },
               ],
             },
+            environment: {
+              anyOf: [
+                {
+                  type: 'string',
+                  minLength: 1,
+                  maxLength: 64,
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$',
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
           },
         },
         response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['settings'],
-            properties: {
-              settings:
-                projectServerSettingsResponseSchema,
-            },
-          },
+          200: serverSettingsEnvelopeResponseSchema,
           ...commonErrorResponseSchemas,
         },
       },
@@ -122,33 +148,56 @@ export function registerServerSettingsRoutes(
       );
 
       try {
-        const settings =
-          await serverSettingsRepository.save(
-            project.id,
-            {
-              ...(request.body.port !== undefined &&
-              request.body.port !== null
-                ? {
-                    port: request.body.port,
-                  }
-                : {}),
-              ...(request.body.healthCheckPath !== undefined &&
-              request.body.healthCheckPath !== null
-                ? {
-                    healthCheckPath:
-                      request.body.healthCheckPath,
-                  }
-                : {}),
-            },
-          );
+        const [current, environments] = await Promise.all([
+          serverSettingsRepository.find(project.id),
+          environmentsForProject(project),
+        ]);
+        const requestedEnvironment = request.body.environment;
 
-        return {
-          settings,
-        };
-      } catch (error) {
         if (
-          error instanceof ProjectServerSettingsError
+          requestedEnvironment !== undefined &&
+          requestedEnvironment !== null &&
+          (
+            project.type !== 'node' ||
+            !environments.includes(requestedEnvironment)
+          )
         ) {
+          throw new ProjectServerSettingsError(
+            'SERVER_ENVIRONMENT_NOT_FOUND',
+            `O arquivo .env.${requestedEnvironment} não foi encontrado.`,
+          );
+        }
+
+        const settings = await serverSettingsRepository.save(
+          project.id,
+          {
+            ...(request.body.port === undefined
+              ? current.port !== undefined
+                ? { port: current.port }
+                : {}
+              : request.body.port !== null
+                ? { port: request.body.port }
+                : {}),
+            ...(request.body.healthCheckPath === undefined
+              ? current.healthCheckPath
+                ? { healthCheckPath: current.healthCheckPath }
+                : {}
+              : request.body.healthCheckPath !== null
+                ? { healthCheckPath: request.body.healthCheckPath }
+                : {}),
+            ...(request.body.environment === undefined
+              ? current.environment
+                ? { environment: current.environment }
+                : {}
+              : request.body.environment !== null
+                ? { environment: request.body.environment }
+                : {}),
+          },
+        );
+
+        return { settings, environments };
+      } catch (error) {
+        if (error instanceof ProjectServerSettingsError) {
           throw serverSettingsApiError(error);
         }
 
