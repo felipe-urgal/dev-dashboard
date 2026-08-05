@@ -4,13 +4,18 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import type { Project, ProjectEnvironmentOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectEnvironmentOverview,
+  ProjectEnvironmentVariableValue,
+} from '@dev-dashboard/contracts';
 
 const TOKEN = 'e'.repeat(64);
 
 interface EnvironmentResponse { environment: ProjectEnvironmentOverview }
+interface EnvironmentVariableValueResponse { variable: ProjectEnvironmentVariableValue }
 
-test('lista variáveis de .env sem expor o valor de nomes sensíveis', async (context) => {
+test('lista variáveis de .env e revela valores sensíveis somente sob demanda', async (context) => {
   const fixtureRoot = await mkdtemp(path.join(tmpdir(), 'project-environment-'));
   const projectPath = path.join(fixtureRoot, 'sample');
   await mkdir(projectPath, { recursive: true });
@@ -57,6 +62,12 @@ test('lista variáveis de .env sem expor o valor de nomes sensíveis', async (co
   const unauthorized = await app.inject({ method: 'GET', url: '/api/projects/p1/environment-variables' });
   assert.equal(unauthorized.statusCode, 401);
 
+  const unauthorizedValue = await app.inject({
+    method: 'GET',
+    url: '/api/projects/p1/environment-variables/value?file=.env&name=API_SECRET_TOKEN',
+  });
+  assert.equal(unauthorizedValue.statusCode, 401);
+
   const response = await app.inject({ method: 'GET', url: '/api/projects/p1/environment-variables', headers });
   assert.equal(response.statusCode, 200);
   const { environment } = response.json<EnvironmentResponse>();
@@ -76,6 +87,33 @@ test('lista variáveis de .env sem expor o valor de nomes sensíveis', async (co
   assert.equal(JSON.stringify(environment).includes('prod-secret'), false);
 
   assert.equal(environment.files.some((entry) => entry.file === '.env.local'), false);
+
+  const valueResponse = await app.inject({
+    method: 'GET',
+    url: '/api/projects/p1/environment-variables/value?file=.env&name=API_SECRET_TOKEN',
+    headers,
+  });
+  assert.equal(valueResponse.statusCode, 200);
+  assert.deepEqual(valueResponse.json<EnvironmentVariableValueResponse>().variable, {
+    file: '.env',
+    name: 'API_SECRET_TOKEN',
+    value: 'super-secreto',
+    sensitive: true,
+  });
+
+  const missingVariable = await app.inject({
+    method: 'GET',
+    url: '/api/projects/p1/environment-variables/value?file=.env&name=NOT_FOUND',
+    headers,
+  });
+  assert.equal(missingVariable.statusCode, 404);
+
+  const invalidFile = await app.inject({
+    method: 'GET',
+    url: '/api/projects/p1/environment-variables/value?file=.env.example&name=API_SECRET_TOKEN',
+    headers,
+  });
+  assert.equal(invalidFile.statusCode, 400);
 
   const notFound = await app.inject({ method: 'GET', url: '/api/projects/missing/environment-variables', headers });
   assert.equal(notFound.statusCode, 404);
