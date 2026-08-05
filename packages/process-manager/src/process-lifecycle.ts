@@ -31,6 +31,12 @@ export interface StartServerOptions {
   port?: number;
 }
 
+export interface StartWorkerCommand {
+  id: string;
+  command: string;
+  args: string[];
+}
+
 export interface ProcessLifecycle {
   startManagedServer(
     project: Project,
@@ -40,6 +46,12 @@ export interface ProcessLifecycle {
   startManagedTest(
     project: Project,
     command: { id: string; command: string; args: string[] },
+    stateDirectory: string,
+  ): Promise<ManagedProcess>;
+  startManagedWorker(
+    project: Project,
+    kind: Extract<ManagedKind, 'worker' | 'webpack'>,
+    command: StartWorkerCommand,
     stateDirectory: string,
   ): Promise<ManagedProcess>;
   stopManagedProcess(
@@ -310,6 +322,111 @@ export function createProcessLifecycle(
     return managedProcess;
   }
 
+  async function startManagedWorker(
+    project: Project,
+    kind: Extract<ManagedKind, 'worker' | 'webpack'>,
+    command: StartWorkerCommand,
+    stateDirectory: string,
+  ): Promise<ManagedProcess> {
+    try {
+      await sweepStaleProcesses(stateDirectory);
+    } catch {
+      // best-effort
+    }
+
+    const currentProcess = await statusReader.getManagedProcess(
+      project.id,
+      kind,
+    );
+
+    if (
+      currentProcess?.status === 'running' ||
+      currentProcess?.status === 'starting' ||
+      currentProcess?.status === 'stopping'
+    ) {
+      throw new ProcessManagerError(
+        'PROCESS_ALREADY_RUNNING',
+        `O worker de ${project.name} já está em execução.`,
+      );
+    }
+
+    await Promise.all([
+      mkdir(context.processDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+      mkdir(context.logDirectory, {
+        recursive: true,
+        mode: 0o700,
+      }),
+    ]);
+
+    const logPath = resolveLogFile(context, project.id, kind);
+
+    const logHandle = await open(logPath, 'a', 0o600);
+
+    let child: ReturnType<typeof spawn>;
+
+    try {
+      child = spawn(command.command, command.args, {
+        cwd: project.path,
+        detached: true,
+        shell: false,
+        windowsHide: true,
+        stdio: ['ignore', logHandle.fd, logHandle.fd],
+        env: {
+          ...process.env,
+        },
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        child.once('spawn', resolve);
+        child.once('error', reject);
+      });
+    } finally {
+      await logHandle.close();
+    }
+
+    if (!child.pid) {
+      throw new Error(
+        `Não foi possível obter o PID do worker de ${project.name}.`,
+      );
+    }
+
+    const managedProcess: StoredProcess = {
+      id: `${project.id}:${kind}:${command.id}`,
+      projectId: project.id,
+      ...(project.workspaceId
+        ? { workspaceId: project.workspaceId }
+        : {}),
+      kind,
+      status: 'running',
+      pid: child.pid,
+      command: command.command,
+      args: command.args,
+      cwd: project.path,
+      logPath,
+      startedAt: new Date().toISOString(),
+    };
+
+    try {
+      await writeStoredProcess(context, managedProcess);
+    } catch (error) {
+      try {
+        sendSignal(child.pid, 'SIGKILL');
+      } catch {
+        // preserva o erro original
+      }
+
+      throw error;
+    }
+
+    exitTracker.observeChild(child, managedProcess);
+    child.unref();
+
+    return managedProcess;
+  }
+
   async function stopManagedProcess(
     projectId: string,
     kind: ManagedKind,
@@ -396,6 +513,7 @@ export function createProcessLifecycle(
   return {
     startManagedServer,
     startManagedTest,
+    startManagedWorker,
     stopManagedProcess,
     sendSignal,
   };

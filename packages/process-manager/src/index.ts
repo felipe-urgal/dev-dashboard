@@ -7,6 +7,8 @@ export type {
   ProcessManagerErrorCode,
   ReadServerLogOptions,
   StartServerOptions,
+  StartWorkerCommand,
+  WorkerKind,
 } from './process-manager.js';
 
 export {
