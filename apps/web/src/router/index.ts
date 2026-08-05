@@ -54,6 +54,15 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/doctor',
+      name: 'project-doctor',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Diagnóstico do projeto',
+      },
+    },
+    {
       path: '/projects/:projectId/editor',
       name: 'project-editor',
       component: ProjectDetailsView,

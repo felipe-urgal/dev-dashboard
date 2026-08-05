@@ -14,6 +14,17 @@ export type {
 } from './project.js';
 
 export type {
+  ProjectDiagnosticAction,
+  ProjectDiagnosticActionTarget,
+  ProjectDiagnosticCategory,
+  ProjectDiagnosticCheck,
+  ProjectDiagnosticOverallStatus,
+  ProjectDiagnosticReport,
+  ProjectDiagnosticStatus,
+  ProjectDiagnosticSummary,
+} from './project-doctor.js';
+
+export type {
   ProjectEditor,
   ProjectEditorAvailability,
   ProjectEditorId,
