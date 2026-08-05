@@ -8,7 +8,9 @@ import {
   prepareProjectGitMutation,
 } from '../api';
 import {
+  forcePushProjectGitBranchWithLease,
   prepareProjectGitBranchPublish,
+  prepareProjectGitForcePushWithLease,
   publishProjectGitBranch,
 } from '../api/git-branch-publish';
 import { confirmDialog } from '../stores/app-dialog';
@@ -118,9 +120,52 @@ export function useProjectGitPanelPolicy(
     }
   }
 
+  async function runForcePushWithLease(): Promise<void> {
+    const branch = panel.amendedBranch.value;
+    if (!branch || panel.mutationRunning.value) return;
+
+    const confirmed = await confirmDialog({
+      title: 'Reenviar branch com lease?',
+      message:
+        `O histórico de origin/${branch} será atualizado para o commit alterado. `
+        + 'O envio será recusado automaticamente se alguém tiver publicado novos commits depois da confirmação.',
+      confirmLabel: 'Reenviar com lease',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+
+    panel.mutationRunning.value = true;
+    panel.mutationMessage.value = '';
+    panel.mutationErrorMessage.value = '';
+
+    try {
+      const confirmation = await prepareProjectGitForcePushWithLease(
+        props.project.id,
+        branch,
+      );
+      const pushedBranch = await forcePushProjectGitBranchWithLease(
+        props.project.id,
+        branch,
+        confirmation.token,
+      );
+      panel.amendedBranch.value = null;
+      panel.mutationMessage.value =
+        `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
+      await panel.reloadGitData();
+    } catch (error) {
+      panel.mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível reenviar a branch com lease.';
+    } finally {
+      panel.mutationRunning.value = false;
+    }
+  }
+
   return {
     ...panel,
     runMutation,
     runPublishBranch,
+    runForcePushWithLease,
   };
 }

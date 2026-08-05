@@ -50,7 +50,10 @@ falhas, mantendo o log original como fonte de verdade.
 - Project Doctor reconhece `.env.example` e `.env.sample` como arquivos de
   referência, priorizando `.env.example` quando ambos existem;
 - saída resumida do pytest preserva a mensagem de asserção e usa o alvo apenas
-  para identificar teste e arquivo.
+  para identificar teste e arquivo;
+- após um amend em branch publicada no origin, o painel oferece reenvio manual
+  com `--force-with-lease` explícito, confirmação vinculada ao SHA remoto,
+  recusa de branch protegida e registro no histórico de mutações.
 
 ## Validação
 

@@ -43,6 +43,13 @@ test('push e publicação de branch são write-remote', () => {
   assert.equal(findGitMutationCatalogEntry('branch-publish')?.risk, 'write-remote');
 });
 
+test('push forçado com lease é classificado como destructive', () => {
+  assert.equal(
+    findGitMutationCatalogEntry('branch-force-push-with-lease')?.risk,
+    'destructive',
+  );
+});
+
 test('findGitMutationCatalogEntry retorna undefined para identificador desconhecido', () => {
   assert.equal(findGitMutationCatalogEntry('nao-existe'), undefined);
 });

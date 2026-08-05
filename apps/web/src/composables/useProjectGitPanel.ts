@@ -73,6 +73,7 @@ export function useProjectGitPanel(
   const createBranchName = ref('');
   const commitMessage = ref('');
   const commitMode = ref<CommitMode>('create');
+  const amendedBranch = ref<string | null>(null);
   let generation = 0;
 
   useAutoDismiss(errorMessage, '');
@@ -441,6 +442,8 @@ export function useProjectGitPanel(
     }
 
     const amend = commitMode.value === 'amend';
+    const branchBeforeCommit = overview.value?.branch;
+    const upstreamBeforeCommit = overview.value?.upstream;
     const confirmed = await confirmDialog({
       title: amend ? 'Alterar último commit?' : 'Criar commit?',
       message: amend
@@ -476,6 +479,15 @@ export function useProjectGitPanel(
       mutationMessage.value = amend
         ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
         : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+      if (
+        amend
+        && branchBeforeCommit
+        && branchBeforeCommit !== 'main'
+        && branchBeforeCommit !== 'master'
+        && upstreamBeforeCommit === `origin/${branchBeforeCommit}`
+      ) {
+        amendedBranch.value = branchBeforeCommit;
+      }
       commitMessage.value = '';
       commitMode.value = 'create';
       await reloadGitData();
@@ -498,6 +510,7 @@ export function useProjectGitPanel(
       workspace.value = null;
       commitMessage.value = '';
       commitMode.value = 'create';
+      amendedBranch.value = null;
       activeTab.value = tabFromQuery();
       await Promise.all([
         loadGit(),
@@ -526,6 +539,7 @@ export function useProjectGitPanel(
     createBranchName,
     commitMessage,
     commitMode,
+    amendedBranch,
     generation,
     formatDate,
     openTab,

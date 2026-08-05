@@ -766,6 +766,90 @@ test('altera o último commit pelo modo amend', async () => {
   assert.match(mounted.wrapper.text(), /Commit "2222222" alterado/);
 });
 
+test('oferece reenvio com lease depois de alterar commit em branch publicada', async () => {
+  const originalConfirm = globalThis.confirm;
+  globalThis.confirm = () => true;
+
+  const mounted = await mountPanel({
+    overview: baseOverview,
+    handler: (request) => {
+      if (request.path.endsWith('/git/mutations/confirmations')) {
+        const body = request.body as { operation: string; target: string };
+        return jsonResponse({
+          confirmation: {
+            token: 'a'.repeat(64),
+            operation: body.operation,
+            target: body.target,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/commit/amend')) {
+        return jsonResponse({
+          commit: {
+            hash: '3'.repeat(40),
+            shortHash: '3333333',
+            subject: 'commit reescrito',
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches/force-push-with-lease/confirmations')) {
+        return jsonResponse({
+          confirmation: {
+            token: 'l'.repeat(64),
+            operation: 'push',
+            target: `feature/git-ui::${'1'.repeat(40)}`,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }, 201);
+      }
+      if (request.path.endsWith('/git/branches/force-push-with-lease')) {
+        return jsonResponse({ branch: { branch: 'feature/git-ui' } });
+      }
+      return undefined;
+    },
+  });
+  cleanup = () => {
+    mounted.restore();
+    globalThis.confirm = originalConfirm;
+  };
+
+  await clickTab(mounted.wrapper, 'Commit');
+  const amendButton = mounted.wrapper
+    .findAll('.git-commit-mode button')
+    .find((button) => button.text().includes('Alterar último commit'));
+  assert.ok(amendButton);
+  await amendButton.trigger('click');
+  await mounted.wrapper.find('.git-commit-message textarea').setValue('commit reescrito');
+  await mounted.wrapper.find('.git-commit-card').trigger('submit');
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(mounted.wrapper.text(), /Reenviar com lease/);
+  const forceButton = mounted.wrapper
+    .findAll('.git-force-push-notice button')
+    .find((button) => button.text().includes('Reenviar com lease'));
+  assert.ok(forceButton);
+  await forceButton.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  const confirmation = mounted.requests.find((request) =>
+    request.path.endsWith('/git/branches/force-push-with-lease/confirmations'),
+  );
+  const forcePush = mounted.requests.find((request) =>
+    request.path.endsWith('/git/branches/force-push-with-lease')
+      && !request.path.endsWith('/confirmations'),
+  );
+  assert.deepEqual(confirmation?.body, { branch: 'feature/git-ui' });
+  assert.deepEqual(forcePush?.body, {
+    branch: 'feature/git-ui',
+    confirmationToken: 'l'.repeat(64),
+  });
+  assert.match(mounted.wrapper.text(), /atualizada em origin\/feature\/git-ui com lease/);
+  assert.equal(mounted.wrapper.find('.git-force-push-notice').exists(), false);
+});
+
 test('abre a aba Diff como o componente dedicado, sem app aninhado', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;

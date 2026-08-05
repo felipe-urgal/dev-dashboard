@@ -18,6 +18,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
 async function createRepository(): Promise<{
   root: string;
   local: string;
+  origin: string;
 }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-publish-'));
   const local = path.join(root, 'local');
@@ -39,7 +40,7 @@ async function createRepository(): Promise<{
   await git(local, 'commit', '-m', 'feature commit');
   await git(local, 'switch', 'main');
 
-  return { root, local };
+  return { root, local, origin };
 }
 
 test('publishes a local branch to origin without switching the current branch', async () => {
@@ -85,6 +86,127 @@ test('publishes a local branch to origin without switching the current branch', 
         'refs/heads/feature/publicar',
       ),
       await git(local, 'rev-parse', 'feature/publicar'),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('reenviar commit alterado usa lease explícito e atualiza o origin', async () => {
+  const { root, local } = await createRepository();
+
+  try {
+    const service = new GitBranchPublishService();
+    await git(local, 'switch', 'feature/publicar');
+    const publishConfirmation = service.preparePublishConfirmation(
+      'project-1',
+      'feature/publicar',
+    );
+    await service.publishLocalBranch(
+      local,
+      'project-1',
+      'feature/publicar',
+      publishConfirmation.token,
+    );
+
+    await writeFile(path.join(local, 'feature.txt'), 'commit alterado\n');
+    await git(local, 'add', 'feature.txt');
+    await git(local, 'commit', '--amend', '-m', 'feature corrigida');
+
+    const confirmation = await service.prepareForcePushWithLeaseConfirmation(
+      local,
+      'project-1',
+      'feature/publicar',
+    );
+    assert.match(confirmation.target, /^feature\/publicar::[0-9a-f]{40}$/);
+
+    const result = await service.forcePushWithLease(
+      local,
+      'project-1',
+      'feature/publicar',
+      confirmation.token,
+    );
+    assert.equal(result.branch, 'feature/publicar');
+    assert.equal(
+      await git(
+        local,
+        '--git-dir',
+        path.join(root, 'origin.git'),
+        'rev-parse',
+        'refs/heads/feature/publicar',
+      ),
+      await git(local, 'rev-parse', 'feature/publicar'),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('lease recusa sobrescrever commits publicados depois da confirmação', async () => {
+  const { root, local, origin } = await createRepository();
+  const other = path.join(root, 'other');
+
+  try {
+    const service = new GitBranchPublishService();
+    await git(local, 'switch', 'feature/publicar');
+    const publishConfirmation = service.preparePublishConfirmation(
+      'project-1',
+      'feature/publicar',
+    );
+    await service.publishLocalBranch(
+      local,
+      'project-1',
+      'feature/publicar',
+      publishConfirmation.token,
+    );
+    await writeFile(path.join(local, 'feature.txt'), 'commit local alterado\n');
+    await git(local, 'add', 'feature.txt');
+    await git(local, 'commit', '--amend', '-m', 'feature local corrigida');
+
+    const confirmation = await service.prepareForcePushWithLeaseConfirmation(
+      local,
+      'project-1',
+      'feature/publicar',
+    );
+
+    await git(root, 'clone', origin, other);
+    await git(other, 'config', 'user.name', 'Outro Dev');
+    await git(other, 'config', 'user.email', 'outro@example.test');
+    await git(other, 'switch', 'feature/publicar');
+    await writeFile(path.join(other, 'other.txt'), 'novo commit remoto\n');
+    await git(other, 'add', 'other.txt');
+    await git(other, 'commit', '-m', 'novo commit remoto');
+    await git(other, 'push', 'origin', 'feature/publicar');
+    const remoteAfterOtherPush = await git(
+      other,
+      'rev-parse',
+      'feature/publicar',
+    );
+
+    await assert.rejects(
+      () => service.forcePushWithLease(
+        local,
+        'project-1',
+        'feature/publicar',
+        confirmation.token,
+      ),
+      (error: unknown) => Boolean(
+        error
+        && typeof error === 'object'
+        && 'code' in error
+        && error.code === 'GIT_FORCE_WITH_LEASE_REJECTED'
+      ),
+    );
+    assert.equal(
+      await git(
+        local,
+        '--git-dir',
+        origin,
+        'rev-parse',
+        'refs/heads/feature/publicar',
+      ),
+      remoteAfterOtherPush,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -83,7 +83,9 @@
         v-model:mode="commitMode"
         :overview="overview"
         :busy="mutationRunning"
+        :force-push-branch="amendedBranch"
         @submit="runCommit"
+        @force-push="runForcePushWithLease"
       />
 
       <ProjectGitUndoPage

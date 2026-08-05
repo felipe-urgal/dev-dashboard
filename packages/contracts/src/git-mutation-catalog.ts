@@ -188,6 +188,13 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
     requiresConfirmation: true,
   },
   {
+    id: 'branch-force-push-with-lease',
+    label: 'Reenviar branch com lease',
+    description: 'Reescreve a branch remota somente se ela ainda estiver no commit confirmado.',
+    risk: 'destructive',
+    requiresConfirmation: true,
+  },
+  {
     id: 'undo-commit',
     label: 'Desfazer commit',
     description: 'Desfaz o commit mais recente por reset ou revert.',
