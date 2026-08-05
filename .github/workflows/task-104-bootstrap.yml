@@ -1,9 +1,9 @@
 name: Task 104 bootstrap
 
 on:
-  push:
+  pull_request:
     branches:
-      - chore/task-104-eslint
+      - main
 
 permissions:
   contents: read
