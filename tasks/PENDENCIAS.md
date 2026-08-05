@@ -44,11 +44,11 @@ o histórico de entregas.
 
 ## Qualidade e manutenção
 
-- [ ] Expandir o Playwright para mutações Git e para operações de banco de
-  dados (snapshot/restore) — os dois fluxos privilegiados que
-  `apps/web/e2e/README.md` ainda lista como fora de escopo, por exigirem
-  fixtures mais caras (repositório Git real, serviço de banco). O catálogo
-  de scripts já ganhou cobertura na task 106.
+- [ ] Expandir o Playwright para commit, stash e operações de banco de dados
+  (snapshot/restore) — os fluxos privilegiados que `apps/web/e2e/README.md`
+  ainda lista como fora de escopo, por exigirem fixtures mais elaboradas
+  (árvore de trabalho suja controlada, serviço de banco). Scripts (task 106)
+  e mutações de branch Git (task 107) já ganharam cobertura.
 - [ ] Avaliar Prettier e uma política de formatação automática em entrega
   própria, evitando um diff massivo misturado com mudanças funcionais.
 - [ ] Medir cobertura e definir metas por camada.
