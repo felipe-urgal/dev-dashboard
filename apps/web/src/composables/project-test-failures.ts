@@ -74,7 +74,7 @@ function collectRspecBlocks(lines: string[]): FailureBlock[] {
 
 function collectMinitestBlocks(lines: string[]): FailureBlock[] {
   const blocks: FailureBlock[] = [];
-  const failureStart = /^\s*\d+\)\s+Failure:\s*$/;
+  const failureStart = /^\s*(?:\d+\)\s+)?Failure:\s*$/;
   const structuredName = /^[A-Za-z_][\w:]*#[^\s\[]+\s+\[[^\]]+\]:?\s*$/;
 
   for (let index = 0; index < lines.length; index += 1) {
