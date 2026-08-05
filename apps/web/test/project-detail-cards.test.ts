@@ -134,7 +134,7 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe o health check do servidor em execução', async () => {
+  it('não exibe o resumo visual do health check', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-health',
       projectId: project.id,
@@ -147,10 +147,7 @@ describe('cards dos painéis de detalhe', () => {
     await flushPromises();
 
     expect(fetchProjectServerHealth).toHaveBeenCalledWith(project.id);
-    expect(wrapper.get('.server-health-summary').text()).toContain('Saudável');
-    expect(wrapper.get('.server-health-summary').text()).toContain('/health');
-    expect(wrapper.get('.server-health-summary').text()).toContain('200');
-    expect(wrapper.get('.server-health-summary').text()).toContain('12 ms');
+    expect(wrapper.find('.server-health-summary').exists()).toBe(false);
 
     wrapper.unmount();
   });
