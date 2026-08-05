@@ -2,9 +2,8 @@
 
 ## Status
 
-Implementada no PR #191, em validação final com correções de robustez para o
-parser do pytest e para o deep link quando o editor é montado sem contexto de
-rota.
+Implementada no PR #191, em validação final com o navegador de falhas, os
+ajustes do Project Doctor e o reenvio seguro após amend.
 
 ## Contexto
 
@@ -13,8 +12,8 @@ acompanha o processo em tempo real e mantém o log bruto. O painel também
 classifica linhas como erro, aviso ou detalhe, mas ainda exige leitura manual
 do texto para localizar cada falha.
 
-A Task 098 continua em paralelo na área Git. Esta entrega evita serviços e
-componentes Git e não cria rota nova na API.
+A Task 098 foi concluída e esta entrega reutiliza sua política compartilhada
+de confirmação, risco e histórico para a nova mutação remota.
 
 ## Objetivo
 
@@ -32,7 +31,7 @@ falhas, mantendo o log original como fonte de verdade.
 - deep link para abrir arquivo e posição no editor embutido;
 - repetição manual do arquivo relacionado;
 - no máximo 20 falhas apresentadas e 50 estruturadas por parsing;
-- nenhum comando automático e nenhuma rota adicional.
+- nenhum comando automático e nenhuma rota adicional para os testes.
 
 ## Guardas
 
@@ -59,6 +58,8 @@ falhas, mantendo o log original como fonte de verdade.
 
 - testes unitários dos parsers por família de runner;
 - teste do fallback `.env.sample` no Project Doctor;
+- testes de sucesso e rejeição por lease desatualizado;
+- teste do fluxo amend → reenvio com lease na interface;
 - `npm run typecheck`;
 - `npm run build`;
 - `npm run docs:api:check`;
@@ -77,3 +78,6 @@ falhas, mantendo o log original como fonte de verdade.
    os nomes com `.env` e não exibe valores.
 5. Confirmar que o título “Diagnóstico do projeto” usa a mesma família
    tipográfica das demais páginas.
+6. Alterar o último commit de uma branch publicada e confirmar que “Reenviar
+   com lease” aparece; a ação deve falhar caso o origin tenha mudado desde a
+   confirmação.
