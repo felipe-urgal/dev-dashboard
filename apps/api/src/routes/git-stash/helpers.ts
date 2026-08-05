@@ -2,10 +2,12 @@ import type { FastifyPluginOptions } from 'fastify';
 
 import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
 import { GitStashError } from '../../services/git-stash-service.js';
+import type { GitMutationHistoryService } from '../../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
 
 export interface GitStashRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 export interface ProjectParams {

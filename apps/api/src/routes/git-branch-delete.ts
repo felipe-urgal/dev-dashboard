@@ -9,10 +9,13 @@ import {
   GitBranchDeleteError,
   GitBranchDeleteService,
 } from '../services/git-branch-delete-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitBranchDeleteRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 interface ProjectParams {
@@ -171,12 +174,13 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       }
       try {
         return {
-          branch: await service.deleteLocalBranch(
-            project.path,
-            project.id,
-            request.body.branch,
-            request.body.confirmationToken,
-          ),
+          branch: await withGitMutationHistory(options.gitMutationHistoryService, project, 'branch-delete', () =>
+            service.deleteLocalBranch(
+              project.path,
+              project.id,
+              request.body.branch,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateError(error);

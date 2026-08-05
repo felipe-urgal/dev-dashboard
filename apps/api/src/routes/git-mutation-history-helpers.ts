@@ -12,13 +12,28 @@ function errorCodeOf(error: unknown): string | undefined {
 }
 
 /**
+ * Códigos de "confirmação obrigatória" usados pelos diferentes serviços de
+ * mutação Git. A maioria reaproveita `GIT_MUTATION_CONFIRMATION_REQUIRED`
+ * (mesmo código de `GitMutationConfirmationError`), mas `GitSyncService` e
+ * `GitStashService` preservam seus próprios códigos externos já testados
+ * (`GIT_SYNC_CONFIRMATION_REQUIRED`/`GIT_STASH_CONFIRMATION_REQUIRED`) — a
+ * regra de "não registrar" se aplica aos três da mesma forma.
+ */
+const CONFIRMATION_REQUIRED_CODES = new Set([
+  'GIT_MUTATION_CONFIRMATION_REQUIRED',
+  'GIT_SYNC_CONFIRMATION_REQUIRED',
+  'GIT_STASH_CONFIRMATION_REQUIRED',
+]);
+
+/**
  * Confirmação ausente/expirada é uma falha de protocolo do cliente antes de
  * qualquer tentativa de mutação — não é o resultado de uma operação Git, por
  * isso não entra no histórico (mesma leitura de "operações somente leitura
  * não entram nesse histórico" aplicada ao passo anterior à execução).
  */
 function isConfirmationRequiredError(error: unknown): boolean {
-  return errorCodeOf(error) === 'GIT_MUTATION_CONFIRMATION_REQUIRED';
+  const code = errorCodeOf(error);
+  return code !== undefined && CONFIRMATION_REQUIRED_CODES.has(code);
 }
 
 /**

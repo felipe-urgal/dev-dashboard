@@ -1,10 +1,16 @@
 import { execFile } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
+
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
 const BRANCH_NAME_PATTERN = /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+/** Identificador do catálogo (`git-mutation-catalog.ts`) para esta operação. */
+const CATALOG_OPERATION_ID = 'branch-rename';
 
 export type GitBranchRenameErrorCode =
   | 'GIT_NOT_REPOSITORY'
@@ -33,12 +39,8 @@ export interface GitBranchRenameConfirmation {
   expiresAt: string;
 }
 
-interface StoredConfirmation {
-  token: string;
-  projectId: string;
-  currentName: string;
-  nextName: string;
-  expiresAt: number;
+function renameTarget(currentName: string, nextName: string): string {
+  return `${currentName}::${nextName}`;
 }
 
 async function runGit(
@@ -92,7 +94,12 @@ function assertNotProtected(name: string): void {
 }
 
 export class GitBranchRenameService {
-  private readonly confirmations = new Map<string, StoredConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
 
   public prepareConfirmation(
     projectId: string,
@@ -110,23 +117,18 @@ export class GitBranchRenameService {
       );
     }
 
-    this.pruneExpired();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
+    const { token, expiresAt } = this.confirmations.prepare(
       projectId,
-      currentName: current,
-      nextName: next,
-      expiresAt,
-    });
+      CATALOG_OPERATION_ID,
+      renameTarget(current, next),
+    );
 
     return {
       token,
       operation: 'rename-branch',
       currentName: current,
       nextName: next,
-      expiresAt: new Date(expiresAt).toISOString(),
+      expiresAt,
     };
   }
 
@@ -203,28 +205,21 @@ export class GitBranchRenameService {
     nextName: string,
     token: string | undefined,
   ): void {
-    this.pruneExpired();
-    const confirmation = token
-      ? this.confirmations.get(token)
-      : undefined;
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.currentName !== currentName
-      || confirmation.nextName !== nextName
-    ) {
-      throw new GitBranchRenameError(
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para renomear a branch.',
+    try {
+      this.confirmations.consume(
+        projectId,
+        CATALOG_OPERATION_ID,
+        renameTarget(currentName, nextName),
+        token,
       );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpired(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitBranchRenameError(
+          'GIT_MUTATION_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para renomear a branch.',
+        );
+      }
+      throw error;
     }
   }
 }

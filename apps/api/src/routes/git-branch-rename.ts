@@ -9,10 +9,13 @@ import {
   GitBranchRenameError,
   GitBranchRenameService,
 } from '../services/git-branch-rename-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitBranchRenameRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 interface ProjectParams {
@@ -200,13 +203,14 @@ export const gitBranchRenameRoutes: FastifyPluginAsync<
 
       try {
         return {
-          branch: await service.renameLocalBranch(
-            project.path,
-            project.id,
-            request.body.currentName,
-            request.body.nextName,
-            request.body.confirmationToken,
-          ),
+          branch: await withGitMutationHistory(options.gitMutationHistoryService, project, 'branch-rename', () =>
+            service.renameLocalBranch(
+              project.path,
+              project.id,
+              request.body.currentName,
+              request.body.nextName,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateError(error);

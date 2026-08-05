@@ -11,10 +11,13 @@ import {
   GitSyncError,
   GitSyncService,
 } from '../services/git-sync-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitSyncRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 interface ProjectParams {
@@ -305,11 +308,12 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          result: await service.synchronizeMain(
-            project.path,
-            project.id,
-            request.body.confirmationToken,
-          ),
+          result: await withGitMutationHistory(options.gitMutationHistoryService, project, 'sync-main', () =>
+            service.synchronizeMain(
+              project.path,
+              project.id,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateSyncError(error);
@@ -345,13 +349,14 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          result: await service.integrate(
-            project.path,
-            project.id,
-            request.body.reference,
-            request.body.strategy,
-            request.body.confirmationToken,
-          ),
+          result: await withGitMutationHistory(options.gitMutationHistoryService, project, 'sync-integrate', () =>
+            service.integrate(
+              project.path,
+              project.id,
+              request.body.reference,
+              request.body.strategy,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateSyncError(error);

@@ -9,10 +9,13 @@ import {
   GitUndoService,
   type GitUndoOperation,
 } from '../services/git-undo-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitUndoRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 interface ProjectParams {
@@ -221,11 +224,12 @@ export const gitUndoRoutes: FastifyPluginAsync<GitUndoRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          undo: await service.undoLastCommit(
-            project.path,
-            project.id,
-            request.body.confirmationToken,
-          ),
+          undo: await withGitMutationHistory(options.gitMutationHistoryService, project, 'undo-commit', () =>
+            service.undoLastCommit(
+              project.path,
+              project.id,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateUndoError(error);
@@ -246,12 +250,13 @@ export const gitUndoRoutes: FastifyPluginAsync<GitUndoRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          file: await service.undoFile(
-            project.path,
-            project.id,
-            request.body.path,
-            request.body.confirmationToken,
-          ),
+          file: await withGitMutationHistory(options.gitMutationHistoryService, project, 'undo-file', () =>
+            service.undoFile(
+              project.path,
+              project.id,
+              request.body.path,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateUndoError(error);
