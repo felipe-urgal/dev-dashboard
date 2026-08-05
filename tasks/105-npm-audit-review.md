@@ -119,5 +119,4 @@ a revisão de vulnerabilidades).
 ## Arquivos alterados
 
 - `tasks/105-npm-audit-review.md` (este arquivo).
-- `tasks/PENDENCIAS.md`, `tasks/README.md`, `tasks/NEXT.md` (registro e
-  reconciliação, ver commit).
+- `tasks/PENDENCIAS.md`, `tasks/NEXT.md` (reconciliação, ver commit).

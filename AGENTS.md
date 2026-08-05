@@ -23,16 +23,21 @@ outro; o web reaproveita conceitos por trás de uma API HTTP local.
    (status, arquivos, decisões, limitações);
    - substituir `tasks/NEXT.md` pelo plano detalhado da próxima
      entrega;
-   - atualizar `tasks/README.md` com a nova entrada e reconciliar
-     `tasks/PENDENCIAS.md`.
-3. **Segurança da API**: leia `docs/architecture/security.md` antes de
+   - reconciliar `tasks/PENDENCIAS.md`.
+3. **Documentação sempre atualizada**: todo ajuste, correção ou nova
+   funcionalidade que muda comportamento, rota, capacidade ou fluxo
+   precisa atualizar o documento correspondente em `docs/` (arquitetura,
+   guias, segurança) na mesma entrega — não depois. Uma mudança que altera
+   comportamento sem atualizar `docs/` está incompleta (ver a tabela
+   "Onde documentar" em `CONTRIBUTING.md`).
+4. **Segurança da API**: leia `docs/architecture/security.md` antes de
    adicionar qualquer rota. A API é um processo privilegiado local:
    nada de shell arbitrário, `cwd` sempre do `ProjectStore`, catálogo
    de ações fechado, schemas de resposta explícitos.
-4. **CLI bash e web são independentes**: mudanças em `lib/*` não
+5. **CLI bash e web são independentes**: mudanças em `lib/*` não
    precisam tocar em `apps/`/`packages/` e vice-versa. Se precisar de
    compartilhamento, decida deliberadamente e documente.
-5. **UI dupla no CLI bash**: qualquer função interativa deve suportar
+6. **UI dupla no CLI bash**: qualquer função interativa deve suportar
    `gum` **e** o fallback puro (`read -r -p` + menu numerado).
 
 ## Layout do repositório
@@ -122,7 +127,7 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 2. Implementar, adicionando ao menos um teste automatizado quando o
    escopo suportar.
 3. Rodar `npm run typecheck && npm run build && npm test`.
-4. Atualizar o documento da task e o `tasks/README.md`.
+4. Atualizar o documento da task e reconciliar `tasks/PENDENCIAS.md`.
 5. Substituir `tasks/NEXT.md` pelo próximo plano.
 6. Commit descritivo em português, PR em draft.
 

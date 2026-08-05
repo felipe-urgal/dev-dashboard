@@ -1,15 +1,15 @@
 # Frentes paralelas
 
 `NEXT.md` continua reservado para o plano detalhado da **próxima entrega
-única**, atualizado só quando a task corrente é concluída (ver
-`tasks/README.md`). Este documento é diferente: uma lista curada de
-candidatas do inventário (`PENDENCIAS.md`) que **não competem pelos mesmos
-arquivos**, para quando mais de uma pessoa/agente está implementando ao
-mesmo tempo. Antes de pegar uma linha daqui, confira a coluna "Conflito
-conhecido" contra o que já está em andamento.
+única**, atualizado só quando a task corrente é concluída. Este documento é
+diferente: uma lista curada de candidatas do inventário (`PENDENCIAS.md`)
+que **não competem pelos mesmos arquivos**, para quando mais de uma
+pessoa/agente está implementando ao mesmo tempo. Antes de pegar uma linha
+daqui, confira a coluna "Conflito conhecido" contra o que já está em
+andamento.
 
 Ao começar uma atividade desta lista, marque-a com o branch/PR em uso; ao
-terminar, mova o resultado para `tasks/README.md` (com o número de task
+terminar, registre o resultado em `tasks/NNN-*.md` (com o número de task
 seguinte livre) e remova a linha daqui.
 
 ## Em andamento
