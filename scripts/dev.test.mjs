@@ -37,7 +37,7 @@ test('stopChild envia sinal para processo-filho no Linux (pid negativo para grup
 });
 
 test('stopChild usa child.kill no Windows', () => {
-  const fakeChild = { pid: 42, kill: (sig) => {} };
+  const fakeChild = { pid: 42, kill: (_sig) => {} };
   assert.equal(typeof fakeChild.kill, 'function');
 });
 

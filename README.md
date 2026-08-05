@@ -19,7 +19,8 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations, routes e geradores (model/migration) do Rails, com operações mutáveis sob confirmação, e diagnóstico Bundler somente leitura
-- Sidekiq, webpack-dev-server e serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build), com status somente leitura de credentials Rails
+- Sidekiq e webpack-dev-server como processos de fundo geridos (start/stop/restart/logs), com status somente leitura das credentials do Rails
+- Serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build)
 - Inspeção de configurações e disponibilidade de bancos locais, com snapshot e restore com confirmação
 - Perfis de ambiente reutilizáveis e leitura de variáveis por projeto, sem persistir valor de variáveis com nome de segredo
 - IDE embutida (Monaco), com LSP JavaScript/TypeScript e Ruby/Rails, e assistente de IA local via Ollama (opcional, isolado em painel próprio)

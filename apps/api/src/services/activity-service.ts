@@ -48,10 +48,6 @@ function mapProcessStatus(process: ManagedProcess): ActivityStatus {
   }
 }
 
-function scriptTimestamp(execution: ScriptExecution): string {
-  return execution.finishedAt ?? execution.startedAt;
-}
-
 function processTimestamp(process: ManagedProcess): string {
   return process.stoppedAt ?? process.startedAt ?? new Date(0).toISOString();
 }

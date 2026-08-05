@@ -91,7 +91,7 @@ function createStubApp(prefix, collected) {
   };
 
   for (const method of HTTP_METHODS) {
-    stub[method] = (url, optsOrHandler, maybeHandler) => {
+    stub[method] = (url, optsOrHandler, _maybeHandler) => {
       const opts = typeof optsOrHandler === 'function' ? undefined : optsOrHandler;
       recordRoute(method, url, opts);
       return stub;

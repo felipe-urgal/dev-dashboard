@@ -24,8 +24,10 @@ distribuição local em origem única (o mesmo usado por `npm run dev-web`), com
 
 - `DEV_DASHBOARD_CONFIG_DIR` apontando para um diretório temporário exclusivo
   do teste (nunca `~/.config/dev-dashboard`);
-- um workspace de fixture, também temporário, contendo um único projeto Node
-  determinístico (`sample-node-app`);
+- um workspace de fixture, também temporário, contendo dois projetos
+  determinísticos: um Node (`sample-node-app`) e um Rails com Sidekiq
+  (`sample-rails-app`, com um `bin/sidekiq` controlável que dorme até
+  receber `TERM`, sem depender de Ruby/Redis instalados no runner);
 - um token de bootstrap de navegador gerado por execução.
 
 Os testes navegam usando `#bootstrap=<token>` na primeira carga de cada
@@ -63,9 +65,19 @@ Baselines são gerados neste ambiente Linux/Chromium; a CI roda no mesmo par
 SO/motor (`ubuntu-latest` + Chromium), então não é necessário gerar variantes
 por plataforma.
 
+## Catálogo de scripts
+
+`tests/project-scripts.spec.ts` cobre o fluxo privilegiado de execução de
+scripts, com a matriz de carregamento/sucesso/erro/troca de projeto: um
+script somente leitura (`lint`, sem confirmação) até "Concluída", um script
+mutável (`build`, com confirmação explícita) até "Falhou", e a troca para
+`sample-rails-app` para confirmar que o catálogo (ações de Bundler) muda por
+projeto sem resquício do anterior. Os scripts de fixture têm ~500ms de
+duração proposital para o estado "Em execução" ficar observável antes do
+desfecho.
+
 ## Fora do escopo desta base
 
-- Cobertura E2E de mutações (Git, scripts, banco) ou de processos do sistema
-  operacional.
+- Cobertura E2E de mutações Git ou de banco de dados.
 - Testes contra projetos reais do diretório pessoal do desenvolvedor.
 - Outros motores além do Chromium.

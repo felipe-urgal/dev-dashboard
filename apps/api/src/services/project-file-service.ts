@@ -529,7 +529,7 @@ export class ProjectFileService {
       );
     }
     const limit = Math.min(Math.max(requestedLimit, 1), MAX_SEARCH_RESULTS);
-    const root = await canonicalRoot(projectPath);
+    await canonicalRoot(projectPath);
     const queue: Array<{ relativePath: string; depth: number }> = [
       { relativePath: '', depth: 0 },
     ];
