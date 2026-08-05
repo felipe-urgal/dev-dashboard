@@ -1,0 +1,27 @@
+name: Temporary sync selector fix
+
+on:
+  push:
+    branches:
+      - agent/task-100-test-failure-navigator
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-sync-selector-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/task-100-test-failure-navigator
+      - name: Apply selector fix
+        run: python3 .tmp_fix_sync_test_selectors.py
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: diferencia os cards de sincronização [skip-sync-selector-fix]"
+          git push origin HEAD:agent/task-100-test-failure-navigator
