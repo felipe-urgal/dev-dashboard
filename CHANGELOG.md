@@ -18,6 +18,18 @@ projeto é `"private": true`) — ver a task 093 e o item correspondente em
 
 ### 2026-08-05
 
+- Merge branch 'worktree-agent-ade51252194734ced' into claude/atuacao-3-frentes-sd7lt7 (`4b162b5`)
+
+### Task 096
+
+- Task 096: catálogo de risco, confirmação e histórico de mutações Git (`3f2a042`)
+
+### Task 097
+
+- Task 097: adiciona aba de variáveis de ambiente por projeto (`b48bc0c`)
+
+### 2026-08-05
+
 - fix: painel Sidekiq/webpack — ícones, log e visibilidade condicional (`9d17ce8`)
 - fix: corrige ícones sem tamanho no layout de Perfis de ambiente (`5419229`)
 - Adiciona licença MIT ao projeto (`7bd9bd0`)

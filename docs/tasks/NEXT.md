@@ -1,86 +1,81 @@
 # Próxima atividade
 
-A task 089 adicionou projetos recentes por workspace com persistência privada,
-registro apenas em navegação deliberada e prioridade explícita dos favoritos. A
-task 090, executada em paralelo, entregou cache da detecção inicial do CLI. A
-próxima melhoria operacional priorizada pela auditoria da task 086 é reduzir a
-inconsistência entre confirmações e resultados das mutações Git.
+A task 096 entregou a primeira etapa da política unificada de risco e
+histórico das mutações Git: catálogo fechado das 24 operações reconhecidas,
+mecanismo de confirmação compartilhado e histórico persistente e limitado.
+`GitService` (11 das 13 operações de `GitMutationOperation`, mais
+`discard-file`/`remove-untracked-file`) já migrou, sem alterar o
+comportamento externo de nenhuma rota existente. Ver
+`docs/tasks/096-git-mutation-risk-policy.md` para o inventário completo do
+que foi entregue e do que ficou de fora.
 
-## Task 091 — Política unificada de risco e histórico Git
+## Task 098 — Migração completa da política de risco e histórico Git
 
 ### Objetivo
 
-Criar um contrato comum para classificar, confirmar e registrar as mutações Git
-já existentes, tornando previsíveis as operações de branch, sincronização,
-commit, stash, arquivos e desfazer sem alterar seus comandos ou permitir shell
-livre.
-
-### Decisão principal
-
-A API continuará sendo a autoridade das mutações. Cada operação reconhecida
-será descrita por um catálogo fechado com identificador, nível de risco,
-impacto resumido e exigência de confirmação. O histórico guardará apenas
-metadados operacionais limitados, nunca comandos arbitrários, conteúdo de
-arquivos, patches, credenciais ou caminhos absolutos.
+Terminar a migração faseada iniciada na task 096: levar os serviços de
+mutação Git restantes para o mesmo mecanismo de confirmação compartilhado
+(`GitMutationConfirmationService`) e para o mesmo histórico persistente
+(`GitMutationHistoryService`), sem alterar o comportamento externo de
+nenhuma rota já existente — mesmo padrão de migração já usado na task 096
+para `GitService`.
 
 ### Escopo
 
-- inventariar todas as operações aceitas por `GitMutationOperation` e rotas Git;
-- definir níveis comuns de risco, inicialmente:
-  - `read-only` para consultas, fora do histórico de mutações;
-  - `write-safe` para alterações locais reversíveis;
-  - `write-remote` para publicação ou remoção em remoto;
-  - `destructive` para descarte, exclusão ou reescrita com impacto elevado;
-- centralizar rótulo, descrição, risco e política de confirmação em catálogo
-  compartilhado pela API e frontend;
-- manter tokens de confirmação curtos, vinculados a projeto, operação e
-  parâmetros normalizados, com uso único e expiração;
-- criar histórico persistente e limitado de resultados das mutações:
-  - projeto e workspace conhecidos;
-  - operação do catálogo;
-  - risco;
-  - instante definido pelo servidor;
-  - resultado `succeeded` ou `failed`;
-  - código de erro controlado, quando houver;
-- não registrar mensagens de commit, nomes sensíveis, caminhos, patches,
-  stdout/stderr ou tokens de confirmação;
-- expor uma rota paginada e autenticada para o histórico do projeto;
-- adicionar uma visão compacta no painel Git, sem substituir o Histórico de
-  commits;
-- migrar confirmações existentes por etapas sem mudar o comportamento dos
-  comandos Git;
-- adicionar testes de catálogo, vínculo/expiração, persistência, limites,
-  paginação, mascaramento e compatibilidade das rotas atuais;
-- atualizar segurança, roadmap, pendências e documentação da task.
+Serviços que já têm entrada no catálogo (`packages/contracts/src/git-mutation-catalog.ts`)
+mas ainda mantêm seu próprio mecanismo de confirmação ad hoc e não gravam no
+histórico:
 
-### Política inicial
+- `DashboardGitService` — sobrescreve a confirmação de
+  `create-branch`/`commit`/`amend` com uma política própria do dashboard;
+  decidir se adota `GitMutationConfirmationService` diretamente ou se a
+  composição atual (herdar de `GitService` e sobrescrever) já é suficiente
+  antes de migrar;
+- `GitSyncService` (`sync-integrate`, `sync-main`);
+- `GitStashService` (`panel-stash-create`, `panel-stash-apply`,
+  `panel-stash-pop`, `panel-stash-drop`);
+- `GitBranchRenameService` (`branch-rename`);
+- `GitBranchDeleteService` (`branch-delete`);
+- `GitBranchPublishService` (`branch-publish`);
+- `GitUndoService` (`undo-commit`, `undo-file`).
 
-- manter no máximo 200 eventos por projeto e 2.000 no total;
-- retenção somente local, sem sincronização;
-- evento escrito após a tentativa, inclusive em falha controlada;
-- falha ao persistir histórico não transforma uma mutação bem-sucedida em
-  falha, mas deve ser registrada no log interno da API;
-- operações somente leitura não entram nesse histórico;
-- catálogo fechado é a única fonte de rótulo e risco exibidos na UI.
+Para cada serviço:
+
+- substituir o `Map` de confirmação privado por
+  `GitMutationConfirmationService`, preservando TTL e o código de erro de
+  confirmação já usado por quem consome a rota (mesmo padrão da migração de
+  `GitService` na task 096 — comportamento externo idêntico, implementação
+  interna compartilhada);
+- envolver a chamada de mutação nas rotas correspondentes com
+  `withGitMutationHistory` (`apps/api/src/routes/git-mutation-history-helpers.ts`),
+  registrando sucesso/falha com o `errorCode` já traduzido;
+- **não** registrar quando o erro for de confirmação ausente/expirada
+  (mesma regra já aplicada a `GitService`).
 
 ### Critérios de aceite
 
-- operações equivalentes usam o mesmo vocabulário de risco e confirmação;
-- uma confirmação não pode ser reutilizada, trocada de projeto/operação ou
-  aplicada após expirar;
-- o histórico sobrevive ao reinício e respeita limites por projeto e globais;
-- nenhum evento expõe conteúdo de arquivos, comandos livres, credenciais ou
-  caminho absoluto;
-- a UI diferencia histórico de mutações do histórico de commits;
-- rotas Git existentes mantêm seus códigos e resultados funcionais;
-- typecheck, build, testes e smoke E2E continuam aprovados.
+- todas as 24 operações do catálogo passam a gerar evento de histórico
+  quando executadas (hoje só 11 geram);
+- suítes de teste existentes de cada serviço/rota (`git-sync`, `git-stash`,
+  `git-branch-rename`, `git-branch-delete`, `git-undo`, rotas de branch
+  publish) continuam passando sem modificação — comportamento externo
+  preservado;
+- novos testes de histórico por serviço migrado, no mesmo padrão de
+  `apps/api/test/git-mutation-history-routes.test.ts`;
+- `typecheck`, `build`, `docs:api:check`, `test` e smoke E2E continuam
+  aprovados.
+
+### Depois desta etapa
+
+Reavaliar se a rota de leitura do catálogo (hoje só consumido em build-time
+via import direto de `@dev-dashboard/contracts` no bundle do frontend)
+precisa de um endpoint HTTP dedicado, ou se isso nunca chega a ser
+necessário.
 
 ### Fora do escopo
 
-- undo automático universal;
-- auditoria remota ou multiusuário;
-- execução de comandos Git fornecidos pelo navegador;
-- armazenamento de patches ou diffs no histórico;
-- substituir o histórico de commits;
-- alterar a estratégia atual de pull, push ou sincronização da `main`;
-- integração com provedores externos.
+Os mesmos itens já fora de escopo na task 096: undo automático universal,
+auditoria remota/multiusuário, execução de comando Git livre vindo do
+navegador, armazenamento de patches/diffs no histórico, substituir o
+histórico de commits, alterar a estratégia de pull/push/sync da própria
+`main` deste repositório, integração com provedores externos.
