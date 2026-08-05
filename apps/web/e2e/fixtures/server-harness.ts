@@ -34,6 +34,13 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
         scripts: {
           dev: 'node -e "process.exit(0)"',
           test: 'node -e "process.exit(0)"',
+          // Duração observável (~500ms) para o e2e do catálogo de scripts
+          // exercitar o estado "Em execução" antes do desfecho; nomes
+          // escolhidos para não colidir com "dev"/"test" (reservados pelo
+          // início de servidor e pela detecção de testes) nem com "build"
+          // (delegado à aba Dependências, ver project-script-visibility.ts).
+          lint: 'node -e "setTimeout(() => process.exit(0), 500)"',
+          format: 'node -e "setTimeout(() => process.exit(1), 500)"',
         },
       },
       null,
@@ -43,6 +50,12 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   await writeFile(
     path.join(projectDirectory, '.env'),
     'PUBLIC_API_URL=https://example.com\nAPI_SECRET_TOKEN=segredo-de-teste\n',
+  );
+  // Lockfile mínimo: a execução de scripts (diferente do início do servidor)
+  // resolve o gerenciador de pacotes a partir dele antes de rodar o comando.
+  await writeFile(
+    path.join(projectDirectory, 'package-lock.json'),
+    JSON.stringify({ name: 'sample-node-app', version: '0.0.0', lockfileVersion: 3 }, null, 2),
   );
 }
 

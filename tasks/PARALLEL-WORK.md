@@ -42,3 +42,7 @@ virar código:
   uma cópia vendorizada de DOMPurify dentro do `monaco-editor` (já na versão
   estável mais recente, sem upgrade patch/minor real disponível); risco
   documentado, nenhuma dependência alterada.
+- Task 106 — E2E do catálogo de scripts (fluxo privilegiado): carregamento,
+  sucesso, erro (com confirmação obrigatória) e troca de projeto (estado
+  vazio natural em `sample-rails-app`). Git e banco de dados continuam fora
+  de escopo da base de E2E, por exigirem fixtures mais caras.
