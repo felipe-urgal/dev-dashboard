@@ -1,0 +1,2149 @@
+name: Task 101 Apply
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'agent/task-101-safe-port-inspector'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Aplicar Task 101
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def write(path: str, content: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content.rstrip() + "\n", encoding="utf-8")
+
+          def replace(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              contents = target.read_text(encoding="utf-8")
+              if old not in contents:
+                  raise SystemExit(f"Trecho não encontrado em {path}: {old[:80]!r}")
+              target.write_text(contents.replace(old, new, 1), encoding="utf-8")
+
+          write("packages/contracts/src/port.ts", r"""
+          import type {
+            ManagedProcessKind,
+            ManagedProcessStatus,
+          } from './process.js';
+
+          export type LocalPortInspectionStatus =
+            'ready' | 'unsupported' | 'unavailable';
+
+          export type LocalPortState = 'available' | 'occupied';
+
+          export type LocalPortScope =
+            'loopback' | 'all-interfaces';
+
+          export interface LocalPortManagedProcess {
+            id: string;
+            projectId: string;
+            projectName: string;
+            kind: ManagedProcessKind;
+            status: ManagedProcessStatus;
+          }
+
+          export interface LocalPortExternalProcess {
+            pid: number;
+            name: string;
+          }
+
+          export interface LocalPortExpectation {
+            projectId: string;
+            projectName: string;
+            service: 'server';
+          }
+
+          export interface LocalPortEntry {
+            port: number;
+            address: string;
+            scope: LocalPortScope;
+            state: LocalPortState;
+            conflict: boolean;
+            expected: LocalPortExpectation[];
+            managedProcess?: LocalPortManagedProcess;
+            externalProcess?: LocalPortExternalProcess;
+            suggestedPort?: number;
+          }
+
+          export interface LocalPortInspection {
+            status: LocalPortInspectionStatus;
+            platform: 'linux' | 'unsupported';
+            inspectedAt: string;
+            entries: LocalPortEntry[];
+            truncated: boolean;
+            warning?: string;
+          }
+          """)
+
+          replace(
+              "packages/contracts/src/index.ts",
+              """export type {\n  ManagedProcess,\n  ManagedProcessKind,\n  ManagedProcessStatus,\n  ProcessLogSnapshot,\n} from './process.js';\n\nexport type {\n  ProjectServerHealth,""",
+              """export type {\n  ManagedProcess,\n  ManagedProcessKind,\n  ManagedProcessStatus,\n  ProcessLogSnapshot,\n} from './process.js';\n\nexport type {\n  LocalPortEntry,\n  LocalPortExpectation,\n  LocalPortExternalProcess,\n  LocalPortInspection,\n  LocalPortInspectionStatus,\n  LocalPortManagedProcess,\n  LocalPortScope,\n  LocalPortState,\n} from './port.js';\n\nexport type {\n  ProjectServerHealth,""",
+          )
+
+          write("apps/api/src/services/port-inspector-service.ts", r"""
+          import { execFile } from 'node:child_process';
+          import { readFile } from 'node:fs/promises';
+
+          import type {
+            LocalPortEntry,
+            LocalPortExpectation,
+            LocalPortExternalProcess,
+            LocalPortInspection,
+            ManagedProcess,
+          } from '@dev-dashboard/contracts';
+
+          const COMMAND_TIMEOUT_MS = 1_500;
+          const MAX_OUTPUT_BYTES = 256 * 1_024;
+          const DEFAULT_MAX_ENTRIES = 100;
+          const MAX_SUGGESTION_DISTANCE = 100;
+
+          const ACTIVE_STATUSES = new Set([
+            'starting',
+            'running',
+            'stopping',
+          ]);
+
+          interface ParsedSocket {
+            address: string;
+            port: number;
+            scope: 'loopback' | 'all-interfaces';
+            pid?: number;
+            processName?: string;
+          }
+
+          interface PendingEntry {
+            entry: LocalPortEntry;
+            externalPid?: number;
+            externalName?: string;
+          }
+
+          export interface ExpectedLocalPort
+            extends LocalPortExpectation {
+            port: number;
+          }
+
+          export interface InspectLocalPortsInput {
+            managedProcesses?: readonly ManagedProcess[];
+            expectedPorts?: readonly ExpectedLocalPort[];
+            projectNames?: Readonly<Record<string, string>>;
+          }
+
+          export interface PortInspectorServiceOptions {
+            platform?: NodeJS.Platform;
+            now?: () => Date;
+            runSs?: () => Promise<string>;
+            readTextFile?: (filePath: string) => Promise<string>;
+            getUid?: () => number | undefined;
+            maxEntries?: number;
+          }
+
+          function runSsCommand(): Promise<string> {
+            return new Promise((resolve, reject) => {
+              execFile(
+                'ss',
+                ['-H', '-ltnp'],
+                {
+                  encoding: 'utf8',
+                  maxBuffer: MAX_OUTPUT_BYTES,
+                  timeout: COMMAND_TIMEOUT_MS,
+                  windowsHide: true,
+                },
+                (error, stdout) => {
+                  if (error) {
+                    reject(error);
+                    return;
+                  }
+
+                  resolve(
+                    typeof stdout === 'string'
+                      ? stdout
+                      : stdout.toString('utf8'),
+                  );
+                },
+              );
+            });
+          }
+
+          function sanitizeProcessName(value: string): string {
+            const sanitized = value
+              .replace(/[\u0000-\u001f\u007f]/g, '')
+              .trim()
+              .slice(0, 64);
+
+            return sanitized || 'processo';
+          }
+
+          function normalizeAddress(
+            value: string,
+          ): Pick<ParsedSocket, 'address' | 'scope'> | null {
+            const address = value
+              .replace(/^\[/, '')
+              .replace(/\]$/, '')
+              .split('%', 1)[0]
+              ?.toLowerCase();
+
+            if (!address) return null;
+
+            if (address === '*' || address === '0.0.0.0') {
+              return {
+                address: '0.0.0.0',
+                scope: 'all-interfaces',
+              };
+            }
+
+            if (address === '::') {
+              return {
+                address: '::',
+                scope: 'all-interfaces',
+              };
+            }
+
+            if (
+              address === 'localhost' ||
+              address === '::1' ||
+              address === '::ffff:127.0.0.1' ||
+              /^127(?:\.\d{1,3}){3}$/.test(address)
+            ) {
+              return {
+                address: address === 'localhost'
+                  ? '127.0.0.1'
+                  : address,
+                scope: 'loopback',
+              };
+            }
+
+            return null;
+          }
+
+          function parseEndpoint(value: string): Pick<
+            ParsedSocket,
+            'address' | 'port' | 'scope'
+          > | null {
+            const separator = value.lastIndexOf(':');
+            if (separator <= 0) return null;
+
+            const port = Number(value.slice(separator + 1));
+            if (
+              !Number.isInteger(port) ||
+              port < 1 ||
+              port > 65_535
+            ) {
+              return null;
+            }
+
+            const normalized = normalizeAddress(
+              value.slice(0, separator),
+            );
+            if (!normalized) return null;
+
+            return {
+              ...normalized,
+              port,
+            };
+          }
+
+          function parseSocketLine(line: string): ParsedSocket | null {
+            const columns = line.trim().split(/\s+/);
+            const endpoint = parseEndpoint(columns[3] ?? '');
+            if (!endpoint) return null;
+
+            const processMatch = line.match(
+              /\("([^"]{1,64})",pid=(\d+)/,
+            );
+            const parsedPid = processMatch?.[2]
+              ? Number(processMatch[2])
+              : undefined;
+
+            return {
+              ...endpoint,
+              ...(Number.isInteger(parsedPid) && parsedPid! > 0
+                ? { pid: parsedPid }
+                : {}),
+              ...(processMatch?.[1]
+                ? { processName: sanitizeProcessName(processMatch[1]) }
+                : {}),
+            };
+          }
+
+          function parseSockets(contents: string): ParsedSocket[] {
+            const seen = new Set<string>();
+            const sockets: ParsedSocket[] = [];
+
+            for (const line of contents.split(/\r?\n/)) {
+              const socket = parseSocketLine(line);
+              if (!socket) continue;
+
+              const key = [
+                socket.address,
+                socket.port,
+                socket.pid ?? '',
+              ].join(':');
+              if (seen.has(key)) continue;
+              seen.add(key);
+              sockets.push(socket);
+            }
+
+            return sockets;
+          }
+
+          function chooseManagedProcess(
+            socket: ParsedSocket,
+            managedProcesses: readonly ManagedProcess[],
+          ): ManagedProcess | undefined {
+            const candidates = managedProcesses.filter(
+              (managed) =>
+                managed.port === socket.port &&
+                ACTIVE_STATUSES.has(managed.status),
+            );
+
+            if (socket.pid !== undefined) {
+              return candidates.find(
+                (managed) => managed.pid === socket.pid,
+              );
+            }
+
+            return candidates.length === 1
+              ? candidates[0]
+              : undefined;
+          }
+
+          function nextSuggestedPort(
+            port: number,
+            occupiedPorts: ReadonlySet<number>,
+          ): number | undefined {
+            const finalPort = Math.min(
+              65_535,
+              port + MAX_SUGGESTION_DISTANCE,
+            );
+
+            for (
+              let candidate = port + 1;
+              candidate <= finalPort;
+              candidate += 1
+            ) {
+              if (!occupiedPorts.has(candidate)) return candidate;
+            }
+
+            return undefined;
+          }
+
+          function groupExpectations(
+            expectedPorts: readonly ExpectedLocalPort[],
+          ): Map<number, LocalPortExpectation[]> {
+            const grouped = new Map<number, LocalPortExpectation[]>();
+
+            for (const expected of expectedPorts) {
+              if (
+                !Number.isInteger(expected.port) ||
+                expected.port < 1_024 ||
+                expected.port > 65_535
+              ) {
+                continue;
+              }
+
+              const current = grouped.get(expected.port) ?? [];
+              if (
+                current.some(
+                  (candidate) =>
+                    candidate.projectId === expected.projectId,
+                )
+              ) {
+                continue;
+              }
+
+              current.push({
+                projectId: expected.projectId,
+                projectName: expected.projectName,
+                service: 'server',
+              });
+              current.sort((left, right) =>
+                left.projectName.localeCompare(right.projectName),
+              );
+              grouped.set(expected.port, current);
+            }
+
+            return grouped;
+          }
+
+          export class PortInspectorService {
+            private readonly platform: NodeJS.Platform;
+            private readonly now: () => Date;
+            private readonly runSs: () => Promise<string>;
+            private readonly readTextFile: (
+              filePath: string,
+            ) => Promise<string>;
+            private readonly getUid: () => number | undefined;
+            private readonly maxEntries: number;
+
+            public constructor(
+              options: PortInspectorServiceOptions = {},
+            ) {
+              this.platform = options.platform ?? process.platform;
+              this.now = options.now ?? (() => new Date());
+              this.runSs = options.runSs ?? runSsCommand;
+              this.readTextFile =
+                options.readTextFile ??
+                ((filePath) => readFile(filePath, 'utf8'));
+              this.getUid =
+                options.getUid ??
+                (() =>
+                  typeof process.getuid === 'function'
+                    ? process.getuid()
+                    : undefined);
+              this.maxEntries = Math.max(
+                1,
+                Math.min(
+                  DEFAULT_MAX_ENTRIES,
+                  options.maxEntries ?? DEFAULT_MAX_ENTRIES,
+                ),
+              );
+            }
+
+            private async externalProcess(
+              pid: number,
+              fallbackName = 'processo',
+            ): Promise<LocalPortExternalProcess | undefined> {
+              const currentUid = this.getUid();
+              if (currentUid === undefined) return undefined;
+
+              let status: string;
+              try {
+                status = await this.readTextFile(
+                  `/proc/${pid}/status`,
+                );
+              } catch {
+                return undefined;
+              }
+
+              const uidMatch = status.match(/^Uid:\s+(\d+)/m);
+              if (
+                !uidMatch?.[1] ||
+                Number(uidMatch[1]) !== currentUid
+              ) {
+                return undefined;
+              }
+
+              let name = fallbackName;
+              try {
+                name = await this.readTextFile(`/proc/${pid}/comm`);
+              } catch {
+                // O nome limitado do `ss` só é usado depois da
+                // confirmação de que o PID pertence ao usuário atual.
+              }
+
+              return {
+                pid,
+                name: sanitizeProcessName(name),
+              };
+            }
+
+            public async inspect(
+              input: InspectLocalPortsInput = {},
+            ): Promise<LocalPortInspection> {
+              const inspectedAt = this.now().toISOString();
+
+              if (this.platform !== 'linux') {
+                return {
+                  status: 'unsupported',
+                  platform: 'unsupported',
+                  inspectedAt,
+                  entries: [],
+                  truncated: false,
+                  warning:
+                    'A primeira versão do inspetor de portas está disponível somente no Linux.',
+                };
+              }
+
+              let output: string;
+              try {
+                output = await this.runSs();
+              } catch {
+                return {
+                  status: 'unavailable',
+                  platform: 'linux',
+                  inspectedAt,
+                  entries: [],
+                  truncated: false,
+                  warning:
+                    'Não foi possível consultar as portas locais. Verifique se o utilitário ss está disponível.',
+                };
+              }
+
+              const sockets = parseSockets(output);
+              const occupiedPorts = new Set(
+                sockets.map((socket) => socket.port),
+              );
+              const managedProcesses = input.managedProcesses ?? [];
+              const projectNames = input.projectNames ?? {};
+              const expectations = groupExpectations(
+                input.expectedPorts ?? [],
+              );
+              const pending: PendingEntry[] = [];
+
+              for (const socket of sockets) {
+                const expected = expectations.get(socket.port) ?? [];
+                const managed = chooseManagedProcess(
+                  socket,
+                  managedProcesses,
+                );
+                const conflict =
+                  expected.length > 0 &&
+                  expected.some(
+                    (candidate) =>
+                      managed?.projectId !== candidate.projectId,
+                  );
+                const suggestedPort = conflict
+                  ? nextSuggestedPort(
+                      socket.port,
+                      occupiedPorts,
+                    )
+                  : undefined;
+
+                const entry: LocalPortEntry = {
+                  port: socket.port,
+                  address: socket.address,
+                  scope: socket.scope,
+                  state: 'occupied',
+                  conflict,
+                  expected: [...expected],
+                  ...(managed
+                    ? {
+                        managedProcess: {
+                          id: managed.id,
+                          projectId: managed.projectId,
+                          projectName:
+                            projectNames[managed.projectId] ??
+                            managed.projectId,
+                          kind: managed.kind,
+                          status: managed.status,
+                        },
+                      }
+                    : {}),
+                  ...(suggestedPort !== undefined
+                    ? { suggestedPort }
+                    : {}),
+                };
+
+                pending.push({
+                  entry,
+                  ...(!managed && socket.pid !== undefined
+                    ? { externalPid: socket.pid }
+                    : {}),
+                  ...(!managed && socket.processName
+                    ? { externalName: socket.processName }
+                    : {}),
+                });
+              }
+
+              for (const [port, expected] of expectations) {
+                if (occupiedPorts.has(port)) continue;
+
+                pending.push({
+                  entry: {
+                    port,
+                    address: '127.0.0.1',
+                    scope: 'loopback',
+                    state: 'available',
+                    conflict: false,
+                    expected: [...expected],
+                  },
+                });
+              }
+
+              pending.sort((left, right) => {
+                const conflictDifference =
+                  Number(right.entry.conflict) -
+                  Number(left.entry.conflict);
+                if (conflictDifference !== 0) {
+                  return conflictDifference;
+                }
+
+                const expectedDifference =
+                  Number(right.entry.expected.length > 0) -
+                  Number(left.entry.expected.length > 0);
+                if (expectedDifference !== 0) {
+                  return expectedDifference;
+                }
+
+                const portDifference =
+                  left.entry.port - right.entry.port;
+                if (portDifference !== 0) return portDifference;
+                return left.entry.address.localeCompare(
+                  right.entry.address,
+                );
+              });
+
+              const truncated = pending.length > this.maxEntries;
+              const selected = pending.slice(0, this.maxEntries);
+              const entries = await Promise.all(
+                selected.map(async (candidate) => {
+                  if (candidate.externalPid === undefined) {
+                    return candidate.entry;
+                  }
+
+                  const externalProcess = await this.externalProcess(
+                    candidate.externalPid,
+                    candidate.externalName,
+                  );
+
+                  return externalProcess
+                    ? {
+                        ...candidate.entry,
+                        externalProcess,
+                      }
+                    : candidate.entry;
+                }),
+              );
+
+              return {
+                status: 'ready',
+                platform: 'linux',
+                inspectedAt,
+                entries,
+                truncated,
+              };
+            }
+          }
+          """)
+
+          replace(
+              "apps/api/src/routes/processes/helpers.ts",
+              """import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';\n\nexport const processEnvelopeResponseSchema""",
+              """import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';\nimport type { PortInspectorService } from '../../services/port-inspector-service.js';\n\nexport const processEnvelopeResponseSchema""",
+          )
+          replace(
+              "apps/api/src/routes/processes/helpers.ts",
+              """  serverHealthCheckService: ServerHealthCheckService;\n  projectStore: ProjectStore;\n}""",
+              """  serverHealthCheckService: ServerHealthCheckService;\n  projectStore: ProjectStore;\n  portInspectorService?: PortInspectorService;\n}""",
+          )
+
+          write("apps/api/src/routes/processes/process-list-routes.ts", r"""
+          import type { FastifyInstance } from 'fastify';
+
+          import { sweepStaleProcesses } from '@dev-dashboard/process-manager';
+
+          import {
+            commonErrorResponseSchemas,
+            logRetentionSweepResponseSchema,
+            managedProcessResponseSchema,
+          } from '../../http/response-schemas.js';
+          import {
+            PortInspectorService,
+            type ExpectedLocalPort,
+          } from '../../services/port-inspector-service.js';
+          import type { ProcessRouteOptions } from './helpers.js';
+
+          const localPortExpectationSchema = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['projectId', 'projectName', 'service'],
+            properties: {
+              projectId: { type: 'string' },
+              projectName: { type: 'string' },
+              service: { type: 'string', enum: ['server'] },
+            },
+          } as const;
+
+          const localPortEntrySchema = {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'port',
+              'address',
+              'scope',
+              'state',
+              'conflict',
+              'expected',
+            ],
+            properties: {
+              port: {
+                type: 'integer',
+                minimum: 1,
+                maximum: 65_535,
+              },
+              address: {
+                type: 'string',
+                minLength: 1,
+                maxLength: 64,
+              },
+              scope: {
+                type: 'string',
+                enum: ['loopback', 'all-interfaces'],
+              },
+              state: {
+                type: 'string',
+                enum: ['available', 'occupied'],
+              },
+              conflict: { type: 'boolean' },
+              expected: {
+                type: 'array',
+                items: localPortExpectationSchema,
+              },
+              managedProcess: {
+                type: 'object',
+                additionalProperties: false,
+                required: [
+                  'id',
+                  'projectId',
+                  'projectName',
+                  'kind',
+                  'status',
+                ],
+                properties: {
+                  id: { type: 'string' },
+                  projectId: { type: 'string' },
+                  projectName: { type: 'string' },
+                  kind: {
+                    type: 'string',
+                    enum: [
+                      'server',
+                      'webpack',
+                      'worker',
+                      'test',
+                      'script',
+                      'compose-build',
+                    ],
+                  },
+                  status: {
+                    type: 'string',
+                    enum: [
+                      'starting',
+                      'running',
+                      'stopping',
+                      'stopped',
+                      'failed',
+                    ],
+                  },
+                },
+              },
+              externalProcess: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['pid', 'name'],
+                properties: {
+                  pid: { type: 'integer', minimum: 1 },
+                  name: {
+                    type: 'string',
+                    minLength: 1,
+                    maxLength: 64,
+                  },
+                },
+              },
+              suggestedPort: {
+                type: 'integer',
+                minimum: 1_024,
+                maximum: 65_535,
+              },
+            },
+          } as const;
+
+          const localPortInspectionResponseSchema = {
+            type: 'object',
+            additionalProperties: false,
+            required: ['inspection'],
+            properties: {
+              inspection: {
+                type: 'object',
+                additionalProperties: false,
+                required: [
+                  'status',
+                  'platform',
+                  'inspectedAt',
+                  'entries',
+                  'truncated',
+                ],
+                properties: {
+                  status: {
+                    type: 'string',
+                    enum: ['ready', 'unsupported', 'unavailable'],
+                  },
+                  platform: {
+                    type: 'string',
+                    enum: ['linux', 'unsupported'],
+                  },
+                  inspectedAt: { type: 'string' },
+                  entries: {
+                    type: 'array',
+                    maxItems: 100,
+                    items: localPortEntrySchema,
+                  },
+                  truncated: { type: 'boolean' },
+                  warning: {
+                    type: 'string',
+                    maxLength: 240,
+                  },
+                },
+              },
+            },
+          } as const;
+
+          async function expectedLocalPorts(
+            options: ProcessRouteOptions,
+          ): Promise<ExpectedLocalPort[]> {
+            const projects = options.projectStore.listProjects();
+            const candidates = await Promise.all(
+              projects.map(async (project) => {
+                try {
+                  const settings =
+                    await options.serverSettingsRepository.find(
+                      project.id,
+                    );
+                  if (settings.port === undefined) return null;
+
+                  return {
+                    port: settings.port,
+                    projectId: project.id,
+                    projectName: project.name,
+                    service: 'server' as const,
+                  };
+                } catch {
+                  return null;
+                }
+              }),
+            );
+
+            return candidates.filter(
+              (candidate): candidate is ExpectedLocalPort =>
+                candidate !== null,
+            );
+          }
+
+          export function registerProcessListRoutes(
+            app: FastifyInstance,
+            options: ProcessRouteOptions,
+          ): void {
+            const { processManager, projectStore } = options;
+            const portInspectorService =
+              options.portInspectorService ??
+              new PortInspectorService();
+
+            app.get(
+              '/processes',
+              {
+                schema: {
+                  querystring: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      workspaceId: { type: 'string', minLength: 1, maxLength: 200 },
+                      projectId: { type: 'string', minLength: 1, maxLength: 200 },
+                      kind: { type: 'string', enum: ['server', 'test'] },
+                    },
+                  },
+                  response: {
+                    200: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['processes'],
+                      properties: {
+                        processes: {
+                          type: 'array',
+                          items: managedProcessResponseSchema,
+                        },
+                      },
+                    },
+                    ...commonErrorResponseSchemas,
+                  },
+                },
+              },
+              async (request) => {
+                const query = request.query as {
+                  workspaceId?: string;
+                  projectId?: string;
+                  kind?: 'server' | 'test';
+                };
+                const projects = projectStore.listProjects();
+                const projectsById = new Map(projects.map((project) => [project.id, project]));
+                const managed = await processManager.listProcesses();
+                const processes = managed.filter((process) => {
+                  if (process.kind !== 'server' && process.kind !== 'test') return false;
+                  if (query.kind && process.kind !== query.kind) return false;
+                  if (query.projectId && process.projectId !== query.projectId) return false;
+                  const project = projectsById.get(process.projectId);
+                  if (!project) return false;
+                  if (query.workspaceId && project.workspaceId !== query.workspaceId) return false;
+                  return true;
+                });
+                return { processes };
+              },
+            );
+
+            app.get(
+              '/ports',
+              {
+                schema: {
+                  response: {
+                    200: localPortInspectionResponseSchema,
+                    ...commonErrorResponseSchemas,
+                  },
+                },
+              },
+              async () => {
+                const projects = projectStore.listProjects();
+                const knownProjectIds = new Set(
+                  projects.map((project) => project.id),
+                );
+                const projectNames = Object.fromEntries(
+                  projects.map((project) => [
+                    project.id,
+                    project.name,
+                  ]),
+                );
+                const [managedProcesses, expectedPorts] =
+                  await Promise.all([
+                    processManager.listProcesses(),
+                    expectedLocalPorts(options),
+                  ]);
+                const inspection = await portInspectorService.inspect({
+                  managedProcesses: managedProcesses.filter(
+                    (managed) =>
+                      knownProjectIds.has(managed.projectId),
+                  ),
+                  expectedPorts,
+                  projectNames,
+                });
+
+                return { inspection };
+              },
+            );
+
+            app.post(
+              '/processes/cleanup',
+              {
+                schema: {
+                  response: {
+                    200: logRetentionSweepResponseSchema,
+                    ...commonErrorResponseSchemas,
+                  },
+                },
+              },
+              async () => {
+                const removed = await sweepStaleProcesses(
+                  processManager.stateDirectory,
+                  {
+                    removeAllTerminal: true,
+                  },
+                );
+
+                return {
+                  removed,
+                  removedCount: removed.length,
+                };
+              },
+            );
+          }
+          """)
+
+          replace(
+              "apps/api/src/app.ts",
+              """import { ProjectDoctorService } from './services/project-doctor-service.js';\nimport { ProjectFileMutationService }""",
+              """import { ProjectDoctorService } from './services/project-doctor-service.js';\nimport { PortInspectorService } from './services/port-inspector-service.js';\nimport { ProjectFileMutationService }""",
+          )
+          replace(
+              "apps/api/src/app.ts",
+              """  projectDoctorService?: ProjectDoctorService;\n  projectLanguageServerService?: ProjectLanguageServerService;""",
+              """  projectDoctorService?: ProjectDoctorService;\n  portInspectorService?: PortInspectorService;\n  projectLanguageServerService?: ProjectLanguageServerService;""",
+          )
+          replace(
+              "apps/api/src/app.ts",
+              """  const projectDoctorService =\n    options.projectDoctorService ??\n    new ProjectDoctorService(options.now ? { now: options.now } : {});\n  const projectFileMutationService""",
+              """  const projectDoctorService =\n    options.projectDoctorService ??\n    new ProjectDoctorService(options.now ? { now: options.now } : {});\n  const portInspectorService =\n    options.portInspectorService ??\n    new PortInspectorService();\n  const projectFileMutationService""",
+          )
+          replace(
+              "apps/api/src/app.ts",
+              """    serverHealthCheckService:\n      context.serverHealthCheckService,\n    projectStore: context.projectStore,\n  });""",
+              """    serverHealthCheckService:\n      context.serverHealthCheckService,\n    projectStore: context.projectStore,\n    portInspectorService,\n  });""",
+          )
+
+          write("apps/api/test/port-inspector-service.test.ts", r"""
+          import assert from 'node:assert/strict';
+          import { test } from 'node:test';
+
+          import type { ManagedProcess } from '@dev-dashboard/contracts';
+
+          import {
+            PortInspectorService,
+            type ExpectedLocalPort,
+          } from '../src/services/port-inspector-service.js';
+
+          const NOW = new Date('2026-08-05T14:00:00.000Z');
+
+          test('inspeciona loopback, associa processo gerenciado e limita processo externo ao usuário atual', async () => {
+            const managedProcesses: ManagedProcess[] = [
+              {
+                id: 'server-p1',
+                projectId: 'p1',
+                kind: 'server',
+                status: 'running',
+                pid: 4_242,
+                port: 3_000,
+              },
+            ];
+            const expectedPorts: ExpectedLocalPort[] = [
+              {
+                port: 3_000,
+                projectId: 'p1',
+                projectName: 'Aplicação',
+                service: 'server',
+              },
+              {
+                port: 5_432,
+                projectId: 'p2',
+                projectName: 'Banco',
+                service: 'server',
+              },
+              {
+                port: 4_000,
+                projectId: 'p3',
+                projectName: 'Livre',
+                service: 'server',
+              },
+            ];
+            const service = new PortInspectorService({
+              platform: 'linux',
+              now: () => NOW,
+              getUid: () => 1_000,
+              runSs: async () => [
+                'LISTEN 0 511 127.0.0.1:3000 0.0.0.0:* users:(("node",pid=4242,fd=20))',
+                'LISTEN 0 128 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=5000,fd=7))',
+                'LISTEN 0 128 [::1]:6379 [::]:* users:(("redis",pid=6000,fd=8))',
+                'LISTEN 0 128 192.168.1.10:8080 0.0.0.0:* users:(("external",pid=7000,fd=9))',
+              ].join('\n'),
+              readTextFile: async (filePath) => {
+                if (filePath === '/proc/5000/status') {
+                  return 'Name:\tpostgres\nUid:\t1000\t1000\t1000\t1000\n';
+                }
+                if (filePath === '/proc/5000/comm') {
+                  return 'postgres\n';
+                }
+                if (filePath === '/proc/6000/status') {
+                  return 'Name:\tredis\nUid:\t2000\t2000\t2000\t2000\n';
+                }
+                throw new Error('arquivo inesperado');
+              },
+            });
+
+            const result = await service.inspect({
+              managedProcesses,
+              expectedPorts,
+              projectNames: { p1: 'Aplicação' },
+            });
+
+            assert.equal(result.status, 'ready');
+            assert.equal(result.inspectedAt, NOW.toISOString());
+            assert.equal(result.entries.some((entry) => entry.port === 8_080), false);
+
+            const managed = result.entries.find((entry) => entry.port === 3_000);
+            assert.equal(managed?.managedProcess?.projectName, 'Aplicação');
+            assert.equal(managed?.conflict, false);
+
+            const conflict = result.entries.find((entry) => entry.port === 5_432);
+            assert.equal(conflict?.scope, 'all-interfaces');
+            assert.equal(conflict?.conflict, true);
+            assert.equal(conflict?.externalProcess?.pid, 5_000);
+            assert.equal(conflict?.externalProcess?.name, 'postgres');
+            assert.equal(conflict?.suggestedPort, 5_433);
+
+            const otherUser = result.entries.find((entry) => entry.port === 6_379);
+            assert.equal(otherUser?.externalProcess, undefined);
+
+            const available = result.entries.find((entry) => entry.port === 4_000);
+            assert.equal(available?.state, 'available');
+            assert.equal(available?.expected[0]?.projectName, 'Livre');
+          });
+
+          test('não associa processo gerenciado quando o PID da porta diverge', async () => {
+            const service = new PortInspectorService({
+              platform: 'linux',
+              getUid: () => 1_000,
+              runSs: async () =>
+                'LISTEN 0 511 127.0.0.1:3000 0.0.0.0:* users:(("node",pid=9999,fd=20))',
+              readTextFile: async (filePath) =>
+                filePath.endsWith('/status')
+                  ? 'Uid:\t1000\t1000\t1000\t1000\n'
+                  : 'node\n',
+            });
+
+            const result = await service.inspect({
+              managedProcesses: [
+                {
+                  id: 'server-p1',
+                  projectId: 'p1',
+                  kind: 'server',
+                  status: 'running',
+                  pid: 4_242,
+                  port: 3_000,
+                },
+              ],
+              expectedPorts: [
+                {
+                  port: 3_000,
+                  projectId: 'p1',
+                  projectName: 'Aplicação',
+                  service: 'server',
+                },
+              ],
+            });
+
+            assert.equal(result.entries[0]?.managedProcess, undefined);
+            assert.equal(result.entries[0]?.externalProcess?.pid, 9_999);
+            assert.equal(result.entries[0]?.conflict, true);
+          });
+
+          test('retorna estado suportado sem vazar erro bruto quando ss não está disponível', async () => {
+            const service = new PortInspectorService({
+              platform: 'linux',
+              runSs: async () => {
+                throw new Error('/usr/bin/ss: segredo interno');
+              },
+            });
+
+            const result = await service.inspect();
+
+            assert.equal(result.status, 'unavailable');
+            assert.equal(result.entries.length, 0);
+            assert.doesNotMatch(result.warning ?? '', /segredo interno/);
+          });
+
+          test('declara a limitação de plataforma sem executar comandos', async () => {
+            let executed = false;
+            const service = new PortInspectorService({
+              platform: 'darwin',
+              runSs: async () => {
+                executed = true;
+                return '';
+              },
+            });
+
+            const result = await service.inspect();
+
+            assert.equal(result.status, 'unsupported');
+            assert.equal(result.platform, 'unsupported');
+            assert.equal(executed, false);
+          });
+          """)
+
+          write("apps/api/test/ports-route.test.ts", r"""
+          import assert from 'node:assert/strict';
+          import { mkdtemp, rm } from 'node:fs/promises';
+          import { tmpdir } from 'node:os';
+          import path from 'node:path';
+          import { test } from 'node:test';
+
+          import type {
+            LocalPortInspection,
+            ManagedProcess,
+            Project,
+          } from '@dev-dashboard/contracts';
+
+          import { PortInspectorService } from '../src/services/port-inspector-service.js';
+
+          const TOKEN = 'p'.repeat(64);
+
+          interface PortsResponse {
+            inspection: LocalPortInspection;
+          }
+
+          test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar acesso anônimo', async (context) => {
+            const fixtureRoot = await mkdtemp(
+              path.join(tmpdir(), 'dev-dashboard-ports-route-'),
+            );
+            const previousConfigDirectory =
+              process.env.DEV_DASHBOARD_CONFIG_DIR;
+            const previousStateDirectory =
+              process.env.DEV_DASHBOARD_STATE_DIR;
+            process.env.DEV_DASHBOARD_CONFIG_DIR =
+              path.join(fixtureRoot, 'config');
+            process.env.DEV_DASHBOARD_STATE_DIR =
+              path.join(fixtureRoot, 'state');
+
+            const { buildApp } = await import('../src/app.js');
+            const { createAppContext } =
+              await import('../src/app-context.js');
+            const appContext = createAppContext();
+            const project: Project = {
+              id: 'p1',
+              name: 'sample-node',
+              path: '/tmp/sample-node',
+              type: 'node',
+              source: 'workspace',
+              workspaceId: 'w1',
+              favorite: false,
+              capabilities: ['server'],
+            };
+            appContext.projectStore.saveWorkspaceScan({
+              workspaceId: 'w1',
+              workspacePath: '/tmp/w1',
+              projects: [project],
+              warnings: [],
+            });
+            await appContext.serverSettingsRepository.save('p1', {
+              port: 3_000,
+            });
+            const managed: ManagedProcess[] = [
+              {
+                id: 'server-p1',
+                projectId: 'p1',
+                kind: 'server',
+                status: 'running',
+                pid: 4_242,
+                port: 3_000,
+              },
+            ];
+            appContext.processManager.listProcesses = async () => managed;
+            const portInspectorService = new PortInspectorService({
+              platform: 'linux',
+              runSs: async () =>
+                'LISTEN 0 511 127.0.0.1:3000 0.0.0.0:* users:(("node",pid=4242,fd=20))',
+            });
+            const app = await buildApp({
+              localToken: TOKEN,
+              context: appContext,
+              portInspectorService,
+            });
+
+            context.after(async () => {
+              await app.close();
+              if (previousConfigDirectory === undefined) {
+                delete process.env.DEV_DASHBOARD_CONFIG_DIR;
+              } else {
+                process.env.DEV_DASHBOARD_CONFIG_DIR =
+                  previousConfigDirectory;
+              }
+              if (previousStateDirectory === undefined) {
+                delete process.env.DEV_DASHBOARD_STATE_DIR;
+              } else {
+                process.env.DEV_DASHBOARD_STATE_DIR =
+                  previousStateDirectory;
+              }
+              await rm(fixtureRoot, {
+                recursive: true,
+                force: true,
+              });
+            });
+
+            const response = await app.inject({
+              method: 'GET',
+              url: '/api/ports',
+              headers: {
+                'x-dev-dashboard-token': TOKEN,
+              },
+            });
+            assert.equal(response.statusCode, 200);
+            const body = response.json<PortsResponse>();
+            assert.equal(body.inspection.status, 'ready');
+            assert.equal(body.inspection.entries.length, 1);
+            assert.equal(
+              body.inspection.entries[0]?.managedProcess?.projectName,
+              'sample-node',
+            );
+            assert.equal(
+              body.inspection.entries[0]?.expected[0]?.projectId,
+              'p1',
+            );
+            assert.equal(
+              'pid' in (body.inspection.entries[0]?.managedProcess ?? {}),
+              false,
+            );
+
+            const anonymous = await app.inject({
+              method: 'GET',
+              url: '/api/ports',
+            });
+            assert.equal(anonymous.statusCode, 401);
+          });
+          """)
+
+          write("apps/web/src/components/LocalPortsPanel.vue", r"""
+          <script setup lang="ts">
+          import {
+            ArrowPathIcon,
+            ArrowTopRightOnSquareIcon,
+            CpuChipIcon,
+          } from '@heroicons/vue/24/outline';
+          import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
+          import type {
+            LocalPortEntry,
+            LocalPortInspection,
+            ManagedProcess,
+          } from '@dev-dashboard/contracts';
+
+          import {
+            ApiRequestError,
+            fetchLocalPorts,
+          } from '../api';
+          import { processDetailPath } from '../utils/process-format';
+          import StatusBadge from './StatusBadge.vue';
+          import type { StatusBadgeTone } from './status-badge-types';
+
+          const inspection = ref<LocalPortInspection | null>(null);
+          const loading = ref(false);
+          const errorMessage = ref('');
+
+          let controller: AbortController | undefined;
+          let generation = 0;
+
+          const entries = computed(() =>
+            inspection.value?.entries ?? [],
+          );
+          const occupiedCount = computed(() =>
+            entries.value.filter(
+              (entry) => entry.state === 'occupied',
+            ).length,
+          );
+          const conflictCount = computed(() =>
+            entries.value.filter((entry) => entry.conflict).length,
+          );
+          const managedCount = computed(() =>
+            entries.value.filter(
+              (entry) => entry.managedProcess !== undefined,
+            ).length,
+          );
+
+          function bindLabel(entry: LocalPortEntry): string {
+            if (entry.address === '0.0.0.0' || entry.address === '::') {
+              return 'Todas as interfaces';
+            }
+            return entry.address;
+          }
+
+          function statusLabel(entry: LocalPortEntry): string {
+            if (entry.conflict) return 'Conflito';
+            if (entry.state === 'available') return 'Livre';
+            if (entry.managedProcess) return 'Gerenciado';
+            return 'Ocupada';
+          }
+
+          function statusTone(entry: LocalPortEntry): StatusBadgeTone {
+            if (entry.conflict) return 'danger';
+            if (entry.state === 'available') return 'success';
+            if (entry.managedProcess) return 'info';
+            return 'warning';
+          }
+
+          function detailPath(entry: LocalPortEntry): string | null {
+            if (entry.managedProcess) {
+              const managed: ManagedProcess = {
+                id: entry.managedProcess.id,
+                projectId: entry.managedProcess.projectId,
+                kind: entry.managedProcess.kind,
+                status: entry.managedProcess.status,
+              };
+              return processDetailPath(managed);
+            }
+
+            const expected = entry.expected[0];
+            return expected
+              ? `/projects/${encodeURIComponent(expected.projectId)}/server`
+              : null;
+          }
+
+          function detailLabel(entry: LocalPortEntry): string {
+            if (entry.managedProcess) {
+              return `Abrir processo de ${entry.managedProcess.projectName}`;
+            }
+            const expected = entry.expected[0];
+            return expected
+              ? `Abrir servidor de ${expected.projectName}`
+              : 'Abrir detalhes';
+          }
+
+          async function loadPorts(): Promise<void> {
+            controller?.abort();
+            controller = new AbortController();
+            const currentGeneration = ++generation;
+            loading.value = true;
+            errorMessage.value = '';
+
+            try {
+              const result = await fetchLocalPorts(controller.signal);
+              if (currentGeneration !== generation) return;
+              inspection.value = result;
+            } catch (error) {
+              if (controller.signal.aborted) return;
+              if (currentGeneration !== generation) return;
+              errorMessage.value =
+                error instanceof ApiRequestError
+                  ? error.message
+                  : 'Não foi possível inspecionar as portas locais.';
+            } finally {
+              if (currentGeneration === generation) {
+                loading.value = false;
+              }
+            }
+          }
+
+          onMounted(() => {
+            void loadPorts();
+          });
+
+          onBeforeUnmount(() => {
+            generation += 1;
+            controller?.abort();
+          });
+          </script>
+
+          <template>
+            <section
+              class="local-ports-panel"
+              aria-labelledby="local-ports-title"
+              :aria-busy="loading"
+            >
+              <div class="local-ports-heading">
+                <div class="local-ports-title-group">
+                  <CpuChipIcon aria-hidden="true" />
+                  <div>
+                    <span class="section-kicker">Somente leitura</span>
+                    <h3 id="local-ports-title">Portas locais</h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="processes-refresh-button"
+                  :disabled="loading"
+                  @click="loadPorts"
+                >
+                  <ArrowPathIcon
+                    aria-hidden="true"
+                    :class="{ 'processes-refresh-icon-active': loading }"
+                  />
+                  {{ loading ? 'Atualizando…' : 'Atualizar portas' }}
+                </button>
+              </div>
+
+              <p class="local-ports-note">
+                Inspeção TCP no Linux para loopback e binds que também ocupam
+                loopback. PIDs externos só aparecem quando pertencem ao usuário
+                atual; nenhuma ação encerra processos externos.
+              </p>
+
+              <p
+                v-if="loading && inspection"
+                class="sr-only"
+                role="status"
+                aria-live="polite"
+              >
+                Atualizando portas locais…
+              </p>
+
+              <p
+                v-if="errorMessage"
+                class="activity-error"
+                role="alert"
+              >
+                {{ errorMessage }}
+              </p>
+
+              <div
+                v-if="loading && !inspection"
+                class="activity-empty"
+                role="status"
+              >
+                Consultando portas locais…
+              </div>
+
+              <div
+                v-else-if="inspection?.status === 'unsupported'"
+                class="activity-empty"
+                role="status"
+              >
+                {{
+                  inspection.warning ??
+                    'O inspetor de portas está disponível somente no Linux.'
+                }}
+              </div>
+
+              <div
+                v-else-if="inspection?.status === 'unavailable'"
+                class="activity-empty"
+                role="status"
+              >
+                {{
+                  inspection.warning ??
+                    'A inspeção de portas não está disponível neste ambiente.'
+                }}
+              </div>
+
+              <template v-else-if="inspection?.status === 'ready'">
+                <dl
+                  class="processes-summary local-ports-summary"
+                  aria-label="Resumo das portas locais"
+                >
+                  <div>
+                    <dt>Ocupadas</dt>
+                    <dd>{{ occupiedCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Gerenciadas</dt>
+                    <dd>{{ managedCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Conflitos</dt>
+                    <dd>{{ conflictCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Total</dt>
+                    <dd>{{ entries.length }}</dd>
+                  </div>
+                </dl>
+
+                <p
+                  v-if="inspection.truncated"
+                  class="local-ports-warning"
+                  role="status"
+                >
+                  A lista foi limitada às 100 entradas mais relevantes.
+                </p>
+
+                <div
+                  v-if="entries.length === 0"
+                  class="activity-empty"
+                  role="status"
+                >
+                  Nenhuma porta TCP relevante foi encontrada.
+                </div>
+
+                <div
+                  v-else
+                  class="processes-table-shell local-ports-table-shell"
+                >
+                  <table class="processes-table local-ports-table">
+                    <caption class="sr-only">
+                      Portas TCP locais e processos associados
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Porta</th>
+                        <th scope="col">Bind</th>
+                        <th scope="col">Processo</th>
+                        <th scope="col">Esperado por</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col">
+                          <span class="sr-only">Ações</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="entry in entries"
+                        :key="`${entry.address}:${entry.port}:${entry.externalProcess?.pid ?? entry.managedProcess?.id ?? 'free'}`"
+                      >
+                        <td data-label="Porta">
+                          <strong>{{ entry.port }}</strong>
+                        </td>
+                        <td data-label="Bind">
+                          {{ bindLabel(entry) }}
+                          <small v-if="entry.scope === 'all-interfaces'">
+                            inclui loopback
+                          </small>
+                        </td>
+                        <td data-label="Processo">
+                          <span
+                            v-if="entry.managedProcess"
+                            class="local-ports-process"
+                          >
+                            <strong>
+                              {{ entry.managedProcess.projectName }}
+                            </strong>
+                            <small>Gerenciado pelo dashboard</small>
+                          </span>
+                          <span
+                            v-else-if="entry.externalProcess"
+                            class="local-ports-process"
+                          >
+                            <strong>{{ entry.externalProcess.name }}</strong>
+                            <small>PID {{ entry.externalProcess.pid }}</small>
+                          </span>
+                          <span v-else>Não identificado</span>
+                        </td>
+                        <td data-label="Esperado por">
+                          <span
+                            v-if="entry.expected.length > 0"
+                            class="local-ports-expected"
+                          >
+                            <RouterLink
+                              v-for="expected in entry.expected"
+                              :key="expected.projectId"
+                              :to="`/projects/${encodeURIComponent(expected.projectId)}/server`"
+                            >
+                              {{ expected.projectName }}
+                            </RouterLink>
+                          </span>
+                          <span v-else>—</span>
+                        </td>
+                        <td data-label="Estado">
+                          <span class="local-ports-status">
+                            <StatusBadge :tone="statusTone(entry)">
+                              {{ statusLabel(entry) }}
+                            </StatusBadge>
+                            <small v-if="entry.suggestedPort">
+                              Próxima livre: {{ entry.suggestedPort }}
+                            </small>
+                          </span>
+                        </td>
+                        <td
+                          class="processes-table-action"
+                          data-label="Ações"
+                        >
+                          <RouterLink
+                            v-if="detailPath(entry)"
+                            :to="detailPath(entry) ?? '/processes'"
+                            class="processes-open-button"
+                            :aria-label="detailLabel(entry)"
+                          >
+                            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+                          </RouterLink>
+                          <span v-else>—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+            </section>
+          </template>
+
+          <style scoped>
+          .local-ports-panel {
+            display: grid;
+            gap: var(--space-4);
+            margin-top: var(--space-7);
+            padding-top: var(--space-6);
+            border-top: 1px solid var(--border);
+          }
+
+          .local-ports-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-4);
+          }
+
+          .local-ports-title-group {
+            display: flex;
+            min-width: 0;
+            align-items: center;
+            gap: var(--space-3);
+          }
+
+          .local-ports-title-group > svg {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 auto;
+            color: var(--accent);
+          }
+
+          .local-ports-title-group h3 {
+            margin: 2px 0 0;
+            color: var(--text);
+            font-size: var(--font-xl);
+          }
+
+          .local-ports-note,
+          .local-ports-warning {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: var(--font-sm);
+            line-height: 1.6;
+          }
+
+          .local-ports-warning {
+            color: var(--warning-text);
+          }
+
+          .local-ports-summary {
+            margin: 0;
+          }
+
+          .local-ports-table-shell {
+            margin-top: 0;
+          }
+
+          .local-ports-table td small,
+          .local-ports-table td > small {
+            display: block;
+            margin-top: 3px;
+            color: var(--text-muted);
+          }
+
+          .local-ports-process,
+          .local-ports-status,
+          .local-ports-expected {
+            display: grid;
+            gap: 3px;
+          }
+
+          .local-ports-expected a {
+            width: fit-content;
+            color: var(--accent);
+            text-decoration: none;
+          }
+
+          .local-ports-expected a:hover {
+            text-decoration: underline;
+          }
+
+          @media (max-width: 760px) {
+            .local-ports-heading {
+              align-items: stretch;
+              flex-direction: column;
+            }
+
+            .local-ports-heading .processes-refresh-button {
+              width: 100%;
+              justify-content: center;
+            }
+          }
+          </style>
+          """)
+
+          replace(
+              "apps/web/src/api/processes.ts",
+              """  ManagedProcess,\n  ProcessLogSnapshot,""",
+              """  LocalPortInspection,\n  ManagedProcess,\n  ProcessLogSnapshot,""",
+          )
+          append_api = r"""
+
+          interface LocalPortsResponse {
+            inspection: LocalPortInspection;
+          }
+
+          export async function fetchLocalPorts(
+            signal?: AbortSignal,
+          ): Promise<LocalPortInspection> {
+            const response = await requestJson<LocalPortsResponse>(
+              '/api/ports',
+              signal ? { signal } : {},
+            );
+
+            return response.inspection;
+          }
+          """
+          api_path = Path("apps/web/src/api/processes.ts")
+          api_contents = api_path.read_text(encoding="utf-8")
+          if "export async function fetchLocalPorts" not in api_contents:
+              api_path.write_text(
+                  api_contents.rstrip() + append_api + "\n",
+                  encoding="utf-8",
+              )
+
+          replace(
+              "apps/web/src/views/ProcessesView.vue",
+              """import LoadingSkeleton from '../components/LoadingSkeleton.vue';\nimport StatusBadge""",
+              """import LoadingSkeleton from '../components/LoadingSkeleton.vue';\nimport LocalPortsPanel from '../components/LocalPortsPanel.vue';\nimport StatusBadge""",
+          )
+          replace(
+              "apps/web/src/views/ProcessesView.vue",
+              """          Acompanhe servidores e testes iniciados pelo dashboard.\n          Limpar finalizados remove estados parados ou com falha e\n          preserva tudo o que ainda está em execução.""",
+              """          Acompanhe servidores e testes iniciados pelo dashboard, além de\n          identificar quem ocupa as portas locais. Limpar finalizados remove\n          estados parados ou com falha e preserva o que ainda está em execução.""",
+          )
+          replace(
+              "apps/web/src/views/ProcessesView.vue",
+              """    </div>\n  </section>\n</template>""",
+              """    </div>\n\n    <LocalPortsPanel />\n  </section>\n</template>""",
+          )
+
+          replace(
+              "apps/web/test/processes-view.test.ts",
+              """    if (\n      url.pathname === '/api/processes' &&\n      (!init?.method || init.method === 'GET')\n    ) {""",
+              """    if (\n      url.pathname === '/api/ports' &&\n      (!init?.method || init.method === 'GET')\n    ) {\n      return new Response(\n        JSON.stringify({\n          inspection: {\n            status: 'ready',\n            platform: 'linux',\n            inspectedAt: '2026-08-05T14:00:00.000Z',\n            entries: [],\n            truncated: false,\n          },\n        }),\n        {\n          status: 200,\n          headers: { 'content-type': 'application/json' },\n        },\n      );\n    }\n    if (\n      url.pathname === '/api/processes' &&\n      (!init?.method || init.method === 'GET')\n    ) {""",
+          )
+
+          write("apps/web/test/local-ports-panel.test.ts", r"""
+          import assert from 'node:assert/strict';
+          import { afterEach, test } from 'vitest';
+
+          import {
+            flushPromises,
+            mount,
+            RouterLinkStub,
+          } from '@vue/test-utils';
+
+          import type { LocalPortInspection } from '@dev-dashboard/contracts';
+
+          import LocalPortsPanel from '../src/components/LocalPortsPanel.vue';
+
+          let cleanup: (() => void) | undefined;
+
+          afterEach(() => {
+            cleanup?.();
+            cleanup = undefined;
+          });
+
+          async function mountPanel(
+            inspection: LocalPortInspection,
+          ) {
+            const originalFetch = globalThis.fetch;
+            globalThis.fetch = (async (input: RequestInfo | URL) => {
+              const url = new URL(String(input), 'http://localhost');
+              if (url.pathname === '/api/ports') {
+                return new Response(
+                  JSON.stringify({ inspection }),
+                  {
+                    status: 200,
+                    headers: {
+                      'content-type': 'application/json',
+                    },
+                  },
+                );
+              }
+              return new Response('not found', { status: 404 });
+            }) as typeof fetch;
+
+            const wrapper = mount(LocalPortsPanel, {
+              global: {
+                stubs: {
+                  RouterLink: RouterLinkStub,
+                },
+              },
+            });
+            cleanup = () => {
+              wrapper.unmount();
+              globalThis.fetch = originalFetch;
+            };
+            await flushPromises();
+            await flushPromises();
+            return wrapper;
+          }
+
+          test('mostra processo gerenciado, processo externo, conflito e sugestão', async () => {
+            const wrapper = await mountPanel({
+              status: 'ready',
+              platform: 'linux',
+              inspectedAt: '2026-08-05T14:00:00.000Z',
+              truncated: false,
+              entries: [
+                {
+                  port: 3_000,
+                  address: '127.0.0.1',
+                  scope: 'loopback',
+                  state: 'occupied',
+                  conflict: false,
+                  expected: [
+                    {
+                      projectId: 'p1',
+                      projectName: 'Aplicação',
+                      service: 'server',
+                    },
+                  ],
+                  managedProcess: {
+                    id: 'server-p1',
+                    projectId: 'p1',
+                    projectName: 'Aplicação',
+                    kind: 'server',
+                    status: 'running',
+                  },
+                },
+                {
+                  port: 5_432,
+                  address: '0.0.0.0',
+                  scope: 'all-interfaces',
+                  state: 'occupied',
+                  conflict: true,
+                  expected: [
+                    {
+                      projectId: 'p2',
+                      projectName: 'Banco',
+                      service: 'server',
+                    },
+                  ],
+                  externalProcess: {
+                    pid: 5_000,
+                    name: 'postgres',
+                  },
+                  suggestedPort: 5_433,
+                },
+              ],
+            });
+
+            assert.equal(
+              wrapper.findAll('.local-ports-table tbody tr').length,
+              2,
+            );
+            assert.match(wrapper.text(), /Aplicação/);
+            assert.match(wrapper.text(), /postgres/);
+            assert.match(wrapper.text(), /PID 5000/);
+            assert.match(wrapper.text(), /Conflito/);
+            assert.match(wrapper.text(), /Próxima livre: 5433/);
+            assert.match(wrapper.text(), /Todas as interfaces/);
+            assert.equal(
+              wrapper.findAllComponents(RouterLinkStub).length >= 2,
+              true,
+            );
+          });
+
+          test('explica quando a plataforma ainda não é suportada', async () => {
+            const wrapper = await mountPanel({
+              status: 'unsupported',
+              platform: 'unsupported',
+              inspectedAt: '2026-08-05T14:00:00.000Z',
+              entries: [],
+              truncated: false,
+              warning: 'Disponível somente no Linux.',
+            });
+
+            assert.match(wrapper.text(), /Disponível somente no Linux/);
+            assert.equal(
+              wrapper.find('.local-ports-table').exists(),
+              false,
+            );
+          });
+          """)
+
+          write("docs/tasks/101-safe-local-port-inspector.md", r"""
+          # Task 101 — Inspetor seguro de portas locais
+
+          ## Status
+
+          Implementada no PR desta branch, aguardando validação final e revisão.
+
+          ## Objetivo
+
+          Mostrar, na página global de Processos, quais portas TCP relevantes
+          estão ocupadas no ambiente local, quem as ocupa quando essa informação
+          pode ser obtida com segurança e se existe conflito com a porta
+          configurada de um projeto.
+
+          ## Decisão principal
+
+          A entrega é estritamente somente leitura. Ela não recupera linha de
+          comando, diretório de trabalho ou variáveis do processo externo e não
+          oferece ação para encerrar PID arbitrário. A identidade do
+          `ProcessManager` continua sendo a única autorização aceita para ações
+          de parada já existentes no produto.
+
+          ## Escopo
+
+          - contrato compartilhado `LocalPortInspection`;
+          - rota autenticada `GET /api/ports`;
+          - adaptador Linux isolado usando `ss -H -ltnp`, sem shell;
+          - timeout de 1,5 segundo e saída limitada a 256 KiB;
+          - portas TCP em loopback e binds em todas as interfaces, pois estes
+            também ocupam o loopback;
+          - associação por PID/porta com processos gerenciados ativos;
+          - PID e nome limitado de processo externo somente após confirmar em
+            `/proc/<pid>/status` que ele pertence ao UID atual;
+          - união com portas explicitamente configuradas nos servidores dos
+            projetos;
+          - indicação de porta livre, ocupada, gerenciada ou em conflito;
+          - sugestão informativa da próxima porta não observada como ocupada;
+          - no máximo 100 entradas, priorizando conflitos e portas esperadas;
+          - painel compacto dentro de `/processes`, com deep link apenas para
+            áreas já autorizadas do projeto.
+
+          ## Guardas
+
+          - nenhuma string do navegador vira comando, argumento, host ou PID;
+          - execução por `execFile`, argumentos fixos e `shell: false` implícito;
+          - plataformas diferentes de Linux retornam estado `unsupported`;
+          - ausência do utilitário `ss` retorna mensagem segura, sem erro bruto;
+          - endereço específico fora de loopback é ignorado na primeira versão;
+          - nome externo é limitado a 64 caracteres e caracteres de controle são
+            removidos;
+          - processos de outro usuário não têm PID/nome expostos;
+          - nenhum caminho de `/proc`, cwd, comando ou argumento chega à API;
+          - não há botão de matar processo externo.
+
+          ## Critérios de aceite
+
+          - [x] processo gerenciado é associado somente quando PID e porta são
+            coerentes;
+          - [x] PID divergente na mesma porta é tratado como ocupante externo;
+          - [x] porta configurada e ocupada por outro processo vira conflito;
+          - [x] porta configurada e livre aparece como disponível;
+          - [x] binds `127.0.0.1`, `::1`, `0.0.0.0` e `::` são reconhecidos;
+          - [x] endereço específico fora de loopback fica fora da lista;
+          - [x] processo externo só aparece após confirmação do UID;
+          - [x] rota exige autenticação local;
+          - [x] painel preserva a lista durante atualização manual;
+          - [x] nenhum encerramento externo foi adicionado.
+
+          ## Validação automatizada
+
+          - testes unitários do parser/adaptador Linux;
+          - regressão de PID divergente;
+          - estados `unsupported` e `unavailable`;
+          - teste de rota com configuração de servidor e processo gerenciado;
+          - teste montado do painel Vue;
+          - `npm run typecheck`;
+          - `npm run build`;
+          - `npm run docs:api:check`;
+          - `npm test`;
+          - Smoke E2E pelo CI normal do repositório.
+
+          ## Roteiro de QA
+
+          1. Abrir **Processos** em um Linux com um servidor iniciado pelo
+             dashboard e confirmar o badge **Gerenciado** na porta correta.
+          2. Configurar uma porta ocupada por outro processo do mesmo usuário e
+             confirmar **Conflito**, PID/nome limitado e sugestão de próxima
+             porta.
+          3. Configurar uma porta livre e confirmar o estado **Livre**.
+          4. Verificar que processos de outro usuário ou sem permissão aparecem
+             apenas como **Não identificado**.
+          5. Confirmar que nenhuma linha de comando, cwd ou ação de encerramento
+             externo aparece na interface.
+          """)
+
+          tasks_index = Path("docs/tasks/README.md")
+          tasks_contents = tasks_index.read_text(encoding="utf-8")
+          if "101-safe-local-port-inspector.md" not in tasks_contents:
+              tasks_contents = tasks_contents.rstrip() + (
+                  "\n- `101-safe-local-port-inspector.md` — inspetor somente leitura "
+                  "de portas TCP locais no Linux, associando processos gerenciados, "
+                  "limitando PID/nome externo ao usuário atual e destacando conflitos "
+                  "com portas configuradas, sem encerrar processos arbitrários.\n"
+              )
+              tasks_index.write_text(tasks_contents, encoding="utf-8")
+
+          write("docs/tasks/NEXT.md", r"""
+          # Próxima atividade
+
+          ## Task 102 — Conselheiro de impacto após mudanças Git
+
+          ### Objetivo
+
+          Depois de uma troca de branch, pull ou sincronização, comparar o SHA
+          anterior com o novo SHA e transformar os caminhos alterados em
+          recomendações claras, sem executar nenhuma ação automaticamente.
+
+          ### Decisão principal
+
+          A primeira versão será um classificador puro e declarativo de paths.
+          Ela recebe somente dois commits já conhecidos pela mutação Git e usa
+          `git diff --name-only` com argumentos estruturados. O resultado aponta
+          para ações existentes; não lê conteúdo dos arquivos e não cria um
+          executor genérico.
+
+          ### Escopo
+
+          - contrato `ProjectChangeImpact`;
+          - regras testáveis para lockfiles Node, `Gemfile.lock`, migrations,
+            Dockerfile/Compose, `.env.example`, configuração de servidor/worker e
+            arquivos de teste;
+          - captura dos SHAs anterior/novo nas mutações de troca, pull e
+            sincronização;
+          - apresentação do impacto no resultado da operação Git e na visão do
+            projeto;
+          - deep links para Dependências, Banco, Servidor, Variáveis de ambiente
+            e Testes quando a ação correspondente já existir;
+          - lista limitada, deduplicada e ordenada por prioridade.
+
+          ### Critérios de aceite
+
+          - uma mudança de lockfile recomenda revisar/instalar dependências;
+          - migrations recomendam abrir Banco de dados;
+          - `.env.example` ou `.env.sample` recomenda revisar nomes de variáveis;
+          - configuração de servidor/worker recomenda reiniciar somente por ação
+            explícita;
+          - arquivos de teste recomendam executar testes, sem iniciar execução;
+          - diff inválido ou commits iguais produzem resultado vazio e seguro;
+          - nenhum conteúdo de arquivo, segredo ou caminho absoluto é devolvido;
+          - nenhuma recomendação dispara comando automaticamente.
+
+          ### Fora de escopo
+
+          - analisar conteúdo ou AST;
+          - instalar dependências, migrar banco ou reiniciar processos
+            automaticamente;
+          - comparar commits arbitrários enviados pelo navegador;
+          - IA ou recomendação probabilística;
+          - persistência histórica dos impactos na primeira versão.
+          """)
+
+          security_path = Path("docs/architecture/security.md")
+          security_contents = security_path.read_text(encoding="utf-8")
+          if "## Inspeção segura de portas locais" not in security_contents:
+              security_contents = security_contents.rstrip() + r"""
+
+          ## Inspeção segura de portas locais
+
+          `GET /api/ports` é uma leitura autenticada e limitada do ambiente Linux.
+          A API executa somente `ss -H -ltnp` com `execFile`, argumentos fixos,
+          timeout curto e buffer limitado. A primeira versão considera loopback e
+          binds em todas as interfaces que também ocupam loopback.
+
+          Um PID externo só é devolvido quando `/proc/<pid>/status` confirma que
+          ele pertence ao mesmo UID da API. O payload limita o nome a 64
+          caracteres e não inclui comando, argumentos, cwd, arquivo executável ou
+          ambiente. Processos de outro usuário permanecem não identificados.
+
+          O inspetor nunca encerra processo externo. Ações de parada continuam
+          restritas aos estados cuja identidade o `ProcessManager` valida pelo
+          projeto, PID e diretório conhecidos.
+          """
+              security_path.write_text(
+                  security_contents.rstrip() + "\n",
+                  encoding="utf-8",
+              )
+
+          readme_path = Path("README.md")
+          readme_contents = readme_path.read_text(encoding="utf-8")
+          if "/api/ports" not in readme_contents:
+              lines = readme_contents.splitlines()
+              for index, line in enumerate(lines):
+                  if "`GET /api/processes`" in line:
+                      lines.insert(
+                          index + 1,
+                          "- `GET /api/ports` — inspeção somente leitura de portas TCP locais no Linux;",
+                      )
+                      break
+              readme_path.write_text(
+                  "\n".join(lines).rstrip() + "\n",
+                  encoding="utf-8",
+              )
+          PY
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar documentação da API
+        run: npm run docs:api
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes
+        run: npm test
+
+      - name: Consolidar implementação
+        run: |
+          rm .github/workflows/task-101-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: adiciona inspetor seguro de portas locais"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
