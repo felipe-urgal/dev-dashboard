@@ -35,7 +35,7 @@ import {
   renderGitDiffLineHtml,
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
-import { gitFileToneFor } from '../utils/status-tones';
+
 export function useProjectGitDiffPage(
   props: Readonly<{ projectId: string }>,
 ) {

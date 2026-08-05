@@ -23,7 +23,7 @@ import {
   fetchProjectGitCommits,
 } from '../api';
 import { fetchProjectGitWorkspace } from '../api/git-workspace';
-import { gitFileToneFor } from '../utils/status-tones';
+
 export function useProjectGitHistoryPage(
   props: Readonly<{ projectId: string }>,
 ) {

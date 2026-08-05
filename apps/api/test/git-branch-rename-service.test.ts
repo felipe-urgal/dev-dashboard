@@ -98,7 +98,7 @@ test('recusa reutilizar a confirmação com outro nome de destino', async () => 
 });
 
 test('protege a branch principal contra renomeação', async () => {
-  const { root, repository } = await createRepository();
+  const { root } = await createRepository();
   try {
     const service = new GitBranchRenameService();
     assert.throws(

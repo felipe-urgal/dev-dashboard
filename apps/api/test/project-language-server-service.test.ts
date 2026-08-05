@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Project } from '@dev-dashboard/contracts';
-import type { RawData, WebSocket } from 'ws';
+import type { WebSocket } from 'ws';
 
 import {
   LspMessageDecoder,
