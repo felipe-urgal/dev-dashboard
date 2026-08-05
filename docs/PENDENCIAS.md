@@ -7,9 +7,9 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Próximas entregas
 
-- [ ] Implementar projetos recentes por workspace conforme
-  `docs/tasks/NEXT.md`, registrando somente navegações deliberadas para o
-  detalhe de um projeto conhecido e mantendo favoritos como prioridade.
+- [ ] Fazer a revisão dirigida do `npm audit` conforme
+  `docs/tasks/NEXT.md`, separando risco real, dependências de desenvolvimento e
+  upgrades compatíveis sem usar `npm audit fix --force`.
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
@@ -79,8 +79,11 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 - [ ] Expandir o Playwright para os fluxos privilegiados e para a matriz de
   vazio, carregamento, erro, sucesso e troca de projeto.
-- [ ] Padronizar lint e formatação com ESLint e Prettier entre `apps/` e
-  `packages/`.
+- [x] Padronizar lint com ESLint entre `apps/` e `packages/` — task 104:
+  flat config na raiz, TypeScript/Vue/scripts cobertos, comandos `npm run lint`
+  e `npm run lint:fix`, inventário incremental e gate no CI.
+- [ ] Avaliar Prettier e uma política de formatação automática em entrega
+  própria, evitando um diff massivo misturado com mudanças funcionais.
 - [ ] Medir cobertura e definir metas por camada.
 - [x] Gerar ou verificar a documentação da API a partir dos JSON Schemas e das
   rotas Fastify registradas — `scripts/generate-api-docs.mjs`,
@@ -88,11 +91,9 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
   (ligado ao CI), task 091.
 - [ ] Fazer uma revisão dirigida do `npm audit`, inventariando dependências
   transitivas e upgrades seguros sem `npm audit fix --force`.
-- [ ] Fazer a segunda etapa de refatoração de
-  `git-service.ts` e `script-execution-service.ts` (574 e 628 linhas — este
-  último cresceu de novo desde a Fase 7, ver
-  `docs/architecture/refactoring-arquivos-grandes.md`), sem mudar a API
-  pública.
+- [x] Fazer a segunda etapa de refatoração de `git-service.ts` e
+  `script-execution-service.ts` — task 103: ambos viraram orquestradores finos
+  com módulos por domínio, sem mudar a API pública.
 
 A task 086 confirmou que esses itens não formam uma única frente coerente:
 cada um deve ganhar uma task própria quando houver motivação, escopo e critério
