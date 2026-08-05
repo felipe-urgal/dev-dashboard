@@ -3,7 +3,7 @@
 ## Status
 
 Implementada no PR #191, em validação final com o navegador de falhas, os
-ajustes do Project Doctor e o reenvio seguro após amend.
+ajustes do Project Doctor e os fluxos seguros de atualização remota no Git.
 
 ## Contexto
 
@@ -13,7 +13,7 @@ classifica linhas como erro, aviso ou detalhe, mas ainda exige leitura manual
 do texto para localizar cada falha.
 
 A Task 098 foi concluída e esta entrega reutiliza sua política compartilhada
-de confirmação, risco e histórico para a nova mutação remota.
+de confirmação, risco e histórico para as novas mutações remotas.
 
 ## Objetivo
 
@@ -63,6 +63,7 @@ falhas, mantendo o log original como fonte de verdade.
 - teste do fallback `.env.sample` no Project Doctor;
 - testes de sucesso e rejeição por lease desatualizado;
 - teste do fluxo amend → reenvio com lease na interface;
+- testes da atualização da branch atual, incluindo bloqueio por divergência;
 - `npm run typecheck`;
 - `npm run build`;
 - `npm run docs:api:check`;
