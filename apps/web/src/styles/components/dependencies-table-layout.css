@@ -1,0 +1,17 @@
+/* Mantém a segunda coluna como célula de tabela no desktop. O layout em grid
+   aplicado diretamente ao td fazia a borda da linha terminar antes das demais
+   colunas quando a descrição aumentava a altura da ação. */
+@media (min-width: 821px) {
+  .dependencies-table td:nth-child(2) {
+    display: table-cell !important;
+  }
+
+  .dependencies-table td:nth-child(2) > strong,
+  .dependencies-table td:nth-child(2) > small {
+    display: block;
+  }
+
+  .dependencies-table td:nth-child(2) > small {
+    margin-top: 2px;
+  }
+}
