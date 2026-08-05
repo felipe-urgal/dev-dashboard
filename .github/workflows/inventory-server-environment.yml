@@ -1,0 +1,42 @@
+name: Inventory Server Environment
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    if: github.event.pull_request.head.ref == 'fix/git-commit-tracked-default'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Mapear ambiente no CLI e no servidor web
+        run: |
+          {
+            echo '=== arquivos CLI relacionados ==='
+            find lib config -type f -maxdepth 5 2>/dev/null | sort | while read -r file; do
+              if grep -Eiq 'RAILS_ENV|NODE_ENV|\.env\.|--mode|environment|ambiente|ENV_FILE|APP_ENV' "$file"; then
+                echo "--- $file"
+                grep -Ein -C 4 'RAILS_ENV|NODE_ENV|\.env\.|--mode|environment|ambiente|ENV_FILE|APP_ENV' "$file" || true
+              fi
+            done
+            echo '=== rotas e processo ==='
+            grep -RIn -C 3 -E 'StartServerOptions|startServer\(|server-settings|environmentLabel|NODE_ENV|RAILS_ENV|--mode' packages/process-manager apps/api/src apps/web/src packages/contracts/src | head -n 1200 || true
+          } > /tmp/server-environment-inventory.txt
+
+      - name: Publicar inventário no resumo
+        run: |
+          cat /tmp/server-environment-inventory.txt >> "$GITHUB_STEP_SUMMARY"
