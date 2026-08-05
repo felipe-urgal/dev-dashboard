@@ -3115,6 +3115,145 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
   }
   ```
 
+## Git Mutation History
+
+### `GET /api/projects/:projectId/git/mutation-history`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "page": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "projectId",
+      "page",
+      "pageSize",
+      "total",
+      "totalPages",
+      "events"
+    ],
+    "properties": {
+      "projectId": {
+        "type": "string"
+      },
+      "page": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "pageSize": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "total": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "totalPages": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "events": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "projectId",
+            "operationId",
+            "risk",
+            "occurredAt",
+            "result"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "projectId": {
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "operationId": {
+              "type": "string"
+            },
+            "risk": {
+              "type": "string",
+              "enum": [
+                "read-only",
+                "write-safe",
+                "write-remote",
+                "destructive"
+              ]
+            },
+            "occurredAt": {
+              "type": "string"
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "succeeded",
+                "failed"
+              ]
+            },
+            "errorCode": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Git Mutations
 
 ### `POST /api/projects/:projectId/git/branches`

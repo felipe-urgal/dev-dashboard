@@ -208,6 +208,7 @@ describe('cards dos painéis de detalhe', () => {
       'Desfazer',
       'Pull Request',
       'Histórico',
+      'Mutações',
     ]);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Stash');
