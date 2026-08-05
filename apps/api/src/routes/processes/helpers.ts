@@ -40,6 +40,7 @@ export interface StartProcessBody {
 export interface SaveServerSettingsBody {
   port?: number | null;
   healthCheckPath?: string | null;
+  environment?: string | null;
 }
 
 export interface ProcessLogQuery {
