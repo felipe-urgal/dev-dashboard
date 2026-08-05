@@ -29,6 +29,11 @@ Textos de UI, comentários, mensagens de commit e **toda a documentação** dest
 (incluindo este arquivo) são em português brasileiro — mantenha esse padrão ao editar arquivos
 existentes ou criar novos.
 
+Todo ajuste, correção ou nova funcionalidade que muda comportamento, rota, capacidade ou fluxo
+precisa atualizar o documento correspondente em `docs/` (arquitetura, guias, segurança) na mesma
+entrega — não depois. Uma mudança está incompleta quando altera comportamento sem atualizar a
+documentação correspondente (ver a tabela "Onde documentar" em `CONTRIBUTING.md`).
+
 ## Fluxo de desenvolvimento
 
 ### CLI bash
@@ -150,11 +155,13 @@ Narrativa completa, diagramas e sequências de fluxo de dados: `docs/architectur
 
 ### Documentação de tasks
 
-Cada entrega funcional do dashboard web tem um arquivo numerado em `docs/tasks/NNN-*.md`. Ao
-concluir uma task: atualize esse arquivo com o resultado real (status, arquivos, decisões,
-limitações), substitua `docs/tasks/NEXT.md` pelo plano detalhado da próxima entrega, e atualize
-`docs/tasks/README.md` com a nova entrada. Leia `docs/tasks/NEXT.md` antes de começar um trabalho
-novo nessa parte do repositório.
+Cada entrega funcional do dashboard web tem um arquivo numerado em `tasks/NNN-*.md`. `docs/` é
+apenas documentação viva do produto (arquitetura, guias, segurança); planejamento e histórico de
+entregas vivem em `tasks/` (`roadmap.md`, `PENDENCIAS.md`, `NEXT.md`, `PARALLEL-WORK.md`, e os
+arquivos numerados `tasks/NNN-*.md`). Ao concluir uma task: registre esse arquivo com o resultado
+real (status, arquivos, decisões, limitações) e substitua `tasks/NEXT.md` pelo plano detalhado da
+próxima entrega. Leia `tasks/NEXT.md` antes de começar um trabalho novo nessa parte do
+repositório.
 
 ## Modelo de segurança da API
 

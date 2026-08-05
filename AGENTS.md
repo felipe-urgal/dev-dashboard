@@ -16,20 +16,28 @@ outro; o web reaproveita conceitos por trás de uma API HTTP local.
 1. **Idioma**: todo texto criado ou editado (UI, comentários, mensagens
    de commit, documentação, PRs) é em **português brasileiro**.
 2. **Documentação de tasks**: cada entrega funcional tem um arquivo
-   numerado em `docs/tasks/NNN-*.md`. Ao concluir uma task:
-   - atualizar `docs/tasks/NNN-*.md` com o resultado real
+   numerado em `tasks/NNN-*.md`. `docs/` é só documentação viva do
+   produto — planejamento e histórico de entregas vivem em `tasks/`. Ao
+   concluir uma task:
+   - registrar `tasks/NNN-*.md` com o resultado real
    (status, arquivos, decisões, limitações);
-   - substituir `docs/tasks/NEXT.md` pelo plano detalhado da próxima
+   - substituir `tasks/NEXT.md` pelo plano detalhado da próxima
      entrega;
-   - atualizar `docs/tasks/README.md` com a nova entrada.
-3. **Segurança da API**: leia `docs/architecture/security.md` antes de
+   - reconciliar `tasks/PENDENCIAS.md`.
+3. **Documentação sempre atualizada**: todo ajuste, correção ou nova
+   funcionalidade que muda comportamento, rota, capacidade ou fluxo
+   precisa atualizar o documento correspondente em `docs/` (arquitetura,
+   guias, segurança) na mesma entrega — não depois. Uma mudança que altera
+   comportamento sem atualizar `docs/` está incompleta (ver a tabela
+   "Onde documentar" em `CONTRIBUTING.md`).
+4. **Segurança da API**: leia `docs/architecture/security.md` antes de
    adicionar qualquer rota. A API é um processo privilegiado local:
    nada de shell arbitrário, `cwd` sempre do `ProjectStore`, catálogo
    de ações fechado, schemas de resposta explícitos.
-4. **CLI bash e web são independentes**: mudanças em `lib/*` não
+5. **CLI bash e web são independentes**: mudanças em `lib/*` não
    precisam tocar em `apps/`/`packages/` e vice-versa. Se precisar de
    compartilhamento, decida deliberadamente e documente.
-5. **UI dupla no CLI bash**: qualquer função interativa deve suportar
+6. **UI dupla no CLI bash**: qualquer função interativa deve suportar
    `gum` **e** o fallback puro (`read -r -p` + menu numerado).
 
 ## Layout do repositório
@@ -114,13 +122,13 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 
 ## Como abrir e fechar uma task de trabalho
 
-1. Ler `docs/tasks/NEXT.md` e o `docs/architecture/overview.md`
+1. Ler `tasks/NEXT.md` e o `docs/architecture/overview.md`
    relevante.
 2. Implementar, adicionando ao menos um teste automatizado quando o
    escopo suportar.
 3. Rodar `npm run typecheck && npm run build && npm test`.
-4. Atualizar o documento da task e o `README.md` de tasks.
-5. Substituir `docs/tasks/NEXT.md` pelo próximo plano.
+4. Atualizar o documento da task e reconciliar `tasks/PENDENCIAS.md`.
+5. Substituir `tasks/NEXT.md` pelo próximo plano.
 6. Commit descritivo em português, PR em draft.
 
 ## O que evitar

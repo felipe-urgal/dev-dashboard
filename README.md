@@ -18,12 +18,17 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (CRUD de branches locais, pull, push, commit e stash)
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
 - Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
-- Migrations e routes do Rails somente leitura, com migrate/rollback/seed/prepare mutáveis sob confirmação, e diagnóstico Bundler somente leitura
-- Sidekiq e webpack-dev-server como processos de fundo geridos (start/stop/restart/logs), com status somente leitura de credentials Rails
-- Inspeção de configurações e disponibilidade de bancos locais
-- Perfis de ambiente reutilizáveis, sem persistir valor de variáveis com nome de segredo
+- Migrations, routes e geradores (model/migration) do Rails, com operações mutáveis sob confirmação, e diagnóstico Bundler somente leitura
+- Sidekiq, webpack-dev-server e serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build), com status somente leitura de credentials Rails
+- Inspeção de configurações e disponibilidade de bancos locais, com snapshot e restore com confirmação
+- Perfis de ambiente reutilizáveis e leitura de variáveis por projeto, sem persistir valor de variáveis com nome de segredo
+- IDE embutida (Monaco), com LSP JavaScript/TypeScript e Ruby/Rails, e assistente de IA local via Ollama (opcional, isolado em painel próprio)
+- Project Doctor: diagnóstico somente leitura de estrutura, runtimes, dependências e configuração por projeto
+- Navegador estruturado de falhas de teste e assessor de impacto de mudanças após troca de branch/pull/sincronização
+- Inspetor somente leitura de portas TCP locais e abertura do editor local conhecido
 - Painel global de atividade com resumo, busca e histórico; página global de processos com limpeza segura de finalizados
 - Command palette (`Cmd/Ctrl+K`) para busca e navegação
+- Notificações nativas opcionais e exportação segura de logs pelo navegador
 - Preferências de tema, densidade e retenção configuráveis pela interface
 - Interface de terminal existente
 - API local em Fastify
@@ -382,112 +387,14 @@ npm test
 
 ## API atual
 
-Todas as rotas abaixo, exceto o health check e o bootstrap de sessão, são
-privadas. O navegador usa a sessão local; clientes não navegador usam o header
-de token.
+Todas as rotas, exceto o health check e o bootstrap de sessão, são privadas.
+O navegador usa a sessão local; clientes não navegador usam o header de
+token.
 
-```text
-GET    /api/health
-POST   /api/auth/browser-session
-
-GET    /api/directories
-
-GET    /api/workspaces
-POST   /api/workspaces
-POST   /api/workspaces/:workspaceId/scan
-DELETE /api/workspaces/:workspaceId
-
-GET    /api/projects
-GET    /api/projects/:projectId
-PUT    /api/projects/:projectId/favorite
-GET    /api/projects/:projectId/favicon
-GET    /api/projects/:projectId/readme
-GET    /api/projects/:projectId/git
-GET    /api/projects/:projectId/git/diff
-GET    /api/projects/:projectId/git/diff/file
-GET    /api/projects/:projectId/git/commits
-GET    /api/projects/:projectId/git/commits/:commitHash
-GET    /api/projects/:projectId/git/current-branch-commits
-GET    /api/projects/:projectId/git/workspace
-POST   /api/projects/:projectId/git/remotes/:remote/fetch
-GET    /api/projects/:projectId/git/sync/compare
-POST   /api/projects/:projectId/git/sync/confirmations
-POST   /api/projects/:projectId/git/sync
-POST   /api/projects/:projectId/git/mutations/confirmations
-POST   /api/projects/:projectId/git/branches
-POST   /api/projects/:projectId/git/branches/track/confirmations
-POST   /api/projects/:projectId/git/branches/track
-POST   /api/projects/:projectId/git/branches/rename/confirmations
-POST   /api/projects/:projectId/git/branches/rename
-POST   /api/projects/:projectId/git/branches/delete/confirmations
-POST   /api/projects/:projectId/git/branches/delete
-POST   /api/projects/:projectId/git/switch
-POST   /api/projects/:projectId/git/pull
-POST   /api/projects/:projectId/git/push
-POST   /api/projects/:projectId/git/commit
-POST   /api/projects/:projectId/git/save
-POST   /api/projects/:projectId/git/stash
-POST   /api/projects/:projectId/git/stash/pop
-GET    /api/projects/:projectId/git/stashes
-GET    /api/projects/:projectId/git/stashes/:stashReference
-POST   /api/projects/:projectId/git/stashes/confirmations
-POST   /api/projects/:projectId/git/stashes
-POST   /api/projects/:projectId/git/stashes/:stashReference/apply
-POST   /api/projects/:projectId/git/stashes/:stashReference/pop
-POST   /api/projects/:projectId/git/stashes/:stashReference/drop
-
-GET    /api/projects/:projectId/rails/migrations
-GET    /api/projects/:projectId/rails/routes
-POST   /api/projects/:projectId/rails/migrations/confirmations
-POST   /api/projects/:projectId/rails/migrations/mutations
-
-GET    /api/projects/:projectId/bundler
-
-GET    /api/projects/:projectId/server-settings
-PUT    /api/projects/:projectId/server-settings
-
-GET    /api/projects/:projectId/process
-POST   /api/projects/:projectId/process/start
-POST   /api/projects/:projectId/process/stop
-GET    /api/projects/:projectId/process/logs
-DELETE /api/projects/:projectId/process/logs
-GET    /api/processes
-POST   /api/processes/cleanup
-
-GET    /api/projects/:projectId/tests
-GET    /api/projects/:projectId/tests/process
-POST   /api/projects/:projectId/tests/:commandId/start
-GET    /api/projects/:projectId/tests/:commandId/files
-POST   /api/projects/:projectId/tests/:commandId/files/start
-POST   /api/projects/:projectId/tests/process/stop
-GET    /api/projects/:projectId/tests/process/logs
-DELETE /api/projects/:projectId/tests/process/logs
-GET    /api/projects/:projectId/tests/process/events
-GET    /api/projects/:projectId/tests/history
-
-GET    /api/projects/:projectId/database
-POST   /api/projects/:projectId/database/:environmentId/reveal
-POST   /api/projects/:projectId/database/:environmentId/start
-GET    /api/projects/:projectId/database/snapshots
-POST   /api/projects/:projectId/database/snapshots
-POST   /api/projects/:projectId/database/snapshots/:snapshotId/restore/confirmation
-POST   /api/projects/:projectId/database/snapshots/:snapshotId/restore
-
-GET    /api/projects/:projectId/scripts
-POST   /api/projects/:projectId/scripts/confirmations
-GET    /api/projects/:projectId/scripts/executions
-POST   /api/projects/:projectId/scripts/executions
-GET    /api/projects/:projectId/scripts/executions/latest
-GET    /api/projects/:projectId/scripts/executions/:executionId
-GET    /api/projects/:projectId/scripts/executions/:executionId/log
-GET    /api/projects/:projectId/scripts/executions/:executionId/events
-POST   /api/projects/:projectId/scripts/executions/:executionId/cancel
-
-GET    /api/activities
-
-GET    /api/settings/retention
-PUT    /api/settings/retention
-```
+A referência completa (157 rotas) é gerada a partir dos schemas Fastify
+reais e verificada no CI — não é mantida manualmente aqui para não divergir
+do código. Veja [`docs/architecture/api-reference.md`](docs/architecture/api-reference.md)
+ou rode `npm run docs:api` para regenerá-la.
 
 ## Estado atual
 
@@ -516,19 +423,28 @@ A interface web já permite:
 16. ajustar preferências de tema, densidade e retenção;
 17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
 18. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
-19. continuar utilizando o CLI existente de forma independente.
+19. editar código na IDE embutida (Monaco) com LSP JavaScript/TypeScript e
+    Ruby/Rails, e usar o assistente de IA local (Ollama), opcional e isolado
+    em painel próprio;
+20. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
+    runner e revisar o impacto de uma troca de branch/pull/sincronização;
+21. inspecionar portas TCP locais, abrir o editor local conhecido e gerir
+    serviços do Docker Compose;
+22. exportar logs protegidos pelo navegador e receber notificações nativas
+    opcionais de conclusões longas;
+23. continuar utilizando o CLI existente de forma independente.
 
 A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
 smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-Consulte [`docs/tasks/011-product-audit-and-planning.md`](docs/tasks/011-product-audit-and-planning.md)
-para a auditoria original, [`docs/tasks/NEXT.md`](docs/tasks/NEXT.md) para a
-próxima entrega, [`docs/PENDENCIAS.md`](docs/PENDENCIAS.md) para o inventário
-consolidado do que falta implementar e [`docs/roadmap.md`](docs/roadmap.md) para
-os horizontes futuros.
+Consulte [`tasks/NEXT.md`](tasks/NEXT.md) para a próxima entrega,
+[`tasks/PENDENCIAS.md`](tasks/PENDENCIAS.md) para o inventário do que falta
+implementar e [`tasks/roadmap.md`](tasks/roadmap.md) para os horizontes
+futuros. O histórico de entregas já registradas vive nos arquivos
+`tasks/NNN-*.md`.
 
 ## Licença
 
-Ainda não definida.
+MIT — ver [`LICENSE`](LICENSE).

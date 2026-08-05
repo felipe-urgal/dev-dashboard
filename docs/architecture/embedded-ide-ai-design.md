@@ -10,9 +10,8 @@ de quatro ferramentas somente leitura (080), compleção inline/ghost text
 quinta ferramenta, `propose_workspace_edit`, aplicando edições propostas
 pela IA através do mesmo preview/confirmação/rollback da task 077, sem rota
 nova para aplicar (083). As decisões abaixo continuam sendo a referência de
-arquitetura para essa área; onde o texto e o código divergirem, o código e
-os documentos de task numerados (`docs/tasks/076-*.md` a `083-*.md`)
-prevalecem.
+arquitetura para essa área; onde o texto e o código divergirem, o código
+prevalece.
 
 ## Objetivo
 

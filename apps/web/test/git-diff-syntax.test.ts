@@ -23,7 +23,7 @@ test('cobre as extensões do dia a dia do repositório', () => {
     'apps/web/src/styles/tokens.css': 'css',
     'app/ui/pages/auth/signup/index.tsx': 'typescript',
     'apps/api/src/services/git-service.ts': 'typescript',
-    'docs/tasks/README.md': 'markdown',
+    'tasks/README.md': 'markdown',
     'apps/web/src/components/ProjectGitDiffPage.vue': 'xml',
     'apps/web/src/main.js': 'javascript',
     'app/models/user.rb': 'ruby',

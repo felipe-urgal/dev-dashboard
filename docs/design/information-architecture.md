@@ -25,23 +25,21 @@ Jobs e logs
 Configurações
 ```
 
-> Status atualizado após tasks 012/014: **Repositórios**, detalhe do
-> projeto, **Atividade** (`/activity`) e **Processos** (`/processes`)
-> estão implementados. **Visão geral** existe como landing, mas sem os
-> widgets consolidados descritos abaixo. **Configurações** (`/settings`,
-> tasks 022/035/038) e **command palette** (tasks 033/034) já estão
+> Status atualizado: **Repositórios**, detalhe do projeto, **Atividade**
+> (`/activity`) e **Processos** (`/processes`) estão implementados. **Visão
+> geral** existe como landing, mas sem os widgets consolidados descritos
+> abaixo. **Configurações** (`/settings`) e **command palette** já estão
 > implementados. Só **Jobs e logs** segue aspiracional — não existe uma
 > página dedicada; `ActivityView` cobre terreno adjacente (histórico de
-> execuções), mas não é a mesma coisa — mapeado no Horizonte 2 do
-> [`../roadmap.md`](../roadmap.md).
+> execuções), mas não é a mesma coisa — mapeado em
+> [`../../tasks/roadmap.md`](../../tasks/roadmap.md).
 >
-> Vocabulário visual (cores, tipografia, densidade, componentes de
-> card/badge/formulário) está sendo reformulado em
-> [`redesign-2026.md`](./redesign-2026.md). Este documento continua
-> descrevendo **a estrutura da informação e navegação**; o novo
-> substitui a camada visual (paletas, tokens, padrões de card).
-> Quando os dois divergirem sobre aparência, o `redesign-2026.md`
-> prevalece.
+> A reforma do vocabulário visual (cores, tipografia, densidade,
+> componentes de card/badge/formulário) foi concluída: os tokens vivem em
+> `apps/web/src/styles/tokens.css` e os componentes compartilhados
+> (`<Card>`, `<StatusBadge>`) substituíram as superfícies ad hoc anteriores.
+> Este documento descreve **a estrutura da informação e navegação**, não a
+> camada visual.
 
 ### Visão geral
 

@@ -33,7 +33,7 @@ arquivos menores por responsabilidade, sem alterar comportamento — para ser ex
 futuras, uma de cada vez.
 
 Isso não é uma entrega funcional (não muda nada visível para quem usa o dashboard), por isso vive
-aqui em vez de em `docs/tasks/`. Quando uma fase for executada, registrar o resultado neste arquivo
+aqui em vez de em `tasks/`. Quando uma fase for executada, registrar o resultado neste arquivo
 mesmo, na seção da fase correspondente.
 
 ## Onde as linhas estão concentradas
