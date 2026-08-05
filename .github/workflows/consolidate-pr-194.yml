@@ -3,7 +3,7 @@ name: Consolidate PR 194
 on:
   pull_request:
     branches:
-      - fix/git-commit-tracked-default
+      - main
     types:
       - opened
       - reopened
