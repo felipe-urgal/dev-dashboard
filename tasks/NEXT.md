@@ -2,9 +2,9 @@
 
 Nenhuma entrega sequencial está aprovada no momento.
 
-A task mais recente concluída foi a **106 — E2E do catálogo de scripts:
-carregamento, sucesso, erro e troca de projeto** (ver
-`tasks/106-playwright-privileged-flows.md`).
+A task mais recente concluída foi a **107 — E2E de mutações de branch Git:
+sucesso, erro, vazio e troca de projeto** (ver
+`tasks/107-playwright-git-branch-mutations.md`).
 
 Para escolher a próxima, veja os itens em aberto em `tasks/PENDENCIAS.md` e,
 se mais de uma frente for avançar ao mesmo tempo, confira `tasks/PARALLEL-WORK.md`

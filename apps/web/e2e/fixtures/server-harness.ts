@@ -22,6 +22,36 @@ export interface RunningServer {
   ollamaDouble: RunningOllamaDouble;
 }
 
+async function runGit(cwd: string, args: string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('git', args, {
+      cwd,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'Dev Dashboard E2E',
+        GIT_AUTHOR_EMAIL: 'e2e@example.com',
+        GIT_COMMITTER_NAME: 'Dev Dashboard E2E',
+        GIT_COMMITTER_EMAIL: 'e2e@example.com',
+      },
+      stdio: 'ignore',
+    });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`git ${args.join(' ')} saiu com código ${code}`));
+    });
+  });
+}
+
+// Repositório Git real (não um double) para o e2e de mutações — branch
+// "main" com um commit inicial, autor fixo via env (não depende de git
+// config global no runner de CI).
+async function initSampleGitRepository(projectDirectory: string): Promise<void> {
+  await runGit(projectDirectory, ['init', '-q', '-b', 'main']);
+  await runGit(projectDirectory, ['add', '-A']);
+  await runGit(projectDirectory, ['commit', '-q', '-m', 'chore: commit inicial']);
+}
+
 async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   const projectDirectory = path.join(workspaceDirectory, 'sample-node-app');
   await mkdir(projectDirectory, { recursive: true });
@@ -57,6 +87,8 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
     path.join(projectDirectory, 'package-lock.json'),
     JSON.stringify({ name: 'sample-node-app', version: '0.0.0', lockfileVersion: 3 }, null, 2),
   );
+  await writeFile(path.join(projectDirectory, '.gitignore'), '.env\n');
+  await initSampleGitRepository(projectDirectory);
 }
 
 // Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado

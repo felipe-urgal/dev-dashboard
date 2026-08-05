@@ -46,3 +46,7 @@ virar código:
   sucesso, erro (com confirmação obrigatória) e troca de projeto (estado
   vazio natural em `sample-rails-app`). Git e banco de dados continuam fora
   de escopo da base de E2E, por exigirem fixtures mais caras.
+- Task 107 — E2E de mutações de branch Git: criar, trocar, recusar nome
+  duplicado, vazio (projeto sem `.git`) e troca de projeto, sobre um
+  repositório Git real na fixture `sample-node-app`. Commit, stash e banco
+  de dados continuam fora de escopo.
