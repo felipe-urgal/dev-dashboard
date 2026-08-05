@@ -2,7 +2,9 @@
 
 ## Status
 
-Implementada no PR #191, em validação final com suporte aos cabeçalhos Minitest simples e numerados.
+Implementada no PR #191, em validação final com correções de robustez para o
+parser do pytest e para o deep link quando o editor é montado sem contexto de
+rota.
 
 ## Contexto
 
@@ -39,13 +41,16 @@ falhas, mantendo o log original como fonte de verdade.
 - caminhos absolutos externos, segmentos `..` e extensões desconhecidas são
   descartados;
 - o log bruto permanece disponível e nunca é substituído pelo parsing;
-- falha no reconhecimento de um bloco não interfere na execução dos testes.
+- falha no reconhecimento de um bloco não interfere na execução dos testes;
+- ausência de contexto de rota não interrompe a montagem isolada do editor.
 
 ## Ajustes incorporados
 
 - tipografia do título da topbar explicitamente alinhada ao token global;
 - Project Doctor reconhece `.env.example` e `.env.sample` como arquivos de
-  referência, priorizando `.env.example` quando ambos existem.
+  referência, priorizando `.env.example` quando ambos existem;
+- saída resumida do pytest preserva a mensagem de asserção e usa o alvo apenas
+  para identificar teste e arquivo.
 
 ## Validação
 
