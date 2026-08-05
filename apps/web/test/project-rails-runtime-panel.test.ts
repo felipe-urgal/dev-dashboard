@@ -86,10 +86,13 @@ describe('ProjectRailsRuntimePanel', () => {
     expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
 
     await tabs[1]?.trigger('click');
+    await wrapper.vm.$nextTick();
 
-    expect(sidekiqPanel.isVisible()).toBe(false);
-    expect(webpackPanel.isVisible()).toBe(true);
-    expect(webpackPanel.text()).toContain('webpack-dev-server não foi detectado');
+    expect(tabs[0]?.attributes('aria-selected')).toBe('false');
+    expect(tabs[1]?.attributes('aria-selected')).toBe('true');
+    expect(wrapper.find('[data-worker-id="webpack"]').text()).toContain(
+      'webpack-dev-server não foi detectado',
+    );
     expect(wrapper.find('.rails-credentials-card').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Credentials');
 
