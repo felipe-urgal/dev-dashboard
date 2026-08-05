@@ -13,6 +13,7 @@ import {
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
+import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -40,6 +41,7 @@ export interface AppContext {
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
   gitService: GitService;
+  gitMutationHistoryService: GitMutationHistoryService;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   databaseDetectionService: DatabaseDetectionService;
@@ -67,6 +69,7 @@ export function createAppContext(): AppContext {
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
   const databaseDetectionService = new DatabaseDetectionService();
   const gitService = new DashboardGitService();
+  const gitMutationHistoryService = new GitMutationHistoryService();
   const projectFileService = new ProjectFileService();
   const projectWorkspaceEditService = new ProjectWorkspaceEditService(projectFileService);
   const projectLanguageServerService = new ProjectLanguageServerService({ projectFileService });
@@ -80,6 +83,7 @@ export function createAppContext(): AppContext {
       new ProjectServerSettingsRepository(),
     projectStore,
     gitService,
+    gitMutationHistoryService,
     testDetectionService: new TestDetectionService(),
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService,

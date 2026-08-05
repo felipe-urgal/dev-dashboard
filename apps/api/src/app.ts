@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
+import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
 import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
@@ -144,6 +145,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+
+  app.register(gitMutationHistoryRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitWorkspaceRoutes, {
@@ -200,6 +208,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(projectReadmeRoutes, {

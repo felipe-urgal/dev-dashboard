@@ -9,6 +9,7 @@ import type {
   GitFileDiff,
   GitFileLines,
   GitMutationConfirmation,
+  GitMutationHistoryPage,
   GitMutationOperation,
   GitStashEntry,
   ProjectGitOverview,
@@ -364,4 +365,18 @@ export async function stashPopProjectGit(projectId: string, confirmationToken: s
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
   );
   return response.popped;
+}
+
+export async function fetchProjectGitMutationHistory(
+  projectId: string,
+  page = 1,
+  pageSize = 10,
+  signal?: AbortSignal,
+): Promise<GitMutationHistoryPage> {
+  const search = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const init: RequestInit = signal ? { signal } : {};
+  return requestJson<GitMutationHistoryPage>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/mutation-history?${search}`,
+    init,
+  );
 }

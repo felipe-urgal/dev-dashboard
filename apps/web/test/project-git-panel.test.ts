@@ -363,6 +363,7 @@ test('abre diretamente em sincronização e mantém branches como segunda aba', 
       'Desfazer',
       'Pull Request',
       'Histórico',
+      'Mutações',
     ],
   );
   assert.doesNotMatch(text, /Stash/);

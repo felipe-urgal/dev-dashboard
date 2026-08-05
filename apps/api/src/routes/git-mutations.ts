@@ -5,8 +5,10 @@ import type {
 
 import type { ProjectStore } from '../store/project-store.js';
 import { GitMutationError, type GitService } from '../services/git-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 
 import { ApiError } from '../http/api-error.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 import {
   commonErrorResponseSchemas,
@@ -36,12 +38,13 @@ const projectParamsSchema = {
 interface GitMutationRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitService: GitService;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 export const gitMutationRoutes: FastifyPluginAsync<
   GitMutationRouteOptions
 > = async (app, options) => {
-  const { projectStore, gitService } = options;
+  const { projectStore, gitService, gitMutationHistoryService } = options;
 
   const mutationConfirmationBodySchema = {
     type: 'object', additionalProperties: false, required: ['operation', 'target'],
@@ -169,7 +172,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
         return reply.code(201).send({
-          branch: await gitService.createBranch(project.path, project.id, request.body.name, request.body.confirmationToken),
+          branch: await withGitMutationHistory(gitMutationHistoryService, project, 'create-branch', () =>
+            gitService.createBranch(project.path, project.id, request.body.name, request.body.confirmationToken)),
         });
       } catch (error) {
         translateMutationError(error);
@@ -196,7 +200,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       const project = projectStore.findProject(request.params.projectId);
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
-        return { branch: await gitService.switchBranch(project.path, project.id, request.body.name, request.body.confirmationToken) };
+        return { branch: await withGitMutationHistory(gitMutationHistoryService, project, 'switch-branch', () =>
+          gitService.switchBranch(project.path, project.id, request.body.name, request.body.confirmationToken)) };
       } catch (error) {
         translateMutationError(error);
       }
@@ -222,7 +227,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       const project = projectStore.findProject(request.params.projectId);
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
-        return { branch: await gitService.pull(project.path, project.id, request.body.confirmationToken) };
+        return { branch: await withGitMutationHistory(gitMutationHistoryService, project, 'pull', () =>
+          gitService.pull(project.path, project.id, request.body.confirmationToken)) };
       } catch (error) {
         translateMutationError(error);
       }
@@ -248,7 +254,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       const project = projectStore.findProject(request.params.projectId);
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
-        return { branch: await gitService.push(project.path, project.id, request.body.confirmationToken) };
+        return { branch: await withGitMutationHistory(gitMutationHistoryService, project, 'push', () =>
+          gitService.push(project.path, project.id, request.body.confirmationToken)) };
       } catch (error) {
         translateMutationError(error);
       }
@@ -275,7 +282,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
         return reply.code(201).send({
-          commit: await gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken),
+          commit: await withGitMutationHistory(gitMutationHistoryService, project, 'commit', () =>
+            gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken)),
         });
       } catch (error) {
         translateMutationError(error);
@@ -303,7 +311,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
         return reply.code(201).send({
-          commit: await gitService.amend(project.path, project.id, request.body.message, request.body.confirmationToken),
+          commit: await withGitMutationHistory(gitMutationHistoryService, project, 'amend', () =>
+            gitService.amend(project.path, project.id, request.body.message, request.body.confirmationToken)),
         });
       } catch (error) {
         translateMutationError(error);
@@ -331,7 +340,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
         return reply.code(201).send({
-          commit: await gitService.save(project.path, project.id, request.body.message, request.body.confirmationToken),
+          commit: await withGitMutationHistory(gitMutationHistoryService, project, 'save', () =>
+            gitService.save(project.path, project.id, request.body.message, request.body.confirmationToken)),
         });
       } catch (error) {
         translateMutationError(error);
@@ -355,7 +365,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       const project = projectStore.findProject(request.params.projectId);
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
-        return reply.code(201).send(await gitService.stashPush(project.path, project.id, request.body.confirmationToken));
+        return reply.code(201).send(await withGitMutationHistory(gitMutationHistoryService, project, 'stash-push', () =>
+          gitService.stashPush(project.path, project.id, request.body.confirmationToken)));
       } catch (error) {
         translateMutationError(error);
       }
@@ -378,7 +389,8 @@ export const gitMutationRoutes: FastifyPluginAsync<
       const project = projectStore.findProject(request.params.projectId);
       if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
       try {
-        return await gitService.stashPop(project.path, project.id, request.body.confirmationToken);
+        return await withGitMutationHistory(gitMutationHistoryService, project, 'stash-pop', () =>
+          gitService.stashPop(project.path, project.id, request.body.confirmationToken));
       } catch (error) {
         translateMutationError(error);
       }

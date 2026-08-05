@@ -142,6 +142,22 @@ export type {
 } from './git-stash.js';
 
 export type {
+  GitMutationCatalogEntry,
+  GitMutationRiskLevel,
+} from './git-mutation-catalog.js';
+export {
+  GIT_MUTATION_CATALOG,
+  GIT_MUTATION_CATALOG_BY_ID,
+  findGitMutationCatalogEntry,
+} from './git-mutation-catalog.js';
+
+export type {
+  GitMutationHistoryEvent,
+  GitMutationHistoryPage,
+  GitMutationHistoryResult,
+} from './git-mutation-history.js';
+
+export type {
   ProjectTestCommand,
   ProjectTestFile,
   ProjectTestOrigin,

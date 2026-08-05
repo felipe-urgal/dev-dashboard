@@ -120,6 +120,34 @@ export const gitFileLinesResponseSchema = {
   },
 } as const;
 
+export const gitMutationHistoryEventResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['id', 'projectId', 'operationId', 'risk', 'occurredAt', 'result'],
+  properties: {
+    id: { type: 'string' },
+    projectId: { type: 'string' },
+    workspaceId: { type: 'string' },
+    operationId: { type: 'string' },
+    risk: { type: 'string', enum: ['read-only', 'write-safe', 'write-remote', 'destructive'] },
+    occurredAt: { type: 'string' },
+    result: { type: 'string', enum: ['succeeded', 'failed'] },
+    errorCode: { type: 'string' },
+  },
+} as const;
+
+export const gitMutationHistoryPageResponseSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['projectId', 'page', 'pageSize', 'total', 'totalPages', 'events'],
+  properties: {
+    projectId: { type: 'string' },
+    page: { type: 'integer', minimum: 1 },
+    pageSize: { type: 'integer', minimum: 1 },
+    total: { type: 'integer', minimum: 0 },
+    totalPages: { type: 'integer', minimum: 0 },
+    events: { type: 'array', items: gitMutationHistoryEventResponseSchema },
+  },
+} as const;
+
 export const gitPullRequestUrlResponseSchema = {
   type: 'object', additionalProperties: false,
   required: ['provider', 'url', 'branch', 'defaultBranch'],
