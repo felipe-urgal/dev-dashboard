@@ -18,13 +18,8 @@ Nenhuma frente paralela registrada no momento.
 
 ## Livres para pegar em paralelo
 
-Cada uma toca uma área de arquivos distinta das outras linhas desta tabela.
-"Tamanho" e "Conflito conhecido" seguem a classificação da task 086 e o texto
-atual de `docs/PENDENCIAS.md`.
-
-| Atividade | Área principal | Tamanho | Conflito conhecido |
-| --- | --- | --- | --- |
-| Licença do projeto | arquivo `LICENSE` na raiz | trivial | requer decisão de qual licença adotar antes de criar o arquivo — não é uma escolha técnica |
+Nenhuma candidata livre no momento — ver "Exigem decisão de arquitetura"
+abaixo para o que falta destravar.
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
 
@@ -70,3 +65,5 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 095 — Operações Sidekiq/webpack-dev-server via dois novos `kind` de
   processo gerenciado (`worker`, `webpack`) e status somente leitura de
   credenciais Rails, sem ler o conteúdo dos arquivos criptografados.
+- Licença do projeto — MIT, `LICENSE` na raiz e campo `license` em
+  `package.json` (item trivial, sem arquivo de task próprio).

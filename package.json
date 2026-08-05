@@ -2,6 +2,7 @@
   "name": "dev-dashboard",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Dashboard local para gerenciamento de projetos de desenvolvimento",
   "workspaces": [
     "apps/*",
