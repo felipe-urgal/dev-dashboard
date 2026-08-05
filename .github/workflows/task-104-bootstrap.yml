@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-lint:
@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: chore/task-104-eslint
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -25,43 +27,24 @@ jobs:
       - name: Install and refresh lockfile
         run: npm install
 
-      - name: Inventory before fix
+      - name: Persist lockfile
         shell: bash
         run: |
-          set +e
-          npm run lint > /tmp/lint-before.txt 2>&1
-          echo $? > /tmp/lint-before-status.txt
-          exit 0
+          if git diff --quiet -- package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: atualiza lockfile do ESLint"
+          git push origin HEAD:chore/task-104-eslint
 
-      - name: Apply safe automatic fixes
-        shell: bash
-        run: |
-          set +e
-          npm run lint:fix > /tmp/lint-fix.txt 2>&1
-          echo $? > /tmp/lint-fix-status.txt
-          exit 0
+      - name: Run lint
+        run: npm run lint | tee /tmp/lint.txt
 
-      - name: Inventory after fix
-        shell: bash
-        run: |
-          set +e
-          npm run lint > /tmp/lint-after.txt 2>&1
-          echo $? > /tmp/lint-after-status.txt
-          exit 0
-
-      - name: Archive updated source
-        run: tar --exclude=.git --exclude=node_modules -czf /tmp/dev-dashboard-lint-result.tgz .
-
-      - name: Upload lint result
+      - name: Upload lint inventory
         uses: actions/upload-artifact@v4
         with:
-          name: task-104-lint-result
-          path: |
-            /tmp/dev-dashboard-lint-result.tgz
-            /tmp/lint-before.txt
-            /tmp/lint-before-status.txt
-            /tmp/lint-fix.txt
-            /tmp/lint-fix-status.txt
-            /tmp/lint-after.txt
-            /tmp/lint-after-status.txt
+          name: task-104-lint-inventory
+          path: /tmp/lint.txt
           retention-days: 1
