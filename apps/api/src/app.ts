@@ -50,6 +50,7 @@ import { registerLocalSecurity } from './security/local-security.js';
 import { registerApiErrorHandling } from './http/api-error.js';
 import { registerStaticDashboard } from './http/static-dashboard.js';
 import { ProjectDoctorService } from './services/project-doctor-service.js';
+import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
@@ -70,6 +71,7 @@ export interface BuildAppOptions {
   sessionTtlSeconds?: number;
   now?: () => number;
   projectDoctorService?: ProjectDoctorService;
+  portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
 }
 
@@ -93,6 +95,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectDoctorService =
     options.projectDoctorService ??
     new ProjectDoctorService(options.now ? { now: options.now } : {});
+  const portInspectorService =
+    options.portInspectorService ??
+    new PortInspectorService();
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
@@ -286,6 +291,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     serverHealthCheckService:
       context.serverHealthCheckService,
     projectStore: context.projectStore,
+    portInspectorService,
   });
 
   app.register(testRoutes, {

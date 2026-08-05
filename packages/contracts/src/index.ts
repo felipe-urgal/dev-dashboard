@@ -97,6 +97,17 @@ export type {
 } from './process.js';
 
 export type {
+  LocalPortEntry,
+  LocalPortExpectation,
+  LocalPortExternalProcess,
+  LocalPortInspection,
+  LocalPortInspectionStatus,
+  LocalPortManagedProcess,
+  LocalPortScope,
+  LocalPortState,
+} from './port.js';
+
+export type {
   ProjectServerHealth,
   ProjectServerSettings,
   ServerHealthStatus,

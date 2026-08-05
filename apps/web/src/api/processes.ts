@@ -1,4 +1,5 @@
 import type {
+  LocalPortInspection,
   ManagedProcess,
   ProcessLogSnapshot,
   ProjectServerHealth,
@@ -176,3 +177,19 @@ export async function cleanupManagedProcesses(): Promise<number> {
   });
   return response.removedCount;
 }
+
+interface LocalPortsResponse {
+  inspection: LocalPortInspection;
+}
+
+export async function fetchLocalPorts(
+  signal?: AbortSignal,
+): Promise<LocalPortInspection> {
+  const response = await requestJson<LocalPortsResponse>(
+    '/api/ports',
+    signal ? { signal } : {},
+  );
+
+  return response.inspection;
+}
+
