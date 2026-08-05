@@ -15,6 +15,7 @@ import {
   prepareProjectGitBranchDelete,
   prepareProjectGitBranchRename,
   prepareProjectGitMutation,
+  pullProjectGitBranch,
   renameProjectGitBranch,
   switchProjectGitBranch,
 } from '../api';
@@ -73,6 +74,7 @@ export function useProjectGitPanel(
   const createBranchName = ref('');
   const commitMessage = ref('');
   const commitMode = ref<CommitMode>('create');
+  const amendedBranch = ref<string | null>(null);
   let generation = 0;
 
   useAutoDismiss(errorMessage, '');
@@ -390,6 +392,64 @@ export function useProjectGitPanel(
     }
   }
 
+  async function runUpdateCurrentBranch(): Promise<void> {
+    if (mutationRunning.value || remoteRefreshRunning.value) return;
+
+    const branch = overview.value?.branch;
+    const upstream = overview.value?.upstream;
+    if (!branch || overview.value?.detached) {
+      mutationErrorMessage.value =
+        'Selecione uma branch local antes de atualizar.';
+      return;
+    }
+    if (!upstream) {
+      mutationErrorMessage.value =
+        `A branch "${branch}" não possui upstream configurado.`;
+      return;
+    }
+    if (!overview.value?.clean) {
+      mutationErrorMessage.value =
+        'Guarde ou confirme as alterações locais antes de atualizar a branch.';
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Atualizar branch local?',
+      message:
+        `Os commits de "${upstream}" serão trazidos para "${branch}" `
+        + 'somente por fast-forward. Nenhum merge ou rebase será criado automaticamente.',
+      confirmLabel: 'Atualizar local',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+
+    mutationRunning.value = true;
+    mutationMessage.value = '';
+    mutationErrorMessage.value = '';
+
+    try {
+      const confirmation = await prepareProjectGitMutation(
+        props.project.id,
+        'pull',
+        branch,
+      );
+      const updatedBranch = await pullProjectGitBranch(
+        props.project.id,
+        confirmation.token,
+      );
+      mutationMessage.value =
+        `Branch "${updatedBranch}" atualizada a partir de ${upstream}.`;
+      await reloadGitData();
+    } catch (error) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar a branch local.';
+    } finally {
+      mutationRunning.value = false;
+    }
+  }
+
   async function runMainSynchronization(): Promise<void> {
     if (mutationRunning.value || remoteRefreshRunning.value) return;
     const confirmed = await confirmDialog({
@@ -441,6 +501,8 @@ export function useProjectGitPanel(
     }
 
     const amend = commitMode.value === 'amend';
+    const branchBeforeCommit = overview.value?.branch;
+    const upstreamBeforeCommit = overview.value?.upstream;
     const confirmed = await confirmDialog({
       title: amend ? 'Alterar último commit?' : 'Criar commit?',
       message: amend
@@ -476,6 +538,15 @@ export function useProjectGitPanel(
       mutationMessage.value = amend
         ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
         : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+      if (
+        amend
+        && branchBeforeCommit
+        && branchBeforeCommit !== 'main'
+        && branchBeforeCommit !== 'master'
+        && upstreamBeforeCommit === `origin/${branchBeforeCommit}`
+      ) {
+        amendedBranch.value = branchBeforeCommit;
+      }
       commitMessage.value = '';
       commitMode.value = 'create';
       await reloadGitData();
@@ -498,6 +569,7 @@ export function useProjectGitPanel(
       workspace.value = null;
       commitMessage.value = '';
       commitMode.value = 'create';
+      amendedBranch.value = null;
       activeTab.value = tabFromQuery();
       await Promise.all([
         loadGit(),
@@ -526,6 +598,7 @@ export function useProjectGitPanel(
     createBranchName,
     commitMessage,
     commitMode,
+    amendedBranch,
     generation,
     formatDate,
     openTab,
@@ -541,6 +614,7 @@ export function useProjectGitPanel(
     runRefreshRemotes,
     runTrackRemoteBranch,
     runDeleteRemoteBranch,
+    runUpdateCurrentBranch,
     runMainSynchronization,
     currentBranchOrHead,
     runCommit,

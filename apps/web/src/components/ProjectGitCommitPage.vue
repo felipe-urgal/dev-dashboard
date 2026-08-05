@@ -2,6 +2,7 @@
 import {
   ArrowPathRoundedSquareIcon,
   CheckCircleIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
 import { computed } from 'vue';
 
@@ -14,12 +15,14 @@ const props = defineProps<{
   busy: boolean;
   message: string;
   mode: CommitMode;
+  forcePushBranch: string | null;
 }>();
 
 const emit = defineEmits<{
   'update:message': [value: string];
   'update:mode': [value: CommitMode];
   submit: [];
+  'force-push': [];
 }>();
 
 const trackedChanges = computed(() =>
@@ -83,6 +86,29 @@ function updateMessage(event: Event): void {
     </div>
 
     <div class="git-commit-divider" />
+
+    <section
+      v-if="forcePushBranch"
+      class="git-force-push-notice"
+      aria-label="Atualização da branch remota"
+    >
+      <ExclamationTriangleIcon aria-hidden="true" />
+      <div>
+        <strong>O último commit foi reescrito</strong>
+        <p>
+          Para atualizar <code>origin/{{ forcePushBranch }}</code>, use o
+          reenvio seguro. A operação será recusada se a branch remota tiver
+          mudado depois da confirmação.
+        </p>
+      </div>
+      <button
+        type="button"
+        :disabled="busy"
+        @click="emit('force-push')"
+      >
+        Reenviar com lease
+      </button>
+    </section>
 
     <div class="git-commit-context">
       <span>Branch <strong>{{ overview.branch ?? 'HEAD' }}</strong></span>
@@ -195,6 +221,39 @@ function updateMessage(event: Event): void {
   background: var(--border);
 }
 
+.git-force-push-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--warning-surface);
+}
+
+.git-force-push-notice > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--warning-text);
+}
+
+.git-force-push-notice p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+}
+
+.git-force-push-notice button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: var(--warning-text);
+  color: var(--warning-text);
+  background: var(--surface-1);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .git-commit-context {
   display: flex;
   align-items: center;
@@ -290,6 +349,15 @@ function updateMessage(event: Event): void {
 
   .git-commit-mode button:last-child {
     border-bottom: 0;
+  }
+
+  .git-force-push-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .git-force-push-notice button {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .git-commit-footer {

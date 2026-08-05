@@ -53,6 +53,7 @@
         :workspace="workspace"
         :busy="mutationRunning"
         :checking="remoteRefreshRunning"
+        @update-current-branch="runUpdateCurrentBranch"
         @synchronize="runMainSynchronization"
       />
 
@@ -83,7 +84,9 @@
         v-model:mode="commitMode"
         :overview="overview"
         :busy="mutationRunning"
+        :force-push-branch="amendedBranch"
         @submit="runCommit"
+        @force-push="runForcePushWithLease"
       />
 
       <ProjectGitUndoPage

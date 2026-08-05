@@ -6214,6 +6214,179 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 
 ## Git Workspace
 
+### `POST /api/projects/:projectId/git/branches/force-push-with-lease`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "branch",
+    "confirmationToken"
+  ],
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "confirmationToken": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "branch"
+    ],
+    "properties": {
+      "branch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/git/branches/force-push-with-lease/confirmations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "branch"
+  ],
+  "properties": {
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "confirmation"
+    ],
+    "properties": {
+      "confirmation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "operation",
+          "target",
+          "expiresAt"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create-branch",
+              "switch-branch",
+              "pull",
+              "push",
+              "commit",
+              "stash-push",
+              "stash-pop"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `POST /api/projects/:projectId/git/branches/publish`
 
 **Parâmetros de rota (`params`)**

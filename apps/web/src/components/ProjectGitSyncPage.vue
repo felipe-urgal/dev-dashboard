@@ -21,6 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   synchronize: [];
+  'update-current-branch': [];
 }>();
 
 const localMain = computed(() =>
@@ -45,6 +46,42 @@ const upstreamMain = computed(() =>
       && branch.remote === 'upstream'
       && branch.shortName === 'main',
   ),
+);
+
+const currentLocalBranch = computed(() =>
+  props.workspace?.branches.find(
+    (branch) => branch.kind === 'local' && branch.current,
+  ),
+);
+
+const showCurrentBranchSync = computed(() =>
+  Boolean(
+    currentLocalBranch.value
+    && currentLocalBranch.value.name !== 'main',
+  ),
+);
+
+const currentBranchName = computed(() =>
+  currentLocalBranch.value?.name
+  ?? props.overview.branch
+  ?? 'HEAD',
+);
+
+const currentBranchUpstream = computed(() =>
+  currentLocalBranch.value?.upstream
+  ?? props.overview.upstream,
+);
+
+const currentBranchAhead = computed(() =>
+  currentLocalBranch.value?.ahead
+  ?? props.overview.ahead
+  ?? 0,
+);
+
+const currentBranchBehind = computed(() =>
+  currentLocalBranch.value?.behind
+  ?? props.overview.behind
+  ?? 0,
 );
 
 const hasRequiredRemotes = computed(() => {
@@ -102,6 +139,47 @@ const status = computed(() => {
   };
 });
 
+const currentBranchStatus = computed(() => {
+  if (!props.workspace || props.checking) {
+    return {
+      label: 'Verificando…',
+      tone: 'loading',
+    };
+  }
+  if (!currentBranchUpstream.value) {
+    return {
+      label: 'Upstream não configurado',
+      tone: 'warning',
+    };
+  }
+  if (!props.overview.clean) {
+    return {
+      label: 'Alterações locais pendentes',
+      tone: 'warning',
+    };
+  }
+  if (currentBranchAhead.value > 0 && currentBranchBehind.value > 0) {
+    return {
+      label: 'Branch local e remota divergiram',
+      tone: 'warning',
+    };
+  }
+  if (currentBranchBehind.value > 0) {
+    return {
+      label: currentBranchBehind.value === 1
+        ? '1 commit novo no remoto'
+        : `${currentBranchBehind.value} commits novos no remoto`,
+      tone: 'pending',
+    };
+  }
+  return {
+    label: currentBranchAhead.value > 0
+      ? 'Sem commits remotos novos'
+      : 'Branch atualizada',
+    tone: 'success',
+  };
+});
+
 const buttonLabel = computed(() =>
   props.busy ? 'Sincronizando…' : 'Sincronizar',
 );
@@ -113,11 +191,71 @@ const buttonDisabled = computed(() =>
   || !props.overview.clean
   || !available.value,
 );
+
+const currentBranchButtonDisabled = computed(() =>
+  props.busy
+  || props.checking
+  || !props.overview.clean
+  || !currentBranchUpstream.value
+  || currentBranchBehind.value <= 0
+  || currentBranchAhead.value > 0,
+);
+
+function statusIcon(tone: string) {
+  if (tone === 'warning') return ExclamationTriangleIcon;
+  if (tone === 'loading') return ArrowPathIcon;
+  return CheckCircleIcon;
+}
 </script>
 
 <template>
   <section class="git-sync-page">
-    <div class="git-sync-card">
+    <div
+      v-if="showCurrentBranchSync"
+      class="git-sync-card git-sync-current-card"
+    >
+      <div class="git-sync-main-row">
+        <div class="git-sync-relationship">
+          <ShareIcon aria-hidden="true" />
+          <div>
+            <strong>
+              <span>{{ currentBranchName }}</span>
+              <span aria-hidden="true">←</span>
+              <span>{{ currentBranchUpstream ?? 'sem upstream' }}</span>
+            </strong>
+            <span
+              class="git-sync-status"
+              :class="`is-${currentBranchStatus.tone}`"
+              role="status"
+            >
+              <component
+                :is="statusIcon(currentBranchStatus.tone)"
+                aria-hidden="true"
+              />
+              {{ currentBranchStatus.label }}
+            </span>
+          </div>
+        </div>
+
+        <button
+          class="secondary-button git-sync-button"
+          :class="{ 'is-busy': busy }"
+          type="button"
+          :disabled="currentBranchButtonDisabled"
+          @click="emit('update-current-branch')"
+        >
+          <ArrowPathIcon aria-hidden="true" />
+          {{ busy ? 'Atualizando…' : 'Atualizar local' }}
+        </button>
+      </div>
+
+      <p class="git-sync-note">
+        Traz os commits do upstream configurado usando somente fast-forward.
+        Não cria merge nem rebase automaticamente.
+      </p>
+    </div>
+
+    <div class="git-sync-card git-sync-main-card">
       <div class="git-sync-main-row">
         <div class="git-sync-relationship">
           <ShareIcon aria-hidden="true" />
@@ -133,13 +271,7 @@ const buttonDisabled = computed(() =>
               role="status"
             >
               <component
-                :is="
-                  status.tone === 'warning'
-                    ? ExclamationTriangleIcon
-                    : status.tone === 'loading'
-                      ? ArrowPathIcon
-                      : CheckCircleIcon
-                "
+                :is="statusIcon(status.tone)"
                 aria-hidden="true"
               />
               {{ status.label }}
@@ -168,7 +300,9 @@ const buttonDisabled = computed(() =>
 
 <style scoped>
 .git-sync-page {
+  display: grid;
   min-width: 0;
+  gap: var(--space-4);
 }
 
 .git-sync-card {
@@ -177,6 +311,10 @@ const buttonDisabled = computed(() =>
   border-radius: var(--radius-lg);
   background: var(--surface-1);
   box-shadow: var(--shadow-1);
+}
+
+.git-sync-current-card {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 
 .git-sync-main-row {
@@ -204,16 +342,22 @@ const buttonDisabled = computed(() =>
 
 .git-sync-relationship > div {
   display: grid;
+  min-width: 0;
   gap: var(--space-3);
 }
 
 .git-sync-relationship strong {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 12px;
   color: var(--text);
   font-size: 24px;
   line-height: 1.2;
+}
+
+.git-sync-relationship strong span {
+  overflow-wrap: anywhere;
 }
 
 .git-sync-status {

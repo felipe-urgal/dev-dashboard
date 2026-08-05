@@ -15,6 +15,7 @@ import {
   ref,
   watch,
 } from 'vue';
+import { useRoute } from 'vue-router';
 import type * as Monaco from 'monaco-editor';
 
 import type {
@@ -70,6 +71,7 @@ const LANGUAGE_SERVER_KINDS = Object.keys(
 ) as ProjectLanguageServerKind[];
 
 const props = defineProps<{ project: Project }>();
+const route = useRoute();
 
 const editorHost = ref<HTMLElement | null>(null);
 const directoryEntries = ref(new Map<string, ProjectFileEntry[]>());
@@ -820,6 +822,36 @@ async function initializeMonaco(): Promise<void> {
   }
 }
 
+function routeEditorTarget(): { path: string; line: number; column: number } | null {
+  const query = route?.query;
+  if (!query) return null;
+  const rawPath = Array.isArray(query.file) ? query.file[0] : query.file;
+  if (typeof rawPath !== 'string') return null;
+  const normalizedPath = rawPath.split(String.fromCharCode(92)).join('/');
+  const filePath = normalizedPath.startsWith('./')
+    ? normalizedPath.slice(2)
+    : normalizedPath;
+  const firstCharacter = filePath.charCodeAt(0);
+  const windowsAbsolute = filePath.length >= 3
+    && ((firstCharacter >= 65 && firstCharacter <= 90)
+      || (firstCharacter >= 97 && firstCharacter <= 122))
+    && filePath[1] === ':'
+    && filePath[2] === '/';
+  if (!filePath || filePath.startsWith('/') || windowsAbsolute) return null;
+  if (filePath.split('/').some((segment) => segment === '..' || segment === '')) return null;
+  const rawLine = Array.isArray(query.line) ? query.line[0] : query.line;
+  const rawColumn = Array.isArray(query.column) ? query.column[0] : query.column;
+  const line = Math.max(1, Number.parseInt(String(rawLine ?? '1'), 10) || 1);
+  const column = Math.max(1, Number.parseInt(String(rawColumn ?? '1'), 10) || 1);
+  return { path: filePath, line, column };
+}
+
+async function openRouteEditorTarget(): Promise<void> {
+  const target = routeEditorTarget();
+  if (!target) return;
+  await openFile(target.path, { line: target.line, column: target.column }, { pin: true });
+}
+
 async function resetProject(): Promise<void> {
   disposeLanguageServerClients();
   disposeAiInlineCompletionProvider();
@@ -854,13 +886,17 @@ async function resetProject(): Promise<void> {
 
 watch(
   () => props.project.id,
-  () => void resetProject(),
+  async () => {
+    await resetProject();
+    await openRouteEditorTarget();
+  },
 );
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('beforeunload', handleBeforeUnload);
   await Promise.all([resetProject(), initializeMonaco()]);
+  await openRouteEditorTarget();
 });
 
 onBeforeUnmount(() => {

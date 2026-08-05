@@ -36,6 +36,23 @@ export interface ProjectTestFile {
   path: string;
 }
 
+export interface TestFailureLocation {
+  path: string;
+  line?: number;
+  column?: number;
+}
+
+export interface TestFailure {
+  id: string;
+  runner: ProjectTestRunner;
+  name: string;
+  message: string;
+  location?: TestFailureLocation;
+  expected?: string;
+  actual?: string;
+  stack: string[];
+}
+
 export type TestExecutionStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
 export interface TestExecutionRecord {
