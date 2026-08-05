@@ -21,7 +21,6 @@ import { gitUndoRoutes } from './routes/git-undo.js';
 import { gitCommitDetailsRoutes } from './routes/git-commit-details.js';
 import { gitCurrentBranchHistoryRoutes } from './routes/git-current-branch-history.js';
 import { gitExclusiveBranchHistoryRoutes } from './routes/git-exclusive-branch-history.js';
-import { gitStashRoutes } from './routes/git-stash.js';
 import { gitBranchDeleteRoutes } from './routes/git-branch-delete.js';
 import { gitBranchRenameRoutes } from './routes/git-branch-rename.js';
 import { gitFileMutationRoutes } from './routes/git-file-mutations.js';
@@ -208,12 +207,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitExclusiveBranchHistoryRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-  });
-
-  app.register(gitStashRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitBranchDeleteRoutes, {

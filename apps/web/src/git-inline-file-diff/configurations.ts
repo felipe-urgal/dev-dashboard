@@ -7,10 +7,4 @@ export const configurations: DetailConfiguration[] = [
     patch: '.git-summary-detail-diff pre',
     fullDiffSummary: '.git-summary-detail-diff summary',
   },
-  {
-    container: '.git-stash-detail',
-    files: '.git-stash-files',
-    patch: '.git-stash-diff pre',
-    fullDiffSummary: '.git-stash-diff summary',
-  },
 ];

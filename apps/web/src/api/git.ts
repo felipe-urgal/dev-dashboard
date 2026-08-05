@@ -12,7 +12,6 @@ import type {
   GitMutationConfirmation,
   GitMutationHistoryPage,
   GitMutationOperation,
-  GitStashEntry,
   ProjectGitOverview,
 } from '@dev-dashboard/contracts';
 
@@ -326,8 +325,6 @@ export async function pushProjectGitBranch(projectId: string, confirmationToken:
 }
 
 interface GitCommitMutationResponse { commit: GitCommitResult }
-interface GitStashPushResponse { stash: GitStashEntry }
-interface GitStashPopResponse { popped: GitStashEntry }
 
 export async function commitProjectGit(projectId: string, message: string, includeAllChanges: boolean, confirmationToken: string): Promise<GitCommitResult> {
   const response = await requestJson<GitCommitMutationResponse>(
@@ -351,22 +348,6 @@ export async function saveProjectGit(projectId: string, message: string, confirm
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, confirmationToken }) },
   );
   return response.commit;
-}
-
-export async function stashPushProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
-  const response = await requestJson<GitStashPushResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/stash`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
-  );
-  return response.stash;
-}
-
-export async function stashPopProjectGit(projectId: string, confirmationToken: string): Promise<GitStashEntry> {
-  const response = await requestJson<GitStashPopResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/stash/pop`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
-  );
-  return response.popped;
 }
 
 export async function fetchProjectGitMutationHistory(

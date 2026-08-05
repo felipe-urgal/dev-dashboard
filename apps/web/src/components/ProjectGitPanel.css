@@ -307,10 +307,6 @@ textarea {
 .git-table-row {
   border-top: 1px solid var(--border);
 }
-.stash-table {
-  grid-template-columns: 130px minmax(0, 1fr) 190px;
-}
-
 .git-check-label {
   display: flex !important;
   align-items: center;

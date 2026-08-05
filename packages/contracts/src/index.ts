@@ -145,7 +145,6 @@ export type {
   GitPullRequestUrl,
   GitRemote,
   GitRemoteRole,
-  GitStashEntry,
   GitSyncConfirmation,
   GitSyncResult,
   GitSyncStrategy,
@@ -153,16 +152,6 @@ export type {
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from './git.js';
-
-export type {
-  GitStashConfirmation,
-  GitStashCreateInput,
-  GitStashDetail,
-  GitStashFile,
-  GitStashMutationResult,
-  GitStashOperation,
-  GitStashSummary,
-} from './git-stash.js';
 
 export type {
   GitMutationCatalogEntry,

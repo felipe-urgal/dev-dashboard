@@ -14,15 +14,14 @@ function errorCodeOf(error: unknown): string | undefined {
 /**
  * Códigos de "confirmação obrigatória" usados pelos diferentes serviços de
  * mutação Git. A maioria reaproveita `GIT_MUTATION_CONFIRMATION_REQUIRED`
- * (mesmo código de `GitMutationConfirmationError`), mas `GitSyncService` e
- * `GitStashService` preservam seus próprios códigos externos já testados
- * (`GIT_SYNC_CONFIRMATION_REQUIRED`/`GIT_STASH_CONFIRMATION_REQUIRED`) — a
- * regra de "não registrar" se aplica aos três da mesma forma.
+ * (mesmo código de `GitMutationConfirmationError`), mas `GitSyncService`
+ * preserva seu próprio código externo já testado
+ * (`GIT_SYNC_CONFIRMATION_REQUIRED`) — a regra de "não registrar" se aplica
+ * aos dois da mesma forma.
  */
 const CONFIRMATION_REQUIRED_CODES = new Set([
   'GIT_MUTATION_CONFIRMATION_REQUIRED',
   'GIT_SYNC_CONFIRMATION_REQUIRED',
-  'GIT_STASH_CONFIRMATION_REQUIRED',
 ]);
 
 /**

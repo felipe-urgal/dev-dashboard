@@ -23,10 +23,3 @@
 .git-commit-form input[type='text'] { padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface-0); font: inherit; font-size: 11px; }
 .git-commit-checkbox { display: flex !important; flex-direction: row; align-items: center; gap: 8px; text-transform: none !important; letter-spacing: normal !important; font-weight: 500 !important; }
 .git-commit-checkbox input[type='checkbox'] { width: auto; }
-
-.git-stash-list { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.git-stash-list li { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-.git-stash-list li:last-child { border-bottom: 0; }
-.git-stash-list code { color: var(--info-text); font-size: 10px; }
-.git-stash-list span { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.git-stash-list small { color: var(--text-dim); font-family: monospace; }

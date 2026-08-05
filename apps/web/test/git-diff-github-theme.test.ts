@@ -17,6 +17,5 @@ test('aplica a paleta semântica a todas as visualizações de diff', async () =
   assert.match(css, /git-inline-diff-side\.is-deletion/);
   assert.match(css, /git-commit-detail-patch/);
   assert.match(css, /git-history-page-patch/);
-  assert.match(css, /git-stash-patch/);
   assert.match(css, /white-space:\s*pre-wrap/);
 });

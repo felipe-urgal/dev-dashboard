@@ -268,7 +268,6 @@ As abas disponíveis dependem das capacidades detectadas. **Editor** (task
 - pull;
 - push;
 - commit;
-- stash;
 - troca de branch.
 
 ### Testes

@@ -26,17 +26,15 @@ import {
 import { GitDiffError } from './errors.js';
 import { runGit } from './run.js';
 import { parseCommits, parseStatus } from './status-parsing.js';
-import { listStashEntries } from './stash.js';
 
 /** Leituras: visão geral, diff (snapshot/arquivo) e expansão de contexto de linhas. Não têm mutação nem confirmação. */
 
 export async function getOverview(projectPath: string): Promise<ProjectGitOverview> {
-  try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [], stashes: [] }; }
+  try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [] }; }
   const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
   let commits: GitCommit[] = [];
   try { commits = parseCommits(await runGit(projectPath, ['log', '-n', '20', `--format=%H${LOG_SEPARATOR}%h${LOG_SEPARATOR}%s${LOG_SEPARATOR}%an${LOG_SEPARATOR}%ae${LOG_SEPARATOR}%aI${RECORD_SEPARATOR}`])); } catch { /* repositório sem commits */ }
-  const stashes = await listStashEntries(projectPath);
-  return { repository: true, ...(status.branch ? { branch: status.branch } : {}), detached: status.detached, ...(status.upstream ? { upstream: status.upstream } : {}), ahead: status.ahead, behind: status.behind, clean: status.files.length === 0, files: status.files, ...(commits[0] ? { latestCommit: commits[0] } : {}), recentCommits: commits, stashes };
+  return { repository: true, ...(status.branch ? { branch: status.branch } : {}), detached: status.detached, ...(status.upstream ? { upstream: status.upstream } : {}), ahead: status.ahead, behind: status.behind, clean: status.files.length === 0, files: status.files, ...(commits[0] ? { latestCommit: commits[0] } : {}), recentCommits: commits };
 }
 
 export async function getDiffSnapshot(projectPath: string, scope: GitDiffScope = 'combined'): Promise<GitDiffSnapshot> {

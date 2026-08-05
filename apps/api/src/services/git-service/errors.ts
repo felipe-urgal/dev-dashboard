@@ -41,12 +41,7 @@ export type GitMutationErrorCode =
   | 'GIT_FILE_PATH_INVALID'
   | 'GIT_FILE_NOT_FOUND'
   | 'GIT_FILE_OPERATION_NOT_ALLOWED'
-  | 'GIT_FILE_MUTATION_FAILED'
-  | 'GIT_NOTHING_TO_STASH'
-  | 'GIT_STASH_PUSH_FAILED'
-  | 'GIT_STASH_EMPTY'
-  | 'GIT_STASH_CONFLICT'
-  | 'GIT_STASH_POP_FAILED';
+  | 'GIT_FILE_MUTATION_FAILED';
 
 export class GitMutationError extends Error {
   public constructor(public readonly code: GitMutationErrorCode, message: string) {

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 /**
  * Mecanismo compartilhado de confirmação de mutações Git.
  *
- * Generaliza o padrão que `GitService`, `GitSyncService`, `GitStashService`,
+ * Generaliza o padrão que `GitService`, `GitSyncService`,
  * `GitBranchRenameService`, `GitBranchDeleteService`,
  * `GitBranchPublishService` e `GitUndoService` replicavam individualmente:
  * um token aleatório de 32 bytes (64 caracteres hex), vinculado ao projeto,

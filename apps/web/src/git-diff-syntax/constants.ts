@@ -1,13 +1,10 @@
 export const PATCH_SELECTOR = [
   '.git-summary-detail-diff pre',
   '.git-history-page-diff pre',
-  '.git-stash-diff pre',
   'pre.git-commit-detail-patch',
   '.git-commit-detail-patch pre',
   'pre.git-history-page-patch',
   '.git-history-page-patch pre',
-  'pre.git-stash-patch',
-  '.git-stash-patch pre',
 ].join(', ');
 
 export const CODE_SELECTOR = [

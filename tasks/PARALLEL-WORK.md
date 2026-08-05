@@ -30,10 +30,7 @@ virar código:
 - detecção de monorepos e scans recursivos (`packages/project-discovery`);
 - Prettier e política de formatação automática — definir regras antes,
   porque rodar `--fix` depois toca praticamente todo `apps/`/`packages/` e
-  colide com qualquer branch aberto;
-- stash sem UI: remover o código órfão (`git-stash-enhancer.ts`, rotas e
-  serviço de stash) ou reconstruir a UI como componente Vue — decisão de
-  produto, não só técnica.
+  colide com qualquer branch aberto.
 
 ## Concluídas recentemente (referência)
 
@@ -57,3 +54,7 @@ virar código:
   ao planejar: stash não tem UI (código órfão desde o redesenho do painel
   Git nas tasks 047–050), registrado como item próprio em
   `tasks/PENDENCIAS.md`. Banco de dados continua fora de escopo da E2E.
+- Task 109 — Remove o código órfão de stash: enhancer vanilla-DOM
+  (frontend), rotas/serviço dedicados e as duas mutações simples de
+  `GitService` (backend), tipos e catálogo de mutação (contracts). Decisão
+  foi remover, não reconstruir a UI. `lib/git/stash` (CLI) não foi tocado.

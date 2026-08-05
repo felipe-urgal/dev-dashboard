@@ -36,7 +36,6 @@ const overview: ProjectGitOverview = {
   files: [],
   latestCommit,
   recentCommits: [latestCommit],
-  stashes: [],
 };
 
 const workspace: ProjectGitWorkspace = {

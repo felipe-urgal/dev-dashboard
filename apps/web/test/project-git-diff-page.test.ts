@@ -18,7 +18,6 @@ const overview: ProjectGitOverview = {
   clean: false,
   files: [],
   recentCommits: [],
-  stashes: [],
 };
 
 const snapshot: GitDiffSnapshot = {

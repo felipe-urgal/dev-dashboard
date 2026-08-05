@@ -25,7 +25,7 @@ test('toda entrada tem rótulo, descrição e risco reconhecido', () => {
 test('inclui as operações já usadas nas rotas de mutação (GitMutationOperation)', () => {
   const known = [
     'create-branch', 'track-branch', 'delete-remote-branch', 'switch-branch',
-    'pull', 'push', 'commit', 'amend', 'save', 'stash-push', 'stash-pop',
+    'pull', 'push', 'commit', 'amend', 'save',
     'discard-file', 'remove-untracked-file',
   ];
   for (const id of known) {

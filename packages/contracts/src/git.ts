@@ -3,7 +3,6 @@ import type { ProjectChangeImpact } from './project-change-impact.js';
 export type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'conflicted' | 'type-changed';
 export interface GitFileChange { path: string; previousPath?: string; indexStatus: string; worktreeStatus: string; status: GitFileStatus; }
 export interface GitCommit { hash: string; shortHash: string; subject: string; authorName: string; authorEmail: string; authoredAt: string; }
-export interface GitStashEntry { index: number; message: string; createdAt: string; }
 
 export type GitRemoteRole = 'origin' | 'upstream' | 'other';
 export interface GitRemote {
@@ -64,7 +63,7 @@ export interface GitBranchMutationResult {
   impact: ProjectChangeImpact;
 }
 
-export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; stashes: GitStashEntry[]; }
+export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; }
 
 export type GitDiffScope = 'worktree' | 'index' | 'combined';
 
@@ -83,7 +82,7 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'track-branch' | 'delete-remote-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'stash-push' | 'stash-pop' | 'discard-file' | 'remove-untracked-file';
+export type GitMutationOperation = 'create-branch' | 'track-branch' | 'delete-remote-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'discard-file' | 'remove-untracked-file';
 
 export interface GitMutationConfirmation {
   token: string;
