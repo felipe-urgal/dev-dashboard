@@ -79,8 +79,12 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 - [ ] Expandir o Playwright para os fluxos privilegiados e para a matriz de
   vazio, carregamento, erro, sucesso e troca de projeto.
-- [ ] Padronizar lint e formatação com ESLint e Prettier entre `apps/` e
-  `packages/`.
+- [x] Padronizar lint com ESLint entre `apps/` e `packages/` —
+  `eslint.config.js` na raiz, `npm run lint`/`lint:fix`, gate no CI depois do
+  `typecheck`, task 104.
+- [ ] Padronizar formatação automática com Prettier entre `apps/` e
+  `packages/` (fora de escopo da task 104 — risco de diff gigante sem ganho
+  funcional).
 - [ ] Medir cobertura e definir metas por camada.
 - [x] Gerar ou verificar a documentação da API a partir dos JSON Schemas e das
   rotas Fastify registradas — `scripts/generate-api-docs.mjs`,

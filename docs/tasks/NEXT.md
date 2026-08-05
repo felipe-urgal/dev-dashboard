@@ -1,64 +1,75 @@
 # Próxima atividade
 
-## Task 104 — Padronizar lint com ESLint entre `apps/` e `packages/`
+## Task 105 — Revisão dirigida do `npm audit`
 
 ### Objetivo
 
-O monorepo hoje não tem nenhum lint automatizado — `docs/PENDENCIAS.md`
-("Qualidade e manutenção") registra isso como pendência desde a auditoria da
-task 011/086. `npm run typecheck` pega erros de tipo, mas não pega import
-não usado, `any` implícito evitável, código morto óbvio ou inconsistência de
-estilo entre os workspaces TS (`apps/api`, `apps/web`, `packages/*`).
+`docs/PENDENCIAS.md` ("Qualidade e manutenção") registra como pendência
+fazer uma revisão dirigida do `npm audit`, sem `npm audit fix --force` às
+cegas. Hoje (`npm audit`, raiz do monorepo) o relatório mostra:
 
-### Decisão principal
+```
+dompurify  <=3.4.11
+Severity: moderate
+- DOMPurify: CUSTOM_ELEMENT_HANDLING bypassa afterSanitizeElements para
+  custom elements permitidos
+- DOMPurify: poluição permanente de ALLOWED_ATTR via setConfig() (correção
+  incompleta do patch de 3.4.7)
+- DOMPurify: política Trusted Types sobrevive a clearConfig() e pode
+  envenenar saída RETURN_TRUSTED_TYPE
+fix available via `npm audit fix --force`
+Will install monaco-editor@0.53.0, which is a breaking change
+  monaco-editor  >=0.54.0-dev-20250909
+  Depends on vulnerable versions of dompurify
+```
 
-Primeira versão: só ESLint (regras de correção — `@typescript-eslint`,
-`eslint-plugin-vue` para `apps/web`), sem Prettier. Formatação automática é
-uma frente separada com risco de diff gigante em arquivos que não vão
-mudar por motivo funcional; lint de correção primeiro, formatação depois se
-fizer sentido. Rodar em modo não-bloqueante nesta entrega — reportar o
-inventário de violações, corrigir apenas o que `--fix` resolve com segurança
-(imports não usados, ordenação), e decidir arquivo a arquivo o que vale a
-pena consertar manualmente vs. registrar como pendência futura. Não é
-aceitável essa entrega reescrever centenas de arquivos de uma vez só por
-causa de uma regra nova.
+`dompurify` é uma dependência transitiva de `monaco-editor` (editor
+embutido, `apps/web`). O projeto também sanitiza HTML manualmente em pelo
+menos um ponto (`apps/web/src/utils/sql-highlight.ts` faz escape próprio,
+não usa `dompurify`) — checar se há uso direto de `dompurify` fora do editor
+antes de avaliar o risco real.
 
-### Escopo
+### Escopo proposto
 
-- `eslint.config.js` na raiz (flat config, compatível com o `engines.node`
-  do `package.json` raiz), com overrides por workspace onde a base
-  `@typescript-eslint/recommended` precisar de ajuste (ex. `packages/contracts`
-  é só tipos, `apps/web` precisa do parser/plugin Vue);
-- `npm run lint` na raiz (`--workspaces --if-present` ou script único
-  cobrindo tudo, a definir durante a implementação) e `npm run lint:fix`;
-- rodar `eslint --fix` uma vez no repositório inteiro só para as categorias
-  seguras (imports não usados, ordenação de imports) e commitar o resultado
-  separado de qualquer mudança de configuração;
-- inventariar (não necessariamente corrigir) as violações restantes que
-  exigem julgamento humano (`any` implícito, variáveis não usadas em
-  parâmetros de callback, etc.) — decidir por categoria se entra nesta
-  entrega ou fica registrada como pendência;
-- adicionar `npm run lint` ao `.github/workflows/ci.yml`, depois de
-  `typecheck` e antes de `build` (mesma ordem de `docs:api:check` já
-  descrita no `CLAUDE.md`), **só depois que o repositório já estiver
-  passando** — nunca habilitar o gate de CI com violações pendentes.
+- Confirmar com `npm ls dompurify` e `npm ls monaco-editor` que a única
+  rota de exposição é o editor embutido, e se o uso do Monaco no projeto
+  passa conteúdo não confiável para as APIs que dependem de `dompurify`
+  (ex. hover/preview markdown) ou só edita arquivos do próprio workspace do
+  usuário — isso muda a severidade prática do achado.
+- Avaliar se atualizar `monaco-editor` para a versão que resolve o
+  `dompurify` vulnerável (`npm audit fix --force` aponta `0.53.0`, marcado
+  como breaking change) é viável sem regressão: atualizar a versão em
+  `apps/web/package.json` manualmente (não usar `--force` direto), revisar
+  o changelog do Monaco entre a versão atual e a alvo, e então rodar
+  `npm run typecheck`, `npm run build`, `npm test` e o smoke E2E do editor
+  embutido (`npm run test:e2e`).
+- Se o upgrade não for viável nesta entrega (breaking change grande demais),
+  documentar o risco aceito com justificativa (uso só local, conteúdo do
+  workspace do próprio usuário) e a versão mínima segura para uma futura
+  atualização, em vez de deixar o achado do `npm audit` sem decisão
+  registrada.
+- Revisar o restante das dependências diretas desatualizadas (`npm outdated`
+  na raiz e em `apps/web`) só para itens de baixo risco (patch/minor sem
+  breaking change documentado); não é escopo desta task fazer upgrade de
+  major de nenhuma dependência direta sem avaliação própria.
+- Atualizar `docs/PENDENCIAS.md` removendo ou reduzindo o item de `npm
+  audit` conforme o resultado.
 
 ### Critérios de aceite
 
-- `npm run lint` roda sem erro de configuração em todos os workspaces TS;
-- nenhuma mudança de comportamento — só formatação/imports mecânicos e,
-  quando fizer sentido, correções pontuais já revisadas;
-- CI (`ci.yml`) passa com o novo passo de lint habilitado;
-- `docs/PENDENCIAS.md` atualizado removendo o item "Padronizar lint e
-  formatação com ESLint e Prettier" (ou reduzindo-o só a Prettier, se essa
-  parte ficar para depois).
+- `npm audit` documentado com decisão explícita (corrigido, ou aceito com
+  justificativa) para cada achado atual — nenhum item shipado sem decisão
+  registrada.
+- Se houver upgrade de `monaco-editor`: `npm run typecheck`, `npm run
+  build`, `npm test` e `npm run test:e2e` verdes, sem mudança de
+  comportamento do editor embutido além do que o changelog da nova versão
+  descreve.
+- `docs/PENDENCIAS.md` atualizado.
 
 ### Fora de escopo
 
-- Prettier / formatação automática de estilo (espaçamento, aspas, etc.) —
-  fica para uma entrega própria se for decidida depois;
-- reescrever lógica para satisfazer regras mais rígidas do que
-  `recommended` (ex. `strict-boolean-expressions`) — começar permissivo e
-  apertar depois, não o contrário;
-- lint do CLI Bash (`lib/`, `init.sh`) — isso é `shellcheck`, uma frente
-  totalmente separada, não coberta por ESLint.
+- Upgrades de dependências não relacionados aos achados do `npm audit`
+  atual.
+- Adotar Dependabot/Renovate ou qualquer automação de atualização contínua
+  — isso é uma decisão de governança separada, não parte desta revisão
+  pontual.
