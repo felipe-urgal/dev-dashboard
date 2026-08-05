@@ -7,6 +7,7 @@ import {
 import {
   ArrowPathIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   ShieldCheckIcon,
@@ -66,6 +67,7 @@ const overallCopy = computed(() => {
       description: 'Os sinais verificados não apontaram bloqueios ou pendências.',
       tone: 'success' as const,
       icon: ShieldCheckIcon,
+      label: 'Saudável',
     };
   }
   if (report.value.overallStatus === 'blocked') {
@@ -74,6 +76,7 @@ const overallCopy = computed(() => {
       description: 'Resolva os itens com falha antes de iniciar os fluxos principais.',
       tone: 'danger' as const,
       icon: XCircleIcon,
+      label: 'Bloqueado',
     };
   }
   return {
@@ -81,6 +84,7 @@ const overallCopy = computed(() => {
     description: 'Há recomendações que podem evitar falhas durante o desenvolvimento.',
     tone: 'warning' as const,
     icon: ExclamationTriangleIcon,
+    label: 'Atenção',
   };
 });
 
@@ -94,9 +98,9 @@ function statusTone(
 }
 
 function statusLabel(status: ProjectDiagnosticStatus): string {
-  if (status === 'passed') return 'Pronto';
+  if (status === 'passed') return 'Boa';
   if (status === 'warning') return 'Atenção';
-  if (status === 'failed') return 'Bloqueado';
+  if (status === 'failed') return 'Bloqueio';
   return 'Não verificado';
 }
 
@@ -105,6 +109,17 @@ function statusIcon(status: ProjectDiagnosticStatus) {
   if (status === 'warning') return ExclamationTriangleIcon;
   if (status === 'failed') return XCircleIcon;
   return InformationCircleIcon;
+}
+
+function groupStatus(checks: ProjectDiagnosticCheck[]): ProjectDiagnosticStatus {
+  if (checks.some((check) => check.status === 'failed')) return 'failed';
+  if (checks.some((check) => check.status === 'warning')) return 'warning';
+  if (checks.some((check) => check.status === 'skipped')) return 'skipped';
+  return 'passed';
+}
+
+function completedChecks(checks: ProjectDiagnosticCheck[]): number {
+  return checks.filter((check) => check.status === 'passed').length;
 }
 
 function actionDestination(
@@ -174,116 +189,165 @@ watch(
     aria-labelledby="project-doctor-title"
     :aria-busy="loading"
   >
-    <header class="project-doctor-header">
-      <div>
-        <span>Projeto / Diagnóstico</span>
-        <h3 id="project-doctor-title">Project Doctor</h3>
-        <p>
-          Verifica estrutura, runtimes, dependências e configuração sem alterar
-          arquivos ou instalar ferramentas.
-        </p>
-      </div>
-      <button type="button" :disabled="loading" @click="load(true)">
-        <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
-        {{ loading ? 'Verificando…' : 'Verificar novamente' }}
-      </button>
-    </header>
-
-    <div v-if="errorMessage" class="project-doctor-alert" role="alert">
-      <strong>Não foi possível concluir o diagnóstico</strong>
-      <span>{{ errorMessage }}</span>
-      <button type="button" @click="load(true)">Tentar novamente</button>
-    </div>
-
-    <div v-if="loading && !report" class="project-doctor-empty" role="status">
-      <ArrowPathIcon aria-hidden="true" class="is-spinning" />
-      <strong>Analisando o projeto</strong>
-      <span>Os checks são somente leitura e possuem timeout curto.</span>
-    </div>
-
-    <template v-else-if="report && overallCopy">
-      <article
-        class="project-doctor-overall"
-        :class="`is-${report.overallStatus}`"
-      >
-        <component :is="overallCopy.icon" aria-hidden="true" />
-        <div>
-          <StatusBadge :tone="overallCopy.tone">
-            {{ report.overallStatus === 'healthy' ? 'Saudável' : report.overallStatus === 'blocked' ? 'Bloqueado' : 'Atenção' }}
-          </StatusBadge>
-          <h4>{{ overallCopy.title }}</h4>
-          <p>{{ overallCopy.description }}</p>
+    <article class="project-doctor-card">
+      <header class="project-doctor-header">
+        <div class="project-doctor-heading">
+          <span class="project-doctor-heading-icon">
+            <ShieldCheckIcon aria-hidden="true" />
+          </span>
+          <div>
+            <h3 id="project-doctor-title">Project Doctor</h3>
+            <p>Análise rápida da saúde do projeto</p>
+          </div>
         </div>
-        <small>Atualizado em {{ formatGeneratedAt(report.generatedAt) }}</small>
-      </article>
 
-      <div class="project-doctor-summary" aria-label="Resumo do diagnóstico">
-        <article>
-          <strong>{{ report.summary.passed }}</strong>
-          <span>Prontos</span>
-        </article>
-        <article>
-          <strong>{{ report.summary.warnings }}</strong>
-          <span>Atenções</span>
-        </article>
-        <article>
-          <strong>{{ report.summary.failed }}</strong>
-          <span>Bloqueios</span>
-        </article>
-        <article>
-          <strong>{{ report.summary.skipped }}</strong>
-          <span>Não verificados</span>
-        </article>
+        <button type="button" :disabled="loading" @click="load(true)">
+          <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
+          {{ loading ? 'Analisando…' : 'Executar nova análise' }}
+        </button>
+      </header>
+
+      <div v-if="errorMessage" class="project-doctor-alert" role="alert">
+        <div>
+          <strong>Não foi possível concluir o diagnóstico</strong>
+          <span>{{ errorMessage }}</span>
+        </div>
+        <button type="button" @click="load(true)">Tentar novamente</button>
       </div>
 
-      <section
-        v-for="group in groupedChecks"
-        :key="group.category"
-        class="project-doctor-group"
-      >
-        <header>
-          <h4>{{ group.label }}</h4>
-          <span>{{ group.checks.length }} check(s)</span>
-        </header>
+      <div v-if="loading && !report" class="project-doctor-empty" role="status">
+        <ArrowPathIcon aria-hidden="true" class="is-spinning" />
+        <strong>Analisando o projeto</strong>
+        <span>Os checks são somente leitura e possuem timeout curto.</span>
+      </div>
 
-        <div class="project-doctor-checks">
-          <article
-            v-for="check in group.checks"
-            :key="check.id"
-            class="project-doctor-check"
-            :class="`is-${check.status}`"
-          >
-            <span class="project-doctor-check-icon">
-              <component :is="statusIcon(check.status)" aria-hidden="true" />
-            </span>
-            <div class="project-doctor-check-copy">
-              <div>
-                <strong>{{ check.label }}</strong>
-                <StatusBadge :tone="statusTone(check.status)">
-                  {{ statusLabel(check.status) }}
-                </StatusBadge>
-              </div>
-              <p>{{ check.summary }}</p>
-              <small v-if="check.recommendation">
-                {{ check.recommendation }}
-              </small>
+      <template v-else-if="report && overallCopy">
+        <div class="project-doctor-summary" aria-label="Resumo do diagnóstico">
+          <article class="project-doctor-metric is-passed">
+            <CheckCircleIcon aria-hidden="true" />
+            <div>
+              <strong>{{ report.summary.passed }}</strong>
+              <span>Concluídos</span>
             </div>
-            <RouterLink
-              v-if="check.action"
-              class="project-doctor-action"
-              :to="actionDestination(check.action.target)"
-            >
-              {{ check.action.label }}
-            </RouterLink>
+          </article>
+          <article class="project-doctor-metric is-warning">
+            <ExclamationTriangleIcon aria-hidden="true" />
+            <div>
+              <strong>{{ report.summary.warnings }}</strong>
+              <span>Atenções</span>
+            </div>
+          </article>
+          <article class="project-doctor-metric is-failed">
+            <XCircleIcon aria-hidden="true" />
+            <div>
+              <strong>{{ report.summary.failed }}</strong>
+              <span>Bloqueios</span>
+            </div>
+          </article>
+          <article class="project-doctor-metric is-skipped">
+            <InformationCircleIcon aria-hidden="true" />
+            <div>
+              <strong>{{ report.summary.skipped }}</strong>
+              <span>Não verificados</span>
+            </div>
           </article>
         </div>
-      </section>
 
-      <footer class="project-doctor-footer">
-        O relatório pode ler somente arquivos conhecidos e nomes de variáveis.
-        Valores, credenciais e conteúdo sensível não são devolvidos à interface.
-      </footer>
-    </template>
+        <section class="project-doctor-areas" aria-labelledby="doctor-areas-title">
+          <header>
+            <h4 id="doctor-areas-title">Áreas analisadas</h4>
+            <span>Saúde</span>
+          </header>
+
+          <div class="project-doctor-category-list">
+            <details
+              v-for="group in groupedChecks"
+              :key="group.category"
+              class="project-doctor-category"
+            >
+              <summary>
+                <div class="project-doctor-category-main">
+                  <span
+                    class="project-doctor-category-icon"
+                    :class="`is-${groupStatus(group.checks)}`"
+                  >
+                    <component
+                      :is="statusIcon(groupStatus(group.checks))"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <div>
+                    <strong>{{ group.label }}</strong>
+                    <span>
+                      {{ completedChecks(group.checks) }}/{{ group.checks.length }}
+                      {{ group.checks.length === 1 ? 'verificação' : 'verificações' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="project-doctor-category-status">
+                  <StatusBadge :tone="statusTone(groupStatus(group.checks))">
+                    {{ statusLabel(groupStatus(group.checks)) }}
+                  </StatusBadge>
+                  <ChevronDownIcon aria-hidden="true" />
+                </div>
+              </summary>
+
+              <div class="project-doctor-check-list">
+                <article
+                  v-for="check in group.checks"
+                  :key="check.id"
+                  class="project-doctor-check"
+                  :class="`is-${check.status}`"
+                >
+                  <component :is="statusIcon(check.status)" aria-hidden="true" />
+                  <div class="project-doctor-check-copy">
+                    <div>
+                      <strong>{{ check.label }}</strong>
+                      <StatusBadge :tone="statusTone(check.status)">
+                        {{ statusLabel(check.status) }}
+                      </StatusBadge>
+                    </div>
+                    <p>{{ check.summary }}</p>
+                    <small v-if="check.recommendation">
+                      {{ check.recommendation }}
+                    </small>
+                  </div>
+                  <RouterLink
+                    v-if="check.action"
+                    class="project-doctor-action"
+                    :to="actionDestination(check.action.target)"
+                  >
+                    {{ check.action.label }}
+                  </RouterLink>
+                </article>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <footer
+          class="project-doctor-result"
+          :class="`is-${report.overallStatus}`"
+        >
+          <component :is="overallCopy.icon" aria-hidden="true" />
+          <div>
+            <strong>{{ overallCopy.title }}</strong>
+            <p>{{ overallCopy.description }}</p>
+          </div>
+          <StatusBadge :tone="overallCopy.tone">
+            {{ overallCopy.label }}
+          </StatusBadge>
+        </footer>
+
+        <div class="project-doctor-meta">
+          <span>Atualizado em {{ formatGeneratedAt(report.generatedAt) }}</span>
+          <span>
+            Somente leitura. Valores e credenciais não são exibidos.
+          </span>
+        </div>
+      </template>
+    </article>
   </section>
 </template>
 
