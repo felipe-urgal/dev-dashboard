@@ -14,7 +14,8 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-Nenhuma frente paralela registrada no momento.
+- Operações Sidekiq/Webpack/credenciais Rails — branch
+  `claude/atuacao-3-frentes-sd7lt7` (worktree isolado), task 095.
 
 ## Livres para pegar em paralelo
 
@@ -24,9 +25,7 @@ atual de `docs/PENDENCIAS.md`.
 
 | Atividade | Área principal | Tamanho | Conflito conhecido |
 | --- | --- | --- | --- |
-| Operações Sidekiq/Webpack/credenciais Rails | novas rotas em `apps/api/src/routes/rails*`, serviço em `apps/api/src/services/rails-inspection*`, painel Rails em `apps/web` | médio | nenhum com a 089; cuidado se outra frente também mexer em `rails-inspection-service.ts` |
-| Perfis de ambiente reutilizáveis (sem segredos no frontend) | `packages/core`, rota em `apps/api/src/routes/settings.ts`, tela de Configurações | médio | pode disputar `packages/core` com a task 089; não iniciar enquanto ela estiver em andamento |
-| Licença do projeto | arquivo `LICENSE` na raiz | trivial | nenhum |
+| Licença do projeto | arquivo `LICENSE` na raiz | trivial | requer decisão de qual licença adotar antes de criar o arquivo — não é uma escolha técnica |
 | Playwright para fluxos privilegiados adicionais | `apps/web/e2e/` | médio | espera a feature-alvo estar pronta; não editar o mesmo fluxo que outra frente está mudando na mesma hora |
 
 ## Exigem decisão de arquitetura antes de começar (não pegar direto)
@@ -67,3 +66,6 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
   `npm run changelog`), agrupado por task numerada ou data a partir do
   `git log`. Só a parte de changelog; release e tags de versão continuam
   pendentes de decisão de política de versionamento.
+- Task 094 — Perfis de ambiente reutilizáveis em Configurações
+  (`EnvironmentProfileRepository`, `/api/settings/environment-profiles`),
+  sem persistir valor de variáveis de nome sensível.

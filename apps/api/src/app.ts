@@ -310,6 +310,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(settingsRoutes, {
     prefix: '/api',
     retentionSettingsRepository: context.retentionSettingsRepository,
+    environmentProfileRepository: context.environmentProfileRepository,
   });
 
   if (options.staticDashboardEnabled) {

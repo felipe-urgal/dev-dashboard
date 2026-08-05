@@ -1,4 +1,5 @@
 import {
+  EnvironmentProfileRepository,
   ProjectFavoriteRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
@@ -32,6 +33,7 @@ import { ProjectLanguageServerService } from './services/project-language-server
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
+  environmentProfileRepository: EnvironmentProfileRepository;
   projectFavoriteRepository: ProjectFavoriteRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
@@ -69,6 +71,7 @@ export function createAppContext(): AppContext {
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
+    environmentProfileRepository: new EnvironmentProfileRepository(),
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     processManager,
     serverSettingsRepository:

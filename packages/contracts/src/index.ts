@@ -224,3 +224,12 @@ export type {
   ScriptExecutionStatus,
   ScriptExecutionVariables,
 } from './script.js';
+
+export type {
+  CreateEnvironmentProfileInput,
+  EnvironmentProfile,
+  EnvironmentProfileLimits,
+  EnvironmentProfileList,
+  EnvironmentProfileVariable,
+  UpdateEnvironmentProfileInput,
+} from './environment-profile.js';

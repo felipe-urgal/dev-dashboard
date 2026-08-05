@@ -144,6 +144,10 @@ export type ApiErrorCode =
   | 'LANGUAGE_SERVER_FAILED'
   | 'AI_ASSISTANT_INVALID_REQUEST'
   | 'AI_ASSISTANT_FAILED'
+  | 'ENVIRONMENT_PROFILE_INVALID'
+  | 'ENVIRONMENT_PROFILE_LIMIT_REACHED'
+  | 'ENVIRONMENT_PROFILE_NOT_FOUND'
+  | 'ENVIRONMENT_PROFILE_NAME_TAKEN'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

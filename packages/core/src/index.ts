@@ -29,6 +29,13 @@ export type {
   ProjectRecentAccess,
 } from './project-recent-repository.js';
 
+export {
+  EnvironmentProfileRepository,
+  EnvironmentProfileRepositoryError,
+  ENVIRONMENT_PROFILE_LIMITS,
+  isSensitiveEnvironmentProfileVariableName,
+} from './environment-profile-repository.js';
+
 export type {
   CreateWorkspaceInput,
   WorkspaceRepositoryErrorCode

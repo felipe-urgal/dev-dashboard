@@ -46,8 +46,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 - [ ] Adicionar projetos recentes por workspace, complementando os favoritos
   já entregues — próxima entrega, task 089; requer semântica e persistência
   próprias.
-- [ ] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
-  frontend.
+- [x] Adicionar perfis de ambiente reutilizáveis sem armazenar segredos no
+  frontend — task 094: cadastro em Configurações, valor nunca persistido para
+  nomes de variável sensíveis; aplicar automaticamente a um script fica para
+  depois.
 - [ ] Avaliar GitHub CLI somente depois de definir seu modelo de autorização.
 
 ## Descoberta e projetos complexos
