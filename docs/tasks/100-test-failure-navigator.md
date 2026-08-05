@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementada no PR #191, em validação final após cobrir a variação de saída do Minitest.
+Implementada no PR #191, em validação final com suporte aos cabeçalhos Minitest simples e numerados.
 
 ## Contexto
 
