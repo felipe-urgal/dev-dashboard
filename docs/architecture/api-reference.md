@@ -8086,6 +8086,190 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Project Doctor
+
+### `GET /api/projects/:projectId/doctor`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "string",
+      "enum": [
+        "true"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "report"
+    ],
+    "properties": {
+      "report": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "generatedAt",
+          "overallStatus",
+          "summary",
+          "checks"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "overallStatus": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "attention",
+              "blocked"
+            ]
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "passed",
+              "warnings",
+              "failed",
+              "skipped"
+            ],
+            "properties": {
+              "passed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "warnings": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "category",
+                "label",
+                "status",
+                "summary"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "runtime",
+                    "dependencies",
+                    "configuration"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "passed",
+                    "warning",
+                    "failed",
+                    "skipped"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "recommendation": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "label",
+                    "target"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string",
+                      "enum": [
+                        "dependencies",
+                        "server",
+                        "database",
+                        "settings"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Project Editor
 
 ### `POST /api/projects/:projectId/editor`
