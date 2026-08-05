@@ -241,3 +241,9 @@ export type {
   EnvironmentProfileVariable,
   UpdateEnvironmentProfileInput,
 } from './environment-profile.js';
+
+export type {
+  ProjectEnvironmentFile,
+  ProjectEnvironmentOverview,
+  ProjectEnvironmentVariable,
+} from './project-environment.js';

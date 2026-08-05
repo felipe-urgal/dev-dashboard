@@ -20,6 +20,7 @@ import { DatabaseSnapshotService } from './services/database-snapshot-service.js
 import { RailsInspectionService } from './services/rails-inspection-service.js';
 import { RailsRuntimeService } from './services/rails-runtime-service.js';
 import { BundlerInspectionService } from './services/bundler-inspection-service.js';
+import { ProjectEnvironmentService } from './services/project-environment-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
@@ -47,6 +48,7 @@ export interface AppContext {
   railsInspectionService: RailsInspectionService;
   railsRuntimeService: RailsRuntimeService;
   bundlerInspectionService: BundlerInspectionService;
+  projectEnvironmentService: ProjectEnvironmentService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
@@ -87,6 +89,7 @@ export function createAppContext(): AppContext {
     railsInspectionService: new RailsInspectionService(),
     railsRuntimeService: new RailsRuntimeService(processManager),
     bundlerInspectionService: new BundlerInspectionService(),
+    projectEnvironmentService: new ProjectEnvironmentService(),
     scriptDetectionService,
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),

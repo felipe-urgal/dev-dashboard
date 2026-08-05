@@ -28,6 +28,7 @@ import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
 import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
+import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
 import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
@@ -61,6 +62,7 @@ const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(() => route.name === 'project-dependencies');
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
 const isRailsRuntimeRoute = computed(() => route.name === 'project-rails-runtime');
+const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
@@ -279,6 +281,14 @@ watch(projectId, () => {
         >
           Sidekiq/webpack
         </RouterLink>
+
+        <RouterLink
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isEnvironmentRoute }"
+          :to="{ name: 'project-environment', params: { projectId: project.id } }"
+        >
+          Variáveis de ambiente
+        </RouterLink>
       </nav>
 
       <ProjectReadmePanel
@@ -339,6 +349,12 @@ watch(projectId, () => {
       <ProjectRailsRuntimePanel
         v-else-if="isRailsRuntimeRoute"
         :key="`rails-runtime-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectEnvironmentPanel
+        v-else-if="isEnvironmentRoute"
+        :key="`environment-${project.id}`"
         :project="project"
       />
     </template>

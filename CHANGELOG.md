@@ -18,22 +18,11 @@ projeto é `"private": true`) — ver a task 093 e o item correspondente em
 
 ### 2026-08-05
 
-- Merge branch 'worktree-agent-abd1f5b10b9177bf3' into claude/atuacao-3-frentes-sd7lt7 (`5609e7d`)
-
-### Task 095
-
-- Documenta a task 095 (Sidekiq/webpack/credentials Rails) (`2cfd62d`)
-
-### 2026-08-05
-
-- Adiciona painel Sidekiq/webpack/credentials no dashboard web (`873c496`)
-- Adiciona rotas de Sidekiq, webpack e status de credentials Rails (`7c7e26d`)
-- Adiciona kind 'worker'/'webpack' ao process-manager (`388db54`)
-- docs: regenera api-reference.md com as rotas de perfis de ambiente (`9fdffe3`)
-
-### Task 094
-
-- Task 094: adiciona perfis de ambiente reutilizáveis em Configurações (`8ccfe1a`)
+- fix: painel Sidekiq/webpack — ícones, log e visibilidade condicional (`9d17ce8`)
+- fix: corrige ícones sem tamanho no layout de Perfis de ambiente (`5419229`)
+- Adiciona licença MIT ao projeto (`7bd9bd0`)
+- Atuação em 3 frentes: perfis de ambiente, Sidekiq/Webpack/credenciais, E2E ([#187](../../pull/187))
+- packege (`d0b63a0`)
 
 ### 2026-08-04
 

@@ -31,6 +31,7 @@ import { testRelatedRoutes } from './routes/test-related.js';
 import { databaseRoutes } from './routes/database.js';
 import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
+import { projectEnvironmentRoutes } from './routes/project-environment.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
@@ -294,6 +295,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     bundlerInspectionService: context.bundlerInspectionService,
+  });
+
+  app.register(projectEnvironmentRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectEnvironmentService: context.projectEnvironmentService,
   });
 
   app.register(scriptRoutes, {

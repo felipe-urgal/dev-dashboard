@@ -6,6 +6,7 @@ export * from './api/git';
 export * from './api/git-workflows';
 export * from './api/tests';
 export * from './api/rails';
+export * from './api/project-environment';
 export * from './api/activities';
 export * from './api/settings';
 export * from './api/editor';

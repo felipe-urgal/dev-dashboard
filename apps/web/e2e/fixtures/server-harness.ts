@@ -40,6 +40,10 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
       2,
     ),
   );
+  await writeFile(
+    path.join(projectDirectory, '.env'),
+    'PUBLIC_API_URL=https://example.com\nAPI_SECRET_TOKEN=segredo-de-teste\n',
+  );
 }
 
 // Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado

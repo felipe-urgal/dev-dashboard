@@ -123,6 +123,12 @@ export const router = createRouter({
       meta: { eyebrow: 'Projeto local', title: 'Sidekiq, webpack e credentials' },
     },
     {
+      path: '/projects/:projectId/environment',
+      name: 'project-environment',
+      component: ProjectDetailsView,
+      meta: { eyebrow: 'Projeto local', title: 'Variáveis de ambiente do projeto' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: NotFoundView,
