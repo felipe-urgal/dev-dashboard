@@ -4,6 +4,8 @@ import { beforeEach, test, vi } from 'vitest';
 
 import type { Project } from '@dev-dashboard/contracts';
 
+import { mountedTestRouter } from './support/test-router';
+
 const api = vi.hoisted(() => ({
   directory: vi.fn(),
   file: vi.fn(),
@@ -146,10 +148,12 @@ const project: Project = {
   capabilities: [],
 };
 
-function mountEditor() {
+async function mountEditor() {
+  const router = await mountedTestRouter();
   return mount(ProjectEmbeddedEditor, {
     props: { project },
     global: {
+      plugins: [router],
       stubs: {
         ProjectEditorLauncher: {
           template: '<button class="local-editor-stub">Abrir localmente</button>',
@@ -172,7 +176,7 @@ function openedFile(content = '# Projeto\n') {
   };
 }
 
-async function openReadme(wrapper: ReturnType<typeof mountEditor>) {
+async function openReadme(wrapper: Awaited<ReturnType<typeof mountEditor>>) {
   const fileButton = wrapper
     .findAll('.embedded-ide-tree-item')
     .find((button) => button.text().includes('README.md'));
@@ -241,7 +245,7 @@ beforeEach(() => {
 });
 
 test('carrega o explorer e abre um arquivo editável', async () => {
-  const wrapper = mountEditor();
+  const wrapper = await mountEditor();
   await flushPromises();
   await flushPromises();
 
@@ -264,7 +268,7 @@ test('carrega o explorer e abre um arquivo editável', async () => {
 });
 
 test('marca a aba como alterada e salva com a versão aberta', async () => {
-  const wrapper = mountEditor();
+  const wrapper = await mountEditor();
   await flushPromises();
   await openReadme(wrapper);
 
@@ -291,7 +295,7 @@ test('marca a aba como alterada e salva com a versão aberta', async () => {
 });
 
 test('busca no projeto e abre a ocorrência selecionada', async () => {
-  const wrapper = mountEditor();
+  const wrapper = await mountEditor();
   await flushPromises();
   await wrapper.get('#embedded-ide-search-input').setValue('Projeto');
   await wrapper.get('.embedded-ide-search').trigger('submit');
@@ -321,7 +325,7 @@ test('clique único abre em aba de preview e substitui a anterior; duplo clique 
       name: filePath,
     }));
 
-  const wrapper = mountEditor();
+  const wrapper = await mountEditor();
   await flushPromises();
 
   async function clickFile(name: string): Promise<void> {
@@ -370,7 +374,7 @@ test('clique, clique e duplo clique concorrentes no mesmo arquivo não duplicam 
     resolveFile = () => resolve(openedFile());
   }));
 
-  const wrapper = mountEditor();
+  const wrapper = await mountEditor();
   await flushPromises();
 
   const button = wrapper

@@ -7,6 +7,7 @@ import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+import { createTestRouter } from './support/test-router';
 
 const publishedNotices = new Map<string, Record<string, unknown>>();
 vi.mock('../src/stores/notice-center', () => ({
@@ -61,7 +62,10 @@ test('apresenta o fluxo guiado e remove comandos detectados e histórico', async
   const originalFetch = globalThis.fetch;
   globalThis.fetch = emptyPanelFetch as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -100,7 +104,10 @@ test('executa a suíte selecionada pelo novo seletor', async () => {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -140,7 +147,10 @@ test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async (
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -181,7 +191,10 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -230,7 +243,10 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -265,7 +281,10 @@ test('publica aviso ao receber estado terminal após passar por running', async 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -314,7 +333,10 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -363,7 +385,10 @@ test('não publica aviso quando processo já chega parado na primeira renderiza�
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;

@@ -6,6 +6,7 @@ import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+import { createTestRouter } from './support/test-router';
 
 const overview: ProjectTestOverview = {
   supported: true,
@@ -57,7 +58,10 @@ test('mostra alterações da branch e os testes relacionados encontrados', async
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -102,7 +106,10 @@ test('não habilita a suíte completa quando não há teste relacionado', async 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;

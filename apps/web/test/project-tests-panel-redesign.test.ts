@@ -7,6 +7,7 @@ import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+import { createTestRouter } from './support/test-router';
 
 vi.mock('../src/stores/notice-center', () => ({
   noticeCenterStore: { publishTerminalNotice: vi.fn() },
@@ -99,7 +100,10 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
@@ -182,7 +186,10 @@ test('repete a execução atual preservando o arquivo alvo', async () => {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;

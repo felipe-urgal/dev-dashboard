@@ -6,6 +6,7 @@ import type { ManagedProcess, ProjectTestOverview } from '@dev-dashboard/contrac
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
+import { createTestRouter } from './support/test-router';
 
 const baseOverview: ProjectTestOverview = {
   supported: true,
@@ -78,7 +79,10 @@ test('volta ao estado pronto automaticamente depois de uma execução bem-sucedi
     exitCode: 0,
   });
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   await flushMicrotasks();
 
   assert.match(wrapper.text(), /Concluído com sucesso/);
@@ -106,7 +110,10 @@ test('mantém o resultado visível quando a execução falha', async () => {
     exitCode: 1,
   });
 
-  const wrapper = mount(ProjectTestsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
   await flushMicrotasks();
 
   assert.match(wrapper.text(), /Falhou \(código 1\)/);
