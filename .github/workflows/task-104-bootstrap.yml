@@ -9,19 +9,59 @@ permissions:
   contents: read
 
 jobs:
-  archive:
+  validate-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Archive source
-        run: tar --exclude=.git -czf /tmp/dev-dashboard-source.tgz .
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
 
-      - name: Upload source
+      - name: Install and refresh lockfile
+        run: npm install
+
+      - name: Inventory before fix
+        shell: bash
+        run: |
+          set +e
+          npm run lint > /tmp/lint-before.txt 2>&1
+          echo $? > /tmp/lint-before-status.txt
+          exit 0
+
+      - name: Apply safe automatic fixes
+        shell: bash
+        run: |
+          set +e
+          npm run lint:fix > /tmp/lint-fix.txt 2>&1
+          echo $? > /tmp/lint-fix-status.txt
+          exit 0
+
+      - name: Inventory after fix
+        shell: bash
+        run: |
+          set +e
+          npm run lint > /tmp/lint-after.txt 2>&1
+          echo $? > /tmp/lint-after-status.txt
+          exit 0
+
+      - name: Archive updated source
+        run: tar --exclude=.git --exclude=node_modules -czf /tmp/dev-dashboard-lint-result.tgz .
+
+      - name: Upload lint result
         uses: actions/upload-artifact@v4
         with:
-          name: task-104-source
-          path: /tmp/dev-dashboard-source.tgz
+          name: task-104-lint-result
+          path: |
+            /tmp/dev-dashboard-lint-result.tgz
+            /tmp/lint-before.txt
+            /tmp/lint-before-status.txt
+            /tmp/lint-fix.txt
+            /tmp/lint-fix-status.txt
+            /tmp/lint-after.txt
+            /tmp/lint-after-status.txt
           retention-days: 1
