@@ -1,0 +1,107 @@
+name: Fix Git Commit Tracked Default
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'fix/git-commit-tracked-default'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Aplicar correção
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          route_path = Path('apps/api/src/routes/git-mutations.ts')
+          route = route_path.read_text(encoding='utf-8')
+          old_call = "gitService.commit(project.path, project.id, request.body.message, request.body.includeAllChanges ?? false, request.body.confirmationToken)"
+          new_call = "gitService.commit(project.path, project.id, request.body.message, true, request.body.confirmationToken)"
+          if old_call in route:
+              route = route.replace(old_call, new_call, 1)
+              route_path.write_text(route, encoding='utf-8')
+          elif new_call not in route:
+              raise SystemExit('Chamada de commit não encontrada')
+
+          test_path = Path('apps/api/test/git-mutation-routes.test.ts')
+          tests = test_path.read_text(encoding='utf-8')
+          test_name = "commit inclui alterações rastreadas mesmo quando cliente legado envia false"
+          marker = "  await context.test('commit com alterações staged retorna 201', async () => {"
+          block = """  await context.test('commit inclui alterações rastreadas mesmo quando cliente legado envia false', async () => {
+    await writeFile(path.join(repoPath, 'README.md'), 'sem stage\\n');
+    const confirmationResponse = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/mutations/confirmations', headers,
+      payload: JSON.stringify({ operation: 'commit', target: 'main' }),
+    });
+    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
+    const response = await app.inject({
+      method: 'POST', url: '/api/projects/p1/git/commit', headers,
+      payload: JSON.stringify({
+        message: 'commit sem stage manual',
+        includeAllChanges: false,
+        confirmationToken: confirmation.token,
+      }),
+    });
+    assert.equal(response.statusCode, 201);
+    const body = response.json<{
+      commit: { hash: string; shortHash: string; subject: string };
+    }>();
+    assert.equal(body.commit.subject, 'commit sem stage manual');
+    const { stdout } = await execFileAsync(
+      'git',
+      ['show', 'HEAD:README.md'],
+      { cwd: repoPath },
+    );
+    assert.equal(stdout, 'sem stage\\n');
+  });
+
+"""
+          if test_name not in tests:
+              if marker not in tests:
+                  raise SystemExit('Ponto de inserção do teste não encontrado')
+              tests = tests.replace(marker, block + marker, 1)
+              test_path.write_text(tests, encoding='utf-8')
+          PY
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Teste de regressão da rota
+        run: node --import=tsx --test apps/api/test/git-mutation-routes.test.ts
+
+      - name: Consolidar correção
+        run: |
+          if git diff --quiet -- apps/api/src/routes/git-mutations.ts apps/api/test/git-mutation-routes.test.ts; then
+            echo 'Correção já aplicada.'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/routes/git-mutations.ts apps/api/test/git-mutation-routes.test.ts
+          git commit -m "fix: inclui alterações rastreadas no novo commit"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
