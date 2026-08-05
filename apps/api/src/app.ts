@@ -170,11 +170,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitWorkspaceRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitSyncRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitPullRequestRoutes, {
@@ -185,6 +187,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitUndoRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitCommitDetailsRoutes, {
@@ -205,16 +208,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitStashRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitBranchDeleteRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitBranchRenameRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitFileMutationRoutes, {

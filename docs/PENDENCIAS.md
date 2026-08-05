@@ -31,9 +31,10 @@ arquitetura e os planos de task; itens concluídos continuam registrados em
 
 ## Produto e fluxos operacionais
 
-- [ ] Unificar a política de confirmação por risco e o histórico das mutações
-  Git — terceira candidata na task 086; exige inventário transversal das
-  operações e um contrato comum de evento.
+- [x] Unificar a política de confirmação por risco e o histórico das mutações
+  Git — terceira candidata na task 086; tasks 096 (catálogo, confirmação e
+  histórico compartilhados, `GitService`) e 098 (demais sete serviços de
+  mutação Git migrados) concluem o inventário transversal.
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
   cobertura — dividir em entregas separadas antes de implementar, porque os
   runners e formatos de relatório diferem.

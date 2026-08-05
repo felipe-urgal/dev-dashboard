@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import type {
   GitStashConfirmation,
   GitStashCreateInput,
@@ -21,20 +19,31 @@ import {
 } from './git-stash/repository-guards.js';
 import { failureText, runGit } from './git-stash/run.js';
 import { validateCreateInput, validateReference } from './git-stash/validation.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 export { GitStashError } from './git-stash/errors.js';
 export type { GitStashErrorCode } from './git-stash/errors.js';
 
-interface StoredConfirmation {
-  token: string;
-  projectId: string;
-  operation: GitStashOperation;
-  target: string;
-  expiresAt: number;
+/**
+ * `GitStashOperation` ('create'|'apply'|'pop'|'drop') é o vocabulário deste
+ * serviço; o catálogo (`git-mutation-catalog.ts`) usa `panel-stash-*` para
+ * não colidir com o stash simples de `GitService` (`stash-push`/`stash-pop`).
+ */
+function stashCatalogOperationId(operation: GitStashOperation): string {
+  return `panel-stash-${operation}`;
 }
 
 export class GitStashService {
-  private readonly confirmations = new Map<string, StoredConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
+   * comportamento externo (`GIT_STASH_CONFIRMATION_REQUIRED` continua sendo o
+   * código traduzido pela camada de rota).
+   */
+  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
 
   public async list(projectPath: string): Promise<GitStashSummary[]> {
     await requireRepository(projectPath);
@@ -83,22 +92,12 @@ export class GitStashService {
         'Branch atual inválida para criar o stash.',
       );
     }
-    this.pruneExpiredConfirmations();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + CONFIRMATION_TTL_MS;
-    this.confirmations.set(token, {
-      token,
+    const { token, expiresAt } = this.confirmations.prepare(
       projectId,
-      operation,
+      stashCatalogOperationId(operation),
       target,
-      expiresAt,
-    });
-    return {
-      token,
-      operation,
-      target,
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
+    );
+    return { token, operation, target, expiresAt };
   }
 
   public async create(
@@ -262,26 +261,16 @@ export class GitStashService {
     target: string,
     token: string | undefined,
   ): void {
-    this.pruneExpiredConfirmations();
-    const confirmation = token ? this.confirmations.get(token) : undefined;
-    if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.operation !== operation
-      || confirmation.target !== target
-    ) {
-      throw new GitStashError(
-        'GIT_STASH_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para esta operação de stash.',
-      );
-    }
-    this.confirmations.delete(token!);
-  }
-
-  private pruneExpiredConfirmations(): void {
-    const now = Date.now();
-    for (const [token, confirmation] of this.confirmations) {
-      if (confirmation.expiresAt <= now) this.confirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, stashCatalogOperationId(operation), target, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitStashError(
+          'GIT_STASH_CONFIRMATION_REQUIRED',
+          'Confirmação obrigatória para esta operação de stash.',
+        );
+      }
+      throw error;
     }
   }
 }

@@ -7,6 +7,7 @@ import type {
 
 import { commonErrorResponseSchemas } from '../../http/response-schemas.js';
 import type { GitStashService } from '../../services/git-stash-service.js';
+import { withGitMutationHistory } from '../git-mutation-history-helpers.js';
 import {
   confirmationBodySchema,
   confirmationSchema,
@@ -87,16 +88,17 @@ export function registerStashMutationRoutes(
       const project = projectFor(options, request.params.projectId);
       try {
         return reply.code(201).send({
-          result: await service.create(
-            project.path,
-            project.id,
-            {
-              message: request.body.message,
-              includeUntracked: request.body.includeUntracked,
-              keepIndex: request.body.keepIndex,
-            },
-            request.body.confirmationToken,
-          ),
+          result: await withGitMutationHistory(options.gitMutationHistoryService, project, 'panel-stash-create', () =>
+            service.create(
+              project.path,
+              project.id,
+              {
+                message: request.body.message,
+                includeUntracked: request.body.includeUntracked,
+                keepIndex: request.body.keepIndex,
+              },
+              request.body.confirmationToken,
+            )),
         });
       } catch (error) {
         translateStashError(error);
@@ -129,12 +131,13 @@ export function registerStashMutationRoutes(
         const project = projectFor(options, request.params.projectId);
         try {
           return {
-            result: await service[operation](
-              project.path,
-              project.id,
-              request.params.stashReference,
-              request.body.confirmationToken,
-            ),
+            result: await withGitMutationHistory(options.gitMutationHistoryService, project, `panel-stash-${operation}`, () =>
+              service[operation](
+                project.path,
+                project.id,
+                request.params.stashReference,
+                request.body.confirmationToken,
+              )),
           };
         } catch (error) {
           translateStashError(error);

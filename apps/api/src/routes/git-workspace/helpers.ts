@@ -2,6 +2,7 @@ import type { FastifyPluginOptions } from 'fastify';
 
 import { GitBranchServiceError } from '../../services/git-branch-service.js';
 import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
+import type { GitMutationHistoryService } from '../../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
 
 export interface ProjectParams {
@@ -14,6 +15,7 @@ export interface RemoteParams extends ProjectParams {
 
 export interface GitWorkspaceRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 export const projectParamsSchema = {

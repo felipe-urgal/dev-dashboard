@@ -18,21 +18,30 @@ projeto é `"private": true`) — ver a task 093 e o item correspondente em
 
 ### 2026-08-05
 
-- Merge branch 'worktree-agent-ade51252194734ced' into claude/atuacao-3-frentes-sd7lt7 (`4b162b5`)
+- Merge branch 'worktree-agent-abfe43f054b53f17c' into claude/task-098-git-mutation-risk-policy (`22c23f6`)
 
-### Task 096
+### Task 098
 
-- Task 096: catálogo de risco, confirmação e histórico de mutações Git (`3f2a042`)
-
-### Task 097
-
-- Task 097: adiciona aba de variáveis de ambiente por projeto (`b48bc0c`)
+- docs: registra a entrega da task 098 (migração completa da política de risco Git) (`d200885`)
+- git: migra GitUndoService e conclui o wiring de app.ts (task 098) (`0fe9a73`)
 
 ### 2026-08-05
 
-- fix: painel Sidekiq/webpack — ícones, log e visibilidade condicional (`9d17ce8`)
-- fix: corrige ícones sem tamanho no layout de Perfis de ambiente (`5419229`)
-- Adiciona licença MIT ao projeto (`7bd9bd0`)
+- git: migra GitBranchPublishService para confirmação e histórico compartilhados (`771e4dd`)
+- git: migra GitBranchDeleteService para confirmação e histórico compartilhados (`9a07f4a`)
+- git: migra GitBranchRenameService para confirmação e histórico compartilhados (`9ba4554`)
+- git: migra GitStashService para confirmação e histórico compartilhados (`9130a55`)
+- git: migra GitSyncService para confirmação e histórico compartilhados (`3e62e6f`)
+- git: migra DashboardGitService para o mecanismo compartilhado de confirmação (`0a1d42e`)
+
+### Task 098
+
+- docs: marca a task 098 como em andamento nesta branch (`2909d14`)
+
+### 2026-08-05
+
+- Licença MIT, correções no painel Sidekiq/webpack e política de risco Git ([#189](../../pull/189))
+- docs: add audited feature opportunities for daily development ([#188](../../pull/188))
 - Atuação em 3 frentes: perfis de ambiente, Sidekiq/Webpack/credenciais, E2E ([#187](../../pull/187))
 - packege (`d0b63a0`)
 
