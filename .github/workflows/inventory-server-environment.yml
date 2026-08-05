@@ -37,6 +37,8 @@ jobs:
             grep -RIn -C 3 -E 'StartServerOptions|startServer\(|server-settings|environmentLabel|NODE_ENV|RAILS_ENV|--mode' packages/process-manager apps/api/src apps/web/src packages/contracts/src | head -n 1200 || true
           } > /tmp/server-environment-inventory.txt
 
+          cat /tmp/server-environment-inventory.txt
+
       - name: Publicar inventário no resumo
         run: |
           cat /tmp/server-environment-inventory.txt >> "$GITHUB_STEP_SUMMARY"
