@@ -10738,6 +10738,101 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 
 ## Rails
 
+### `GET /api/projects/:projectId/rails/credentials`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "credentials"
+    ],
+    "properties": {
+      "credentials": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "supported",
+          "environments"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "credentialsPath",
+                "credentialsFileExists",
+                "keyPath",
+                "keyFileExists",
+                "keySource"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "credentialsPath": {
+                  "type": "string"
+                },
+                "credentialsFileExists": {
+                  "type": "boolean"
+                },
+                "keyPath": {
+                  "type": "string"
+                },
+                "keyFileExists": {
+                  "type": "boolean"
+                },
+                "keySource": {
+                  "type": "string",
+                  "enum": [
+                    "file",
+                    "environment-variable",
+                    "missing"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `POST /api/projects/:projectId/rails/generate/confirmations`
 
 **Parâmetros de rota (`params`)**
@@ -11701,6 +11796,730 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 }
               }
             }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/rails/workers/:workerId`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "worker"
+    ],
+    "properties": {
+      "worker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "detected",
+          "process"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "sidekiq",
+              "webpack"
+            ]
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "process": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "projectId",
+              "kind",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "projectId": {
+                "type": "string"
+              },
+              "workspaceId": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "server",
+                  "webpack",
+                  "worker",
+                  "test",
+                  "script"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "starting",
+                  "running",
+                  "stopping",
+                  "stopped",
+                  "failed"
+                ]
+              },
+              "pid": {
+                "type": "integer"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "url": {
+                "type": "string"
+              },
+              "urls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "command": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "startedAt": {
+                "type": "string"
+              },
+              "stoppedAt": {
+                "type": "string"
+              },
+              "exitCode": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `DELETE /api/projects/:projectId/rails/workers/:workerId/logs`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "log"
+    ],
+    "properties": {
+      "log": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "processId",
+          "content",
+          "sizeBytes",
+          "truncated",
+          "masked",
+          "redactionCount",
+          "readAt"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "processId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "masked": {
+            "type": "boolean"
+          },
+          "redactionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/rails/workers/:workerId/logs`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 262144
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "log"
+    ],
+    "properties": {
+      "log": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "processId",
+          "content",
+          "sizeBytes",
+          "truncated",
+          "masked",
+          "redactionCount",
+          "readAt"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "processId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "masked": {
+            "type": "boolean"
+          },
+          "redactionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/rails/workers/:workerId/restart`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "process"
+    ],
+    "properties": {
+      "process": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "server",
+              "webpack",
+              "worker",
+              "test",
+              "script"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "running",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          },
+          "pid": {
+            "type": "integer"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedAt": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/rails/workers/:workerId/start`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "process"
+    ],
+    "properties": {
+      "process": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "server",
+              "webpack",
+              "worker",
+              "test",
+              "script"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "running",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          },
+          "pid": {
+            "type": "integer"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedAt": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/rails/workers/:workerId/stop`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "process"
+    ],
+    "properties": {
+      "process": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "server",
+              "webpack",
+              "worker",
+              "test",
+              "script"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "running",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          },
+          "pid": {
+            "type": "integer"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedAt": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": "integer"
           }
         }
       }

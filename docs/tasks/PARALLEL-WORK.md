@@ -14,8 +14,7 @@ seguinte livre) e remova a linha daqui.
 
 ## Em andamento
 
-- Operações Sidekiq/Webpack/credenciais Rails — branch
-  `claude/atuacao-3-frentes-sd7lt7` (worktree isolado), task 095.
+Nenhuma frente paralela registrada no momento.
 
 ## Livres para pegar em paralelo
 
@@ -69,3 +68,6 @@ Não são "livres" — cada uma precisa de uma definição de escopo (ver
 - Task 094 — Perfis de ambiente reutilizáveis em Configurações
   (`EnvironmentProfileRepository`, `/api/settings/environment-profiles`),
   sem persistir valor de variáveis de nome sensível.
+- Task 095 — Operações Sidekiq/webpack-dev-server via dois novos `kind` de
+  processo gerenciado (`worker`, `webpack`) e status somente leitura de
+  credenciais Rails, sem ler o conteúdo dos arquivos criptografados.

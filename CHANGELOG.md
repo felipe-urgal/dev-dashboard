@@ -16,6 +16,38 @@ versão continuam pendentes de uma decisão de política de versionamento (o
 projeto é `"private": true`) — ver a task 093 e o item correspondente em
 `docs/PENDENCIAS.md`.
 
+### 2026-08-05
+
+- Merge branch 'worktree-agent-abd1f5b10b9177bf3' into claude/atuacao-3-frentes-sd7lt7 (`5609e7d`)
+
+### Task 095
+
+- Documenta a task 095 (Sidekiq/webpack/credentials Rails) (`2cfd62d`)
+
+### 2026-08-05
+
+- Adiciona painel Sidekiq/webpack/credentials no dashboard web (`873c496`)
+- Adiciona rotas de Sidekiq, webpack e status de credentials Rails (`7c7e26d`)
+- Adiciona kind 'worker'/'webpack' ao process-manager (`388db54`)
+- docs: regenera api-reference.md com as rotas de perfis de ambiente (`9fdffe3`)
+
+### Task 094
+
+- Task 094: adiciona perfis de ambiente reutilizáveis em Configurações (`8ccfe1a`)
+
+### 2026-08-04
+
+- Adiciona adaptador seguro para abrir o servidor no navegador do sistema ([#186](../../pull/186))
+- Gera documentação da API a partir dos JSON Schemas das rotas Fastify ([#185](../../pull/185))
+
+### Task 093
+
+- Task 093: automatiza geração de CHANGELOG a partir do git log ([#184](../../pull/184))
+
+### Task 089
+
+- Task 089: adiciona projetos recentes por workspace ([#183](../../pull/183))
+
 ### 2026-08-04
 
 - Adiciona cache da detecção inicial do CLI para workspaces grandes ([#182](../../pull/182))
@@ -121,15 +153,3 @@ projeto é `"private": true`) — ver a task 093 e o item correspondente em
 - Refatoração pura de arquivos grandes — Fases 6 e 7 ([#140](../../pull/140))
 - Exibe branch atual na lista de projetos ([#141](../../pull/141))
 - Documenta plano de refatoração, Rake tasks e frentes do editor ([#139](../../pull/139))
-- Refina catálogo de scripts ([#138](../../pull/138))
-- Limpa a aba Banco de dados e adiciona pausar/reiniciar o banco local ([#135](../../pull/135))
-- Transforma navegação rápida em central de comandos ([#137](../../pull/137))
-- Amplia painel de logs ([#136](../../pull/136))
-- Simplifica painel de servidor ([#134](../../pull/134))
-
-### 2026-07-31
-
-- Deixa o terminal de logs reativo ao tema, seguindo o padrão do diff do Git ([#133](../../pull/133))
-- Corrige empilhamento visual da árvore de parâmetros e falso positivo de SQL ([#132](../../pull/132))
-- Corrige syntax highlight do SQL: v-html não recebe o atributo de escopo do Vue ([#131](../../pull/131))
-- Painel de logs do servidor: inspetor dividido, mais recente no topo, corrige travamento ([#130](../../pull/130))
