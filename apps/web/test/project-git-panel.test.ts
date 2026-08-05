@@ -951,7 +951,7 @@ test('renderiza a sincronização em uma única ação entre main e origin/main'
   });
   cleanup = mounted.restore;
 
-  const syncCard = mounted.wrapper.find('.git-sync-card');
+  const syncCard = mounted.wrapper.find('.git-sync-main-card');
   assert.ok(syncCard.exists());
   assert.match(syncCard.text(), /main\s*→\s*origin\/main/);
   assert.match(syncCard.text(), /Tudo sincronizado/);
@@ -1019,7 +1019,7 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
     globalThis.confirm = originalConfirm;
   };
 
-  await mounted.wrapper.find('.git-sync-button').trigger('click');
+  await mounted.wrapper.find('.git-sync-main-card .git-sync-button').trigger('click');
   await flushPromises();
   await flushPromises();
 

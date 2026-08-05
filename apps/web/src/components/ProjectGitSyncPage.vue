@@ -255,7 +255,7 @@ function statusIcon(tone: string) {
       </p>
     </div>
 
-    <div class="git-sync-card">
+    <div class="git-sync-card git-sync-main-card">
       <div class="git-sync-main-row">
         <div class="git-sync-relationship">
           <ShareIcon aria-hidden="true" />
