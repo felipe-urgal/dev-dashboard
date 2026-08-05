@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   Bars3Icon,
+  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   Cog6ToothIcon,
@@ -36,6 +37,14 @@ import {
   readSidebarCollapsed,
   storeSidebarCollapsed,
 } from './utils/sidebar-preferences';
+
+/**
+ * Central de documentação (`scripts/docs-server.mjs`) — só roda junto com
+ * `npm run dev` (não faz parte da distribuição `dev-web`), na porta padrão
+ * de `DEV_DASHBOARD_DOCS_PORT`. O link é uma conveniência de desenvolvimento;
+ * se o servidor não estiver rodando, o navegador só falha ao abrir a aba.
+ */
+const DOCS_SITE_URL = 'http://127.0.0.1:4545/';
 
 const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 const workspaceManagerOpen = ref(false);
@@ -260,6 +269,17 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
+          <a
+            class="docs-link-button"
+            :href="DOCS_SITE_URL"
+            target="_blank"
+            rel="noopener"
+            title="Abrir a documentação do projeto"
+          >
+            <BookOpenIcon aria-hidden="true" />
+            <span>Documentação</span>
+          </a>
+
           <NoticeCenter />
 
           <VisualPreferences />

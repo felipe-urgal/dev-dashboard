@@ -347,6 +347,37 @@
   font-size: 10px;
 }
 
+.docs-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.docs-link-button:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.docs-link-button > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 .topbar-divider {
   width: 1px;
   height: 24px;
@@ -414,6 +445,10 @@
   .command-button > span::after {
     font-size: 11px;
     content: 'Buscar';
+  }
+
+  .docs-link-button > span {
+    display: none;
   }
 }
 
@@ -504,6 +539,7 @@
   }
 
   .command-button,
+  .docs-link-button,
   .topbar-divider,
   .api-status {
     display: none;
