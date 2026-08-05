@@ -112,6 +112,30 @@ describe('ProjectDoctorPanel', () => {
     expect(wrapper.html()).not.toContain('super-secret');
   });
 
+  it('permite comparar as três versões sem perder os checks', async () => {
+    const wrapper = mount(ProjectDoctorPanel, {
+      props: { project },
+      global: {
+        stubs: { RouterLink: routerLinkStub },
+      },
+    });
+
+    await flushPromises();
+
+    const prototypeButtons = wrapper.findAll('.project-doctor-prototypes button');
+    expect(prototypeButtons).toHaveLength(3);
+    expect(wrapper.find('.doctor-compact').exists()).toBe(true);
+
+    await prototypeButtons[1]!.trigger('click');
+    expect(wrapper.find('.doctor-priority').exists()).toBe(true);
+    expect(wrapper.findAll('.project-doctor-check')).toHaveLength(4);
+
+    await prototypeButtons[2]!.trigger('click');
+    expect(wrapper.find('.doctor-checklist').exists()).toBe(true);
+    expect(wrapper.findAll('.project-doctor-check')).toHaveLength(4);
+    expect(wrapper.text()).toContain('Abrir configurações');
+  });
+
   it('solicita atualização explícita ao verificar novamente', async () => {
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },
