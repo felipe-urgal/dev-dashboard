@@ -1,0 +1,26 @@
+name: Temporary sync Task 100
+
+on:
+  push:
+    branches:
+      - agent/task-100-test-failure-navigator
+
+permissions:
+  contents: write
+
+jobs:
+  sync-main:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-sync]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/task-100-test-failure-navigator
+      - name: Merge main safely
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge -X theirs --no-edit -m "chore: atualiza Task 100 com main [skip-sync]" origin/main
+          git push origin HEAD:agent/task-100-test-failure-navigator
