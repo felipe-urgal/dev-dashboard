@@ -76,6 +76,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
     activeLogTab,
     copyMessage,
     currentCommandText,
+    currentRunner,
     currentStatusTone,
     currentTarget,
     duration,
@@ -189,6 +190,8 @@ export function useProjectTestsPanel(props: { project: Project }) {
     const commandId = currentTarget.value?.commandId;
     return overview.value?.commands.find((command) => command.id === commandId);
   });
+  const currentRunner = computed(() =>
+    currentCommand.value?.runner ?? selectedCommand.value?.runner);
 
   const runSummary = computed<TestRunSummary>(() => {
     const text = cleanLogContent.value;
@@ -363,6 +366,19 @@ export function useProjectTestsPanel(props: { project: Project }) {
     await startExecution({ ...target, scope });
   }
 
+  async function handleRepeatFile(filePath: string): Promise<void> {
+    if (isRunning.value || startingCommandId.value !== null) return;
+    const command = currentCommand.value ?? selectedCommand.value;
+    if (!command?.supportsFileTarget) return;
+    selectedExecutionKey.value = choiceKey(command.id, 'file');
+    selectedFilePath.value = filePath;
+    await startExecution({
+      commandId: command.id,
+      scope: 'file',
+      targetFile: filePath,
+    });
+  }
+
   async function handleCopyLogs(): Promise<void> {
     await process.handleCopyLogs(cleanLogContent.value);
   }
@@ -406,6 +422,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
     handleExecutionChoiceChange,
     handleExecuteSelection,
     handleRepeat,
+    handleRepeatFile,
     handleStop,
     isRunning,
     loadOverview,

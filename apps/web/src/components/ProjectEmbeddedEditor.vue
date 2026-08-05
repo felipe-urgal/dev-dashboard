@@ -15,6 +15,7 @@ import {
   ref,
   watch,
 } from 'vue';
+import { useRoute } from 'vue-router';
 import type * as Monaco from 'monaco-editor';
 
 import type {
@@ -70,6 +71,7 @@ const LANGUAGE_SERVER_KINDS = Object.keys(
 ) as ProjectLanguageServerKind[];
 
 const props = defineProps<{ project: Project }>();
+const route = useRoute();
 
 const editorHost = ref<HTMLElement | null>(null);
 const directoryEntries = ref(new Map<string, ProjectFileEntry[]>());
@@ -820,6 +822,25 @@ async function initializeMonaco(): Promise<void> {
   }
 }
 
+function routeEditorTarget(): { path: string; line: number; column: number } | null {
+  const rawPath = Array.isArray(route.query.file) ? route.query.file[0] : route.query.file;
+  if (typeof rawPath !== 'string') return null;
+  const filePath = rawPath.replace(/\/g, '/').replace(/^\.\//, '');
+  if (!filePath || filePath.startsWith('/') || /^[A-Za-z]:\//.test(filePath)) return null;
+  if (filePath.split('/').some((segment) => segment === '..' || segment === '')) return null;
+  const rawLine = Array.isArray(route.query.line) ? route.query.line[0] : route.query.line;
+  const rawColumn = Array.isArray(route.query.column) ? route.query.column[0] : route.query.column;
+  const line = Math.max(1, Number.parseInt(String(rawLine ?? '1'), 10) || 1);
+  const column = Math.max(1, Number.parseInt(String(rawColumn ?? '1'), 10) || 1);
+  return { path: filePath, line, column };
+}
+
+async function openRouteEditorTarget(): Promise<void> {
+  const target = routeEditorTarget();
+  if (!target) return;
+  await openFile(target.path, { line: target.line, column: target.column }, { pin: true });
+}
+
 async function resetProject(): Promise<void> {
   disposeLanguageServerClients();
   disposeAiInlineCompletionProvider();
@@ -854,13 +875,17 @@ async function resetProject(): Promise<void> {
 
 watch(
   () => props.project.id,
-  () => void resetProject(),
+  async () => {
+    await resetProject();
+    await openRouteEditorTarget();
+  },
 );
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('beforeunload', handleBeforeUnload);
   await Promise.all([resetProject(), initializeMonaco()]);
+  await openRouteEditorTarget();
 });
 
 onBeforeUnmount(() => {

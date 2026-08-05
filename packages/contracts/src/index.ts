@@ -174,6 +174,8 @@ export type {
   ProjectTestOrigin,
   ProjectTestOverview,
   ProjectTestRunner,
+  TestFailure,
+  TestFailureLocation,
   TestExecutionEvent,
   TestExecutionHistory,
   TestExecutionRecord,

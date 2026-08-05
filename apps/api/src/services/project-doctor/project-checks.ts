@@ -71,16 +71,23 @@ export async function checkExpectedManifest(
 export async function checkEnvironmentVariables(
   project: Project,
 ): Promise<ProjectDiagnosticCheck> {
-  const exampleContent = await readLimitedText(
-    path.join(project.path, '.env.example'),
-  );
-  if (exampleContent === null) {
+  const referenceCandidates = ['.env.example', '.env.sample'] as const;
+  let referenceFile: (typeof referenceCandidates)[number] | undefined;
+  let exampleContent: string | null = null;
+  for (const candidate of referenceCandidates) {
+    const content = await readLimitedText(path.join(project.path, candidate));
+    if (content === null) continue;
+    referenceFile = candidate;
+    exampleContent = content;
+    break;
+  }
+  if (exampleContent === null || !referenceFile) {
     return createDiagnosticCheck({
       id: 'environment-variables',
       category: 'configuration',
       label: 'Variáveis de ambiente',
       status: 'skipped',
-      summary: '.env.example não foi encontrado; não há referência segura para comparar nomes.',
+      summary: '.env.example e .env.sample não foram encontrados; não há referência segura para comparar nomes.',
     });
   }
 
@@ -91,7 +98,7 @@ export async function checkEnvironmentVariables(
       category: 'configuration',
       label: 'Variáveis de ambiente',
       status: 'passed',
-      summary: '.env.example não declara nomes de variáveis.',
+      summary: `${referenceFile} não declara nomes de variáveis.`,
     });
   }
 
@@ -109,7 +116,7 @@ export async function checkEnvironmentVariables(
       category: 'configuration',
       label: 'Variáveis de ambiente',
       status: 'passed',
-      summary: `Os ${expectedNames.size} nomes declarados em .env.example também existem em .env. Nenhum valor foi devolvido pelo relatório.`,
+      summary: `Os ${expectedNames.size} nomes declarados em ${referenceFile} também existem em .env. Nenhum valor foi devolvido pelo relatório.`,
     });
   }
 

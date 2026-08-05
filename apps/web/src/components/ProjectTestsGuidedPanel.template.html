@@ -249,6 +249,15 @@
           </div>
         </div>
 
+        <ProjectTestFailureNavigator
+          v-if="currentRunner && cleanLogContent"
+          :project="project"
+          :runner="currentRunner"
+          :log-content="cleanLogContent"
+          :running="isRunning"
+          @repeat-file="handleRepeatFile"
+        />
+
         <div class="tests-log-shell">
           <div class="tests-log-header">
             <div class="tests-log-tabs" role="tablist" aria-label="Filtros do log">

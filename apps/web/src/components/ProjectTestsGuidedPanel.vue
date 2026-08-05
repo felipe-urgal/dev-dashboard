@@ -19,13 +19,14 @@ import type { Project } from '@dev-dashboard/contracts';
 import { useProjectTestsPanel } from '../composables/useProjectTestsPanel';
 import { exportLogSnapshot } from '../utils/log-export';
 import Card from './Card.vue';
+import ProjectTestFailureNavigator from './ProjectTestFailureNavigator.vue';
 
 const props = defineProps<{ project: Project }>();
 const {
   activeLogEmptyLabel, activeLogTab, canExecuteSelection, cleanLogContent, copyMessage,
-  currentCommandText, currentStatusTone, currentTarget, duration, errorLogLines, errorMessage,
+  currentCommandText, currentRunner, currentStatusTone, currentTarget, duration, errorLogLines, errorMessage,
   executionChoices, executionPreview, fileErrorMessage, formatTimestamp, handleClearLogs,
-  handleCopyLogs, handleExecutionChoiceChange, handleExecuteSelection, handleRepeat, handleStop,
+  handleCopyLogs, handleExecutionChoiceChange, handleExecuteSelection, handleRepeat, handleRepeatFile, handleStop,
   isRunning, loadOverview, loadingFilesCommandId, loadingOverview, loadingRelatedCommandId,
   logSnapshot, logTruncated, managedProcess, overview, relatedErrorMessage, relatedTests, runSummary,
   scrollLogToEnd, selectedChoice, selectedExecutionKey, selectedFilePath, selectionConfigured,
