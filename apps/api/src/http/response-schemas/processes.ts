@@ -83,6 +83,7 @@ export const projectServerSettingsResponseSchema = {
     projectId: { type: 'string' },
     port: { type: 'integer' },
     healthCheckPath: { type: 'string' },
+    environment: { type: 'string', maxLength: 64 },
     updatedAt: { type: 'string' },
   },
 } as const;
