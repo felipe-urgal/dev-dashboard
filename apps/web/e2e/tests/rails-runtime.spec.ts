@@ -16,7 +16,7 @@ test.describe('Sidekiq/webpack do projeto Rails', () => {
     const sidekiqCard = page.locator('.rails-worker-card', { has: page.getByRole('heading', { level: 3, name: 'Sidekiq' }) });
     const webpackCard = page.locator('.rails-worker-card', { has: page.getByRole('heading', { level: 3, name: 'webpack-dev-server' }) });
 
-    await expect(webpackCard.getByText('Não encontramos indícios de webpack-dev-server')).toBeVisible();
+    await expect(webpackCard).toBeHidden();
 
     await expect(sidekiqCard.getByRole('button', { name: 'Iniciar' })).toBeVisible();
     await sidekiqCard.getByRole('button', { name: 'Iniciar' }).click();

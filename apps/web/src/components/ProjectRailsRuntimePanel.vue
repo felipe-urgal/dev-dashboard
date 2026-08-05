@@ -5,6 +5,7 @@ import {
   PlayIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
+import { nextTick, watch } from 'vue';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
@@ -25,6 +26,23 @@ useAutoDismiss(sidekiq.errorMessage, '');
 useAutoDismiss(webpack.errorMessage, '');
 useAutoDismiss(credentials.errorMessage, '');
 
+// Sempre mostra as linhas mais recentes primeiro — sem isso, um log longo
+// abre rolado no topo, escondendo o motivo real de uma falha (normalmente
+// no fim do stack trace).
+const logElements = new Map<RailsWorkerId, HTMLPreElement>();
+function registerLogElement(workerId: RailsWorkerId, element: Element | null): void {
+  if (element instanceof HTMLPreElement) logElements.set(workerId, element);
+  else logElements.delete(workerId);
+}
+function scrollLogToBottom(workerId: RailsWorkerId): void {
+  void nextTick(() => {
+    const element = logElements.get(workerId);
+    if (element) element.scrollTop = element.scrollHeight;
+  });
+}
+watch(sidekiq.log, () => scrollLogToBottom('sidekiq'));
+watch(webpack.log, () => scrollLogToBottom('webpack'));
+
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
   webpack: 'webpack-dev-server',
@@ -35,15 +53,25 @@ const keySourceLabels: Record<string, string> = {
   'environment-variable': 'RAILS_MASTER_KEY definido no ambiente',
   missing: 'Nenhuma chave encontrada',
 };
+
+const railsWorkers = [
+  { id: 'sidekiq' as const, supportsRestart: true, state: sidekiq },
+  { id: 'webpack' as const, supportsRestart: false, state: webpack },
+];
 </script>
 
 <template>
   <div class="rails-runtime-panel">
+    <p
+      v-if="!sidekiq.loading.value && !webpack.loading.value && !sidekiq.detected.value && !webpack.detected.value && !credentials.credentials.value?.supported"
+      class="rails-worker-empty"
+    >
+      Não encontramos Sidekiq, webpack-dev-server nem credentials neste projeto.
+    </p>
+
     <Card
-      v-for="worker in [
-        { id: 'sidekiq' as const, state: sidekiq, supportsRestart: true },
-        { id: 'webpack' as const, state: webpack, supportsRestart: false },
-      ]"
+      v-for="worker in railsWorkers"
+      v-show="worker.state.loading.value || worker.state.detected.value"
       :key="worker.id"
       class="rails-worker-card"
     >
@@ -58,12 +86,11 @@ const keySourceLabels: Record<string, string> = {
         {{ worker.state.errorMessage.value }}
       </p>
 
-      <p v-if="!worker.state.detected.value" class="rails-worker-empty">
-        Não encontramos indícios de {{ workerLabels[worker.id] }} neste projeto
-        (gem/binstub ausente).
+      <p v-if="worker.state.loading.value && !worker.state.detected.value" class="rails-worker-empty">
+        Verificando…
       </p>
 
-      <template v-else>
+      <template v-else-if="worker.state.detected.value">
         <dl class="rails-worker-details">
           <div v-if="worker.state.managedProcess.value?.pid">
             <dt>PID</dt>
@@ -127,7 +154,10 @@ const keySourceLabels: Record<string, string> = {
               Limpar
             </button>
           </div>
-          <pre class="rails-worker-log-content">{{ worker.state.log.value?.content || (worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.') }}</pre>
+          <pre
+            class="rails-worker-log-content"
+            :ref="(el) => registerLogElement(worker.id, el as Element | null)"
+          >{{ worker.state.log.value?.content || (worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.') }}</pre>
         </div>
       </template>
     </Card>
@@ -211,6 +241,14 @@ const keySourceLabels: Record<string, string> = {
   margin: 0;
 }
 
+.rails-worker-card h3 svg,
+.rails-credentials-card h3 svg,
+.rails-worker-actions svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .rails-worker-error {
   color: var(--danger-text);
   background: var(--danger-surface);
@@ -270,12 +308,17 @@ const keySourceLabels: Record<string, string> = {
 .rails-text-button:disabled { color: var(--text-muted); cursor: not-allowed; }
 
 .rails-worker-log-content {
-  max-height: 240px;
+  max-height: 420px;
+  min-height: 120px;
   overflow: auto;
   background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-  font-size: var(--font-xs);
+  margin: 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: var(--font-sm);
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
 }
