@@ -93,7 +93,12 @@ export async function diagnose(options = {}) {
   }
 
   const configuredPort = Number.parseInt(options.apiPort ?? process.env.DEV_DASHBOARD_API_PORT ?? '4343', 10);
-  for (const [label, port] of distribution ? [['Dashboard', configuredPort]] : [['API', 4343], ['Web', 5173]]) {
+  const configuredDocsPort = Number.parseInt(options.docsPort ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? '4545', 10);
+  const ports = distribution
+    ? [['Dashboard', configuredPort]]
+    : [['API', 4343], ['Web', 5173], ['Docs', configuredDocsPort]];
+
+  for (const [label, port] of ports) {
     const available = await portChecker('127.0.0.1', port);
     results.push(
       available
