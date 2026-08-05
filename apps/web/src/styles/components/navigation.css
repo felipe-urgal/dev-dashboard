@@ -402,6 +402,14 @@
   align-items: center;
 }
 
+.environment-profile-actions svg,
+.environment-profile-variable-row svg,
+.environment-profile-form svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 820px) {
   .settings-heading {
     align-items: stretch;

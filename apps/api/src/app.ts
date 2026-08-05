@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
+import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
 import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
@@ -31,6 +32,7 @@ import { testRelatedRoutes } from './routes/test-related.js';
 import { databaseRoutes } from './routes/database.js';
 import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
+import { projectEnvironmentRoutes } from './routes/project-environment.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
@@ -144,6 +146,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
+    gitMutationHistoryService: context.gitMutationHistoryService,
+  });
+
+  app.register(gitMutationHistoryRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(gitWorkspaceRoutes, {
@@ -200,6 +209,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     gitService: context.gitService,
+    gitMutationHistoryService: context.gitMutationHistoryService,
   });
 
   app.register(projectReadmeRoutes, {
@@ -294,6 +304,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     bundlerInspectionService: context.bundlerInspectionService,
+  });
+
+  app.register(projectEnvironmentRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectEnvironmentService: context.projectEnvironmentService,
   });
 
   app.register(scriptRoutes, {

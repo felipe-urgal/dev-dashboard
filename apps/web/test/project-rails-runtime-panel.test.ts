@@ -64,7 +64,7 @@ const project: Project = {
 };
 
 describe('ProjectRailsRuntimePanel', () => {
-  it('mostra Sidekiq detectado com ação de iniciar e webpack não detectado', async () => {
+  it('mostra apenas o Sidekiq detectado; o card do webpack fica oculto', async () => {
     const wrapper = mount(ProjectRailsRuntimePanel, {
       props: { project },
     });
@@ -76,13 +76,12 @@ describe('ProjectRailsRuntimePanel', () => {
 
     const sidekiqCard = cards[0];
     expect(sidekiqCard?.text()).toContain('Sidekiq');
-    expect(sidekiqCard?.find('.rails-worker-empty').exists()).toBe(false);
+    expect(sidekiqCard?.isVisible()).toBe(true);
     expect(sidekiqCard?.find('button.primary-button').exists()).toBe(true);
 
     const webpackCard = cards[1];
     expect(webpackCard?.text()).toContain('webpack-dev-server');
-    expect(webpackCard?.find('.rails-worker-empty').exists()).toBe(true);
-    expect(webpackCard?.find('button.primary-button').exists()).toBe(false);
+    expect(webpackCard?.isVisible()).toBe(false);
   });
 
   it('inicia o Sidekiq ao clicar em Iniciar', async () => {

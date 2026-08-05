@@ -106,7 +106,8 @@ de saída concretos.
   projeto algum dia será publicado — hoje `package.json` raiz tem
   `"private": true`) que não cabe a uma única frente paralela decidir
   sozinha; ver task 093 para o raciocínio da redução de escopo.
-- [ ] Definir e adicionar a licença do projeto.
+- [x] Definir e adicionar a licença do projeto — MIT, `LICENSE` na raiz e
+  campo `license` em `package.json`.
 - [ ] Criar uma política versionada de migração e backup do estado local.
 - [ ] Publicar a matriz de suporte de sistemas operacionais e runtimes.
 - [ ] Validar e implementar compatibilidade com macOS.

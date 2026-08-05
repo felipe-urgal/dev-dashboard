@@ -45,7 +45,8 @@ export function useProjectGitPanel(
     | 'commit'
     | 'undo'
     | 'pull-request'
-    | 'history';
+    | 'history'
+    | 'mutation-history';
 
   const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
     { id: 'sync', label: 'Sincronização', icon: '↕' },
@@ -55,6 +56,7 @@ export function useProjectGitPanel(
     { id: 'undo', label: 'Desfazer', icon: '↶' },
     { id: 'pull-request', label: 'Pull Request', icon: '↗' },
     { id: 'history', label: 'Histórico', icon: '◷' },
+    { id: 'mutation-history', label: 'Mutações', icon: '☰' },
   ];
 
   const activeTab = ref<GitTab>('sync');

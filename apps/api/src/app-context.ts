@@ -13,6 +13,7 @@ import {
 import { ProjectStore } from './store/project-store.js';
 import { GitService } from './services/git-service.js';
 import { DashboardGitService } from './services/dashboard-git-service.js';
+import { GitMutationHistoryService } from './services/git-mutation-history-service.js';
 import { TestDetectionService } from './services/test-detection-service.js';
 import { TestExecutionHistoryService } from './services/test-execution-history-service.js';
 import { DatabaseDetectionService } from './services/database-detection-service.js';
@@ -20,6 +21,7 @@ import { DatabaseSnapshotService } from './services/database-snapshot-service.js
 import { RailsInspectionService } from './services/rails-inspection-service.js';
 import { RailsRuntimeService } from './services/rails-runtime-service.js';
 import { BundlerInspectionService } from './services/bundler-inspection-service.js';
+import { ProjectEnvironmentService } from './services/project-environment-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ActivityService } from './services/activity-service.js';
@@ -40,6 +42,7 @@ export interface AppContext {
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
   gitService: GitService;
+  gitMutationHistoryService: GitMutationHistoryService;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   databaseDetectionService: DatabaseDetectionService;
@@ -47,6 +50,7 @@ export interface AppContext {
   railsInspectionService: RailsInspectionService;
   railsRuntimeService: RailsRuntimeService;
   bundlerInspectionService: BundlerInspectionService;
+  projectEnvironmentService: ProjectEnvironmentService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   activityService: ActivityService;
@@ -67,6 +71,7 @@ export function createAppContext(): AppContext {
   const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
   const databaseDetectionService = new DatabaseDetectionService();
   const gitService = new DashboardGitService();
+  const gitMutationHistoryService = new GitMutationHistoryService();
   const projectFileService = new ProjectFileService();
   const projectWorkspaceEditService = new ProjectWorkspaceEditService(projectFileService);
   const projectLanguageServerService = new ProjectLanguageServerService({ projectFileService });
@@ -80,6 +85,7 @@ export function createAppContext(): AppContext {
       new ProjectServerSettingsRepository(),
     projectStore,
     gitService,
+    gitMutationHistoryService,
     testDetectionService: new TestDetectionService(),
     testExecutionHistoryService: new TestExecutionHistoryService(processManager),
     databaseDetectionService,
@@ -87,6 +93,7 @@ export function createAppContext(): AppContext {
     railsInspectionService: new RailsInspectionService(),
     railsRuntimeService: new RailsRuntimeService(processManager),
     bundlerInspectionService: new BundlerInspectionService(),
+    projectEnvironmentService: new ProjectEnvironmentService(),
     scriptDetectionService,
     scriptExecutionService,
     activityService: new ActivityService(projectStore, processManager, scriptExecutionService),

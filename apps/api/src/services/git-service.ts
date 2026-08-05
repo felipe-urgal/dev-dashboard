@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -32,7 +31,7 @@ import {
   readIndexBlob,
   readWorkingTreeFile,
 } from './git-service/diff-helpers.js';
-import { GitDiffError, GitMutationError, type StoredMutationConfirmation } from './git-service/errors.js';
+import { GitDiffError, GitMutationError } from './git-service/errors.js';
 import {
   assertWorkingTreeClean,
   ensureMutationPathInsideProject,
@@ -47,6 +46,10 @@ import { resolveSavePrefix } from './git-service/save-prefix.js';
 import { parseCommits, parseStatus } from './git-service/status-parsing.js';
 import { listStashEntries } from './git-service/stash.js';
 import { REMOTE_UNAVAILABLE_PATTERN } from './git-service/constants.js';
+import {
+  GitMutationConfirmationError,
+  GitMutationConfirmationService,
+} from './git-mutation-confirmation-service.js';
 
 export {
   GIT_DIFF_FILE_LIMIT,
@@ -60,7 +63,13 @@ export type { GitMutationErrorCode } from './git-service/errors.js';
 export { resolveSavePrefix } from './git-service/save-prefix.js';
 
 export class GitService {
-  private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
+  /**
+   * Mecanismo compartilhado de confirmação (`git-mutation-confirmation-service.ts`),
+   * usado em vez de um `Map` privado próprio deste serviço — mesma TTL e
+   * mesmo comportamento de antes, agora generalizado para os demais serviços
+   * Git migrarem nas próximas etapas.
+   */
+  private readonly confirmations = new GitMutationConfirmationService(GIT_MUTATION_CONFIRMATION_TTL_MS);
 
   public async getOverview(projectPath: string): Promise<ProjectGitOverview> {
     try { await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']); } catch { return { repository: false, detached: false, ahead: 0, behind: 0, clean: true, files: [], recentCommits: [], stashes: [] }; }
@@ -197,26 +206,18 @@ export class GitService {
     } else {
       validateBranchName(target);
     }
-    this.pruneExpiredMutations();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + GIT_MUTATION_CONFIRMATION_TTL_MS;
-    this.mutationConfirmations.set(token, { token, projectId, operation, target, expiresAt });
-    return { token, operation, target, expiresAt: new Date(expiresAt).toISOString() };
+    const { token, expiresAt } = this.confirmations.prepare(projectId, operation, target);
+    return { token, operation, target, expiresAt };
   }
 
   private consumeMutationConfirmation(projectId: string, operation: GitMutationOperation, target: string, token: string | undefined): void {
-    this.pruneExpiredMutations();
-    const record = token ? this.mutationConfirmations.get(token) : undefined;
-    if (!record || record.projectId !== projectId || record.operation !== operation || record.target !== target) {
-      throw new GitMutationError('GIT_MUTATION_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
-    }
-    this.mutationConfirmations.delete(token!);
-  }
-
-  private pruneExpiredMutations(): void {
-    const now = Date.now();
-    for (const [token, record] of this.mutationConfirmations) {
-      if (record.expiresAt <= now) this.mutationConfirmations.delete(token);
+    try {
+      this.confirmations.consume(projectId, operation, target, token);
+    } catch (error) {
+      if (error instanceof GitMutationConfirmationError) {
+        throw new GitMutationError(error.code, error.message);
+      }
+      throw error;
     }
   }
 

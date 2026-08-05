@@ -8,11 +8,14 @@ import {
   GitMutationError,
   type GitService,
 } from '../services/git-service.js';
+import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
+import { withGitMutationHistory } from './git-mutation-history-helpers.js';
 
 interface GitFileMutationRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitService: GitService;
+  gitMutationHistoryService: GitMutationHistoryService;
 }
 
 interface ProjectParams {
@@ -92,7 +95,7 @@ function translateMutationError(error: unknown): never {
 export const gitFileMutationRoutes: FastifyPluginAsync<
   GitFileMutationRouteOptions
 > = async (app, options) => {
-  const { projectStore, gitService } = options;
+  const { projectStore, gitService, gitMutationHistoryService } = options;
 
   function resolveProject(projectId: string) {
     const project = projectStore.findProject(projectId);
@@ -167,12 +170,13 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await gitService.discardFile(
-            project.path,
-            project.id,
-            request.body.path,
-            request.body.confirmationToken,
-          ),
+          file: await withGitMutationHistory(gitMutationHistoryService, project, 'discard-file', () =>
+            gitService.discardFile(
+              project.path,
+              project.id,
+              request.body.path,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateMutationError(error);
@@ -193,12 +197,13 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await gitService.removeUntrackedFile(
-            project.path,
-            project.id,
-            request.body.path,
-            request.body.confirmationToken,
-          ),
+          file: await withGitMutationHistory(gitMutationHistoryService, project, 'remove-untracked-file', () =>
+            gitService.removeUntrackedFile(
+              project.path,
+              project.id,
+              request.body.path,
+              request.body.confirmationToken,
+            )),
         };
       } catch (error) {
         translateMutationError(error);

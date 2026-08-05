@@ -102,6 +102,8 @@
         :busy="mutationRunning"
       />
 
-      <ProjectGitHistoryPage v-else :project-id="project.id" />
+      <ProjectGitHistoryPage v-else-if="activeTab === 'history'" :project-id="project.id" />
+
+      <ProjectGitMutationHistoryPage v-else :project="project" />
     </template>
   </section>
