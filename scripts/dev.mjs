@@ -6,6 +6,7 @@ const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const DEFAULT_PROCESS_DEFINITIONS = [
   { name: 'api', args: ['run', 'dev', '--workspace=@dev-dashboard/api'] },
   { name: 'web', args: ['run', 'dev', '--workspace=@dev-dashboard/web'] },
+  { name: 'docs', args: ['run', 'docs:dev'] },
 ];
 
 export function stopChild(child, signal, killFn = process.kill) {
