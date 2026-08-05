@@ -44,10 +44,16 @@ async function runGit(cwd: string, args: string[]): Promise<void> {
 }
 
 // Repositório Git real (não um double) para o e2e de mutações — branch
-// "main" com um commit inicial, autor fixo via env (não depende de git
-// config global no runner de CI).
+// "main" com um commit inicial. Autor gravado na config *local* do
+// repositório (não só via env do processo de setup): a API roda `git
+// commit` num processo próprio (apps/api/dist/server.js), sem herdar as
+// variáveis GIT_AUTHOR_*/GIT_COMMITTER_* passadas só ao script de setup —
+// sem isso, "Criar commit" pela UI falha em runners sem `git config`
+// global (ex. GitHub Actions), mesmo com o commit inicial da fixture OK.
 async function initSampleGitRepository(projectDirectory: string): Promise<void> {
   await runGit(projectDirectory, ['init', '-q', '-b', 'main']);
+  await runGit(projectDirectory, ['config', 'user.name', 'Dev Dashboard E2E']);
+  await runGit(projectDirectory, ['config', 'user.email', 'e2e@example.com']);
   await runGit(projectDirectory, ['add', '-A']);
   await runGit(projectDirectory, ['commit', '-q', '-m', 'chore: commit inicial']);
 }
