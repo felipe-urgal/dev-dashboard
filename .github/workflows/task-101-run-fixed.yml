@@ -1,0 +1,109 @@
+name: Task 101 Run Fixed
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'agent/task-101-safe-port-inspector'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout da branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Aplicar implementação e correções
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/task-101-apply.yml').read_text(
+              encoding='utf-8',
+          )
+          marker = "          python <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          script = textwrap.dedent(workflow[start:end])
+          namespace = {'__name__': '__main__'}
+          exec(compile(script, 'task-101-apply.py', 'exec'), namespace)
+
+          service_path = Path(
+              'apps/api/src/services/port-inspector-service.ts',
+          )
+          service = service_path.read_text(encoding='utf-8')
+          old_stdout = """                resolve(
+                    typeof stdout === 'string'
+                      ? stdout
+                      : stdout.toString('utf8'),
+                  );"""
+          new_stdout = """                resolve(stdout);"""
+          old_pid = """          const parsedPid = processMatch?.[2]
+              ? Number(processMatch[2])
+              : undefined;
+
+            return {
+              ...endpoint,
+              ...(Number.isInteger(parsedPid) && parsedPid! > 0
+                ? { pid: parsedPid }
+                : {}),"""
+          new_pid = """          const parsedPid = processMatch?.[2]
+              ? Number(processMatch[2])
+              : undefined;
+            const pid =
+              parsedPid !== undefined &&
+              Number.isInteger(parsedPid) &&
+              parsedPid > 0
+                ? parsedPid
+                : undefined;
+
+            return {
+              ...endpoint,
+              ...(pid !== undefined ? { pid } : {}),"""
+          if old_stdout not in service:
+              raise SystemExit('Trecho stdout não encontrado no serviço')
+          if old_pid not in service:
+              raise SystemExit('Trecho PID não encontrado no serviço')
+          service = service.replace(old_stdout, new_stdout, 1)
+          service = service.replace(old_pid, new_pid, 1)
+          service_path.write_text(service, encoding='utf-8')
+          PY
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar documentação da API
+        run: npm run docs:api
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes
+        run: npm test
+
+      - name: Consolidar arquivos funcionais
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- ':!.github/workflows'
+          git commit -m "feat: adiciona inspetor seguro de portas locais"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
