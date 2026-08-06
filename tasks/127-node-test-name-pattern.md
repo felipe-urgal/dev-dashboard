@@ -66,22 +66,29 @@ um é validado de forma independente pelo serviço.
 - `apps/web/src/components/ProjectTestsGuidedPanel.{vue,template.html}`:
   campo "Padrão de nome do caso/describe (opcional)" no formulário guiado.
 
-## Bug encontrado e não corrigido nesta entrega
+## Falso alarme investigado durante esta entrega
 
-Ao escrever o teste de rota HTTP para esta funcionalidade, dois starts
-reais e sequenciais do mesmo processo de teste (start → stop → start, na
-mesma fixture) expuseram um bug pré-existente e não relacionado a esta
-task no `packages/process-manager`: quando o processo spawnado morre muito
-rápido sozinho (aqui, `npm run test` falhando de cara porque `vitest` não
-está de fato instalado na fixture mínima do teste), `POST
-.../tests/process/stop` retorna um erro genérico 500/`BAD_REQUEST` em vez
-de tratar como já-parado, e o `POST .../files/start` seguinte pode ver
-`PROCESS_ALREADY_RUNNING` mesmo com o processo anterior morto — indício de
-corrida entre a saída real do processo e a leitura/escrita do registro de
-status em `process-lifecycle.ts`. Contornado isolando o teste da task 127
-em sua própria fixture/instância de app (sem encadear dois starts reais na
-mesma fixture); registrado como item próprio em `tasks/PENDENCIAS.md` para
-investigação futura — fora do escopo desta entrega.
+Ao escrever o teste de rota HTTP, dois starts reais e sequenciais do mesmo
+processo de teste (start → stop → start, na mesma fixture) pareciam
+expor um bug de corrida no `packages/process-manager`: `POST
+.../tests/process/stop` retornava um erro genérico 400/`BAD_REQUEST`, e o
+`POST .../files/start` seguinte via `PROCESS_ALREADY_RUNNING` mesmo com o
+processo anterior aparentemente morto. Cheguei a registrar isso como bug
+pendente em `tasks/PENDENCIAS.md` antes de confirmar a causa raiz.
+
+Investigação mais a fundo (chamando `ProcessManager.stopTest` diretamente,
+sem passar pela API) mostrou que o `stop` funciona perfeitamente — a causa
+real era um erro na própria chamada de teste: `app.inject` para
+`.../process/stop` reaproveitava o `headers` compartilhado do bloco
+(`content-type: application/json`) sem enviar `payload`, e o schema da
+rota (`body: emptyBodySchema`, `type: object`) rejeita corpo ausente com
+`content-type: application/json` presente — isso já acontecia em **todos**
+os chamados pré-existentes de `.../process/stop` no arquivo, só nunca
+tinha sido notado porque nenhum teste anterior verificava o resultado do
+`stop` nem tentava um segundo `start` logo em seguida. Corrigido nos três
+pontos do arquivo (`payload: JSON.stringify({})`); a entrada em
+`tasks/PENDENCIAS.md` foi removida por não corresponder a um bug real do
+`packages/process-manager`.
 
 ## Fora de escopo
 

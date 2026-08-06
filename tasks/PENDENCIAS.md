@@ -33,20 +33,6 @@ npm test
   completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
   `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
   próprio.
-- [ ] `ProcessManager.stopTest`/`startManagedTest` (`packages/process-manager`):
-  encontrado durante a task 127 um caso em que parar um processo de teste que
-  já saiu sozinho muito rápido (ex. `npm run test` falhando na primeira
-  invocação) retorna um erro genérico (500 `BAD_REQUEST`, não um
-  `ProcessManagerError` reconhecido) em vez de tratar como "já parado", e a
-  tentativa de iniciar um novo processo de teste logo em seguida pode ver
-  `PROCESS_ALREADY_RUNNING` mesmo com o processo anterior já morto —
-  provável corrida entre a saída real do processo e a leitura/escrita do
-  registro de status. Contornado nos testes (evitando reiniciar o mesmo
-  processo de teste em sequência rápida na mesma fixture), não corrigido no
-  serviço em si — precisa de investigação própria em
-  `packages/process-manager/src/process-lifecycle.ts`
-  (`stopManagedProcess`/`startManagedTest`).
-
 ## CLI Bash
 
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar

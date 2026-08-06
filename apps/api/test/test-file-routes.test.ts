@@ -168,6 +168,7 @@ test('rotas de arquivo específico de teste', async (context) => {
       method: 'POST',
       url: '/api/projects/p1/tests/process/stop',
       headers,
+      payload: JSON.stringify({}),
     });
   });
 
@@ -386,6 +387,7 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
         method: 'POST',
         url: '/api/projects/rails-p1/tests/process/stop',
         headers,
+        payload: JSON.stringify({}),
       });
     },
   );
@@ -552,6 +554,7 @@ test('rotas de padrão de nome para runners Node (vitest/jest/node-test)', async
         method: 'POST',
         url: '/api/projects/p1/tests/process/stop',
         headers,
+        payload: JSON.stringify({}),
       });
     },
   );

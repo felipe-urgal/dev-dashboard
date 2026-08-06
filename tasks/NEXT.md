@@ -9,10 +9,14 @@ desde a task 123, com decisão explícita do usuário de que o padrão de nome
 é digitado à mão (sem descoberta automática de `describe`/`it`). Reaproveita
 a mesma infraestrutura de "arquivo específico" (`POST
 .../tests/:commandId/files/start`) com um campo `namePattern` opcional.
-Durante essa entrega foi encontrado (e registrado em `tasks/PENDENCIAS.md`,
-não corrigido) um bug pré-existente no `packages/process-manager`: parar um
-processo de teste que já saiu sozinho muito rápido pode retornar um erro
-genérico em vez de "já parado".
+Durante essa entrega, um teste novo pareceu expor um bug de corrida no
+`packages/process-manager` — investigação mais a fundo mostrou que era um
+falso alarme: um erro na própria chamada de teste (`content-type:
+application/json` sem `payload` numa rota de corpo vazio), já presente em
+todos os chamados pré-existentes de `.../tests/process/stop`, só nunca
+notado antes. Corrigido nos três pontos do arquivo afetado — ver
+"Falso alarme investigado durante esta entrega" em
+`tasks/127-node-test-name-pattern.md`.
 
 Antes dela, a task 126 — Expõe ações mutáveis do gh (criar/editar/fechar/
 mesclar PR) (ver `tasks/126-github-cli-mutable-actions.md`) implementou o
