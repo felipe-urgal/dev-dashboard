@@ -21,6 +21,7 @@ import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
 import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
+import ProjectTerminalPanel from '../components/ProjectTerminalPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
 import { recordProjectVisit } from '../stores/project-recents';
@@ -57,6 +58,8 @@ const isRailsRuntimeRoute = computed(
   () => route.name === 'project-rails-runtime',
 );
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
+const isTerminalRoute = computed(() => route.name === 'project-terminal');
+const isConsoleRoute = computed(() => route.name === 'project-console');
 
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
@@ -282,6 +285,23 @@ watch(
         </RouterLink>
 
         <RouterLink
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isTerminalRoute }"
+          :to="{ name: 'project-terminal', params: { projectId: project.id } }"
+        >
+          Terminal
+        </RouterLink>
+
+        <RouterLink
+          v-if="project.type === 'rails'"
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isConsoleRoute }"
+          :to="{ name: 'project-console', params: { projectId: project.id } }"
+        >
+          Console
+        </RouterLink>
+
+        <RouterLink
           v-if="project.type === 'rails'"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
@@ -364,6 +384,24 @@ watch(
         v-else-if="isScriptsRoute"
         :key="`scripts-${project.id}`"
         :project="project"
+      />
+
+      <ProjectTerminalPanel
+        v-else-if="isTerminalRoute"
+        :key="`terminal-${project.id}`"
+        :project="project"
+        kind="shell"
+        title="Terminal"
+        description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
+      />
+
+      <ProjectTerminalPanel
+        v-else-if="isConsoleRoute"
+        :key="`console-${project.id}`"
+        :project="project"
+        kind="rails-console"
+        title="Console Rails"
+        description="Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto."
       />
 
       <ProjectRailsRuntimePanel
