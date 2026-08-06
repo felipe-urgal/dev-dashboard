@@ -1,3 +1,6 @@
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+
 import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
@@ -8,6 +11,31 @@ import {
   OLLAMA_DOUBLE_SYMBOL_DEFINITION_TRIGGER,
   OLLAMA_DOUBLE_SYMBOL_REFERENCES_TRIGGER,
 } from '../fixtures/ollama-double';
+import { readRuntimeInfo } from '../fixtures/runtime-info';
+
+// sample-node-app é um repositório Git real compartilhado por todo o e2e
+// (ver server-harness.ts); a edição aplicada abaixo grava package.json no
+// disco de verdade. Sem este checkout, a árvore de trabalho fica suja e
+// quebra a suposição de "branch limpa" dos e2e de Git que rodam depois
+// (project-git-branches.spec.ts / project-git-commit.spec.ts).
+async function restoreSampleNodeAppWorkingTree(): Promise<void> {
+  const info = await readRuntimeInfo();
+  const projectDirectory = path.join(
+    info.workspaceDirectory,
+    'sample-node-app',
+  );
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('git', ['checkout', '--', 'package.json'], {
+      cwd: projectDirectory,
+      stdio: 'ignore',
+    });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`git checkout saiu com código ${code}`));
+    });
+  });
+}
 
 async function openAiPanelOnPackageJson(page: import('@playwright/test').Page) {
   await gotoBootstrapped(page, '/');
@@ -73,6 +101,8 @@ test.describe('assistente de IA (Ollama local)', () => {
     await expect(
       page.getByText('1 arquivo atualizado pelo fluxo seguro.'),
     ).toBeVisible();
+
+    await restoreSampleNodeAppWorkingTree();
   });
 
   test('get_symbol_definition: ferramenta é executada e o resultado aparece na conversa', async ({
