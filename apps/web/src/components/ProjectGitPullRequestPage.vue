@@ -7,6 +7,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
   GitOpenPullRequest,
+  GitPullRequestMergeMethod,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
@@ -14,6 +15,8 @@ import type {
 import {
   composeProjectGitPullRequest,
   getProjectGitPullRequestStatus,
+  prepareProjectGitPullRequestAction,
+  runProjectGitPullRequestAction,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -36,6 +39,15 @@ const errorMessage = ref('');
 const generatedUrl = ref('');
 let lookupGeneration = 0;
 let lookupScheduled = false;
+
+const showCreateConfirm = ref(false);
+const showCloseConfirm = ref(false);
+const showMergeConfirm = ref(false);
+const closeConfirmText = ref('');
+const mergeConfirmText = ref('');
+const mergeMethod = ref<GitPullRequestMergeMethod>('squash');
+const mutationBusy = ref(false);
+const mutationError = ref('');
 
 const availableTargets = computed(() => {
   const names = new Set(
@@ -87,6 +99,44 @@ const canOpen = computed(
     !existingPullRequest.value &&
     canLookup.value &&
     Boolean(title.value.trim()),
+);
+
+const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
+
+const createCommandPreview = computed(() => {
+  const parts = [
+    'gh pr create',
+    `--base ${baseBranch.value.trim() || 'main'}`,
+    `--head ${props.overview.upstream ?? props.overview.branch ?? 'HEAD'}`,
+    `--title "${title.value.trim()}"`,
+  ];
+  return parts.join(' ');
+});
+
+const closeCommandPreview = computed(() =>
+  existingPullRequest.value
+    ? `gh pr close ${existingPullRequest.value.number}`
+    : '',
+);
+
+const mergeCommandPreview = computed(() =>
+  existingPullRequest.value
+    ? `gh pr merge ${existingPullRequest.value.number} --${mergeMethod.value}`
+    : '',
+);
+
+const canConfirmClose = computed(
+  () =>
+    !mutationBusy.value &&
+    existingPullRequest.value !== null &&
+    closeConfirmText.value.trim() === String(existingPullRequest.value.number),
+);
+
+const canConfirmMerge = computed(
+  () =>
+    !mutationBusy.value &&
+    existingPullRequest.value !== null &&
+    mergeConfirmText.value.trim() === String(existingPullRequest.value.number),
 );
 
 function defaultBase(): string {
@@ -197,6 +247,12 @@ watch(
     errorMessage.value = '';
     existingPullRequest.value = null;
     lookupUnavailable.value = false;
+    showCreateConfirm.value = false;
+    showCloseConfirm.value = false;
+    showMergeConfirm.value = false;
+    closeConfirmText.value = '';
+    mergeConfirmText.value = '';
+    mutationError.value = '';
     scheduleExistingLookup();
   },
   { immediate: true },
@@ -207,6 +263,7 @@ watch(targetRemote, () => {
   generatedUrl.value = '';
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
+  showCreateConfirm.value = false;
   scheduleExistingLookup();
 });
 
@@ -214,6 +271,7 @@ watch(baseBranch, () => {
   generatedUrl.value = '';
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
+  showCreateConfirm.value = false;
   scheduleExistingLookup();
 });
 
@@ -255,6 +313,103 @@ async function openPullRequest(): Promise<void> {
     opening.value = false;
   }
 }
+
+async function createPullRequestViaGh(): Promise<void> {
+  if (!canCreateViaGh.value) return;
+  mutationBusy.value = true;
+  mutationError.value = '';
+  try {
+    const input = {
+      targetRemote: targetRemote.value,
+      baseBranch: baseBranch.value.trim(),
+      title: title.value.trim(),
+      description: description.value.trim(),
+    };
+    const confirmation = await prepareProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-create',
+      input,
+    );
+    await runProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-create',
+      input,
+      confirmation.token,
+    );
+    showCreateConfirm.value = false;
+    await checkExistingPullRequest();
+  } catch (error) {
+    mutationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível criar a Pull Request pelo gh.';
+  } finally {
+    mutationBusy.value = false;
+  }
+}
+
+async function closePullRequest(): Promise<void> {
+  if (!canConfirmClose.value || !existingPullRequest.value) return;
+  mutationBusy.value = true;
+  mutationError.value = '';
+  try {
+    const input = { number: existingPullRequest.value.number };
+    const confirmation = await prepareProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-close',
+      input,
+    );
+    await runProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-close',
+      input,
+      confirmation.token,
+    );
+    showCloseConfirm.value = false;
+    closeConfirmText.value = '';
+    await checkExistingPullRequest();
+  } catch (error) {
+    mutationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível fechar a Pull Request.';
+  } finally {
+    mutationBusy.value = false;
+  }
+}
+
+async function mergePullRequest(): Promise<void> {
+  if (!canConfirmMerge.value || !existingPullRequest.value) return;
+  mutationBusy.value = true;
+  mutationError.value = '';
+  try {
+    const input = {
+      number: existingPullRequest.value.number,
+      mergeMethod: mergeMethod.value,
+    };
+    const confirmation = await prepareProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-merge',
+      input,
+    );
+    await runProjectGitPullRequestAction(
+      props.projectId,
+      'pull-request-merge',
+      input,
+      confirmation.token,
+    );
+    showMergeConfirm.value = false;
+    mergeConfirmText.value = '';
+    await checkExistingPullRequest();
+  } catch (error) {
+    mutationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível mesclar a Pull Request.';
+  } finally {
+    mutationBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -273,6 +428,9 @@ async function openPullRequest(): Promise<void> {
 
     <p v-if="errorMessage" class="project-error" role="alert">
       {{ errorMessage }}
+    </p>
+    <p v-if="mutationError" class="project-error" role="alert">
+      {{ mutationError }}
     </p>
 
     <div v-if="!branchPublished" class="git-pr-warning">
@@ -302,12 +460,116 @@ async function openPullRequest(): Promise<void> {
           }}
         </small>
       </div>
+
+      <div class="git-pr-gh-actions">
+        <button
+          type="button"
+          :disabled="mutationBusy"
+          @click="showMergeConfirm = !showMergeConfirm"
+        >
+          Mesclar com gh
+        </button>
+        <button
+          type="button"
+          class="danger-button"
+          :disabled="mutationBusy"
+          @click="showCloseConfirm = !showCloseConfirm"
+        >
+          Fechar com gh
+        </button>
+      </div>
     </div>
 
     <div v-else-if="lookupUnavailable" class="git-pr-lookup-note">
       Não foi possível verificar automaticamente se já existe uma Pull Request
       aberta. Você ainda pode continuar, mas vale conferir o repositório antes
       de criar outra.
+    </div>
+
+    <div v-if="showMergeConfirm && existingPullRequest" class="git-pr-confirm">
+      <p>
+        Isto executará <code>{{ mergeCommandPreview }}</code> — mescla a PR #{{
+          existingPullRequest.number
+        }}
+        na branch base. Ação irreversível pelo dashboard.
+      </p>
+      <label>
+        <span>Estratégia de merge</span>
+        <select v-model="mergeMethod" :disabled="mutationBusy">
+          <option value="squash">Squash</option>
+          <option value="merge">Merge</option>
+          <option value="rebase">Rebase</option>
+        </select>
+      </label>
+      <label>
+        <span>
+          Digite o número da PR ({{ existingPullRequest.number }}) para
+          confirmar
+        </span>
+        <input
+          v-model="mergeConfirmText"
+          type="text"
+          :disabled="mutationBusy"
+        />
+      </label>
+      <div class="git-pr-confirm-actions">
+        <button
+          type="button"
+          @click="
+            showMergeConfirm = false;
+            mergeConfirmText = '';
+          "
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="danger-button"
+          :disabled="!canConfirmMerge"
+          @click="mergePullRequest"
+        >
+          {{ mutationBusy ? 'Mesclando…' : 'Confirmar merge' }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="showCloseConfirm && existingPullRequest" class="git-pr-confirm">
+      <p>
+        Isto executará <code>{{ closeCommandPreview }}</code> — fecha a PR #{{
+          existingPullRequest.number
+        }}
+        sem fazer merge.
+      </p>
+      <label>
+        <span>
+          Digite o número da PR ({{ existingPullRequest.number }}) para
+          confirmar
+        </span>
+        <input
+          v-model="closeConfirmText"
+          type="text"
+          :disabled="mutationBusy"
+        />
+      </label>
+      <div class="git-pr-confirm-actions">
+        <button
+          type="button"
+          @click="
+            showCloseConfirm = false;
+            closeConfirmText = '';
+          "
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="danger-button"
+          :disabled="!canConfirmClose"
+          @click="closePullRequest"
+        >
+          {{ mutationBusy ? 'Fechando…' : 'Confirmar fechamento' }}
+        </button>
+      </div>
     </div>
 
     <form class="git-pr-form" @submit.prevent="openPullRequest">
@@ -405,6 +667,33 @@ async function openPullRequest(): Promise<void> {
                 : 'Abrir Pull Request'
           }}
         </button>
+        <button
+          v-if="!existingPullRequest && !generatedUrl"
+          type="button"
+          :disabled="!canOpen || mutationBusy"
+          @click="showCreateConfirm = !showCreateConfirm"
+        >
+          Criar direto com gh
+        </button>
+      </div>
+
+      <div v-if="showCreateConfirm" class="git-pr-confirm">
+        <p>
+          Isto executará <code>{{ createCommandPreview }}</code> — cria a Pull
+          Request diretamente no GitHub, sem abrir o navegador.
+        </p>
+        <div class="git-pr-confirm-actions">
+          <button type="button" @click="showCreateConfirm = false">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            :disabled="!canCreateViaGh"
+            @click="createPullRequestViaGh"
+          >
+            {{ mutationBusy ? 'Criando…' : 'Confirmar criação' }}
+          </button>
+        </div>
       </div>
     </form>
   </section>

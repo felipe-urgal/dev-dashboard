@@ -4637,6 +4637,282 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Git Pull Request Mutations
+
+### `POST /api/projects/:projectId/git/pull-request/actions`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actionId",
+    "confirmationToken"
+  ],
+  "properties": {
+    "actionId": {
+      "type": "string",
+      "enum": [
+        "pull-request-create",
+        "pull-request-edit",
+        "pull-request-close",
+        "pull-request-merge"
+      ]
+    },
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "draft": {
+      "type": "boolean"
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mergeMethod": {
+      "type": "string",
+      "enum": [
+        "merge",
+        "squash",
+        "rebase"
+      ]
+    },
+    "confirmationToken": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "number",
+          "url",
+          "title",
+          "state"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "pull-request-create",
+              "pull-request-edit",
+              "pull-request-close",
+              "pull-request-merge"
+            ]
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "url": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "merged"
+            ]
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/git/pull-request/confirmations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actionId"
+  ],
+  "properties": {
+    "actionId": {
+      "type": "string",
+      "enum": [
+        "pull-request-create",
+        "pull-request-edit",
+        "pull-request-close",
+        "pull-request-merge"
+      ]
+    },
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "draft": {
+      "type": "boolean"
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mergeMethod": {
+      "type": "string",
+      "enum": [
+        "merge",
+        "squash",
+        "rebase"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "confirmation"
+    ],
+    "properties": {
+      "confirmation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "actionId",
+          "expiresAt"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "actionId": {
+            "type": "string",
+            "enum": [
+              "pull-request-create",
+              "pull-request-edit",
+              "pull-request-close",
+              "pull-request-merge"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Git Sync
 
 ### `POST /api/projects/:projectId/git/sync`

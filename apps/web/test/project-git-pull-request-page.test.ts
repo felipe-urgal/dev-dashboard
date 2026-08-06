@@ -10,6 +10,8 @@ import type {
 const api = vi.hoisted(() => ({
   composeProjectGitPullRequest: vi.fn(),
   getProjectGitPullRequestStatus: vi.fn(),
+  prepareProjectGitPullRequestAction: vi.fn(),
+  runProjectGitPullRequestAction: vi.fn(),
 }));
 
 vi.mock('../src/api', () => api);
@@ -105,6 +107,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
   api.composeProjectGitPullRequest.mockReset();
   api.getProjectGitPullRequestStatus.mockReset();
+  api.prepareProjectGitPullRequestAction.mockReset();
+  api.runProjectGitPullRequestAction.mockReset();
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
   api.composeProjectGitPullRequest.mockResolvedValue({
     provider: 'github',
@@ -309,4 +313,111 @@ test('refaz a verificação ao trocar o destino e libera criação quando não h
       .disabled,
     false,
   );
+});
+
+test('cria a Pull Request via gh após confirmar o comando exibido', async () => {
+  api.prepareProjectGitPullRequestAction.mockResolvedValue({
+    token: 't'.repeat(64),
+    actionId: 'pull-request-create',
+    expiresAt: '2026-08-06T00:01:00.000Z',
+  });
+  api.runProjectGitPullRequestAction.mockResolvedValue({
+    action: 'pull-request-create',
+    number: 7,
+    url: 'https://github.com/empresa/dev-dashboard/pull/7',
+    title: latestCommit.subject,
+    state: 'open',
+  });
+
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: { projectId: 'p1', overview, workspace, busy: false },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  const createButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Criar direto com gh')!;
+  await createButton.trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /gh pr create/);
+  const confirmButton = wrapper
+    .findAll('.git-pr-confirm button')
+    .find((button) => button.text() === 'Confirmar criação')!;
+  await confirmButton.trigger('click');
+  await flushPromises();
+
+  assert.equal(
+    api.prepareProjectGitPullRequestAction.mock.calls[0]?.[1],
+    'pull-request-create',
+  );
+  assert.equal(
+    api.runProjectGitPullRequestAction.mock.calls[0]?.[3],
+    't'.repeat(64),
+  );
+});
+
+test('fecha uma PR existente somente após digitar o número correto', async () => {
+  api.getProjectGitPullRequestStatus.mockResolvedValue({
+    checked: true,
+    existing: {
+      provider: 'github',
+      number: 42,
+      title: 'feat: PR já existente',
+      url: 'https://github.com/empresa/dev-dashboard/pull/42',
+      sourceBranch: 'feature/pull-request',
+      baseBranch: 'main',
+    },
+  });
+  api.prepareProjectGitPullRequestAction.mockResolvedValue({
+    token: 'c'.repeat(64),
+    actionId: 'pull-request-close',
+    expiresAt: '2026-08-06T00:01:00.000Z',
+  });
+  api.runProjectGitPullRequestAction.mockResolvedValue({
+    action: 'pull-request-close',
+    number: 42,
+    url: 'https://github.com/empresa/dev-dashboard/pull/42',
+    title: 'feat: PR já existente',
+    state: 'closed',
+  });
+
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: { projectId: 'p1', overview, workspace, busy: false },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.git-pr-gh-actions .danger-button').trigger('click');
+  await flushPromises();
+
+  const confirmCloseButton = () =>
+    wrapper
+      .findAll('.git-pr-confirm button')
+      .find((button) => button.text().includes('Confirmar fechamento'))!;
+
+  assert.equal(
+    (confirmCloseButton().element as HTMLButtonElement).disabled,
+    true,
+  );
+
+  const input = wrapper.find('.git-pr-confirm input');
+  await input.setValue('42');
+  await flushPromises();
+
+  assert.equal(
+    (confirmCloseButton().element as HTMLButtonElement).disabled,
+    false,
+  );
+  await confirmCloseButton().trigger('click');
+  await flushPromises();
+
+  assert.equal(
+    api.prepareProjectGitPullRequestAction.mock.calls[0]?.[1],
+    'pull-request-close',
+  );
+  assert.deepEqual(api.prepareProjectGitPullRequestAction.mock.calls[0]?.[2], {
+    number: 42,
+  });
 });

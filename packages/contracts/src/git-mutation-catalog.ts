@@ -168,6 +168,38 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
     risk: 'destructive',
     requiresConfirmation: true,
   },
+  {
+    id: 'pull-request-create',
+    label: 'Criar Pull Request',
+    description:
+      'Executa `gh pr create` para publicar a Pull Request da branch atual no GitHub.',
+    risk: 'write-remote',
+    requiresConfirmation: true,
+  },
+  {
+    id: 'pull-request-edit',
+    label: 'Editar Pull Request',
+    description:
+      'Executa `gh pr edit` para atualizar título e/ou descrição de uma Pull Request existente.',
+    risk: 'write-remote',
+    requiresConfirmation: true,
+  },
+  {
+    id: 'pull-request-close',
+    label: 'Fechar Pull Request',
+    description:
+      'Executa `gh pr close` — fecha a Pull Request sem fazer merge.',
+    risk: 'destructive',
+    requiresConfirmation: true,
+  },
+  {
+    id: 'pull-request-merge',
+    label: 'Fazer merge da Pull Request',
+    description:
+      'Executa `gh pr merge` — mescla a Pull Request na branch base. Ação irreversível pelo dashboard.',
+    risk: 'destructive',
+    requiresConfirmation: true,
+  },
 ];
 
 export const GIT_MUTATION_CATALOG_BY_ID: ReadonlyMap<

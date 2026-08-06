@@ -1,5 +1,9 @@
 import type {
   GitPullRequestLookup,
+  GitPullRequestMergeMethod,
+  GitPullRequestMutationActionId,
+  GitPullRequestMutationConfirmation,
+  GitPullRequestMutationResult,
   GitPullRequestUrl,
 } from '@dev-dashboard/contracts';
 
@@ -47,6 +51,24 @@ interface PullRequestUrlResponse {
 
 interface PullRequestLookupResponse {
   lookup: GitPullRequestLookup;
+}
+
+export interface GitPullRequestMutationInput {
+  targetRemote?: GitPullRequestTargetRemote;
+  baseBranch?: string;
+  title?: string;
+  description?: string;
+  draft?: boolean;
+  number?: number;
+  mergeMethod?: GitPullRequestMergeMethod;
+}
+
+interface PullRequestMutationConfirmationResponse {
+  confirmation: GitPullRequestMutationConfirmation;
+}
+
+interface PullRequestMutationResultResponse {
+  result: GitPullRequestMutationResult;
 }
 
 function pullRequestLookupQuery(input: {
@@ -150,4 +172,37 @@ export async function composeProjectGitPullRequest(
     },
   );
   return response.pullRequest;
+}
+
+export async function prepareProjectGitPullRequestAction(
+  projectId: string,
+  actionId: GitPullRequestMutationActionId,
+  input: GitPullRequestMutationInput,
+): Promise<GitPullRequestMutationConfirmation> {
+  const response = await requestJson<PullRequestMutationConfirmationResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/confirmations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actionId, ...input }),
+    },
+  );
+  return response.confirmation;
+}
+
+export async function runProjectGitPullRequestAction(
+  projectId: string,
+  actionId: GitPullRequestMutationActionId,
+  input: GitPullRequestMutationInput,
+  confirmationToken: string,
+): Promise<GitPullRequestMutationResult> {
+  const response = await requestJson<PullRequestMutationResultResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/actions`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actionId, ...input, confirmationToken }),
+    },
+  );
+  return response.result;
 }

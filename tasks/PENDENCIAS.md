@@ -40,12 +40,6 @@ npm test
   completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
   `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
   próprio.
-- [ ] Expor ações mutáveis do GitHub CLI (`gh pr create`/`merge`/`close`) no
-  dashboard web — o modelo de autorização já foi definido e documentado na
-  task 114 (`docs/architecture/security.md`, "Integração com o GitHub CLI");
-  falta o catálogo fechado de subcomandos e o fluxo de confirmação em duas
-  etapas descritos lá. Sem essa entrega, `gh` continua só leitura (fallback
-  já em produção para status/CI de PR).
 
 ## CLI Bash
 
