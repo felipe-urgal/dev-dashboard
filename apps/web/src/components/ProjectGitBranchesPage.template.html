@@ -97,13 +97,13 @@
 
           <div class="branch-row-actions">
             <button
-              v-if="row.local && !row.origin"
+              v-if="row.local && (!row.origin || row.local.ahead > 0)"
               type="button"
               class="secondary-button branch-publish-button"
               :disabled="busy"
               @click="emit('publish', row.name)"
             >
-              Publicar
+              {{ row.origin ? 'Enviar' : 'Publicar' }}
             </button>
             <button
               v-if="row.local && !row.local.current"

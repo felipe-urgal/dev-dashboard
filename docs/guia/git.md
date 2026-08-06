@@ -34,12 +34,12 @@ de mexer no repositório.
 Cada ação do catálogo tem uma classificação de risco fixa, usada tanto para decidir se pede
 confirmação quanto para o selo mostrado no histórico de Mutações:
 
-| Risco | Selo mostrado | Significado |
-|---|---|---|
-| `read-only` | Leitura | Não altera nada. |
-| `write-safe` | Alteração local | Muda o repositório local, mas de forma reversível (branch, commit comum, etc.). |
-| `write-remote` | Alteração remota | Publica ou apaga algo em `origin`/`upstream`. |
-| `destructive` | Destrutiva | Pode descartar trabalho (força push, excluir branch, desfazer commit, apagar arquivo). |
+| Risco          | Selo mostrado    | Significado                                                                            |
+| -------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `read-only`    | Leitura          | Não altera nada.                                                                       |
+| `write-safe`   | Alteração local  | Muda o repositório local, mas de forma reversível (branch, commit comum, etc.).        |
+| `write-remote` | Alteração remota | Publica ou apaga algo em `origin`/`upstream`.                                          |
+| `destructive`  | Destrutiva       | Pode descartar trabalho (força push, excluir branch, desfazer commit, apagar arquivo). |
 
 ---
 
@@ -100,19 +100,25 @@ Uma tabela única combina branches locais e do `origin`, casadas pelo nome. Cada
 nome, se é a branch atual, se existe só local ou só remota, e um selo **Protegida** (com ícone de
 cadeado) para `main`/`master`. Há filtros para ver Todas / Locais / Remotas, um botão **Nova
 branch** (com prefixos sugeridos: `feature/`, `bugfix/`, `hotfix/`, `docs/`, `refactor/`, `test/`)
-e, por linha, os botões Trocar, Publicar, Trazer para local, e um menu com Renomear, Remover
-branch local e Remover do origin.
+e, por linha, os botões Trocar, Publicar/Enviar, Trazer para local, e um menu com Renomear,
+Remover branch local e Remover do origin.
 
-| Ação | Comando git | Observações | Risco |
-|---|---|---|---|
-| **Nova branch** | `git switch --create <nome>` (depois de checar duplicidade com `git show-ref`) | Exige árvore de trabalho limpa; nome validado por um padrão fixo de caracteres permitidos. | Alteração local |
-| **Trocar** | `git switch <nome>` | Exige árvore de trabalho limpa; pode acionar o banner de impacto (o HEAD mudou de commit). | Alteração local |
-| **Renomear** | `git branch --move -- <atual> <novo>` | Recusa renomear `main`/`master` (`GIT_BRANCH_PROTECTED`). | Alteração local |
-| **Remover branch local** | `git branch --delete --force -- <branch>` | Usa `--force`, ou seja, remove mesmo que a branch tenha commits não mesclados em nenhum outro lugar. Recusa a branch atual, `main`/`master` e o HEAD padrão configurado nos remotos. O modal pede para digitar o nome exato da branch antes de liberar o botão. | **Destrutiva** |
-| **Publicar** | `git push --set-upstream origin refs/heads/<branch>:refs/heads/<branch>` | Exige `origin` configurado; se o remoto rejeitar por não ser fast-forward, `GIT_PUSH_REJECTED`. | Alteração remota |
-| **Trazer para local** (branch só remota) | `git switch --create <local> --track <remoto>/<local>` | Exige que a referência remota exista e que ainda não haja uma branch local com esse nome. | Alteração local |
-| **Remover do origin** | `git push origin --delete <branch>`, seguido de `git fetch --prune origin` | Só funciona para o remoto `origin`; recusa `main`/`master`. | Alteração remota |
-| **Reenviar com lease** (aparece após um "Alterar último commit" em branch já publicada) | `git fetch --quiet --no-tags origin +refs/heads/<b>:refs/remotes/origin/<b>` para saber o SHA remoto atual, depois `git push --force-with-lease=refs/heads/<b>:<sha-esperado> origin refs/heads/<b>:refs/heads/<b>` | Só permitido na branch atual; recusa branch protegida; se alguém publicou algo nessa branch entre a confirmação e o envio, falha com `GIT_FORCE_WITH_LEASE_REJECTED` em vez de sobrescrever o trabalho de outra pessoa. | **Destrutiva** |
+O botão de publicação aparece em dois casos: **Publicar**, quando a branch ainda não existe no
+`origin`, e **Enviar**, quando a branch já foi publicada mas o local está à frente do
+`origin/<branch>` (novos commits feitos depois da publicação inicial, como o cenário de "abri a PR
+e agora quero mandar mais um commit"). Os dois casos chamam a mesma rota/comando; a rota já era
+idempotente em relação a isso, só faltava o botão continuar visível depois da primeira publicação.
+
+| Ação                                                                                    | Comando git                                                                                                                                                                                                         | Observações                                                                                                                                                                                                                                                     | Risco            |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Nova branch**                                                                         | `git switch --create <nome>` (depois de checar duplicidade com `git show-ref`)                                                                                                                                      | Exige árvore de trabalho limpa; nome validado por um padrão fixo de caracteres permitidos.                                                                                                                                                                      | Alteração local  |
+| **Trocar**                                                                              | `git switch <nome>`                                                                                                                                                                                                 | Exige árvore de trabalho limpa; pode acionar o banner de impacto (o HEAD mudou de commit).                                                                                                                                                                      | Alteração local  |
+| **Renomear**                                                                            | `git branch --move -- <atual> <novo>`                                                                                                                                                                               | Recusa renomear `main`/`master` (`GIT_BRANCH_PROTECTED`).                                                                                                                                                                                                       | Alteração local  |
+| **Remover branch local**                                                                | `git branch --delete --force -- <branch>`                                                                                                                                                                           | Usa `--force`, ou seja, remove mesmo que a branch tenha commits não mesclados em nenhum outro lugar. Recusa a branch atual, `main`/`master` e o HEAD padrão configurado nos remotos. O modal pede para digitar o nome exato da branch antes de liberar o botão. | **Destrutiva**   |
+| **Publicar / Enviar**                                                                   | `git push --set-upstream origin refs/heads/<branch>:refs/heads/<branch>`                                                                                                                                            | Exige `origin` configurado; se o remoto rejeitar por não ser fast-forward, `GIT_PUSH_REJECTED`. Mostrado quando a branch é só local, ou quando já está publicada e tem commits locais ainda não enviados (`ahead > 0`).                                         | Alteração remota |
+| **Trazer para local** (branch só remota)                                                | `git switch --create <local> --track <remoto>/<local>`                                                                                                                                                              | Exige que a referência remota exista e que ainda não haja uma branch local com esse nome.                                                                                                                                                                       | Alteração local  |
+| **Remover do origin**                                                                   | `git push origin --delete <branch>`, seguido de `git fetch --prune origin`                                                                                                                                          | Só funciona para o remoto `origin`; recusa `main`/`master`.                                                                                                                                                                                                     | Alteração remota |
+| **Reenviar com lease** (aparece após um "Alterar último commit" em branch já publicada) | `git fetch --quiet --no-tags origin +refs/heads/<b>:refs/remotes/origin/<b>` para saber o SHA remoto atual, depois `git push --force-with-lease=refs/heads/<b>:<sha-esperado> origin refs/heads/<b>:refs/heads/<b>` | Só permitido na branch atual; recusa branch protegida; se alguém publicou algo nessa branch entre a confirmação e o envio, falha com `GIT_FORCE_WITH_LEASE_REJECTED` em vez de sobrescrever o trabalho de outra pessoa.                                         | **Destrutiva**   |
 
 ---
 
@@ -143,10 +149,10 @@ nenhum).
 Alterna entre **Novo commit** e **Alterar último commit** (amend), com uma caixa de mensagem
 (limite de 500 caracteres) e um resumo de quantas alterações estão sendo incluídas.
 
-| Ação | Comando git | Observação | Risco |
-|---|---|---|---|
-| **Novo commit** | `git add --update` (inclui todas as alterações rastreadas), depois `git commit -m "<mensagem>"` | Se não houver nada para commitar depois do `add`, erro `GIT_NOTHING_TO_COMMIT`. | Alteração local |
-| **Alterar último commit** | `git add .` (inclui também arquivos novos), depois `git commit --amend -m "<mensagem>"` | Reescreve o hash do último commit — é por isso que, se essa branch já estava publicada, aparece o aviso "O último commit foi reescrito" com o botão **Reenviar com lease** (ver sub-aba Branches). | Alteração local |
+| Ação                      | Comando git                                                                                     | Observação                                                                                                                                                                                         | Risco           |
+| ------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **Novo commit**           | `git add --update` (inclui todas as alterações rastreadas), depois `git commit -m "<mensagem>"` | Se não houver nada para commitar depois do `add`, erro `GIT_NOTHING_TO_COMMIT`.                                                                                                                    | Alteração local |
+| **Alterar último commit** | `git add .` (inclui também arquivos novos), depois `git commit --amend -m "<mensagem>"`         | Reescreve o hash do último commit — é por isso que, se essa branch já estava publicada, aparece o aviso "O último commit foi reescrito" com o botão **Reenviar com lease** (ver sub-aba Branches). | Alteração local |
 
 A mensagem precisa ter conteúdo e no máximo 500 caracteres; mensagens vazias ou maiores são
 recusadas antes de qualquer chamada ao Git.
@@ -258,12 +264,12 @@ depois de um commit comum (só quando a ação também mexeu em referências/bra
 O dashboard compara os arquivos que mudaram entre o commit anterior e o novo e sinaliza, por
 categoria:
 
-| O que mudou | Aviso mostrado | Leva para |
-|---|---|---|
-| Lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Gemfile.lock`, etc.) | "Revisar dependências" | Aba Dependências |
-| Migrations Rails (`db/migrate/**`) | "Abrir Banco de dados" | Aba Banco de dados |
-| `.env.example` / `.env.sample` | "Revisar variáveis de ambiente" | Aba Variáveis de ambiente |
-| Arquivos de infraestrutura (`Dockerfile`, `docker-compose*.yml`, `Procfile`, config de Puma/Sidekiq/Webpacker) | "Revisar configuração do servidor" | Aba Servidor |
-| Arquivos de teste (`spec/`, `test/`, `__tests__/`, `*.spec.*`, `*_test.rb`) | "Executar testes" | Aba Testes |
+| O que mudou                                                                                                    | Aviso mostrado                     | Leva para                 |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------- |
+| Lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Gemfile.lock`, etc.)                           | "Revisar dependências"             | Aba Dependências          |
+| Migrations Rails (`db/migrate/**`)                                                                             | "Abrir Banco de dados"             | Aba Banco de dados        |
+| `.env.example` / `.env.sample`                                                                                 | "Revisar variáveis de ambiente"    | Aba Variáveis de ambiente |
+| Arquivos de infraestrutura (`Dockerfile`, `docker-compose*.yml`, `Procfile`, config de Puma/Sidekiq/Webpacker) | "Revisar configuração do servidor" | Aba Servidor              |
+| Arquivos de teste (`spec/`, `test/`, `__tests__/`, `*.spec.*`, `*_test.rb`)                                    | "Executar testes"                  | Aba Testes                |
 
 O banner só sugere para onde ir (com um link direto) — ele nunca dispara nenhuma ação sozinho.
