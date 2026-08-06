@@ -122,11 +122,16 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
 // Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado
 // via TERM/KILL) para exercitar start/stop real do worker sem depender de
 // Ruby, Redis ou de um app Rails de verdade instalados no runner de CI.
+// config/database.yml usa um adapter MySQL suportado por snapshot/restore
+// (ver writeFakeDatabaseBinaries) — nenhum servidor MySQL de verdade é
+// necessário, os binários mysqldump/mysql também são fakes controlados pelo
+// harness, no mesmo espírito do bin/sidekiq acima.
 async function writeSampleRailsProject(
   workspaceDirectory: string,
 ): Promise<void> {
   const projectDirectory = path.join(workspaceDirectory, 'sample-rails-app');
   await mkdir(path.join(projectDirectory, 'bin'), { recursive: true });
+  await mkdir(path.join(projectDirectory, 'config'), { recursive: true });
   await writeFile(
     path.join(projectDirectory, 'Gemfile'),
     "source 'https://rubygems.org'\n\ngem 'rails'\ngem 'sidekiq'\n",
@@ -137,6 +142,36 @@ async function writeSampleRailsProject(
     '#!/usr/bin/env bash\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n',
   );
   await chmod(sidekiqScript, 0o755);
+  await writeFile(
+    path.join(projectDirectory, 'config', 'database.yml'),
+    'development:\n  adapter: mysql2\n  host: 127.0.0.1\n  port: 3306\n  database: sample_rails_development\n  username: root\n  password: senha-de-teste\n',
+  );
+}
+
+// mysqldump/mysql fakes no PATH da API do harness, no mesmo padrão de
+// apps/api/test/database-snapshot-service.test.ts: mysqldump emite um dump
+// fixo; mysql só drena o stdin (restore). Evita depender de um servidor
+// MySQL de verdade instalado no runner de CI para exercitar o fluxo de
+// snapshot/restore do painel de banco de dados no smoke E2E.
+const FAKE_DATABASE_DUMP =
+  'CREATE TABLE example_table (id INT);\nINSERT INTO example_table VALUES (1);\n';
+
+async function writeFakeDatabaseBinaries(runtimeRoot: string): Promise<string> {
+  const binDirectory = path.join(runtimeRoot, 'db-bin');
+  await mkdir(binDirectory, { recursive: true });
+
+  const mysqldumpPath = path.join(binDirectory, 'mysqldump');
+  await writeFile(
+    mysqldumpPath,
+    `#!/usr/bin/env bash\ncat <<'DUMP'\n${FAKE_DATABASE_DUMP}DUMP\n`,
+  );
+  await chmod(mysqldumpPath, 0o755);
+
+  const mysqlPath = path.join(binDirectory, 'mysql');
+  await writeFile(mysqlPath, '#!/usr/bin/env bash\ncat > /dev/null\n');
+  await chmod(mysqlPath, 0o755);
+
+  return binDirectory;
 }
 
 async function seedConfig(
@@ -185,6 +220,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
   await writeSampleProject(workspaceDirectory);
   await writeSampleRailsProject(workspaceDirectory);
   await seedConfig(configDirectory, workspaceDirectory);
+  const databaseBinDirectory = await writeFakeDatabaseBinaries(runtimeRoot);
 
   const bootstrapToken = randomBytes(32).toString('hex');
   const webDist = path.join(ROOT_DIRECTORY, 'apps/web/dist');
@@ -197,6 +233,7 @@ export async function startFixtureServer(): Promise<RunningServer> {
       cwd: ROOT_DIRECTORY,
       env: {
         ...process.env,
+        PATH: `${databaseBinDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
         DEV_DASHBOARD_CONFIG_DIR: configDirectory,
         DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
         DEV_DASHBOARD_WEB_DIST: webDist,
