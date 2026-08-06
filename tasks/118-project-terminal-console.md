@@ -45,6 +45,15 @@ implementação, dado o impacto no modelo de ameaça.
 - **Frontend**: [xterm.js](https://xtermjs.org/) + `@xterm/addon-fit` (novo, `apps/web`). Um único
   componente `ProjectTerminalPanel.vue` parametrizado por `kind` serve as duas abas, evitando
   duplicar a lógica de conexão/protocolo entre Terminal e Console.
+- **Layout: janela flutuante, redimensionável pelo mouse.** Avaliamos 3 protótipos de layout com o
+  usuário (cartão com barra de ações; painel encaixado estilo VS Code; janela flutuante) antes de
+  implementar — ver histórico da conversa. Escolhida a janela flutuante, sem card nem fundo ao redor
+  quando há sessão ativa: só a "janela" (barra de título com pontinhos, nome do projeto, status,
+  botões de expandir/encerrar) flutua diretamente no corpo da aba. Redimensionável arrastando o
+  canto inferior direito via CSS `resize: both` (nativo do navegador, sem JS de drag customizado) e
+  expansível para tela cheia com um botão dedicado (`position: fixed` + backdrop, fecha com Escape
+  ou clique fora). Os estados de carregamento/indisponível/aguardando confirmação continuam num
+  `Card` padrão do dashboard — só a sessão conectada vira a janela flutuante.
 
 ## O que foi implementado
 
