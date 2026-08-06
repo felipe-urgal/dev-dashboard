@@ -208,7 +208,7 @@ Testes com arquivos, repositórios Git ou processos devem usar fixtures temporá
 
 `npm test` já mede cobertura e falha se cair abaixo do piso configurado por
 workspace (política de ratchet: o piso parte da cobertura medida no momento
-em que foi definido, task 118 — nunca um alvo arbitrário, e só sobe, nunca
+em que foi definido, task 122 — nunca um alvo arbitrário, e só sobe, nunca
 desce). Node (`--experimental-test-coverage` em `apps/api`,
 `packages/core`, `packages/process-manager`, `packages/project-discovery`,
 restrito a `src/**/*.ts` via `--test-coverage-include`) e Vitest
@@ -217,11 +217,12 @@ restrito a `src/**/*.{ts,vue}`).
 
 Os pisos ficam ~2-3 pontos percentuais abaixo do valor medido (mais nos
 branches, a métrica mais sensível a diferenças de patch do Node/V8) — o
-piso da task 118 foi fixado bem rente ao valor medido localmente e quebrou
-no CI logo no PR seguinte (mesmo código, mesmos números exibidos, exit
-diferente; sem repro local mesmo testando Node 22 e 24). Sem margem,
-qualquer variação mínima de instrumentação de cobertura entre patches do
-Node — ou até execuções — derruba o CI de forma imprevisível.
+piso da task 122 foi fixado bem rente ao valor medido localmente (task 124
+alargou a margem como prática defensiva). Nota: um CI vermelho subsequente
+no mesmo PR pareceu, à primeira vista, confirmar esse risco, mas a causa
+raiz real era outra (um teste que dependia de um binário externo ausente
+no runner — ver task 125); o risco de piso sem margem continua real e
+válido, só não foi o que causou aquele incidente específico.
 
 Se uma mudança legítima reduzir a cobertura (ex. remover um branch de
 tratamento de erro que não existe mais), baixar o piso é aceitável — mas

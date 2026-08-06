@@ -32,6 +32,7 @@ import { ServerHealthCheckService } from './services/server-health-check-service
 import { AiAssistantService } from './services/ai-assistant-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
+import { ProjectTerminalService } from './services/project-terminal-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -60,6 +61,7 @@ export interface AppContext {
   serverHealthCheckService: ServerHealthCheckService;
   projectWorkspaceEditService: ProjectWorkspaceEditService;
   projectLanguageServerService: ProjectLanguageServerService;
+  projectTerminalService: ProjectTerminalService;
   aiAssistantService: AiAssistantService;
 }
 
@@ -81,6 +83,7 @@ export function createAppContext(): AppContext {
   const projectLanguageServerService = new ProjectLanguageServerService({
     projectFileService,
   });
+  const projectTerminalService = new ProjectTerminalService();
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -117,6 +120,7 @@ export function createAppContext(): AppContext {
     serverHealthCheckService: new ServerHealthCheckService(),
     projectWorkspaceEditService,
     projectLanguageServerService,
+    projectTerminalService,
     aiAssistantService: new AiAssistantService(
       projectFileService,
       gitService,

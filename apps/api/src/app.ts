@@ -14,6 +14,7 @@ import { projectFileRoutes } from './routes/project-files.js';
 import { projectFileMutationRoutes } from './routes/project-file-mutations.js';
 import { projectWorkspaceEditRoutes } from './routes/project-workspace-edits.js';
 import { projectLanguageServerRoutes } from './routes/project-language-server.js';
+import { projectTerminalRoutes } from './routes/project-terminal.js';
 import { gitWorkspaceRoutes } from './routes/git-workspace.js';
 import { gitSyncRoutes } from './routes/git-sync.js';
 import { gitPullRequestRoutes } from './routes/git-pull-request.js';
@@ -52,6 +53,7 @@ import { ProjectDoctorService } from './services/project-doctor-service.js';
 import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
+import { ProjectTerminalService } from './services/project-terminal-service.js';
 
 import { createAppContext, type AppContext } from './app-context.js';
 
@@ -69,6 +71,7 @@ export interface BuildAppOptions {
   projectDoctorService?: ProjectDoctorService;
   portInspectorService?: PortInspectorService;
   projectLanguageServerService?: ProjectLanguageServerService;
+  projectTerminalService?: ProjectTerminalService;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -102,10 +105,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectLanguageServerService =
     options.projectLanguageServerService ??
     context.projectLanguageServerService;
+  const projectTerminalService =
+    options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
+    projectTerminalService.close();
   });
 
   const localToken =
@@ -257,6 +263,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectLanguageServerService,
+  });
+
+  app.register(projectTerminalRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectTerminalService,
   });
 
   app.register(projectEditorRoutes, {

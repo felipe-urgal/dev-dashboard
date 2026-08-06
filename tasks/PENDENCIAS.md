@@ -30,7 +30,7 @@ npm test
 
 - [ ] Executar caso/`describe` específico para os runners Node (`node --test`,
   Jest, Vitest) via `-t`/`--test-name-pattern` — RSpec já foi entregue na
-  task 119 (`arquivo:linha`, sem precisar de parser/AST); os runners Node
+  task 123 (`arquivo:linha`, sem precisar de parser/AST); os runners Node
   usam padrão de nome, não linha, e a UI precisaria descobrir esses nomes
   (hoje só lista arquivos, sem outline de `describe`/`it`) ou aceitar que o
   usuário digite o padrão à mão — decisão de UX em aberto antes de

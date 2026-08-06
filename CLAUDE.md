@@ -82,7 +82,7 @@ npm run dev:web    # só o web
 
 npm run typecheck  # tsc --build em todos os workspaces
 npm run build      # packages primeiro, depois apps (veja abaixo)
-npm test           # --workspaces --if-present; mede cobertura e falha abaixo do piso por workspace (ratchet, task 118 — ver "Cobertura" em CONTRIBUTING.md)
+npm test           # --workspaces --if-present; mede cobertura e falha abaixo do piso por workspace (ratchet, task 122 — ver "Cobertura" em CONTRIBUTING.md)
 npm run test:e2e   # build + Playwright smoke em apps/web/e2e
 npm run doctor     # valida Node/npm/Git/dependências/portas sem iniciar nada
 npm run dev-web    # builda e serve API + frontend estático numa porta só (distribuição local)

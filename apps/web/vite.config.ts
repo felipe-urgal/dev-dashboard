@@ -10,9 +10,13 @@ export default defineConfig(async () => {
   const apiProxy: ProxyOptions = {
     target: 'http://127.0.0.1:4343',
     changeOrigin: false,
+    ws: true,
 
     configure(proxy) {
       proxy.on('proxyReq', (proxyRequest) => {
+        proxyRequest.setHeader('X-Dev-Dashboard-Token', localToken);
+      });
+      proxy.on('proxyReqWs', (proxyRequest) => {
         proxyRequest.setHeader('X-Dev-Dashboard-Token', localToken);
       });
     },

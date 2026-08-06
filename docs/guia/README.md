@@ -19,6 +19,7 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) tem as seguintes abas
 | Testes | Executa a suíte de testes, um arquivo específico, ou só os testes relacionados às mudanças atuais. | [testes.md](testes.md) |
 | Dependências | Instala/atualiza dependências Ruby e Node com um clique. | [dependencias.md](dependencias.md) |
 | Scripts | Catálogo completo de comandos seguros do projeto (scripts, tarefas Rake, executáveis de `bin/`). | [scripts.md](scripts.md) |
+| Terminal / Console | Shell interativo e (para projetos Rails) `rails console` direto no navegador. | [terminal.md](terminal.md) |
 | Variáveis de ambiente | Mostra (sem editar) as variáveis de ambiente configuradas, ocultando valores sensíveis. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
 
 ## Um princípio comum a quase todas as abas
@@ -30,3 +31,9 @@ pede uma **confirmação explícita** antes de executar de verdade — normalmen
 que só vale para aquela ação específica, por um tempo curto, e que só pode ser usado uma vez. Esse
 padrão aparece com mais detalhe em cada guia individual, mas vale ter em mente como pano de fundo
 comum ao ler qualquer uma das páginas acima.
+
+A única exceção deliberada é a aba **Terminal / Console** ([terminal.md](terminal.md)): ali o
+navegador de fato abre uma sessão de shell interativa, sem catálogo fechado de comandos. Essa
+exceção é explícita, documentada e cercada de salvaguardas próprias (confirmação obrigatória a
+cada sessão, aviso de risco na tela, limite de sessões simultâneas) — ver
+[`docs/architecture/security.md`](../architecture/security.md#terminal-e-console-do-projeto).

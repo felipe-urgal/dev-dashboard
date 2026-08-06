@@ -137,6 +137,24 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/terminal',
+      name: 'project-terminal',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Terminal do projeto',
+      },
+    },
+    {
+      path: '/projects/:projectId/console',
+      name: 'project-console',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Console Rails do projeto',
+      },
+    },
+    {
       path: '/projects/:projectId/environment',
       name: 'project-environment',
       component: ProjectDetailsView,

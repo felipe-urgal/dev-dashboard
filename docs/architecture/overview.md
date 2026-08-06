@@ -129,6 +129,7 @@ Responsabilidades:
 - disponibilizar projetos;
 - iniciar e parar processos;
 - fornecer logs;
+- abrir sessões de terminal/console via WebSocket (`apps/api/src/services/project-terminal-service.ts`, ver `docs/architecture/security.md`);
 - traduzir erros internos em respostas HTTP;
 - persistir preferências de retenção sem aceitar caminhos;
 - manter a API limitada a `127.0.0.1`.

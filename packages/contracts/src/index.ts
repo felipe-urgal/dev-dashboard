@@ -284,3 +284,9 @@ export type {
   ProjectChangeImpactAction,
   ProjectChangeImpactCategory,
 } from './project-change-impact.js';
+
+export type {
+  ProjectTerminalConfirmation,
+  ProjectTerminalKind,
+  ProjectTerminalStatus,
+} from './terminal.js';
