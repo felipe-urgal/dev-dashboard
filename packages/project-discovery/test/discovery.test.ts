@@ -4,6 +4,7 @@ import {
   mkdir,
   mkdtemp,
   rm,
+  symlink,
   writeFile
 } from "node:fs/promises";
 
@@ -182,6 +183,204 @@ try {
   );
 } finally {
   await rm(workspacePath, {
+    recursive: true,
+    force: true
+  });
+}
+
+const recursiveWorkspacePath = await mkdtemp(
+  path.join(
+    tmpdir(),
+    "dev-dashboard-discovery-recursive-"
+  )
+);
+
+try {
+  const nestedRailsPath = path.join(
+    recursiveWorkspacePath,
+    "apps",
+    "backend-api"
+  );
+
+  const nestedNodePath = path.join(
+    recursiveWorkspacePath,
+    "apps",
+    "frontend-app"
+  );
+
+  await Promise.all([
+    createRailsProject(nestedRailsPath),
+    createNodeProject(nestedNodePath)
+  ]);
+
+  const nonRecursiveResult = await scanWorkspace({
+    id: "fixture-recursive",
+    path: recursiveWorkspacePath
+  });
+
+  assert.equal(
+    nonRecursiveResult.projects.length,
+    0,
+    "sem recursive:true, projetos aninhados não devem ser detectados"
+  );
+
+  const recursiveResult = await scanWorkspace(
+    {
+      id: "fixture-recursive",
+      path: recursiveWorkspacePath
+    },
+    {
+      recursive: true
+    }
+  );
+
+  assert.equal(recursiveResult.warnings.length, 0);
+  assert.equal(recursiveResult.projects.length, 2);
+
+  assert.ok(
+    recursiveResult.projects.some(
+      (project) => project.name === "backend-api" && project.type === "rails"
+    )
+  );
+
+  assert.ok(
+    recursiveResult.projects.some(
+      (project) => project.name === "frontend-app" && project.type === "node"
+    )
+  );
+
+  const depthLimitedResult = await scanWorkspace(
+    {
+      id: "fixture-recursive",
+      path: recursiveWorkspacePath
+    },
+    {
+      recursive: true,
+      maxDepth: 0
+    }
+  );
+
+  assert.equal(
+    depthLimitedResult.projects.length,
+    0,
+    "maxDepth: 0 não deve descer além dos filhos diretos"
+  );
+
+  assert.ok(
+    depthLimitedResult.warnings.some(
+      (warning) => warning.code === "SCAN_DEPTH_LIMIT_REACHED"
+    )
+  );
+
+  const projectLimitedResult = await scanWorkspace(
+    {
+      id: "fixture-recursive",
+      path: recursiveWorkspacePath
+    },
+    {
+      recursive: true,
+      maxProjects: 1
+    }
+  );
+
+  assert.equal(projectLimitedResult.projects.length, 1);
+
+  assert.ok(
+    projectLimitedResult.warnings.some(
+      (warning) => warning.code === "SCAN_PROJECT_LIMIT_REACHED"
+    )
+  );
+
+  const timedOutResult = await scanWorkspace(
+    {
+      id: "fixture-recursive",
+      path: recursiveWorkspacePath
+    },
+    {
+      recursive: true,
+      timeoutMs: -1000
+    }
+  );
+
+  assert.equal(timedOutResult.projects.length, 0);
+
+  assert.ok(
+    timedOutResult.warnings.some(
+      (warning) => warning.code === "SCAN_TIMEOUT"
+    )
+  );
+} finally {
+  await rm(recursiveWorkspacePath, {
+    recursive: true,
+    force: true
+  });
+}
+
+const symlinkWorkspacePath = await mkdtemp(
+  path.join(
+    tmpdir(),
+    "dev-dashboard-discovery-symlink-"
+  )
+);
+
+try {
+  const realProjectsDir = await mkdtemp(
+    path.join(
+      tmpdir(),
+      "dev-dashboard-discovery-symlink-target-"
+    )
+  );
+
+  try {
+    const linkedRailsPath = path.join(
+      realProjectsDir,
+      "linked-backend"
+    );
+
+    await createRailsProject(linkedRailsPath);
+
+    await symlink(
+      linkedRailsPath,
+      path.join(symlinkWorkspacePath, "linked-backend"),
+      "dir"
+    );
+
+    const defaultResult = await scanWorkspace(
+      {
+        id: "fixture-symlink",
+        path: symlinkWorkspacePath
+      },
+      {
+        recursive: true
+      }
+    );
+
+    assert.equal(
+      defaultResult.projects.length,
+      0,
+      "por padrão, links simbólicos não devem ser seguidos na varredura recursiva"
+    );
+
+    const followSymlinksResult = await scanWorkspace(
+      {
+        id: "fixture-symlink",
+        path: symlinkWorkspacePath
+      },
+      {
+        recursive: true,
+        followSymlinks: true
+      }
+    );
+
+    assert.equal(followSymlinksResult.projects.length, 1);
+  } finally {
+    await rm(realProjectsDir, {
+      recursive: true,
+      force: true
+    });
+  }
+} finally {
+  await rm(symlinkWorkspacePath, {
     recursive: true,
     force: true
   });

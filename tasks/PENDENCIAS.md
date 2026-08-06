@@ -31,11 +31,12 @@ o histórico de entregas.
 
 ## Descoberta e projetos complexos
 
-- [ ] Detectar monorepos e oferecer scans recursivos opt-in com limites de
-  profundidade, quantidade, timeout e diretórios ignorados — a descoberta
-  atual lê apenas filhos diretos; a recursão depende também de política
-  explícita para symlinks e deduplicação.
-- [ ] Definir e implementar uma política explícita para symlinks.
+- [ ] Expor a varredura recursiva de workspace (`scanWorkspace({ recursive:
+  true })`, entregue na task 110 em `packages/project-discovery`) na rota
+  `POST /api/workspaces/:workspaceId/scan` e na UI — decisão de produto em
+  aberto: opt-in por workspace, com aviso do custo de uma varredura mais
+  lenta. A biblioteca já tem limites de profundidade/quantidade/timeout e
+  política de symlinks (não segue por padrão); falta só o fio até API/UI.
 
 ## CLI Bash
 
@@ -54,6 +55,14 @@ o histórico de entregas.
 
 Esses itens não formam uma única frente coerente: cada um deve ganhar uma
 task própria quando houver motivação, escopo e critério de saída concretos.
+
+## Concluído recentemente (referência)
+
+- Task 110 — Varredura recursiva de workspace (opt-in) em
+  `packages/project-discovery`: `scanWorkspace({ recursive: true })` com
+  `maxDepth`/`maxProjects`/`timeoutMs` e política de symlinks (não segue por
+  padrão). Só a biblioteca; API e UI continuam usando o modo não recursivo
+  (ver item em "Descoberta e projetos complexos" acima).
 
 ## Distribuição, governança e compatibilidade
 
@@ -90,5 +99,4 @@ task própria quando houver motivação, escopo e critério de saída concretos.
 
 Ao concluir uma atividade, remova-a daqui, registre o resultado no documento
 da task em `tasks/<NNN>-*.md` e reconcilie `tasks/roadmap.md` e
-`tasks/NEXT.md`. Para candidatas que não competem pelos mesmos arquivos e
-podem avançar em paralelo, ver `tasks/PARALLEL-WORK.md`.
+`tasks/NEXT.md`.

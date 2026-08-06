@@ -198,6 +198,34 @@ Responsabilidades:
 
 A descoberta não deve exibir prompts ou depender de interfaces interativas.
 
+### Varredura recursiva (opt-in)
+
+Por padrão `scanWorkspace` só examina os filhos diretos do workspace, como
+sempre fez. Passar `recursive: true` em `ScanWorkspaceOptions` ativa uma
+varredura em profundidade para atender monorepos, com limites explícitos que
+sempre produzem um resultado parcial (nunca travam nem estouram memória):
+
+- `maxDepth` (padrão 3) — profundidade máxima de subdiretórios explorados;
+  diretórios além do limite geram um warning `SCAN_DEPTH_LIMIT_REACHED`.
+- `maxProjects` (padrão 200) — interrompe a varredura ao atingir o total,
+  com warning `SCAN_PROJECT_LIMIT_REACHED`.
+- `timeoutMs` (padrão 5000) — interrompe a varredura ao estourar o tempo,
+  com warning `SCAN_TIMEOUT`.
+- `followSymlinks` (padrão `false`) — política de symlinks: por padrão a
+  varredura recursiva não desce em diretórios que são links simbólicos, para
+  evitar ciclos e travessia para fora do workspace; o comportamento de
+  symlinks nos filhos diretos (não recursivo) não muda.
+
+Ao encontrar um diretório que já é um projeto, a varredura não desce nele —
+o conteúdo interno de um projeto (`node_modules`, `vendor`, etc.) nunca é
+tratado como candidato a projeto aninhado.
+
+Esta é uma capacidade de biblioteca (`packages/project-discovery`); a rota
+`POST /api/workspaces/:workspaceId/scan` (`apps/api/src/routes/workspaces.ts`)
+ainda chama `scanWorkspace` sem `recursive`, então o comportamento da API e
+da UI não muda até que uma entrega própria decida como expor a opção (por
+workspace, com confirmação do custo de uma varredura mais profunda).
+
 ## Process Manager
 
 Localização:
