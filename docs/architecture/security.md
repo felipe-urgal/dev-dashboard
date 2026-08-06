@@ -220,6 +220,22 @@ Caminhos atuais:
 ~/.local/state/dev-dashboard
 ```
 
+### Backup e restauração do estado local (CLI)
+
+`dev-backup`/`dev-restore` (`lib/backup/`, task 133) empacotam/restauram o
+estado local do dashboard web num `.tar.gz` em `~/.dev-dashboard-backups`
+(`0700` no diretório, `0600` no arquivo). Por padrão o token da API
+(`~/.config/dev-dashboard/api-token`) nunca é incluído — é regenerado
+automaticamente na próxima vez que a API iniciar, e incluí-lo tornaria o
+arquivo de backup equivalente a uma credencial válida. `~/.dev-dashboard.secrets`
+(segredos do CLI bash) também fica de fora por padrão; só é incluído com
+`dev-backup --include-secrets`, e nesse caso o arquivo resultante contém
+segredos em texto plano — protegido apenas pela permissão `0600` do
+`.tar.gz`, sem criptografia adicional. `dev-restore` sempre pede confirmação
+(gum ou `read -r -p`) antes de sobrescrever a configuração local, e valida
+que o arquivo tem a estrutura esperada (`config/` e/ou `state/` dentro do
+tar) antes de extrair qualquer coisa.
+
 ### Variáveis de ambiente
 
 Os processos filhos recebem atualmente o ambiente da API, além de variáveis necessárias para porta e host.

@@ -14,6 +14,10 @@ import path from 'node:path';
 import type { Workspace } from '@dev-dashboard/contracts';
 
 import { resolveConfigDirectory } from './config-directory.js';
+import {
+  isFileNotFoundError,
+  quarantineUnreadableStateFile,
+} from './state-file-recovery.js';
 
 interface DashboardConfig {
   version: 1;
@@ -116,10 +120,6 @@ function parseConfig(contents: string): DashboardConfig {
       .filter(isPersistedWorkspace)
       .map(normalizeWorkspace),
   };
-}
-
-function isFileNotFoundError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
 export class WorkspaceRepository {
@@ -271,14 +271,14 @@ export class WorkspaceRepository {
 
       return parseConfig(contents);
     } catch (error) {
-      if (isFileNotFoundError(error)) {
-        return {
-          ...DEFAULT_CONFIG,
-          workspaces: [],
-        };
+      if (!isFileNotFoundError(error)) {
+        quarantineUnreadableStateFile(this.configFile);
       }
 
-      throw error;
+      return {
+        ...DEFAULT_CONFIG,
+        workspaces: [],
+      };
     }
   }
 

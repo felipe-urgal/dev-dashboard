@@ -4,6 +4,10 @@ import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 
 import { resolveConfigDirectory } from './config-directory.js';
+import {
+  isFileNotFoundError,
+  quarantineUnreadableStateFile,
+} from './state-file-recovery.js';
 
 interface ProjectFavoriteConfig {
   version: 1;
@@ -64,7 +68,10 @@ export class ProjectFavoriteRepository {
 
     try {
       this.favoriteProjectIds = parseConfig(readFileSync(this.file, 'utf8'));
-    } catch {
+    } catch (error) {
+      if (!isFileNotFoundError(error)) {
+        quarantineUnreadableStateFile(this.file);
+      }
       this.favoriteProjectIds = new Set();
     }
   }

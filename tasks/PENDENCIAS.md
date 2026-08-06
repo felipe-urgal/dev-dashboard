@@ -28,7 +28,10 @@ npm test
 
 ## Distribuição, governança e compatibilidade
 
-- [ ] Criar uma política versionada de migração e backup do estado local.
+- [ ] Migração automática entre versões de schema dos arquivos de estado
+  (`packages/core`) — hoje um `version` que não bate cai para quarentena +
+  valores padrão (task 133); quando existir um `version: 2` real, migrar
+  em vez de descartar fica como item novo.
 - [ ] Validar e implementar compatibilidade com macOS (a matriz de suporte
   atual, publicada na task 113, já documenta o que é tratado hoje no CLI
   bash e o que falta: cobertura de teste dedicada e identidade de processo

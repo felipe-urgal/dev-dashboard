@@ -4,6 +4,10 @@ import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 
 import { resolveConfigDirectory } from './config-directory.js';
+import {
+  isFileNotFoundError,
+  quarantineUnreadableStateFile,
+} from './state-file-recovery.js';
 
 export interface ProjectRecentAccess {
   projectId: string;
@@ -87,7 +91,10 @@ export class ProjectRecentRepository {
     this.file = path.join(directory, 'project-recents.json');
     try {
       this.entries = parseConfig(readFileSync(this.file, 'utf8'));
-    } catch {
+    } catch (error) {
+      if (!isFileNotFoundError(error)) {
+        quarantineUnreadableStateFile(this.file);
+      }
       this.entries = [];
     }
   }

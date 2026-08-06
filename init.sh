@@ -109,6 +109,7 @@ _dev_source "$DEV_DASHBOARD_DIR/lib/doctor/init.sh" true      || return 1
 _dev_source "$DEV_DASHBOARD_DIR/lib/git/init.sh" false
 _dev_source "$DEV_DASHBOARD_DIR/lib/rails/init.sh" false
 _dev_source "$DEV_DASHBOARD_DIR/lib/node/init.sh" false
+_dev_source "$DEV_DASHBOARD_DIR/lib/backup/init.sh" false
 
 # -------------------------------------------------------------------
 # 8. Configuração e detecção de projetos

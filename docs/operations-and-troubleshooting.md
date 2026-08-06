@@ -72,6 +72,7 @@ O host da documentação é fixo em `127.0.0.1`.
 | `DEV_DASHBOARD_STATE_DIR` | Diretório de processos, logs e históricos. |
 | `XDG_STATE_HOME` | Base XDG alternativa para estado. |
 | `DEV_DASHBOARD_LOG_RETENTION_DAYS` | Janela padrão de retenção de logs terminais. |
+| `DEV_DASHBOARD_BACKUP_DIR` | Diretório onde `dev-backup` grava os arquivos `.tar.gz`; padrão `~/.dev-dashboard-backups`. |
 
 ## Arquivos locais
 
@@ -98,6 +99,18 @@ O host da documentação é fixo em `127.0.0.1`.
 ```
 
 Diretórios privados devem usar `0700`; arquivos privados, `0600`.
+
+### Backup e restauração
+
+`dev-backup` (CLI bash) empacota `~/.config/dev-dashboard` (sem `api-token`)
+e `~/.local/state/dev-dashboard` num `.tar.gz` timestamped em
+`~/.dev-dashboard-backups`; `dev-restore <arquivo.tar.gz>` restaura a partir
+de um desses arquivos, pedindo confirmação antes de sobrescrever. Segredos
+(`~/.dev-dashboard.secrets`, o token da API) ficam fora por padrão — use
+`dev-backup --include-secrets` para incluir `~/.dev-dashboard.secrets`; o
+token nunca é incluído, pois é regenerado automaticamente pela API. Veja
+`docs/architecture/security.md`, seção "Backup e restauração do estado
+local (CLI)".
 
 ## Diagnóstico inicial
 

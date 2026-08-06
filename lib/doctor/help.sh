@@ -50,6 +50,10 @@ Git (via menu interativo git-tools, ou diretamente):
   git-status-diff        → Visualiza alterações e diffs
   git-log                → Visualiza histórico de commits
 
+Backup e restauração do estado local:
+  dev-backup [--include-secrets] → Empacota config/estado do dashboard web num .tar.gz (~/.dev-dashboard-backups)
+  dev-restore <arquivo.tar.gz>   → Restaura um backup criado por dev-backup (pede confirmação)
+
 Outros:
   dev-doctor             → Verifica dependências
   dev-help               → Esta ajuda
