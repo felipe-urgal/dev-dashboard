@@ -35,8 +35,10 @@ painel próprio, sem virar dependência do fluxo principal.
 
 ## Horizonte 3 — projetos maiores e integrações (em aberto)
 
-- detecção de monorepos e scan recursivo opt-in, limitado por profundidade,
-  quantidade, timeout e diretórios ignorados;
+- detecção de monorepos e scan recursivo opt-in — entregue na biblioteca
+  (`packages/project-discovery`, task 110), limitado por profundidade,
+  quantidade, timeout e com política de symlinks; falta expor na API/UI
+  (ver `tasks/PENDENCIAS.md`);
 - GitHub CLI somente após revisão do modelo de autorização.
 
 Critério de saída: atender repositórios complexos mantendo descoberta
