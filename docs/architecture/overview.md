@@ -220,11 +220,20 @@ Ao encontrar um diretório que já é um projeto, a varredura não desce nele �
 o conteúdo interno de um projeto (`node_modules`, `vendor`, etc.) nunca é
 tratado como candidato a projeto aninhado.
 
-Esta é uma capacidade de biblioteca (`packages/project-discovery`); a rota
-`POST /api/workspaces/:workspaceId/scan` (`apps/api/src/routes/workspaces.ts`)
-ainda chama `scanWorkspace` sem `recursive`, então o comportamento da API e
-da UI não muda até que uma entrega própria decida como expor a opção (por
-workspace, com confirmação do custo de uma varredura mais profunda).
+A opção é persistida por workspace (`Workspace.recursiveScan`, em
+`packages/contracts`) e decidida inteiramente no servidor — o navegador nunca
+envia `recursive` na chamada de scan, só liga/desliga a preferência do
+workspace previamente cadastrado (catálogo fechado de ações). A rota
+`POST /api/workspaces/:workspaceId/scan` lê `workspace.recursiveScan` e passa
+`{ recursive: workspace.recursiveScan }` para `scanWorkspace`.
+`PATCH /api/workspaces/:workspaceId` (corpo `{ recursiveScan: boolean }`)
+alterna a preferência de um workspace já cadastrado via
+`WorkspaceRepository.setRecursiveScan`; configs persistidos antes deste campo
+existir são migrados para `recursiveScan: false` na leitura (nunca descartados).
+No cadastro (`WorkspaceManagerModal.vue`), a opção aparece como um checkbox
+("Escanear subdiretórios (monorepos)") com aviso de que pode deixar o scan
+mais lento; não existe ainda uma tela para alternar a opção de um workspace
+já existente pela UI (só via API) — ver `tasks/PENDENCIAS.md`.
 
 ## Process Manager
 

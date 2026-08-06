@@ -6,6 +6,7 @@ export function makeWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     name: 'Workspace principal',
     path: '/home/dev/projects',
     enabled: true,
+    recursiveScan: false,
     ...overrides,
   };
 }

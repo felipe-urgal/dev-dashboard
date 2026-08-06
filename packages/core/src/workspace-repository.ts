@@ -29,6 +29,7 @@ export interface CreateWorkspaceInput {
   name: string;
   path: string;
   enabled?: boolean;
+  recursiveScan?: boolean;
 }
 
 export type WorkspaceRepositoryErrorCode =
@@ -73,7 +74,17 @@ function createPathHash(workspacePath: string): string {
     .slice(0, 8);
 }
 
-function isWorkspace(value: unknown): value is Workspace {
+interface PersistedWorkspaceFields {
+  id: string;
+  name: string;
+  path: string;
+  enabled: boolean;
+  recursiveScan?: unknown;
+}
+
+function isPersistedWorkspace(
+  value: unknown
+): value is PersistedWorkspaceFields {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -90,6 +101,18 @@ function isWorkspace(value: unknown): value is Workspace {
     typeof candidate.path === "string" &&
     typeof candidate.enabled === "boolean"
   );
+}
+
+function normalizeWorkspace(
+  persisted: PersistedWorkspaceFields
+): Workspace {
+  return {
+    id: persisted.id,
+    name: persisted.name,
+    path: persisted.path,
+    enabled: persisted.enabled,
+    recursiveScan: persisted.recursiveScan === true
+  };
 }
 
 function parseConfig(contents: string): DashboardConfig {
@@ -118,7 +141,9 @@ function parseConfig(contents: string): DashboardConfig {
 
   return {
     version: 1,
-    workspaces: candidate.workspaces.filter(isWorkspace)
+    workspaces: candidate.workspaces
+      .filter(isPersistedWorkspace)
+      .map(normalizeWorkspace)
   };
 }
 
@@ -222,7 +247,8 @@ export class WorkspaceRepository {
       id,
       name,
       path: resolvedPath,
-      enabled: input.enabled ?? true
+      enabled: input.enabled ?? true,
+      recursiveScan: input.recursiveScan ?? false
     };
 
     await this.writeConfig({
@@ -234,6 +260,38 @@ export class WorkspaceRepository {
     });
 
     return workspace;
+  }
+
+  public async setRecursiveScan(
+    workspaceId: string,
+    recursiveScan: boolean
+  ): Promise<Workspace> {
+    const config = await this.readConfig();
+
+    const existingWorkspace = config.workspaces.find(
+      (workspace) => workspace.id === workspaceId
+    );
+
+    if (!existingWorkspace) {
+      throw new WorkspaceRepositoryError(
+        "WORKSPACE_NOT_FOUND",
+        "Workspace não encontrado."
+      );
+    }
+
+    const updatedWorkspace: Workspace = {
+      ...existingWorkspace,
+      recursiveScan
+    };
+
+    await this.writeConfig({
+      version: 1,
+      workspaces: config.workspaces.map((workspace) =>
+        workspace.id === workspaceId ? updatedWorkspace : workspace
+      )
+    });
+
+    return updatedWorkspace;
   }
 
   public async remove(

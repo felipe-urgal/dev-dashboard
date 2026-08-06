@@ -102,6 +102,7 @@ export async function fetchWorkspaces(): Promise<Workspace[]> {
 export function createWorkspace(input: {
   name: string;
   path: string;
+  recursiveScan?: boolean;
 }): Promise<Workspace> {
   return requestJson<Workspace>('/api/workspaces', {
     method: 'POST',
@@ -110,6 +111,22 @@ export function createWorkspace(input: {
     },
     body: JSON.stringify(input),
   });
+}
+
+export function updateWorkspaceRecursiveScan(
+  workspaceId: string,
+  recursiveScan: boolean,
+): Promise<Workspace> {
+  return requestJson<Workspace>(
+    `/api/workspaces/${encodeURIComponent(workspaceId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ recursiveScan }),
+    },
+  );
 }
 
 export function scanWorkspace(

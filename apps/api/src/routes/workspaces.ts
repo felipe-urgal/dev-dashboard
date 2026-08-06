@@ -48,6 +48,11 @@ interface CreateWorkspaceBody {
   id?: string;
   name: string;
   path: string;
+  recursiveScan?: boolean;
+}
+
+interface UpdateWorkspaceBody {
+  recursiveScan: boolean;
 }
 
 interface WorkspaceParams {
@@ -161,6 +166,9 @@ export const workspaceRoutes: FastifyPluginAsync<
               path: {
                 type: "string",
                 minLength: 1
+              },
+              recursiveScan: {
+                type: "boolean"
               }
             }
           },
@@ -179,6 +187,11 @@ export const workspaceRoutes: FastifyPluginAsync<
               ...(request.body.id !== undefined
                 ? {
                     id: request.body.id
+                  }
+                : {}),
+              ...(request.body.recursiveScan !== undefined
+                ? {
+                    recursiveScan: request.body.recursiveScan
                   }
                 : {})
             });
@@ -207,6 +220,62 @@ export const workspaceRoutes: FastifyPluginAsync<
             message:
               "Não foi possível cadastrar o workspace. Verifique se o caminho existe e é acessível."
           });
+        }
+      }
+    );
+
+    app.patch<{
+      Params: WorkspaceParams;
+      Body: UpdateWorkspaceBody;
+    }>(
+      "/workspaces/:workspaceId",
+      {
+        schema: {
+          params: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "workspaceId"
+            ],
+            properties: {
+              workspaceId: {
+                type: "string",
+                minLength: 1
+              }
+            }
+          },
+          body: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "recursiveScan"
+            ],
+            properties: {
+              recursiveScan: {
+                type: "boolean"
+              }
+            }
+          },
+          response: {
+            200: workspaceResponseSchema,
+            ...commonErrorResponseSchemas
+          }
+        }
+      },
+      async (request) => {
+        try {
+          return await workspaceRepository.setRecursiveScan(
+            request.params.workspaceId,
+            request.body.recursiveScan
+          );
+        } catch (error) {
+          if (
+            error instanceof WorkspaceRepositoryError
+          ) {
+            throw workspaceRepositoryApiError(error);
+          }
+
+          throw error;
         }
       }
     );
@@ -283,7 +352,10 @@ export const workspaceRoutes: FastifyPluginAsync<
 
         try {
           const result = await scanWorkspace(
-            workspace
+            workspace,
+            {
+              recursive: workspace.recursiveScan
+            }
           );
 
           const favoriteProjectIds =

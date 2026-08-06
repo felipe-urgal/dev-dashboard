@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   mkdir,
   mkdtemp,
-  rm
+  rm,
+  writeFile
 } from "node:fs/promises";
 
 import {
@@ -36,6 +37,10 @@ const workspacePath = path.join(
 
 try {
   await mkdir(workspacePath, {
+    recursive: true
+  });
+
+  await mkdir(path.join(fixtureRoot, "monorepo"), {
     recursive: true
   });
 
@@ -72,18 +77,64 @@ try {
     true
   );
 
+  assert.equal(
+    workspace.recursiveScan,
+    false
+  );
+
+  const workspaceWithRecursiveScan = await repository.create({
+    name: "Monorepo",
+    path: path.join(fixtureRoot, "monorepo"),
+    recursiveScan: true
+  });
+
+  assert.equal(
+    workspaceWithRecursiveScan.recursiveScan,
+    true
+  );
+
+  const updatedWorkspace = await repository.setRecursiveScan(
+    workspace.id,
+    true
+  );
+
+  assert.equal(updatedWorkspace.recursiveScan, true);
+
+  assert.equal(
+    (await repository.find(workspace.id))?.recursiveScan,
+    true
+  );
+
+  await assert.rejects(
+    repository.setRecursiveScan("workspace-inexistente", true),
+    (error: unknown) => {
+      assert.ok(
+        error instanceof WorkspaceRepositoryError
+      );
+
+      assert.equal(
+        error.code,
+        "WORKSPACE_NOT_FOUND"
+      );
+
+      return true;
+    }
+  );
+
+  await repository.remove(workspaceWithRecursiveScan.id);
+
   const storedWorkspace =
     await repository.find(workspace.id);
 
   assert.deepEqual(
     storedWorkspace,
-    workspace
+    updatedWorkspace
   );
 
   const workspaces = await repository.list();
 
   assert.equal(workspaces.length, 1);
-  assert.deepEqual(workspaces[0], workspace);
+  assert.deepEqual(workspaces[0], updatedWorkspace);
 
   await assert.rejects(
     repository.create({
@@ -133,6 +184,59 @@ try {
   );
 } finally {
   await rm(fixtureRoot, {
+    recursive: true,
+    force: true
+  });
+}
+
+const legacyFixtureRoot = await mkdtemp(
+  path.join(
+    tmpdir(),
+    "dev-dashboard-core-legacy-"
+  )
+);
+
+try {
+  const legacyConfigDirectory = path.join(
+    legacyFixtureRoot,
+    "config"
+  );
+
+  await mkdir(legacyConfigDirectory, {
+    recursive: true
+  });
+
+  await writeFile(
+    path.join(legacyConfigDirectory, "config.json"),
+    JSON.stringify({
+      version: 1,
+      workspaces: [
+        {
+          id: "legado",
+          name: "Legado",
+          path: legacyFixtureRoot,
+          enabled: true
+        }
+      ]
+    }),
+    "utf8"
+  );
+
+  const legacyRepository = new WorkspaceRepository(
+    legacyConfigDirectory
+  );
+
+  const legacyWorkspaces = await legacyRepository.list();
+
+  assert.equal(legacyWorkspaces.length, 1);
+  assert.equal(legacyWorkspaces[0]?.recursiveScan, false);
+
+  assert.equal(
+    (await legacyRepository.find("legado"))?.recursiveScan,
+    false
+  );
+} finally {
+  await rm(legacyFixtureRoot, {
     recursive: true,
     force: true
   });

@@ -1,12 +1,13 @@
 export const workspaceResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'name', 'path', 'enabled'],
+  required: ['id', 'name', 'path', 'enabled', 'recursiveScan'],
   properties: {
     id: { type: 'string' },
     name: { type: 'string' },
     path: { type: 'string' },
     enabled: { type: 'boolean' },
+    recursiveScan: { type: 'boolean' },
   },
 } as const;
 
@@ -70,6 +71,9 @@ export const workspaceScanWarningResponseSchema = {
       enum: [
         'UNREADABLE_DIRECTORY',
         'PROJECT_DETECTION_FAILED',
+        'SCAN_DEPTH_LIMIT_REACHED',
+        'SCAN_PROJECT_LIMIT_REACHED',
+        'SCAN_TIMEOUT',
       ],
     },
     message: { type: 'string' },

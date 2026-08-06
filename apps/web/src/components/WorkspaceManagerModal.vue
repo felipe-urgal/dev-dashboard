@@ -21,6 +21,7 @@ const emit = defineEmits<{
 const {
   newWorkspaceName,
   newWorkspacePath,
+  newWorkspaceRecursiveScan,
   creatingWorkspace,
   errorMessage,
   successMessage,
@@ -183,6 +184,23 @@ onBeforeUnmount(() => {
                 Escolher pasta
               </button>
             </div>
+          </label>
+
+          <label class="settings-row workspace-recursive-scan-field">
+            <span class="settings-row-copy">
+              <strong id="workspace-recursive-scan-label">Escanear subdiretórios (monorepos)</strong>
+              <span id="workspace-recursive-scan-description">Procura projetos em subpastas além dos filhos diretos. Pode deixar o cadastro mais lento em workspaces grandes.</span>
+            </span>
+            <span class="settings-switch-control">
+              <input
+                v-model="newWorkspaceRecursiveScan"
+                type="checkbox"
+                role="switch"
+                aria-labelledby="workspace-recursive-scan-label"
+                aria-describedby="workspace-recursive-scan-description"
+              >
+              <span>{{ newWorkspaceRecursiveScan ? 'Ativado' : 'Desativado' }}</span>
+            </span>
           </label>
 
           <button

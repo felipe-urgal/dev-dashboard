@@ -12,6 +12,7 @@ vi.mock('../src/stores/dashboard', async () => {
     dashboardStore: {
       newWorkspaceName: ref(''),
       newWorkspacePath: ref(''),
+      newWorkspaceRecursiveScan: ref(false),
       creatingWorkspace: ref(false),
       errorMessage: ref(''),
       successMessage: ref(''),
@@ -43,6 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   dashboardStore.newWorkspaceName.value = '';
   dashboardStore.newWorkspacePath.value = '';
+  dashboardStore.newWorkspaceRecursiveScan.value = false;
   dashboardStore.creatingWorkspace.value = false;
   dashboardStore.errorMessage.value = '';
   dashboardStore.successMessage.value = '';
@@ -84,5 +86,27 @@ describe('WorkspaceManagerModal', () => {
     document.querySelector<HTMLButtonElement>('.log-action-button')?.click();
 
     expect(wrapper.emitted('close')).toHaveLength(1);
+  });
+
+  it('ativa a varredura recursiva via checkbox e envia no cadastro', async () => {
+    mountModal();
+
+    const checkbox = document.querySelector<HTMLInputElement>(
+      'input[aria-labelledby="workspace-recursive-scan-label"]',
+    );
+
+    expect(checkbox).not.toBeNull();
+    expect(dashboardStore.newWorkspaceRecursiveScan.value).toBe(false);
+
+    checkbox?.click();
+    await checkbox?.dispatchEvent(new Event('change'));
+
+    expect(dashboardStore.newWorkspaceRecursiveScan.value).toBe(true);
+
+    document.querySelector('form')?.dispatchEvent(
+      new Event('submit', { cancelable: true }),
+    );
+
+    expect(actions.criar).toHaveBeenCalledOnce();
   });
 });
