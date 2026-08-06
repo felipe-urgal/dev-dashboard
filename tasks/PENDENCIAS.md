@@ -43,13 +43,6 @@ npm test
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
   a independência do CLI existente.
 
-## Qualidade e manutenção
-
-- [ ] Medir cobertura e definir metas por camada.
-
-Esses itens não formam uma única frente coerente: cada um deve ganhar uma
-task própria quando houver motivação, escopo e critério de saída concretos.
-
 ## Distribuição, governança e compatibilidade
 
 - [ ] Criar uma política versionada de migração e backup do estado local.

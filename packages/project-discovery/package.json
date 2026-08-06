@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import=tsx --test test/discovery.test.ts"
+    "test": "node --import=tsx --experimental-test-coverage --test-coverage-include=\"src/**/*.ts\" --test-coverage-lines=94 --test-coverage-branches=76 --test-coverage-functions=100 --test test/discovery.test.ts"
   },
   "dependencies": {
     "@dev-dashboard/contracts": "0.1.0"
