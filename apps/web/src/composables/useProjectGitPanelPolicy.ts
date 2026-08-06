@@ -77,12 +77,20 @@ export function useProjectGitPanelPolicy(
     const trimmed = branch.trim();
     if (!trimmed) return;
 
+    const alreadyPublished = (panel.workspace.value?.branches ?? []).some(
+      (candidate) =>
+        candidate.kind === 'remote' &&
+        candidate.remote === 'origin' &&
+        candidate.shortName === trimmed,
+    );
+
     const confirmed = await confirmDialog({
-      title: 'Publicar branch?',
-      message:
-        `A branch "${trimmed}" será enviada para origin e passará a rastrear ` +
-        `origin/${trimmed}.`,
-      confirmLabel: 'Publicar',
+      title: alreadyPublished ? 'Enviar novos commits?' : 'Publicar branch?',
+      message: alreadyPublished
+        ? `Os commits novos da branch "${trimmed}" serão enviados para origin/${trimmed}.`
+        : `A branch "${trimmed}" será enviada para origin e passará a rastrear ` +
+          `origin/${trimmed}.`,
+      confirmLabel: alreadyPublished ? 'Enviar' : 'Publicar',
       tone: 'warning',
     });
     if (!confirmed) return;
@@ -101,13 +109,15 @@ export function useProjectGitPanelPolicy(
         trimmed,
         confirmation.token,
       );
-      panel.mutationMessage.value = `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
+      panel.mutationMessage.value = alreadyPublished
+        ? `Commits novos de "${publishedBranch}" enviados para origin/${publishedBranch}.`
+        : `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
       await panel.reloadGitData();
     } catch (error) {
       panel.mutationErrorMessage.value =
         error instanceof Error
           ? error.message
-          : 'Não foi possível publicar a branch no origin.';
+          : 'Não foi possível enviar a branch para o origin.';
     } finally {
       panel.mutationRunning.value = false;
     }
