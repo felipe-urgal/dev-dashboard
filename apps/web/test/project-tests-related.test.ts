@@ -20,6 +20,7 @@ const overview: ProjectTestOverview = {
       originDetail: 'scripts.test',
       priority: 10,
       supportsFileTarget: true,
+      supportsCaseTarget: false,
     },
   ],
 };

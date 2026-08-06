@@ -25,6 +25,7 @@ export interface TestCommandParams extends ProjectParams {
 
 export interface TestFileStartBody {
   path: string;
+  line?: number;
 }
 
 export interface TestLogQuery {
@@ -107,6 +108,7 @@ export function testFileApiError(error: TestFileError): ApiError {
   const statuses: Record<string, number> = {
     TEST_FILE_TARGET_UNSUPPORTED: 400,
     TEST_FILE_NOT_FOUND: 404,
+    TEST_CASE_TARGET_UNSUPPORTED: 400,
   };
   return new ApiError({
     statusCode: statuses[error.code] ?? 400,

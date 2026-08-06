@@ -7,6 +7,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  CASE_TARGET_RUNNERS,
   composeFileCommand,
   ensureTestPathInsideProject,
   findTestFiles,
@@ -44,6 +45,7 @@ export class TestDetectionService {
         .map(({ resolved: _resolved, ...rest }) => ({
           ...rest,
           supportsFileTarget: Boolean(FILE_TARGET_PATTERNS[rest.runner]),
+          supportsCaseTarget: CASE_TARGET_RUNNERS.has(rest.runner),
         }))
         .sort((left, right) => left.priority - right.priority),
     };
@@ -77,6 +79,7 @@ export class TestDetectionService {
     project: Project,
     commandId: string,
     filePath: string,
+    line?: number,
   ): Promise<ResolvedCommand | null> {
     const commands = await this.detect(project);
     const command = commands.find((entry) => entry.id === commandId);
@@ -90,6 +93,13 @@ export class TestDetectionService {
       );
     }
 
+    if (line !== undefined && !CASE_TARGET_RUNNERS.has(command.runner)) {
+      throw new TestFileError(
+        'TEST_CASE_TARGET_UNSUPPORTED',
+        'Este comando não suporta executar um caso específico.',
+      );
+    }
+
     const safePath = ensureTestPathInsideProject(project.path, filePath);
     if (!pattern.test(path.basename(safePath))) {
       throw new TestFileError(
@@ -98,7 +108,8 @@ export class TestDetectionService {
       );
     }
 
-    return composeFileCommand(command.resolved, safePath);
+    const target = line === undefined ? safePath : `${safePath}:${line}`;
+    return composeFileCommand(command.resolved, target);
   }
 
   private async detect(project: Project): Promise<DetectedTestCommand[]> {

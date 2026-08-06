@@ -9,5 +9,15 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     globals: false,
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,vue}'],
+      thresholds: {
+        statements: 58,
+        branches: 50,
+        functions: 64,
+        lines: 60,
+      },
+    },
   },
 });

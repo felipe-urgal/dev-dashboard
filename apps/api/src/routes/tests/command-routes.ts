@@ -143,6 +143,7 @@ export function registerTestCommandRoutes(
           required: ['path'],
           properties: {
             path: { type: 'string', minLength: 1, maxLength: 2048 },
+            line: { type: 'integer', minimum: 1, maximum: 1_000_000 },
           },
         },
         querystring: emptyQuerystringSchema,
@@ -166,6 +167,7 @@ export function registerTestCommandRoutes(
           project,
           request.params.commandId,
           request.body.path,
+          request.body.line,
         );
       } catch (error) {
         if (error instanceof TestFileError) {

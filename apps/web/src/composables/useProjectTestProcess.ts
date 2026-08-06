@@ -29,6 +29,7 @@ export interface TestExecutionTarget {
   commandId: string;
   scope?: TestExecutionScope;
   targetFile?: string;
+  targetLine?: number;
 }
 
 const SUCCESS_RESULT_RESET_DELAY_MS = 1_500;
@@ -260,6 +261,7 @@ export function useProjectTestProcess(
                 projectId,
                 target.commandId,
                 target.targetFile,
+                target.targetLine,
               )
             : await startProjectTest(projectId, target.commandId);
       if (!currentRequest(projectId, requestGeneration)) return;

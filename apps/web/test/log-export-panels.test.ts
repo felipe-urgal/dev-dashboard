@@ -170,6 +170,7 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
         originDetail: 'scripts.test',
         priority: 10,
         supportsFileTarget: true,
+        supportsCaseTarget: false,
       },
     ],
   };

@@ -204,6 +204,37 @@ node --test scripts/docs-server.test.mjs
 
 Testes com arquivos, repositórios Git ou processos devem usar fixtures temporárias e cleanup garantido.
 
+### Cobertura
+
+`npm test` já mede cobertura e falha se cair abaixo do piso configurado por
+workspace (política de ratchet: o piso parte da cobertura medida no momento
+em que foi definido, task 122 — nunca um alvo arbitrário, e só sobe, nunca
+desce). Node (`--experimental-test-coverage` em `apps/api`,
+`packages/core`, `packages/process-manager`, `packages/project-discovery`,
+restrito a `src/**/*.ts` via `--test-coverage-include`) e Vitest
+(`@vitest/coverage-v8`, `coverage.thresholds` em `apps/web/vitest.config.ts`,
+restrito a `src/**/*.{ts,vue}`).
+
+Os pisos ficam ~2-3 pontos percentuais abaixo do valor medido (mais nos
+branches, a métrica mais sensível a diferenças de patch do Node/V8) — o
+piso da task 122 foi fixado bem rente ao valor medido localmente (task 124
+alargou a margem como prática defensiva). Nota: um CI vermelho subsequente
+no mesmo PR pareceu, à primeira vista, confirmar esse risco, mas a causa
+raiz real era outra (um teste que dependia de um binário externo ausente
+no runner — ver task 125); o risco de piso sem margem continua real e
+válido, só não foi o que causou aquele incidente específico.
+
+Se uma mudança legítima reduzir a cobertura (ex. remover um branch de
+tratamento de erro que não existe mais), baixar o piso é aceitável — mas
+precisa ser deliberado e justificado no PR, não silencioso. Se uma mudança
+aumentar a cobertura de forma sustentável, considere subir o piso do
+workspace na mesma entrega para travar o ganho.
+
+`scripts/*.mjs` (tooling de dev) e o CLI bash (`lib/`) ficam fora da
+medição — o primeiro por não ser código de produto, o segundo por não ter
+instrumentação de cobertura equivalente para Bash configurada neste
+repositório.
+
 ## Documentação
 
 Uma mudança está incompleta quando altera o comportamento sem atualizar a explicação correspondente.

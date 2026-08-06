@@ -7,7 +7,7 @@ export interface ResolvedCommand {
 
 export interface DetectedTestCommand extends Omit<
   ProjectTestCommand,
-  'supportsFileTarget'
+  'supportsFileTarget' | 'supportsCaseTarget'
 > {
   resolved: ResolvedCommand;
 }

@@ -59,6 +59,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
   const loadingFilesCommandId = ref<string | null>(null);
   const testFiles = ref<ProjectTestFile[]>([]);
   const selectedFilePath = ref('');
+  const selectedCaseLine = ref('');
   const fileErrorMessage = ref('');
   const loadingRelatedCommandId = ref<string | null>(null);
   const relatedTests = ref<ProjectRelatedTests | null>(null);
@@ -136,11 +137,34 @@ export function useProjectTestsPanel(props: { project: Project }) {
     return overview.value?.commands.find((command) => command.id === commandId);
   });
 
+  const supportsCaseTarget = computed(
+    () =>
+      selectedChoice.value?.scope === 'file' &&
+      Boolean(selectedCommand.value?.supportsCaseTarget),
+  );
+
+  const parsedCaseLine = computed<number | undefined>(() => {
+    // Input type="number": Vue coerce automaticamente para number quando
+    // preenchido, mas o valor inicial/limpo continua sendo a string vazia.
+    const raw = String(selectedCaseLine.value).trim();
+    if (!raw) return undefined;
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  });
+
+  const caseLineInvalid = computed(
+    () =>
+      String(selectedCaseLine.value).trim() !== '' &&
+      parsedCaseLine.value === undefined,
+  );
+
   const selectionConfigured = computed(() =>
     Boolean(
       selectedChoice.value &&
       (selectedChoice.value.scope === 'suite' ||
-        (selectedChoice.value.scope === 'file' && selectedFilePath.value) ||
+        (selectedChoice.value.scope === 'file' &&
+          selectedFilePath.value &&
+          !caseLineInvalid.value) ||
         (selectedChoice.value.scope === 'related' &&
           (relatedTests.value?.testFiles.length ?? 0) > 0)),
     ),
@@ -158,9 +182,12 @@ export function useProjectTestsPanel(props: { project: Project }) {
     const command = selectedCommand.value;
     if (!command) return 'Selecione como deseja executar os testes.';
     if (selectedChoice.value?.scope === 'file') {
-      return selectedFilePath.value
-        ? `${command.label} ${selectedFilePath.value}`
-        : `${command.label} <arquivo>`;
+      if (!selectedFilePath.value) return `${command.label} <arquivo>`;
+      const target =
+        supportsCaseTarget.value && parsedCaseLine.value !== undefined
+          ? `${selectedFilePath.value}:${parsedCaseLine.value}`
+          : selectedFilePath.value;
+      return `${command.label} ${target}`;
     }
     if (selectedChoice.value?.scope === 'related') {
       const files = relatedTests.value?.testFiles ?? [];
@@ -346,6 +373,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
 
   async function handleExecutionChoiceChange(): Promise<void> {
     selectedFilePath.value = '';
+    selectedCaseLine.value = '';
     testFiles.value = [];
     fileErrorMessage.value = '';
     relatedTests.value = null;
@@ -439,6 +467,9 @@ export function useProjectTestsPanel(props: { project: Project }) {
       ...(choice.scope === 'file' && selectedFilePath.value
         ? { targetFile: selectedFilePath.value }
         : {}),
+      ...(supportsCaseTarget.value && parsedCaseLine.value !== undefined
+        ? { targetLine: parsedCaseLine.value }
+        : {}),
     });
   }
 
@@ -478,6 +509,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
       loadingFilesCommandId.value = null;
       testFiles.value = [];
       selectedFilePath.value = '';
+      selectedCaseLine.value = '';
       fileErrorMessage.value = '';
       loadingRelatedCommandId.value = null;
       relatedTests.value = null;
@@ -491,6 +523,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
     activeLogEmptyLabel,
     activeLogTab,
     canExecuteSelection,
+    caseLineInvalid,
     cleanLogContent,
     copyMessage,
     currentCommandText,
@@ -525,6 +558,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
     relatedTests,
     runSummary,
     scrollLogToEnd,
+    selectedCaseLine,
     selectedChoice,
     selectedExecutionKey,
     selectedFilePath,
@@ -532,6 +566,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
     startingCommandId,
     statusLabel,
     stopping,
+    supportsCaseTarget,
     testFiles,
     totalTests,
     visibleLogLines,

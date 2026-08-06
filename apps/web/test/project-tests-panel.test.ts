@@ -32,6 +32,23 @@ const baseOverview: ProjectTestOverview = {
       originDetail: 'scripts.test',
       priority: 10,
       supportsFileTarget: true,
+      supportsCaseTarget: false,
+    },
+  ],
+};
+
+const rspecOverview: ProjectTestOverview = {
+  supported: true,
+  commands: [
+    {
+      id: 'rspec-suite',
+      runner: 'rspec',
+      label: 'bundle exec rspec',
+      description: 'Executa a suíte RSpec do projeto.',
+      origin: 'gemfile',
+      priority: 10,
+      supportsFileTarget: true,
+      supportsCaseTarget: true,
     },
   ],
 };
@@ -149,6 +166,105 @@ test('executa a suíte selecionada pelo novo seletor', async () => {
     calls.some((path) => path.endsWith('/tests/node-script-test/start')),
   );
   assert.match(wrapper.text(), /Executando|Iniciando/);
+});
+
+test('exibe o campo de linha para runners com suporte a caso específico (RSpec) e envia a linha', async () => {
+  const calls: Array<{ path: string; body?: unknown }> = [];
+  let currentProcess: Record<string, unknown> | null = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    calls.push({
+      path: url.pathname,
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: rspecOverview });
+    if (
+      url.pathname.endsWith('/files') &&
+      !url.pathname.endsWith('/files/start')
+    ) {
+      return jsonResponse({ files: [{ path: 'spec/models/user_spec.rb' }] });
+    }
+    if (url.pathname.endsWith('/files/start')) {
+      currentProcess = {
+        id: 'rspec-suite:file',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'bundle',
+        args: ['exec', 'rspec', 'spec/models/user_spec.rb:42'],
+        startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
+    }
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: currentProcess });
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.tests-execution-select').setValue('rspec-suite::file');
+  await flushPromises();
+  await flushPromises();
+
+  const fileSelect = wrapper.find('.tests-file-select');
+  assert.ok(fileSelect.exists());
+  await fileSelect.setValue('spec/models/user_spec.rb');
+
+  const lineInput = wrapper.find('.tests-case-line-input');
+  assert.ok(lineInput.exists(), 'esperava campo de linha para RSpec');
+  await lineInput.setValue('42');
+
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
+  await flushPromises();
+
+  const startCall = calls.find((call) =>
+    call.path.endsWith('/tests/rspec-suite/files/start'),
+  );
+  assert.ok(startCall);
+  assert.deepEqual(startCall.body, {
+    path: 'spec/models/user_spec.rb',
+    line: 42,
+  });
+});
+
+test('não mostra o campo de linha para runners sem suporte a caso específico', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = emptyPanelFetch as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::file');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(wrapper.find('.tests-case-line-input').exists(), false);
 });
 
 test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async () => {
