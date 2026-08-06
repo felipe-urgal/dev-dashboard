@@ -28,18 +28,24 @@ npm test
 
 ## Produto e fluxos operacionais
 
-- [ ] Executar caso/`describe` específico para os runners Node (`node --test`,
-  Jest, Vitest) via `-t`/`--test-name-pattern` — RSpec já foi entregue na
-  task 123 (`arquivo:linha`, sem precisar de parser/AST); os runners Node
-  usam padrão de nome, não linha, e a UI precisaria descobrir esses nomes
-  (hoje só lista arquivos, sem outline de `describe`/`it`) ou aceitar que o
-  usuário digite o padrão à mão — decisão de UX em aberto antes de
-  implementar.
 - [ ] Persistir relatórios de cobertura de projetos gerenciados (não deste
   codebase) — funcionalidade nova, sem nenhuma base hoje; formatos
   completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
   `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
   próprio.
+- [ ] `ProcessManager.stopTest`/`startManagedTest` (`packages/process-manager`):
+  encontrado durante a task 127 um caso em que parar um processo de teste que
+  já saiu sozinho muito rápido (ex. `npm run test` falhando na primeira
+  invocação) retorna um erro genérico (500 `BAD_REQUEST`, não um
+  `ProcessManagerError` reconhecido) em vez de tratar como "já parado", e a
+  tentativa de iniciar um novo processo de teste logo em seguida pode ver
+  `PROCESS_ALREADY_RUNNING` mesmo com o processo anterior já morto —
+  provável corrida entre a saída real do processo e a leitura/escrita do
+  registro de status. Contornado nos testes (evitando reiniciar o mesmo
+  processo de teste em sequência rápida na mesma fixture), não corrigido no
+  serviço em si — precisa de investigação própria em
+  `packages/process-manager/src/process-lifecycle.ts`
+  (`stopManagedProcess`/`startManagedTest`).
 
 ## CLI Bash
 

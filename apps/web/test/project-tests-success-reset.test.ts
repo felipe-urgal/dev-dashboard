@@ -24,6 +24,7 @@ const baseOverview: ProjectTestOverview = {
       priority: 10,
       supportsFileTarget: true,
       supportsCaseTarget: false,
+      supportsNamePatternTarget: true,
     },
   ],
 };

@@ -418,3 +418,123 @@ test('resolveFileCommand rejeita linha para runner sem suporte a caso específic
     await rm(project.path, { recursive: true, force: true });
   }
 });
+
+test('overview marca supportsNamePatternTarget para vitest/jest/node-test, não rspec', async () => {
+  const nodeProject = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+    'src/app.test.ts': '',
+  });
+  const railsProject = await makeProject('rails', {
+    Gemfile: "source 'https://rubygems.org'\ngem 'rails'\ngem 'rspec-rails'\n",
+    'spec/spec_helper.rb': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const nodeOverview = await service.getOverview(nodeProject);
+    assert.equal(nodeOverview.commands[0]!.supportsNamePatternTarget, true);
+
+    const railsOverview = await service.getOverview(railsProject);
+    const rspec = railsOverview.commands.find(
+      (command) => command.runner === 'rspec',
+    );
+    assert.ok(rspec);
+    assert.equal(rspec.supportsNamePatternTarget, false);
+  } finally {
+    await rm(nodeProject.path, { recursive: true, force: true });
+    await rm(railsProject.path, { recursive: true, force: true });
+  }
+});
+
+test('resolveFileCommand com namePattern acrescenta -t para vitest', async () => {
+  const project = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+    'src/app.test.ts': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const commandId = overview.commands[0]!.id;
+    const resolved = await service.resolveFileCommand(
+      project,
+      commandId,
+      'src/app.test.ts',
+      undefined,
+      'soma valores',
+    );
+    assert.deepEqual(resolved!.args.slice(-3), [
+      'src/app.test.ts',
+      '-t',
+      'soma valores',
+    ]);
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('resolveFileCommand com namePattern acrescenta --test-name-pattern para node-test', async () => {
+  const project = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'node --test' },
+    }),
+    'src/app.test.ts': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const commandId = overview.commands[0]!.id;
+    assert.equal(overview.commands[0]!.runner, 'node-test');
+    const resolved = await service.resolveFileCommand(
+      project,
+      commandId,
+      'src/app.test.ts',
+      undefined,
+      'soma valores',
+    );
+    assert.deepEqual(resolved!.args.slice(-3), [
+      'src/app.test.ts',
+      '--test-name-pattern',
+      'soma valores',
+    ]);
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('resolveFileCommand rejeita namePattern para runner sem suporte', async () => {
+  const project = await makeProject('rails', {
+    Gemfile: "source 'https://rubygems.org'\ngem 'rails'\ngem 'rspec-rails'\n",
+    'spec/models/user_spec.rb': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const rspec = overview.commands.find(
+      (command) => command.runner === 'rspec',
+    );
+    assert.ok(rspec);
+    await assert.rejects(
+      () =>
+        service.resolveFileCommand(
+          project,
+          rspec.id,
+          'spec/models/user_spec.rb',
+          undefined,
+          'soma valores',
+        ),
+      (error: unknown) =>
+        error instanceof TestFileError &&
+        error.code === 'TEST_NAME_PATTERN_UNSUPPORTED',
+    );
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});

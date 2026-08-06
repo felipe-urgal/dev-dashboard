@@ -9,9 +9,11 @@ import type {
 import {
   CASE_TARGET_RUNNERS,
   composeFileCommand,
+  composeNamePatternArgs,
   ensureTestPathInsideProject,
   findTestFiles,
   FILE_TARGET_PATTERNS,
+  NAME_PATTERN_TARGET_RUNNERS,
 } from './test-detection/file-scan.js';
 import { detectNodeCommands } from './test-detection/node-detection.js';
 import { detectPythonCommands } from './test-detection/python-detection.js';
@@ -46,6 +48,9 @@ export class TestDetectionService {
           ...rest,
           supportsFileTarget: Boolean(FILE_TARGET_PATTERNS[rest.runner]),
           supportsCaseTarget: CASE_TARGET_RUNNERS.has(rest.runner),
+          supportsNamePatternTarget: NAME_PATTERN_TARGET_RUNNERS.has(
+            rest.runner,
+          ),
         }))
         .sort((left, right) => left.priority - right.priority),
     };
@@ -80,6 +85,7 @@ export class TestDetectionService {
     commandId: string,
     filePath: string,
     line?: number,
+    namePattern?: string,
   ): Promise<ResolvedCommand | null> {
     const commands = await this.detect(project);
     const command = commands.find((entry) => entry.id === commandId);
@@ -100,6 +106,16 @@ export class TestDetectionService {
       );
     }
 
+    if (
+      namePattern !== undefined &&
+      !NAME_PATTERN_TARGET_RUNNERS.has(command.runner)
+    ) {
+      throw new TestFileError(
+        'TEST_NAME_PATTERN_UNSUPPORTED',
+        'Este comando não suporta filtrar por padrão de nome.',
+      );
+    }
+
     const safePath = ensureTestPathInsideProject(project.path, filePath);
     if (!pattern.test(path.basename(safePath))) {
       throw new TestFileError(
@@ -109,7 +125,10 @@ export class TestDetectionService {
     }
 
     const target = line === undefined ? safePath : `${safePath}:${line}`;
-    return composeFileCommand(command.resolved, target);
+    const resolved = composeFileCommand(command.resolved, target);
+    return namePattern === undefined
+      ? resolved
+      : composeNamePatternArgs(resolved, command.runner, namePattern);
   }
 
   private async detect(project: Project): Promise<DetectedTestCommand[]> {

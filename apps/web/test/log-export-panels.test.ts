@@ -171,6 +171,7 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
         priority: 10,
         supportsFileTarget: true,
         supportsCaseTarget: false,
+        supportsNamePatternTarget: true,
       },
     ],
   };

@@ -1,7 +1,8 @@
 export type TestFileErrorCode =
   | 'TEST_FILE_TARGET_UNSUPPORTED'
   | 'TEST_FILE_NOT_FOUND'
-  | 'TEST_CASE_TARGET_UNSUPPORTED';
+  | 'TEST_CASE_TARGET_UNSUPPORTED'
+  | 'TEST_NAME_PATTERN_UNSUPPORTED';
 
 export class TestFileError extends Error {
   public constructor(

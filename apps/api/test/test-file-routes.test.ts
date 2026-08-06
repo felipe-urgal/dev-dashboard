@@ -15,6 +15,7 @@ interface OverviewResponse {
       runner: string;
       supportsFileTarget: boolean;
       supportsCaseTarget: boolean;
+      supportsNamePatternTarget: boolean;
     }>;
   };
 }
@@ -407,6 +408,26 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
   );
 
   await context.test(
+    'rejeita padrão de nome para runner sem suporte com 400 TEST_NAME_PATTERN_UNSUPPORTED',
+    async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/projects/rails-p1/tests/${rspecCommandId}/files/start`,
+        headers,
+        payload: JSON.stringify({
+          path: 'spec/models/user_spec.rb',
+          namePattern: 'soma valores',
+        }),
+      });
+      assert.equal(response.statusCode, 400);
+      assert.equal(
+        response.json<ErrorResponse>().error,
+        'TEST_NAME_PATTERN_UNSUPPORTED',
+      );
+    },
+  );
+
+  await context.test(
     'histórico registra o alvo "arquivo:linha" da execução do caso',
     async () => {
       let history: HistoryResponse['history'] | undefined;
@@ -430,6 +451,108 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
         history!.items[0]!.targetFile,
         'spec/models/user_spec.rb:42',
       );
+    },
+  );
+});
+
+test('rotas de padrão de nome para runners Node (vitest/jest/node-test)', async (context) => {
+  const fixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-test-name-pattern-routes-'),
+  );
+  const projectPath = path.join(fixtureRoot, 'sample');
+  await mkdir(path.join(projectPath, 'src'), { recursive: true });
+  await writeFile(
+    path.join(projectPath, 'package.json'),
+    JSON.stringify({
+      name: 'sample',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+  );
+  await writeFile(path.join(projectPath, 'src', 'app.test.ts'), '');
+
+  const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
+  const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
+  process.env.DEV_DASHBOARD_CONFIG_DIR = path.join(fixtureRoot, 'config');
+  process.env.DEV_DASHBOARD_STATE_DIR = path.join(fixtureRoot, 'state');
+
+  const { buildApp } = await import('../src/app.js');
+  const { createAppContext } = await import('../src/app-context.js');
+  const appContext = createAppContext();
+  const project: Project = {
+    id: 'p1',
+    name: 'sample',
+    path: projectPath,
+    type: 'node',
+    source: 'workspace',
+    workspaceId: 'w1',
+    favorite: false,
+    capabilities: ['tests'],
+  };
+  appContext.projectStore.saveWorkspaceScan({
+    workspaceId: 'w1',
+    workspacePath: fixtureRoot,
+    projects: [project],
+    warnings: [],
+  });
+
+  const app = await buildApp({ localToken: TOKEN, context: appContext });
+  context.after(async () => {
+    await app.close();
+    if (previousConfigDirectory === undefined)
+      delete process.env.DEV_DASHBOARD_CONFIG_DIR;
+    else process.env.DEV_DASHBOARD_CONFIG_DIR = previousConfigDirectory;
+    if (previousStateDirectory === undefined)
+      delete process.env.DEV_DASHBOARD_STATE_DIR;
+    else process.env.DEV_DASHBOARD_STATE_DIR = previousStateDirectory;
+    await rm(fixtureRoot, { recursive: true, force: true });
+  });
+
+  const headers = {
+    'x-dev-dashboard-token': TOKEN,
+    'content-type': 'application/json',
+  };
+  let commandId = '';
+
+  await context.test('overview expõe supportsNamePatternTarget', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/projects/p1/tests',
+      headers,
+    });
+    assert.equal(response.statusCode, 200);
+    const { tests } = response.json<OverviewResponse>();
+    assert.equal(tests.commands[0]!.supportsNamePatternTarget, true);
+    commandId = tests.commands[0]!.id;
+  });
+
+  await context.test(
+    'inicia a execução de um arquivo com padrão de nome (-t)',
+    async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/projects/p1/tests/${commandId}/files/start`,
+        headers,
+        payload: JSON.stringify({
+          path: 'src/app.test.ts',
+          namePattern: 'soma valores',
+        }),
+      });
+      assert.equal(response.statusCode, 201);
+      const { process: managedProcess } = response.json<ProcessResponse>();
+      assert.deepEqual(managedProcess.args, [
+        'run',
+        'test',
+        '--',
+        'src/app.test.ts',
+        '-t',
+        'soma valores',
+      ]);
+      await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/tests/process/stop',
+        headers,
+      });
     },
   );
 });

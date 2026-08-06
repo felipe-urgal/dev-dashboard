@@ -15388,7 +15388,8 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                 "origin",
                 "priority",
                 "supportsFileTarget",
-                "supportsCaseTarget"
+                "supportsCaseTarget",
+                "supportsNamePatternTarget"
               ],
               "properties": {
                 "id": {
@@ -15432,6 +15433,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
                   "type": "boolean"
                 },
                 "supportsCaseTarget": {
+                  "type": "boolean"
+                },
+                "supportsNamePatternTarget": {
                   "type": "boolean"
                 }
               }
@@ -15577,6 +15581,11 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "type": "integer",
       "minimum": 1,
       "maximum": 1000000
+    },
+    "namePattern": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
     }
   }
 }
