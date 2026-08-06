@@ -5,11 +5,27 @@ import { computed, ref, watch } from 'vue';
 import type {
   ProjectCoverageSummary,
   ProjectCoverageTotals,
+  ProjectType,
 } from '@dev-dashboard/contracts';
 
 import { fetchProjectCoverage } from '../api';
 
-const props = defineProps<{ projectId: string }>();
+const props = defineProps<{
+  projectId: string;
+  projectType?: ProjectType;
+}>();
+
+const reportHint = computed(() =>
+  props.projectType === 'rails'
+    ? 'coverage/.resultset.json'
+    : 'coverage/coverage-final.json',
+);
+
+const emptyStateHint = computed(() =>
+  props.projectType === 'rails'
+    ? 'Rode os testes com o SimpleCov habilitado (`SimpleCov.start` no `spec_helper.rb`/`rails_helper.rb`) para ver o resumo aqui.'
+    : 'Rode os testes com cobertura habilitada (Vitest/Jest/c8/nyc) para ver o resumo aqui.',
+);
 
 const loading = ref(false);
 const errorMessage = ref('');
@@ -75,9 +91,9 @@ defineExpose({ load });
     </p>
 
     <div v-else-if="coverage && !coverage.available" class="coverage-empty">
-      Nenhum relatório encontrado em <code>coverage/coverage-final.json</code>.
-      Rode os testes com cobertura habilitada (Vitest/Jest/c8/nyc) para ver o
-      resumo aqui.
+      Nenhum relatório encontrado em <code>{{ reportHint }}</code
+      >.
+      {{ emptyStateHint }}
     </div>
 
     <div v-else-if="coverage?.total" class="coverage-content">

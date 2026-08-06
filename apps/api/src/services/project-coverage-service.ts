@@ -6,20 +6,20 @@ import type {
   ProjectCoverageMetric,
   ProjectCoverageSummary,
   ProjectCoverageTotals,
+  ProjectType,
 } from '@dev-dashboard/contracts';
 
 /**
- * Único formato suportado nesta primeira entrega: `coverage/coverage-final.json`
- * (Istanbul raw coverage), o padrão de facto entre nyc/c8/Jest/Vitest quando
- * cobertura está habilitada — nenhum deles precisa de configuração adicional
- * para gerar esse arquivo. SimpleCov (Rails) e relatórios já pré-resumidos
- * (`coverage-summary.json`) ficam como possibilidade futura em
- * `tasks/PENDENCIAS.md`.
+ * Formato Node/Istanbul (nyc/c8/Jest/Vitest) — padrão de facto quando
+ * cobertura está habilitada, sem exigir configuração adicional.
  */
-const COVERAGE_REPORT_RELATIVE_PATH = path.join(
+const ISTANBUL_REPORT_RELATIVE_PATH = path.join(
   'coverage',
   'coverage-final.json',
 );
+
+/** Formato Rails/SimpleCov — caminho padrão gerado pela gem sem configuração adicional. */
+const SIMPLECOV_REPORT_RELATIVE_PATH = path.join('coverage', '.resultset.json');
 
 const MAX_COVERAGE_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_COVERAGE_FILES = 500;
@@ -111,11 +111,133 @@ function summarizeFile(entry: IstanbulFileCoverage): ProjectCoverageTotals {
 
 const UNAVAILABLE: ProjectCoverageSummary = { available: false };
 
+/**
+ * SimpleCov grava a cobertura de linha como um array posicional (índice =
+ * número da linha - 1); `null` marca uma linha não executável. Em versões
+ * mais novas o valor por arquivo é `{lines, branches}`; em mais antigas é o
+ * array de linhas diretamente.
+ */
+type SimpleCovLineHits = Array<number | null>;
+
+interface SimpleCovBranchOutcomes {
+  [outcome: string]: number;
+}
+
+interface SimpleCovBranchConditions {
+  [condition: string]: SimpleCovBranchOutcomes;
+}
+
+interface SimpleCovFileCoverage {
+  lines?: SimpleCovLineHits;
+  branches?: SimpleCovBranchConditions;
+}
+
+function isSimpleCovLineHits(value: unknown): value is SimpleCovLineHits {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => item === null || typeof item === 'number')
+  );
+}
+
+function normalizeSimpleCovFile(value: unknown): SimpleCovFileCoverage | null {
+  if (isSimpleCovLineHits(value)) return { lines: value };
+  if (!isPlainObject(value)) return null;
+  const lines = isSimpleCovLineHits(value.lines) ? value.lines : undefined;
+  const branches = isPlainObject(value.branches)
+    ? (value.branches as SimpleCovBranchConditions)
+    : undefined;
+  return {
+    ...(lines ? { lines } : {}),
+    ...(branches ? { branches } : {}),
+  };
+}
+
+function summarizeSimpleCovLines(
+  hits: SimpleCovLineHits,
+): ProjectCoverageMetric {
+  const executable = hits.filter((hit): hit is number => hit !== null);
+  return metric(executable.length, executable.filter((hit) => hit > 0).length);
+}
+
+function summarizeSimpleCovBranches(
+  branches: SimpleCovBranchConditions | undefined,
+): ProjectCoverageMetric {
+  if (!branches) return metric(0, 0);
+  let total = 0;
+  let covered = 0;
+  for (const outcomes of Object.values(branches)) {
+    for (const hit of Object.values(outcomes)) {
+      total += 1;
+      if (hit > 0) covered += 1;
+    }
+  }
+  return metric(total, covered);
+}
+
+/**
+ * SimpleCov não distingue statements de linhas (statements reusa o mesmo
+ * valor de lines) nem mede cobertura de função por método — functions fica
+ * sempre 0/0 (100%, "não medido"), decisão explícita do usuário.
+ */
+function summarizeSimpleCovFile(
+  entry: SimpleCovFileCoverage,
+): ProjectCoverageTotals {
+  const lines = summarizeSimpleCovLines(entry.lines ?? []);
+  return {
+    statements: lines,
+    branches: summarizeSimpleCovBranches(entry.branches),
+    functions: metric(0, 0),
+    lines,
+  };
+}
+
+function mergeSimpleCovLineHits(
+  target: SimpleCovLineHits | undefined,
+  source: SimpleCovLineHits,
+): SimpleCovLineHits {
+  if (!target) return [...source];
+  const length = Math.max(target.length, source.length);
+  const merged: SimpleCovLineHits = new Array(length).fill(null);
+  for (let index = 0; index < length; index += 1) {
+    const left = target[index] ?? null;
+    const right = source[index] ?? null;
+    merged[index] =
+      left === null && right === null ? null : Math.max(left ?? 0, right ?? 0);
+  }
+  return merged;
+}
+
+function mergeSimpleCovBranches(
+  target: SimpleCovBranchConditions | undefined,
+  source: SimpleCovBranchConditions | undefined,
+): SimpleCovBranchConditions | undefined {
+  if (!source) return target;
+  if (!target) return source;
+  const merged: SimpleCovBranchConditions = { ...target };
+  for (const [condition, outcomes] of Object.entries(source)) {
+    const existing = merged[condition] ? { ...merged[condition] } : {};
+    for (const [outcome, hit] of Object.entries(outcomes)) {
+      existing[outcome] = Math.max(existing[outcome] ?? 0, hit);
+    }
+    merged[condition] = existing;
+  }
+  return merged;
+}
+
 export class ProjectCoverageService {
   public async getSummary(
     projectPath: string,
+    projectType: ProjectType = 'node',
   ): Promise<ProjectCoverageSummary> {
-    const reportPath = path.join(projectPath, COVERAGE_REPORT_RELATIVE_PATH);
+    return projectType === 'rails'
+      ? this.getSimpleCovSummary(projectPath)
+      : this.getIstanbulSummary(projectPath);
+  }
+
+  private async getIstanbulSummary(
+    projectPath: string,
+  ): Promise<ProjectCoverageSummary> {
+    const reportPath = path.join(projectPath, ISTANBUL_REPORT_RELATIVE_PATH);
 
     let stats;
     try {
@@ -153,6 +275,92 @@ export class ProjectCoverageService {
 
       const entry = value as IstanbulFileCoverage;
       const summary = summarizeFile(entry);
+      total = {
+        statements: addMetric(total.statements, summary.statements),
+        branches: addMetric(total.branches, summary.branches),
+        functions: addMetric(total.functions, summary.functions),
+        lines: addMetric(total.lines, summary.lines),
+      };
+      files.push({ path: relative.split(path.sep).join('/'), ...summary });
+    }
+
+    files.sort((left, right) => left.path.localeCompare(right.path));
+
+    return {
+      available: true,
+      generatedAt: stats.mtime.toISOString(),
+      total,
+      files: files.slice(0, MAX_COVERAGE_FILES),
+    };
+  }
+
+  private async getSimpleCovSummary(
+    projectPath: string,
+  ): Promise<ProjectCoverageSummary> {
+    const reportPath = path.join(projectPath, SIMPLECOV_REPORT_RELATIVE_PATH);
+
+    let stats;
+    try {
+      stats = await stat(reportPath);
+    } catch {
+      return UNAVAILABLE;
+    }
+    if (!stats.isFile() || stats.size > MAX_COVERAGE_FILE_BYTES) {
+      return UNAVAILABLE;
+    }
+
+    let parsed: unknown;
+    try {
+      const raw = await readFile(reportPath, 'utf8');
+      parsed = JSON.parse(raw);
+    } catch {
+      return UNAVAILABLE;
+    }
+    if (!isPlainObject(parsed)) {
+      return UNAVAILABLE;
+    }
+
+    // Une os arquivos vistos em todas as suítes (ex. "RSpec", "Cucumber"):
+    // linhas pelo maior hit count, branches pelo maior hit count por outcome.
+    const merged = new Map<
+      string,
+      { lines?: SimpleCovLineHits; branches?: SimpleCovBranchConditions }
+    >();
+
+    for (const suite of Object.values(parsed)) {
+      if (!isPlainObject(suite) || !isPlainObject(suite.coverage)) continue;
+      for (const [absolutePath, value] of Object.entries(suite.coverage)) {
+        const relative = path.relative(projectPath, absolutePath);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+
+        const fileCoverage = normalizeSimpleCovFile(value);
+        if (!fileCoverage) continue;
+
+        const existing = merged.get(relative);
+        const nextLines = fileCoverage.lines
+          ? mergeSimpleCovLineHits(existing?.lines, fileCoverage.lines)
+          : existing?.lines;
+        const nextBranches = mergeSimpleCovBranches(
+          existing?.branches,
+          fileCoverage.branches,
+        );
+        merged.set(relative, {
+          ...(nextLines ? { lines: nextLines } : {}),
+          ...(nextBranches ? { branches: nextBranches } : {}),
+        });
+      }
+    }
+
+    const files: ProjectCoverageFileSummary[] = [];
+    let total: ProjectCoverageTotals = {
+      statements: metric(0, 0),
+      branches: metric(0, 0),
+      functions: metric(0, 0),
+      lines: metric(0, 0),
+    };
+
+    for (const [relative, entry] of merged.entries()) {
+      const summary = summarizeSimpleCovFile(entry);
       total = {
         statements: addMetric(total.statements, summary.statements),
         branches: addMetric(total.branches, summary.branches),

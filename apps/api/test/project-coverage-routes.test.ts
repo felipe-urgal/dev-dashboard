@@ -46,6 +46,7 @@ test('GET /projects/:projectId/coverage', async (context) => {
     id: 'p1',
     name: 'sample',
     path: projectPath,
+    type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
@@ -100,6 +101,69 @@ test('GET /projects/:projectId/coverage', async (context) => {
       available: false,
     });
   });
+
+  await context.test(
+    'expõe o resumo do SimpleCov quando o projeto é rails',
+    async () => {
+      const railsFixtureRoot = await mkdtemp(
+        path.join(tmpdir(), 'dev-dashboard-coverage-routes-rails-'),
+      );
+      const railsProjectPath = path.join(railsFixtureRoot, 'sample-rails');
+      await mkdir(path.join(railsProjectPath, 'coverage'), {
+        recursive: true,
+      });
+      try {
+        const railsProject: Project = {
+          id: 'p-rails',
+          name: 'sample-rails',
+          path: railsProjectPath,
+          type: 'rails',
+          source: 'workspace',
+          workspaceId: 'w2',
+          favorite: false,
+          capabilities: ['tests'],
+        };
+        appContext.projectStore.saveWorkspaceScan({
+          workspaceId: 'w2',
+          workspacePath: railsFixtureRoot,
+          projects: [railsProject],
+          warnings: [],
+        });
+
+        const filePath = path.join(
+          railsProjectPath,
+          'app',
+          'models',
+          'user.rb',
+        );
+        const resultset = {
+          RSpec: {
+            coverage: {
+              [filePath]: { lines: [1, 0, null] },
+            },
+          },
+        };
+        await writeFile(
+          path.join(railsProjectPath, 'coverage', '.resultset.json'),
+          JSON.stringify(resultset),
+        );
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/projects/p-rails/coverage',
+          headers,
+        });
+        assert.equal(response.statusCode, 200);
+        const { coverage } = response.json<CoverageResponse>();
+        assert.equal(coverage.available, true);
+        assert.equal(coverage.total?.statements.total, 2);
+        assert.equal(coverage.total?.statements.covered, 1);
+        assert.equal(coverage.files?.[0]!.path, 'app/models/user.rb');
+      } finally {
+        await rm(railsFixtureRoot, { recursive: true, force: true });
+      }
+    },
+  );
 
   await context.test(
     'expõe o resumo quando coverage-final.json existe',

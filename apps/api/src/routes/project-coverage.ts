@@ -73,7 +73,10 @@ export const projectCoverageRoutes: FastifyPluginAsync<Options> = async (
         request.params.projectId,
       );
       return {
-        coverage: await options.projectCoverageService.getSummary(project.path),
+        coverage: await options.projectCoverageService.getSummary(
+          project.path,
+          project.type,
+        ),
       };
     },
   );

@@ -164,3 +164,147 @@ test('retorna available:false para JSON corrompido', async () => {
     await rm(projectPath, { recursive: true, force: true });
   }
 });
+
+test('SimpleCov: available:false quando não há .resultset.json', async () => {
+  const projectPath = await makeProject();
+  try {
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath, 'rails');
+    assert.deepEqual(summary, { available: false });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('SimpleCov: resume lines/branches e reusa lines como statements, functions sempre 0/0', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const filePath = path.join(projectPath, 'app', 'models', 'user.rb');
+    const resultset = {
+      RSpec: {
+        coverage: {
+          [filePath]: {
+            lines: [1, 0, null, 2],
+            branches: {
+              'if#1': { then: 1, else: 0 },
+            },
+          },
+        },
+      },
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', '.resultset.json'),
+      JSON.stringify(resultset),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath, 'rails');
+
+    assert.equal(summary.available, true);
+    assert.ok(summary.generatedAt);
+    assert.deepEqual(summary.total, {
+      statements: { total: 3, covered: 2, pct: 66.67 },
+      branches: { total: 2, covered: 1, pct: 50 },
+      functions: { total: 0, covered: 0, pct: 100 },
+      lines: { total: 3, covered: 2, pct: 66.67 },
+    });
+    assert.equal(summary.files?.length, 1);
+    assert.equal(summary.files?.[0]!.path, 'app/models/user.rb');
+    assert.deepEqual(summary.files?.[0]!.statements, summary.files?.[0]!.lines);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('SimpleCov: array de linhas direto (formato antigo) também é suportado', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const filePath = path.join(projectPath, 'app', 'models', 'legacy.rb');
+    const resultset = {
+      RSpec: {
+        coverage: {
+          [filePath]: [1, 1, null, 0],
+        },
+      },
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', '.resultset.json'),
+      JSON.stringify(resultset),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath, 'rails');
+
+    assert.deepEqual(summary.total?.lines, {
+      total: 3,
+      covered: 2,
+      pct: 66.67,
+    });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('SimpleCov: une múltiplas suítes pelo maior hit count por linha', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const filePath = path.join(projectPath, 'app', 'models', 'user.rb');
+    const resultset = {
+      RSpec: {
+        coverage: {
+          [filePath]: { lines: [0, 1, null] },
+        },
+      },
+      Cucumber: {
+        coverage: {
+          [filePath]: { lines: [1, 0, null] },
+        },
+      },
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', '.resultset.json'),
+      JSON.stringify(resultset),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath, 'rails');
+
+    assert.deepEqual(summary.total?.lines, { total: 2, covered: 2, pct: 100 });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('SimpleCov: ignora entradas fora do projeto e suítes malformadas', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const insidePath = path.join(projectPath, 'app', 'models', 'ok.rb');
+    const outsidePath = path.join(os.tmpdir(), 'outside.rb');
+    const resultset = {
+      RSpec: {
+        coverage: {
+          [insidePath]: { lines: [1] },
+          [outsidePath]: { lines: [1] },
+        },
+      },
+      Malformed: 'not an object',
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', '.resultset.json'),
+      JSON.stringify(resultset),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath, 'rails');
+
+    assert.equal(summary.available, true);
+    assert.equal(summary.files?.length, 1);
+    assert.equal(summary.files?.[0]!.path, 'app/models/ok.rb');
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});

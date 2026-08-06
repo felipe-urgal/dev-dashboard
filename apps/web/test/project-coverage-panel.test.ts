@@ -70,6 +70,20 @@ test('mostra mensagem de erro quando a API falha', async () => {
   assert.match(wrapper.text(), /Não foi possível carregar a cobertura/);
 });
 
+test('mostra o caminho do SimpleCov quando o projeto é rails', async () => {
+  api.fetchProjectCoverage.mockResolvedValue({
+    available: false,
+  } satisfies ProjectCoverageSummary);
+
+  const wrapper = mount(ProjectCoveragePanel, {
+    props: { projectId: 'p1', projectType: 'rails' },
+  });
+  await flushPromises();
+
+  assert.match(wrapper.text(), /coverage\/\.resultset\.json/);
+  assert.match(wrapper.text(), /SimpleCov/);
+});
+
 test('recarrega ao trocar de projeto', async () => {
   api.fetchProjectCoverage.mockResolvedValue({
     available: false,
