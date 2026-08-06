@@ -7,7 +7,10 @@ import { setPagination } from './pagination';
 import { stateFor } from './state';
 import type { CommitSummary } from './types';
 
-function resultRow(section: HTMLElement, commit: CommitSummary): HTMLButtonElement {
+function resultRow(
+  section: HTMLElement,
+  commit: CommitSummary,
+): HTMLButtonElement {
   const state = stateFor(section);
   const button = document.createElement('button');
   button.type = 'button';
@@ -45,14 +48,16 @@ function resultRow(section: HTMLElement, commit: CommitSummary): HTMLButtonEleme
 export function renderResults(section: HTMLElement): void {
   const state = stateFor(section);
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
   if (!list) return;
   list.replaceChildren();
   state.commits.forEach((commit) => list.append(resultRow(section, commit)));
 
   if (count) {
     if (state.total > 0) {
-      const start = ((state.page - 1) * state.pageSize) + 1;
+      const start = (state.page - 1) * state.pageSize + 1;
       const end = start + state.commits.length - 1;
       count.textContent = `${start}–${end} de ${state.total} resultado${state.total === 1 ? '' : 's'} em todo o histórico · ${state.branch}`;
     } else {
@@ -71,7 +76,9 @@ export function renderResults(section: HTMLElement): void {
 
 export function setSearchLoading(section: HTMLElement): void {
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
   if (!list) return;
   list.replaceChildren();
   const loading = document.createElement('p');
@@ -86,7 +93,9 @@ export function closeSearchDetail(section: HTMLElement): void {
   state.detailRequest?.abort();
   state.detailRequest = undefined;
   state.selectedHash = '';
-  section.querySelector('.git-summary-history-shell')?.classList.remove('is-inspecting');
+  section
+    .querySelector('.git-summary-history-shell')
+    ?.classList.remove('is-inspecting');
   section.querySelector('.git-summary-commit-detail')?.replaceChildren();
   renderResults(section);
 }

@@ -18,8 +18,12 @@ import {
 } from '../src/services/project-file-mutation-service.js';
 
 async function fixture(context: test.TestContext) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-file-mutations-'));
-  const outside = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-file-mutations-outside-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-file-mutations-'),
+  );
+  const outside = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-file-mutations-outside-'),
+  );
   context.after(async () => {
     await Promise.all([
       rm(root, { recursive: true, force: true }),
@@ -28,7 +32,10 @@ async function fixture(context: test.TestContext) {
   });
 
   await mkdir(path.join(root, 'src', 'nested'), { recursive: true });
-  await writeFile(path.join(root, 'src', 'main.ts'), 'export const value = 1;\n');
+  await writeFile(
+    path.join(root, 'src', 'main.ts'),
+    'export const value = 1;\n',
+  );
   await writeFile(path.join(root, 'src', 'nested', 'item.txt'), 'item\n');
   await symlink(outside, path.join(root, 'outside-link'));
   return { root };
@@ -101,16 +108,16 @@ test('renomeia após preview e recusa token reutilizado ou mudança externa', as
     confirmationToken: preview.confirmationToken,
   });
   assert.equal(renamed.destinationPath, 'src/app.ts');
-  assert.equal(await readFile(path.join(root, 'src', 'app.ts'), 'utf8'), 'export const value = 1;\n');
+  assert.equal(
+    await readFile(path.join(root, 'src', 'app.ts'), 'utf8'),
+    'export const value = 1;\n',
+  );
 
   await assert.rejects(
     service.applyMutation(root, {
       confirmationToken: preview.confirmationToken,
     }),
-    (error) => assertMutationError(
-      error,
-      'FILE_MUTATION_CONFIRMATION_INVALID',
-    ),
+    (error) => assertMutationError(error, 'FILE_MUTATION_CONFIRMATION_INVALID'),
   );
 
   const changedPreview = await service.previewMutation(root, {
@@ -118,7 +125,10 @@ test('renomeia após preview e recusa token reutilizado ou mudança externa', as
     path: 'src/app.ts',
     destinationPath: 'src/index.ts',
   });
-  await writeFile(path.join(root, 'src', 'app.ts'), 'export const changed = true;\n');
+  await writeFile(
+    path.join(root, 'src', 'app.ts'),
+    'export const changed = true;\n',
+  );
   await assert.rejects(
     service.applyMutation(root, {
       confirmationToken: changedPreview.confirmationToken,
@@ -144,10 +154,7 @@ test('exclusão recursiva exige o caminho exato e remove todo o impacto', async 
       confirmationToken: preview.confirmationToken,
       confirmationPhrase: 'nested',
     }),
-    (error) => assertMutationError(
-      error,
-      'FILE_MUTATION_CONFIRMATION_INVALID',
-    ),
+    (error) => assertMutationError(error, 'FILE_MUTATION_CONFIRMATION_INVALID'),
   );
 
   const secondPreview = await service.previewMutation(root, {
@@ -166,7 +173,10 @@ test('bloqueia mutação de diretório que contém arquivo protegido', async (co
   const { root } = await fixture(context);
   const service = new ProjectFileMutationService();
   await mkdir(path.join(root, 'private'));
-  await writeFile(path.join(root, 'private', '.env.production'), 'TOKEN=secret\n');
+  await writeFile(
+    path.join(root, 'private', '.env.production'),
+    'TOKEN=secret\n',
+  );
 
   await assert.rejects(
     service.previewMutation(root, {

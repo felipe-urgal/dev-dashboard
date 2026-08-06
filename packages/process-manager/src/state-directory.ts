@@ -3,8 +3,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 
 export function resolveStateDirectory(): string {
-  const configuredDirectory =
-    process.env.DEV_DASHBOARD_STATE_DIR?.trim();
+  const configuredDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim();
 
   if (configuredDirectory) {
     return path.resolve(configuredDirectory);

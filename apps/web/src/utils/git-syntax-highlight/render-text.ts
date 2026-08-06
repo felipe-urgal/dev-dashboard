@@ -29,7 +29,11 @@ export function renderText(value: string, query: string): string {
   return result + escapeHtml(value.slice(cursor));
 }
 
-export function renderToken(kind: SyntaxTokenKind | null, value: string, query: string): string {
+export function renderToken(
+  kind: SyntaxTokenKind | null,
+  value: string,
+  query: string,
+): string {
   const content = renderText(value, query);
   return kind ? `<span class="git-syntax-${kind}">${content}</span>` : content;
 }

@@ -9,7 +9,11 @@ import { mountIcon, requestJson } from './dom-helpers';
 import { formatDate, statusLabel } from './format';
 import { renderHistoryList } from './list';
 import { stateBySection } from './state';
-import type { CommitDetail, CommitDetailResponse, GitCommitSummary } from './types';
+import type {
+  CommitDetail,
+  CommitDetailResponse,
+  GitCommitSummary,
+} from './types';
 
 function patchView(patch: string): HTMLElement {
   const pre = document.createElement('pre');
@@ -26,17 +30,18 @@ function patchView(patch: string): HTMLElement {
 
   patch.split('\n').forEach((line) => {
     const row = document.createElement('span');
-    row.className = line.startsWith('+++') || line.startsWith('---')
-      ? 'is-file'
-      : line.startsWith('+')
-        ? 'is-addition'
-        : line.startsWith('-')
-          ? 'is-deletion'
-          : line.startsWith('@@')
-            ? 'is-hunk'
-            : line.startsWith('diff ') || line.startsWith('index ')
-              ? 'is-meta'
-              : '';
+    row.className =
+      line.startsWith('+++') || line.startsWith('---')
+        ? 'is-file'
+        : line.startsWith('+')
+          ? 'is-addition'
+          : line.startsWith('-')
+            ? 'is-deletion'
+            : line.startsWith('@@')
+              ? 'is-hunk'
+              : line.startsWith('diff ') || line.startsWith('index ')
+                ? 'is-meta'
+                : '';
     row.textContent = `${line}\n`;
     pre.append(row);
   });
@@ -44,8 +49,13 @@ function patchView(patch: string): HTMLElement {
   return pre;
 }
 
-function setDetailLoading(section: HTMLElement, commit: GitCommitSummary): void {
-  const panel = section.querySelector<HTMLElement>('.git-summary-commit-detail');
+function setDetailLoading(
+  section: HTMLElement,
+  commit: GitCommitSummary,
+): void {
+  const panel = section.querySelector<HTMLElement>(
+    '.git-summary-commit-detail',
+  );
   if (!panel) return;
   panel.replaceChildren();
 
@@ -63,7 +73,9 @@ function setDetailLoading(section: HTMLElement, commit: GitCommitSummary): void 
 }
 
 function renderCommitDetail(section: HTMLElement, detail: CommitDetail): void {
-  const panel = section.querySelector<HTMLElement>('.git-summary-commit-detail');
+  const panel = section.querySelector<HTMLElement>(
+    '.git-summary-commit-detail',
+  );
   if (!panel) return;
   panel.replaceChildren();
 
@@ -105,9 +117,10 @@ function renderCommitDetail(section: HTMLElement, detail: CommitDetail): void {
 
   const body = document.createElement('p');
   body.className = 'git-summary-detail-body';
-  body.textContent = detail.body && detail.body !== detail.subject
-    ? detail.body
-    : 'O commit não possui uma descrição adicional.';
+  body.textContent =
+    detail.body && detail.body !== detail.subject
+      ? detail.body
+      : 'O commit não possui uma descrição adicional.';
 
   const filesSection = document.createElement('section');
   filesSection.className = 'git-summary-detail-files';
@@ -126,7 +139,9 @@ function renderCommitDetail(section: HTMLElement, detail: CommitDetail): void {
       ? `${file.previousPath} → ${file.path}`
       : file.path;
     const stats = document.createElement('small');
-    stats.textContent = file.binary ? 'binário' : `+${file.additions} / −${file.deletions}`;
+    stats.textContent = file.binary
+      ? 'binário'
+      : `+${file.additions} / −${file.deletions}`;
     item.append(status, path, stats);
     fileList.append(item);
   });
@@ -154,7 +169,8 @@ function renderCommitDetail(section: HTMLElement, detail: CommitDetail): void {
   }
   if (detail.truncated) {
     const warning = document.createElement('p');
-    warning.textContent = 'O diff foi truncado para manter a página responsiva.';
+    warning.textContent =
+      'O diff foi truncado para manter a página responsiva.';
     warnings.append(warning);
   }
   patchSection.append(summary, warnings, patchView(detail.patch));
@@ -163,7 +179,9 @@ function renderCommitDetail(section: HTMLElement, detail: CommitDetail): void {
 }
 
 function renderDetailError(section: HTMLElement, message: string): void {
-  const panel = section.querySelector<HTMLElement>('.git-summary-commit-detail');
+  const panel = section.querySelector<HTMLElement>(
+    '.git-summary-commit-detail',
+  );
   if (!panel) return;
   panel.replaceChildren();
 
@@ -182,17 +200,24 @@ function renderDetailError(section: HTMLElement, message: string): void {
   panel.append(error);
 }
 
-export async function selectCommit(section: HTMLElement, commitHash: string): Promise<void> {
+export async function selectCommit(
+  section: HTMLElement,
+  commitHash: string,
+): Promise<void> {
   const state = stateBySection.get(section);
   if (!state) return;
-  const commit = state.commits.find((candidate) => candidate.hash === commitHash);
+  const commit = state.commits.find(
+    (candidate) => candidate.hash === commitHash,
+  );
   if (!commit) return;
 
   state.request?.abort();
   const controller = new AbortController();
   state.request = controller;
   state.selectedHash = commitHash;
-  section.querySelector('.git-summary-history-shell')?.classList.add('is-inspecting');
+  section
+    .querySelector('.git-summary-history-shell')
+    ?.classList.add('is-inspecting');
   renderHistoryList(section);
   setDetailLoading(section, commit);
 
@@ -220,7 +245,9 @@ export function closeCommitDetail(section: HTMLElement): void {
   state.request?.abort();
   state.request = undefined;
   state.selectedHash = '';
-  section.querySelector('.git-summary-history-shell')?.classList.remove('is-inspecting');
+  section
+    .querySelector('.git-summary-history-shell')
+    ?.classList.remove('is-inspecting');
   section.querySelector('.git-summary-commit-detail')?.replaceChildren();
   renderHistoryList(section);
 }

@@ -1,4 +1,9 @@
-import type { Activity, ActivityList, Project, Workspace } from '@dev-dashboard/contracts';
+import type {
+  Activity,
+  ActivityList,
+  Project,
+  Workspace,
+} from '@dev-dashboard/contracts';
 
 export function makeWorkspace(overrides: Partial<Workspace> = {}): Workspace {
   return {
@@ -25,7 +30,9 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
   };
 }
 
-export function makeScriptActivity(overrides: Partial<Activity> = {}): Activity {
+export function makeScriptActivity(
+  overrides: Partial<Activity> = {},
+): Activity {
   return {
     id: 'script:exec-1',
     projectId: 'p1',
@@ -40,7 +47,9 @@ export function makeScriptActivity(overrides: Partial<Activity> = {}): Activity 
   } as Activity;
 }
 
-export function makeServerActivity(overrides: Partial<Activity> = {}): Activity {
+export function makeServerActivity(
+  overrides: Partial<Activity> = {},
+): Activity {
   return {
     id: 'server:proc-1',
     projectId: 'p1',
@@ -54,7 +63,10 @@ export function makeServerActivity(overrides: Partial<Activity> = {}): Activity 
   } as Activity;
 }
 
-export function makeActivityList(items: Activity[], overrides: Partial<ActivityList> = {}): ActivityList {
+export function makeActivityList(
+  items: Activity[],
+  overrides: Partial<ActivityList> = {},
+): ActivityList {
   const summary = {
     running: items.filter((item) => item.status === 'running').length,
     succeeded: items.filter((item) => item.status === 'succeeded').length,

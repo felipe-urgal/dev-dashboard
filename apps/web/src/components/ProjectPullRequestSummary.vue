@@ -6,11 +6,7 @@ import {
   ClockIcon,
   ExclamationCircleIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import type {
   GitOpenPullRequest,
@@ -64,21 +60,26 @@ function baseBranchFor(
   targetRemote: GitPullRequestTargetRemote,
   currentBranch: string,
 ): string {
-  const branches = Array.from(new Set(
-    workspace.branches
-      .filter((branch) =>
-        branch.kind === 'remote'
-        && branch.remote === targetRemote
-        && branch.shortName !== currentBranch,
-      )
-      .map((branch) => branch.shortName),
-  ));
+  const branches = Array.from(
+    new Set(
+      workspace.branches
+        .filter(
+          (branch) =>
+            branch.kind === 'remote' &&
+            branch.remote === targetRemote &&
+            branch.shortName !== currentBranch,
+        )
+        .map((branch) => branch.shortName),
+    ),
+  );
 
-  return branches.find((branch) => branch === 'main')
-    ?? branches.find((branch) => branch === 'master')
-    ?? branches.find((branch) => branch === 'develop')
-    ?? branches.sort((left, right) => left.localeCompare(right))[0]
-    ?? 'main';
+  return (
+    branches.find((branch) => branch === 'main') ??
+    branches.find((branch) => branch === 'master') ??
+    branches.find((branch) => branch === 'develop') ??
+    branches.sort((left, right) => left.localeCompare(right))[0] ??
+    'main'
+  );
 }
 
 function ciLabel(status: GitPullRequestCiStatus): string {
@@ -93,10 +94,10 @@ async function loadSummary(): Promise<void> {
   pullRequest.value = null;
 
   if (
-    !props.overview.repository
-    || props.overview.detached
-    || !props.overview.branch
-    || !props.overview.upstream
+    !props.overview.repository ||
+    props.overview.detached ||
+    !props.overview.branch ||
+    !props.overview.upstream
   ) {
     return;
   }
@@ -108,17 +109,10 @@ async function loadSummary(): Promise<void> {
     const targetRemote = targetRemoteFor(workspace);
     if (!targetRemote) return;
 
-    const lookup = await getProjectGitPullRequestSummary(
-      props.projectId,
-      {
-        targetRemote,
-        baseBranch: baseBranchFor(
-          workspace,
-          targetRemote,
-          props.overview.branch,
-        ),
-      },
-    );
+    const lookup = await getProjectGitPullRequestSummary(props.projectId, {
+      targetRemote,
+      baseBranch: baseBranchFor(workspace, targetRemote, props.overview.branch),
+    });
     if (requestGeneration !== generation) return;
     pullRequest.value = lookup.existing ?? null;
   } catch {
@@ -127,11 +121,8 @@ async function loadSummary(): Promise<void> {
 }
 
 watch(
-  () => [
-    props.projectId,
-    props.overview.branch,
-    props.overview.upstream,
-  ] as const,
+  () =>
+    [props.projectId, props.overview.branch, props.overview.upstream] as const,
   () => {
     void loadSummary();
   },

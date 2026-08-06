@@ -15,7 +15,8 @@ interface FailureBlock {
 }
 
 const TEST_FILE_EXTENSION = /\.(?:[cm]?[jt]sx?|rb|py)$/i;
-const LOCATION_PATTERN = /(?:file:\/\/)?((?:[A-Za-z]:)?[^\s()[\]{}'\"]+?\.(?:[cm]?[jt]sx?|rb|py)):(\d+)(?::(\d+))?/i;
+const LOCATION_PATTERN =
+  /(?:file:\/\/)?((?:[A-Za-z]:)?[^\s()[\]{}'\"]+?\.(?:[cm]?[jt]sx?|rb|py)):(\d+)(?::(\d+))?/i;
 const DEFAULT_LIMIT = 50;
 const STACK_LIMIT = 8;
 
@@ -26,26 +27,34 @@ export function parseTestFailures(
 ): TestFailure[] {
   const lines = stripAnsi(rawLog).replace(/\r/g, '').split('\n');
   const blocks = collectBlocks(lines, runner);
-  const limit = Math.max(1, Math.min(options.limit ?? DEFAULT_LIMIT, DEFAULT_LIMIT));
+  const limit = Math.max(
+    1,
+    Math.min(options.limit ?? DEFAULT_LIMIT, DEFAULT_LIMIT),
+  );
   const failures = blocks
     .map((block, index) => toFailure(block, runner, options.projectPath, index))
     .filter((failure): failure is TestFailure => failure !== null);
 
   const seen = new Set<string>();
-  return failures.filter((failure) => {
-    const key = [
-      failure.name,
-      failure.location?.path ?? '',
-      failure.location?.line ?? '',
-      failure.message,
-    ].join('|');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, limit);
+  return failures
+    .filter((failure) => {
+      const key = [
+        failure.name,
+        failure.location?.path ?? '',
+        failure.location?.line ?? '',
+        failure.message,
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
 }
 
-function collectBlocks(lines: string[], runner: ProjectTestRunner): FailureBlock[] {
+function collectBlocks(
+  lines: string[],
+  runner: ProjectTestRunner,
+): FailureBlock[] {
   if (runner === 'rspec') return collectRspecBlocks(lines);
   if (runner === 'rails-test' || runner === 'minitest') {
     return collectMinitestBlocks(lines);
@@ -92,10 +101,10 @@ function collectMinitestBlocks(lines: string[]): FailureBlock[] {
     const structuredNameLine = blockLines.find((line) =>
       structuredName.test(line.trim()),
     );
-    const name = (structuredNameLine ?? blockLines[0] ?? '')
-      .trim()
-      .replace(/\s*\[[^\]]+\]:?\s*$/, '')
-      || 'Teste Minitest falhou';
+    const name =
+      (structuredNameLine ?? blockLines[0] ?? '')
+        .trim()
+        .replace(/\s*\[[^\]]+\]:?\s*$/, '') || 'Teste Minitest falhou';
     const location = extractLocation(blockLines, undefined);
     if (location && !blockLines.some((line) => line.includes(location.path))) {
       blockLines.unshift(`${location.path}:${location.line ?? 1}`);
@@ -141,7 +150,10 @@ function collectByHeading(
 
   return starts.map((start, position) => ({
     name: start.name,
-    lines: lines.slice(start.index + 1, starts[position + 1]?.index ?? lines.length),
+    lines: lines.slice(
+      start.index + 1,
+      starts[position + 1]?.index ?? lines.length,
+    ),
   }));
 }
 
@@ -152,13 +164,20 @@ function toFailure(
   index: number,
 ): TestFailure | null {
   const trimmedLines = block.lines.map((line) => line.trimEnd());
-  const location = extractLocation(trimmedLines, projectPath)
-    ?? extractPathOnly(trimmedLines, projectPath);
+  const location =
+    extractLocation(trimmedLines, projectPath) ??
+    extractPathOnly(trimmedLines, projectPath);
   const message = extractMessage(trimmedLines, runner);
   if (!message && !location) return null;
 
-  const expected = extractValue(trimmedLines, /^(?:Expected|expected):?\s*(.+)$/i);
-  const actual = extractValue(trimmedLines, /^(?:Received|Actual|actual):?\s*(.+)$/i);
+  const expected = extractValue(
+    trimmedLines,
+    /^(?:Expected|expected):?\s*(.+)$/i,
+  );
+  const actual = extractValue(
+    trimmedLines,
+    /^(?:Received|Actual|actual):?\s*(.+)$/i,
+  );
   const stack = trimmedLines
     .filter((line) => isStackLine(line))
     .map((line) => line.trim())
@@ -179,9 +198,19 @@ function toFailure(
 
 function extractMessage(lines: string[], runner: ProjectTestRunner): string {
   const ignored = [
-    /^\s*$/, /^at\s+/i, /^#\s+\.\//, /^location:/i, /^duration_ms:/i,
-    /^failureType:/i, /^code:/i, /^Expected:/i, /^Received:/i,
-    /^Actual:/i, /^Diff:/i, /^Failure\/Error:/i, /^E\s+[^:]+:\d+/,
+    /^\s*$/,
+    /^at\s+/i,
+    /^#\s+\.\//,
+    /^location:/i,
+    /^duration_ms:/i,
+    /^failureType:/i,
+    /^code:/i,
+    /^Expected:/i,
+    /^Received:/i,
+    /^Actual:/i,
+    /^Diff:/i,
+    /^Failure\/Error:/i,
+    /^E\s+[^:]+:\d+/,
   ];
 
   if (runner === 'pytest') {
@@ -190,22 +219,34 @@ function extractMessage(lines: string[], runner: ProjectTestRunner): string {
   }
 
   const explicit = lines.find((line) =>
-    /^(?:AssertionError|Error|TypeError|ReferenceError|RuntimeError|NoMethodError|Failure|error):/i.test(line.trim()));
+    /^(?:AssertionError|Error|TypeError|ReferenceError|RuntimeError|NoMethodError|Failure|error):/i.test(
+      line.trim(),
+    ),
+  );
   if (explicit) return explicit.trim();
 
-  const failureErrorIndex = lines.findIndex((line) => /^\s*Failure\/Error:/i.test(line));
+  const failureErrorIndex = lines.findIndex((line) =>
+    /^\s*Failure\/Error:/i.test(line),
+  );
   if (failureErrorIndex >= 0) {
-    const following = lines.slice(failureErrorIndex + 1)
+    const following = lines
+      .slice(failureErrorIndex + 1)
       .find((line) => line.trim() && !isStackLine(line));
     if (following) return following.trim();
   }
 
-  return lines.find((line) => {
-    const value = line.trim();
-    return value.length > 0
-      && !ignored.some((pattern) => pattern.test(value))
-      && !extractLocation([value], undefined);
-  })?.trim() ?? '';
+  return (
+    lines
+      .find((line) => {
+        const value = line.trim();
+        return (
+          value.length > 0 &&
+          !ignored.some((pattern) => pattern.test(value)) &&
+          !extractLocation([value], undefined)
+        );
+      })
+      ?.trim() ?? ''
+  );
 }
 
 function extractValue(lines: string[], pattern: RegExp): string | undefined {
@@ -229,7 +270,9 @@ function extractLocation(
     const column = match[3] ? Number.parseInt(match[3], 10) : undefined;
     return {
       path: relativePath,
-      ...(Number.isInteger(lineNumber) && lineNumber > 0 ? { line: lineNumber } : {}),
+      ...(Number.isInteger(lineNumber) && lineNumber > 0
+        ? { line: lineNumber }
+        : {}),
       ...(column && column > 0 ? { column } : {}),
     };
   }
@@ -241,7 +284,10 @@ function extractPathOnly(
   projectPath: string | undefined,
 ): TestFailureLocation | undefined {
   for (const line of lines) {
-    const match = /((?:[A-Za-z]:)?[^\s()[\]{}'\"]+?\.(?:[cm]?[jt]sx?|rb|py))(?:::\S+)?/i.exec(line);
+    const match =
+      /((?:[A-Za-z]:)?[^\s()[\]{}'\"]+?\.(?:[cm]?[jt]sx?|rb|py))(?:::\S+)?/i.exec(
+        line,
+      );
     if (!match) continue;
     const relativePath = normalizeProjectPath(match[1]!, projectPath);
     if (relativePath) return { path: relativePath };
@@ -259,28 +305,34 @@ function normalizeProjectPath(
     value = value.slice(normalizedProject.length + 1);
   }
   value = value.replace(/^\.\//, '');
-  if (!value || value.startsWith('/') || /^[A-Za-z]:\//.test(value)) return undefined;
+  if (!value || value.startsWith('/') || /^[A-Za-z]:\//.test(value))
+    return undefined;
   const segments = value.split('/');
-  if (segments.some((segment) => segment === '..' || segment === '')) return undefined;
+  if (segments.some((segment) => segment === '..' || segment === ''))
+    return undefined;
   if (!TEST_FILE_EXTENSION.test(value)) return undefined;
   return value;
 }
 
 function isStackLine(line: string): boolean {
   const value = line.trim();
-  return /^at\s+/i.test(value)
-    || /^#\s+\.\//.test(value)
-    || /^from\s+/.test(value)
-    || Boolean(LOCATION_PATTERN.exec(value));
+  return (
+    /^at\s+/i.test(value) ||
+    /^#\s+\.\//.test(value) ||
+    /^from\s+/.test(value) ||
+    Boolean(LOCATION_PATTERN.exec(value))
+  );
 }
 
 function cleanName(value: string): string {
-  return value
-    .replace(/^FAIL\s+/, '')
-    .replace(/^FAILED\s+/, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 240) || 'Teste com falha';
+  return (
+    value
+      .replace(/^FAIL\s+/, '')
+      .replace(/^FAILED\s+/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 240) || 'Teste com falha'
+  );
 }
 
 function stripAnsi(value: string): string {

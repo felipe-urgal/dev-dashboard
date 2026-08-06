@@ -1,7 +1,10 @@
 import { enhanceTestLogInspector } from './test-log-inspector/enhance';
 
 export { parseTestLog } from './test-log-inspector/log-parsing';
-export type { ParsedTestFailure, ParsedTestReport } from './test-log-inspector/types';
+export type {
+  ParsedTestFailure,
+  ParsedTestReport,
+} from './test-log-inspector/types';
 export { enhanceTestLogInspector } from './test-log-inspector/enhance';
 
 export function installTestLogInspector(): void {

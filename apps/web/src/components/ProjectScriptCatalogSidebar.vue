@@ -58,9 +58,18 @@ function categoryIcon(categoryId: ScriptCategory) {
     <section class="scripts-risk-summary">
       <header><h4>Risco nesta página</h4></header>
       <dl>
-        <div><dt><span class="is-safe"></span>Somente leitura</dt><dd>{{ riskCounts['read-only'] }}</dd></div>
-        <div><dt><span class="is-warning"></span>Mutáveis</dt><dd>{{ riskCounts.mutable }}</dd></div>
-        <div><dt><span class="is-danger"></span>Destrutivos</dt><dd>{{ riskCounts.destructive }}</dd></div>
+        <div>
+          <dt><span class="is-safe"></span>Somente leitura</dt>
+          <dd>{{ riskCounts['read-only'] }}</dd>
+        </div>
+        <div>
+          <dt><span class="is-warning"></span>Mutáveis</dt>
+          <dd>{{ riskCounts.mutable }}</dd>
+        </div>
+        <div>
+          <dt><span class="is-danger"></span>Destrutivos</dt>
+          <dd>{{ riskCounts.destructive }}</dd>
+        </div>
       </dl>
     </section>
   </aside>

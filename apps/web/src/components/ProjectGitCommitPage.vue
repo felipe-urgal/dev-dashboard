@@ -29,23 +29,20 @@ const trackedChanges = computed(() =>
   props.overview.files.filter((file) => file.status !== 'untracked'),
 );
 
-const canSubmit = computed(() =>
-  props.message.trim().length > 0
-  && !props.busy
-  && (
-    props.mode === 'amend'
+const canSubmit = computed(
+  () =>
+    props.message.trim().length > 0 &&
+    !props.busy &&
+    (props.mode === 'amend'
       ? Boolean(props.overview.latestCommit)
-      : trackedChanges.value.length > 0
-  ),
+      : trackedChanges.value.length > 0),
 );
 
 function selectMode(mode: CommitMode): void {
   emit('update:mode', mode);
   emit(
     'update:message',
-    mode === 'amend'
-      ? props.overview.latestCommit?.subject ?? ''
-      : '',
+    mode === 'amend' ? (props.overview.latestCommit?.subject ?? '') : '',
   );
 }
 
@@ -96,26 +93,28 @@ function updateMessage(event: Event): void {
       <div>
         <strong>O último commit foi reescrito</strong>
         <p>
-          Para atualizar <code>origin/{{ forcePushBranch }}</code>, use o
-          reenvio seguro. A operação será recusada se a branch remota tiver
-          mudado depois da confirmação.
+          Para atualizar <code>origin/{{ forcePushBranch }}</code
+          >, use o reenvio seguro. A operação será recusada se a branch remota
+          tiver mudado depois da confirmação.
         </p>
       </div>
-      <button
-        type="button"
-        :disabled="busy"
-        @click="emit('force-push')"
-      >
+      <button type="button" :disabled="busy" @click="emit('force-push')">
         Reenviar com lease
       </button>
     </section>
 
     <div class="git-commit-context">
-      <span>Branch <strong>{{ overview.branch ?? 'HEAD' }}</strong></span>
+      <span
+        >Branch <strong>{{ overview.branch ?? 'HEAD' }}</strong></span
+      >
       <span aria-hidden="true" />
       <span v-if="mode === 'create'">
         {{ trackedChanges.length }}
-        {{ trackedChanges.length === 1 ? 'alteração rastreada' : 'alterações rastreadas' }}
+        {{
+          trackedChanges.length === 1
+            ? 'alteração rastreada'
+            : 'alterações rastreadas'
+        }}
       </span>
       <span v-else-if="overview.latestCommit">
         Último commit <strong>{{ overview.latestCommit.shortHash }}</strong>
@@ -127,9 +126,11 @@ function updateMessage(event: Event): void {
       <textarea
         :value="message"
         maxlength="500"
-        :placeholder="mode === 'create'
-          ? 'Descreva as alterações'
-          : 'Atualize a mensagem do último commit'"
+        :placeholder="
+          mode === 'create'
+            ? 'Descreva as alterações'
+            : 'Atualize a mensagem do último commit'
+        "
         :disabled="busy"
         @input="updateMessage"
       />
@@ -143,11 +144,7 @@ function updateMessage(event: Event): void {
         Adiciona todas as alterações atuais e substitui o último commit.
       </p>
 
-      <button
-        type="submit"
-        class="git-commit-submit"
-        :disabled="!canSubmit"
-      >
+      <button type="submit" class="git-commit-submit" :disabled="!canSubmit">
         {{
           busy
             ? 'Processando…'

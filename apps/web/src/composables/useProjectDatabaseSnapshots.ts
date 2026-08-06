@@ -1,9 +1,6 @@
 import { computed, ref, watch, type Ref } from 'vue';
 
-import type {
-  DatabaseSnapshotList,
-  Project,
-} from '@dev-dashboard/contracts';
+import type { DatabaseSnapshotList, Project } from '@dev-dashboard/contracts';
 
 import {
   createProjectDatabaseSnapshot,
@@ -29,7 +26,8 @@ export function useProjectDatabaseSnapshots(
 
   const snapshotEnvironmentId = computed(() => {
     const supported = snapshots.value?.supportedEnvironmentIds ?? [];
-    if (supported.includes(selectedEnvironmentId.value)) return selectedEnvironmentId.value;
+    if (supported.includes(selectedEnvironmentId.value))
+      return selectedEnvironmentId.value;
     return supported[0] ?? '';
   });
 
@@ -44,9 +42,10 @@ export function useProjectDatabaseSnapshots(
       if (current === generation) snapshots.value = result;
     } catch (error) {
       if (current === generation) {
-        snapshotsErrorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível listar os snapshots.';
+        snapshotsErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível listar os snapshots.';
       }
     } finally {
       if (current === generation) snapshotsLoading.value = false;
@@ -60,15 +59,19 @@ export function useProjectDatabaseSnapshots(
     snapshotsErrorMessage.value = '';
     snapshotsMessage.value = '';
     try {
-      const snapshot = await createProjectDatabaseSnapshot(getProject().id, snapshotEnvironmentId.value);
+      const snapshot = await createProjectDatabaseSnapshot(
+        getProject().id,
+        snapshotEnvironmentId.value,
+      );
       if (current !== generation) return;
       snapshotsMessage.value = `Snapshot de "${snapshot.database}" criado.`;
       await loadSnapshots();
     } catch (error) {
       if (current === generation) {
-        snapshotsErrorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível gerar o snapshot.';
+        snapshotsErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível gerar o snapshot.';
       }
     } finally {
       if (current === generation) creatingSnapshot.value = false;
@@ -93,16 +96,24 @@ export function useProjectDatabaseSnapshots(
     snapshotsErrorMessage.value = '';
     snapshotsMessage.value = '';
     try {
-      const confirmation = await prepareProjectDatabaseRestore(getProject().id, snapshotId);
-      await restoreProjectDatabaseSnapshot(getProject().id, snapshotId, confirmation.token);
+      const confirmation = await prepareProjectDatabaseRestore(
+        getProject().id,
+        snapshotId,
+      );
+      await restoreProjectDatabaseSnapshot(
+        getProject().id,
+        snapshotId,
+        confirmation.token,
+      );
       if (current !== generation) return;
       pendingRestoreId.value = '';
       snapshotsMessage.value = 'Banco restaurado a partir do snapshot.';
     } catch (error) {
       if (current === generation) {
-        snapshotsErrorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível restaurar o snapshot.';
+        snapshotsErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível restaurar o snapshot.';
       }
     } finally {
       if (current === generation) restoringSnapshotId.value = '';

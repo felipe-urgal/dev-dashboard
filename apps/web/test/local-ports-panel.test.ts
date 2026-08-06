@@ -1,12 +1,7 @@
-
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'vitest';
 
-import {
-  flushPromises,
-  mount,
-  RouterLinkStub,
-} from '@vue/test-utils';
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 
 import type { LocalPortInspection } from '@dev-dashboard/contracts';
 
@@ -19,22 +14,17 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-async function mountPanel(
-  inspection: LocalPortInspection,
-) {
+async function mountPanel(inspection: LocalPortInspection) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname === '/api/ports') {
-      return new Response(
-        JSON.stringify({ inspection }),
-        {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-          },
+      return new Response(JSON.stringify({ inspection }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
         },
-      );
+      });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -105,20 +95,14 @@ test('mostra processo gerenciado, processo externo, conflito e sugestão', async
     ],
   });
 
-  assert.equal(
-    wrapper.findAll('.local-ports-table tbody tr').length,
-    2,
-  );
+  assert.equal(wrapper.findAll('.local-ports-table tbody tr').length, 2);
   assert.match(wrapper.text(), /Aplicação/);
   assert.match(wrapper.text(), /postgres/);
   assert.match(wrapper.text(), /PID 5000/);
   assert.match(wrapper.text(), /Conflito/);
   assert.match(wrapper.text(), /Próxima livre: 5433/);
   assert.match(wrapper.text(), /Todas as interfaces/);
-  assert.equal(
-    wrapper.findAllComponents(RouterLinkStub).length >= 2,
-    true,
-  );
+  assert.equal(wrapper.findAllComponents(RouterLinkStub).length >= 2, true);
 });
 
 test('explica quando a plataforma ainda não é suportada', async () => {
@@ -132,8 +116,5 @@ test('explica quando a plataforma ainda não é suportada', async () => {
   });
 
   assert.match(wrapper.text(), /Disponível somente no Linux/);
-  assert.equal(
-    wrapper.find('.local-ports-table').exists(),
-    false,
-  );
+  assert.equal(wrapper.find('.local-ports-table').exists(), false);
 });

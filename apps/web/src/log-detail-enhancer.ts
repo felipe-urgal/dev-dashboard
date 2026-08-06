@@ -1,4 +1,7 @@
-import { RAW_LINE_SELECTOR, SEARCH_INPUT_SELECTOR } from './log-detail/constants';
+import {
+  RAW_LINE_SELECTOR,
+  SEARCH_INPUT_SELECTOR,
+} from './log-detail/constants';
 import { decorateNodeRequest } from './log-detail/node-request';
 import { decorateRawSql } from './log-detail/sql';
 
@@ -37,5 +40,8 @@ export function installLogDetailEnhancer(): void {
     }
   });
 
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

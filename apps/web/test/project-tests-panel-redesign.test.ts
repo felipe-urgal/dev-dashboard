@@ -78,9 +78,12 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
 
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: overview });
     if (url.pathname.endsWith('/files')) {
-      return jsonResponse({ files: [{ path: 'spec/ui/default-template.spec.tsx' }] });
+      return jsonResponse({
+        files: [{ path: 'spec/ui/default-template.spec.tsx' }],
+      });
     }
     if (url.pathname.endsWith('/tests/process/logs')) {
       return jsonResponse({
@@ -96,7 +99,8 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
         },
       });
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -121,7 +125,8 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
   assert.doesNotMatch(output.text(), /\u001b\[/);
   assert.equal(wrapper.findAll('.tests-log-lines li').length, 9);
 
-  const warningsTab = wrapper.findAll('.tests-log-tabs button')
+  const warningsTab = wrapper
+    .findAll('.tests-log-tabs button')
     .find((button) => button.text() === 'Avisos (1)');
   assert.ok(warningsTab);
   await warningsTab.trigger('click');
@@ -150,8 +155,12 @@ test('repete a execução atual preservando o arquivo alvo', async () => {
       path: url.pathname,
       ...(typeof init?.body === 'string' ? { body: init.body } : {}),
     });
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
-    if (url.pathname.endsWith('/files') && !url.pathname.endsWith('/files/start')) {
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: overview });
+    if (
+      url.pathname.endsWith('/files') &&
+      !url.pathname.endsWith('/files/start')
+    ) {
       return jsonResponse({ files: [{ path: 'src/app.test.ts' }] });
     }
     if (url.pathname.endsWith('/files/start')) {
@@ -182,7 +191,8 @@ test('repete a execução atual preservando o arquivo alvo', async () => {
         },
       });
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -196,7 +206,9 @@ test('repete a execução atual preservando o arquivo alvo', async () => {
   };
   await settle();
 
-  const repeatButton = wrapper.findAll('button').find((button) => button.text() === 'Repetir execução');
+  const repeatButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Repetir execução');
   assert.ok(repeatButton);
   await repeatButton.trigger('click');
   await settle();

@@ -5,7 +5,9 @@ import type { GitDiffHunkSplit, GitUnifiedDiffLine } from './types';
  * Reagrupa o diff plano em hunks, guardando o que a expansão de contexto
  * precisa saber: onde cada hunk começa e termina na numeração do arquivo novo.
  */
-export function splitGitDiffHunks(lines: readonly GitUnifiedDiffLine[]): GitDiffHunkSplit {
+export function splitGitDiffHunks(
+  lines: readonly GitUnifiedDiffLine[],
+): GitDiffHunkSplit {
   const leading: GitUnifiedDiffLine[] = [];
   const hunks: GitDiffHunkSplit['hunks'] = [];
 

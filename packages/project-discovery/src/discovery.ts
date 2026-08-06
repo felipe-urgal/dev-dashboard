@@ -1,11 +1,5 @@
 import { createHash } from 'node:crypto';
-import {
-  access,
-  readFile,
-  readdir,
-  realpath,
-  stat,
-} from 'node:fs/promises';
+import { access, readFile, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -100,23 +94,16 @@ async function hasAnyPath(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function toStringRecord(
-  value: unknown,
-): Record<string, string> | undefined {
+function toStringRecord(value: unknown): Record<string, string> | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
 
   const entries = Object.entries(value).filter(
-    (entry): entry is [string, string] =>
-      typeof entry[1] === 'string',
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
   );
 
   return Object.fromEntries(entries);
@@ -151,9 +138,7 @@ async function readPackageManifest(
   }
 }
 
-async function readGemfile(
-  projectPath: string,
-): Promise<string | null> {
+async function readGemfile(projectPath: string): Promise<string | null> {
   try {
     return await readFile(path.join(projectPath, 'Gemfile'), 'utf8');
   } catch {
@@ -166,10 +151,7 @@ function hasGem(gemfile: string | null, gemName: string): boolean {
     return false;
   }
 
-  const expression = new RegExp(
-    `^\\s*gem\\s+["']${gemName}["']`,
-    'm',
-  );
+  const expression = new RegExp(`^\\s*gem\\s+["']${gemName}["']`, 'm');
 
   return expression.test(gemfile);
 }
@@ -239,9 +221,7 @@ async function detectCapabilities(
       capabilities.add('rake');
     }
 
-    if (
-      await pathExists(path.join(projectPath, 'config/database.yml'))
-    ) {
+    if (await pathExists(path.join(projectPath, 'config/database.yml'))) {
       capabilities.add('database');
     }
 
@@ -267,9 +247,7 @@ async function detectCapabilities(
 
     if (
       type === 'node' &&
-      ['dev', 'start', 'serve'].some(
-        (scriptName) => scriptName in scripts,
-      )
+      ['dev', 'start', 'serve'].some((scriptName) => scriptName in scripts)
     ) {
       capabilities.add('server');
     }
@@ -316,9 +294,7 @@ export async function detectProject(
 
   const [gemfile, manifest] = await Promise.all([
     readGemfile(resolvedPath),
-    hasPackageJson
-      ? readPackageManifest(resolvedPath)
-      : Promise.resolve(null),
+    hasPackageJson ? readPackageManifest(resolvedPath) : Promise.resolve(null),
   ]);
 
   const type = detectProjectType(gemfile, hasPackageJson);
@@ -328,8 +304,7 @@ export async function detectProject(
   }
 
   const source =
-    options.source ??
-    (options.workspaceId ? 'workspace' : 'standalone');
+    options.source ?? (options.workspaceId ? 'workspace' : 'standalone');
 
   const project: Project = {
     id: createProjectId(name, resolvedPath),

@@ -1,4 +1,3 @@
-
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -23,18 +22,13 @@ test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar ac
   const fixtureRoot = await mkdtemp(
     path.join(tmpdir(), 'dev-dashboard-ports-route-'),
   );
-  const previousConfigDirectory =
-    process.env.DEV_DASHBOARD_CONFIG_DIR;
-  const previousStateDirectory =
-    process.env.DEV_DASHBOARD_STATE_DIR;
-  process.env.DEV_DASHBOARD_CONFIG_DIR =
-    path.join(fixtureRoot, 'config');
-  process.env.DEV_DASHBOARD_STATE_DIR =
-    path.join(fixtureRoot, 'state');
+  const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
+  const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
+  process.env.DEV_DASHBOARD_CONFIG_DIR = path.join(fixtureRoot, 'config');
+  process.env.DEV_DASHBOARD_STATE_DIR = path.join(fixtureRoot, 'state');
 
   const { buildApp } = await import('../src/app.js');
-  const { createAppContext } =
-    await import('../src/app-context.js');
+  const { createAppContext } = await import('../src/app-context.js');
   const appContext = createAppContext();
   const project: Project = {
     id: 'p1',
@@ -82,14 +76,12 @@ test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar ac
     if (previousConfigDirectory === undefined) {
       delete process.env.DEV_DASHBOARD_CONFIG_DIR;
     } else {
-      process.env.DEV_DASHBOARD_CONFIG_DIR =
-        previousConfigDirectory;
+      process.env.DEV_DASHBOARD_CONFIG_DIR = previousConfigDirectory;
     }
     if (previousStateDirectory === undefined) {
       delete process.env.DEV_DASHBOARD_STATE_DIR;
     } else {
-      process.env.DEV_DASHBOARD_STATE_DIR =
-        previousStateDirectory;
+      process.env.DEV_DASHBOARD_STATE_DIR = previousStateDirectory;
     }
     await rm(fixtureRoot, {
       recursive: true,
@@ -112,10 +104,7 @@ test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar ac
     body.inspection.entries[0]?.managedProcess?.projectName,
     'sample-node',
   );
-  assert.equal(
-    body.inspection.entries[0]?.expected[0]?.projectId,
-    'p1',
-  );
+  assert.equal(body.inspection.entries[0]?.expected[0]?.projectId, 'p1');
   assert.equal(
     'pid' in (body.inspection.entries[0]?.managedProcess ?? {}),
     false,

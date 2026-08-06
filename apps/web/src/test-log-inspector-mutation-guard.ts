@@ -1,4 +1,5 @@
-const INSPECTOR_OWNED_SELECTOR = '.test-log-explorer-toolbar, .test-log-inspector';
+const INSPECTOR_OWNED_SELECTOR =
+  '.test-log-explorer-toolbar, .test-log-inspector';
 
 function mutationTargetElement(target: Node): Element | null {
   if (target.nodeType === 1) return target as Element;
@@ -8,7 +9,9 @@ function mutationTargetElement(target: Node): Element | null {
 export function isTestLogInspectorOwnedMutation(
   record: Pick<MutationRecord, 'target'>,
 ): boolean {
-  return Boolean(mutationTargetElement(record.target)?.closest(INSPECTOR_OWNED_SELECTOR));
+  return Boolean(
+    mutationTargetElement(record.target)?.closest(INSPECTOR_OWNED_SELECTOR),
+  );
 }
 
 /**
@@ -56,7 +59,8 @@ export function installTestLogInspectorMutationGuard(): () => void {
     }
   }
 
-  globalThis.MutationObserver = TestLogInspectorMutationObserver as typeof MutationObserver;
+  globalThis.MutationObserver =
+    TestLogInspectorMutationObserver as typeof MutationObserver;
 
   let restored = false;
   return () => {

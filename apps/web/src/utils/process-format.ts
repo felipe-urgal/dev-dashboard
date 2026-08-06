@@ -1,24 +1,41 @@
-import type { ManagedProcess, ManagedProcessKind, ManagedProcessStatus } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  ManagedProcessKind,
+  ManagedProcessStatus,
+} from '@dev-dashboard/contracts';
 
-const TERMINAL_STATUSES: readonly ManagedProcessStatus[] = ['stopped', 'failed'];
+const TERMINAL_STATUSES: readonly ManagedProcessStatus[] = [
+  'stopped',
+  'failed',
+];
 
 export function kindLabel(kind: ManagedProcessKind): string {
   switch (kind) {
-    case 'server': return 'Servidor';
-    case 'test': return 'Testes';
-    case 'webpack': return 'Webpack';
-    case 'worker': return 'Worker';
-    case 'script': return 'Script';
+    case 'server':
+      return 'Servidor';
+    case 'test':
+      return 'Testes';
+    case 'webpack':
+      return 'Webpack';
+    case 'worker':
+      return 'Worker';
+    case 'script':
+      return 'Script';
   }
 }
 
 export function processStatusLabel(status: ManagedProcessStatus): string {
   switch (status) {
-    case 'starting': return 'Iniciando';
-    case 'running': return 'Em execução';
-    case 'stopping': return 'Encerrando';
-    case 'stopped': return 'Parado';
-    case 'failed': return 'Falhou';
+    case 'starting':
+      return 'Iniciando';
+    case 'running':
+      return 'Em execução';
+    case 'stopping':
+      return 'Encerrando';
+    case 'stopped':
+      return 'Parado';
+    case 'failed':
+      return 'Falhou';
   }
 }
 
@@ -32,7 +49,10 @@ function isTerminalStatus(status: ManagedProcessStatus | undefined): boolean {
   return status !== undefined && TERMINAL_STATUSES.includes(status);
 }
 
-export function processDurationReference(process: ManagedProcess, nowMs: number): number {
+export function processDurationReference(
+  process: ManagedProcess,
+  nowMs: number,
+): number {
   if (isTerminalStatus(process.status) && process.stoppedAt) {
     const stoppedMs = new Date(process.stoppedAt).getTime();
     if (!Number.isNaN(stoppedMs)) return stoppedMs;
@@ -40,7 +60,10 @@ export function processDurationReference(process: ManagedProcess, nowMs: number)
   return nowMs;
 }
 
-export function formatDuration(startedAtIso: string | undefined, referenceMs: number): string {
+export function formatDuration(
+  startedAtIso: string | undefined,
+  referenceMs: number,
+): string {
   if (!startedAtIso) return '—';
   const startedMs = new Date(startedAtIso).getTime();
   if (Number.isNaN(startedMs)) return '—';

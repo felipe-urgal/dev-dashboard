@@ -43,10 +43,21 @@ const props = withDefaults(defineProps<Props>(), {
   background: var(--surface-1);
   color: var(--text);
 }
-.dd-card-padded { padding: var(--space-5); }
-.dd-card-borderless { border: none; background: none; }
-.dd-card-interactive { transition: border-color 160ms ease, transform 160ms ease; }
-.dd-card-interactive:hover { border-color: var(--border-strong); }
+.dd-card-padded {
+  padding: var(--space-5);
+}
+.dd-card-borderless {
+  border: none;
+  background: none;
+}
+.dd-card-interactive {
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+.dd-card-interactive:hover {
+  border-color: var(--border-strong);
+}
 .dd-card-header {
   display: flex;
   align-items: flex-start;
@@ -54,7 +65,16 @@ const props = withDefaults(defineProps<Props>(), {
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.dd-card-header:empty { display: none; }
-.dd-card-heading { min-width: 0; flex: 1; }
-.dd-card-actions { display: flex; gap: var(--space-2); flex: 0 0 auto; }
+.dd-card-header:empty {
+  display: none;
+}
+.dd-card-heading {
+  min-width: 0;
+  flex: 1;
+}
+.dd-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
 </style>

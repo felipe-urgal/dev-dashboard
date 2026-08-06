@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import {
   commonErrorResponseSchemas,
@@ -60,26 +57,30 @@ export const projectDoctorRoutes: FastifyPluginAsync<Options> = async (
   app.get<{
     Params: Params;
     Querystring: Querystring;
-  }>('/projects/:projectId/doctor', {
-    schema: {
-      params: paramsSchema,
-      querystring: querystringSchema,
-      response: {
-        200: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['report'],
-          properties: {
-            report: projectDiagnosticReportResponseSchema,
+  }>(
+    '/projects/:projectId/doctor',
+    {
+      schema: {
+        params: paramsSchema,
+        querystring: querystringSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['report'],
+            properties: {
+              report: projectDiagnosticReportResponseSchema,
+            },
           },
+          ...commonErrorResponseSchemas,
         },
-        ...commonErrorResponseSchemas,
       },
     },
-  }, async (request) => ({
-    report: await options.projectDoctorService.getReport(
-      requireProject(options.projectStore, request.params.projectId),
-      { refresh: request.query.refresh === 'true' },
-    ),
-  }));
+    async (request) => ({
+      report: await options.projectDoctorService.getReport(
+        requireProject(options.projectStore, request.params.projectId),
+        { refresh: request.query.refresh === 'true' },
+      ),
+    }),
+  );
 };

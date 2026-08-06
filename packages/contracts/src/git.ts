@@ -1,8 +1,29 @@
 import type { ProjectChangeImpact } from './project-change-impact.js';
 
-export type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'untracked' | 'conflicted' | 'type-changed';
-export interface GitFileChange { path: string; previousPath?: string; indexStatus: string; worktreeStatus: string; status: GitFileStatus; }
-export interface GitCommit { hash: string; shortHash: string; subject: string; authorName: string; authorEmail: string; authoredAt: string; }
+export type GitFileStatus =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+  | 'untracked'
+  | 'conflicted'
+  | 'type-changed';
+export interface GitFileChange {
+  path: string;
+  previousPath?: string;
+  indexStatus: string;
+  worktreeStatus: string;
+  status: GitFileStatus;
+}
+export interface GitCommit {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  authorEmail: string;
+  authoredAt: string;
+}
 
 export type GitRemoteRole = 'origin' | 'upstream' | 'other';
 export interface GitRemote {
@@ -63,7 +84,18 @@ export interface GitBranchMutationResult {
   impact: ProjectChangeImpact;
 }
 
-export interface ProjectGitOverview { repository: boolean; branch?: string; detached: boolean; upstream?: string; ahead: number; behind: number; clean: boolean; files: GitFileChange[]; latestCommit?: GitCommit; recentCommits: GitCommit[]; }
+export interface ProjectGitOverview {
+  repository: boolean;
+  branch?: string;
+  detached: boolean;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  clean: boolean;
+  files: GitFileChange[];
+  latestCommit?: GitCommit;
+  recentCommits: GitCommit[];
+}
 
 export type GitDiffScope = 'worktree' | 'index' | 'combined';
 
@@ -82,7 +114,18 @@ export interface GitDiffSnapshot {
   files: GitDiffFile[];
 }
 
-export type GitMutationOperation = 'create-branch' | 'track-branch' | 'delete-remote-branch' | 'switch-branch' | 'pull' | 'push' | 'commit' | 'amend' | 'save' | 'discard-file' | 'remove-untracked-file';
+export type GitMutationOperation =
+  | 'create-branch'
+  | 'track-branch'
+  | 'delete-remote-branch'
+  | 'switch-branch'
+  | 'pull'
+  | 'push'
+  | 'commit'
+  | 'amend'
+  | 'save'
+  | 'discard-file'
+  | 'remove-untracked-file';
 
 export interface GitMutationConfirmation {
   token: string;
@@ -91,7 +134,11 @@ export interface GitMutationConfirmation {
   expiresAt: string;
 }
 
-export interface GitCommitResult { hash: string; shortHash: string; subject: string; }
+export interface GitCommitResult {
+  hash: string;
+  shortHash: string;
+  subject: string;
+}
 
 export interface GitFileDiff {
   path: string;
@@ -115,14 +162,8 @@ export interface GitFileLines {
   redactionCount: number;
 }
 
-
 export type GitCommitFileStatus =
-  | 'added'
-  | 'modified'
-  | 'deleted'
-  | 'renamed'
-  | 'copied'
-  | 'type-changed';
+  'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
 
 export interface GitCommitDetailFile {
   path: string;
@@ -183,7 +224,8 @@ export interface GitCommitHistoryPage {
 export type GitCommitHistoryKind = 'all' | 'merge' | 'regular';
 
 export type GitPullRequestProvider = 'github' | 'gitlab';
-export type GitPullRequestCiStatus = 'success' | 'pending' | 'failure' | 'unknown';
+export type GitPullRequestCiStatus =
+  'success' | 'pending' | 'failure' | 'unknown';
 
 export interface GitPullRequestUrl {
   provider: GitPullRequestProvider;

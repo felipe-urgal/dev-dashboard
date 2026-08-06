@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
   ArrowPathIcon,
@@ -18,10 +13,7 @@ import {
   StopIcon,
 } from '@heroicons/vue/24/outline';
 
-import type {
-  Project,
-  ProjectServerSettings,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
 
 import {
   fetchProjectServerConfiguration,
@@ -63,16 +55,9 @@ const {
   loadingHealth,
   refreshHealth,
   resetHealth,
-} = useProjectServerHealth(
-  () => props.project.id,
-  processStatus,
-);
+} = useProjectServerHealth(() => props.project.id, processStatus);
 
-const {
-  commandLabel,
-  startedAtLabel,
-  uptimeLabel,
-} = useProjectServerMetrics(
+const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
   () => props.project,
   managedProcess,
   processStatus,
@@ -98,14 +83,12 @@ let hasObservedRunning = false;
 
 const executingAction = computed(() => currentAction.value !== null);
 
-const requiresEnvironmentSelection = computed(() =>
-  props.project.type === 'node' &&
-  availableEnvironments.value.length > 0,
+const requiresEnvironmentSelection = computed(
+  () => props.project.type === 'node' && availableEnvironments.value.length > 0,
 );
 
-const environmentSelectionMissing = computed(() =>
-  requiresEnvironmentSelection.value &&
-  !selectedEnvironment.value,
+const environmentSelectionMissing = computed(
+  () => requiresEnvironmentSelection.value && !selectedEnvironment.value,
 );
 
 const environmentDisplayLabel = computed(() => {
@@ -119,10 +102,7 @@ const environmentDisplayLabel = computed(() => {
 async function confirmEnvironmentReplacement(
   action: 'iniciar' | 'reiniciar',
 ): Promise<boolean> {
-  if (
-    props.project.type !== 'node' ||
-    !selectedEnvironment.value
-  ) {
+  if (props.project.type !== 'node' || !selectedEnvironment.value) {
     return true;
   }
 
@@ -131,10 +111,7 @@ async function confirmEnvironmentReplacement(
     message:
       `Antes de ${action} o servidor, .env.${selectedEnvironment.value} ` +
       'substituirá .env.local. Nenhum valor será exibido no dashboard.',
-    confirmLabel:
-      action === 'iniciar'
-        ? 'Usar e iniciar'
-        : 'Usar e reiniciar',
+    confirmLabel: action === 'iniciar' ? 'Usar e iniciar' : 'Usar e reiniciar',
     tone: 'warning',
   });
 }
@@ -151,8 +128,10 @@ const processUrls = computed<string[]>(() => {
 const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
 
 const statusDescription = computed(() => {
-  if (!supportsServer.value) return 'Este projeto não expõe um servidor gerenciável.';
-  if (loadingStatus.value && !managedProcess.value) return 'Consultando o processo local.';
+  if (!supportsServer.value)
+    return 'Este projeto não expõe um servidor gerenciável.';
+  if (loadingStatus.value && !managedProcess.value)
+    return 'Consultando o processo local.';
 
   switch (processStatus.value) {
     case 'starting':
@@ -170,8 +149,7 @@ const statusDescription = computed(() => {
 
 function isCurrentProject(projectId: string, generation: number): boolean {
   return (
-    props.project.id === projectId &&
-    projectRequests.isCurrent(generation)
+    props.project.id === projectId && projectRequests.isCurrent(generation)
   );
 }
 
@@ -183,22 +161,20 @@ async function refreshServerSettings(): Promise<void> {
   loadingSettings.value = true;
 
   try {
-    const configuration =
-      await fetchProjectServerConfiguration(projectId);
+    const configuration = await fetchProjectServerConfiguration(projectId);
     const settings = configuration.settings;
     if (!isCurrentProject(projectId, generation)) return;
 
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
-    selectedHealthCheckPath.value =
-      settings.healthCheckPath ?? '';
+    selectedHealthCheckPath.value = settings.healthCheckPath ?? '';
     availableEnvironments.value = configuration.environments;
     selectedEnvironment.value =
       settings.environment &&
       configuration.environments.includes(settings.environment)
         ? settings.environment
         : configuration.environments.length === 1
-          ? configuration.environments[0] ?? ''
+          ? (configuration.environments[0] ?? '')
           : '';
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
@@ -219,8 +195,7 @@ async function persistServerSettings(
   generation: number,
 ): Promise<ProjectServerSettings> {
   const port = parseServerPort(selectedPort.value);
-  const healthCheckPath =
-    selectedHealthCheckPath.value.trim() || null;
+  const healthCheckPath = selectedHealthCheckPath.value.trim() || null;
   const settings = await saveProjectServerSettings(projectId, {
     port,
     healthCheckPath,
@@ -234,10 +209,8 @@ async function persistServerSettings(
     throw new Error('O projeto ativo mudou durante a operação.');
   }
 
-  selectedPort.value =
-    settings.port !== undefined ? String(settings.port) : '';
-  selectedHealthCheckPath.value =
-    settings.healthCheckPath ?? '';
+  selectedPort.value = settings.port !== undefined ? String(settings.port) : '';
+  selectedHealthCheckPath.value = settings.healthCheckPath ?? '';
   selectedEnvironment.value = settings.environment ?? '';
 
   return settings;
@@ -289,8 +262,7 @@ async function startServer(
 
 async function handleStart(): Promise<void> {
   if (environmentSelectionMissing.value) {
-    errorMessage.value =
-      'Escolha um ambiente antes de iniciar o servidor.';
+    errorMessage.value = 'Escolha um ambiente antes de iniciar o servidor.';
     return;
   }
 
@@ -345,8 +317,7 @@ async function handleStop(): Promise<void> {
 
 async function handleRestart(): Promise<void> {
   if (environmentSelectionMissing.value) {
-    errorMessage.value =
-      'Escolha um ambiente antes de reiniciar o servidor.';
+    errorMessage.value = 'Escolha um ambiente antes de reiniciar o servidor.';
     return;
   }
 
@@ -443,10 +414,7 @@ watch(processStatus, (status) => {
     hasObservedRunning = true;
   }
 
-  if (
-    hasObservedRunning &&
-    (status === 'stopped' || status === 'failed')
-  ) {
+  if (hasObservedRunning && (status === 'stopped' || status === 'failed')) {
     const process = managedProcess.value;
 
     noticeCenterStore.publishTerminalNotice({

@@ -1,31 +1,26 @@
 import path from 'node:path';
 
-import type {
-  Project,
-  ProjectDiagnosticCheck,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectDiagnosticCheck } from '@dev-dashboard/contracts';
 
 import type { DoctorCommandRunner } from './check-types.js';
 import { createDiagnosticCheck } from './check-types.js';
-import {
-  pathExists,
-  readLimitedText,
-} from './file-utils.js';
+import { pathExists, readLimitedText } from './file-utils.js';
 
 export async function checkRubyRuntime(
   project: Project,
   commandRunner: DoctorCommandRunner,
 ): Promise<ProjectDiagnosticCheck> {
-  const requiredVersion = (await readLimitedText(
-    path.join(project.path, '.ruby-version'),
-  ))?.trim();
+  const requiredVersion = (
+    await readLimitedText(path.join(project.path, '.ruby-version'))
+  )?.trim();
 
   try {
     const result = await commandRunner('ruby', ['--version']);
-    const availableVersion = result.stdout
-      .trim()
-      .replace(/^ruby\s+/, '')
-      .split(/\s+/)[0] ?? '';
+    const availableVersion =
+      result.stdout
+        .trim()
+        .replace(/^ruby\s+/, '')
+        .split(/\s+/)[0] ?? '';
     return createDiagnosticCheck({
       id: 'ruby-runtime',
       category: 'runtime',
@@ -44,7 +39,8 @@ export async function checkRubyRuntime(
       summary: requiredVersion
         ? `Ruby não está disponível para a API; o projeto declara ${requiredVersion}.`
         : 'Ruby não está disponível para a API.',
-      recommendation: 'Disponibilize Ruby no ambiente que executa o Dev Dashboard ou use o fluxo em container do projeto.',
+      recommendation:
+        'Disponibilize Ruby no ambiente que executa o Dev Dashboard ou use o fluxo em container do projeto.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -64,7 +60,8 @@ export async function checkBundlerDependencies(
       label: 'Dependências Bundler',
       status: 'warning',
       summary: 'Gemfile.lock não foi encontrado.',
-      recommendation: 'Instale as gems e versione o Gemfile.lock quando aplicável.',
+      recommendation:
+        'Instale as gems e versione o Gemfile.lock quando aplicável.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -85,7 +82,8 @@ export async function checkBundlerDependencies(
       label: 'Dependências Bundler',
       status: 'warning',
       summary: 'Bundler não confirmou as dependências do projeto.',
-      recommendation: 'Execute a instalação das gems pela área de dependências e revise o resultado.',
+      recommendation:
+        'Execute a instalação das gems pela área de dependências e revise o resultado.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }

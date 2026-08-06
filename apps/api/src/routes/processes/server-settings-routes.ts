@@ -71,10 +71,7 @@ export function registerServerSettingsRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
       const [settings, environments] = await Promise.all([
         serverSettingsRepository.find(project.id),
         environmentsForProject(project),
@@ -142,10 +139,7 @@ export function registerServerSettingsRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
       try {
         const [current, environments] = await Promise.all([
@@ -157,10 +151,8 @@ export function registerServerSettingsRoutes(
         if (
           requestedEnvironment !== undefined &&
           requestedEnvironment !== null &&
-          (
-            project.type !== 'node' ||
-            !environments.includes(requestedEnvironment)
-          )
+          (project.type !== 'node' ||
+            !environments.includes(requestedEnvironment))
         ) {
           throw new ProjectServerSettingsError(
             'SERVER_ENVIRONMENT_NOT_FOUND',
@@ -168,32 +160,29 @@ export function registerServerSettingsRoutes(
           );
         }
 
-        const settings = await serverSettingsRepository.save(
-          project.id,
-          {
-            ...(request.body.port === undefined
-              ? current.port !== undefined
-                ? { port: current.port }
-                : {}
-              : request.body.port !== null
-                ? { port: request.body.port }
-                : {}),
-            ...(request.body.healthCheckPath === undefined
-              ? current.healthCheckPath
-                ? { healthCheckPath: current.healthCheckPath }
-                : {}
-              : request.body.healthCheckPath !== null
-                ? { healthCheckPath: request.body.healthCheckPath }
-                : {}),
-            ...(request.body.environment === undefined
-              ? current.environment
-                ? { environment: current.environment }
-                : {}
-              : request.body.environment !== null
-                ? { environment: request.body.environment }
-                : {}),
-          },
-        );
+        const settings = await serverSettingsRepository.save(project.id, {
+          ...(request.body.port === undefined
+            ? current.port !== undefined
+              ? { port: current.port }
+              : {}
+            : request.body.port !== null
+              ? { port: request.body.port }
+              : {}),
+          ...(request.body.healthCheckPath === undefined
+            ? current.healthCheckPath
+              ? { healthCheckPath: current.healthCheckPath }
+              : {}
+            : request.body.healthCheckPath !== null
+              ? { healthCheckPath: request.body.healthCheckPath }
+              : {}),
+          ...(request.body.environment === undefined
+            ? current.environment
+              ? { environment: current.environment }
+              : {}
+            : request.body.environment !== null
+              ? { environment: request.body.environment }
+              : {}),
+        });
 
         return { settings, environments };
       } catch (error) {
@@ -227,27 +216,21 @@ export function registerServerSettingsRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
       const [process, settings] = await Promise.all([
         processManager.getServerProcess(project.id),
         serverSettingsRepository.find(project.id),
       ]);
       const port = process?.port ?? settings.port;
 
-      if (
-        process?.status !== 'running' ||
-        port === undefined
-      ) {
+      if (process?.status !== 'running' || port === undefined) {
         return {
           health: {
             projectId: project.id,
             path: settings.healthCheckPath ?? '/',
             pathSource: settings.healthCheckPath
-              ? 'configured' as const
-              : 'detected' as const,
+              ? ('configured' as const)
+              : ('detected' as const),
             status: 'unavailable' as const,
             checkedAt: new Date().toISOString(),
             message:

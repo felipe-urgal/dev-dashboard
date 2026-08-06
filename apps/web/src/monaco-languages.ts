@@ -3,9 +3,29 @@ import type * as Monaco from 'monaco-editor';
 const HAML_LANGUAGE_ID = 'haml';
 
 const HAML_KEYWORDS = [
-  'do', 'end', 'if', 'unless', 'else', 'elsif', 'each', 'for', 'while',
-  'case', 'when', 'in', 'true', 'false', 'nil', 'and', 'or', 'not',
-  'yield', 'return', 'class', 'def', 'module',
+  'do',
+  'end',
+  'if',
+  'unless',
+  'else',
+  'elsif',
+  'each',
+  'for',
+  'while',
+  'case',
+  'when',
+  'in',
+  'true',
+  'false',
+  'nil',
+  'and',
+  'or',
+  'not',
+  'yield',
+  'return',
+  'class',
+  'def',
+  'module',
 ];
 
 /**
@@ -32,7 +52,10 @@ const HAML_TOKENIZER: Monaco.languages.IMonarchLanguage = {
       [/"([^"\\]|\\.)*"/, 'string'],
       [/'([^'\\]|\\.)*'/, 'string'],
       [/\b\d+(\.\d+)?\b/, 'number'],
-      [/\b(?:do|end|if|unless|else|elsif|each|for|while|case|when|in|true|false|nil|and|or|not|yield|return|class|def|module)\b/, 'keyword'],
+      [
+        /\b(?:do|end|if|unless|else|elsif|each|for|while|case|when|in|true|false|nil|and|or|not|yield|return|class|def|module)\b/,
+        'keyword',
+      ],
       [/[A-Z]\w*/, 'type.identifier'],
       [/[a-zA-Z_]\w*/, 'identifier'],
       [/[{}()[\],.]/, 'delimiter'],
@@ -45,8 +68,14 @@ const HAML_TOKENIZER: Monaco.languages.IMonarchLanguage = {
   },
 };
 
-export function registerEmbeddedEditorCustomLanguages(monaco: typeof Monaco): void {
-  if (monaco.languages.getLanguages().some((language) => language.id === HAML_LANGUAGE_ID)) {
+export function registerEmbeddedEditorCustomLanguages(
+  monaco: typeof Monaco,
+): void {
+  if (
+    monaco.languages
+      .getLanguages()
+      .some((language) => language.id === HAML_LANGUAGE_ID)
+  ) {
     return;
   }
   monaco.languages.register({ id: HAML_LANGUAGE_ID });

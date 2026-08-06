@@ -4,7 +4,9 @@ import { parseRubyInspect } from '../src/utils/ruby-inspect-parser';
 
 describe('ruby-inspect-parser', () => {
   it('faz o parse de um hash simples com aspas duplas', () => {
-    expect(parseRubyInspect('{"sort_column"=>"", "site"=>"observatorio"}')).toEqual({
+    expect(
+      parseRubyInspect('{"sort_column"=>"", "site"=>"observatorio"}'),
+    ).toEqual({
       sort_column: '',
       site: 'observatorio',
     });
@@ -23,7 +25,9 @@ describe('ruby-inspect-parser', () => {
 
   it('desembrulha #<ActionController::Parameters ... permitted: true>', () => {
     expect(
-      parseRubyInspect('#<ActionController::Parameters {"id"=>"847"} permitted: true>'),
+      parseRubyInspect(
+        '#<ActionController::Parameters {"id"=>"847"} permitted: true>',
+      ),
     ).toEqual({ id: '847' });
   });
 

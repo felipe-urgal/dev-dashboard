@@ -12,7 +12,11 @@ export type CommandRunner = (
 ) => Promise<{ stdout: string; stderr?: string }>;
 
 const execFileAsync = promisify(execFile);
-export const defaultCommandRunner: CommandRunner = async (command, args, options) => {
+export const defaultCommandRunner: CommandRunner = async (
+  command,
+  args,
+  options,
+) => {
   const { stdout, stderr } = await execFileAsync(command, args, {
     cwd: options.cwd,
     encoding: 'utf8',
@@ -37,7 +41,9 @@ export async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-export async function resolveRailsCommand(project: Project): Promise<RailsCommand | null> {
+export async function resolveRailsCommand(
+  project: Project,
+): Promise<RailsCommand | null> {
   if (project.type !== 'rails') return null;
   if (await pathExists(path.join(project.path, 'bin', 'rails'))) {
     return { command: path.join(project.path, 'bin', 'rails'), args: [] };

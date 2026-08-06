@@ -1,6 +1,9 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 
-import type { Project, RailsCredentialsOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  RailsCredentialsOverview,
+} from '@dev-dashboard/contracts';
 
 import { fetchProjectRailsCredentials } from '../api';
 import { RequestGeneration } from '../utils/request-generation';
@@ -18,7 +21,9 @@ export function useProjectRailsCredentials(getProject: () => Project) {
   const projectRequests = new RequestGeneration();
 
   function isCurrentProject(projectId: string, generation: number): boolean {
-    return getProject().id === projectId && projectRequests.isCurrent(generation);
+    return (
+      getProject().id === projectId && projectRequests.isCurrent(generation)
+    );
   }
 
   async function refresh(): Promise<void> {
@@ -35,7 +40,9 @@ export function useProjectRailsCredentials(getProject: () => Project) {
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível consultar as credentials.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar as credentials.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -52,7 +59,13 @@ export function useProjectRailsCredentials(getProject: () => Project) {
     await refresh();
   }
 
-  watch(() => getProject().id, () => { void initialize(); }, { immediate: true });
+  watch(
+    () => getProject().id,
+    () => {
+      void initialize();
+    },
+    { immediate: true },
+  );
 
   onBeforeUnmount(() => {
     projectRequests.invalidate();

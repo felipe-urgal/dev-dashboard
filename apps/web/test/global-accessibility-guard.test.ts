@@ -1,16 +1,10 @@
 import assert from 'node:assert/strict';
-import {
-  access,
-  readFile,
-} from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'vitest';
 
 async function resolveRepositoryRoot(): Promise<string> {
-  const candidates = [
-    process.cwd(),
-    path.resolve(process.cwd(), '../..'),
-  ];
+  const candidates = [process.cwd(), path.resolve(process.cwd(), '../..')];
 
   for (const candidate of candidates) {
     try {
@@ -34,8 +28,8 @@ async function source(relativePath: string): Promise<string> {
 function hexToRgb(value: string): [number, number, number] {
   const normalized = value.replace('#', '');
   assert.equal(normalized.length, 6, `Cor hexadecimal inválida: ${value}`);
-  return [0, 2, 4].map((index) =>
-    Number.parseInt(normalized.slice(index, index + 2), 16) / 255,
+  return [0, 2, 4].map(
+    (index) => Number.parseInt(normalized.slice(index, index + 2), 16) / 255,
   ) as [number, number, number];
 }
 
@@ -47,19 +41,19 @@ function linearChannel(channel: number): number {
 
 function relativeLuminance(value: string): number {
   const [red, green, blue] = hexToRgb(value);
-  return 0.2126 * linearChannel(red)
-    + 0.7152 * linearChannel(green)
-    + 0.0722 * linearChannel(blue);
+  return (
+    0.2126 * linearChannel(red) +
+    0.7152 * linearChannel(green) +
+    0.0722 * linearChannel(blue)
+  );
 }
 
 function contrastRatio(first: string, second: string): number {
-  const luminances = [
-    relativeLuminance(first),
-    relativeLuminance(second),
-  ].sort((left, right) => right - left);
+  const luminances = [relativeLuminance(first), relativeLuminance(second)].sort(
+    (left, right) => right - left,
+  );
 
-  return ((luminances[0] ?? 0) + 0.05)
-    / ((luminances[1] ?? 0) + 0.05);
+  return ((luminances[0] ?? 0) + 0.05) / ((luminances[1] ?? 0) + 0.05);
 }
 
 function cssToken(block: string, token: string): string {
@@ -109,18 +103,32 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
   assert.match(dashboard, /hasActiveProjectFilters[\s\S]*role="status"/);
   assert.match(dashboard, /class="alert alert-warning"[\s\S]*role="status"/);
 
-  const activity = await source('apps/web/src/views/ActivityView.template.html');
+  const activity = await source(
+    'apps/web/src/views/ActivityView.template.html',
+  );
   assert.match(activity, /loading && hasItems[\s\S]*Atualizando atividades/);
   assert.match(activity, /class="activity-empty"\s+role="status"/);
-  assert.match(activity, /<caption class="sr-only">[\s\S]*Histórico de atividades/);
+  assert.match(
+    activity,
+    /<caption class="sr-only">[\s\S]*Histórico de atividades/,
+  );
 
   const processes = await source('apps/web/src/views/ProcessesView.vue');
-  assert.match(processes, /loading && items\.length > 0[\s\S]*Atualizando processos/);
-  assert.match(processes, /<caption class="sr-only">[\s\S]*Processos gerenciados/);
+  assert.match(
+    processes,
+    /loading && items\.length > 0[\s\S]*Atualizando processos/,
+  );
+  assert.match(
+    processes,
+    /<caption class="sr-only">[\s\S]*Processos gerenciados/,
+  );
   assert.match(processes, /class="activity-empty"\s+role="status"/);
 
   const settings = await source('apps/web/src/views/SettingsView.vue');
-  assert.match(settings, /aria-label="Configurações de notificações e retenção"/);
+  assert.match(
+    settings,
+    /aria-label="Configurações de notificações e retenção"/,
+  );
   for (const input of [
     'native-notifications',
     'retention-days',
@@ -134,7 +142,9 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
     );
     assert.match(
       settings,
-      new RegExp(`aria-describedby="${input}-description ${input}-(?:status|limits)"`),
+      new RegExp(
+        `aria-describedby="${input}-description ${input}-(?:status|limits)"`,
+      ),
       `${input} deve possuir descrição e limites/estado associados.`,
     );
   }
@@ -142,19 +152,13 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
 
 test('tokens de texto do tema claro mantêm contraste AA nas superfícies', async () => {
   const tokens = await source('apps/web/src/styles/tokens.css');
-  const lightTheme = tokens.match(/\[data-theme='light'\]\s*\{([\s\S]*)\}\s*$/)?.[1];
+  const lightTheme = tokens.match(
+    /\[data-theme='light'\]\s*\{([\s\S]*)\}\s*$/,
+  )?.[1];
   assert.ok(lightTheme, 'Bloco do tema claro não encontrado.');
 
-  const foregrounds = [
-    '--text',
-    '--text-muted',
-    '--text-dim',
-  ];
-  const backgrounds = [
-    '--surface-0',
-    '--surface-1',
-    '--surface-2',
-  ];
+  const foregrounds = ['--text', '--text-muted', '--text-dim'];
+  const backgrounds = ['--surface-0', '--surface-1', '--surface-2'];
 
   for (const foregroundToken of foregrounds) {
     const foreground = cssToken(lightTheme, foregroundToken);

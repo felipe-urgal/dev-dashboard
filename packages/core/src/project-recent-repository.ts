@@ -24,16 +24,23 @@ export const PROJECT_RECENT_LIMITS = {
 const MAX_ID_LENGTH = 256;
 
 function isValidId(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= MAX_ID_LENGTH;
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MAX_ID_LENGTH
+  );
 }
 
 function isEntry(value: unknown): value is ProjectRecentAccess {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    return false;
   const entry = value as Record<string, unknown>;
-  return isValidId(entry.projectId) &&
+  return (
+    isValidId(entry.projectId) &&
     isValidId(entry.workspaceId) &&
     typeof entry.lastAccessedAt === 'string' &&
-    Number.isFinite(Date.parse(entry.lastAccessedAt));
+    Number.isFinite(Date.parse(entry.lastAccessedAt))
+  );
 }
 
 function applyLimits(entries: ProjectRecentAccess[]): ProjectRecentAccess[] {
@@ -42,7 +49,8 @@ function applyLimits(entries: ProjectRecentAccess[]): ProjectRecentAccess[] {
   const limited: ProjectRecentAccess[] = [];
 
   for (const entry of [...entries].sort((left, right) =>
-    right.lastAccessedAt.localeCompare(left.lastAccessedAt))) {
+    right.lastAccessedAt.localeCompare(left.lastAccessedAt),
+  )) {
     if (projectIds.has(entry.projectId)) continue;
     const workspaceCount = counts.get(entry.workspaceId) ?? 0;
     if (workspaceCount >= PROJECT_RECENT_LIMITS.perWorkspace) continue;
@@ -58,7 +66,8 @@ function applyLimits(entries: ProjectRecentAccess[]): ProjectRecentAccess[] {
 
 function parseConfig(contents: string): ProjectRecentAccess[] {
   const parsed: unknown = JSON.parse(contents);
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return [];
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return [];
   const candidate = parsed as Record<string, unknown>;
   if (candidate.version !== 1 || !Array.isArray(candidate.entries)) return [];
   return applyLimits(candidate.entries.filter(isEntry));
@@ -96,7 +105,10 @@ export class ProjectRecentRepository {
     return entry ? { ...entry } : null;
   }
 
-  public async record(projectId: string, workspaceId: string): Promise<ProjectRecentAccess> {
+  public async record(
+    projectId: string,
+    workspaceId: string,
+  ): Promise<ProjectRecentAccess> {
     if (!isValidId(projectId) || !isValidId(workspaceId)) {
       throw new Error('Os identificadores do projeto recente são inválidos.');
     }

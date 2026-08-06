@@ -9,7 +9,10 @@ function requestUrl(input: RequestInfo | URL): URL | null {
   }
 }
 
-function replaceRequestUrl(input: RequestInfo | URL, url: URL): RequestInfo | URL {
+function replaceRequestUrl(
+  input: RequestInfo | URL,
+  url: URL,
+): RequestInfo | URL {
   if (typeof Request !== 'undefined' && input instanceof Request) {
     return new Request(url.toString(), input);
   }
@@ -18,8 +21,10 @@ function replaceRequestUrl(input: RequestInfo | URL, url: URL): RequestInfo | UR
 }
 
 export function isSummaryHistoryRequest(url: URL): boolean {
-  return /\/api\/projects\/[^/]+\/git\/commits$/.test(url.pathname)
-    && !url.searchParams.has('ref');
+  return (
+    /\/api\/projects\/[^/]+\/git\/commits$/.test(url.pathname) &&
+    !url.searchParams.has('ref')
+  );
 }
 
 export function rewriteSummaryHistoryUrl(value: string): string {
@@ -34,11 +39,17 @@ export function rewriteSummaryHistoryUrl(value: string): string {
 
 export function installGitSummaryCurrentBranchHistory(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (document.documentElement.dataset.gitSummaryCurrentBranchHistory === 'true') return;
+  if (
+    document.documentElement.dataset.gitSummaryCurrentBranchHistory === 'true'
+  )
+    return;
   document.documentElement.dataset.gitSummaryCurrentBranchHistory = 'true';
 
   const originalFetch = window.fetch.bind(window);
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  window.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const url = requestUrl(input);
     if (!url || !isSummaryHistoryRequest(url)) {
       return originalFetch(input, init);

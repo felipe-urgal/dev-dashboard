@@ -12,10 +12,7 @@ export interface UpdateProjectServerSettingsInput {
   environment?: string;
 }
 
-export type ServerHealthStatus =
-  | 'healthy'
-  | 'degraded'
-  | 'unavailable';
+export type ServerHealthStatus = 'healthy' | 'degraded' | 'unavailable';
 
 export interface ProjectServerHealth {
   projectId: string;

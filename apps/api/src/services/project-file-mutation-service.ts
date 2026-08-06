@@ -127,12 +127,12 @@ function isSensitivePath(relativePath: string): boolean {
   const normalized = relativePath.toLowerCase();
   const name = path.posix.basename(normalized);
   return (
-    normalized === 'config/master.key'
-    || name === 'id_rsa'
-    || name === 'id_ed25519'
-    || name.startsWith('.env')
-    || name.endsWith('.pem')
-    || name.endsWith('.key')
+    normalized === 'config/master.key' ||
+    name === 'id_rsa' ||
+    name === 'id_ed25519' ||
+    name.startsWith('.env') ||
+    name.endsWith('.pem') ||
+    name.endsWith('.key')
   );
 }
 
@@ -217,10 +217,10 @@ async function resolveDestination(
   assertVisiblePath(normalized);
 
   const parentRelative = path.posix.dirname(normalized);
-  const parentPath = parentRelative === '.' ? root : path.resolve(
-    root,
-    ...parentRelative.split('/'),
-  );
+  const parentPath =
+    parentRelative === '.'
+      ? root
+      : path.resolve(root, ...parentRelative.split('/'));
   let canonicalParent: string;
   try {
     canonicalParent = await realpath(parentPath);
@@ -314,23 +314,21 @@ async function scanImpact(
       rootKind ??= 'file';
       affectedFiles += 1;
       totalBytes += stats.size;
-      hash.update(fingerprintPart(
-        publicPath,
-        'file',
-        stats.size,
-        stats.mtimeMs,
-        stats.mode,
-      ));
+      hash.update(
+        fingerprintPart(
+          publicPath,
+          'file',
+          stats.size,
+          stats.mtimeMs,
+          stats.mode,
+        ),
+      );
     } else if (stats.isDirectory()) {
       rootKind ??= 'directory';
       affectedDirectories += 1;
-      hash.update(fingerprintPart(
-        publicPath,
-        'directory',
-        0,
-        stats.mtimeMs,
-        stats.mode,
-      ));
+      hash.update(
+        fingerprintPart(publicPath, 'directory', 0, stats.mtimeMs, stats.mode),
+      );
       let entries: Dirent[];
       try {
         entries = await readdir(absolutePath, { withFileTypes: true });
@@ -385,9 +383,7 @@ async function scanImpact(
 export class ProjectFileMutationService {
   private readonly pending = new Map<string, PendingMutation>();
 
-  public constructor(
-    private readonly now: () => number = Date.now,
-  ) {}
+  public constructor(private readonly now: () => number = Date.now) {}
 
   public async createEntry(
     projectPath: string,
@@ -398,8 +394,8 @@ export class ProjectFileMutationService {
     await assertDestinationAvailable(destination.target);
 
     if (
-      input.kind === 'file'
-      && Buffer.byteLength(input.content ?? '', 'utf8') > MAX_FILE_SIZE
+      input.kind === 'file' &&
+      Buffer.byteLength(input.content ?? '', 'utf8') > MAX_FILE_SIZE
     ) {
       throw new ProjectFileMutationError(
         'FILE_TOO_LARGE',
@@ -486,9 +482,9 @@ export class ProjectFileMutationService {
     }
 
     const requiresPhrase =
-      input.operation === 'delete'
-      && impact.kind === 'directory'
-      && (impact.affectedFiles > 0 || impact.affectedDirectories > 1);
+      input.operation === 'delete' &&
+      impact.kind === 'directory' &&
+      (impact.affectedFiles > 0 || impact.affectedDirectories > 1);
     const confirmationToken = randomUUID();
     const expiresAt = this.now() + CONFIRMATION_TTL_MS;
     this.pending.set(confirmationToken, {
@@ -528,10 +524,7 @@ export class ProjectFileMutationService {
         'A confirmação expirou ou já foi utilizada.',
       );
     }
-    if (
-      pending.requiresPhrase
-      && input.confirmationPhrase !== pending.path
-    ) {
+    if (pending.requiresPhrase && input.confirmationPhrase !== pending.path) {
       throw new ProjectFileMutationError(
         'FILE_MUTATION_CONFIRMATION_INVALID',
         'Digite o caminho exato para confirmar esta exclusão.',
@@ -563,7 +556,10 @@ export class ProjectFileMutationService {
         await assertDestinationAvailable(destination.target);
         await rename(source, destination.target);
         const canonical = await realpath(destination.target);
-        if (canonical !== destination.target || !isWithinRoot(root, canonical)) {
+        if (
+          canonical !== destination.target ||
+          !isWithinRoot(root, canonical)
+        ) {
           throw new ProjectFileMutationError(
             'FILE_OUTSIDE_PROJECT',
             'O destino renomeado saiu da raiz canônica do projeto.',
@@ -579,8 +575,8 @@ export class ProjectFileMutationService {
 
       if (pending.impact.kind === 'directory') {
         const empty =
-          pending.impact.affectedFiles === 0
-          && pending.impact.affectedDirectories === 1;
+          pending.impact.affectedFiles === 0 &&
+          pending.impact.affectedDirectories === 1;
         if (empty) await rmdir(source);
         else await rm(source, { recursive: true, force: false });
       } else {

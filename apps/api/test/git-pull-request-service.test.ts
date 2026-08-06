@@ -37,8 +37,18 @@ async function createFixture(remoteUrl: string): Promise<RepositoryFixture> {
   await git(local, 'remote', 'add', 'origin', remoteUrl);
   await git(local, 'update-ref', 'refs/remotes/origin/HEAD', 'refs/heads/main');
   await git(local, 'switch', '--create', 'feature/pull-request');
-  await git(local, 'update-ref', 'refs/remotes/origin/feature/pull-request', 'HEAD');
-  await git(local, 'branch', '--set-upstream-to=origin/feature/pull-request', 'feature/pull-request');
+  await git(
+    local,
+    'update-ref',
+    'refs/remotes/origin/feature/pull-request',
+    'HEAD',
+  );
+  await git(
+    local,
+    'branch',
+    '--set-upstream-to=origin/feature/pull-request',
+    'feature/pull-request',
+  );
 
   return {
     root,
@@ -48,7 +58,9 @@ async function createFixture(remoteUrl: string): Promise<RepositoryFixture> {
 }
 
 test('compõe a URL de comparação do GitHub para o remote SSH', async () => {
-  const fixture = await createFixture('git@github.com:felipe-urgal/dev-dashboard.git');
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
   const service = new GitPullRequestService();
 
   try {
@@ -66,7 +78,9 @@ test('compõe a URL de comparação do GitHub para o remote SSH', async () => {
 });
 
 test('compõe a URL de merge request do GitLab e não vaza credenciais da URL https', async () => {
-  const fixture = await createFixture('https://user:s3cr3t@gitlab.com/felipe-urgal/dev-dashboard.git');
+  const fixture = await createFixture(
+    'https://user:s3cr3t@gitlab.com/felipe-urgal/dev-dashboard.git',
+  );
   const service = new GitPullRequestService();
 
   try {
@@ -74,7 +88,10 @@ test('compõe a URL de merge request do GitLab e não vaza credenciais da URL ht
     assert.equal(result.provider, 'gitlab');
     assert.doesNotMatch(result.url, /s3cr3t/);
     assert.doesNotMatch(result.url, /user/);
-    assert.match(result.url, /^https:\/\/gitlab\.com\/felipe-urgal\/dev-dashboard\/-\/merge_requests\/new\?/);
+    assert.match(
+      result.url,
+      /^https:\/\/gitlab\.com\/felipe-urgal\/dev-dashboard\/-\/merge_requests\/new\?/,
+    );
     assert.match(result.url, /source_branch.*feature%2Fpull-request/);
     assert.match(result.url, /target_branch.*main/);
   } finally {
@@ -83,15 +100,17 @@ test('compõe a URL de merge request do GitLab e não vaza credenciais da URL ht
 });
 
 test('recusa quando o remote não é reconhecido', async () => {
-  const fixture = await createFixture('git@bitbucket.org:felipe-urgal/dev-dashboard.git');
+  const fixture = await createFixture(
+    'git@bitbucket.org:felipe-urgal/dev-dashboard.git',
+  );
   const service = new GitPullRequestService();
 
   try {
     await assert.rejects(
       service.composeUrl(fixture.local),
       (error: unknown) =>
-        error instanceof GitPullRequestError
-        && error.code === 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
+        error instanceof GitPullRequestError &&
+        error.code === 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
     );
   } finally {
     await fixture.cleanup();
@@ -99,7 +118,9 @@ test('recusa quando o remote não é reconhecido', async () => {
 });
 
 test('recusa quando a branch atual é a branch padrão', async () => {
-  const fixture = await createFixture('git@github.com:felipe-urgal/dev-dashboard.git');
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
   const service = new GitPullRequestService();
 
   try {
@@ -107,8 +128,8 @@ test('recusa quando a branch atual é a branch padrão', async () => {
     await assert.rejects(
       service.composeUrl(fixture.local),
       (error: unknown) =>
-        error instanceof GitPullRequestError
-        && error.code === 'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
+        error instanceof GitPullRequestError &&
+        error.code === 'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
     );
   } finally {
     await fixture.cleanup();
@@ -116,7 +137,9 @@ test('recusa quando a branch atual é a branch padrão', async () => {
 });
 
 test('recusa quando a branch ainda não foi publicada', async () => {
-  const fixture = await createFixture('git@github.com:felipe-urgal/dev-dashboard.git');
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
   const service = new GitPullRequestService();
 
   try {
@@ -124,8 +147,8 @@ test('recusa quando a branch ainda não foi publicada', async () => {
     await assert.rejects(
       service.composeUrl(fixture.local),
       (error: unknown) =>
-        error instanceof GitPullRequestError
-        && error.code === 'GIT_PULL_REQUEST_NOT_PUBLISHED',
+        error instanceof GitPullRequestError &&
+        error.code === 'GIT_PULL_REQUEST_NOT_PUBLISHED',
     );
   } finally {
     await fixture.cleanup();
@@ -133,7 +156,9 @@ test('recusa quando a branch ainda não foi publicada', async () => {
 });
 
 test('recusa quando não há remote origin configurado', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-pr-no-origin-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-pr-no-origin-'),
+  );
   const local = path.join(root, 'local');
   await git(root, 'init', '--initial-branch=main', local);
   await git(local, 'config', 'user.name', 'Dashboard Test');
@@ -148,8 +173,9 @@ test('recusa quando não há remote origin configurado', async () => {
     await assert.rejects(
       service.composeUrl(local),
       (error: unknown) =>
-        error instanceof GitPullRequestError
-        && (error.code === 'GIT_PULL_REQUEST_NOT_PUBLISHED' || error.code === 'GIT_REMOTE_NOT_CONFIGURED'),
+        error instanceof GitPullRequestError &&
+        (error.code === 'GIT_PULL_REQUEST_NOT_PUBLISHED' ||
+          error.code === 'GIT_REMOTE_NOT_CONFIGURED'),
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -157,14 +183,16 @@ test('recusa quando não há remote origin configurado', async () => {
 });
 
 test('recusa quando o projeto não é um repositório Git', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-pr-not-repo-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-pr-not-repo-'),
+  );
   const service = new GitPullRequestService();
   try {
     await assert.rejects(
       service.composeUrl(root),
       (error: unknown) =>
-        error instanceof GitPullRequestError
-        && error.code === 'GIT_NOT_REPOSITORY',
+        error instanceof GitPullRequestError &&
+        error.code === 'GIT_NOT_REPOSITORY',
     );
   } finally {
     await rm(root, { recursive: true, force: true });

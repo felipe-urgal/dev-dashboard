@@ -17,7 +17,8 @@ type Entry = { key: string; value: ParamValue };
 
 const isArray = computed(() => Array.isArray(props.value));
 const isObject = computed(
-  () => !isArray.value && typeof props.value === 'object' && props.value !== null,
+  () =>
+    !isArray.value && typeof props.value === 'object' && props.value !== null,
 );
 
 const entries = computed<Entry[]>(() => {
@@ -29,10 +30,12 @@ const entries = computed<Entry[]>(() => {
   }
 
   if (isObject.value) {
-    return Object.entries(props.value as Record<string, ParamValue>).map(([key, value]) => ({
-      key,
-      value,
-    }));
+    return Object.entries(props.value as Record<string, ParamValue>).map(
+      ([key, value]) => ({
+        key,
+        value,
+      }),
+    );
   }
 
   return [];
@@ -71,9 +74,13 @@ function formatScalar(value: ParamValue): string {
         <span
           v-else-if="!isNested(entry.value)"
           :class="valueClass(entry.value)"
-        >{{ formatScalar(entry.value) }}</span>
+          >{{ formatScalar(entry.value) }}</span
+        >
       </div>
-      <div v-if="isNested(entry.value) && !isFiltered(entry.value)" class="pnest">
+      <div
+        v-if="isNested(entry.value) && !isFiltered(entry.value)"
+        class="pnest"
+      >
         <RailsParamsTree :value="entry.value" :root="false" />
       </div>
     </template>

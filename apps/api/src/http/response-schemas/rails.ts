@@ -1,34 +1,73 @@
 import { nullableManagedProcessResponseSchema } from './processes.js';
 
 export const projectDatabaseEnvironmentResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
 
-  required: ['id', 'environment', 'driver', 'passwordConfigured', 'source', 'sourceDetail', 'reachability', 'serviceAvailable'],
+  required: [
+    'id',
+    'environment',
+    'driver',
+    'passwordConfigured',
+    'source',
+    'sourceDetail',
+    'reachability',
+    'serviceAvailable',
+  ],
 
   properties: {
-    id: { type: 'string' }, environment: { type: 'string' }, driver: { type: 'string' },
-    host: { type: 'string' }, port: { type: 'integer' }, database: { type: 'string' }, username: { type: 'string' },
-    passwordConfigured: { type: 'boolean' }, maskedUrl: { type: 'string' },
-    source: { type: 'string', enum: ['rails-database-yml', 'dotenv', 'prisma', 'knex'] },
-    sourceDetail: { type: 'string' }, reachability: { type: 'string', enum: ['reachable', 'unreachable', 'unknown'] },
+    id: { type: 'string' },
+    environment: { type: 'string' },
+    driver: { type: 'string' },
+    host: { type: 'string' },
+    port: { type: 'integer' },
+    database: { type: 'string' },
+    username: { type: 'string' },
+    passwordConfigured: { type: 'boolean' },
+    maskedUrl: { type: 'string' },
+    source: {
+      type: 'string',
+      enum: ['rails-database-yml', 'dotenv', 'prisma', 'knex'],
+    },
+    sourceDetail: { type: 'string' },
+    reachability: {
+      type: 'string',
+      enum: ['reachable', 'unreachable', 'unknown'],
+    },
 
     serviceAvailable: { type: 'boolean' },
-
   },
 } as const;
 
 export const projectDatabaseOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'environments', 'page', 'pageSize', 'total'],
   properties: {
-    supported: { type: 'boolean' }, environments: { type: 'array', items: projectDatabaseEnvironmentResponseSchema },
-    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' },
+    supported: { type: 'boolean' },
+    environments: {
+      type: 'array',
+      items: projectDatabaseEnvironmentResponseSchema,
+    },
+    page: { type: 'integer' },
+    pageSize: { type: 'integer' },
+    total: { type: 'integer' },
   },
 } as const;
 
 export const databaseSnapshotResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['id', 'environmentId', 'environment', 'driver', 'database', 'label', 'createdAt', 'sizeBytes'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'environmentId',
+    'environment',
+    'driver',
+    'database',
+    'label',
+    'createdAt',
+    'sizeBytes',
+  ],
   properties: {
     id: { type: 'string' },
     environmentId: { type: 'string' },
@@ -42,7 +81,8 @@ export const databaseSnapshotResponseSchema = {
 } as const;
 
 export const databaseSnapshotListResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['snapshots', 'total', 'retentionLimit', 'supportedEnvironmentIds'],
   properties: {
     snapshots: { type: 'array', items: databaseSnapshotResponseSchema },
@@ -53,7 +93,8 @@ export const databaseSnapshotListResponseSchema = {
 } as const;
 
 export const databaseSnapshotConfirmationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['token', 'snapshotId', 'expiresAt'],
   properties: {
     token: { type: 'string' },
@@ -63,7 +104,8 @@ export const databaseSnapshotConfirmationResponseSchema = {
 } as const;
 
 export const databaseRestoreResultResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['snapshotId', 'restored'],
   properties: {
     snapshotId: { type: 'string' },
@@ -72,16 +114,19 @@ export const databaseRestoreResultResponseSchema = {
 } as const;
 
 export const railsMigrationEntryResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['version', 'name', 'status'],
   properties: {
-    version: { type: 'string' }, name: { type: 'string' },
+    version: { type: 'string' },
+    name: { type: 'string' },
     status: { type: 'string', enum: ['up', 'down'] },
   },
 } as const;
 
 export const railsMigrationsOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'databases', 'migrations'],
   properties: {
     supported: { type: 'boolean' },
@@ -92,16 +137,20 @@ export const railsMigrationsOverviewResponseSchema = {
 } as const;
 
 export const railsRouteEntryResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['verb', 'path', 'controllerAction'],
   properties: {
-    name: { type: 'string' }, verb: { type: 'string' },
-    path: { type: 'string' }, controllerAction: { type: 'string' },
+    name: { type: 'string' },
+    verb: { type: 'string' },
+    path: { type: 'string' },
+    controllerAction: { type: 'string' },
   },
 } as const;
 
 export const railsRoutesOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'routes'],
   properties: {
     supported: { type: 'boolean' },
@@ -110,42 +159,66 @@ export const railsRoutesOverviewResponseSchema = {
 } as const;
 
 export const bundlerOutdatedGemResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['name', 'installed', 'newest'],
   properties: {
-    name: { type: 'string' }, installed: { type: 'string' }, newest: { type: 'string' },
+    name: { type: 'string' },
+    installed: { type: 'string' },
+    newest: { type: 'string' },
     requested: { type: 'string' },
   },
 } as const;
 
 export const bundlerOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'outdated'],
   properties: {
     supported: { type: 'boolean' },
     check: {
-      type: 'object', additionalProperties: false, required: ['satisfied', 'message'],
-      properties: { satisfied: { type: 'boolean' }, message: { type: 'string' } },
+      type: 'object',
+      additionalProperties: false,
+      required: ['satisfied', 'message'],
+      properties: {
+        satisfied: { type: 'boolean' },
+        message: { type: 'string' },
+      },
     },
     outdated: { type: 'array', items: bundlerOutdatedGemResponseSchema },
   },
 } as const;
 
 export const railsMigrationMutationConfirmationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['token', 'operation', 'expiresAt'],
   properties: {
     token: { type: 'string' },
-    operation: { type: 'string', enum: ['migrate', 'rollback', 'seed', 'prepare'] },
+    operation: {
+      type: 'string',
+      enum: ['migrate', 'rollback', 'seed', 'prepare'],
+    },
     expiresAt: { type: 'string' },
   },
 } as const;
 
 export const railsMigrationMutationResultResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['operation', 'succeeded', 'output', 'truncated', 'masked', 'redactionCount'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'operation',
+    'succeeded',
+    'output',
+    'truncated',
+    'masked',
+    'redactionCount',
+  ],
   properties: {
-    operation: { type: 'string', enum: ['migrate', 'rollback', 'seed', 'prepare'] },
+    operation: {
+      type: 'string',
+      enum: ['migrate', 'rollback', 'seed', 'prepare'],
+    },
     succeeded: { type: 'boolean' },
     output: { type: 'string' },
     truncated: { type: 'boolean' },
@@ -155,7 +228,8 @@ export const railsMigrationMutationResultResponseSchema = {
 } as const;
 
 export const railsWorkerOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['id', 'detected', 'process'],
   properties: {
     id: { type: 'string', enum: ['sidekiq', 'webpack'] },
@@ -165,23 +239,38 @@ export const railsWorkerOverviewResponseSchema = {
 } as const;
 
 export const railsCredentialsEnvironmentStatusResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['name', 'credentialsPath', 'credentialsFileExists', 'keyPath', 'keyFileExists', 'keySource'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'name',
+    'credentialsPath',
+    'credentialsFileExists',
+    'keyPath',
+    'keyFileExists',
+    'keySource',
+  ],
   properties: {
     name: { type: 'string' },
     credentialsPath: { type: 'string' },
     credentialsFileExists: { type: 'boolean' },
     keyPath: { type: 'string' },
     keyFileExists: { type: 'boolean' },
-    keySource: { type: 'string', enum: ['file', 'environment-variable', 'missing'] },
+    keySource: {
+      type: 'string',
+      enum: ['file', 'environment-variable', 'missing'],
+    },
   },
 } as const;
 
 export const railsCredentialsOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'environments'],
   properties: {
     supported: { type: 'boolean' },
-    environments: { type: 'array', items: railsCredentialsEnvironmentStatusResponseSchema },
+    environments: {
+      type: 'array',
+      items: railsCredentialsEnvironmentStatusResponseSchema,
+    },
   },
 } as const;

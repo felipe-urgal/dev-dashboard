@@ -1,9 +1,6 @@
 import { ref, watch, type ComputedRef, type Ref } from 'vue';
 
-import type {
-  Project,
-  RailsModelsOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, RailsModelsOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectRailsModels } from '../rails-explorer-api';
 
@@ -25,14 +22,23 @@ export function useRailsModels(
     modelsLoading.value = true;
     modelsErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsModels(getProject().id, selectedDatabase.value);
+      const result = await fetchProjectRailsModels(
+        getProject().id,
+        selectedDatabase.value,
+      );
       if (current !== generation) return;
       models.value = result;
-      if (!result.tables.some((table) => table.name === selectedTableName.value)) {
+      if (
+        !result.tables.some((table) => table.name === selectedTableName.value)
+      ) {
         selectedTableName.value = result.tables[0]?.name ?? '';
       }
     } catch (error) {
-      if (current === generation) modelsErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os modelos.';
+      if (current === generation)
+        modelsErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar os modelos.';
     } finally {
       if (current === generation) modelsLoading.value = false;
     }

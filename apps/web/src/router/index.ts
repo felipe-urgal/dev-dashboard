@@ -1,7 +1,4 @@
-import {
-  createRouter,
-  createWebHistory,
-} from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 
 import ActivityView from '../views/ActivityView.vue';
 import DashboardView from '../views/DashboardView.vue';
@@ -41,7 +38,9 @@ export const router = createRouter({
       },
     },
     {
-      path: '/settings', name: 'settings', component: SettingsView,
+      path: '/settings',
+      name: 'settings',
+      component: SettingsView,
       meta: { eyebrow: 'Ambiente local', title: 'Configurações' },
     },
     {
@@ -117,7 +116,10 @@ export const router = createRouter({
       path: '/projects/:projectId/dependencies',
       name: 'project-dependencies',
       component: ProjectDetailsView,
-      meta: { eyebrow: 'Projeto local', title: 'Dependências e build do projeto' },
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Dependências e build do projeto',
+      },
     },
     {
       path: '/projects/:projectId/scripts',
@@ -129,13 +131,19 @@ export const router = createRouter({
       path: '/projects/:projectId/rails-runtime',
       name: 'project-rails-runtime',
       component: ProjectDetailsView,
-      meta: { eyebrow: 'Projeto local', title: 'Sidekiq, webpack e credentials' },
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Sidekiq, webpack e credentials',
+      },
     },
     {
       path: '/projects/:projectId/environment',
       name: 'project-environment',
       component: ProjectDetailsView,
-      meta: { eyebrow: 'Projeto local', title: 'Variáveis de ambiente do projeto' },
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Variáveis de ambiente do projeto',
+      },
     },
     {
       path: '/:pathMatch(.*)*',

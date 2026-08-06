@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import {
-  computed,
-} from 'vue';
+import { computed } from 'vue';
 import {
   ArrowPathIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  useRouter,
-} from 'vue-router';
+import { useRouter } from 'vue-router';
 
 import type {
   Project,
@@ -32,14 +28,12 @@ const emit = defineEmits<{
 
 const router = useRouter();
 
-const failures = computed(() => parseTestFailures(
-  props.logContent,
-  props.runner,
-  {
+const failures = computed(() =>
+  parseTestFailures(props.logContent, props.runner, {
     projectPath: props.project.path,
     limit: 20,
-  },
-));
+  }),
+);
 
 function locationLabel(failure: TestFailure): string {
   const location = failure.location;
@@ -77,11 +71,15 @@ async function openFailure(failure: TestFailure): Promise<void> {
         <span class="section-kicker">Falhas estruturadas</span>
         <h4 id="tests-failure-navigator-title">
           {{ failures.length }}
-          {{ failures.length === 1 ? 'falha identificada' : 'falhas identificadas' }}
+          {{
+            failures.length === 1
+              ? 'falha identificada'
+              : 'falhas identificadas'
+          }}
         </h4>
         <p>
-          Abra a origem no editor ou execute apenas o arquivo relacionado.
-          O log completo permanece disponível abaixo.
+          Abra a origem no editor ou execute apenas o arquivo relacionado. O log
+          completo permanece disponível abaixo.
         </p>
       </div>
       <ExclamationTriangleIcon aria-hidden="true" />
@@ -105,11 +103,15 @@ async function openFailure(failure: TestFailure): Promise<void> {
         >
           <div v-if="failure.expected">
             <dt>Esperado</dt>
-            <dd><code>{{ failure.expected }}</code></dd>
+            <dd>
+              <code>{{ failure.expected }}</code>
+            </dd>
           </div>
           <div v-if="failure.actual">
             <dt>Obtido</dt>
-            <dd><code>{{ failure.actual }}</code></dd>
+            <dd>
+              <code>{{ failure.actual }}</code>
+            </dd>
           </div>
         </dl>
 
@@ -136,7 +138,9 @@ async function openFailure(failure: TestFailure): Promise<void> {
             type="button"
             class="secondary-button tests-button-with-icon"
             :disabled="running || !failure.location"
-            @click="failure.location && emit('repeat-file', failure.location.path)"
+            @click="
+              failure.location && emit('repeat-file', failure.location.path)
+            "
           >
             <ArrowPathIcon aria-hidden="true" />
             Executar arquivo

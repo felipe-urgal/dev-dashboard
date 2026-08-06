@@ -17,14 +17,9 @@ export interface ProcessStoreContext {
 }
 
 export function createProjectKey(projectId: string): string {
-  const readable = projectId
-    .replace(/[^a-zA-Z0-9_-]+/g, '_')
-    .slice(0, 80);
+  const readable = projectId.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80);
 
-  const hash = createHash('sha256')
-    .update(projectId)
-    .digest('hex')
-    .slice(0, 8);
+  const hash = createHash('sha256').update(projectId).digest('hex').slice(0, 8);
 
   return `${readable}-${hash}`;
 }
@@ -95,8 +90,7 @@ export async function writeStoredProcess(
     managedProcess.kind as ManagedKind,
   );
 
-  const temporaryFile =
-    `${processFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  const temporaryFile = `${processFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
 
   await writeFile(
     temporaryFile,
@@ -168,8 +162,6 @@ export function terminalProcess(
     ...rest,
     status,
     stoppedAt: new Date().toISOString(),
-    ...(exitCode !== undefined && exitCode !== null
-      ? { exitCode }
-      : {}),
+    ...(exitCode !== undefined && exitCode !== null ? { exitCode } : {}),
   };
 }

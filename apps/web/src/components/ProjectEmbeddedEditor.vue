@@ -108,12 +108,16 @@ const aiPanelOpen = ref(false);
 let monaco: typeof Monaco | undefined;
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined;
 let themeObserver: MutationObserver | undefined;
-let languageServerClients: Partial<Record<ProjectLanguageServerKind, ProjectLanguageServerClient>> = {};
+let languageServerClients: Partial<
+  Record<ProjectLanguageServerKind, ProjectLanguageServerClient>
+> = {};
 let aiInlineCompletionProvider: AiInlineCompletionProvider | undefined;
 const models = new Map<string, Monaco.editor.ITextModel>();
 const modelListeners = new Map<string, Monaco.IDisposable>();
 
-const rubyRailsStatus = computed(() => languageServerStatuses.value.ruby?.rails);
+const rubyRailsStatus = computed(
+  () => languageServerStatuses.value.ruby?.rails,
+);
 
 const activeFile = computed(() =>
   openFiles.value.find((file) => file.path === activePath.value),
@@ -130,8 +134,8 @@ const flatTree = computed<FlatTreeEntry[]>(() => {
     for (const entry of directoryEntries.value.get(parent) ?? []) {
       items.push({ entry, depth });
       if (
-        entry.kind === 'directory'
-        && expandedDirectories.value.has(entry.path)
+        entry.kind === 'directory' &&
+        expandedDirectories.value.has(entry.path)
       ) {
         append(entry.path, depth + 1);
       }
@@ -142,18 +146,19 @@ const flatTree = computed<FlatTreeEntry[]>(() => {
   return items;
 });
 
-const selectedEntry = computed(() =>
-  flatTree.value.find((node) => node.entry.path === selectedPath.value)?.entry,
+const selectedEntry = computed(
+  () =>
+    flatTree.value.find((node) => node.entry.path === selectedPath.value)
+      ?.entry,
 );
 const mutationBlocked = computed(() => {
   const selected = selectedEntry.value;
   if (!selected) return false;
-  return [...dirtyPaths.value].some((filePath) =>
-    filePath === selected.path
-    || (
-      selected.kind === 'directory'
-      && filePath.startsWith(`${selected.path}/`)
-    ),
+  return [...dirtyPaths.value].some(
+    (filePath) =>
+      filePath === selected.path ||
+      (selected.kind === 'directory' &&
+        filePath.startsWith(`${selected.path}/`)),
   );
 });
 
@@ -221,9 +226,9 @@ const {
   openFiles,
   dirtyPaths,
   getLocalContent: (filePath) =>
-    models.get(filePath)?.getValue()
-      ?? openFiles.value.find((file) => file.path === filePath)?.content
-      ?? '',
+    models.get(filePath)?.getValue() ??
+    openFiles.value.find((file) => file.path === filePath)?.content ??
+    '',
   replaceOpenFile,
   replaceModelContent,
   setDirty,
@@ -310,7 +315,9 @@ function readStoredEditorTheme(): EmbeddedEditorThemePreference {
   }
 }
 
-const editorThemePreference = ref<EmbeddedEditorThemePreference>(readStoredEditorTheme());
+const editorThemePreference = ref<EmbeddedEditorThemePreference>(
+  readStoredEditorTheme(),
+);
 
 watch(editorThemePreference, (value) => {
   try {
@@ -326,7 +333,9 @@ function themeName(): string {
   return document.documentElement.dataset.theme === 'light' ? 'vs' : 'vs-dark';
 }
 
-function modelFor(file: ProjectFileContent): Monaco.editor.ITextModel | undefined {
+function modelFor(
+  file: ProjectFileContent,
+): Monaco.editor.ITextModel | undefined {
   if (!monaco) return undefined;
   const existing = models.get(file.path);
   if (existing) return existing;
@@ -415,13 +424,15 @@ async function openFile(
     try {
       const file = await fetchProjectFileContent(props.project.id, filePath);
       if (
-        !pin
-        && previewPath.value
-        && previewPath.value !== filePath
-        && !dirtyPaths.value.has(previewPath.value)
+        !pin &&
+        previewPath.value &&
+        previewPath.value !== filePath &&
+        !dirtyPaths.value.has(previewPath.value)
       ) {
         const stalePath = previewPath.value;
-        openFiles.value = openFiles.value.filter((item) => item.path !== stalePath);
+        openFiles.value = openFiles.value.filter(
+          (item) => item.path !== stalePath,
+        );
         disposeModel(stalePath);
         removeExternalConflict(stalePath);
       }
@@ -491,7 +502,8 @@ async function reloadFile(filePath: string): Promise<void> {
     const fresh = await fetchProjectFileContent(props.project.id, filePath);
     replaceOpenFile(fresh);
     const model = models.get(filePath);
-    if (model && model.getValue() !== fresh.content) model.setValue(fresh.content);
+    if (model && model.getValue() !== fresh.content)
+      model.setValue(fresh.content);
     setDirty(filePath, false);
     conflictPath.value = '';
     removeExternalConflict(filePath);
@@ -511,11 +523,12 @@ async function reloadFile(filePath: string): Promise<void> {
 async function saveActiveFile(): Promise<void> {
   const file = activeFile.value;
   if (
-    !file
-    || !file.writable
-    || !dirtyPaths.value.has(file.path)
-    || savingPath.value
-  ) return;
+    !file ||
+    !file.writable ||
+    !dirtyPaths.value.has(file.path) ||
+    savingPath.value
+  )
+    return;
 
   const content = models.get(file.path)?.getValue() ?? fallbackContent.value;
   savingPath.value = file.path;
@@ -534,8 +547,8 @@ async function saveActiveFile(): Promise<void> {
     statusMessage.value = `${saved.name} salvo.`;
   } catch (error) {
     if (
-      error instanceof ApiRequestError
-      && error.code === 'FILE_CHANGED_EXTERNALLY'
+      error instanceof ApiRequestError &&
+      error.code === 'FILE_CHANGED_EXTERNALLY'
     ) {
       try {
         const diskFile = await fetchProjectFileContent(
@@ -587,14 +600,16 @@ async function handleFileMutation(
 
   if (result.operation === 'rename' && result.destinationPath) {
     const reopenFile =
-      result.kind === 'file'
-      && openFiles.value.some((file) => file.path === result.path);
+      result.kind === 'file' &&
+      openFiles.value.some((file) => file.path === result.path);
     closeAffectedFiles(result.path);
     const parents = new Set([
       parentPath(result.path),
       parentPath(result.destinationPath),
     ]);
-    await Promise.all([...parents].map((parent) => loadDirectory(parent, true)));
+    await Promise.all(
+      [...parents].map((parent) => loadDirectory(parent, true)),
+    );
     selectedPath.value = result.destinationPath;
     if (reopenFile) await openFile(result.destinationPath);
     statusMessage.value = `${result.path} renomeado para ${result.destinationPath}.`;
@@ -618,9 +633,14 @@ async function submitSearch(): Promise<void> {
       const clients = Object.values(languageServerClients).filter(
         (client): client is ProjectLanguageServerClient => Boolean(client),
       );
-      searchResults.value = symbolQuery && clients.length > 0
-        ? (await Promise.all(clients.map((client) => client.workspaceSymbols(symbolQuery)))).flat()
-        : [];
+      searchResults.value =
+        symbolQuery && clients.length > 0
+          ? (
+              await Promise.all(
+                clients.map((client) => client.workspaceSymbols(symbolQuery)),
+              )
+            ).flat()
+          : [];
       searchTruncated.value = false;
       return;
     }
@@ -720,13 +740,18 @@ async function enableRailsRuntime(): Promise<void> {
   railsRuntimeBusy.value = true;
   errorMessage.value = '';
   try {
-    const confirmation = await prepareProjectRailsRuntimeConfirmation(props.project.id);
+    const confirmation = await prepareProjectRailsRuntimeConfirmation(
+      props.project.id,
+    );
     const status = await setProjectRailsRuntimeEnabled(
       props.project.id,
       true,
       confirmation.token,
     );
-    languageServerStatuses.value = { ...languageServerStatuses.value, ruby: status };
+    languageServerStatuses.value = {
+      ...languageServerStatuses.value,
+      ruby: status,
+    };
     statusMessage.value = 'Introspecção Rails habilitada.';
   } catch (error) {
     errorMessage.value = readableError(
@@ -744,7 +769,10 @@ async function disableRailsRuntime(): Promise<void> {
   errorMessage.value = '';
   try {
     const status = await setProjectRailsRuntimeEnabled(props.project.id, false);
-    languageServerStatuses.value = { ...languageServerStatuses.value, ruby: status };
+    languageServerStatuses.value = {
+      ...languageServerStatuses.value,
+      ruby: status,
+    };
     statusMessage.value = 'Introspecção Rails desabilitada.';
   } catch (error) {
     errorMessage.value = readableError(
@@ -811,9 +839,10 @@ async function initializeMonaco(): Promise<void> {
 
     editor.onDidChangeCursorSelection((event) => {
       const model = editor?.getModel();
-      selectedText.value = model && !event.selection.isEmpty()
-        ? model.getValueInRange(event.selection)
-        : '';
+      selectedText.value =
+        model && !event.selection.isEmpty()
+          ? model.getValueInRange(event.selection)
+          : '';
     });
 
     themeObserver = new MutationObserver(() => {
@@ -834,7 +863,11 @@ async function initializeMonaco(): Promise<void> {
   }
 }
 
-function routeEditorTarget(): { path: string; line: number; column: number } | null {
+function routeEditorTarget(): {
+  path: string;
+  line: number;
+  column: number;
+} | null {
   const query = route?.query;
   if (!query) return null;
   const rawPath = Array.isArray(query.file) ? query.file[0] : query.file;
@@ -844,24 +877,35 @@ function routeEditorTarget(): { path: string; line: number; column: number } | n
     ? normalizedPath.slice(2)
     : normalizedPath;
   const firstCharacter = filePath.charCodeAt(0);
-  const windowsAbsolute = filePath.length >= 3
-    && ((firstCharacter >= 65 && firstCharacter <= 90)
-      || (firstCharacter >= 97 && firstCharacter <= 122))
-    && filePath[1] === ':'
-    && filePath[2] === '/';
+  const windowsAbsolute =
+    filePath.length >= 3 &&
+    ((firstCharacter >= 65 && firstCharacter <= 90) ||
+      (firstCharacter >= 97 && firstCharacter <= 122)) &&
+    filePath[1] === ':' &&
+    filePath[2] === '/';
   if (!filePath || filePath.startsWith('/') || windowsAbsolute) return null;
-  if (filePath.split('/').some((segment) => segment === '..' || segment === '')) return null;
+  if (filePath.split('/').some((segment) => segment === '..' || segment === ''))
+    return null;
   const rawLine = Array.isArray(query.line) ? query.line[0] : query.line;
-  const rawColumn = Array.isArray(query.column) ? query.column[0] : query.column;
+  const rawColumn = Array.isArray(query.column)
+    ? query.column[0]
+    : query.column;
   const line = Math.max(1, Number.parseInt(String(rawLine ?? '1'), 10) || 1);
-  const column = Math.max(1, Number.parseInt(String(rawColumn ?? '1'), 10) || 1);
+  const column = Math.max(
+    1,
+    Number.parseInt(String(rawColumn ?? '1'), 10) || 1,
+  );
   return { path: filePath, line, column };
 }
 
 async function openRouteEditorTarget(): Promise<void> {
   const target = routeEditorTarget();
   if (!target) return;
-  await openFile(target.path, { line: target.line, column: target.column }, { pin: true });
+  await openFile(
+    target.path,
+    { line: target.line, column: target.column },
+    { pin: true },
+  );
 }
 
 async function resetProject(): Promise<void> {
@@ -949,13 +993,15 @@ onBeforeUnmount(() => {
             :title="languageServerStatuses[kind]!.message"
           >
             LSP {{ kind === 'ruby' ? 'Ruby' : 'JS/TS' }}
-            {{ languageServerStatuses[kind]!.state === 'ready'
-              ? 'ativo'
-              : languageServerStatuses[kind]!.state === 'unavailable'
-                ? 'indisponível'
-                : languageServerStatuses[kind]!.state === 'failed'
-                  ? 'falhou'
-                  : 'iniciando' }}
+            {{
+              languageServerStatuses[kind]!.state === 'ready'
+                ? 'ativo'
+                : languageServerStatuses[kind]!.state === 'unavailable'
+                  ? 'indisponível'
+                  : languageServerStatuses[kind]!.state === 'failed'
+                    ? 'falhou'
+                    : 'iniciando'
+            }}
           </span>
         </template>
         <span
@@ -964,7 +1010,14 @@ onBeforeUnmount(() => {
           :data-state="rubyRailsStatus.runtimeState"
           :title="rubyRailsStatus.message"
         >
-          <span>Rails runtime {{ rubyRailsStatus.runtimeState === 'enabled' ? 'habilitado' : 'desabilitado' }}</span>
+          <span
+            >Rails runtime
+            {{
+              rubyRailsStatus.runtimeState === 'enabled'
+                ? 'habilitado'
+                : 'desabilitado'
+            }}</span
+          >
           <button
             v-if="rubyRailsStatus.runtimeState === 'disabled'"
             type="button"
@@ -1000,7 +1053,9 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="button button-primary embedded-ide-save"
-          :disabled="!activeFile?.writable || !activeDirty || Boolean(savingPath)"
+          :disabled="
+            !activeFile?.writable || !activeDirty || Boolean(savingPath)
+          "
           @click="saveActiveFile"
         >
           {{ savingPath ? 'Salvando…' : 'Salvar' }}
@@ -1017,10 +1072,18 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <p v-if="errorMessage" class="alert alert-error embedded-ide-error" role="alert">
+    <p
+      v-if="errorMessage"
+      class="alert alert-error embedded-ide-error"
+      role="alert"
+    >
       {{ errorMessage }}
     </p>
-    <p v-else-if="statusMessage" class="alert embedded-ide-status" role="status">
+    <p
+      v-else-if="statusMessage"
+      class="alert embedded-ide-status"
+      role="status"
+    >
       {{ statusMessage }}
     </p>
     <p class="sr-only" role="status" aria-live="polite">
@@ -1028,14 +1091,19 @@ onBeforeUnmount(() => {
     </p>
 
     <div v-if="conflictPath" class="embedded-ide-decision" role="alert">
-      <span>Sua edição continua aberta e o arquivo no disco foi preservado.</span>
+      <span
+        >Sua edição continua aberta e o arquivo no disco foi preservado.</span
+      >
       <div>
         <button type="button" @click="reloadFile(conflictPath)">
           Recarregar do disco
         </button>
         <button
           type="button"
-          @click="conflictPath = ''; errorMessage = ''"
+          @click="
+            conflictPath = '';
+            errorMessage = '';
+          "
         >
           Manter edição
         </button>
@@ -1048,9 +1116,7 @@ onBeforeUnmount(() => {
         <button type="button" @click="closeFileNow(pendingCloseFile.path)">
           Descartar e fechar
         </button>
-        <button type="button" @click="pendingClosePath = ''">
-          Cancelar
-        </button>
+        <button type="button" @click="pendingClosePath = ''">Cancelar</button>
       </div>
     </div>
 
@@ -1077,7 +1143,11 @@ onBeforeUnmount(() => {
       :class="{ 'embedded-ide-shell-with-ai': aiPanelOpen }"
     >
       <aside class="embedded-ide-sidebar" aria-label="Arquivos do projeto">
-        <form class="embedded-ide-search" role="search" @submit.prevent="submitSearch">
+        <form
+          class="embedded-ide-search"
+          role="search"
+          @submit.prevent="submitSearch"
+        >
           <MagnifyingGlassIcon aria-hidden="true" />
           <label class="sr-only" for="embedded-ide-search-input">
             Buscar nos arquivos
@@ -1088,7 +1158,7 @@ onBeforeUnmount(() => {
             type="search"
             autocomplete="off"
             placeholder="Buscar no projeto ou @símbolo"
-          >
+          />
           <button
             v-if="searchQuery"
             type="button"
@@ -1106,7 +1176,10 @@ onBeforeUnmount(() => {
           @completed="handleFileMutation"
         />
 
-        <div v-if="searchResults.length || searching" class="embedded-ide-results">
+        <div
+          v-if="searchResults.length || searching"
+          class="embedded-ide-results"
+        >
           <header>
             <strong>Resultados</strong>
             <span>{{ searching ? 'Buscando…' : searchResults.length }}</span>
@@ -1116,7 +1189,12 @@ onBeforeUnmount(() => {
             :key="`${result.path}:${result.line}:${result.column}`"
             type="button"
             class="embedded-ide-result"
-            @click="openFile(result.path, { line: result.line, column: result.column })"
+            @click="
+              openFile(result.path, {
+                line: result.line,
+                column: result.column,
+              })
+            "
           >
             <strong>{{ result.path }}</strong>
             <small>Linha {{ result.line }} · {{ result.preview }}</small>
@@ -1138,12 +1216,15 @@ onBeforeUnmount(() => {
             class="embedded-ide-tree-item"
             :class="{
               'embedded-ide-tree-item-active': activePath === node.entry.path,
-              'embedded-ide-tree-item-selected': selectedPath === node.entry.path,
+              'embedded-ide-tree-item-selected':
+                selectedPath === node.entry.path,
             }"
             role="treeitem"
-            :aria-expanded="node.entry.kind === 'directory'
-              ? expandedDirectories.has(node.entry.path)
-              : undefined"
+            :aria-expanded="
+              node.entry.kind === 'directory'
+                ? expandedDirectories.has(node.entry.path)
+                : undefined
+            "
             :style="{ paddingInlineStart: `${10 + node.depth * 15}px` }"
             @click="selectEntry(node.entry)"
             @dblclick="pinEntry(node.entry)"
@@ -1166,14 +1247,19 @@ onBeforeUnmount(() => {
                 v-if="dirtyPaths.has(node.entry.path)"
                 class="embedded-ide-tree-item-dirty"
                 aria-label="alterado"
-              >•</span>
+                >•</span
+              >
             </span>
           </button>
         </div>
       </aside>
 
       <div class="embedded-ide-workbench">
-        <div class="embedded-ide-tabs" role="tablist" aria-label="Arquivos abertos">
+        <div
+          class="embedded-ide-tabs"
+          role="tablist"
+          aria-label="Arquivos abertos"
+        >
           <div
             v-for="file in openFiles"
             :key="file.path"
@@ -1190,7 +1276,10 @@ onBeforeUnmount(() => {
               @click="displayFile(file)"
               @dblclick="pinPreview(file.path)"
             >
-              {{ file.name }}<span v-if="dirtyPaths.has(file.path)" aria-label="alterado"> •</span>
+              {{ file.name
+              }}<span v-if="dirtyPaths.has(file.path)" aria-label="alterado">
+                •</span
+              >
             </button>
             <button
               type="button"
@@ -1214,13 +1303,12 @@ onBeforeUnmount(() => {
             tabindex="0"
             aria-label="Conteúdo do arquivo em visualização simplificada"
           ><code>{{ fallbackContent }}</code></pre>
-          <div
-            v-if="!activeFile"
-            class="embedded-ide-welcome"
-          >
+          <div v-if="!activeFile" class="embedded-ide-welcome">
             <DocumentTextIcon aria-hidden="true" />
             <strong>Selecione um arquivo</strong>
-            <span>Arquivos permitidos podem ser editados e salvos com Ctrl+S.</span>
+            <span
+              >Arquivos permitidos podem ser editados e salvos com Ctrl+S.</span
+            >
           </div>
           <p v-if="loadingMonaco" class="embedded-ide-loading" role="status">
             Carregando Monaco…
@@ -1230,11 +1318,13 @@ onBeforeUnmount(() => {
         <footer class="embedded-ide-statusbar">
           <span>{{ activeFile?.path ?? project.name }}</span>
           <span>
-            {{ checkingExternalFiles
-              ? 'Verificando mudanças externas…'
-              : activeDirty
-                ? 'Alterações não salvas'
-                : (activeFile?.language ?? 'Nenhum arquivo') }}
+            {{
+              checkingExternalFiles
+                ? 'Verificando mudanças externas…'
+                : activeDirty
+                  ? 'Alterações não salvas'
+                  : (activeFile?.language ?? 'Nenhum arquivo')
+            }}
           </span>
         </footer>
       </div>
@@ -1246,7 +1336,11 @@ onBeforeUnmount(() => {
         :active-file-path="activeFile?.path ?? ''"
         :active-file-language="activeFile?.language ?? ''"
         :selected-text="selectedText"
-        @workspace-edit-proposed="(preview) => { workspaceEditPreview = preview; }"
+        @workspace-edit-proposed="
+          (preview) => {
+            workspaceEditPreview = preview;
+          }
+        "
       />
     </div>
   </section>
@@ -1410,7 +1504,10 @@ onBeforeUnmount(() => {
 }
 
 .embedded-ide-shell-with-ai {
-  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr) minmax(
+      260px,
+      320px
+    );
 }
 
 .embedded-ide-ai-panel {

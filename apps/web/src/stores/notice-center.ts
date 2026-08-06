@@ -1,7 +1,4 @@
-import {
-  computed,
-  ref,
-} from 'vue';
+import { computed, ref } from 'vue';
 
 import type { ComputedRef, Ref } from 'vue';
 
@@ -25,23 +22,26 @@ export interface Notice {
 
 export const NOTICE_LIST_LIMIT = 20;
 
-export interface TerminalNoticeInput extends Omit<Notice, 'id' | 'createdAt' | 'read'> {
+export interface TerminalNoticeInput extends Omit<
+  Notice,
+  'id' | 'createdAt' | 'read'
+> {
   durationMs?: number | undefined;
 }
 
-export function createNoticeCenterStore(options: {
-  publishNativeNotification?: (notice: Notice, durationMs?: number) => void;
-} = {}) {
+export function createNoticeCenterStore(
+  options: {
+    publishNativeNotification?: (notice: Notice, durationMs?: number) => void;
+  } = {},
+) {
   const notices: Ref<Notice[]> = ref([]);
   const dedupeSet = new Set<string>();
 
-  const unreadCount: ComputedRef<number> = computed(() =>
-    notices.value.filter((notice) => !notice.read).length,
+  const unreadCount: ComputedRef<number> = computed(
+    () => notices.value.filter((notice) => !notice.read).length,
   );
 
-  function publishTerminalNotice(
-    input: TerminalNoticeInput,
-  ): void {
+  function publishTerminalNotice(input: TerminalNoticeInput): void {
     if (dedupeSet.has(input.dedupeKey)) {
       return;
     }

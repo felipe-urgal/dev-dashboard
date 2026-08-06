@@ -1,12 +1,6 @@
-import {
-  createReadStream,
-  type Dirent,
-} from 'node:fs';
+import { createReadStream, type Dirent } from 'node:fs';
 
-import {
-  readdir,
-  stat,
-} from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 
 import path from 'node:path';
 
@@ -44,14 +38,9 @@ function faviconContentType(filePath: string): string {
   }
 }
 
-async function findProjectFavicon(
-  projectPath: string,
-): Promise<string | null> {
+async function findProjectFavicon(projectPath: string): Promise<string | null> {
   for (const relativeDirectory of faviconDirectories) {
-    const directoryPath = path.join(
-      projectPath,
-      relativeDirectory,
-    );
+    const directoryPath = path.join(projectPath, relativeDirectory);
 
     let entries: Dirent[];
 
@@ -64,11 +53,7 @@ async function findProjectFavicon(
     }
 
     const candidateNames = entries
-      .filter(
-        (entry) =>
-          entry.isFile() &&
-          faviconNamePattern.test(entry.name),
-      )
+      .filter((entry) => entry.isFile() && faviconNamePattern.test(entry.name))
       .map((entry) => entry.name)
       .sort((left, right) => {
         const preferred = [
@@ -79,12 +64,8 @@ async function findProjectFavicon(
           'icon.png',
         ];
 
-        const leftRank = preferred.indexOf(
-          left.toLowerCase(),
-        );
-        const rightRank = preferred.indexOf(
-          right.toLowerCase(),
-        );
+        const leftRank = preferred.indexOf(left.toLowerCase());
+        const rightRank = preferred.indexOf(right.toLowerCase());
 
         return (
           (leftRank < 0 ? preferred.length : leftRank) -
@@ -94,18 +75,12 @@ async function findProjectFavicon(
       });
 
     for (const candidateName of candidateNames) {
-      const candidatePath = path.join(
-        directoryPath,
-        candidateName,
-      );
+      const candidatePath = path.join(directoryPath, candidateName);
 
       try {
         const candidateStats = await stat(candidatePath);
 
-        if (
-          candidateStats.isFile() &&
-          candidateStats.size <= 2 * 1024 * 1024
-        ) {
+        if (candidateStats.isFile() && candidateStats.size <= 2 * 1024 * 1024) {
           return candidatePath;
         }
       } catch {
@@ -133,9 +108,7 @@ export function registerFaviconRoute(
       },
     },
     async (request, reply) => {
-      const project = projectStore.findProject(
-        request.params.projectId,
-      );
+      const project = projectStore.findProject(request.params.projectId);
 
       if (!project) {
         throw new ApiError({
@@ -145,9 +118,7 @@ export function registerFaviconRoute(
         });
       }
 
-      const faviconPath = await findProjectFavicon(
-        project.path,
-      );
+      const faviconPath = await findProjectFavicon(project.path);
 
       if (!faviconPath) {
         throw new ApiError({

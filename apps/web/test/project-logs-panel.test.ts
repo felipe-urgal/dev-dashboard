@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 
-import type { ManagedProcess, ProcessLogSnapshot } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  ProcessLogSnapshot,
+} from '@dev-dashboard/contracts';
 
 import ProjectLogsPanel from '../src/components/ProjectLogsPanel.vue';
 import { makeProject } from './support/activity-fixtures';
@@ -39,7 +42,9 @@ function processLogSnapshot(content: string): ProcessLogSnapshot {
   };
 }
 
-function runningProcess(overrides: Partial<ManagedProcess> = {}): ManagedProcess {
+function runningProcess(
+  overrides: Partial<ManagedProcess> = {},
+): ManagedProcess {
   return {
     id: 'proc-1',
     projectId: 'p1',
@@ -75,7 +80,11 @@ async function mountPanel(logContent = railsLog) {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const project = makeProject({ id: 'p1', type: 'rails', capabilities: ['server'] });
+  const project = makeProject({
+    id: 'p1',
+    type: 'rails',
+    capabilities: ['server'],
+  });
   const wrapper = mount(ProjectLogsPanel, {
     props: { project },
     global: { stubs: { RouterLink: RouterLinkStub } },
@@ -84,7 +93,12 @@ async function mountPanel(logContent = railsLog) {
   await flushPromises();
   await flushPromises();
 
-  return { wrapper, restoreFetch: () => { globalThis.fetch = originalFetch; } };
+  return {
+    wrapper,
+    restoreFetch: () => {
+      globalThis.fetch = originalFetch;
+    },
+  };
 }
 
 describe('ProjectLogsPanel', () => {
@@ -101,10 +115,16 @@ describe('ProjectLogsPanel', () => {
       expect(items[0]?.text()).toContain('/export');
       expect(items[0]?.classes()).toContain('selected');
 
-      expect(wrapper.get('.rails-detail-heading h3').text()).toContain('/export');
+      expect(wrapper.get('.rails-detail-heading h3').text()).toContain(
+        '/export',
+      );
       expect(wrapper.find('.project-logs-sidebar').exists()).toBe(false);
-      expect(wrapper.get('.project-logs-topbar').text()).toContain('Status do servidor');
-      expect(wrapper.get('.project-logs-topbar').text()).toContain('Ações rápidas');
+      expect(wrapper.get('.project-logs-topbar').text()).toContain(
+        'Status do servidor',
+      );
+      expect(wrapper.get('.project-logs-topbar').text()).toContain(
+        'Ações rápidas',
+      );
       expect(wrapper.findAll('.project-log-quick-actions a')).toHaveLength(2);
     } finally {
       restoreFetch();
@@ -133,11 +153,15 @@ describe('ProjectLogsPanel', () => {
       const rawButton = wrapper.findAll('.project-log-view-switch button')[1];
       await rawButton?.trigger('click');
 
-      const lines = wrapper.findAll('.project-log-line').map((line) => line.text());
+      const lines = wrapper
+        .findAll('.project-log-line')
+        .map((line) => line.text());
       expect(lines.length).toBeGreaterThan(0);
 
       const exportIndex = lines.findIndex((text) => text.includes('/export'));
-      const researchesIndex = lines.findIndex((text) => text.includes('"/platform/observatorio/indicators/researches"'));
+      const researchesIndex = lines.findIndex((text) =>
+        text.includes('"/platform/observatorio/indicators/researches"'),
+      );
       expect(exportIndex).toBeGreaterThanOrEqual(0);
       expect(researchesIndex).toBeGreaterThanOrEqual(0);
       expect(exportIndex).toBeLessThan(researchesIndex);

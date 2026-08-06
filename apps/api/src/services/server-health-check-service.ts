@@ -6,12 +6,7 @@ import type {
   ServerHealthStatus,
 } from '@dev-dashboard/contracts';
 
-const HEALTH_CHECK_PATHS = [
-  '/up',
-  '/health',
-  '/healthz',
-  '/',
-] as const;
+const HEALTH_CHECK_PATHS = ['/up', '/health', '/healthz', '/'] as const;
 
 const HEALTH_CHECK_TIMEOUT_MS = 2_000;
 
@@ -66,18 +61,13 @@ function requestLocalHealth(
         response.destroy();
         resolve({
           httpStatus,
-          latencyMs: Math.max(
-            0,
-            Math.round(performance.now() - startedAt),
-          ),
+          latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
         });
       },
     );
 
     request.once('timeout', () => {
-      request.destroy(
-        new Error('O health check excedeu o tempo limite.'),
-      );
+      request.destroy(new Error('O health check excedeu o tempo limite.'));
     });
     request.once('error', reject);
     request.end();
@@ -86,8 +76,7 @@ function requestLocalHealth(
 
 export class ServerHealthCheckService {
   public constructor(
-    private readonly requester: ServerHealthRequester =
-      requestLocalHealth,
+    private readonly requester: ServerHealthRequester = requestLocalHealth,
   ) {}
 
   public async check(
@@ -97,16 +86,11 @@ export class ServerHealthCheckService {
     const paths = input.healthCheckPath
       ? [input.healthCheckPath]
       : [...HEALTH_CHECK_PATHS];
-    let fallback:
-      | (HealthAttempt & { path: string })
-      | undefined;
+    let fallback: (HealthAttempt & { path: string }) | undefined;
 
     for (const path of paths) {
       try {
-        const attempt = await this.requester(
-          input.port,
-          path,
-        );
+        const attempt = await this.requester(input.port, path);
         const candidate = { ...attempt, path };
         const status = classifyStatus(attempt.httpStatus);
 
@@ -120,9 +104,7 @@ export class ServerHealthCheckService {
           return {
             projectId: input.projectId,
             path,
-            pathSource: input.healthCheckPath
-              ? 'configured'
-              : 'detected',
+            pathSource: input.healthCheckPath ? 'configured' : 'detected',
             status,
             httpStatus: attempt.httpStatus,
             latencyMs: attempt.latencyMs,
@@ -138,9 +120,7 @@ export class ServerHealthCheckService {
     return {
       projectId: input.projectId,
       path: input.healthCheckPath ?? fallback?.path ?? '/',
-      pathSource: input.healthCheckPath
-        ? 'configured'
-        : 'detected',
+      pathSource: input.healthCheckPath ? 'configured' : 'detected',
       status: 'unavailable',
       ...(fallback
         ? {

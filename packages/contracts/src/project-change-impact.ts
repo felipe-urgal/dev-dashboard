@@ -3,11 +3,7 @@
  * para uma área do dashboard que já existe (rota com o mesmo nome).
  */
 export type ProjectChangeImpactCategory =
-  | 'dependencies'
-  | 'database'
-  | 'environment'
-  | 'server'
-  | 'tests';
+  'dependencies' | 'database' | 'environment' | 'server' | 'tests';
 
 export interface ProjectChangeImpactAction {
   category: ProjectChangeImpactCategory;

@@ -1,8 +1,21 @@
-import { open, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  open,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
-import type { ScriptExecution, ScriptExecutionHistory, ScriptExecutionLog } from '@dev-dashboard/contracts';
+import type {
+  ScriptExecution,
+  ScriptExecutionHistory,
+  ScriptExecutionLog,
+} from '@dev-dashboard/contracts';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 
 import {
@@ -25,7 +38,11 @@ import type {
  * processos gerenciados.
  */
 
-export function findExecution(context: ScriptExecutionContext, projectId: string, executionId: string): RunningExecution {
+export function findExecution(
+  context: ScriptExecutionContext,
+  projectId: string,
+  executionId: string,
+): RunningExecution {
   const record = context.executions.get(executionId);
   if (!record || record.execution.projectId !== projectId) {
     throw new ScriptExecutionError(
@@ -36,14 +53,21 @@ export function findExecution(context: ScriptExecutionContext, projectId: string
   return record;
 }
 
-export async function getExecution(context: ScriptExecutionContext, projectId: string, executionId: string): Promise<ScriptExecution> {
+export async function getExecution(
+  context: ScriptExecutionContext,
+  projectId: string,
+  executionId: string,
+): Promise<ScriptExecution> {
   const record = findExecution(context, projectId, executionId);
   await record.logFlush;
   await waitForPersistence(context, executionId);
   return { ...record.execution };
 }
 
-export async function latestExecution(context: ScriptExecutionContext, projectId: string): Promise<ScriptExecution | null> {
+export async function latestExecution(
+  context: ScriptExecutionContext,
+  projectId: string,
+): Promise<ScriptExecution | null> {
   await waitForAllPersistence(context);
   const records = Array.from(context.executions.values());
   for (let index = records.length - 1; index >= 0; index -= 1) {
@@ -53,7 +77,12 @@ export async function latestExecution(context: ScriptExecutionContext, projectId
   return null;
 }
 
-export async function executionHistory(context: ScriptExecutionContext, projectId: string, page = 1, pageSize = 20): Promise<ScriptExecutionHistory> {
+export async function executionHistory(
+  context: ScriptExecutionContext,
+  projectId: string,
+  page = 1,
+  pageSize = 20,
+): Promise<ScriptExecutionHistory> {
   await waitForAllPersistence(context);
   const items = Array.from(context.executions.values())
     .map((record) => record.execution)
@@ -61,7 +90,9 @@ export async function executionHistory(context: ScriptExecutionContext, projectI
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
   const total = items.length;
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize).map((item) => ({ ...item })),
+    items: items
+      .slice((page - 1) * pageSize, page * pageSize)
+      .map((item) => ({ ...item })),
     page,
     pageSize,
     total,
@@ -69,7 +100,11 @@ export async function executionHistory(context: ScriptExecutionContext, projectI
   };
 }
 
-export async function readExecutionLog(context: ScriptExecutionContext, projectId: string, executionId: string): Promise<ScriptExecutionLog> {
+export async function readExecutionLog(
+  context: ScriptExecutionContext,
+  projectId: string,
+  executionId: string,
+): Promise<ScriptExecutionLog> {
   const record = findExecution(context, projectId, executionId);
   const size = (await stat(record.logPath)).size;
   const start = Math.max(0, size - LOG_LIMIT);
@@ -99,7 +134,10 @@ function statePath(context: ScriptExecutionContext, id: string): string {
   return path.join(context.stateDirectory, `${id}.json`);
 }
 
-export async function persistExecution(context: ScriptExecutionContext, execution: ScriptExecution): Promise<void> {
+export async function persistExecution(
+  context: ScriptExecutionContext,
+  execution: ScriptExecution,
+): Promise<void> {
   const stored: StoredExecution = {
     version: HISTORY_VERSION,
     execution: { ...execution },
@@ -111,7 +149,10 @@ export async function persistExecution(context: ScriptExecutionContext, executio
   await rename(temporary, target);
 }
 
-export function schedulePersistence(context: ScriptExecutionContext, execution: ScriptExecution): void {
+export function schedulePersistence(
+  context: ScriptExecutionContext,
+  execution: ScriptExecution,
+): void {
   const previous = context.pendingWrites.get(execution.id) ?? Promise.resolve();
   const pending = previous
     .then(() => persistExecution(context, execution))
@@ -119,35 +160,52 @@ export function schedulePersistence(context: ScriptExecutionContext, execution: 
   context.pendingWrites.set(execution.id, pending);
   // O erro continua observável pelas leituras, mas não vira rejeição não tratada no listener.
   void pending.catch(() => undefined);
-  void pending.finally(() => {
-    if (context.pendingWrites.get(execution.id) === pending) {
-      context.pendingWrites.delete(execution.id);
-    }
-  }).catch(() => undefined);
+  void pending
+    .finally(() => {
+      if (context.pendingWrites.get(execution.id) === pending) {
+        context.pendingWrites.delete(execution.id);
+      }
+    })
+    .catch(() => undefined);
 }
 
-export async function waitForPersistence(context: ScriptExecutionContext, executionId: string): Promise<void> {
+export async function waitForPersistence(
+  context: ScriptExecutionContext,
+  executionId: string,
+): Promise<void> {
   await context.pendingWrites.get(executionId);
 }
 
-export async function waitForAllPersistence(context: ScriptExecutionContext): Promise<void> {
+export async function waitForAllPersistence(
+  context: ScriptExecutionContext,
+): Promise<void> {
   await Promise.all(context.pendingWrites.values());
 }
 
-async function removeStored(context: ScriptExecutionContext, id: string): Promise<void> {
+async function removeStored(
+  context: ScriptExecutionContext,
+  id: string,
+): Promise<void> {
   await Promise.all([
     rm(statePath(context, id), { force: true }),
     rm(path.join(context.stateDirectory, `${id}.log`), { force: true }),
   ]);
 }
 
-export async function pruneHistory(context: ScriptExecutionContext): Promise<void> {
+export async function pruneHistory(
+  context: ScriptExecutionContext,
+): Promise<void> {
   const now = Date.now();
   const terminal = Array.from(context.executions.values())
     .filter((record) => record.execution.status !== 'running')
-    .sort((left, right) => right.execution.startedAt.localeCompare(left.execution.startedAt));
-  const expired = terminal.filter((record) =>
-    now - Date.parse(record.execution.finishedAt ?? record.execution.startedAt) > context.retentionMs,
+    .sort((left, right) =>
+      right.execution.startedAt.localeCompare(left.execution.startedAt),
+    );
+  const expired = terminal.filter(
+    (record) =>
+      now -
+        Date.parse(record.execution.finishedAt ?? record.execution.startedAt) >
+      context.retentionMs,
   );
   const overLimit = terminal.slice(context.historyLimit);
   const removable = new Map(
@@ -162,15 +220,26 @@ export async function pruneHistory(context: ScriptExecutionContext): Promise<voi
 function validExecution(value: unknown): value is ScriptExecution {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
-  return typeof item.id === 'string' && EXECUTION_ID_PATTERN.test(item.id)
-    && typeof item.projectId === 'string' && item.projectId.length > 0
-    && typeof item.actionId === 'string' && item.actionId.length > 0
-    && typeof item.actionName === 'string' && item.actionName.length > 0
-    && ['read-only', 'mutable', 'destructive'].includes(String(item.risk))
-    && ['running', 'succeeded', 'failed', 'cancelled'].includes(String(item.status))
-    && typeof item.startedAt === 'string' && Number.isFinite(Date.parse(item.startedAt))
-    && (item.finishedAt === undefined || (typeof item.finishedAt === 'string' && Number.isFinite(Date.parse(item.finishedAt))))
-    && (item.exitCode === undefined || Number.isInteger(item.exitCode));
+  return (
+    typeof item.id === 'string' &&
+    EXECUTION_ID_PATTERN.test(item.id) &&
+    typeof item.projectId === 'string' &&
+    item.projectId.length > 0 &&
+    typeof item.actionId === 'string' &&
+    item.actionId.length > 0 &&
+    typeof item.actionName === 'string' &&
+    item.actionName.length > 0 &&
+    ['read-only', 'mutable', 'destructive'].includes(String(item.risk)) &&
+    ['running', 'succeeded', 'failed', 'cancelled'].includes(
+      String(item.status),
+    ) &&
+    typeof item.startedAt === 'string' &&
+    Number.isFinite(Date.parse(item.startedAt)) &&
+    (item.finishedAt === undefined ||
+      (typeof item.finishedAt === 'string' &&
+        Number.isFinite(Date.parse(item.finishedAt)))) &&
+    (item.exitCode === undefined || Number.isInteger(item.exitCode))
+  );
 }
 
 /**
@@ -178,17 +247,35 @@ function validExecution(value: unknown): value is ScriptExecution {
  * marca as que ficaram `running` (o processo morreu com a API) como
  * `failed`, e já aplica a retenção antes de aceitar a primeira chamada.
  */
-export async function restoreExecutions(context: ScriptExecutionContext): Promise<void> {
+export async function restoreExecutions(
+  context: ScriptExecutionContext,
+): Promise<void> {
   await mkdir(context.stateDirectory, { recursive: true, mode: 0o700 });
-  const names = await readdir(context.stateDirectory).catch(() => [] as string[]);
+  const names = await readdir(context.stateDirectory).catch(
+    () => [] as string[],
+  );
   const restored: ScriptExecution[] = [];
-  for (const name of names.filter((item) => EXECUTION_ID_PATTERN.test(item.slice(0, -5)) && item.endsWith('.json'))) {
+  for (const name of names.filter(
+    (item) =>
+      EXECUTION_ID_PATTERN.test(item.slice(0, -5)) && item.endsWith('.json'),
+  )) {
     try {
-      const parsed = JSON.parse(await readFile(path.join(context.stateDirectory, name), 'utf8')) as Partial<StoredExecution>;
+      const parsed = JSON.parse(
+        await readFile(path.join(context.stateDirectory, name), 'utf8'),
+      ) as Partial<StoredExecution>;
       const execution = parsed.execution;
-      if (parsed.version !== HISTORY_VERSION || !validExecution(execution) || name !== `${execution.id}.json`) continue;
-      if (Date.now() - Date.parse(execution.finishedAt ?? execution.startedAt) > context.retentionMs) {
-        await removeStored(context, execution.id); continue;
+      if (
+        parsed.version !== HISTORY_VERSION ||
+        !validExecution(execution) ||
+        name !== `${execution.id}.json`
+      )
+        continue;
+      if (
+        Date.now() - Date.parse(execution.finishedAt ?? execution.startedAt) >
+        context.retentionMs
+      ) {
+        await removeStored(context, execution.id);
+        continue;
       }
       if (execution.status === 'running') {
         execution.status = 'failed';
@@ -196,11 +283,14 @@ export async function restoreExecutions(context: ScriptExecutionContext): Promis
         await persistExecution(context, execution);
       }
       restored.push(execution);
-    } catch { /* Um registro corrompido não impede a recuperação dos demais. */ }
+    } catch {
+      /* Um registro corrompido não impede a recuperação dos demais. */
+    }
   }
   restored.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   const kept = restored.slice(-context.historyLimit);
-  for (const execution of restored.slice(0, -context.historyLimit)) await removeStored(context, execution.id);
+  for (const execution of restored.slice(0, -context.historyLimit))
+    await removeStored(context, execution.id);
   for (const execution of kept) {
     context.executions.set(execution.id, {
       execution,

@@ -52,14 +52,16 @@ test('alinha remoções e adições na visualização lado a lado', () => {
 });
 
 test('omite contexto repetido dos hunks seguintes e preserva contextos diferentes', () => {
-  const lines = parseUnifiedGitDiff([
-    '@@ -18,7 +18,7 @@ class ApplicationController < ActionController::Base',
-    ' first',
-    '@@ -37,7 +37,7 @@ class ApplicationController < ActionController::Base',
-    ' second',
-    '@@ -52,7 +52,7 @@ def current_ability',
-    ' third',
-  ].join('\n')).filter((line) => line.kind === 'hunk');
+  const lines = parseUnifiedGitDiff(
+    [
+      '@@ -18,7 +18,7 @@ class ApplicationController < ActionController::Base',
+      ' first',
+      '@@ -37,7 +37,7 @@ class ApplicationController < ActionController::Base',
+      ' second',
+      '@@ -52,7 +52,7 @@ def current_ability',
+      ' third',
+    ].join('\n'),
+  ).filter((line) => line.kind === 'hunk');
 
   assert.equal(
     lines[0]?.text,
@@ -80,15 +82,17 @@ test('omite os cabeçalhos técnicos redundantes do arquivo (diff --git/index/--
 });
 
 test('preserva metadados informativos que não são redundantes', () => {
-  const lines = parseUnifiedGitDiff([
-    'diff --git a/src/old-name.ts b/src/new-name.ts',
-    'similarity index 98%',
-    'rename from src/old-name.ts',
-    'rename to src/new-name.ts',
-    'index 1111111..2222222 100644',
-    '--- a/src/old-name.ts',
-    '+++ b/src/new-name.ts',
-  ].join('\n'));
+  const lines = parseUnifiedGitDiff(
+    [
+      'diff --git a/src/old-name.ts b/src/new-name.ts',
+      'similarity index 98%',
+      'rename from src/old-name.ts',
+      'rename to src/new-name.ts',
+      'index 1111111..2222222 100644',
+      '--- a/src/old-name.ts',
+      '+++ b/src/new-name.ts',
+    ].join('\n'),
+  );
 
   const metaTexts = lines.map((line) => line.text);
 
@@ -100,11 +104,17 @@ test('preserva metadados informativos que não são redundantes', () => {
 });
 
 test('destaca busca escapando conteúdo HTML', () => {
-  const result = highlightGitDiffText('<script>return value</script>', 'return');
+  const result = highlightGitDiffText(
+    '<script>return value</script>',
+    'return',
+  );
 
   assert.match(result, /&lt;script&gt;/);
   assert.match(result, /<mark>return<\/mark>/);
-  assert.equal(countGitDiffMatches('Return value; return fallback;', 'return'), 2);
+  assert.equal(
+    countGitDiffMatches('Return value; return fallback;', 'return'),
+    2,
+  );
 });
 
 test('marca apenas o trecho alterado entre linhas parecidas', () => {
@@ -116,31 +126,40 @@ test('marca apenas o trecho alterado entre linhas parecidas', () => {
   assert.ok(ranges);
   assert.deepEqual(ranges!.left, []);
   assert.equal(ranges!.right.length, 1);
-  const changed = '        termos de uso e política de privacidade. teste'
-    .slice(ranges!.right[0]!.start, ranges!.right[0]!.end);
+  const changed =
+    '        termos de uso e política de privacidade. teste'.slice(
+      ranges!.right[0]!.start,
+      ranges!.right[0]!.end,
+    );
   assert.equal(changed, ' teste');
 });
 
 test('não marca trechos quando as linhas são diferentes demais', () => {
   assert.equal(
-    computeGitDiffWordRanges('const value = 1;', '<Form.Check className="mt-4" id="x" />'),
+    computeGitDiffWordRanges(
+      'const value = 1;',
+      '<Form.Check className="mt-4" id="x" />',
+    ),
     null,
   );
 });
 
 test('anota palavras alteradas nos pares removido/adicionado', () => {
-  const lines = annotateGitDiffWordChanges(parseUnifiedGitDiff([
-    '@@ -1,1 +1,1 @@',
-    '-const value = 1;',
-    '+const value = 2;',
-  ].join('\n')));
+  const lines = annotateGitDiffWordChanges(
+    parseUnifiedGitDiff(
+      ['@@ -1,1 +1,1 @@', '-const value = 1;', '+const value = 2;'].join('\n'),
+    ),
+  );
 
   const deletion = lines.find((line) => line.kind === 'deletion');
   const addition = lines.find((line) => line.kind === 'addition');
   assert.equal(deletion?.words?.length, 1);
   assert.equal(addition?.words?.length, 1);
   assert.equal(
-    'const value = 2;'.slice(addition!.words![0]!.start, addition!.words![0]!.end),
+    'const value = 2;'.slice(
+      addition!.words![0]!.start,
+      addition!.words![0]!.end,
+    ),
     '2',
   );
 });
@@ -156,7 +175,9 @@ test('renderiza destaque de palavra junto com a busca no diff', () => {
 });
 
 test('escapa HTML mesmo com destaque de palavra', () => {
-  const html = renderGitDiffLineHtml('<Form disabled />', { words: [{ start: 0, end: 5 }] });
+  const html = renderGitDiffLineHtml('<Form disabled />', {
+    words: [{ start: 0, end: 5 }],
+  });
   assert.ok(!html.includes('<Form'));
   assert.match(html, /&lt;Form/);
 });
@@ -174,7 +195,13 @@ test('agrupa o diff em hunks com deslocamento de numeração', () => {
 test('numera as linhas de contexto expandidas nos dois lados', () => {
   const lines = buildGitDiffContextLines(['alfa', 'beta'], 10, 4);
 
-  assert.deepEqual(lines.map((line) => line.newLine), [10, 11]);
-  assert.deepEqual(lines.map((line) => line.oldLine), [6, 7]);
+  assert.deepEqual(
+    lines.map((line) => line.newLine),
+    [10, 11],
+  );
+  assert.deepEqual(
+    lines.map((line) => line.oldLine),
+    [6, 7],
+  );
   assert.ok(lines.every((line) => line.kind === 'context'));
 });

@@ -3,7 +3,9 @@ import { mountIcon } from './git-icon/dom-helpers';
 
 function enhanceGitIcons(root: ParentNode = document): void {
   const tabButtons = [
-    ...(root instanceof HTMLElement && root.matches('.git-subtabs button') ? [root] : []),
+    ...(root instanceof HTMLElement && root.matches('.git-subtabs button')
+      ? [root]
+      : []),
     ...root.querySelectorAll<HTMLElement>('.git-subtabs button'),
   ];
   tabButtons.forEach((button) => {

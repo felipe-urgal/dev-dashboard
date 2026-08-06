@@ -8,18 +8,26 @@ import { renderViewer } from './viewer';
 import type { DetailConfiguration } from './types';
 import { findGitPatchForFile } from '../utils/git-file-patch';
 
-function pathsFromRow(row: HTMLElement): { filePath: string; previousPath: string } | null {
+function pathsFromRow(
+  row: HTMLElement,
+): { filePath: string; previousPath: string } | null {
   const code = row.querySelector('code');
   const text = code?.textContent?.trim() ?? '';
   if (!text) return null;
-  const parts = text.split(' → ').map((part) => part.trim()).filter(Boolean);
+  const parts = text
+    .split(' → ')
+    .map((part) => part.trim())
+    .filter(Boolean);
   return {
     filePath: parts.at(-1) ?? text,
-    previousPath: parts.length > 1 ? parts[0] ?? '' : '',
+    previousPath: parts.length > 1 ? (parts[0] ?? '') : '',
   };
 }
 
-function enhanceDetail(container: HTMLElement, configuration: DetailConfiguration): void {
+function enhanceDetail(
+  container: HTMLElement,
+  configuration: DetailConfiguration,
+): void {
   const files = container.querySelector<HTMLElement>(configuration.files);
   const patch = container.querySelector<HTMLElement>(configuration.patch);
   if (!files || !patch || files.dataset.inlineFileDiff === 'true') return;
@@ -48,7 +56,11 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const filePatch = findGitPatchForFile(rawPatchOf(patch), paths.filePath, paths.previousPath);
+      const filePatch = findGitPatchForFile(
+        rawPatchOf(patch),
+        paths.filePath,
+        paths.previousPath,
+      );
       activeRow?.classList.remove('is-diff-active');
       activeRow = row;
       row.classList.add('is-diff-active');
@@ -56,7 +68,11 @@ function enhanceDetail(container: HTMLElement, configuration: DetailConfiguratio
         filePath: paths.filePath,
         previousPath: paths.previousPath,
         content: filePatch?.content ?? '',
-        binary: row.querySelector('small')?.textContent?.toLocaleLowerCase('pt-BR').includes('binário') ?? false,
+        binary:
+          row
+            .querySelector('small')
+            ?.textContent?.toLocaleLowerCase('pt-BR')
+            .includes('binário') ?? false,
         close,
       });
       viewer.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -81,8 +97,10 @@ export function scanDetails(root: ParentNode): void {
     if (root instanceof HTMLElement && root.matches(configuration.container)) {
       enhanceDetail(root, configuration);
     }
-    root.querySelectorAll<HTMLElement>(configuration.container).forEach((container) => {
-      enhanceDetail(container, configuration);
-    });
+    root
+      .querySelectorAll<HTMLElement>(configuration.container)
+      .forEach((container) => {
+        enhanceDetail(container, configuration);
+      });
   });
 }

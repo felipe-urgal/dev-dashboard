@@ -1,5 +1,9 @@
 import { sqlFunctions, sqlKeywords } from './constants';
-import { appendHighlightedText, originalText, searchQuery } from './dom-helpers';
+import {
+  appendHighlightedText,
+  originalText,
+  searchQuery,
+} from './dom-helpers';
 
 function sqlTokenClass(token: string): string | undefined {
   const upper = token.toUpperCase();
@@ -16,8 +20,13 @@ function sqlTokenClass(token: string): string | undefined {
   return undefined;
 }
 
-function appendSql(parent: HTMLElement, statement: string, query: string): void {
-  const pattern = /(`[^`]*`|'(?:''|[^'])*'|"(?:\\"|[^"])*"|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_$]*\b|[(),.=<>!*+\-/]+|\s+|.)/g;
+function appendSql(
+  parent: HTMLElement,
+  statement: string,
+  query: string,
+): void {
+  const pattern =
+    /(`[^`]*`|'(?:''|[^'])*'|"(?:\\"|[^"])*"|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z0-9_$]*\b|[(),.=<>!*+\-/]+|\s+|.)/g;
 
   for (const match of statement.matchAll(pattern)) {
     const token = match[0];
@@ -36,7 +45,9 @@ function splitRawSql(value: string): {
   if (!match) return null;
 
   const statement = match[2]?.trimStart() ?? '';
-  const operation = statement.match(/^(SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK)/i)?.[1]?.toUpperCase();
+  const operation = statement
+    .match(/^(SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK)/i)?.[1]
+    ?.toUpperCase();
   if (!statement || !operation) return null;
 
   return {
@@ -70,7 +81,12 @@ export function decorateRawSql(line: HTMLElement): void {
   metadata.append(operation);
 
   if (parsed.prefix) {
-    appendHighlightedText(metadata, parsed.prefix, query, 'enhanced-log-sql-prefix');
+    appendHighlightedText(
+      metadata,
+      parsed.prefix,
+      query,
+      'enhanced-log-sql-prefix',
+    );
   }
 
   const statement = document.createElement('span');

@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RailsLogLine } from '../src/utils/rails-log-parser';
-import {
-  groupSqlLines,
-  highlightSqlHtml,
-} from '../src/utils/sql-highlight';
+import { groupSqlLines, highlightSqlHtml } from '../src/utils/sql-highlight';
 
 function sqlLine(text: string, id = 'line'): RailsLogLine {
   return { id, text, kind: 'sql' };
@@ -21,16 +18,27 @@ describe('highlightSqlHtml', () => {
   });
 
   it('escapa HTML no texto não destacado', () => {
-    expect(highlightSqlHtml("<script>alert('x')</script>")).not.toContain('<script>');
+    expect(highlightSqlHtml("<script>alert('x')</script>")).not.toContain(
+      '<script>',
+    );
   });
 });
 
 describe('groupSqlLines', () => {
   it('agrupa consultas repetidas pelo padrão normalizado e marca N+1', () => {
     const lines: RailsLogLine[] = [
-      sqlLine('Site Load (0.4ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 1', '1'),
-      sqlLine('Site Load (0.3ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 2', '2'),
-      sqlLine('Site Load (0.5ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 3', '3'),
+      sqlLine(
+        'Site Load (0.4ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 1',
+        '1',
+      ),
+      sqlLine(
+        'Site Load (0.3ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 2',
+        '2',
+      ),
+      sqlLine(
+        'Site Load (0.5ms)  SELECT `sites`.* FROM `sites` WHERE `id` = 3',
+        '3',
+      ),
       sqlLine('User Load (1.0ms)  SELECT `users`.* FROM `users` LIMIT 1', '4'),
     ];
 

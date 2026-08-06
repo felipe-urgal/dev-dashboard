@@ -1,13 +1,7 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
-import {
-  GitMutationError,
-  type GitService,
-} from '../services/git-service.js';
+import { GitMutationError, type GitService } from '../services/git-service.js';
 import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { withGitMutationHistory } from './git-mutation-history-helpers.js';
@@ -86,9 +80,10 @@ function translateMutationError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível alterar o arquivo.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível alterar o arquivo.',
   });
 }
 
@@ -122,10 +117,7 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await gitService.stageFile(
-            project.path,
-            request.body.path,
-          ),
+          file: await gitService.stageFile(project.path, request.body.path),
         };
       } catch (error) {
         translateMutationError(error);
@@ -146,10 +138,7 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await gitService.unstageFile(
-            project.path,
-            request.body.path,
-          ),
+          file: await gitService.unstageFile(project.path, request.body.path),
         };
       } catch (error) {
         translateMutationError(error);
@@ -170,13 +159,18 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await withGitMutationHistory(gitMutationHistoryService, project, 'discard-file', () =>
-            gitService.discardFile(
-              project.path,
-              project.id,
-              request.body.path,
-              request.body.confirmationToken,
-            )),
+          file: await withGitMutationHistory(
+            gitMutationHistoryService,
+            project,
+            'discard-file',
+            () =>
+              gitService.discardFile(
+                project.path,
+                project.id,
+                request.body.path,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateMutationError(error);
@@ -197,13 +191,18 @@ export const gitFileMutationRoutes: FastifyPluginAsync<
       const project = resolveProject(request.params.projectId);
       try {
         return {
-          file: await withGitMutationHistory(gitMutationHistoryService, project, 'remove-untracked-file', () =>
-            gitService.removeUntrackedFile(
-              project.path,
-              project.id,
-              request.body.path,
-              request.body.confirmationToken,
-            )),
+          file: await withGitMutationHistory(
+            gitMutationHistoryService,
+            project,
+            'remove-untracked-file',
+            () =>
+              gitService.removeUntrackedFile(
+                project.path,
+                project.id,
+                request.body.path,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateMutationError(error);

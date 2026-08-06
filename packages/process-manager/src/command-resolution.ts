@@ -56,8 +56,7 @@ async function readPackageManifest(
 
     const scripts = Object.fromEntries(
       Object.entries(candidate.scripts).filter(
-        (entry): entry is [string, string] =>
-          typeof entry[1] === 'string',
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
       ),
     );
 
@@ -112,27 +111,15 @@ async function resolveNodeCommand(
     );
   }
 
-  const packageManager = await resolveNodePackageManager(
-    project.path,
-  );
+  const packageManager = await resolveNodePackageManager(project.path);
 
   const scriptCommand = scripts[scriptName] ?? '';
   const forwardedArgs: string[] = [];
 
   if (/\b(vite|nuxt|astro)\b/i.test(scriptCommand)) {
-    forwardedArgs.push(
-      '--host',
-      host,
-      '--port',
-      String(port),
-    );
+    forwardedArgs.push('--host', host, '--port', String(port));
   } else if (/\bnext\b/i.test(scriptCommand)) {
-    forwardedArgs.push(
-      '--hostname',
-      host,
-      '--port',
-      String(port),
-    );
+    forwardedArgs.push('--hostname', host, '--port', String(port));
   }
 
   // npm exige `--` para encaminhar opções ao script. pnpm, Yarn e
@@ -178,13 +165,7 @@ async function resolveRailsCommand(
   if (await pathExists(railsExecutable)) {
     return {
       command: railsExecutable,
-      args: [
-        'server',
-        '--binding',
-        host,
-        '--port',
-        String(port),
-      ],
+      args: ['server', '--binding', host, '--port', String(port)],
       env: {},
     };
   }

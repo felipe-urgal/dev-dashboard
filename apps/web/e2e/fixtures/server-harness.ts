@@ -1,11 +1,22 @@
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type ChildProcess, spawn } from 'node:child_process';
 
-import { type RunningOllamaDouble, startOllamaDouble, stopOllamaDouble } from './ollama-double';
+import {
+  type RunningOllamaDouble,
+  startOllamaDouble,
+  stopOllamaDouble,
+} from './ollama-double';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT_DIRECTORY = path.resolve(HERE, '../../../..');
@@ -50,12 +61,19 @@ async function runGit(cwd: string, args: string[]): Promise<void> {
 // variáveis GIT_AUTHOR_*/GIT_COMMITTER_* passadas só ao script de setup —
 // sem isso, "Criar commit" pela UI falha em runners sem `git config`
 // global (ex. GitHub Actions), mesmo com o commit inicial da fixture OK.
-async function initSampleGitRepository(projectDirectory: string): Promise<void> {
+async function initSampleGitRepository(
+  projectDirectory: string,
+): Promise<void> {
   await runGit(projectDirectory, ['init', '-q', '-b', 'main']);
   await runGit(projectDirectory, ['config', 'user.name', 'Dev Dashboard E2E']);
   await runGit(projectDirectory, ['config', 'user.email', 'e2e@example.com']);
   await runGit(projectDirectory, ['add', '-A']);
-  await runGit(projectDirectory, ['commit', '-q', '-m', 'chore: commit inicial']);
+  await runGit(projectDirectory, [
+    'commit',
+    '-q',
+    '-m',
+    'chore: commit inicial',
+  ]);
 }
 
 async function writeSampleProject(workspaceDirectory: string): Promise<void> {
@@ -91,7 +109,11 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
   // resolve o gerenciador de pacotes a partir dele antes de rodar o comando.
   await writeFile(
     path.join(projectDirectory, 'package-lock.json'),
-    JSON.stringify({ name: 'sample-node-app', version: '0.0.0', lockfileVersion: 3 }, null, 2),
+    JSON.stringify(
+      { name: 'sample-node-app', version: '0.0.0', lockfileVersion: 3 },
+      null,
+      2,
+    ),
   );
   await writeFile(path.join(projectDirectory, '.gitignore'), '.env\n');
   await initSampleGitRepository(projectDirectory);
@@ -100,7 +122,9 @@ async function writeSampleProject(workspaceDirectory: string): Promise<void> {
 // Gemfile com "sidekiq" e um bin/sidekiq controlável (dorme até ser encerrado
 // via TERM/KILL) para exercitar start/stop real do worker sem depender de
 // Ruby, Redis ou de um app Rails de verdade instalados no runner de CI.
-async function writeSampleRailsProject(workspaceDirectory: string): Promise<void> {
+async function writeSampleRailsProject(
+  workspaceDirectory: string,
+): Promise<void> {
   const projectDirectory = path.join(workspaceDirectory, 'sample-rails-app');
   await mkdir(path.join(projectDirectory, 'bin'), { recursive: true });
   await writeFile(
@@ -108,11 +132,17 @@ async function writeSampleRailsProject(workspaceDirectory: string): Promise<void
     "source 'https://rubygems.org'\n\ngem 'rails'\ngem 'sidekiq'\n",
   );
   const sidekiqScript = path.join(projectDirectory, 'bin', 'sidekiq');
-  await writeFile(sidekiqScript, '#!/usr/bin/env bash\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n');
+  await writeFile(
+    sidekiqScript,
+    '#!/usr/bin/env bash\ntrap "exit 0" TERM\nwhile true; do sleep 1; done\n',
+  );
   await chmod(sidekiqScript, 0o755);
 }
 
-async function seedConfig(configDirectory: string, workspaceDirectory: string): Promise<void> {
+async function seedConfig(
+  configDirectory: string,
+  workspaceDirectory: string,
+): Promise<void> {
   const resolvedWorkspace = await realpath(workspaceDirectory);
   const config = {
     version: 1,
@@ -126,7 +156,10 @@ async function seedConfig(configDirectory: string, workspaceDirectory: string): 
     ],
   };
   await mkdir(configDirectory, { recursive: true });
-  await writeFile(path.join(configDirectory, 'config.json'), JSON.stringify(config, null, 2));
+  await writeFile(
+    path.join(configDirectory, 'config.json'),
+    JSON.stringify(config, null, 2),
+  );
 }
 
 async function waitForHealth(baseUrl: string): Promise<void> {
@@ -157,20 +190,24 @@ export async function startFixtureServer(): Promise<RunningServer> {
   const webDist = path.join(ROOT_DIRECTORY, 'apps/web/dist');
   const ollamaDouble = await startOllamaDouble();
 
-  const child = spawn(process.execPath, [path.join(ROOT_DIRECTORY, 'apps/api/dist/server.js')], {
-    cwd: ROOT_DIRECTORY,
-    env: {
-      ...process.env,
-      DEV_DASHBOARD_CONFIG_DIR: configDirectory,
-      DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
-      DEV_DASHBOARD_WEB_DIST: webDist,
-      DEV_DASHBOARD_BROWSER_BOOTSTRAP: bootstrapToken,
-      DEV_DASHBOARD_API_PORT: String(API_PORT),
-      DEV_DASHBOARD_OLLAMA_URL: ollamaDouble.baseUrl,
-      LOG_LEVEL: 'silent',
+  const child = spawn(
+    process.execPath,
+    [path.join(ROOT_DIRECTORY, 'apps/api/dist/server.js')],
+    {
+      cwd: ROOT_DIRECTORY,
+      env: {
+        ...process.env,
+        DEV_DASHBOARD_CONFIG_DIR: configDirectory,
+        DEV_DASHBOARD_LOCAL_DISTRIBUTION: '1',
+        DEV_DASHBOARD_WEB_DIST: webDist,
+        DEV_DASHBOARD_BROWSER_BOOTSTRAP: bootstrapToken,
+        DEV_DASHBOARD_API_PORT: String(API_PORT),
+        DEV_DASHBOARD_OLLAMA_URL: ollamaDouble.baseUrl,
+        LOG_LEVEL: 'silent',
+      },
+      stdio: 'inherit',
     },
-    stdio: 'inherit',
-  });
+  );
 
   await waitForHealth(BASE_URL);
 

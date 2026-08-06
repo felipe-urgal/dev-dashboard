@@ -9,7 +9,9 @@ function enhanceShell(shell: HTMLElement): void {
   const toolbar = toolbarFor(shell, state);
   const output = shell.querySelector<HTMLElement>('.tests-log-output');
   const footer = shell.querySelector<HTMLElement>('.tests-log-footer');
-  const inspector = shell.querySelector<HTMLElement>(':scope > .test-log-inspector');
+  const inspector = shell.querySelector<HTMLElement>(
+    ':scope > .test-log-inspector',
+  );
   if (mode === 'log') {
     const log = collectLog(shell);
     if (log) state.rawLog = log;
@@ -26,7 +28,10 @@ function enhanceShell(shell: HTMLElement): void {
     renderInspector(shell, state, mode);
     hidden(output, true);
     hidden(footer, true);
-    hidden(shell.querySelector<HTMLElement>(':scope > .test-log-inspector'), false);
+    hidden(
+      shell.querySelector<HTMLElement>(':scope > .test-log-inspector'),
+      false,
+    );
     return;
   }
   hidden(output, false);
@@ -35,6 +40,7 @@ function enhanceShell(shell: HTMLElement): void {
 }
 
 export function enhanceTestLogInspector(root: ParentNode = document): void {
-  if (root instanceof HTMLElement && root.matches('.tests-log-shell')) enhanceShell(root);
+  if (root instanceof HTMLElement && root.matches('.tests-log-shell'))
+    enhanceShell(root);
   root.querySelectorAll<HTMLElement>('.tests-log-shell').forEach(enhanceShell);
 }

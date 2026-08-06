@@ -14,8 +14,12 @@ async function readScriptsExplorerCss(): Promise<string> {
     'utf8',
   );
   const importados = await Promise.all(
-    [...arquivoPrincipal.matchAll(/@import\s+'\.\/(scripts-explorer\/[^']+)'/g)].map(
-      (correspondencia) => readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
+    [
+      ...arquivoPrincipal.matchAll(
+        /@import\s+'\.\/(scripts-explorer\/[^']+)'/g,
+      ),
+    ].map((correspondencia) =>
+      readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
     ),
   );
   return [arquivoPrincipal, ...importados].join('\n');
@@ -29,9 +33,9 @@ async function readScriptsExplorerSources(): Promise<string> {
     'components/ProjectScriptExecutionStrip.vue',
     'composables/useProjectScriptsPanel.ts',
   ];
-  return (await Promise.all(
-    files.map((file) => readFile(sourceFile(file), 'utf8')),
-  )).join('\n');
+  return (
+    await Promise.all(files.map((file) => readFile(sourceFile(file), 'utf8')))
+  ).join('\n');
 }
 
 test('estrutura scripts como explorador direto de catálogo e execuções', async () => {

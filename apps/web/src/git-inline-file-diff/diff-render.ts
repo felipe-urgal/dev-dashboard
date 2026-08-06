@@ -45,13 +45,18 @@ export function unifiedView(content: string): HTMLElement {
   return table;
 }
 
-function splitSide(line: GitUnifiedDiffLine | null, side: 'left' | 'right'): HTMLElement {
+function splitSide(
+  line: GitUnifiedDiffLine | null,
+  side: 'left' | 'right',
+): HTMLElement {
   const cell = document.createElement('div');
   cell.className = `git-inline-diff-side is-${side}${line ? ` is-${line.kind}` : ' is-empty'}`;
 
   const number = document.createElement('span');
   number.className = 'git-inline-diff-line-number';
-  number.textContent = lineNumber(side === 'left' ? line?.oldLine ?? null : line?.newLine ?? null);
+  number.textContent = lineNumber(
+    side === 'left' ? (line?.oldLine ?? null) : (line?.newLine ?? null),
+  );
   const prefix = document.createElement('span');
   prefix.className = 'git-inline-diff-prefix';
   prefix.textContent = linePrefix(line);

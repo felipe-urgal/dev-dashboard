@@ -35,7 +35,12 @@ npm test
 - [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
   cobertura — dividir em entregas separadas antes de implementar, porque os
   runners e formatos de relatório diferem.
-- [ ] Avaliar GitHub CLI somente depois de definir seu modelo de autorização.
+- [ ] Expor ações mutáveis do GitHub CLI (`gh pr create`/`merge`/`close`) no
+  dashboard web — o modelo de autorização já foi definido e documentado na
+  task 114 (`docs/architecture/security.md`, "Integração com o GitHub CLI");
+  falta o catálogo fechado de subcomandos e o fluxo de confirmação em duas
+  etapas descritos lá. Sem essa entrega, `gh` continua só leitura (fallback
+  já em produção para status/CI de PR).
 
 ## CLI Bash
 
@@ -46,8 +51,6 @@ npm test
 
 - [ ] Expandir o Playwright para operações de banco de dados
   (snapshot/restore) — exige um serviço de banco na fixture.
-- [ ] Avaliar Prettier e uma política de formatação automática em entrega
-  própria, evitando um diff massivo misturado com mudanças funcionais.
 - [ ] Medir cobertura e definir metas por camada.
 
 Esses itens não formam uma única frente coerente: cada um deve ganhar uma

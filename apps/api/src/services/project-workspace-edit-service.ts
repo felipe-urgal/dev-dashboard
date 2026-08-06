@@ -87,19 +87,18 @@ function positionToOffset(
   position: ProjectTextPosition,
 ): number {
   if (
-    !Number.isInteger(position.line)
-    || !Number.isInteger(position.column)
-    || position.line < 1
-    || position.column < 1
-    || position.line > starts.length
+    !Number.isInteger(position.line) ||
+    !Number.isInteger(position.column) ||
+    position.line < 1 ||
+    position.column < 1 ||
+    position.line > starts.length
   ) {
     invalid('Uma das posições do WorkspaceEdit é inválida.');
   }
 
   const start = starts[position.line - 1]!;
-  let end = position.line < starts.length
-    ? starts[position.line]! - 1
-    : content.length;
+  let end =
+    position.line < starts.length ? starts[position.line]! - 1 : content.length;
   if (end > start && content[end - 1] === '\r') end -= 1;
 
   const maximumColumn = end - start + 1;
@@ -121,12 +120,15 @@ function normalizeEdits(
   }
 
   const starts = lineStarts(content);
-  const normalized = edits.map((edit) => {
-    const start = positionToOffset(content, starts, edit.range.start);
-    const end = positionToOffset(content, starts, edit.range.end);
-    if (end < start) invalid('Uma das faixas do WorkspaceEdit está invertida.');
-    return { start, end, newText: edit.newText };
-  }).sort((left, right) => left.start - right.start || left.end - right.end);
+  const normalized = edits
+    .map((edit) => {
+      const start = positionToOffset(content, starts, edit.range.start);
+      const end = positionToOffset(content, starts, edit.range.end);
+      if (end < start)
+        invalid('Uma das faixas do WorkspaceEdit está invertida.');
+      return { start, end, newText: edit.newText };
+    })
+    .sort((left, right) => left.start - right.start || left.end - right.end);
 
   for (let index = 1; index < normalized.length; index += 1) {
     const previous = normalized[index - 1]!;
@@ -173,27 +175,33 @@ export class ProjectWorkspaceEditService {
 
     const seen = new Set<string>();
     for (const file of files) {
-      if (seen.has(file.path)) invalid('A lista de arquivos monitorados contém caminhos duplicados.');
+      if (seen.has(file.path))
+        invalid('A lista de arquivos monitorados contém caminhos duplicados.');
       seen.add(file.path);
       assertVersion(file.version);
     }
 
-    const items = await Promise.all(files.map(async (entry): Promise<ProjectFileWatchItem> => {
-      try {
-        const file = await this.projectFileService.readFile(projectPath, entry.path);
-        return file.version === entry.version
-          ? { path: entry.path, state: 'unchanged' }
-          : { path: entry.path, state: 'changed', file };
-      } catch (error) {
-        if (error instanceof ProjectFileError) {
-          if (error.code === 'FILE_NOT_FOUND') {
-            return { path: entry.path, state: 'deleted' };
+    const items = await Promise.all(
+      files.map(async (entry): Promise<ProjectFileWatchItem> => {
+        try {
+          const file = await this.projectFileService.readFile(
+            projectPath,
+            entry.path,
+          );
+          return file.version === entry.version
+            ? { path: entry.path, state: 'unchanged' }
+            : { path: entry.path, state: 'changed', file };
+        } catch (error) {
+          if (error instanceof ProjectFileError) {
+            if (error.code === 'FILE_NOT_FOUND') {
+              return { path: entry.path, state: 'deleted' };
+            }
+            return { path: entry.path, state: 'unavailable' };
           }
-          return { path: entry.path, state: 'unavailable' };
+          throw error;
         }
-        throw error;
-      }
-    }));
+      }),
+    );
 
     return {
       checkedAt: new Date(this.now()).toISOString(),
@@ -207,7 +215,10 @@ export class ProjectWorkspaceEditService {
     request: ProjectWorkspaceEditRequest,
   ): Promise<ProjectWorkspaceEditPreview> {
     this.pruneExpired();
-    if (request.files.length === 0 || request.files.length > MAX_WORKSPACE_FILES) {
+    if (
+      request.files.length === 0 ||
+      request.files.length > MAX_WORKSPACE_FILES
+    ) {
       throw new ProjectWorkspaceEditError(
         'WORKSPACE_EDIT_LIMIT_EXCEEDED',
         `O WorkspaceEdit deve alterar entre 1 e ${MAX_WORKSPACE_FILES} arquivos.`,
@@ -219,11 +230,15 @@ export class ProjectWorkspaceEditService {
     let previewBytes = 0;
 
     for (const input of request.files) {
-      if (seen.has(input.path)) invalid('O WorkspaceEdit contém caminhos duplicados.');
+      if (seen.has(input.path))
+        invalid('O WorkspaceEdit contém caminhos duplicados.');
       seen.add(input.path);
       assertVersion(input.expectedVersion);
 
-      const current = await this.projectFileService.readFile(projectPath, input.path);
+      const current = await this.projectFileService.readFile(
+        projectPath,
+        input.path,
+      );
       if (current.version !== input.expectedVersion) {
         throw new ProjectWorkspaceEditError(
           'WORKSPACE_EDIT_CHANGED_EXTERNALLY',
@@ -298,7 +313,10 @@ export class ProjectWorkspaceEditService {
     this.confirmations.delete(confirmationToken);
 
     for (const prepared of record.files) {
-      const current = await this.projectFileService.readFile(projectPath, prepared.path);
+      const current = await this.projectFileService.readFile(
+        projectPath,
+        prepared.path,
+      );
       if (current.version !== prepared.beforeVersion) {
         throw new ProjectWorkspaceEditError(
           'WORKSPACE_EDIT_CHANGED_EXTERNALLY',

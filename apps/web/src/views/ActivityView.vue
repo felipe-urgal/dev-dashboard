@@ -6,13 +6,7 @@ import {
   ChevronRightIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import type {
   Activity,
@@ -95,8 +89,8 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined;
 const eligibleProjects = computed(() =>
   workspaceFilter.value
     ? projects.value.filter(
-      (project) => project.workspaceId === workspaceFilter.value,
-    )
+        (project) => project.workspaceId === workspaceFilter.value,
+      )
     : projects.value,
 );
 
@@ -179,7 +173,8 @@ function activityDateLabel(iso: string): string {
   if (Number.isNaN(parsed.getTime())) return iso;
 
   const today = new Date();
-  const isToday = activityDateKey(parsed.toISOString()) ===
+  const isToday =
+    activityDateKey(parsed.toISOString()) ===
     activityDateKey(today.toISOString());
   const formatted = new Intl.DateTimeFormat('pt-BR', {
     day: 'numeric',
@@ -208,13 +203,12 @@ function activityDuration(activity: Activity): string {
 }
 
 function projectNameFor(activity: Activity): string {
-  return projectNameById.value.get(activity.projectId) ??
-    activity.projectId;
+  return projectNameById.value.get(activity.projectId) ?? activity.projectId;
 }
 
 function workspaceNameFor(activity: Activity): string {
-  const workspaceId = activity.workspaceId ??
-    projectWorkspaceById.value.get(activity.projectId);
+  const workspaceId =
+    activity.workspaceId ?? projectWorkspaceById.value.get(activity.projectId);
   if (!workspaceId) return 'Workspace não informado';
   return workspaceNameById.value.get(workspaceId) ?? workspaceId;
 }
@@ -237,9 +231,7 @@ async function loadReferenceData(): Promise<void> {
     projects.value = loadedProjects.map((project) => ({
       id: project.id,
       name: project.name,
-      ...(project.workspaceId
-        ? { workspaceId: project.workspaceId }
-        : {}),
+      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
     }));
     referenceErrorMessage.value = '';
   } catch (error) {
@@ -302,10 +294,7 @@ function resetToFirstPage(): void {
 }
 
 function goToPage(next: number): void {
-  if (
-    next < 1 ||
-    (totalPages.value > 0 && next > totalPages.value)
-  ) {
+  if (next < 1 || (totalPages.value > 0 && next > totalPages.value)) {
     return;
   }
   page.value = next;
@@ -342,13 +331,7 @@ watch(searchInput, (value) => {
 });
 
 watch(
-  [
-    workspaceFilter,
-    projectFilter,
-    originFilter,
-    statusFilter,
-    searchFilter,
-  ],
+  [workspaceFilter, projectFilter, originFilter, statusFilter, searchFilter],
   () => {
     resetToFirstPage();
   },

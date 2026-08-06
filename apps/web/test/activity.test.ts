@@ -52,18 +52,34 @@ test('status and origin formatters cover every discriminated variant', () => {
 
 test('activityDetailPath routes each origin to its safe project sub-route', () => {
   const base: Omit<Activity, 'origin' | 'reference'> = {
-    id: 'x', projectId: 'p one', label: 'l', status: 'succeeded', startedAt: '2026-07-26T10:00:00Z',
+    id: 'x',
+    projectId: 'p one',
+    label: 'l',
+    status: 'succeeded',
+    startedAt: '2026-07-26T10:00:00Z',
   };
   assert.equal(
-    activityDetailPath({ ...base, origin: 'script', reference: { executionId: 'e', actionId: 'a' } }),
+    activityDetailPath({
+      ...base,
+      origin: 'script',
+      reference: { executionId: 'e', actionId: 'a' },
+    }),
     '/projects/p%20one/scripts',
   );
   assert.equal(
-    activityDetailPath({ ...base, origin: 'test', reference: { processId: 'q' } }),
+    activityDetailPath({
+      ...base,
+      origin: 'test',
+      reference: { processId: 'q' },
+    }),
     '/projects/p%20one/tests',
   );
   assert.equal(
-    activityDetailPath({ ...base, origin: 'server', reference: { processId: 'q' } }),
+    activityDetailPath({
+      ...base,
+      origin: 'server',
+      reference: { processId: 'q' },
+    }),
     '/projects/p%20one',
   );
 });
@@ -74,19 +90,38 @@ test('fetchActivities forwards filters and returns the activities payload', asyn
   const payload = {
     activities: {
       items: [
-        { id: 'server:1', projectId: 'p1', label: 'srv', origin: 'server', status: 'running', startedAt: '2026-07-26T10:00:00Z', reference: { processId: 'proc' } },
+        {
+          id: 'server:1',
+          projectId: 'p1',
+          label: 'srv',
+          origin: 'server',
+          status: 'running',
+          startedAt: '2026-07-26T10:00:00Z',
+          reference: { processId: 'proc' },
+        },
       ],
-      page: 1, pageSize: 20, total: 1, totalPages: 1,
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
       summary: { running: 1, succeeded: 0, failed: 0, total: 1 },
     },
   };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     calls.push(String(input));
-    return new Response(JSON.stringify(payload), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
   }) as typeof fetch;
 
   try {
-    const result = await fetchActivities({ workspaceId: 'w1', origin: 'server', page: 1, pageSize: 20 });
+    const result = await fetchActivities({
+      workspaceId: 'w1',
+      origin: 'server',
+      page: 1,
+      pageSize: 20,
+    });
     assert.equal(result.items.length, 1);
     assert.equal(result.items[0]?.origin, 'server');
     assert.equal(result.summary.running, 1);

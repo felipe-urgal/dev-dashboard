@@ -17,15 +17,29 @@ export function useRailsGenerator(getProject: () => Project) {
   const errorMessage = ref('');
   const result = ref<RailsGeneratorResult | null>(null);
 
-  async function prepare(kind: RailsGeneratorKind, name: string, fields: RailsGeneratorField[], database?: string): Promise<void> {
+  async function prepare(
+    kind: RailsGeneratorKind,
+    name: string,
+    fields: RailsGeneratorField[],
+    database?: string,
+  ): Promise<void> {
     if (preparing.value) return;
     preparing.value = true;
     errorMessage.value = '';
     result.value = null;
     try {
-      pendingConfirmation.value = await prepareProjectRailsGenerator(getProject().id, kind, name, fields, database);
+      pendingConfirmation.value = await prepareProjectRailsGenerator(
+        getProject().id,
+        kind,
+        name,
+        fields,
+        database,
+      );
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível preparar a geração.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível preparar a geração.';
     } finally {
       preparing.value = false;
     }
@@ -40,10 +54,16 @@ export function useRailsGenerator(getProject: () => Project) {
     running.value = true;
     errorMessage.value = '';
     try {
-      result.value = await runProjectRailsGenerator(getProject().id, pendingConfirmation.value.token);
+      result.value = await runProjectRailsGenerator(
+        getProject().id,
+        pendingConfirmation.value.token,
+      );
       pendingConfirmation.value = null;
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a geração.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir a geração.';
     } finally {
       running.value = false;
     }

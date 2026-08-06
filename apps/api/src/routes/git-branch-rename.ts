@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -61,13 +58,7 @@ const renameMutationBodySchema = {
 const confirmationSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'token',
-    'operation',
-    'currentName',
-    'nextName',
-    'expiresAt',
-  ],
+  required: ['token', 'operation', 'currentName', 'nextName', 'expiresAt'],
   properties: {
     token: { type: 'string' },
     operation: { type: 'string', enum: ['rename-branch'] },
@@ -95,17 +86,13 @@ function translateError(error: unknown): never {
       GIT_MUTATION_CONFIRMATION_REQUIRED: 409,
       GIT_COMMAND_FAILED: 500,
     };
-    const apiCodeByCode: Record<
-      GitBranchRenameError['code'],
-      ApiErrorCode
-    > = {
+    const apiCodeByCode: Record<GitBranchRenameError['code'], ApiErrorCode> = {
       GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
       GIT_BRANCH_INVALID: 'GIT_BRANCH_INVALID',
       GIT_BRANCH_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
       GIT_BRANCH_EXISTS: 'GIT_BRANCH_EXISTS',
       GIT_BRANCH_PROTECTED: 'GIT_COMMAND_FAILED',
-      GIT_MUTATION_CONFIRMATION_REQUIRED:
-        'GIT_MUTATION_CONFIRMATION_REQUIRED',
+      GIT_MUTATION_CONFIRMATION_REQUIRED: 'GIT_MUTATION_CONFIRMATION_REQUIRED',
       GIT_COMMAND_FAILED: 'GIT_COMMAND_FAILED',
     };
     throw new ApiError({
@@ -118,9 +105,10 @@ function translateError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível renomear a branch.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível renomear a branch.',
   });
 }
 
@@ -203,14 +191,19 @@ export const gitBranchRenameRoutes: FastifyPluginAsync<
 
       try {
         return {
-          branch: await withGitMutationHistory(options.gitMutationHistoryService, project, 'branch-rename', () =>
-            service.renameLocalBranch(
-              project.path,
-              project.id,
-              request.body.currentName,
-              request.body.nextName,
-              request.body.confirmationToken,
-            )),
+          branch: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'branch-rename',
+            () =>
+              service.renameLocalBranch(
+                project.path,
+                project.id,
+                request.body.currentName,
+                request.body.nextName,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateError(error);

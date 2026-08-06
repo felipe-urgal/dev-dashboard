@@ -1,7 +1,4 @@
-import type {
-  ProjectCapability,
-  ProjectType,
-} from '@dev-dashboard/contracts';
+import type { ProjectCapability, ProjectType } from '@dev-dashboard/contracts';
 
 export const projectTypeLabels: Record<ProjectType, string> = {
   rails: 'Rails',
@@ -9,10 +6,7 @@ export const projectTypeLabels: Record<ProjectType, string> = {
   unknown: 'Desconhecido',
 };
 
-export const capabilityLabels: Record<
-  ProjectCapability,
-  string
-> = {
+export const capabilityLabels: Record<ProjectCapability, string> = {
   server: 'Servidor',
   git: 'Git',
   tests: 'Testes',
@@ -24,9 +18,7 @@ export const capabilityLabels: Record<
   bundler: 'Bundler',
 };
 
-export function capabilityLabel(
-  capability: ProjectCapability,
-): string {
+export function capabilityLabel(capability: ProjectCapability): string {
   return capabilityLabels[capability];
 }
 

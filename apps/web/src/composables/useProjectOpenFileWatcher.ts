@@ -1,10 +1,4 @@
-import {
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-  type Ref,
-} from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue';
 
 import type { ProjectFileContent } from '@dev-dashboard/contracts';
 
@@ -68,11 +62,12 @@ export function useProjectOpenFileWatcher(
 
   async function checkNow(): Promise<void> {
     if (
-      checking.value
-      || typeof document === 'undefined'
-      || document.hidden
-      || options.openFiles.value.length === 0
-    ) return;
+      checking.value ||
+      typeof document === 'undefined' ||
+      document.hidden ||
+      options.openFiles.value.length === 0
+    )
+      return;
 
     checking.value = true;
     const requestGeneration = ++generation;
@@ -84,10 +79,8 @@ export function useProjectOpenFileWatcher(
 
     try {
       const result = await watchProjectFiles(projectId, { files: snapshot });
-      if (
-        requestGeneration !== generation
-        || projectId !== options.projectId()
-      ) return;
+      if (requestGeneration !== generation || projectId !== options.projectId())
+        return;
 
       for (const item of result.items) {
         const opened = options.openFiles.value.find(

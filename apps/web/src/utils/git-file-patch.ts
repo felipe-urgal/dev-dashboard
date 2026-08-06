@@ -41,13 +41,17 @@ export function splitGitPatchByFile(patch: string): GitPatchFile[] {
       newPath = normalizePath(match?.[2] ?? '');
     }
 
-    if (line.startsWith('--- ')) oldPath = pathFromHeader(line, '--- ') || oldPath;
-    if (line.startsWith('+++ ')) newPath = pathFromHeader(line, '+++ ') || newPath;
+    if (line.startsWith('--- '))
+      oldPath = pathFromHeader(line, '--- ') || oldPath;
+    if (line.startsWith('+++ '))
+      newPath = pathFromHeader(line, '+++ ') || newPath;
     current.push(line);
   }
 
   flush();
-  return files.filter((file) => file.oldPath || file.newPath || file.content.trim());
+  return files.filter(
+    (file) => file.oldPath || file.newPath || file.content.trim(),
+  );
 }
 
 export function findGitPatchForFile(
@@ -60,7 +64,9 @@ export function findGitPatchForFile(
 
   return splitGitPatchByFile(patch).find((file) => {
     const candidates = [file.oldPath, file.newPath].filter(Boolean);
-    return candidates.includes(normalizedPath)
-      || Boolean(normalizedPrevious && candidates.includes(normalizedPrevious));
+    return (
+      candidates.includes(normalizedPath) ||
+      Boolean(normalizedPrevious && candidates.includes(normalizedPrevious))
+    );
   });
 }

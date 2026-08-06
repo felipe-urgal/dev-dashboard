@@ -28,8 +28,7 @@ export function useProjectProcessStatus(getProject: () => Project) {
 
   const isRunning = computed(
     () =>
-      processStatus.value === 'running' ||
-      processStatus.value === 'starting',
+      processStatus.value === 'running' || processStatus.value === 'starting',
   );
 
   const canStop = computed(
@@ -61,13 +60,9 @@ export function useProjectProcessStatus(getProject: () => Project) {
     }
   });
 
-  function isCurrentProject(
-    projectId: string,
-    generation: number,
-  ): boolean {
+  function isCurrentProject(projectId: string, generation: number): boolean {
     return (
-      getProject().id === projectId &&
-      projectRequests.isCurrent(generation)
+      getProject().id === projectId && projectRequests.isCurrent(generation)
     );
   }
 
@@ -124,8 +119,7 @@ export function useProjectProcessStatus(getProject: () => Project) {
 
     const generation = projectRequests.capture();
     const delay =
-      processStatus.value === 'starting' ||
-      processStatus.value === 'stopping'
+      processStatus.value === 'starting' || processStatus.value === 'stopping'
         ? 1_000
         : 5_000;
 

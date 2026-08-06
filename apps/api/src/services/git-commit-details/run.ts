@@ -5,7 +5,10 @@ import { GitCommitDetailsError } from './errors.js';
 
 const execFileAsync = promisify(execFile);
 
-export async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+export async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',

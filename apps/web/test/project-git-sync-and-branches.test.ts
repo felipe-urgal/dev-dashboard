@@ -148,10 +148,9 @@ test('remote-only branch can be tracked and removed from origin', async () => {
   await modal.find('input').setValue('feature/remota');
   await modal.find('form').trigger('submit');
 
-  assert.deepEqual(
-    wrapper.emitted('delete-remote')?.[0],
-    ['origin/feature/remota'],
-  );
+  assert.deepEqual(wrapper.emitted('delete-remote')?.[0], [
+    'origin/feature/remota',
+  ]);
 });
 
 test('branches page exposes an explicit remote refresh action', async () => {
@@ -172,7 +171,6 @@ test('branches page exposes an explicit remote refresh action', async () => {
   assert.equal(wrapper.emitted('refresh-remotes')?.length, 1);
 });
 
-
 test('branch atual atrasada oferece atualização local por fast-forward', async () => {
   const branchName = 'agent/redesign-home-observatorio';
   const branchOverview: ProjectGitOverview = {
@@ -185,9 +183,7 @@ test('branch atual atrasada oferece atualização local por fast-forward', async
     ...workspace,
     branches: [
       ...workspace.branches.map((branch) =>
-        branch.name === 'main'
-          ? { ...branch, current: false }
-          : branch,
+        branch.name === 'main' ? { ...branch, current: false } : branch,
       ),
       {
         name: branchName,
@@ -248,9 +244,7 @@ test('branch divergente não permite atualização automática', () => {
     ...workspace,
     branches: [
       ...workspace.branches.map((branch) =>
-        branch.name === 'main'
-          ? { ...branch, current: false }
-          : branch,
+        branch.name === 'main' ? { ...branch, current: false } : branch,
       ),
       {
         name: branchName,

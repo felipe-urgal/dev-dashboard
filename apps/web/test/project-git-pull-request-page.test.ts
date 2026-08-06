@@ -167,8 +167,12 @@ test('reserva a aba no clique e navega sem falso erro nem botão duplicado', asy
   await flushPromises();
   await selects[1]!.setValue('develop');
   await flushPromises();
-  await wrapper.find('input:not([readonly])').setValue('fix: título customizado');
-  await wrapper.find('textarea').setValue('## Mudanças\n\nDescrição customizada.');
+  await wrapper
+    .find('input:not([readonly])')
+    .setValue('fix: título customizado');
+  await wrapper
+    .find('textarea')
+    .setValue('## Mudanças\n\nDescrição customizada.');
   await wrapper.find('form').trigger('submit');
   await flushPromises();
 
@@ -181,10 +185,10 @@ test('reserva a aba no clique e navega sem falso erro nem botão duplicado', asy
       description: '## Mudanças\n\nDescrição customizada.',
     },
   ]);
-  assert.deepEqual(
-    (window.open as ReturnType<typeof vi.fn>).mock.calls[0],
-    ['', '_blank'],
-  );
+  assert.deepEqual((window.open as ReturnType<typeof vi.fn>).mock.calls[0], [
+    '',
+    '_blank',
+  ]);
   assert.equal(popup.opener, null);
   assert.equal(
     popup.location.href,
@@ -257,7 +261,10 @@ test('detecta PR aberta e substitui a criação por acesso ao PR existente', asy
 
 test('refaz a verificação ao trocar o destino e libera criação quando não há PR', async () => {
   api.getProjectGitPullRequestStatus.mockImplementation(
-    async (_projectId: string, input: { targetRemote: string; baseBranch: string }) => {
+    async (
+      _projectId: string,
+      input: { targetRemote: string; baseBranch: string },
+    ) => {
       if (input.targetRemote === 'upstream') {
         return {
           checked: true,
@@ -298,7 +305,8 @@ test('refaz a verificação ao trocar o destino e libera criação quando não h
     { targetRemote: 'origin', baseBranch: 'main' },
   ]);
   assert.equal(
-    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement).disabled,
+    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement)
+      .disabled,
     false,
   );
 });

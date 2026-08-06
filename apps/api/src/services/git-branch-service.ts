@@ -10,7 +10,8 @@ import type {
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
 const REMOTE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
-const BRANCH_NAME_PATTERN = /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+const BRANCH_NAME_PATTERN =
+  /^(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 
 export type GitBranchServiceErrorCode =
   | 'GIT_BRANCH_INVALID'
@@ -34,12 +35,18 @@ export class GitBranchServiceError extends Error {
 interface StoredConfirmation {
   token: string;
   projectId: string;
-  operation: Extract<GitMutationOperation, 'track-branch' | 'delete-remote-branch'>;
+  operation: Extract<
+    GitMutationOperation,
+    'track-branch' | 'delete-remote-branch'
+  >;
   target: string;
   expiresAt: number;
 }
 
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -54,16 +61,19 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
   return result.stdout.trim();
 }
 
-function splitRemoteBranch(remoteBranch: string): { remote: string; localBranch: string } {
+function splitRemoteBranch(remoteBranch: string): {
+  remote: string;
+  localBranch: string;
+} {
   const separator = remoteBranch.indexOf('/');
   const remote = separator > 0 ? remoteBranch.slice(0, separator) : '';
   const localBranch = separator > 0 ? remoteBranch.slice(separator + 1) : '';
 
   if (
-    !REMOTE_NAME_PATTERN.test(remote)
-    || !localBranch
-    || localBranch.length > 200
-    || !BRANCH_NAME_PATTERN.test(localBranch)
+    !REMOTE_NAME_PATTERN.test(remote) ||
+    !localBranch ||
+    localBranch.length > 200 ||
+    !BRANCH_NAME_PATTERN.test(localBranch)
   ) {
     throw new GitBranchServiceError(
       'GIT_BRANCH_INVALID',
@@ -120,7 +130,10 @@ async function assertRepository(projectPath: string): Promise<void> {
   }
 }
 
-async function assertRemote(projectPath: string, remote: string): Promise<void> {
+async function assertRemote(
+  projectPath: string,
+  remote: string,
+): Promise<void> {
   try {
     await runGit(projectPath, ['remote', 'get-url', remote]);
   } catch {
@@ -213,7 +226,9 @@ export class GitBranchService {
     } catch (error) {
       throw new GitBranchServiceError(
         'GIT_COMMAND_FAILED',
-        error instanceof Error ? error.message : 'Não foi possível criar a branch local.',
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível criar a branch local.',
       );
     }
 
@@ -291,10 +306,10 @@ export class GitBranchService {
     this.pruneExpired();
     const confirmation = token ? this.confirmations.get(token) : undefined;
     if (
-      !confirmation
-      || confirmation.projectId !== projectId
-      || confirmation.operation !== operation
-      || confirmation.target !== target
+      !confirmation ||
+      confirmation.projectId !== projectId ||
+      confirmation.operation !== operation ||
+      confirmation.target !== target
     ) {
       throw new GitBranchServiceError(
         'GIT_MUTATION_CONFIRMATION_REQUIRED',

@@ -63,7 +63,12 @@ export function groupCommits(commits) {
     const heading = taskLabel ?? commit.date;
 
     if (!current || current.key !== key) {
-      current = { key, heading, kind: taskLabel ? 'task' : 'date', commits: [] };
+      current = {
+        key,
+        heading,
+        kind: taskLabel ? 'task' : 'date',
+        commits: [],
+      };
       groups.push(current);
     }
     current.commits.push(commit);
@@ -74,7 +79,9 @@ export function groupCommits(commits) {
 
 function formatCommitLine(commit) {
   const pr = extractPrNumber(commit.subject);
-  const subject = pr ? commit.subject.slice(0, commit.subject.length - `(#${pr})`.length).trim() : commit.subject;
+  const subject = pr
+    ? commit.subject.slice(0, commit.subject.length - `(#${pr})`.length).trim()
+    : commit.subject;
   const shortHash = commit.hash.slice(0, 7);
   const prSuffix = pr ? ` ([#${pr}](../../pull/${pr}))` : ` (\`${shortHash}\`)`;
   return `- ${subject}${prSuffix}`;
@@ -124,9 +131,14 @@ export async function main() {
   const outputPath = new URL('../CHANGELOG.md', import.meta.url);
   const changelog = generateChangelog();
   writeFileSync(outputPath, changelog, 'utf8');
-  console.log(`CHANGELOG.md atualizado (${changelog.split('\n').length} linhas).`);
+  console.log(
+    `CHANGELOG.md atualizado (${changelog.split('\n').length} linhas).`,
+  );
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(process.argv[1], 'file:').href
+) {
   await main();
 }

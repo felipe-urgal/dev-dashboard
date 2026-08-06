@@ -70,15 +70,16 @@ describe('WorkspaceManagerModal', () => {
   it('cadastra um novo workspace pelo formulário', () => {
     mountModal();
 
-    document.querySelector('form')?.dispatchEvent(
-      new Event('submit', { cancelable: true }),
-    );
+    document
+      .querySelector('form')
+      ?.dispatchEvent(new Event('submit', { cancelable: true }));
 
     expect(actions.criar).toHaveBeenCalledOnce();
   });
 
   it('mostra erro de validação dentro do próprio modal', () => {
-    dashboardStore.errorMessage.value = 'Informe o nome e o caminho do workspace.';
+    dashboardStore.errorMessage.value =
+      'Informe o nome e o caminho do workspace.';
     mountModal();
 
     expect(document.querySelector('.alert-error')?.textContent).toContain(
@@ -109,9 +110,9 @@ describe('WorkspaceManagerModal', () => {
 
     expect(dashboardStore.newWorkspaceRecursiveScan.value).toBe(true);
 
-    document.querySelector('form')?.dispatchEvent(
-      new Event('submit', { cancelable: true }),
-    );
+    document
+      .querySelector('form')
+      ?.dispatchEvent(new Event('submit', { cancelable: true }));
 
     expect(actions.criar).toHaveBeenCalledOnce();
   });
@@ -119,9 +120,7 @@ describe('WorkspaceManagerModal', () => {
   it('não mostra a lista de workspaces cadastrados quando não há nenhum', () => {
     mountModal();
 
-    expect(
-      document.querySelector('.workspace-existing-list'),
-    ).toBeNull();
+    expect(document.querySelector('.workspace-existing-list')).toBeNull();
   });
 
   it('lista workspaces cadastrados e alterna a varredura recursiva de um deles', async () => {

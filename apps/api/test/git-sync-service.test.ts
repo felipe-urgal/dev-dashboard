@@ -70,14 +70,11 @@ test('compara e integra uma referência remota com fast-forward', async () => {
   const service = new GitSyncService();
 
   try {
-    assert.deepEqual(
-      await service.compare(fixture.local, 'upstream/main'),
-      {
-        reference: 'upstream/main',
-        ahead: 0,
-        behind: 1,
-      },
-    );
+    assert.deepEqual(await service.compare(fixture.local, 'upstream/main'), {
+      reference: 'upstream/main',
+      ahead: 0,
+      behind: 1,
+    });
 
     const confirmation = service.prepareConfirmation(
       'project-1',
@@ -96,7 +93,10 @@ test('compara e integra uma referência remota com fast-forward', async () => {
     assert.equal(result.reference, 'upstream/main');
     assert.equal(result.strategy, 'ff-only');
     assert.equal(result.changed, true);
-    assert.equal(await git(fixture.local, 'rev-parse', 'HEAD'), result.currentHead);
+    assert.equal(
+      await git(fixture.local, 'rev-parse', 'HEAD'),
+      result.currentHead,
+    );
     assert.equal(
       await git(fixture.local, 'rev-list', '--count', 'HEAD..upstream/main'),
       '0',
@@ -114,15 +114,10 @@ test('exige confirmação antes de integrar', async () => {
 
   try {
     await assert.rejects(
-      service.integrate(
-        fixture.local,
-        'project-1',
-        'upstream/main',
-        'ff-only',
-      ),
+      service.integrate(fixture.local, 'project-1', 'upstream/main', 'ff-only'),
       (error: unknown) =>
-        error instanceof GitSyncError
-        && error.code === 'GIT_SYNC_CONFIRMATION_REQUIRED',
+        error instanceof GitSyncError &&
+        error.code === 'GIT_SYNC_CONFIRMATION_REQUIRED',
     );
   } finally {
     await fixture.cleanup();
@@ -190,8 +185,8 @@ test('bloqueia integração quando o working tree está alterado', async () => {
         confirmation.token,
       ),
       (error: unknown) =>
-        error instanceof GitSyncError
-        && error.code === 'GIT_WORKING_TREE_DIRTY',
+        error instanceof GitSyncError &&
+        error.code === 'GIT_WORKING_TREE_DIRTY',
     );
   } finally {
     await fixture.cleanup();

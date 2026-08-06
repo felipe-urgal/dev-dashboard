@@ -27,7 +27,10 @@ export function buildSplitGitDiffRows(
 
     while (index < lines.length) {
       const candidate = lines[index];
-      if (!candidate || (candidate.kind !== 'addition' && candidate.kind !== 'deletion')) {
+      if (
+        !candidate ||
+        (candidate.kind !== 'addition' && candidate.kind !== 'deletion')
+      ) {
         break;
       }
       if (candidate.kind === 'deletion') deletions.push(candidate);

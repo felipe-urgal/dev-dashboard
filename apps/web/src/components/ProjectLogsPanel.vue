@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import {
   ArrowDownTrayIcon,
@@ -40,10 +36,7 @@ import {
   railsRequestStatusTone,
 } from '../utils/rails-log-parser';
 import { parseRubyInspect } from '../utils/ruby-inspect-parser';
-import {
-  groupSqlLines,
-  highlightSqlHtml,
-} from '../utils/sql-highlight';
+import { groupSqlLines, highlightSqlHtml } from '../utils/sql-highlight';
 
 type ViewMode = 'requests' | 'raw';
 type CategoryFilter = 'all' | 'requests' | 'sql' | 'render' | 'errors';
@@ -72,7 +65,9 @@ const {
 const logContainer = ref<HTMLElement | null>(null);
 const searchQuery = ref('');
 const categoryFilter = ref<CategoryFilter>('all');
-const viewMode = ref<ViewMode>(props.project.type === 'rails' ? 'requests' : 'raw');
+const viewMode = ref<ViewMode>(
+  props.project.type === 'rails' ? 'requests' : 'raw',
+);
 const copiedRequestId = ref('');
 const selectedGroupKey = ref('');
 const requestListLimit = ref(REQUEST_LIST_PAGE_SIZE);
@@ -125,13 +120,17 @@ const formattedLogSize = computed(() => {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 });
 
-const parsedLog = computed(() => parseRailsLog(logSnapshot.value?.content ?? ''));
+const parsedLog = computed(() =>
+  parseRailsLog(logSnapshot.value?.content ?? ''),
+);
 const hasStructuredRequests = computed(() =>
   parsedLog.value.groups.some((group) => group.kind === 'request'),
 );
 
 // The parser emits groups in file order (oldest first); the inspector reads newest-first.
-const orderedGroups = computed<RailsLogGroup[]>(() => [...parsedLog.value.groups].reverse());
+const orderedGroups = computed<RailsLogGroup[]>(() =>
+  [...parsedLog.value.groups].reverse(),
+);
 
 function groupSelectionKey(group: RailsLogGroup): string {
   return group.kind === 'request' ? group.requestId : group.id;
@@ -148,7 +147,9 @@ function groupMatchesCategory(group: RailsLogGroup): boolean {
     case 'errors':
       return group.kind === 'request'
         ? group.errorLines.length > 0 || (group.status ?? 0) >= 400
-        : group.lines.some((line) => line.kind === 'error' || line.kind === 'warning');
+        : group.lines.some(
+            (line) => line.kind === 'error' || line.kind === 'warning',
+          );
     default:
       return true;
   }
@@ -157,7 +158,9 @@ function groupMatchesCategory(group: RailsLogGroup): boolean {
 function lineMatchesCategory(line: RailsLogLine): boolean {
   switch (categoryFilter.value) {
     case 'requests':
-      return ['request', 'controller', 'parameters', 'completed'].includes(line.kind);
+      return ['request', 'controller', 'parameters', 'completed'].includes(
+        line.kind,
+      );
     case 'sql':
       return line.kind === 'sql' || line.kind === 'source';
     case 'render':
@@ -178,7 +181,9 @@ const visibleGroups = computed(() => {
   });
 });
 
-const cappedGroups = computed(() => visibleGroups.value.slice(0, requestListLimit.value));
+const cappedGroups = computed(() =>
+  visibleGroups.value.slice(0, requestListLimit.value),
+);
 const hiddenGroupsCount = computed(() =>
   Math.max(0, visibleGroups.value.length - cappedGroups.value.length),
 );
@@ -196,21 +201,27 @@ const visibleRawLines = computed(() => {
   });
 });
 
-const cappedRawLines = computed(() => visibleRawLines.value.slice(0, rawLineLimit.value));
+const cappedRawLines = computed(() =>
+  visibleRawLines.value.slice(0, rawLineLimit.value),
+);
 const hiddenRawLinesCount = computed(() =>
   Math.max(0, visibleRawLines.value.length - cappedRawLines.value.length),
 );
 
 const visibleLineCount = computed(() =>
   viewMode.value === 'requests'
-    ? visibleGroups.value.reduce((total, group) => total + group.lines.length, 0)
+    ? visibleGroups.value.reduce(
+        (total, group) => total + group.lines.length,
+        0,
+      )
     : visibleRawLines.value.length,
 );
 
 const selectedGroup = computed<RailsLogGroup | undefined>(
   () =>
-    cappedGroups.value.find((group) => groupSelectionKey(group) === selectedGroupKey.value) ??
-    cappedGroups.value[0],
+    cappedGroups.value.find(
+      (group) => groupSelectionKey(group) === selectedGroupKey.value,
+    ) ?? cappedGroups.value[0],
 );
 
 const selectedRequestGroup = computed<RailsRequestLogGroup | undefined>(() =>
@@ -226,7 +237,9 @@ const selectedSqlGroups = computed(() => {
   }));
 });
 
-const selectedN1Group = computed(() => selectedSqlGroups.value.find((group) => group.n1Suspect));
+const selectedN1Group = computed(() =>
+  selectedSqlGroups.value.find((group) => group.n1Suspect),
+);
 
 const selectedParams = computed(() => {
   const raw = selectedRequestGroup.value?.parameters;
@@ -339,7 +352,9 @@ watch(viewMode, () => {
 // Keep the selection valid (and the list highlight in sync) as polling replaces the
 // group set every couple seconds, or as filters change which groups are visible.
 watch(cappedGroups, (groups) => {
-  if (!groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)) {
+  if (
+    !groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)
+  ) {
     selectedGroupKey.value = groups[0] ? groupSelectionKey(groups[0]) : '';
   }
 });

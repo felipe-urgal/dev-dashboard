@@ -64,9 +64,7 @@ export function registerProjectListRoutes(
       },
     },
     async (request) => {
-      const project = projectStore.findProject(
-        request.params.projectId,
-      );
+      const project = projectStore.findProject(request.params.projectId);
 
       if (!project) {
         throw new ApiError({
@@ -159,9 +157,7 @@ export function registerProjectListRoutes(
       },
     },
     async (request) => {
-      const project = projectStore.findProject(
-        request.params.projectId,
-      );
+      const project = projectStore.findProject(request.params.projectId);
 
       if (!project) {
         throw new ApiError({
@@ -172,10 +168,7 @@ export function registerProjectListRoutes(
       }
 
       try {
-        await projectFavoriteRepository.set(
-          project.id,
-          request.body.favorite,
-        );
+        await projectFavoriteRepository.set(project.id, request.body.favorite);
       } catch (error) {
         if (
           error instanceof ProjectFavoriteRepositoryError &&

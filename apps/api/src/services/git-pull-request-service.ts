@@ -22,9 +22,15 @@ import {
   githubLookupFromPayload,
   githubRepositoryParts,
 } from './git-pull-request/github-lookup-payload.js';
-import { detectProvider, parseRemoteUrl } from './git-pull-request/remote-parsing.js';
+import {
+  detectProvider,
+  parseRemoteUrl,
+} from './git-pull-request/remote-parsing.js';
 import { runProviderCli } from './git-pull-request/run.js';
-import { composeGithubUrl, composeGitlabUrl } from './git-pull-request/url-compose.js';
+import {
+  composeGithubUrl,
+  composeGitlabUrl,
+} from './git-pull-request/url-compose.js';
 
 export type { GitPullRequestTargetRemote } from './git-pull-request/context.js';
 export { GitPullRequestError } from './git-pull-request/errors.js';
@@ -87,9 +93,10 @@ export class GitPullRequestService {
     };
     return {
       provider: context.provider,
-      url: context.provider === 'github'
-        ? composeGithubUrl(composeOptions)
-        : composeGitlabUrl(composeOptions),
+      url:
+        context.provider === 'github'
+          ? composeGithubUrl(composeOptions)
+          : composeGitlabUrl(composeOptions),
       branch: context.branch,
       defaultBranch: context.baseBranch,
     };
@@ -111,9 +118,10 @@ export class GitPullRequestService {
     const cached = this.lookupCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.result;
 
-    const result = context.provider === 'github'
-      ? await this.lookupGithub(context)
-      : await this.lookupGitlab(context);
+    const result =
+      context.provider === 'github'
+        ? await this.lookupGithub(context)
+        : await this.lookupGitlab(context);
     this.lookupCache.set(cacheKey, {
       expiresAt: Date.now() + this.lookupCacheTtlMs,
       result,
@@ -128,8 +136,9 @@ export class GitPullRequestService {
     await requireRepository(projectPath);
     const branch = await currentBranch(projectPath);
     const targetRemote = options.targetRemote ?? 'origin';
-    const baseBranch = options.baseBranch?.trim()
-      || await defaultBranch(projectPath, targetRemote);
+    const baseBranch =
+      options.baseBranch?.trim() ||
+      (await defaultBranch(projectPath, targetRemote));
     if (options.baseBranch?.trim()) {
       await requireBaseBranch(projectPath, targetRemote, baseBranch);
     }
@@ -143,8 +152,10 @@ export class GitPullRequestService {
 
     const published = await publishedReference(projectPath, branch);
     const separator = published.indexOf('/');
-    const sourceRemote = separator > 0 ? published.slice(0, separator) : 'origin';
-    const sourceBranch = separator > 0 ? published.slice(separator + 1) : branch;
+    const sourceRemote =
+      separator > 0 ? published.slice(0, separator) : 'origin';
+    const sourceBranch =
+      separator > 0 ? published.slice(separator + 1) : branch;
 
     const [sourceRemoteUrl, targetRemoteUrl] = await Promise.all([
       remoteUrl(projectPath, sourceRemote),
@@ -155,7 +166,13 @@ export class GitPullRequestService {
     const sourceProvider = source ? detectProvider(source.host) : null;
     const provider = target ? detectProvider(target.host) : null;
 
-    if (!source || !target || !sourceProvider || !provider || sourceProvider !== provider) {
+    if (
+      !source ||
+      !target ||
+      !sourceProvider ||
+      !provider ||
+      sourceProvider !== provider
+    ) {
       throw new GitPullRequestError(
         'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
         'Os remotos de origem e destino precisam ser repositórios GitHub ou GitLab compatíveis.',
@@ -185,8 +202,8 @@ export class GitPullRequestService {
     context: ResolvedPullRequestContext,
   ): Promise<GitPullRequestLookup> {
     if (
-      context.target.host.toLowerCase() !== 'github.com'
-      || context.source.host.toLowerCase() !== 'github.com'
+      context.target.host.toLowerCase() !== 'github.com' ||
+      context.source.host.toLowerCase() !== 'github.com'
     ) {
       return { checked: false };
     }
@@ -211,7 +228,7 @@ export class GitPullRequestService {
     if (response?.ok) {
       try {
         const lookup = githubLookupFromPayload(
-          await response.json() as unknown,
+          (await response.json()) as unknown,
           context,
         );
         if (lookup) return lookup;
@@ -257,8 +274,11 @@ export class GitPullRequestService {
     if (!output) return { checked: false };
 
     try {
-      return githubLookupFromPayload(JSON.parse(output) as unknown, context)
-        ?? { checked: false };
+      return (
+        githubLookupFromPayload(JSON.parse(output) as unknown, context) ?? {
+          checked: false,
+        }
+      );
     } catch {
       return { checked: false };
     }
@@ -268,9 +288,9 @@ export class GitPullRequestService {
     context: ResolvedPullRequestContext,
   ): Promise<GitPullRequestLookup> {
     if (
-      context.target.host.toLowerCase() !== 'gitlab.com'
-      || context.source.host.toLowerCase() !== 'gitlab.com'
-      || context.target.ownerRepo !== context.source.ownerRepo
+      context.target.host.toLowerCase() !== 'gitlab.com' ||
+      context.source.host.toLowerCase() !== 'gitlab.com' ||
+      context.target.ownerRepo !== context.source.ownerRepo
     ) {
       return { checked: false };
     }
@@ -290,7 +310,7 @@ export class GitPullRequestService {
     if (!response?.ok) return { checked: false };
 
     try {
-      const payload = await response.json() as unknown;
+      const payload = (await response.json()) as unknown;
       if (!Array.isArray(payload)) return { checked: false };
       if (payload.length === 0) return { checked: true };
       const item = asRecord(payload[0]);
@@ -298,9 +318,9 @@ export class GitPullRequestService {
       const title = item?.title;
       const webUrl = item?.web_url;
       if (
-        typeof number !== 'number'
-        || typeof title !== 'string'
-        || typeof webUrl !== 'string'
+        typeof number !== 'number' ||
+        typeof title !== 'string' ||
+        typeof webUrl !== 'string'
       ) {
         return { checked: false };
       }

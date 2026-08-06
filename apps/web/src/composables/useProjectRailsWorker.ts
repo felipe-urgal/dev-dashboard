@@ -57,16 +57,23 @@ export function useProjectRailsWorker(
   const statusLabel = computed(() => {
     if (loading.value && !managedProcess.value) return 'Verificando';
     switch (status.value) {
-      case 'starting': return 'Iniciando';
-      case 'running': return 'Executando';
-      case 'stopping': return 'Encerrando';
-      case 'failed': return 'Falhou';
-      default: return 'Parado';
+      case 'starting':
+        return 'Iniciando';
+      case 'running':
+        return 'Executando';
+      case 'stopping':
+        return 'Encerrando';
+      case 'failed':
+        return 'Falhou';
+      default:
+        return 'Parado';
     }
   });
 
   function isCurrentProject(projectId: string, generation: number): boolean {
-    return getProject().id === projectId && projectRequests.isCurrent(generation);
+    return (
+      getProject().id === projectId && projectRequests.isCurrent(generation)
+    );
   }
 
   async function refresh(): Promise<void> {
@@ -86,10 +93,15 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível consultar o worker.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar o worker.';
       }
     } finally {
-      if (requestGate.finish(requestToken) && isCurrentProject(projectId, generation)) {
+      if (
+        requestGate.finish(requestToken) &&
+        isCurrentProject(projectId, generation)
+      ) {
         loading.value = false;
       }
     }
@@ -105,7 +117,10 @@ export function useProjectRailsWorker(
   function schedulePolling(): void {
     stopPolling();
     const generation = projectRequests.capture();
-    const delay = status.value === 'starting' || status.value === 'stopping' ? 1_000 : 5_000;
+    const delay =
+      status.value === 'starting' || status.value === 'stopping'
+        ? 1_000
+        : 5_000;
 
     pollingTimer = setTimeout(async () => {
       await refresh();
@@ -128,7 +143,9 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível carregar o log.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar o log.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -156,7 +173,9 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível limpar o log.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível limpar o log.';
       }
     }
   }
@@ -176,7 +195,9 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível iniciar o worker.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível iniciar o worker.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) currentAction.value = null;
@@ -197,7 +218,9 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível parar o worker.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível parar o worker.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) currentAction.value = null;
@@ -221,7 +244,9 @@ export function useProjectRailsWorker(
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível reiniciar o worker.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível reiniciar o worker.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) currentAction.value = null;
@@ -246,7 +271,13 @@ export function useProjectRailsWorker(
     schedulePolling();
   }
 
-  watch(() => getProject().id, () => { void initialize(); }, { immediate: true });
+  watch(
+    () => getProject().id,
+    () => {
+      void initialize();
+    },
+    { immediate: true },
+  );
 
   onBeforeUnmount(() => {
     projectRequests.invalidate();

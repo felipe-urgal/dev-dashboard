@@ -92,7 +92,6 @@ test('publishes a local branch to origin without switching the current branch', 
   }
 });
 
-
 test('reenviar commit alterado usa lease explícito e atualiza o origin', async () => {
   const { root, local } = await createRepository();
 
@@ -185,18 +184,20 @@ test('lease recusa sobrescrever commits publicados depois da confirmação', asy
     );
 
     await assert.rejects(
-      () => service.forcePushWithLease(
-        local,
-        'project-1',
-        'feature/publicar',
-        confirmation.token,
-      ),
-      (error: unknown) => Boolean(
-        error
-        && typeof error === 'object'
-        && 'code' in error
-        && error.code === 'GIT_FORCE_WITH_LEASE_REJECTED'
-      ),
+      () =>
+        service.forcePushWithLease(
+          local,
+          'project-1',
+          'feature/publicar',
+          confirmation.token,
+        ),
+      (error: unknown) =>
+        Boolean(
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'GIT_FORCE_WITH_LEASE_REJECTED',
+        ),
     );
     assert.equal(
       await git(

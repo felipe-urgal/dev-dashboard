@@ -7,14 +7,25 @@ import test from 'node:test';
 import type { Project } from '@dev-dashboard/contracts';
 import { BundlerInspectionService } from '../src/services/bundler-inspection-service.js';
 
-async function fixture(files: Record<string, string>, type: Project['type'] = 'rails'): Promise<Project> {
+async function fixture(
+  files: Record<string, string>,
+  type: Project['type'] = 'rails',
+): Promise<Project> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'bundler-inspection-'));
   for (const [name, contents] of Object.entries(files)) {
     const target = path.join(root, name);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, contents);
   }
-  return { id: 'projeto', name: 'Projeto', path: root, type, source: 'standalone', favorite: false, capabilities: [] };
+  return {
+    id: 'projeto',
+    name: 'Projeto',
+    path: root,
+    type,
+    source: 'standalone',
+    favorite: false,
+    capabilities: [],
+  };
 }
 
 const OUTDATED_OUTPUT = `Fetching gem metadata from https://rubygems.org/........
@@ -30,7 +41,8 @@ test('reporta bundle check satisfeito e nenhuma gem desatualizada', async () => 
   const calls: string[][] = [];
   const service = new BundlerInspectionService(async (command, args) => {
     calls.push(args);
-    if (args[0] === 'check') return { stdout: "The Gemfile's dependencies are satisfied\n" };
+    if (args[0] === 'check')
+      return { stdout: "The Gemfile's dependencies are satisfied\n" };
     return { stdout: 'Bundle up to date!\n' };
   });
 
@@ -44,7 +56,8 @@ test('reporta bundle check satisfeito e nenhuma gem desatualizada', async () => 
 test('analisa gems desatualizadas com e sem versão requisitada', async () => {
   const project = await fixture({ Gemfile: 'gem "rails"\n' });
   const service = new BundlerInspectionService(async (_command, args) => {
-    if (args[0] === 'check') return { stdout: "The Gemfile's dependencies are satisfied\n" };
+    if (args[0] === 'check')
+      return { stdout: "The Gemfile's dependencies are satisfied\n" };
     return { stdout: OUTDATED_OUTPUT };
   });
 
@@ -75,8 +88,12 @@ test('bundle check insatisfeito é reportado com a mensagem capturada', async ()
 test('bundle outdated com exit code != 0 ainda é parseado normalmente', async () => {
   const project = await fixture({ Gemfile: 'gem "rails"\n' });
   const service = new BundlerInspectionService(async (_command, args) => {
-    if (args[0] === 'check') return { stdout: "The Gemfile's dependencies are satisfied\n" };
-    throw Object.assign(new Error('exit 1'), { stdout: OUTDATED_OUTPUT, stderr: '' });
+    if (args[0] === 'check')
+      return { stdout: "The Gemfile's dependencies are satisfied\n" };
+    throw Object.assign(new Error('exit 1'), {
+      stdout: OUTDATED_OUTPUT,
+      stderr: '',
+    });
   });
 
   const overview = await service.getOverview(project);
@@ -85,16 +102,26 @@ test('bundle outdated com exit code != 0 ainda é parseado normalmente', async (
 
 test('projeto sem Gemfile não é suportado', async () => {
   const project = await fixture({ 'package.json': '{}' }, 'node');
-  const service = new BundlerInspectionService(async () => assert.fail('não deveria executar comandos'));
+  const service = new BundlerInspectionService(async () =>
+    assert.fail('não deveria executar comandos'),
+  );
 
-  assert.deepEqual(await service.getOverview(project), { supported: false, outdated: [] });
+  assert.deepEqual(await service.getOverview(project), {
+    supported: false,
+    outdated: [],
+  });
 });
 
 test('projeto Rails sem Gemfile fica sem suporte', async () => {
   const project = await fixture({});
-  const service = new BundlerInspectionService(async () => assert.fail('não deveria executar comandos'));
+  const service = new BundlerInspectionService(async () =>
+    assert.fail('não deveria executar comandos'),
+  );
 
-  assert.deepEqual(await service.getOverview(project), { supported: false, outdated: [] });
+  assert.deepEqual(await service.getOverview(project), {
+    supported: false,
+    outdated: [],
+  });
 });
 
 test('mascara segredos na mensagem de bundle check', async () => {

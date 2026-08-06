@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -96,9 +93,10 @@ function translateError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível remover a branch.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível remover a branch.',
   });
 }
 
@@ -125,7 +123,9 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       },
     },
     async (request, reply) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,
@@ -135,7 +135,10 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       }
       try {
         return reply.code(201).send({
-          confirmation: service.prepareConfirmation(project.id, request.body.branch),
+          confirmation: service.prepareConfirmation(
+            project.id,
+            request.body.branch,
+          ),
         });
       } catch (error) {
         translateError(error);
@@ -164,7 +167,9 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       },
     },
     async (request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,
@@ -174,13 +179,18 @@ export const gitBranchDeleteRoutes: FastifyPluginAsync<
       }
       try {
         return {
-          branch: await withGitMutationHistory(options.gitMutationHistoryService, project, 'branch-delete', () =>
-            service.deleteLocalBranch(
-              project.path,
-              project.id,
-              request.body.branch,
-              request.body.confirmationToken,
-            )),
+          branch: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'branch-delete',
+            () =>
+              service.deleteLocalBranch(
+                project.path,
+                project.id,
+                request.body.branch,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateError(error);

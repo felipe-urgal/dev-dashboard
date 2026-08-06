@@ -14,7 +14,10 @@ import {
   SERVER_BIND_HOST,
   validatePort,
 } from './port-utils.js';
-import { isManagedProcessAlive, verifyProcessDirectory } from './process-state.js';
+import {
+  isManagedProcessAlive,
+  verifyProcessDirectory,
+} from './process-state.js';
 import type { ExitTracker } from './process-exit-tracking.js';
 import type { ProcessStatusReader } from './process-status.js';
 import {
@@ -123,9 +126,7 @@ export function createProcessLifecycle(
       }
     }
 
-    const port =
-      requestedPort ??
-      (await findAvailablePort(SERVER_BIND_HOST));
+    const port = requestedPort ?? (await findAvailablePort(SERVER_BIND_HOST));
 
     const resolvedCommand = await resolveServerCommand(
       project,
@@ -183,9 +184,7 @@ export function createProcessLifecycle(
     const managedProcess: StoredProcess = {
       id: `${project.id}:server`,
       projectId: project.id,
-      ...(project.workspaceId
-        ? { workspaceId: project.workspaceId }
-        : {}),
+      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
       kind: 'server',
       status: 'starting',
       pid: child.pid,
@@ -291,9 +290,7 @@ export function createProcessLifecycle(
     const managedProcess: StoredProcess = {
       id: `${project.id}:test:${command.id}`,
       projectId: project.id,
-      ...(project.workspaceId
-        ? { workspaceId: project.workspaceId }
-        : {}),
+      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
       kind: 'test',
       status: 'running',
       pid: child.pid,
@@ -396,9 +393,7 @@ export function createProcessLifecycle(
     const managedProcess: StoredProcess = {
       id: `${project.id}:${kind}:${command.id}`,
       projectId: project.id,
-      ...(project.workspaceId
-        ? { workspaceId: project.workspaceId }
-        : {}),
+      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
       kind,
       status: 'running',
       pid: child.pid,
@@ -445,18 +440,14 @@ export function createProcessLifecycle(
     }
 
     if (!isManagedProcessAlive(storedProcess.pid)) {
-      const stoppedProcess = terminalProcess(
-        storedProcess,
-        'stopped',
-      );
+      const stoppedProcess = terminalProcess(storedProcess, 'stopped');
 
       await writeStoredProcess(context, stoppedProcess);
 
       return stoppedProcess;
     }
 
-    const processMatches =
-      await verifyProcessDirectory(storedProcess);
+    const processMatches = await verifyProcessDirectory(storedProcess);
 
     if (!processMatches) {
       throw new ProcessManagerError(
@@ -500,10 +491,7 @@ export function createProcessLifecycle(
       }
     }
 
-    const stoppedProcess = terminalProcess(
-      storedProcess,
-      'stopped',
-    );
+    const stoppedProcess = terminalProcess(storedProcess, 'stopped');
 
     await writeStoredProcess(context, stoppedProcess);
 

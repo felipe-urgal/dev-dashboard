@@ -76,7 +76,8 @@ export interface RailsModelsOverview {
   tables: RailsSchemaTable[];
 }
 
-export type RailsMigrationMutationOperation = 'migrate' | 'rollback' | 'seed' | 'prepare';
+export type RailsMigrationMutationOperation =
+  'migrate' | 'rollback' | 'seed' | 'prepare';
 
 export interface RailsMigrationMutationConfirmation {
   token: string;
@@ -96,9 +97,20 @@ export interface RailsMigrationMutationResult {
 export type RailsGeneratorKind = 'model' | 'migration';
 
 export type RailsGeneratorFieldType =
-  | 'string' | 'text' | 'integer' | 'bigint' | 'float' | 'decimal'
-  | 'boolean' | 'date' | 'datetime' | 'time' | 'timestamp' | 'binary'
-  | 'references' | 'uuid';
+  | 'string'
+  | 'text'
+  | 'integer'
+  | 'bigint'
+  | 'float'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'time'
+  | 'timestamp'
+  | 'binary'
+  | 'references'
+  | 'uuid';
 
 export interface RailsGeneratorField {
   name: string;

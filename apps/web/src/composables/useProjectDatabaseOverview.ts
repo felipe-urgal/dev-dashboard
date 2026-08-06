@@ -24,7 +24,9 @@ export function useProjectDatabaseOverview(getProject: () => Project) {
   const errorMessage = ref('');
   const revealed = ref<Record<string, string>>({});
   const page = ref(1);
-  const pendingAction = ref<Record<string, DatabaseServiceAction | undefined>>({});
+  const pendingAction = ref<Record<string, DatabaseServiceAction | undefined>>(
+    {},
+  );
   const selectedEnvironmentId = ref('');
 
   let generation = 0;
@@ -38,11 +40,19 @@ export function useProjectDatabaseOverview(getProject: () => Project) {
       if (current !== generation) return;
       overview.value = result;
       page.value = targetPage;
-      if (!result.environments.some((item) => item.id === selectedEnvironmentId.value)) {
+      if (
+        !result.environments.some(
+          (item) => item.id === selectedEnvironmentId.value,
+        )
+      ) {
         selectedEnvironmentId.value = result.environments[0]?.id ?? '';
       }
     } catch (error) {
-      if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar os bancos.';
+      if (current === generation)
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar os bancos.';
     } finally {
       if (current === generation) loading.value = false;
     }
@@ -59,13 +69,21 @@ export function useProjectDatabaseOverview(getProject: () => Project) {
     const current = generation;
     try {
       const secret = await revealProjectDatabaseUrl(getProject().id, id);
-      if (current === generation) revealed.value = { ...revealed.value, [id]: secret.databaseUrl };
+      if (current === generation)
+        revealed.value = { ...revealed.value, [id]: secret.databaseUrl };
     } catch (error) {
-      if (current === generation) errorMessage.value = error instanceof Error ? error.message : 'Não foi possível revelar a URL.';
+      if (current === generation)
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível revelar a URL.';
     }
   }
 
-  async function runAction(id: string, action: DatabaseServiceAction): Promise<void> {
+  async function runAction(
+    id: string,
+    action: DatabaseServiceAction,
+  ): Promise<void> {
     const current = generation;
     pendingAction.value = { ...pendingAction.value, [id]: action };
     errorMessage.value = '';
@@ -73,9 +91,14 @@ export function useProjectDatabaseOverview(getProject: () => Project) {
       await runProjectDatabaseServiceAction(getProject().id, id, action);
       if (current === generation) await loadDatabase();
     } catch (error) {
-      if (current === generation) errorMessage.value = error instanceof Error ? error.message : `Não foi possível ${actionVerbs[action]} o banco.`;
+      if (current === generation)
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : `Não foi possível ${actionVerbs[action]} o banco.`;
     } finally {
-      if (current === generation) pendingAction.value = { ...pendingAction.value, [id]: undefined };
+      if (current === generation)
+        pendingAction.value = { ...pendingAction.value, [id]: undefined };
     }
   }
 

@@ -15,7 +15,8 @@ export interface ServerConfig {
 
 export function parseApiPort(value: string | undefined): number {
   if (value === undefined || value === '') return DEFAULT_API_PORT;
-  if (!/^\d+$/.test(value)) throw new Error(`DEV_DASHBOARD_API_PORT inválida: ${value}`);
+  if (!/^\d+$/.test(value))
+    throw new Error(`DEV_DASHBOARD_API_PORT inválida: ${value}`);
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new Error(`DEV_DASHBOARD_API_PORT inválida: ${value}`);
@@ -23,7 +24,10 @@ export function parseApiPort(value: string | undefined): number {
   return port;
 }
 
-export async function resolveWebDist(value: string | undefined, cwd = process.cwd()): Promise<string | undefined> {
+export async function resolveWebDist(
+  value: string | undefined,
+  cwd = process.cwd(),
+): Promise<string | undefined> {
   if (!value) return undefined;
   const absolute = path.resolve(cwd, value);
   try {
@@ -38,20 +42,32 @@ export async function readServerConfig(
   cwd = process.cwd(),
 ): Promise<ServerConfig> {
   const port = parseApiPort(environment.DEV_DASHBOARD_API_PORT);
-  const staticDashboardEnabled = environment.DEV_DASHBOARD_LOCAL_DISTRIBUTION === '1';
+  const staticDashboardEnabled =
+    environment.DEV_DASHBOARD_LOCAL_DISTRIBUTION === '1';
   if (environment.DEV_DASHBOARD_LOCAL_DISTRIBUTION && !staticDashboardEnabled) {
-    throw new Error('DEV_DASHBOARD_LOCAL_DISTRIBUTION deve ser 1 quando informada.');
+    throw new Error(
+      'DEV_DASHBOARD_LOCAL_DISTRIBUTION deve ser 1 quando informada.',
+    );
   }
-  const frontendDirectory = await resolveWebDist(environment.DEV_DASHBOARD_WEB_DIST, cwd);
+  const frontendDirectory = await resolveWebDist(
+    environment.DEV_DASHBOARD_WEB_DIST,
+    cwd,
+  );
   const browserBootstrapToken = environment.DEV_DASHBOARD_BROWSER_BOOTSTRAP;
   if (staticDashboardEnabled && !frontendDirectory) {
-    throw new Error('DEV_DASHBOARD_WEB_DIST é obrigatória no modo de distribuição local.');
+    throw new Error(
+      'DEV_DASHBOARD_WEB_DIST é obrigatória no modo de distribuição local.',
+    );
   }
   if (staticDashboardEnabled && !browserBootstrapToken) {
-    throw new Error('DEV_DASHBOARD_BROWSER_BOOTSTRAP é obrigatória no modo de distribuição local.');
+    throw new Error(
+      'DEV_DASHBOARD_BROWSER_BOOTSTRAP é obrigatória no modo de distribuição local.',
+    );
   }
   if (browserBootstrapToken && !/^[a-f0-9]{64}$/.test(browserBootstrapToken)) {
-    throw new Error('DEV_DASHBOARD_BROWSER_BOOTSTRAP deve conter 64 caracteres hexadecimais.');
+    throw new Error(
+      'DEV_DASHBOARD_BROWSER_BOOTSTRAP deve conter 64 caracteres hexadecimais.',
+    );
   }
   return {
     host: API_HOST,

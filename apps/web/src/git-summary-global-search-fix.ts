@@ -1,14 +1,26 @@
-import { captureOriginal, restoreOriginal } from './git-summary-global-search-fix/snapshot';
+import {
+  captureOriginal,
+  restoreOriginal,
+} from './git-summary-global-search-fix/snapshot';
 import { setPagination } from './git-summary-global-search-fix/pagination';
-import { renderResults, setSearchLoading } from './git-summary-global-search-fix/list';
-import { requestJson, setSummaryFetcher } from './git-summary-global-search-fix/network';
+import {
+  renderResults,
+  setSearchLoading,
+} from './git-summary-global-search-fix/list';
+import {
+  requestJson,
+  setSummaryFetcher,
+} from './git-summary-global-search-fix/network';
 import { stateFor } from './git-summary-global-search-fix/state';
 import type { HistoryResponse } from './git-summary-global-search-fix/types';
 
 export { buildSummaryHistorySearchUrl } from './git-summary-global-search-fix/url';
 import { buildSummaryHistorySearchUrl } from './git-summary-global-search-fix/url';
 
-async function loadSearchPage(section: HTMLElement, requestedPage: number): Promise<void> {
+async function loadSearchPage(
+  section: HTMLElement,
+  requestedPage: number,
+): Promise<void> {
   const state = stateFor(section);
   if (!state.query.trim() || !state.projectId) return;
   captureOriginal(section);
@@ -17,7 +29,9 @@ async function loadSearchPage(section: HTMLElement, requestedPage: number): Prom
   const controller = new AbortController();
   state.historyRequest = controller;
   state.selectedHash = '';
-  section.querySelector('.git-summary-history-shell')?.classList.remove('is-inspecting');
+  section
+    .querySelector('.git-summary-history-shell')
+    ?.classList.remove('is-inspecting');
   section.querySelector('.git-summary-commit-detail')?.replaceChildren();
   setSearchLoading(section);
 
@@ -36,12 +50,19 @@ async function loadSearchPage(section: HTMLElement, requestedPage: number): Prom
     renderResults(section);
   } catch (error) {
     if (controller.signal.aborted) return;
-    const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-    const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+    const list = section.querySelector<HTMLElement>(
+      '.git-summary-history-list',
+    );
+    const count = section.querySelector<HTMLElement>(
+      '.git-summary-history-count',
+    );
     list?.replaceChildren();
     const message = document.createElement('p');
     message.className = 'git-summary-history-empty is-error';
-    message.textContent = error instanceof Error ? error.message : 'Não foi possível buscar o histórico.';
+    message.textContent =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível buscar o histórico.';
     list?.append(message);
     if (count) count.textContent = 'Busca indisponível';
     state.totalPages = 0;
@@ -51,7 +72,10 @@ async function loadSearchPage(section: HTMLElement, requestedPage: number): Prom
   }
 }
 
-function resetForBranchChange(section: HTMLElement, input: HTMLInputElement): void {
+function resetForBranchChange(
+  section: HTMLElement,
+  input: HTMLInputElement,
+): void {
   const state = stateFor(section);
   if (!state.query && !state.snapshot) return;
   if (state.debounceTimer) window.clearTimeout(state.debounceTimer);
@@ -61,72 +85,106 @@ function resetForBranchChange(section: HTMLElement, input: HTMLInputElement): vo
   state.snapshot = undefined;
   state.selectedHash = '';
   input.value = '';
-  section.querySelector('.git-summary-history-shell')?.classList.remove('is-inspecting');
+  section
+    .querySelector('.git-summary-history-shell')
+    ?.classList.remove('is-inspecting');
   section.querySelector('.git-summary-commit-detail')?.replaceChildren();
 }
 
 function enhanceSection(section: HTMLElement): void {
   if (section.dataset.summaryGlobalSearch === 'true') return;
-  const input = section.querySelector<HTMLInputElement>('.git-summary-history-search input');
-  const pagination = section.querySelector<HTMLElement>('.git-summary-history-pagination');
+  const input = section.querySelector<HTMLInputElement>(
+    '.git-summary-history-search input',
+  );
+  const pagination = section.querySelector<HTMLElement>(
+    '.git-summary-history-pagination',
+  );
   if (!input || !pagination) return;
   section.dataset.summaryGlobalSearch = 'true';
   const state = stateFor(section);
   input.placeholder = 'Buscar em todo o histórico…';
-  input.setAttribute('aria-label', 'Buscar em todos os commits da branch atual');
+  input.setAttribute(
+    'aria-label',
+    'Buscar em todos os commits da branch atual',
+  );
 
-  input.addEventListener('input', (event) => {
-    event.stopImmediatePropagation();
-    state.query = input.value;
-    if (state.debounceTimer) window.clearTimeout(state.debounceTimer);
-    if (!state.query.trim()) {
-      restoreOriginal(section);
-      return;
-    }
-    captureOriginal(section);
-    state.debounceTimer = window.setTimeout(() => {
-      state.debounceTimer = undefined;
-      void loadSearchPage(section, 1);
-    }, 300);
-  }, { capture: true });
+  input.addEventListener(
+    'input',
+    (event) => {
+      event.stopImmediatePropagation();
+      state.query = input.value;
+      if (state.debounceTimer) window.clearTimeout(state.debounceTimer);
+      if (!state.query.trim()) {
+        restoreOriginal(section);
+        return;
+      }
+      captureOriginal(section);
+      state.debounceTimer = window.setTimeout(() => {
+        state.debounceTimer = undefined;
+        void loadSearchPage(section, 1);
+      }, 300);
+    },
+    { capture: true },
+  );
 
-  pagination.addEventListener('click', (event) => {
-    if (!state.query.trim()) return;
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    const button = target.closest<HTMLButtonElement>('[data-history-page]');
-    if (!button) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (button.dataset.historyPage === 'previous' && state.page > 1) {
-      void loadSearchPage(section, state.page - 1);
-    }
-    if (button.dataset.historyPage === 'next' && state.page < state.totalPages) {
-      void loadSearchPage(section, state.page + 1);
-    }
-  }, true);
+  pagination.addEventListener(
+    'click',
+    (event) => {
+      if (!state.query.trim()) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest<HTMLButtonElement>('[data-history-page]');
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (button.dataset.historyPage === 'previous' && state.page > 1) {
+        void loadSearchPage(section, state.page - 1);
+      }
+      if (
+        button.dataset.historyPage === 'next' &&
+        state.page < state.totalPages
+      ) {
+        void loadSearchPage(section, state.page + 1);
+      }
+    },
+    true,
+  );
 
-  const branch = section.querySelector<HTMLElement>('.git-status-grid article:first-child strong');
+  const branch = section.querySelector<HTMLElement>(
+    '.git-status-grid article:first-child strong',
+  );
   if (branch) {
-    const observer = new MutationObserver(() => resetForBranchChange(section, input));
-    observer.observe(branch, { childList: true, characterData: true, subtree: true });
+    const observer = new MutationObserver(() =>
+      resetForBranchChange(section, input),
+    );
+    observer.observe(branch, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
   }
 }
 
 function scan(root: ParentNode = document): void {
-  if (root instanceof HTMLElement && root.matches('.git-summary-history-shell')) {
+  if (
+    root instanceof HTMLElement &&
+    root.matches('.git-summary-history-shell')
+  ) {
     const section = root.closest<HTMLElement>('.git-summary-page');
     if (section) enhanceSection(section);
   }
-  root.querySelectorAll<HTMLElement>('.git-summary-history-shell').forEach((shell) => {
-    const section = shell.closest<HTMLElement>('.git-summary-page');
-    if (section) enhanceSection(section);
-  });
+  root
+    .querySelectorAll<HTMLElement>('.git-summary-history-shell')
+    .forEach((shell) => {
+      const section = shell.closest<HTMLElement>('.git-summary-page');
+      if (section) enhanceSection(section);
+    });
 }
 
 export function installGitSummaryGlobalSearchFix(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (document.documentElement.dataset.gitSummaryGlobalSearch === 'true') return;
+  if (document.documentElement.dataset.gitSummaryGlobalSearch === 'true')
+    return;
   document.documentElement.dataset.gitSummaryGlobalSearch = 'true';
   setSummaryFetcher(window.fetch.bind(window));
   scan();
@@ -137,5 +195,8 @@ export function installGitSummaryGlobalSearchFix(): void {
       }
     }
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

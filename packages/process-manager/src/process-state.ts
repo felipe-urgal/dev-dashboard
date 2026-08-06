@@ -1,6 +1,4 @@
-import {
-  realpath,
-} from 'node:fs/promises';
+import { realpath } from 'node:fs/promises';
 
 import type {
   ManagedProcess,
@@ -31,9 +29,7 @@ const managedProcessStatuses = new Set<ManagedProcessStatus>([
   'failed',
 ]);
 
-function isErrnoException(
-  error: unknown,
-): error is NodeJS.ErrnoException {
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }
 
@@ -51,9 +47,7 @@ function isOptionalTimestamp(value: unknown): boolean {
 function isOptionalPositiveInteger(value: unknown): boolean {
   return (
     value === undefined ||
-    (typeof value === 'number' &&
-      Number.isSafeInteger(value) &&
-      value > 0)
+    (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
   );
 }
 
@@ -74,14 +68,8 @@ function isOptionalExitCode(value: unknown): boolean {
   );
 }
 
-export function isStoredProcess(
-  value: unknown,
-): value is StoredProcess {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value)
-  ) {
+export function isStoredProcess(value: unknown): value is StoredProcess {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;
   }
 
@@ -94,13 +82,9 @@ export function isStoredProcess(
     candidate.projectId.length > 0 &&
     isOptionalString(candidate.workspaceId) &&
     typeof candidate.kind === 'string' &&
-    managedProcessKinds.has(
-      candidate.kind as ManagedProcessKind,
-    ) &&
+    managedProcessKinds.has(candidate.kind as ManagedProcessKind) &&
     typeof candidate.status === 'string' &&
-    managedProcessStatuses.has(
-      candidate.status as ManagedProcessStatus,
-    ) &&
+    managedProcessStatuses.has(candidate.status as ManagedProcessStatus) &&
     isOptionalPositiveInteger(candidate.pid) &&
     isOptionalPort(candidate.port) &&
     isOptionalString(candidate.host) &&
@@ -113,9 +97,7 @@ export function isStoredProcess(
     typeof candidate.command === 'string' &&
     candidate.command.length > 0 &&
     Array.isArray(candidate.args) &&
-    candidate.args.every(
-      (argument) => typeof argument === 'string',
-    ) &&
+    candidate.args.every((argument) => typeof argument === 'string') &&
     typeof candidate.cwd === 'string' &&
     candidate.cwd.length > 0 &&
     typeof candidate.logPath === 'string' &&
@@ -173,13 +155,9 @@ export async function verifyProcessDirectory(
   }
 
   try {
-    const processDirectory = await realpath(
-      `/proc/${storedProcess.pid}/cwd`,
-    );
+    const processDirectory = await realpath(`/proc/${storedProcess.pid}/cwd`);
 
-    const expectedDirectory = await realpath(
-      storedProcess.cwd,
-    );
+    const expectedDirectory = await realpath(storedProcess.cwd);
 
     return processDirectory === expectedDirectory;
   } catch {

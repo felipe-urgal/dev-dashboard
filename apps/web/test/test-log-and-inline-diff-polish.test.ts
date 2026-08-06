@@ -11,15 +11,31 @@ function sourceFile(fileName: string): string {
 }
 
 test('classifica linhas comuns de Vitest e Rails para o realce visual', () => {
-  assert.equal(classifyTestLogLine('........................................'), 'progress');
   assert.equal(
-    classifyTestLogLine('✓ spec/ui/components/footer/index.spec.tsx (5 tests) 472ms'),
+    classifyTestLogLine('........................................'),
+    'progress',
+  );
+  assert.equal(
+    classifyTestLogLine(
+      '✓ spec/ui/components/footer/index.spec.tsx (5 tests) 472ms',
+    ),
     'file',
   );
   assert.equal(classifyTestLogLine('Tests 4649 passed (4649)'), 'summary');
-  assert.equal(classifyTestLogLine('bundle exec rails test test/models/user_test.rb'), 'command');
-  assert.equal(classifyTestLogLine('(node:110717) TimeoutNaNWarning: NaN is not a number.'), 'runtime');
-  assert.equal(classifyTestLogLine('from /workspace/app/lib/task.rb:42:in `run`'), 'stack');
+  assert.equal(
+    classifyTestLogLine('bundle exec rails test test/models/user_test.rb'),
+    'command',
+  );
+  assert.equal(
+    classifyTestLogLine(
+      '(node:110717) TimeoutNaNWarning: NaN is not a number.',
+    ),
+    'runtime',
+  );
+  assert.equal(
+    classifyTestLogLine('from /workspace/app/lib/task.rb:42:in `run`'),
+    'stack',
+  );
   assert.equal(classifyTestLogLine('texto comum do runner'), null);
 });
 
@@ -36,7 +52,8 @@ test('mantem o log de testes dentro do painel e permite quebra de linhas longas'
 
 test('mantem a quebra de linha e reduz o destaque das sequencias de pontos de progresso', async () => {
   const css = await readFile(sourceFile('test-log-visual-polish.css'), 'utf8');
-  const progressRule = css.match(/test-log-visual-progress code\s*\{([^}]*)\}/)?.[1] ?? '';
+  const progressRule =
+    css.match(/test-log-visual-progress code\s*\{([^}]*)\}/)?.[1] ?? '';
 
   assert.doesNotMatch(progressRule, /white-space:\s*nowrap/);
   assert.match(progressRule, /color:\s*var\(--test-log-muted\)/);

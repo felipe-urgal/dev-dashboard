@@ -1,16 +1,10 @@
+import type { ManagedProcessKind, ManagedProcessStatus } from './process.js';
 
-import type {
-  ManagedProcessKind,
-  ManagedProcessStatus,
-} from './process.js';
-
-export type LocalPortInspectionStatus =
-  'ready' | 'unsupported' | 'unavailable';
+export type LocalPortInspectionStatus = 'ready' | 'unsupported' | 'unavailable';
 
 export type LocalPortState = 'available' | 'occupied';
 
-export type LocalPortScope =
-  'loopback' | 'all-interfaces';
+export type LocalPortScope = 'loopback' | 'all-interfaces';
 
 export interface LocalPortManagedProcess {
   id: string;

@@ -8,7 +8,10 @@ import {
 } from '../src/utils/git-syntax-highlight';
 
 test('infere a linguagem pelo caminho do arquivo', () => {
-  assert.equal(gitSyntaxLanguageForPath('app/controllers/admin_controller.rb'), 'ruby');
+  assert.equal(
+    gitSyntaxLanguageForPath('app/controllers/admin_controller.rb'),
+    'ruby',
+  );
   assert.equal(gitSyntaxLanguageForPath('src/components/Panel.vue'), 'vue');
   assert.equal(gitSyntaxLanguageForPath('config/database.yml'), 'yaml');
   assert.equal(gitSyntaxLanguageForPath('Gemfile'), 'ruby');
@@ -43,17 +46,29 @@ test('destaca palavras-chave, classes, métodos, símbolos e comentários Ruby',
 });
 
 test('limita comentários Ruby à linha atual em blocos de código', () => {
-  const highlighted = highlightGitDiffCode([
-    'class CreatePosts < ActiveRecord::Migration[7.0]',
-    '  # Colunas usadas por integrações antigas',
-    '  t.string :gallery_uuid, limit: 36',
-    'end',
-  ].join('\n'), 'db/migrate/20240101010101_create_posts.rb');
+  const highlighted = highlightGitDiffCode(
+    [
+      'class CreatePosts < ActiveRecord::Migration[7.0]',
+      '  # Colunas usadas por integrações antigas',
+      '  t.string :gallery_uuid, limit: 36',
+      'end',
+    ].join('\n'),
+    'db/migrate/20240101010101_create_posts.rb',
+  );
 
-  assert.match(highlighted, /<span class="git-syntax-comment"># Colunas usadas por integrações antigas<\/span>\n/);
+  assert.match(
+    highlighted,
+    /<span class="git-syntax-comment"># Colunas usadas por integrações antigas<\/span>\n/,
+  );
   assert.match(highlighted, /\n\s*<span class="git-syntax-function">t<\/span>/);
-  assert.match(highlighted, /<span class="git-syntax-symbol">:gallery_uuid<\/span>/);
-  assert.doesNotMatch(highlighted, /git-syntax-comment[^<]*# Colunas[^<]*t\.string/);
+  assert.match(
+    highlighted,
+    /<span class="git-syntax-symbol">:gallery_uuid<\/span>/,
+  );
+  assert.doesNotMatch(
+    highlighted,
+    /git-syntax-comment[^<]*# Colunas[^<]*t\.string/,
+  );
 });
 
 test('mantém a busca marcada dentro dos tokens de sintaxe', () => {
@@ -63,18 +78,23 @@ test('mantém a busca marcada dentro dos tokens de sintaxe', () => {
     'site',
   );
 
-  assert.match(highlighted, /git-syntax-function[^>]*>current_<mark>site<\/mark>/);
+  assert.match(
+    highlighted,
+    /git-syntax-function[^>]*>current_<mark>site<\/mark>/,
+  );
 });
 
 test('aplica sintaxe por arquivo nas linhas de um patch completo', () => {
-  const patch = highlightGitPatch([
-    'diff --git a/app/controllers/admin_controller.rb b/app/controllers/admin_controller.rb',
-    '--- a/app/controllers/admin_controller.rb',
-    '+++ b/app/controllers/admin_controller.rb',
-    '@@ -1,2 +1,2 @@',
-    '-def old_site',
-    '+def current_site',
-  ].join('\n'));
+  const patch = highlightGitPatch(
+    [
+      'diff --git a/app/controllers/admin_controller.rb b/app/controllers/admin_controller.rb',
+      '--- a/app/controllers/admin_controller.rb',
+      '+++ b/app/controllers/admin_controller.rb',
+      '@@ -1,2 +1,2 @@',
+      '-def old_site',
+      '+def current_site',
+    ].join('\n'),
+  );
 
   assert.match(patch, /git-syntax-patch-line is-deletion/);
   assert.match(patch, /git-syntax-patch-line is-addition/);

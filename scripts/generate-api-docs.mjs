@@ -63,7 +63,15 @@ async function discoverRoutePlugins() {
 
 // --- 2. Stub mínimo de Fastify: só registra (method, url, schema) ----------------------
 
-const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'];
+const HTTP_METHODS = [
+  'get',
+  'post',
+  'put',
+  'patch',
+  'delete',
+  'head',
+  'options',
+];
 
 function createUndefinedProxy() {
   const handler = {
@@ -92,7 +100,8 @@ function createStubApp(prefix, collected) {
 
   for (const method of HTTP_METHODS) {
     stub[method] = (url, optsOrHandler, _maybeHandler) => {
-      const opts = typeof optsOrHandler === 'function' ? undefined : optsOrHandler;
+      const opts =
+        typeof optsOrHandler === 'function' ? undefined : optsOrHandler;
       recordRoute(method, url, opts);
       return stub;
     };
@@ -185,7 +194,9 @@ function renderResponseSection(response) {
     const schema = response[statusCode];
 
     if (isStandardApiErrorSchema(schema)) {
-      lines.push(`- **${statusCode}** — erro padrão da API (ver [Erros comuns](#erros-comuns)).`);
+      lines.push(
+        `- **${statusCode}** — erro padrão da API (ver [Erros comuns](#erros-comuns)).`,
+      );
       continue;
     }
 
@@ -227,7 +238,10 @@ function renderRoutes(routes) {
   const sections = groups.map((group) => {
     const groupRoutes = byGroup
       .get(group)
-      .sort((a, b) => a.url.localeCompare(b.url) || a.method.localeCompare(b.method));
+      .sort(
+        (a, b) =>
+          a.url.localeCompare(b.url) || a.method.localeCompare(b.method),
+      );
 
     const routeBlocks = groupRoutes.map((route) => {
       const schema = route.schema ?? {};
@@ -235,7 +249,10 @@ function renderRoutes(routes) {
 
       const requestSections = [
         renderRequestSection('Parâmetros de rota (`params`)', schema.params),
-        renderRequestSection('Query string (`querystring`)', schema.querystring),
+        renderRequestSection(
+          'Query string (`querystring`)',
+          schema.querystring,
+        ),
         renderRequestSection('Corpo (`body`)', schema.body),
       ].filter(Boolean);
 
@@ -276,24 +293,27 @@ A maioria das rotas pode responder com o formato de erro padrão da API
 (\`apps/api/src/http/api-error.ts\`) nos códigos 400, 401, 403, 404, 409 e/ou 500 — o schema é
 sempre o mesmo:
 
-${indent(jsonFence({
-  type: 'object',
-  additionalProperties: false,
-  required: ['error', 'message'],
-  properties: {
-    error: { type: 'string' },
-    message: { type: 'string' },
-    details: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['message'],
-        properties: { path: { type: 'string' }, message: { type: 'string' } },
+${indent(
+  jsonFence({
+    type: 'object',
+    additionalProperties: false,
+    required: ['error', 'message'],
+    properties: {
+      error: { type: 'string' },
+      message: { type: 'string' },
+      details: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['message'],
+          properties: { path: { type: 'string' }, message: { type: 'string' } },
+        },
       },
     },
-  },
-}), 0)}
+  }),
+  0,
+)}
 
 Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de repetir o schema.
 
@@ -314,7 +334,9 @@ async function main() {
       current = await readFile(outputPath, 'utf8');
     } catch (error) {
       if (error.code === 'ENOENT') {
-        console.error(`[docs:api:check] ${outputPath} não existe. Rode "npm run docs:api".`);
+        console.error(
+          `[docs:api:check] ${outputPath} não existe. Rode "npm run docs:api".`,
+        );
         process.exit(1);
       }
       throw error;
@@ -328,12 +350,16 @@ async function main() {
       process.exit(1);
     }
 
-    console.log(`[docs:api:check] ${path.relative(repoRoot, outputPath)} está atualizado (${routes.length} rotas).`);
+    console.log(
+      `[docs:api:check] ${path.relative(repoRoot, outputPath)} está atualizado (${routes.length} rotas).`,
+    );
     return;
   }
 
   await writeFile(outputPath, generated, 'utf8');
-  console.log(`[docs:api] ${path.relative(repoRoot, outputPath)} gerado com ${routes.length} rotas.`);
+  console.log(
+    `[docs:api] ${path.relative(repoRoot, outputPath)} gerado com ${routes.length} rotas.`,
+  );
 }
 
 main().catch((error) => {

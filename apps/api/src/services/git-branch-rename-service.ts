@@ -8,7 +8,8 @@ import {
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
-const BRANCH_NAME_PATTERN = /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+const BRANCH_NAME_PATTERN =
+  /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 /** Identificador do catálogo (`git-mutation-catalog.ts`) para esta operação. */
 const CATALOG_OPERATION_ID = 'branch-rename';
 
@@ -99,7 +100,9 @@ export class GitBranchRenameService {
    * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
    * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
    */
-  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
+  private readonly confirmations = new GitMutationConfirmationService(
+    CONFIRMATION_TTL_MS,
+  );
 
   public prepareConfirmation(
     projectId: string,
@@ -143,38 +146,39 @@ export class GitBranchRenameService {
     const next = validateBranchName(nextName);
     assertNotProtected(current);
     assertNotProtected(next);
-    this.consumeConfirmation(
-      projectId,
-      current,
-      next,
-      confirmationToken,
-    );
+    this.consumeConfirmation(projectId, current, next, confirmationToken);
 
-    if (!await gitSucceeds(projectPath, ['rev-parse', '--is-inside-work-tree'])) {
+    if (
+      !(await gitSucceeds(projectPath, ['rev-parse', '--is-inside-work-tree']))
+    ) {
       throw new GitBranchRenameError(
         'GIT_NOT_REPOSITORY',
         'O projeto não é um repositório Git.',
       );
     }
 
-    if (!await gitSucceeds(projectPath, [
-      'show-ref',
-      '--verify',
-      '--quiet',
-      `refs/heads/${current}`,
-    ])) {
+    if (
+      !(await gitSucceeds(projectPath, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${current}`,
+      ]))
+    ) {
       throw new GitBranchRenameError(
         'GIT_BRANCH_NOT_FOUND',
         `A branch local "${current}" não foi encontrada.`,
       );
     }
 
-    if (await gitSucceeds(projectPath, [
-      'show-ref',
-      '--verify',
-      '--quiet',
-      `refs/heads/${next}`,
-    ])) {
+    if (
+      await gitSucceeds(projectPath, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${next}`,
+      ])
+    ) {
       throw new GitBranchRenameError(
         'GIT_BRANCH_EXISTS',
         `Já existe uma branch local chamada "${next}".`,
@@ -182,13 +186,7 @@ export class GitBranchRenameService {
     }
 
     try {
-      await runGit(projectPath, [
-        'branch',
-        '--move',
-        '--',
-        current,
-        next,
-      ]);
+      await runGit(projectPath, ['branch', '--move', '--', current, next]);
     } catch {
       throw new GitBranchRenameError(
         'GIT_COMMAND_FAILED',

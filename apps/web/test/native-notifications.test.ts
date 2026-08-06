@@ -10,7 +10,8 @@ import type { Notice } from '../src/stores/notice-center';
 
 class FakeNotification {
   public static permission: NotificationPermission = 'default';
-  public static requestPermission = vi.fn<() => Promise<NotificationPermission>>();
+  public static requestPermission =
+    vi.fn<() => Promise<NotificationPermission>>();
   public static instances: FakeNotification[] = [];
 
   public onclick: (() => void) | null = null;
@@ -45,7 +46,10 @@ beforeEach(() => {
   FakeNotification.requestPermission.mockReset();
   FakeNotification.instances = [];
   vi.stubGlobal('Notification', FakeNotification);
-  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'visible',
+  });
 });
 
 afterEach(() => {
@@ -60,11 +64,17 @@ test('solicita permissão somente ao ativar explicitamente e persiste a escolha'
   assert.equal(await store.enable(), 'enabled');
   assert.equal(FakeNotification.requestPermission.mock.calls.length, 1);
   assert.equal(store.enabled.value, true);
-  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+  assert.equal(
+    window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY),
+    'enabled',
+  );
 
   store.disable();
   assert.equal(store.enabled.value, false);
-  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), null);
+  assert.equal(
+    window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY),
+    null,
+  );
 });
 
 test('notifica somente execução longa concluída enquanto a aba está oculta', () => {
@@ -79,18 +89,30 @@ test('notifica somente execução longa concluída enquanto a aba está oculta',
   store.publish(notice, 30_000);
   assert.equal(FakeNotification.instances.length, 0);
 
-  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'hidden',
+  });
   store.publish(notice, 30_000);
   assert.equal(FakeNotification.instances.length, 1);
-  assert.equal(FakeNotification.instances[0]!.title, 'Testes concluídos com sucesso');
-  assert.equal(FakeNotification.instances[0]!.options?.body, 'Projeto seguro · npm test');
+  assert.equal(
+    FakeNotification.instances[0]!.title,
+    'Testes concluídos com sucesso',
+  );
+  assert.equal(
+    FakeNotification.instances[0]!.options?.body,
+    'Projeto seguro · npm test',
+  );
   assert.equal(FakeNotification.instances[0]!.options?.tag, notice.dedupeKey);
 });
 
 test('preserva a preferência quando a permissão fica temporariamente sem decisão', () => {
   FakeNotification.permission = 'granted';
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
-  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'hidden',
+  });
   const store = createNativeNotificationStore();
 
   FakeNotification.permission = 'default';
@@ -98,14 +120,20 @@ test('preserva a preferência quando a permissão fica temporariamente sem decis
 
   assert.equal(store.enabled.value, false);
   assert.equal(store.permission.value, 'default');
-  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+  assert.equal(
+    window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY),
+    'enabled',
+  );
   assert.equal(FakeNotification.instances.length, 0);
 });
 
 test('preserva a preferência quando a API deixa de estar disponível', () => {
   FakeNotification.permission = 'granted';
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
-  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'hidden',
+  });
   const store = createNativeNotificationStore();
 
   vi.stubGlobal('Notification', undefined);
@@ -113,24 +141,35 @@ test('preserva a preferência quando a API deixa de estar disponível', () => {
 
   assert.equal(store.enabled.value, false);
   assert.equal(store.permission.value, 'unsupported');
-  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+  assert.equal(
+    window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY),
+    'enabled',
+  );
 });
 
 test('preserva a preferência quando a solicitação de permissão falha', async () => {
   FakeNotification.permission = 'default';
-  FakeNotification.requestPermission.mockRejectedValue(new Error('API indisponível'));
+  FakeNotification.requestPermission.mockRejectedValue(
+    new Error('API indisponível'),
+  );
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
   const store = createNativeNotificationStore();
 
   assert.equal(await store.enable(), 'error');
   assert.equal(store.enabled.value, false);
-  assert.equal(window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY), 'enabled');
+  assert.equal(
+    window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY),
+    'enabled',
+  );
 });
 
 test('clique foca a janela e abre a rota vinculada ao aviso', () => {
   FakeNotification.permission = 'granted';
   window.localStorage.setItem(NATIVE_NOTIFICATIONS_STORAGE_KEY, 'enabled');
-  Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'hidden',
+  });
   const store = createNativeNotificationStore();
   const navigate = vi.fn();
   const focus = vi.spyOn(window, 'focus').mockImplementation(() => undefined);
@@ -146,6 +185,12 @@ test('clique foca a janela e abre a rota vinculada ao aviso', () => {
 });
 
 test('calcula duração com fim explícito e rejeita datas inválidas', () => {
-  assert.equal(durationInMilliseconds('2026-08-03T10:00:00Z', '2026-08-03T10:00:30Z'), 30_000);
-  assert.equal(durationInMilliseconds('inválida', '2026-08-03T10:00:30Z'), undefined);
+  assert.equal(
+    durationInMilliseconds('2026-08-03T10:00:00Z', '2026-08-03T10:00:30Z'),
+    30_000,
+  );
+  assert.equal(
+    durationInMilliseconds('inválida', '2026-08-03T10:00:30Z'),
+    undefined,
+  );
 });

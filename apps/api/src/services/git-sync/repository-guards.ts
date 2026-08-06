@@ -74,19 +74,24 @@ export async function optionalReferenceHead(
   }
 }
 
-export async function requireCleanWorkingTree(projectPath: string): Promise<void> {
+export async function requireCleanWorkingTree(
+  projectPath: string,
+): Promise<void> {
   const output = await runGit(projectPath, [
     'status',
     '--porcelain=v2',
     '-z',
     '--untracked-files=all',
   ]);
-  const dirty = output.split('\0').some((record) =>
-    record.startsWith('1 ')
-    || record.startsWith('2 ')
-    || record.startsWith('u ')
-    || record.startsWith('? '),
-  );
+  const dirty = output
+    .split('\0')
+    .some(
+      (record) =>
+        record.startsWith('1 ') ||
+        record.startsWith('2 ') ||
+        record.startsWith('u ') ||
+        record.startsWith('? '),
+    );
   if (dirty) {
     throw new GitSyncError(
       'GIT_WORKING_TREE_DIRTY',

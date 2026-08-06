@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import type { ProjectFileEntry } from '@dev-dashboard/contracts';
 

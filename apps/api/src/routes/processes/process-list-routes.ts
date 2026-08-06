@@ -1,4 +1,3 @@
-
 import type { FastifyInstance } from 'fastify';
 
 import { sweepStaleProcesses } from '@dev-dashboard/process-manager';
@@ -28,14 +27,7 @@ const localPortExpectationSchema = {
 const localPortEntrySchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'port',
-    'address',
-    'scope',
-    'state',
-    'conflict',
-    'expected',
-  ],
+  required: ['port', 'address', 'scope', 'state', 'conflict', 'expected'],
   properties: {
     port: {
       type: 'integer',
@@ -63,13 +55,7 @@ const localPortEntrySchema = {
     managedProcess: {
       type: 'object',
       additionalProperties: false,
-      required: [
-        'id',
-        'projectId',
-        'projectName',
-        'kind',
-        'status',
-      ],
+      required: ['id', 'projectId', 'projectName', 'kind', 'status'],
       properties: {
         id: { type: 'string' },
         projectId: { type: 'string' },
@@ -87,13 +73,7 @@ const localPortEntrySchema = {
         },
         status: {
           type: 'string',
-          enum: [
-            'starting',
-            'running',
-            'stopping',
-            'stopped',
-            'failed',
-          ],
+          enum: ['starting', 'running', 'stopping', 'stopped', 'failed'],
         },
       },
     },
@@ -126,13 +106,7 @@ const localPortInspectionResponseSchema = {
     inspection: {
       type: 'object',
       additionalProperties: false,
-      required: [
-        'status',
-        'platform',
-        'inspectedAt',
-        'entries',
-        'truncated',
-      ],
+      required: ['status', 'platform', 'inspectedAt', 'entries', 'truncated'],
       properties: {
         status: {
           type: 'string',
@@ -165,10 +139,9 @@ async function expectedLocalPorts(
   const candidates = await Promise.all(
     projects.map(async (project) => {
       try {
-        const settings =
-          await options.serverSettingsRepository.find(
-            project.id,
-          );
+        const settings = await options.serverSettingsRepository.find(
+          project.id,
+        );
         if (settings.port === undefined) return null;
 
         return {
@@ -184,8 +157,7 @@ async function expectedLocalPorts(
   );
 
   return candidates.filter(
-    (candidate): candidate is ExpectedLocalPort =>
-      candidate !== null,
+    (candidate): candidate is ExpectedLocalPort => candidate !== null,
   );
 }
 
@@ -195,8 +167,7 @@ export function registerProcessListRoutes(
 ): void {
   const { processManager, projectStore } = options;
   const portInspectorService =
-    options.portInspectorService ??
-    new PortInspectorService();
+    options.portInspectorService ?? new PortInspectorService();
 
   app.get(
     '/processes',
@@ -234,15 +205,19 @@ export function registerProcessListRoutes(
         kind?: 'server' | 'test';
       };
       const projects = projectStore.listProjects();
-      const projectsById = new Map(projects.map((project) => [project.id, project]));
+      const projectsById = new Map(
+        projects.map((project) => [project.id, project]),
+      );
       const managed = await processManager.listProcesses();
       const processes = managed.filter((process) => {
         if (process.kind !== 'server' && process.kind !== 'test') return false;
         if (query.kind && process.kind !== query.kind) return false;
-        if (query.projectId && process.projectId !== query.projectId) return false;
+        if (query.projectId && process.projectId !== query.projectId)
+          return false;
         const project = projectsById.get(process.projectId);
         if (!project) return false;
-        if (query.workspaceId && project.workspaceId !== query.workspaceId) return false;
+        if (query.workspaceId && project.workspaceId !== query.workspaceId)
+          return false;
         return true;
       });
       return { processes };
@@ -261,24 +236,17 @@ export function registerProcessListRoutes(
     },
     async () => {
       const projects = projectStore.listProjects();
-      const knownProjectIds = new Set(
-        projects.map((project) => project.id),
-      );
+      const knownProjectIds = new Set(projects.map((project) => project.id));
       const projectNames = Object.fromEntries(
-        projects.map((project) => [
-          project.id,
-          project.name,
-        ]),
+        projects.map((project) => [project.id, project.name]),
       );
-      const [managedProcesses, expectedPorts] =
-        await Promise.all([
-          processManager.listProcesses(),
-          expectedLocalPorts(options),
-        ]);
+      const [managedProcesses, expectedPorts] = await Promise.all([
+        processManager.listProcesses(),
+        expectedLocalPorts(options),
+      ]);
       const inspection = await portInspectorService.inspect({
-        managedProcesses: managedProcesses.filter(
-          (managed) =>
-            knownProjectIds.has(managed.projectId),
+        managedProcesses: managedProcesses.filter((managed) =>
+          knownProjectIds.has(managed.projectId),
         ),
         expectedPorts,
         projectNames,
@@ -299,12 +267,9 @@ export function registerProcessListRoutes(
       },
     },
     async () => {
-      const removed = await sweepStaleProcesses(
-        processManager.stateDirectory,
-        {
-          removeAllTerminal: true,
-        },
-      );
+      const removed = await sweepStaleProcesses(processManager.stateDirectory, {
+        removeAllTerminal: true,
+      });
 
       return {
         removed,

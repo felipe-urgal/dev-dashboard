@@ -39,7 +39,9 @@ export function removeRedundantGitDiffHeaders(root: ParentNode): void {
   if (root instanceof HTMLElement && root.matches(HEADER_ROW_SELECTOR)) {
     removeHeaderRow(root);
   }
-  root.querySelectorAll<HTMLElement>(HEADER_ROW_SELECTOR).forEach(removeHeaderRow);
+  root
+    .querySelectorAll<HTMLElement>(HEADER_ROW_SELECTOR)
+    .forEach(removeHeaderRow);
 }
 
 export function installGitDiffHeaderCleanup(): void {

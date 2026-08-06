@@ -36,7 +36,8 @@ class RubyInspectParser {
   }
 
   private skipWhitespace(): void {
-    while (!this.atEnd() && /\s/.test(this.peek() as string)) this.position += 1;
+    while (!this.atEnd() && /\s/.test(this.peek() as string))
+      this.position += 1;
   }
 
   private consume(char: string): void {
@@ -54,7 +55,9 @@ class RubyInspectParser {
     if (char === '{') return this.parseHash();
     if (char === '[') return this.parseArray();
     if (char === '"') return this.parseString();
-    if (this.source.startsWith(ACTION_CONTROLLER_PARAMS_PREFIX, this.position)) {
+    if (
+      this.source.startsWith(ACTION_CONTROLLER_PARAMS_PREFIX, this.position)
+    ) {
       return this.parseActionControllerParameters();
     }
 
@@ -76,7 +79,9 @@ class RubyInspectParser {
     if (char === ':') return this.parseSymbol();
     if (char !== undefined && /[-\d]/.test(char)) return this.parseNumber();
 
-    throw new Error(`Caractere inesperado "${char}" na posição ${this.position}`);
+    throw new Error(
+      `Caractere inesperado "${char}" na posição ${this.position}`,
+    );
   }
 
   private parseHash(): Record<string, ParamValue> {
@@ -188,7 +193,8 @@ class RubyInspectParser {
     const start = this.position;
     if (this.peek() === '-') this.position += 1;
 
-    while (!this.atEnd() && /[\d.]/.test(this.peek() as string)) this.position += 1;
+    while (!this.atEnd() && /[\d.]/.test(this.peek() as string))
+      this.position += 1;
 
     return Number(this.source.slice(start, this.position));
   }

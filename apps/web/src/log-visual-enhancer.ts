@@ -3,12 +3,16 @@ import { decorateRailsCards } from './log-visual/rails-cards';
 import { setActiveSearchQuery } from './log-visual/search';
 
 function enhance(root: ParentNode = document): void {
-  root.querySelectorAll<HTMLElement>('.project-log-raw-lines .project-log-line').forEach(decorateRawLine);
+  root
+    .querySelectorAll<HTMLElement>('.project-log-raw-lines .project-log-line')
+    .forEach(decorateRawLine);
   decorateRailsCards(root);
 }
 
 function refreshSearchQuery(): void {
-  const input = document.querySelector<HTMLInputElement>('.project-log-search input');
+  const input = document.querySelector<HTMLInputElement>(
+    '.project-log-search input',
+  );
   setActiveSearchQuery(input?.value.trim() ?? '');
   enhance(document);
 }
@@ -35,5 +39,8 @@ export function installLogVisualEnhancer(): void {
     }
   });
 
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

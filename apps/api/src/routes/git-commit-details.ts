@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -101,14 +98,7 @@ const commitSummarySchema = {
 const historySchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'branch',
-    'page',
-    'pageSize',
-    'total',
-    'totalPages',
-    'commits',
-  ],
+  required: ['branch', 'page', 'pageSize', 'total', 'totalPages', 'commits'],
   properties: {
     branch: { type: 'string' },
     page: { type: 'integer', minimum: 1 },
@@ -128,7 +118,14 @@ const commitFileSchema = {
     previousPath: { type: 'string' },
     status: {
       type: 'string',
-      enum: ['added', 'modified', 'deleted', 'renamed', 'copied', 'type-changed'],
+      enum: [
+        'added',
+        'modified',
+        'deleted',
+        'renamed',
+        'copied',
+        'type-changed',
+      ],
     },
     additions: { type: 'integer', minimum: 0 },
     deletions: { type: 'integer', minimum: 0 },
@@ -189,7 +186,9 @@ const commitErrorCodes = {
 
 function translateCommitError(error: unknown): never {
   if (error instanceof GitCommitDetailsError) {
-    const notFound = error.code === 'GIT_COMMIT_NOT_FOUND' || error.code === 'GIT_COMMIT_FILE_NOT_FOUND';
+    const notFound =
+      error.code === 'GIT_COMMIT_NOT_FOUND' ||
+      error.code === 'GIT_COMMIT_FILE_NOT_FOUND';
     throw new ApiError({
       statusCode: notFound ? 404 : 400,
       code: commitErrorCodes[error.code],
@@ -200,9 +199,10 @@ function translateCommitError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível consultar o histórico Git.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível consultar o histórico Git.',
   });
 }
 
@@ -279,7 +279,10 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
       const project = projectFor(request.params.projectId);
       try {
         return {
-          detail: await inspectGitCommit(project.path, request.params.commitHash),
+          detail: await inspectGitCommit(
+            project.path,
+            request.params.commitHash,
+          ),
         };
       } catch (error) {
         translateCommitError(error);
@@ -296,7 +299,9 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
           type: 'object',
           additionalProperties: false,
           required: ['path'],
-          properties: { path: { type: 'string', minLength: 1, maxLength: 2048 } },
+          properties: {
+            path: { type: 'string', minLength: 1, maxLength: 2048 },
+          },
         },
         response: {
           200: {
@@ -307,11 +312,30 @@ export const gitCommitDetailsRoutes: FastifyPluginAsync<
               file: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['hash', 'path', 'status', 'binary', 'content', 'truncated', 'masked', 'redactionCount'],
+                required: [
+                  'hash',
+                  'path',
+                  'status',
+                  'binary',
+                  'content',
+                  'truncated',
+                  'masked',
+                  'redactionCount',
+                ],
                 properties: {
                   hash: { type: 'string' },
                   path: { type: 'string' },
-                  status: { type: 'string', enum: ['added', 'modified', 'deleted', 'renamed', 'copied', 'type-changed'] },
+                  status: {
+                    type: 'string',
+                    enum: [
+                      'added',
+                      'modified',
+                      'deleted',
+                      'renamed',
+                      'copied',
+                      'type-changed',
+                    ],
+                  },
                   binary: { type: 'boolean' },
                   content: { type: 'string' },
                   truncated: { type: 'boolean' },

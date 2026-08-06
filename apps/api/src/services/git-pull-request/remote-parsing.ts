@@ -13,7 +13,10 @@ export function parseRemoteUrl(remoteUrl: string): ParsedRemote | null {
   if (!trimmed.includes('://') && scpMatch) {
     const [, host, ownerRepoRaw] = scpMatch;
     if (!host || !ownerRepoRaw) return null;
-    return { host, ownerRepo: ownerRepoRaw.replace(/\.git$/, '').replace(/^\/+/, '') };
+    return {
+      host,
+      ownerRepo: ownerRepoRaw.replace(/\.git$/, '').replace(/^\/+/, ''),
+    };
   }
 
   try {
@@ -28,7 +31,9 @@ export function parseRemoteUrl(remoteUrl: string): ParsedRemote | null {
 
 export function detectProvider(host: string): GitPullRequestProvider | null {
   const normalized = host.toLowerCase();
-  if (normalized === 'github.com' || normalized.endsWith('.github.com')) return 'github';
-  if (normalized === 'gitlab.com' || normalized.includes('gitlab')) return 'gitlab';
+  if (normalized === 'github.com' || normalized.endsWith('.github.com'))
+    return 'github';
+  if (normalized === 'gitlab.com' || normalized.includes('gitlab'))
+    return 'gitlab';
   return null;
 }

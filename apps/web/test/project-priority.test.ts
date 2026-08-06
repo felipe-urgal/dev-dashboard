@@ -29,19 +29,20 @@ function project(
 test('mantém favoritos acima dos recentes e ordena os demais alfabeticamente', () => {
   const sorted = sortProjectsByPriority([
     project('z', 'Zulu'),
-    project('recent-old', 'Beta', { lastAccessedAt: '2026-08-04T20:00:00.000Z' }),
+    project('recent-old', 'Beta', {
+      lastAccessedAt: '2026-08-04T20:00:00.000Z',
+    }),
     project('favorite', 'Álpha', { favorite: true }),
-    project('recent-new', 'Gamma', { lastAccessedAt: '2026-08-04T21:00:00.000Z' }),
+    project('recent-new', 'Gamma', {
+      lastAccessedAt: '2026-08-04T21:00:00.000Z',
+    }),
     project('a', 'Alpha'),
   ]);
 
-  assert.deepEqual(sorted.map((item) => item.id), [
-    'favorite',
-    'recent-new',
-    'recent-old',
-    'a',
-    'z',
-  ]);
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['favorite', 'recent-new', 'recent-old', 'a', 'z'],
+  );
 });
 
 test('expõe no máximo cinco recentes não favoritos', () => {
@@ -50,10 +51,12 @@ test('expõe no máximo cinco recentes não favoritos', () => {
       lastAccessedAt: `2026-08-04T20:0${index}:00.000Z`,
     }),
   );
-  projects.push(project('favorite', 'Favorite', {
-    favorite: true,
-    lastAccessedAt: '2026-08-04T23:00:00.000Z',
-  }));
+  projects.push(
+    project('favorite', 'Favorite', {
+      favorite: true,
+      lastAccessedAt: '2026-08-04T23:00:00.000Z',
+    }),
+  );
 
   const ids = recentProjectIds(projects);
   assert.equal(ids.size, 5);

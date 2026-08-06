@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import {
   ProcessManagerError,
@@ -117,20 +114,20 @@ function processManagerApiError(error: ProcessManagerError): ApiError {
     'PROCESS_STOP_TIMEOUT',
   ]);
   return new ApiError({
-    statusCode: error.code === 'PROCESS_NOT_FOUND'
-      ? 404
-      : conflictCodes.has(error.code)
-        ? 409
-        : 400,
+    statusCode:
+      error.code === 'PROCESS_NOT_FOUND'
+        ? 404
+        : conflictCodes.has(error.code)
+          ? 409
+          : 400,
     code: error.code,
     message: error.message,
   });
 }
 
-export const testRelatedRoutes: FastifyPluginAsync<TestRelatedRouteOptions> = async (
-  app,
-  options,
-) => {
+export const testRelatedRoutes: FastifyPluginAsync<
+  TestRelatedRouteOptions
+> = async (app, options) => {
   const {
     processManager,
     projectStore,
@@ -154,13 +151,18 @@ export const testRelatedRoutes: FastifyPluginAsync<TestRelatedRouteOptions> = as
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
       try {
-        const related = await relatedTestService.resolve(project, request.params.commandId);
+        const related = await relatedTestService.resolve(
+          project,
+          request.params.commandId,
+        );
         return {
           related: {
             baseBranch: related.baseBranch,
             currentBranch: related.currentBranch,
             changedFiles: related.changedFiles,
-            testFiles: related.testFiles.map((filePath) => ({ path: filePath })),
+            testFiles: related.testFiles.map((filePath) => ({
+              path: filePath,
+            })),
           },
         };
       } catch (error) {
@@ -191,12 +193,16 @@ export const testRelatedRoutes: FastifyPluginAsync<TestRelatedRouteOptions> = as
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
       try {
-        const related = await relatedTestService.resolve(project, request.params.commandId);
+        const related = await relatedTestService.resolve(
+          project,
+          request.params.commandId,
+        );
         if (related.testFiles.length === 0) {
           throw new ApiError({
             statusCode: 409,
             code: 'CONFLICT',
-            message: 'Nenhum teste relacionado às alterações da branch foi encontrado.',
+            message:
+              'Nenhum teste relacionado às alterações da branch foi encontrado.',
           });
         }
 
@@ -206,12 +212,16 @@ export const testRelatedRoutes: FastifyPluginAsync<TestRelatedRouteOptions> = as
           command: related.resolved.command,
           args: related.resolved.args,
         });
-        await testExecutionHistoryService.recordStart(project.id, managedProcess);
+        await testExecutionHistoryService.recordStart(
+          project.id,
+          managedProcess,
+        );
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
         if (error instanceof ApiError) throw error;
         if (error instanceof RelatedTestError) throw relatedTestApiError(error);
-        if (error instanceof ProcessManagerError) throw processManagerApiError(error);
+        if (error instanceof ProcessManagerError)
+          throw processManagerApiError(error);
         request.log.error(
           { err: error, projectId: project.id },
           'Related test start failed',

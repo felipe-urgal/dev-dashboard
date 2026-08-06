@@ -1,10 +1,4 @@
-import {
-  onBeforeUnmount,
-  ref,
-  watch,
-  type ComputedRef,
-  type Ref,
-} from 'vue';
+import { onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue';
 
 import type { ProcessLogSnapshot, Project } from '@dev-dashboard/contracts';
 
@@ -26,8 +20,7 @@ export function useProjectServerLogPreview(
 
   function isCurrentProject(projectId: string, generation: number): boolean {
     return (
-      getProject().id === projectId &&
-      projectRequests.isCurrent(generation)
+      getProject().id === projectId && projectRequests.isCurrent(generation)
     );
   }
 
@@ -86,10 +79,7 @@ export function useProjectServerLogPreview(
     logPollingTimer = setTimeout(async () => {
       await refreshLogs();
 
-      if (
-        projectRequests.isCurrent(generation) &&
-        hasManagedProcess.value
-      ) {
+      if (projectRequests.isCurrent(generation) && hasManagedProcess.value) {
         scheduleLogPolling();
       }
     }, 2_500);

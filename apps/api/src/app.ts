@@ -53,10 +53,7 @@ import { PortInspectorService } from './services/port-inspector-service.js';
 import { ProjectFileMutationService } from './services/project-file-mutation-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 
-import {
-  createAppContext,
-  type AppContext,
-} from './app-context.js';
+import { createAppContext, type AppContext } from './app-context.js';
 
 export interface BuildAppOptions {
   localToken?: string;
@@ -88,21 +85,23 @@ export async function buildApp(options: BuildAppOptions = {}) {
     },
   });
 
-  registerApiErrorHandling(app, { registerNotFound: !options.staticDashboardEnabled });
+  registerApiErrorHandling(app, {
+    registerNotFound: !options.staticDashboardEnabled,
+  });
 
   const context = options.context ?? createAppContext();
   const projectDoctorService =
     options.projectDoctorService ??
     new ProjectDoctorService(options.now ? { now: options.now } : {});
   const portInspectorService =
-    options.portInspectorService ??
-    new PortInspectorService();
+    options.portInspectorService ?? new PortInspectorService();
   const projectFileMutationService = new ProjectFileMutationService(
     options.now ?? Date.now,
   );
   const projectWorkspaceEditService = context.projectWorkspaceEditService;
   const projectLanguageServerService =
-    options.projectLanguageServerService ?? context.projectLanguageServerService;
+    options.projectLanguageServerService ??
+    context.projectLanguageServerService;
   app.addHook('onClose', async () => {
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
@@ -119,7 +118,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
       ? { browserBootstrapToken: options.browserBootstrapToken }
       : {}),
     localOrigin: options.localOrigin ?? 'http://127.0.0.1:4343',
-    ...(options.sessionTtlSeconds ? { sessionTtlSeconds: options.sessionTtlSeconds } : {}),
+    ...(options.sessionTtlSeconds
+      ? { sessionTtlSeconds: options.sessionTtlSeconds }
+      : {}),
     ...(options.now ? { now: options.now } : {}),
     ...(options.allowedOrigins
       ? {
@@ -280,10 +281,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(processRoutes, {
     prefix: '/api',
     processManager: context.processManager,
-    serverSettingsRepository:
-      context.serverSettingsRepository,
-    serverHealthCheckService:
-      context.serverHealthCheckService,
+    serverSettingsRepository: context.serverSettingsRepository,
+    serverHealthCheckService: context.serverHealthCheckService,
     projectStore: context.projectStore,
     portInspectorService,
   });
@@ -349,7 +348,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   if (options.staticDashboardEnabled) {
-    if (!options.frontendDirectory) throw new Error('O diretório do frontend é obrigatório para distribuição local.');
+    if (!options.frontendDirectory)
+      throw new Error(
+        'O diretório do frontend é obrigatório para distribuição local.',
+      );
     await registerStaticDashboard(app, options.frontendDirectory);
   }
 

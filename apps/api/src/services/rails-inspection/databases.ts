@@ -11,7 +11,10 @@ export async function listDatabases(project: Project): Promise<string[]> {
   try {
     const files = await readdir(path.join(project.path, 'db'));
     const secondary = files
-      .filter((file) => file !== 'schema.rb' && /^[a-z][a-z0-9_]*_schema\.rb$/.test(file))
+      .filter(
+        (file) =>
+          file !== 'schema.rb' && /^[a-z][a-z0-9_]*_schema\.rb$/.test(file),
+      )
       .map((file) => file.replace(/_schema\.rb$/, ''))
       .sort();
     return ['primary', ...secondary];

@@ -23,8 +23,7 @@ const EDITORS: readonly EditorDefinition[] = [
 ];
 
 export type ProjectEditorErrorCode =
-  | 'EDITOR_NOT_AVAILABLE'
-  | 'EDITOR_LAUNCH_FAILED';
+  'EDITOR_NOT_AVAILABLE' | 'EDITOR_LAUNCH_FAILED';
 
 export class ProjectEditorError extends Error {
   public constructor(
@@ -81,20 +80,25 @@ function preferredEditor(
 ): ProjectEditorId | undefined {
   const configured = configuredEditor?.trim().toLocaleLowerCase('en-US');
   const selected = configured
-    ? editors.find((editor) => editor.id === configured || editor.command === configured)
+    ? editors.find(
+        (editor) => editor.id === configured || editor.command === configured,
+      )
     : undefined;
   return selected?.id ?? editors[0]?.id;
 }
 
 export class ProjectEditorService {
   private readonly environment: NodeJS.ProcessEnv;
-  private readonly resolveExecutable: NonNullable<ProjectEditorServiceOptions['resolveExecutable']>;
+  private readonly resolveExecutable: NonNullable<
+    ProjectEditorServiceOptions['resolveExecutable']
+  >;
   private readonly launch: NonNullable<ProjectEditorServiceOptions['launch']>;
 
   public constructor(options: ProjectEditorServiceOptions = {}) {
     this.environment = options.environment ?? process.env;
-    this.resolveExecutable = options.resolveExecutable
-      ?? ((command) => executableOnPath(command, this.environment));
+    this.resolveExecutable =
+      options.resolveExecutable ??
+      ((command) => executableOnPath(command, this.environment));
     this.launch = options.launch ?? launchDetached;
   }
 
@@ -106,9 +110,15 @@ export class ProjectEditorService {
       })),
     );
     const available = resolved
-      .filter((entry): entry is { editor: EditorDefinition; executable: string } => Boolean(entry.executable))
+      .filter(
+        (entry): entry is { editor: EditorDefinition; executable: string } =>
+          Boolean(entry.executable),
+      )
       .map((entry) => entry.editor);
-    const preferredEditorId = preferredEditor(available, this.environment.DEV_EDITOR);
+    const preferredEditorId = preferredEditor(
+      available,
+      this.environment.DEV_EDITOR,
+    );
     return {
       editors: available.map(({ id, name }) => ({ id, name })),
       ...(preferredEditorId ? { preferredEditorId } : {}),

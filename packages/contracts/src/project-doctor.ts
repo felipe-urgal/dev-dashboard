@@ -1,25 +1,14 @@
 export type ProjectDiagnosticStatus =
-  | 'passed'
-  | 'warning'
-  | 'failed'
-  | 'skipped';
+  'passed' | 'warning' | 'failed' | 'skipped';
 
 export type ProjectDiagnosticOverallStatus =
-  | 'healthy'
-  | 'attention'
-  | 'blocked';
+  'healthy' | 'attention' | 'blocked';
 
 export type ProjectDiagnosticCategory =
-  | 'project'
-  | 'runtime'
-  | 'dependencies'
-  | 'configuration';
+  'project' | 'runtime' | 'dependencies' | 'configuration';
 
 export type ProjectDiagnosticActionTarget =
-  | 'dependencies'
-  | 'server'
-  | 'database'
-  | 'settings';
+  'dependencies' | 'server' | 'database' | 'settings';
 
 export interface ProjectDiagnosticAction {
   label: string;

@@ -6,7 +6,8 @@ interface ProjectLike {
 }
 
 function errorCodeOf(error: unknown): string | undefined {
-  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  if (typeof error !== 'object' || error === null || !('code' in error))
+    return undefined;
   const code = (error as { code?: unknown }).code;
   return typeof code === 'string' ? code : undefined;
 }
@@ -49,22 +50,26 @@ export async function withGitMutationHistory<T>(
 ): Promise<T> {
   try {
     const result = await run();
-    await historyService.record({
-      projectId: project.id,
-      ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
-      operationId,
-      result: 'succeeded',
-    }).catch(() => {});
-    return result;
-  } catch (error) {
-    if (!isConfirmationRequiredError(error)) {
-      await historyService.record({
+    await historyService
+      .record({
         projectId: project.id,
         ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
         operationId,
-        result: 'failed',
-        errorCode: errorCodeOf(error) ?? 'GIT_COMMAND_FAILED',
-      }).catch(() => {});
+        result: 'succeeded',
+      })
+      .catch(() => {});
+    return result;
+  } catch (error) {
+    if (!isConfirmationRequiredError(error)) {
+      await historyService
+        .record({
+          projectId: project.id,
+          ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+          operationId,
+          result: 'failed',
+          errorCode: errorCodeOf(error) ?? 'GIT_COMMAND_FAILED',
+        })
+        .catch(() => {});
     }
     throw error;
   }

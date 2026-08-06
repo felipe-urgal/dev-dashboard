@@ -23,7 +23,8 @@ import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
 import { durationInMilliseconds } from '../stores/native-notifications';
 
-const realtimeRecoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
+const realtimeRecoveryMessage =
+  'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
 type ScriptNoticeRouteName = 'project-scripts' | 'project-dependencies';
 
@@ -41,8 +42,9 @@ export function useScriptExecution<ScriptSection extends string>(
   const executionLog = ref('');
   const maskedLogEntries = ref(0);
   const startingActionId = ref<string | null>(null);
-  const resolvedNoticeRouteName: ScriptNoticeRouteName = noticeRouteName
-    ?? (executionsSection === 'execution'
+  const resolvedNoticeRouteName: ScriptNoticeRouteName =
+    noticeRouteName ??
+    (executionsSection === 'execution'
       ? 'project-dependencies'
       : 'project-scripts');
 
@@ -69,37 +71,53 @@ export function useScriptExecution<ScriptSection extends string>(
     closeExecutionEvents = null;
 
     while (
-      current === generation
-      && currentExecutionGeneration === executionGeneration
-      && projectId === getProject().id
+      current === generation &&
+      currentExecutionGeneration === executionGeneration &&
+      projectId === getProject().id
     ) {
       const [recoveredExecution, recoveredLog] = await Promise.all([
         fetchScriptExecution(projectId, initial.id),
         fetchScriptExecutionLog(projectId, initial.id),
       ]);
-      if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
+      if (
+        current !== generation ||
+        currentExecutionGeneration !== executionGeneration
+      )
+        return;
 
       currentExecution = recoveredExecution;
       execution.value = recoveredExecution;
       applyLogSnapshot(recoveredLog);
-      if (errorMessage.value === realtimeRecoveryMessage) errorMessage.value = '';
+      if (errorMessage.value === realtimeRecoveryMessage)
+        errorMessage.value = '';
       if (currentExecution.status !== 'running') return;
 
-      const stream = followScriptExecutionEvents(projectId, initial.id, (event) => {
-        if (current !== generation || currentExecutionGeneration !== executionGeneration) return;
-        if (event.type === 'state') {
-          currentExecution = event.execution;
-          execution.value = event.execution;
-        } else {
-          applyLogSnapshot(event.log);
-        }
-      });
+      const stream = followScriptExecutionEvents(
+        projectId,
+        initial.id,
+        (event) => {
+          if (
+            current !== generation ||
+            currentExecutionGeneration !== executionGeneration
+          )
+            return;
+          if (event.type === 'state') {
+            currentExecution = event.execution;
+            execution.value = event.execution;
+          } else {
+            applyLogSnapshot(event.log);
+          }
+        },
+      );
       closeExecutionEvents = stream.close;
 
       try {
         await stream.done;
       } catch {
-        if (current === generation && currentExecutionGeneration === executionGeneration) {
+        if (
+          current === generation &&
+          currentExecutionGeneration === executionGeneration
+        ) {
           errorMessage.value = realtimeRecoveryMessage;
         }
       }
@@ -107,7 +125,10 @@ export function useScriptExecution<ScriptSection extends string>(
       if (closeExecutionEvents === stream.close) closeExecutionEvents = null;
       if (currentExecution.status !== 'running') {
         const finalLog = await fetchScriptExecutionLog(projectId, initial.id);
-        if (current === generation && currentExecutionGeneration === executionGeneration) {
+        if (
+          current === generation &&
+          currentExecutionGeneration === executionGeneration
+        ) {
           applyLogSnapshot(finalLog);
         }
         return;
@@ -124,33 +145,40 @@ export function useScriptExecution<ScriptSection extends string>(
   ): Promise<void> {
     try {
       const result = await fetchScriptExecutionHistory(projectId);
-      if (current === generation && projectId === getProject().id) history.value = result;
+      if (current === generation && projectId === getProject().id)
+        history.value = result;
     } catch (error) {
       if (current === generation) {
-        errorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar o histórico.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar o histórico.';
       }
     }
   }
 
-  async function restoreExecution(projectId: string, current: number): Promise<void> {
+  async function restoreExecution(
+    projectId: string,
+    current: number,
+  ): Promise<void> {
     const currentExecution = ++executionGeneration;
     try {
       const latest = await fetchLatestScriptExecution(projectId);
       if (
-        current !== generation
-        || currentExecution !== executionGeneration
-        || projectId !== getProject().id
-        || !latest
-      ) return;
+        current !== generation ||
+        currentExecution !== executionGeneration ||
+        projectId !== getProject().id ||
+        !latest
+      )
+        return;
       execution.value = latest;
       await followExecution(latest, projectId, current, currentExecution);
     } catch (error) {
       if (current === generation && currentExecution === executionGeneration) {
-        errorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível recuperar a última execução.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível recuperar a última execução.';
       }
     }
   }
@@ -164,9 +192,7 @@ export function useScriptExecution<ScriptSection extends string>(
     const current = generation;
 
     if (item.risk !== 'read-only') {
-      const riskLabel = item.risk === 'destructive'
-        ? 'destrutiva'
-        : 'mutável';
+      const riskLabel = item.risk === 'destructive' ? 'destrutiva' : 'mutável';
       const confirmed = await confirmDialog({
         title: `Executar ação ${riskLabel}?`,
         message:
@@ -184,10 +210,16 @@ export function useScriptExecution<ScriptSection extends string>(
     errorMessage.value = '';
 
     try {
-      const confirmation = item.risk === 'read-only'
-        ? undefined
-        : await prepareScriptExecution(projectId, item.id, variables);
-      const started = await startScriptExecution(projectId, item.id, confirmation?.token, variables);
+      const confirmation =
+        item.risk === 'read-only'
+          ? undefined
+          : await prepareScriptExecution(projectId, item.id, variables);
+      const started = await startScriptExecution(
+        projectId,
+        item.id,
+        confirmation?.token,
+        variables,
+      );
       execution.value = started;
       applyLogSnapshot(null);
       activeSection.value = executionsSection;
@@ -196,9 +228,10 @@ export function useScriptExecution<ScriptSection extends string>(
       await loadHistory(projectId, current);
     } catch (error) {
       if (current === generation && currentExecution === executionGeneration) {
-        errorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível executar a ação.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível executar a ação.';
       }
     } finally {
       if (current === generation && currentExecution === executionGeneration) {
@@ -220,11 +253,13 @@ export function useScriptExecution<ScriptSection extends string>(
   async function cancel(): Promise<void> {
     if (!execution.value) return;
     try {
-      execution.value = await cancelScriptExecution(getProject().id, execution.value.id);
+      execution.value = await cancelScriptExecution(
+        getProject().id,
+        execution.value.id,
+      );
     } catch (error) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível cancelar.';
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Não foi possível cancelar.';
     }
   }
 

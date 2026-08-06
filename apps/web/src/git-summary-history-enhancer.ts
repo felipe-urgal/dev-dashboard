@@ -6,10 +6,22 @@ import {
 } from '@heroicons/vue/24/outline';
 
 import { closeCommitDetail } from './git-summary-history/detail';
-import { currentBranchFromSection, mountIcon, projectIdFromLocation, requestJson } from './git-summary-history/dom-helpers';
-import { renderHistoryList, renderPagination, setHistoryLoading } from './git-summary-history/list';
+import {
+  currentBranchFromSection,
+  mountIcon,
+  projectIdFromLocation,
+  requestJson,
+} from './git-summary-history/dom-helpers';
+import {
+  renderHistoryList,
+  renderPagination,
+  setHistoryLoading,
+} from './git-summary-history/list';
 import { stateBySection } from './git-summary-history/state';
-import type { GitCommitHistoryResponse, SummaryState } from './git-summary-history/types';
+import type {
+  GitCommitHistoryResponse,
+  SummaryState,
+} from './git-summary-history/types';
 
 async function loadHistoryPage(
   section: HTMLElement,
@@ -24,7 +36,9 @@ async function loadHistoryPage(
 
   if (resetView) {
     state.search = '';
-    const input = section.querySelector<HTMLInputElement>('.git-summary-history-search input');
+    const input = section.querySelector<HTMLInputElement>(
+      '.git-summary-history-search input',
+    );
     if (input) input.value = '';
     closeCommitDetail(section);
   }
@@ -49,14 +63,19 @@ async function loadHistoryPage(
     renderHistoryList(section);
   } catch (error) {
     if (controller.signal.aborted) return;
-    const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-    const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+    const list = section.querySelector<HTMLElement>(
+      '.git-summary-history-list',
+    );
+    const count = section.querySelector<HTMLElement>(
+      '.git-summary-history-count',
+    );
     list?.replaceChildren();
     const message = document.createElement('p');
     message.className = 'git-summary-history-empty is-error';
-    message.textContent = error instanceof Error
-      ? error.message
-      : 'Não foi possível carregar o histórico.';
+    message.textContent =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar o histórico.';
     list?.append(message);
     if (count) count.textContent = 'Histórico indisponível';
   } finally {
@@ -79,7 +98,8 @@ function buildPagination(section: HTMLElement): HTMLElement {
   previous.append(previousText);
   previous.addEventListener('click', () => {
     const state = stateBySection.get(section);
-    if (state && state.page > 1) void loadHistoryPage(section, state.page - 1, true);
+    if (state && state.page > 1)
+      void loadHistoryPage(section, state.page - 1, true);
   });
 
   const label = document.createElement('span');
@@ -105,8 +125,12 @@ function buildPagination(section: HTMLElement): HTMLElement {
   return footer;
 }
 
-function watchCurrentBranch(section: HTMLElement): MutationObserver | undefined {
-  const target = section.querySelector<HTMLElement>('.git-status-grid article:first-child strong');
+function watchCurrentBranch(
+  section: HTMLElement,
+): MutationObserver | undefined {
+  const target = section.querySelector<HTMLElement>(
+    '.git-status-grid article:first-child strong',
+  );
   if (!target) return undefined;
   const observer = new MutationObserver(() => {
     const state = stateBySection.get(section);
@@ -116,7 +140,11 @@ function watchCurrentBranch(section: HTMLElement): MutationObserver | undefined 
       void loadHistoryPage(section, 1, true);
     }
   });
-  observer.observe(target, { childList: true, characterData: true, subtree: true });
+  observer.observe(target, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
   return observer;
 }
 
@@ -210,7 +238,9 @@ function scan(root: ParentNode = document): void {
   if (root instanceof HTMLElement && root.matches('.git-summary-page')) {
     enhanceSummary(root);
   }
-  root.querySelectorAll<HTMLElement>('.git-summary-page').forEach(enhanceSummary);
+  root
+    .querySelectorAll<HTMLElement>('.git-summary-page')
+    .forEach(enhanceSummary);
 }
 
 export function installGitSummaryHistoryEnhancer(): void {
@@ -224,5 +254,8 @@ export function installGitSummaryHistoryEnhancer(): void {
       }
     }
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

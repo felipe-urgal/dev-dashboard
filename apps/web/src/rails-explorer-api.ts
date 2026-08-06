@@ -15,13 +15,15 @@ async function requestRailsJson<T>(url: string): Promise<T> {
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const errorPayload = payload && typeof payload === 'object'
-      ? payload as ErrorResponse
-      : null;
+    const errorPayload =
+      payload && typeof payload === 'object'
+        ? (payload as ErrorResponse)
+        : null;
     throw new ApiRequestError({
       status: response.status,
       ...(errorPayload?.error ? { code: errorPayload.error } : {}),
-      message: errorPayload?.message ?? `A API respondeu com HTTP ${response.status}`,
+      message:
+        errorPayload?.message ?? `A API respondeu com HTTP ${response.status}`,
     });
   }
 

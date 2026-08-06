@@ -20,10 +20,10 @@ test('persiste acessos em arquivo privado e move o projeto repetido para o topo'
   now = new Date('2026-08-04T20:02:00.000Z');
   await repository.record('project-a', 'workspace-a');
 
-  assert.deepEqual(repository.list().map((entry) => entry.projectId), [
-    'project-a',
-    'project-b',
-  ]);
+  assert.deepEqual(
+    repository.list().map((entry) => entry.projectId),
+    ['project-a', 'project-b'],
+  );
   assert.equal((await stat(directory)).mode & 0o777, 0o700);
   assert.equal((await stat(repository.filePath)).mode & 0o777, 0o600);
   assert.deepEqual(
@@ -35,17 +35,23 @@ test('persiste acessos em arquivo privado e move o projeto repetido para o topo'
 test('separa workspaces e aplica os limites fechados', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'project-recents-'));
   let tick = 0;
-  const repository = new ProjectRecentRepository(directory, () =>
-    new Date(Date.UTC(2026, 7, 4, 20, 0, tick++)),
+  const repository = new ProjectRecentRepository(
+    directory,
+    () => new Date(Date.UTC(2026, 7, 4, 20, 0, tick++)),
   );
 
-  for (let index = 0; index < PROJECT_RECENT_LIMITS.perWorkspace + 3; index += 1) {
+  for (
+    let index = 0;
+    index < PROJECT_RECENT_LIMITS.perWorkspace + 3;
+    index += 1
+  ) {
     await repository.record(`project-a-${index}`, 'workspace-a');
   }
   await repository.record('project-b', 'workspace-b');
 
   assert.equal(
-    repository.list().filter((entry) => entry.workspaceId === 'workspace-a').length,
+    repository.list().filter((entry) => entry.workspaceId === 'workspace-a')
+      .length,
     PROJECT_RECENT_LIMITS.perWorkspace,
   );
   assert.equal(repository.find('project-b')?.workspaceId, 'workspace-b');
@@ -54,7 +60,11 @@ test('separa workspaces e aplica os limites fechados', async () => {
 
 test('arquivo inválido degrada para lista vazia', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'project-recents-'));
-  await writeFile(path.join(directory, 'project-recents.json'), '{ inválido', 'utf8');
+  await writeFile(
+    path.join(directory, 'project-recents.json'),
+    '{ inválido',
+    'utf8',
+  );
 
   const repository = new ProjectRecentRepository(directory);
   assert.deepEqual(repository.list(), []);

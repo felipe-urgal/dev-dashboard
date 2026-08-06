@@ -34,13 +34,14 @@ async function loadEditors(): Promise<void> {
     const availability = await fetchProjectEditors(requestedProjectId);
     if (props.projectId !== requestedProjectId) return;
     editors.value = availability.editors;
-    selectedEditorId.value = availability.preferredEditorId
-      ?? availability.editors[0]?.id;
+    selectedEditorId.value =
+      availability.preferredEditorId ?? availability.editors[0]?.id;
   } catch (error) {
     if (props.projectId === requestedProjectId) {
-      feedback.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível consultar os editores.';
+      feedback.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível consultar os editores.';
     }
   } finally {
     if (props.projectId === requestedProjectId) loading.value = false;
@@ -52,18 +53,26 @@ async function openEditor(): Promise<void> {
   opening.value = true;
   feedback.value = '';
   try {
-    const result = await openProjectEditor(props.projectId, selectedEditorId.value);
+    const result = await openProjectEditor(
+      props.projectId,
+      selectedEditorId.value,
+    );
     feedback.value = `Projeto aberto no ${result.editor.name}.`;
   } catch (error) {
-    feedback.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível abrir o editor.';
+    feedback.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível abrir o editor.';
   } finally {
     opening.value = false;
   }
 }
 
-watch(() => props.projectId, () => void loadEditors(), { immediate: true });
+watch(
+  () => props.projectId,
+  () => void loadEditors(),
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -83,7 +92,11 @@ watch(() => props.projectId, () => void loadEditors(), { immediate: true });
         class="secondary-button project-editor-button"
         type="button"
         :disabled="loading || opening || !selectedEditorId"
-        :title="!loading && !editors.length ? 'Instale um editor compatível ou adicione o comando ao PATH da API.' : undefined"
+        :title="
+          !loading && !editors.length
+            ? 'Instale um editor compatível ou adicione o comando ao PATH da API.'
+            : undefined
+        "
         @click="openEditor"
       >
         <CodeBracketSquareIcon aria-hidden="true" />

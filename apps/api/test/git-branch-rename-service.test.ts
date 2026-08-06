@@ -52,10 +52,7 @@ test('renomeia uma branch local com confirmação vinculada aos nomes', async ()
     );
 
     assert.equal(result.branch, 'feature/new');
-    assert.equal(
-      await git(repository, 'branch', '--list', 'feature/old'),
-      '',
-    );
+    assert.equal(await git(repository, 'branch', '--list', 'feature/old'), '');
     assert.match(
       await git(repository, 'branch', '--list', 'feature/new'),
       /feature\/new/,
@@ -76,19 +73,17 @@ test('recusa reutilizar a confirmação com outro nome de destino', async () => 
     );
 
     await assert.rejects(
-      () => service.renameLocalBranch(
-        repository,
-        'project-1',
-        'feature/old',
-        'feature/other',
-        confirmation.token,
-      ),
+      () =>
+        service.renameLocalBranch(
+          repository,
+          'project-1',
+          'feature/old',
+          'feature/other',
+          confirmation.token,
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchRenameError);
-        assert.equal(
-          error.code,
-          'GIT_MUTATION_CONFIRMATION_REQUIRED',
-        );
+        assert.equal(error.code, 'GIT_MUTATION_CONFIRMATION_REQUIRED');
         return true;
       },
     );
@@ -102,11 +97,12 @@ test('protege a branch principal contra renomeação', async () => {
   try {
     const service = new GitBranchRenameService();
     assert.throws(
-      () => service.prepareConfirmation(
-        'project-1',
-        'main',
-        'feature/main-renamed',
-      ),
+      () =>
+        service.prepareConfirmation(
+          'project-1',
+          'main',
+          'feature/main-renamed',
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchRenameError);
         assert.equal(error.code, 'GIT_BRANCH_PROTECTED');
@@ -123,11 +119,7 @@ test('protege o nome principal como destino da renomeação', async () => {
   try {
     const service = new GitBranchRenameService();
     assert.throws(
-      () => service.prepareConfirmation(
-        'project-1',
-        'feature/old',
-        'master',
-      ),
+      () => service.prepareConfirmation('project-1', 'feature/old', 'master'),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchRenameError);
         assert.equal(error.code, 'GIT_BRANCH_PROTECTED');

@@ -35,7 +35,11 @@ test('separa um patch completo em blocos por arquivo', () => {
 });
 
 test('localiza o patch pelo caminho atual ou anterior', () => {
-  const renamed = findGitPatchForFile(patch, 'src/new-name.ts', 'src/old-name.ts');
+  const renamed = findGitPatchForFile(
+    patch,
+    'src/new-name.ts',
+    'src/old-name.ts',
+  );
   const readme = findGitPatchForFile(patch, 'README.md');
 
   assert.match(renamed?.content ?? '', /value = 2/);

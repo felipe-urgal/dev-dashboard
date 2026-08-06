@@ -14,10 +14,7 @@ import {
   type ProjectWorkspaceEditService,
 } from '../services/project-workspace-edit-service.js';
 import type { ProjectStore } from '../store/project-store.js';
-import {
-  projectParamsSchema,
-  type ProjectParams,
-} from './projects/helpers.js';
+import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface ProjectWorkspaceEditRouteOptions {
   projectStore: ProjectStore;

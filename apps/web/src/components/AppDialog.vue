@@ -84,17 +84,12 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  const currentIndex = focusable.indexOf(
-    document.activeElement as HTMLElement,
-  );
+  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
 
   if (event.shiftKey && currentIndex <= 0) {
     event.preventDefault();
     focusable.at(-1)?.focus();
-  } else if (
-    !event.shiftKey
-    && currentIndex === focusable.length - 1
-  ) {
+  } else if (!event.shiftKey && currentIndex === focusable.length - 1) {
     event.preventDefault();
     focusable[0]?.focus();
   }
@@ -104,18 +99,15 @@ function handleBackdropClick(): void {
   appDialogStore.cancel();
 }
 
-watch(
-  dialog,
-  (current, previous) => {
-    if (current) {
-      if (!previous) capturePageState();
-      focusInitialAction();
-      return;
-    }
+watch(dialog, (current, previous) => {
+  if (current) {
+    if (!previous) capturePageState();
+    focusInitialAction();
+    return;
+  }
 
-    restorePageState();
-  },
-);
+  restorePageState();
+});
 
 onMounted(() => {
   unregisterHost = appDialogStore.registerHost();
@@ -172,7 +164,9 @@ onBeforeUnmount(() => {
           <button
             ref="confirmButton"
             type="button"
-            :class="dialog.tone === 'danger' ? 'danger-button' : 'primary-button'"
+            :class="
+              dialog.tone === 'danger' ? 'danger-button' : 'primary-button'
+            "
             @click="appDialogStore.confirm"
           >
             {{ dialog.confirmLabel }}

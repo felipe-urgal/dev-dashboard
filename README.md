@@ -376,15 +376,30 @@ Implementação Bash original do dashboard de terminal.
 
 ## Scripts principais
 
-```bash
-npm run dev
-npm run dev:api
-npm run dev:web
-npm run doctor
-npm run typecheck
-npm run build
-npm test
-```
+Referência rápida de todo comando `npm run` voltado ao uso direto (os que
+começam com `pre` são encadeados automaticamente pelo npm antes do comando
+correspondente — ex. `predev` roda `build:packages` antes de `dev` — e não
+precisam ser chamados à mão).
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Sobe API (`:4343`) e web (`:5173`) juntos, com watch. |
+| `npm run dev:api` | Só a API, com watch. |
+| `npm run dev:web` | Só o frontend Vite, com watch. |
+| `npm run dev-web` | Builda e serve API + frontend estático numa porta só (distribuição local, ver acima). |
+| `npm run doctor` | Verifica Node, npm, Git, dependências e portas sem iniciar nada. |
+| `npm run docs:dev` | Sobe a central de documentação local em `http://127.0.0.1:4545`. |
+| `npm run docs:api` | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify. |
+| `npm run docs:api:check` | Confere se a referência da API está atualizada, sem regravar (usado no CI). |
+| `npm run changelog` | Gera o changelog a partir do histórico de commits. |
+| `npm run typecheck` | `tsc --build`/`vue-tsc` em todos os workspaces. |
+| `npm run build` | Builda `packages/*` e depois `apps/*`, nessa ordem. |
+| `npm test` | Roda a suíte de cada workspace (`node --test` ou Vitest, conforme o pacote). |
+| `npm run test:e2e` | Builda e roda o smoke E2E (Playwright) de `apps/web`. |
+| `npm run lint` | ESLint em `apps/`, `packages/` e `scripts/`. |
+| `npm run lint:fix` | Igual, aplicando as correções automáticas possíveis. |
+| `npm run format` | Formata `apps/`, `packages/` e `scripts/` com Prettier. |
+| `npm run format:check` | Confere formatação sem regravar (usado no CI). |
 
 ## API atual
 

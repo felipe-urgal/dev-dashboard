@@ -3,17 +3,23 @@ import { appendHighlightedText, getActiveSearchQuery } from './search';
 import { appendLogSyntax } from './tokens';
 
 export function isErrorMessage(value: string): boolean {
-  return /(?:^|\s)(?:ERROR|FATAL|Error|TypeError|ReferenceError|SyntaxError|NoMethodError|RoutingError|RecordInvalid|Exception|ActionController::|ActiveRecord::|Errno::)|Failed to (?:compile|build|load)|Module not found|Unhandled Runtime Error|⨯/i.test(value);
+  return /(?:^|\s)(?:ERROR|FATAL|Error|TypeError|ReferenceError|SyntaxError|NoMethodError|RoutingError|RecordInvalid|Exception|ActionController::|ActiveRecord::|Errno::)|Failed to (?:compile|build|load)|Module not found|Unhandled Runtime Error|⨯/i.test(
+    value,
+  );
 }
 
 export function isWarningMessage(value: string): boolean {
-  return /^(?:<w>\s*)?(?:warn|warning)\b|webpack\.cache|Serializing big strings|deprecated|deprecation/i.test(value);
+  return /^(?:<w>\s*)?(?:warn|warning)\b|webpack\.cache|Serializing big strings|deprecated|deprecation/i.test(
+    value,
+  );
 }
 
 function matchesSearch(value: string): boolean {
   const query = getActiveSearchQuery().trim();
-  return Boolean(query)
-    && value.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+  return (
+    Boolean(query) &&
+    value.toLocaleLowerCase().includes(query.toLocaleLowerCase())
+  );
 }
 
 function updateSearchMatch(line: HTMLElement, value: string): void {
@@ -41,11 +47,18 @@ export function renderPlainLine(line: HTMLElement, value: string): void {
 }
 
 function renderRailsEvent(line: HTMLElement, value: string): boolean {
-  if (!/^(?:Started\s+[A-Z]+\s+"|Processing by\s+|Completed\s+\d{3}\b)/i.test(value)) {
+  if (
+    !/^(?:Started\s+[A-Z]+\s+"|Processing by\s+|Completed\s+\d{3}\b)/i.test(
+      value,
+    )
+  ) {
     return false;
   }
 
-  line.classList.add('enhanced-log-framework-event', 'enhanced-log-framework-rails');
+  line.classList.add(
+    'enhanced-log-framework-event',
+    'enhanced-log-framework-rails',
+  );
   line.replaceChildren(sourceBadge('RAILS', 'rails'));
   appendLogSyntax(line, value, 'enhanced-log-framework-message');
   updateSearchMatch(line, value);
@@ -57,14 +70,19 @@ function renderBuildEvent(line: HTMLElement, value: string): boolean {
     /^[✓✔]\s*Compiled\s+(.+?)\s+in\s+([\d.]+(?:ms|s))(?:\s+\((\d+)\s+modules?\))?$/i,
   );
   const compiling = value.match(/^[○◌]\s*Compiling\s+(.+?)(?:\s*\.\.\.)?$/i);
-  const ready = value.match(/^[✓✔]\s*(Ready|Starting)(?:\s+in\s+([\d.]+(?:ms|s)))?\s*\.*$/i);
+  const ready = value.match(
+    /^[✓✔]\s*(Ready|Starting)(?:\s+in\s+([\d.]+(?:ms|s)))?\s*\.*$/i,
+  );
 
   if (!compiled && !compiling && !ready) return false;
 
   line.classList.add('enhanced-log-build-card');
   if (compiled || ready) line.classList.add('enhanced-log-success');
   else line.classList.add('enhanced-log-build');
-  line.replaceChildren(sourceBadge('NODE', 'node'), kindBadge('BUILD', 'build'));
+  line.replaceChildren(
+    sourceBadge('NODE', 'node'),
+    kindBadge('BUILD', 'build'),
+  );
 
   const message = document.createElement('span');
   message.className = 'enhanced-log-build-message';
@@ -72,7 +90,7 @@ function renderBuildEvent(line: HTMLElement, value: string): boolean {
     ? `Compilado ${compiled[1]}`
     : compiling?.[1]
       ? `Compilando ${compiling[1]}`
-      : ready?.[1] ?? value;
+      : (ready?.[1] ?? value);
   appendLogSyntax(message, messageText);
   line.append(message);
 
@@ -128,7 +146,11 @@ export function decorateRawLine(line: HTMLElement): void {
   if (renderBuildEvent(line, value)) return;
   if (renderRailsEvent(line, value)) return;
 
-  if (/^(?:yarn run|\$\s|▲\s+Next\.js|[- ]Local:|[- ]Network:|[- ]Environments?:|[- ]Experiments?)/i.test(value)) {
+  if (
+    /^(?:yarn run|\$\s|▲\s+Next\.js|[- ]Local:|[- ]Network:|[- ]Environments?:|[- ]Experiments?)/i.test(
+      value,
+    )
+  ) {
     line.classList.add('enhanced-log-boot');
     line.replaceChildren(sourceBadge('NODE', 'node'));
     appendLogSyntax(line, value, 'enhanced-log-boot-message');
@@ -136,7 +158,9 @@ export function decorateRawLine(line: HTMLElement): void {
     return;
   }
 
-  const request = value.match(/^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+(.+?)\s+(\d{3})\s+in\s+([\d.]+)ms$/i);
+  const request = value.match(
+    /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\s+(.+?)\s+(\d{3})\s+in\s+([\d.]+)ms$/i,
+  );
   if (request) {
     const [, method = '', path = '', status = '', duration = ''] = request;
     const failed = Number(status) >= 400;
@@ -162,9 +186,10 @@ export function decorateRawLine(line: HTMLElement): void {
     statusBadge.textContent = failed ? `ERRO ${status}` : status;
 
     const durationLabel = document.createElement('span');
-    durationLabel.className = Number(duration) >= 500
-      ? 'enhanced-log-duration enhanced-log-slow'
-      : 'enhanced-log-duration';
+    durationLabel.className =
+      Number(duration) >= 500
+        ? 'enhanced-log-duration enhanced-log-slow'
+        : 'enhanced-log-duration';
     durationLabel.textContent = `${duration}ms`;
 
     line.append(methodBadge, pathLabel, statusBadge, durationLabel);

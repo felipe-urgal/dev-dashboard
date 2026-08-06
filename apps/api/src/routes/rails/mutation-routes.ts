@@ -35,18 +35,29 @@ export function registerRailsMutationRoutes(
         body: mutationConfirmationBodySchema,
         response: {
           201: {
-            type: 'object', additionalProperties: false, required: ['confirmation'],
-            properties: { confirmation: railsMigrationMutationConfirmationResponseSchema },
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: railsMigrationMutationConfirmationResponseSchema,
+            },
           },
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request, reply) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       try {
         return reply.code(201).send({
-          confirmation: await options.railsInspectionService.prepareMutationConfirmation(project, request.body.operation),
+          confirmation:
+            await options.railsInspectionService.prepareMutationConfirmation(
+              project,
+              request.body.operation,
+            ),
         });
       } catch (error) {
         translateMutationError(error);
@@ -62,7 +73,9 @@ export function registerRailsMutationRoutes(
         body: mutationBodySchema,
         response: {
           200: {
-            type: 'object', additionalProperties: false, required: ['result'],
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
             properties: { result: railsMigrationMutationResultResponseSchema },
           },
           ...commonErrorResponseSchemas,
@@ -70,10 +83,17 @@ export function registerRailsMutationRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       try {
         return {
-          result: await options.railsInspectionService.runMutation(project, request.body.operation, request.body.confirmationToken),
+          result: await options.railsInspectionService.runMutation(
+            project,
+            request.body.operation,
+            request.body.confirmationToken,
+          ),
         };
       } catch (error) {
         translateMutationError(error);
@@ -89,24 +109,32 @@ export function registerRailsMutationRoutes(
         body: generatorConfirmationBodySchema,
         response: {
           201: {
-            type: 'object', additionalProperties: false, required: ['confirmation'],
-            properties: { confirmation: railsGeneratorConfirmationResponseSchema },
+            type: 'object',
+            additionalProperties: false,
+            required: ['confirmation'],
+            properties: {
+              confirmation: railsGeneratorConfirmationResponseSchema,
+            },
           },
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request, reply) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       try {
         return reply.code(201).send({
-          confirmation: await options.railsInspectionService.prepareGeneratorConfirmation(
-            project,
-            request.body.kind,
-            request.body.name,
-            request.body.fields,
-            request.body.database,
-          ),
+          confirmation:
+            await options.railsInspectionService.prepareGeneratorConfirmation(
+              project,
+              request.body.kind,
+              request.body.name,
+              request.body.fields,
+              request.body.database,
+            ),
         });
       } catch (error) {
         translateMutationError(error);
@@ -122,7 +150,9 @@ export function registerRailsMutationRoutes(
         body: generatorMutationBodySchema,
         response: {
           200: {
-            type: 'object', additionalProperties: false, required: ['result'],
+            type: 'object',
+            additionalProperties: false,
+            required: ['result'],
             properties: { result: railsGeneratorResultResponseSchema },
           },
           ...commonErrorResponseSchemas,
@@ -130,10 +160,16 @@ export function registerRailsMutationRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       try {
         return {
-          result: await options.railsInspectionService.runGenerator(project, request.body.confirmationToken),
+          result: await options.railsInspectionService.runGenerator(
+            project,
+            request.body.confirmationToken,
+          ),
         };
       } catch (error) {
         translateMutationError(error);

@@ -21,19 +21,15 @@ import {
 } from '../src/services/project-workspace-edit-service.js';
 
 async function fixture(context: test.TestContext) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-workspace-edit-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-workspace-edit-'),
+  );
   context.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(path.join(root, 'src'));
-  await writeFile(
-    path.join(root, 'src', 'one.ts'),
-    'const one = 1;\n',
-  );
-  await writeFile(
-    path.join(root, 'src', 'two.ts'),
-    'const two = 2;\n',
-  );
+  await writeFile(path.join(root, 'src', 'one.ts'), 'const one = 1;\n');
+  await writeFile(path.join(root, 'src', 'two.ts'), 'const two = 2;\n');
   return { root };
 }
 
@@ -58,10 +54,10 @@ test('monitora somente arquivos abertos e devolve conteúdo quando muda', async 
     { path: two.path, version: two.version },
   ]);
   assert.equal(unchanged.checkedAt, '1970-01-01T00:00:01.000Z');
-  assert.deepEqual(unchanged.items.map((item) => item.state), [
-    'unchanged',
-    'unchanged',
-  ]);
+  assert.deepEqual(
+    unchanged.items.map((item) => item.state),
+    ['unchanged', 'unchanged'],
+  );
 
   await writeFile(path.join(root, 'src', 'one.ts'), 'const one = 10;\n');
   await unlink(path.join(root, 'src', 'two.ts'));
@@ -86,24 +82,28 @@ test('mostra preview e aplica edições em múltiplos arquivos', async (context)
       {
         path: one.path,
         expectedVersion: one.version,
-        edits: [{
-          range: {
-            start: { line: 1, column: 13 },
-            end: { line: 1, column: 14 },
+        edits: [
+          {
+            range: {
+              start: { line: 1, column: 13 },
+              end: { line: 1, column: 14 },
+            },
+            newText: '10',
           },
-          newText: '10',
-        }],
+        ],
       },
       {
         path: two.path,
         expectedVersion: two.version,
-        edits: [{
-          range: {
-            start: { line: 1, column: 13 },
-            end: { line: 1, column: 14 },
+        edits: [
+          {
+            range: {
+              start: { line: 1, column: 13 },
+              end: { line: 1, column: 14 },
+            },
+            newText: '20',
           },
-          newText: '20',
-        }],
+        ],
       },
     ],
   });
@@ -127,10 +127,8 @@ test('mostra preview e aplica edições em múltiplos arquivos', async (context)
 
   await assert.rejects(
     service.applyWorkspaceEdit(root, 'project-1', preview.confirmationToken),
-    (error) => assertWorkspaceError(
-      error,
-      'WORKSPACE_EDIT_CONFIRMATION_REQUIRED',
-    ),
+    (error) =>
+      assertWorkspaceError(error, 'WORKSPACE_EDIT_CONFIRMATION_REQUIRED'),
   );
 });
 
@@ -142,51 +140,54 @@ test('recusa faixas sobrepostas e mudança externa depois do preview', async (co
 
   await assert.rejects(
     service.previewWorkspaceEdit(root, 'project-1', {
-      files: [{
-        path: one.path,
-        expectedVersion: one.version,
-        edits: [
-          {
-            range: {
-              start: { line: 1, column: 7 },
-              end: { line: 1, column: 10 },
+      files: [
+        {
+          path: one.path,
+          expectedVersion: one.version,
+          edits: [
+            {
+              range: {
+                start: { line: 1, column: 7 },
+                end: { line: 1, column: 10 },
+              },
+              newText: 'first',
             },
-            newText: 'first',
-          },
-          {
-            range: {
-              start: { line: 1, column: 9 },
-              end: { line: 1, column: 12 },
+            {
+              range: {
+                start: { line: 1, column: 9 },
+                end: { line: 1, column: 12 },
+              },
+              newText: 'second',
             },
-            newText: 'second',
-          },
-        ],
-      }],
+          ],
+        },
+      ],
     }),
     (error) => assertWorkspaceError(error, 'WORKSPACE_EDIT_INVALID'),
   );
 
   const preview = await service.previewWorkspaceEdit(root, 'project-1', {
-    files: [{
-      path: one.path,
-      expectedVersion: one.version,
-      edits: [{
-        range: {
-          start: { line: 1, column: 13 },
-          end: { line: 1, column: 14 },
-        },
-        newText: '10',
-      }],
-    }],
+    files: [
+      {
+        path: one.path,
+        expectedVersion: one.version,
+        edits: [
+          {
+            range: {
+              start: { line: 1, column: 13 },
+              end: { line: 1, column: 14 },
+            },
+            newText: '10',
+          },
+        ],
+      },
+    ],
   });
   await writeFile(path.join(root, 'src', 'one.ts'), 'const external = true;\n');
 
   await assert.rejects(
     service.applyWorkspaceEdit(root, 'project-1', preview.confirmationToken),
-    (error) => assertWorkspaceError(
-      error,
-      'WORKSPACE_EDIT_CHANGED_EXTERNALLY',
-    ),
+    (error) => assertWorkspaceError(error, 'WORKSPACE_EDIT_CHANGED_EXTERNALLY'),
   );
 });
 
@@ -203,12 +204,7 @@ class FailingSecondWriteService extends ProjectFileService {
     if (this.writes === 2) {
       throw new ProjectFileError('FILE_WRITE_FAILED', 'Falha simulada.');
     }
-    return super.writeFile(
-      projectPath,
-      relativePath,
-      content,
-      expectedVersion,
-    );
+    return super.writeFile(projectPath, relativePath, content, expectedVersion);
   }
 }
 
@@ -224,24 +220,28 @@ test('restaura arquivos já aplicados quando uma escrita posterior falha', async
       {
         path: one.path,
         expectedVersion: one.version,
-        edits: [{
-          range: {
-            start: { line: 1, column: 13 },
-            end: { line: 1, column: 14 },
+        edits: [
+          {
+            range: {
+              start: { line: 1, column: 13 },
+              end: { line: 1, column: 14 },
+            },
+            newText: '10',
           },
-          newText: '10',
-        }],
+        ],
       },
       {
         path: two.path,
         expectedVersion: two.version,
-        edits: [{
-          range: {
-            start: { line: 1, column: 13 },
-            end: { line: 1, column: 14 },
+        edits: [
+          {
+            range: {
+              start: { line: 1, column: 13 },
+              end: { line: 1, column: 14 },
+            },
+            newText: '20',
           },
-          newText: '20',
-        }],
+        ],
       },
     ],
   });

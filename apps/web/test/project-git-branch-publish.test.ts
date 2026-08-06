@@ -85,25 +85,25 @@ test('publica uma branch somente local diretamente pela linha da branch', async 
   const originalFetch = globalThis.fetch;
   const requests: RequestRecord[] = [];
 
-  globalThis.fetch = (async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     const body = init?.body
-      ? JSON.parse(String(init.body)) as unknown
+      ? (JSON.parse(String(init.body)) as unknown)
       : undefined;
     requests.push({ path: url.pathname, ...(body ? { body } : {}) });
 
     if (url.pathname.endsWith('/git/branches/publish/confirmations')) {
-      return jsonResponse({
-        confirmation: {
-          token: 'p'.repeat(64),
-          operation: 'push',
-          target: 'bugfix/ajustar-pesquisas',
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      return jsonResponse(
+        {
+          confirmation: {
+            token: 'p'.repeat(64),
+            operation: 'push',
+            target: 'bugfix/ajustar-pesquisas',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
         },
-      }, 201);
+        201,
+      );
     }
     if (url.pathname.endsWith('/git/branches/publish')) {
       return jsonResponse({
@@ -116,7 +116,10 @@ test('publica uma branch somente local diretamente pela linha da branch', async 
     if (url.pathname.endsWith('/git')) {
       return jsonResponse({ git: overview });
     }
-    return jsonResponse({ error: 'NOT_FOUND', message: 'Não encontrado.' }, 404);
+    return jsonResponse(
+      { error: 'NOT_FOUND', message: 'Não encontrado.' },
+      404,
+    );
   }) as typeof fetch;
 
   restoreFetch = () => {
@@ -154,9 +157,10 @@ test('publica uma branch somente local diretamente pela linha da branch', async 
   const confirmation = requests.find((request) =>
     request.path.endsWith('/git/branches/publish/confirmations'),
   );
-  const publication = requests.find((request) =>
-    request.path.endsWith('/git/branches/publish')
-      && !request.path.endsWith('/confirmations'),
+  const publication = requests.find(
+    (request) =>
+      request.path.endsWith('/git/branches/publish') &&
+      !request.path.endsWith('/confirmations'),
   );
 
   assert.deepEqual(confirmation?.body, {

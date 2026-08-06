@@ -6,10 +6,16 @@ import { mount } from '@vue/test-utils';
 import Card from '../src/components/Card.vue';
 
 test('Card renderiza o slot default com padding padrão e sem cabeçalho vazio', () => {
-  const wrapper = mount(Card, { slots: { default: '<p class="child">olá</p>' } });
+  const wrapper = mount(Card, {
+    slots: { default: '<p class="child">olá</p>' },
+  });
   const root = wrapper.get('.dd-card');
   assert.equal(root.classes().includes('dd-card-padded'), true);
-  assert.equal(wrapper.find('.dd-card-header').exists(), false, 'header não deve aparecer sem slots');
+  assert.equal(
+    wrapper.find('.dd-card-header').exists(),
+    false,
+    'header não deve aparecer sem slots',
+  );
   assert.equal(wrapper.find('.child').text(), 'olá');
 });
 

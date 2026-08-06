@@ -4,12 +4,24 @@ export function captureOriginal(section: HTMLElement): void {
   const state = stateFor(section);
   if (state.snapshot) return;
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const detail = section.querySelector<HTMLElement>('.git-summary-commit-detail');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
-  const pageLabel = section.querySelector<HTMLElement>('.git-summary-history-page-label');
-  const previous = section.querySelector<HTMLButtonElement>('[data-history-page="previous"]');
-  const next = section.querySelector<HTMLButtonElement>('[data-history-page="next"]');
-  const shell = section.querySelector<HTMLElement>('.git-summary-history-shell');
+  const detail = section.querySelector<HTMLElement>(
+    '.git-summary-commit-detail',
+  );
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
+  const pageLabel = section.querySelector<HTMLElement>(
+    '.git-summary-history-page-label',
+  );
+  const previous = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="previous"]',
+  );
+  const next = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="next"]',
+  );
+  const shell = section.querySelector<HTMLElement>(
+    '.git-summary-history-shell',
+  );
   if (!list || !detail) return;
   state.snapshot = {
     listNodes: Array.from(list.childNodes),
@@ -34,12 +46,24 @@ export function restoreOriginal(section: HTMLElement): void {
   if (!snapshot) return;
 
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const detail = section.querySelector<HTMLElement>('.git-summary-commit-detail');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
-  const pageLabel = section.querySelector<HTMLElement>('.git-summary-history-page-label');
-  const previous = section.querySelector<HTMLButtonElement>('[data-history-page="previous"]');
-  const next = section.querySelector<HTMLButtonElement>('[data-history-page="next"]');
-  const shell = section.querySelector<HTMLElement>('.git-summary-history-shell');
+  const detail = section.querySelector<HTMLElement>(
+    '.git-summary-commit-detail',
+  );
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
+  const pageLabel = section.querySelector<HTMLElement>(
+    '.git-summary-history-page-label',
+  );
+  const previous = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="previous"]',
+  );
+  const next = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="next"]',
+  );
+  const shell = section.querySelector<HTMLElement>(
+    '.git-summary-history-shell',
+  );
 
   list?.replaceChildren(...snapshot.listNodes);
   detail?.replaceChildren(...snapshot.detailNodes);

@@ -10,14 +10,20 @@ function statusFromCode(code: string): GitCommitFileStatus {
   return 'modified';
 }
 
-export function parseNameStatus(output: string): Map<string, {
-  status: GitCommitFileStatus;
-  previousPath?: string;
-}> {
-  const result = new Map<string, {
+export function parseNameStatus(output: string): Map<
+  string,
+  {
     status: GitCommitFileStatus;
     previousPath?: string;
-  }>();
+  }
+> {
+  const result = new Map<
+    string,
+    {
+      status: GitCommitFileStatus;
+      previousPath?: string;
+    }
+  >();
   const records = output.split('\0').filter(Boolean);
 
   for (let index = 0; index < records.length; index += 1) {
@@ -52,7 +58,8 @@ export function parseNumstat(
     index += 1;
     if (!record) continue;
 
-    const [additionsRaw = '0', deletionsRaw = '0', ...pathParts] = record.split('\t');
+    const [additionsRaw = '0', deletionsRaw = '0', ...pathParts] =
+      record.split('\t');
     let filePath = pathParts.join('\t');
     let previousPath: string | undefined;
 

@@ -131,5 +131,8 @@ test('markAllRead() marca todos os avisos como lidos sem remover o histórico', 
 
   assert.equal(store.unreadCount.value, 0);
   assert.equal(store.notices.value.length, 2);
-  assert.equal(store.notices.value.every((notice) => notice.read), true);
+  assert.equal(
+    store.notices.value.every((notice) => notice.read),
+    true,
+  );
 });

@@ -81,15 +81,11 @@ export class ProcessManager {
     }
   }
 
-  public getServerProcess(
-    projectId: string,
-  ): Promise<ManagedProcess | null> {
+  public getServerProcess(projectId: string): Promise<ManagedProcess | null> {
     return this.statusReader.getManagedProcess(projectId, 'server');
   }
 
-  public getTestProcess(
-    projectId: string,
-  ): Promise<ManagedProcess | null> {
+  public getTestProcess(projectId: string): Promise<ManagedProcess | null> {
     return this.statusReader.getManagedProcess(projectId, 'test');
   }
 
@@ -118,15 +114,11 @@ export class ProcessManager {
     return readManagedLog(this.context, projectId, 'test', options);
   }
 
-  public clearServerLog(
-    projectId: string,
-  ): Promise<ProcessLogSnapshot> {
+  public clearServerLog(projectId: string): Promise<ProcessLogSnapshot> {
     return clearManagedLog(this.context, projectId, 'server');
   }
 
-  public clearTestLog(
-    projectId: string,
-  ): Promise<ProcessLogSnapshot> {
+  public clearTestLog(projectId: string): Promise<ProcessLogSnapshot> {
     return clearManagedLog(this.context, projectId, 'test');
   }
 
@@ -150,11 +142,7 @@ export class ProcessManager {
     options: StartServerOptions = {},
   ): Promise<ManagedProcess> {
     return this.withStartLock(project.id, 'server', () =>
-      this.lifecycle.startManagedServer(
-        project,
-        options,
-        this.stateDirectory,
-      ),
+      this.lifecycle.startManagedServer(project, options, this.stateDirectory),
     );
   }
 
@@ -163,11 +151,7 @@ export class ProcessManager {
     command: { id: string; command: string; args: string[] },
   ): Promise<ManagedProcess> {
     return this.withStartLock(project.id, 'test', () =>
-      this.lifecycle.startManagedTest(
-        project,
-        command,
-        this.stateDirectory,
-      ),
+      this.lifecycle.startManagedTest(project, command, this.stateDirectory),
     );
   }
 
@@ -186,15 +170,11 @@ export class ProcessManager {
     );
   }
 
-  public stopServer(
-    projectId: string,
-  ): Promise<ManagedProcess> {
+  public stopServer(projectId: string): Promise<ManagedProcess> {
     return this.lifecycle.stopManagedProcess(projectId, 'server');
   }
 
-  public stopTest(
-    projectId: string,
-  ): Promise<ManagedProcess> {
+  public stopTest(projectId: string): Promise<ManagedProcess> {
     return this.lifecycle.stopManagedProcess(projectId, 'test');
   }
 

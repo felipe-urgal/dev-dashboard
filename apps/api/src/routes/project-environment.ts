@@ -24,16 +24,26 @@ interface ValueQuerystring {
 }
 
 const paramsSchema = {
-  type: 'object', additionalProperties: false, required: ['projectId'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId'],
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
 const valueQuerystringSchema = {
-  type: 'object', additionalProperties: false, required: ['file', 'name'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['file', 'name'],
   properties: {
     file: {
       type: 'string',
-      enum: ['.env', '.env.local', '.env.development', '.env.test', '.env.production'],
+      enum: [
+        '.env',
+        '.env.local',
+        '.env.development',
+        '.env.test',
+        '.env.production',
+      ],
     },
     name: {
       type: 'string',
@@ -46,27 +56,43 @@ const valueQuerystringSchema = {
 
 function requireProject(store: ProjectStore, id: string) {
   const project = store.findProject(id);
-  if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+  if (!project)
+    throw new ApiError({
+      statusCode: 404,
+      code: 'PROJECT_NOT_FOUND',
+      message: 'Projeto não encontrado.',
+    });
   return project;
 }
 
-export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (app, options) => {
-  app.get<{ Params: Params }>('/projects/:projectId/environment-variables', {
-    schema: {
-      params: paramsSchema,
-      response: {
-        200: {
-          type: 'object', additionalProperties: false, required: ['environment'],
-          properties: { environment: projectEnvironmentOverviewResponseSchema },
+export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (
+  app,
+  options,
+) => {
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/environment-variables',
+    {
+      schema: {
+        params: paramsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['environment'],
+            properties: {
+              environment: projectEnvironmentOverviewResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
         },
-        ...commonErrorResponseSchemas,
       },
     },
-  }, async (request) => ({
-    environment: await options.projectEnvironmentService.getOverview(
-      requireProject(options.projectStore, request.params.projectId),
-    ),
-  }));
+    async (request) => ({
+      environment: await options.projectEnvironmentService.getOverview(
+        requireProject(options.projectStore, request.params.projectId),
+      ),
+    }),
+  );
 
   app.get<{ Params: Params; Querystring: ValueQuerystring }>(
     '/projects/:projectId/environment-variables/value',
@@ -76,15 +102,22 @@ export const projectEnvironmentRoutes: FastifyPluginAsync<Options> = async (app,
         querystring: valueQuerystringSchema,
         response: {
           200: {
-            type: 'object', additionalProperties: false, required: ['variable'],
-            properties: { variable: projectEnvironmentVariableValueResponseSchema },
+            type: 'object',
+            additionalProperties: false,
+            required: ['variable'],
+            properties: {
+              variable: projectEnvironmentVariableValueResponseSchema,
+            },
           },
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request) => {
-      const project = requireProject(options.projectStore, request.params.projectId);
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       const variable = await options.projectEnvironmentService.getVariableValue(
         project,
         request.query.file,

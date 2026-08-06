@@ -3,16 +3,9 @@ import type { ProjectTextRange } from './project-files.js';
 export type ProjectLanguageServerKind = 'javascript-typescript' | 'ruby';
 
 export type ProjectLanguageServerState =
-  | 'unavailable'
-  | 'idle'
-  | 'starting'
-  | 'ready'
-  | 'failed';
+  'unavailable' | 'idle' | 'starting' | 'ready' | 'failed';
 
-export type ProjectRailsRuntimeState =
-  | 'unavailable'
-  | 'disabled'
-  | 'enabled';
+export type ProjectRailsRuntimeState = 'unavailable' | 'disabled' | 'enabled';
 
 export interface ProjectRailsLanguageServerStatus {
   /** O projeto é Rails e a gem `ruby-lsp-rails` já está resolvida no bundle. */

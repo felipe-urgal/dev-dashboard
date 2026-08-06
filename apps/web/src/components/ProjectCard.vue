@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import {
-  ArrowRightIcon,
-  StarIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowRightIcon, StarIcon } from '@heroicons/vue/24/outline';
 import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -28,8 +21,9 @@ const emit = defineEmits<{
   'toggle-favorite': [project: Project];
 }>();
 
-const { managedProcess, supportsServer, isRunning } =
-  useProjectProcessStatus(() => props.project);
+const { managedProcess, supportsServer, isRunning } = useProjectProcessStatus(
+  () => props.project,
+);
 
 const currentBranch = ref('');
 let branchRequest = 0;
@@ -97,9 +91,11 @@ const recentAccessTitle = computed(() => {
       type="button"
       class="project-favorite-button"
       :class="{ active: project.favorite }"
-      :aria-label="project.favorite
-        ? `Remover ${project.name} dos favoritos`
-        : `Adicionar ${project.name} aos favoritos`"
+      :aria-label="
+        project.favorite
+          ? `Remover ${project.name} dos favoritos`
+          : `Adicionar ${project.name} aos favoritos`
+      "
       :aria-pressed="project.favorite"
       :disabled="favoriteUpdating"
       @click="emit('toggle-favorite', project)"
@@ -143,10 +139,7 @@ const recentAccessTitle = computed(() => {
               {{ statusLabel }}
             </span>
 
-            <span
-              class="type-badge"
-              :class="`type-badge-${project.type}`"
-            >
+            <span class="type-badge" :class="`type-badge-${project.type}`">
               {{ projectTypeLabels[project.type] }}
             </span>
           </div>
@@ -167,10 +160,7 @@ const recentAccessTitle = computed(() => {
             {{ currentBranch }}
           </span>
 
-          <span
-            v-if="managedProcess?.port"
-            class="project-port-badge"
-          >
+          <span v-if="managedProcess?.port" class="project-port-badge">
             Porta {{ managedProcess.port }}
           </span>
         </div>

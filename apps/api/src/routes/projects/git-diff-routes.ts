@@ -41,7 +41,11 @@ export function registerGitDiffRoutes(
     async (request) => {
       const project = projectStore.findProject(request.params.projectId);
       if (!project) {
-        throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
       }
       try {
         return { git: await gitService.getOverview(project.path) };
@@ -49,24 +53,34 @@ export function registerGitDiffRoutes(
         throw new ApiError({
           statusCode: 500,
           code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error ? error.message : 'Não foi possível consultar o repositório Git.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível consultar o repositório Git.',
         });
       }
     },
   );
 
-  app.get<{ Params: ProjectParams; Querystring: { scope?: 'worktree' | 'index' | 'combined' } }>(
+  app.get<{
+    Params: ProjectParams;
+    Querystring: { scope?: 'worktree' | 'index' | 'combined' };
+  }>(
     '/projects/:projectId/git/diff',
     {
       schema: {
         params: projectParamsSchema,
         querystring: {
-          type: 'object', additionalProperties: false,
-          properties: { scope: { type: 'string', enum: ['worktree', 'index', 'combined'] } },
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
+          },
         },
         response: {
           200: {
-            type: 'object', additionalProperties: false,
+            type: 'object',
+            additionalProperties: false,
             required: ['diff'],
             properties: { diff: gitDiffSnapshotResponseSchema },
           },
@@ -76,25 +90,43 @@ export function registerGitDiffRoutes(
     },
     async (request) => {
       const project = projectStore.findProject(request.params.projectId);
-      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      if (!project)
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
       try {
-        return { diff: await gitService.getDiffSnapshot(project.path, request.query.scope ?? 'combined') };
+        return {
+          diff: await gitService.getDiffSnapshot(
+            project.path,
+            request.query.scope ?? 'combined',
+          ),
+        };
       } catch (error) {
         throw new ApiError({
-          statusCode: 500, code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error ? error.message : 'Não foi possível consultar o diff do repositório.',
+          statusCode: 500,
+          code: 'GIT_COMMAND_FAILED',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível consultar o diff do repositório.',
         });
       }
     },
   );
 
-  app.get<{ Params: ProjectParams; Querystring: { path: string; scope?: 'worktree' | 'index' | 'combined' } }>(
+  app.get<{
+    Params: ProjectParams;
+    Querystring: { path: string; scope?: 'worktree' | 'index' | 'combined' };
+  }>(
     '/projects/:projectId/git/diff/file',
     {
       schema: {
         params: projectParamsSchema,
         querystring: {
-          type: 'object', additionalProperties: false,
+          type: 'object',
+          additionalProperties: false,
           required: ['path'],
           properties: {
             path: { type: 'string', minLength: 1, maxLength: 2048 },
@@ -103,7 +135,8 @@ export function registerGitDiffRoutes(
         },
         response: {
           200: {
-            type: 'object', additionalProperties: false,
+            type: 'object',
+            additionalProperties: false,
             required: ['file'],
             properties: { file: gitFileDiffResponseSchema },
           },
@@ -113,16 +146,35 @@ export function registerGitDiffRoutes(
     },
     async (request) => {
       const project = projectStore.findProject(request.params.projectId);
-      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      if (!project)
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
       try {
-        return { file: await gitService.getFileDiff(project.path, request.query.path, request.query.scope ?? 'combined') };
+        return {
+          file: await gitService.getFileDiff(
+            project.path,
+            request.query.path,
+            request.query.scope ?? 'combined',
+          ),
+        };
       } catch (error) {
         if (error instanceof GitDiffError) {
-          throw new ApiError({ statusCode: gitDiffErrorStatus(error), code: error.code, message: error.message });
+          throw new ApiError({
+            statusCode: gitDiffErrorStatus(error),
+            code: error.code,
+            message: error.message,
+          });
         }
         throw new ApiError({
-          statusCode: 500, code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error ? error.message : 'Não foi possível carregar o diff do arquivo.',
+          statusCode: 500,
+          code: 'GIT_COMMAND_FAILED',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível carregar o diff do arquivo.',
         });
       }
     },
@@ -130,14 +182,20 @@ export function registerGitDiffRoutes(
 
   app.get<{
     Params: ProjectParams;
-    Querystring: { path: string; scope?: 'worktree' | 'index' | 'combined'; start: number; end: number };
+    Querystring: {
+      path: string;
+      scope?: 'worktree' | 'index' | 'combined';
+      start: number;
+      end: number;
+    };
   }>(
     '/projects/:projectId/git/diff/file/lines',
     {
       schema: {
         params: projectParamsSchema,
         querystring: {
-          type: 'object', additionalProperties: false,
+          type: 'object',
+          additionalProperties: false,
           required: ['path', 'start', 'end'],
           properties: {
             path: { type: 'string', minLength: 1, maxLength: 2048 },
@@ -148,7 +206,8 @@ export function registerGitDiffRoutes(
         },
         response: {
           200: {
-            type: 'object', additionalProperties: false,
+            type: 'object',
+            additionalProperties: false,
             required: ['lines'],
             properties: { lines: gitFileLinesResponseSchema },
           },
@@ -158,7 +217,12 @@ export function registerGitDiffRoutes(
     },
     async (request) => {
       const project = projectStore.findProject(request.params.projectId);
-      if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+      if (!project)
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
       try {
         return {
           lines: await gitService.getFileLines(
@@ -171,11 +235,19 @@ export function registerGitDiffRoutes(
         };
       } catch (error) {
         if (error instanceof GitDiffError) {
-          throw new ApiError({ statusCode: gitDiffErrorStatus(error), code: error.code, message: error.message });
+          throw new ApiError({
+            statusCode: gitDiffErrorStatus(error),
+            code: error.code,
+            message: error.message,
+          });
         }
         throw new ApiError({
-          statusCode: 500, code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error ? error.message : 'Não foi possível ler as linhas do arquivo.',
+          statusCode: 500,
+          code: 'GIT_COMMAND_FAILED',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível ler as linhas do arquivo.',
         });
       }
     },

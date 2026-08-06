@@ -18,7 +18,8 @@ export function stopChild(child, signal, killFn = process.kill) {
     }
     killFn(-child.pid, signal);
   } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return;
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH')
+      return;
     console.error('Falha ao encerrar processo de desenvolvimento:', error);
   }
 }
@@ -78,6 +79,9 @@ export async function runDev(options = {}) {
   return { children, shutdown: doShutdown };
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(process.argv[1], 'file:').href
+) {
   await runDev();
 }

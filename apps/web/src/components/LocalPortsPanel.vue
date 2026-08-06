@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import {
   ArrowPathIcon,
@@ -13,10 +12,7 @@ import type {
   ManagedProcess,
 } from '@dev-dashboard/contracts';
 
-import {
-  ApiRequestError,
-  fetchLocalPorts,
-} from '../api';
+import { ApiRequestError, fetchLocalPorts } from '../api';
 import { processDetailPath } from '../utils/process-format';
 import StatusBadge from './StatusBadge.vue';
 import type { StatusBadgeTone } from './status-badge-types';
@@ -28,21 +24,16 @@ const errorMessage = ref('');
 let controller: AbortController | undefined;
 let generation = 0;
 
-const entries = computed(() =>
-  inspection.value?.entries ?? [],
+const entries = computed(() => inspection.value?.entries ?? []);
+const occupiedCount = computed(
+  () => entries.value.filter((entry) => entry.state === 'occupied').length,
 );
-const occupiedCount = computed(() =>
-  entries.value.filter(
-    (entry) => entry.state === 'occupied',
-  ).length,
+const conflictCount = computed(
+  () => entries.value.filter((entry) => entry.conflict).length,
 );
-const conflictCount = computed(() =>
-  entries.value.filter((entry) => entry.conflict).length,
-);
-const managedCount = computed(() =>
-  entries.value.filter(
-    (entry) => entry.managedProcess !== undefined,
-  ).length,
+const managedCount = computed(
+  () =>
+    entries.value.filter((entry) => entry.managedProcess !== undefined).length,
 );
 
 function bindLabel(entry: LocalPortEntry): string {
@@ -158,9 +149,9 @@ onBeforeUnmount(() => {
     </div>
 
     <p class="local-ports-note">
-      Inspeção TCP no Linux para loopback e binds que também ocupam
-      loopback. PIDs externos só aparecem quando pertencem ao usuário
-      atual; nenhuma ação encerra processos externos.
+      Inspeção TCP no Linux para loopback e binds que também ocupam loopback.
+      PIDs externos só aparecem quando pertencem ao usuário atual; nenhuma ação
+      encerra processos externos.
     </p>
 
     <p
@@ -172,19 +163,11 @@ onBeforeUnmount(() => {
       Atualizando portas locais…
     </p>
 
-    <p
-      v-if="errorMessage"
-      class="activity-error"
-      role="alert"
-    >
+    <p v-if="errorMessage" class="activity-error" role="alert">
       {{ errorMessage }}
     </p>
 
-    <div
-      v-if="loading && !inspection"
-      class="activity-empty"
-      role="status"
-    >
+    <div v-if="loading && !inspection" class="activity-empty" role="status">
       Consultando portas locais…
     </div>
 
@@ -195,7 +178,7 @@ onBeforeUnmount(() => {
     >
       {{
         inspection.warning ??
-          'O inspetor de portas está disponível somente no Linux.'
+        'O inspetor de portas está disponível somente no Linux.'
       }}
     </div>
 
@@ -206,7 +189,7 @@ onBeforeUnmount(() => {
     >
       {{
         inspection.warning ??
-          'A inspeção de portas não está disponível neste ambiente.'
+        'A inspeção de portas não está disponível neste ambiente.'
       }}
     </div>
 
@@ -233,26 +216,15 @@ onBeforeUnmount(() => {
         </div>
       </dl>
 
-      <p
-        v-if="inspection.truncated"
-        class="local-ports-warning"
-        role="status"
-      >
+      <p v-if="inspection.truncated" class="local-ports-warning" role="status">
         A lista foi limitada às 100 entradas mais relevantes.
       </p>
 
-      <div
-        v-if="entries.length === 0"
-        class="activity-empty"
-        role="status"
-      >
+      <div v-if="entries.length === 0" class="activity-empty" role="status">
         Nenhuma porta TCP relevante foi encontrada.
       </div>
 
-      <div
-        v-else
-        class="processes-table-shell local-ports-table-shell"
-      >
+      <div v-else class="processes-table-shell local-ports-table-shell">
         <table class="processes-table local-ports-table">
           <caption class="sr-only">
             Portas TCP locais e processos associados
@@ -284,10 +256,7 @@ onBeforeUnmount(() => {
                 </small>
               </td>
               <td data-label="Processo">
-                <span
-                  v-if="entry.managedProcess"
-                  class="local-ports-process"
-                >
+                <span v-if="entry.managedProcess" class="local-ports-process">
                   <strong>
                     {{ entry.managedProcess.projectName }}
                   </strong>
@@ -327,10 +296,7 @@ onBeforeUnmount(() => {
                   </small>
                 </span>
               </td>
-              <td
-                class="processes-table-action"
-                data-label="Ações"
-              >
+              <td class="processes-table-action" data-label="Ações">
                 <RouterLink
                   v-if="detailPath(entry)"
                   :to="detailPath(entry) ?? '/processes'"

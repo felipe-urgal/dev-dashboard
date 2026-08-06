@@ -14,9 +14,11 @@ export function supportsNodeVersion(version) {
 
   const [major = 0, minor = 0, patch = 0] = parts;
 
-  return (major === 20 && (minor > 19 || (minor === 19 && patch >= 0))) ||
+  return (
+    (major === 20 && (minor > 19 || (minor === 19 && patch >= 0))) ||
     major > 22 ||
-    (major === 22 && (minor > 12 || (minor === 12 && patch >= 0)));
+    (major === 22 && (minor > 12 || (minor === 12 && patch >= 0)))
+  );
 }
 
 export function checkCommand(command, args = ['--version']) {
@@ -89,28 +91,53 @@ export async function diagnose(options = {}) {
     await fileChecker(new URL('../node_modules', import.meta.url));
     results.push(result('ok', 'Dependências', 'node_modules encontrado'));
   } catch {
-    results.push(result('error', 'Dependências', 'execute npm install na raiz'));
+    results.push(
+      result('error', 'Dependências', 'execute npm install na raiz'),
+    );
   }
 
-  const configuredPort = Number.parseInt(options.apiPort ?? process.env.DEV_DASHBOARD_API_PORT ?? '4343', 10);
-  const configuredDocsPort = Number.parseInt(options.docsPort ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? '4545', 10);
+  const configuredPort = Number.parseInt(
+    options.apiPort ?? process.env.DEV_DASHBOARD_API_PORT ?? '4343',
+    10,
+  );
+  const configuredDocsPort = Number.parseInt(
+    options.docsPort ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? '4545',
+    10,
+  );
   const ports = distribution
     ? [['Dashboard', configuredPort]]
-    : [['API', 4343], ['Web', 5173], ['Docs', configuredDocsPort]];
+    : [
+        ['API', 4343],
+        ['Web', 5173],
+        ['Docs', configuredDocsPort],
+      ];
 
   for (const [label, port] of ports) {
     const available = await portChecker('127.0.0.1', port);
     results.push(
       available
         ? result('ok', `Porta ${label}`, `127.0.0.1:${port} disponível`)
-        : result('warning', `Porta ${label}`, `127.0.0.1:${port} já está em uso`),
+        : result(
+            'warning',
+            `Porta ${label}`,
+            `127.0.0.1:${port} já está em uso`,
+          ),
     );
   }
 
   if (distribution) {
-    for (const [label, relativePath] of [['API compilada', 'apps/api/dist/server.js'], ['Frontend compilado', 'apps/web/dist/index.html']]) {
-      try { await fileChecker(pathToUrl(rootDirectory, relativePath)); results.push(result('ok', label, relativePath)); }
-      catch { results.push(result('warning', label, `${relativePath} será criado pelo build`)); }
+    for (const [label, relativePath] of [
+      ['API compilada', 'apps/api/dist/server.js'],
+      ['Frontend compilado', 'apps/web/dist/index.html'],
+    ]) {
+      try {
+        await fileChecker(pathToUrl(rootDirectory, relativePath));
+        results.push(result('ok', label, relativePath));
+      } catch {
+        results.push(
+          result('warning', label, `${relativePath} será criado pelo build`),
+        );
+      }
     }
   }
 
@@ -118,7 +145,13 @@ export async function diagnose(options = {}) {
     await fileChecker(rootDirectory);
     results.push(result('ok', 'Repositório', rootDirectory));
   } catch {
-    results.push(result('error', 'Repositório', `não foi possível acessar ${rootDirectory}`));
+    results.push(
+      result(
+        'error',
+        'Repositório',
+        `não foi possível acessar ${rootDirectory}`,
+      ),
+    );
   }
 
   return results;
@@ -143,6 +176,9 @@ export async function main() {
   process.exitCode = errors > 0 ? 1 : 0;
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(process.argv[1], 'file:').href
+) {
   await main();
 }

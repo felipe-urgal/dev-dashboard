@@ -12,7 +12,13 @@ import { isSensitiveEnvironmentProfileVariableName } from '@dev-dashboard/core';
 
 // Mesma lista já usada por DatabaseDetectionService para detectar DATABASE_URL —
 // mantém um único catálogo fechado de nomes de arquivo .env reconhecidos.
-const DOTENV_FILES = ['.env', '.env.local', '.env.development', '.env.test', '.env.production'];
+const DOTENV_FILES = [
+  '.env',
+  '.env.local',
+  '.env.development',
+  '.env.test',
+  '.env.production',
+];
 
 interface ParsedEnvironmentVariable {
   name: string;
@@ -20,7 +26,10 @@ interface ParsedEnvironmentVariable {
   sensitive: boolean;
 }
 
-async function readDotenvFile(projectPath: string, file: string): Promise<string | null> {
+async function readDotenvFile(
+  projectPath: string,
+  file: string,
+): Promise<string | null> {
   const target = path.resolve(projectPath, file);
   const root = path.resolve(projectPath);
   if (target !== root && !target.startsWith(`${root}${path.sep}`)) return null;
@@ -35,14 +44,19 @@ function parseDotenv(contents: string): ParsedEnvironmentVariable[] {
   const variables: ParsedEnvironmentVariable[] = [];
   const seen = new Set<string>();
   for (const line of contents.split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    const match = line.match(
+      /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/,
+    );
     if (!match) continue;
     const name = match[1] ?? '';
     if (seen.has(name)) continue;
     seen.add(name);
 
     let rawValue = match[2] ?? '';
-    if ((rawValue.startsWith('"') && rawValue.endsWith('"')) || (rawValue.startsWith("'") && rawValue.endsWith("'"))) {
+    if (
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"))
+    ) {
       rawValue = rawValue.slice(1, -1);
     }
 
@@ -55,7 +69,9 @@ function parseDotenv(contents: string): ParsedEnvironmentVariable[] {
   return variables;
 }
 
-function maskSensitiveValue(variable: ParsedEnvironmentVariable): ProjectEnvironmentVariable {
+function maskSensitiveValue(
+  variable: ParsedEnvironmentVariable,
+): ProjectEnvironmentVariable {
   if (variable.sensitive) return { name: variable.name, sensitive: true };
   return variable;
 }
@@ -67,7 +83,9 @@ function maskSensitiveValue(variable: ParsedEnvironmentVariable): ProjectEnviron
  * e de forma explícita pelo usuário.
  */
 export class ProjectEnvironmentService {
-  public async getOverview(project: Project): Promise<ProjectEnvironmentOverview> {
+  public async getOverview(
+    project: Project,
+  ): Promise<ProjectEnvironmentOverview> {
     const files: ProjectEnvironmentFile[] = [];
     for (const file of DOTENV_FILES) {
       const contents = await readDotenvFile(project.path, file);

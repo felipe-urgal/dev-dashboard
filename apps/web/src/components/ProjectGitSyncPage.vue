@@ -33,18 +33,18 @@ const localMain = computed(() =>
 const originMain = computed(() =>
   props.workspace?.branches.find(
     (branch) =>
-      branch.kind === 'remote'
-      && branch.remote === 'origin'
-      && branch.shortName === 'main',
+      branch.kind === 'remote' &&
+      branch.remote === 'origin' &&
+      branch.shortName === 'main',
   ),
 );
 
 const upstreamMain = computed(() =>
   props.workspace?.branches.find(
     (branch) =>
-      branch.kind === 'remote'
-      && branch.remote === 'upstream'
-      && branch.shortName === 'main',
+      branch.kind === 'remote' &&
+      branch.remote === 'upstream' &&
+      branch.shortName === 'main',
   ),
 );
 
@@ -55,39 +55,31 @@ const currentLocalBranch = computed(() =>
 );
 
 const showCurrentBranchSync = computed(() =>
-  Boolean(
-    currentLocalBranch.value
-    && currentLocalBranch.value.name !== 'main',
-  ),
+  Boolean(currentLocalBranch.value && currentLocalBranch.value.name !== 'main'),
 );
 
-const currentBranchName = computed(() =>
-  currentLocalBranch.value?.name
-  ?? props.overview.branch
-  ?? 'HEAD',
+const currentBranchName = computed(
+  () => currentLocalBranch.value?.name ?? props.overview.branch ?? 'HEAD',
 );
 
-const currentBranchUpstream = computed(() =>
-  currentLocalBranch.value?.upstream
-  ?? props.overview.upstream,
+const currentBranchUpstream = computed(
+  () => currentLocalBranch.value?.upstream ?? props.overview.upstream,
 );
 
-const currentBranchAhead = computed(() =>
-  currentLocalBranch.value?.ahead
-  ?? props.overview.ahead
-  ?? 0,
+const currentBranchAhead = computed(
+  () => currentLocalBranch.value?.ahead ?? props.overview.ahead ?? 0,
 );
 
-const currentBranchBehind = computed(() =>
-  currentLocalBranch.value?.behind
-  ?? props.overview.behind
-  ?? 0,
+const currentBranchBehind = computed(
+  () => currentLocalBranch.value?.behind ?? props.overview.behind ?? 0,
 );
 
 const hasRequiredRemotes = computed(() => {
   const remotes = props.workspace?.remotes ?? [];
-  return remotes.some((remote) => remote.name === 'upstream')
-    && remotes.some((remote) => remote.name === 'origin');
+  return (
+    remotes.some((remote) => remote.name === 'upstream') &&
+    remotes.some((remote) => remote.name === 'origin')
+  );
 });
 
 const synchronized = computed(() => {
@@ -95,17 +87,16 @@ const synchronized = computed(() => {
   const originHash = originMain.value?.latestCommit?.hash;
   const upstreamHash = upstreamMain.value?.latestCommit?.hash;
   return Boolean(
-    localHash
-    && originHash
-    && upstreamHash
-    && localHash === originHash
-    && localHash === upstreamHash,
+    localHash &&
+    originHash &&
+    upstreamHash &&
+    localHash === originHash &&
+    localHash === upstreamHash,
   );
 });
 
-const available = computed(() =>
-  Boolean(localMain.value)
-  && hasRequiredRemotes.value,
+const available = computed(
+  () => Boolean(localMain.value) && hasRequiredRemotes.value,
 );
 
 const status = computed(() => {
@@ -166,16 +157,18 @@ const currentBranchStatus = computed(() => {
   }
   if (currentBranchBehind.value > 0) {
     return {
-      label: currentBranchBehind.value === 1
-        ? '1 commit novo no remoto'
-        : `${currentBranchBehind.value} commits novos no remoto`,
+      label:
+        currentBranchBehind.value === 1
+          ? '1 commit novo no remoto'
+          : `${currentBranchBehind.value} commits novos no remoto`,
       tone: 'pending',
     };
   }
   return {
-    label: currentBranchAhead.value > 0
-      ? 'Sem commits remotos novos'
-      : 'Branch atualizada',
+    label:
+      currentBranchAhead.value > 0
+        ? 'Sem commits remotos novos'
+        : 'Branch atualizada',
     tone: 'success',
   };
 });
@@ -184,21 +177,23 @@ const buttonLabel = computed(() =>
   props.busy ? 'Sincronizando…' : 'Sincronizar',
 );
 
-const buttonDisabled = computed(() =>
-  props.busy
-  || props.checking
-  || synchronized.value
-  || !props.overview.clean
-  || !available.value,
+const buttonDisabled = computed(
+  () =>
+    props.busy ||
+    props.checking ||
+    synchronized.value ||
+    !props.overview.clean ||
+    !available.value,
 );
 
-const currentBranchButtonDisabled = computed(() =>
-  props.busy
-  || props.checking
-  || !props.overview.clean
-  || !currentBranchUpstream.value
-  || currentBranchBehind.value <= 0
-  || currentBranchAhead.value > 0,
+const currentBranchButtonDisabled = computed(
+  () =>
+    props.busy ||
+    props.checking ||
+    !props.overview.clean ||
+    !currentBranchUpstream.value ||
+    currentBranchBehind.value <= 0 ||
+    currentBranchAhead.value > 0,
 );
 
 function statusIcon(tone: string) {
@@ -250,8 +245,8 @@ function statusIcon(tone: string) {
       </div>
 
       <p class="git-sync-note">
-        Traz os commits do upstream configurado usando somente fast-forward.
-        Não cria merge nem rebase automaticamente.
+        Traz os commits do upstream configurado usando somente fast-forward. Não
+        cria merge nem rebase automaticamente.
       </p>
     </div>
 
@@ -270,10 +265,7 @@ function statusIcon(tone: string) {
               :class="`is-${status.tone}`"
               role="status"
             >
-              <component
-                :is="statusIcon(status.tone)"
-                aria-hidden="true"
-              />
+              <component :is="statusIcon(status.tone)" aria-hidden="true" />
               {{ status.label }}
             </span>
           </div>

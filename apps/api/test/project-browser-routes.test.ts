@@ -67,7 +67,9 @@ test('abre o navegador na URL do servidor gerenciado quando o processo está em 
     url: 'http://localhost:3001',
     opened: true,
   });
-  assert.deepEqual(launches, [{ target: 'server', url: 'http://localhost:3001' }]);
+  assert.deepEqual(launches, [
+    { target: 'server', url: 'http://localhost:3001' },
+  ]);
 });
 
 test('recusa abrir quando o servidor do projeto não está em execução', async (context) => {

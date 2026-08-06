@@ -70,13 +70,17 @@ test('reconhece mutações produzidas pelo toolbar e pelo diagnóstico', () => {
 
   assert.equal(isTestLogInspectorOwnedMutation(mutation(inspector)), true);
   assert.equal(isTestLogInspectorOwnedMutation(mutation(textNode)), true);
-  assert.equal(isTestLogInspectorOwnedMutation(mutation(elementOutsideInspector())), false);
+  assert.equal(
+    isTestLogInspectorOwnedMutation(mutation(elementOutsideInspector())),
+    false,
+  );
 });
 
 test('entrega somente mutações externas ao callback do inspetor', () => {
   const originalMutationObserver = globalThis.MutationObserver;
   FakeMutationObserver.instances = [];
-  globalThis.MutationObserver = FakeMutationObserver as unknown as typeof MutationObserver;
+  globalThis.MutationObserver =
+    FakeMutationObserver as unknown as typeof MutationObserver;
 
   try {
     const restore = installTestLogInspectorMutationGuard();

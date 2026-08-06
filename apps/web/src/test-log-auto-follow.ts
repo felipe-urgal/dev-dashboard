@@ -13,14 +13,20 @@ export function isTestLogNearEnd(
   viewport: Pick<HTMLElement, 'scrollTop' | 'scrollHeight' | 'clientHeight'>,
   threshold = LOG_BOTTOM_THRESHOLD,
 ): boolean {
-  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= threshold;
+  return (
+    viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <=
+    threshold
+  );
 }
 
 function lineCount(viewport: HTMLElement): number {
   return viewport.querySelectorAll('.tests-log-lines > li').length;
 }
 
-function scheduleScrollToEnd(viewport: HTMLElement, state: TestLogFollowState): void {
+function scheduleScrollToEnd(
+  viewport: HTMLElement,
+  state: TestLogFollowState,
+): void {
   if (!state.following || state.scheduled) return;
   state.scheduled = true;
 
@@ -75,7 +81,9 @@ export function enhanceTestLogAutoFollow(root: ParentNode = document): void {
   if (root instanceof HTMLElement && root.matches('.tests-log-output')) {
     enhanceViewport(root);
   }
-  root.querySelectorAll<HTMLElement>('.tests-log-output').forEach(enhanceViewport);
+  root
+    .querySelectorAll<HTMLElement>('.tests-log-output')
+    .forEach(enhanceViewport);
 }
 
 export function installTestLogAutoFollow(): void {

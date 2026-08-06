@@ -66,12 +66,26 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   assert.equal(table.findAll('thead th').length, 4);
   assert.equal(table.findAll('tbody tr').length, 2);
   assert.equal(table.findAll('tbody td').length, 8);
-  assert.ok(table.findAll('.readme-inline-code').some((node) => node.text() === 'web'));
-  assert.ok(table.findAll('.readme-inline-code').some(
-    (node) => node.text() === 'postgres:17-alpine',
-  ));
-  assert.ok(table.findAll('thead th')[2]?.classes().includes('readme-table-align-right'));
-  assert.ok(table.findAll('thead th')[3]?.classes().includes('readme-table-align-center'));
+  assert.ok(
+    table.findAll('.readme-inline-code').some((node) => node.text() === 'web'),
+  );
+  assert.ok(
+    table
+      .findAll('.readme-inline-code')
+      .some((node) => node.text() === 'postgres:17-alpine'),
+  );
+  assert.ok(
+    table
+      .findAll('thead th')[2]
+      ?.classes()
+      .includes('readme-table-align-right'),
+  );
+  assert.ok(
+    table
+      .findAll('thead th')[3]
+      ?.classes()
+      .includes('readme-table-align-center'),
+  );
 
   const externalLink = wrapper.get('a[href="https://docs.docker.com"]');
   assert.equal(externalLink.attributes('target'), '_blank');

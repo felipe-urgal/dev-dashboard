@@ -1,12 +1,6 @@
-import type {
-  Project,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
-import {
-  createProjectGitBranch,
-  prepareProjectGitMutation,
-} from '../api';
+import { createProjectGitBranch, prepareProjectGitMutation } from '../api';
 import {
   forcePushProjectGitBranchWithLease,
   prepareProjectGitBranchPublish,
@@ -42,8 +36,8 @@ export function useProjectGitPanelPolicy(
     const confirmed = await confirmDialog({
       title: 'Criar branch?',
       message:
-        `A branch "${trimmed}" será criada a partir do HEAD atual. `
-        + 'As alterações locais não commitadas serão mantidas na nova branch.',
+        `A branch "${trimmed}" será criada a partir do HEAD atual. ` +
+        'As alterações locais não commitadas serão mantidas na nova branch.',
       confirmLabel: 'Criar branch',
       tone: 'warning',
     });
@@ -65,8 +59,7 @@ export function useProjectGitPanelPolicy(
         trimmed,
         confirmation.token,
       );
-      panel.mutationMessage.value =
-        `Branch "${branch}" criada e selecionada. Alterações locais preservadas.`;
+      panel.mutationMessage.value = `Branch "${branch}" criada e selecionada. Alterações locais preservadas.`;
       panel.createBranchName.value = '';
       await panel.reloadGitData();
     } catch (error) {
@@ -87,8 +80,8 @@ export function useProjectGitPanelPolicy(
     const confirmed = await confirmDialog({
       title: 'Publicar branch?',
       message:
-        `A branch "${trimmed}" será enviada para origin e passará a rastrear `
-        + `origin/${trimmed}.`,
+        `A branch "${trimmed}" será enviada para origin e passará a rastrear ` +
+        `origin/${trimmed}.`,
       confirmLabel: 'Publicar',
       tone: 'warning',
     });
@@ -108,8 +101,7 @@ export function useProjectGitPanelPolicy(
         trimmed,
         confirmation.token,
       );
-      panel.mutationMessage.value =
-        `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
+      panel.mutationMessage.value = `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
       await panel.reloadGitData();
     } catch (error) {
       panel.mutationErrorMessage.value =
@@ -128,8 +120,8 @@ export function useProjectGitPanelPolicy(
     const confirmed = await confirmDialog({
       title: 'Reenviar branch com lease?',
       message:
-        `O histórico de origin/${branch} será atualizado para o commit alterado. `
-        + 'O envio será recusado automaticamente se alguém tiver publicado novos commits depois da confirmação.',
+        `O histórico de origin/${branch} será atualizado para o commit alterado. ` +
+        'O envio será recusado automaticamente se alguém tiver publicado novos commits depois da confirmação.',
       confirmLabel: 'Reenviar com lease',
       tone: 'warning',
     });
@@ -150,8 +142,7 @@ export function useProjectGitPanelPolicy(
         confirmation.token,
       );
       panel.amendedBranch.value = null;
-      panel.mutationMessage.value =
-        `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
+      panel.mutationMessage.value = `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
       await panel.reloadGitData();
     } catch (error) {
       panel.mutationErrorMessage.value =

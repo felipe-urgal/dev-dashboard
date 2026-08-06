@@ -10,26 +10,18 @@ import {
 } from '../src/project-favorite-repository.js';
 
 test('persiste favoritos em arquivo privado e permite recarregá-los', async () => {
-  const directory = await mkdtemp(
-    path.join(tmpdir(), 'project-favorites-'),
-  );
+  const directory = await mkdtemp(path.join(tmpdir(), 'project-favorites-'));
   const repository = new ProjectFavoriteRepository(directory);
 
   await repository.set('project-b', true);
   await repository.set('project-a', true);
 
-  assert.deepEqual(
-    JSON.parse(await readFile(repository.filePath, 'utf8')),
-    {
-      version: 1,
-      favoriteProjectIds: ['project-a', 'project-b'],
-    },
-  );
+  assert.deepEqual(JSON.parse(await readFile(repository.filePath, 'utf8')), {
+    version: 1,
+    favoriteProjectIds: ['project-a', 'project-b'],
+  });
   assert.equal((await stat(directory)).mode & 0o777, 0o700);
-  assert.equal(
-    (await stat(repository.filePath)).mode & 0o777,
-    0o600,
-  );
+  assert.equal((await stat(repository.filePath)).mode & 0o777, 0o600);
   assert.deepEqual(
     [...new ProjectFavoriteRepository(directory).list()],
     ['project-a', 'project-b'],
@@ -45,10 +37,7 @@ test('remove apenas o favorito informado e preserva projetos ausentes de scans',
   await repository.set('project-currently-absent', true);
   await repository.set('project-visible', false);
 
-  assert.deepEqual(
-    [...repository.list()],
-    ['project-currently-absent'],
-  );
+  assert.deepEqual([...repository.list()], ['project-currently-absent']);
 });
 
 test('recusa identificadores inválidos', async () => {

@@ -1,13 +1,10 @@
 import assert from 'node:assert/strict';
-import {
-  access,
-  readdir,
-  readFile,
-} from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'vitest';
 
-const nativeDialogPattern = /\b(?:window|globalThis)\.(?:alert|confirm|prompt)\s*\(/g;
+const nativeDialogPattern =
+  /\b(?:window|globalThis)\.(?:alert|confirm|prompt)\s*\(/g;
 
 async function resolveSourceRoot(): Promise<string> {
   const candidates = [
@@ -31,12 +28,14 @@ async function resolveSourceRoot(): Promise<string> {
 
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
-  const files = await Promise.all(entries.map(async (entry) => {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(entryPath);
-    if (!/\.(?:ts|vue)$/.test(entry.name)) return [];
-    return [entryPath];
-  }));
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) return sourceFiles(entryPath);
+      if (!/\.(?:ts|vue)$/.test(entry.name)) return [];
+      return [entryPath];
+    }),
+  );
 
   return files.flat();
 }

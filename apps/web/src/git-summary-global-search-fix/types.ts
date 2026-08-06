@@ -21,7 +21,8 @@ export interface HistoryResponse {
 export interface CommitFile {
   path: string;
   previousPath?: string;
-  status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
+  status:
+    'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
   additions: number;
   deletions: number;
   binary: boolean;

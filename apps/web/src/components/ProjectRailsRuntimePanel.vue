@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowPathIcon,
-  PlayIcon,
-  StopIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 import { nextTick, ref, watch } from 'vue';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
@@ -25,7 +21,10 @@ useAutoDismiss(webpack.errorMessage, '');
 const activeWorkerId = ref<RailsWorkerId>('sidekiq');
 
 const logElements = new Map<RailsWorkerId, HTMLPreElement>();
-function registerLogElement(workerId: RailsWorkerId, element: Element | null): void {
+function registerLogElement(
+  workerId: RailsWorkerId,
+  element: Element | null,
+): void {
   if (element instanceof HTMLPreElement) logElements.set(workerId, element);
   else logElements.delete(workerId);
 }
@@ -99,7 +98,10 @@ function formatDate(value?: string): string {
           viewBox="0 0 32 32"
           aria-hidden="true"
         >
-          <path d="M6 24.5V11.8c0-4.2 3.4-7.6 7.6-7.6h2.9c5.2 0 9.5 4.2 9.5 9.5v10.8H6Z" fill="currentColor" />
+          <path
+            d="M6 24.5V11.8c0-4.2 3.4-7.6 7.6-7.6h2.9c5.2 0 9.5 4.2 9.5 9.5v10.8H6Z"
+            fill="currentColor"
+          />
           <circle cx="12" cy="14" r="2.2" fill="white" />
           <circle cx="19.5" cy="11" r="2.2" fill="white" />
           <circle cx="20" cy="19" r="2.2" fill="white" />
@@ -111,9 +113,23 @@ function formatDate(value?: string): string {
           viewBox="0 0 32 32"
           aria-hidden="true"
         >
-          <path d="m16 3 11 6.4v13.2L16 29 5 22.6V9.4L16 3Z" fill="none" stroke="currentColor" stroke-width="2" />
-          <path d="m5.8 9.9 10.2 6 10.2-6M16 16v12" fill="none" stroke="currentColor" stroke-width="2" />
-          <path d="m10.2 12.5 5.8-3.4 5.8 3.4-5.8 3.4-5.8-3.4Z" fill="currentColor" opacity=".24" />
+          <path
+            d="m16 3 11 6.4v13.2L16 29 5 22.6V9.4L16 3Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+          <path
+            d="m5.8 9.9 10.2 6 10.2-6M16 16v12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+          <path
+            d="m10.2 12.5 5.8-3.4 5.8 3.4-5.8 3.4-5.8-3.4Z"
+            fill="currentColor"
+            opacity=".24"
+          />
         </svg>
         <span>{{ worker.id === 'sidekiq' ? 'Sidekiq' : 'Webpack' }}</span>
       </button>
@@ -138,7 +154,10 @@ function formatDate(value?: string): string {
               viewBox="0 0 32 32"
               aria-hidden="true"
             >
-              <path d="M6 24.5V11.8c0-4.2 3.4-7.6 7.6-7.6h2.9c5.2 0 9.5 4.2 9.5 9.5v10.8H6Z" fill="currentColor" />
+              <path
+                d="M6 24.5V11.8c0-4.2 3.4-7.6 7.6-7.6h2.9c5.2 0 9.5 4.2 9.5 9.5v10.8H6Z"
+                fill="currentColor"
+              />
               <circle cx="12" cy="14" r="2.2" fill="white" />
               <circle cx="19.5" cy="11" r="2.2" fill="white" />
               <circle cx="20" cy="19" r="2.2" fill="white" />
@@ -150,9 +169,23 @@ function formatDate(value?: string): string {
               viewBox="0 0 32 32"
               aria-hidden="true"
             >
-              <path d="m16 3 11 6.4v13.2L16 29 5 22.6V9.4L16 3Z" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="m5.8 9.9 10.2 6 10.2-6M16 16v12" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="m10.2 12.5 5.8-3.4 5.8 3.4-5.8 3.4-5.8-3.4Z" fill="currentColor" opacity=".24" />
+              <path
+                d="m16 3 11 6.4v13.2L16 29 5 22.6V9.4L16 3Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="m5.8 9.9 10.2 6 10.2-6M16 16v12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="m10.2 12.5 5.8-3.4 5.8 3.4-5.8 3.4-5.8-3.4Z"
+                fill="currentColor"
+                opacity=".24"
+              />
             </svg>
             {{ workerLabels[worker.id] }}
           </h3>
@@ -161,29 +194,48 @@ function formatDate(value?: string): string {
           </StatusBadge>
         </template>
 
-        <p v-if="worker.state.errorMessage.value" class="rails-worker-error" role="alert">
+        <p
+          v-if="worker.state.errorMessage.value"
+          class="rails-worker-error"
+          role="alert"
+        >
           {{ worker.state.errorMessage.value }}
         </p>
 
-        <p v-if="worker.state.loading.value && !worker.state.detected.value" class="rails-worker-empty">
-          Verificando se {{ workerLabels[worker.id] }} está disponível no projeto…
+        <p
+          v-if="worker.state.loading.value && !worker.state.detected.value"
+          class="rails-worker-empty"
+        >
+          Verificando se {{ workerLabels[worker.id] }} está disponível no
+          projeto…
         </p>
 
-        <div v-else-if="!worker.state.detected.value" class="rails-worker-empty-state">
+        <div
+          v-else-if="!worker.state.detected.value"
+          class="rails-worker-empty-state"
+        >
           <strong>{{ workerLabels[worker.id] }} não foi detectado.</strong>
           <p>
-            O painel será habilitado automaticamente quando o projeto possuir a dependência ou o binstub correspondente.
+            O painel será habilitado automaticamente quando o projeto possuir a
+            dependência ou o binstub correspondente.
           </p>
         </div>
 
         <template v-else>
           <div class="rails-worker-layout">
-            <section class="rails-worker-summary" aria-label="Estado do processo">
+            <section
+              class="rails-worker-summary"
+              aria-label="Estado do processo"
+            >
               <p class="rails-worker-description">
                 {{ workerDescriptions[worker.id] }}
               </p>
               <strong class="rails-worker-status-copy">
-                {{ worker.state.canStop.value ? 'Processo ativo e respondendo.' : 'Processo parado.' }}
+                {{
+                  worker.state.canStop.value
+                    ? 'Processo ativo e respondendo.'
+                    : 'Processo parado.'
+                }}
               </strong>
 
               <div class="rails-worker-actions">
@@ -222,12 +274,17 @@ function formatDate(value?: string): string {
                   class="rails-text-button rails-worker-log-toggle"
                   @click="worker.state.toggleLogs()"
                 >
-                  {{ worker.state.logsVisible.value ? 'Ocultar logs' : 'Ver logs' }}
+                  {{
+                    worker.state.logsVisible.value ? 'Ocultar logs' : 'Ver logs'
+                  }}
                 </button>
               </div>
             </section>
 
-            <section class="rails-worker-process-details" aria-label="Detalhes do processo">
+            <section
+              class="rails-worker-process-details"
+              aria-label="Detalhes do processo"
+            >
               <h4>Detalhes do processo</h4>
               <dl class="rails-worker-details">
                 <div>
@@ -241,7 +298,10 @@ function formatDate(value?: string): string {
                 <div>
                   <dt>Comando</dt>
                   <dd>
-                    <code>{{ worker.state.managedProcess.value?.command ?? 'Ainda não iniciado pelo dashboard' }}</code>
+                    <code>{{
+                      worker.state.managedProcess.value?.command ??
+                      'Ainda não iniciado pelo dashboard'
+                    }}</code>
                   </dd>
                 </div>
                 <div v-if="worker.state.managedProcess.value?.port">
@@ -251,14 +311,22 @@ function formatDate(value?: string): string {
                 <div v-if="worker.state.managedProcess.value?.url">
                   <dt>URL</dt>
                   <dd>
-                    <a :href="worker.state.managedProcess.value.url" target="_blank" rel="noreferrer">
+                    <a
+                      :href="worker.state.managedProcess.value.url"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       {{ worker.state.managedProcess.value.url }}
                     </a>
                   </dd>
                 </div>
                 <div>
                   <dt>Iniciado em</dt>
-                  <dd>{{ formatDate(worker.state.managedProcess.value?.startedAt) }}</dd>
+                  <dd>
+                    {{
+                      formatDate(worker.state.managedProcess.value?.startedAt)
+                    }}
+                  </dd>
                 </div>
               </dl>
             </section>
@@ -275,13 +343,26 @@ function formatDate(value?: string): string {
                 <p>Acompanhe a saída exclusiva deste processo.</p>
               </div>
               <div class="rails-worker-logs-toolbar">
-                <span v-if="worker.state.log.value?.masked" class="rails-worker-logs-notice">
-                  Segredos mascarados ({{ worker.state.log.value.redactionCount }})
+                <span
+                  v-if="worker.state.log.value?.masked"
+                  class="rails-worker-logs-notice"
+                >
+                  Segredos mascarados ({{
+                    worker.state.log.value.redactionCount
+                  }})
                 </span>
-                <button type="button" class="rails-text-button" @click="worker.state.refreshLog()">
+                <button
+                  type="button"
+                  class="rails-text-button"
+                  @click="worker.state.refreshLog()"
+                >
                   Atualizar
                 </button>
-                <button type="button" class="rails-text-button" @click="worker.state.clearLog()">
+                <button
+                  type="button"
+                  class="rails-text-button"
+                  @click="worker.state.clearLog()"
+                >
                   Limpar
                 </button>
               </div>
@@ -290,7 +371,12 @@ function formatDate(value?: string): string {
               class="rails-worker-log-content"
               tabindex="0"
               :ref="(el) => registerLogElement(worker.id, el as Element | null)"
-            >{{ worker.state.log.value?.content || (worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.') }}</pre>
+              >{{
+                worker.state.log.value?.content ||
+                (worker.state.logLoading.value
+                  ? 'Carregando…'
+                  : 'Sem conteúdo.')
+              }}</pre>
           </section>
         </template>
       </Card>

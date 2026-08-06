@@ -20,9 +20,7 @@ function isIpv4Family(family: string | number): boolean {
 }
 
 export function listServerUrls(port: number): string[] {
-  const urls = new Set<string>([
-    `http://localhost:${port}`,
-  ]);
+  const urls = new Set<string>([`http://localhost:${port}`]);
 
   for (const addresses of Object.values(networkInterfaces())) {
     for (const address of addresses ?? []) {
@@ -67,10 +65,7 @@ export async function canConnect(
   });
 }
 
-export async function canListen(
-  host: string,
-  port: number,
-): Promise<boolean> {
+export async function canListen(host: string, port: number): Promise<boolean> {
   return await new Promise<boolean>((resolve) => {
     const server = createServer();
 

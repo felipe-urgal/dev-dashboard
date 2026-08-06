@@ -17,10 +17,14 @@ test('prepare gera token de 64 caracteres hex vinculado a projeto, operação e 
 test('consume aceita o token exato uma única vez', () => {
   const service = new GitMutationConfirmationService();
   const { token } = service.prepare('p1', 'create-branch', 'feature/x');
-  assert.doesNotThrow(() => service.consume('p1', 'create-branch', 'feature/x', token));
+  assert.doesNotThrow(() =>
+    service.consume('p1', 'create-branch', 'feature/x', token),
+  );
   assert.throws(
     () => service.consume('p1', 'create-branch', 'feature/x', token),
-    (error) => error instanceof GitMutationConfirmationError && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+    (error) =>
+      error instanceof GitMutationConfirmationError &&
+      error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
   );
 });
 

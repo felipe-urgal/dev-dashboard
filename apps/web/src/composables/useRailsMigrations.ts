@@ -23,11 +23,16 @@ const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
   prepare: 'Preparar o banco (db:prepare)',
 };
 
-const mutationConfirmationText: Record<RailsMigrationMutationOperation, string> = {
+const mutationConfirmationText: Record<
+  RailsMigrationMutationOperation,
+  string
+> = {
   migrate: 'Todas as migrations pendentes serão executadas neste banco.',
-  rollback: 'A última migration aplicada será desfeita em um passo. Dados criados por ela podem ser apagados.',
+  rollback:
+    'A última migration aplicada será desfeita em um passo. Dados criados por ela podem ser apagados.',
   seed: 'O comando db:seed será executado neste banco e pode criar ou alterar dados.',
-  prepare: 'O comando db:prepare será executado e pode criar o banco ou carregar o schema mais recente.',
+  prepare:
+    'O comando db:prepare será executado e pode criar o banco ou carregar o schema mais recente.',
 };
 
 const mutationConfirmLabels: Record<RailsMigrationMutationOperation, string> = {
@@ -67,10 +72,23 @@ export function useRailsMigrations(
     migrationDetailLoading.value = true;
     migrationDetailErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrationDetail(getProject().id, version, database);
-      if (current === generation && selectedMigrationVersion.value === version && selectedDatabase.value === database) migrationDetail.value = result;
+      const result = await fetchProjectRailsMigrationDetail(
+        getProject().id,
+        version,
+        database,
+      );
+      if (
+        current === generation &&
+        selectedMigrationVersion.value === version &&
+        selectedDatabase.value === database
+      )
+        migrationDetail.value = result;
     } catch (error) {
-      if (current === generation) migrationDetailErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar os detalhes da migration.';
+      if (current === generation)
+        migrationDetailErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar os detalhes da migration.';
     } finally {
       if (current === generation) migrationDetailLoading.value = false;
     }
@@ -82,16 +100,26 @@ export function useRailsMigrations(
     migrationsLoading.value = true;
     migrationsErrorMessage.value = '';
     try {
-      const result = await fetchProjectRailsMigrations(getProject().id, selectedDatabase.value);
+      const result = await fetchProjectRailsMigrations(
+        getProject().id,
+        selectedDatabase.value,
+      );
       if (current !== generation) return;
       migrations.value = result;
-      const preferred = result.migrations.find((item) => item.version === selectedMigrationVersion.value)
-        ?? result.migrations.find((item) => item.status === 'down')
-        ?? result.migrations[0];
+      const preferred =
+        result.migrations.find(
+          (item) => item.version === selectedMigrationVersion.value,
+        ) ??
+        result.migrations.find((item) => item.status === 'down') ??
+        result.migrations[0];
       selectedMigrationVersion.value = preferred?.version ?? '';
       if (preferred) await loadMigrationDetail(preferred.version);
     } catch (error) {
-      if (current === generation) migrationsErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível consultar as migrations.';
+      if (current === generation)
+        migrationsErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar as migrations.';
     } finally {
       if (current === generation) migrationsLoading.value = false;
     }
@@ -111,7 +139,9 @@ export function useRailsMigrations(
     void loadMigrations();
   }
 
-  async function runMigrationMutation(operation: RailsMigrationMutationOperation): Promise<void> {
+  async function runMigrationMutation(
+    operation: RailsMigrationMutationOperation,
+  ): Promise<void> {
     if (mutationRunning.value) return;
     const confirmed = await confirmDialog({
       title: `${mutationConfirmLabels[operation]}?`,
@@ -126,14 +156,26 @@ export function useRailsMigrations(
     mutationErrorMessage.value = '';
     mutationOutput.value = '';
     try {
-      const confirmation = await prepareProjectRailsMutation(getProject().id, operation);
-      const result = await runProjectRailsMutation(getProject().id, operation, confirmation.token);
+      const confirmation = await prepareProjectRailsMutation(
+        getProject().id,
+        operation,
+      );
+      const result = await runProjectRailsMutation(
+        getProject().id,
+        operation,
+        confirmation.token,
+      );
       mutationOutput.value = result.output;
-      if (result.succeeded) mutationMessage.value = `${mutationLabels[operation]} concluído.`;
-      else mutationErrorMessage.value = `${mutationLabels[operation]} falhou. Veja a saída abaixo.`;
+      if (result.succeeded)
+        mutationMessage.value = `${mutationLabels[operation]} concluído.`;
+      else
+        mutationErrorMessage.value = `${mutationLabels[operation]} falhou. Veja a saída abaixo.`;
       await loadMigrations();
     } catch (error) {
-      mutationErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir a operação.';
     } finally {
       mutationRunning.value = '';
     }

@@ -26,7 +26,9 @@ const monaco = vi.hoisted(() => {
     uri: unknown;
   } = { value: '', listener: undefined, uri: '' };
   const model = {
-    get uri() { return state.uri; },
+    get uri() {
+      return state.uri;
+    },
     dispose: vi.fn(),
     getValue: vi.fn(() => state.value),
     setValue: vi.fn((value: string) => {
@@ -45,28 +47,26 @@ const monaco = vi.hoisted(() => {
     model,
     setModel,
     updateOptions,
-    createModel: vi.fn((
-      content: string,
-      _language: string,
-      _uri: unknown,
-    ) => {
+    createModel: vi.fn((content: string, _language: string, _uri: unknown) => {
       state.value = content;
       state.uri = _uri;
       return model;
     }),
-    createEditor: vi.fn((
-      _host: unknown,
-      _options: {
-        scrollbar?: { alwaysConsumeMouseWheel?: boolean };
-      },
-    ) => ({
-      setModel,
-      updateOptions,
-      setPosition: vi.fn(),
-      revealPositionInCenter: vi.fn(),
-      focus: vi.fn(),
-      dispose: vi.fn(),
-    })),
+    createEditor: vi.fn(
+      (
+        _host: unknown,
+        _options: {
+          scrollbar?: { alwaysConsumeMouseWheel?: boolean };
+        },
+      ) => ({
+        setModel,
+        updateOptions,
+        setPosition: vi.fn(),
+        revealPositionInCenter: vi.fn(),
+        focus: vi.fn(),
+        dispose: vi.fn(),
+      }),
+    ),
   };
 });
 
@@ -156,7 +156,8 @@ async function mountEditor() {
       plugins: [router],
       stubs: {
         ProjectEditorLauncher: {
-          template: '<button class="local-editor-stub">Abrir localmente</button>',
+          template:
+            '<button class="local-editor-stub">Abrir localmente</button>',
         },
       },
     },
@@ -228,17 +229,22 @@ beforeEach(() => {
     ...openedFile('# Projeto alterado\n'),
     version: 'b'.repeat(64),
   });
-  api.watch.mockResolvedValue({ checkedAt: new Date().toISOString(), items: [] });
+  api.watch.mockResolvedValue({
+    checkedAt: new Date().toISOString(),
+    items: [],
+  });
   api.search.mockResolvedValue({
     query: 'Projeto',
-    items: [{
-      path: 'README.md',
-      name: 'README.md',
-      language: 'markdown',
-      line: 1,
-      column: 3,
-      preview: '# Projeto',
-    }],
+    items: [
+      {
+        path: 'README.md',
+        name: 'README.md',
+        language: 'markdown',
+        line: 1,
+        column: 3,
+        preview: '# Projeto',
+      },
+    ],
     truncated: false,
     scannedFiles: 1,
   });
@@ -276,8 +282,14 @@ test('marca a aba como alterada e salva com a versão aberta', async () => {
   monaco.state.listener?.();
   await flushPromises();
 
-  assert.match(wrapper.get('.embedded-ide-statusbar').text(), /Alterações não salvas/);
-  assert.equal(wrapper.get('.embedded-ide-save').attributes('disabled'), undefined);
+  assert.match(
+    wrapper.get('.embedded-ide-statusbar').text(),
+    /Alterações não salvas/,
+  );
+  assert.equal(
+    wrapper.get('.embedded-ide-save').attributes('disabled'),
+    undefined,
+  );
   await wrapper.get('.embedded-ide-save').trigger('click');
   await flushPromises();
 
@@ -290,7 +302,9 @@ test('marca a aba como alterada e salva com a versão aberta', async () => {
     },
   ]);
   assert.match(wrapper.text(), /README\.md salvo/);
-  assert.ok(wrapper.get('.embedded-ide-save').attributes('disabled') !== undefined);
+  assert.ok(
+    wrapper.get('.embedded-ide-save').attributes('disabled') !== undefined,
+  );
   wrapper.unmount();
 });
 
@@ -313,8 +327,20 @@ test('clique único abre em aba de preview e substitui a anterior; duplo clique 
   api.directory.mockResolvedValue({
     path: '',
     entries: [
-      { path: 'README.md', name: 'README.md', kind: 'file', language: 'markdown', size: 10 },
-      { path: 'NOTES.md', name: 'NOTES.md', kind: 'file', language: 'markdown', size: 8 },
+      {
+        path: 'README.md',
+        name: 'README.md',
+        kind: 'file',
+        language: 'markdown',
+        size: 10,
+      },
+      {
+        path: 'NOTES.md',
+        name: 'NOTES.md',
+        kind: 'file',
+        language: 'markdown',
+        size: 8,
+      },
     ],
     truncated: false,
   });
@@ -323,7 +349,8 @@ test('clique único abre em aba de preview e substitui a anterior; duplo clique 
       ...openedFile(`# ${filePath}\n`),
       path: filePath,
       name: filePath,
-    }));
+    }),
+  );
 
   const wrapper = await mountEditor();
   await flushPromises();
@@ -365,14 +392,23 @@ test('clique, clique e duplo clique concorrentes no mesmo arquivo não duplicam 
   api.directory.mockResolvedValue({
     path: '',
     entries: [
-      { path: 'README.md', name: 'README.md', kind: 'file', language: 'markdown', size: 10 },
+      {
+        path: 'README.md',
+        name: 'README.md',
+        kind: 'file',
+        language: 'markdown',
+        size: 10,
+      },
     ],
     truncated: false,
   });
   let resolveFile: (() => void) | undefined;
-  api.file.mockImplementation(() => new Promise((resolve) => {
-    resolveFile = () => resolve(openedFile());
-  }));
+  api.file.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveFile = () => resolve(openedFile());
+      }),
+  );
 
   const wrapper = await mountEditor();
   await flushPromises();

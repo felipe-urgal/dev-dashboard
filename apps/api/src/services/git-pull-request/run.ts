@@ -3,7 +3,10 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-export async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+export async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -40,7 +43,10 @@ export async function runProviderCli(
   }
 }
 
-export async function optionalGit(projectPath: string, args: readonly string[]): Promise<string | null> {
+export async function optionalGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string | null> {
   try {
     return await runGit(projectPath, args);
   } catch {

@@ -23,7 +23,9 @@ async function createRepository(): Promise<{
   local: string;
   origin: string;
 }> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-remote-delete-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-remote-delete-'),
+  );
   const local = path.join(root, 'local');
   const origin = path.join(root, 'origin.git');
 
@@ -69,11 +71,23 @@ test('removes a confirmed branch from origin without deleting the local branch',
 
     assert.equal(result.branch, 'feature/remove-me');
     assert.equal(
-      await git(local, 'show-ref', '--verify', '--hash', 'refs/heads/feature/remove-me'),
+      await git(
+        local,
+        'show-ref',
+        '--verify',
+        '--hash',
+        'refs/heads/feature/remove-me',
+      ),
       await git(local, 'rev-parse', 'feature/remove-me'),
     );
-    await assert.rejects(
-      () => git(origin, 'show-ref', '--verify', '--quiet', 'refs/heads/feature/remove-me'),
+    await assert.rejects(() =>
+      git(
+        origin,
+        'show-ref',
+        '--verify',
+        '--quiet',
+        'refs/heads/feature/remove-me',
+      ),
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -97,10 +111,11 @@ test('does not allow deleting branches from upstream', () => {
   const service = new GitBranchService();
 
   assert.throws(
-    () => service.prepareRemoteDeleteConfirmation(
-      'project-1',
-      'upstream/feature/remove-me',
-    ),
+    () =>
+      service.prepareRemoteDeleteConfirmation(
+        'project-1',
+        'upstream/feature/remove-me',
+      ),
     (error: unknown) => {
       assert.ok(error instanceof GitBranchServiceError);
       assert.equal(error.code, 'GIT_BRANCH_INVALID');

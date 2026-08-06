@@ -61,13 +61,19 @@ export class ActivityService {
 
   public async list(query: ActivityQuery = {}): Promise<ActivityList> {
     const page = Math.max(1, Math.floor(query.page ?? 1));
-    const pageSize = Math.min(100, Math.max(1, Math.floor(query.pageSize ?? 20)));
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Math.floor(query.pageSize ?? 20)),
+    );
 
     const projects = this.projectStore.listProjects();
-    const projectsById = new Map(projects.map((project) => [project.id, project]));
+    const projectsById = new Map(
+      projects.map((project) => [project.id, project]),
+    );
 
     const eligibleProjects = projects.filter((project) => {
-      if (query.workspaceId && project.workspaceId !== query.workspaceId) return false;
+      if (query.workspaceId && project.workspaceId !== query.workspaceId)
+        return false;
       if (query.projectId && project.id !== query.projectId) return false;
       return true;
     });
@@ -78,21 +84,34 @@ export class ActivityService {
     if (!query.origin || query.origin === 'script') {
       for (const project of eligibleProjects) {
         const executions: ScriptExecution[] = [];
-        for (let pageIndex = 1; pageIndex <= HISTORY_MAX_PAGES; pageIndex += 1) {
-          const history = await this.scriptExecutionService.history(project.id, pageIndex, HISTORY_PAGE_SIZE);
+        for (
+          let pageIndex = 1;
+          pageIndex <= HISTORY_MAX_PAGES;
+          pageIndex += 1
+        ) {
+          const history = await this.scriptExecutionService.history(
+            project.id,
+            pageIndex,
+            HISTORY_PAGE_SIZE,
+          );
           executions.push(...history.items);
-          if (pageIndex >= history.totalPages || history.items.length === 0) break;
+          if (pageIndex >= history.totalPages || history.items.length === 0)
+            break;
         }
         for (const execution of executions) {
           activities.push({
             id: `script:${execution.id}`,
             projectId: execution.projectId,
-            ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
+            ...(project.workspaceId
+              ? { workspaceId: project.workspaceId }
+              : {}),
             label: execution.actionName,
             origin: 'script',
             status: mapScriptStatus(execution.status),
             startedAt: execution.startedAt,
-            ...(execution.finishedAt ? { finishedAt: execution.finishedAt } : {}),
+            ...(execution.finishedAt
+              ? { finishedAt: execution.finishedAt }
+              : {}),
             reference: {
               executionId: execution.id,
               actionId: execution.actionId,
@@ -130,10 +149,11 @@ export class ActivityService {
     const search = query.search?.trim().toLocaleLowerCase('pt-BR') ?? '';
     const searched = search
       ? activities.filter((activity) => {
-        const projectName = projectsById.get(activity.projectId)?.name ?? '';
-        return [activity.label, activity.projectId, projectName]
-          .some((value) => value.toLocaleLowerCase('pt-BR').includes(search));
-      })
+          const projectName = projectsById.get(activity.projectId)?.name ?? '';
+          return [activity.label, activity.projectId, projectName].some(
+            (value) => value.toLocaleLowerCase('pt-BR').includes(search),
+          );
+        })
       : activities;
 
     const filtered = query.status
@@ -141,9 +161,12 @@ export class ActivityService {
       : searched;
 
     const summary = {
-      running: searched.filter((activity) => activity.status === 'running').length,
-      succeeded: searched.filter((activity) => activity.status === 'succeeded').length,
-      failed: searched.filter((activity) => activity.status === 'failed').length,
+      running: searched.filter((activity) => activity.status === 'running')
+        .length,
+      succeeded: searched.filter((activity) => activity.status === 'succeeded')
+        .length,
+      failed: searched.filter((activity) => activity.status === 'failed')
+        .length,
       total: searched.length,
     };
 

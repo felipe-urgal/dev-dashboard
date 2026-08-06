@@ -17,8 +17,9 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
     path.join(tmpdir(), 'dev-dashboard-health-route-'),
   );
   const appContext = createAppContext();
-  appContext.serverSettingsRepository =
-    new ProjectServerSettingsRepository(fixtureRoot);
+  appContext.serverSettingsRepository = new ProjectServerSettingsRepository(
+    fixtureRoot,
+  );
   const project: Project = {
     id: 'project-health',
     workspaceId: 'workspace-health',
@@ -122,8 +123,5 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
   });
 
   assert.equal(maliciousPathResponse.statusCode, 400);
-  assert.equal(
-    maliciousPathResponse.json().error,
-    'INVALID_HEALTH_CHECK_PATH',
-  );
+  assert.equal(maliciousPathResponse.json().error, 'INVALID_HEALTH_CHECK_PATH');
 });

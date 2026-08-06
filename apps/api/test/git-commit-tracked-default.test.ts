@@ -100,10 +100,8 @@ test('novo commit inclui alterações rastreadas mesmo com flag legada false', a
     response.json<{ commit: { subject: string } }>().commit.subject,
     'commit sem stage manual',
   );
-  const { stdout } = await execFileAsync(
-    'git',
-    ['show', 'HEAD:README.md'],
-    { cwd: repoPath },
-  );
+  const { stdout } = await execFileAsync('git', ['show', 'HEAD:README.md'], {
+    cwd: repoPath,
+  });
   assert.equal(stdout, 'sem stage manual\n');
 });

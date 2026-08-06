@@ -51,12 +51,18 @@ function normalizeRepositoryPath(value) {
 }
 
 function documentGroup(repositoryPath) {
-  if (repositoryPath === 'docs/index.md' || repositoryPath === 'README.md') return 'Visão geral';
+  if (repositoryPath === 'docs/index.md' || repositoryPath === 'README.md')
+    return 'Visão geral';
   if (repositoryPath === 'docs/getting-started.md') return 'Primeiros passos';
   if (repositoryPath.startsWith('docs/guia/')) return 'Guia de uso';
   if (repositoryPath.startsWith('docs/architecture/')) return 'Arquitetura';
-  if (repositoryPath === 'docs/development-guide.md' || repositoryPath === 'CONTRIBUTING.md') return 'Desenvolvimento';
-  if (repositoryPath === 'docs/operations-and-troubleshooting.md') return 'Operação';
+  if (
+    repositoryPath === 'docs/development-guide.md' ||
+    repositoryPath === 'CONTRIBUTING.md'
+  )
+    return 'Desenvolvimento';
+  if (repositoryPath === 'docs/operations-and-troubleshooting.md')
+    return 'Operação';
   if (repositoryPath === 'docs/documentation-api.md') return 'Referência';
   if (repositoryPath.startsWith('docs/')) return 'Referência';
   return 'Outros documentos';
@@ -65,7 +71,10 @@ function documentGroup(repositoryPath) {
 function titleFromMarkdown(markdown, fallbackPath) {
   const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
   if (heading) return heading.replace(/[`*_]/g, '');
-  return path.basename(fallbackPath, '.md').replace(/[-_]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return path
+    .basename(fallbackPath, '.md')
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function descriptionFromMarkdown(markdown) {
@@ -73,7 +82,13 @@ function descriptionFromMarkdown(markdown) {
   const paragraphs = withoutFences
     .split(/\n\s*\n/)
     .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph && !paragraph.startsWith('#') && !paragraph.startsWith('>') && !paragraph.startsWith('|'));
+    .filter(
+      (paragraph) =>
+        paragraph &&
+        !paragraph.startsWith('#') &&
+        !paragraph.startsWith('>') &&
+        !paragraph.startsWith('|'),
+    );
   const text = (paragraphs[0] ?? '')
     .replace(/^[-*+]\s+/gm, '')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
@@ -88,7 +103,10 @@ function headingsFromMarkdown(markdown) {
     .split('\n')
     .map((line) => line.match(/^(#{1,4})\s+(.+)$/))
     .filter(Boolean)
-    .map((match) => ({ level: match[1].length, title: match[2].replace(/[`*_]/g, '').trim() }));
+    .map((match) => ({
+      level: match[1].length,
+      title: match[2].replace(/[`*_]/g, '').trim(),
+    }));
 }
 
 async function walkMarkdownFiles(directory, rootDirectory) {
@@ -102,21 +120,30 @@ async function walkMarkdownFiles(directory, rootDirectory) {
   }
 
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'site') continue;
+    if (
+      entry.name.startsWith('.') ||
+      entry.name === 'node_modules' ||
+      entry.name === 'site'
+    )
+      continue;
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await walkMarkdownFiles(absolutePath, rootDirectory));
+      files.push(...(await walkMarkdownFiles(absolutePath, rootDirectory)));
       continue;
     }
     if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
-      files.push(normalizeRepositoryPath(path.relative(rootDirectory, absolutePath)));
+      files.push(
+        normalizeRepositoryPath(path.relative(rootDirectory, absolutePath)),
+      );
     }
   }
   return files;
 }
 
 export async function buildCatalog(rootDirectory = process.cwd()) {
-  const candidates = new Set(await walkMarkdownFiles(path.join(rootDirectory, 'docs'), rootDirectory));
+  const candidates = new Set(
+    await walkMarkdownFiles(path.join(rootDirectory, 'docs'), rootDirectory),
+  );
   for (const rootDocument of ['README.md', 'CONTRIBUTING.md']) {
     try {
       const fileStat = await stat(path.join(rootDirectory, rootDocument));
@@ -143,7 +170,9 @@ export async function buildCatalog(rootDirectory = process.cwd()) {
   }
 
   pages.sort((a, b) => {
-    const groupDifference = (GROUP_PRIORITY.get(a.group) ?? 999) - (GROUP_PRIORITY.get(b.group) ?? 999);
+    const groupDifference =
+      (GROUP_PRIORITY.get(a.group) ?? 999) -
+      (GROUP_PRIORITY.get(b.group) ?? 999);
     if (groupDifference !== 0) return groupDifference;
     const priorityDifference = a.priority - b.priority;
     if (priorityDifference !== 0) return priorityDifference;
@@ -159,30 +188,57 @@ export async function buildCatalog(rootDirectory = process.cwd()) {
     name: 'Dev Dashboard Docs',
     description: 'Documentação técnica e de produto do Dev Dashboard.',
     generatedAt: new Date().toISOString(),
-    defaultDocument: pages.some((page) => page.path === 'docs/index.md') ? 'docs/index.md' : pages[0]?.path ?? null,
+    defaultDocument: pages.some((page) => page.path === 'docs/index.md')
+      ? 'docs/index.md'
+      : (pages[0]?.path ?? null),
     groups,
     pages,
   };
 }
 
-export async function resolveDocumentPath(rootDirectory, repositoryPath, catalog = null) {
-  if (typeof repositoryPath !== 'string' || repositoryPath.length === 0 || repositoryPath.includes('\0')) {
-    throw Object.assign(new Error('Documento inválido.'), { code: 'INVALID_DOCUMENT_PATH' });
+export async function resolveDocumentPath(
+  rootDirectory,
+  repositoryPath,
+  catalog = null,
+) {
+  if (
+    typeof repositoryPath !== 'string' ||
+    repositoryPath.length === 0 ||
+    repositoryPath.includes('\0')
+  ) {
+    throw Object.assign(new Error('Documento inválido.'), {
+      code: 'INVALID_DOCUMENT_PATH',
+    });
   }
-  const normalizedPath = normalizeRepositoryPath(path.posix.normalize(repositoryPath));
-  if (normalizedPath.startsWith('../') || path.posix.isAbsolute(normalizedPath) || !normalizedPath.toLowerCase().endsWith('.md')) {
-    throw Object.assign(new Error('Documento fora do escopo permitido.'), { code: 'DOCUMENT_OUTSIDE_SCOPE' });
+  const normalizedPath = normalizeRepositoryPath(
+    path.posix.normalize(repositoryPath),
+  );
+  if (
+    normalizedPath.startsWith('../') ||
+    path.posix.isAbsolute(normalizedPath) ||
+    !normalizedPath.toLowerCase().endsWith('.md')
+  ) {
+    throw Object.assign(new Error('Documento fora do escopo permitido.'), {
+      code: 'DOCUMENT_OUTSIDE_SCOPE',
+    });
   }
   if (catalog && !catalog.pages.some((page) => page.path === normalizedPath)) {
-    throw Object.assign(new Error('Documento não catalogado.'), { code: 'DOCUMENT_NOT_FOUND' });
+    throw Object.assign(new Error('Documento não catalogado.'), {
+      code: 'DOCUMENT_NOT_FOUND',
+    });
   }
 
   const rootRealPath = await realpath(rootDirectory);
   const candidatePath = path.resolve(rootDirectory, normalizedPath);
   const candidateRealPath = await realpath(candidatePath);
   const rootPrefix = `${rootRealPath}${path.sep}`;
-  if (candidateRealPath !== rootRealPath && !candidateRealPath.startsWith(rootPrefix)) {
-    throw Object.assign(new Error('Documento fora do repositório.'), { code: 'DOCUMENT_OUTSIDE_SCOPE' });
+  if (
+    candidateRealPath !== rootRealPath &&
+    !candidateRealPath.startsWith(rootPrefix)
+  ) {
+    throw Object.assign(new Error('Documento fora do repositório.'), {
+      code: 'DOCUMENT_OUTSIDE_SCOPE',
+    });
   }
   return candidateRealPath;
 }
@@ -216,12 +272,26 @@ export async function searchDocuments(rootDirectory, catalog, query) {
 
   for (const page of catalog.pages) {
     if (page.bytes > SEARCH_CONTENT_LIMIT) continue;
-    const absolutePath = await resolveDocumentPath(rootDirectory, page.path, catalog);
+    const absolutePath = await resolveDocumentPath(
+      rootDirectory,
+      page.path,
+      catalog,
+    );
     const markdown = await readFile(absolutePath, 'utf8');
     const titleText = normalizeSearchText(page.title);
-    const headingText = normalizeSearchText(page.headings.map((heading) => heading.title).join(' '));
+    const headingText = normalizeSearchText(
+      page.headings.map((heading) => heading.title).join(' '),
+    );
     const bodyText = normalizeSearchText(markdown);
-    if (!terms.every((term) => titleText.includes(term) || headingText.includes(term) || bodyText.includes(term))) continue;
+    if (
+      !terms.every(
+        (term) =>
+          titleText.includes(term) ||
+          headingText.includes(term) ||
+          bodyText.includes(term),
+      )
+    )
+      continue;
 
     let score = 0;
     for (const term of terms) {
@@ -239,7 +309,9 @@ export async function searchDocuments(rootDirectory, catalog, query) {
   }
 
   return results
-    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title, 'pt-BR'))
+    .sort(
+      (a, b) => b.score - a.score || a.title.localeCompare(b.title, 'pt-BR'),
+    )
     .slice(0, MAX_SEARCH_RESULTS)
     .map(({ score: _score, ...result }) => result);
 }
@@ -255,13 +327,19 @@ function json(response, statusCode, payload) {
   response.end(body);
 }
 
-function text(response, statusCode, body, contentType = 'text/plain; charset=utf-8') {
+function text(
+  response,
+  statusCode,
+  body,
+  contentType = 'text/plain; charset=utf-8',
+) {
   response.writeHead(statusCode, {
     'Content-Type': contentType,
     'Content-Length': Buffer.byteLength(body),
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy':
+      "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
     'Referrer-Policy': 'no-referrer',
   });
   response.end(body);
@@ -274,9 +352,18 @@ function apiError(response, statusCode, code, message) {
 export function createDocsServer(options = {}) {
   const rootDirectory = path.resolve(options.rootDirectory ?? process.cwd());
   const host = options.host ?? DEFAULT_HOST;
-  const requestedPort = Number.parseInt(String(options.port ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? DEFAULT_PORT), 10);
-  if (!Number.isInteger(requestedPort) || requestedPort < 0 || requestedPort > 65_535) {
-    throw new Error('DEV_DASHBOARD_DOCS_PORT deve ser uma porta inteira entre 0 e 65535.');
+  const requestedPort = Number.parseInt(
+    String(options.port ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? DEFAULT_PORT),
+    10,
+  );
+  if (
+    !Number.isInteger(requestedPort) ||
+    requestedPort < 0 ||
+    requestedPort > 65_535
+  ) {
+    throw new Error(
+      'DEV_DASHBOARD_DOCS_PORT deve ser uma porta inteira entre 0 e 65535.',
+    );
   }
   const sitePath = path.join(rootDirectory, 'docs/site/index.html');
 
@@ -286,7 +373,12 @@ export function createDocsServer(options = {}) {
       const method = request.method ?? 'GET';
       if (method !== 'GET' && method !== 'HEAD') {
         response.setHeader('Allow', 'GET, HEAD');
-        apiError(response, 405, 'METHOD_NOT_ALLOWED', 'A documentação é somente leitura.');
+        apiError(
+          response,
+          405,
+          'METHOD_NOT_ALLOWED',
+          'A documentação é somente leitura.',
+        );
         return;
       }
 
@@ -309,7 +401,11 @@ export function createDocsServer(options = {}) {
         const catalog = await buildCatalog(rootDirectory);
         const repositoryPath = requestUrl.searchParams.get('path') ?? '';
         try {
-          const absolutePath = await resolveDocumentPath(rootDirectory, repositoryPath, catalog);
+          const absolutePath = await resolveDocumentPath(
+            rootDirectory,
+            repositoryPath,
+            catalog,
+          );
           const markdown = await readFile(absolutePath, 'utf8');
           json(response, 200, {
             path: normalizeRepositoryPath(repositoryPath),
@@ -317,11 +413,22 @@ export function createDocsServer(options = {}) {
             markdown,
           });
         } catch (error) {
-          if (error?.code === 'ENOENT' || error?.code === 'DOCUMENT_NOT_FOUND') {
-            apiError(response, 404, 'DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
+          if (
+            error?.code === 'ENOENT' ||
+            error?.code === 'DOCUMENT_NOT_FOUND'
+          ) {
+            apiError(
+              response,
+              404,
+              'DOCUMENT_NOT_FOUND',
+              'Documento não encontrado.',
+            );
             return;
           }
-          if (error?.code === 'INVALID_DOCUMENT_PATH' || error?.code === 'DOCUMENT_OUTSIDE_SCOPE') {
+          if (
+            error?.code === 'INVALID_DOCUMENT_PATH' ||
+            error?.code === 'DOCUMENT_OUTSIDE_SCOPE'
+          ) {
             apiError(response, 400, error.code, error.message);
             return;
           }
@@ -333,20 +440,37 @@ export function createDocsServer(options = {}) {
       if (requestUrl.pathname === '/api/search') {
         const query = requestUrl.searchParams.get('q') ?? '';
         const catalog = await buildCatalog(rootDirectory);
-        json(response, 200, { query, results: await searchDocuments(rootDirectory, catalog, query) });
+        json(response, 200, {
+          query,
+          results: await searchDocuments(rootDirectory, catalog, query),
+        });
         return;
       }
 
-      if (requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') {
+      if (
+        requestUrl.pathname === '/' ||
+        requestUrl.pathname === '/index.html'
+      ) {
         const html = await readFile(sitePath, 'utf8');
         text(response, 200, html, 'text/html; charset=utf-8');
         return;
       }
 
-      apiError(response, 404, 'NOT_FOUND', 'Recurso de documentação não encontrado.');
+      apiError(
+        response,
+        404,
+        'NOT_FOUND',
+        'Recurso de documentação não encontrado.',
+      );
     } catch (error) {
       console.error('[docs] Falha ao responder requisição:', error);
-      if (!response.headersSent) apiError(response, 500, 'INTERNAL_ERROR', 'Falha interna na documentação.');
+      if (!response.headersSent)
+        apiError(
+          response,
+          500,
+          'INTERNAL_ERROR',
+          'Falha interna na documentação.',
+        );
       else response.end();
     }
   });
@@ -362,12 +486,15 @@ export function createDocsServer(options = {}) {
         server.listen({ host, port: requestedPort }, resolve);
       });
       const address = server.address();
-      const actualPort = typeof address === 'object' && address ? address.port : requestedPort;
+      const actualPort =
+        typeof address === 'object' && address ? address.port : requestedPort;
       return { host, port: actualPort, url: `http://${host}:${actualPort}` };
     },
     async close() {
       if (!server.listening) return;
-      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     },
   };
 }
@@ -399,6 +526,9 @@ async function main() {
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
+if (
+  process.argv[1] &&
+  import.meta.url === new URL(process.argv[1], 'file:').href
+) {
   await main();
 }

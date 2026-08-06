@@ -9,10 +9,7 @@ import {
   type AiAssistantService,
 } from '../services/ai-assistant-service.js';
 import type { ProjectStore } from '../store/project-store.js';
-import {
-  projectParamsSchema,
-  type ProjectParams,
-} from './projects/helpers.js';
+import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface AiAssistantRouteOptions {
   projectStore: ProjectStore;
@@ -46,7 +43,12 @@ const chatBodySchema = {
   required: ['model', 'messages'],
   properties: {
     model: { type: 'string', minLength: 1, maxLength: 200 },
-    messages: { type: 'array', minItems: 1, maxItems: 40, items: chatMessageSchema },
+    messages: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 40,
+      items: chatMessageSchema,
+    },
   },
 } as const;
 
@@ -68,7 +70,10 @@ const statusSchema = {
           name: { type: 'string' },
           capabilities: {
             type: 'array',
-            items: { type: 'string', enum: ['chat', 'tools', 'fill-in-the-middle'] },
+            items: {
+              type: 'string',
+              enum: ['chat', 'tools', 'fill-in-the-middle'],
+            },
           },
         },
       },
@@ -94,22 +99,32 @@ const completionResultSchema = {
   properties: { text: { type: 'string' } },
 } as const;
 
-function translateAiError(request: FastifyRequest, error: unknown, context: Record<string, unknown>): never {
+function translateAiError(
+  request: FastifyRequest,
+  error: unknown,
+  context: Record<string, unknown>,
+): never {
   if (error instanceof AiAssistantError) {
-    throw new ApiError({ statusCode: 400, code: 'AI_ASSISTANT_INVALID_REQUEST', message: error.message });
+    throw new ApiError({
+      statusCode: 400,
+      code: 'AI_ASSISTANT_INVALID_REQUEST',
+      message: error.message,
+    });
   }
   request.log.warn({ err: error, ...context }, 'AI assistant request failed');
   throw new ApiError({
     statusCode: 502,
     code: 'AI_ASSISTANT_FAILED',
-    message: error instanceof Error ? error.message : 'Falha ao conversar com o assistente de IA.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Falha ao conversar com o assistente de IA.',
   });
 }
 
-export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = async (
-  app,
-  options,
-) => {
+export const aiAssistantRoutes: FastifyPluginAsync<
+  AiAssistantRouteOptions
+> = async (app, options) => {
   function projectFor(projectId: string) {
     const project = options.projectStore.findProject(projectId);
     if (!project) {
@@ -160,7 +175,9 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
 
       const write = (event: AiChatStreamEvent): void => {
         if (reply.raw.writableEnded) return;
-        reply.raw.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        reply.raw.write(
+          `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+        );
       };
 
       try {
@@ -179,7 +196,10 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
         }
         write({
           type: 'error',
-          message: error instanceof Error ? error.message : 'Falha ao conversar com o assistente de IA.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Falha ao conversar com o assistente de IA.',
         });
       } finally {
         if (!reply.raw.writableEnded) reply.raw.end();
@@ -218,7 +238,10 @@ export const aiAssistantRoutes: FastifyPluginAsync<AiAssistantRouteOptions> = as
           reply.hijack();
           return;
         }
-        translateAiError(request, error, { projectId: project.id, model: request.body.model });
+        translateAiError(request, error, {
+          projectId: project.id,
+          model: request.body.model,
+        });
       }
     },
   );

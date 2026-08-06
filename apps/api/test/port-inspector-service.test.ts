@@ -1,4 +1,3 @@
-
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
@@ -46,12 +45,13 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
     platform: 'linux',
     now: () => NOW,
     getUid: () => 1_000,
-    runSs: async () => [
-      'LISTEN 0 511 127.0.0.1:3000 0.0.0.0:* users:(("node",pid=4242,fd=20))',
-      'LISTEN 0 128 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=5000,fd=7))',
-      'LISTEN 0 128 [::1]:6379 [::]:* users:(("redis",pid=6000,fd=8))',
-      'LISTEN 0 128 192.168.1.10:8080 0.0.0.0:* users:(("external",pid=7000,fd=9))',
-    ].join('\n'),
+    runSs: async () =>
+      [
+        'LISTEN 0 511 127.0.0.1:3000 0.0.0.0:* users:(("node",pid=4242,fd=20))',
+        'LISTEN 0 128 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=5000,fd=7))',
+        'LISTEN 0 128 [::1]:6379 [::]:* users:(("redis",pid=6000,fd=8))',
+        'LISTEN 0 128 192.168.1.10:8080 0.0.0.0:* users:(("external",pid=7000,fd=9))',
+      ].join('\n'),
     readTextFile: async (filePath) => {
       if (filePath === '/proc/5000/status') {
         return 'Name:\tpostgres\nUid:\t1000\t1000\t1000\t1000\n';
@@ -74,7 +74,10 @@ test('inspeciona loopback, associa processo gerenciado e limita processo externo
 
   assert.equal(result.status, 'ready');
   assert.equal(result.inspectedAt, NOW.toISOString());
-  assert.equal(result.entries.some((entry) => entry.port === 8_080), false);
+  assert.equal(
+    result.entries.some((entry) => entry.port === 8_080),
+    false,
+  );
 
   const managed = result.entries.find((entry) => entry.port === 3_000);
   assert.equal(managed?.managedProcess?.projectName, 'Aplicação');

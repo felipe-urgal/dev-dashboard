@@ -19,20 +19,26 @@ export function registerRailsCredentialsRoutes(
   app: FastifyInstance,
   options: RailsRouteOptions,
 ): void {
-  app.get<{ Params: Params }>('/projects/:projectId/rails/credentials', {
-    schema: {
-      params: paramsSchema,
-      response: {
-        200: {
-          type: 'object', additionalProperties: false, required: ['credentials'],
-          properties: { credentials: railsCredentialsOverviewResponseSchema },
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/rails/credentials',
+    {
+      schema: {
+        params: paramsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['credentials'],
+            properties: { credentials: railsCredentialsOverviewResponseSchema },
+          },
+          ...commonErrorResponseSchemas,
         },
-        ...commonErrorResponseSchemas,
       },
     },
-  }, async (request) => ({
-    credentials: await options.railsRuntimeService.getCredentialsOverview(
-      requireProject(options.projectStore, request.params.projectId),
-    ),
-  }));
+    async (request) => ({
+      credentials: await options.railsRuntimeService.getCredentialsOverview(
+        requireProject(options.projectStore, request.params.projectId),
+      ),
+    }),
+  );
 }

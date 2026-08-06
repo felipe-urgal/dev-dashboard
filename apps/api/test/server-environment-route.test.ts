@@ -1,11 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  mkdir,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -38,14 +32,8 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
       path.join(projectPath, '.env.development'),
       'APP_ENV=development\n',
     ),
-    writeFile(
-      path.join(projectPath, '.env.staging'),
-      'APP_ENV=staging\n',
-    ),
-    writeFile(
-      path.join(projectPath, '.env.example'),
-      'APP_ENV=example\n',
-    ),
+    writeFile(path.join(projectPath, '.env.staging'), 'APP_ENV=staging\n'),
+    writeFile(path.join(projectPath, '.env.example'), 'APP_ENV=example\n'),
   ]);
 
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;

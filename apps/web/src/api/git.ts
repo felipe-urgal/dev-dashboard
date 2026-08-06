@@ -17,17 +17,31 @@ import type {
 
 import { requestJson } from './core';
 
-interface ProjectGitResponse { git: ProjectGitOverview; }
+interface ProjectGitResponse {
+  git: ProjectGitOverview;
+}
 
-export async function fetchProjectGit(projectId: string): Promise<ProjectGitOverview> {
-  const response = await requestJson<ProjectGitResponse>(`/api/projects/${encodeURIComponent(projectId)}/git`);
+export async function fetchProjectGit(
+  projectId: string,
+): Promise<ProjectGitOverview> {
+  const response = await requestJson<ProjectGitResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git`,
+  );
   return response.git;
 }
 
-interface ProjectGitDiffResponse { diff: GitDiffSnapshot }
-interface ProjectGitFileDiffResponse { file: GitFileDiff }
+interface ProjectGitDiffResponse {
+  diff: GitDiffSnapshot;
+}
+interface ProjectGitFileDiffResponse {
+  file: GitFileDiff;
+}
 
-export async function fetchProjectGitDiff(projectId: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitDiffSnapshot> {
+export async function fetchProjectGitDiff(
+  projectId: string,
+  scope: GitDiffScope = 'combined',
+  signal?: AbortSignal,
+): Promise<GitDiffSnapshot> {
   const query = new URLSearchParams({ scope });
   const init: RequestInit = signal ? { signal } : {};
   const response = await requestJson<ProjectGitDiffResponse>(
@@ -37,7 +51,12 @@ export async function fetchProjectGitDiff(projectId: string, scope: GitDiffScope
   return response.diff;
 }
 
-export async function fetchProjectGitFileDiff(projectId: string, filePath: string, scope: GitDiffScope = 'combined', signal?: AbortSignal): Promise<GitFileDiff> {
+export async function fetchProjectGitFileDiff(
+  projectId: string,
+  filePath: string,
+  scope: GitDiffScope = 'combined',
+  signal?: AbortSignal,
+): Promise<GitFileDiff> {
   const query = new URLSearchParams({ path: filePath, scope });
   const init: RequestInit = signal ? { signal } : {};
   const response = await requestJson<ProjectGitFileDiffResponse>(
@@ -47,9 +66,15 @@ export async function fetchProjectGitFileDiff(projectId: string, filePath: strin
   return response.file;
 }
 
-interface ProjectGitCommitsResponse { history: GitCommitHistoryPage }
-interface ProjectGitCommitDetailResponse { detail: GitCommitDetails }
-interface ProjectGitCommitFileResponse { file: GitCommitFileDiff }
+interface ProjectGitCommitsResponse {
+  history: GitCommitHistoryPage;
+}
+interface ProjectGitCommitDetailResponse {
+  detail: GitCommitDetails;
+}
+interface ProjectGitCommitFileResponse {
+  file: GitCommitFileDiff;
+}
 
 export interface ProjectGitCommitsQuery {
   ref?: string;
@@ -76,7 +101,8 @@ export async function fetchProjectGitCommits(
   if (query.author) search.set('author', query.author);
   if (query.kind && query.kind !== 'all') search.set('kind', query.kind);
 
-  const endpoint = scope === 'exclusive' ? 'exclusive-branch-commits' : 'commits';
+  const endpoint =
+    scope === 'exclusive' ? 'exclusive-branch-commits' : 'commits';
   const init: RequestInit = signal ? { signal } : {};
   const response = await requestJson<ProjectGitCommitsResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/${endpoint}?${search}`,
@@ -113,7 +139,9 @@ export async function fetchProjectGitCommitFileDiff(
   return response.file;
 }
 
-interface ProjectGitFileLinesResponse { lines: GitFileLines }
+interface ProjectGitFileLinesResponse {
+  lines: GitFileLines;
+}
 
 export async function fetchProjectGitFileLines(
   projectId: string,
@@ -137,7 +165,9 @@ export async function fetchProjectGitFileLines(
   return response.lines;
 }
 
-interface ProjectGitFileMutationResponse { file: { path: string } }
+interface ProjectGitFileMutationResponse {
+  file: { path: string };
+}
 
 async function mutateProjectGitFile(
   projectId: string,
@@ -191,17 +221,18 @@ export function removeProjectGitUntrackedFile(
   filePath: string,
   confirmationToken: string,
 ): Promise<string> {
-  return mutateProjectGitFile(
-    projectId,
-    'remove',
-    filePath,
-    confirmationToken,
-  );
+  return mutateProjectGitFile(projectId, 'remove', filePath, confirmationToken);
 }
 
-interface GitMutationConfirmationResponse { confirmation: GitMutationConfirmation }
-interface GitBranchMutationResponse { branch: { branch: string } }
-interface GitBranchMutationWithImpactResponse { branch: GitBranchMutationResult }
+interface GitMutationConfirmationResponse {
+  confirmation: GitMutationConfirmation;
+}
+interface GitBranchMutationResponse {
+  branch: { branch: string };
+}
+interface GitBranchMutationWithImpactResponse {
+  branch: GitBranchMutationResult;
+}
 interface GitBranchRenameConfirmationResponse {
   confirmation: {
     token: string;
@@ -220,26 +251,50 @@ interface GitBranchDeleteConfirmationResponse {
   };
 }
 
-export async function prepareProjectGitMutation(projectId: string, operation: GitMutationOperation, target: string): Promise<GitMutationConfirmation> {
+export async function prepareProjectGitMutation(
+  projectId: string,
+  operation: GitMutationOperation,
+  target: string,
+): Promise<GitMutationConfirmation> {
   const response = await requestJson<GitMutationConfirmationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/mutations/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, target }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation, target }),
+    },
   );
   return response.confirmation;
 }
 
-export async function createProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<string> {
+export async function createProjectGitBranch(
+  projectId: string,
+  name: string,
+  confirmationToken: string,
+): Promise<string> {
   const response = await requestJson<GitBranchMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/branches`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, confirmationToken }),
+    },
   );
   return response.branch.branch;
 }
 
-export async function switchProjectGitBranch(projectId: string, name: string, confirmationToken: string): Promise<GitBranchMutationResult> {
+export async function switchProjectGitBranch(
+  projectId: string,
+  name: string,
+  confirmationToken: string,
+): Promise<GitBranchMutationResult> {
   const response = await requestJson<GitBranchMutationWithImpactResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/switch`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, confirmationToken }),
+    },
   );
   return response.branch;
 }
@@ -308,44 +363,85 @@ export async function deleteProjectGitBranch(
   return response.branch.branch;
 }
 
-export async function pullProjectGitBranch(projectId: string, confirmationToken: string): Promise<GitBranchMutationResult> {
+export async function pullProjectGitBranch(
+  projectId: string,
+  confirmationToken: string,
+): Promise<GitBranchMutationResult> {
   const response = await requestJson<GitBranchMutationWithImpactResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/pull`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
+    },
   );
   return response.branch;
 }
 
-export async function pushProjectGitBranch(projectId: string, confirmationToken: string): Promise<string> {
+export async function pushProjectGitBranch(
+  projectId: string,
+  confirmationToken: string,
+): Promise<string> {
   const response = await requestJson<GitBranchMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/push`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
+    },
   );
   return response.branch.branch;
 }
 
-interface GitCommitMutationResponse { commit: GitCommitResult }
+interface GitCommitMutationResponse {
+  commit: GitCommitResult;
+}
 
-export async function commitProjectGit(projectId: string, message: string, includeAllChanges: boolean, confirmationToken: string): Promise<GitCommitResult> {
+export async function commitProjectGit(
+  projectId: string,
+  message: string,
+  includeAllChanges: boolean,
+  confirmationToken: string,
+): Promise<GitCommitResult> {
   const response = await requestJson<GitCommitMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/commit`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, includeAllChanges, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, includeAllChanges, confirmationToken }),
+    },
   );
   return response.commit;
 }
 
-export async function amendProjectGit(projectId: string, message: string, confirmationToken: string): Promise<GitCommitResult> {
+export async function amendProjectGit(
+  projectId: string,
+  message: string,
+  confirmationToken: string,
+): Promise<GitCommitResult> {
   const response = await requestJson<GitCommitMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/commit/amend`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, confirmationToken }),
+    },
   );
   return response.commit;
 }
 
-export async function saveProjectGit(projectId: string, message: string, confirmationToken: string): Promise<GitCommitResult> {
+export async function saveProjectGit(
+  projectId: string,
+  message: string,
+  confirmationToken: string,
+): Promise<GitCommitResult> {
   const response = await requestJson<GitCommitMutationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/save`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, confirmationToken }),
+    },
   );
   return response.commit;
 }
@@ -356,7 +452,10 @@ export async function fetchProjectGitMutationHistory(
   pageSize = 10,
   signal?: AbortSignal,
 ): Promise<GitMutationHistoryPage> {
-  const search = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const search = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   const init: RequestInit = signal ? { signal } : {};
   return requestJson<GitMutationHistoryPage>(
     `/api/projects/${encodeURIComponent(projectId)}/git/mutation-history?${search}`,

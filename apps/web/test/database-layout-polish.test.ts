@@ -15,7 +15,8 @@ async function readDatabaseLayoutCss(): Promise<string> {
   );
   const importados = await Promise.all(
     [...arquivoPrincipal.matchAll(/@import\s+'\.\/(database\/[^']+)'/g)].map(
-      (correspondencia) => readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
+      (correspondencia) =>
+        readFile(sourceFile(correspondencia[1] ?? ''), 'utf8'),
     ),
   );
   return [arquivoPrincipal, ...importados].join('\n');
@@ -23,10 +24,12 @@ async function readDatabaseLayoutCss(): Promise<string> {
 
 test('oferece a navegação completa do explorador de banco', async () => {
   const component = (
-    await Promise.all([
-      'components/ProjectDatabasePanel.vue',
-      'components/ProjectDatabasePanel.template.html',
-    ].map((file) => readFile(sourceFile(file), 'utf8')))
+    await Promise.all(
+      [
+        'components/ProjectDatabasePanel.vue',
+        'components/ProjectDatabasePanel.template.html',
+      ].map((file) => readFile(sourceFile(file), 'utf8')),
+    )
   ).join('\n');
   const railsMigrationsComposable = await readFile(
     sourceFile('composables/useRailsMigrations.ts'),
@@ -50,7 +53,10 @@ test('oferece a navegação completa do explorador de banco', async () => {
   assert.match(railsMigrationsComposable, /fetchProjectRailsMigrationDetail/);
   assert.match(railsModelsComposable, /fetchProjectRailsModels/);
   assert.match(component, /Código da migration/);
-  assert.match(component, /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/);
+  assert.match(
+    component,
+    /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/,
+  );
   assert.match(component, /Relacionamentos/);
 });
 
@@ -80,7 +86,9 @@ test('implementa painéis, tabelas roláveis e adaptação responsiva', async ()
 
 test('carrega o polimento depois do redesign geral do detalhe', async () => {
   const main = await readFile(sourceFile('main.ts'), 'utf8');
-  const redesignIndex = main.indexOf("import './project-details-redesign.css';");
+  const redesignIndex = main.indexOf(
+    "import './project-details-redesign.css';",
+  );
   const databaseIndex = main.indexOf("import './database-layout-polish.css';");
 
   assert.ok(redesignIndex >= 0);

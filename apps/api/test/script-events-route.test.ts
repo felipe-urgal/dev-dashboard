@@ -8,12 +8,21 @@ test('remove propriedades fora do contrato nos eventos SSE', async (t) => {
   const app = Fastify();
   t.after(() => app.close());
   const execution = {
-    id: 'execucao-1', projectId: 'projeto-1', actionId: 'package-script:lint',
-    actionName: 'lint', risk: 'read-only', status: 'succeeded',
-    startedAt: new Date().toISOString(), segredoInterno: 'não deve sair',
+    id: 'execucao-1',
+    projectId: 'projeto-1',
+    actionId: 'package-script:lint',
+    actionName: 'lint',
+    risk: 'read-only',
+    status: 'succeeded',
+    startedAt: new Date().toISOString(),
+    segredoInterno: 'não deve sair',
   };
   const scriptExecutionService = {
-    subscribe: async (_projectId: string, _executionId: string, subscriber: { send: (event: unknown) => void; close: () => void }) => {
+    subscribe: async (
+      _projectId: string,
+      _executionId: string,
+      subscriber: { send: (event: unknown) => void; close: () => void },
+    ) => {
       subscriber.send({ type: 'state', execution });
       queueMicrotask(subscriber.close);
       return () => undefined;

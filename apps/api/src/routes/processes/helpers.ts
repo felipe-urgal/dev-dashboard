@@ -10,9 +10,7 @@ import type { ProjectStore } from '../../store/project-store.js';
 import type { ServerHealthCheckService } from '../../services/server-health-check-service.js';
 import type { PortInspectorService } from '../../services/port-inspector-service.js';
 
-export const processEnvelopeResponseSchema = (
-  processSchema: object,
-) => ({
+export const processEnvelopeResponseSchema = (processSchema: object) => ({
   type: 'object',
   additionalProperties: false,
   required: ['process'],
@@ -47,9 +45,7 @@ export interface ProcessLogQuery {
   maxBytes?: number;
 }
 
-export function processManagerApiError(
-  error: ProcessManagerError,
-): ApiError {
+export function processManagerApiError(error: ProcessManagerError): ApiError {
   switch (error.code) {
     case 'PROCESS_NOT_FOUND':
       return new ApiError({
@@ -87,10 +83,7 @@ export function serverSettingsApiError(
   });
 }
 
-export function requireProject(
-  projectStore: ProjectStore,
-  projectId: string,
-) {
+export function requireProject(projectStore: ProjectStore, projectId: string) {
   const project = projectStore.findProject(projectId);
 
   if (!project) {

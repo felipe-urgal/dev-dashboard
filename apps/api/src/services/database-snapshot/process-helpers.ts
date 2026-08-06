@@ -1,7 +1,10 @@
 import { DatabaseSnapshotError } from './errors.js';
 
 /** Traduz a falha de spawn mais comum: cliente do banco ausente no PATH. */
-export function spawnFailure(binary: string, error: unknown): DatabaseSnapshotError {
+export function spawnFailure(
+  binary: string,
+  error: unknown,
+): DatabaseSnapshotError {
   const code = (error as { code?: string } | null)?.code;
   if (code === 'ENOENT') {
     return new DatabaseSnapshotError(

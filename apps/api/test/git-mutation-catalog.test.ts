@@ -17,16 +17,27 @@ test('toda entrada tem rótulo, descrição e risco reconhecido', () => {
   for (const entry of GIT_MUTATION_CATALOG) {
     assert.ok(entry.label.length > 0, `${entry.id} sem rótulo`);
     assert.ok(entry.description.length > 0, `${entry.id} sem descrição`);
-    assert.ok(RISK_LEVELS.includes(entry.risk), `${entry.id} com risco inválido: ${entry.risk}`);
+    assert.ok(
+      RISK_LEVELS.includes(entry.risk),
+      `${entry.id} com risco inválido: ${entry.risk}`,
+    );
     assert.equal(typeof entry.requiresConfirmation, 'boolean');
   }
 });
 
 test('inclui as operações já usadas nas rotas de mutação (GitMutationOperation)', () => {
   const known = [
-    'create-branch', 'track-branch', 'delete-remote-branch', 'switch-branch',
-    'pull', 'push', 'commit', 'amend', 'save',
-    'discard-file', 'remove-untracked-file',
+    'create-branch',
+    'track-branch',
+    'delete-remote-branch',
+    'switch-branch',
+    'pull',
+    'push',
+    'commit',
+    'amend',
+    'save',
+    'discard-file',
+    'remove-untracked-file',
   ];
   for (const id of known) {
     assert.ok(findGitMutationCatalogEntry(id), `catálogo não contém ${id}`);
@@ -34,13 +45,22 @@ test('inclui as operações já usadas nas rotas de mutação (GitMutationOperat
 });
 
 test('descarte de arquivo e remoção de não rastreado são classificados como destructive', () => {
-  assert.equal(findGitMutationCatalogEntry('discard-file')?.risk, 'destructive');
-  assert.equal(findGitMutationCatalogEntry('remove-untracked-file')?.risk, 'destructive');
+  assert.equal(
+    findGitMutationCatalogEntry('discard-file')?.risk,
+    'destructive',
+  );
+  assert.equal(
+    findGitMutationCatalogEntry('remove-untracked-file')?.risk,
+    'destructive',
+  );
 });
 
 test('push e publicação de branch são write-remote', () => {
   assert.equal(findGitMutationCatalogEntry('push')?.risk, 'write-remote');
-  assert.equal(findGitMutationCatalogEntry('branch-publish')?.risk, 'write-remote');
+  assert.equal(
+    findGitMutationCatalogEntry('branch-publish')?.risk,
+    'write-remote',
+  );
 });
 
 test('push forçado com lease é classificado como destructive', () => {

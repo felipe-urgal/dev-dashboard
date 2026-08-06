@@ -4,18 +4,24 @@ import path from 'node:path';
 import { GitUndoError } from './errors.js';
 import { optionalGit } from './run.js';
 
-export function ensurePathInsideProject(projectPath: string, requestedPath: string): string {
+export function ensurePathInsideProject(
+  projectPath: string,
+  requestedPath: string,
+): string {
   if (
-    !requestedPath
-    || requestedPath.length > 4096
-    || requestedPath.includes('\0')
-    || requestedPath.includes('\n')
-    || requestedPath.includes('\r')
-    || requestedPath.includes('\t')
-    || path.isAbsolute(requestedPath)
-    || requestedPath.split(/[\\/]/).includes('..')
+    !requestedPath ||
+    requestedPath.length > 4096 ||
+    requestedPath.includes('\0') ||
+    requestedPath.includes('\n') ||
+    requestedPath.includes('\r') ||
+    requestedPath.includes('\t') ||
+    path.isAbsolute(requestedPath) ||
+    requestedPath.split(/[\\/]/).includes('..')
   ) {
-    throw new GitUndoError('GIT_FILE_PATH_INVALID', 'Caminho de arquivo inválido.');
+    throw new GitUndoError(
+      'GIT_FILE_PATH_INVALID',
+      'Caminho de arquivo inválido.',
+    );
   }
 
   const root = path.resolve(projectPath);
@@ -40,7 +46,13 @@ export async function renameInfo(
   safePath: string,
 ): Promise<RenameInfo | null> {
   const output = await optionalGit(projectPath, [
-    'diff', '--name-status', '-M', '-C', 'HEAD', '--', safePath,
+    'diff',
+    '--name-status',
+    '-M',
+    '-C',
+    'HEAD',
+    '--',
+    safePath,
   ]);
   if (!output?.trim()) return null;
 
@@ -58,12 +70,19 @@ export async function pathExistsInHead(
   safePath: string,
 ): Promise<boolean> {
   const output = await optionalGit(projectPath, [
-    'ls-tree', '--name-only', 'HEAD', '--', safePath,
+    'ls-tree',
+    '--name-only',
+    'HEAD',
+    '--',
+    safePath,
   ]);
   return output?.trim() === safePath;
 }
 
-export async function unlinkIfPresent(projectPath: string, safePath: string): Promise<void> {
+export async function unlinkIfPresent(
+  projectPath: string,
+  safePath: string,
+): Promise<void> {
   try {
     await unlink(path.join(projectPath, safePath));
   } catch (error) {

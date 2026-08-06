@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -70,9 +66,10 @@ const railsActions = computed(() =>
 );
 
 const nodeActions = computed(() =>
-  actions.value.filter((item) =>
-    item.origin === 'package-manager'
-    || (item.origin === 'package-script' && item.id === 'package-script:build'),
+  actions.value.filter(
+    (item) =>
+      item.origin === 'package-manager' ||
+      (item.origin === 'package-script' && item.id === 'package-script:build'),
   ),
 );
 
@@ -83,14 +80,22 @@ const currentExecution = computed(() =>
     : null,
 );
 const relevantHistory = computed(() =>
-  (history.value?.items ?? []).filter((item) => actionIds.value.has(item.actionId)),
+  (history.value?.items ?? []).filter((item) =>
+    actionIds.value.has(item.actionId),
+  ),
 );
-const currentAction = computed(() =>
-  actions.value.find((item) => item.id === currentExecution.value?.actionId) ?? null,
+const currentAction = computed(
+  () =>
+    actions.value.find(
+      (item) => item.id === currentExecution.value?.actionId,
+    ) ?? null,
 );
 
 const nodeManager = computed(() => {
-  const command = nodeActions.value[0]?.command.trim().split(/\s+/)[0]?.toLowerCase();
+  const command = nodeActions.value[0]?.command
+    .trim()
+    .split(/\s+/)[0]
+    ?.toLowerCase();
   if (command === 'yarn') return 'Yarn';
   if (command === 'pnpm') return 'pnpm';
   if (command === 'bun') return 'Bun';
@@ -136,9 +141,10 @@ async function load(): Promise<void> {
     }
   } catch (error) {
     if (current === generation) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar dependências e builds.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar dependências e builds.';
     }
   } finally {
     if (current === generation) loading.value = false;
@@ -167,12 +173,19 @@ watch(
 </script>
 
 <template>
-  <section class="dependencies-panel" aria-labelledby="dependencies-title" :aria-busy="loading">
+  <section
+    class="dependencies-panel"
+    aria-labelledby="dependencies-title"
+    :aria-busy="loading"
+  >
     <header class="dependencies-header">
       <div>
         <span>Projeto / Dependências</span>
         <h3 id="dependencies-title">Dependências e build</h3>
-        <p>Atualize o ambiente e gere o build usando apenas comandos detectados no projeto.</p>
+        <p>
+          Atualize o ambiente e gere o build usando apenas comandos detectados
+          no projeto.
+        </p>
       </div>
       <button type="button" :disabled="loading" @click="load">
         <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
@@ -189,9 +202,15 @@ watch(
     </div>
 
     <template v-else>
-      <div v-if="actions.length" class="dependencies-manager-bar" aria-label="Gerenciadores detectados">
+      <div
+        v-if="actions.length"
+        class="dependencies-manager-bar"
+        aria-label="Gerenciadores detectados"
+      >
         <article v-if="railsActions.length" class="dependencies-manager-card">
-          <span class="dependencies-manager-icon"><CubeIcon aria-hidden="true" /></span>
+          <span class="dependencies-manager-icon"
+            ><CubeIcon aria-hidden="true"
+          /></span>
           <div>
             <strong>Ruby / Bundler</strong>
             <small>Gemfile e Gemfile.lock detectados</small>
@@ -200,7 +219,9 @@ watch(
         </article>
 
         <article v-if="nodeActions.length" class="dependencies-manager-card">
-          <span class="dependencies-manager-icon"><CommandLineIcon aria-hidden="true" /></span>
+          <span class="dependencies-manager-icon"
+            ><CommandLineIcon aria-hidden="true"
+          /></span>
           <div>
             <strong>Node / {{ nodeManager }}</strong>
             <small>Lockfile e script build detectados</small>
@@ -208,7 +229,12 @@ watch(
           <StatusBadge tone="success">Pronto</StatusBadge>
         </article>
 
-        <button type="button" class="dependencies-detect-button" :disabled="loading" @click="load">
+        <button
+          type="button"
+          class="dependencies-detect-button"
+          :disabled="loading"
+          @click="load"
+        >
           <ArrowPathIcon aria-hidden="true" />
           Detectar novamente
         </button>
@@ -217,10 +243,10 @@ watch(
       <div v-if="actions.length" class="dependencies-table-wrap">
         <table class="dependencies-table">
           <colgroup>
-            <col class="dependencies-manager-column">
-            <col class="dependencies-action-column">
-            <col class="dependencies-command-column">
-            <col class="dependencies-button-column">
+            <col class="dependencies-manager-column" />
+            <col class="dependencies-action-column" />
+            <col class="dependencies-command-column" />
+            <col class="dependencies-button-column" />
           </colgroup>
           <thead>
             <tr>
@@ -233,7 +259,10 @@ watch(
           <tbody>
             <tr v-for="item in actions" :key="item.id">
               <td data-label="Gerenciador">
-                <span class="dependencies-manager-name" :class="managerClass(item)">
+                <span
+                  class="dependencies-manager-name"
+                  :class="managerClass(item)"
+                >
                   <i aria-hidden="true"></i>
                   {{ managerName(item) }}
                 </span>
@@ -241,16 +270,25 @@ watch(
               <td data-label="Ação">
                 <strong>{{ item.name }}</strong>
                 <small>{{ item.description }}</small>
-                <span v-if="item.id === 'bundler:update'" class="dependencies-warning">
+                <span
+                  v-if="item.id === 'bundler:update'"
+                  class="dependencies-warning"
+                >
                   <ExclamationTriangleIcon aria-hidden="true" />
                   Pode alterar o Gemfile.lock.
                 </span>
               </td>
-              <td data-label="Comando"><code>{{ item.command }}</code></td>
+              <td data-label="Comando">
+                <code>{{ item.command }}</code>
+              </td>
               <td class="dependencies-row-action">
                 <button
                   type="button"
-                  :disabled="!item.enabled || startingActionId !== null || execution?.status === 'running'"
+                  :disabled="
+                    !item.enabled ||
+                    startingActionId !== null ||
+                    execution?.status === 'running'
+                  "
                   @click="execute(item)"
                 >
                   <PlayIcon aria-hidden="true" />
@@ -264,7 +302,10 @@ watch(
 
       <div v-else class="dependencies-empty">
         <strong>Nenhuma ação disponível</strong>
-        <span>O projeto precisa ter Gemfile, um lockfile Node ou o script build no package.json.</span>
+        <span
+          >O projeto precisa ter Gemfile, um lockfile Node ou o script build no
+          package.json.</span
+        >
       </div>
 
       <section class="dependencies-console" aria-label="Detalhes da execução">
@@ -272,10 +313,15 @@ watch(
           <header class="dependencies-console-header">
             <div class="dependencies-console-title">
               <span :class="`is-${currentExecution.status}`">
-                <component :is="executionIcon(currentExecution.status)" aria-hidden="true" />
+                <component
+                  :is="executionIcon(currentExecution.status)"
+                  aria-hidden="true"
+                />
               </span>
               <strong>{{ currentExecution.actionName }}</strong>
-              <small>{{ formatScriptExecutionDate(currentExecution.startedAt) }}</small>
+              <small>{{
+                formatScriptExecutionDate(currentExecution.startedAt)
+              }}</small>
               <small>{{ scriptExecutionDuration(currentExecution) }}</small>
               <small>exit {{ currentExecution.exitCode ?? '—' }}</small>
             </div>
@@ -306,7 +352,9 @@ watch(
             <aside class="dependencies-history" aria-label="Execuções recentes">
               <header>
                 <strong>Execuções recentes</strong>
-                <small v-if="maskedLogEntries">{{ maskedLogEntries }} item(ns) mascarado(s)</small>
+                <small v-if="maskedLogEntries"
+                  >{{ maskedLogEntries }} item(ns) mascarado(s)</small
+                >
               </header>
               <button
                 v-for="item in relevantHistory.slice(0, 5)"
@@ -314,14 +362,25 @@ watch(
                 type="button"
                 @click="selectHistory(item)"
               >
-                <component :is="executionIcon(item.status)" aria-hidden="true" />
+                <component
+                  :is="executionIcon(item.status)"
+                  aria-hidden="true"
+                />
                 <span>
                   <strong>{{ item.actionName }}</strong>
-                  <small>{{ formatScriptExecutionDate(item.startedAt) }} · {{ scriptExecutionDuration(item) }}</small>
+                  <small
+                    >{{ formatScriptExecutionDate(item.startedAt) }} ·
+                    {{ scriptExecutionDuration(item) }}</small
+                  >
                 </span>
-                <StatusBadge :tone="executionTone(item.status)">{{ scriptExecutionStatusLabels[item.status] }}</StatusBadge>
+                <StatusBadge :tone="executionTone(item.status)">{{
+                  scriptExecutionStatusLabels[item.status]
+                }}</StatusBadge>
               </button>
-              <span v-if="relevantHistory.length === 0" class="dependencies-history-empty">
+              <span
+                v-if="relevantHistory.length === 0"
+                class="dependencies-history-empty"
+              >
                 Nenhuma execução recente.
               </span>
             </aside>

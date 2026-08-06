@@ -210,7 +210,8 @@ export class ProjectDoctorService {
         label: definition.label,
         status: 'warning',
         summary: 'Não foi possível concluir esta verificação.',
-        recommendation: 'Execute o diagnóstico novamente. Se o problema persistir, revise as permissões e o ambiente local.',
+        recommendation:
+          'Execute o diagnóstico novamente. Se o problema persistir, revise as permissões e o ambiente local.',
       });
     }
   }

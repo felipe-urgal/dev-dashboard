@@ -1,9 +1,5 @@
 export type ProjectScriptOrigin =
-  | 'package-script'
-  | 'package-manager'
-  | 'bundler'
-  | 'rails-task'
-  | 'bin';
+  'package-script' | 'package-manager' | 'bundler' | 'rails-task' | 'bin';
 export type ProjectScriptRisk = 'read-only' | 'mutable' | 'destructive';
 
 export interface ProjectScriptVariable {
@@ -34,7 +30,8 @@ export interface ProjectScriptCatalog {
   totalPages: number;
 }
 
-export type ScriptExecutionStatus = 'running' | 'succeeded' | 'failed' | 'cancelled';
+export type ScriptExecutionStatus =
+  'running' | 'succeeded' | 'failed' | 'cancelled';
 
 export interface ScriptExecution {
   id: string;

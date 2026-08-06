@@ -22,7 +22,10 @@ export interface StoredConfirmation extends ScriptExecutionConfirmation {
   variablesSignature: string;
 }
 
-export interface StoredExecution { version: 1; execution: ScriptExecution }
+export interface StoredExecution {
+  version: 1;
+  execution: ScriptExecution;
+}
 
 export interface ExecutionSubscriber {
   send: (event: ScriptExecutionEvent) => void;

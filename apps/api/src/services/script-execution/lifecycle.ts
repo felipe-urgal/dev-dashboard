@@ -4,7 +4,11 @@ import { mkdir, readlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
-import type { Project, ScriptExecution, ScriptExecutionVariables } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ScriptExecution,
+  ScriptExecutionVariables,
+} from '@dev-dashboard/contracts';
 
 import {
   consumeConfirmation,
@@ -15,7 +19,11 @@ import {
 import { resolveCommand } from './command-resolution.js';
 import { ScriptExecutionError } from './errors.js';
 import { emitEvent, scheduleLogEvent } from './events.js';
-import { findExecution, persistExecution, schedulePersistence } from './store.js';
+import {
+  findExecution,
+  persistExecution,
+  schedulePersistence,
+} from './store.js';
 import type { RunningExecution, ScriptExecutionContext } from './state.js';
 
 /**
@@ -100,14 +108,18 @@ async function spawnExecution(
     if (execution.status !== 'running') return;
     execution.status = status;
     execution.finishedAt = new Date().toISOString();
-    if (exitCode !== undefined && exitCode !== null) execution.exitCode = exitCode;
+    if (exitCode !== undefined && exitCode !== null)
+      execution.exitCode = exitCode;
     context.activeProjects.delete(project.id);
     schedulePersistence(context, execution);
     record.logFlush = outputSettled;
     if (!output.destroyed) output.end();
     void record.logFlush.then(() => {
       scheduleLogEvent(context, record, true);
-      emitEvent(context, record, { type: 'state', execution: { ...execution } });
+      emitEvent(context, record, {
+        type: 'state',
+        execution: { ...execution },
+      });
     });
   };
   // Erros de escrita podem ocorrer depois de `open`; eles não devem escapar
@@ -140,7 +152,11 @@ export async function startExecution(
   context.activeProjects.add(project.id);
 
   try {
-    const action = await findEnabledAction(context.detection, project, actionId);
+    const action = await findEnabledAction(
+      context.detection,
+      project,
+      actionId,
+    );
     const variables = normalizeVariables(action, receivedVariables);
     if (action.risk !== 'read-only') {
       consumeConfirmation(

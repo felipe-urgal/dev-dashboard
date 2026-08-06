@@ -5,9 +5,9 @@ import { GitSyncError } from './errors.js';
 
 export function validateReference(reference: string): void {
   if (
-    !reference
-    || reference.length > 300
-    || !REMOTE_REFERENCE_PATTERN.test(reference)
+    !reference ||
+    reference.length > 300 ||
+    !REMOTE_REFERENCE_PATTERN.test(reference)
   ) {
     throw new GitSyncError(
       'GIT_REFERENCE_INVALID',

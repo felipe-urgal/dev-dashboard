@@ -2,26 +2,29 @@ import { computed, ref } from 'vue';
 
 import type { Notice, NoticeOrigin, NoticeOutcome } from './notice-center';
 
-export const NATIVE_NOTIFICATIONS_STORAGE_KEY = 'dev-dashboard:native-notifications';
+export const NATIVE_NOTIFICATIONS_STORAGE_KEY =
+  'dev-dashboard:native-notifications';
 export const NATIVE_NOTIFICATION_MINIMUM_DURATION_MS = 30_000;
 
 export type NativeNotificationEnableResult =
-  | 'enabled'
-  | 'denied'
-  | 'unsupported'
-  | 'error';
+  'enabled' | 'denied' | 'unsupported' | 'error';
 
 type NoticeRoute = Notice['routeTo'];
 
 function browserSupportsNotifications(): boolean {
-  return typeof window !== 'undefined' && typeof window.Notification === 'function';
+  return (
+    typeof window !== 'undefined' && typeof window.Notification === 'function'
+  );
 }
 
 function readStoredPreference(): boolean {
   if (typeof window === 'undefined') return false;
 
   try {
-    return window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY) === 'enabled';
+    return (
+      window.localStorage.getItem(NATIVE_NOTIFICATIONS_STORAGE_KEY) ===
+      'enabled'
+    );
   } catch {
     return false;
   }
@@ -42,7 +45,9 @@ function storePreference(enabled: boolean): void {
 }
 
 function currentPermission(): NotificationPermission | 'unsupported' {
-  return browserSupportsNotifications() ? Notification.permission : 'unsupported';
+  return browserSupportsNotifications()
+    ? Notification.permission
+    : 'unsupported';
 }
 
 type NativeNoticeOrigin = Exclude<NoticeOrigin, 'server'>;
@@ -68,9 +73,13 @@ const titles = {
   },
 } as const satisfies Record<NativeNoticeOrigin, Record<NoticeOutcome, string>>;
 
-const nativeOrigins: ReadonlySet<NoticeOrigin> = new Set(Object.keys(titles) as NativeNoticeOrigin[]);
+const nativeOrigins: ReadonlySet<NoticeOrigin> = new Set(
+  Object.keys(titles) as NativeNoticeOrigin[],
+);
 
-function isNativeNoticeOrigin(origin: NoticeOrigin): origin is NativeNoticeOrigin {
+function isNativeNoticeOrigin(
+  origin: NoticeOrigin,
+): origin is NativeNoticeOrigin {
   return nativeOrigins.has(origin);
 }
 
@@ -83,25 +92,26 @@ export function durationInMilliseconds(
 
   const start = Date.parse(startedAt);
   const finish = finishedAt ? Date.parse(finishedAt) : now;
-  if (!Number.isFinite(start) || !Number.isFinite(finish) || finish < start) return undefined;
+  if (!Number.isFinite(start) || !Number.isFinite(finish) || finish < start)
+    return undefined;
 
   return finish - start;
 }
 
 export function createNativeNotificationStore() {
   const supported = ref(browserSupportsNotifications());
-  const permission = ref<NotificationPermission | 'unsupported'>(currentPermission());
+  const permission = ref<NotificationPermission | 'unsupported'>(
+    currentPermission(),
+  );
   const enabled = ref(
-    supported.value
-    && permission.value === 'granted'
-    && readStoredPreference(),
+    supported.value && permission.value === 'granted' && readStoredPreference(),
   );
   let navigate: ((route: NoticeRoute) => void) | undefined;
 
   const status = computed(() => {
     if (!supported.value) return 'unsupported' as const;
     if (permission.value === 'denied') return 'denied' as const;
-    return enabled.value ? 'enabled' as const : 'disabled' as const;
+    return enabled.value ? ('enabled' as const) : ('disabled' as const);
   });
 
   function setNavigator(handler: (route: NoticeRoute) => void): void {
@@ -146,8 +156,16 @@ export function createNativeNotificationStore() {
 
   function publish(notice: Notice, durationMs?: number): void {
     if (!enabled.value || !isNativeNoticeOrigin(notice.origin)) return;
-    if (durationMs === undefined || durationMs < NATIVE_NOTIFICATION_MINIMUM_DURATION_MS) return;
-    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
+    if (
+      durationMs === undefined ||
+      durationMs < NATIVE_NOTIFICATION_MINIMUM_DURATION_MS
+    )
+      return;
+    if (
+      typeof document === 'undefined' ||
+      document.visibilityState !== 'hidden'
+    )
+      return;
 
     supported.value = browserSupportsNotifications();
     if (!supported.value) {
@@ -163,10 +181,13 @@ export function createNativeNotificationStore() {
     }
 
     try {
-      const systemNotification = new Notification(titles[notice.origin][notice.outcome], {
-        body: `${notice.projectName} · ${notice.label}`,
-        tag: notice.dedupeKey,
-      });
+      const systemNotification = new Notification(
+        titles[notice.origin][notice.outcome],
+        {
+          body: `${notice.projectName} · ${notice.label}`,
+          tag: notice.dedupeKey,
+        },
+      );
       systemNotification.onclick = () => {
         window.focus();
         navigate?.(notice.routeTo);
@@ -189,6 +210,8 @@ export function createNativeNotificationStore() {
   };
 }
 
-export type NativeNotificationStore = ReturnType<typeof createNativeNotificationStore>;
+export type NativeNotificationStore = ReturnType<
+  typeof createNativeNotificationStore
+>;
 
 export const nativeNotificationStore = createNativeNotificationStore();

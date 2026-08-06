@@ -1,9 +1,20 @@
-import type { RailsGeneratorField, RailsGeneratorKind, RailsMigrationMutationOperation, RailsWorkerId } from '@dev-dashboard/contracts';
+import type {
+  RailsGeneratorField,
+  RailsGeneratorKind,
+  RailsMigrationMutationOperation,
+  RailsWorkerId,
+} from '@dev-dashboard/contracts';
 import { ProcessManagerError } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
-import { RailsMutationError, type RailsInspectionService } from '../../services/rails-inspection-service.js';
-import { RailsWorkerError, type RailsRuntimeService } from '../../services/rails-runtime-service.js';
+import {
+  RailsMutationError,
+  type RailsInspectionService,
+} from '../../services/rails-inspection-service.js';
+import {
+  RailsWorkerError,
+  type RailsRuntimeService,
+} from '../../services/rails-runtime-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
 
 export interface RailsRouteOptions {
@@ -45,12 +56,16 @@ export interface GeneratorMutationBody {
 }
 
 export const paramsSchema = {
-  type: 'object', additionalProperties: false, required: ['projectId'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId'],
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
 export const migrationParamsSchema = {
-  type: 'object', additionalProperties: false, required: ['projectId', 'version'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'version'],
   properties: {
     projectId: { type: 'string', minLength: 1 },
     version: { type: 'string', pattern: '^[0-9]{8,20}$' },
@@ -58,19 +73,31 @@ export const migrationParamsSchema = {
 } as const;
 
 export const databaseQuerySchema = {
-  type: 'object', additionalProperties: false,
-  properties: { database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 } },
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    database: { type: 'string', pattern: '^[a-z][a-z0-9_]*$', maxLength: 60 },
+  },
 } as const;
 
-const mutationOperationEnum = ['migrate', 'rollback', 'seed', 'prepare'] as const;
+const mutationOperationEnum = [
+  'migrate',
+  'rollback',
+  'seed',
+  'prepare',
+] as const;
 
 export const mutationConfirmationBodySchema = {
-  type: 'object', additionalProperties: false, required: ['operation'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['operation'],
   properties: { operation: { type: 'string', enum: mutationOperationEnum } },
 } as const;
 
 export const mutationBodySchema = {
-  type: 'object', additionalProperties: false, required: ['operation', 'confirmationToken'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['operation', 'confirmationToken'],
   properties: {
     operation: { type: 'string', enum: mutationOperationEnum },
     confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
@@ -78,7 +105,8 @@ export const mutationBodySchema = {
 } as const;
 
 export const railsMigrationDetailResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'version', 'truncated'],
   properties: {
     supported: { type: 'boolean' },
@@ -92,7 +120,8 @@ export const railsMigrationDetailResponseSchema = {
 } as const;
 
 const railsSchemaColumnResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['name', 'type', 'nullable', 'primaryKey'],
   properties: {
     name: { type: 'string' },
@@ -107,7 +136,8 @@ const railsSchemaColumnResponseSchema = {
 } as const;
 
 const railsSchemaIndexResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['columns', 'unique'],
   properties: {
     name: { type: 'string' },
@@ -117,7 +147,8 @@ const railsSchemaIndexResponseSchema = {
 } as const;
 
 const railsSchemaForeignKeyResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['fromTable', 'toTable', 'column'],
   properties: {
     fromTable: { type: 'string' },
@@ -129,7 +160,8 @@ const railsSchemaForeignKeyResponseSchema = {
 } as const;
 
 const railsSchemaTableResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['name', 'columns', 'indexes', 'foreignKeys'],
   properties: {
     name: { type: 'string' },
@@ -140,7 +172,8 @@ const railsSchemaTableResponseSchema = {
 } as const;
 
 export const railsModelsOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['supported', 'databases', 'tables'],
   properties: {
     supported: { type: 'boolean' },
@@ -152,13 +185,26 @@ export const railsModelsOverviewResponseSchema = {
 
 const generatorKindEnum = ['model', 'migration'] as const;
 const generatorFieldTypeEnum = [
-  'string', 'text', 'integer', 'bigint', 'float', 'decimal',
-  'boolean', 'date', 'datetime', 'time', 'timestamp', 'binary',
-  'references', 'uuid',
+  'string',
+  'text',
+  'integer',
+  'bigint',
+  'float',
+  'decimal',
+  'boolean',
+  'date',
+  'datetime',
+  'time',
+  'timestamp',
+  'binary',
+  'references',
+  'uuid',
 ] as const;
 
 const generatorFieldSchema = {
-  type: 'object', additionalProperties: false, required: ['name', 'type'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'type'],
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 60 },
     type: { type: 'string', enum: generatorFieldTypeEnum },
@@ -166,7 +212,9 @@ const generatorFieldSchema = {
 } as const;
 
 export const generatorConfirmationBodySchema = {
-  type: 'object', additionalProperties: false, required: ['kind', 'name', 'fields'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['kind', 'name', 'fields'],
   properties: {
     kind: { type: 'string', enum: generatorKindEnum },
     name: { type: 'string', minLength: 1, maxLength: 60 },
@@ -176,12 +224,17 @@ export const generatorConfirmationBodySchema = {
 } as const;
 
 export const generatorMutationBodySchema = {
-  type: 'object', additionalProperties: false, required: ['confirmationToken'],
-  properties: { confirmationToken: { type: 'string', minLength: 64, maxLength: 64 } },
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken'],
+  properties: {
+    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
+  },
 } as const;
 
 export const railsGeneratorConfirmationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['token', 'kind', 'name', 'fields', 'command', 'expiresAt'],
   properties: {
     token: { type: 'string' },
@@ -195,8 +248,18 @@ export const railsGeneratorConfirmationResponseSchema = {
 } as const;
 
 export const railsGeneratorResultResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['kind', 'name', 'succeeded', 'createdFiles', 'output', 'truncated', 'masked', 'redactionCount'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'kind',
+    'name',
+    'succeeded',
+    'createdFiles',
+    'output',
+    'truncated',
+    'masked',
+    'redactionCount',
+  ],
   properties: {
     kind: { type: 'string', enum: generatorKindEnum },
     name: { type: 'string' },
@@ -218,7 +281,9 @@ export interface WorkerLogQuery {
 }
 
 export const workerParamsSchema = {
-  type: 'object', additionalProperties: false, required: ['projectId', 'workerId'],
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'workerId'],
   properties: {
     projectId: { type: 'string', minLength: 1 },
     workerId: { type: 'string', enum: ['sidekiq', 'webpack'] },
@@ -226,19 +291,29 @@ export const workerParamsSchema = {
 } as const;
 
 export const workerLogQuerySchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   properties: { maxBytes: { type: 'integer', minimum: 1, maximum: 262_144 } },
 } as const;
 
 export function requireProject(store: ProjectStore, id: string) {
   const project = store.findProject(id);
-  if (!project) throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+  if (!project)
+    throw new ApiError({
+      statusCode: 404,
+      code: 'PROJECT_NOT_FOUND',
+      message: 'Projeto não encontrado.',
+    });
   return project;
 }
 
 export function translateWorkerError(error: unknown): never {
   if (error instanceof RailsWorkerError) {
-    throw new ApiError({ statusCode: 409, code: error.code, message: error.message });
+    throw new ApiError({
+      statusCode: 409,
+      code: error.code,
+      message: error.message,
+    });
   }
   if (error instanceof ProcessManagerError) {
     const statuses: Record<string, number> = {
@@ -247,11 +322,19 @@ export function translateWorkerError(error: unknown): never {
       PROCESS_IDENTITY_MISMATCH: 409,
       PROCESS_STOP_TIMEOUT: 409,
     };
-    throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
+    throw new ApiError({
+      statusCode: statuses[error.code] ?? 400,
+      code: error.code,
+      message: error.message,
+    });
   }
   throw new ApiError({
-    statusCode: 500, code: 'RAILS_MUTATION_FAILED',
-    message: error instanceof Error ? error.message : 'Não foi possível concluir a operação do worker.',
+    statusCode: 500,
+    code: 'RAILS_MUTATION_FAILED',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível concluir a operação do worker.',
   });
 }
 
@@ -264,10 +347,18 @@ export function translateMutationError(error: unknown): never {
       RAILS_GENERATOR_CONFIRMATION_REQUIRED: 409,
       RAILS_GENERATOR_INVALID_INPUT: 400,
     };
-    throw new ApiError({ statusCode: statuses[error.code] ?? 400, code: error.code, message: error.message });
+    throw new ApiError({
+      statusCode: statuses[error.code] ?? 400,
+      code: error.code,
+      message: error.message,
+    });
   }
   throw new ApiError({
-    statusCode: 500, code: 'RAILS_MUTATION_FAILED',
-    message: error instanceof Error ? error.message : 'Não foi possível concluir a operação Rails.',
+    statusCode: 500,
+    code: 'RAILS_MUTATION_FAILED',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível concluir a operação Rails.',
   });
 }

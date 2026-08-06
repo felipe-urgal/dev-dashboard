@@ -11,7 +11,9 @@ import { createAppContext } from '../src/app-context.js';
 const TOKEN = 'f'.repeat(64);
 
 test('lista, lê, salva e busca arquivos do projeto autorizado', async (context) => {
-  const projectPath = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-route-files-'));
+  const projectPath = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-route-files-'),
+  );
   context.after(() => rm(projectPath, { recursive: true, force: true }));
   await mkdir(path.join(projectPath, 'src'), { recursive: true });
   const target = path.join(projectPath, 'src', 'index.ts');
@@ -94,9 +96,10 @@ test('lista, lê, salva e busca arquivos do projeto autorizado', async (context)
     headers,
   });
   assert.equal(search.statusCode, 200);
-  assert.deepEqual(search.json().items.map((item: { path: string }) => item.path), [
-    'src/index.ts',
-  ]);
+  assert.deepEqual(
+    search.json().items.map((item: { path: string }) => item.path),
+    ['src/index.ts'],
+  );
 });
 
 test('recusa projeto ausente, traversal e query inválida', async (context) => {

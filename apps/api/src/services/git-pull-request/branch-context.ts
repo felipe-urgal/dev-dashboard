@@ -5,21 +5,35 @@ export async function requireRepository(projectPath: string): Promise<void> {
   try {
     await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
   } catch {
-    throw new GitPullRequestError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+    throw new GitPullRequestError(
+      'GIT_NOT_REPOSITORY',
+      'O projeto não é um repositório Git.',
+    );
   }
 }
 
 export async function currentBranch(projectPath: string): Promise<string> {
   const branch = await runGit(projectPath, ['branch', '--show-current']);
   if (!branch) {
-    throw new GitPullRequestError('GIT_DETACHED_HEAD', 'Não é possível compor a URL da Pull Request em um HEAD destacado.');
+    throw new GitPullRequestError(
+      'GIT_DETACHED_HEAD',
+      'Não é possível compor a URL da Pull Request em um HEAD destacado.',
+    );
   }
   return branch;
 }
 
-export async function publishedReference(projectPath: string, branch: string): Promise<string> {
+export async function publishedReference(
+  projectPath: string,
+  branch: string,
+): Promise<string> {
   try {
-    return await runGit(projectPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+    return await runGit(projectPath, [
+      'rev-parse',
+      '--abbrev-ref',
+      '--symbolic-full-name',
+      '@{u}',
+    ]);
   } catch {
     throw new GitPullRequestError(
       'GIT_PULL_REQUEST_NOT_PUBLISHED',
@@ -28,7 +42,10 @@ export async function publishedReference(projectPath: string, branch: string): P
   }
 }
 
-export async function remoteUrl(projectPath: string, remote: string): Promise<string> {
+export async function remoteUrl(
+  projectPath: string,
+  remote: string,
+): Promise<string> {
   try {
     return await runGit(projectPath, ['remote', 'get-url', remote]);
   } catch {
@@ -39,7 +56,10 @@ export async function remoteUrl(projectPath: string, remote: string): Promise<st
   }
 }
 
-export async function defaultBranch(projectPath: string, remote: string): Promise<string> {
+export async function defaultBranch(
+  projectPath: string,
+  remote: string,
+): Promise<string> {
   try {
     const ref = await runGit(projectPath, [
       'symbolic-ref',
@@ -54,12 +74,18 @@ export async function defaultBranch(projectPath: string, remote: string): Promis
 
   for (const candidate of ['main', 'master', 'develop']) {
     const remoteRef = await optionalGit(projectPath, [
-      'show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${candidate}`,
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/remotes/${remote}/${candidate}`,
     ]);
     if (remoteRef !== null) return candidate;
 
     const localRef = await optionalGit(projectPath, [
-      'show-ref', '--verify', '--quiet', `refs/heads/${candidate}`,
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/heads/${candidate}`,
     ]);
     if (localRef !== null) return candidate;
   }
@@ -72,13 +98,19 @@ export async function requireBaseBranch(
   branch: string,
 ): Promise<void> {
   const remoteRef = await optionalGit(projectPath, [
-    'show-ref', '--verify', '--quiet', `refs/remotes/${remote}/${branch}`,
+    'show-ref',
+    '--verify',
+    '--quiet',
+    `refs/remotes/${remote}/${branch}`,
   ]);
   if (remoteRef !== null) return;
 
   if (remote === 'origin') {
     const localRef = await optionalGit(projectPath, [
-      'show-ref', '--verify', '--quiet', `refs/heads/${branch}`,
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branch}`,
     ]);
     if (localRef !== null) return;
   }

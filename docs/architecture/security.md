@@ -378,6 +378,41 @@ Executar esses scripts significa confiar no conteúdo do `package.json` e do rep
 
 A interface deve deixar claro qual comando será executado.
 
+### Integração com o GitHub CLI (`gh`)
+
+A API já invoca `gh` hoje, como fallback silencioso e somente leitura para
+enriquecer informação de pull request quando a API pública do GitHub sem
+autenticação falha ou não cobre o dado (`apps/api/src/services/
+git-pull-request-service.ts` e `git-pull-request-status-service.ts`):
+`gh api` (REST) para status de PR e `gh api graphql` para conversas não
+resolvidas, que não têm equivalente na REST pública. Toda invocação segue o
+mesmo padrão já exigido para subprocessos: `execFile('gh', args, { cwd, env })`
+com `shell: false`, args fixos (nunca construídos a partir de texto livre do
+navegador), e falha silenciosa (`try/catch` vira `null`/`checked: false`) sem
+quebrar a rota. A resposta expõe só campos estruturados extraídos do payload
+(`number`, `title`, `url`, `state`, `ciStatus`, `commentsCount`,
+`unresolvedConversationsCount`) — nunca o stdout bruto do `gh`.
+
+**Modelo de autorização**: o dashboard não gerencia nenhuma credencial do
+GitHub. `gh` herda a sessão local já autenticada do usuário (`gh auth login`,
+fora do dashboard) via ambiente do processo filho, no mesmo espírito da nota
+de "Variáveis de ambiente" acima — nenhum token do GitHub é lido, persistido
+ou exibido pela API. Isso mantém a integração consistente com o modelo de
+ameaça atual (um único usuário local confiável): o dashboard só pode fazer
+com `gh` o que o próprio usuário já pode fazer no terminal dele.
+
+**O que isso autoriza hoje**: chamadas de leitura (`gh api` com método GET ou
+query GraphQL somente leitura) para enriquecer dados já públicos de PR/CI.
+
+**O que isso não autoriza**: nenhuma ação mutável do `gh` (`pr create`,
+`pr merge`, `pr close`, `pr edit`, etc.) está em uso ou planejada por esta
+decisão. Expor qualquer uma delas no dashboard web exigiria, antes de
+implementar: um catálogo fechado dos subcomandos permitidos (nunca `gh`
+arbitrário vindo do navegador), o mesmo padrão de token de confirmação de
+ações mutáveis já usado no catálogo de scripts e nas mutações Git, e ações
+destrutivas (`pr close`, `pr merge`) permanecerem bloqueadas por padrão até
+decisão explícita — seguindo o checklist de novos endpoints.
+
 ### Processos fora do dashboard
 
 O gerenciador não deve encerrar automaticamente qualquer processo que ocupe uma porta.

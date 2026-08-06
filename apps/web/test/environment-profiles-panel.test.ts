@@ -84,8 +84,13 @@ describe('EnvironmentProfilesPanel', () => {
 
     expect(wrapper.find('.environment-profiles-layout').exists()).toBe(true);
     expect(wrapper.findAll('.environment-profile-list-item')).toHaveLength(2);
-    expect(wrapper.find('.environment-profile-list-item.is-selected').text()).toContain('Desenvolvimento');
-    expect(wrapper.get<HTMLInputElement>('#environment-profile-name-input').element.value).toBe('Desenvolvimento');
+    expect(
+      wrapper.find('.environment-profile-list-item.is-selected').text(),
+    ).toContain('Desenvolvimento');
+    expect(
+      wrapper.get<HTMLInputElement>('#environment-profile-name-input').element
+        .value,
+    ).toBe('Desenvolvimento');
     expect(wrapper.text()).toContain('2 variáveis configuradas');
   });
 
@@ -93,31 +98,46 @@ describe('EnvironmentProfilesPanel', () => {
     const wrapper = mount(EnvironmentProfilesPanel);
     await flushPromises();
 
-    await wrapper.findAll('.environment-profile-list-item')[1]?.trigger('click');
+    await wrapper
+      .findAll('.environment-profile-list-item')[1]
+      ?.trigger('click');
 
-    expect(wrapper.find('.environment-profile-list-item.is-selected').text()).toContain('Testes locais');
-    expect(wrapper.get<HTMLInputElement>('#environment-profile-name-input').element.value).toBe('Testes locais');
-    expect(wrapper.findAll('.environment-profile-variable-row')).toHaveLength(1);
+    expect(
+      wrapper.find('.environment-profile-list-item.is-selected').text(),
+    ).toContain('Testes locais');
+    expect(
+      wrapper.get<HTMLInputElement>('#environment-profile-name-input').element
+        .value,
+    ).toBe('Testes locais');
+    expect(wrapper.findAll('.environment-profile-variable-row')).toHaveLength(
+      1,
+    );
   });
 
   it('cria um perfil e não envia valor de variável sensível', async () => {
-    createEnvironmentProfile.mockImplementation(async (input: CreateEnvironmentProfileInput) => {
-      const created: EnvironmentProfile = {
-        id: 'homologacao',
-        name: input.name,
-        variables: input.variables,
-        createdAt: '2026-08-05T12:00:00.000Z',
-        updatedAt: '2026-08-05T12:00:00.000Z',
-      };
-      currentList.profiles.push(created);
-      return cloneProfile(created);
-    });
+    createEnvironmentProfile.mockImplementation(
+      async (input: CreateEnvironmentProfileInput) => {
+        const created: EnvironmentProfile = {
+          id: 'homologacao',
+          name: input.name,
+          variables: input.variables,
+          createdAt: '2026-08-05T12:00:00.000Z',
+          updatedAt: '2026-08-05T12:00:00.000Z',
+        };
+        currentList.profiles.push(created);
+        return cloneProfile(created);
+      },
+    );
 
     const wrapper = mount(EnvironmentProfilesPanel);
     await flushPromises();
 
-    await wrapper.find('.environment-profiles-sidebar-footer button').trigger('click');
-    await wrapper.get('#environment-profile-name-input').setValue('Homologação');
+    await wrapper
+      .find('.environment-profiles-sidebar-footer button')
+      .trigger('click');
+    await wrapper
+      .get('#environment-profile-name-input')
+      .setValue('Homologação');
 
     const variableRow = wrapper.get('.environment-profile-variable-row');
     const inputs = variableRow.findAll('input');
@@ -132,6 +152,8 @@ describe('EnvironmentProfilesPanel', () => {
       name: 'Homologação',
       variables: [{ name: 'API_TOKEN' }],
     });
-    expect(wrapper.find('.environment-profile-list-item.is-selected').text()).toContain('Homologação');
+    expect(
+      wrapper.find('.environment-profile-list-item.is-selected').text(),
+    ).toContain('Homologação');
   });
 });

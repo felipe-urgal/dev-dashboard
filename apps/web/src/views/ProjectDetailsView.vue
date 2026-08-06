@@ -1,23 +1,11 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 
-import {
-  ShareIcon,
-} from '@heroicons/vue/24/outline';
+import { ShareIcon } from '@heroicons/vue/24/outline';
 
-import {
-  RouterLink,
-  useRoute,
-} from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 
-import type {
-  Project,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
@@ -50,7 +38,7 @@ const databaseSupported = ref(true);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
-  return Array.isArray(value) ? value[0] ?? '' : String(value ?? '');
+  return Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
 });
 
 const isReadmeRoute = computed(() => route.name === 'project-details');
@@ -61,9 +49,13 @@ const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
-const isDependenciesRoute = computed(() => route.name === 'project-dependencies');
+const isDependenciesRoute = computed(
+  () => route.name === 'project-dependencies',
+);
 const isScriptsRoute = computed(() => route.name === 'project-scripts');
-const isRailsRuntimeRoute = computed(() => route.name === 'project-rails-runtime');
+const isRailsRuntimeRoute = computed(
+  () => route.name === 'project-rails-runtime',
+);
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 
 function updateGitOverview(git: ProjectGitOverview): void {
@@ -81,7 +73,8 @@ async function loadProject(): Promise<void> {
   databaseSupported.value = true;
 
   try {
-    const loadedProject = await dashboardStore.ensureProject(requestedProjectId);
+    const loadedProject =
+      await dashboardStore.ensureProject(requestedProjectId);
     if (projectId.value !== requestedProjectId || !loadedProject) return;
 
     project.value = loadedProject;
@@ -101,7 +94,8 @@ async function loadProject(): Promise<void> {
 
     try {
       const database = await fetchProjectDatabase(loadedProject.id);
-      if (projectId.value === requestedProjectId) databaseSupported.value = database.supported;
+      if (projectId.value === requestedProjectId)
+        databaseSupported.value = database.supported;
     } catch {
       // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
     }
@@ -119,11 +113,15 @@ async function loadProject(): Promise<void> {
   }
 }
 
-watch(projectId, () => {
-  void loadProject();
-}, {
-  immediate: true,
-});
+watch(
+  projectId,
+  () => {
+    void loadProject();
+  },
+  {
+    immediate: true,
+  },
+);
 </script>
 
 <template>
@@ -165,10 +163,7 @@ watch(projectId, () => {
           <div class="project-details-copy">
             <div class="project-title-row">
               <h2>{{ project.name }}</h2>
-              <span
-                class="type-badge"
-                :class="`type-badge-${project.type}`"
-              >
+              <span class="type-badge" :class="`type-badge-${project.type}`">
                 {{ projectTypeLabels[project.type] }}
               </span>
             </div>
@@ -270,7 +265,10 @@ watch(projectId, () => {
           v-if="project.type === 'rails' || project.type === 'node'"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isDependenciesRoute }"
-          :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
+          :to="{
+            name: 'project-dependencies',
+            params: { projectId: project.id },
+          }"
         >
           Dependências
         </RouterLink>
@@ -287,7 +285,10 @@ watch(projectId, () => {
           v-if="project.type === 'rails'"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
-          :to="{ name: 'project-rails-runtime', params: { projectId: project.id } }"
+          :to="{
+            name: 'project-rails-runtime',
+            params: { projectId: project.id },
+          }"
         >
           Sidekiq/webpack
         </RouterLink>
@@ -295,7 +296,10 @@ watch(projectId, () => {
         <RouterLink
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isEnvironmentRoute }"
-          :to="{ name: 'project-environment', params: { projectId: project.id } }"
+          :to="{
+            name: 'project-environment',
+            params: { projectId: project.id },
+          }"
         >
           Variáveis de ambiente
         </RouterLink>

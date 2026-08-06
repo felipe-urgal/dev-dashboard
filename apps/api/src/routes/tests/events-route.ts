@@ -27,12 +27,16 @@ export function registerTestEventsRoute(
       const project = requireProject(projectStore, request.params.projectId);
 
       let unsubscribe = (): void => undefined;
+      // eslint-disable-next-line prefer-const -- `close` fecha sobre esta variável antes da atribuição (linha abaixo); `const` causaria TDZ se `close` for chamado antes.
       let heartbeat: NodeJS.Timeout | undefined;
       let connected = false;
       let closeRequested = false;
       const pending: string[] = [];
       const close = (): void => {
-        if (!connected) { closeRequested = true; return; }
+        if (!connected) {
+          closeRequested = true;
+          return;
+        }
         if (heartbeat) clearInterval(heartbeat);
         unsubscribe();
         if (!reply.raw.writableEnded) reply.raw.end();
@@ -68,7 +72,10 @@ export function registerTestEventsRoute(
       });
       connected = true;
       for (const frame of pending) write(frame);
-      heartbeat = setInterval(() => write(': acompanhamento ativo\n\n'), 15_000);
+      heartbeat = setInterval(
+        () => write(': acompanhamento ativo\n\n'),
+        15_000,
+      );
       heartbeat.unref();
       reply.raw.once('close', close);
       if (closeRequested) close();

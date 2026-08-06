@@ -20,7 +20,9 @@ async function exists(target: string): Promise<boolean> {
   }
 }
 
-export async function resolveNodeManager(projectPath: string): Promise<NodeManager> {
+export async function resolveNodeManager(
+  projectPath: string,
+): Promise<NodeManager> {
   const lockfiles: ReadonlyArray<[NodeManager, string]> = [
     ['npm', 'package-lock.json'],
     ['pnpm', 'pnpm-lock.yaml'],
@@ -73,7 +75,11 @@ export async function resolveCommand(
   project: Project,
   action: ProjectScript,
   variables: ScriptExecutionVariables = {},
-): Promise<{ command: string; args: string[]; env?: ScriptExecutionVariables }> {
+): Promise<{
+  command: string;
+  args: string[];
+  env?: ScriptExecutionVariables;
+}> {
   const separator = action.id.indexOf(':');
   const origin = action.id.slice(0, separator);
   const name = action.id.slice(separator + 1);
@@ -97,10 +103,7 @@ export async function resolveCommand(
       args: ['install'],
     };
   }
-  if (
-    origin === 'bundler'
-    && ['check', 'install', 'update'].includes(name)
-  ) {
+  if (origin === 'bundler' && ['check', 'install', 'update'].includes(name)) {
     return {
       command: await resolveBundlerCommand(project.path),
       args: [name],
@@ -114,8 +117,8 @@ export async function resolveCommand(
     };
   }
   if (
-    origin === 'bin'
-    && ['rails', 'rake', 'rspec', 'rubocop', 'setup'].includes(name)
+    origin === 'bin' &&
+    ['rails', 'rake', 'rspec', 'rubocop', 'setup'].includes(name)
   ) {
     return { command: path.join(project.path, 'bin', name), args: [] };
   }

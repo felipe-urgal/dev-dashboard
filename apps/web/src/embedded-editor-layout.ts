@@ -96,7 +96,9 @@ function updateFullscreenButton(
   button.setAttribute('aria-pressed', String(active));
   button.setAttribute(
     'aria-label',
-    active ? 'Sair da visualização em tela inteira' : 'Abrir editor em tela inteira',
+    active
+      ? 'Sair da visualização em tela inteira'
+      : 'Abrir editor em tela inteira',
   );
 }
 
@@ -114,7 +116,8 @@ function installFullscreenButton(section: HTMLElement): void {
   const actions = section.querySelector<HTMLElement>(
     '.embedded-ide-header-actions',
   );
-  if (!actions || actions.querySelector('[data-editor-fullscreen-button]')) return;
+  if (!actions || actions.querySelector('[data-editor-fullscreen-button]'))
+    return;
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -128,13 +131,16 @@ function installFullscreenButton(section: HTMLElement): void {
 function installResizeSeparator(section: HTMLElement): void {
   const shell = section.querySelector<HTMLElement>('.embedded-ide-shell');
   const sidebar = shell?.querySelector<HTMLElement>('.embedded-ide-sidebar');
-  const workbench = shell?.querySelector<HTMLElement>('.embedded-ide-workbench');
+  const workbench = shell?.querySelector<HTMLElement>(
+    '.embedded-ide-workbench',
+  );
   if (
-    !shell
-    || !sidebar
-    || !workbench
-    || shell.querySelector('[data-editor-resize-separator]')
-  ) return;
+    !shell ||
+    !sidebar ||
+    !workbench ||
+    shell.querySelector('[data-editor-resize-separator]')
+  )
+    return;
 
   const separator = document.createElement('div');
   separator.className = 'embedded-ide-resize-separator';
@@ -180,8 +186,8 @@ function installResizeSeparator(section: HTMLElement): void {
   separator.addEventListener('keydown', (event) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
-    const current = Number(separator.getAttribute('aria-valuenow'))
-      || DEFAULT_SIDEBAR_WIDTH;
+    const current =
+      Number(separator.getAttribute('aria-valuenow')) || DEFAULT_SIDEBAR_WIDTH;
     setSidebarWidth(
       section,
       separator,
@@ -201,7 +207,9 @@ function installResizeSeparator(section: HTMLElement): void {
 function installAiResizeSeparator(section: HTMLElement): void {
   const shell = section.querySelector<HTMLElement>('.embedded-ide-shell');
   const aiPanel = shell?.querySelector<HTMLElement>('.embedded-ide-ai-panel');
-  const existing = shell?.querySelector<HTMLElement>('[data-editor-ai-resize-separator]');
+  const existing = shell?.querySelector<HTMLElement>(
+    '[data-editor-ai-resize-separator]',
+  );
 
   if (!shell || !aiPanel) {
     existing?.remove();
@@ -210,7 +218,8 @@ function installAiResizeSeparator(section: HTMLElement): void {
   if (existing) return;
 
   const separator = document.createElement('div');
-  separator.className = 'embedded-ide-resize-separator embedded-ide-ai-resize-separator';
+  separator.className =
+    'embedded-ide-resize-separator embedded-ide-ai-resize-separator';
   separator.dataset.editorAiResizeSeparator = 'true';
   separator.tabIndex = 0;
   separator.setAttribute('role', 'separator');
@@ -256,8 +265,13 @@ function installAiResizeSeparator(section: HTMLElement): void {
   separator.addEventListener('keydown', (event) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
-    const current = Number(separator.getAttribute('aria-valuenow')) || DEFAULT_AI_WIDTH;
-    setAiWidth(section, separator, current + (event.key === 'ArrowLeft' ? 16 : -16));
+    const current =
+      Number(separator.getAttribute('aria-valuenow')) || DEFAULT_AI_WIDTH;
+    setAiWidth(
+      section,
+      separator,
+      current + (event.key === 'ArrowLeft' ? 16 : -16),
+    );
   });
 }
 
@@ -274,37 +288,43 @@ function installEditorWheelChaining(section: HTMLElement): void {
   if (!area || area.dataset.editorWheelChaining === 'true') return;
   area.dataset.editorWheelChaining = 'true';
 
-  area.addEventListener('wheel', (event) => {
-    if (
-      section.classList.contains('embedded-ide-fullscreen')
-      || event.deltaY === 0
-      || Math.abs(event.deltaY) < Math.abs(event.deltaX)
-    ) return;
+  area.addEventListener(
+    'wheel',
+    (event) => {
+      if (
+        section.classList.contains('embedded-ide-fullscreen') ||
+        event.deltaY === 0 ||
+        Math.abs(event.deltaY) < Math.abs(event.deltaX)
+      )
+        return;
 
-    const target = event.target instanceof Element ? event.target : null;
-    const scrollable = target?.closest<HTMLElement>('.monaco-scrollable-element')
-      ?? area.querySelector<HTMLElement>('.monaco-scrollable-element');
-    if (!scrollable) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const scrollable =
+        target?.closest<HTMLElement>('.monaco-scrollable-element') ??
+        area.querySelector<HTMLElement>('.monaco-scrollable-element');
+      if (!scrollable) return;
 
-    const maxScrollTop = Math.max(
-      0,
-      scrollable.scrollHeight - scrollable.clientHeight,
-    );
-    const canScrollUp = event.deltaY < 0 && scrollable.scrollTop > 1;
-    const canScrollDown = event.deltaY > 0
-      && scrollable.scrollTop < maxScrollTop - 1;
-    if (canScrollUp || canScrollDown) return;
+      const maxScrollTop = Math.max(
+        0,
+        scrollable.scrollHeight - scrollable.clientHeight,
+      );
+      const canScrollUp = event.deltaY < 0 && scrollable.scrollTop > 1;
+      const canScrollDown =
+        event.deltaY > 0 && scrollable.scrollTop < maxScrollTop - 1;
+      if (canScrollUp || canScrollDown) return;
 
-    // O Monaco consome a roda mesmo no limite. Interceptamos antes dele e
-    // continuamos a rolagem no documento para o editor não prender a página.
-    event.preventDefault();
-    event.stopPropagation();
-    window.scrollBy({
-      top: wheelDeltaInPixels(event),
-      left: 0,
-      behavior: 'auto',
-    });
-  }, { passive: false, capture: true });
+      // O Monaco consome a roda mesmo no limite. Interceptamos antes dele e
+      // continuamos a rolagem no documento para o editor não prender a página.
+      event.preventDefault();
+      event.stopPropagation();
+      window.scrollBy({
+        top: wheelDeltaInPixels(event),
+        left: 0,
+        behavior: 'auto',
+      });
+    },
+    { passive: false, capture: true },
+  );
 }
 
 function enhanceEditor(section: HTMLElement): void {
@@ -321,7 +341,9 @@ function enhanceEditor(section: HTMLElement): void {
 }
 
 function enhanceEditors(): void {
-  for (const section of document.querySelectorAll<HTMLElement>('.embedded-ide')) {
+  for (const section of document.querySelectorAll<HTMLElement>(
+    '.embedded-ide',
+  )) {
     enhanceEditor(section);
   }
 

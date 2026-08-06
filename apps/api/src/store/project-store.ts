@@ -8,29 +8,24 @@ export interface StoredWorkspaceScan extends WorkspaceScanResult {
 }
 
 export class ProjectStore {
-  private readonly workspaceScans = new Map<
-    string,
-    StoredWorkspaceScan
-  >();
+  private readonly workspaceScans = new Map<string, StoredWorkspaceScan>();
 
   public constructor(
     private readonly projectRecentRepository = new ProjectRecentRepository(),
   ) {}
 
-  public saveWorkspaceScan(
-    result: WorkspaceScanResult,
-  ): StoredWorkspaceScan {
+  public saveWorkspaceScan(result: WorkspaceScanResult): StoredWorkspaceScan {
     const recentsByProjectId = new Map(
-      this.projectRecentRepository.list().map((entry) => [
-        entry.projectId,
-        entry,
-      ]),
+      this.projectRecentRepository
+        .list()
+        .map((entry) => [entry.projectId, entry]),
     );
     const storedScan: StoredWorkspaceScan = {
       ...result,
       projects: result.projects.map((project) => {
         const recent = recentsByProjectId.get(project.id);
-        if (!recent || recent.workspaceId !== result.workspaceId) return project;
+        if (!recent || recent.workspaceId !== result.workspaceId)
+          return project;
         return { ...project, lastAccessedAt: recent.lastAccessedAt };
       }),
       scannedAt: new Date().toISOString(),
@@ -67,16 +62,11 @@ export class ProjectStore {
 
   public findProject(projectId: string): Project | null {
     return (
-      this.listProjects().find(
-        (project) => project.id === projectId,
-      ) ?? null
+      this.listProjects().find((project) => project.id === projectId) ?? null
     );
   }
 
-  public setFavorite(
-    projectId: string,
-    favorite: boolean,
-  ): Project | null {
+  public setFavorite(projectId: string, favorite: boolean): Project | null {
     return this.updateProject(projectId, (project) => ({
       ...project,
       favorite,

@@ -8,13 +8,7 @@ import {
   ViewColumnsIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  onBeforeUnmount,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type {
   GitCommitDetailFile,

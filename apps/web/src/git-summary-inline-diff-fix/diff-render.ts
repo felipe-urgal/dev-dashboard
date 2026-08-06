@@ -42,13 +42,18 @@ export function unified(content: string): HTMLElement {
   return table;
 }
 
-function splitCell(line: GitUnifiedDiffLine | null, side: 'left' | 'right'): HTMLElement {
+function splitCell(
+  line: GitUnifiedDiffLine | null,
+  side: 'left' | 'right',
+): HTMLElement {
   const cell = document.createElement('div');
   cell.className = `git-inline-diff-side is-${side}${line ? ` is-${line.kind}` : ' is-empty'}`;
 
   const lineNumber = document.createElement('span');
   lineNumber.className = 'git-inline-diff-line-number';
-  lineNumber.textContent = number(side === 'left' ? line?.oldLine ?? null : line?.newLine ?? null);
+  lineNumber.textContent = number(
+    side === 'left' ? (line?.oldLine ?? null) : (line?.newLine ?? null),
+  );
   const marker = document.createElement('span');
   marker.className = 'git-inline-diff-prefix';
   marker.textContent = prefix(line);

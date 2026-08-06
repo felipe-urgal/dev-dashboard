@@ -7,15 +7,13 @@ import { ServerHealthCheckService } from '../src/services/server-health-check-se
 
 test('detecta o primeiro endpoint local saudável', async () => {
   const requestedPaths: string[] = [];
-  const service = new ServerHealthCheckService(
-    async (_port, path) => {
-      requestedPaths.push(path);
+  const service = new ServerHealthCheckService(async (_port, path) => {
+    requestedPaths.push(path);
 
-      return path === '/health'
-        ? { httpStatus: 204, latencyMs: 8 }
-        : { httpStatus: 404, latencyMs: 3 };
-    },
-  );
+    return path === '/health'
+      ? { httpStatus: 204, latencyMs: 8 }
+      : { httpStatus: 404, latencyMs: 3 };
+  });
 
   const health = await service.check({
     projectId: 'project-a',
@@ -31,9 +29,10 @@ test('detecta o primeiro endpoint local saudável', async () => {
 });
 
 test('classifica redirecionamento como degradado sem segui-lo', async () => {
-  const service = new ServerHealthCheckService(
-    async () => ({ httpStatus: 302, latencyMs: 4 }),
-  );
+  const service = new ServerHealthCheckService(async () => ({
+    httpStatus: 302,
+    latencyMs: 4,
+  }));
 
   const health = await service.check({
     projectId: 'project-a',
@@ -47,11 +46,9 @@ test('classifica redirecionamento como degradado sem segui-lo', async () => {
 });
 
 test('resume falhas de rede sem expor detalhes internos', async () => {
-  const service = new ServerHealthCheckService(
-    async () => {
-      throw new Error('connect ECONNREFUSED 127.0.0.1:3000');
-    },
-  );
+  const service = new ServerHealthCheckService(async () => {
+    throw new Error('connect ECONNREFUSED 127.0.0.1:3000');
+  });
 
   const health = await service.check({
     projectId: 'project-a',

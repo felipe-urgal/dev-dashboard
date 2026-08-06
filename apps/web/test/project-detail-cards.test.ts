@@ -37,8 +37,10 @@ vi.mock('../src/api', async (importOriginal) => ({
     summary: { running: 0, succeeded: 0, failed: 0, total: 0 },
   }),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
-  fetchProjectServerHealth: (...args: unknown[]) => fetchProjectServerHealth(...args),
-  openProjectBrowserTarget: (...args: unknown[]) => openProjectBrowserTarget(...args),
+  fetchProjectServerHealth: (...args: unknown[]) =>
+    fetchProjectServerHealth(...args),
+  openProjectBrowserTarget: (...args: unknown[]) =>
+    openProjectBrowserTarget(...args),
   fetchProjectProcessLog: vi.fn().mockResolvedValue({
     projectId: 'projeto-card',
     processId: 'proc-1',
@@ -50,9 +52,13 @@ vi.mock('../src/api', async (importOriginal) => ({
     readAt: new Date(0).toISOString(),
   }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({}),
-  fetchProjectTests: vi.fn().mockResolvedValue({ supported: false, commands: [] }),
+  fetchProjectTests: vi
+    .fn()
+    .mockResolvedValue({ supported: false, commands: [] }),
   fetchProjectTestProcess: vi.fn().mockResolvedValue(null),
-  fetchProjectTestLog: vi.fn().mockResolvedValue({ content: '', truncated: false }),
+  fetchProjectTestLog: vi
+    .fn()
+    .mockResolvedValue({ content: '', truncated: false }),
   fetchProjectGit: vi.fn().mockResolvedValue({
     repository: false,
     detached: false,
@@ -67,8 +73,16 @@ vi.mock('../src/api', async (importOriginal) => ({
     scope: 'combined',
     files: [],
   }),
-  fetchProjectDatabase: vi.fn().mockResolvedValue({ supported: false, environments: [], total: 0, page: 1, pageSize: 20 }),
-  fetchProjectScripts: vi.fn().mockResolvedValue({ items: [], page: 1, totalPages: 1, total: 0 }),
+  fetchProjectDatabase: vi.fn().mockResolvedValue({
+    supported: false,
+    environments: [],
+    total: 0,
+    page: 1,
+    pageSize: 20,
+  }),
+  fetchProjectScripts: vi
+    .fn()
+    .mockResolvedValue({ items: [], page: 1, totalPages: 1, total: 0 }),
   fetchScriptExecutionHistory: vi.fn().mockResolvedValue({ items: [] }),
   fetchLatestScriptExecution: vi.fn().mockResolvedValue(null),
 }));
@@ -85,7 +99,8 @@ const publishTerminalNotice = vi.fn();
 
 vi.mock('../src/stores/notice-center', () => ({
   noticeCenterStore: {
-    publishTerminalNotice: (...args: unknown[]) => publishTerminalNotice(...args),
+    publishTerminalNotice: (...args: unknown[]) =>
+      publishTerminalNotice(...args),
   },
 }));
 
@@ -166,7 +181,8 @@ describe('cards dos painéis de detalhe', () => {
 
     const buttons = wrapper.findAll('button');
     const openButton = buttons.find((button) =>
-      button.text().includes('Abrir no navegador do sistema'));
+      button.text().includes('Abrir no navegador do sistema'),
+    );
     expect(openButton).toBeDefined();
 
     await openButton!.trigger('click');
@@ -208,7 +224,9 @@ describe('cards dos painéis de detalhe', () => {
       'Mutações',
     ]);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
-    expect(wrapper.find('.git-subtabs button')?.text()).toContain('Sincronização');
+    expect(wrapper.find('.git-subtabs button')?.text()).toContain(
+      'Sincronização',
+    );
 
     wrapper.unmount();
   });

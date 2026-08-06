@@ -99,8 +99,8 @@ test('confirma commit sem depender de uma segunda leitura da branch', async () =
         confirmation.token,
       ),
       (error: unknown) =>
-        error instanceof GitMutationError
-        && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+        error instanceof GitMutationError &&
+        error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

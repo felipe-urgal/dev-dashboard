@@ -15,14 +15,35 @@ import type { GitMutationConfirmationService } from '../git-mutation-confirmatio
 import { computeProjectChangeImpact } from '../project-change-impact-service.js';
 
 /** Mutações de branch: criar, trocar, atualizar (pull) e publicar (push). */
-export function createBranchOperations(confirmations: GitMutationConfirmationService) {
-  async function createBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<{ branch: string }> {
+export function createBranchOperations(
+  confirmations: GitMutationConfirmationService,
+) {
+  async function createBranch(
+    projectPath: string,
+    projectId: string,
+    name: string,
+    confirmationToken?: string,
+  ): Promise<{ branch: string }> {
     validateBranchName(name);
     await requireRepository(projectPath);
-    consumeMutationConfirmation(confirmations, projectId, 'create-branch', name, confirmationToken);
+    consumeMutationConfirmation(
+      confirmations,
+      projectId,
+      'create-branch',
+      name,
+      confirmationToken,
+    );
     try {
-      await runGit(projectPath, ['show-ref', '--verify', '--quiet', `refs/heads/${name}`]);
-      throw new GitMutationError('GIT_BRANCH_EXISTS', 'Já existe um branch com esse nome.');
+      await runGit(projectPath, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${name}`,
+      ]);
+      throw new GitMutationError(
+        'GIT_BRANCH_EXISTS',
+        'Já existe um branch com esse nome.',
+      );
     } catch (error) {
       if (error instanceof GitMutationError) throw error;
       // show-ref falha quando o branch não existe — é o caminho esperado
@@ -31,70 +52,162 @@ export function createBranchOperations(confirmations: GitMutationConfirmationSer
     try {
       await runGit(projectPath, ['switch', '--create', name]);
     } catch (error) {
-      throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao criar branch.');
+      throw new GitMutationError(
+        'GIT_BRANCH_INVALID',
+        error instanceof Error ? error.message : 'Falha ao criar branch.',
+      );
     }
     return { branch: name };
   }
 
-  async function switchBranch(projectPath: string, projectId: string, name: string, confirmationToken?: string): Promise<GitBranchMutationResult> {
+  async function switchBranch(
+    projectPath: string,
+    projectId: string,
+    name: string,
+    confirmationToken?: string,
+  ): Promise<GitBranchMutationResult> {
     validateBranchName(name);
     await requireRepository(projectPath);
-    consumeMutationConfirmation(confirmations, projectId, 'switch-branch', name, confirmationToken);
+    consumeMutationConfirmation(
+      confirmations,
+      projectId,
+      'switch-branch',
+      name,
+      confirmationToken,
+    );
     try {
-      await runGit(projectPath, ['show-ref', '--verify', '--quiet', `refs/heads/${name}`]);
+      await runGit(projectPath, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${name}`,
+      ]);
     } catch {
-      throw new GitMutationError('GIT_BRANCH_NOT_FOUND', 'Branch não encontrado.');
+      throw new GitMutationError(
+        'GIT_BRANCH_NOT_FOUND',
+        'Branch não encontrado.',
+      );
     }
     await assertWorkingTreeClean(projectPath);
-    const previousSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
+    const previousSha = (
+      await runGit(projectPath, ['rev-parse', 'HEAD'])
+    ).trim();
     try {
       await runGit(projectPath, ['switch', name]);
     } catch (error) {
-      throw new GitMutationError('GIT_BRANCH_INVALID', error instanceof Error ? error.message : 'Falha ao trocar de branch.');
+      throw new GitMutationError(
+        'GIT_BRANCH_INVALID',
+        error instanceof Error ? error.message : 'Falha ao trocar de branch.',
+      );
     }
-    const currentSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
-    const impact = await computeProjectChangeImpact(projectPath, previousSha, currentSha);
+    const currentSha = (
+      await runGit(projectPath, ['rev-parse', 'HEAD'])
+    ).trim();
+    const impact = await computeProjectChangeImpact(
+      projectPath,
+      previousSha,
+      currentSha,
+    );
     return { branch: name, impact };
   }
 
-  async function pull(projectPath: string, projectId: string, confirmationToken?: string): Promise<GitBranchMutationResult> {
+  async function pull(
+    projectPath: string,
+    projectId: string,
+    confirmationToken?: string,
+  ): Promise<GitBranchMutationResult> {
     await requireRepository(projectPath);
-    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     if (status.detached || !status.branch) {
-      throw new GitMutationError('GIT_DETACHED_HEAD', 'Não é possível fazer pull em um HEAD destacado.');
+      throw new GitMutationError(
+        'GIT_DETACHED_HEAD',
+        'Não é possível fazer pull em um HEAD destacado.',
+      );
     }
     const branch = status.branch;
-    consumeMutationConfirmation(confirmations, projectId, 'pull', branch, confirmationToken);
+    consumeMutationConfirmation(
+      confirmations,
+      projectId,
+      'pull',
+      branch,
+      confirmationToken,
+    );
     if (!status.upstream) {
-      throw new GitMutationError('GIT_NO_UPSTREAM', 'O branch atual não tem upstream configurado.');
+      throw new GitMutationError(
+        'GIT_NO_UPSTREAM',
+        'O branch atual não tem upstream configurado.',
+      );
     }
     await assertWorkingTreeClean(projectPath);
-    const previousSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
+    const previousSha = (
+      await runGit(projectPath, ['rev-parse', 'HEAD'])
+    ).trim();
     try {
       await runGit(projectPath, ['pull', '--ff-only']);
     } catch (error) {
       const details = commandFailureText(error);
       if (/not possible to fast-forward/i.test(details)) {
-        throw new GitMutationError('GIT_PULL_DIVERGED', 'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.');
+        throw new GitMutationError(
+          'GIT_PULL_DIVERGED',
+          'O branch local divergiu do remoto; resolva manualmente antes de tentar novamente.',
+        );
       }
       if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
-        throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
+        throw new GitMutationError(
+          'GIT_REMOTE_UNAVAILABLE',
+          'Não foi possível acessar o remoto configurado.',
+        );
       }
       throw new GitMutationError('GIT_PULL_FAILED', details);
     }
-    const currentSha = (await runGit(projectPath, ['rev-parse', 'HEAD'])).trim();
-    const impact = await computeProjectChangeImpact(projectPath, previousSha, currentSha);
+    const currentSha = (
+      await runGit(projectPath, ['rev-parse', 'HEAD'])
+    ).trim();
+    const impact = await computeProjectChangeImpact(
+      projectPath,
+      previousSha,
+      currentSha,
+    );
     return { branch, impact };
   }
 
-  async function push(projectPath: string, projectId: string, confirmationToken?: string): Promise<{ branch: string }> {
+  async function push(
+    projectPath: string,
+    projectId: string,
+    confirmationToken?: string,
+  ): Promise<{ branch: string }> {
     await requireRepository(projectPath);
-    const status = parseStatus(await runGit(projectPath, ['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all']));
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     if (status.detached || !status.branch) {
-      throw new GitMutationError('GIT_DETACHED_HEAD', 'Não é possível fazer push em um HEAD destacado.');
+      throw new GitMutationError(
+        'GIT_DETACHED_HEAD',
+        'Não é possível fazer push em um HEAD destacado.',
+      );
     }
     const branch = status.branch;
-    consumeMutationConfirmation(confirmations, projectId, 'push', branch, confirmationToken);
+    consumeMutationConfirmation(
+      confirmations,
+      projectId,
+      'push',
+      branch,
+      confirmationToken,
+    );
     await requireOriginRemote(projectPath);
     try {
       if (status.upstream) {
@@ -105,10 +218,16 @@ export function createBranchOperations(confirmations: GitMutationConfirmationSer
     } catch (error) {
       const details = commandFailureText(error);
       if (/\[rejected\]|non-fast-forward|fetch first/i.test(details)) {
-        throw new GitMutationError('GIT_PUSH_REJECTED', 'O remoto tem commits que o branch local não possui; faça pull antes de enviar.');
+        throw new GitMutationError(
+          'GIT_PUSH_REJECTED',
+          'O remoto tem commits que o branch local não possui; faça pull antes de enviar.',
+        );
       }
       if (REMOTE_UNAVAILABLE_PATTERN.test(details)) {
-        throw new GitMutationError('GIT_REMOTE_UNAVAILABLE', 'Não foi possível acessar o remoto configurado.');
+        throw new GitMutationError(
+          'GIT_REMOTE_UNAVAILABLE',
+          'Não foi possível acessar o remoto configurado.',
+        );
       }
       throw new GitMutationError('GIT_PUSH_FAILED', details);
     }

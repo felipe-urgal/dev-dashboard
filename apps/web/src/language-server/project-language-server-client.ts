@@ -21,7 +21,10 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 2;
 const MARKER_OWNER = 'dev-dashboard-lsp';
 
-export const LANGUAGE_SERVER_MONACO_LANGUAGES: Record<ProjectLanguageServerKind, readonly string[]> = {
+export const LANGUAGE_SERVER_MONACO_LANGUAGES: Record<
+  ProjectLanguageServerKind,
+  readonly string[]
+> = {
   'javascript-typescript': ['javascript', 'typescript'],
   ruby: ['ruby'],
 };
@@ -138,13 +141,14 @@ function pathFromUri(projectId: string, uri: string): string | undefined {
     if (
       segments.some(
         (segment) =>
-          !segment
-          || segment === '.'
-          || segment === '..'
-          || segment.includes('/')
-          || segment.includes('\\'),
+          !segment ||
+          segment === '.' ||
+          segment === '..' ||
+          segment.includes('/') ||
+          segment.includes('\\'),
       )
-    ) return undefined;
+    )
+      return undefined;
     return segments.join('/');
   } catch {
     return undefined;
@@ -183,7 +187,10 @@ function projectEdit(edit: LspTextEdit): ProjectWorkspaceTextEdit {
   };
 }
 
-function markerSeverity(monaco: typeof Monaco, severity?: number): Monaco.MarkerSeverity {
+function markerSeverity(
+  monaco: typeof Monaco,
+  severity?: number,
+): Monaco.MarkerSeverity {
   if (severity === 1) return monaco.MarkerSeverity.Error;
   if (severity === 2) return monaco.MarkerSeverity.Warning;
   if (severity === 3) return monaco.MarkerSeverity.Info;
@@ -311,7 +318,10 @@ export class ProjectLanguageServerClient {
   private readonly documents = new Map<string, LanguageDocument>();
   private readonly providers: Monaco.IDisposable[] = [];
   private readonly pending = new Map<number | string, PendingRequest>();
-  private readonly diagnosticCounts = new Map<string, { errors: number; warnings: number }>();
+  private readonly diagnosticCounts = new Map<
+    string,
+    { errors: number; warnings: number }
+  >();
   private socket: WebSocket | undefined;
   private nextRequestId = 1;
   private ready = false;
@@ -334,7 +344,10 @@ export class ProjectLanguageServerClient {
     this.registerProviders();
   }
 
-  public openFile(file: ProjectFileContent, model: Monaco.editor.ITextModel): void {
+  public openFile(
+    file: ProjectFileContent,
+    model: Monaco.editor.ITextModel,
+  ): void {
     if (!this.languages.has(file.language)) return;
     const existing = this.documents.get(file.path);
     if (existing) {
@@ -397,7 +410,9 @@ export class ProjectLanguageServerClient {
     }
   }
 
-  public async workspaceSymbols(query: string): Promise<ProjectFileSearchMatch[]> {
+  public async workspaceSymbols(
+    query: string,
+  ): Promise<ProjectFileSearchMatch[]> {
     if (!this.ready || query.trim().length < 1) return [];
     const response = await this.request<unknown>('workspace/symbol', {
       query: query.trim(),
@@ -407,21 +422,26 @@ export class ProjectLanguageServerClient {
     return response.flatMap((item): ProjectFileSearchMatch[] => {
       if (!isObject(item) || typeof item.name !== 'string') return [];
       const location = isObject(item.location) ? item.location : undefined;
-      const uri = location && typeof location.uri === 'string' ? location.uri : undefined;
-      const range = location && isObject(location.range)
-        ? (location.range as unknown as LspRange)
-        : undefined;
+      const uri =
+        location && typeof location.uri === 'string' ? location.uri : undefined;
+      const range =
+        location && isObject(location.range)
+          ? (location.range as unknown as LspRange)
+          : undefined;
       if (!uri || !range) return [];
       const filePath = pathFromUri(this.projectId, uri);
       if (!filePath) return [];
-      return [{
-        path: filePath,
-        name: filePath.split('/').at(-1) ?? filePath,
-        language: this.documents.get(filePath)?.language ?? this.defaultLanguage,
-        line: range.start.line + 1,
-        column: range.start.character + 1,
-        preview: item.name,
-      }];
+      return [
+        {
+          path: filePath,
+          name: filePath.split('/').at(-1) ?? filePath,
+          language:
+            this.documents.get(filePath)?.language ?? this.defaultLanguage,
+          line: range.start.line + 1,
+          column: range.start.character + 1,
+          preview: item.name,
+        },
+      ];
     });
   }
 
@@ -440,15 +460,14 @@ export class ProjectLanguageServerClient {
   }
 
   private async connect(): Promise<void> {
-    if (
-      this.disposed
-      || this.socket
-      || this.documents.size === 0
-    ) return;
+    if (this.disposed || this.socket || this.documents.size === 0) return;
 
     let status: ProjectLanguageServerStatus;
     try {
-      status = await fetchProjectLanguageServerStatus(this.projectId, this.kind);
+      status = await fetchProjectLanguageServerStatus(
+        this.projectId,
+        this.kind,
+      );
     } catch (error) {
       this.callbacks.onError(
         error instanceof Error
@@ -465,7 +484,10 @@ export class ProjectLanguageServerClient {
     );
     this.socket = socket;
     socket.addEventListener('open', () => void this.initialize());
-    socket.addEventListener('message', (event) => void this.handleMessage(event));
+    socket.addEventListener(
+      'message',
+      (event) => void this.handleMessage(event),
+    );
     socket.addEventListener('close', () => this.handleClose(socket));
     socket.addEventListener('error', () => {
       if (this.socket === socket) {
@@ -483,10 +505,12 @@ export class ProjectLanguageServerClient {
           version: '0.1.0',
         },
         rootUri: projectRootUri(this.projectId),
-        workspaceFolders: [{
-          uri: projectRootUri(this.projectId),
-          name: this.projectName,
-        }],
+        workspaceFolders: [
+          {
+            uri: projectRootUri(this.projectId),
+            name: this.projectName,
+          },
+        ],
         capabilities: {
           workspace: {
             applyEdit: true,
@@ -575,9 +599,12 @@ export class ProjectLanguageServerClient {
     if (!raw) return;
     let message: JsonRpcRequest | JsonRpcNotification | JsonRpcResponse;
     try {
-      message = JSON.parse(raw) as JsonRpcRequest | JsonRpcNotification | JsonRpcResponse;
+      message = JSON.parse(raw) as
+        JsonRpcRequest | JsonRpcNotification | JsonRpcResponse;
     } catch {
-      this.callbacks.onError('O servidor de linguagem enviou uma resposta inválida.');
+      this.callbacks.onError(
+        'O servidor de linguagem enviou uma resposta inválida.',
+      );
       return;
     }
 
@@ -617,26 +644,32 @@ export class ProjectLanguageServerClient {
   private async handleServerRequest(message: JsonRpcRequest): Promise<void> {
     try {
       if (message.method === 'workspace/configuration') {
-        const items = isObject(message.params) && Array.isArray(message.params.items)
-          ? message.params.items
-          : [];
-        this.respond(message.id, items.map(() => ({
-          tabSize: 2,
-          insertSpaces: true,
-        })));
+        const items =
+          isObject(message.params) && Array.isArray(message.params.items)
+            ? message.params.items
+            : [];
+        this.respond(
+          message.id,
+          items.map(() => ({
+            tabSize: 2,
+            insertSpaces: true,
+          })),
+        );
         return;
       }
       if (message.method === 'workspace/workspaceFolders') {
-        this.respond(message.id, [{
-          uri: projectRootUri(this.projectId),
-          name: this.projectName,
-        }]);
+        this.respond(message.id, [
+          {
+            uri: projectRootUri(this.projectId),
+            name: this.projectName,
+          },
+        ]);
         return;
       }
       if (
-        message.method === 'client/registerCapability'
-        || message.method === 'client/unregisterCapability'
-        || message.method === 'window/showMessageRequest'
+        message.method === 'client/registerCapability' ||
+        message.method === 'client/unregisterCapability' ||
+        message.method === 'window/showMessageRequest'
       ) {
         this.respond(message.id, null);
         return;
@@ -676,26 +709,31 @@ export class ProjectLanguageServerClient {
     const document = this.documents.get(filePath);
     if (!document) return;
     const diagnostics = Array.isArray(params.diagnostics)
-      ? params.diagnostics.filter((item): item is LspDiagnostic => isObject(item))
+      ? params.diagnostics.filter((item): item is LspDiagnostic =>
+          isObject(item),
+        )
       : [];
     const markers: Monaco.editor.IMarkerData[] = diagnostics.flatMap(
       (diagnostic): Monaco.editor.IMarkerData[] => {
-        if (!diagnostic.range || typeof diagnostic.message !== 'string') return [];
+        if (!diagnostic.range || typeof diagnostic.message !== 'string')
+          return [];
         const range = monacoRange(diagnostic.range);
-        return [{
-          ...range,
-          severity: markerSeverity(this.monaco, diagnostic.severity),
-          message: diagnostic.message,
-          ...(diagnostic.source ? { source: diagnostic.source } : {}),
-          ...(diagnostic.code !== undefined
-            ? { code: String(diagnostic.code) }
-            : {}),
-          ...(diagnostic.tags?.includes(1)
-            ? { tags: [this.monaco.MarkerTag.Unnecessary] }
-            : diagnostic.tags?.includes(2)
-              ? { tags: [this.monaco.MarkerTag.Deprecated] }
+        return [
+          {
+            ...range,
+            severity: markerSeverity(this.monaco, diagnostic.severity),
+            message: diagnostic.message,
+            ...(diagnostic.source ? { source: diagnostic.source } : {}),
+            ...(diagnostic.code !== undefined
+              ? { code: String(diagnostic.code) }
               : {}),
-        }];
+            ...(diagnostic.tags?.includes(1)
+              ? { tags: [this.monaco.MarkerTag.Unnecessary] }
+              : diagnostic.tags?.includes(2)
+                ? { tags: [this.monaco.MarkerTag.Deprecated] }
+                : {}),
+          },
+        ];
       },
     );
     this.monaco.editor.setModelMarkers(document.model, MARKER_OWNER, markers);
@@ -718,7 +756,9 @@ export class ProjectLanguageServerClient {
       warnings += count.warnings;
     }
     if (errors === 0 && warnings === 0) {
-      this.callbacks.onDiagnostics('Sem diagnósticos semânticos nos arquivos abertos.');
+      this.callbacks.onDiagnostics(
+        'Sem diagnósticos semânticos nos arquivos abertos.',
+      );
       return;
     }
     this.callbacks.onDiagnostics(
@@ -791,15 +831,16 @@ export class ProjectLanguageServerClient {
     edits: unknown,
   ): void {
     const filePath = pathFromUri(this.projectId, uri);
-    if (!filePath) throw new Error('O LSP propôs uma alteração fora do projeto.');
+    if (!filePath)
+      throw new Error('O LSP propôs uma alteração fora do projeto.');
     if (!Array.isArray(edits) || edits.length === 0) {
       throw new Error(`O LSP propôs edições inválidas para ${filePath}.`);
     }
     const parsed = edits.filter(
       (edit): edit is LspTextEdit =>
-        isObject(edit)
-        && isObject(edit.range)
-        && typeof edit.newText === 'string',
+        isObject(edit) &&
+        isObject(edit.range) &&
+        typeof edit.newText === 'string',
     );
     if (parsed.length !== edits.length) {
       throw new Error(`O LSP propôs edições inválidas para ${filePath}.`);
@@ -812,7 +853,11 @@ export class ProjectLanguageServerClient {
       this.providers.push(
         this.monaco.languages.registerHoverProvider(language, {
           provideHover: async (model, position, token) => {
-            if (!this.ownsModel(model) || !this.ready || token.isCancellationRequested) {
+            if (
+              !this.ownsModel(model) ||
+              !this.ready ||
+              token.isCancellationRequested
+            ) {
               return null;
             }
             const response = await this.request<unknown>('textDocument/hover', {
@@ -832,66 +877,99 @@ export class ProjectLanguageServerClient {
         }),
         this.monaco.languages.registerDefinitionProvider(language, {
           provideDefinition: async (model, position, token) => {
-            if (!this.ownsModel(model) || !this.ready || token.isCancellationRequested) {
+            if (
+              !this.ownsModel(model) ||
+              !this.ready ||
+              token.isCancellationRequested
+            ) {
               return null;
             }
-            const response = await this.request<unknown>('textDocument/definition', {
-              textDocument: { uri: model.uri.toString() },
-              position: lspPosition(position),
-            }).catch(() => null);
+            const response = await this.request<unknown>(
+              'textDocument/definition',
+              {
+                textDocument: { uri: model.uri.toString() },
+                position: lspPosition(position),
+              },
+            ).catch(() => null);
             return locations(response).flatMap((location) => {
               if ('targetUri' in location) {
-                return [{
-                  uri: this.monaco.Uri.parse(location.targetUri),
-                  range: monacoRange(location.targetRange),
-                  targetSelectionRange: monacoRange(location.targetSelectionRange),
-                  ...(location.originSelectionRange
-                    ? { originSelectionRange: monacoRange(location.originSelectionRange) }
-                    : {}),
-                }];
+                return [
+                  {
+                    uri: this.monaco.Uri.parse(location.targetUri),
+                    range: monacoRange(location.targetRange),
+                    targetSelectionRange: monacoRange(
+                      location.targetSelectionRange,
+                    ),
+                    ...(location.originSelectionRange
+                      ? {
+                          originSelectionRange: monacoRange(
+                            location.originSelectionRange,
+                          ),
+                        }
+                      : {}),
+                  },
+                ];
               }
-              return [{
-                uri: this.monaco.Uri.parse(location.uri),
-                range: monacoRange(location.range),
-              }];
+              return [
+                {
+                  uri: this.monaco.Uri.parse(location.uri),
+                  range: monacoRange(location.range),
+                },
+              ];
             });
           },
         }),
         this.monaco.languages.registerReferenceProvider(language, {
           provideReferences: async (model, position, context, token) => {
-            if (!this.ownsModel(model) || !this.ready || token.isCancellationRequested) {
+            if (
+              !this.ownsModel(model) ||
+              !this.ready ||
+              token.isCancellationRequested
+            ) {
               return null;
             }
-            const response = await this.request<unknown>('textDocument/references', {
-              textDocument: { uri: model.uri.toString() },
-              position: lspPosition(position),
-              context: { includeDeclaration: context.includeDeclaration },
-            }).catch(() => null);
+            const response = await this.request<unknown>(
+              'textDocument/references',
+              {
+                textDocument: { uri: model.uri.toString() },
+                position: lspPosition(position),
+                context: { includeDeclaration: context.includeDeclaration },
+              },
+            ).catch(() => null);
             return locations(response).flatMap((location) => {
               if (!('uri' in location)) return [];
-              return [{
-                uri: this.monaco.Uri.parse(location.uri),
-                range: monacoRange(location.range),
-              }];
+              return [
+                {
+                  uri: this.monaco.Uri.parse(location.uri),
+                  range: monacoRange(location.range),
+                },
+              ];
             });
           },
         }),
         this.monaco.languages.registerCompletionItemProvider(language, {
           triggerCharacters: ['.', '"', "'", '/', '@', '<'],
           provideCompletionItems: async (model, position, context, token) => {
-            if (!this.ownsModel(model) || !this.ready || token.isCancellationRequested) {
+            if (
+              !this.ownsModel(model) ||
+              !this.ready ||
+              token.isCancellationRequested
+            ) {
               return { suggestions: [] };
             }
-            const response = await this.request<unknown>('textDocument/completion', {
-              textDocument: { uri: model.uri.toString() },
-              position: lspPosition(position),
-              context: {
-                triggerKind: context.triggerKind + 1,
-                ...(context.triggerCharacter
-                  ? { triggerCharacter: context.triggerCharacter }
-                  : {}),
+            const response = await this.request<unknown>(
+              'textDocument/completion',
+              {
+                textDocument: { uri: model.uri.toString() },
+                position: lspPosition(position),
+                context: {
+                  triggerKind: context.triggerKind + 1,
+                  ...(context.triggerCharacter
+                    ? { triggerCharacter: context.triggerCharacter }
+                    : {}),
+                },
               },
-            }).catch(() => null);
+            ).catch(() => null);
             const items = Array.isArray(response)
               ? response
               : isObject(response) && Array.isArray(response.items)
@@ -904,46 +982,65 @@ export class ProjectLanguageServerClient {
               startColumn: word.startColumn,
               endColumn: word.endColumn,
             };
-            const suggestions = items.flatMap((item): Monaco.languages.CompletionItem[] => {
-              if (!isObject(item)) return [];
-              const label = typeof item.label === 'string'
-                ? item.label
-                : isObject(item.label) && typeof item.label.label === 'string'
-                  ? item.label.label
-                  : undefined;
-              if (!label) return [];
-              const textEdit = isObject(item.textEdit) && isObject(item.textEdit.range)
-                ? item.textEdit
-                : undefined;
-              const insertText = textEdit && typeof textEdit.newText === 'string'
-                ? textEdit.newText
-                : typeof item.insertText === 'string'
-                  ? item.insertText
-                  : label;
-              return [{
-                label,
-                kind: completionKind(
-                  this.monaco,
-                  typeof item.kind === 'number' ? item.kind : undefined,
-                ),
-                insertText,
-                range: textEdit
-                  ? monacoRange(textEdit.range as unknown as LspRange)
-                  : defaultRange,
-                ...(typeof item.detail === 'string' ? { detail: item.detail } : {}),
-                ...(item.documentation
-                  ? { documentation: markdownContents(item.documentation)[0] }
-                  : {}),
-                ...(item.insertTextFormat === 2
-                  ? {
-                      insertTextRules:
-                        this.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    }
-                  : {}),
-                ...(typeof item.sortText === 'string' ? { sortText: item.sortText } : {}),
-                ...(typeof item.filterText === 'string' ? { filterText: item.filterText } : {}),
-              }];
-            });
+            const suggestions = items.flatMap(
+              (item): Monaco.languages.CompletionItem[] => {
+                if (!isObject(item)) return [];
+                const label =
+                  typeof item.label === 'string'
+                    ? item.label
+                    : isObject(item.label) &&
+                        typeof item.label.label === 'string'
+                      ? item.label.label
+                      : undefined;
+                if (!label) return [];
+                const textEdit =
+                  isObject(item.textEdit) && isObject(item.textEdit.range)
+                    ? item.textEdit
+                    : undefined;
+                const insertText =
+                  textEdit && typeof textEdit.newText === 'string'
+                    ? textEdit.newText
+                    : typeof item.insertText === 'string'
+                      ? item.insertText
+                      : label;
+                return [
+                  {
+                    label,
+                    kind: completionKind(
+                      this.monaco,
+                      typeof item.kind === 'number' ? item.kind : undefined,
+                    ),
+                    insertText,
+                    range: textEdit
+                      ? monacoRange(textEdit.range as unknown as LspRange)
+                      : defaultRange,
+                    ...(typeof item.detail === 'string'
+                      ? { detail: item.detail }
+                      : {}),
+                    ...(item.documentation
+                      ? {
+                          documentation: markdownContents(
+                            item.documentation,
+                          )[0],
+                        }
+                      : {}),
+                    ...(item.insertTextFormat === 2
+                      ? {
+                          insertTextRules:
+                            this.monaco.languages.CompletionItemInsertTextRule
+                              .InsertAsSnippet,
+                        }
+                      : {}),
+                    ...(typeof item.sortText === 'string'
+                      ? { sortText: item.sortText }
+                      : {}),
+                    ...(typeof item.filterText === 'string'
+                      ? { filterText: item.filterText }
+                      : {}),
+                  },
+                ];
+              },
+            );
             return {
               suggestions,
               incomplete: isObject(response) && response.isIncomplete === true,
@@ -952,12 +1049,19 @@ export class ProjectLanguageServerClient {
         }),
         this.monaco.languages.registerDocumentSymbolProvider(language, {
           provideDocumentSymbols: async (model, token) => {
-            if (!this.ownsModel(model) || !this.ready || token.isCancellationRequested) {
+            if (
+              !this.ownsModel(model) ||
+              !this.ready ||
+              token.isCancellationRequested
+            ) {
               return [];
             }
-            const response = await this.request<unknown>('textDocument/documentSymbol', {
-              textDocument: { uri: model.uri.toString() },
-            }).catch(() => []);
+            const response = await this.request<unknown>(
+              'textDocument/documentSymbol',
+              {
+                textDocument: { uri: model.uri.toString() },
+              },
+            ).catch(() => []);
             if (!Array.isArray(response)) return [];
             return this.documentSymbols(response);
           },
@@ -970,33 +1074,37 @@ export class ProjectLanguageServerClient {
     return items.flatMap((item): Monaco.languages.DocumentSymbol[] => {
       if (!isObject(item) || typeof item.name !== 'string') return [];
       const range = isObject(item.range)
-        ? item.range as unknown as LspRange
+        ? (item.range as unknown as LspRange)
         : isObject(item.location) && isObject(item.location.range)
-          ? item.location.range as unknown as LspRange
+          ? (item.location.range as unknown as LspRange)
           : undefined;
       if (!range) return [];
       const selectionRange = isObject(item.selectionRange)
-        ? item.selectionRange as unknown as LspRange
+        ? (item.selectionRange as unknown as LspRange)
         : range;
-      return [{
-        name: item.name,
-        detail: typeof item.detail === 'string' ? item.detail : '',
-        kind: symbolKind(
-          this.monaco,
-          typeof item.kind === 'number' ? item.kind : undefined,
-        ),
-        tags: [],
-        range: monacoRange(range),
-        selectionRange: monacoRange(selectionRange),
-        children: Array.isArray(item.children)
-          ? this.documentSymbols(item.children)
-          : [],
-      }];
+      return [
+        {
+          name: item.name,
+          detail: typeof item.detail === 'string' ? item.detail : '',
+          kind: symbolKind(
+            this.monaco,
+            typeof item.kind === 'number' ? item.kind : undefined,
+          ),
+          tags: [],
+          range: monacoRange(range),
+          selectionRange: monacoRange(selectionRange),
+          children: Array.isArray(item.children)
+            ? this.documentSymbols(item.children)
+            : [],
+        },
+      ];
     });
   }
 
   private ownsModel(model: Monaco.editor.ITextModel): boolean {
-    return model.uri.toString().startsWith(`${projectRootUri(this.projectId)}/`);
+    return model.uri
+      .toString()
+      .startsWith(`${projectRootUri(this.projectId)}/`);
   }
 
   private request<T = unknown>(method: string, params?: unknown): Promise<T> {
@@ -1046,11 +1154,13 @@ export class ProjectLanguageServerClient {
     code: number,
     message: string,
   ): void {
-    this.socket?.send(JSON.stringify({
-      jsonrpc: '2.0',
-      id,
-      error: { code, message },
-    }));
+    this.socket?.send(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id,
+        error: { code, message },
+      }),
+    );
   }
 
   private handleClose(socket: WebSocket): void {
@@ -1059,7 +1169,9 @@ export class ProjectLanguageServerClient {
     this.ready = false;
     for (const pending of this.pending.values()) {
       window.clearTimeout(pending.timeout);
-      pending.reject(new Error('A conexão com o servidor de linguagem foi encerrada.'));
+      pending.reject(
+        new Error('A conexão com o servidor de linguagem foi encerrada.'),
+      );
     }
     this.pending.clear();
     if (this.disposed || this.documents.size === 0) return;

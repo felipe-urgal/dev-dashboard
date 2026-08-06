@@ -1,11 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import {
-  mkdir,
-  readFile,
-  rename,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 
 import { homedir } from 'node:os';
 
@@ -33,10 +28,7 @@ export type ProjectServerSettingsErrorCode =
 export class ProjectServerSettingsError extends Error {
   public readonly code: ProjectServerSettingsErrorCode;
 
-  public constructor(
-    code: ProjectServerSettingsErrorCode,
-    message: string,
-  ) {
+  public constructor(code: ProjectServerSettingsErrorCode, message: string) {
     super(message);
 
     this.name = 'ProjectServerSettingsError';
@@ -50,44 +42,27 @@ const DEFAULT_CONFIG: ServerSettingsConfig = {
 };
 
 function resolveConfigDirectory(): string {
-  const configuredDirectory =
-    process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
+  const configuredDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR?.trim();
 
   if (configuredDirectory) {
     return path.resolve(configuredDirectory);
   }
 
-  const xdgConfigHome =
-    process.env.XDG_CONFIG_HOME?.trim();
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME?.trim();
 
   if (xdgConfigHome) {
-    return path.join(
-      path.resolve(xdgConfigHome),
-      'dev-dashboard',
-    );
+    return path.join(path.resolve(xdgConfigHome), 'dev-dashboard');
   }
 
-  return path.join(
-    homedir(),
-    '.config',
-    'dev-dashboard',
-  );
+  return path.join(homedir(), '.config', 'dev-dashboard');
 }
 
-function isErrnoException(
-  error: unknown,
-): error is NodeJS.ErrnoException {
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }
 
-function parseServerSettings(
-  value: unknown,
-): ProjectServerSettings | null {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value)
-  ) {
+function parseServerSettings(value: unknown): ProjectServerSettings | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return null;
   }
 
@@ -95,8 +70,7 @@ function parseServerSettings(
 
   if (
     typeof candidate.projectId !== 'string' ||
-    (candidate.port !== undefined &&
-      typeof candidate.port !== 'number') ||
+    (candidate.port !== undefined && typeof candidate.port !== 'number') ||
     (candidate.healthCheckPath !== undefined &&
       typeof candidate.healthCheckPath !== 'string') ||
     (candidate.environment !== undefined &&
@@ -133,15 +107,9 @@ function parseServerSettings(
 
   return {
     projectId: candidate.projectId,
-    ...(candidate.port !== undefined
-      ? { port: candidate.port }
-      : {}),
-    ...(healthCheckPath !== undefined
-      ? { healthCheckPath }
-      : {}),
-    ...(environment !== undefined
-      ? { environment }
-      : {}),
+    ...(candidate.port !== undefined ? { port: candidate.port } : {}),
+    ...(healthCheckPath !== undefined ? { healthCheckPath } : {}),
+    ...(environment !== undefined ? { environment } : {}),
     ...(candidate.updatedAt !== undefined
       ? { updatedAt: candidate.updatedAt }
       : {}),
@@ -151,11 +119,7 @@ function parseServerSettings(
 function parseConfig(contents: string): ServerSettingsConfig {
   const parsed: unknown = JSON.parse(contents);
 
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    Array.isArray(parsed)
-  ) {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error(
       'O arquivo de configurações dos servidores possui formato inválido.',
     );
@@ -163,10 +127,7 @@ function parseConfig(contents: string): ServerSettingsConfig {
 
   const candidate = parsed as Record<string, unknown>;
 
-  if (
-    candidate.version !== 1 ||
-    !Array.isArray(candidate.settings)
-  ) {
+  if (candidate.version !== 1 || !Array.isArray(candidate.settings)) {
     throw new Error(
       'A versão das configurações dos servidores não é suportada.',
     );
@@ -177,24 +138,17 @@ function parseConfig(contents: string): ServerSettingsConfig {
     settings: candidate.settings
       .map(parseServerSettings)
       .filter(
-        (settings): settings is ProjectServerSettings =>
-          settings !== null,
+        (settings): settings is ProjectServerSettings => settings !== null,
       ),
   };
 }
 
-export function validateServerPort(
-  port: number | undefined,
-): void {
+export function validateServerPort(port: number | undefined): void {
   if (port === undefined) {
     return;
   }
 
-  if (
-    !Number.isInteger(port) ||
-    port < 1_024 ||
-    port > 65_535
-  ) {
+  if (!Number.isInteger(port) || port < 1_024 || port > 65_535) {
     throw new ProjectServerSettingsError(
       'INVALID_SERVER_PORT',
       'A porta deve estar entre 1024 e 65535.',
@@ -215,9 +169,7 @@ export function validateHealthCheckPath(
   if (
     healthCheckPath.length > 128 ||
     !validCharacters.test(healthCheckPath) ||
-    segments.some(
-      (segment) => segment === '.' || segment === '..',
-    )
+    segments.some((segment) => segment === '.' || segment === '..')
   ) {
     throw new ProjectServerSettingsError(
       'INVALID_HEALTH_CHECK_PATH',
@@ -249,29 +201,22 @@ export class ProjectServerSettingsRepository {
   private readonly configDirectory: string;
   private readonly configFile: string;
 
-  public constructor(
-    configDirectory = resolveConfigDirectory(),
-  ) {
+  public constructor(configDirectory = resolveConfigDirectory()) {
     this.configDirectory = configDirectory;
-    this.configFile = path.join(
-      configDirectory,
-      'server-settings.json',
-    );
+    this.configFile = path.join(configDirectory, 'server-settings.json');
   }
 
   public get filePath(): string {
     return this.configFile;
   }
 
-  public async find(
-    projectId: string,
-  ): Promise<ProjectServerSettings> {
+  public async find(projectId: string): Promise<ProjectServerSettings> {
     const config = await this.readConfig();
 
     return (
-      config.settings.find(
-        (settings) => settings.projectId === projectId,
-      ) ?? { projectId }
+      config.settings.find((settings) => settings.projectId === projectId) ?? {
+        projectId,
+      }
     );
   }
 
@@ -294,9 +239,7 @@ export class ProjectServerSettingsRepository {
 
     const settings: ProjectServerSettings = {
       projectId: normalizedProjectId,
-      ...(input.port !== undefined
-        ? { port: input.port }
-        : {}),
+      ...(input.port !== undefined ? { port: input.port } : {}),
       ...(input.healthCheckPath !== undefined
         ? { healthCheckPath: input.healthCheckPath }
         : {}),
@@ -312,8 +255,7 @@ export class ProjectServerSettingsRepository {
       version: 1,
       settings: [
         ...config.settings.filter(
-          (candidate) =>
-            candidate.projectId !== normalizedProjectId,
+          (candidate) => candidate.projectId !== normalizedProjectId,
         ),
         settings,
       ],
@@ -324,10 +266,7 @@ export class ProjectServerSettingsRepository {
 
   private async readConfig(): Promise<ServerSettingsConfig> {
     try {
-      const contents = await readFile(
-        this.configFile,
-        'utf8',
-      );
+      const contents = await readFile(this.configFile, 'utf8');
 
       return parseConfig(contents);
     } catch (error) {
@@ -342,25 +281,18 @@ export class ProjectServerSettingsRepository {
     }
   }
 
-  private async writeConfig(
-    config: ServerSettingsConfig,
-  ): Promise<void> {
+  private async writeConfig(config: ServerSettingsConfig): Promise<void> {
     await mkdir(this.configDirectory, {
       recursive: true,
       mode: 0o700,
     });
 
-    const temporaryFile =
-      `${this.configFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+    const temporaryFile = `${this.configFile}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
 
-    await writeFile(
-      temporaryFile,
-      `${JSON.stringify(config, null, 2)}\n`,
-      {
-        encoding: 'utf8',
-        mode: 0o600,
-      },
-    );
+    await writeFile(temporaryFile, `${JSON.stringify(config, null, 2)}\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
 
     await rename(temporaryFile, this.configFile);
   }

@@ -28,12 +28,8 @@ export async function detectRailsCommands(
   const binRspecExists = await pathExists(
     path.join(project.path, 'bin', 'rspec'),
   );
-  const hasSpecDir = await pathExists(
-    path.join(project.path, 'spec'),
-  );
-  const hasTestDir = await pathExists(
-    path.join(project.path, 'test'),
-  );
+  const hasSpecDir = await pathExists(path.join(project.path, 'spec'));
+  const hasTestDir = await pathExists(path.join(project.path, 'test'));
 
   if (hasRspec || binRspecExists || hasSpecDir) {
     commands.push({

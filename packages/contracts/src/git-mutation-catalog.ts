@@ -11,10 +11,7 @@
  * operação correspondente (`GitMutationOperation`) para reduzir mapeamentos.
  */
 export type GitMutationRiskLevel =
-  | 'read-only'
-  | 'write-safe'
-  | 'write-remote'
-  | 'destructive';
+  'read-only' | 'write-safe' | 'write-remote' | 'destructive';
 
 export interface GitMutationCatalogEntry {
   /** Identificador estável, único no catálogo. */
@@ -61,7 +58,8 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
   {
     id: 'pull',
     label: 'Atualizar branch (pull)',
-    description: 'Traz commits do upstream para a branch atual por fast-forward.',
+    description:
+      'Traz commits do upstream para a branch atual por fast-forward.',
     risk: 'write-safe',
     requiresConfirmation: true,
   },
@@ -89,14 +87,16 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
   {
     id: 'save',
     label: 'Salvar alterações',
-    description: 'Adiciona todas as alterações e cria um commit com prefixo automático.',
+    description:
+      'Adiciona todas as alterações e cria um commit com prefixo automático.',
     risk: 'write-safe',
     requiresConfirmation: true,
   },
   {
     id: 'discard-file',
     label: 'Descartar alterações do arquivo',
-    description: 'Reverte um arquivo rastreado ao conteúdo do último commit, perdendo as alterações locais.',
+    description:
+      'Reverte um arquivo rastreado ao conteúdo do último commit, perdendo as alterações locais.',
     risk: 'destructive',
     requiresConfirmation: true,
   },
@@ -110,14 +110,16 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
   {
     id: 'sync-integrate',
     label: 'Sincronizar com referência remota',
-    description: 'Integra uma referência remota na branch atual por fast-forward, rebase ou merge.',
+    description:
+      'Integra uma referência remota na branch atual por fast-forward, rebase ou merge.',
     risk: 'write-remote',
     requiresConfirmation: true,
   },
   {
     id: 'sync-main',
     label: 'Sincronizar main com upstream',
-    description: 'Atualiza a main local a partir do upstream e publica em origin/main.',
+    description:
+      'Atualiza a main local a partir do upstream e publica em origin/main.',
     risk: 'write-remote',
     requiresConfirmation: true,
   },
@@ -138,14 +140,16 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
   {
     id: 'branch-publish',
     label: 'Publicar branch local',
-    description: 'Envia uma branch local ainda não publicada para o remoto origin.',
+    description:
+      'Envia uma branch local ainda não publicada para o remoto origin.',
     risk: 'write-remote',
     requiresConfirmation: true,
   },
   {
     id: 'branch-force-push-with-lease',
     label: 'Reenviar branch com lease',
-    description: 'Reescreve a branch remota somente se ela ainda estiver no commit confirmado.',
+    description:
+      'Reescreve a branch remota somente se ela ainda estiver no commit confirmado.',
     risk: 'destructive',
     requiresConfirmation: true,
   },
@@ -159,16 +163,20 @@ export const GIT_MUTATION_CATALOG: readonly GitMutationCatalogEntry[] = [
   {
     id: 'undo-file',
     label: 'Desfazer arquivo',
-    description: 'Reverte um arquivo ao estado do commit anterior, descartando alterações locais.',
+    description:
+      'Reverte um arquivo ao estado do commit anterior, descartando alterações locais.',
     risk: 'destructive',
     requiresConfirmation: true,
   },
 ];
 
-export const GIT_MUTATION_CATALOG_BY_ID: ReadonlyMap<string, GitMutationCatalogEntry> = new Map(
-  GIT_MUTATION_CATALOG.map((entry) => [entry.id, entry]),
-);
+export const GIT_MUTATION_CATALOG_BY_ID: ReadonlyMap<
+  string,
+  GitMutationCatalogEntry
+> = new Map(GIT_MUTATION_CATALOG.map((entry) => [entry.id, entry]));
 
-export function findGitMutationCatalogEntry(id: string): GitMutationCatalogEntry | undefined {
+export function findGitMutationCatalogEntry(
+  id: string,
+): GitMutationCatalogEntry | undefined {
   return GIT_MUTATION_CATALOG_BY_ID.get(id);
 }

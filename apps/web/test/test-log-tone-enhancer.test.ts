@@ -16,9 +16,15 @@ test('não interpreta arquivo aprovado com error no nome como falha', () => {
 
   assert.equal(isTestLogErrorLine(passedFile), false);
   assert.equal(classifyTestLogSemanticTone(passedFile), 'success');
-  assert.equal(isTestLogErrorLine('× spec/real-failure.spec.tsx (1 test | 1 failed)'), true);
+  assert.equal(
+    isTestLogErrorLine('× spec/real-failure.spec.tsx (1 test | 1 failed)'),
+    true,
+  );
   assert.equal(isTestLogErrorLine('7483 examples, 1 failure'), true);
-  assert.equal(isTestLogErrorLine('Failure/Error: expect(result).to eq(expected)'), true);
+  assert.equal(
+    isTestLogErrorLine('Failure/Error: expect(result).to eq(expected)'),
+    true,
+  );
 });
 
 test('aplica verde, vermelho e tokens semânticos ao progresso do RSpec', () => {
@@ -49,10 +55,22 @@ test('aplica verde, vermelho e tokens semânticos ao progresso do RSpec', () => 
   assert.equal(rows[2]?.classList.contains('tests-log-line-error'), true);
   assert.equal(rows[3]?.classList.contains('tests-log-line-error'), true);
 
-  assert.equal(rows[2]?.querySelectorAll('.test-log-progress-success').length, 5);
-  assert.equal(rows[2]?.querySelectorAll('.test-log-progress-failure').length, 1);
-  assert.equal(document.querySelector('.tests-log-tabs button:nth-child(2)')?.textContent, 'Erros (3)');
-  assert.equal(document.querySelector('.tests-log-tabs button:nth-child(3)')?.textContent, 'Avisos (0)');
+  assert.equal(
+    rows[2]?.querySelectorAll('.test-log-progress-success').length,
+    5,
+  );
+  assert.equal(
+    rows[2]?.querySelectorAll('.test-log-progress-failure').length,
+    1,
+  );
+  assert.equal(
+    document.querySelector('.tests-log-tabs button:nth-child(2)')?.textContent,
+    'Erros (3)',
+  );
+  assert.equal(
+    document.querySelector('.tests-log-tabs button:nth-child(3)')?.textContent,
+    'Avisos (0)',
+  );
 });
 
 test('remove o falso diagnóstico estruturado quando não há erro real', () => {
@@ -75,14 +93,25 @@ test('remove o falso diagnóstico estruturado quando não há erro real', () => 
   assert.ok(shell);
   enhanceTestLogTones(document);
 
-  const buttons = shell.querySelectorAll<HTMLButtonElement>('.tests-log-tabs button');
+  const buttons = shell.querySelectorAll<HTMLButtonElement>(
+    '.tests-log-tabs button',
+  );
   buttons[0]?.classList.remove('active');
   buttons[1]?.classList.add('active');
-  shell.insertAdjacentHTML('beforeend', '<div class="test-log-inspector"><strong>Falha identificada no log</strong></div>');
+  shell.insertAdjacentHTML(
+    'beforeend',
+    '<div class="test-log-inspector"><strong>Falha identificada no log</strong></div>',
+  );
 
   enhanceTestLogTones(shell);
 
   assert.equal(buttons[1]?.textContent, 'Erros (0)');
-  assert.match(shell.querySelector('.test-log-inspector')?.textContent ?? '', /Nenhuma falha estruturada/);
-  assert.equal(shell.querySelector<HTMLElement>('.tests-log-lines li')?.hidden, true);
+  assert.match(
+    shell.querySelector('.test-log-inspector')?.textContent ?? '',
+    /Nenhuma falha estruturada/,
+  );
+  assert.equal(
+    shell.querySelector<HTMLElement>('.tests-log-lines li')?.hidden,
+    true,
+  );
 });

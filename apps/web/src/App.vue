@@ -12,19 +12,9 @@ import {
   QueueListIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
-import {
-  RouterLink,
-  RouterView,
-  useRoute,
-  useRouter,
-} from 'vue-router';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
@@ -58,12 +48,8 @@ nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const {
-  apiConnected,
-  workspaces,
-  selectedWorkspaceId,
-  switchWorkspace,
-} = dashboardStore;
+const { apiConnected, workspaces, selectedWorkspaceId, switchWorkspace } =
+  dashboardStore;
 
 function handleWorkspaceSwitch(event: Event): void {
   const target = event.target as HTMLSelectElement;
@@ -86,9 +72,7 @@ watch(
 );
 
 const pageTitle = computed(() =>
-  typeof route.meta.title === 'string'
-    ? route.meta.title
-    : 'Dev Dashboard',
+  typeof route.meta.title === 'string' ? route.meta.title : 'Dev Dashboard',
 );
 
 const pageEyebrow = computed(() =>
@@ -151,7 +135,9 @@ onMounted(() => {
         type="button"
         aria-controls="primary-sidebar"
         :aria-expanded="!sidebarCollapsed"
-        :aria-label="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
+        :aria-label="
+          sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
+        "
         :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
         @click="toggleSidebarCollapsed"
       >
@@ -178,9 +164,7 @@ onMounted(() => {
             </option>
           </select>
 
-          <div v-else class="workspace-summary-empty">
-            Nenhum workspace
-          </div>
+          <div v-else class="workspace-summary-empty">Nenhum workspace</div>
 
           <button
             type="button"
@@ -242,7 +226,10 @@ onMounted(() => {
       </nav>
 
       <div class="sidebar-footer">
-        <span class="connection-dot" :class="{ 'connection-dot-online': apiConnected }" />
+        <span
+          class="connection-dot"
+          :class="{ 'connection-dot-online': apiConnected }"
+        />
         <span>
           <strong>API {{ apiConnected ? 'conectada' : 'desconectada' }}</strong>
           <small>Ambiente local</small>
@@ -284,7 +271,11 @@ onMounted(() => {
 
           <VisualPreferences />
 
-          <button class="command-button" type="button" @click="commandPalette?.show()">
+          <button
+            class="command-button"
+            type="button"
+            @click="commandPalette?.show()"
+          >
             <MagnifyingGlassIcon aria-hidden="true" />
             <span>Navegação rápida</span>
             <kbd>⌘ K</kbd>

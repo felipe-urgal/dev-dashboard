@@ -1,7 +1,14 @@
 import { execFile, spawn } from 'node:child_process';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
@@ -15,7 +22,13 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import type { DatabaseDetectionService } from './database-detection-service.js';
-import { connectionFor, dumpArguments, restoreArguments, passwordEnvironment, type SnapshotConnection } from './database-snapshot/connection.js';
+import {
+  connectionFor,
+  dumpArguments,
+  restoreArguments,
+  passwordEnvironment,
+  type SnapshotConnection,
+} from './database-snapshot/connection.js';
 import {
   DATABASE_SNAPSHOT_CONFIRMATION_TTL_MS,
   DATABASE_SNAPSHOT_MAX_BYTES,
@@ -26,7 +39,10 @@ import {
   UUID_PATTERN,
 } from './database-snapshot/constants.js';
 import { DatabaseSnapshotError } from './database-snapshot/errors.js';
-import { normalizeLabel, spawnFailure } from './database-snapshot/process-helpers.js';
+import {
+  normalizeLabel,
+  spawnFailure,
+} from './database-snapshot/process-helpers.js';
 import { snapshotDriver } from './database-snapshot/connection.js';
 
 export {
@@ -89,16 +105,22 @@ export class DatabaseSnapshotService {
       }
     }
 
-    return snapshots.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    return snapshots.sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    );
   }
 
   private async currentBranch(projectPath: string): Promise<string> {
     try {
-      const { stdout } = await execFileAsync('git', ['branch', '--show-current'], {
-        cwd: projectPath,
-        encoding: 'utf8',
-        timeout: 5_000,
-      });
+      const { stdout } = await execFileAsync(
+        'git',
+        ['branch', '--show-current'],
+        {
+          cwd: projectPath,
+          encoding: 'utf8',
+          timeout: 5_000,
+        },
+      );
       return stdout.trim();
     } catch {
       return '';
@@ -108,7 +130,11 @@ export class DatabaseSnapshotService {
   public async list(project: Project): Promise<DatabaseSnapshotList> {
     const environments = await this.detectionService.detect(project);
     const supportedEnvironmentIds = environments
-      .filter((environment) => snapshotDriver(environment.driver) !== null && Boolean(environment.database))
+      .filter(
+        (environment) =>
+          snapshotDriver(environment.driver) !== null &&
+          Boolean(environment.database),
+      )
       .map((environment) => environment.id);
 
     const stored = await this.readStored(project.id);
@@ -120,11 +146,18 @@ export class DatabaseSnapshotService {
     };
   }
 
-  public async create(project: Project, environmentId: string): Promise<DatabaseSnapshot> {
-    const environment = (await this.detectionService.detect(project))
-      .find((candidate) => candidate.id === environmentId);
+  public async create(
+    project: Project,
+    environmentId: string,
+  ): Promise<DatabaseSnapshot> {
+    const environment = (await this.detectionService.detect(project)).find(
+      (candidate) => candidate.id === environmentId,
+    );
     if (!environment) {
-      throw new DatabaseSnapshotError('DATABASE_ENVIRONMENT_NOT_FOUND', 'Configuração de banco não encontrada.');
+      throw new DatabaseSnapshotError(
+        'DATABASE_ENVIRONMENT_NOT_FOUND',
+        'Configuração de banco não encontrada.',
+      );
     }
 
     const connection = connectionFor(environment);
@@ -159,12 +192,20 @@ export class DatabaseSnapshotService {
       sizeBytes: stats.size,
     };
 
-    await writeFile(path.join(directory, `${id}.json`), JSON.stringify(snapshot, null, 2), { mode: 0o600 });
+    await writeFile(
+      path.join(directory, `${id}.json`),
+      JSON.stringify(snapshot, null, 2),
+      { mode: 0o600 },
+    );
     await this.applyRetention(project.id);
     return snapshot;
   }
 
-  private async runDump(binary: string, connection: SnapshotConnection, file: string): Promise<void> {
+  private async runDump(
+    binary: string,
+    connection: SnapshotConnection,
+    file: string,
+  ): Promise<void> {
     const child = spawn(binary, dumpArguments(connection), {
       shell: false,
       env: { ...process.env, ...passwordEnvironment(connection) },
@@ -191,19 +232,31 @@ export class DatabaseSnapshotService {
     const timer = setTimeout(() => child.kill('SIGKILL'), DUMP_TIMEOUT_MS);
     try {
       await Promise.all([
-        pipeline(child.stdout, createGzip(), createWriteStream(file, { mode: 0o600 })),
+        pipeline(
+          child.stdout,
+          createGzip(),
+          createWriteStream(file, { mode: 0o600 }),
+        ),
         new Promise<void>((resolve, reject) => {
           child.once('error', (error) => reject(spawnFailure(binary, error)));
           child.once('close', (code) => {
             if (tooLarge) {
-              reject(new DatabaseSnapshotError(
-                'DATABASE_SNAPSHOT_TOO_LARGE',
-                'O dump excedeu o limite de 512 MB e foi interrompido.',
-              ));
+              reject(
+                new DatabaseSnapshotError(
+                  'DATABASE_SNAPSHOT_TOO_LARGE',
+                  'O dump excedeu o limite de 512 MB e foi interrompido.',
+                ),
+              );
               return;
             }
             if (code === 0) resolve();
-            else reject(new DatabaseSnapshotError('DATABASE_SNAPSHOT_FAILED', stderr.trim() || `${binary} terminou com código ${code}.`));
+            else
+              reject(
+                new DatabaseSnapshotError(
+                  'DATABASE_SNAPSHOT_FAILED',
+                  stderr.trim() || `${binary} terminou com código ${code}.`,
+                ),
+              );
           });
         }),
       ]);
@@ -228,27 +281,45 @@ export class DatabaseSnapshotService {
     }
   }
 
-  public async prepareRestore(project: Project, snapshotId: string): Promise<DatabaseSnapshotConfirmation> {
-    const snapshot = (await this.readStored(project.id)).find((item) => item.id === snapshotId);
+  public async prepareRestore(
+    project: Project,
+    snapshotId: string,
+  ): Promise<DatabaseSnapshotConfirmation> {
+    const snapshot = (await this.readStored(project.id)).find(
+      (item) => item.id === snapshotId,
+    );
     if (!snapshot) {
-      throw new DatabaseSnapshotError('DATABASE_SNAPSHOT_NOT_FOUND', 'Snapshot não encontrado.');
+      throw new DatabaseSnapshotError(
+        'DATABASE_SNAPSHOT_NOT_FOUND',
+        'Snapshot não encontrado.',
+      );
     }
 
     this.pruneExpiredRestores();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + DATABASE_SNAPSHOT_CONFIRMATION_TTL_MS;
-    this.pendingRestores.set(token, { token, projectId: project.id, snapshotId, expiresAt });
+    this.pendingRestores.set(token, {
+      token,
+      projectId: project.id,
+      snapshotId,
+      expiresAt,
+    });
 
     return { token, snapshotId, expiresAt: new Date(expiresAt).toISOString() };
   }
 
-  private consumeConfirmation(projectId: string, snapshotId: string, token: string): void {
+  private consumeConfirmation(
+    projectId: string,
+    snapshotId: string,
+    token: string,
+  ): void {
     this.pruneExpiredRestores();
     const pending = this.pendingRestores.get(token);
-    const expected = pending
-      && pending.projectId === projectId
-      && pending.snapshotId === snapshotId
-      && pending.expiresAt > Date.now();
+    const expected =
+      pending &&
+      pending.projectId === projectId &&
+      pending.snapshotId === snapshotId &&
+      pending.expiresAt > Date.now();
 
     if (!pending || !expected) {
       throw new DatabaseSnapshotError(
@@ -259,7 +330,10 @@ export class DatabaseSnapshotService {
 
     const provided = Buffer.from(token);
     const stored = Buffer.from(pending.token);
-    if (provided.length !== stored.length || !timingSafeEqual(provided, stored)) {
+    if (
+      provided.length !== stored.length ||
+      !timingSafeEqual(provided, stored)
+    ) {
       throw new DatabaseSnapshotError(
         'DATABASE_RESTORE_CONFIRMATION_REQUIRED',
         'Confirmação inválida ou expirada. Peça a restauração novamente.',
@@ -270,16 +344,26 @@ export class DatabaseSnapshotService {
     this.pendingRestores.delete(token);
   }
 
-  public async restore(project: Project, snapshotId: string, confirmationToken: string): Promise<void> {
-    const snapshot = (await this.readStored(project.id)).find((item) => item.id === snapshotId);
+  public async restore(
+    project: Project,
+    snapshotId: string,
+    confirmationToken: string,
+  ): Promise<void> {
+    const snapshot = (await this.readStored(project.id)).find(
+      (item) => item.id === snapshotId,
+    );
     if (!snapshot) {
-      throw new DatabaseSnapshotError('DATABASE_SNAPSHOT_NOT_FOUND', 'Snapshot não encontrado.');
+      throw new DatabaseSnapshotError(
+        'DATABASE_SNAPSHOT_NOT_FOUND',
+        'Snapshot não encontrado.',
+      );
     }
 
     this.consumeConfirmation(project.id, snapshotId, confirmationToken);
 
-    const environment = (await this.detectionService.detect(project))
-      .find((candidate) => candidate.id === snapshot.environmentId);
+    const environment = (await this.detectionService.detect(project)).find(
+      (candidate) => candidate.id === snapshot.environmentId,
+    );
     if (!environment) {
       throw new DatabaseSnapshotError(
         'DATABASE_ENVIRONMENT_NOT_FOUND',
@@ -292,7 +376,11 @@ export class DatabaseSnapshotService {
     await this.runRestore(binary, connection, snapshot.file);
   }
 
-  private async runRestore(binary: string, connection: SnapshotConnection, file: string): Promise<void> {
+  private async runRestore(
+    binary: string,
+    connection: SnapshotConnection,
+    file: string,
+  ): Promise<void> {
     const child = spawn(binary, restoreArguments(connection), {
       shell: false,
       env: { ...process.env, ...passwordEnvironment(connection) },
@@ -312,7 +400,13 @@ export class DatabaseSnapshotService {
           child.once('error', (error) => reject(spawnFailure(binary, error)));
           child.once('close', (code) => {
             if (code === 0) resolve();
-            else reject(new DatabaseSnapshotError('DATABASE_RESTORE_FAILED', stderr.trim() || `${binary} terminou com código ${code}.`));
+            else
+              reject(
+                new DatabaseSnapshotError(
+                  'DATABASE_RESTORE_FAILED',
+                  stderr.trim() || `${binary} terminou com código ${code}.`,
+                ),
+              );
           });
         }),
       ]);
@@ -320,7 +414,9 @@ export class DatabaseSnapshotService {
       if (error instanceof DatabaseSnapshotError) throw error;
       throw new DatabaseSnapshotError(
         'DATABASE_RESTORE_FAILED',
-        error instanceof Error ? error.message : 'Falha ao restaurar o snapshot.',
+        error instanceof Error
+          ? error.message
+          : 'Falha ao restaurar o snapshot.',
       );
     } finally {
       clearTimeout(timer);

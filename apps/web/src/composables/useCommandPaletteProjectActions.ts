@@ -67,16 +67,39 @@ export function useCommandPaletteProjectActions(
     loadingActions.value = true;
     const projectId = project.id;
     const requests: Promise<void>[] = [];
-    if (project.capabilities.includes('server')) requests.push(fetchProjectProcess(projectId).then((value) => { if (isSelectedProject(projectId)) projectProcess.value = value; }));
-    if (project.capabilities.includes('tests')) requests.push(Promise.all([fetchProjectTests(projectId), fetchProjectTestProcess(projectId)]).then(([overview, process]) => { if (isSelectedProject(projectId)) { testOverview.value = overview; testProcess.value = process; } }));
+    if (project.capabilities.includes('server'))
+      requests.push(
+        fetchProjectProcess(projectId).then((value) => {
+          if (isSelectedProject(projectId)) projectProcess.value = value;
+        }),
+      );
+    if (project.capabilities.includes('tests'))
+      requests.push(
+        Promise.all([
+          fetchProjectTests(projectId),
+          fetchProjectTestProcess(projectId),
+        ]).then(([overview, process]) => {
+          if (isSelectedProject(projectId)) {
+            testOverview.value = overview;
+            testProcess.value = process;
+          }
+        }),
+      );
     if (project.capabilities.includes('scripts')) {
       const parameters = new URLSearchParams({ page: '1', pageSize: '100' });
-      requests.push(fetchProjectScripts(projectId, parameters).then((value) => { if (isSelectedProject(projectId)) scriptCatalog.value = value; }));
+      requests.push(
+        fetchProjectScripts(projectId, parameters).then((value) => {
+          if (isSelectedProject(projectId)) scriptCatalog.value = value;
+        }),
+      );
     }
     const results = await Promise.allSettled(requests);
-    const feedback = options.isOpen() && requests.length && results.every((result) => result.status === 'rejected')
-      ? 'Não foi possível consultar as ações autorizadas.'
-      : undefined;
+    const feedback =
+      options.isOpen() &&
+      requests.length &&
+      results.every((result) => result.status === 'rejected')
+        ? 'Não foi possível consultar as ações autorizadas.'
+        : undefined;
     if (isSelectedProject(projectId)) {
       loadedProjectId.value = projectId;
       loadingActions.value = false;
@@ -90,7 +113,9 @@ export function useCommandPaletteProjectActions(
   ): Promise<string> {
     if (operation.type === 'server-start') {
       const settings = await fetchProjectServerSettings(projectId);
-      projectProcess.value = await startProjectProcess(projectId, { port: settings.port ?? null });
+      projectProcess.value = await startProjectProcess(projectId, {
+        port: settings.port ?? null,
+      });
       return 'Servidor iniciado com sucesso.';
     }
     if (operation.type === 'server-stop') {
@@ -98,14 +123,20 @@ export function useCommandPaletteProjectActions(
       return 'Servidor interrompido com sucesso.';
     }
     if (operation.type === 'test-start') {
-      testProcess.value = await startProjectTest(projectId, operation.commandId);
+      testProcess.value = await startProjectTest(
+        projectId,
+        operation.commandId,
+      );
       return 'Testes iniciados com sucesso.';
     }
     if (operation.type === 'test-stop') {
       testProcess.value = await stopProjectTest(projectId);
       return 'Execução de testes interrompida.';
     }
-    const token = operation.script.risk === 'read-only' ? undefined : (await prepareScriptExecution(projectId, operation.script.id)).token;
+    const token =
+      operation.script.risk === 'read-only'
+        ? undefined
+        : (await prepareScriptExecution(projectId, operation.script.id)).token;
     await startScriptExecution(projectId, operation.script.id, token);
     return `Script “${operation.script.name}” iniciado.`;
   }

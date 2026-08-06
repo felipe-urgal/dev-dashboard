@@ -52,11 +52,16 @@ test('estrutura falhas RSpec com comparação, origem e resumo', () => {
 });
 
 test('mantem fallback útil para runners sem bloco de falha estruturado', () => {
-  const report = parseTestLog('AssertionError: expected true to be false\n at test/example.test.ts:14:2');
+  const report = parseTestLog(
+    'AssertionError: expected true to be false\n at test/example.test.ts:14:2',
+  );
 
   assert.equal(report.failures.length, 1);
   assert.equal(report.failures[0]?.type, 'AssertionError');
-  assert.match(report.failures[0]?.assertion ?? '', /expected true to be false/);
+  assert.match(
+    report.failures[0]?.assertion ?? '',
+    /expected true to be false/,
+  );
 });
 
 test('aplica layout responsivo, comparação e temas por tokens', async () => {
@@ -76,5 +81,8 @@ test('carrega o inspetor depois das camadas visuais existentes', async () => {
 
   assert.match(main, /import '\.\/test-log-inspector\.css';/);
   assert.match(main, /installTestLogInspector\(\);/);
-  assert.ok(main.indexOf("import './test-log-theme-fix.css';") < main.indexOf("import './test-log-inspector.css';"));
+  assert.ok(
+    main.indexOf("import './test-log-theme-fix.css';") <
+      main.indexOf("import './test-log-inspector.css';"),
+  );
 });

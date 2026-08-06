@@ -31,9 +31,7 @@ test('enriquece PR do GitHub com CI, comentários e conversas não resolvidas', 
     if (url.endsWith('/commits/abc123/check-runs')) {
       return jsonResponse({
         total_count: 1,
-        check_runs: [
-          { status: 'completed', conclusion: 'failure' },
-        ],
+        check_runs: [{ status: 'completed', conclusion: 'failure' }],
       });
     }
     return new Response(null, { status: 404 });

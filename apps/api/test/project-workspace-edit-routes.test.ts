@@ -96,24 +96,28 @@ test('monitora arquivo aberto e aplica WorkspaceEdit após preview', async (cont
         {
           path: 'src/one.ts',
           expectedVersion: currentOne.version,
-          edits: [{
-            range: {
-              start: { line: 1, column: 13 },
-              end: { line: 1, column: 15 },
+          edits: [
+            {
+              range: {
+                start: { line: 1, column: 13 },
+                end: { line: 1, column: 15 },
+              },
+              newText: '100',
             },
-            newText: '100',
-          }],
+          ],
         },
         {
           path: 'src/two.ts',
           expectedVersion: two.json().version,
-          edits: [{
-            range: {
-              start: { line: 1, column: 13 },
-              end: { line: 1, column: 14 },
+          edits: [
+            {
+              range: {
+                start: { line: 1, column: 13 },
+                end: { line: 1, column: 14 },
+              },
+              newText: '20',
             },
-            newText: '20',
-          }],
+          ],
         },
       ],
     },
@@ -153,22 +157,29 @@ test('recusa preview obsoleto e token reutilizado', async (context) => {
     url: '/api/projects/painel/files/workspace-edits/preview',
     headers,
     payload: {
-      files: [{
-        path: 'src/one.ts',
-        expectedVersion: content.json().version,
-        edits: [{
-          range: {
-            start: { line: 1, column: 13 },
-            end: { line: 1, column: 14 },
-          },
-          newText: '10',
-        }],
-      }],
+      files: [
+        {
+          path: 'src/one.ts',
+          expectedVersion: content.json().version,
+          edits: [
+            {
+              range: {
+                start: { line: 1, column: 13 },
+                end: { line: 1, column: 14 },
+              },
+              newText: '10',
+            },
+          ],
+        },
+      ],
     },
   });
   assert.equal(preview.statusCode, 200);
 
-  await writeFile(path.join(projectPath, 'src', 'one.ts'), 'const external = true;\n');
+  await writeFile(
+    path.join(projectPath, 'src', 'one.ts'),
+    'const external = true;\n',
+  );
   const changed = await app.inject({
     method: 'POST',
     url: '/api/projects/painel/files/workspace-edits/apply',

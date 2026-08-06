@@ -49,15 +49,20 @@ export function normalizeVariables(
   const declared = action.variables ?? [];
   const entries = Object.entries(received);
   if (entries.length > 20) {
-    throw new ScriptExecutionError('SCRIPT_VARIABLES_INVALID', 'A tarefa aceita no máximo 20 variáveis.');
+    throw new ScriptExecutionError(
+      'SCRIPT_VARIABLES_INVALID',
+      'A tarefa aceita no máximo 20 variáveis.',
+    );
   }
-  const allowed = new Map(declared.map((variable) => [variable.name, variable]));
+  const allowed = new Map(
+    declared.map((variable) => [variable.name, variable]),
+  );
   const normalized: ScriptExecutionVariables = {};
   for (const [name, value] of entries) {
     if (
-      isProtectedScriptEnvironmentVariable(name)
-      || !allowed.has(name)
-      || typeof value !== 'string'
+      isProtectedScriptEnvironmentVariable(name) ||
+      !allowed.has(name) ||
+      typeof value !== 'string'
     ) {
       throw new ScriptExecutionError(
         'SCRIPT_VARIABLES_INVALID',
@@ -81,11 +86,15 @@ export function normalizeVariables(
     }
   }
   return Object.fromEntries(
-    Object.entries(normalized).sort(([left], [right]) => left.localeCompare(right)),
+    Object.entries(normalized).sort(([left], [right]) =>
+      left.localeCompare(right),
+    ),
   );
 }
 
-export function variablesSignature(variables: ScriptExecutionVariables): string {
+export function variablesSignature(
+  variables: ScriptExecutionVariables,
+): string {
   return JSON.stringify(variables);
 }
 

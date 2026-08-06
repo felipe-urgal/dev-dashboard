@@ -1,13 +1,23 @@
-import { Bars3BottomLeftIcon, ViewColumnsIcon } from '@heroicons/vue/24/outline';
+import {
+  Bars3BottomLeftIcon,
+  ViewColumnsIcon,
+} from '@heroicons/vue/24/outline';
 
 import { mountIcon } from './dom-helpers';
 import { emptyView, splitView, unifiedView } from './diff-render';
 import { persistViewMode, rawPatchOf, readViewMode } from './storage';
 
-export function updateFullDiffLabel(container: HTMLElement, selector: string): void {
+export function updateFullDiffLabel(
+  container: HTMLElement,
+  selector: string,
+): void {
   const summary = container.querySelector<HTMLElement>(selector);
-  const labels = Array.from(summary?.querySelectorAll<HTMLElement>('span') ?? []);
-  const label = labels.find((candidate) => candidate.textContent?.includes('diff completo'));
+  const labels = Array.from(
+    summary?.querySelectorAll<HTMLElement>('span') ?? [],
+  );
+  const label = labels.find((candidate) =>
+    candidate.textContent?.includes('diff completo'),
+  );
   if (label) label.textContent = 'Ver diff completo (todos os arquivos)';
 }
 
@@ -42,9 +52,13 @@ export function enhanceFullDiff(patch: HTMLElement): void {
       button.setAttribute('aria-pressed', String(selected));
     });
     body.replaceChildren();
-    body.append(rawPatch.trim()
-      ? mode === 'split' ? splitView(rawPatch) : unifiedView(rawPatch)
-      : emptyView('Este commit não possui diff textual para exibir.'));
+    body.append(
+      rawPatch.trim()
+        ? mode === 'split'
+          ? splitView(rawPatch)
+          : unifiedView(rawPatch)
+        : emptyView('Este commit não possui diff textual para exibir.'),
+    );
   };
 
   [

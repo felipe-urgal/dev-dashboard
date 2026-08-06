@@ -1,20 +1,32 @@
-import type { Activity, ActivityOrigin, ActivityStatus } from '@dev-dashboard/contracts';
+import type {
+  Activity,
+  ActivityOrigin,
+  ActivityStatus,
+} from '@dev-dashboard/contracts';
 
 export function statusLabel(status: ActivityStatus): string {
   switch (status) {
-    case 'running': return 'Em execução';
-    case 'succeeded': return 'Concluída';
-    case 'failed': return 'Falhou';
-    case 'cancelled': return 'Cancelada';
-    default: return 'Desconhecida';
+    case 'running':
+      return 'Em execução';
+    case 'succeeded':
+      return 'Concluída';
+    case 'failed':
+      return 'Falhou';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return 'Desconhecida';
   }
 }
 
 export function originLabel(origin: ActivityOrigin): string {
   switch (origin) {
-    case 'script': return 'Catálogo';
-    case 'test': return 'Testes';
-    case 'server': return 'Servidor';
+    case 'script':
+      return 'Catálogo';
+    case 'test':
+      return 'Testes';
+    case 'server':
+      return 'Servidor';
   }
 }
 

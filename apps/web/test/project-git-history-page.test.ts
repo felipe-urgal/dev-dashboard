@@ -83,7 +83,10 @@ afterEach(() => {
 });
 
 function jsonResponse(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), { status, headers: jsonHeaders });
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: jsonHeaders,
+  });
 }
 
 /** O modal é teleportado para o body, então olhamos o documento inteiro. */
@@ -96,15 +99,20 @@ function modalElement(): HTMLElement | null {
 }
 
 async function settle(marker = 'Carregando'): Promise<void> {
-  await vi.waitFor(() => {
-    if (documentHtml().includes(marker)) throw new Error('ainda carregando');
-  }, { timeout: 5_000, interval: 10 });
+  await vi.waitFor(
+    () => {
+      if (documentHtml().includes(marker)) throw new Error('ainda carregando');
+    },
+    { timeout: 5_000, interval: 10 },
+  );
   await flushPromises();
 }
 
 async function clickIn(selector: string, text?: string): Promise<void> {
   const candidates = [...document.querySelectorAll<HTMLElement>(selector)];
-  const target = text ? candidates.find((item) => item.textContent?.includes(text)) : candidates[0];
+  const target = text
+    ? candidates.find((item) => item.textContent?.includes(text))
+    : candidates[0];
   target?.click();
   await flushPromises();
 }
@@ -121,20 +129,41 @@ async function mountPage(options: { total?: number } = {}) {
       return jsonResponse({
         workspace: {
           branches: [
-            { name: 'fix/cadastro', shortName: 'fix/cadastro', kind: 'local', current: true, ahead: 0, behind: 0 },
-            { name: 'origin/main', shortName: 'main', kind: 'remote', current: false, remote: 'origin', ahead: 0, behind: 0 },
+            {
+              name: 'fix/cadastro',
+              shortName: 'fix/cadastro',
+              kind: 'local',
+              current: true,
+              ahead: 0,
+              behind: 0,
+            },
+            {
+              name: 'origin/main',
+              shortName: 'main',
+              kind: 'remote',
+              current: false,
+              remote: 'origin',
+              ahead: 0,
+              behind: 0,
+            },
           ],
           remotes: [],
         },
       });
     }
-    if (url.pathname.includes('/git/commits/') && url.pathname.endsWith('/file')) {
+    if (
+      url.pathname.includes('/git/commits/') &&
+      url.pathname.endsWith('/file')
+    ) {
       return jsonResponse({ file: fileDiff });
     }
     if (url.pathname.includes('/git/commits/')) {
       return jsonResponse({ detail });
     }
-    if (url.pathname.endsWith('/git/exclusive-branch-commits') || url.pathname.endsWith('/git/commits')) {
+    if (
+      url.pathname.endsWith('/git/exclusive-branch-commits') ||
+      url.pathname.endsWith('/git/commits')
+    ) {
       const total = options.total ?? commits.length;
       return jsonResponse({
         history: {
@@ -178,7 +207,9 @@ test('lista commits em tabela agrupada por dia', async () => {
 test('consulta os commits exclusivos da branch por padrão', async () => {
   const { requests } = await mountPage();
 
-  const listed = requests.find((request) => request.path.endsWith('/git/exclusive-branch-commits'));
+  const listed = requests.find((request) =>
+    request.path.endsWith('/git/exclusive-branch-commits'),
+  );
   assert.ok(listed, 'esperava a consulta de commits exclusivos');
   assert.equal(listed!.query.get('pageSize'), '20');
 });
@@ -203,12 +234,23 @@ test('carrega o diff do arquivo com destaque de trecho alterado', async () => {
   await settle('Carregando detalhes');
   await settle('Carregando diff');
 
-  const fileRequest = requests.find((request) => request.path.endsWith('/file'));
+  const fileRequest = requests.find((request) =>
+    request.path.endsWith('/file'),
+  );
   assert.ok(fileRequest, 'esperava a consulta do diff do arquivo');
-  assert.equal(fileRequest!.query.get('path'), 'app/ui/pages/auth/signup/index.tsx');
+  assert.equal(
+    fileRequest!.query.get('path'),
+    'app/ui/pages/auth/signup/index.tsx',
+  );
 
-  assert.ok(document.querySelector('.git-diff-unified-row.is-addition'), 'esperava linhas do diff renderizadas');
-  assert.ok(documentHtml().includes('git-diff-word'), 'esperava destaque intralinha');
+  assert.ok(
+    document.querySelector('.git-diff-unified-row.is-addition'),
+    'esperava linhas do diff renderizadas',
+  );
+  assert.ok(
+    documentHtml().includes('git-diff-word'),
+    'esperava destaque intralinha',
+  );
 });
 
 test('alterna entre unificado e lado a lado', async () => {
@@ -238,9 +280,15 @@ test('fecha o modal pelo botão de fechar', async () => {
 test('mostra a faixa e a paginação do total de commits', async () => {
   const { wrapper, requests } = await mountPage({ total: 32 });
 
-  assert.ok(wrapper.find('.git-history-pagination').text().includes('Mostrando 1 a 2 de 32 commits'));
+  assert.ok(
+    wrapper
+      .find('.git-history-pagination')
+      .text()
+      .includes('Mostrando 1 a 2 de 32 commits'),
+  );
 
-  const next = wrapper.findAll('.git-history-pagination button')
+  const next = wrapper
+    .findAll('.git-history-pagination button')
     .find((button) => button.text() === 'Próxima')!;
   await next.trigger('click');
   await flushPromises();

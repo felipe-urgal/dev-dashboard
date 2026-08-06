@@ -15,8 +15,7 @@ export function useProjectServerActivities(getProject: () => Project) {
 
   function isCurrentProject(projectId: string, generation: number): boolean {
     return (
-      getProject().id === projectId &&
-      projectRequests.isCurrent(generation)
+      getProject().id === projectId && projectRequests.isCurrent(generation)
     );
   }
 

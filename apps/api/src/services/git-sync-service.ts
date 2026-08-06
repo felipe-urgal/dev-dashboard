@@ -54,7 +54,9 @@ export class GitSyncService {
    * comportamento anterior, em que os dois fluxos nunca compartilhavam
    * confirmação na prática (rotas e chamadas diferentes).
    */
-  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
+  private readonly confirmations = new GitMutationConfirmationService(
+    CONFIRMATION_TTL_MS,
+  );
 
   public prepareConfirmation(
     projectId: string,
@@ -73,9 +75,7 @@ export class GitSyncService {
     return { token, reference, strategy, expiresAt };
   }
 
-  public prepareMainConfirmation(
-    projectId: string,
-  ): GitSyncConfirmation {
+  public prepareMainConfirmation(projectId: string): GitSyncConfirmation {
     const { token, expiresAt } = this.confirmations.prepare(
       projectId,
       'sync-main' satisfies GitSyncOperationId,
@@ -173,7 +173,11 @@ export class GitSyncService {
       changed: currentHead !== previousHead,
       previousHead,
       currentHead,
-      impact: await computeProjectChangeImpact(projectPath, previousHead, currentHead),
+      impact: await computeProjectChangeImpact(
+        projectPath,
+        previousHead,
+        currentHead,
+      ),
     };
   }
 
@@ -194,10 +198,7 @@ export class GitSyncService {
     await requireRemote(projectPath, 'origin');
     await requireLocalMain(projectPath);
 
-    const previousHead = await runGit(
-      projectPath,
-      ['rev-parse', MAIN_BRANCH],
-    );
+    const previousHead = await runGit(projectPath, ['rev-parse', MAIN_BRANCH]);
     const previousOriginHead = await optionalReferenceHead(
       projectPath,
       'origin/main',
@@ -252,11 +253,14 @@ export class GitSyncService {
       reference: MAIN_REFERENCE,
       strategy: MAIN_STRATEGY,
       changed:
-        currentHead !== previousHead
-        || previousOriginHead !== currentHead,
+        currentHead !== previousHead || previousOriginHead !== currentHead,
       previousHead,
       currentHead,
-      impact: await computeProjectChangeImpact(projectPath, previousHead, currentHead),
+      impact: await computeProjectChangeImpact(
+        projectPath,
+        previousHead,
+        currentHead,
+      ),
     };
   }
 

@@ -50,16 +50,20 @@ async function prepare(content: string, path: string): Promise<void> {
   const language = syntax.detectLanguage(path, detectionSample(parsed));
   if (!language) return;
 
-  lines.value = parsed.map((line) => (
-    line.kind === 'addition' || line.kind === 'deletion' || line.kind === 'context'
+  lines.value = parsed.map((line) =>
+    line.kind === 'addition' ||
+    line.kind === 'deletion' ||
+    line.kind === 'context'
       ? { ...line, syntax: syntax.syntaxRangesFor(line.text, language) }
-      : line
-  ));
+      : line,
+  );
 }
 
 watch(
   () => [props.content, props.path] as const,
-  ([content, path]) => { void prepare(content, path); },
+  ([content, path]) => {
+    void prepare(content, path);
+  },
   { immediate: true },
 );
 
@@ -103,7 +107,10 @@ function splitRows(hunkLines: readonly GitUnifiedDiffLine[]) {
       <code role="cell" v-html="highlighted(line)"></code>
     </div>
 
-    <template v-for="(hunk, hunkIndex) in groups.hunks" :key="`hunk-${hunkIndex}`">
+    <template
+      v-for="(hunk, hunkIndex) in groups.hunks"
+      :key="`hunk-${hunkIndex}`"
+    >
       <div class="git-diff-hunk-head" role="row">
         <code role="cell">{{ hunk.header.text }}</code>
       </div>
@@ -116,9 +123,15 @@ function splitRows(hunkLines: readonly GitUnifiedDiffLine[]) {
           :class="`is-${line.kind}`"
           role="row"
         >
-          <span class="git-diff-line-number" role="cell">{{ line.oldLine ?? '' }}</span>
-          <span class="git-diff-line-number" role="cell">{{ line.newLine ?? '' }}</span>
-          <span class="git-diff-line-prefix" role="cell">{{ linePrefix(line.kind) }}</span>
+          <span class="git-diff-line-number" role="cell">{{
+            line.oldLine ?? ''
+          }}</span>
+          <span class="git-diff-line-number" role="cell">{{
+            line.newLine ?? ''
+          }}</span>
+          <span class="git-diff-line-prefix" role="cell">{{
+            linePrefix(line.kind)
+          }}</span>
           <code role="cell" v-html="highlighted(line)"></code>
         </div>
       </template>
@@ -128,8 +141,15 @@ function splitRows(hunkLines: readonly GitUnifiedDiffLine[]) {
           v-for="(row, rowIndex) in splitRows(hunk.lines)"
           :key="`s-${hunkIndex}-${rowIndex}`"
         >
-          <div v-if="row.kind === 'meta'" class="git-diff-split-meta" role="row">
-            <code role="cell" v-html="highlighted(row.left ?? row.right!)"></code>
+          <div
+            v-if="row.kind === 'meta'"
+            class="git-diff-split-meta"
+            role="row"
+          >
+            <code
+              role="cell"
+              v-html="highlighted(row.left ?? row.right!)"
+            ></code>
           </div>
 
           <div v-else class="git-diff-split-row" role="row">
@@ -137,18 +157,34 @@ function splitRows(hunkLines: readonly GitUnifiedDiffLine[]) {
               class="git-diff-side-cell"
               :class="row.left ? `is-${row.left.kind}` : 'is-empty'"
             >
-              <span class="git-diff-line-number" role="cell">{{ row.left?.oldLine ?? '' }}</span>
-              <span class="git-diff-line-prefix" role="cell">{{ row.left ? linePrefix(row.left.kind) : '' }}</span>
-              <code v-if="row.left" role="cell" v-html="highlighted(row.left)"></code>
+              <span class="git-diff-line-number" role="cell">{{
+                row.left?.oldLine ?? ''
+              }}</span>
+              <span class="git-diff-line-prefix" role="cell">{{
+                row.left ? linePrefix(row.left.kind) : ''
+              }}</span>
+              <code
+                v-if="row.left"
+                role="cell"
+                v-html="highlighted(row.left)"
+              ></code>
               <code v-else role="cell"></code>
             </div>
             <div
               class="git-diff-side-cell"
               :class="row.right ? `is-${row.right.kind}` : 'is-empty'"
             >
-              <span class="git-diff-line-number" role="cell">{{ row.right?.newLine ?? '' }}</span>
-              <span class="git-diff-line-prefix" role="cell">{{ row.right ? linePrefix(row.right.kind) : '' }}</span>
-              <code v-if="row.right" role="cell" v-html="highlighted(row.right)"></code>
+              <span class="git-diff-line-number" role="cell">{{
+                row.right?.newLine ?? ''
+              }}</span>
+              <span class="git-diff-line-prefix" role="cell">{{
+                row.right ? linePrefix(row.right.kind) : ''
+              }}</span>
+              <code
+                v-if="row.right"
+                role="cell"
+                v-html="highlighted(row.right)"
+              ></code>
               <code v-else role="cell"></code>
             </div>
           </div>

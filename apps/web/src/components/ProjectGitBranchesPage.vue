@@ -10,12 +10,7 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-} from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import type {
   GitBranch,
@@ -93,19 +88,21 @@ const rows = computed<BranchRow[]>(() => {
   });
 });
 
-const filteredRows = computed(() => rows.value.filter((row) => {
-  if (filter.value === 'local') return Boolean(row.local);
-  if (filter.value === 'remote') return Boolean(row.origin);
-  return true;
-}));
+const filteredRows = computed(() =>
+  rows.value.filter((row) => {
+    if (filter.value === 'local') return Boolean(row.local);
+    if (filter.value === 'remote') return Boolean(row.origin);
+    return true;
+  }),
+);
 
 const fullBranchName = computed(() => {
   const suffix = branchSuffix.value.trim().replace(/^\/+/, '');
   return suffix ? `${branchPrefix.value}${suffix}` : branchPrefix.value;
 });
 
-const selectedRow = computed(
-  () => rows.value.find((row) => row.name === selectedBranch.value),
+const selectedRow = computed(() =>
+  rows.value.find((row) => row.name === selectedBranch.value),
 );
 
 const canSubmitCreate = computed(() => {
@@ -115,9 +112,11 @@ const canSubmitCreate = computed(() => {
 
 const canSubmitRename = computed(() => {
   const nextName = renamedBranch.value.trim();
-  return Boolean(nextName)
-    && nextName !== selectedBranch.value
-    && nextName.length <= 200;
+  return (
+    Boolean(nextName) &&
+    nextName !== selectedBranch.value &&
+    nextName.length <= 200
+  );
 });
 
 const canSubmitDelete = computed(

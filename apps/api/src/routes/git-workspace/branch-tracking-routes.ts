@@ -1,7 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { GitBranchService } from '../../services/git-branch-service.js';
-import { commonErrorResponseSchemas, gitBranchMutationResponseSchema } from '../../http/response-schemas.js';
+import {
+  commonErrorResponseSchemas,
+  gitBranchMutationResponseSchema,
+} from '../../http/response-schemas.js';
 import {
   branchRemoteConfirmationResponseSchema,
   findProject,

@@ -47,9 +47,7 @@ test('executa Git sem abrir prompt interativo invisível', async () => {
 test('encerra um comando Git que ultrapassa o limite', async () => {
   const startedAt = Date.now();
 
-  await assert.rejects(
-    runGit(root, ['hang'], { timeoutMs: 50 }),
-  );
+  await assert.rejects(runGit(root, ['hang'], { timeoutMs: 50 }));
 
   assert.ok(Date.now() - startedAt < 2_000);
 });

@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { registerProcessListRoutes } from './processes/process-list-routes.js';
 import { registerServerProcessRoutes } from './processes/server-process-routes.js';

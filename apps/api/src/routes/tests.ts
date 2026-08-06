@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { registerTestCommandRoutes } from './tests/command-routes.js';
 import { registerTestEventsRoute } from './tests/events-route.js';

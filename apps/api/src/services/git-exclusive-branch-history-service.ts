@@ -53,7 +53,10 @@ export class ExclusiveBranchHistoryError extends Error {
   }
 }
 
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -79,7 +82,10 @@ async function requireRepository(projectPath: string): Promise<void> {
   }
 }
 
-async function referenceExists(projectPath: string, reference: string): Promise<boolean> {
+async function referenceExists(
+  projectPath: string,
+  reference: string,
+): Promise<boolean> {
   try {
     await runGit(projectPath, [
       'rev-parse',
@@ -99,12 +105,14 @@ async function remoteDefaultReference(
   remote: string,
 ): Promise<string | undefined> {
   try {
-    const value = (await runGit(projectPath, [
-      'symbolic-ref',
-      '--quiet',
-      '--short',
-      `refs/remotes/${remote}/HEAD`,
-    ])).trim();
+    const value = (
+      await runGit(projectPath, [
+        'symbolic-ref',
+        '--quiet',
+        '--short',
+        `refs/remotes/${remote}/HEAD`,
+      ])
+    ).trim();
     return value || undefined;
   } catch {
     return undefined;
@@ -167,9 +175,9 @@ function filterHistory(
 
 function hasFilters(options: ExclusiveBranchHistoryOptions): boolean {
   return Boolean(
-    options.search?.trim()
-    || options.author?.trim()
-    || options.kind && options.kind !== 'all',
+    options.search?.trim() ||
+    options.author?.trim() ||
+    (options.kind && options.kind !== 'all'),
   );
 }
 
@@ -182,7 +190,9 @@ async function resolveReference(
   projectPath: string,
   requestedReference?: string,
 ): Promise<{ label: string; revision: string; exists: boolean }> {
-  const currentBranch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
+  const currentBranch = (
+    await runGit(projectPath, ['branch', '--show-current'])
+  ).trim();
   const requested = requestedReference?.trim() ?? '';
   const revision = requested || 'HEAD';
   const label = requested || currentBranch || 'HEAD destacado';
@@ -233,15 +243,17 @@ async function resolveExclusiveRevision(
     if (visited.has(candidate)) continue;
     visited.add(candidate);
     if (candidate === reference.revision) continue;
-    if (!await referenceExists(projectPath, candidate)) continue;
+    if (!(await referenceExists(projectPath, candidate))) continue;
 
     try {
-      const mergeBase = (await runGit(projectPath, [
-        'merge-base',
-        '--',
-        reference.revision,
-        candidate,
-      ])).trim();
+      const mergeBase = (
+        await runGit(projectPath, [
+          'merge-base',
+          '--',
+          reference.revision,
+          candidate,
+        ])
+      ).trim();
       if (mergeBase) return `${candidate}..${reference.revision}`;
     } catch {
       // Tenta a próxima referência principal disponível.
@@ -258,7 +270,10 @@ export async function listExclusiveBranchCommits(
   await requireRepository(projectPath);
 
   const page = Math.max(1, Math.floor(options.page ?? 1));
-  const pageSize = Math.min(HISTORY_PAGE_SIZE_LIMIT, Math.max(1, Math.floor(options.pageSize ?? 10)));
+  const pageSize = Math.min(
+    HISTORY_PAGE_SIZE_LIMIT,
+    Math.max(1, Math.floor(options.pageSize ?? 10)),
+  );
   const reference = await resolveReference(projectPath, options.reference);
 
   if (!reference.exists) {
@@ -274,7 +289,12 @@ export async function listExclusiveBranchCommits(
 
   const revision = await resolveExclusiveRevision(projectPath, reference);
   if (hasFilters(options)) {
-    const output = await runGit(projectPath, ['log', HISTORY_FORMAT, revision, '--']);
+    const output = await runGit(projectPath, [
+      'log',
+      HISTORY_FORMAT,
+      revision,
+      '--',
+    ]);
     const filtered = filterHistory(parseHistory(output), options);
     const total = filtered.length;
     const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
@@ -290,10 +310,11 @@ export async function listExclusiveBranchCommits(
     };
   }
 
-  const total = Number.parseInt(
-    (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
-    10,
-  ) || 0;
+  const total =
+    Number.parseInt(
+      (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
+      10,
+    ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const effectivePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
   const skip = (effectivePage - 1) * pageSize;

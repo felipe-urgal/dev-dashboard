@@ -7,10 +7,7 @@ import {
   type ProjectFileService,
 } from '../services/project-file-service.js';
 import type { ProjectStore } from '../store/project-store.js';
-import {
-  projectParamsSchema,
-  type ProjectParams,
-} from './projects/helpers.js';
+import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface ProjectFileRouteOptions {
   projectStore: ProjectStore;

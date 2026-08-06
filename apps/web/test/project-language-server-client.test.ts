@@ -44,7 +44,10 @@ class FakeWebSocket {
     sockets.push(this);
   }
 
-  public addEventListener(type: string, listener: (event: never) => void): void {
+  public addEventListener(
+    type: string,
+    listener: (event: never) => void,
+  ): void {
     const current = this.listeners.get(type) ?? [];
     current.push(listener);
     this.listeners.set(type, current);
@@ -66,7 +69,9 @@ class FakeWebSocket {
   }
 
   public receive(message: unknown): void {
-    this.emit('message', { data: JSON.stringify(message) } satisfies FakeMessageEvent);
+    this.emit('message', {
+      data: JSON.stringify(message),
+    } satisfies FakeMessageEvent);
   }
 
   private emit(type: string, event: object): void {
@@ -83,7 +88,9 @@ function nextTick(): Promise<void> {
 }
 
 function sentMessages(socket: FakeWebSocket): Array<Record<string, unknown>> {
-  return socket.sent.map((value) => JSON.parse(value) as Record<string, unknown>);
+  return socket.sent.map(
+    (value) => JSON.parse(value) as Record<string, unknown>,
+  );
 }
 
 function takeRequest(
@@ -116,7 +123,10 @@ function fakeMonaco() {
         setModelMarkers: (...args: unknown[]) => markerCalls.push(args),
       },
       languages: {
-        CompletionItemKind: new Proxy({}, { get: (_target, key) => String(key) }),
+        CompletionItemKind: new Proxy(
+          {},
+          { get: (_target, key) => String(key) },
+        ),
         SymbolKind: new Proxy({}, { get: (_target, key) => String(key) }),
         CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
         registerHoverProvider: vi.fn(disposable),
@@ -149,7 +159,9 @@ function fakeModel(uri: string, initialContent: string) {
   };
 }
 
-function openedTypeScript(content = 'export const value = 1;\n'): ProjectFileContent {
+function openedTypeScript(
+  content = 'export const value = 1;\n',
+): ProjectFileContent {
   return {
     path: 'src/index.ts',
     name: 'index.ts',
@@ -191,13 +203,15 @@ beforeEach(() => {
   api.preview.mockResolvedValue({
     confirmationToken: 'c'.repeat(64),
     expiresAt: '2026-08-03T13:00:00.000Z',
-    files: [{
-      path: 'src/index.ts',
-      language: 'typescript',
-      beforeVersion: 'a'.repeat(64),
-      beforeContent: 'export const value = 1;\n',
-      afterContent: 'export const value = 2;\n',
-    }],
+    files: [
+      {
+        path: 'src/index.ts',
+        language: 'typescript',
+        beforeVersion: 'a'.repeat(64),
+        beforeContent: 'export const value = 1;\n',
+        afterContent: 'export const value = 2;\n',
+      },
+    ],
   } satisfies ProjectWorkspaceEditPreview);
 });
 
@@ -236,30 +250,46 @@ test('inicializa, sincroniza mudanças e publica diagnósticos no Monaco', async
   await nextTick();
 
   const initialize = takeRequest(socket, 'initialize');
-  socket.receive({ jsonrpc: '2.0', id: initialize.id, result: { capabilities: {} } });
+  socket.receive({
+    jsonrpc: '2.0',
+    id: initialize.id,
+    result: { capabilities: {} },
+  });
   await nextTick();
 
-  assert.ok(sentMessages(socket).some((message) => message.method === 'initialized'));
-  assert.ok(sentMessages(socket).some((message) => message.method === 'textDocument/didOpen'));
+  assert.ok(
+    sentMessages(socket).some((message) => message.method === 'initialized'),
+  );
+  assert.ok(
+    sentMessages(socket).some(
+      (message) => message.method === 'textDocument/didOpen',
+    ),
+  );
   assert.equal(statuses.at(-1)?.state, 'ready');
 
   model.change('export const value = 2;\n');
-  assert.ok(sentMessages(socket).some((message) => message.method === 'textDocument/didChange'));
+  assert.ok(
+    sentMessages(socket).some(
+      (message) => message.method === 'textDocument/didChange',
+    ),
+  );
 
   socket.receive({
     jsonrpc: '2.0',
     method: 'textDocument/publishDiagnostics',
     params: {
       uri,
-      diagnostics: [{
-        range: {
-          start: { line: 0, character: 0 },
-          end: { line: 0, character: 6 },
+      diagnostics: [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 6 },
+          },
+          severity: 1,
+          source: 'typescript',
+          message: 'Erro de exemplo.',
         },
-        severity: 1,
-        source: 'typescript',
-        message: 'Erro de exemplo.',
-      }],
+      ],
     },
   });
   await nextTick();
@@ -295,7 +325,11 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
   socket.open();
   await nextTick();
   const initialize = takeRequest(socket, 'initialize');
-  socket.receive({ jsonrpc: '2.0', id: initialize.id, result: { capabilities: {} } });
+  socket.receive({
+    jsonrpc: '2.0',
+    id: initialize.id,
+    result: { capabilities: {} },
+  });
   await nextTick();
 
   const symbolsPromise = client.workspaceSymbols('value');
@@ -303,27 +337,31 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
   socket.receive({
     jsonrpc: '2.0',
     id: symbolsRequest.id,
-    result: [{
-      name: 'value',
-      kind: 13,
-      location: {
-        uri,
-        range: {
-          start: { line: 0, character: 13 },
-          end: { line: 0, character: 18 },
+    result: [
+      {
+        name: 'value',
+        kind: 13,
+        location: {
+          uri,
+          range: {
+            start: { line: 0, character: 13 },
+            end: { line: 0, character: 18 },
+          },
         },
       },
-    }],
+    ],
   });
   const symbols = await symbolsPromise;
-  assert.deepEqual(symbols, [{
-    path: 'src/index.ts',
-    name: 'index.ts',
-    language: 'typescript',
-    line: 1,
-    column: 14,
-    preview: 'value',
-  }]);
+  assert.deepEqual(symbols, [
+    {
+      path: 'src/index.ts',
+      name: 'index.ts',
+      language: 'typescript',
+      line: 1,
+      column: 14,
+      preview: 'value',
+    },
+  ]);
 
   socket.receive({
     jsonrpc: '2.0',
@@ -332,13 +370,15 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
     params: {
       edit: {
         changes: {
-          [uri]: [{
-            range: {
-              start: { line: 0, character: 21 },
-              end: { line: 0, character: 22 },
+          [uri]: [
+            {
+              range: {
+                start: { line: 0, character: 21 },
+                end: { line: 0, character: 22 },
+              },
+              newText: '2',
             },
-            newText: '2',
-          }],
+          ],
         },
       },
     },
@@ -348,13 +388,16 @@ test('busca símbolos e encaminha WorkspaceEdit apenas para revisão', async () 
 
   assert.equal(api.preview.mock.calls.length, 1);
   assert.equal(previews.length, 1);
-  const applyResponse = sentMessages(socket).find((message) => message.id === 99);
+  const applyResponse = sentMessages(socket).find(
+    (message) => message.id === 99,
+  );
   assert.deepEqual(applyResponse, {
     jsonrpc: '2.0',
     id: 99,
     result: {
       applied: false,
-      failureReason: 'A alteração foi encaminhada para revisão segura no dashboard.',
+      failureReason:
+        'A alteração foi encaminhada para revisão segura no dashboard.',
     },
   });
   client.dispose();
@@ -398,15 +441,21 @@ test('sessão ruby não envia preferências específicas de TypeScript e registr
 
   const initialize = takeRequest(socket, 'initialize');
   assert.equal(initialize.initializationOptions, undefined);
-  socket.receive({ jsonrpc: '2.0', id: initialize.id, result: { capabilities: {} } });
+  socket.receive({
+    jsonrpc: '2.0',
+    id: initialize.id,
+    result: { capabilities: {} },
+  });
   await nextTick();
 
   assert.equal(statuses.at(-1)?.kind, 'ruby');
   assert.equal(statuses.at(-1)?.state, 'ready');
   assert.ok(
-    monaco.instance.languages.registerHoverProvider
-      && (monaco.instance.languages.registerHoverProvider as unknown as ReturnType<typeof vi.fn>)
-        .mock.calls.some((call: unknown[]) => call[0] === 'ruby'),
+    monaco.instance.languages.registerHoverProvider &&
+      (
+        monaco.instance.languages
+          .registerHoverProvider as unknown as ReturnType<typeof vi.fn>
+      ).mock.calls.some((call: unknown[]) => call[0] === 'ruby'),
   );
   client.dispose();
 });

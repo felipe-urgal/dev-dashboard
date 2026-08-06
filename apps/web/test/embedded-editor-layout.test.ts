@@ -47,10 +47,12 @@ test('expande editor, redimensiona explorer e encadeia o scroll para a página',
   assert.ok(separator);
   assert.equal(separator.getAttribute('aria-valuenow'), '280');
 
-  separator.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'ArrowRight',
-    bubbles: true,
-  }));
+  separator.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+    }),
+  );
   assert.equal(separator.getAttribute('aria-valuenow'), '296');
   assert.equal(
     section.style.getPropertyValue('--embedded-editor-sidebar-width'),
@@ -78,34 +80,44 @@ test('expande editor, redimensiona explorer e encadeia o scroll para a página',
 
   const scrollPage = vi.spyOn(window, 'scrollBy').mockImplementation(() => {});
 
-  scrollable.dispatchEvent(new WheelEvent('wheel', {
-    bubbles: true,
-    cancelable: true,
-    deltaY: 80,
-  }));
+  scrollable.dispatchEvent(
+    new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 80,
+    }),
+  );
   assert.equal(scrollPage.mock.calls.length, 0);
 
   scrollable.scrollTop = 0;
-  scrollable.dispatchEvent(new WheelEvent('wheel', {
-    bubbles: true,
-    cancelable: true,
-    deltaY: -80,
-  }));
-  assert.deepEqual(scrollPage.mock.calls[0], [{
-    top: -80,
-    left: 0,
-    behavior: 'auto',
-  }]);
+  scrollable.dispatchEvent(
+    new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -80,
+    }),
+  );
+  assert.deepEqual(scrollPage.mock.calls[0], [
+    {
+      top: -80,
+      left: 0,
+      behavior: 'auto',
+    },
+  ]);
 
   scrollable.scrollTop = 800;
-  scrollable.dispatchEvent(new WheelEvent('wheel', {
-    bubbles: true,
-    cancelable: true,
-    deltaY: 120,
-  }));
-  assert.deepEqual(scrollPage.mock.calls[1], [{
-    top: 120,
-    left: 0,
-    behavior: 'auto',
-  }]);
+  scrollable.dispatchEvent(
+    new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: 120,
+    }),
+  );
+  assert.deepEqual(scrollPage.mock.calls[1], [
+    {
+      top: 120,
+      left: 0,
+      behavior: 'auto',
+    },
+  ]);
 });

@@ -63,7 +63,11 @@ export class GitBranchPublishService {
       ]);
     } catch (error) {
       const details = commandFailureText(error);
-      if (/couldn.t find remote ref|remote ref does not exist|not found/i.test(details)) {
+      if (
+        /couldn.t find remote ref|remote ref does not exist|not found/i.test(
+          details,
+        )
+      ) {
         throw new GitMutationError(
           'GIT_REMOTE_BRANCH_NOT_FOUND',
           `A branch remota "origin/${branch}" não foi encontrada.`,
@@ -166,7 +170,9 @@ export class GitBranchPublishService {
       ]);
     } catch (error) {
       const details = commandFailureText(error);
-      if (/stale info|\[rejected\]|non-fast-forward|fetch first/i.test(details)) {
+      if (
+        /stale info|\[rejected\]|non-fast-forward|fetch first/i.test(details)
+      ) {
         throw new GitMutationError(
           'GIT_FORCE_WITH_LEASE_REJECTED',
           `O origin/${branch} mudou depois da confirmação. Atualize a branch e revise os commits antes de tentar novamente.`,
@@ -207,7 +213,9 @@ export class GitBranchPublishService {
     projectPath: string,
     branch: string,
   ): Promise<void> {
-    const current = (await runGit(projectPath, ['branch', '--show-current'])).trim();
+    const current = (
+      await runGit(projectPath, ['branch', '--show-current'])
+    ).trim();
     if (current !== branch) {
       throw new GitMutationError(
         'GIT_FORCE_PUSH_CURRENT_BRANCH_REQUIRED',
@@ -222,12 +230,14 @@ export class GitBranchPublishService {
   ): Promise<void> {
     let protectedBranch = branch === 'main' || branch === 'master';
     try {
-      const defaultRemote = (await runGit(projectPath, [
-        'symbolic-ref',
-        '--quiet',
-        '--short',
-        'refs/remotes/origin/HEAD',
-      ])).trim();
+      const defaultRemote = (
+        await runGit(projectPath, [
+          'symbolic-ref',
+          '--quiet',
+          '--short',
+          'refs/remotes/origin/HEAD',
+        ])
+      ).trim();
       protectedBranch ||= defaultRemote === `origin/${branch}`;
     } catch {
       // origin/HEAD é opcional; main/master continuam protegidas.
@@ -246,11 +256,13 @@ export class GitBranchPublishService {
     branch: string,
   ): Promise<string> {
     try {
-      return (await runGit(projectPath, [
-        'rev-parse',
-        '--verify',
-        `refs/remotes/origin/${branch}`,
-      ])).trim();
+      return (
+        await runGit(projectPath, [
+          'rev-parse',
+          '--verify',
+          `refs/remotes/origin/${branch}`,
+        ])
+      ).trim();
     } catch {
       throw new GitMutationError(
         'GIT_REMOTE_BRANCH_NOT_FOUND',

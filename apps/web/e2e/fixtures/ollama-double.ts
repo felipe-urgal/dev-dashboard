@@ -1,4 +1,9 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 
 /**
  * "Test double" HTTP do Ollama para o smoke E2E do assistente de IA: expõe
@@ -10,7 +15,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  * CI.
  */
 const MODEL_NAME = 'e2e-mock-model';
-export const OLLAMA_DOUBLE_ASSISTANT_REPLY = 'Resposta de teste do Ollama simulado.';
+export const OLLAMA_DOUBLE_ASSISTANT_REPLY =
+  'Resposta de teste do Ollama simulado.';
 export const OLLAMA_DOUBLE_COMPLETION_TEXT = 'texto sugerido';
 
 export interface RunningOllamaDouble {
@@ -18,7 +24,9 @@ export interface RunningOllamaDouble {
   baseUrl: string;
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonBody(
+  request: IncomingMessage,
+): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
   const raw = Buffer.concat(chunks).toString('utf8');
@@ -33,12 +41,19 @@ function sendJson(response: ServerResponse, value: unknown): void {
 
 function sendChatStream(response: ServerResponse): void {
   response.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
-  response.write(`${JSON.stringify({ message: { role: 'assistant', content: OLLAMA_DOUBLE_ASSISTANT_REPLY } })}\n`);
-  response.write(`${JSON.stringify({ message: { role: 'assistant', content: '' }, done: true })}\n`);
+  response.write(
+    `${JSON.stringify({ message: { role: 'assistant', content: OLLAMA_DOUBLE_ASSISTANT_REPLY } })}\n`,
+  );
+  response.write(
+    `${JSON.stringify({ message: { role: 'assistant', content: '' }, done: true })}\n`,
+  );
   response.end();
 }
 
-async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
   const url = request.url ?? '';
 
   if (request.method === 'GET' && url === '/api/tags') {
@@ -80,7 +95,9 @@ export async function startOllamaDouble(): Promise<RunningOllamaDouble> {
   return { server, baseUrl: `http://127.0.0.1:${address.port}` };
 }
 
-export async function stopOllamaDouble(running: RunningOllamaDouble): Promise<void> {
+export async function stopOllamaDouble(
+  running: RunningOllamaDouble,
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     running.server.close((error) => (error ? reject(error) : resolve()));
   });

@@ -9,8 +9,7 @@ export interface MaskedLogContent {
 const SENSITIVE_ASSIGNMENT =
   /(?<![A-Za-z0-9_])(["']?)((?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|secret|token))\1(\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;}]+)/gi;
 const BEARER_TOKEN = /\b(Bearer\s+)([^\s,"'};]+)/gi;
-const CREDENTIAL_URL =
-  /\b([a-z][a-z0-9+.-]*:\/\/[^\s\/:@]+:)([^\s\/@]+)(@)/gi;
+const CREDENTIAL_URL = /\b([a-z][a-z0-9+.-]*:\/\/[^\s\/:@]+:)([^\s\/@]+)(@)/gi;
 const KNOWN_TOKEN =
   /\b(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,})\b/g;
 
@@ -18,9 +17,7 @@ const KNOWN_TOKEN =
  * Mascara somente padrões com contexto forte. A função opera na resposta,
  * mantendo o arquivo original disponível para diagnóstico local fora da API.
  */
-export function maskSensitiveLogContent(
-  input: string,
-): MaskedLogContent {
+export function maskSensitiveLogContent(input: string): MaskedLogContent {
   let redactionCount = 0;
   const replace = (
     value: string,
@@ -45,9 +42,8 @@ export function maskSensitiveLogContent(
     input,
     SENSITIVE_ASSIGNMENT,
     (_match, keyQuote, key, separator, value) => {
-      const valueQuote = value.startsWith('"') || value.startsWith("'")
-        ? value[0]
-        : '';
+      const valueQuote =
+        value.startsWith('"') || value.startsWith("'") ? value[0] : '';
 
       return `${keyQuote}${key}${keyQuote}${separator}${valueQuote}${LOG_MASK}${valueQuote}`;
     },
@@ -60,8 +56,7 @@ export function maskSensitiveLogContent(
   content = replace(
     content,
     CREDENTIAL_URL,
-    (_match, prefix, _password, suffix) =>
-      `${prefix}${LOG_MASK}${suffix}`,
+    (_match, prefix, _password, suffix) => `${prefix}${LOG_MASK}${suffix}`,
   );
   content = replace(content, KNOWN_TOKEN, () => LOG_MASK);
 

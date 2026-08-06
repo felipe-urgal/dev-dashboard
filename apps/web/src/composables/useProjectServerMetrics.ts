@@ -1,9 +1,4 @@
-import {
-  computed,
-  onBeforeUnmount,
-  ref,
-  type Ref,
-} from 'vue';
+import { computed, onBeforeUnmount, ref, type Ref } from 'vue';
 
 import type {
   ManagedProcess,
@@ -47,9 +42,7 @@ export function useProjectServerMetrics(
 
   const environmentLabel = computed(() => {
     const type = getProject().type;
-    return type === 'rails' || type === 'node'
-      ? 'development'
-      : 'local';
+    return type === 'rails' || type === 'node' ? 'development' : 'local';
   });
 
   const commandLabel = computed(() => {

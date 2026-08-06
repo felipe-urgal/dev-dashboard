@@ -1,4 +1,8 @@
-import { appendHighlightedText, originalText, searchQuery } from './dom-helpers';
+import {
+  appendHighlightedText,
+  originalText,
+  searchQuery,
+} from './dom-helpers';
 import type { NodeRequest, QueryParameter } from './types';
 
 function parseNodeRequest(value: string): NodeRequest | null {
@@ -33,8 +37,9 @@ function parseRequestTarget(target: string): {
     };
   } catch {
     const [pathname = target, queryString = ''] = target.split('?', 2);
-    const parameters = Array.from(new URLSearchParams(queryString).entries())
-      .map(([key, value]) => ({ key, value }));
+    const parameters = Array.from(
+      new URLSearchParams(queryString).entries(),
+    ).map(([key, value]) => ({ key, value }));
 
     return { pathname, parameters };
   }
@@ -47,7 +52,9 @@ function buildParameters(
 ): HTMLDetailsElement {
   const details = document.createElement('details');
   details.className = 'enhanced-log-params';
-  details.open = Boolean(query) && target.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+  details.open =
+    Boolean(query) &&
+    target.toLocaleLowerCase().includes(query.toLocaleLowerCase());
 
   const summary = document.createElement('summary');
   const count = document.createElement('span');

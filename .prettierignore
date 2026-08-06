@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+.codegraph
+apps/web/e2e/.runtime
+docs/architecture/api-reference.md
+package-lock.json

@@ -28,8 +28,10 @@ export interface CatalogOptions {
   risk?: ProjectScriptRisk;
 }
 
-const DESTRUCTIVE_PATTERN = /(^|[:_-])(drop|reset|destroy|delete|clean|truncate|purge)([:_-]|$)/i;
-const READ_ONLY_PATTERN = /(^|[:_-])(check|lint|test|spec|typecheck|audit|status|list|routes)([:_-]|$)/i;
+const DESTRUCTIVE_PATTERN =
+  /(^|[:_-])(drop|reset|destroy|delete|clean|truncate|purge)([:_-]|$)/i;
+const READ_ONLY_PATTERN =
+  /(^|[:_-])(check|lint|test|spec|typecheck|audit|status|list|routes)([:_-]|$)/i;
 const KNOWN_BINS = ['rails', 'rake', 'rspec', 'rubocop', 'setup'] as const;
 
 function classify(name: string): ProjectScriptRisk {
@@ -47,7 +49,9 @@ async function exists(file: string): Promise<boolean> {
   }
 }
 
-async function detectedNodeManager(project: Project): Promise<NodeManager | undefined> {
+async function detectedNodeManager(
+  project: Project,
+): Promise<NodeManager | undefined> {
   try {
     return await resolveNodeManager(project.path);
   } catch {
@@ -89,8 +93,8 @@ async function dependencyActions(project: Project): Promise<ProjectScript[]> {
   const items: ProjectScript[] = [];
 
   if (
-    project.type === 'rails'
-    && await exists(path.join(project.path, 'Gemfile'))
+    project.type === 'rails' &&
+    (await exists(path.join(project.path, 'Gemfile')))
   ) {
     items.push(
       {
@@ -105,7 +109,8 @@ async function dependencyActions(project: Project): Promise<ProjectScript[]> {
       {
         id: 'bundler:install',
         name: 'Instalar gems',
-        description: 'Instala as gems ausentes e atualiza o Gemfile.lock quando necessário.',
+        description:
+          'Instala as gems ausentes e atualiza o Gemfile.lock quando necessário.',
         command: 'bundle install',
         origin: 'bundler',
         risk: 'mutable',
@@ -114,7 +119,8 @@ async function dependencyActions(project: Project): Promise<ProjectScript[]> {
       {
         id: 'bundler:update',
         name: 'Atualizar gems',
-        description: 'Atualiza as versões permitidas pelo Gemfile e pode alterar o Gemfile.lock.',
+        description:
+          'Atualiza as versões permitidas pelo Gemfile e pode alterar o Gemfile.lock.',
         command: 'bundle update',
         origin: 'bundler',
         risk: 'mutable',
@@ -161,24 +167,28 @@ async function knownBins(project: Project): Promise<ProjectScript[]> {
 
 async function railsTasks(project: Project): Promise<ProjectScript[]> {
   if (
-    project.type !== 'rails'
-    || !(await exists(path.join(project.path, 'bin', 'rails')))
-  ) return [];
+    project.type !== 'rails' ||
+    !(await exists(path.join(project.path, 'bin', 'rails')))
+  )
+    return [];
 
   return (await inspectRakeTasks(project.path))
     .filter((task) => !task.hasUnsupportedVariables)
     .map((task) => {
       const classified = classify(task.name);
-      const risk = task.variables.length > 0 && classified !== 'destructive'
-        ? 'mutable'
-        : classified;
+      const risk =
+        task.variables.length > 0 && classified !== 'destructive'
+          ? 'mutable'
+          : classified;
       const variablePreview = task.variables
         .map((variable) => `${variable.name}=…`)
         .join(' ');
       return {
         id: `rails-task:${task.name}`,
         name: task.name,
-        description: task.description || 'Tarefa declarada estaticamente no projeto Rails.',
+        description:
+          task.description ||
+          'Tarefa declarada estaticamente no projeto Rails.',
         command: `bin/rails ${task.name}${variablePreview ? ` ${variablePreview}` : ''}`,
         origin: 'rails-task' as const,
         risk,
@@ -208,11 +218,12 @@ export class ScriptDetectionService {
     const unique = detected
       .filter((item) => !options.origin || item.origin === options.origin)
       .filter((item) => !options.risk || item.risk === options.risk)
-      .filter((item) =>
-        !search
-        || `${item.name} ${item.description} ${item.command}`
-          .toLocaleLowerCase('pt-BR')
-          .includes(search),
+      .filter(
+        (item) =>
+          !search ||
+          `${item.name} ${item.description} ${item.command}`
+            .toLocaleLowerCase('pt-BR')
+            .includes(search),
       );
     const total = unique.length;
     return {
@@ -226,12 +237,13 @@ export class ScriptDetectionService {
 
   private async detectActions(project: Project): Promise<ProjectScript[]> {
     const detected = [
-      ...await dependencyActions(project),
-      ...await nodeScripts(project),
-      ...await railsTasks(project),
-      ...await knownBins(project),
+      ...(await dependencyActions(project)),
+      ...(await nodeScripts(project)),
+      ...(await railsTasks(project)),
+      ...(await knownBins(project)),
     ];
-    return [...new Map(detected.map((item) => [item.id, item])).values()]
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    return [...new Map(detected.map((item) => [item.id, item])).values()].sort(
+      (a, b) => a.name.localeCompare(b.name, 'pt-BR'),
+    );
   }
 }

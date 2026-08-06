@@ -18,7 +18,9 @@ test.describe('tema', () => {
     ['Escuro', 'dark'],
     ['Claro', 'light'],
   ] as const) {
-    test(`troca de tema para ${theme} aplica e persiste após recarregar`, async ({ page }) => {
+    test(`troca de tema para ${theme} aplica e persiste após recarregar`, async ({
+      page,
+    }) => {
       await gotoBootstrapped(page, '/');
 
       await page
