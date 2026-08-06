@@ -129,7 +129,7 @@ Não fazem parte da primeira versão:
 
 ## Direção de longo prazo
 
-Já entregue no dashboard web (ver [`../roadmap.md`](../roadmap.md) para o
+Já entregue no dashboard web (ver [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md) para o
 detalhamento por task): status e operações Git (leitura e mutações com
 confirmação), execução de testes, scripts Node, banco e tarefas Rails de
 baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,

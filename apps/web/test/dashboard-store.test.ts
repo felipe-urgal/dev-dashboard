@@ -68,6 +68,14 @@ function createApi(
       ...project,
       favorite,
     }),
+    updateWorkspaceRecursiveScan: async (
+      workspaceId,
+      recursiveScan,
+    ) => ({
+      ...workspace,
+      id: workspaceId,
+      recursiveScan,
+    }),
     ...overrides,
   };
 }
@@ -187,6 +195,50 @@ test('dashboard store desfaz a alteração otimista quando a API falha', async (
   assert.equal(store.projects.value[0]?.favorite, false);
   assert.equal(store.errorMessage.value, 'Falha ao salvar favorito');
   assert.deepEqual(store.favoriteUpdatingIds.value, []);
+});
+
+test('dashboard store alterna recursiveScan de um workspace e persiste a alteração', async () => {
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+
+  assert.equal(store.workspaces.value[0]?.recursiveScan, false);
+
+  await store.toggleWorkspaceRecursiveScan(store.workspaces.value[0]!);
+
+  assert.equal(store.workspaces.value[0]?.recursiveScan, true);
+  assert.deepEqual(store.recursiveScanUpdatingIds.value, []);
+});
+
+test('dashboard store desfaz a alteração otimista de recursiveScan quando a API falha', async () => {
+  let rejectUpdate!: (error: Error) => void;
+  const updatePromise = new Promise<Workspace>((_resolve, reject) => {
+    rejectUpdate = reject;
+  });
+  const store = createDashboardStore(
+    createApi({
+      fetchWorkspaces: async () => [workspace],
+      updateWorkspaceRecursiveScan: async () => updatePromise,
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+  const target = store.workspaces.value[0]!;
+  const update = store.toggleWorkspaceRecursiveScan(target);
+
+  assert.equal(store.workspaces.value[0]?.recursiveScan, true);
+  assert.deepEqual(store.recursiveScanUpdatingIds.value, [target.id]);
+
+  rejectUpdate(new Error('Falha ao salvar a preferência'));
+  await update;
+
+  assert.equal(store.workspaces.value[0]?.recursiveScan, false);
+  assert.equal(store.errorMessage.value, 'Falha ao salvar a preferência');
+  assert.deepEqual(store.recursiveScanUpdatingIds.value, []);
 });
 
 test('dashboard store mantém o favorito consistente em todos os workspaces', async () => {

@@ -440,10 +440,9 @@ smoke E2E de workspace → projeto → execução → log.
 
 ## Próximos passos
 
-Consulte [`tasks/NEXT.md`](tasks/NEXT.md) para a próxima entrega,
+Consulte [`tasks/NEXT.md`](tasks/NEXT.md) para a próxima entrega e
 [`tasks/PENDENCIAS.md`](tasks/PENDENCIAS.md) para o inventário do que falta
-implementar e [`tasks/roadmap.md`](tasks/roadmap.md) para os horizontes
-futuros. O histórico de entregas já registradas vive nos arquivos
+implementar. O histórico de entregas já registradas vive nos arquivos
 `tasks/NNN-*.md`.
 
 ## Licença

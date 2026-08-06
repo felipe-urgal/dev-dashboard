@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const actions = vi.hoisted(() => ({
   criar: vi.fn(),
+  alternarRecursiveScan: vi.fn(),
 }));
 
 vi.mock('../src/stores/dashboard', async () => {
@@ -10,13 +11,16 @@ vi.mock('../src/stores/dashboard', async () => {
 
   return {
     dashboardStore: {
+      workspaces: ref([]),
       newWorkspaceName: ref(''),
       newWorkspacePath: ref(''),
       newWorkspaceRecursiveScan: ref(false),
       creatingWorkspace: ref(false),
+      recursiveScanUpdatingIds: ref([]),
       errorMessage: ref(''),
       successMessage: ref(''),
       handleCreateWorkspace: actions.criar,
+      toggleWorkspaceRecursiveScan: actions.alternarRecursiveScan,
     },
   };
 });
@@ -42,10 +46,12 @@ function mountModal(open = true) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  dashboardStore.workspaces.value = [];
   dashboardStore.newWorkspaceName.value = '';
   dashboardStore.newWorkspacePath.value = '';
   dashboardStore.newWorkspaceRecursiveScan.value = false;
   dashboardStore.creatingWorkspace.value = false;
+  dashboardStore.recursiveScanUpdatingIds.value = [];
   dashboardStore.errorMessage.value = '';
   dashboardStore.successMessage.value = '';
 });
@@ -108,5 +114,45 @@ describe('WorkspaceManagerModal', () => {
     );
 
     expect(actions.criar).toHaveBeenCalledOnce();
+  });
+
+  it('não mostra a lista de workspaces cadastrados quando não há nenhum', () => {
+    mountModal();
+
+    expect(
+      document.querySelector('.workspace-existing-list'),
+    ).toBeNull();
+  });
+
+  it('lista workspaces cadastrados e alterna a varredura recursiva de um deles', async () => {
+    dashboardStore.workspaces.value = [
+      {
+        id: 'w1',
+        name: 'Workspace 1',
+        path: '/home/dev/projects',
+        enabled: true,
+        recursiveScan: false,
+      },
+    ];
+
+    mountModal();
+
+    expect(
+      document.querySelector('.workspace-existing-list')?.textContent,
+    ).toContain('Workspace 1');
+
+    const checkbox = document.querySelector<HTMLInputElement>(
+      'input[aria-labelledby="workspace-existing-recursive-scan-label-w1"]',
+    );
+
+    expect(checkbox).not.toBeNull();
+    expect(checkbox?.checked).toBe(false);
+
+    checkbox?.dispatchEvent(new Event('change'));
+
+    expect(actions.alternarRecursiveScan).toHaveBeenCalledOnce();
+    expect(actions.alternarRecursiveScan).toHaveBeenCalledWith(
+      dashboardStore.workspaces.value[0],
+    );
   });
 });

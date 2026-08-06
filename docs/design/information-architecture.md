@@ -32,7 +32,7 @@ Configurações
 > implementados. Só **Jobs e logs** segue aspiracional — não existe uma
 > página dedicada; `ActivityView` cobre terreno adjacente (histórico de
 > execuções), mas não é a mesma coisa — mapeado em
-> [`../../tasks/roadmap.md`](../../tasks/roadmap.md).
+> [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md).
 >
 > A reforma do vocabulário visual (cores, tipografia, densidade,
 > componentes de card/badge/formulário) foi concluída: os tokens vivem em

@@ -295,6 +295,33 @@ a.secondary-button {
   overflow-y: auto;
 }
 
+.workspace-existing-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-existing-list h4 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-existing-list ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-existing-row.settings-row {
+  min-height: 0;
+  padding: 10px 14px;
+}
+
 .modal-dialog .alert {
   margin-top: 0;
 }
