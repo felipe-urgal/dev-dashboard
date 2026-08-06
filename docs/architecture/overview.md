@@ -232,8 +232,12 @@ alterna a preferência de um workspace já cadastrado via
 existir são migrados para `recursiveScan: false` na leitura (nunca descartados).
 No cadastro (`WorkspaceManagerModal.vue`), a opção aparece como um checkbox
 ("Escanear subdiretórios (monorepos)") com aviso de que pode deixar o scan
-mais lento; não existe ainda uma tela para alternar a opção de um workspace
-já existente pela UI (só via API) — ver `tasks/PENDENCIAS.md`.
+mais lento. O mesmo modal também lista os workspaces já cadastrados
+("Workspaces cadastrados") com um switch por workspace para alternar
+`recursiveScan` depois do cadastro — a alteração é otimista
+(`toggleWorkspaceRecursiveScan` em `stores/dashboard.ts`, que chama
+`PATCH /api/workspaces/:workspaceId` e desfaz a mudança local se a API
+falhar), no mesmo padrão já usado por `toggleProjectFavorite`.
 
 ## Process Manager
 

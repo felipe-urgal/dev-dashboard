@@ -29,14 +29,6 @@ o histórico de entregas.
   runners e formatos de relatório diferem.
 - [ ] Avaliar GitHub CLI somente depois de definir seu modelo de autorização.
 
-## Descoberta e projetos complexos
-
-- [ ] Tela para alternar `recursiveScan` de um workspace **já cadastrado**
-  pela UI — a task 111 entregou a opção no cadastro (checkbox no
-  `WorkspaceManagerModal`) e `PATCH /api/workspaces/:workspaceId` na API,
-  mas não existe hoje nenhuma tela de edição de workspace na UI (o modal só
-  cria); só é possível alternar via API diretamente ou recadastrando.
-
 ## CLI Bash
 
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
@@ -63,8 +55,10 @@ task própria quando houver motivação, escopo e critério de saída concretos.
   padrão).
 - Task 111 — Expõe a varredura recursiva na API e na UI: `Workspace.
   recursiveScan` persistido, checkbox no cadastro do workspace, `PATCH
-  /api/workspaces/:workspaceId` para alternar depois. Falta só a tela de
-  edição de workspace na UI (ver item acima).
+  /api/workspaces/:workspaceId` para alternar depois.
+- Task 112 — Lista "Workspaces cadastrados" no `WorkspaceManagerModal` com
+  switch por workspace para alternar `recursiveScan` depois do cadastro,
+  fechando a frente aberta pelas tasks 110/111.
 
 ## Distribuição, governança e compatibilidade
 

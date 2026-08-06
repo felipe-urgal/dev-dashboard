@@ -25,6 +25,7 @@ export interface DashboardApi {
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
   updateProjectFavorite: typeof dashboardApi.updateProjectFavorite;
+  updateWorkspaceRecursiveScan: typeof dashboardApi.updateWorkspaceRecursiveScan;
 }
 
 export function createDashboardStore(
@@ -39,6 +40,7 @@ export function createDashboardStore(
     fetchWorkspaces,
     scanWorkspace,
     updateProjectFavorite,
+    updateWorkspaceRecursiveScan,
   } = api;
 
   const projects = ref<Project[]>([]);
@@ -57,6 +59,7 @@ export function createDashboardStore(
   const creatingWorkspace = ref(false);
   const deletingWorkspace = ref(false);
   const favoriteUpdatingIds = ref<string[]>([]);
+  const recursiveScanUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
   const successMessage = ref('');
@@ -175,6 +178,58 @@ export function createDashboardStore(
     }
   }
 
+
+  function replaceWorkspaceRecursiveScan(
+    workspaceId: string,
+    recursiveScan: boolean,
+  ): void {
+    workspaces.value = workspaces.value.map((workspace) =>
+      workspace.id === workspaceId
+        ? { ...workspace, recursiveScan }
+        : workspace,
+    );
+  }
+
+  async function toggleWorkspaceRecursiveScan(
+    workspace: Workspace,
+  ): Promise<void> {
+    if (recursiveScanUpdatingIds.value.includes(workspace.id)) {
+      return;
+    }
+
+    const recursiveScan = !workspace.recursiveScan;
+    recursiveScanUpdatingIds.value = [
+      ...recursiveScanUpdatingIds.value,
+      workspace.id,
+    ];
+    replaceWorkspaceRecursiveScan(workspace.id, recursiveScan);
+    clearMessages();
+
+    try {
+      const updatedWorkspace = await updateWorkspaceRecursiveScan(
+        workspace.id,
+        recursiveScan,
+      );
+      replaceWorkspaceRecursiveScan(
+        updatedWorkspace.id,
+        updatedWorkspace.recursiveScan,
+      );
+    } catch (error) {
+      replaceWorkspaceRecursiveScan(
+        workspace.id,
+        workspace.recursiveScan,
+      );
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar a preferência de varredura recursiva.';
+    } finally {
+      recursiveScanUpdatingIds.value =
+        recursiveScanUpdatingIds.value.filter(
+          (workspaceId) => workspaceId !== workspace.id,
+        );
+    }
+  }
 
   function replaceWorkspaceProjects(
     workspaceId: string,
@@ -534,6 +589,7 @@ export function createDashboardStore(
     creatingWorkspace,
     deletingWorkspace,
     favoriteUpdatingIds,
+    recursiveScanUpdatingIds,
     errorMessage,
     successMessage,
     warningCount,
@@ -548,6 +604,7 @@ export function createDashboardStore(
     handleCreateWorkspace,
     handleDeleteWorkspace,
     toggleProjectFavorite,
+    toggleWorkspaceRecursiveScan,
   };
 }
 

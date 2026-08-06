@@ -19,13 +19,16 @@ const emit = defineEmits<{
 }>();
 
 const {
+  workspaces,
   newWorkspaceName,
   newWorkspacePath,
   newWorkspaceRecursiveScan,
   creatingWorkspace,
+  recursiveScanUpdatingIds,
   errorMessage,
   successMessage,
   handleCreateWorkspace,
+  toggleWorkspaceRecursiveScan,
 } = dashboardStore;
 
 useAutoDismiss(errorMessage, '');
@@ -153,6 +156,39 @@ onBeforeUnmount(() => {
             ×
           </button>
         </div>
+
+        <section
+          v-if="workspaces.length > 0"
+          class="workspace-existing-list"
+          aria-labelledby="workspace-existing-title"
+        >
+          <h4 id="workspace-existing-title">Workspaces cadastrados</h4>
+
+          <ul>
+            <li
+              v-for="workspace in workspaces"
+              :key="workspace.id"
+              class="settings-row workspace-existing-row"
+            >
+              <span class="settings-row-copy">
+                <strong :id="`workspace-existing-recursive-scan-label-${workspace.id}`">{{ workspace.name }}</strong>
+                <span :id="`workspace-existing-recursive-scan-description-${workspace.id}`">{{ workspace.path }} — escanear subdiretórios (monorepos)</span>
+              </span>
+              <span class="settings-switch-control">
+                <input
+                  :checked="workspace.recursiveScan"
+                  :disabled="recursiveScanUpdatingIds.includes(workspace.id)"
+                  type="checkbox"
+                  role="switch"
+                  :aria-labelledby="`workspace-existing-recursive-scan-label-${workspace.id}`"
+                  :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
+                  @change="toggleWorkspaceRecursiveScan(workspace)"
+                >
+                <span>{{ workspace.recursiveScan ? 'Ativado' : 'Desativado' }}</span>
+              </span>
+            </li>
+          </ul>
+        </section>
 
         <form
           class="workspace-create-form"
