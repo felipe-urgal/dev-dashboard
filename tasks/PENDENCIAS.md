@@ -19,23 +19,11 @@ npm run build
 npm test
 ```
 
-## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
-
-- Smoke E2E dedicado para `propose_workspace_edit` e para as ferramentas de
-  símbolo (já cobertos por testes de unidade; estender o double do Ollama
-  para emitir os `tool_calls` correspondentes fica como possibilidade futura,
-  não bloqueante).
-
-## Distribuição, governança e compatibilidade
-
-- [ ] Migração automática entre versões de schema dos arquivos de estado
-  (`packages/core`) — hoje um `version` que não bate cai para quarentena +
-  valores padrão (task 133); quando existir um `version: 2` real, migrar
-  em vez de descartar fica como item novo.
-- [ ] Validar num macOS real o que a task 134 implementou só com testes
-  simulados: identidade de processo via `lsof -d cwd` em
-  `verifyProcessDirectory` (equivalente ao `/proc/<pid>/cwd` do Linux) e os
-  ramos `mac`/`other` de `_dev_os` usados por `lib/actions/browser.sh`,
-  `lib/rails/database/service.sh` e `lib/core/services.sh` (`open`,
-  `brew services`). CI só roda `ubuntu-latest`; não há execução real contra
-  macOS ainda.
+Nenhum item está registrado como pendente no momento. Os últimos três itens
+desta lista (migração automática de schema, validação em macOS real, smoke
+E2E de tool-calling do assistente de IA) foram resolvidos ou removidos por
+decisão explícita do usuário — os dois primeiros seguem bloqueados por
+pré-condições que ainda não existem (nenhum `version: 2` real, sem acesso a
+uma máquina macOS neste ambiente) e podem ser reabertos quando essas
+pré-condições mudarem; ver `tasks/133-local-state-backup-policy.md` e
+`tasks/134-macos-process-identity.md` para o contexto de cada um.
