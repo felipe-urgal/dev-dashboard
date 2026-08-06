@@ -41,10 +41,10 @@ O servidor inclui:
 - documentos de arquitetura;
 - referência gerada da API.
 
-O planejamento e o histórico de tasks vivem em `tasks/` (`roadmap.md`,
-`PENDENCIAS.md`, `NEXT.md`, os documentos numerados `tasks/NNN-*.md`), fora
-de `docs/` e portanto fora deste catálogo — a central de documentação é só
-documentação de produto/arquitetura.
+O planejamento e o histórico de tasks vivem em `tasks/` (`PENDENCIAS.md`,
+`NEXT.md`, os documentos numerados `tasks/NNN-*.md`), fora de `docs/` e
+portanto fora deste catálogo — a central de documentação é só documentação
+de produto/arquitetura.
 
 São ignorados:
 

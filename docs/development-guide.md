@@ -153,7 +153,7 @@ Atualize:
 - guia de operação se novas variáveis, arquivos ou portas surgiram;
 - README se o primeiro uso mudou;
 - `CONTRIBUTING.md` se o processo mudou;
-- task/roadmap quando houver impacto de planejamento.
+- `tasks/PENDENCIAS.md` quando houver impacto de planejamento.
 
 ## Padrões de TypeScript
 

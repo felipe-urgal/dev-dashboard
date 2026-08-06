@@ -171,9 +171,8 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 ### Planejamento
 
-- [Roadmap](roadmap.md): horizontes de evolução.
-- [Pendências](PENDENCIAS.md): inventário consolidado.
-- [Próxima tarefa](tasks/NEXT.md): próximo trabalho priorizado.
+- [Pendências](../tasks/PENDENCIAS.md): inventário consolidado do que falta implementar.
+- [Próxima tarefa](../tasks/NEXT.md): próximo trabalho priorizado.
 
 ## Glossário essencial
 

@@ -157,8 +157,8 @@ Narrativa completa, diagramas e sequências de fluxo de dados: `docs/architectur
 
 Cada entrega funcional do dashboard web tem um arquivo numerado em `tasks/NNN-*.md`. `docs/` é
 apenas documentação viva do produto (arquitetura, guias, segurança); planejamento e histórico de
-entregas vivem em `tasks/` (`roadmap.md`, `PENDENCIAS.md`, `NEXT.md`, e os
-arquivos numerados `tasks/NNN-*.md`). Ao concluir uma task: registre esse arquivo com o resultado
+entregas vivem em `tasks/` (`PENDENCIAS.md`, `NEXT.md`, e os arquivos
+numerados `tasks/NNN-*.md`). Ao concluir uma task: registre esse arquivo com o resultado
 real (status, arquivos, decisões, limitações) e substitua `tasks/NEXT.md` pelo plano detalhado da
 próxima entrega. Leia `tasks/NEXT.md` antes de começar um trabalho novo nessa parte do
 repositório.

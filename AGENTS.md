@@ -54,8 +54,7 @@ packages/
 lib/           # CLI bash original (carregado pelo ~/.bashrc)
 docs/
   architecture/  # overview.md, security.md
-  tasks/         # NNN-*.md por entrega + NEXT.md + README.md
-  roadmap.md
+tasks/           # NNN-*.md por entrega + NEXT.md + PENDENCIAS.md
 init.sh        # Entry point do CLI bash
 ```
 
