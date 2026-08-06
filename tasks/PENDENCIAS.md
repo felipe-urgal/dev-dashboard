@@ -28,11 +28,12 @@ npm test
 
 ## Produto e fluxos operacionais
 
-- [ ] Histórico de cobertura entre execuções para projetos gerenciados —
-  tanto o leitor Node/Istanbul (task 128) quanto o leitor SimpleCov/Rails
-  (task 129) expõem só o relatório mais recente, sem persistência própria
-  neste codebase. `coverage-summary.json` (Node) pré-calculado também
-  permanece fora de escopo — só `coverage-final.json` bruto é suportado.
+- [ ] `coverage-summary.json` (Node) pré-calculado como atalho — hoje só
+  `coverage-final.json` bruto é lido (task 128). Histórico de execuções de
+  cobertura já foi resolvido pela task 130 (só totais agregados, sem
+  detalhamento por arquivo por snapshot — se precisar comparar arquivo a
+  arquivo entre execuções específicas, isso fica como possibilidade
+  futura).
 
 ## CLI Bash
 

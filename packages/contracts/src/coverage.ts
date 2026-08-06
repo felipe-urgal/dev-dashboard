@@ -21,3 +21,15 @@ export interface ProjectCoverageSummary {
   total?: ProjectCoverageTotals;
   files?: ProjectCoverageFileSummary[];
 }
+
+export interface ProjectCoverageHistoryEntry {
+  id: string;
+  generatedAt: string;
+  recordedAt: string;
+  total: ProjectCoverageTotals;
+}
+
+export interface ProjectCoverageHistory {
+  items: ProjectCoverageHistoryEntry[];
+  total: number;
+}

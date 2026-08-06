@@ -2,15 +2,18 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import {
   commonErrorResponseSchemas,
+  projectCoverageHistoryResponseSchema,
   projectCoverageSummaryResponseSchema,
 } from '../http/response-schemas.js';
 import { ApiError } from '../http/api-error.js';
+import type { ProjectCoverageHistoryService } from '../services/project-coverage-history-service.js';
 import type { ProjectCoverageService } from '../services/project-coverage-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 
 interface Options extends FastifyPluginOptions {
   projectStore: ProjectStore;
   projectCoverageService: ProjectCoverageService;
+  projectCoverageHistoryService: ProjectCoverageHistoryService;
 }
 
 interface Params {
@@ -72,10 +75,42 @@ export const projectCoverageRoutes: FastifyPluginAsync<Options> = async (
         options.projectStore,
         request.params.projectId,
       );
+      const coverage = await options.projectCoverageService.getSummary(
+        project.path,
+        project.type,
+      );
+      await options.projectCoverageHistoryService.record(project.id, coverage);
+      return { coverage };
+    },
+  );
+
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/coverage/history',
+    {
+      schema: {
+        params: paramsSchema,
+        querystring: emptyQuerystringSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['history'],
+            properties: {
+              history: projectCoverageHistoryResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
       return {
-        coverage: await options.projectCoverageService.getSummary(
-          project.path,
-          project.type,
+        history: await options.projectCoverageHistoryService.history(
+          project.id,
         ),
       };
     },

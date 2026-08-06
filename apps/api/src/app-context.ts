@@ -34,6 +34,7 @@ import { ProjectWorkspaceEditService } from './services/project-workspace-edit-s
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import { ProjectTerminalService } from './services/project-terminal-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
+import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -48,6 +49,7 @@ export interface AppContext {
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
   projectCoverageService: ProjectCoverageService;
+  projectCoverageHistoryService: ProjectCoverageHistoryService;
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
   railsInspectionService: RailsInspectionService;
@@ -101,6 +103,7 @@ export function createAppContext(): AppContext {
       processManager,
     ),
     projectCoverageService: new ProjectCoverageService(),
+    projectCoverageHistoryService: new ProjectCoverageHistoryService(),
     databaseDetectionService,
     databaseSnapshotService: new DatabaseSnapshotService(
       databaseDetectionService,

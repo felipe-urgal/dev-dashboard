@@ -19,6 +19,18 @@ interface CoverageResponse {
   };
 }
 
+interface CoverageHistoryResponse {
+  history: {
+    items: Array<{
+      id: string;
+      generatedAt: string;
+      recordedAt: string;
+      total: { statements: { total: number; covered: number; pct: number } };
+    }>;
+    total: number;
+  };
+}
+
 async function makeFixture(): Promise<{
   fixtureRoot: string;
   projectPath: string;
@@ -202,4 +214,49 @@ test('GET /projects/:projectId/coverage', async (context) => {
       assert.equal(coverage.files?.[0]!.path, 'src/sum.ts');
     },
   );
+
+  await context.test(
+    'GET /coverage grava automaticamente no histórico e GET /coverage/history expõe os snapshots',
+    async () => {
+      const historyBefore = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/coverage/history',
+        headers,
+      });
+      assert.equal(historyBefore.statusCode, 200);
+      const { history: initialHistory } =
+        historyBefore.json<CoverageHistoryResponse>();
+      assert.equal(initialHistory.total, 1);
+      assert.equal(initialHistory.items[0]!.total.statements.total, 2);
+
+      // Uma segunda leitura do mesmo relatório (mesmo generatedAt/mtime) não
+      // duplica a entrada — cobertura já verificada em profundidade no teste
+      // de unidade de ProjectCoverageHistoryService.
+      const repeat = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/coverage',
+        headers,
+      });
+      assert.equal(repeat.statusCode, 200);
+
+      const historyAfterRepeat = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/coverage/history',
+        headers,
+      });
+      assert.equal(
+        historyAfterRepeat.json<CoverageHistoryResponse>().history.total,
+        1,
+      );
+    },
+  );
+
+  await context.test('404 no histórico para projeto desconhecido', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/projects/does-not-exist/coverage/history',
+      headers,
+    });
+    assert.equal(response.statusCode, 404);
+  });
 });

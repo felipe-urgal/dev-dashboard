@@ -193,6 +193,8 @@ export type {
 
 export type {
   ProjectCoverageFileSummary,
+  ProjectCoverageHistory,
+  ProjectCoverageHistoryEntry,
   ProjectCoverageMetric,
   ProjectCoverageSummary,
   ProjectCoverageTotals,

@@ -171,6 +171,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectCoverageService: context.projectCoverageService,
+    projectCoverageHistoryService: context.projectCoverageHistoryService,
   });
 
   app.register(gitMutationRoutes, {

@@ -3,12 +3,13 @@ import { ChartBarIcon } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
 import type {
+  ProjectCoverageHistory,
   ProjectCoverageSummary,
   ProjectCoverageTotals,
   ProjectType,
 } from '@dev-dashboard/contracts';
 
-import { fetchProjectCoverage } from '../api';
+import { fetchProjectCoverage, fetchProjectCoverageHistory } from '../api';
 
 const props = defineProps<{
   projectId: string;
@@ -30,6 +31,7 @@ const emptyStateHint = computed(() =>
 const loading = ref(false);
 const errorMessage = ref('');
 const coverage = ref<ProjectCoverageSummary | null>(null);
+const history = ref<ProjectCoverageHistory | null>(null);
 let generation = 0;
 
 const metrics = computed<
@@ -64,6 +66,15 @@ async function load(): Promise<void> {
         : 'Não foi possível carregar a cobertura de testes.';
   } finally {
     if (requestGeneration === generation) loading.value = false;
+  }
+
+  try {
+    const result = await fetchProjectCoverageHistory(props.projectId);
+    if (requestGeneration !== generation) return;
+    history.value = result;
+  } catch {
+    if (requestGeneration !== generation) return;
+    history.value = null;
   }
 }
 
@@ -149,6 +160,42 @@ defineExpose({ load });
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div v-if="history?.items.length" class="coverage-history">
+        <h4>Histórico de execuções</h4>
+        <div class="coverage-table-wrap">
+          <table class="coverage-table">
+            <thead>
+              <tr>
+                <th scope="col">Gerado em</th>
+                <th scope="col">Statements</th>
+                <th scope="col">Branches</th>
+                <th scope="col">Funções</th>
+                <th scope="col">Linhas</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="entry in history.items" :key="entry.id">
+                <td>
+                  {{ new Date(entry.generatedAt).toLocaleString('pt-BR') }}
+                </td>
+                <td :class="`is-${toneFor(entry.total.statements.pct)}`">
+                  {{ entry.total.statements.pct }}%
+                </td>
+                <td :class="`is-${toneFor(entry.total.branches.pct)}`">
+                  {{ entry.total.branches.pct }}%
+                </td>
+                <td :class="`is-${toneFor(entry.total.functions.pct)}`">
+                  {{ entry.total.functions.pct }}%
+                </td>
+                <td :class="`is-${toneFor(entry.total.lines.pct)}`">
+                  {{ entry.total.lines.pct }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -254,6 +301,13 @@ defineExpose({ load });
 .coverage-chip-danger {
   border-color: color-mix(in srgb, #dc2626 28%, var(--border));
   background: color-mix(in srgb, #fee2e2 40%, var(--surface-1));
+}
+
+.coverage-history h4 {
+  margin: 0 0 var(--space-2);
+  color: var(--text);
+  font-size: var(--font-sm);
+  font-weight: 600;
 }
 
 .coverage-table-wrap {

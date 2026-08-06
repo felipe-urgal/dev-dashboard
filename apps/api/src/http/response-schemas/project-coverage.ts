@@ -44,3 +44,25 @@ export const projectCoverageSummaryResponseSchema = {
     files: { type: 'array', items: coverageFileSummarySchema },
   },
 } as const;
+
+const coverageHistoryEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['id', 'generatedAt', 'recordedAt', 'total'],
+  properties: {
+    id: { type: 'string' },
+    generatedAt: { type: 'string' },
+    recordedAt: { type: 'string' },
+    total: coverageTotalsSchema,
+  },
+} as const;
+
+export const projectCoverageHistoryResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['items', 'total'],
+  properties: {
+    items: { type: 'array', items: coverageHistoryEntrySchema },
+    total: { type: 'integer', minimum: 0 },
+  },
+} as const;
