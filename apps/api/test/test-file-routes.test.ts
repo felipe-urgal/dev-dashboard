@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -273,10 +273,20 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
   );
   await writeFile(path.join(nodeProjectPath, 'src', 'app.test.ts'), '');
 
+  const binDirectory = path.join(fixtureRoot, 'bin');
+  await mkdir(binDirectory, { recursive: true });
+  await writeFile(
+    path.join(binDirectory, 'bundle'),
+    '#!/usr/bin/env bash\nexit 0\n',
+  );
+  await chmod(path.join(binDirectory, 'bundle'), 0o755);
+
   const previousConfigDirectory = process.env.DEV_DASHBOARD_CONFIG_DIR;
   const previousStateDirectory = process.env.DEV_DASHBOARD_STATE_DIR;
+  const previousPath = process.env.PATH;
   process.env.DEV_DASHBOARD_CONFIG_DIR = path.join(fixtureRoot, 'config');
   process.env.DEV_DASHBOARD_STATE_DIR = path.join(fixtureRoot, 'state');
+  process.env.PATH = `${binDirectory}${path.delimiter}${previousPath ?? ''}`;
 
   const { buildApp } = await import('../src/app.js');
   const { createAppContext } = await import('../src/app-context.js');
@@ -317,6 +327,7 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
     if (previousStateDirectory === undefined)
       delete process.env.DEV_DASHBOARD_STATE_DIR;
     else process.env.DEV_DASHBOARD_STATE_DIR = previousStateDirectory;
+    process.env.PATH = previousPath;
     await rm(fixtureRoot, { recursive: true, force: true });
   });
 
