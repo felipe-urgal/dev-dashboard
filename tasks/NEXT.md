@@ -2,25 +2,28 @@
 
 Nenhuma entrega sequencial está aprovada no momento.
 
-A task mais recente concluída foi a **130 — Histórico de execuções de
-cobertura de projetos gerenciados** (ver `tasks/130-coverage-history.md`):
-estende o mesmo endpoint `GET /projects/:projectId/coverage` das tasks
-128/129 para gravar automaticamente um snapshot no histórico a cada leitura
-com um relatório disponível (deduplicado por `generatedAt`), com três
-decisões explícitas do usuário — gravação automática a cada leitura (sem
-ação/endpoint separado), retenção de 50 snapshots por projeto (mesmo padrão
-do `TestExecutionHistoryService`), e só os totais agregados por snapshot
-(sem detalhamento por arquivo). Novo `GET .../coverage/history` e uma
-tabela "Histórico de execuções" no `ProjectCoveragePanel.vue`.
+A task mais recente concluída foi a **131 — Atalho `coverage-summary.json`
+(Node) como fallback** (ver
+`tasks/131-coverage-summary-json-fallback.md`): fecha o último item da
+frente de cobertura de testes aberta na task 128. `ProjectCoverageService`
+agora cai para `coverage/coverage-summary.json` (reporter `json-summary`
+do Istanbul, com os quatro totais já pré-calculados por arquivo) quando
+`coverage/coverage-final.json` não existe ou não pôde ser lido — decisão
+explícita do usuário de que o bruto sempre tem prioridade quando os dois
+existem, e que a tabela por arquivo continua aparecendo mesmo só com o
+formato summary disponível.
 
-Antes dela, a task 129 — Persiste (lê) relatórios de cobertura de projetos
-Rails (SimpleCov) (ver `tasks/129-simplecov-rails-coverage-reports.md`)
-estendeu o leitor da task 128 para o formato `coverage/.resultset.json`, com
-decisão explícita do usuário de reusar a métrica de `lines` para
-`statements` e deixar `functions` sempre em `0/0` ("não medido"). E a task
-128 — Persiste (lê) relatórios de cobertura de projetos gerenciados
-(Node/Istanbul) (ver `tasks/128-managed-project-coverage-reports.md`)
-implementou o leitor e o painel originais.
+Antes dela, a task 130 — Histórico de execuções de cobertura de projetos
+gerenciados (ver `tasks/130-coverage-history.md`) adicionou gravação
+automática de snapshots (só totais agregados) a cada leitura do relatório,
+com retenção de 50 por projeto; a task 129 — Persiste (lê) relatórios de
+cobertura de projetos Rails (SimpleCov) (ver
+`tasks/129-simplecov-rails-coverage-reports.md`) estendeu o leitor da task
+128 para `coverage/.resultset.json`; e a task 128 — Persiste (lê)
+relatórios de cobertura de projetos gerenciados (Node/Istanbul) (ver
+`tasks/128-managed-project-coverage-reports.md`) implementou o leitor e o
+painel originais. Juntas, essas quatro tasks fecham por completo a frente
+de cobertura de testes de projetos gerenciados.
 
 Mais atrás, a task 127 — Executa caso/`describe` específico para runners
 Node (`-t`/`--test-name-pattern`) (ver `tasks/127-node-test-name-pattern.md`)

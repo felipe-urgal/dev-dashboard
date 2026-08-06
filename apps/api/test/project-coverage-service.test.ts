@@ -308,3 +308,158 @@ test('SimpleCov: ignora entradas fora do projeto e suítes malformadas', async (
     await rm(projectPath, { recursive: true, force: true });
   }
 });
+
+function istanbulSummaryMetric(total: number, covered: number) {
+  return {
+    total,
+    covered,
+    skipped: 0,
+    pct: total === 0 ? 100 : Math.round((covered / total) * 10000) / 100,
+  };
+}
+
+test('coverage-summary.json: usado como atalho quando coverage-final.json não existe', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const filePath = path.join(projectPath, 'src', 'sum.ts');
+    const summaryReport = {
+      total: {
+        statements: istanbulSummaryMetric(10, 9),
+        branches: istanbulSummaryMetric(8, 4),
+        functions: istanbulSummaryMetric(5, 1),
+        lines: istanbulSummaryMetric(10, 9),
+      },
+      [filePath]: {
+        statements: istanbulSummaryMetric(10, 9),
+        branches: istanbulSummaryMetric(8, 4),
+        functions: istanbulSummaryMetric(5, 1),
+        lines: istanbulSummaryMetric(10, 9),
+      },
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', 'coverage-summary.json'),
+      JSON.stringify(summaryReport),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath);
+
+    assert.equal(summary.available, true);
+    assert.ok(summary.generatedAt);
+    assert.deepEqual(summary.total, {
+      statements: { total: 10, covered: 9, pct: 90 },
+      branches: { total: 8, covered: 4, pct: 50 },
+      functions: { total: 5, covered: 1, pct: 20 },
+      lines: { total: 10, covered: 9, pct: 90 },
+    });
+    assert.equal(summary.files?.length, 1);
+    assert.equal(summary.files?.[0]!.path, 'src/sum.ts');
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('coverage-summary.json: ignorado quando coverage-final.json existe (final tem prioridade)', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const filePath = path.join(projectPath, 'src', 'sum.ts');
+    await writeFile(
+      path.join(projectPath, 'coverage', 'coverage-final.json'),
+      JSON.stringify({
+        [filePath]: istanbulFile({ statementHits: [1, 1] }),
+      }),
+    );
+    await writeFile(
+      path.join(projectPath, 'coverage', 'coverage-summary.json'),
+      JSON.stringify({
+        total: {
+          statements: istanbulSummaryMetric(100, 1),
+          branches: istanbulSummaryMetric(100, 1),
+          functions: istanbulSummaryMetric(100, 1),
+          lines: istanbulSummaryMetric(100, 1),
+        },
+      }),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath);
+
+    assert.equal(summary.total?.statements.total, 2);
+    assert.equal(summary.total?.statements.covered, 2);
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('coverage-summary.json: available:false quando nem final nem summary existem', async () => {
+  const projectPath = await makeProject();
+  try {
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath);
+    assert.deepEqual(summary, { available: false });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('coverage-summary.json: available:false quando malformado (sem total válido)', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    await writeFile(
+      path.join(projectPath, 'coverage', 'coverage-summary.json'),
+      JSON.stringify({ notATotal: true }),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath);
+    assert.deepEqual(summary, { available: false });
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test('coverage-summary.json: ignora entradas fora do projeto e por-arquivo malformadas', async () => {
+  const projectPath = await makeProject();
+  try {
+    await mkdir(path.join(projectPath, 'coverage'), { recursive: true });
+    const insidePath = path.join(projectPath, 'src', 'ok.ts');
+    const outsidePath = path.join(os.tmpdir(), 'outside.ts');
+    const summaryReport = {
+      total: {
+        statements: istanbulSummaryMetric(1, 1),
+        branches: istanbulSummaryMetric(0, 0),
+        functions: istanbulSummaryMetric(0, 0),
+        lines: istanbulSummaryMetric(1, 1),
+      },
+      [insidePath]: {
+        statements: istanbulSummaryMetric(1, 1),
+        branches: istanbulSummaryMetric(0, 0),
+        functions: istanbulSummaryMetric(0, 0),
+        lines: istanbulSummaryMetric(1, 1),
+      },
+      [outsidePath]: {
+        statements: istanbulSummaryMetric(1, 1),
+        branches: istanbulSummaryMetric(0, 0),
+        functions: istanbulSummaryMetric(0, 0),
+        lines: istanbulSummaryMetric(1, 1),
+      },
+      malformed: 'not an object entry value, but a string',
+    };
+    await writeFile(
+      path.join(projectPath, 'coverage', 'coverage-summary.json'),
+      JSON.stringify(summaryReport),
+    );
+
+    const service = new ProjectCoverageService();
+    const summary = await service.getSummary(projectPath);
+
+    assert.equal(summary.available, true);
+    assert.equal(summary.files?.length, 1);
+    assert.equal(summary.files?.[0]!.path, 'src/ok.ts');
+  } finally {
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});

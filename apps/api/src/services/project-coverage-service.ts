@@ -18,6 +18,17 @@ const ISTANBUL_REPORT_RELATIVE_PATH = path.join(
   'coverage-final.json',
 );
 
+/**
+ * Atalho pré-calculado (reporter `json-summary`) — só usado quando
+ * `coverage-final.json` não existe ou não pôde ser lido; o bruto continua
+ * sendo a fonte principal por trazer o detalhamento necessário para
+ * derivar `lines` com a mesma técnica usada no restante do serviço.
+ */
+const ISTANBUL_SUMMARY_RELATIVE_PATH = path.join(
+  'coverage',
+  'coverage-summary.json',
+);
+
 /** Formato Rails/SimpleCov — caminho padrão gerado pela gem sem configuração adicional. */
 const SIMPLECOV_REPORT_RELATIVE_PATH = path.join('coverage', '.resultset.json');
 
@@ -110,6 +121,37 @@ function summarizeFile(entry: IstanbulFileCoverage): ProjectCoverageTotals {
 }
 
 const UNAVAILABLE: ProjectCoverageSummary = { available: false };
+
+interface IstanbulSummaryMetric {
+  total?: unknown;
+  covered?: unknown;
+}
+
+interface IstanbulSummaryFileEntry {
+  statements?: IstanbulSummaryMetric;
+  branches?: IstanbulSummaryMetric;
+  functions?: IstanbulSummaryMetric;
+  lines?: IstanbulSummaryMetric;
+}
+
+function toSummaryMetric(raw: unknown): ProjectCoverageMetric | null {
+  if (!isPlainObject(raw)) return null;
+  const total = raw.total;
+  const covered = raw.covered;
+  if (typeof total !== 'number' || typeof covered !== 'number') return null;
+  return metric(total, covered);
+}
+
+function toSummaryTotals(raw: unknown): ProjectCoverageTotals | null {
+  if (!isPlainObject(raw)) return null;
+  const entry = raw as IstanbulSummaryFileEntry;
+  const statements = toSummaryMetric(entry.statements);
+  const branches = toSummaryMetric(entry.branches);
+  const functions = toSummaryMetric(entry.functions);
+  const lines = toSummaryMetric(entry.lines);
+  if (!statements || !branches || !functions || !lines) return null;
+  return { statements, branches, functions, lines };
+}
 
 /**
  * SimpleCov grava a cobertura de linha como um array posicional (índice =
@@ -237,6 +279,14 @@ export class ProjectCoverageService {
   private async getIstanbulSummary(
     projectPath: string,
   ): Promise<ProjectCoverageSummary> {
+    const finalResult = await this.getIstanbulFinalSummary(projectPath);
+    if (finalResult.available) return finalResult;
+    return this.getIstanbulSummaryFileSummary(projectPath);
+  }
+
+  private async getIstanbulFinalSummary(
+    projectPath: string,
+  ): Promise<ProjectCoverageSummary> {
     const reportPath = path.join(projectPath, ISTANBUL_REPORT_RELATIVE_PATH);
 
     let stats;
@@ -282,6 +332,62 @@ export class ProjectCoverageService {
         lines: addMetric(total.lines, summary.lines),
       };
       files.push({ path: relative.split(path.sep).join('/'), ...summary });
+    }
+
+    files.sort((left, right) => left.path.localeCompare(right.path));
+
+    return {
+      available: true,
+      generatedAt: stats.mtime.toISOString(),
+      total,
+      files: files.slice(0, MAX_COVERAGE_FILES),
+    };
+  }
+
+  /**
+   * Atalho: lê o `coverage-summary.json` já pré-calculado pelo reporter
+   * `json-summary`, sem precisar derivar `lines` a partir de statementMap —
+   * o próprio arquivo já traz os quatro totais prontos por arquivo. Só é
+   * tentado quando `coverage-final.json` não está disponível.
+   */
+  private async getIstanbulSummaryFileSummary(
+    projectPath: string,
+  ): Promise<ProjectCoverageSummary> {
+    const reportPath = path.join(projectPath, ISTANBUL_SUMMARY_RELATIVE_PATH);
+
+    let stats;
+    try {
+      stats = await stat(reportPath);
+    } catch {
+      return UNAVAILABLE;
+    }
+    if (!stats.isFile() || stats.size > MAX_COVERAGE_FILE_BYTES) {
+      return UNAVAILABLE;
+    }
+
+    let parsed: unknown;
+    try {
+      const raw = await readFile(reportPath, 'utf8');
+      parsed = JSON.parse(raw);
+    } catch {
+      return UNAVAILABLE;
+    }
+    if (!isPlainObject(parsed)) {
+      return UNAVAILABLE;
+    }
+
+    const total = toSummaryTotals(parsed.total);
+    if (!total) return UNAVAILABLE;
+
+    const files: ProjectCoverageFileSummary[] = [];
+    for (const [absolutePath, value] of Object.entries(parsed)) {
+      if (absolutePath === 'total') continue;
+      const relative = path.relative(projectPath, absolutePath);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+
+      const fileTotals = toSummaryTotals(value);
+      if (!fileTotals) continue;
+      files.push({ path: relative.split(path.sep).join('/'), ...fileTotals });
     }
 
     files.sort((left, right) => left.path.localeCompare(right.path));

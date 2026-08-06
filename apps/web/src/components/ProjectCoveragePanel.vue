@@ -25,7 +25,7 @@ const reportHint = computed(() =>
 const emptyStateHint = computed(() =>
   props.projectType === 'rails'
     ? 'Rode os testes com o SimpleCov habilitado (`SimpleCov.start` no `spec_helper.rb`/`rails_helper.rb`) para ver o resumo aqui.'
-    : 'Rode os testes com cobertura habilitada (Vitest/Jest/c8/nyc) para ver o resumo aqui.',
+    : 'Rode os testes com cobertura habilitada (Vitest/Jest/c8/nyc) para ver o resumo aqui — coverage-summary.json também é aceito quando coverage-final.json não estiver disponível.',
 );
 
 const loading = ref(false);

@@ -26,15 +26,6 @@ npm test
   para emitir os `tool_calls` correspondentes fica como possibilidade futura,
   não bloqueante).
 
-## Produto e fluxos operacionais
-
-- [ ] `coverage-summary.json` (Node) pré-calculado como atalho — hoje só
-  `coverage-final.json` bruto é lido (task 128). Histórico de execuções de
-  cobertura já foi resolvido pela task 130 (só totais agregados, sem
-  detalhamento por arquivo por snapshot — se precisar comparar arquivo a
-  arquivo entre execuções específicas, isso fica como possibilidade
-  futura).
-
 ## CLI Bash
 
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar

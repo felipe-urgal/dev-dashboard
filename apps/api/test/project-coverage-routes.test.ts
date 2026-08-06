@@ -178,6 +178,80 @@ test('GET /projects/:projectId/coverage', async (context) => {
   );
 
   await context.test(
+    'expõe o resumo a partir de coverage-summary.json quando coverage-final.json não existe',
+    async () => {
+      const summaryFixtureRoot = await mkdtemp(
+        path.join(tmpdir(), 'dev-dashboard-coverage-routes-summary-'),
+      );
+      const summaryProjectPath = path.join(
+        summaryFixtureRoot,
+        'sample-summary',
+      );
+      await mkdir(path.join(summaryProjectPath, 'coverage'), {
+        recursive: true,
+      });
+      try {
+        const summaryProject: Project = {
+          id: 'p-summary',
+          name: 'sample-summary',
+          path: summaryProjectPath,
+          type: 'node',
+          source: 'workspace',
+          workspaceId: 'w3',
+          favorite: false,
+          capabilities: ['tests'],
+        };
+        appContext.projectStore.saveWorkspaceScan({
+          workspaceId: 'w3',
+          workspacePath: summaryFixtureRoot,
+          projects: [summaryProject],
+          warnings: [],
+        });
+
+        const filePath = path.join(summaryProjectPath, 'src', 'sum.ts');
+        const summaryMetric = (total: number, covered: number) => ({
+          total,
+          covered,
+          skipped: 0,
+          pct: total === 0 ? 100 : Math.round((covered / total) * 10000) / 100,
+        });
+        const summaryReport = {
+          total: {
+            statements: summaryMetric(4, 3),
+            branches: summaryMetric(2, 1),
+            functions: summaryMetric(1, 1),
+            lines: summaryMetric(4, 3),
+          },
+          [filePath]: {
+            statements: summaryMetric(4, 3),
+            branches: summaryMetric(2, 1),
+            functions: summaryMetric(1, 1),
+            lines: summaryMetric(4, 3),
+          },
+        };
+        await writeFile(
+          path.join(summaryProjectPath, 'coverage', 'coverage-summary.json'),
+          JSON.stringify(summaryReport),
+        );
+
+        const response = await app.inject({
+          method: 'GET',
+          url: '/api/projects/p-summary/coverage',
+          headers,
+        });
+        assert.equal(response.statusCode, 200);
+        const { coverage } = response.json<CoverageResponse>();
+        assert.equal(coverage.available, true);
+        assert.equal(coverage.total?.statements.total, 4);
+        assert.equal(coverage.total?.statements.covered, 3);
+        assert.equal(coverage.files?.[0]!.path, 'src/sum.ts');
+      } finally {
+        await rm(summaryFixtureRoot, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await context.test(
     'expõe o resumo quando coverage-final.json existe',
     async () => {
       const filePath = path.join(projectPath, 'src', 'sum.ts');
