@@ -12,7 +12,7 @@ aberto, listado em `tasks/PENDENCIAS.md`.
 | Sistema operacional | Dashboard web (`apps/`, `packages/`) | CLI bash (`lib/`) |
 |---|---|---|
 | Linux | Suportado e testado em CI (`ubuntu-latest`, Node 24). Identidade de processo validada via `/proc/<pid>/cwd` (ver `docs/architecture/security.md`). | Suportado; caminho principal de desenvolvimento. |
-| macOS | Não validado em CI; nenhuma verificação de identidade de processo equivalente ao `/proc/<pid>/cwd` foi implementada. | Parcialmente tratado (`_dev_os` em `lib/core/checks.sh` distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local), mas sem cobertura de teste dedicada. |
+| macOS | Não validado em CI (a matriz de CI só roda em `ubuntu-latest`). Identidade de processo via `lsof -d cwd` implementada (task 133, equivalente ao `/proc/<pid>/cwd` do Linux) e coberta por testes unitários com saída de `lsof` simulada — mas nunca executada contra um `lsof` real de macOS. | `_dev_os` (`lib/core/checks.sh`) distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local; os ramos `mac`/`other` agora têm cobertura dedicada (`tests/cli/cases/01-core-checks.sh`, via um `uname` falso no `PATH`), mas o comportamento de cada branch (`open`, `brew services`) segue não validado num Mac real. |
 | Windows (nativo, fora de WSL) | Não suportado. | Não suportado — o CLI depende de Bash; WSL não é testado nem documentado oficialmente. |
 
 Requisitos de runtime:
@@ -24,6 +24,7 @@ Requisitos de runtime:
 | `git` | Ambos | Sim. |
 | `gum` ([charmbracelet/gum](https://github.com/charmbracelet/gum)) | CLI bash | Não — fallback em texto puro quando ausente (ver `dev-doctor`). |
 | `lsof` | CLI bash | Sim (liberação de porta em `dev-stop`). |
+| `lsof` | Dashboard web, só no macOS | Não — usado por `verifyProcessDirectory` para identidade de processo no macOS (task 133); ausente/falho degrada para "não verificado", não bloqueia. Sem efeito no Linux (usa `/proc`). |
 | `ruby`, `bundle` | CLI bash, projetos Rails | Só para projetos Rails. |
 | `mysql` (cliente) | CLI bash, projetos com MySQL | Só se o projeto usar MySQL. |
 | `mysqldump`/`pg_dump` | CLI bash, `db:snapshot`/`db:restore` | Só para essas ações. |

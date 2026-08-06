@@ -102,6 +102,19 @@ com o diretório esperado do projeto.
 
 Se não houver correspondência, o processo não deve ser encerrado.
 
+No macOS (task 133), não existe `/proc`; `verifyProcessDirectory` usa
+`lsof -a -p <pid> -d cwd -Fn` como equivalente prático. Ao contrário do
+Linux — onde uma falha na leitura do `/proc/<pid>/cwd` é tratada como
+identidade não confirmada (não encerra) — no macOS só uma divergência
+concreta (o `lsof` reportou um cwd que não bate com o esperado) bloqueia o
+encerramento; qualquer falha em rodar/interpretar o `lsof` (binário
+ausente, processo já encerrado, saída inesperada) faz a verificação
+retornar "confirmado", o mesmo comportamento de "não verificado, não
+bloqueia" que este pacote já tinha para qualquer plataforma fora do Linux
+antes desta função existir. Essa implementação ainda não foi validada
+contra um `lsof` real de macOS (só testada com saída simulada) — ver
+`docs/operations-and-troubleshooting.md`.
+
 ### Encerramento gradual
 
 A sequência padrão deve ser:

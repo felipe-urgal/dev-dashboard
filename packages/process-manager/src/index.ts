@@ -14,7 +14,10 @@ export {
   verifyProcessDirectory,
 } from './process-state.js';
 
-export type { StoredProcess } from './process-state.js';
+export type {
+  StoredProcess,
+  VerifyProcessDirectoryDeps,
+} from './process-state.js';
 
 export {
   ProjectServerSettingsError,

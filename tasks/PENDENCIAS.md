@@ -32,7 +32,10 @@ npm test
   (`packages/core`) — hoje um `version` que não bate cai para quarentena +
   valores padrão (task 133); quando existir um `version: 2` real, migrar
   em vez de descartar fica como item novo.
-- [ ] Validar e implementar compatibilidade com macOS (a matriz de suporte
-  atual, publicada na task 113, já documenta o que é tratado hoje no CLI
-  bash e o que falta: cobertura de teste dedicada e identidade de processo
-  equivalente ao `/proc/<pid>/cwd` no dashboard web).
+- [ ] Validar num macOS real o que a task 134 implementou só com testes
+  simulados: identidade de processo via `lsof -d cwd` em
+  `verifyProcessDirectory` (equivalente ao `/proc/<pid>/cwd` do Linux) e os
+  ramos `mac`/`other` de `_dev_os` usados por `lib/actions/browser.sh`,
+  `lib/rails/database/service.sh` e `lib/core/services.sh` (`open`,
+  `brew services`). CI só roda `ubuntu-latest`; não há execução real contra
+  macOS ainda.
