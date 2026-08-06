@@ -103,11 +103,10 @@ numerada (convenção deste repo, ver \`tasks/\`); commits sem task
 numerada são agrupados por data. A ordem segue o histórico do Git, do mais
 recente para o mais antigo.
 
-Isto cobre só a parte de **changelog** do item "Automatizar changelog,
-release e tags de versão" de \`tasks/PENDENCIAS.md\`. Release e tags de
-versão continuam pendentes de uma decisão de política de versionamento (o
-projeto é \`"private": true\`) — ver o item correspondente em
-\`tasks/PENDENCIAS.md\`.
+Release e tags de versão (\`vX.Y.Z\`) são automatizados por
+\`.github/workflows/release-prepare.yml\` e \`release-tag.yml\`
+(\`scripts/release.mjs\`, task 116) — o projeto é \`"private": true\`, sem
+publicação em registro npm; ver "Release" em \`CONTRIBUTING.md\`.
 
 `;
 

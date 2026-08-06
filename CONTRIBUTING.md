@@ -237,6 +237,32 @@ Nunca commite:
 
 Use valores fictícios em testes e exemplos.
 
+## Release
+
+O projeto é `"private": true` (uso interno, sem publicação em registro npm).
+Versionamento segue `MAJOR.MINOR.PATCH` no `package.json` raiz, só para
+rastrear histórico e compatibilidade — não há cadência fixa, releases são
+manuais e sob demanda.
+
+Fluxo, em dois workflows:
+
+1. **Release — prepare** (`.github/workflows/release-prepare.yml`,
+   `workflow_dispatch` manual, escolhendo `patch`/`minor`/`major`): roda
+   `npm run release -- <bump>` (`scripts/release.mjs`), que incrementa a
+   versão em `package.json` e regenera `CHANGELOG.md`
+   (`scripts/generate-changelog.mjs`, task 093), e abre um PR normal
+   (`chore(release): vX.Y.Z`) — passa pelo mesmo processo de revisão de
+   qualquer outra mudança.
+2. **Release — tag** (`.github/workflows/release-tag.yml`, dispara em push
+   em `main` que altera `package.json`): se a versão mudou e a tag
+   correspondente ainda não existe, cria a tag `vX.Y.Z` e um GitHub Release
+   com notas geradas automaticamente pelo GitHub a partir dos PRs
+   mergeados desde o release anterior.
+
+Rodar `npm run release -- patch` localmente também funciona (sem abrir PR
+automaticamente) — útil para conferir o resultado antes de disparar o
+workflow.
+
 ## Compatibilidade
 
 O projeto mantém duas interfaces: CLI Bash e dashboard web. Não remova comportamento do CLI apenas porque existe uma alternativa web, salvo quando a migração estiver explicitamente planejada e validada.

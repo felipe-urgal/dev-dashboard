@@ -10,11 +10,54 @@ numerada (convenção deste repo, ver `tasks/`); commits sem task
 numerada são agrupados por data. A ordem segue o histórico do Git, do mais
 recente para o mais antigo.
 
-Isto cobre só a parte de **changelog** do item "Automatizar changelog,
-release e tags de versão" de `tasks/PENDENCIAS.md`. Release e tags de
-versão continuam pendentes de uma decisão de política de versionamento (o
-projeto é `"private": true`) — ver o item correspondente em
-`tasks/PENDENCIAS.md`.
+Release e tags de versão (`vX.Y.Z`) são automatizados por
+`.github/workflows/release-prepare.yml` e `release-tag.yml`
+(`scripts/release.mjs`, task 116) — o projeto é `"private": true`, sem
+publicação em registro npm; ver "Release" em `CONTRIBUTING.md`.
+
+### Task 114
+
+- Task 114 + 115: modelo de autorização do gh e Prettier/formatação ([#228](../../pull/228))
+
+### Task 113
+
+- Task 113: publica a matriz de suporte de sistemas operacionais e runtimes ([#227](../../pull/227))
+
+### Task 112
+
+- Task 112: lista workspaces cadastrados com switch de varredura recursiva ([#226](../../pull/226))
+
+### 2026-08-06
+
+- package (`2887a9e`)
+
+### Task 111
+
+- Task 111: expõe a varredura recursiva de workspace na API e na UI ([#225](../../pull/225))
+
+### Task 110
+
+- Task 110: varredura recursiva de workspace (opt-in) em project-discovery ([#224](../../pull/224))
+
+### Task 109
+
+- Task 109: remove código órfão de stash (frontend, API, contracts) ([#223](../../pull/223))
+
+### Task 108
+
+- Task 108: E2E de commit Git; achado do stash sem UI no painel Git ([#222](../../pull/222))
+
+### Task 107
+
+- Task 107: E2E de mutações de branch Git (sucesso, erro, vazio, troca de projeto) ([#221](../../pull/221))
+
+### Task 106
+
+- Task 106: E2E do catálogo de scripts (carregamento, sucesso, erro, troca de projeto) ([#220](../../pull/220))
+
+### Task 105
+
+- Task 105: revisão dirigida do npm audit; reconcilia docs/ vs tasks/ ([#219](../../pull/219))
 
 ### 2026-08-05
 
@@ -115,24 +158,3 @@ projeto é `"private": true`) — ver o item correspondente em
 ### Task 084
 
 - Task 084: ferramentas de símbolo para o assistente de IA ([#174](../../pull/174))
-
-### Task 083
-
-- Task 083: aplicação de edições propostas pela IA e correções do painel ([#173](../../pull/173))
-
-### 2026-08-04
-
-- Corrige posição do painel de IA e tema padrão do editor ([#172](../../pull/172))
-- Adiciona publicação de branches locais no origin ([#171](../../pull/171))
-
-### Task 081
-
-- Task 081 — Compleção inline com Ollama, realce de Haml e tokens Ruby no tema ([#170](../../pull/170))
-
-### Task 080
-
-- Task 080 — IA local com Ollama no editor embutido ([#169](../../pull/169))
-
-### Task 079
-
-- Task 079 — LSP Ruby/Rails e melhorias do editor embutido ([#168](../../pull/168))
