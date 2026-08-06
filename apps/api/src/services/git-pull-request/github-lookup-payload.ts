@@ -4,11 +4,13 @@ import type { ResolvedPullRequestContext } from './context.js';
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object'
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
-export function githubRepositoryParts(ownerRepo: string): [string, string] | null {
+export function githubRepositoryParts(
+  ownerRepo: string,
+): [string, string] | null {
   const parts = ownerRepo.split('/').filter(Boolean);
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   return [parts[0], parts[1]];
@@ -25,9 +27,9 @@ export function githubLookupFromPayload(
   const title = item?.title;
   const htmlUrl = item?.html_url;
   if (
-    typeof number !== 'number'
-    || typeof title !== 'string'
-    || typeof htmlUrl !== 'string'
+    typeof number !== 'number' ||
+    typeof title !== 'string' ||
+    typeof htmlUrl !== 'string'
   ) {
     return null;
   }

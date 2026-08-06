@@ -15,7 +15,9 @@ export function compact(value: string | undefined): string | undefined {
 
 export function isErrorText(value: string): boolean {
   if (/\b0\s+(?:failed|failures|errors)\b/i.test(value)) return false;
-  return /\b(?:error|failed|failure|syntaxerror|exception|unexpected|undefined method|cannot|enoent)\b/i.test(value);
+  return /\b(?:error|failed|failure|syntaxerror|exception|unexpected|undefined method|cannot|enoent)\b/i.test(
+    value,
+  );
 }
 
 export function isWarningText(value: string): boolean {

@@ -1,10 +1,4 @@
-import {
-  computed,
-  onBeforeUnmount,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type {
   GitCommitDetailFile,
@@ -27,7 +21,6 @@ import { fetchProjectGitWorkspace } from '../api/git-workspace';
 export function useProjectGitHistoryPage(
   props: Readonly<{ projectId: string }>,
 ) {
-
   const PAGE_SIZE = 20;
   const VIEW_MODE_KEY = 'dev-dashboard-git-history-view-mode';
   const LIST_WIDTH_KEY = 'dev-dashboard-git-history-list-width';
@@ -82,10 +75,11 @@ export function useProjectGitHistoryPage(
     'type-changed': 'Tipo alterado',
   };
 
-  const scopeOptions: Array<{ value: ProjectGitHistoryScope; label: string }> = [
-    { value: 'exclusive', label: 'Commits exclusivos' },
-    { value: 'all', label: 'Todos da referência' },
-  ];
+  const scopeOptions: Array<{ value: ProjectGitHistoryScope; label: string }> =
+    [
+      { value: 'exclusive', label: 'Commits exclusivos' },
+      { value: 'all', label: 'Todos da referência' },
+    ];
 
   const kindOptions: Array<{ value: GitCommitHistoryKind; label: string }> = [
     { value: 'all', label: 'Todos os commits' },
@@ -94,14 +88,19 @@ export function useProjectGitHistoryPage(
   ];
 
   function clampListWidth(value: number): number {
-    return Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, Math.round(value)));
+    return Math.min(
+      MAX_LIST_WIDTH,
+      Math.max(MIN_LIST_WIDTH, Math.round(value)),
+    );
   }
 
   function readStoredListWidth(): number {
     try {
       const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
       const value = raw ? Number.parseInt(raw, 10) : Number.NaN;
-      return Number.isFinite(value) ? clampListWidth(value) : DEFAULT_LIST_WIDTH;
+      return Number.isFinite(value)
+        ? clampListWidth(value)
+        : DEFAULT_LIST_WIDTH;
     } catch {
       return DEFAULT_LIST_WIDTH;
     }
@@ -141,14 +140,17 @@ export function useProjectGitHistoryPage(
   function handleResizeKeydown(event: KeyboardEvent): void {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
-    const delta = event.key === 'ArrowLeft' ? -RESIZE_KEYBOARD_STEP : RESIZE_KEYBOARD_STEP;
+    const delta =
+      event.key === 'ArrowLeft' ? -RESIZE_KEYBOARD_STEP : RESIZE_KEYBOARD_STEP;
     listWidth.value = clampListWidth(listWidth.value + delta);
     persistListWidth(listWidth.value);
   }
 
   function readStoredViewMode(): DiffViewMode {
     try {
-      return window.localStorage.getItem(VIEW_MODE_KEY) === 'split' ? 'split' : 'unified';
+      return window.localStorage.getItem(VIEW_MODE_KEY) === 'split'
+        ? 'split'
+        : 'unified';
     } catch {
       return 'unified';
     }
@@ -166,11 +168,21 @@ export function useProjectGitHistoryPage(
   const branchGroups = computed(() => {
     const branches = workspace.value?.branches ?? [];
     return [
-      { label: 'Branches locais', items: branches.filter((branch) => branch.kind === 'local') },
-      { label: 'Origin', items: branches.filter((branch) => branch.kind === 'remote' && branch.remote === 'origin') },
+      {
+        label: 'Branches locais',
+        items: branches.filter((branch) => branch.kind === 'local'),
+      },
+      {
+        label: 'Origin',
+        items: branches.filter(
+          (branch) => branch.kind === 'remote' && branch.remote === 'origin',
+        ),
+      },
       {
         label: 'Outros remotos',
-        items: branches.filter((branch) => branch.kind === 'remote' && branch.remote !== 'origin'),
+        items: branches.filter(
+          (branch) => branch.kind === 'remote' && branch.remote !== 'origin',
+        ),
       },
     ].filter((group) => group.items.length > 0);
   });
@@ -178,7 +190,8 @@ export function useProjectGitHistoryPage(
   const authorOptions = computed(() => {
     const names = new Map<string, string>();
     for (const commit of history.value?.commits ?? []) {
-      if (!names.has(commit.authorEmail)) names.set(commit.authorEmail, commit.authorName);
+      if (!names.has(commit.authorEmail))
+        names.set(commit.authorEmail, commit.authorName);
     }
     return [...names.entries()].map(([email, name]) => ({ email, name }));
   });
@@ -187,10 +200,14 @@ export function useProjectGitHistoryPage(
   const commitBody = computed(() => {
     const body = detail.value?.body ?? '';
     const subject = detail.value?.subject ?? '';
-    return (body.startsWith(subject) ? body.slice(subject.length) : body).trim();
+    return (
+      body.startsWith(subject) ? body.slice(subject.length) : body
+    ).trim();
   });
 
-  const totalPages = computed(() => Math.max(1, history.value?.totalPages ?? 1));
+  const totalPages = computed(() =>
+    Math.max(1, history.value?.totalPages ?? 1),
+  );
 
   /**
    * Repositórios grandes têm centenas de páginas: mostramos uma janela ao redor
@@ -199,7 +216,8 @@ export function useProjectGitHistoryPage(
   const pageWindow = computed<Array<number | 'gap'>>(() => {
     const total = totalPages.value;
     const current = page.value;
-    if (total <= 7) return Array.from({ length: total }, (_unused, index) => index + 1);
+    if (total <= 7)
+      return Array.from({ length: total }, (_unused, index) => index + 1);
 
     const pages = new Set<number>([1, total, current]);
     for (const offset of [-1, 1]) {
@@ -207,9 +225,12 @@ export function useProjectGitHistoryPage(
       if (target > 1 && target < total) pages.add(target);
     }
     if (current <= 3) [2, 3, 4].forEach((item) => pages.add(item));
-    if (current >= total - 2) [total - 3, total - 2, total - 1].forEach((item) => pages.add(item));
+    if (current >= total - 2)
+      [total - 3, total - 2, total - 1].forEach((item) => pages.add(item));
 
-    const ordered = [...pages].filter((item) => item >= 1 && item <= total).sort((left, right) => left - right);
+    const ordered = [...pages]
+      .filter((item) => item >= 1 && item <= total)
+      .sort((left, right) => left - right);
     const result: Array<number | 'gap'> = [];
     let previous = 0;
     for (const item of ordered) {
@@ -224,7 +245,10 @@ export function useProjectGitHistoryPage(
     const total = history.value?.total ?? 0;
     if (total === 0) return 'Nenhum commit encontrado';
     const first = (page.value - 1) * PAGE_SIZE + 1;
-    const last = Math.min(total, first + (history.value?.commits.length ?? 0) - 1);
+    const last = Math.min(
+      total,
+      first + (history.value?.commits.length ?? 0) - 1,
+    );
     return `Mostrando ${first} a ${last} de ${total} commits`;
   });
 
@@ -246,7 +270,12 @@ export function useProjectGitHistoryPage(
           key,
           label: Number.isNaN(date.getTime())
             ? 'Data desconhecida'
-            : date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            : date.toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              }),
           commits: [],
         });
       }
@@ -259,7 +288,10 @@ export function useProjectGitHistoryPage(
     const date = new Date(value);
     return Number.isNaN(date.getTime())
       ? '--:--'
-      : date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      : date.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
   }
 
   function formatFullDate(value: string): string {
@@ -297,12 +329,14 @@ export function useProjectGitHistoryPage(
   }
 
   function authorInitials(name: string): string {
-    return name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toLocaleUpperCase('pt-BR') ?? '')
-      .join('') || '?';
+    return (
+      name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toLocaleUpperCase('pt-BR') ?? '')
+        .join('') || '?'
+    );
   }
 
   async function loadWorkspace(): Promise<void> {
@@ -341,9 +375,10 @@ export function useProjectGitHistoryPage(
     } catch (error) {
       if (controller.signal.aborted) return;
       history.value = null;
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o histórico do repositório.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o histórico do repositório.';
     } finally {
       if (!controller.signal.aborted) loading.value = false;
     }
@@ -361,24 +396,31 @@ export function useProjectGitHistoryPage(
     detailLoading.value = true;
 
     try {
-      const result = await fetchProjectGitCommitDetail(props.projectId, commit.hash, controller.signal);
+      const result = await fetchProjectGitCommitDetail(
+        props.projectId,
+        commit.hash,
+        controller.signal,
+      );
       if (controller.signal.aborted) return;
       detail.value = result;
-      fileStates.value = result.files.map((file) => reactive<FileState>({
-        file,
-        loading: false,
-        error: '',
-        diff: null,
-      }));
+      fileStates.value = result.files.map((file) =>
+        reactive<FileState>({
+          file,
+          loading: false,
+          error: '',
+          diff: null,
+        }),
+      );
       // O diff do primeiro arquivo já aparece: o modal nunca abre vazio.
       const first = fileStates.value[0];
       selectedFilePath.value = first?.file.path ?? '';
       if (first) void loadFileDiff(first);
     } catch (error) {
       if (controller.signal.aborted) return;
-      detailError.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar os detalhes do commit.';
+      detailError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os detalhes do commit.';
     } finally {
       if (!controller.signal.aborted) detailLoading.value = false;
     }
@@ -404,16 +446,20 @@ export function useProjectGitHistoryPage(
         state.file.path,
       );
     } catch (error) {
-      state.error = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o diff deste arquivo.';
+      state.error =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o diff deste arquivo.';
     } finally {
       state.loading = false;
     }
   }
 
-  const selectedFile = computed(() =>
-    fileStates.value.find((state) => state.file.path === selectedFilePath.value) ?? null,
+  const selectedFile = computed(
+    () =>
+      fileStates.value.find(
+        (state) => state.file.path === selectedFilePath.value,
+      ) ?? null,
   );
 
   function selectFile(path: string): void {
@@ -427,7 +473,9 @@ export function useProjectGitHistoryPage(
       await navigator.clipboard.writeText(hash);
       copiedHash.value = hash;
       if (copyTimer) clearTimeout(copyTimer);
-      copyTimer = setTimeout(() => { copiedHash.value = ''; }, 1_800);
+      copyTimer = setTimeout(() => {
+        copiedHash.value = '';
+      }, 1_800);
     } catch {
       copiedHash.value = '';
     }

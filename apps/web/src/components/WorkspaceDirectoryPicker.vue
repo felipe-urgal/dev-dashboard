@@ -1,15 +1,7 @@
 <script setup lang="ts">
-import {
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  watch,
-} from 'vue';
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
-import {
-  fetchDirectories,
-  type DirectoryListing,
-} from '../api';
+import { fetchDirectories, type DirectoryListing } from '../api';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { RequestGeneration } from '../utils/request-generation';
@@ -36,9 +28,7 @@ let previousBodyOverflow = '';
 let previouslyFocusedElement: HTMLElement | null = null;
 let pageStateCaptured = false;
 
-async function loadDirectory(
-  directoryPath?: string,
-): Promise<void> {
+async function loadDirectory(directoryPath?: string): Promise<void> {
   const requestGeneration = directoryRequests.invalidate();
   loading.value = true;
   errorMessage.value = '';

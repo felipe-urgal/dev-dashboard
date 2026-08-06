@@ -203,12 +203,12 @@ function relativePathFromSyntheticUri(projectId: string, uri: string): string {
   const segments = encodedPath.split('/').map((segment) => {
     const decoded = decodeURIComponent(segment);
     if (
-      !decoded
-      || decoded === '.'
-      || decoded === '..'
-      || decoded.includes('/')
-      || decoded.includes('\\')
-      || decoded.includes('\0')
+      !decoded ||
+      decoded === '.' ||
+      decoded === '..' ||
+      decoded.includes('/') ||
+      decoded.includes('\\') ||
+      decoded.includes('\0')
     ) {
       throw new LanguageServerProtocolError(
         'A URI do documento contém um caminho inválido.',
@@ -321,18 +321,29 @@ export function translateServerMessage(
  * `translateServerMessage` — só falta extrair caminho relativo e converter
  * posições LSP (0-based) para `ProjectTextPosition` (1-based).
  */
-function toSymbolLocations(projectId: string, result: unknown): ProjectSymbolLocation[] {
+function toSymbolLocations(
+  projectId: string,
+  result: unknown,
+): ProjectSymbolLocation[] {
   if (!result) return [];
   const items = Array.isArray(result) ? result : [result];
   const locations: ProjectSymbolLocation[] = [];
   for (const item of items) {
     if (!item || typeof item !== 'object') continue;
     const record = item as Record<string, unknown>;
-    const uri = typeof record.uri === 'string'
-      ? record.uri
-      : typeof record.targetUri === 'string' ? record.targetUri : undefined;
-    const range = (record.range ?? record.targetSelectionRange ?? record.targetRange) as
-      | { start?: { line?: number; character?: number }; end?: { line?: number; character?: number } }
+    const uri =
+      typeof record.uri === 'string'
+        ? record.uri
+        : typeof record.targetUri === 'string'
+          ? record.targetUri
+          : undefined;
+    const range = (record.range ??
+      record.targetSelectionRange ??
+      record.targetRange) as
+      | {
+          start?: { line?: number; character?: number };
+          end?: { line?: number; character?: number };
+        }
       | undefined;
     if (!uri || !range?.start || !range.end) continue;
 
@@ -346,20 +357,30 @@ function toSymbolLocations(projectId: string, result: unknown): ProjectSymbolLoc
     locations.push({
       path: relativePath,
       range: {
-        start: { line: (range.start.line ?? 0) + 1, column: (range.start.character ?? 0) + 1 },
-        end: { line: (range.end.line ?? 0) + 1, column: (range.end.character ?? 0) + 1 },
+        start: {
+          line: (range.start.line ?? 0) + 1,
+          column: (range.start.character ?? 0) + 1,
+        },
+        end: {
+          line: (range.end.line ?? 0) + 1,
+          column: (range.end.character ?? 0) + 1,
+        },
       },
     });
   }
   return locations;
 }
 
-function languageIdForPath(kind: ProjectLanguageServerKind, filePath: string): string {
+function languageIdForPath(
+  kind: ProjectLanguageServerKind,
+  filePath: string,
+): string {
   if (kind === 'ruby') return 'ruby';
   const extension = path.extname(filePath).toLowerCase();
   if (extension === '.tsx') return 'typescriptreact';
   if (extension === '.jsx') return 'javascriptreact';
-  if (extension === '.ts' || extension === '.mts' || extension === '.cts') return 'typescript';
+  if (extension === '.ts' || extension === '.mts' || extension === '.cts')
+    return 'typescript';
   return 'javascript';
 }
 
@@ -429,7 +450,9 @@ function defaultSpawnProcess(
   });
 }
 
-async function executableCandidate(candidate: string): Promise<string | undefined> {
+async function executableCandidate(
+  candidate: string,
+): Promise<string | undefined> {
   try {
     await access(candidate, fsConstants.X_OK);
     return await realpath(candidate);
@@ -439,7 +462,9 @@ async function executableCandidate(candidate: string): Promise<string | undefine
 }
 
 async function findExecutableOnPath(name: string): Promise<string | undefined> {
-  const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  const directories = (process.env.PATH ?? '')
+    .split(path.delimiter)
+    .filter(Boolean);
   for (const directory of directories) {
     const found = await executableCandidate(path.join(directory, name));
     if (found) return found;
@@ -500,8 +525,9 @@ export async function findRubyLanguageServer(
   railsRuntimeEnabled: boolean,
 ): Promise<ResolvedLanguageServerCommand | undefined> {
   const bundleResolvesLsp = await gemfileLockHasGem(projectRoot, 'ruby-lsp');
-  const bundleHasRailsAddon = bundleResolvesLsp
-    && (await gemfileLockHasGem(projectRoot, 'ruby-lsp-rails'));
+  const bundleHasRailsAddon =
+    bundleResolvesLsp &&
+    (await gemfileLockHasGem(projectRoot, 'ruby-lsp-rails'));
 
   if (bundleResolvesLsp && (!bundleHasRailsAddon || railsRuntimeEnabled)) {
     const bundle = await findExecutableOnPath('bundle');
@@ -516,7 +542,11 @@ export async function findRubyLanguageServer(
 
   const globalRubyLsp = await findExecutableOnPath('ruby-lsp');
   if (globalRubyLsp) {
-    return { executable: globalRubyLsp, args: ['--stdio'], usesRailsRuntime: false };
+    return {
+      executable: globalRubyLsp,
+      args: ['--stdio'],
+      usesRailsRuntime: false,
+    };
   }
 
   return undefined;
@@ -537,7 +567,9 @@ async function defaultFindCommand(
   return findRubyLanguageServer(projectRoot, railsRuntimeEnabled);
 }
 
-async function supportsJavaScriptTypeScript(project: Project): Promise<boolean> {
+async function supportsJavaScriptTypeScript(
+  project: Project,
+): Promise<boolean> {
   if (project.type === 'node') return true;
   for (const signal of ['package.json', 'tsconfig.json', 'jsconfig.json']) {
     try {
@@ -572,7 +604,10 @@ async function supports(
     : supportsRuby(project);
 }
 
-function sessionKey(projectId: string, kind: ProjectLanguageServerKind): string {
+function sessionKey(
+  projectId: string,
+  kind: ProjectLanguageServerKind,
+): string {
   return `${projectId}:${kind}`;
 }
 
@@ -580,7 +615,10 @@ export class ProjectLanguageServerService {
   private readonly sessions = new Map<string, LanguageServerSession>();
   private readonly starts = new Map<string, number[]>();
   private readonly railsRuntimeEnabled = new Map<string, boolean>();
-  private readonly railsRuntimeConfirmations = new Map<string, RailsRuntimeConfirmationRecord>();
+  private readonly railsRuntimeConfirmations = new Map<
+    string,
+    RailsRuntimeConfirmationRecord
+  >();
   private readonly idleTimeoutMs: number;
   private readonly symbolRequestTimeoutMs: number;
   private readonly now: () => number;
@@ -600,11 +638,13 @@ export class ProjectLanguageServerService {
 
   public constructor(options: ProjectLanguageServerServiceOptions = {}) {
     this.idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
-    this.symbolRequestTimeoutMs = options.symbolRequestTimeoutMs ?? SYMBOL_REQUEST_TIMEOUT_MS;
+    this.symbolRequestTimeoutMs =
+      options.symbolRequestTimeoutMs ?? SYMBOL_REQUEST_TIMEOUT_MS;
     this.now = options.now ?? Date.now;
     this.findCommand = options.findCommand ?? defaultFindCommand;
     this.spawnProcess = options.spawnProcess ?? defaultSpawnProcess;
-    this.projectFileService = options.projectFileService ?? new ProjectFileService();
+    this.projectFileService =
+      options.projectFileService ?? new ProjectFileService();
   }
 
   public async status(
@@ -624,16 +664,23 @@ export class ProjectLanguageServerService {
         available: false,
         state: 'unavailable',
         activeConnections: 0,
-        message: kind === 'javascript-typescript'
-          ? 'Este projeto não possui sinais JavaScript/TypeScript reconhecidos.'
-          : 'Este projeto não possui sinais Ruby reconhecidos.',
+        message:
+          kind === 'javascript-typescript'
+            ? 'Este projeto não possui sinais JavaScript/TypeScript reconhecidos.'
+            : 'Este projeto não possui sinais Ruby reconhecidos.',
         ...(rails ? { rails } : {}),
       };
     }
 
     const root = await realpath(project.path).catch(() => project.path);
-    const railsRuntimeEnabled = this.railsRuntimeEnabled.get(project.id) ?? false;
-    const command = await this.findCommand(project, root, kind, railsRuntimeEnabled);
+    const railsRuntimeEnabled =
+      this.railsRuntimeEnabled.get(project.id) ?? false;
+    const command = await this.findCommand(
+      project,
+      root,
+      kind,
+      railsRuntimeEnabled,
+    );
     if (!command) {
       return {
         kind,
@@ -641,9 +688,10 @@ export class ProjectLanguageServerService {
         available: false,
         state: 'unavailable',
         activeConnections: 0,
-        message: kind === 'javascript-typescript'
-          ? 'typescript-language-server não está disponível. Instale-o manualmente para ativar recursos semânticos.'
-          : 'ruby-lsp não está disponível. Instale-o globalmente ou resolva-o no bundle do projeto para ativar recursos semânticos.',
+        message:
+          kind === 'javascript-typescript'
+            ? 'typescript-language-server não está disponível. Instale-o manualmente para ativar recursos semânticos.'
+            : 'ruby-lsp não está disponível. Instale-o globalmente ou resolva-o no bundle do projeto para ativar recursos semânticos.',
         ...(rails ? { rails } : {}),
       };
     }
@@ -653,9 +701,10 @@ export class ProjectLanguageServerService {
       available: true,
       state: 'idle',
       activeConnections: 0,
-      message: kind === 'javascript-typescript'
-        ? 'Servidor de linguagem disponível e aguardando um arquivo JavaScript ou TypeScript.'
-        : 'Servidor de linguagem disponível e aguardando um arquivo Ruby.',
+      message:
+        kind === 'javascript-typescript'
+          ? 'Servidor de linguagem disponível e aguardando um arquivo JavaScript ou TypeScript.'
+          : 'Servidor de linguagem disponível e aguardando um arquivo Ruby.',
       ...(rails ? { rails } : {}),
     };
   }
@@ -749,7 +798,8 @@ export class ProjectLanguageServerService {
         sendStatus(socket, {
           ...initialStatus,
           state: 'failed',
-          message: 'O servidor de linguagem reiniciou vezes demais. Tente novamente em instantes.',
+          message:
+            'O servidor de linguagem reiniciou vezes demais. Tente novamente em instantes.',
         });
         socket.close(1013, 'Limite de reinício atingido');
         return;
@@ -811,13 +861,21 @@ export class ProjectLanguageServerService {
       });
       return toSymbolLocations(project.id, result);
     } finally {
-      this.notifyProcess(session, 'textDocument/didClose', { textDocument: { uri } });
+      this.notifyProcess(session, 'textDocument/didClose', {
+        textDocument: { uri },
+      });
       if (!session.socket) this.scheduleIdleTeardown(session);
     }
   }
 
-  private notifyProcess(session: LanguageServerSession, method: string, params: unknown): void {
-    session.process.stdin.write(encodeLspMessage({ jsonrpc: '2.0', method, params }));
+  private notifyProcess(
+    session: LanguageServerSession,
+    method: string,
+    params: unknown,
+  ): void {
+    session.process.stdin.write(
+      encodeLspMessage({ jsonrpc: '2.0', method, params }),
+    );
   }
 
   private sendOneShotRequest(
@@ -830,10 +888,16 @@ export class ProjectLanguageServerService {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         session.pending.delete(id);
-        reject(new LanguageServerProtocolError('O servidor de linguagem não respondeu a tempo.'));
+        reject(
+          new LanguageServerProtocolError(
+            'O servidor de linguagem não respondeu a tempo.',
+          ),
+        );
       }, this.symbolRequestTimeoutMs);
       session.pending.set(id, { resolve, reject, timeout });
-      session.process.stdin.write(encodeLspMessage({ jsonrpc: '2.0', id, method, params }));
+      session.process.stdin.write(
+        encodeLspMessage({ jsonrpc: '2.0', id, method, params }),
+      );
     });
   }
 
@@ -851,7 +915,9 @@ export class ProjectLanguageServerService {
     this.sessions.clear();
   }
 
-  private async railsStatus(project: Project): Promise<ProjectRailsLanguageServerStatus> {
+  private async railsStatus(
+    project: Project,
+  ): Promise<ProjectRailsLanguageServerStatus> {
     if (project.type !== 'rails') {
       return {
         addonAvailable: false,
@@ -865,7 +931,8 @@ export class ProjectLanguageServerService {
       return {
         addonAvailable: false,
         runtimeState: 'unavailable',
-        message: 'A gem ruby-lsp-rails não está resolvida no bundle deste projeto.',
+        message:
+          'A gem ruby-lsp-rails não está resolvida no bundle deste projeto.',
       };
     }
     const enabled = this.railsRuntimeEnabled.get(project.id) ?? false;
@@ -889,14 +956,19 @@ export class ProjectLanguageServerService {
     session: LanguageServerSession,
     supported: boolean,
   ): ProjectLanguageServerStatus {
-    const label = session.kind === 'javascript-typescript' ? 'JavaScript/TypeScript' : 'Ruby';
+    const label =
+      session.kind === 'javascript-typescript'
+        ? 'JavaScript/TypeScript'
+        : 'Ruby';
     return {
       kind: session.kind,
       supported,
       available: true,
       state: session.state,
       activeConnections:
-        session.socket && session.socket.readyState === session.socket.OPEN ? 1 : 0,
+        session.socket && session.socket.readyState === session.socket.OPEN
+          ? 1
+          : 0,
       message:
         session.state === 'ready'
           ? `Recursos semânticos ${label} ativos.`
@@ -923,8 +995,14 @@ export class ProjectLanguageServerService {
     this.starts.set(key, recentStarts);
 
     const root = await realpath(project.path);
-    const railsRuntimeEnabled = this.railsRuntimeEnabled.get(project.id) ?? false;
-    const command = await this.findCommand(project, root, kind, railsRuntimeEnabled);
+    const railsRuntimeEnabled =
+      this.railsRuntimeEnabled.get(project.id) ?? false;
+    const command = await this.findCommand(
+      project,
+      root,
+      kind,
+      railsRuntimeEnabled,
+    );
     if (!command || !initialStatus.available) return undefined;
     const child = this.spawnProcess(command.executable, command.args, root);
     const session: LanguageServerSession = {
@@ -951,22 +1029,32 @@ export class ProjectLanguageServerService {
         for (const message of session.decoder.push(chunk)) {
           const translated = translateServerMessage(project, root, message);
           const id = jsonRpcId(message);
-          const pending = typeof id === 'number' ? session.pending.get(id) : undefined;
+          const pending =
+            typeof id === 'number' ? session.pending.get(id) : undefined;
           if (pending) {
             session.pending.delete(id as number);
             clearTimeout(pending.timeout);
             if (translated === undefined) {
-              pending.reject(new LanguageServerProtocolError(
-                'O servidor de linguagem respondeu com uma URI fora do projeto.',
-              ));
+              pending.reject(
+                new LanguageServerProtocolError(
+                  'O servidor de linguagem respondeu com uma URI fora do projeto.',
+                ),
+              );
             } else {
-              const errorField = (translated as { error?: { message?: string } }).error;
+              const errorField = (
+                translated as { error?: { message?: string } }
+              ).error;
               if (errorField) {
-                pending.reject(new LanguageServerProtocolError(
-                  errorField.message ?? 'O servidor de linguagem respondeu com erro.',
-                ));
+                pending.reject(
+                  new LanguageServerProtocolError(
+                    errorField.message ??
+                      'O servidor de linguagem respondeu com erro.',
+                  ),
+                );
               } else {
-                pending.resolve((translated as { result?: unknown }).result ?? null);
+                pending.resolve(
+                  (translated as { result?: unknown }).result ?? null,
+                );
               }
             }
           }
@@ -985,7 +1073,10 @@ export class ProjectLanguageServerService {
       // Logs internos não são enviados ao navegador.
     });
     child.once('error', () => {
-      this.failSession(session, 'Não foi possível iniciar o servidor de linguagem.');
+      this.failSession(
+        session,
+        'Não foi possível iniciar o servidor de linguagem.',
+      );
     });
     child.once('exit', () => {
       if (!session.terminated) {
@@ -1003,10 +1094,16 @@ export class ProjectLanguageServerService {
     isBinary: boolean,
   ): void {
     if (isBinary) {
-      sendProtocolError(socket, undefined, 'Mensagens binárias não são aceitas pelo gateway LSP.');
+      sendProtocolError(
+        socket,
+        undefined,
+        'Mensagens binárias não são aceitas pelo gateway LSP.',
+      );
       return;
     }
-    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+    const buffer = Buffer.isBuffer(data)
+      ? data
+      : Buffer.from(data as ArrayBuffer);
     if (buffer.length > MAX_MESSAGE_BYTES) {
       socket.close(1009, 'Mensagem LSP muito grande');
       return;
@@ -1016,7 +1113,11 @@ export class ProjectLanguageServerService {
     try {
       message = JSON.parse(buffer.toString('utf8')) as unknown;
     } catch {
-      sendProtocolError(socket, undefined, 'O gateway LSP recebeu JSON inválido.');
+      sendProtocolError(
+        socket,
+        undefined,
+        'O gateway LSP recebeu JSON inválido.',
+      );
       return;
     }
 

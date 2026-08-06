@@ -42,7 +42,9 @@ function buildHistoryDetail(filePath = 'app/models/big_number.rb'): {
     </div>
   `;
   document.body.append(host);
-  const patch = host.querySelector<HTMLElement>('.git-summary-detail-diff pre')!;
+  const patch = host.querySelector<HTMLElement>(
+    '.git-summary-detail-diff pre',
+  )!;
   // Espelha patchView() (git-history-page-enhancer.ts): o texto bruto fica em
   // data-raw-patch, e o conteúdo visual (textContent/innerHTML) começa igual, mas pode
   // ser reescrito depois por outros enhancers sem afetar o atributo.
@@ -62,8 +64,7 @@ test('mostra o diff do arquivo mesmo depois que outro enhancer remove os cabeça
   // o innerHTML visível do <pre> sem as linhas "diff --git"/"index"/"---"/"+++", como
   // acontece de verdade quando o destaque de sintaxe marca essas linhas como "is-meta" e
   // o cleanup as remove do DOM. O atributo data-raw-patch não é tocado por esse processo.
-  patch.textContent = RAW_PATCH
-    .split('\n')
+  patch.textContent = RAW_PATCH.split('\n')
     .filter((line) => !/^(diff --git |index |--- |\+\+\+ )/.test(line))
     .join('\n');
 
@@ -104,7 +105,6 @@ test('recorre ao textContent quando data-raw-patch não está presente', () => {
   assert.match(viewer!.textContent ?? '', /Scope/);
 });
 
-
 test('mantém o patch combinado oculto apenas como fonte dos diffs individuais', () => {
   const { host, patch } = buildHistoryDetail();
   cleanup = () => host.remove();
@@ -117,5 +117,8 @@ test('mantém o patch combinado oculto apenas como fonte dos diffs individuais',
 
   const row = host.querySelector<HTMLElement>('.git-summary-detail-files li')!;
   row.click();
-  assert.match(host.querySelector('.git-inline-file-diff')?.textContent ?? '', /Scope/);
+  assert.match(
+    host.querySelector('.git-inline-file-diff')?.textContent ?? '',
+    /Scope/,
+  );
 });

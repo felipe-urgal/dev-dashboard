@@ -31,9 +31,10 @@ async function apply(): Promise<void> {
     });
     emit('applied', result.files);
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível aplicar a alteração proposta.';
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível aplicar a alteração proposta.';
   } finally {
     applying.value = false;
   }
@@ -48,13 +49,18 @@ async function apply(): Promise<void> {
     <header>
       <div>
         <span class="section-kicker">Revisão obrigatória</span>
-        <h4 id="workspace-edit-review-title">Alteração proposta pelo servidor de linguagem</h4>
+        <h4 id="workspace-edit-review-title">
+          Alteração proposta pelo servidor de linguagem
+        </h4>
         <p>
-          Nenhum arquivo foi gravado. Compare o conteúdo atual e o resultado antes
-          de confirmar.
+          Nenhum arquivo foi gravado. Compare o conteúdo atual e o resultado
+          antes de confirmar.
         </p>
       </div>
-      <span>{{ preview.files.length }} {{ preview.files.length === 1 ? 'arquivo' : 'arquivos' }}</span>
+      <span
+        >{{ preview.files.length }}
+        {{ preview.files.length === 1 ? 'arquivo' : 'arquivos' }}</span
+      >
     </header>
 
     <p v-if="errorMessage" class="alert alert-error" role="alert">

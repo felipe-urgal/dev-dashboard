@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 
-import { GitWorkspaceError, type GitWorkspaceService } from '../../services/git-workspace-service.js';
+import {
+  GitWorkspaceError,
+  type GitWorkspaceService,
+} from '../../services/git-workspace-service.js';
 import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
-import { apiErrorResponseSchema, commonErrorResponseSchemas } from '../../http/response-schemas.js';
+import {
+  apiErrorResponseSchema,
+  commonErrorResponseSchemas,
+} from '../../http/response-schemas.js';
 import {
   findProject,
   projectGitWorkspaceSchema,
@@ -42,9 +48,10 @@ export function registerWorkspaceRoutes(
         throw new ApiError({
           statusCode: 500,
           code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error
-            ? error.message
-            : 'Não foi possível consultar branches e remotos.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível consultar branches e remotos.',
         });
       }
     },
@@ -81,13 +88,14 @@ export function registerWorkspaceRoutes(
             GIT_REMOTE_UNAVAILABLE: 502,
             GIT_FETCH_FAILED: 500,
           };
-          const apiCodeByCode: Record<GitWorkspaceError['code'], ApiErrorCode> = {
-            GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
-            GIT_REMOTE_INVALID: 'BAD_REQUEST',
-            GIT_REMOTE_NOT_CONFIGURED: 'GIT_REMOTE_NOT_CONFIGURED',
-            GIT_REMOTE_UNAVAILABLE: 'GIT_REMOTE_UNAVAILABLE',
-            GIT_FETCH_FAILED: 'GIT_COMMAND_FAILED',
-          };
+          const apiCodeByCode: Record<GitWorkspaceError['code'], ApiErrorCode> =
+            {
+              GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
+              GIT_REMOTE_INVALID: 'BAD_REQUEST',
+              GIT_REMOTE_NOT_CONFIGURED: 'GIT_REMOTE_NOT_CONFIGURED',
+              GIT_REMOTE_UNAVAILABLE: 'GIT_REMOTE_UNAVAILABLE',
+              GIT_FETCH_FAILED: 'GIT_COMMAND_FAILED',
+            };
           throw new ApiError({
             statusCode: statusByCode[error.code],
             code: apiCodeByCode[error.code],
@@ -97,9 +105,10 @@ export function registerWorkspaceRoutes(
         throw new ApiError({
           statusCode: 500,
           code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error
-            ? error.message
-            : 'Não foi possível atualizar o remote.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível atualizar o remote.',
         });
       }
     },

@@ -1,6 +1,8 @@
 import type { Project } from '@dev-dashboard/contracts';
 
-export function sortProjectsByPriority(projects: readonly Project[]): Project[] {
+export function sortProjectsByPriority(
+  projects: readonly Project[],
+): Project[] {
   return [...projects].sort((left, right) => {
     const favoriteOrder = Number(right.favorite) - Number(left.favorite);
     if (favoriteOrder !== 0) return favoriteOrder;

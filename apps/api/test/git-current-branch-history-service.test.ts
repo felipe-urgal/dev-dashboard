@@ -10,7 +10,10 @@ import { listCurrentBranchOnlyCommits } from '../src/services/git-current-branch
 
 const execFileAsync = promisify(execFile);
 
-async function git(directory: string, args: readonly string[]): Promise<string> {
+async function git(
+  directory: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: directory,
     encoding: 'utf8',
@@ -30,7 +33,9 @@ async function commitFile(
 }
 
 test('lista somente commits criados depois da divergencia da branch principal', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-branch-history-'));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-branch-history-'),
+  );
 
   try {
     await git(directory, ['init', '-b', 'main']);

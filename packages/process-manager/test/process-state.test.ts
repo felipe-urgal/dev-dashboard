@@ -22,18 +22,9 @@ test('accepts a valid stored process', () => {
 });
 
 test('rejects invalid status, pid, port and timestamps', () => {
-  assert.equal(
-    isStoredProcess({ ...validProcess, status: 'unknown' }),
-    false,
-  );
-  assert.equal(
-    isStoredProcess({ ...validProcess, pid: -10 }),
-    false,
-  );
-  assert.equal(
-    isStoredProcess({ ...validProcess, port: 80 }),
-    false,
-  );
+  assert.equal(isStoredProcess({ ...validProcess, status: 'unknown' }), false);
+  assert.equal(isStoredProcess({ ...validProcess, pid: -10 }), false);
+  assert.equal(isStoredProcess({ ...validProcess, port: 80 }), false);
   assert.equal(
     isStoredProcess({ ...validProcess, startedAt: 'yesterday' }),
     false,

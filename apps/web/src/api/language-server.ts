@@ -28,7 +28,11 @@ export function prepareProjectRailsRuntimeConfirmation(
 ): Promise<ProjectRailsRuntimeConfirmation> {
   return requestJson<{ confirmation: ProjectRailsRuntimeConfirmation }>(
     `/api/projects/${encodeURIComponent(projectId)}/language-server/ruby/rails-runtime/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
   ).then((response) => response.confirmation);
 }
 

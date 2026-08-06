@@ -27,10 +27,7 @@ test('accepts destructive file operations in mutation confirmations', async () =
   });
 
   try {
-    for (const operation of [
-      'discard-file',
-      'remove-untracked-file',
-    ]) {
+    for (const operation of ['discard-file', 'remove-untracked-file']) {
       const response = await app.inject({
         method: 'POST',
         url: '/projects/project/git/mutations/confirmations',
@@ -42,10 +39,7 @@ test('accepts destructive file operations in mutation confirmations', async () =
 
       assert.equal(response.statusCode, 201);
       assert.equal(response.json().confirmation.operation, operation);
-      assert.equal(
-        response.json().confirmation.target,
-        'db/schema.rb',
-      );
+      assert.equal(response.json().confirmation.target, 'db/schema.rb');
     }
   } finally {
     await app.close();

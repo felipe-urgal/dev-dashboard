@@ -1,6 +1,9 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 
-import type { Project, ProjectEnvironmentOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  ProjectEnvironmentOverview,
+} from '@dev-dashboard/contracts';
 
 import {
   fetchProjectEnvironmentVariables,
@@ -28,10 +31,15 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
   }
 
   function isCurrentProject(projectId: string, generation: number): boolean {
-    return getProject().id === projectId && projectRequests.isCurrent(generation);
+    return (
+      getProject().id === projectId && projectRequests.isCurrent(generation)
+    );
   }
 
-  function isCurrentValueRequest(projectId: string, generation: number): boolean {
+  function isCurrentValueRequest(
+    projectId: string,
+    generation: number,
+  ): boolean {
     return getProject().id === projectId && valueRequests.isCurrent(generation);
   }
 
@@ -42,7 +50,10 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
   }
 
   function hasRevealedValue(file: string, name: string): boolean {
-    return Object.prototype.hasOwnProperty.call(revealedValues.value, variableKey(file, name));
+    return Object.prototype.hasOwnProperty.call(
+      revealedValues.value,
+      variableKey(file, name),
+    );
   }
 
   function revealedValue(file: string, name: string): string {
@@ -63,14 +74,20 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
     errorMessage.value = '';
 
     try {
-      const variable = await fetchProjectEnvironmentVariableValue(projectId, file, name);
+      const variable = await fetchProjectEnvironmentVariableValue(
+        projectId,
+        file,
+        name,
+      );
       if (isCurrentValueRequest(projectId, generation)) {
         revealedValues.value[key] = variable.value;
       }
     } catch (error) {
       if (isCurrentValueRequest(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível exibir o valor da variável.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível exibir o valor da variável.';
       }
     } finally {
       if (isCurrentValueRequest(projectId, generation)) {
@@ -98,7 +115,9 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível consultar as variáveis de ambiente.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar as variáveis de ambiente.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -115,7 +134,13 @@ export function useProjectEnvironmentVariables(getProject: () => Project) {
     await refresh();
   }
 
-  watch(() => getProject().id, () => { void initialize(); }, { immediate: true });
+  watch(
+    () => getProject().id,
+    () => {
+      void initialize();
+    },
+    { immediate: true },
+  );
 
   onBeforeUnmount(() => {
     projectRequests.invalidate();

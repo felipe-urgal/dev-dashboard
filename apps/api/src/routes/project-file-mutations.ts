@@ -13,10 +13,7 @@ import {
   type ProjectFileMutationService,
 } from '../services/project-file-mutation-service.js';
 import type { ProjectStore } from '../store/project-store.js';
-import {
-  projectParamsSchema,
-  type ProjectParams,
-} from './projects/helpers.js';
+import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface ProjectFileMutationRouteOptions {
   projectStore: ProjectStore;

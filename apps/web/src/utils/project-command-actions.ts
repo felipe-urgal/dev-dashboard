@@ -20,18 +20,22 @@ export function projectCommandActions(
   if (status === 'running' || status === 'starting' || status === 'stopping') {
     return status === 'stopping'
       ? []
-      : [{
-          id: 'server-stop',
-          label: 'Parar servidor',
-          description: `Interromper o servidor de ${project.name}`,
-          risk: 'atencao',
-        }];
+      : [
+          {
+            id: 'server-stop',
+            label: 'Parar servidor',
+            description: `Interromper o servidor de ${project.name}`,
+            risk: 'atencao',
+          },
+        ];
   }
 
-  return [{
-    id: 'server-start',
-    label: 'Iniciar servidor',
-    description: `Executar o servidor de ${project.name}`,
-    risk: 'reversivel',
-  }];
+  return [
+    {
+      id: 'server-start',
+      label: 'Iniciar servidor',
+      description: `Executar o servidor de ${project.name}`,
+      risk: 'reversivel',
+    },
+  ];
 }

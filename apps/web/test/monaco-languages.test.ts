@@ -23,11 +23,14 @@ test('registra a linguagem haml com um tokenizer Monarch', () => {
   registerEmbeddedEditorCustomLanguages(monaco.instance);
 
   assert.deepEqual(
-    (monaco.instance.languages.register as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+    (monaco.instance.languages.register as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0],
     { id: 'haml' },
   );
   const [languageId, tokenizer] = (
-    monaco.instance.languages.setMonarchTokensProvider as ReturnType<typeof vi.fn>
+    monaco.instance.languages.setMonarchTokensProvider as ReturnType<
+      typeof vi.fn
+    >
   ).mock.calls[0] as [string, Monaco.languages.IMonarchLanguage];
   assert.equal(languageId, 'haml');
   assert.ok(Array.isArray(tokenizer.tokenizer.root));
@@ -39,9 +42,17 @@ test('não registra a linguagem haml duas vezes', () => {
   const monaco = fakeMonaco([{ id: 'haml' }]);
   registerEmbeddedEditorCustomLanguages(monaco.instance);
 
-  assert.equal((monaco.instance.languages.register as ReturnType<typeof vi.fn>).mock.calls.length, 0);
   assert.equal(
-    (monaco.instance.languages.setMonarchTokensProvider as ReturnType<typeof vi.fn>).mock.calls.length,
+    (monaco.instance.languages.register as ReturnType<typeof vi.fn>).mock.calls
+      .length,
+    0,
+  );
+  assert.equal(
+    (
+      monaco.instance.languages.setMonarchTokensProvider as ReturnType<
+        typeof vi.fn
+      >
+    ).mock.calls.length,
     0,
   );
 });

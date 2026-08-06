@@ -1,11 +1,4 @@
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type {
   GitDiffFile,
@@ -22,10 +15,7 @@ import {
   fetchProjectGitFileDiff,
   fetchProjectGitFileLines,
 } from '../api';
-import type {
-  GitDiffHunk,
-  GitUnifiedDiffLine,
-} from '../utils/git-diff-view';
+import type { GitDiffHunk, GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {
   annotateGitDiffWordChanges,
   buildGitDiffContextLines,
@@ -36,10 +26,7 @@ import {
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
 
-export function useProjectGitDiffPage(
-  props: Readonly<{ projectId: string }>,
-) {
-
+export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   type DiffViewMode = 'unified' | 'split';
   type DiffStatusFilter = 'all' | GitFileStatus;
 
@@ -126,7 +113,9 @@ export function useProjectGitDiffPage(
 
   function readStoredViewMode(): DiffViewMode {
     try {
-      return window.localStorage.getItem(VIEW_MODE_KEY) === 'split' ? 'split' : 'unified';
+      return window.localStorage.getItem(VIEW_MODE_KEY) === 'split'
+        ? 'split'
+        : 'unified';
     } catch {
       return 'unified';
     }
@@ -149,10 +138,17 @@ export function useProjectGitDiffPage(
   const visibleEntries = computed(() => {
     const query = fileSearch.value.trim().toLocaleLowerCase('pt-BR');
     return entries.value.filter((entry) => {
-      if (statusFilter.value !== 'all' && entry.file.status !== statusFilter.value) return false;
+      if (
+        statusFilter.value !== 'all' &&
+        entry.file.status !== statusFilter.value
+      )
+        return false;
       if (!query) return true;
-      return [entry.file.path, entry.file.previousPath ?? '', statusLabels[entry.file.status]]
-        .some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
+      return [
+        entry.file.path,
+        entry.file.previousPath ?? '',
+        statusLabels[entry.file.status],
+      ].some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
     });
   });
 
@@ -167,20 +163,30 @@ export function useProjectGitDiffPage(
     entries.value.reduce((total, entry) => total + entry.file.deletions, 0),
   );
 
-  const viewedCount = computed(() => entries.value.filter((entry) => entry.viewed).length);
-
-  const viewedPercent = computed(() => (
-    entries.value.length === 0 ? 0 : Math.round((viewedCount.value / entries.value.length) * 100)
-  ));
-
-  const allCollapsed = computed(() =>
-    entries.value.length > 0 && entries.value.every((entry) => entry.collapsed),
+  const viewedCount = computed(
+    () => entries.value.filter((entry) => entry.viewed).length,
   );
 
-  const diffMatchCount = computed(() => entries.value.reduce(
-    (total, entry) => total + countGitDiffMatches(entry.diff?.content ?? '', diffSearch.value),
-    0,
-  ));
+  const viewedPercent = computed(() =>
+    entries.value.length === 0
+      ? 0
+      : Math.round((viewedCount.value / entries.value.length) * 100),
+  );
+
+  const allCollapsed = computed(
+    () =>
+      entries.value.length > 0 &&
+      entries.value.every((entry) => entry.collapsed),
+  );
+
+  const diffMatchCount = computed(() =>
+    entries.value.reduce(
+      (total, entry) =>
+        total +
+        countGitDiffMatches(entry.diff?.content ?? '', diffSearch.value),
+      0,
+    ),
+  );
 
   function fileName(filePath: string): string {
     return filePath.split('/').filter(Boolean).at(-1) ?? filePath;
@@ -201,10 +207,12 @@ export function useProjectGitDiffPage(
   function statBlocks(entry: FileEntry): Array<'add' | 'del' | 'empty'> {
     const total = entry.file.additions + entry.file.deletions;
     if (total === 0) return Array.from({ length: 5 }, () => 'empty');
-    const additions = entry.file.additions === 0
-      ? 0
-      : Math.max(1, Math.round((entry.file.additions / total) * 5));
-    const deletions = entry.file.deletions === 0 ? 0 : Math.max(1, 5 - additions);
+    const additions =
+      entry.file.additions === 0
+        ? 0
+        : Math.max(1, Math.round((entry.file.additions / total) * 5));
+    const deletions =
+      entry.file.deletions === 0 ? 0 : Math.max(1, 5 - additions);
     const effectiveAdditions = Math.min(additions, 5 - deletions);
     return Array.from({ length: 5 }, (_unused, index) => {
       if (index < effectiveAdditions) return 'add';
@@ -231,11 +239,13 @@ export function useProjectGitDiffPage(
     syntaxRangesFor: SyntaxModule['syntaxRangesFor'],
   ): GitUnifiedDiffLine[] {
     if (!language) return [...lines];
-    return lines.map((line) => (
-      line.kind === 'addition' || line.kind === 'deletion' || line.kind === 'context'
+    return lines.map((line) =>
+      line.kind === 'addition' ||
+      line.kind === 'deletion' ||
+      line.kind === 'context'
         ? { ...line, syntax: syntaxRangesFor(line.text, language) }
-        : line
-    ));
+        : line,
+    );
   }
 
   /** Amostra do lado novo do arquivo, usada quando a extensão não diz nada. */
@@ -265,7 +275,10 @@ export function useProjectGitDiffPage(
     return first - 1;
   }
 
-  function nextExpansionBelow(state: HunkState, entry: FileEntry): number | null {
+  function nextExpansionBelow(
+    state: HunkState,
+    entry: FileEntry,
+  ): number | null {
     const last = state.after.at(-1)?.newLine ?? state.hunk.lastNewLine;
     if (last === null) return null;
     if (entry.totalLines !== null && last >= entry.totalLines) return null;
@@ -287,12 +300,17 @@ export function useProjectGitDiffPage(
   ): Promise<void> {
     if (state.expanding) return;
 
-    const start = direction === 'up'
-      ? Math.max(1, (nextExpansionAbove(state) ?? 1) - CONTEXT_EXPANSION_STEP + 1)
-      : nextExpansionBelow(state, entry);
-    const end = direction === 'up'
-      ? nextExpansionAbove(state)
-      : (nextExpansionBelow(state, entry) ?? 0) + CONTEXT_EXPANSION_STEP - 1;
+    const start =
+      direction === 'up'
+        ? Math.max(
+            1,
+            (nextExpansionAbove(state) ?? 1) - CONTEXT_EXPANSION_STEP + 1,
+          )
+        : nextExpansionBelow(state, entry);
+    const end =
+      direction === 'up'
+        ? nextExpansionAbove(state)
+        : (nextExpansionBelow(state, entry) ?? 0) + CONTEXT_EXPANSION_STEP - 1;
     if (start === null || end === null || end < start) return;
 
     state.expanding = true;
@@ -307,16 +325,21 @@ export function useProjectGitDiffPage(
       entry.totalLines = result.totalLines;
       const syntax = await loadSyntaxModule();
       const context = withSyntax(
-        buildGitDiffContextLines(result.lines, result.start, state.hunk.lineOffset),
+        buildGitDiffContextLines(
+          result.lines,
+          result.start,
+          state.hunk.lineOffset,
+        ),
         entry.language,
         syntax?.syntaxRangesFor ?? (() => []),
       );
       if (direction === 'up') state.before = [...context, ...state.before];
       else state.after = [...state.after, ...context];
     } catch (error) {
-      entry.error = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar mais linhas deste arquivo.';
+      entry.error =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar mais linhas deste arquivo.';
     } finally {
       state.expanding = false;
     }
@@ -354,26 +377,36 @@ export function useProjectGitDiffPage(
         controller.signal,
       );
       if (controller.signal.aborted) return;
-      const parsed = annotateGitDiffWordChanges(parseUnifiedGitDiff(diff.content));
+      const parsed = annotateGitDiffWordChanges(
+        parseUnifiedGitDiff(diff.content),
+      );
 
       const syntax = await loadSyntaxModule();
       if (controller.signal.aborted) return;
       const language = syntax
         ? syntax.detectLanguage(entry.file.path, detectionSample(parsed))
         : null;
-      const lines = syntax ? withSyntax(parsed, language, syntax.syntaxRangesFor) : parsed;
+      const lines = syntax
+        ? withSyntax(parsed, language, syntax.syntaxRangesFor)
+        : parsed;
 
       const { leading, hunks } = splitGitDiffHunks(lines);
       entry.language = language;
       entry.diff = diff;
       entry.leading = leading;
-      entry.hunks = hunks.map((hunk) => ({ hunk, before: [], after: [], expanding: false }));
+      entry.hunks = hunks.map((hunk) => ({
+        hunk,
+        before: [],
+        after: [],
+        expanding: false,
+      }));
       entry.loaded = true;
     } catch (error) {
       if (controller.signal.aborted) return;
-      entry.error = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar o diff deste arquivo.';
+      entry.error =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o diff deste arquivo.';
     } finally {
       if (!controller.signal.aborted) entry.loading = false;
       fileControllers = fileControllers.filter((item) => item !== controller);
@@ -410,7 +443,10 @@ export function useProjectGitDiffPage(
     }
     cardElements.set(filePath, element);
     if (observer) observer.observe(element);
-    else requestFileDiff(entries.value.find((entry) => entry.file.path === filePath)!);
+    else
+      requestFileDiff(
+        entries.value.find((entry) => entry.file.path === filePath)!,
+      );
   }
 
   function setupObserver(): void {
@@ -424,7 +460,9 @@ export function useProjectGitDiffPage(
         for (const record of records) {
           if (!record.isIntersecting) continue;
           const filePath = (record.target as HTMLElement).dataset.gitDiffPath;
-          const entry = entries.value.find((item) => item.file.path === filePath);
+          const entry = entries.value.find(
+            (item) => item.file.path === filePath,
+          );
           if (entry) requestFileDiff(entry);
         }
       },
@@ -453,7 +491,11 @@ export function useProjectGitDiffPage(
     snapshotError.value = '';
 
     try {
-      const result = await fetchProjectGitDiff(props.projectId, scope, controller.signal);
+      const result = await fetchProjectGitDiff(
+        props.projectId,
+        scope,
+        controller.signal,
+      );
       if (controller.signal.aborted) return;
       snapshot.value = result;
       entries.value = result.files.map(buildEntry);
@@ -465,9 +507,10 @@ export function useProjectGitDiffPage(
       if (controller.signal.aborted) return;
       snapshot.value = null;
       entries.value = [];
-      snapshotError.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível carregar as alterações do projeto.';
+      snapshotError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar as alterações do projeto.';
     } finally {
       if (!controller.signal.aborted) loadingSnapshot.value = false;
     }

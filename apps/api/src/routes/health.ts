@@ -1,10 +1,6 @@
-import type {
-  FastifyPluginAsync,
-} from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 
-import {
-  commonErrorResponseSchemas,
-} from '../http/response-schemas.js';
+import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 
 export const healthRoutes: FastifyPluginAsync = async (app) => {
   app.get(
@@ -15,11 +11,7 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: [
-              'status',
-              'service',
-              'timestamp',
-            ],
+            required: ['status', 'service', 'timestamp'],
             properties: {
               status: {
                 type: 'string',

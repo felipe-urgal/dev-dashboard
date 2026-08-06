@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { afterEach, test, vi } from 'vitest';
 
 import { mount } from '@vue/test-utils';
-import type { ManagedProcess, ProjectTestOverview } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  ProjectTestOverview,
+} from '@dev-dashboard/contracts';
 
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
@@ -45,7 +48,8 @@ async function flushMicrotasks(iterations = 20): Promise<void> {
 function installTerminalProcessFetch(process: ManagedProcess): void {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname.endsWith('/tests/process/logs')) {
       return jsonResponse({
         log: {
@@ -60,7 +64,8 @@ function installTerminalProcessFetch(process: ManagedProcess): void {
         },
       });
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 }
@@ -123,6 +128,9 @@ test('mantém o resultado visível quando a execução falha', async () => {
   await flushMicrotasks();
 
   assert.match(wrapper.text(), /Resultado da execução/);
-  assert.doesNotMatch(wrapper.text(), /Configure a execução acima para começar/);
+  assert.doesNotMatch(
+    wrapper.text(),
+    /Configure a execução acima para começar/,
+  );
   wrapper.unmount();
 });

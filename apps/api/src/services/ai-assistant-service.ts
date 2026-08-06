@@ -15,7 +15,10 @@ import type {
   ProjectWorkspaceTextEdit,
 } from '@dev-dashboard/contracts';
 
-import { ProjectFileError, ProjectFileService } from './project-file-service.js';
+import {
+  ProjectFileError,
+  ProjectFileService,
+} from './project-file-service.js';
 import { GitService } from './git-service.js';
 import { ProjectWorkspaceEditService } from './project-workspace-edit-service.js';
 import { ProjectLanguageServerService } from './project-language-server-service.js';
@@ -57,12 +60,16 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'read_project_file',
-      description: 'Lê o conteúdo de um arquivo de texto do projeto atual, pelo caminho relativo.',
+      description:
+        'Lê o conteúdo de um arquivo de texto do projeto atual, pelo caminho relativo.',
       parameters: {
         type: 'object',
         required: ['path'],
         properties: {
-          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          path: {
+            type: 'string',
+            description: 'Caminho relativo do arquivo dentro do projeto.',
+          },
         },
       },
     },
@@ -76,7 +83,10 @@ const TOOL_DEFINITIONS = [
         type: 'object',
         required: ['query'],
         properties: {
-          query: { type: 'string', description: 'Texto a procurar (2 a 100 caracteres).' },
+          query: {
+            type: 'string',
+            description: 'Texto a procurar (2 a 100 caracteres).',
+          },
         },
       },
     },
@@ -85,11 +95,15 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'list_project_files',
-      description: 'Lista arquivos e diretórios de um caminho do projeto atual.',
+      description:
+        'Lista arquivos e diretórios de um caminho do projeto atual.',
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'Caminho relativo do diretório. Vazio para a raiz.' },
+          path: {
+            type: 'string',
+            description: 'Caminho relativo do diretório. Vazio para a raiz.',
+          },
         },
       },
     },
@@ -98,12 +112,16 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'get_git_diff',
-      description: 'Obtém o diff Git (não commitado) de um arquivo do projeto atual.',
+      description:
+        'Obtém o diff Git (não commitado) de um arquivo do projeto atual.',
       parameters: {
         type: 'object',
         required: ['path'],
         properties: {
-          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          path: {
+            type: 'string',
+            description: 'Caminho relativo do arquivo dentro do projeto.',
+          },
         },
       },
     },
@@ -113,9 +131,9 @@ const TOOL_DEFINITIONS = [
     function: {
       name: 'propose_workspace_edit',
       description:
-        'Propõe uma edição de texto em um ou mais arquivos do projeto atual. A edição não é '
-        + 'aplicada automaticamente: o usuário revisa um preview e confirma antes de qualquer '
-        + 'escrita em disco.',
+        'Propõe uma edição de texto em um ou mais arquivos do projeto atual. A edição não é ' +
+        'aplicada automaticamente: o usuário revisa um preview e confirma antes de qualquer ' +
+        'escrita em disco.',
       parameters: {
         type: 'object',
         required: ['files'],
@@ -127,10 +145,14 @@ const TOOL_DEFINITIONS = [
               type: 'object',
               required: ['path', 'edits'],
               properties: {
-                path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+                path: {
+                  type: 'string',
+                  description: 'Caminho relativo do arquivo dentro do projeto.',
+                },
                 edits: {
                   type: 'array',
-                  description: 'Edições de texto a aplicar no arquivo (até 200), sem sobreposição.',
+                  description:
+                    'Edições de texto a aplicar no arquivo (até 200), sem sobreposição.',
                   items: {
                     type: 'object',
                     required: ['range', 'newText'],
@@ -138,7 +160,8 @@ const TOOL_DEFINITIONS = [
                       range: {
                         type: 'object',
                         required: ['start', 'end'],
-                        description: 'Faixa de texto a substituir, com linha e coluna baseadas em 1.',
+                        description:
+                          'Faixa de texto a substituir, com linha e coluna baseadas em 1.',
                         properties: {
                           start: {
                             type: 'object',
@@ -158,7 +181,10 @@ const TOOL_DEFINITIONS = [
                           },
                         },
                       },
-                      newText: { type: 'string', description: 'Texto que substitui a faixa indicada.' },
+                      newText: {
+                        type: 'string',
+                        description: 'Texto que substitui a faixa indicada.',
+                      },
                     },
                   },
                 },
@@ -174,15 +200,21 @@ const TOOL_DEFINITIONS = [
     function: {
       name: 'get_symbol_definition',
       description:
-        'Localiza a definição de um símbolo (variável, método, classe) numa posição de um '
-        + 'arquivo do projeto atual, usando o servidor de linguagem (LSP) já ativo para o projeto.',
+        'Localiza a definição de um símbolo (variável, método, classe) numa posição de um ' +
+        'arquivo do projeto atual, usando o servidor de linguagem (LSP) já ativo para o projeto.',
       parameters: {
         type: 'object',
         required: ['path', 'line', 'column'],
         properties: {
-          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          path: {
+            type: 'string',
+            description: 'Caminho relativo do arquivo dentro do projeto.',
+          },
           line: { type: 'number', description: 'Linha do símbolo (1-based).' },
-          column: { type: 'number', description: 'Coluna do símbolo (1-based).' },
+          column: {
+            type: 'number',
+            description: 'Coluna do símbolo (1-based).',
+          },
         },
       },
     },
@@ -192,15 +224,21 @@ const TOOL_DEFINITIONS = [
     function: {
       name: 'get_symbol_references',
       description:
-        'Lista onde um símbolo (variável, método, classe) numa posição de um arquivo do projeto '
-        + 'atual é referenciado, usando o servidor de linguagem (LSP) já ativo para o projeto.',
+        'Lista onde um símbolo (variável, método, classe) numa posição de um arquivo do projeto ' +
+        'atual é referenciado, usando o servidor de linguagem (LSP) já ativo para o projeto.',
       parameters: {
         type: 'object',
         required: ['path', 'line', 'column'],
         properties: {
-          path: { type: 'string', description: 'Caminho relativo do arquivo dentro do projeto.' },
+          path: {
+            type: 'string',
+            description: 'Caminho relativo do arquivo dentro do projeto.',
+          },
           line: { type: 'number', description: 'Linha do símbolo (1-based).' },
-          column: { type: 'number', description: 'Coluna do símbolo (1-based).' },
+          column: {
+            type: 'number',
+            description: 'Coluna do símbolo (1-based).',
+          },
         },
       },
     },
@@ -257,7 +295,10 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
-function truncate(value: string, maxChars: number): { text: string; truncated: boolean } {
+function truncate(
+  value: string,
+  maxChars: number,
+): { text: string; truncated: boolean } {
   if (value.length <= maxChars) return { text: value, truncated: false };
   return { text: value.slice(0, maxChars), truncated: true };
 }
@@ -271,10 +312,12 @@ export class AiAssistantService {
     private readonly projectFileService: ProjectFileService = new ProjectFileService(),
     private readonly gitService: GitService = new GitService(),
     private readonly fetchImpl: typeof fetch = fetch,
-    private readonly workspaceEditService: ProjectWorkspaceEditService =
-      new ProjectWorkspaceEditService(projectFileService),
-    private readonly languageServerService: ProjectLanguageServerService =
-      new ProjectLanguageServerService({ projectFileService }),
+    private readonly workspaceEditService: ProjectWorkspaceEditService = new ProjectWorkspaceEditService(
+      projectFileService,
+    ),
+    private readonly languageServerService: ProjectLanguageServerService = new ProjectLanguageServerService(
+      { projectFileService },
+    ),
   ) {}
 
   public async status(): Promise<ProjectAiStatus> {
@@ -306,7 +349,10 @@ export class AiAssistantService {
 
     const models: AiModelInfo[] = [];
     for (const name of names.slice(0, MAX_MODELS_INSPECTED)) {
-      models.push({ name, capabilities: await this.capabilitiesFor(baseUrl, name) });
+      models.push({
+        name,
+        capabilities: await this.capabilitiesFor(baseUrl, name),
+      });
     }
     for (const name of names.slice(MAX_MODELS_INSPECTED)) {
       models.push({ name, capabilities: ['chat'] });
@@ -316,9 +362,10 @@ export class AiAssistantService {
       available: true,
       baseUrl,
       models,
-      message: models.length > 0
-        ? `${models.length} ${models.length === 1 ? 'modelo instalado' : 'modelos instalados'} no Ollama local.`
-        : 'Ollama local detectado, mas nenhum modelo está instalado.',
+      message:
+        models.length > 0
+          ? `${models.length} ${models.length === 1 ? 'modelo instalado' : 'modelos instalados'} no Ollama local.`
+          : 'Ollama local detectado, mas nenhum modelo está instalado.',
     };
   }
 
@@ -330,15 +377,24 @@ export class AiAssistantService {
   ): Promise<void> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      handlers.send({ type: 'error', message: 'O assistente de IA está desabilitado neste ambiente.' });
+      handlers.send({
+        type: 'error',
+        message: 'O assistente de IA está desabilitado neste ambiente.',
+      });
       return;
     }
     if (!model.trim()) {
-      handlers.send({ type: 'error', message: 'Selecione um modelo instalado no Ollama.' });
+      handlers.send({
+        type: 'error',
+        message: 'Selecione um modelo instalado no Ollama.',
+      });
       return;
     }
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
-      handlers.send({ type: 'error', message: `A conversa deve conter entre 1 e ${MAX_MESSAGES} mensagens.` });
+      handlers.send({
+        type: 'error',
+        message: `A conversa deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
+      });
       return;
     }
     for (const message of messages) {
@@ -359,7 +415,12 @@ export class AiAssistantService {
     try {
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
         if (handlers.signal.aborted) return;
-        const toolCalls = await this.streamOneRound(baseUrl, model, conversation, handlers);
+        const toolCalls = await this.streamOneRound(
+          baseUrl,
+          model,
+          conversation,
+          handlers,
+        );
         if (toolCalls.length === 0) {
           handlers.send({ type: 'done' });
           return;
@@ -373,7 +434,12 @@ export class AiAssistantService {
             });
             return;
           }
-          const result = await this.runTool(project, call.function.name, call.function.arguments, handlers);
+          const result = await this.runTool(
+            project,
+            call.function.name,
+            call.function.arguments,
+            handlers,
+          );
           conversation.push({
             role: 'tool',
             tool_name: call.function.name,
@@ -383,14 +449,17 @@ export class AiAssistantService {
       }
       handlers.send({
         type: 'error',
-        message: 'O assistente encadeou ferramentas demais para esta solicitação. Tente reformular a pergunta.',
+        message:
+          'O assistente encadeou ferramentas demais para esta solicitação. Tente reformular a pergunta.',
       });
     } catch (error) {
       if (handlers.signal.aborted) return;
       const message = isAbortError(error)
-        ? `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente `
-          + 'ou reformule a pergunta em partes menores.'
-        : error instanceof Error ? error.message : 'Falha ao conversar com o Ollama local.';
+        ? `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente ` +
+          'ou reformule a pergunta em partes menores.'
+        : error instanceof Error
+          ? error.message
+          : 'Falha ao conversar com o Ollama local.';
       handlers.send({ type: 'error', message });
     }
   }
@@ -409,18 +478,28 @@ export class AiAssistantService {
   ): Promise<AiCompletionResult> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      throw new AiAssistantError('O assistente de IA está desabilitado neste ambiente.');
+      throw new AiAssistantError(
+        'O assistente de IA está desabilitado neste ambiente.',
+      );
     }
     if (!model.trim()) {
       throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
     }
-    if (prefix.length > MAX_COMPLETION_PREFIX_CHARS || suffix.length > MAX_COMPLETION_SUFFIX_CHARS) {
-      throw new AiAssistantError('O contexto de compleção excede o limite permitido.');
+    if (
+      prefix.length > MAX_COMPLETION_PREFIX_CHARS ||
+      suffix.length > MAX_COMPLETION_SUFFIX_CHARS
+    ) {
+      throw new AiAssistantError(
+        'O contexto de compleção excede o limite permitido.',
+      );
     }
     if (!prefix.trim() && !suffix.trim()) return { text: '' };
 
     const timeoutController = new AbortController();
-    const timeout = setTimeout(() => timeoutController.abort(), COMPLETION_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => timeoutController.abort(),
+      COMPLETION_TIMEOUT_MS,
+    );
     const onAbort = (): void => timeoutController.abort();
     signal.addEventListener('abort', onAbort);
     try {
@@ -437,17 +516,24 @@ export class AiAssistantService {
         signal: timeoutController.signal,
       });
       if (!response.ok) {
-        throw new AiAssistantError(`O Ollama respondeu com status ${response.status}.`);
+        throw new AiAssistantError(
+          `O Ollama respondeu com status ${response.status}.`,
+        );
       }
       const body = (await response.json()) as { response?: string };
-      return { text: truncate(body.response ?? '', MAX_COMPLETION_RESPONSE_CHARS).text };
+      return {
+        text: truncate(body.response ?? '', MAX_COMPLETION_RESPONSE_CHARS).text,
+      };
     } finally {
       clearTimeout(timeout);
       signal.removeEventListener('abort', onAbort);
     }
   }
 
-  private async capabilitiesFor(baseUrl: string, name: string): Promise<AiCapability[]> {
+  private async capabilitiesFor(
+    baseUrl: string,
+    name: string,
+  ): Promise<AiCapability[]> {
     try {
       const response = await this.postJson<{ capabilities?: string[] }>(
         `${baseUrl}/api/show`,
@@ -458,7 +544,8 @@ export class AiAssistantService {
       if (response.capabilities?.includes('tools')) capabilities.push('tools');
       // Ollama reporta 'insert' para modelos que aceitam o parâmetro `suffix`
       // de /api/generate (fill-in-the-middle).
-      if (response.capabilities?.includes('insert')) capabilities.push('fill-in-the-middle');
+      if (response.capabilities?.includes('insert'))
+        capabilities.push('fill-in-the-middle');
       return capabilities;
     } catch {
       return ['chat'];
@@ -472,7 +559,10 @@ export class AiAssistantService {
     handlers: AiChatHandlers,
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
-    const timeout = setTimeout(() => timeoutController.abort(), CHAT_ROUND_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => timeoutController.abort(),
+      CHAT_ROUND_TIMEOUT_MS,
+    );
     const onAbort = (): void => timeoutController.abort();
     handlers.signal.addEventListener('abort', onAbort);
 
@@ -489,7 +579,9 @@ export class AiAssistantService {
         signal: timeoutController.signal,
       });
       if (!response.ok || !response.body) {
-        throw new AiAssistantError(`O Ollama respondeu com status ${response.status}.`);
+        throw new AiAssistantError(
+          `O Ollama respondeu com status ${response.status}.`,
+        );
       }
 
       const toolCalls: OllamaToolCall[] = [];
@@ -504,14 +596,17 @@ export class AiAssistantService {
         try {
           chunk = JSON.parse(line) as OllamaChatChunk;
         } catch {
-          throw new AiAssistantError('O Ollama enviou um trecho de resposta que não pôde ser interpretado.');
+          throw new AiAssistantError(
+            'O Ollama enviou um trecho de resposta que não pôde ser interpretado.',
+          );
         }
         const content = chunk.message?.content;
         if (content) {
           assistantContent += content;
           handlers.send({ type: 'message-delta', content });
         }
-        if (chunk.message?.tool_calls) toolCalls.push(...chunk.message.tool_calls);
+        if (chunk.message?.tool_calls)
+          toolCalls.push(...chunk.message.tool_calls);
       };
 
       for (;;) {
@@ -527,7 +622,8 @@ export class AiAssistantService {
       }
       buffer += decoder.decode();
       if (buffer.trim()) handleLine(buffer);
-      if (assistantContent) conversation.push({ role: 'assistant', content: assistantContent });
+      if (assistantContent)
+        conversation.push({ role: 'assistant', content: assistantContent });
       return toolCalls;
     } finally {
       clearTimeout(timeout);
@@ -545,10 +641,18 @@ export class AiAssistantService {
 
     try {
       const result = await this.executeTool(project, name, args, handlers);
-      handlers.send({ type: 'tool-result', tool: name, ok: true, summary: summaryFor(name) });
+      handlers.send({
+        type: 'tool-result',
+        tool: name,
+        ok: true,
+        summary: summaryFor(name),
+      });
       return result;
     } catch (error) {
-      const summary = error instanceof Error ? error.message : 'Falha ao executar a ferramenta.';
+      const summary =
+        error instanceof Error
+          ? error.message
+          : 'Falha ao executar a ferramenta.';
       handlers.send({ type: 'tool-result', tool: name, ok: false, summary });
       return { error: summary };
     }
@@ -564,13 +668,23 @@ export class AiAssistantService {
       switch (tool) {
         case 'read_project_file': {
           const path = requireStringArg(args, 'path');
-          const file = await this.projectFileService.readFile(project.path, path);
-          const { text, truncated } = truncate(file.content, MAX_TOOL_RESULT_CHARS);
+          const file = await this.projectFileService.readFile(
+            project.path,
+            path,
+          );
+          const { text, truncated } = truncate(
+            file.content,
+            MAX_TOOL_RESULT_CHARS,
+          );
           return { path: file.path, content: text, truncated };
         }
         case 'search_project_text': {
           const query = requireStringArg(args, 'query');
-          const result = await this.projectFileService.search(project.path, query, 20);
+          const result = await this.projectFileService.search(
+            project.path,
+            query,
+            20,
+          );
           return {
             items: result.items.map((item) => ({
               path: item.path,
@@ -583,18 +697,35 @@ export class AiAssistantService {
         }
         case 'list_project_files': {
           const path = typeof args.path === 'string' ? args.path : '';
-          const listing = await this.projectFileService.listDirectory(project.path, path);
+          const listing = await this.projectFileService.listDirectory(
+            project.path,
+            path,
+          );
           return {
             path: listing.path,
-            entries: listing.entries.map((entry) => ({ path: entry.path, kind: entry.kind })),
+            entries: listing.entries.map((entry) => ({
+              path: entry.path,
+              kind: entry.kind,
+            })),
             truncated: listing.truncated,
           };
         }
         case 'get_git_diff': {
           const path = requireStringArg(args, 'path');
-          const diff = await this.gitService.getFileDiff(project.path, path, 'combined');
-          const { text, truncated } = truncate(diff.content, MAX_TOOL_RESULT_CHARS);
-          return { path: diff.path, content: text, truncated: truncated || diff.truncated };
+          const diff = await this.gitService.getFileDiff(
+            project.path,
+            path,
+            'combined',
+          );
+          const { text, truncated } = truncate(
+            diff.content,
+            MAX_TOOL_RESULT_CHARS,
+          );
+          return {
+            path: diff.path,
+            content: text,
+            truncated: truncated || diff.truncated,
+          };
         }
         case 'propose_workspace_edit': {
           const files = parseWorkspaceEditFiles(args);
@@ -618,22 +749,29 @@ export class AiAssistantService {
           const column = requireNumberArg(args, 'column');
           const kind = languageServerKindForPath(path);
           if (!kind) {
-            return { available: false, message: 'Nenhum servidor de linguagem reconhece este tipo de arquivo.' };
+            return {
+              available: false,
+              message:
+                'Nenhum servidor de linguagem reconhece este tipo de arquivo.',
+            };
           }
-          const method = tool === 'get_symbol_definition'
-            ? 'textDocument/definition' as const
-            : 'textDocument/references' as const;
-          const locations = await this.languageServerService.requestSymbolLocations(
-            project,
-            kind,
-            path,
-            { line, column },
-            method,
-          );
+          const method =
+            tool === 'get_symbol_definition'
+              ? ('textDocument/definition' as const)
+              : ('textDocument/references' as const);
+          const locations =
+            await this.languageServerService.requestSymbolLocations(
+              project,
+              kind,
+              path,
+              { line, column },
+              method,
+            );
           if (locations === undefined) {
             return {
               available: false,
-              message: 'O servidor de linguagem não está disponível para este projeto.',
+              message:
+                'O servidor de linguagem não está disponível para este projeto.',
             };
           }
           return { available: true, locations };
@@ -660,8 +798,15 @@ export class AiAssistantService {
   ): Promise<{ files: ProjectWorkspaceFileEdit[] }> {
     const prepared: ProjectWorkspaceFileEdit[] = [];
     for (const file of files) {
-      const current = await this.projectFileService.readFile(project.path, file.path);
-      prepared.push({ path: file.path, expectedVersion: current.version, edits: file.edits });
+      const current = await this.projectFileService.readFile(
+        project.path,
+        file.path,
+      );
+      prepared.push({
+        path: file.path,
+        expectedVersion: current.version,
+        edits: file.edits,
+      });
     }
     return { files: prepared };
   }
@@ -671,14 +816,19 @@ export class AiAssistantService {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await this.fetchImpl(url, { signal: controller.signal });
-      if (!response.ok) throw new AiAssistantError(`Resposta ${response.status} do Ollama.`);
+      if (!response.ok)
+        throw new AiAssistantError(`Resposta ${response.status} do Ollama.`);
       return (await response.json()) as T;
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  private async postJson<T>(url: string, body: unknown, timeoutMs: number): Promise<T> {
+  private async postJson<T>(
+    url: string,
+    body: unknown,
+    timeoutMs: number,
+  ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -688,7 +838,8 @@ export class AiAssistantService {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      if (!response.ok) throw new AiAssistantError(`Resposta ${response.status} do Ollama.`);
+      if (!response.ok)
+        throw new AiAssistantError(`Resposta ${response.status} do Ollama.`);
       return (await response.json()) as T;
     } finally {
       clearTimeout(timeout);
@@ -713,13 +864,23 @@ function requireNumberArg(args: Record<string, unknown>, key: string): number {
 }
 
 const JAVASCRIPT_TYPESCRIPT_EXTENSIONS = new Set([
-  '.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
 ]);
 
-function languageServerKindForPath(filePath: string): 'javascript-typescript' | 'ruby' | undefined {
+function languageServerKindForPath(
+  filePath: string,
+): 'javascript-typescript' | 'ruby' | undefined {
   const extension = extname(filePath).toLowerCase();
   if (extension === '.rb') return 'ruby';
-  if (JAVASCRIPT_TYPESCRIPT_EXTENSIONS.has(extension)) return 'javascript-typescript';
+  if (JAVASCRIPT_TYPESCRIPT_EXTENSIONS.has(extension))
+    return 'javascript-typescript';
   return undefined;
 }
 
@@ -733,8 +894,14 @@ function asRecord(value: unknown, message: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function parseTextPosition(value: unknown, filePath: string): ProjectTextPosition {
-  const record = asRecord(value, `Uma posição de edição de "${filePath}" é inválida.`);
+function parseTextPosition(
+  value: unknown,
+  filePath: string,
+): ProjectTextPosition {
+  const record = asRecord(
+    value,
+    `Uma posição de edição de "${filePath}" é inválida.`,
+  );
   const { line, column } = record;
   if (typeof line !== 'number' || typeof column !== 'number') {
     throw new AiAssistantError(
@@ -745,19 +912,30 @@ function parseTextPosition(value: unknown, filePath: string): ProjectTextPositio
 }
 
 function parseTextRange(value: unknown, filePath: string): ProjectTextRange {
-  const record = asRecord(value, `O campo "range" é obrigatório em uma edição de "${filePath}".`);
+  const record = asRecord(
+    value,
+    `O campo "range" é obrigatório em uma edição de "${filePath}".`,
+  );
   return {
     start: parseTextPosition(record.start, filePath),
     end: parseTextPosition(record.end, filePath),
   };
 }
 
-function parseWorkspaceTextEdit(value: unknown, filePath: string): ProjectWorkspaceTextEdit {
-  const record = asRecord(value, `Uma edição de "${filePath}" não é um objeto válido.`);
+function parseWorkspaceTextEdit(
+  value: unknown,
+  filePath: string,
+): ProjectWorkspaceTextEdit {
+  const record = asRecord(
+    value,
+    `Uma edição de "${filePath}" não é um objeto válido.`,
+  );
   const range = parseTextRange(record.range, filePath);
   const newText = record.newText;
   if (typeof newText !== 'string') {
-    throw new AiAssistantError(`O campo "newText" é obrigatório em uma edição de "${filePath}".`);
+    throw new AiAssistantError(
+      `O campo "newText" é obrigatório em uma edição de "${filePath}".`,
+    );
   }
   return { range, newText };
 }
@@ -770,27 +948,43 @@ function parseWorkspaceEditFile(value: unknown): WorkspaceEditFileInput {
   }
   const edits = record.edits;
   if (!Array.isArray(edits) || edits.length === 0) {
-    throw new AiAssistantError(`O arquivo "${path}" precisa de ao menos uma edição.`);
+    throw new AiAssistantError(
+      `O arquivo "${path}" precisa de ao menos uma edição.`,
+    );
   }
-  return { path, edits: edits.map((edit) => parseWorkspaceTextEdit(edit, path)) };
+  return {
+    path,
+    edits: edits.map((edit) => parseWorkspaceTextEdit(edit, path)),
+  };
 }
 
-function parseWorkspaceEditFiles(args: Record<string, unknown>): WorkspaceEditFileInput[] {
+function parseWorkspaceEditFiles(
+  args: Record<string, unknown>,
+): WorkspaceEditFileInput[] {
   const files = args.files;
   if (!Array.isArray(files) || files.length === 0) {
-    throw new AiAssistantError('O argumento "files" deve ser uma lista não vazia.');
+    throw new AiAssistantError(
+      'O argumento "files" deve ser uma lista não vazia.',
+    );
   }
   return files.map((file) => parseWorkspaceEditFile(file));
 }
 
 function summaryFor(tool: AiTool): string {
   switch (tool) {
-    case 'read_project_file': return 'Arquivo lido.';
-    case 'search_project_text': return 'Busca concluída.';
-    case 'list_project_files': return 'Diretório listado.';
-    case 'get_git_diff': return 'Diff obtido.';
-    case 'propose_workspace_edit': return 'Edição proposta, aguardando confirmação do usuário.';
-    case 'get_symbol_definition': return 'Definição consultada.';
-    case 'get_symbol_references': return 'Referências consultadas.';
+    case 'read_project_file':
+      return 'Arquivo lido.';
+    case 'search_project_text':
+      return 'Busca concluída.';
+    case 'list_project_files':
+      return 'Diretório listado.';
+    case 'get_git_diff':
+      return 'Diff obtido.';
+    case 'propose_workspace_edit':
+      return 'Edição proposta, aguardando confirmação do usuário.';
+    case 'get_symbol_definition':
+      return 'Definição consultada.';
+    case 'get_symbol_references':
+      return 'Referências consultadas.';
   }
 }

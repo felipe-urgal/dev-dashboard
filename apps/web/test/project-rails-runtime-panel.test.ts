@@ -1,7 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Project, RailsWorkerId, RailsWorkerOverview } from '@dev-dashboard/contracts';
+import type {
+  Project,
+  RailsWorkerId,
+  RailsWorkerOverview,
+} from '@dev-dashboard/contracts';
 
 const {
   fetchProjectRailsWorker,
@@ -41,7 +45,10 @@ const project: Project = {
   capabilities: ['server'],
 };
 
-function overview(workerId: RailsWorkerId, detected = workerId === 'sidekiq'): RailsWorkerOverview {
+function overview(
+  workerId: RailsWorkerId,
+  detected = workerId === 'sidekiq',
+): RailsWorkerOverview {
   return { id: workerId, detected, process: null };
 }
 
@@ -129,7 +136,8 @@ describe('ProjectRailsRuntimePanel', () => {
 
   it('mantém um painel de logs independente para cada processo', async () => {
     fetchProjectRailsWorker.mockImplementation(
-      async (_projectId: string, workerId: RailsWorkerId) => overview(workerId, true),
+      async (_projectId: string, workerId: RailsWorkerId) =>
+        overview(workerId, true),
     );
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
@@ -143,7 +151,9 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'sidekiq');
-    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain('sidekiq log de exemplo');
+    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain(
+      'sidekiq log de exemplo',
+    );
 
     await wrapper.findAll('[role="tab"]')[1]?.trigger('click');
     const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
@@ -151,8 +161,12 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'webpack');
-    expect(webpackPanel.find('.rails-worker-log-content').text()).toContain('webpack log de exemplo');
-    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain('sidekiq log de exemplo');
+    expect(webpackPanel.find('.rails-worker-log-content').text()).toContain(
+      'webpack log de exemplo',
+    );
+    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain(
+      'sidekiq log de exemplo',
+    );
 
     wrapper.unmount();
   });

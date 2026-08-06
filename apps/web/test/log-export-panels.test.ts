@@ -34,7 +34,9 @@ vi.mock('../src/composables/useProjectProcessStatus', async () => {
   return {
     useProjectProcessStatus: () => {
       const managedProcess = ref(mocks.serverProcess);
-      const processStatus = computed(() => managedProcess.value?.status ?? 'idle');
+      const processStatus = computed(
+        () => managedProcess.value?.status ?? 'idle',
+      );
       return {
         managedProcess,
         loadingStatus: ref(false),
@@ -42,7 +44,9 @@ vi.mock('../src/composables/useProjectProcessStatus', async () => {
         supportsServer: computed(() => true),
         processStatus,
         hasManagedProcess: computed(() => Boolean(managedProcess.value)),
-        statusLabel: computed(() => processStatus.value === 'running' ? 'Em execução' : 'Parado'),
+        statusLabel: computed(() =>
+          processStatus.value === 'running' ? 'Em execução' : 'Parado',
+        ),
       };
     },
   };
@@ -94,7 +98,9 @@ function jsonResponse(value: unknown, status = 200): Response {
 }
 
 function exportButton(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAll('button').find((button) => /Exportar(?: log)?/.test(button.text()));
+  return wrapper
+    .findAll('button')
+    .find((button) => /Exportar(?: log)?/.test(button.text()));
 }
 
 test('servidor exporta o snapshot mascarado já carregado', async () => {
@@ -109,16 +115,26 @@ test('servidor exporta o snapshot mascarado já carregado', async () => {
     startedAt: '2026-08-04T20:59:00.000Z',
   };
   const snapshot: ProcessLogSnapshot = {
-    projectId: 'p1', processId: 'server-1',
-    content: 'token=[CONTEUDO_MASCARADO]', sizeBytes: 28,
-    truncated: true, masked: true, redactionCount: 1,
+    projectId: 'p1',
+    processId: 'server-1',
+    content: 'token=[CONTEUDO_MASCARADO]',
+    sizeBytes: 28,
+    truncated: true,
+    masked: true,
+    redactionCount: 1,
     readAt: '2026-08-04T21:00:00.000Z',
   };
   mocks.serverProcess = process;
   mocks.serverSnapshot = snapshot;
 
   const wrapper = mount(ProjectLogsPanel, {
-    props: { project: makeProject({ id: 'p1', type: 'rails', capabilities: ['server'] }) },
+    props: {
+      project: makeProject({
+        id: 'p1',
+        type: 'rails',
+        capabilities: ['server'],
+      }),
+    },
     global: { stubs: { RouterLink: RouterLinkStub } },
   });
   cleanup = () => wrapper.unmount();
@@ -144,27 +160,45 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
   const originalFetch = globalThis.fetch;
   const overview: ProjectTestOverview = {
     supported: true,
-    commands: [{
-      id: 'node-script-test', runner: 'vitest', label: 'npm run test',
-      description: 'Executa testes', origin: 'package-script', originDetail: 'scripts.test',
-      priority: 10, supportsFileTarget: true,
-    }],
+    commands: [
+      {
+        id: 'node-script-test',
+        runner: 'vitest',
+        label: 'npm run test',
+        description: 'Executa testes',
+        origin: 'package-script',
+        originDetail: 'scripts.test',
+        priority: 10,
+        supportsFileTarget: true,
+      },
+    ],
   };
   const process: ManagedProcess = {
-    id: 'test-1', projectId: 'p1', kind: 'test', status: 'failed',
-    command: 'npm', args: ['run', 'test'], exitCode: 1,
+    id: 'test-1',
+    projectId: 'p1',
+    kind: 'test',
+    status: 'failed',
+    command: 'npm',
+    args: ['run', 'test'],
+    exitCode: 1,
   };
   const snapshot: ProcessLogSnapshot = {
-    projectId: 'p1', processId: 'test-1',
-    content: 'password=[CONTEUDO_MASCARADO]', sizeBytes: 32,
-    truncated: false, masked: true, redactionCount: 1,
+    projectId: 'p1',
+    processId: 'test-1',
+    content: 'password=[CONTEUDO_MASCARADO]',
+    sizeBytes: 32,
+    truncated: false,
+    masked: true,
+    redactionCount: 1,
     readAt: '2026-08-04T21:01:00.000Z',
   };
   let logReads = 0;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const path = new URL(String(input), 'http://localhost').pathname;
-    if (path === '/api/projects/p1/tests') return jsonResponse({ tests: overview });
-    if (path === '/api/projects/p1/tests/process') return jsonResponse({ process });
+    if (path === '/api/projects/p1/tests')
+      return jsonResponse({ tests: overview });
+    if (path === '/api/projects/p1/tests/process')
+      return jsonResponse({ process });
     if (path === '/api/projects/p1/tests/process/logs') {
       logReads += 1;
       return jsonResponse({ log: snapshot });
@@ -201,34 +235,61 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
 test('scripts exportam o snapshot selecionado do histórico', async () => {
   const originalFetch = globalThis.fetch;
   const execution: ScriptExecution = {
-    id: 'exec-script', projectId: 'p1', actionId: 'npm-run-build',
-    actionName: 'npm run build', risk: 'read-only', status: 'succeeded',
+    id: 'exec-script',
+    projectId: 'p1',
+    actionId: 'npm-run-build',
+    actionName: 'npm run build',
+    risk: 'read-only',
+    status: 'succeeded',
     startedAt: '2026-08-04T20:00:00.000Z',
-    finishedAt: '2026-08-04T20:00:02.000Z', exitCode: 0,
+    finishedAt: '2026-08-04T20:00:02.000Z',
+    exitCode: 0,
   };
   const snapshot: ScriptExecutionLog = {
     executionId: 'exec-script',
     content: 'Bearer [CONTEUDO_MASCARADO]',
-    truncated: false, masked: true, redactionCount: 1,
+    truncated: false,
+    masked: true,
+    redactionCount: 1,
   };
   const catalog: ProjectScriptCatalog = {
-    items: [{
-      id: 'npm-run-build', name: 'npm run build', description: 'Compila o projeto',
-      command: 'npm run build', origin: 'package-script', risk: 'read-only', enabled: true,
-    }],
-    page: 1, pageSize: 12, total: 1, totalPages: 1,
+    items: [
+      {
+        id: 'npm-run-build',
+        name: 'npm run build',
+        description: 'Compila o projeto',
+        command: 'npm run build',
+        origin: 'package-script',
+        risk: 'read-only',
+        enabled: true,
+      },
+    ],
+    page: 1,
+    pageSize: 12,
+    total: 1,
+    totalPages: 1,
   };
   let logReads = 0;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const path = new URL(String(input), 'http://localhost').pathname;
-    if (path === '/api/projects/p1/scripts/executions/latest') return jsonResponse({ execution });
+    if (path === '/api/projects/p1/scripts/executions/latest')
+      return jsonResponse({ execution });
     if (path === '/api/projects/p1/scripts/executions/exec-script/log') {
       logReads += 1;
       return jsonResponse({ log: snapshot });
     }
-    if (path === '/api/projects/p1/scripts/executions/exec-script') return jsonResponse({ execution });
+    if (path === '/api/projects/p1/scripts/executions/exec-script')
+      return jsonResponse({ execution });
     if (path === '/api/projects/p1/scripts/executions') {
-      return jsonResponse({ history: { items: [execution], page: 1, pageSize: 10, total: 1, totalPages: 1 } });
+      return jsonResponse({
+        history: {
+          items: [execution],
+          page: 1,
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      });
     }
     if (path === '/api/projects/p1/scripts') return jsonResponse({ catalog });
     return new Response('not found', { status: 404 });
@@ -244,7 +305,9 @@ test('scripts exportam o snapshot selecionado do histórico', async () => {
   await flushPromises();
   await flushPromises();
 
-  const executionsTab = wrapper.findAll('[role="tab"]').find((tab) => tab.text() === 'Execuções');
+  const executionsTab = wrapper
+    .findAll('[role="tab"]')
+    .find((tab) => tab.text() === 'Execuções');
   assert.ok(executionsTab);
   await executionsTab.trigger('click');
   await flushPromises();

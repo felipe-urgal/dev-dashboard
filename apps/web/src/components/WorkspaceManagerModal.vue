@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  watch,
-} from 'vue';
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { dashboardStore } from '../stores/dashboard';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
@@ -171,8 +166,15 @@ onBeforeUnmount(() => {
               class="settings-row workspace-existing-row"
             >
               <span class="settings-row-copy">
-                <strong :id="`workspace-existing-recursive-scan-label-${workspace.id}`">{{ workspace.name }}</strong>
-                <span :id="`workspace-existing-recursive-scan-description-${workspace.id}`">{{ workspace.path }} — escanear subdiretórios (monorepos)</span>
+                <strong
+                  :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
+                  >{{ workspace.name }}</strong
+                >
+                <span
+                  :id="`workspace-existing-recursive-scan-description-${workspace.id}`"
+                  >{{ workspace.path }} — escanear subdiretórios
+                  (monorepos)</span
+                >
               </span>
               <span class="settings-switch-control">
                 <input
@@ -183,8 +185,10 @@ onBeforeUnmount(() => {
                   :aria-labelledby="`workspace-existing-recursive-scan-label-${workspace.id}`"
                   :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
                   @change="toggleWorkspaceRecursiveScan(workspace)"
-                >
-                <span>{{ workspace.recursiveScan ? 'Ativado' : 'Desativado' }}</span>
+                />
+                <span>{{
+                  workspace.recursiveScan ? 'Ativado' : 'Desativado'
+                }}</span>
               </span>
             </li>
           </ul>
@@ -224,8 +228,13 @@ onBeforeUnmount(() => {
 
           <label class="settings-row workspace-recursive-scan-field">
             <span class="settings-row-copy">
-              <strong id="workspace-recursive-scan-label">Escanear subdiretórios (monorepos)</strong>
-              <span id="workspace-recursive-scan-description">Procura projetos em subpastas além dos filhos diretos. Pode deixar o cadastro mais lento em workspaces grandes.</span>
+              <strong id="workspace-recursive-scan-label"
+                >Escanear subdiretórios (monorepos)</strong
+              >
+              <span id="workspace-recursive-scan-description"
+                >Procura projetos em subpastas além dos filhos diretos. Pode
+                deixar o cadastro mais lento em workspaces grandes.</span
+              >
             </span>
             <span class="settings-switch-control">
               <input
@@ -234,8 +243,10 @@ onBeforeUnmount(() => {
                 role="switch"
                 aria-labelledby="workspace-recursive-scan-label"
                 aria-describedby="workspace-recursive-scan-description"
-              >
-              <span>{{ newWorkspaceRecursiveScan ? 'Ativado' : 'Desativado' }}</span>
+              />
+              <span>{{
+                newWorkspaceRecursiveScan ? 'Ativado' : 'Desativado'
+              }}</span>
             </span>
           </label>
 

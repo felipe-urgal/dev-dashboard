@@ -14,7 +14,9 @@ export function rawPatchOf(element: HTMLElement): string {
 
 export function readViewMode(): DiffViewMode {
   try {
-    return window.localStorage.getItem(VIEW_MODE_KEY) === 'split' ? 'split' : 'unified';
+    return window.localStorage.getItem(VIEW_MODE_KEY) === 'split'
+      ? 'split'
+      : 'unified';
   } catch {
     return 'unified';
   }

@@ -61,9 +61,10 @@ function translatePublishError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_PUSH_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível publicar a branch no origin.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível publicar a branch no origin.',
   });
 }
 
@@ -142,12 +143,13 @@ export function registerBranchPublishRoutes(
             options.gitMutationHistoryService,
             project,
             'branch-publish',
-            () => publishService.publishLocalBranch(
-              project.path,
-              project.id,
-              request.body.branch,
-              request.body.confirmationToken,
-            ),
+            () =>
+              publishService.publishLocalBranch(
+                project.path,
+                project.id,
+                request.body.branch,
+                request.body.confirmationToken,
+              ),
           ),
         };
       } catch (error) {
@@ -172,11 +174,12 @@ export function registerBranchPublishRoutes(
       const project = findProject(options, request.params.projectId);
       try {
         return reply.code(201).send({
-          confirmation: await publishService.prepareForcePushWithLeaseConfirmation(
-            project.path,
-            project.id,
-            request.body.branch,
-          ),
+          confirmation:
+            await publishService.prepareForcePushWithLeaseConfirmation(
+              project.path,
+              project.id,
+              request.body.branch,
+            ),
         });
       } catch (error) {
         translatePublishError(error);
@@ -207,12 +210,13 @@ export function registerBranchPublishRoutes(
             options.gitMutationHistoryService,
             project,
             'branch-force-push-with-lease',
-            () => publishService.forcePushWithLease(
-              project.path,
-              project.id,
-              request.body.branch,
-              request.body.confirmationToken,
-            ),
+            () =>
+              publishService.forcePushWithLease(
+                project.path,
+                project.id,
+                request.body.branch,
+                request.body.confirmationToken,
+              ),
           ),
         };
       } catch (error) {

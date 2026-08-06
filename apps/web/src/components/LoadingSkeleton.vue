@@ -111,8 +111,12 @@ onBeforeUnmount(() => {
 }
 
 @keyframes loading-skeleton-shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -123,7 +127,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 680px) {
-  .loading-skeleton-row { align-items: flex-start; }
-  .loading-skeleton-meta { width: 56px; }
+  .loading-skeleton-row {
+    align-items: flex-start;
+  }
+  .loading-skeleton-meta {
+    width: 56px;
+  }
 }
 </style>

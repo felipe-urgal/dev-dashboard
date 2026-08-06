@@ -21,11 +21,7 @@ import {
 } from '../api/project-file-mutations';
 
 type MutationMode =
-  | 'create-file'
-  | 'create-directory'
-  | 'rename'
-  | 'delete'
-  | '';
+  'create-file' | 'create-directory' | 'rename' | 'delete' | '';
 
 const props = defineProps<{
   projectId: string;
@@ -44,9 +40,11 @@ const preview = ref<ProjectFileMutationPreview>();
 const busy = ref(false);
 const errorMessage = ref('');
 
-const selectedLabel = computed(() => props.selected?.path ?? 'Nenhum item selecionado');
-const isCreate = computed(() =>
-  mode.value === 'create-file' || mode.value === 'create-directory',
+const selectedLabel = computed(
+  () => props.selected?.path ?? 'Nenhum item selecionado',
+);
+const isCreate = computed(
+  () => mode.value === 'create-file' || mode.value === 'create-directory',
 );
 const title = computed(() => {
   switch (mode.value) {
@@ -71,9 +69,8 @@ function parentPath(value: string): string {
 function createBasePath(): string {
   const selected = props.selected;
   if (!selected) return '';
-  const directory = selected.kind === 'directory'
-    ? selected.path
-    : parentPath(selected.path);
+  const directory =
+    selected.kind === 'directory' ? selected.path : parentPath(selected.path);
   return directory ? `${directory}/` : '';
 }
 
@@ -117,10 +114,7 @@ async function createEntry(): Promise<void> {
     emit('completed', result);
     resetPanel();
   } catch (error) {
-    errorMessage.value = readableError(
-      error,
-      'Não foi possível criar o item.',
-    );
+    errorMessage.value = readableError(error, 'Não foi possível criar o item.');
   } finally {
     busy.value = false;
   }
@@ -129,11 +123,12 @@ async function createEntry(): Promise<void> {
 async function prepareMutation(): Promise<void> {
   const selected = props.selected;
   if (
-    !selected
-    || props.blocked
-    || busy.value
-    || (mode.value !== 'rename' && mode.value !== 'delete')
-  ) return;
+    !selected ||
+    props.blocked ||
+    busy.value ||
+    (mode.value !== 'rename' && mode.value !== 'delete')
+  )
+    return;
 
   const destinationPath = pathInput.value.trim();
   if (mode.value === 'rename' && !destinationPath) return;
@@ -184,7 +179,9 @@ async function applyMutation(): Promise<void> {
 function impactLabel(value: ProjectFileMutationPreview): string {
   const parts: string[] = [];
   if (value.affectedFiles) {
-    parts.push(`${value.affectedFiles} arquivo${value.affectedFiles === 1 ? '' : 's'}`);
+    parts.push(
+      `${value.affectedFiles} arquivo${value.affectedFiles === 1 ? '' : 's'}`,
+    );
   }
   if (value.affectedDirectories) {
     parts.push(
@@ -205,10 +202,18 @@ watch(
 <template>
   <div class="file-mutation">
     <div class="file-mutation-toolbar" aria-label="Ações do explorer">
-      <button type="button" aria-label="Criar arquivo" @click="openMode('create-file')">
+      <button
+        type="button"
+        aria-label="Criar arquivo"
+        @click="openMode('create-file')"
+      >
         <DocumentPlusIcon aria-hidden="true" />
       </button>
-      <button type="button" aria-label="Criar pasta" @click="openMode('create-directory')">
+      <button
+        type="button"
+        aria-label="Criar pasta"
+        @click="openMode('create-directory')"
+      >
         <FolderPlusIcon aria-hidden="true" />
       </button>
       <button
@@ -239,7 +244,8 @@ watch(
       </header>
 
       <p v-if="blocked" class="file-mutation-warning">
-        Salve ou descarte as alterações abertas neste caminho antes de continuar.
+        Salve ou descarte as alterações abertas neste caminho antes de
+        continuar.
       </p>
       <p v-if="errorMessage" class="file-mutation-error" role="alert">
         {{ errorMessage }}
@@ -251,26 +257,27 @@ watch(
           <input
             v-model="pathInput"
             autocomplete="off"
-            :placeholder="mode === 'create-file' ? 'src/novo-arquivo.ts' : 'src/nova-pasta'"
-          >
+            :placeholder="
+              mode === 'create-file' ? 'src/novo-arquivo.ts' : 'src/nova-pasta'
+            "
+          />
         </label>
         <button type="submit" :disabled="!pathInput.trim() || busy">
           {{ busy ? 'Criando…' : 'Criar' }}
         </button>
       </form>
 
-      <form
-        v-else-if="!preview"
-        @submit.prevent="prepareMutation"
-      >
+      <form v-else-if="!preview" @submit.prevent="prepareMutation">
         <p class="file-mutation-target">{{ selectedLabel }}</p>
         <label v-if="mode === 'rename'">
           Novo caminho
-          <input v-model="pathInput" autocomplete="off">
+          <input v-model="pathInput" autocomplete="off" />
         </label>
         <button
           type="submit"
-          :disabled="blocked || busy || (mode === 'rename' && !pathInput.trim())"
+          :disabled="
+            blocked || busy || (mode === 'rename' && !pathInput.trim())
+          "
         >
           {{ busy ? 'Revisando…' : 'Revisar' }}
         </button>
@@ -291,18 +298,26 @@ watch(
         </p>
         <label v-if="preview.requiresPhrase">
           Digite {{ preview.confirmationPhrase }}
-          <input v-model="confirmationInput" autocomplete="off">
+          <input v-model="confirmationInput" autocomplete="off" />
         </label>
         <div class="file-mutation-confirm-actions">
-          <button type="button" @click="preview = undefined">
-            Voltar
-          </button>
+          <button type="button" @click="preview = undefined">Voltar</button>
           <button
             type="submit"
             class="file-mutation-danger"
-            :disabled="busy || (preview.requiresPhrase && confirmationInput !== preview.confirmationPhrase)"
+            :disabled="
+              busy ||
+              (preview.requiresPhrase &&
+                confirmationInput !== preview.confirmationPhrase)
+            "
           >
-            {{ busy ? 'Aplicando…' : (preview.operation === 'delete' ? 'Excluir' : 'Renomear') }}
+            {{
+              busy
+                ? 'Aplicando…'
+                : preview.operation === 'delete'
+                  ? 'Excluir'
+                  : 'Renomear'
+            }}
           </button>
         </div>
       </form>

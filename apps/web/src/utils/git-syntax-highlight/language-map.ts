@@ -46,14 +46,18 @@ const FILE_LANGUAGES: Record<string, GitSyntaxLanguage> = {
 
 function extensionFromPath(filePath: string): string {
   const cleanPath = filePath.split(/[?#]/, 1)[0] ?? filePath;
-  const fileName = cleanPath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en-US') ?? '';
+  const fileName =
+    cleanPath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en-US') ??
+    '';
   if (FILE_LANGUAGES[fileName]) return fileName;
-  return fileName.includes('.') ? fileName.split('.').at(-1) ?? '' : '';
+  return fileName.includes('.') ? (fileName.split('.').at(-1) ?? '') : '';
 }
 
 export function gitSyntaxLanguageForPath(filePath: string): GitSyntaxLanguage {
   const cleanPath = filePath.split(/[?#]/, 1)[0] ?? filePath;
-  const fileName = cleanPath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en-US') ?? '';
+  const fileName =
+    cleanPath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en-US') ??
+    '';
   if (FILE_LANGUAGES[fileName]) return FILE_LANGUAGES[fileName]!;
   if (fileName.endsWith('.html.erb')) return 'html';
   return EXTENSION_LANGUAGES[extensionFromPath(filePath)] ?? 'generic';

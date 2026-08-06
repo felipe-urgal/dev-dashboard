@@ -68,35 +68,49 @@ export function createAppContext(): AppContext {
   const scriptDetectionService = new ScriptDetectionService();
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
-  const scriptExecutionService = new ScriptExecutionService(scriptDetectionService);
+  const scriptExecutionService = new ScriptExecutionService(
+    scriptDetectionService,
+  );
   const databaseDetectionService = new DatabaseDetectionService();
   const gitService = new DashboardGitService();
   const gitMutationHistoryService = new GitMutationHistoryService();
   const projectFileService = new ProjectFileService();
-  const projectWorkspaceEditService = new ProjectWorkspaceEditService(projectFileService);
-  const projectLanguageServerService = new ProjectLanguageServerService({ projectFileService });
+  const projectWorkspaceEditService = new ProjectWorkspaceEditService(
+    projectFileService,
+  );
+  const projectLanguageServerService = new ProjectLanguageServerService({
+    projectFileService,
+  });
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
     environmentProfileRepository: new EnvironmentProfileRepository(),
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     processManager,
-    serverSettingsRepository:
-      new ProjectServerSettingsRepository(),
+    serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
     gitService,
     gitMutationHistoryService,
     testDetectionService: new TestDetectionService(),
-    testExecutionHistoryService: new TestExecutionHistoryService(processManager),
+    testExecutionHistoryService: new TestExecutionHistoryService(
+      processManager,
+    ),
     databaseDetectionService,
-    databaseSnapshotService: new DatabaseSnapshotService(databaseDetectionService, processManager.stateDirectory),
+    databaseSnapshotService: new DatabaseSnapshotService(
+      databaseDetectionService,
+      processManager.stateDirectory,
+    ),
     railsInspectionService: new RailsInspectionService(),
     railsRuntimeService: new RailsRuntimeService(processManager),
     bundlerInspectionService: new BundlerInspectionService(),
     projectEnvironmentService: new ProjectEnvironmentService(),
     scriptDetectionService,
     scriptExecutionService,
-    activityService: new ActivityService(projectStore, processManager, scriptExecutionService),
+    activityService: new ActivityService(
+      projectStore,
+      processManager,
+      scriptExecutionService,
+    ),
     projectEditorService: new ProjectEditorService(),
     projectBrowserService: new ProjectBrowserService(),
     projectFileService,

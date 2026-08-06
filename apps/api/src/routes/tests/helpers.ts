@@ -1,10 +1,19 @@
-import type { ProcessManager, ProcessManagerError } from '@dev-dashboard/process-manager';
+import type {
+  ProcessManager,
+  ProcessManagerError,
+} from '@dev-dashboard/process-manager';
 import type { TestExecutionEvent } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../../http/api-error.js';
 import type { ProjectStore } from '../../store/project-store.js';
-import { TestFileError, type TestDetectionService } from '../../services/test-detection-service.js';
-import { TestExecutionSubscriptionError, type TestExecutionHistoryService } from '../../services/test-execution-history-service.js';
+import {
+  TestFileError,
+  type TestDetectionService,
+} from '../../services/test-detection-service.js';
+import {
+  TestExecutionSubscriptionError,
+  type TestExecutionHistoryService,
+} from '../../services/test-execution-history-service.js';
 
 export interface ProjectParams {
   projectId: string;
@@ -69,9 +78,7 @@ export const emptyQuerystringSchema = {
   properties: {},
 } as const;
 
-export function processManagerApiError(
-  error: ProcessManagerError,
-): ApiError {
+export function processManagerApiError(error: ProcessManagerError): ApiError {
   switch (error.code) {
     case 'PROCESS_NOT_FOUND':
       return new ApiError({
@@ -108,7 +115,9 @@ export function testFileApiError(error: TestFileError): ApiError {
   });
 }
 
-export function testExecutionSubscriptionApiError(error: TestExecutionSubscriptionError): ApiError {
+export function testExecutionSubscriptionApiError(
+  error: TestExecutionSubscriptionError,
+): ApiError {
   const statuses: Record<string, number> = {
     TEST_EXECUTION_NOT_FOUND: 404,
     TEST_EXECUTION_SUBSCRIBER_LIMIT: 429,
@@ -128,18 +137,38 @@ export function serializeTestExecutionEvent(event: TestExecutionEvent): string {
       process: {
         id: managedProcess.id,
         projectId: managedProcess.projectId,
-        ...(managedProcess.workspaceId !== undefined ? { workspaceId: managedProcess.workspaceId } : {}),
+        ...(managedProcess.workspaceId !== undefined
+          ? { workspaceId: managedProcess.workspaceId }
+          : {}),
         kind: managedProcess.kind,
         status: managedProcess.status,
-        ...(managedProcess.pid !== undefined ? { pid: managedProcess.pid } : {}),
-        ...(managedProcess.port !== undefined ? { port: managedProcess.port } : {}),
-        ...(managedProcess.url !== undefined ? { url: managedProcess.url } : {}),
-        ...(managedProcess.urls !== undefined ? { urls: managedProcess.urls } : {}),
-        ...(managedProcess.command !== undefined ? { command: managedProcess.command } : {}),
-        ...(managedProcess.args !== undefined ? { args: managedProcess.args } : {}),
-        ...(managedProcess.startedAt !== undefined ? { startedAt: managedProcess.startedAt } : {}),
-        ...(managedProcess.stoppedAt !== undefined ? { stoppedAt: managedProcess.stoppedAt } : {}),
-        ...(managedProcess.exitCode !== undefined ? { exitCode: managedProcess.exitCode } : {}),
+        ...(managedProcess.pid !== undefined
+          ? { pid: managedProcess.pid }
+          : {}),
+        ...(managedProcess.port !== undefined
+          ? { port: managedProcess.port }
+          : {}),
+        ...(managedProcess.url !== undefined
+          ? { url: managedProcess.url }
+          : {}),
+        ...(managedProcess.urls !== undefined
+          ? { urls: managedProcess.urls }
+          : {}),
+        ...(managedProcess.command !== undefined
+          ? { command: managedProcess.command }
+          : {}),
+        ...(managedProcess.args !== undefined
+          ? { args: managedProcess.args }
+          : {}),
+        ...(managedProcess.startedAt !== undefined
+          ? { startedAt: managedProcess.startedAt }
+          : {}),
+        ...(managedProcess.stoppedAt !== undefined
+          ? { stoppedAt: managedProcess.stoppedAt }
+          : {}),
+        ...(managedProcess.exitCode !== undefined
+          ? { exitCode: managedProcess.exitCode }
+          : {}),
       },
     });
   }
@@ -160,10 +189,7 @@ export function serializeTestExecutionEvent(event: TestExecutionEvent): string {
   });
 }
 
-export function requireProject(
-  projectStore: ProjectStore,
-  projectId: string,
-) {
+export function requireProject(projectStore: ProjectStore, projectId: string) {
   const project = projectStore.findProject(projectId);
   if (!project) {
     throw new ApiError({

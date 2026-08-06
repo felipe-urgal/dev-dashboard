@@ -10,11 +10,7 @@ export type ProjectTestRunner =
   | 'pytest';
 
 export type ProjectTestOrigin =
-  | 'package-script'
-  | 'binary'
-  | 'gemfile'
-  | 'directory'
-  | 'python-config';
+  'package-script' | 'binary' | 'gemfile' | 'directory' | 'python-config';
 
 export interface ProjectTestCommand {
   id: string;
@@ -53,7 +49,8 @@ export interface TestFailure {
   stack: string[];
 }
 
-export type TestExecutionStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
+export type TestExecutionStatus =
+  'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
 export interface TestExecutionRecord {
   id: string;

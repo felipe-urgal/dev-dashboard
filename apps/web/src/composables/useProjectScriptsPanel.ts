@@ -1,9 +1,4 @@
-import {
-  computed,
-  onUnmounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 import type {
   Project,
@@ -43,7 +38,10 @@ export const projectScriptRiskLabels: Record<ProjectScriptRisk, string> = {
   destructive: 'Destrutivo',
 };
 
-export const scriptExecutionStatusLabels: Record<ScriptExecutionStatus, string> = {
+export const scriptExecutionStatusLabels: Record<
+  ScriptExecutionStatus,
+  string
+> = {
   running: 'Em execução',
   succeeded: 'Concluída',
   failed: 'Falhou',
@@ -78,7 +76,8 @@ export function categoryFor(
   if (/(test|spec|rspec|vitest|jest|lint|rubocop)/.test(text)) return 'tests';
   if (/(build|compile|assets|css|webpack|vite)/.test(text)) return 'build';
   if (/(dev|watch|serve|server|start)/.test(text)) return 'development';
-  if (/(setup|prepare|install|migrate|seed|db:|clean|reset)/.test(text)) return 'maintenance';
+  if (/(setup|prepare|install|migrate|seed|db:|clean|reset)/.test(text))
+    return 'maintenance';
   return 'utilities';
 }
 
@@ -90,12 +89,12 @@ export function formatScriptExecutionDate(value?: string): string {
   });
 }
 
-export function scriptExecutionDuration(
-  item: ScriptExecution | null,
-): string {
+export function scriptExecutionDuration(item: ScriptExecution | null): string {
   if (!item) return '—';
   const start = new Date(item.startedAt).getTime();
-  const end = item.finishedAt ? new Date(item.finishedAt).getTime() : Date.now();
+  const end = item.finishedAt
+    ? new Date(item.finishedAt).getTime()
+    : Date.now();
   const seconds = Math.max(0, Math.round((end - start) / 1_000));
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
@@ -131,35 +130,51 @@ export function useProjectScriptsPanel(getProject: () => Project) {
     category.value = 'all';
   });
 
-  watch(() => getProject().id, () => {
-    activeSection.value = 'catalog';
-    category.value = 'all';
-  });
+  watch(
+    () => getProject().id,
+    () => {
+      activeSection.value = 'catalog';
+      category.value = 'all';
+    },
+  );
 
-  const sectionTitle = computed(() => ({
-    catalog: 'Catálogo de scripts',
-    executions: 'Execuções',
-  })[activeSection.value]);
+  const sectionTitle = computed(
+    () =>
+      ({
+        catalog: 'Catálogo de scripts',
+        executions: 'Execuções',
+      })[activeSection.value],
+  );
 
-  const sectionDescription = computed(() => ({
-    catalog: 'Execute somente as tarefas que não pertencem a Servidor, Testes, Banco de dados ou Dependências.',
-    executions: 'Acompanhe o processo ativo, consulte logs e revise o histórico.',
-  })[activeSection.value]);
+  const sectionDescription = computed(
+    () =>
+      ({
+        catalog:
+          'Execute somente as tarefas que não pertencem a Servidor, Testes, Banco de dados ou Dependências.',
+        executions:
+          'Acompanhe o processo ativo, consulte logs e revise o histórico.',
+      })[activeSection.value],
+  );
 
   const catalogScripts = computed(() =>
-    (catalogState.catalog.value?.items ?? []).filter(
-      (item) => isRunnableProjectScript(item, getProject()),
+    (catalogState.catalog.value?.items ?? []).filter((item) =>
+      isRunnableProjectScript(item, getProject()),
     ),
   );
 
-  const delegatedScriptsCount = computed(() =>
-    (catalogState.catalog.value?.items.length ?? 0) - catalogScripts.value.length,
+  const delegatedScriptsCount = computed(
+    () =>
+      (catalogState.catalog.value?.items.length ?? 0) -
+      catalogScripts.value.length,
   );
 
-  const selectedScript = computed<ProjectScript | null>(() =>
-    catalogScripts.value.find(
-      (item) => item.id === catalogState.selectedActionId.value,
-    ) ?? catalogScripts.value[0] ?? null,
+  const selectedScript = computed<ProjectScript | null>(
+    () =>
+      catalogScripts.value.find(
+        (item) => item.id === catalogState.selectedActionId.value,
+      ) ??
+      catalogScripts.value[0] ??
+      null,
   );
 
   const visibleScripts = computed(() => {
@@ -197,7 +212,10 @@ export function useProjectScriptsPanel(getProject: () => Project) {
     activeSection.value = section;
   }
 
-  async function copyCommand(item: ProjectScript, command = item.command): Promise<void> {
+  async function copyCommand(
+    item: ProjectScript,
+    command = item.command,
+  ): Promise<void> {
     try {
       await navigator.clipboard.writeText(command);
       copiedActionId.value = item.id;

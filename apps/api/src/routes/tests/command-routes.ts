@@ -25,7 +25,12 @@ export function registerTestCommandRoutes(
   app: FastifyInstance,
   options: TestRouteOptions,
 ): void {
-  const { processManager, projectStore, testDetectionService, testExecutionHistoryService } = options;
+  const {
+    processManager,
+    projectStore,
+    testDetectionService,
+    testExecutionHistoryService,
+  } = options;
 
   app.post<{ Params: TestCommandParams }>(
     '/projects/:projectId/tests/:commandId/start',
@@ -67,7 +72,10 @@ export function registerTestCommandRoutes(
           command: resolved.command,
           args: resolved.args,
         });
-        await testExecutionHistoryService.recordStart(project.id, managedProcess);
+        await testExecutionHistoryService.recordStart(
+          project.id,
+          managedProcess,
+        );
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -181,7 +189,10 @@ export function registerTestCommandRoutes(
           command: resolved.command,
           args: resolved.args,
         });
-        await testExecutionHistoryService.recordStart(project.id, managedProcess);
+        await testExecutionHistoryService.recordStart(
+          project.id,
+          managedProcess,
+        );
         return reply.code(201).send({ process: managedProcess });
       } catch (error) {
         if (error instanceof ProcessManagerError) {

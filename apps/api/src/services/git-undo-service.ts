@@ -14,7 +14,11 @@ import {
   requireRepository,
 } from './git-undo/repository-guards.js';
 import { optionalGit, runGit } from './git-undo/run.js';
-import type { GitUndoConfirmation, GitUndoCommitResult, GitUndoOperation } from './git-undo/types.js';
+import type {
+  GitUndoConfirmation,
+  GitUndoCommitResult,
+  GitUndoOperation,
+} from './git-undo/types.js';
 import {
   GitMutationConfirmationError,
   GitMutationConfirmationService,
@@ -43,7 +47,9 @@ export class GitUndoService {
    * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
    * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
    */
-  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
+  private readonly confirmations = new GitMutationConfirmationService(
+    CONFIRMATION_TTL_MS,
+  );
 
   public async prepareConfirmation(
     projectPath: string,
@@ -52,9 +58,10 @@ export class GitUndoService {
     requestedTarget: string,
   ): Promise<GitUndoConfirmation> {
     await requireRepository(projectPath);
-    const target = operation === 'file'
-      ? ensurePathInsideProject(projectPath, requestedTarget)
-      : await currentBranch(projectPath);
+    const target =
+      operation === 'file'
+        ? ensurePathInsideProject(projectPath, requestedTarget)
+        : await currentBranch(projectPath);
 
     if (operation === 'commit' && requestedTarget !== target) {
       throw new GitUndoError(
@@ -82,7 +89,11 @@ export class GitUndoService {
     await assertWorkingTreeClean(projectPath);
 
     const undone = await headCommit(projectPath);
-    const parent = await optionalGit(projectPath, ['rev-parse', '--verify', 'HEAD^']);
+    const parent = await optionalGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      'HEAD^',
+    ]);
     if (!parent?.trim()) {
       throw new GitUndoError(
         'GIT_COMMIT_FAILED',
@@ -134,7 +145,12 @@ export class GitUndoService {
     this.consumeConfirmation(projectId, 'file', safePath, confirmationToken);
 
     const status = await runGit(projectPath, [
-      'status', '--porcelain', '-z', '--untracked-files=all', '--', safePath,
+      'status',
+      '--porcelain',
+      '-z',
+      '--untracked-files=all',
+      '--',
+      safePath,
     ]);
     if (!status) {
       throw new GitUndoError(
@@ -151,11 +167,25 @@ export class GitUndoService {
 
       const moved = await renameInfo(projectPath, safePath);
       if (moved?.kind === 'rename') {
-        const previousPath = ensurePathInsideProject(projectPath, moved.previousPath);
-        await runGit(projectPath, ['reset', 'HEAD', '--', safePath, previousPath]);
+        const previousPath = ensurePathInsideProject(
+          projectPath,
+          moved.previousPath,
+        );
+        await runGit(projectPath, [
+          'reset',
+          'HEAD',
+          '--',
+          safePath,
+          previousPath,
+        ]);
         await unlinkIfPresent(projectPath, safePath);
         await runGit(projectPath, [
-          'restore', '--source=HEAD', '--staged', '--worktree', '--', previousPath,
+          'restore',
+          '--source=HEAD',
+          '--staged',
+          '--worktree',
+          '--',
+          previousPath,
         ]);
         return { path: safePath };
       }
@@ -168,7 +198,12 @@ export class GitUndoService {
 
       if (await pathExistsInHead(projectPath, safePath)) {
         await runGit(projectPath, [
-          'restore', '--source=HEAD', '--staged', '--worktree', '--', safePath,
+          'restore',
+          '--source=HEAD',
+          '--staged',
+          '--worktree',
+          '--',
+          safePath,
         ]);
       } else {
         await runGit(projectPath, ['reset', 'HEAD', '--', safePath]);
@@ -193,7 +228,12 @@ export class GitUndoService {
     token: string | undefined,
   ): void {
     try {
-      this.confirmations.consume(projectId, undoCatalogOperationId(operation), target, token);
+      this.confirmations.consume(
+        projectId,
+        undoCatalogOperationId(operation),
+        target,
+        token,
+      );
     } catch (error) {
       if (error instanceof GitMutationConfirmationError) {
         throw new GitUndoError(

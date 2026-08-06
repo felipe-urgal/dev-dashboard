@@ -1,16 +1,13 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import type { GitSyncStrategy } from '@dev-dashboard/contracts';
 
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
-import { commonErrorResponseSchemas, projectChangeImpactResponseSchema } from '../http/response-schemas.js';
 import {
-  GitSyncError,
-  GitSyncService,
-} from '../services/git-sync-service.js';
+  commonErrorResponseSchemas,
+  projectChangeImpactResponseSchema,
+} from '../http/response-schemas.js';
+import { GitSyncError, GitSyncService } from '../services/git-sync-service.js';
 import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { withGitMutationHistory } from './git-mutation-history-helpers.js';
@@ -161,9 +158,10 @@ function translateSyncError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_SYNC_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível sincronizar a branch.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível sincronizar a branch.',
   });
 }
 
@@ -310,12 +308,17 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          result: await withGitMutationHistory(options.gitMutationHistoryService, project, 'sync-main', () =>
-            service.synchronizeMain(
-              project.path,
-              project.id,
-              request.body.confirmationToken,
-            )),
+          result: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'sync-main',
+            () =>
+              service.synchronizeMain(
+                project.path,
+                project.id,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateSyncError(error);
@@ -351,14 +354,19 @@ export const gitSyncRoutes: FastifyPluginAsync<GitSyncRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          result: await withGitMutationHistory(options.gitMutationHistoryService, project, 'sync-integrate', () =>
-            service.integrate(
-              project.path,
-              project.id,
-              request.body.reference,
-              request.body.strategy,
-              request.body.confirmationToken,
-            )),
+          result: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'sync-integrate',
+            () =>
+              service.integrate(
+                project.path,
+                project.id,
+                request.body.reference,
+                request.body.strategy,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateSyncError(error);

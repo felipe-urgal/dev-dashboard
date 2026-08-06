@@ -14,7 +14,9 @@ import { readMode, saveMode } from './storage';
 
 export function enhance(detail: HTMLElement): void {
   const files = detail.querySelector<HTMLElement>('.git-summary-detail-files');
-  const patch = detail.querySelector<HTMLElement>('.git-summary-detail-diff pre');
+  const patch = detail.querySelector<HTMLElement>(
+    '.git-summary-detail-diff pre',
+  );
   if (!files || !patch || files.dataset.summaryInlineDiffFix === 'true') return;
 
   // O enhancer genérico pode já ter processado este painel.
@@ -48,7 +50,11 @@ export function enhance(detail: HTMLElement): void {
     mountIcon(row, ChevronRightIcon, 'git-inline-file-row-chevron');
 
     const open = (): void => {
-      const filePatch = findGitPatchForFile(patch.textContent ?? '', paths.path, paths.previousPath);
+      const filePatch = findGitPatchForFile(
+        patch.textContent ?? '',
+        paths.path,
+        paths.previousPath,
+      );
       active?.classList.remove('is-diff-active');
       active = row;
       row.classList.add('is-diff-active');
@@ -81,13 +87,19 @@ export function enhance(detail: HTMLElement): void {
       let mode = readMode();
 
       const draw = (): void => {
-        switcher.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-          const selected = button.dataset.mode === mode;
-          button.classList.toggle('active', selected);
-          button.setAttribute('aria-pressed', String(selected));
-        });
+        switcher
+          .querySelectorAll<HTMLButtonElement>('button')
+          .forEach((button) => {
+            const selected = button.dataset.mode === mode;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+          });
         body.replaceChildren();
-        const binary = row.querySelector('small')?.textContent?.toLocaleLowerCase('pt-BR').includes('binário') ?? false;
+        const binary =
+          row
+            .querySelector('small')
+            ?.textContent?.toLocaleLowerCase('pt-BR')
+            .includes('binário') ?? false;
         if (binary || !filePatch?.content.trim()) {
           const empty = document.createElement('div');
           empty.className = 'git-inline-diff-empty';
@@ -96,12 +108,20 @@ export function enhance(detail: HTMLElement): void {
             : 'O patch deste arquivo não está disponível ou foi truncado.';
           body.append(empty);
         } else {
-          body.append(mode === 'split' ? split(filePatch.content) : unified(filePatch.content));
+          body.append(
+            mode === 'split'
+              ? split(filePatch.content)
+              : unified(filePatch.content),
+          );
         }
       };
 
       [
-        { mode: 'unified' as const, label: 'Unificado', icon: Bars3BottomLeftIcon },
+        {
+          mode: 'unified' as const,
+          label: 'Unificado',
+          icon: Bars3BottomLeftIcon,
+        },
         { mode: 'split' as const, label: 'Lado a lado', icon: ViewColumnsIcon },
       ].forEach((definition) => {
         const button = document.createElement('button');
@@ -142,7 +162,9 @@ export function enhance(detail: HTMLElement): void {
   });
 
   const label = Array.from(
-    detail.querySelectorAll<HTMLElement>('.git-summary-detail-diff summary span'),
+    detail.querySelectorAll<HTMLElement>(
+      '.git-summary-detail-diff summary span',
+    ),
   ).find((candidate) => candidate.textContent?.includes('diff completo'));
   if (label) label.textContent = 'Ver diff completo (todos os arquivos)';
 }

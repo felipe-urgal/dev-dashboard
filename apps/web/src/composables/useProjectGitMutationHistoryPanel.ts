@@ -22,7 +22,9 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
   const projectRequests = new RequestGeneration();
 
   function isCurrentProject(projectId: string, generation: number): boolean {
-    return getProject().id === projectId && projectRequests.isCurrent(generation);
+    return (
+      getProject().id === projectId && projectRequests.isCurrent(generation)
+    );
   }
 
   async function refresh(): Promise<void> {
@@ -32,14 +34,20 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
     errorMessage.value = '';
 
     try {
-      const result = await fetchProjectGitMutationHistory(projectId, currentPage.value, PAGE_SIZE);
+      const result = await fetchProjectGitMutationHistory(
+        projectId,
+        currentPage.value,
+        PAGE_SIZE,
+      );
       if (isCurrentProject(projectId, generation)) {
         page.value = result;
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
         errorMessage.value =
-          error instanceof Error ? error.message : 'Não foi possível consultar o histórico de mutações.';
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível consultar o histórico de mutações.';
       }
     } finally {
       if (isCurrentProject(projectId, generation)) {
@@ -64,7 +72,13 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
     await refresh();
   }
 
-  watch(() => getProject().id, () => { void initialize(); }, { immediate: true });
+  watch(
+    () => getProject().id,
+    () => {
+      void initialize();
+    },
+    { immediate: true },
+  );
 
   onBeforeUnmount(() => {
     projectRequests.invalidate();

@@ -12,7 +12,10 @@ import {
 } from '@heroicons/vue/24/outline';
 import { computed } from 'vue';
 
-import type { GitMutationHistoryEvent, Project } from '@dev-dashboard/contracts';
+import type {
+  GitMutationHistoryEvent,
+  Project,
+} from '@dev-dashboard/contracts';
 import { findGitMutationCatalogEntry } from '@dev-dashboard/contracts';
 
 import { useProjectGitMutationHistoryPanel } from '../composables/useProjectGitMutationHistoryPanel';
@@ -40,7 +43,9 @@ const riskTones: Record<string, StatusBadgeTone> = {
 };
 
 function operationLabel(event: GitMutationHistoryEvent): string {
-  return findGitMutationCatalogEntry(event.operationId)?.label ?? event.operationId;
+  return (
+    findGitMutationCatalogEntry(event.operationId)?.label ?? event.operationId
+  );
 }
 
 function isPullOperation(event: GitMutationHistoryEvent): boolean {
@@ -103,8 +108,8 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
     <template #header>
       <h3>Histórico de mutações</h3>
       <p class="git-mutation-history-hint">
-        Mostra as tentativas recentes de alterações Git neste projeto. Este não é o histórico de
-        commits.
+        Mostra as tentativas recentes de alterações Git neste projeto. Este não
+        é o histórico de commits.
       </p>
     </template>
 
@@ -132,7 +137,10 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
     <div v-else-if="!hasEvents" class="git-mutation-history-empty">
       <DocumentTextIcon aria-hidden="true" />
       <strong>Nenhuma mutação registrada</strong>
-      <span>As próximas alterações Git realizadas neste projeto aparecerão aqui.</span>
+      <span
+        >As próximas alterações Git realizadas neste projeto aparecerão
+        aqui.</span
+      >
     </div>
 
     <template v-else>
@@ -170,7 +178,10 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
         </article>
       </section>
 
-      <section class="git-mutation-list" aria-label="Eventos do histórico de mutações">
+      <section
+        class="git-mutation-list"
+        aria-label="Eventos do histórico de mutações"
+      >
         <header class="git-mutation-list-head" aria-hidden="true">
           <span>Operação</span>
           <span>Detalhes</span>
@@ -191,8 +202,14 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
               <StatusBadge :tone="riskTones[event.risk] ?? 'neutral'" size="sm">
                 {{ riskLabels[event.risk] ?? event.risk }}
               </StatusBadge>
-              <StatusBadge :tone="event.result === 'succeeded' ? 'success' : 'danger'" size="sm">
-                <CheckCircleIcon v-if="event.result === 'succeeded'" aria-hidden="true" />
+              <StatusBadge
+                :tone="event.result === 'succeeded' ? 'success' : 'danger'"
+                size="sm"
+              >
+                <CheckCircleIcon
+                  v-if="event.result === 'succeeded'"
+                  aria-hidden="true"
+                />
                 <XCircleIcon v-else aria-hidden="true" />
                 {{ event.result === 'succeeded' ? 'Sucesso' : 'Falha' }}
               </StatusBadge>
@@ -209,11 +226,14 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
 
       <footer class="git-mutation-footer">
         <span>
-          Mostrando {{ rangeStart }} a {{ rangeEnd }} de {{ page!.total }}
-          registro{{ page!.total === 1 ? '' : 's' }}
+          Mostrando {{ rangeStart }} a {{ rangeEnd }} de
+          {{ page!.total }} registro{{ page!.total === 1 ? '' : 's' }}
         </span>
 
-        <nav v-if="page!.totalPages > 1" aria-label="Paginação do histórico de mutações">
+        <nav
+          v-if="page!.totalPages > 1"
+          aria-label="Paginação do histórico de mutações"
+        >
           <button
             type="button"
             class="git-mutation-page-direction"
@@ -224,8 +244,16 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
             Anterior
           </button>
 
-          <template v-for="(target, index) in pageWindow" :key="`${target}-${index}`">
-            <span v-if="target === 'gap'" class="git-mutation-page-gap" aria-hidden="true">…</span>
+          <template
+            v-for="(target, index) in pageWindow"
+            :key="`${target}-${index}`"
+          >
+            <span
+              v-if="target === 'gap'"
+              class="git-mutation-page-gap"
+              aria-hidden="true"
+              >…</span
+            >
             <button
               v-else
               type="button"
@@ -417,7 +445,10 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
 .git-mutation-list-head,
 .git-mutation-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(420px, 2.4fr) minmax(210px, 0.9fr);
+  grid-template-columns: minmax(220px, 1fr) minmax(420px, 2.4fr) minmax(
+      210px,
+      0.9fr
+    );
   align-items: center;
   gap: var(--space-4);
 }
@@ -638,7 +669,10 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
 @media (max-width: 1080px) {
   .git-mutation-list-head,
   .git-mutation-row {
-    grid-template-columns: minmax(190px, 1fr) minmax(320px, 1.8fr) minmax(190px, 0.9fr);
+    grid-template-columns: minmax(190px, 1fr) minmax(320px, 1.8fr) minmax(
+        190px,
+        0.9fr
+      );
   }
 
   .git-mutation-footer {

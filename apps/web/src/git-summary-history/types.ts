@@ -23,7 +23,8 @@ export interface GitCommitHistoryResponse {
 export interface CommitDetailFile {
   path: string;
   previousPath?: string;
-  status: 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
+  status:
+    'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
   additions: number;
   deletions: number;
   binary: boolean;

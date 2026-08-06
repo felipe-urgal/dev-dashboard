@@ -56,7 +56,7 @@ async function runProviderCli(
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object'
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -73,12 +73,12 @@ function parseGithubLocation(url: string): GithubLocation | null {
     const parts = parsed.pathname.split('/').filter(Boolean);
     const number = Number(parts[3]);
     if (
-      parts.length < 4
-      || parts[2] !== 'pull'
-      || !parts[0]
-      || !parts[1]
-      || !Number.isInteger(number)
-      || number < 1
+      parts.length < 4 ||
+      parts[2] !== 'pull' ||
+      !parts[0] ||
+      !parts[1] ||
+      !Number.isInteger(number) ||
+      number < 1
     ) {
       return null;
     }
@@ -96,7 +96,9 @@ function parseGitlabLocation(url: string): GitlabLocation | null {
     const markerIndex = parsed.pathname.indexOf(marker);
     if (markerIndex <= 0) return null;
     const projectPath = parsed.pathname.slice(1, markerIndex);
-    const number = Number(parsed.pathname.slice(markerIndex + marker.length).split('/')[0]);
+    const number = Number(
+      parsed.pathname.slice(markerIndex + marker.length).split('/')[0],
+    );
     if (!projectPath || !Number.isInteger(number) || number < 1) return null;
     return { projectPath, number };
   } catch {
@@ -119,7 +121,11 @@ function githubCheckRunStatus(payload: unknown): GitPullRequestCiStatus | null {
     }
 
     const conclusion = run.conclusion;
-    if (conclusion === 'success' || conclusion === 'neutral' || conclusion === 'skipped') {
+    if (
+      conclusion === 'success' ||
+      conclusion === 'neutral' ||
+      conclusion === 'skipped'
+    ) {
       continue;
     }
     if (conclusion === null || conclusion === undefined) {
@@ -138,7 +144,8 @@ function githubCommitStatus(payload: unknown): GitPullRequestCiStatus | null {
   if (statuses.length === 0) return null;
   if (record?.state === 'success') return 'success';
   if (record?.state === 'pending') return 'pending';
-  if (record?.state === 'failure' || record?.state === 'error') return 'failure';
+  if (record?.state === 'failure' || record?.state === 'error')
+    return 'failure';
   return null;
 }
 
@@ -156,20 +163,20 @@ function gitlabPipelineStatus(payload: unknown): GitPullRequestCiStatus {
   const status = pipeline?.status;
   if (status === 'success' || status === 'skipped') return 'success';
   if (
-    status === 'created'
-    || status === 'waiting_for_resource'
-    || status === 'preparing'
-    || status === 'pending'
-    || status === 'running'
-    || status === 'scheduled'
+    status === 'created' ||
+    status === 'waiting_for_resource' ||
+    status === 'preparing' ||
+    status === 'pending' ||
+    status === 'running' ||
+    status === 'scheduled'
   ) {
     return 'pending';
   }
   if (
-    status === 'failed'
-    || status === 'canceled'
-    || status === 'cancelled'
-    || status === 'manual'
+    status === 'failed' ||
+    status === 'canceled' ||
+    status === 'cancelled' ||
+    status === 'manual'
   ) {
     return 'failure';
   }
@@ -200,9 +207,10 @@ export class GitPullRequestStatusService {
     const cached = this.cache.get(pullRequest.url);
     if (cached && cached.expiresAt > Date.now()) return cached.pullRequest;
 
-    const enriched = pullRequest.provider === 'github'
-      ? await this.enrichGithub(projectPath, pullRequest)
-      : await this.enrichGitlab(pullRequest);
+    const enriched =
+      pullRequest.provider === 'github'
+        ? await this.enrichGithub(projectPath, pullRequest)
+        : await this.enrichGitlab(pullRequest);
 
     this.cache.set(pullRequest.url, {
       expiresAt: Date.now() + this.cacheTtlMs,
@@ -225,28 +233,30 @@ export class GitPullRequestStatusService {
 
     const issueComments = asNonNegativeInteger(detailsRecord.comments);
     const reviewComments = asNonNegativeInteger(detailsRecord.review_comments);
-    const commentsCount = issueComments === undefined && reviewComments === undefined
-      ? undefined
-      : (issueComments ?? 0) + (reviewComments ?? 0);
+    const commentsCount =
+      issueComments === undefined && reviewComments === undefined
+        ? undefined
+        : (issueComments ?? 0) + (reviewComments ?? 0);
     const headSha = asRecord(detailsRecord.head)?.sha;
 
-    const [commitStatus, checkRuns, unresolvedConversationsCount] = await Promise.all([
-      typeof headSha === 'string'
-        ? this.githubJson(
-            projectPath,
-            `repos/${location.owner}/${location.repo}/commits/${headSha}/status`,
-          )
-        : Promise.resolve(null),
-      typeof headSha === 'string'
-        ? this.githubJson(
-            projectPath,
-            `repos/${location.owner}/${location.repo}/commits/${headSha}/check-runs`,
-          )
-        : Promise.resolve(null),
-      (reviewComments ?? 0) > 0
-        ? this.githubUnresolvedConversations(projectPath, location)
-        : Promise.resolve(0),
-    ]);
+    const [commitStatus, checkRuns, unresolvedConversationsCount] =
+      await Promise.all([
+        typeof headSha === 'string'
+          ? this.githubJson(
+              projectPath,
+              `repos/${location.owner}/${location.repo}/commits/${headSha}/status`,
+            )
+          : Promise.resolve(null),
+        typeof headSha === 'string'
+          ? this.githubJson(
+              projectPath,
+              `repos/${location.owner}/${location.repo}/commits/${headSha}/check-runs`,
+            )
+          : Promise.resolve(null),
+        (reviewComments ?? 0) > 0
+          ? this.githubUnresolvedConversations(projectPath, location)
+          : Promise.resolve(0),
+      ]);
 
     const ciStatus = combineCiStatuses([
       githubCommitStatus(commitStatus),
@@ -351,9 +361,12 @@ export class GitPullRequestStatusService {
       const repository = asRecord(data?.repository);
       const pullRequest = asRecord(repository?.pullRequest);
       const reviewThreads = asRecord(pullRequest?.reviewThreads);
-      const nodes = Array.isArray(reviewThreads?.nodes) ? reviewThreads.nodes : null;
+      const nodes = Array.isArray(reviewThreads?.nodes)
+        ? reviewThreads.nodes
+        : null;
       if (!nodes) return null;
-      return nodes.filter((node) => asRecord(node)?.isResolved === false).length;
+      return nodes.filter((node) => asRecord(node)?.isResolved === false)
+        .length;
     } catch {
       return null;
     }
@@ -372,7 +385,7 @@ export class GitPullRequestStatusService {
         signal: controller.signal,
       });
       if (!response.ok) return null;
-      return await response.json() as unknown;
+      return (await response.json()) as unknown;
     } catch {
       return null;
     } finally {

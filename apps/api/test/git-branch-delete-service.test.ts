@@ -18,7 +18,10 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return result.stdout.trim();
 }
 
-async function createRepository(): Promise<{ root: string; repository: string }> {
+async function createRepository(): Promise<{
+  root: string;
+  repository: string;
+}> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-delete-'));
   const repository = path.join(root, 'repository');
   await git(root, 'init', '--initial-branch=main', repository);
@@ -30,7 +33,10 @@ async function createRepository(): Promise<{ root: string; repository: string }>
   return { root, repository };
 }
 
-async function createCommittedBranch(repository: string, branch: string): Promise<void> {
+async function createCommittedBranch(
+  repository: string,
+  branch: string,
+): Promise<void> {
   await git(repository, 'switch', '--create', branch);
   const fileName = `${branch.replaceAll('/', '-')}.txt`;
   await writeFile(path.join(repository, fileName), `${branch}\n`);
@@ -43,10 +49,20 @@ test('removes a local branch after it has been integrated', async () => {
   try {
     await createCommittedBranch(repository, 'feature/merged');
     await git(repository, 'switch', 'main');
-    await git(repository, 'merge', '--no-ff', 'feature/merged', '-m', 'merge feature');
+    await git(
+      repository,
+      'merge',
+      '--no-ff',
+      'feature/merged',
+      '-m',
+      'merge feature',
+    );
 
     const service = new GitBranchDeleteService();
-    const confirmation = service.prepareConfirmation('project-1', 'feature/merged');
+    const confirmation = service.prepareConfirmation(
+      'project-1',
+      'feature/merged',
+    );
     const result = await service.deleteLocalBranch(
       repository,
       'project-1',
@@ -55,7 +71,10 @@ test('removes a local branch after it has been integrated', async () => {
     );
 
     assert.equal(result.branch, 'feature/merged');
-    assert.equal(await git(repository, 'branch', '--list', 'feature/merged'), '');
+    assert.equal(
+      await git(repository, 'branch', '--list', 'feature/merged'),
+      '',
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -66,15 +85,19 @@ test('rejects deleting the currently selected branch', async () => {
   try {
     await createCommittedBranch(repository, 'feature/current');
     const service = new GitBranchDeleteService();
-    const confirmation = service.prepareConfirmation('project-1', 'feature/current');
+    const confirmation = service.prepareConfirmation(
+      'project-1',
+      'feature/current',
+    );
 
     await assert.rejects(
-      () => service.deleteLocalBranch(
-        repository,
-        'project-1',
-        'feature/current',
-        confirmation.token,
-      ),
+      () =>
+        service.deleteLocalBranch(
+          repository,
+          'project-1',
+          'feature/current',
+          confirmation.token,
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchDeleteError);
         assert.equal(error.code, 'GIT_BRANCH_CURRENT');
@@ -94,12 +117,13 @@ test('protects main even when another branch is selected', async () => {
     const confirmation = service.prepareConfirmation('project-1', 'main');
 
     await assert.rejects(
-      () => service.deleteLocalBranch(
-        repository,
-        'project-1',
-        'main',
-        confirmation.token,
-      ),
+      () =>
+        service.deleteLocalBranch(
+          repository,
+          'project-1',
+          'main',
+          confirmation.token,
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchDeleteError);
         assert.equal(error.code, 'GIT_BRANCH_PROTECTED');
@@ -117,7 +141,10 @@ test('remove uma branch mesmo quando existem commits não integrados', async () 
     await createCommittedBranch(repository, 'feature/unmerged');
     await git(repository, 'switch', 'main');
     const service = new GitBranchDeleteService();
-    const confirmation = service.prepareConfirmation('project-1', 'feature/unmerged');
+    const confirmation = service.prepareConfirmation(
+      'project-1',
+      'feature/unmerged',
+    );
 
     const result = await service.deleteLocalBranch(
       repository,

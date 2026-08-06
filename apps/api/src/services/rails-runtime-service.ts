@@ -30,8 +30,7 @@ const WORKER_PROCESS_KIND: Record<RailsWorkerId, WorkerKind> = {
 };
 
 export type RailsWorkerErrorCode =
-  | 'RAILS_WORKER_UNSUPPORTED'
-  | 'RAILS_WORKER_RESTART_UNSUPPORTED';
+  'RAILS_WORKER_UNSUPPORTED' | 'RAILS_WORKER_RESTART_UNSUPPORTED';
 
 export class RailsWorkerError extends Error {
   public constructor(
@@ -48,10 +47,7 @@ async function gemfileContains(
   needle: string,
 ): Promise<boolean> {
   try {
-    const contents = await readFile(
-      path.join(projectPath, 'Gemfile'),
-      'utf8',
-    );
+    const contents = await readFile(path.join(projectPath, 'Gemfile'), 'utf8');
     return contents.includes(needle);
   } catch {
     return false;
@@ -87,11 +83,7 @@ async function detectSidekiq(project: Project): Promise<boolean> {
 
 async function detectWebpack(project: Project): Promise<boolean> {
   if (project.type !== 'rails') return false;
-  if (
-    await pathExists(
-      path.join(project.path, 'bin', 'webpack-dev-server'),
-    )
-  ) {
+  if (await pathExists(path.join(project.path, 'bin', 'webpack-dev-server'))) {
     return true;
   }
   if (await packageJsonHasDependency(project.path, 'webpack-dev-server')) {

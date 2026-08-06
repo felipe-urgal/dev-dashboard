@@ -205,18 +205,10 @@ const {
       </div>
     </div>
 
-    <p
-      v-if="referenceErrorMessage"
-      class="activity-error"
-      role="alert"
-    >
+    <p v-if="referenceErrorMessage" class="activity-error" role="alert">
       {{ referenceErrorMessage }}
     </p>
-    <p
-      v-if="processesErrorMessage"
-      class="activity-error"
-      role="alert"
-    >
+    <p v-if="processesErrorMessage" class="activity-error" role="alert">
       {{ processesErrorMessage }}
     </p>
 
@@ -237,9 +229,7 @@ const {
 
     <div
       v-else-if="
-        !hasVisibleItems &&
-        !processesErrorMessage &&
-        !referenceErrorMessage
+        !hasVisibleItems && !processesErrorMessage && !referenceErrorMessage
       "
       class="activity-empty"
       role="status"
@@ -270,18 +260,14 @@ const {
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="process in visibleItems"
-            :key="process.id"
-          >
+          <tr v-for="process in visibleItems" :key="process.id">
             <td data-label="Processo">
               <RouterLink
                 :to="processDetailPath(process)"
                 class="processes-table-title"
               >
                 {{
-                  projectNameById.get(process.projectId) ??
-                  process.projectId
+                  projectNameById.get(process.projectId) ?? process.projectId
                 }}
               </RouterLink>
               <small>{{ process.id }}</small>
@@ -295,12 +281,8 @@ const {
               </span>
             </td>
             <td data-label="Identificação">
-              <span v-if="process.port">
-                porta {{ process.port }}
-              </span>
-              <span v-else-if="process.pid">
-                PID {{ process.pid }}
-              </span>
+              <span v-if="process.port"> porta {{ process.port }} </span>
+              <span v-else-if="process.pid"> PID {{ process.pid }} </span>
               <span v-else>—</span>
             </td>
             <td data-label="Duração">
@@ -312,9 +294,7 @@ const {
               }}
             </td>
             <td data-label="Estado">
-              <StatusBadge
-                :tone="processToneFor(process.status)"
-              >
+              <StatusBadge :tone="processToneFor(process.status)">
                 {{ processStatusLabel(process.status) }}
               </StatusBadge>
             </td>
@@ -323,8 +303,7 @@ const {
                 :to="processDetailPath(process)"
                 class="processes-open-button"
                 :aria-label="`Abrir detalhes de ${
-                  projectNameById.get(process.projectId) ??
-                  process.projectId
+                  projectNameById.get(process.projectId) ?? process.projectId
                 }`"
               >
                 <ArrowTopRightOnSquareIcon aria-hidden="true" />

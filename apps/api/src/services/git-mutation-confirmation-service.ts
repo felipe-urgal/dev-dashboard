@@ -16,7 +16,8 @@ import { randomBytes } from 'node:crypto';
  * emprestassem a mesma instância.
  */
 
-export type GitMutationConfirmationErrorCode = 'GIT_MUTATION_CONFIRMATION_REQUIRED';
+export type GitMutationConfirmationErrorCode =
+  'GIT_MUTATION_CONFIRMATION_REQUIRED';
 
 export class GitMutationConfirmationError extends Error {
   public constructor(
@@ -56,7 +57,13 @@ export class GitMutationConfirmationService {
     this.pruneExpired();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + this.ttlMs;
-    this.confirmations.set(token, { token, projectId, operationId, target, expiresAt });
+    this.confirmations.set(token, {
+      token,
+      projectId,
+      operationId,
+      target,
+      expiresAt,
+    });
     return { token, expiresAt: new Date(expiresAt).toISOString() };
   }
 
@@ -69,10 +76,10 @@ export class GitMutationConfirmationService {
     this.pruneExpired();
     const record = token ? this.confirmations.get(token) : undefined;
     if (
-      !record
-      || record.projectId !== projectId
-      || record.operationId !== operationId
-      || record.target !== target
+      !record ||
+      record.projectId !== projectId ||
+      record.operationId !== operationId ||
+      record.target !== target
     ) {
       throw new GitMutationConfirmationError(
         'GIT_MUTATION_CONFIRMATION_REQUIRED',

@@ -1,11 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  mkdtemp,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -34,10 +28,10 @@ test('lista ambientes Node e ignora arquivos locais e templates', async (context
     writeFile(path.join(root, '.env.production.example'), 'EXAMPLE=true\n'),
   ]);
 
-  assert.deepEqual(
-    await listNodeServerEnvironments(root),
-    ['development', 'staging'],
-  );
+  assert.deepEqual(await listNodeServerEnvironments(root), [
+    'development',
+    'staging',
+  ]);
 });
 
 test('copia o ambiente escolhido para .env.local com permissão restrita', async (context) => {
@@ -52,20 +46,14 @@ test('copia o ambiente escolhido para .env.local com permissão restrita', async
     'PUBLIC_API=https://staging.example\n',
   );
 
-  const selected = await prepareNodeServerEnvironment(
-    root,
-    'staging',
-  );
+  const selected = await prepareNodeServerEnvironment(root, 'staging');
 
   assert.equal(selected, 'staging');
   assert.equal(
     await readFile(path.join(root, '.env.local'), 'utf8'),
     'PUBLIC_API=https://staging.example\n',
   );
-  assert.equal(
-    (await stat(path.join(root, '.env.local'))).mode & 0o777,
-    0o600,
-  );
+  assert.equal((await stat(path.join(root, '.env.local'))).mode & 0o777, 0o600);
 });
 
 test('exige escolha quando existem ambientes e persiste a escolha por projeto', async (context) => {
@@ -76,10 +64,7 @@ test('exige escolha quando existem ambientes e persiste a escolha por projeto', 
   context.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
-  await writeFile(
-    path.join(root, '.env.development'),
-    'APP_ENV=development\n',
-  );
+  await writeFile(path.join(root, '.env.development'), 'APP_ENV=development\n');
 
   await assert.rejects(
     () => prepareNodeServerEnvironment(root),
@@ -93,8 +78,5 @@ test('exige escolha quando existem ambientes e persiste a escolha por projeto', 
     environment: 'development',
   });
   assert.equal(saved.environment, 'development');
-  assert.equal(
-    (await repository.find('project-a')).environment,
-    'development',
-  );
+  assert.equal((await repository.find('project-a')).environment, 'development');
 });

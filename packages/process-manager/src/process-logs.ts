@@ -32,11 +32,7 @@ export async function readManagedLog(
 
   const maxBytes = options.maxBytes ?? 65_536;
 
-  if (
-    !Number.isInteger(maxBytes) ||
-    maxBytes < 1 ||
-    maxBytes > 262_144
-  ) {
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 262_144) {
     throw new ProcessManagerError(
       'INVALID_LOG_LIMIT',
       'O limite do log deve estar entre 1 e 262144 bytes.',

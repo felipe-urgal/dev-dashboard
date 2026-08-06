@@ -9,7 +9,10 @@ export type DatabaseSnapshotErrorCode =
   | 'DATABASE_RESTORE_FAILED';
 
 export class DatabaseSnapshotError extends Error {
-  public constructor(public readonly code: DatabaseSnapshotErrorCode, message: string) {
+  public constructor(
+    public readonly code: DatabaseSnapshotErrorCode,
+    message: string,
+  ) {
     super(message);
     this.name = 'DatabaseSnapshotError';
   }

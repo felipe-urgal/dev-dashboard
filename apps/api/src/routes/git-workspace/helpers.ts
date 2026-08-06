@@ -45,7 +45,14 @@ export const remoteParamsSchema = {
 const gitCommitSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['hash', 'shortHash', 'subject', 'authorName', 'authorEmail', 'authoredAt'],
+  required: [
+    'hash',
+    'shortHash',
+    'subject',
+    'authorName',
+    'authorEmail',
+    'authoredAt',
+  ],
   properties: {
     hash: { type: 'string' },
     shortHash: { type: 'string' },
@@ -151,7 +158,10 @@ export const branchRemoteConfirmationResponseSchema = {
   },
 } as const;
 
-export function findProject(options: GitWorkspaceRouteOptions, projectId: string) {
+export function findProject(
+  options: GitWorkspaceRouteOptions,
+  projectId: string,
+) {
   const project = options.projectStore.findProject(projectId);
   if (!project) {
     throw new ApiError({
@@ -192,8 +202,9 @@ export function translateBranchError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível criar a branch local.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível criar a branch local.',
   });
 }

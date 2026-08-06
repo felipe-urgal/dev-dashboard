@@ -61,10 +61,12 @@ test('consulta o catálogo e abre somente o editor autorizado para o projeto', a
     editor: { id: 'vscode', name: 'Visual Studio Code' },
     opened: true,
   });
-  assert.deepEqual(launches, [{
-    command: '/bin/code',
-    projectPath: '/projetos/painel',
-  }]);
+  assert.deepEqual(launches, [
+    {
+      command: '/bin/code',
+      projectPath: '/projetos/painel',
+    },
+  ]);
 });
 
 test('não aceita projeto ausente nem identificador fora do catálogo', async (context) => {

@@ -254,17 +254,12 @@ async function mountPanel(args: MountArgs = {}) {
   const workspace = args.workspace ?? baseWorkspace;
   const diff = args.diff ?? baseDiff;
 
-  globalThis.fetch = (async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     const request: RequestRecord = {
       path: url.pathname,
       method: init?.method ?? 'GET',
-      ...(init?.body
-        ? { body: JSON.parse(String(init.body)) as unknown }
-        : {}),
+      ...(init?.body ? { body: JSON.parse(String(init.body)) as unknown } : {}),
     };
     requests.push(request);
 
@@ -276,16 +271,18 @@ async function mountPanel(args: MountArgs = {}) {
     }
     if (url.pathname.endsWith('/git/diff/file')) {
       const filePath = url.searchParams.get('path') ?? '';
-      const file = args.fileDiff?.(filePath) ?? {
-        path: filePath,
-        scope: 'combined',
-        status: 'modified',
-        binary: false,
-        content: '-const value = 1;\n+const value = 42;\n',
-        truncated: false,
-        masked: false,
-        redactionCount: 0,
-      } satisfies GitFileDiff;
+      const file =
+        args.fileDiff?.(filePath) ??
+        ({
+          path: filePath,
+          scope: 'combined',
+          status: 'modified',
+          binary: false,
+          content: '-const value = 1;\n+const value = 42;\n',
+          truncated: false,
+          masked: false,
+          redactionCount: 0,
+        } satisfies GitFileDiff);
       return jsonResponse({ file });
     }
     if (url.pathname.endsWith('/git/diff')) {
@@ -392,14 +389,17 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
     workspace: collaborativeWorkspace,
     handler: (request) => {
       if (request.path.endsWith('/git/mutations/confirmations')) {
-        return jsonResponse({
-          confirmation: {
-            token: 'p'.repeat(64),
-            operation: 'pull',
-            target: 'feature/git-ui',
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'p'.repeat(64),
+              operation: 'pull',
+              target: 'feature/git-ui',
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/pull')) {
         return jsonResponse({ branch: { branch: 'feature/git-ui' } });
@@ -420,9 +420,11 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
   await flushPromises();
   await flushPromises();
 
-  const confirmation = mounted.requests.find((request) =>
-    request.path.endsWith('/git/mutations/confirmations')
-      && (request.body as { operation?: string } | undefined)?.operation === 'pull',
+  const confirmation = mounted.requests.find(
+    (request) =>
+      request.path.endsWith('/git/mutations/confirmations') &&
+      (request.body as { operation?: string } | undefined)?.operation ===
+        'pull',
   );
   const pull = mounted.requests.find((request) =>
     request.path.endsWith('/git/pull'),
@@ -489,14 +491,17 @@ test('cria branch com prefixo pelo modal centralizado', async () => {
     handler: (request) => {
       if (request.path.endsWith('/git/mutations/confirmations')) {
         const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 't'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 't'.repeat(64),
+              operation: body.operation,
+              target: body.target,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/branches')) {
         const body = request.body as { name: string };
@@ -539,7 +544,8 @@ test('cria branch com prefixo pelo modal centralizado', async () => {
   assert.ok(confirmationIndex >= 0);
   assert.ok(mutationIndex > confirmationIndex);
   assert.equal(
-    (mounted.requests[mutationIndex]!.body as { confirmationToken: string }).confirmationToken,
+    (mounted.requests[mutationIndex]!.body as { confirmationToken: string })
+      .confirmationToken,
     't'.repeat(64),
   );
   assert.equal(
@@ -560,14 +566,17 @@ test('renomeia uma branch local pelo menu de ações', async () => {
           currentName: string;
           nextName: string;
         };
-        return jsonResponse({
-          confirmation: {
-            token: 'n'.repeat(64),
-            operation: 'rename-branch',
-            ...body,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'n'.repeat(64),
+              operation: 'rename-branch',
+              ...body,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/branches/rename')) {
         const body = request.body as { nextName: string };
@@ -596,9 +605,10 @@ test('renomeia uma branch local pelo menu de ações', async () => {
   await flushPromises();
   await flushPromises();
 
-  const mutation = mounted.requests.find((request) =>
-    request.path.endsWith('/git/branches/rename')
-    && !request.path.endsWith('/confirmations'),
+  const mutation = mounted.requests.find(
+    (request) =>
+      request.path.endsWith('/git/branches/rename') &&
+      !request.path.endsWith('/confirmations'),
   );
   assert.deepEqual(mutation?.body, {
     currentName: 'feature/git-ui',
@@ -628,14 +638,17 @@ test('remove uma branch local após confirmação digitada', async () => {
     },
     handler: (request) => {
       if (request.path.endsWith('/git/branches/delete/confirmations')) {
-        return jsonResponse({
-          confirmation: {
-            token: 'd'.repeat(64),
-            operation: 'delete-branch',
-            target: 'bugfix/old',
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'd'.repeat(64),
+              operation: 'delete-branch',
+              target: 'bugfix/old',
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/branches/delete')) {
         return jsonResponse({ branch: { branch: 'bugfix/old' } });
@@ -673,9 +686,10 @@ test('remove uma branch local após confirmação digitada', async () => {
   await flushPromises();
   await flushPromises();
 
-  const mutation = mounted.requests.find((request) =>
-    request.path.endsWith('/git/branches/delete')
-    && !request.path.endsWith('/confirmations'),
+  const mutation = mounted.requests.find(
+    (request) =>
+      request.path.endsWith('/git/branches/delete') &&
+      !request.path.endsWith('/confirmations'),
   );
   assert.deepEqual(mutation?.body, {
     branch: 'bugfix/old',
@@ -714,23 +728,29 @@ test('cria commit incluindo automaticamente alterações rastreadas', async () =
     handler: (request) => {
       if (request.path.endsWith('/git/mutations/confirmations')) {
         const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'c'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'c'.repeat(64),
+              operation: body.operation,
+              target: body.target,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/commit')) {
-        return jsonResponse({
-          commit: {
-            hash: '1'.repeat(40),
-            shortHash: '1111111',
-            subject: 'simplifica commit',
+        return jsonResponse(
+          {
+            commit: {
+              hash: '1'.repeat(40),
+              shortHash: '1111111',
+              subject: 'simplifica commit',
+            },
           },
-        }, 201);
+          201,
+        );
       }
       return undefined;
     },
@@ -775,23 +795,29 @@ test('altera o último commit pelo modo amend', async () => {
     handler: (request) => {
       if (request.path.endsWith('/git/mutations/confirmations')) {
         const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'a'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'a'.repeat(64),
+              operation: body.operation,
+              target: body.target,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/commit/amend')) {
-        return jsonResponse({
-          commit: {
-            hash: '2'.repeat(40),
-            shortHash: '2222222',
-            subject: 'mensagem corrigida',
+        return jsonResponse(
+          {
+            commit: {
+              hash: '2'.repeat(40),
+              shortHash: '2222222',
+              subject: 'mensagem corrigida',
+            },
           },
-        }, 201);
+          201,
+        );
       }
       return undefined;
     },
@@ -808,8 +834,10 @@ test('altera o último commit pelo modo amend', async () => {
   assert.ok(amendButton);
   await amendButton.trigger('click');
   assert.equal(
-    (mounted.wrapper.find('.git-commit-message textarea')
-      .element as HTMLTextAreaElement).value,
+    (
+      mounted.wrapper.find('.git-commit-message textarea')
+        .element as HTMLTextAreaElement
+    ).value,
     latestCommit.subject,
   );
   await mounted.wrapper
@@ -845,33 +873,46 @@ test('oferece reenvio com lease depois de alterar commit em branch publicada', a
     handler: (request) => {
       if (request.path.endsWith('/git/mutations/confirmations')) {
         const body = request.body as { operation: string; target: string };
-        return jsonResponse({
-          confirmation: {
-            token: 'a'.repeat(64),
-            operation: body.operation,
-            target: body.target,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'a'.repeat(64),
+              operation: body.operation,
+              target: body.target,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/commit/amend')) {
-        return jsonResponse({
-          commit: {
-            hash: '3'.repeat(40),
-            shortHash: '3333333',
-            subject: 'commit reescrito',
+        return jsonResponse(
+          {
+            commit: {
+              hash: '3'.repeat(40),
+              shortHash: '3333333',
+              subject: 'commit reescrito',
+            },
           },
-        }, 201);
+          201,
+        );
       }
-      if (request.path.endsWith('/git/branches/force-push-with-lease/confirmations')) {
-        return jsonResponse({
-          confirmation: {
-            token: 'l'.repeat(64),
-            operation: 'push',
-            target: `feature/git-ui::${'1'.repeat(40)}`,
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      if (
+        request.path.endsWith(
+          '/git/branches/force-push-with-lease/confirmations',
+        )
+      ) {
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'l'.repeat(64),
+              operation: 'push',
+              target: `feature/git-ui::${'1'.repeat(40)}`,
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/branches/force-push-with-lease')) {
         return jsonResponse({ branch: { branch: 'feature/git-ui' } });
@@ -890,7 +931,9 @@ test('oferece reenvio com lease depois de alterar commit em branch publicada', a
     .find((button) => button.text().includes('Alterar último commit'));
   assert.ok(amendButton);
   await amendButton.trigger('click');
-  await mounted.wrapper.find('.git-commit-message textarea').setValue('commit reescrito');
+  await mounted.wrapper
+    .find('.git-commit-message textarea')
+    .setValue('commit reescrito');
   await mounted.wrapper.find('.git-commit-card').trigger('submit');
   await flushPromises();
   await flushPromises();
@@ -907,16 +950,20 @@ test('oferece reenvio com lease depois de alterar commit em branch publicada', a
   const confirmation = mounted.requests.find((request) =>
     request.path.endsWith('/git/branches/force-push-with-lease/confirmations'),
   );
-  const forcePush = mounted.requests.find((request) =>
-    request.path.endsWith('/git/branches/force-push-with-lease')
-      && !request.path.endsWith('/confirmations'),
+  const forcePush = mounted.requests.find(
+    (request) =>
+      request.path.endsWith('/git/branches/force-push-with-lease') &&
+      !request.path.endsWith('/confirmations'),
   );
   assert.deepEqual(confirmation?.body, { branch: 'feature/git-ui' });
   assert.deepEqual(forcePush?.body, {
     branch: 'feature/git-ui',
     confirmationToken: 'l'.repeat(64),
   });
-  assert.match(mounted.wrapper.text(), /atualizada em origin\/feature\/git-ui com lease/);
+  assert.match(
+    mounted.wrapper.text(),
+    /atualizada em origin\/feature\/git-ui com lease/,
+  );
   assert.equal(mounted.wrapper.find('.git-force-push-notice').exists(), false);
 });
 
@@ -959,8 +1006,7 @@ test('renderiza a sincronização em uma única ação entre main e origin/main'
   );
   assert.equal(syncCard.findAll('.git-sync-button').length, 1);
   assert.ok(
-    syncCard.find('.git-sync-button').attributes('disabled')
-      !== undefined,
+    syncCard.find('.git-sync-button').attributes('disabled') !== undefined,
   );
   assert.doesNotMatch(
     syncCard.text(),
@@ -975,8 +1021,8 @@ test('avisa sobre alterações locais somente quando há sincronização pendent
   assert.match(mounted.wrapper.text(), /Alterações locais pendentes/);
   assert.doesNotMatch(mounted.wrapper.text(), /Tudo sincronizado/);
   assert.ok(
-    mounted.wrapper.find('.git-sync-button').attributes('disabled')
-      !== undefined,
+    mounted.wrapper.find('.git-sync-button').attributes('disabled') !==
+      undefined,
   );
 });
 
@@ -988,14 +1034,17 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
     overview: { ...baseOverview, clean: true, files: [] },
     handler: (request) => {
       if (request.path.endsWith('/git/sync/main/confirmations')) {
-        return jsonResponse({
-          confirmation: {
-            token: 'p'.repeat(64),
-            reference: 'upstream/main',
-            strategy: 'merge',
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        return jsonResponse(
+          {
+            confirmation: {
+              token: 'p'.repeat(64),
+              reference: 'upstream/main',
+              strategy: 'merge',
+              expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            },
           },
-        }, 201);
+          201,
+        );
       }
       if (request.path.endsWith('/git/sync/main')) {
         return jsonResponse({
@@ -1017,7 +1066,9 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
     globalThis.confirm = originalConfirm;
   };
 
-  await mounted.wrapper.find('.git-sync-main-card .git-sync-button').trigger('click');
+  await mounted.wrapper
+    .find('.git-sync-main-card .git-sync-button')
+    .trigger('click');
   await flushPromises();
   await flushPromises();
 
@@ -1025,9 +1076,9 @@ test('sincroniza a main em uma única mutação confirmada', async () => {
   const confirmationIndex = requestPaths.findIndex((path) =>
     path.endsWith('/git/sync/main/confirmations'),
   );
-  const mutationIndex = requestPaths.findIndex((path) =>
-    path.endsWith('/git/sync/main')
-    && !path.endsWith('/confirmations'),
+  const mutationIndex = requestPaths.findIndex(
+    (path) =>
+      path.endsWith('/git/sync/main') && !path.endsWith('/confirmations'),
   );
   assert.ok(confirmationIndex >= 0);
   assert.ok(mutationIndex > confirmationIndex);

@@ -11,14 +11,16 @@ afterEach(() => {
 
 test('fecha mensagens automaticamente e reinicia o prazo quando mudam', async () => {
   vi.useFakeTimers();
-  const wrapper = mount(defineComponent({
-    setup() {
-      const message = ref('');
-      useAutoDismiss(message, '', 1_000);
-      return { message };
-    },
-    template: '<p>{{ message }}</p>',
-  }));
+  const wrapper = mount(
+    defineComponent({
+      setup() {
+        const message = ref('');
+        useAutoDismiss(message, '', 1_000);
+        return { message };
+      },
+      template: '<p>{{ message }}</p>',
+    }),
+  );
 
   wrapper.vm.message = 'Primeiro alerta';
   await vi.advanceTimersByTimeAsync(750);

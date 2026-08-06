@@ -31,10 +31,7 @@ test('redireciona somente o histórico do resumo para os commits exclusivos da b
 
 test('a página Vue de branches usa os tokens dos temas claro e escuro', async () => {
   const css = await readFile(
-    path.resolve(
-      process.cwd(),
-      'src/components/ProjectGitBranchesPage.css',
-    ),
+    path.resolve(process.cwd(), 'src/components/ProjectGitBranchesPage.css'),
     'utf8',
   );
 

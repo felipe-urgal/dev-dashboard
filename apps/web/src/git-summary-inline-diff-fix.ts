@@ -1,7 +1,9 @@
 import { enhance } from './git-summary-inline-diff-fix/enhance';
 
 function scan(): void {
-  document.querySelectorAll<HTMLElement>('.git-summary-commit-detail').forEach(enhance);
+  document
+    .querySelectorAll<HTMLElement>('.git-summary-commit-detail')
+    .forEach(enhance);
 }
 
 export function installGitSummaryInlineDiffFix(): void {
@@ -19,5 +21,8 @@ export function installGitSummaryInlineDiffFix(): void {
   };
 
   const observer = new MutationObserver(scheduleScan);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

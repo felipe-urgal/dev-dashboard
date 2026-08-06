@@ -220,8 +220,8 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     );
 
     if (
-      observation !== undefined
-      && (acceptObservedExit || !isManagedProcessAlive(pid))
+      observation !== undefined &&
+      (acceptObservedExit || !isManagedProcessAlive(pid))
     ) {
       return true;
     }

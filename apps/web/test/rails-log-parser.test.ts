@@ -21,7 +21,9 @@ const railsLog = [
 
 describe('rails-log-parser', () => {
   it('remove sequências ANSI sem apagar o conteúdo', () => {
-    expect(stripAnsiSequences('\u001b[1m\u001b[36mUser Load\u001b[0m')).toBe('User Load');
+    expect(stripAnsiSequences('\u001b[1m\u001b[36mUser Load\u001b[0m')).toBe(
+      'User Load',
+    );
   });
 
   it('agrupa uma requisição e extrai seus indicadores', () => {
@@ -45,15 +47,19 @@ describe('rails-log-parser', () => {
     expect(group.sqlLines).toHaveLength(1);
     expect(group.renderLines).toHaveLength(2);
     expect(group.sourceLines).toHaveLength(1);
-    expect(group.lines.some((line) => line.text.includes('\u001b'))).toBe(false);
+    expect(group.lines.some((line) => line.text.includes('\u001b'))).toBe(
+      false,
+    );
   });
 
   it('resume os requests por faixa de status', () => {
     const failedRequestId = '11f65a70-6cd9-44b4-832a-8b1fd8b898d6';
-    const parsed = parseRailsLog([
-      railsLog,
-      `[${failedRequestId}] Completed 500 Internal Server Error in 12ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)`,
-    ].join('\n'));
+    const parsed = parseRailsLog(
+      [
+        railsLog,
+        `[${failedRequestId}] Completed 500 Internal Server Error in 12ms (ActiveRecord: 0.0ms (0 queries, 0 cached) | GC: 0.0ms)`,
+      ].join('\n'),
+    );
 
     expect(parsed.summary.totalRequests).toBe(2);
     expect(parsed.summary.successful).toBe(1);

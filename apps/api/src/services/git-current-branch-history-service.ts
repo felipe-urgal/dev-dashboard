@@ -41,7 +41,10 @@ export class CurrentBranchHistoryError extends Error {
   }
 }
 
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -67,7 +70,10 @@ async function requireRepository(projectPath: string): Promise<void> {
   }
 }
 
-async function referenceExists(projectPath: string, reference: string): Promise<boolean> {
+async function referenceExists(
+  projectPath: string,
+  reference: string,
+): Promise<boolean> {
   try {
     await runGit(projectPath, [
       'rev-parse',
@@ -87,12 +93,14 @@ async function remoteDefaultReference(
   remote: string,
 ): Promise<string | undefined> {
   try {
-    const value = (await runGit(projectPath, [
-      'symbolic-ref',
-      '--quiet',
-      '--short',
-      `refs/remotes/${remote}/HEAD`,
-    ])).trim();
+    const value = (
+      await runGit(projectPath, [
+        'symbolic-ref',
+        '--quiet',
+        '--short',
+        `refs/remotes/${remote}/HEAD`,
+      ])
+    ).trim();
     return value || undefined;
   } catch {
     return undefined;
@@ -136,13 +144,15 @@ function filterBySearch(
 ): CurrentBranchCommitSummary[] {
   const query = normalized(search);
   if (!query) return [...commits];
-  return commits.filter((commit) => [
-    commit.hash,
-    commit.shortHash,
-    commit.subject,
-    commit.authorName,
-    commit.authorEmail,
-  ].some((value) => normalized(value).includes(query)));
+  return commits.filter((commit) =>
+    [
+      commit.hash,
+      commit.shortHash,
+      commit.subject,
+      commit.authorName,
+      commit.authorEmail,
+    ].some((value) => normalized(value).includes(query)),
+  );
 }
 
 function branchNameFromReference(reference: string): string {
@@ -186,16 +196,14 @@ async function resolveExclusiveRevision(
   for (const candidate of candidates) {
     if (visited.has(candidate)) continue;
     visited.add(candidate);
-    if (candidate === branch || branchNameFromReference(candidate) === branch) continue;
-    if (!await referenceExists(projectPath, candidate)) continue;
+    if (candidate === branch || branchNameFromReference(candidate) === branch)
+      continue;
+    if (!(await referenceExists(projectPath, candidate))) continue;
 
     try {
-      const mergeBase = (await runGit(projectPath, [
-        'merge-base',
-        '--',
-        'HEAD',
-        candidate,
-      ])).trim();
+      const mergeBase = (
+        await runGit(projectPath, ['merge-base', '--', 'HEAD', candidate])
+      ).trim();
       if (mergeBase) return `${mergeBase}..HEAD`;
     } catch {
       // Tenta a próxima referência principal disponível.
@@ -212,11 +220,15 @@ export async function listCurrentBranchOnlyCommits(
   await requireRepository(projectPath);
 
   const page = Math.max(1, Math.floor(options.page ?? 1));
-  const pageSize = Math.min(10, Math.max(1, Math.floor(options.pageSize ?? 10)));
-  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim()
-    || 'HEAD destacado';
+  const pageSize = Math.min(
+    10,
+    Math.max(1, Math.floor(options.pageSize ?? 10)),
+  );
+  const branch =
+    (await runGit(projectPath, ['branch', '--show-current'])).trim() ||
+    'HEAD destacado';
 
-  if (!await referenceExists(projectPath, 'HEAD')) {
+  if (!(await referenceExists(projectPath, 'HEAD'))) {
     return {
       branch,
       page: 1,
@@ -255,10 +267,11 @@ export async function listCurrentBranchOnlyCommits(
     };
   }
 
-  const total = Number.parseInt(
-    (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
-    10,
-  ) || 0;
+  const total =
+    Number.parseInt(
+      (await runGit(projectPath, ['rev-list', '--count', revision])).trim(),
+      10,
+    ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const effectivePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
   const skip = (effectivePage - 1) * pageSize;

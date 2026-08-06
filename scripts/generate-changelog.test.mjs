@@ -13,12 +13,19 @@ const SEP = '\x1f';
 const REC = '\x1e';
 
 function rawLog(entries) {
-  return entries.map(({ hash, date, subject }) => `${hash}${SEP}${date}${SEP}${subject}`).join(REC) + REC;
+  return (
+    entries
+      .map(({ hash, date, subject }) => `${hash}${SEP}${date}${SEP}${subject}`)
+      .join(REC) + REC
+  );
 }
 
 test('extractTaskLabel reconhece "Task NNN" e "Tasks NNN" em qualquer posição', () => {
   assert.equal(extractTaskLabel('Task 090: cache de detecção'), 'Task 090');
-  assert.equal(extractTaskLabel('Conclui Task 077 e melhora navegação'), 'Task 077');
+  assert.equal(
+    extractTaskLabel('Conclui Task 077 e melhora navegação'),
+    'Task 077',
+  );
   assert.equal(extractTaskLabel('Tasks 073–074 — skeletons'), 'Task 073');
   assert.equal(extractTaskLabel('Corrige bug sem task nenhuma'), null);
 });
@@ -71,12 +78,19 @@ test('groupCommits reabre um grupo por task quando a mesma task volta a aparecer
 
 test('formatChangelog gera seções com cabeçalho de task/data e link de PR quando disponível', () => {
   const groups = groupCommits([
-    { hash: 'abcdef1234567', date: '2026-08-04', subject: 'Task 090: cache (#182)' },
+    {
+      hash: 'abcdef1234567',
+      date: '2026-08-04',
+      subject: 'Task 090: cache (#182)',
+    },
     { hash: '2222222222222', date: '2026-08-03', subject: 'Commit sem PR' },
   ]);
   const output = formatChangelog(groups, { header: '' });
   assert.match(output, /### Task 090/);
-  assert.match(output, /- Task 090: cache \(\[#182\]\(\.\.\/\.\.\/pull\/182\)\)/);
+  assert.match(
+    output,
+    /- Task 090: cache \(\[#182\]\(\.\.\/\.\.\/pull\/182\)\)/,
+  );
   assert.match(output, /### 2026-08-03/);
   assert.match(output, /- Commit sem PR \(`2222222`\)/);
 });

@@ -1,6 +1,4 @@
-import {
-  createApp,
-} from 'vue';
+import { createApp } from 'vue';
 
 import App from './App.vue';
 import { router } from './router';
@@ -58,7 +56,8 @@ installGitSummaryInlineDiffFix();
 installLogVisualEnhancer();
 installTestLogAutoFollow();
 installTestLogToneEnhancer();
-const restoreTestLogInspectorMutationObserver = installTestLogInspectorMutationGuard();
+const restoreTestLogInspectorMutationObserver =
+  installTestLogInspectorMutationGuard();
 try {
   installTestLogInspector();
 } finally {
@@ -66,6 +65,4 @@ try {
 }
 installLogDetailEnhancer();
 
-createApp(App)
-  .use(router)
-  .mount('#app');
+createApp(App).use(router).mount('#app');

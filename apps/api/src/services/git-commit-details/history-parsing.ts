@@ -1,7 +1,14 @@
-import { FIELD_SEPARATOR, HISTORY_REFERENCE_PATTERN, RECORD_SEPARATOR } from './constants.js';
+import {
+  FIELD_SEPARATOR,
+  HISTORY_REFERENCE_PATTERN,
+  RECORD_SEPARATOR,
+} from './constants.js';
 import { GitCommitDetailsError } from './errors.js';
 import { runGit } from './run.js';
-import type { GitCommitHistoryEntry, GitCommitHistoryFilters } from './types.js';
+import type {
+  GitCommitHistoryEntry,
+  GitCommitHistoryFilters,
+} from './types.js';
 
 export function parseHistory(output: string): GitCommitHistoryEntry[] {
   return output
@@ -59,9 +66,9 @@ export function filterHistory(
 
 export function hasHistoryFilters(filters: GitCommitHistoryFilters): boolean {
   return Boolean(
-    filters.search?.trim()
-    || filters.author?.trim()
-    || filters.kind && filters.kind !== 'all',
+    filters.search?.trim() ||
+    filters.author?.trim() ||
+    (filters.kind && filters.kind !== 'all'),
   );
 }
 
@@ -69,7 +76,9 @@ export async function resolveHistoryReference(
   projectPath: string,
   requestedReference?: string,
 ): Promise<{ label: string; revision: string; exists: boolean }> {
-  const currentBranch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
+  const currentBranch = (
+    await runGit(projectPath, ['branch', '--show-current'])
+  ).trim();
   const requested = requestedReference?.trim() ?? '';
   const revision = requested || 'HEAD';
   const label = requested || currentBranch || 'HEAD destacado';

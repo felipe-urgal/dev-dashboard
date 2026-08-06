@@ -1,19 +1,20 @@
 export {
   LocalTokenStore,
   LocalTokenStoreError,
-  secureTokenEqual
-} from "./local-token-store.js";
+  secureTokenEqual,
+} from './local-token-store.js';
 
-export type {
-  LocalTokenStoreErrorCode
-} from "./local-token-store.js";
+export type { LocalTokenStoreErrorCode } from './local-token-store.js';
 
 export {
   WorkspaceRepository,
-  WorkspaceRepositoryError
-} from "./workspace-repository.js";
+  WorkspaceRepositoryError,
+} from './workspace-repository.js';
 
-export { RetentionSettingsRepository, RETENTION_SETTINGS_LIMITS } from './retention-settings-repository.js';
+export {
+  RetentionSettingsRepository,
+  RETENTION_SETTINGS_LIMITS,
+} from './retention-settings-repository.js';
 
 export {
   ProjectFavoriteRepository,
@@ -25,9 +26,7 @@ export {
   PROJECT_RECENT_LIMITS,
 } from './project-recent-repository.js';
 
-export type {
-  ProjectRecentAccess,
-} from './project-recent-repository.js';
+export type { ProjectRecentAccess } from './project-recent-repository.js';
 
 export {
   EnvironmentProfileRepository,
@@ -38,5 +37,5 @@ export {
 
 export type {
   CreateWorkspaceInput,
-  WorkspaceRepositoryErrorCode
-} from "./workspace-repository.js";
+  WorkspaceRepositoryErrorCode,
+} from './workspace-repository.js';

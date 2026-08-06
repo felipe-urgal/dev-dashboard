@@ -6,13 +6,7 @@ import {
   PauseCircleIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import {
@@ -30,17 +24,13 @@ const open = ref(false);
 const now = ref(Date.now());
 let relativeTimeTimer: number | undefined;
 
-const {
-  notices,
-  unreadCount,
-  markRead,
-  markAllRead,
-  dismiss,
-  clearAll,
-} = noticeCenterStore;
+const { notices, unreadCount, markRead, markAllRead, dismiss, clearAll } =
+  noticeCenterStore;
 
 const bellLabel = computed(() =>
-  unreadCount.value === 0 ? 'Notificações' : `${unreadCount.value} notificação(ões) não lida(s)`,
+  unreadCount.value === 0
+    ? 'Notificações'
+    : `${unreadCount.value} notificação(ões) não lida(s)`,
 );
 
 const originLabels: Record<NoticeOrigin, string> = {
@@ -85,8 +75,10 @@ function relativeTime(createdAt: number): string {
   const elapsed = Math.max(0, now.value - createdAt);
 
   if (elapsed < 60_000) return 'agora';
-  if (elapsed < 3_600_000) return `há ${Math.max(1, Math.floor(elapsed / 60_000))} min`;
-  if (elapsed < 86_400_000) return `há ${Math.max(1, Math.floor(elapsed / 3_600_000))} h`;
+  if (elapsed < 3_600_000)
+    return `há ${Math.max(1, Math.floor(elapsed / 60_000))} min`;
+  if (elapsed < 86_400_000)
+    return `há ${Math.max(1, Math.floor(elapsed / 3_600_000))} h`;
   return `há ${Math.max(1, Math.floor(elapsed / 86_400_000))} d`;
 }
 
@@ -190,7 +182,11 @@ onBeforeUnmount(() => {
       <header class="notice-panel-header">
         <div class="notice-panel-heading">
           <h2 id="notice-panel-title">Notificações</h2>
-          <span v-if="unreadCount > 0" class="notice-panel-count" :aria-label="`${unreadCount} não lidas`">
+          <span
+            v-if="unreadCount > 0"
+            class="notice-panel-count"
+            :aria-label="`${unreadCount} não lidas`"
+          >
             {{ unreadCount }}
           </span>
         </div>
@@ -208,7 +204,10 @@ onBeforeUnmount(() => {
         <div v-if="notices.length === 0" class="notice-empty">
           <BellIcon aria-hidden="true" />
           <p>Nenhuma notificação no momento.</p>
-          <span>Conclusões de testes, scripts, builds e servidores aparecerão aqui.</span>
+          <span
+            >Conclusões de testes, scripts, builds e servidores aparecerão
+            aqui.</span
+          >
         </div>
 
         <ul v-else role="list" class="notice-list">
@@ -221,21 +220,39 @@ onBeforeUnmount(() => {
               { 'notice-item-unread': !notice.read },
             ]"
           >
-            <span class="notice-status-icon" :class="`notice-status-${notice.outcome}`">
-              <CheckCircleIcon v-if="notice.outcome === 'succeeded'" aria-hidden="true" />
-              <ExclamationCircleIcon v-else-if="notice.outcome === 'failed'" aria-hidden="true" />
+            <span
+              class="notice-status-icon"
+              :class="`notice-status-${notice.outcome}`"
+            >
+              <CheckCircleIcon
+                v-if="notice.outcome === 'succeeded'"
+                aria-hidden="true"
+              />
+              <ExclamationCircleIcon
+                v-else-if="notice.outcome === 'failed'"
+                aria-hidden="true"
+              />
               <PauseCircleIcon v-else aria-hidden="true" />
             </span>
 
-            <button type="button" class="notice-item-body" @click="selectNotice(notice)">
+            <button
+              type="button"
+              class="notice-item-body"
+              @click="selectNotice(notice)"
+            >
               <span class="notice-item-overline">
                 <span>{{ originLabels[notice.origin] }}</span>
-                <time :datetime="new Date(notice.createdAt).toISOString()" :title="formatAbsoluteTime(notice.createdAt)">
+                <time
+                  :datetime="new Date(notice.createdAt).toISOString()"
+                  :title="formatAbsoluteTime(notice.createdAt)"
+                >
                   {{ relativeTime(notice.createdAt) }}
                 </time>
               </span>
               <strong>{{ noticeTitle(notice) }}</strong>
-              <span class="notice-item-meta">{{ notice.projectName }} · {{ notice.label }}</span>
+              <span class="notice-item-meta"
+                >{{ notice.projectName }} · {{ notice.label }}</span
+              >
             </button>
 
             <button
@@ -251,7 +268,11 @@ onBeforeUnmount(() => {
       </section>
 
       <footer class="notice-panel-footer">
-        <button type="button" class="notice-activity-link" @click="openActivity">
+        <button
+          type="button"
+          class="notice-activity-link"
+          @click="openActivity"
+        >
           Abrir atividade
         </button>
         <button

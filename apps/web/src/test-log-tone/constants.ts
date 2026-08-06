@@ -16,4 +16,5 @@ export const TEST_LOG_ROW_TONE_CLASSES = [
 ] as const;
 
 export const RSPEC_PROGRESS_PATTERN = /^[.·•*EFSPX]+$/i;
-export const TEST_FILE_PATTERN = /(?:^|\s)(?:spec|test|tests|__tests__)\/[\w./@-]+|[\w./@-]+(?:\.spec|\.test|_spec|_test)\.(?:[cm]?[jt]sx?|rb|py)\b/i;
+export const TEST_FILE_PATTERN =
+  /(?:^|\s)(?:spec|test|tests|__tests__)\/[\w./@-]+|[\w./@-]+(?:\.spec|\.test|_spec|_test)\.(?:[cm]?[jt]sx?|rb|py)\b/i;

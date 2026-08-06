@@ -220,7 +220,10 @@ async function resolveExistingPath(
     );
   }
 
-  const candidate = path.resolve(root, ...normalized.split('/').filter(Boolean));
+  const candidate = path.resolve(
+    root,
+    ...normalized.split('/').filter(Boolean),
+  );
   let canonical: string;
   try {
     canonical = await realpath(candidate);
@@ -576,7 +579,9 @@ export class ProjectFileService {
         const lines = file.content.split(/\r?\n/);
         for (let index = 0; index < lines.length; index += 1) {
           const line = lines[index] ?? '';
-          const column = line.toLocaleLowerCase('pt-BR').indexOf(normalizedQuery);
+          const column = line
+            .toLocaleLowerCase('pt-BR')
+            .indexOf(normalizedQuery);
           if (column < 0) continue;
           items.push({
             path: file.path,

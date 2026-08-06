@@ -6,7 +6,9 @@ import type {
 } from '@dev-dashboard/contracts';
 
 function readOption(options: string, name: string): string | undefined {
-  const expression = new RegExp(`(?:^|,\\s*)${name}:\\s*(.+?)(?=,\\s*[a-zA-Z_]+:|$)`);
+  const expression = new RegExp(
+    `(?:^|,\\s*)${name}:\\s*(.+?)(?=,\\s*[a-zA-Z_]+:|$)`,
+  );
   return options.match(expression)?.[1]?.trim();
 }
 
@@ -31,7 +33,9 @@ function singularize(table: string): string {
 }
 
 function parseQuotedList(value: string): string[] {
-  return [...value.matchAll(/["']([^"']+)["']/g)].map((match) => match[1] ?? '').filter(Boolean);
+  return [...value.matchAll(/["']([^"']+)["']/g)]
+    .map((match) => match[1] ?? '')
+    .filter(Boolean);
 }
 
 export function parseSchema(source: string): RailsSchemaTable[] {
@@ -40,13 +44,20 @@ export function parseSchema(source: string): RailsSchemaTable[] {
   let current: RailsSchemaTable | null = null;
 
   for (const line of source.split(/\r?\n/)) {
-    const createMatch = line.match(/^\s*create_table\s+["']([^"']+)["'](.*?)do\s+\|t\|\s*$/);
+    const createMatch = line.match(
+      /^\s*create_table\s+["']([^"']+)["'](.*?)do\s+\|t\|\s*$/,
+    );
     if (createMatch) {
       const [, tableName = '', options = ''] = createMatch;
       current = { name: tableName, columns: [], indexes: [], foreignKeys: [] };
       if (!/\bid:\s*false\b/.test(options)) {
         const idType = readStringOption(options, 'id') ?? 'bigint';
-        current.columns.push({ name: 'id', type: idType, nullable: false, primaryKey: true });
+        current.columns.push({
+          name: 'id',
+          type: idType,
+          nullable: false,
+          primaryKey: true,
+        });
       }
       tables.push(current);
       continue;
@@ -94,13 +105,16 @@ export function parseSchema(source: string): RailsSchemaTable[] {
       }
     }
 
-    const foreignKeyMatch = line.match(/^\s*add_foreign_key\s+["']([^"']+)["']\s*,\s*["']([^"']+)["'](.*)$/);
+    const foreignKeyMatch = line.match(
+      /^\s*add_foreign_key\s+["']([^"']+)["']\s*,\s*["']([^"']+)["'](.*)$/,
+    );
     if (foreignKeyMatch) {
       const [, fromTable = '', toTable = '', options = ''] = foreignKeyMatch;
       const relation: RailsSchemaForeignKey = {
         fromTable,
         toTable,
-        column: readStringOption(options, 'column') ?? `${singularize(toTable)}_id`,
+        column:
+          readStringOption(options, 'column') ?? `${singularize(toTable)}_id`,
       };
       const primaryKey = readStringOption(options, 'primary_key');
       const name = readStringOption(options, 'name');
@@ -111,7 +125,9 @@ export function parseSchema(source: string): RailsSchemaTable[] {
   }
 
   for (const relation of foreignKeys) {
-    tables.find((table) => table.name === relation.fromTable)?.foreignKeys.push(relation);
+    tables
+      .find((table) => table.name === relation.fromTable)
+      ?.foreignKeys.push(relation);
   }
 
   return tables;

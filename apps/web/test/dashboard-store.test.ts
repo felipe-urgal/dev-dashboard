@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-import type {
-  Project,
-  Workspace,
-} from '@dev-dashboard/contracts';
+import type { Project, Workspace } from '@dev-dashboard/contracts';
 
 import { ApiRequestError } from '../src/api.js';
 import {
@@ -49,9 +46,7 @@ function scanResult(projects: Project[]) {
   };
 }
 
-function createApi(
-  overrides: Partial<DashboardApi> = {},
-): DashboardApi {
+function createApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
   return {
     createWorkspace: async () => workspace,
     deleteWorkspace: async () => undefined,
@@ -68,10 +63,7 @@ function createApi(
       ...project,
       favorite,
     }),
-    updateWorkspaceRecursiveScan: async (
-      workspaceId,
-      recursiveScan,
-    ) => ({
+    updateWorkspaceRecursiveScan: async (workspaceId, recursiveScan) => ({
       ...workspace,
       id: workspaceId,
       recursiveScan,
@@ -134,10 +126,7 @@ test('dashboard store evicts projects removed by a rescan', async () => {
 
   await store.ensureDashboardLoaded();
 
-  assert.deepEqual(
-    await store.ensureProject(project.id),
-    project,
-  );
+  assert.deepEqual(await store.ensureProject(project.id), project);
 
   await store.scanSelectedWorkspace();
 
@@ -246,9 +235,8 @@ test('dashboard store mantém o favorito consistente em todos os workspaces', as
     createApi({
       fetchWorkspaces: async () => [workspace, secondWorkspace],
       scanWorkspace: async (workspaceId) => {
-        const targetWorkspace = workspaceId === workspace.id
-          ? workspace
-          : secondWorkspace;
+        const targetWorkspace =
+          workspaceId === workspace.id ? workspace : secondWorkspace;
 
         return {
           ...scanResult([
@@ -269,12 +257,10 @@ test('dashboard store mantém o favorito consistente em todos os workspaces', as
   await store.toggleProjectFavorite(store.projects.value[0]!);
 
   assert.deepEqual(
-    Object.values(store.projectsByWorkspace.value).map(
-      (items) => ({
-        workspaceId: items[0]?.workspaceId,
-        favorite: items[0]?.favorite,
-      }),
-    ),
+    Object.values(store.projectsByWorkspace.value).map((items) => ({
+      workspaceId: items[0]?.workspaceId,
+      favorite: items[0]?.favorite,
+    })),
     [
       {
         workspaceId: workspace.id,

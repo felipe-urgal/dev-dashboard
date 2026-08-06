@@ -28,10 +28,11 @@ let pendingTrigger: PendingTrigger | null = null;
 let activeSession: ActionSession | null = null;
 
 function actionLabel(element: HTMLElement): string {
-  const label = element.getAttribute('aria-label')
-    ?? element.getAttribute('title')
-    ?? element.textContent
-    ?? 'ação Git';
+  const label =
+    element.getAttribute('aria-label') ??
+    element.getAttribute('title') ??
+    element.textContent ??
+    'ação Git';
   return label.replace(/\s+/g, ' ').replace(/…/g, '').trim() || 'ação Git';
 }
 
@@ -41,7 +42,9 @@ function actionElement(event: Event): HTMLElement | null {
     if (submitter instanceof HTMLElement) return submitter;
     const form = event.target;
     return form instanceof HTMLFormElement
-      ? form.querySelector<HTMLElement>('button[type="submit"], input[type="submit"]')
+      ? form.querySelector<HTMLElement>(
+          'button[type="submit"], input[type="submit"]',
+        )
       : null;
   }
   const target = event.target;
@@ -77,10 +80,15 @@ function requestUrl(input: RequestInfo | URL): URL | null {
 
 function isGitRequest(input: RequestInfo | URL): boolean {
   const url = requestUrl(input);
-  return Boolean(url && /\/api\/projects\/[^/]+\/git(?:\/|$)/.test(url.pathname));
+  return Boolean(
+    url && /\/api\/projects\/[^/]+\/git(?:\/|$)/.test(url.pathname),
+  );
 }
 
-function mountIcon(host: HTMLElement, component: Parameters<typeof h>[0]): void {
+function mountIcon(
+  host: HTMLElement,
+  component: Parameters<typeof h>[0],
+): void {
   const iconHost = document.createElement('span');
   iconHost.className = 'git-action-feedback-icon';
   iconHost.setAttribute('aria-hidden', 'true');
@@ -89,7 +97,9 @@ function mountIcon(host: HTMLElement, component: Parameters<typeof h>[0]): void 
 }
 
 function toastContainer(): HTMLElement {
-  let container = document.querySelector<HTMLElement>('.git-action-feedback-stack');
+  let container = document.querySelector<HTMLElement>(
+    '.git-action-feedback-stack',
+  );
   if (container) return container;
   container = document.createElement('div');
   container.className = 'git-action-feedback-stack';
@@ -99,7 +109,11 @@ function toastContainer(): HTMLElement {
   return container;
 }
 
-function renderToast(toast: HTMLElement, tone: ActionTone, label: string): void {
+function renderToast(
+  toast: HTMLElement,
+  tone: ActionTone,
+  label: string,
+): void {
   toast.className = `git-action-feedback-toast is-${tone}`;
   toast.replaceChildren();
   mountIcon(
@@ -112,11 +126,12 @@ function renderToast(toast: HTMLElement, tone: ActionTone, label: string): void 
   );
   const copy = document.createElement('div');
   const strong = document.createElement('strong');
-  strong.textContent = tone === 'running'
-    ? 'Executando ação Git'
-    : tone === 'success'
-      ? 'Ação concluída'
-      : 'A ação falhou';
+  strong.textContent =
+    tone === 'running'
+      ? 'Executando ação Git'
+      : tone === 'success'
+        ? 'Ação concluída'
+        : 'A ação falhou';
   const span = document.createElement('span');
   span.textContent = label;
   copy.append(strong, span);
@@ -125,7 +140,11 @@ function renderToast(toast: HTMLElement, tone: ActionTone, label: string): void 
 
 function startSession(): ActionSession | null {
   const pending = pendingTrigger;
-  if (!pending || pending.expiresAt < Date.now() || !pending.element.isConnected) {
+  if (
+    !pending ||
+    pending.expiresAt < Date.now() ||
+    !pending.element.isConnected
+  ) {
     pendingTrigger = null;
     return null;
   }
@@ -163,10 +182,17 @@ function finishSession(session: ActionSession): void {
   activeSession = null;
   session.trigger.classList.remove('is-git-action-running');
   session.trigger.removeAttribute('aria-busy');
-  renderToast(session.toast, session.failed ? 'error' : 'success', session.label);
-  window.setTimeout(() => {
-    session.toast.remove();
-  }, session.failed ? 3_500 : 1_800);
+  renderToast(
+    session.toast,
+    session.failed ? 'error' : 'success',
+    session.label,
+  );
+  window.setTimeout(
+    () => {
+      session.toast.remove();
+    },
+    session.failed ? 3_500 : 1_800,
+  );
 }
 
 function finishRequest(session: ActionSession, success: boolean): void {
@@ -185,7 +211,10 @@ export function installGitActionFeedback(): void {
   document.addEventListener('submit', rememberTrigger, true);
 
   const originalFetch = window.fetch.bind(window);
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  window.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     if (!isGitRequest(input)) return originalFetch(input, init);
     const session = beginRequest();
     if (!session) return originalFetch(input, init);

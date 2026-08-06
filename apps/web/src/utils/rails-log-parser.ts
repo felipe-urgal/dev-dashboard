@@ -70,7 +70,8 @@ export interface ParsedRailsLog {
   summary: RailsLogSummary;
 }
 
-const ansiPattern = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d\/#&.:=?%@~_]+)*)?\u0007)|(?:(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
+const ansiPattern =
+  /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d\/#&.:=?%@~_]+)*)?\u0007)|(?:(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 const orphanAnsiPattern = /\[(?:\d{1,3}(?:;\d{1,3})*)?m/g;
 const requestPrefixPattern = /^\[([0-9a-f]{8}-[0-9a-f-]{20,})\]\s?/i;
 
@@ -82,7 +83,11 @@ export function stripAnsiSequences(value: string): string {
 }
 
 function lineKind(text: string): RailsLogLineKind {
-  if (/\b(?:ERROR|FATAL)\b|(?:Exception|Traceback|ActionController::|ActiveRecord::)/i.test(text)) {
+  if (
+    /\b(?:ERROR|FATAL)\b|(?:Exception|Traceback|ActionController::|ActiveRecord::)/i.test(
+      text,
+    )
+  ) {
     return 'error';
   }
 
@@ -98,8 +103,12 @@ function lineKind(text: string): RailsLogLineKind {
     // The keyword must open the statement (optionally after a "Model Load (0.3ms)"
     // label) — matching it anywhere in the line used to misclassify unrelated
     // messages that merely contain the word, e.g. "...Controller#UPDATE, rendering...".
-    /^(?:\S.*?\s+\([\d.]+ms\)\s*)?(?:SELECT|INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE SAVEPOINT)\b/i.test(text) ||
-    /\b(?:Load|Count|Exists\?|Create|Update|Delete|Pluck|Maximum|Minimum|Sum|Average)\s+\([\d.]+ms\)/i.test(text)
+    /^(?:\S.*?\s+\([\d.]+ms\)\s*)?(?:SELECT|INSERT(?:\s+INTO)?|UPDATE|DELETE(?:\s+FROM)?|BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE SAVEPOINT)\b/i.test(
+      text,
+    ) ||
+    /\b(?:Load|Count|Exists\?|Create|Update|Delete|Pluck|Maximum|Minimum|Sum|Average)\s+\([\d.]+ms\)/i.test(
+      text,
+    )
   ) {
     return 'sql';
   }
@@ -113,7 +122,10 @@ function parseNumber(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function createRequestGroup(requestId: string, index: number): RailsRequestLogGroup {
+function createRequestGroup(
+  requestId: string,
+  index: number,
+): RailsRequestLogGroup {
   return {
     kind: 'request',
     id: `request-${requestId}-${index}`,
@@ -143,7 +155,10 @@ function createRequestGroup(requestId: string, index: number): RailsRequestLogGr
   };
 }
 
-function appendRequestLine(group: RailsRequestLogGroup, line: RailsLogLine): void {
+function appendRequestLine(
+  group: RailsRequestLogGroup,
+  line: RailsLogLine,
+): void {
   group.lines.push(line);
 
   switch (line.kind) {
@@ -182,7 +197,9 @@ function enrichRequestGroup(group: RailsRequestLogGroup, text: string): void {
     return;
   }
 
-  const processing = text.match(/^Processing by\s+(.+?)#([^\s]+)\s+as\s+(.+)$/i);
+  const processing = text.match(
+    /^Processing by\s+(.+?)#([^\s]+)\s+as\s+(.+)$/i,
+  );
   if (processing) {
     group.controller = processing[1];
     group.action = processing[2];
@@ -196,20 +213,26 @@ function enrichRequestGroup(group: RailsRequestLogGroup, text: string): void {
     return;
   }
 
-  const completed = text.match(/^Completed\s+(\d{3})\b.*?\s+in\s+([\d.]+)ms\s*(?:\((.*)\))?$/i);
+  const completed = text.match(
+    /^Completed\s+(\d{3})\b.*?\s+in\s+([\d.]+)ms\s*(?:\((.*)\))?$/i,
+  );
   if (!completed) return;
 
   group.status = Number(completed[1]);
   group.durationMs = parseNumber(completed[2]);
 
   const details = completed[3] ?? '';
-  group.viewDurationMs = parseNumber(details.match(/Views:\s*([\d.]+)ms/i)?.[1]);
+  group.viewDurationMs = parseNumber(
+    details.match(/Views:\s*([\d.]+)ms/i)?.[1],
+  );
   group.activeRecordDurationMs = parseNumber(
     details.match(/ActiveRecord:\s*([\d.]+)ms/i)?.[1],
   );
   group.gcDurationMs = parseNumber(details.match(/GC:\s*([\d.]+)ms/i)?.[1]);
   group.queryCount = parseNumber(details.match(/\((\d+)\s+queries?/i)?.[1]);
-  group.cachedQueries = parseNumber(details.match(/,\s*(\d+)\s+cached\)/i)?.[1]);
+  group.cachedQueries = parseNumber(
+    details.match(/,\s*(\d+)\s+cached\)/i)?.[1],
+  );
 
   if ((group.status ?? 0) >= 500 && !group.errorLines.length) {
     group.errorLines.push({
@@ -230,13 +253,24 @@ function buildSummary(groups: RailsLogGroup[]): RailsLogSummary {
 
   return {
     totalRequests: requests.length,
-    successful: requests.filter((request) => (request.status ?? 0) >= 200 && (request.status ?? 0) < 300).length,
-    redirects: requests.filter((request) => (request.status ?? 0) >= 300 && (request.status ?? 0) < 400).length,
-    clientErrors: requests.filter((request) => (request.status ?? 0) >= 400 && (request.status ?? 0) < 500).length,
-    serverErrors: requests.filter((request) => (request.status ?? 0) >= 500).length,
-    totalQueries: requests.reduce((total, request) => total + (request.queryCount ?? 0), 0),
+    successful: requests.filter(
+      (request) => (request.status ?? 0) >= 200 && (request.status ?? 0) < 300,
+    ).length,
+    redirects: requests.filter(
+      (request) => (request.status ?? 0) >= 300 && (request.status ?? 0) < 400,
+    ).length,
+    clientErrors: requests.filter(
+      (request) => (request.status ?? 0) >= 400 && (request.status ?? 0) < 500,
+    ).length,
+    serverErrors: requests.filter((request) => (request.status ?? 0) >= 500)
+      .length,
+    totalQueries: requests.reduce(
+      (total, request) => total + (request.queryCount ?? 0),
+      0,
+    ),
     averageDurationMs: durations.length
-      ? durations.reduce((total, duration) => total + duration, 0) / durations.length
+      ? durations.reduce((total, duration) => total + duration, 0) /
+        durations.length
       : undefined,
     slowestDurationMs: durations.length ? Math.max(...durations) : undefined,
   };
@@ -245,7 +279,9 @@ function buildSummary(groups: RailsLogGroup[]): RailsLogSummary {
 export function parseRailsLog(content: string): ParsedRailsLog {
   const cleanedLines = stripAnsiSequences(content)
     .split('\n')
-    .filter((line, index, lines) => line.length > 0 || index < lines.length - 1);
+    .filter(
+      (line, index, lines) => line.length > 0 || index < lines.length - 1,
+    );
 
   const groups: RailsLogGroup[] = [];
   const lines: RailsLogLine[] = [];
@@ -293,7 +329,10 @@ export function parseRailsLog(content: string): ParsedRailsLog {
   });
 
   groups.forEach((group) => {
-    group.searchableText = group.lines.map((line) => line.text).join('\n').toLowerCase();
+    group.searchableText = group.lines
+      .map((line) => line.text)
+      .join('\n')
+      .toLowerCase();
   });
 
   return {
@@ -303,7 +342,9 @@ export function parseRailsLog(content: string): ParsedRailsLog {
   };
 }
 
-export function railsRequestStatusTone(status: number | undefined): 'success' | 'redirect' | 'warning' | 'error' | 'neutral' {
+export function railsRequestStatusTone(
+  status: number | undefined,
+): 'success' | 'redirect' | 'warning' | 'error' | 'neutral' {
   if (status === undefined) return 'neutral';
   if (status >= 200 && status < 300) return 'success';
   if (status >= 300 && status < 400) return 'redirect';

@@ -16,9 +16,7 @@ export interface RailsWorkerOverview {
 }
 
 export type RailsCredentialsKeySource =
-  | 'file'
-  | 'environment-variable'
-  | 'missing';
+  'file' | 'environment-variable' | 'missing';
 
 export interface RailsCredentialsEnvironmentStatus {
   /** 'default' para `config/credentials.yml.enc`, ou o nome do ambiente. */

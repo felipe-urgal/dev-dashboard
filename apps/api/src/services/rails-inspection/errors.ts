@@ -6,7 +6,10 @@ export type RailsMutationErrorCode =
   | 'RAILS_GENERATOR_CONFIRMATION_REQUIRED';
 
 export class RailsMutationError extends Error {
-  public constructor(public readonly code: RailsMutationErrorCode, message: string) {
+  public constructor(
+    public readonly code: RailsMutationErrorCode,
+    message: string,
+  ) {
     super(message);
     this.name = 'RailsMutationError';
   }

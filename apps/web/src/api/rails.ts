@@ -24,96 +24,190 @@ import type {
 
 import { requestJson } from './core';
 
-interface ProjectDatabaseResponse { database: ProjectDatabaseOverview; }
-interface ProjectDatabaseSecretResponse { secret: ProjectDatabaseSecret; }
-interface ProjectDatabaseServiceActionResponse { action: ProjectDatabaseServiceActionResult; }
+interface ProjectDatabaseResponse {
+  database: ProjectDatabaseOverview;
+}
+interface ProjectDatabaseSecretResponse {
+  secret: ProjectDatabaseSecret;
+}
+interface ProjectDatabaseServiceActionResponse {
+  action: ProjectDatabaseServiceActionResult;
+}
 
-export async function fetchProjectDatabase(projectId: string, page = 1): Promise<ProjectDatabaseOverview> {
+export async function fetchProjectDatabase(
+  projectId: string,
+  page = 1,
+): Promise<ProjectDatabaseOverview> {
   const query = new URLSearchParams({ page: String(page), pageSize: '20' });
-  const response = await requestJson<ProjectDatabaseResponse>(`/api/projects/${encodeURIComponent(projectId)}/database?${query}`);
+  const response = await requestJson<ProjectDatabaseResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/database?${query}`,
+  );
   return response.database;
 }
 
-export async function revealProjectDatabaseUrl(projectId: string, environmentId: string): Promise<ProjectDatabaseSecret> {
-  const response = await requestJson<ProjectDatabaseSecretResponse>(`/api/projects/${encodeURIComponent(projectId)}/database/${encodeURIComponent(environmentId)}/reveal`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-  });
+export async function revealProjectDatabaseUrl(
+  projectId: string,
+  environmentId: string,
+): Promise<ProjectDatabaseSecret> {
+  const response = await requestJson<ProjectDatabaseSecretResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/database/${encodeURIComponent(environmentId)}/reveal`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
   return response.secret;
 }
 
-export async function runProjectDatabaseServiceAction(projectId: string, environmentId: string, action: DatabaseServiceAction): Promise<ProjectDatabaseServiceActionResult> {
-  const response = await requestJson<ProjectDatabaseServiceActionResponse>(`/api/projects/${encodeURIComponent(projectId)}/database/${encodeURIComponent(environmentId)}/${action}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-  });
+export async function runProjectDatabaseServiceAction(
+  projectId: string,
+  environmentId: string,
+  action: DatabaseServiceAction,
+): Promise<ProjectDatabaseServiceActionResult> {
+  const response = await requestJson<ProjectDatabaseServiceActionResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/database/${encodeURIComponent(environmentId)}/${action}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
   return response.action;
 }
 
-interface ProjectDatabaseSnapshotsResponse { snapshots: DatabaseSnapshotList; }
-interface ProjectDatabaseSnapshotResponse { snapshot: DatabaseSnapshot; }
-interface ProjectDatabaseSnapshotConfirmationResponse { confirmation: DatabaseSnapshotConfirmation; }
-interface ProjectDatabaseRestoreResponse { restore: DatabaseRestoreResult; }
+interface ProjectDatabaseSnapshotsResponse {
+  snapshots: DatabaseSnapshotList;
+}
+interface ProjectDatabaseSnapshotResponse {
+  snapshot: DatabaseSnapshot;
+}
+interface ProjectDatabaseSnapshotConfirmationResponse {
+  confirmation: DatabaseSnapshotConfirmation;
+}
+interface ProjectDatabaseRestoreResponse {
+  restore: DatabaseRestoreResult;
+}
 
 function snapshotsPath(projectId: string): string {
   return `/api/projects/${encodeURIComponent(projectId)}/database/snapshots`;
 }
 
-export async function fetchProjectDatabaseSnapshots(projectId: string): Promise<DatabaseSnapshotList> {
-  const response = await requestJson<ProjectDatabaseSnapshotsResponse>(snapshotsPath(projectId));
+export async function fetchProjectDatabaseSnapshots(
+  projectId: string,
+): Promise<DatabaseSnapshotList> {
+  const response = await requestJson<ProjectDatabaseSnapshotsResponse>(
+    snapshotsPath(projectId),
+  );
   return response.snapshots;
 }
 
-export async function createProjectDatabaseSnapshot(projectId: string, environmentId: string): Promise<DatabaseSnapshot> {
-  const response = await requestJson<ProjectDatabaseSnapshotResponse>(snapshotsPath(projectId), {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ environmentId }),
-  });
+export async function createProjectDatabaseSnapshot(
+  projectId: string,
+  environmentId: string,
+): Promise<DatabaseSnapshot> {
+  const response = await requestJson<ProjectDatabaseSnapshotResponse>(
+    snapshotsPath(projectId),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environmentId }),
+    },
+  );
   return response.snapshot;
 }
 
-export async function prepareProjectDatabaseRestore(projectId: string, snapshotId: string): Promise<DatabaseSnapshotConfirmation> {
-  const response = await requestJson<ProjectDatabaseSnapshotConfirmationResponse>(
-    `${snapshotsPath(projectId)}/${encodeURIComponent(snapshotId)}/restore/confirmation`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
-  );
+export async function prepareProjectDatabaseRestore(
+  projectId: string,
+  snapshotId: string,
+): Promise<DatabaseSnapshotConfirmation> {
+  const response =
+    await requestJson<ProjectDatabaseSnapshotConfirmationResponse>(
+      `${snapshotsPath(projectId)}/${encodeURIComponent(snapshotId)}/restore/confirmation`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+    );
   return response.confirmation;
 }
 
-export async function restoreProjectDatabaseSnapshot(projectId: string, snapshotId: string, confirmationToken: string): Promise<DatabaseRestoreResult> {
+export async function restoreProjectDatabaseSnapshot(
+  projectId: string,
+  snapshotId: string,
+  confirmationToken: string,
+): Promise<DatabaseRestoreResult> {
   const response = await requestJson<ProjectDatabaseRestoreResponse>(
     `${snapshotsPath(projectId)}/${encodeURIComponent(snapshotId)}/restore`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
+    },
   );
   return response.restore;
 }
 
-interface ProjectRailsMigrationsResponse { migrations: RailsMigrationsOverview; }
+interface ProjectRailsMigrationsResponse {
+  migrations: RailsMigrationsOverview;
+}
 
-export async function fetchProjectRailsMigrations(projectId: string, database?: string): Promise<RailsMigrationsOverview> {
+export async function fetchProjectRailsMigrations(
+  projectId: string,
+  database?: string,
+): Promise<RailsMigrationsOverview> {
   const query = database ? `?${new URLSearchParams({ database })}` : '';
-  const response = await requestJson<ProjectRailsMigrationsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/migrations${query}`);
+  const response = await requestJson<ProjectRailsMigrationsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations${query}`,
+  );
   return response.migrations;
 }
 
-interface RailsMutationConfirmationResponse { confirmation: RailsMigrationMutationConfirmation }
-interface RailsMutationResultResponse { result: RailsMigrationMutationResult }
+interface RailsMutationConfirmationResponse {
+  confirmation: RailsMigrationMutationConfirmation;
+}
+interface RailsMutationResultResponse {
+  result: RailsMigrationMutationResult;
+}
 
-export async function prepareProjectRailsMutation(projectId: string, operation: RailsMigrationMutationOperation): Promise<RailsMigrationMutationConfirmation> {
+export async function prepareProjectRailsMutation(
+  projectId: string,
+  operation: RailsMigrationMutationOperation,
+): Promise<RailsMigrationMutationConfirmation> {
   const response = await requestJson<RailsMutationConfirmationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation }),
+    },
   );
   return response.confirmation;
 }
 
-export async function runProjectRailsMutation(projectId: string, operation: RailsMigrationMutationOperation, confirmationToken: string): Promise<RailsMigrationMutationResult> {
+export async function runProjectRailsMutation(
+  projectId: string,
+  operation: RailsMigrationMutationOperation,
+  confirmationToken: string,
+): Promise<RailsMigrationMutationResult> {
   const response = await requestJson<RailsMutationResultResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/mutations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operation, confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation, confirmationToken }),
+    },
   );
   return response.result;
 }
 
-interface RailsGeneratorConfirmationResponse { confirmation: RailsGeneratorConfirmation }
-interface RailsGeneratorResultResponse { result: RailsGeneratorResult }
+interface RailsGeneratorConfirmationResponse {
+  confirmation: RailsGeneratorConfirmation;
+}
+interface RailsGeneratorResultResponse {
+  result: RailsGeneratorResult;
+}
 
 export async function prepareProjectRailsGenerator(
   projectId: string,
@@ -124,67 +218,135 @@ export async function prepareProjectRailsGenerator(
 ): Promise<RailsGeneratorConfirmation> {
   const response = await requestJson<RailsGeneratorConfirmationResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/generate/confirmations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, name, fields, ...(database ? { database } : {}) }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind,
+        name,
+        fields,
+        ...(database ? { database } : {}),
+      }),
+    },
   );
   return response.confirmation;
 }
 
-export async function runProjectRailsGenerator(projectId: string, confirmationToken: string): Promise<RailsGeneratorResult> {
+export async function runProjectRailsGenerator(
+  projectId: string,
+  confirmationToken: string,
+): Promise<RailsGeneratorResult> {
   const response = await requestJson<RailsGeneratorResultResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/rails/generate/mutations`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmationToken }) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmationToken }),
+    },
   );
   return response.result;
 }
 
-interface RailsWorkerOverviewResponse { worker: RailsWorkerOverview }
-interface RailsWorkerProcessResponse { process: ManagedProcess }
-interface RailsWorkerLogResponse { log: ProcessLogSnapshot }
-interface RailsCredentialsResponse { credentials: RailsCredentialsOverview }
+interface RailsWorkerOverviewResponse {
+  worker: RailsWorkerOverview;
+}
+interface RailsWorkerProcessResponse {
+  process: ManagedProcess;
+}
+interface RailsWorkerLogResponse {
+  log: ProcessLogSnapshot;
+}
+interface RailsCredentialsResponse {
+  credentials: RailsCredentialsOverview;
+}
 
 function workerPath(projectId: string, workerId: RailsWorkerId): string {
   return `/api/projects/${encodeURIComponent(projectId)}/rails/workers/${encodeURIComponent(workerId)}`;
 }
 
-export async function fetchProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<RailsWorkerOverview> {
-  const response = await requestJson<RailsWorkerOverviewResponse>(workerPath(projectId, workerId));
+export async function fetchProjectRailsWorker(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<RailsWorkerOverview> {
+  const response = await requestJson<RailsWorkerOverviewResponse>(
+    workerPath(projectId, workerId),
+  );
   return response.worker;
 }
 
-export async function startProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
-  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/start`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-  });
+export async function startProjectRailsWorker(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(
+    `${workerPath(projectId, workerId)}/start`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
   return response.process;
 }
 
-export async function stopProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
-  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/stop`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-  });
+export async function stopProjectRailsWorker(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(
+    `${workerPath(projectId, workerId)}/stop`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
   return response.process;
 }
 
-export async function restartProjectRailsWorker(projectId: string, workerId: RailsWorkerId): Promise<ManagedProcess> {
-  const response = await requestJson<RailsWorkerProcessResponse>(`${workerPath(projectId, workerId)}/restart`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-  });
+export async function restartProjectRailsWorker(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<ManagedProcess> {
+  const response = await requestJson<RailsWorkerProcessResponse>(
+    `${workerPath(projectId, workerId)}/restart`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
   return response.process;
 }
 
-export async function fetchProjectRailsWorkerLog(projectId: string, workerId: RailsWorkerId): Promise<ProcessLogSnapshot> {
-  const response = await requestJson<RailsWorkerLogResponse>(`${workerPath(projectId, workerId)}/logs`);
+export async function fetchProjectRailsWorkerLog(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<RailsWorkerLogResponse>(
+    `${workerPath(projectId, workerId)}/logs`,
+  );
   return response.log;
 }
 
-export async function clearProjectRailsWorkerLog(projectId: string, workerId: RailsWorkerId): Promise<ProcessLogSnapshot> {
-  const response = await requestJson<RailsWorkerLogResponse>(`${workerPath(projectId, workerId)}/logs`, {
-    method: 'DELETE',
-  });
+export async function clearProjectRailsWorkerLog(
+  projectId: string,
+  workerId: RailsWorkerId,
+): Promise<ProcessLogSnapshot> {
+  const response = await requestJson<RailsWorkerLogResponse>(
+    `${workerPath(projectId, workerId)}/logs`,
+    {
+      method: 'DELETE',
+    },
+  );
   return response.log;
 }
 
-export async function fetchProjectRailsCredentials(projectId: string): Promise<RailsCredentialsOverview> {
-  const response = await requestJson<RailsCredentialsResponse>(`/api/projects/${encodeURIComponent(projectId)}/rails/credentials`);
+export async function fetchProjectRailsCredentials(
+  projectId: string,
+): Promise<RailsCredentialsOverview> {
+  const response = await requestJson<RailsCredentialsResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/credentials`,
+  );
   return response.credentials;
 }

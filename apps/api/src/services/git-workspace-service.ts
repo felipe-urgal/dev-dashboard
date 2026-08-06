@@ -12,7 +12,8 @@ import type {
 const execFileAsync = promisify(execFile);
 const FIELD_SEPARATOR = '\u001f';
 const REMOTE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
-const REMOTE_UNAVAILABLE_PATTERN = /could not resolve host|connection (?:refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
+const REMOTE_UNAVAILABLE_PATTERN =
+  /could not resolve host|connection (?:refused|timed out)|could not read from remote repository|permission denied|authentication failed|could not read username|no route to host/i;
 
 export type GitWorkspaceErrorCode =
   | 'GIT_NOT_REPOSITORY'
@@ -31,7 +32,10 @@ export class GitWorkspaceError extends Error {
   }
 }
 
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -88,29 +92,35 @@ async function listRemotes(projectPath: string): Promise<GitRemote[]> {
     return [];
   }
 
-  const remotes = await Promise.all(names.map(async (name): Promise<GitRemote> => {
-    let fetchUrl = '';
-    let pushUrl = '';
+  const remotes = await Promise.all(
+    names.map(async (name): Promise<GitRemote> => {
+      let fetchUrl = '';
+      let pushUrl = '';
 
-    try {
-      fetchUrl = sanitizeRemoteUrl(await runGit(projectPath, ['remote', 'get-url', name]));
-    } catch {
-      // Um remote incompleto continua visível com URL vazia.
-    }
+      try {
+        fetchUrl = sanitizeRemoteUrl(
+          await runGit(projectPath, ['remote', 'get-url', name]),
+        );
+      } catch {
+        // Um remote incompleto continua visível com URL vazia.
+      }
 
-    try {
-      pushUrl = sanitizeRemoteUrl(await runGit(projectPath, ['remote', 'get-url', '--push', name]));
-    } catch {
-      pushUrl = fetchUrl;
-    }
+      try {
+        pushUrl = sanitizeRemoteUrl(
+          await runGit(projectPath, ['remote', 'get-url', '--push', name]),
+        );
+      } catch {
+        pushUrl = fetchUrl;
+      }
 
-    return {
-      name,
-      fetchUrl,
-      pushUrl,
-      role: remoteRole(name),
-    };
-  }));
+      return {
+        name,
+        fetchUrl,
+        pushUrl,
+        role: remoteRole(name),
+      };
+    }),
+  );
 
   return remotes.sort((left, right) => {
     const rank = (remote: GitRemote): number => {
@@ -212,8 +222,10 @@ async function listBranches(projectPath: string): Promise<GitBranch[]> {
       if (!refName.startsWith('refs/remotes/')) return null;
 
       const separatorIndex = shortRef.indexOf('/');
-      const remote = separatorIndex >= 0 ? shortRef.slice(0, separatorIndex) : '';
-      const shortName = separatorIndex >= 0 ? shortRef.slice(separatorIndex + 1) : shortRef;
+      const remote =
+        separatorIndex >= 0 ? shortRef.slice(0, separatorIndex) : '';
+      const shortName =
+        separatorIndex >= 0 ? shortRef.slice(separatorIndex + 1) : shortRef;
 
       return {
         name: shortRef,
@@ -231,7 +243,8 @@ async function listBranches(projectPath: string): Promise<GitBranch[]> {
   return branches.sort((left, right) => {
     if (left.current !== right.current) return left.current ? -1 : 1;
     if (left.kind !== right.kind) return left.kind === 'local' ? -1 : 1;
-    if (left.remote !== right.remote) return (left.remote ?? '').localeCompare(right.remote ?? '');
+    if (left.remote !== right.remote)
+      return (left.remote ?? '').localeCompare(right.remote ?? '');
     return left.name.localeCompare(right.name);
   });
 }
@@ -264,20 +277,26 @@ async function compareWithReference(
 
 async function currentBranch(projectPath: string): Promise<string | undefined> {
   try {
-    return (await runGit(projectPath, ['branch', '--show-current'])) || undefined;
+    return (
+      (await runGit(projectPath, ['branch', '--show-current'])) || undefined
+    );
   } catch {
     return undefined;
   }
 }
 
-async function configuredUpstream(projectPath: string): Promise<string | undefined> {
+async function configuredUpstream(
+  projectPath: string,
+): Promise<string | undefined> {
   try {
-    return (await runGit(projectPath, [
-      'rev-parse',
-      '--abbrev-ref',
-      '--symbolic-full-name',
-      '@{upstream}',
-    ])) || undefined;
+    return (
+      (await runGit(projectPath, [
+        'rev-parse',
+        '--abbrev-ref',
+        '--symbolic-full-name',
+        '@{upstream}',
+      ])) || undefined
+    );
   } catch {
     return undefined;
   }
@@ -331,7 +350,9 @@ export class GitWorkspaceService {
         ? `origin/${branch}`
         : undefined;
 
-    const hasUpstreamRemote = remotes.some((remote) => remote.name === 'upstream');
+    const hasUpstreamRemote = remotes.some(
+      (remote) => remote.name === 'upstream',
+    );
     const upstreamReference = hasUpstreamRemote
       ? await defaultRemoteBranch(projectPath, 'upstream', branches)
       : undefined;
@@ -351,13 +372,19 @@ export class GitWorkspaceService {
 
   public async fetchRemote(projectPath: string, remote: string): Promise<void> {
     if (!REMOTE_NAME_PATTERN.test(remote)) {
-      throw new GitWorkspaceError('GIT_REMOTE_INVALID', 'Nome de remote inválido.');
+      throw new GitWorkspaceError(
+        'GIT_REMOTE_INVALID',
+        'Nome de remote inválido.',
+      );
     }
 
     try {
       await runGit(projectPath, ['rev-parse', '--is-inside-work-tree']);
     } catch {
-      throw new GitWorkspaceError('GIT_NOT_REPOSITORY', 'O projeto não é um repositório Git.');
+      throw new GitWorkspaceError(
+        'GIT_NOT_REPOSITORY',
+        'O projeto não é um repositório Git.',
+      );
     }
 
     try {
@@ -379,7 +406,10 @@ export class GitWorkspaceService {
           `Não foi possível acessar o remote "${remote}".`,
         );
       }
-      throw new GitWorkspaceError('GIT_FETCH_FAILED', details || 'Falha ao atualizar o remote.');
+      throw new GitWorkspaceError(
+        'GIT_FETCH_FAILED',
+        details || 'Falha ao atualizar o remote.',
+      );
     }
   }
 }

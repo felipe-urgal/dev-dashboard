@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, test } from 'vitest';
 
-import type { AiChatStreamEvent, ProjectAiStatus } from '@dev-dashboard/contracts';
+import type {
+  AiChatStreamEvent,
+  ProjectAiStatus,
+} from '@dev-dashboard/contracts';
 
 import ProjectAiPanel from '../src/components/ProjectAiPanel.vue';
 
@@ -18,12 +21,19 @@ function sseResponse(events: AiChatStreamEvent[]): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const event of events) {
-        controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
+        controller.enqueue(
+          encoder.encode(
+            `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+          ),
+        );
       }
       controller.close();
     },
   });
-  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  });
 }
 
 let originalFetch: typeof fetch;
@@ -43,9 +53,13 @@ function installFetchMock(options: {
 }): void {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/ai/status')) return jsonResponse(options.status);
+    if (url.pathname.endsWith('/ai/status'))
+      return jsonResponse(options.status);
     if (url.pathname.endsWith('/ai/chat') && init?.method === 'POST') {
-      const body = JSON.parse(String(init.body)) as { model: string; messages: unknown[] };
+      const body = JSON.parse(String(init.body)) as {
+        model: string;
+        messages: unknown[];
+      };
       options.chatRequests?.push(body);
       return sseResponse(options.chatEvents ?? []);
     }
@@ -154,20 +168,25 @@ test('erro do assistente é exibido e a conversa não trava em "enviando"', asyn
   await flushPromises();
 
   assert.match(wrapper.text(), /status 500/);
-  assert.equal(wrapper.find('#ai-panel-input').attributes('disabled'), undefined);
+  assert.equal(
+    wrapper.find('#ai-panel-input').attributes('disabled'),
+    undefined,
+  );
   wrapper.unmount();
 });
 
 test('emite workspace-edit-proposed quando o assistente propõe uma edição', async () => {
   const preview = {
     confirmationToken: 'token-abc',
-    files: [{
-      path: 'app/models/user.rb',
-      language: 'ruby',
-      beforeVersion: 'a'.repeat(64),
-      beforeContent: 'old',
-      afterContent: 'new',
-    }],
+    files: [
+      {
+        path: 'app/models/user.rb',
+        language: 'ruby',
+        beforeVersion: 'a'.repeat(64),
+        beforeContent: 'old',
+        afterContent: 'new',
+      },
+    ],
     expiresAt: new Date().toISOString(),
   };
   installFetchMock({

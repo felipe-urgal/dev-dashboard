@@ -40,8 +40,10 @@ test('mostra alterações da branch e os testes relacionados encontrados', async
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     calls.push(url.pathname);
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: null });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: overview });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: null });
     if (url.pathname.endsWith('/related')) {
       return jsonResponse({
         related: {
@@ -69,20 +71,30 @@ test('mostra alterações da branch e os testes relacionados encontrados', async
   await flushPromises();
   await flushPromises();
 
-  const options = wrapper.findAll('.tests-execution-select option').map((option) => option.text());
-  assert.ok(options.some((option) => option.includes('Vitest — alterações da branch')));
+  const options = wrapper
+    .findAll('.tests-execution-select option')
+    .map((option) => option.text());
+  assert.ok(
+    options.some((option) => option.includes('Vitest — alterações da branch')),
+  );
 
-  await wrapper.find('.tests-execution-select').setValue('node-script-test::related');
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::related');
   await flushPromises();
   await flushPromises();
 
-  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/related')));
+  assert.ok(
+    calls.some((path) => path.endsWith('/tests/node-script-test/related')),
+  );
   assert.match(wrapper.text(), /main → feature\/checkout/);
   assert.match(wrapper.text(), /2 arquivos modificados/);
   assert.match(wrapper.text(), /2 testes relacionados/);
   assert.match(wrapper.text(), /src\/services\/auth\.test\.ts/);
 
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   assert.equal(executeButton.attributes('disabled'), undefined);
 });
@@ -91,8 +103,10 @@ test('não habilita a suíte completa quando não há teste relacionado', async 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: overview });
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: null });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: overview });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: null });
     if (url.pathname.endsWith('/related')) {
       return jsonResponse({
         related: {
@@ -117,12 +131,19 @@ test('não habilita a suíte completa quando não há teste relacionado', async 
   await flushPromises();
   await flushPromises();
 
-  await wrapper.find('.tests-execution-select').setValue('node-script-test::related');
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::related');
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /A suíte completa não será executada automaticamente/);
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.match(
+    wrapper.text(),
+    /A suíte completa não será executada automaticamente/,
+  );
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   assert.notEqual(executeButton.attributes('disabled'), undefined);
 });

@@ -6,8 +6,7 @@ import path from 'node:path';
 import type { ProjectBrowserTarget } from '@dev-dashboard/contracts';
 
 export type ProjectBrowserErrorCode =
-  | 'BROWSER_NOT_AVAILABLE'
-  | 'BROWSER_LAUNCH_FAILED';
+  'BROWSER_NOT_AVAILABLE' | 'BROWSER_LAUNCH_FAILED';
 
 export class ProjectBrowserError extends Error {
   public constructor(
@@ -98,16 +97,14 @@ export class ProjectBrowserService {
     ProjectBrowserServiceOptions['resolveExecutable']
   >;
 
-  private readonly launch: NonNullable<
-    ProjectBrowserServiceOptions['launch']
-  >;
+  private readonly launch: NonNullable<ProjectBrowserServiceOptions['launch']>;
 
   public constructor(options: ProjectBrowserServiceOptions = {}) {
     this.platform = options.platform ?? process.platform;
     this.environment = options.environment ?? process.env;
     this.resolveExecutable =
-      options.resolveExecutable
-      ?? ((command) => executableOnPath(command, this.environment, this.platform));
+      options.resolveExecutable ??
+      ((command) => executableOnPath(command, this.environment, this.platform));
     this.launch = options.launch ?? launchDetached;
   }
 

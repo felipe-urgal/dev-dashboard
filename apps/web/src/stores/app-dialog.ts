@@ -1,7 +1,4 @@
-import {
-  readonly,
-  shallowRef,
-} from 'vue';
+import { readonly, shallowRef } from 'vue';
 
 export type AppDialogTone = 'info' | 'warning' | 'danger';
 export type AppDialogKind = 'alert' | 'confirm';
@@ -37,8 +34,7 @@ let nextDialogId = 1;
 let hostCount = 0;
 
 function isTestEnvironment(): boolean {
-  return typeof process !== 'undefined'
-    && process.env.NODE_ENV === 'test';
+  return typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
 }
 
 function defaultTitle(kind: AppDialogKind): string {
@@ -71,8 +67,7 @@ function enqueueDialog(
         kind,
         title: options.title?.trim() || defaultTitle(kind),
         message: options.message,
-        confirmLabel:
-          options.confirmLabel?.trim() || defaultConfirmLabel(kind),
+        confirmLabel: options.confirmLabel?.trim() || defaultConfirmLabel(kind),
         cancelLabel: options.cancelLabel?.trim() || 'Cancelar',
         tone: options.tone ?? (kind === 'alert' ? 'info' : 'warning'),
       },
@@ -91,12 +86,9 @@ function finishDialog(confirmed: boolean): void {
   queueMicrotask(openNextDialog);
 }
 
-export function alertDialog(
-  options: AppDialogOptions | string,
-): Promise<void> {
-  const normalized = typeof options === 'string'
-    ? { message: options }
-    : options;
+export function alertDialog(options: AppDialogOptions | string): Promise<void> {
+  const normalized =
+    typeof options === 'string' ? { message: options } : options;
 
   return enqueueDialog('alert', normalized).then(() => undefined);
 }
@@ -104,9 +96,8 @@ export function alertDialog(
 export function confirmDialog(
   options: AppDialogOptions | string,
 ): Promise<boolean> {
-  const normalized = typeof options === 'string'
-    ? { message: options }
-    : options;
+  const normalized =
+    typeof options === 'string' ? { message: options } : options;
 
   return enqueueDialog('confirm', normalized);
 }

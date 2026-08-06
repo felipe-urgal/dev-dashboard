@@ -1,7 +1,11 @@
 import { SEARCH_INPUT_SELECTOR } from './constants';
 
 export function searchQuery(): string {
-  return document.querySelector<HTMLInputElement>(SEARCH_INPUT_SELECTOR)?.value.trim() ?? '';
+  return (
+    document
+      .querySelector<HTMLInputElement>(SEARCH_INPUT_SELECTOR)
+      ?.value.trim() ?? ''
+  );
 }
 
 export function originalText(line: HTMLElement): string {

@@ -36,7 +36,9 @@ function installFetch(catalog: ProjectScriptCatalog): void {
     if (path.endsWith('/scripts')) return jsonResponse({ catalog });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
-  restoreFetch = () => { globalThis.fetch = originalFetch; };
+  restoreFetch = () => {
+    globalThis.fetch = originalFetch;
+  };
 }
 
 test('mostra instalação e build do gerenciador Node detectado', async () => {
@@ -68,7 +70,9 @@ test('mostra instalação e build do gerenciador Node detectado', async () => {
   });
 
   const wrapper = mount(ProjectDependenciesPanel, {
-    props: { project: makeProject({ type: 'node', capabilities: ['scripts'] }) },
+    props: {
+      project: makeProject({ type: 'node', capabilities: ['scripts'] }),
+    },
   });
   await flushPromises();
   await flushPromises();
@@ -77,8 +81,14 @@ test('mostra instalação e build do gerenciador Node detectado', async () => {
   assert.match(wrapper.text(), /Instalar dependências/);
   assert.match(wrapper.text(), /yarn install/);
   assert.match(wrapper.text(), /yarn build/);
-  assert.equal(wrapper.get('.dependencies-panel').attributes('aria-busy'), 'false');
-  assert.equal(wrapper.get('.dependencies-console').attributes('aria-label'), 'Detalhes da execução');
+  assert.equal(
+    wrapper.get('.dependencies-panel').attributes('aria-busy'),
+    'false',
+  );
+  assert.equal(
+    wrapper.get('.dependencies-console').attributes('aria-label'),
+    'Detalhes da execução',
+  );
   assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 2);
   wrapper.unmount();
 });
@@ -87,29 +97,49 @@ test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
   installFetch({
     items: [
       {
-        id: 'bundler:check', name: 'Verificar gems',
-        description: 'Confere as gems.', command: 'bundle check',
-        origin: 'bundler', risk: 'read-only', enabled: true,
+        id: 'bundler:check',
+        name: 'Verificar gems',
+        description: 'Confere as gems.',
+        command: 'bundle check',
+        origin: 'bundler',
+        risk: 'read-only',
+        enabled: true,
       },
       {
-        id: 'bundler:install', name: 'Instalar gems',
-        description: 'Instala gems.', command: 'bundle install',
-        origin: 'bundler', risk: 'mutable', enabled: true,
+        id: 'bundler:install',
+        name: 'Instalar gems',
+        description: 'Instala gems.',
+        command: 'bundle install',
+        origin: 'bundler',
+        risk: 'mutable',
+        enabled: true,
       },
       {
-        id: 'bundler:update', name: 'Atualizar gems',
-        description: 'Atualiza gems.', command: 'bundle update',
-        origin: 'bundler', risk: 'mutable', enabled: true,
+        id: 'bundler:update',
+        name: 'Atualizar gems',
+        description: 'Atualiza gems.',
+        command: 'bundle update',
+        origin: 'bundler',
+        risk: 'mutable',
+        enabled: true,
       },
       {
-        id: 'package-manager:install', name: 'Instalar dependências',
-        description: 'Instala dependências Node.', command: 'npm install',
-        origin: 'package-manager', risk: 'mutable', enabled: true,
+        id: 'package-manager:install',
+        name: 'Instalar dependências',
+        description: 'Instala dependências Node.',
+        command: 'npm install',
+        origin: 'package-manager',
+        risk: 'mutable',
+        enabled: true,
       },
       {
-        id: 'package-script:build', name: 'build',
-        description: 'Gera o build.', command: 'npm run build',
-        origin: 'package-script', risk: 'mutable', enabled: true,
+        id: 'package-script:build',
+        name: 'build',
+        description: 'Gera o build.',
+        command: 'npm run build',
+        origin: 'package-script',
+        risk: 'mutable',
+        enabled: true,
       },
     ],
     page: 1,
@@ -119,7 +149,12 @@ test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
   });
 
   const wrapper = mount(ProjectDependenciesPanel, {
-    props: { project: makeProject({ type: 'rails', capabilities: ['scripts', 'bundler'] }) },
+    props: {
+      project: makeProject({
+        type: 'rails',
+        capabilities: ['scripts', 'bundler'],
+      }),
+    },
   });
   await flushPromises();
   await flushPromises();

@@ -15,7 +15,8 @@ export interface SnapshotConnection {
 export function snapshotDriver(driver: string): DatabaseSnapshotDriver | null {
   const normalized = driver.toLowerCase();
   if (['mysql', 'mysql2', 'mariadb'].includes(normalized)) return 'mysql';
-  if (['postgres', 'postgresql', 'postgis'].includes(normalized)) return 'postgresql';
+  if (['postgres', 'postgresql', 'postgis'].includes(normalized))
+    return 'postgresql';
   return null;
 }
 
@@ -23,7 +24,9 @@ export function snapshotDriver(driver: string): DatabaseSnapshotDriver | null {
  * Monta os dados de conexão a partir do que a detecção já conhece. O navegador
  * nunca envia host, usuário, senha ou banco — só o id do ambiente.
  */
-export function connectionFor(environment: DetectedDatabase): SnapshotConnection {
+export function connectionFor(
+  environment: DetectedDatabase,
+): SnapshotConnection {
   const driver = snapshotDriver(environment.driver);
   if (!driver) {
     throw new DatabaseSnapshotError(
@@ -59,20 +62,29 @@ export function connectionFor(environment: DetectedDatabase): SnapshotConnection
     );
   }
 
-  return { driver, host, ...(port ? { port } : {}), username, password, database };
+  return {
+    driver,
+    host,
+    ...(port ? { port } : {}),
+    username,
+    password,
+    database,
+  };
 }
 
 export function dumpArguments(connection: SnapshotConnection): string[] {
   if (connection.driver === 'mysql') {
     return [
-      '-h', connection.host,
+      '-h',
+      connection.host,
       ...(connection.port ? ['-P', String(connection.port)] : []),
       ...(connection.username ? ['-u', connection.username] : []),
       connection.database,
     ];
   }
   return [
-    '-h', connection.host,
+    '-h',
+    connection.host,
     ...(connection.port ? ['-p', String(connection.port)] : []),
     ...(connection.username ? ['-U', connection.username] : []),
     '--no-owner',
@@ -84,23 +96,28 @@ export function dumpArguments(connection: SnapshotConnection): string[] {
 export function restoreArguments(connection: SnapshotConnection): string[] {
   if (connection.driver === 'mysql') {
     return [
-      '-h', connection.host,
+      '-h',
+      connection.host,
       ...(connection.port ? ['-P', String(connection.port)] : []),
       ...(connection.username ? ['-u', connection.username] : []),
       connection.database,
     ];
   }
   return [
-    '-h', connection.host,
+    '-h',
+    connection.host,
     ...(connection.port ? ['-p', String(connection.port)] : []),
     ...(connection.username ? ['-U', connection.username] : []),
     '-q',
-    '-v', 'ON_ERROR_STOP=1',
+    '-v',
+    'ON_ERROR_STOP=1',
     connection.database,
   ];
 }
 
-export function passwordEnvironment(connection: SnapshotConnection): NodeJS.ProcessEnv {
+export function passwordEnvironment(
+  connection: SnapshotConnection,
+): NodeJS.ProcessEnv {
   if (!connection.password) return {};
   return connection.driver === 'mysql'
     ? { MYSQL_PWD: connection.password }

@@ -1,11 +1,4 @@
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  watch,
-  type Ref,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue';
 import type {
   ManagedProcess,
   ProcessLogSnapshot,
@@ -26,12 +19,10 @@ import {
 import { noticeCenterStore } from '../stores/notice-center';
 import { durationInMilliseconds } from '../stores/native-notifications';
 import { useAutoDismiss } from './useAutoDismiss';
-import {
-  formatDurationBetween,
-  type TestLogTab,
-} from './project-test-log';
+import { formatDurationBetween, type TestLogTab } from './project-test-log';
 
-export type TestStatusTone = 'success' | 'danger' | 'warning' | 'info' | 'neutral';
+export type TestStatusTone =
+  'success' | 'danger' | 'warning' | 'info' | 'neutral';
 export type TestExecutionScope = 'suite' | 'file' | 'related';
 
 export interface TestExecutionTarget {
@@ -65,7 +56,8 @@ export function useProjectTestProcess(
   let generation = 0;
   let closeExecutionEvents: (() => void) | null = null;
   let successResultResetTimer: ReturnType<typeof setTimeout> | null = null;
-  const recoveryMessage = 'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
+  const recoveryMessage =
+    'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
   const status = computed(() => managedProcess.value?.status ?? 'idle');
   const statusLabel = computed(() => {
@@ -74,35 +66,49 @@ export function useProjectTestProcess(
     if (value.status === 'starting') return 'Iniciando';
     if (value.status === 'running') return 'Executando';
     if (value.status === 'stopping') return 'Interrompendo';
-    if (value.status === 'stopped') return value.exitCode === 0 ? 'Concluído com sucesso' : 'Encerrado';
-    if (value.status === 'failed') return value.exitCode !== undefined ? `Falhou (código ${value.exitCode})` : 'Falhou';
+    if (value.status === 'stopped')
+      return value.exitCode === 0 ? 'Concluído com sucesso' : 'Encerrado';
+    if (value.status === 'failed')
+      return value.exitCode !== undefined
+        ? `Falhou (código ${value.exitCode})`
+        : 'Falhou';
     return value.status;
   });
 
   const currentStatusTone = computed<TestStatusTone>(() => {
     const value = managedProcess.value;
     if (!value) return 'neutral';
-    if (value.status === 'starting' || value.status === 'running') return 'info';
+    if (value.status === 'starting' || value.status === 'running')
+      return 'info';
     if (value.status === 'stopping') return 'warning';
     if (value.status === 'failed') return 'danger';
     if (value.status === 'stopped' && value.exitCode === 0) return 'success';
-    if (value.status === 'stopped' && value.exitCode !== undefined) return 'danger';
+    if (value.status === 'stopped' && value.exitCode !== undefined)
+      return 'danger';
     return 'neutral';
   });
 
-  const duration = computed(() => formatDurationBetween(
-    managedProcess.value?.startedAt,
-    managedProcess.value?.stoppedAt,
-  ));
+  const duration = computed(() =>
+    formatDurationBetween(
+      managedProcess.value?.startedAt,
+      managedProcess.value?.stoppedAt,
+    ),
+  );
 
-  const isRunning = computed(() =>
-    status.value === 'starting' || status.value === 'running' || status.value === 'stopping');
+  const isRunning = computed(
+    () =>
+      status.value === 'starting' ||
+      status.value === 'running' ||
+      status.value === 'stopping',
+  );
 
   const currentTarget = computed<TestExecutionTarget | null>(() => {
     const process = managedProcess.value;
     if (!process) return null;
     const prefix = `${process.projectId}:${process.kind}:`;
-    const rawId = process.id.startsWith(prefix) ? process.id.slice(prefix.length) : process.id;
+    const rawId = process.id.startsWith(prefix)
+      ? process.id.slice(prefix.length)
+      : process.id;
     const relatedExecution = rawId.endsWith(':related');
     const fileExecution = rawId.endsWith(':file');
     const commandId = relatedExecution
@@ -120,7 +126,9 @@ export function useProjectTestProcess(
 
   const currentCommandText = computed(() => {
     const process = managedProcess.value;
-    return process ? [process.command, ...(process.args ?? [])].filter(Boolean).join(' ') : '—';
+    return process
+      ? [process.command, ...(process.args ?? [])].filter(Boolean).join(' ')
+      : '—';
   });
 
   function applyLogSnapshot(log: ProcessLogSnapshot | null): void {
@@ -142,7 +150,8 @@ export function useProjectTestProcess(
       process.id !== processId ||
       process.status !== 'stopped' ||
       process.exitCode !== 0
-    ) return;
+    )
+      return;
 
     managedProcess.value = null;
     applyLogSnapshot(null);
@@ -159,7 +168,10 @@ export function useProjectTestProcess(
     }, SUCCESS_RESULT_RESET_DELAY_MS);
   }
 
-  function currentRequest(projectId: string, requestGeneration: number): boolean {
+  function currentRequest(
+    projectId: string,
+    requestGeneration: number,
+  ): boolean {
     return props.project.id === projectId && generation === requestGeneration;
   }
 
@@ -181,9 +193,10 @@ export function useProjectTestProcess(
       return true;
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
-        errorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível atualizar o processo de testes.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível atualizar o processo de testes.';
       }
       return false;
     }
@@ -216,7 +229,8 @@ export function useProjectTestProcess(
         await stream.done;
         reconnectDelay = 500;
       } catch {
-        if (currentRequest(projectId, requestGeneration)) errorMessage.value = recoveryMessage;
+        if (currentRequest(projectId, requestGeneration))
+          errorMessage.value = recoveryMessage;
       }
       if (closeExecutionEvents === stream.close) closeExecutionEvents = null;
       if (!currentRequest(projectId, requestGeneration)) return;
@@ -238,21 +252,30 @@ export function useProjectTestProcess(
     errorMessage.value = '';
     activeLogTab.value = 'log';
     try {
-      const result = target.scope === 'related'
-        ? await startProjectRelatedTests(projectId, target.commandId)
-        : target.targetFile
-          ? await startProjectTestFile(projectId, target.commandId, target.targetFile)
-          : await startProjectTest(projectId, target.commandId);
+      const result =
+        target.scope === 'related'
+          ? await startProjectRelatedTests(projectId, target.commandId)
+          : target.targetFile
+            ? await startProjectTestFile(
+                projectId,
+                target.commandId,
+                target.targetFile,
+              )
+            : await startProjectTest(projectId, target.commandId);
       if (!currentRequest(projectId, requestGeneration)) return;
       managedProcess.value = result;
       applyLogSnapshot(null);
       void followProcess();
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
-        errorMessage.value = error instanceof Error ? error.message : 'Não foi possível iniciar os testes.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível iniciar os testes.';
       }
     } finally {
-      if (currentRequest(projectId, requestGeneration)) startingCommandId.value = null;
+      if (currentRequest(projectId, requestGeneration))
+        startingCommandId.value = null;
     }
   }
 
@@ -268,7 +291,10 @@ export function useProjectTestProcess(
       await refreshProcess();
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
-        errorMessage.value = error instanceof Error ? error.message : 'Não foi possível interromper os testes.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível interromper os testes.';
       }
     } finally {
       if (currentRequest(projectId, requestGeneration)) stopping.value = false;
@@ -286,7 +312,10 @@ export function useProjectTestProcess(
       activeLogTab.value = 'log';
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
-        errorMessage.value = error instanceof Error ? error.message : 'Não foi possível limpar o log.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível limpar o log.';
       }
     }
   }
@@ -309,7 +338,11 @@ export function useProjectTestProcess(
 
   watch(managedProcess, (process) => {
     if (!process) return;
-    if (process.status === 'starting' || process.status === 'running' || process.status === 'stopping') {
+    if (
+      process.status === 'starting' ||
+      process.status === 'running' ||
+      process.status === 'stopping'
+    ) {
       cancelSuccessResultReset();
       hasObservedRunning = true;
       return;
@@ -321,9 +354,16 @@ export function useProjectTestProcess(
       cancelSuccessResultReset();
     }
 
-    if (!hasObservedRunning || (process.status !== 'stopped' && process.status !== 'failed')) return;
+    if (
+      !hasObservedRunning ||
+      (process.status !== 'stopped' && process.status !== 'failed')
+    )
+      return;
     const effectiveCommandId = startingCommandId.value || lastStartedCommandId;
-    const commandLabel = overview.value?.commands.find((command) => command.id === effectiveCommandId)?.label ?? 'Testes';
+    const commandLabel =
+      overview.value?.commands.find(
+        (command) => command.id === effectiveCommandId,
+      )?.label ?? 'Testes';
     noticeCenterStore.publishTerminalNotice({
       origin: 'test',
       dedupeKey: `test:${process.id}:${process.status}`,
@@ -332,7 +372,10 @@ export function useProjectTestProcess(
       projectName: props.project.name,
       label: commandLabel,
       durationMs: durationInMilliseconds(process.startedAt, process.stoppedAt),
-      routeTo: { name: 'project-tests', params: { projectId: props.project.id } },
+      routeTo: {
+        name: 'project-tests',
+        params: { projectId: props.project.id },
+      },
     });
   });
 

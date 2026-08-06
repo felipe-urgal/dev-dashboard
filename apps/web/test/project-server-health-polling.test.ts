@@ -16,17 +16,16 @@ function mountHarness(
   projectId: Ref<string>,
   processStatus: Ref<ManagedProcessStatus>,
 ) {
-  return mount(defineComponent({
-    setup() {
-      useProjectServerHealth(
-        () => projectId.value,
-        processStatus,
-      );
+  return mount(
+    defineComponent({
+      setup() {
+        useProjectServerHealth(() => projectId.value, processStatus);
 
-      return {};
-    },
-    template: '<div />',
-  }));
+        return {};
+      },
+      template: '<div />',
+    }),
+  );
 }
 
 describe('polling do health check do servidor', () => {

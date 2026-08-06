@@ -41,16 +41,20 @@ defineEmits<{
     <p>{{ item.description }}</p>
     <code>{{ item.command }}</code>
     <footer>
-      <small v-if="!item.enabled">
-        Ação destrutiva bloqueada
-      </small>
+      <small v-if="!item.enabled"> Ação destrutiva bloqueada </small>
       <button
         type="button"
         :disabled="!item.enabled || disabled"
         @click.stop="$emit('run')"
       >
         <PlayIcon aria-hidden="true" />
-        {{ starting ? 'Iniciando…' : item.variables?.length ? 'Preencher' : 'Executar' }}
+        {{
+          starting
+            ? 'Iniciando…'
+            : item.variables?.length
+              ? 'Preencher'
+              : 'Executar'
+        }}
       </button>
     </footer>
   </article>

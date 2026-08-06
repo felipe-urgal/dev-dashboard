@@ -20,21 +20,28 @@ interface StoredHistory {
   events: GitMutationHistoryEvent[];
 }
 
-const RESULT_VALUES: readonly GitMutationHistoryResult[] = ['succeeded', 'failed'];
+const RESULT_VALUES: readonly GitMutationHistoryResult[] = [
+  'succeeded',
+  'failed',
+];
 const RISK_VALUES = ['read-only', 'write-safe', 'write-remote', 'destructive'];
 
 function isValidEvent(value: unknown): value is GitMutationHistoryEvent {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
   return (
-    typeof item.id === 'string' && item.id.length > 0
-    && typeof item.projectId === 'string' && item.projectId.length > 0
-    && (item.workspaceId === undefined || typeof item.workspaceId === 'string')
-    && typeof item.operationId === 'string' && item.operationId.length > 0
-    && RISK_VALUES.includes(String(item.risk))
-    && typeof item.occurredAt === 'string' && Number.isFinite(Date.parse(item.occurredAt))
-    && RESULT_VALUES.includes(item.result as GitMutationHistoryResult)
-    && (item.errorCode === undefined || typeof item.errorCode === 'string')
+    typeof item.id === 'string' &&
+    item.id.length > 0 &&
+    typeof item.projectId === 'string' &&
+    item.projectId.length > 0 &&
+    (item.workspaceId === undefined || typeof item.workspaceId === 'string') &&
+    typeof item.operationId === 'string' &&
+    item.operationId.length > 0 &&
+    RISK_VALUES.includes(String(item.risk)) &&
+    typeof item.occurredAt === 'string' &&
+    Number.isFinite(Date.parse(item.occurredAt)) &&
+    RESULT_VALUES.includes(item.result as GitMutationHistoryResult) &&
+    (item.errorCode === undefined || typeof item.errorCode === 'string')
   );
 }
 
@@ -44,7 +51,9 @@ function isValidEvent(value: unknown): value is GitMutationHistoryEvent {
  * `events` já está ordenado do mais novo para o mais antigo — a primeira
  * ocorrência de cada projeto dentro do limite global é sempre preservada.
  */
-function enforceLimits(events: readonly GitMutationHistoryEvent[]): GitMutationHistoryEvent[] {
+function enforceLimits(
+  events: readonly GitMutationHistoryEvent[],
+): GitMutationHistoryEvent[] {
   const perProjectCount = new Map<string, number>();
   const kept: GitMutationHistoryEvent[] = [];
   for (const event of events) {
@@ -85,10 +94,13 @@ export class GitMutationHistoryService {
   private writeQueue: Promise<void> = Promise.resolve();
 
   public constructor(
-    stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim()
-      || path.join(homedir(), '.local', 'state', 'dev-dashboard'),
+    stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
+      path.join(homedir(), '.local', 'state', 'dev-dashboard'),
   ) {
-    this.filePath = path.join(path.resolve(stateDirectory, 'git-mutation-history'), 'events.json');
+    this.filePath = path.join(
+      path.resolve(stateDirectory, 'git-mutation-history'),
+      'events.json',
+    );
   }
 
   public async record(input: RecordGitMutationHistoryInput): Promise<void> {
@@ -117,7 +129,10 @@ export class GitMutationHistoryService {
       items.unshift(event);
       await this.save(enforceLimits(items));
     } catch (error) {
-      console.error('[git-mutation-history] falha ao registrar evento de mutação Git', error);
+      console.error(
+        '[git-mutation-history] falha ao registrar evento de mutação Git',
+        error,
+      );
     }
   }
 
@@ -126,10 +141,15 @@ export class GitMutationHistoryService {
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
   ): Promise<GitMutationHistoryPage> {
-    const events = (await this.load()).filter((event) => event.projectId === projectId);
+    const events = (await this.load()).filter(
+      (event) => event.projectId === projectId,
+    );
     const total = events.length;
     const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
-    const effectivePage = totalPages === 0 ? 1 : Math.min(Math.max(1, Math.floor(page)), totalPages);
+    const effectivePage =
+      totalPages === 0
+        ? 1
+        : Math.min(Math.max(1, Math.floor(page)), totalPages);
     const start = (effectivePage - 1) * pageSize;
     return {
       projectId,
@@ -145,7 +165,8 @@ export class GitMutationHistoryService {
     try {
       const raw = await readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
-      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.events)) return [];
+      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.events))
+        return [];
       return parsed.events.filter(isValidEvent);
     } catch {
       return [];

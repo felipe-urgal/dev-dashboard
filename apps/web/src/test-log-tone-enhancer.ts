@@ -5,12 +5,16 @@ export {
   isTestLogSuccessLine,
   isTestLogWarningLine,
 } from './test-log-tone/classify';
-export type { TestLogSemanticTone, TestLogVisualTone } from './test-log-tone/types';
+export type {
+  TestLogSemanticTone,
+  TestLogVisualTone,
+} from './test-log-tone/types';
 
 import { enhanceShell } from './test-log-tone/shell';
 
 export function enhanceTestLogTones(root: ParentNode = document): void {
-  if (root instanceof HTMLElement && root.matches('.tests-log-shell')) enhanceShell(root);
+  if (root instanceof HTMLElement && root.matches('.tests-log-shell'))
+    enhanceShell(root);
   root.querySelectorAll<HTMLElement>('.tests-log-shell').forEach(enhanceShell);
 }
 

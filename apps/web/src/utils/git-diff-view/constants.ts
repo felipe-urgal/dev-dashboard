@@ -1,4 +1,5 @@
-export const HUNK_PATTERN = /^(@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@)(?:\s+(.*))?$/;
+export const HUNK_PATTERN =
+  /^(@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@)(?:\s+(.*))?$/;
 
 export const WORD_PATTERN = /\s+|[\p{L}\p{N}_$]+|[^\s\p{L}\p{N}_$]/gu;
 /** Acima disso a tabela de LCS deixa de valer o custo para uma linha só. */

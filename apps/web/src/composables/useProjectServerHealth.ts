@@ -1,10 +1,4 @@
-import {
-  computed,
-  onBeforeUnmount,
-  ref,
-  watch,
-  type Ref,
-} from 'vue';
+import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue';
 
 import type {
   ManagedProcessStatus,
@@ -83,27 +77,18 @@ export function useProjectServerHealth(
     try {
       const result = await fetchProjectServerHealth(projectId);
 
-      if (
-        getProjectId() === projectId &&
-        requests.isCurrent(generation)
-      ) {
+      if (getProjectId() === projectId && requests.isCurrent(generation)) {
         health.value = result;
       }
     } catch (error) {
-      if (
-        getProjectId() === projectId &&
-        requests.isCurrent(generation)
-      ) {
+      if (getProjectId() === projectId && requests.isCurrent(generation)) {
         healthError.value =
           error instanceof Error
             ? error.message
             : 'Não foi possível verificar a saúde do servidor.';
       }
     } finally {
-      if (
-        getProjectId() === projectId &&
-        requests.isCurrent(generation)
-      ) {
+      if (getProjectId() === projectId && requests.isCurrent(generation)) {
         loadingHealth.value = false;
         schedulePolling();
       }

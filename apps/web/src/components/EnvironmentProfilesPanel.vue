@@ -5,12 +5,7 @@ import {
   ShieldCheckIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  onMounted,
-  reactive,
-  ref,
-} from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import type {
   CreateEnvironmentProfileInput,
   EnvironmentProfile,
@@ -25,8 +20,13 @@ import {
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import LoadingSkeleton from './LoadingSkeleton.vue';
 
-const SENSITIVE_VARIABLE_NAME_PATTERN = /SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|APIKEY/i;
-const shortDateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const SENSITIVE_VARIABLE_NAME_PATTERN =
+  /SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE|_KEY$|^KEY$|APIKEY/i;
+const shortDateFormatter = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
 interface ProfileVariableRow {
   name: string;
@@ -48,14 +48,18 @@ const profileForm = reactive<{
   variables: [{ name: '', value: '' }],
 });
 
-const configuredVariableCount = computed(() => (
-  profileForm.variables.filter((variable) => variable.name.trim().length > 0).length
-));
+const configuredVariableCount = computed(
+  () =>
+    profileForm.variables.filter((variable) => variable.name.trim().length > 0)
+      .length,
+);
 
-const canAddVariable = computed(() => (
-  !profileList.value
-  || profileForm.variables.length < profileList.value.limits.maxVariablesPerProfile
-));
+const canAddVariable = computed(
+  () =>
+    !profileList.value ||
+    profileForm.variables.length <
+      profileList.value.limits.maxVariablesPerProfile,
+);
 
 useAutoDismiss(profilesError, '');
 useAutoDismiss(profilesFeedback, '');
@@ -75,9 +79,13 @@ function resetProfileForm(): void {
 function editProfile(profile: EnvironmentProfile): void {
   profileForm.id = profile.id;
   profileForm.name = profile.name;
-  profileForm.variables = profile.variables.length > 0
-    ? profile.variables.map((variable) => ({ name: variable.name, value: variable.value ?? '' }))
-    : [{ name: '', value: '' }];
+  profileForm.variables =
+    profile.variables.length > 0
+      ? profile.variables.map((variable) => ({
+          name: variable.name,
+          value: variable.value ?? '',
+        }))
+      : [{ name: '', value: '' }];
   profilesError.value = '';
   profilesFeedback.value = '';
 }
@@ -90,15 +98,17 @@ async function loadProfiles(preferredProfileId?: string): Promise<void> {
     const response = await fetchEnvironmentProfiles();
     profileList.value = response;
     const selectedId = preferredProfileId ?? profileForm.id;
-    const selectedProfile = response.profiles.find((profile) => profile.id === selectedId)
-      ?? response.profiles[0];
+    const selectedProfile =
+      response.profiles.find((profile) => profile.id === selectedId) ??
+      response.profiles[0];
 
     if (selectedProfile) editProfile(selectedProfile);
     else resetProfileForm();
   } catch (cause) {
-    profilesError.value = cause instanceof Error
-      ? cause.message
-      : 'Não foi possível carregar os perfis de ambiente.';
+    profilesError.value =
+      cause instanceof Error
+        ? cause.message
+        : 'Não foi possível carregar os perfis de ambiente.';
   } finally {
     profilesLoading.value = false;
   }
@@ -119,9 +129,19 @@ function profileUpdatedLabel(updatedAt: string): string {
   if (Number.isNaN(updated.getTime())) return 'Atualizado recentemente';
 
   const today = new Date();
-  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const updatedDayStart = new Date(updated.getFullYear(), updated.getMonth(), updated.getDate()).getTime();
-  const differenceInDays = Math.round((dayStart - updatedDayStart) / 86_400_000);
+  const dayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  ).getTime();
+  const updatedDayStart = new Date(
+    updated.getFullYear(),
+    updated.getMonth(),
+    updated.getDate(),
+  ).getTime();
+  const differenceInDays = Math.round(
+    (dayStart - updatedDayStart) / 86_400_000,
+  );
 
   if (differenceInDays === 0) return 'Atualizado hoje';
   if (differenceInDays === 1) return 'Atualizado ontem';
@@ -141,7 +161,11 @@ async function saveProfile(): Promise<void> {
         .filter((variable) => variable.name.trim().length > 0)
         .map((variable) => {
           const name = variable.name.trim();
-          if (isSensitiveVariableName(name) || variable.value.trim().length === 0) return { name };
+          if (
+            isSensitiveVariableName(name) ||
+            variable.value.trim().length === 0
+          )
+            return { name };
           return { name, value: variable.value };
         }),
     };
@@ -154,9 +178,10 @@ async function saveProfile(): Promise<void> {
       ? 'Perfil atualizado com sucesso.'
       : 'Perfil criado com sucesso.';
   } catch (cause) {
-    profilesError.value = cause instanceof Error
-      ? cause.message
-      : 'Não foi possível salvar o perfil de ambiente.';
+    profilesError.value =
+      cause instanceof Error
+        ? cause.message
+        : 'Não foi possível salvar o perfil de ambiente.';
   } finally {
     profileSaving.value = false;
   }
@@ -174,9 +199,10 @@ async function removeSelectedProfile(): Promise<void> {
     await loadProfiles();
     profilesFeedback.value = 'Perfil removido com sucesso.';
   } catch (cause) {
-    profilesError.value = cause instanceof Error
-      ? cause.message
-      : 'Não foi possível remover o perfil de ambiente.';
+    profilesError.value =
+      cause instanceof Error
+        ? cause.message
+        : 'Não foi possível remover o perfil de ambiente.';
   }
 }
 
@@ -190,8 +216,8 @@ onMounted(() => void loadProfiles());
       <div>
         <h3 id="environment-profiles-title">Perfis de ambiente</h3>
         <p>
-          Selecione um perfil e edite nome e variáveis sem trocar de contexto. Valores de token, senha, chave ou
-          credencial nunca são armazenados.
+          Selecione um perfil e edite nome e variáveis sem trocar de contexto.
+          Valores de token, senha, chave ou credencial nunca são armazenados.
         </p>
       </div>
     </header>
@@ -204,12 +230,17 @@ onMounted(() => void loadProfiles());
 
     <template v-else-if="profileList">
       <div class="environment-profiles-layout">
-        <aside class="environment-profiles-sidebar" aria-label="Lista de perfis de ambiente">
+        <aside
+          class="environment-profiles-sidebar"
+          aria-label="Lista de perfis de ambiente"
+        >
           <header class="environment-profiles-sidebar-header">
             <div>
               <strong>Perfis</strong>
               <span>
-                {{ profileList.profiles.length }} cadastrado{{ profileList.profiles.length === 1 ? '' : 's' }}
+                {{ profileList.profiles.length }} cadastrado{{
+                  profileList.profiles.length === 1 ? '' : 's'
+                }}
               </span>
             </div>
             <button
@@ -222,7 +253,11 @@ onMounted(() => void loadProfiles());
             </button>
           </header>
 
-          <div v-if="profileList.profiles.length > 0" class="environment-profiles-list" role="list">
+          <div
+            v-if="profileList.profiles.length > 0"
+            class="environment-profiles-list"
+            role="list"
+          >
             <button
               v-for="profile in profileList.profiles"
               :key="profile.id"
@@ -237,7 +272,10 @@ onMounted(() => void loadProfiles());
                 <strong>{{ profile.name }}</strong>
                 <small>{{ profileUpdatedLabel(profile.updatedAt) }}</small>
               </span>
-              <span class="environment-profile-count" :aria-label="`${profile.variables.length} variáveis`">
+              <span
+                class="environment-profile-count"
+                :aria-label="`${profile.variables.length} variáveis`"
+              >
                 {{ profile.variables.length }}
               </span>
             </button>
@@ -247,7 +285,11 @@ onMounted(() => void loadProfiles());
           </p>
 
           <footer class="environment-profiles-sidebar-footer">
-            <button type="button" class="secondary-button" @click="resetProfileForm">
+            <button
+              type="button"
+              class="secondary-button"
+              @click="resetProfileForm"
+            >
               <PlusIcon aria-hidden="true" />
               Novo perfil
             </button>
@@ -261,11 +303,17 @@ onMounted(() => void loadProfiles());
         >
           <header class="environment-profile-editor-header">
             <div>
-              <strong>{{ profileForm.id ? profileForm.name || 'Perfil sem nome' : 'Novo perfil' }}</strong>
+              <strong>{{
+                profileForm.id
+                  ? profileForm.name || 'Perfil sem nome'
+                  : 'Novo perfil'
+              }}</strong>
               <span>
-                {{ profileForm.id
-                  ? `${configuredVariableCount} ${configuredVariableCount === 1 ? 'variável configurada' : 'variáveis configuradas'}`
-                  : 'Defina um nome e adicione as variáveis necessárias' }}
+                {{
+                  profileForm.id
+                    ? `${configuredVariableCount} ${configuredVariableCount === 1 ? 'variável configurada' : 'variáveis configuradas'}`
+                    : 'Defina um nome e adicione as variáveis necessárias'
+                }}
               </span>
             </div>
             <div class="environment-profile-editor-actions">
@@ -284,14 +332,23 @@ onMounted(() => void loadProfiles());
                 class="primary-button"
                 :disabled="profileSaving || !profileForm.name.trim()"
               >
-                {{ profileSaving ? 'Salvando…' : profileForm.id ? 'Salvar alterações' : 'Criar perfil' }}
+                {{
+                  profileSaving
+                    ? 'Salvando…'
+                    : profileForm.id
+                      ? 'Salvar alterações'
+                      : 'Criar perfil'
+                }}
               </button>
             </div>
           </header>
 
           <div class="environment-profile-editor-body">
             <div class="environment-profile-name-row">
-              <label class="environment-profile-field" for="environment-profile-name-input">
+              <label
+                class="environment-profile-field"
+                for="environment-profile-name-input"
+              >
                 <span>Nome do perfil</span>
                 <input
                   id="environment-profile-name-input"
@@ -300,7 +357,7 @@ onMounted(() => void loadProfiles());
                   required
                   :maxlength="profileList.limits.maxNameLength"
                   placeholder="Ex.: Desenvolvimento"
-                >
+                />
               </label>
 
               <aside class="environment-profile-security-note">
@@ -312,10 +369,15 @@ onMounted(() => void loadProfiles());
               </aside>
             </div>
 
-            <section class="environment-profile-variable-box" aria-labelledby="environment-profile-variables-title">
+            <section
+              class="environment-profile-variable-box"
+              aria-labelledby="environment-profile-variables-title"
+            >
               <header class="environment-profile-variable-header">
                 <div>
-                  <strong id="environment-profile-variables-title">Variáveis</strong>
+                  <strong id="environment-profile-variables-title"
+                    >Variáveis</strong
+                  >
                   <span>Nome obrigatório, valor opcional</span>
                 </div>
                 <button
@@ -330,7 +392,10 @@ onMounted(() => void loadProfiles());
               </header>
 
               <div class="environment-profile-variable-table">
-                <div class="environment-profile-variable-table-header" aria-hidden="true">
+                <div
+                  class="environment-profile-variable-table-header"
+                  aria-hidden="true"
+                >
                   <span>Variável</span>
                   <span>Valor</span>
                   <span />
@@ -347,15 +412,19 @@ onMounted(() => void loadProfiles());
                     placeholder="NOME_DA_VARIAVEL"
                     maxlength="128"
                     :aria-label="`Nome da variável ${index + 1}`"
-                  >
+                  />
                   <input
                     v-model="variable.value"
                     type="text"
-                    :placeholder="isSensitiveVariableName(variable.name) ? 'Valor não será salvo' : 'Valor (opcional)'"
+                    :placeholder="
+                      isSensitiveVariableName(variable.name)
+                        ? 'Valor não será salvo'
+                        : 'Valor (opcional)'
+                    "
                     :disabled="isSensitiveVariableName(variable.name)"
                     :maxlength="profileList.limits.maxValueLength"
                     :aria-label="`Valor da variável ${index + 1}`"
-                  >
+                  />
                   <button
                     type="button"
                     class="secondary-button environment-profile-icon-button environment-profile-danger-button"
@@ -373,10 +442,18 @@ onMounted(() => void loadProfiles());
       </div>
     </template>
 
-    <p v-if="profilesError" class="alert alert-error settings-feedback" role="alert">
+    <p
+      v-if="profilesError"
+      class="alert alert-error settings-feedback"
+      role="alert"
+    >
       {{ profilesError }}
     </p>
-    <p v-if="profilesFeedback" class="alert alert-success settings-feedback" role="status">
+    <p
+      v-if="profilesFeedback"
+      class="alert alert-success settings-feedback"
+      role="status"
+    >
       {{ profilesFeedback }}
     </p>
   </section>

@@ -13,15 +13,24 @@ const environment = useProjectEnvironmentVariables(() => props.project);
 </script>
 
 <template>
-  <section class="project-environment-panel" :aria-busy="environment.loading.value">
+  <section
+    class="project-environment-panel"
+    :aria-busy="environment.loading.value"
+  >
     <p class="project-environment-notice">
-      Somente leitura: lido diretamente dos arquivos <code>.env</code> reconhecidos do projeto
-      (<code>.env</code>, <code>.env.local</code>, <code>.env.development</code>, <code>.env.test</code>,
-      <code>.env.production</code>). Valores com nome de segredo permanecem ocultos por padrão e
-      só são carregados quando você clicar em <strong>Exibir</strong>.
+      Somente leitura: lido diretamente dos arquivos
+      <code>.env</code> reconhecidos do projeto (<code>.env</code>,
+      <code>.env.local</code>, <code>.env.development</code>,
+      <code>.env.test</code>, <code>.env.production</code>). Valores com nome de
+      segredo permanecem ocultos por padrão e só são carregados quando você
+      clicar em <strong>Exibir</strong>.
     </p>
 
-    <p v-if="environment.errorMessage.value" class="alert alert-error" role="alert">
+    <p
+      v-if="environment.errorMessage.value"
+      class="alert alert-error"
+      role="alert"
+    >
       {{ environment.errorMessage.value }}
     </p>
 
@@ -32,8 +41,12 @@ const environment = useProjectEnvironmentVariables(() => props.project);
     />
 
     <template v-else-if="environment.overview.value">
-      <p v-if="environment.overview.value.files.length === 0" class="project-environment-empty">
-        Nenhum arquivo <code>.env</code> reconhecido foi encontrado neste projeto.
+      <p
+        v-if="environment.overview.value.files.length === 0"
+        class="project-environment-empty"
+      >
+        Nenhum arquivo <code>.env</code> reconhecido foi encontrado neste
+        projeto.
       </p>
 
       <Card
@@ -42,7 +55,9 @@ const environment = useProjectEnvironmentVariables(() => props.project);
         class="project-environment-file-card"
       >
         <template #header>
-          <h3><code>{{ file.file }}</code></h3>
+          <h3>
+            <code>{{ file.file }}</code>
+          </h3>
         </template>
 
         <table class="project-environment-table">
@@ -54,15 +69,29 @@ const environment = useProjectEnvironmentVariables(() => props.project);
           </thead>
           <tbody>
             <tr v-for="variable in file.variables" :key="variable.name">
-              <td><code>{{ variable.name }}</code></td>
               <td>
-                <div v-if="variable.sensitive" class="project-environment-sensitive-value">
-                  <template v-if="environment.hasRevealedValue(file.file, variable.name)">
+                <code>{{ variable.name }}</code>
+              </td>
+              <td>
+                <div
+                  v-if="variable.sensitive"
+                  class="project-environment-sensitive-value"
+                >
+                  <template
+                    v-if="
+                      environment.hasRevealedValue(file.file, variable.name)
+                    "
+                  >
                     <code
                       v-if="environment.revealedValue(file.file, variable.name)"
                       class="project-environment-secret-value"
-                    >{{ environment.revealedValue(file.file, variable.name) }}</code>
-                    <span v-else class="project-environment-empty-value">vazio</span>
+                      >{{
+                        environment.revealedValue(file.file, variable.name)
+                      }}</code
+                    >
+                    <span v-else class="project-environment-empty-value"
+                      >vazio</span
+                    >
                     <button
                       type="button"
                       class="secondary-button project-environment-value-action"
@@ -78,17 +107,25 @@ const environment = useProjectEnvironmentVariables(() => props.project);
                     <button
                       type="button"
                       class="secondary-button project-environment-value-action"
-                      :disabled="environment.isRevealingValue(file.file, variable.name)"
+                      :disabled="
+                        environment.isRevealingValue(file.file, variable.name)
+                      "
                       :aria-label="`Exibir valor de ${variable.name}`"
                       @click="environment.revealValue(file.file, variable.name)"
                     >
                       <EyeIcon aria-hidden="true" />
-                      {{ environment.isRevealingValue(file.file, variable.name) ? 'Exibindo…' : 'Exibir' }}
+                      {{
+                        environment.isRevealingValue(file.file, variable.name)
+                          ? 'Exibindo…'
+                          : 'Exibir'
+                      }}
                     </button>
                   </template>
                 </div>
                 <code v-else-if="variable.value">{{ variable.value }}</code>
-                <span v-else class="project-environment-empty-value">vazio</span>
+                <span v-else class="project-environment-empty-value"
+                  >vazio</span
+                >
               </td>
             </tr>
           </tbody>

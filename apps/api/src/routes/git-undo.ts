@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import {
@@ -148,9 +145,8 @@ function translateUndoError(error: unknown): never {
       GIT_COMMIT_FAILED: 409,
       GIT_COMMAND_FAILED: 500,
     };
-    const apiCode = error.code === 'GIT_COMMAND_FAILED'
-      ? 'GIT_COMMAND_FAILED'
-      : error.code;
+    const apiCode =
+      error.code === 'GIT_COMMAND_FAILED' ? 'GIT_COMMAND_FAILED' : error.code;
     throw new ApiError({
       statusCode: statusByCode[error.code],
       code: apiCode,
@@ -161,9 +157,10 @@ function translateUndoError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível desfazer a operação Git.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível desfazer a operação Git.',
   });
 }
 
@@ -224,12 +221,17 @@ export const gitUndoRoutes: FastifyPluginAsync<GitUndoRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          undo: await withGitMutationHistory(options.gitMutationHistoryService, project, 'undo-commit', () =>
-            service.undoLastCommit(
-              project.path,
-              project.id,
-              request.body.confirmationToken,
-            )),
+          undo: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'undo-commit',
+            () =>
+              service.undoLastCommit(
+                project.path,
+                project.id,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateUndoError(error);
@@ -250,13 +252,18 @@ export const gitUndoRoutes: FastifyPluginAsync<GitUndoRouteOptions> = async (
       const project = projectFor(request.params.projectId);
       try {
         return {
-          file: await withGitMutationHistory(options.gitMutationHistoryService, project, 'undo-file', () =>
-            service.undoFile(
-              project.path,
-              project.id,
-              request.body.path,
-              request.body.confirmationToken,
-            )),
+          file: await withGitMutationHistory(
+            options.gitMutationHistoryService,
+            project,
+            'undo-file',
+            () =>
+              service.undoFile(
+                project.path,
+                project.id,
+                request.body.path,
+                request.body.confirmationToken,
+              ),
+          ),
         };
       } catch (error) {
         translateUndoError(error);

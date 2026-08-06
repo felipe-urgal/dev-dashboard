@@ -1,10 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
-import type {
-  Project,
-  ProjectTestRunner,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectTestRunner } from '@dev-dashboard/contracts';
 
 import type { TestDetectionService } from './test-detection-service.js';
 
@@ -22,8 +19,7 @@ export interface RelatedTestSelection {
 }
 
 export type RelatedTestErrorCode =
-  | 'RELATED_TESTS_GIT_UNAVAILABLE'
-  | 'RELATED_TESTS_COMMAND_NOT_FOUND';
+  'RELATED_TESTS_GIT_UNAVAILABLE' | 'RELATED_TESTS_COMMAND_NOT_FOUND';
 
 export class RelatedTestError extends Error {
   public constructor(
@@ -41,7 +37,11 @@ const NPM_SCRIPT_RUNNERS = new Set(['npm', 'pnpm', 'yarn', 'bun']);
 
 function normalizeRelativePath(value: string): string | null {
   const normalized = value.trim().replaceAll('\\', '/').replace(/^\.\//, '');
-  if (!normalized || normalized.startsWith('/') || normalized.split('/').includes('..')) {
+  if (
+    !normalized ||
+    normalized.startsWith('/') ||
+    normalized.split('/').includes('..')
+  ) {
     return null;
   }
   return normalized;
@@ -80,17 +80,22 @@ async function runGit(
     });
     child.on('error', () => {
       if (options.allowFailure) resolve(null);
-      else reject(new RelatedTestError(
-        'RELATED_TESTS_GIT_UNAVAILABLE',
-        'Não foi possível consultar o Git deste projeto.',
-      ));
+      else
+        reject(
+          new RelatedTestError(
+            'RELATED_TESTS_GIT_UNAVAILABLE',
+            'Não foi possível consultar o Git deste projeto.',
+          ),
+        );
     });
     child.on('close', (code) => {
       if (exceededLimit) {
-        reject(new RelatedTestError(
-          'RELATED_TESTS_GIT_UNAVAILABLE',
-          'A consulta de alterações do Git excedeu o limite permitido.',
-        ));
+        reject(
+          new RelatedTestError(
+            'RELATED_TESTS_GIT_UNAVAILABLE',
+            'A consulta de alterações do Git excedeu o limite permitido.',
+          ),
+        );
         return;
       }
       if (code === 0) {
@@ -101,10 +106,13 @@ async function runGit(
         resolve(null);
         return;
       }
-      reject(new RelatedTestError(
-        'RELATED_TESTS_GIT_UNAVAILABLE',
-        stderr.trim() || 'Não foi possível consultar as alterações da branch.',
-      ));
+      reject(
+        new RelatedTestError(
+          'RELATED_TESTS_GIT_UNAVAILABLE',
+          stderr.trim() ||
+            'Não foi possível consultar as alterações da branch.',
+        ),
+      );
     });
   });
 }
@@ -117,7 +125,9 @@ function lines(value: string | null): string[] {
     .filter((entry): entry is string => entry !== null);
 }
 
-async function resolveBaseRef(projectPath: string): Promise<{ ref: string; label: string }> {
+async function resolveBaseRef(
+  projectPath: string,
+): Promise<{ ref: string; label: string }> {
   const originHead = await runGit(
     projectPath,
     ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
@@ -153,32 +163,43 @@ async function collectChangedFiles(
   projectPath: string,
   baseRef: string,
 ): Promise<string[]> {
-  const mergeBase = await runGit(
-    projectPath,
-    ['merge-base', 'HEAD', baseRef],
-    { allowFailure: true },
-  );
+  const mergeBase = await runGit(projectPath, ['merge-base', 'HEAD', baseRef], {
+    allowFailure: true,
+  });
 
   const [committed, unstaged, staged, untracked] = await Promise.all([
     mergeBase
-      ? runGit(projectPath, ['diff', '--name-only', '--diff-filter=ACMR', `${mergeBase}...HEAD`])
+      ? runGit(projectPath, [
+          'diff',
+          '--name-only',
+          '--diff-filter=ACMR',
+          `${mergeBase}...HEAD`,
+        ])
       : Promise.resolve(''),
     runGit(projectPath, ['diff', '--name-only', '--diff-filter=ACMR']),
-    runGit(projectPath, ['diff', '--cached', '--name-only', '--diff-filter=ACMR']),
+    runGit(projectPath, [
+      'diff',
+      '--cached',
+      '--name-only',
+      '--diff-filter=ACMR',
+    ]),
     runGit(projectPath, ['ls-files', '--others', '--exclude-standard']),
   ]);
 
-  return Array.from(new Set([
-    ...lines(committed),
-    ...lines(unstaged),
-    ...lines(staged),
-    ...lines(untracked),
-  ])).sort((left, right) => left.localeCompare(right));
+  return Array.from(
+    new Set([
+      ...lines(committed),
+      ...lines(unstaged),
+      ...lines(staged),
+      ...lines(untracked),
+    ]),
+  ).sort((left, right) => left.localeCompare(right));
 }
 
 function sourceStem(filePath: string): string {
   const extension = path.posix.extname(filePath);
-  return path.posix.basename(filePath, extension)
+  return path.posix
+    .basename(filePath, extension)
     .replace(/_(spec|test)$/i, '')
     .replace(/\.(spec|test)$/i, '')
     .replace(/^test_/i, '');
@@ -188,14 +209,20 @@ function normalizedTestStem(filePath: string): string {
   return sourceStem(filePath);
 }
 
-function directCandidates(changedFile: string, runner: ProjectTestRunner): string[] {
+function directCandidates(
+  changedFile: string,
+  runner: ProjectTestRunner,
+): string[] {
   const directory = path.posix.dirname(changedFile);
   const extension = path.posix.extname(changedFile);
   const basename = path.posix.basename(changedFile, extension);
   const withoutRoot = changedFile.replace(/^(app|src)\//, '');
   const withoutRootDirectory = path.posix.dirname(withoutRoot);
   const withoutRootExtension = path.posix.extname(withoutRoot);
-  const withoutRootBase = path.posix.basename(withoutRoot, withoutRootExtension);
+  const withoutRootBase = path.posix.basename(
+    withoutRoot,
+    withoutRootExtension,
+  );
   const candidates: string[] = [];
 
   if (runner === 'rspec' && extension === '.rb') {
@@ -214,10 +241,21 @@ function directCandidates(changedFile: string, runner: ProjectTestRunner): strin
     }
   } else if (runner === 'pytest' && extension === '.py') {
     const prefix = directory === '.' ? '' : `${directory}/`;
-    candidates.push(`${prefix}test_${basename}.py`, `${prefix}${basename}_test.py`);
-    const testsDirectory = directory === '.' ? 'tests' : `tests/${directory.replace(/^src\//, '')}`;
-    candidates.push(`${testsDirectory}/test_${basename}.py`, `${testsDirectory}/${basename}_test.py`);
-  } else if (runner === 'vitest' || runner === 'jest' || runner === 'node-test') {
+    candidates.push(
+      `${prefix}test_${basename}.py`,
+      `${prefix}${basename}_test.py`,
+    );
+    const testsDirectory =
+      directory === '.' ? 'tests' : `tests/${directory.replace(/^src\//, '')}`;
+    candidates.push(
+      `${testsDirectory}/test_${basename}.py`,
+      `${testsDirectory}/${basename}_test.py`,
+    );
+  } else if (
+    runner === 'vitest' ||
+    runner === 'jest' ||
+    runner === 'node-test'
+  ) {
     if (/\.[cm]?[jt]sx?$/i.test(extension)) {
       const prefix = directory === '.' ? '' : `${directory}/`;
       candidates.push(
@@ -263,7 +301,8 @@ function composeRelatedCommand(
   resolved: ResolvedCommand,
   testFiles: string[],
 ): ResolvedCommand {
-  const packageScript = NPM_SCRIPT_RUNNERS.has(resolved.command) && resolved.args[0] === 'run';
+  const packageScript =
+    NPM_SCRIPT_RUNNERS.has(resolved.command) && resolved.args[0] === 'run';
   return {
     command: resolved.command,
     args: packageScript
@@ -273,7 +312,9 @@ function composeRelatedCommand(
 }
 
 export class RelatedTestService {
-  public constructor(private readonly testDetectionService: TestDetectionService) {}
+  public constructor(
+    private readonly testDetectionService: TestDetectionService,
+  ) {}
 
   public async resolve(
     project: Project,
@@ -281,7 +322,10 @@ export class RelatedTestService {
   ): Promise<RelatedTestSelection> {
     const overview = await this.testDetectionService.getOverview(project);
     const command = overview.commands.find((entry) => entry.id === commandId);
-    const resolved = await this.testDetectionService.resolveCommand(project, commandId);
+    const resolved = await this.testDetectionService.resolveCommand(
+      project,
+      commandId,
+    );
     if (!command || !resolved) {
       throw new RelatedTestError(
         'RELATED_TESTS_COMMAND_NOT_FOUND',
@@ -295,14 +339,16 @@ export class RelatedTestService {
       );
     }
 
-    const currentBranch = await runGit(
-      project.path,
-      ['symbolic-ref', '--quiet', '--short', 'HEAD'],
-      { allowFailure: true },
-    ) ?? 'HEAD';
+    const currentBranch =
+      (await runGit(
+        project.path,
+        ['symbolic-ref', '--quiet', '--short', 'HEAD'],
+        { allowFailure: true },
+      )) ?? 'HEAD';
     const base = await resolveBaseRef(project.path);
     const changedFiles = await collectChangedFiles(project.path, base.ref);
-    const available = await this.testDetectionService.listTestFiles(project, commandId) ?? [];
+    const available =
+      (await this.testDetectionService.listTestFiles(project, commandId)) ?? [];
     const testFiles = findRelatedTestFiles(
       changedFiles,
       available.map((entry) => entry.path),

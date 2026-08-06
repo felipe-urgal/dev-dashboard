@@ -16,7 +16,8 @@ export function composeGithubUrl(options: {
     : `${sourceOwner}:${options.sourceBranch}`;
   const params = new URLSearchParams({ quick_pull: '1' });
   if (options.title?.trim()) params.set('title', options.title.trim());
-  if (options.description?.trim()) params.set('body', options.description.trim());
+  if (options.description?.trim())
+    params.set('body', options.description.trim());
   return `https://${options.target.host}/${options.target.ownerRepo}/compare/${encodeURIComponent(options.baseBranch)}...${encodeURIComponent(head)}?${params.toString()}`;
 }
 
@@ -39,7 +40,8 @@ export function composeGitlabUrl(options: {
     'merge_request[source_branch]': options.sourceBranch,
     'merge_request[target_branch]': options.baseBranch,
   });
-  if (options.title?.trim()) params.set('merge_request[title]', options.title.trim());
+  if (options.title?.trim())
+    params.set('merge_request[title]', options.title.trim());
   if (options.description?.trim()) {
     params.set('merge_request[description]', options.description.trim());
   }

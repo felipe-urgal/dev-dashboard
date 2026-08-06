@@ -1,4 +1,7 @@
-import { startFixtureServer, stopFixtureServer } from './fixtures/server-harness';
+import {
+  startFixtureServer,
+  stopFixtureServer,
+} from './fixtures/server-harness';
 import { writeRuntimeInfo } from './fixtures/runtime-info';
 
 export default async function globalSetup(): Promise<() => Promise<void>> {

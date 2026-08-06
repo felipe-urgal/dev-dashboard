@@ -1,4 +1,7 @@
-import type { RailsGeneratorField, RailsGeneratorKind } from '@dev-dashboard/contracts';
+import type {
+  RailsGeneratorField,
+  RailsGeneratorKind,
+} from '@dev-dashboard/contracts';
 
 import {
   GENERATOR_FIELD_NAME_PATTERN,
@@ -25,20 +28,40 @@ export interface StoredGeneratorConfirmation {
  * banco (quando informado) precisa já constar em `listDatabases`. Nunca passa por shell:
  * os argumentos vão como array para `execFile`.
  */
-export function buildGeneratorArgs(kind: RailsGeneratorKind, name: string, fields: RailsGeneratorField[], database?: string): string[] {
+export function buildGeneratorArgs(
+  kind: RailsGeneratorKind,
+  name: string,
+  fields: RailsGeneratorField[],
+  database?: string,
+): string[] {
   if (!GENERATOR_NAME_PATTERN.test(name) || name.length > 60) {
-    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', 'Nome inválido: use letras, números e "_", começando com uma letra.');
+    throw new RailsMutationError(
+      'RAILS_GENERATOR_INVALID_INPUT',
+      'Nome inválido: use letras, números e "_", começando com uma letra.',
+    );
   }
   if (fields.length > GENERATOR_MAX_FIELDS) {
-    throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `No máximo ${GENERATOR_MAX_FIELDS} campos.`);
+    throw new RailsMutationError(
+      'RAILS_GENERATOR_INVALID_INPUT',
+      `No máximo ${GENERATOR_MAX_FIELDS} campos.`,
+    );
   }
 
   const fieldArgs = fields.map((field) => {
-    if (!GENERATOR_FIELD_NAME_PATTERN.test(field.name) || field.name.length > 60) {
-      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Nome de campo inválido: "${field.name}".`);
+    if (
+      !GENERATOR_FIELD_NAME_PATTERN.test(field.name) ||
+      field.name.length > 60
+    ) {
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_INVALID_INPUT',
+        `Nome de campo inválido: "${field.name}".`,
+      );
     }
     if (!GENERATOR_FIELD_TYPES.includes(field.type)) {
-      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Tipo de campo não suportado: "${field.type}".`);
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_INVALID_INPUT',
+        `Tipo de campo não suportado: "${field.type}".`,
+      );
     }
     return `${field.name}:${field.type}`;
   });

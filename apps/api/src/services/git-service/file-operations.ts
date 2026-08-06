@@ -12,16 +12,27 @@ import { parseStatus } from './status-parsing.js';
 import type { GitMutationConfirmationService } from '../git-mutation-confirmation-service.js';
 
 /** Mutações de arquivo: stage/unstage e descarte (rastreado ou não rastreado). */
-export function createFileOperations(confirmations: GitMutationConfirmationService) {
+export function createFileOperations(
+  confirmations: GitMutationConfirmationService,
+) {
   async function stageFile(
     projectPath: string,
     requestedPath: string,
   ): Promise<{ path: string }> {
     await requireRepository(projectPath);
-    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
-    const status = parseStatus(await runGit(projectPath, [
-      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
-    ]));
+    const safePath = ensureMutationPathInsideProject(
+      projectPath,
+      requestedPath,
+    );
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     const file = status.files.find((candidate) => candidate.path === safePath);
     if (!file) {
       throw new GitMutationError(
@@ -34,7 +45,9 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     } catch (error) {
       throw new GitMutationError(
         'GIT_FILE_MUTATION_FAILED',
-        error instanceof Error ? error.message : 'Falha ao adicionar o arquivo ao staged.',
+        error instanceof Error
+          ? error.message
+          : 'Falha ao adicionar o arquivo ao staged.',
       );
     }
     return { path: safePath };
@@ -45,10 +58,19 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     requestedPath: string,
   ): Promise<{ path: string }> {
     await requireRepository(projectPath);
-    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
-    const status = parseStatus(await runGit(projectPath, [
-      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
-    ]));
+    const safePath = ensureMutationPathInsideProject(
+      projectPath,
+      requestedPath,
+    );
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     const file = status.files.find((candidate) => candidate.path === safePath);
     if (!file || file.indexStatus === '.' || file.indexStatus === '?') {
       throw new GitMutationError(
@@ -64,7 +86,9 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
       } catch (error) {
         throw new GitMutationError(
           'GIT_FILE_MUTATION_FAILED',
-          error instanceof Error ? error.message : 'Falha ao remover o arquivo do staged.',
+          error instanceof Error
+            ? error.message
+            : 'Falha ao remover o arquivo do staged.',
         );
       }
     }
@@ -78,10 +102,19 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     confirmationToken?: string,
   ): Promise<{ path: string }> {
     await requireRepository(projectPath);
-    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
-    const status = parseStatus(await runGit(projectPath, [
-      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
-    ]));
+    const safePath = ensureMutationPathInsideProject(
+      projectPath,
+      requestedPath,
+    );
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     const file = status.files.find((candidate) => candidate.path === safePath);
     if (!file) {
       throw new GitMutationError(
@@ -107,7 +140,9 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     } catch (error) {
       throw new GitMutationError(
         'GIT_FILE_MUTATION_FAILED',
-        error instanceof Error ? error.message : 'Falha ao desfazer as alterações do arquivo.',
+        error instanceof Error
+          ? error.message
+          : 'Falha ao desfazer as alterações do arquivo.',
       );
     }
     return { path: safePath };
@@ -120,10 +155,19 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     confirmationToken?: string,
   ): Promise<{ path: string }> {
     await requireRepository(projectPath);
-    const safePath = ensureMutationPathInsideProject(projectPath, requestedPath);
-    const status = parseStatus(await runGit(projectPath, [
-      'status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all',
-    ]));
+    const safePath = ensureMutationPathInsideProject(
+      projectPath,
+      requestedPath,
+    );
+    const status = parseStatus(
+      await runGit(projectPath, [
+        'status',
+        '--porcelain=v2',
+        '--branch',
+        '-z',
+        '--untracked-files=all',
+      ]),
+    );
     const file = status.files.find((candidate) => candidate.path === safePath);
     if (!file) {
       throw new GitMutationError(
@@ -149,7 +193,9 @@ export function createFileOperations(confirmations: GitMutationConfirmationServi
     } catch (error) {
       throw new GitMutationError(
         'GIT_FILE_MUTATION_FAILED',
-        error instanceof Error ? error.message : 'Falha ao remover o arquivo novo.',
+        error instanceof Error
+          ? error.message
+          : 'Falha ao remover o arquivo novo.',
       );
     }
     return { path: safePath };

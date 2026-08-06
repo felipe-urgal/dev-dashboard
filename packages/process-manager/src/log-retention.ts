@@ -1,10 +1,4 @@
-import {
-  access,
-  readdir,
-  readFile,
-  rm,
-  stat,
-} from 'node:fs/promises';
+import { access, readdir, readFile, rm, stat } from 'node:fs/promises';
 
 import path from 'node:path';
 
@@ -33,35 +27,22 @@ export type SweptEntry = SweptProcess | SweptOrphanLog;
 const DEFAULT_RETENTION_DAYS = 7;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-function isErrnoException(
-  error: unknown,
-): error is NodeJS.ErrnoException {
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }
 
-function resolveMaxAgeMs(
-  options?: SweepStaleProcessesOptions,
-): number {
+function resolveMaxAgeMs(options?: SweepStaleProcessesOptions): number {
   if (options?.maxAgeMs !== undefined) {
-    if (
-      !Number.isFinite(options.maxAgeMs) ||
-      options.maxAgeMs <= 0
-    ) {
-      throw new Error(
-        'O período de retenção deve ser maior que zero.',
-      );
+    if (!Number.isFinite(options.maxAgeMs) || options.maxAgeMs <= 0) {
+      throw new Error('O período de retenção deve ser maior que zero.');
     }
 
     return options.maxAgeMs;
   }
 
-  const raw =
-    process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS;
+  const raw = process.env.DEV_DASHBOARD_LOG_RETENTION_DAYS;
 
-  const parsedDays =
-    raw !== undefined
-      ? Number.parseInt(raw, 10)
-      : Number.NaN;
+  const parsedDays = raw !== undefined ? Number.parseInt(raw, 10) : Number.NaN;
 
   const days =
     Number.isInteger(parsedDays) && parsedDays > 0
@@ -79,11 +60,7 @@ async function isEligibleForRemoval(
 ): Promise<boolean> {
   let status = storedProcess.status;
 
-  if (
-    status === 'running' ||
-    status === 'starting' ||
-    status === 'stopping'
-  ) {
+  if (status === 'running' || status === 'starting' || status === 'stopping') {
     const alive =
       storedProcess.pid !== undefined &&
       isManagedProcessAlive(storedProcess.pid) &&
@@ -104,17 +81,14 @@ async function isEligibleForRemoval(
     ? new Date(storedProcess.stoppedAt).getTime()
     : Number.NaN;
 
-  const referenceTimestamp = Number.isFinite(
-    stoppedTimestamp,
-  )
+  const referenceTimestamp = Number.isFinite(stoppedTimestamp)
     ? stoppedTimestamp
     : (await stat(stateFilePath)).mtimeMs;
 
   return Date.now() - referenceTimestamp > maxAgeMs;
 }
 
-const MANAGED_STATE_SUFFIX_PATTERN =
-  /\.(server|test|worker|webpack)\.json$/;
+const MANAGED_STATE_SUFFIX_PATTERN = /\.(server|test|worker|webpack)\.json$/;
 
 function resolveManagedLogPath(
   logDirectory: string,
@@ -133,26 +107,16 @@ export async function sweepStaleProcesses(
   options?: SweepStaleProcessesOptions,
 ): Promise<SweptEntry[]> {
   const maxAgeMs = resolveMaxAgeMs(options);
-  const removeAllTerminal =
-    options?.removeAllTerminal === true;
+  const removeAllTerminal = options?.removeAllTerminal === true;
 
-  const processDirectory = path.join(
-    stateDirectory,
-    'processes',
-  );
+  const processDirectory = path.join(stateDirectory, 'processes');
 
-  const logDirectory = path.join(
-    stateDirectory,
-    'logs',
-  );
+  const logDirectory = path.join(stateDirectory, 'logs');
 
   const entries = await readdir(processDirectory, {
     withFileTypes: true,
   }).catch((error: unknown) => {
-    if (
-      isErrnoException(error) &&
-      error.code === 'ENOENT'
-    ) {
+    if (isErrnoException(error) && error.code === 'ENOENT') {
       return [];
     }
 
@@ -162,23 +126,14 @@ export async function sweepStaleProcesses(
   const swept: SweptProcess[] = [];
 
   for (const entry of entries) {
-    if (
-      !entry.isFile() ||
-      !MANAGED_STATE_SUFFIX_PATTERN.test(entry.name)
-    ) {
+    if (!entry.isFile() || !MANAGED_STATE_SUFFIX_PATTERN.test(entry.name)) {
       continue;
     }
 
-    const stateFilePath = path.join(
-      processDirectory,
-      entry.name,
-    );
+    const stateFilePath = path.join(processDirectory, entry.name);
 
     try {
-      const contents = await readFile(
-        stateFilePath,
-        'utf8',
-      );
+      const contents = await readFile(stateFilePath, 'utf8');
 
       const parsed: unknown = JSON.parse(contents);
 
@@ -197,10 +152,7 @@ export async function sweepStaleProcesses(
         continue;
       }
 
-      const managedLogPath = resolveManagedLogPath(
-        logDirectory,
-        entry.name,
-      );
+      const managedLogPath = resolveManagedLogPath(logDirectory, entry.name);
 
       await rm(stateFilePath, {
         force: true,
@@ -231,9 +183,7 @@ export async function sweepStaleProcesses(
 
 const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test|worker|webpack)\.log$/;
 
-function resolveManagedStateFileName(
-  logFileName: string,
-): string {
+function resolveManagedStateFileName(logFileName: string): string {
   return logFileName.replace(
     MANAGED_LOG_SUFFIX_PATTERN,
     (_match, kind: string) => `.${kind}.json`,
@@ -249,10 +199,7 @@ async function sweepOrphanLogs(
   const logEntries = await readdir(logDirectory, {
     withFileTypes: true,
   }).catch((error: unknown) => {
-    if (
-      isErrnoException(error) &&
-      error.code === 'ENOENT'
-    ) {
+    if (isErrnoException(error) && error.code === 'ENOENT') {
       return [];
     }
 
@@ -262,17 +209,11 @@ async function sweepOrphanLogs(
   const swept: SweptOrphanLog[] = [];
 
   for (const entry of logEntries) {
-    if (
-      !entry.isFile() ||
-      !MANAGED_LOG_SUFFIX_PATTERN.test(entry.name)
-    ) {
+    if (!entry.isFile() || !MANAGED_LOG_SUFFIX_PATTERN.test(entry.name)) {
       continue;
     }
 
-    const logFilePath = path.join(
-      logDirectory,
-      entry.name,
-    );
+    const logFilePath = path.join(logDirectory, entry.name);
 
     const stateFilePath = path.join(
       processDirectory,

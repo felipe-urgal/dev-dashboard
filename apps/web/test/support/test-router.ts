@@ -15,14 +15,46 @@ export function createTestRouter(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'dashboard', component: stub },
-      { path: '/projects/:projectId', name: 'project-details', component: stub },
-      { path: '/projects/:projectId/editor', name: 'project-editor', component: stub },
-      { path: '/projects/:projectId/server', name: 'project-server', component: stub },
-      { path: '/projects/:projectId/git', name: 'project-git', component: stub },
-      { path: '/projects/:projectId/tests', name: 'project-tests', component: stub },
-      { path: '/projects/:projectId/database', name: 'project-database', component: stub },
-      { path: '/projects/:projectId/dependencies', name: 'project-dependencies', component: stub },
-      { path: '/projects/:projectId/environment', name: 'project-environment', component: stub },
+      {
+        path: '/projects/:projectId',
+        name: 'project-details',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/editor',
+        name: 'project-editor',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/server',
+        name: 'project-server',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/git',
+        name: 'project-git',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/tests',
+        name: 'project-tests',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/database',
+        name: 'project-database',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/dependencies',
+        name: 'project-dependencies',
+        component: stub,
+      },
+      {
+        path: '/projects/:projectId/environment',
+        name: 'project-environment',
+        component: stub,
+      },
     ],
   });
 }

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
   CheckCircleIcon,
@@ -13,10 +9,7 @@ import {
   ShieldCheckIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  RouterLink,
-  type RouteLocationRaw,
-} from 'vue-router';
+import { RouterLink, type RouteLocationRaw } from 'vue-router';
 
 import type {
   Project,
@@ -51,20 +44,25 @@ const categoryLabels: Record<ProjectDiagnosticCategory, string> = {
   configuration: 'Configuração',
 };
 
-const groupedChecks = computed(() => categoryOrder
-  .map((category) => ({
-    category,
-    label: categoryLabels[category],
-    checks: report.value?.checks.filter((check) => check.category === category) ?? [],
-  }))
-  .filter((group) => group.checks.length > 0));
+const groupedChecks = computed(() =>
+  categoryOrder
+    .map((category) => ({
+      category,
+      label: categoryLabels[category],
+      checks:
+        report.value?.checks.filter((check) => check.category === category) ??
+        [],
+    }))
+    .filter((group) => group.checks.length > 0),
+);
 
 const overallCopy = computed(() => {
   if (!report.value) return null;
   if (report.value.overallStatus === 'healthy') {
     return {
       title: 'Projeto pronto para trabalhar',
-      description: 'Os sinais verificados não apontaram bloqueios ou pendências.',
+      description:
+        'Os sinais verificados não apontaram bloqueios ou pendências.',
       tone: 'success' as const,
       icon: ShieldCheckIcon,
       label: 'Saudável',
@@ -73,7 +71,8 @@ const overallCopy = computed(() => {
   if (report.value.overallStatus === 'blocked') {
     return {
       title: 'Há bloqueios no projeto',
-      description: 'Resolva os itens com falha antes de iniciar os fluxos principais.',
+      description:
+        'Resolva os itens com falha antes de iniciar os fluxos principais.',
       tone: 'danger' as const,
       icon: XCircleIcon,
       label: 'Bloqueado',
@@ -81,7 +80,8 @@ const overallCopy = computed(() => {
   }
   return {
     title: 'O projeto precisa de atenção',
-    description: 'Há recomendações que podem evitar falhas durante o desenvolvimento.',
+    description:
+      'Há recomendações que podem evitar falhas durante o desenvolvimento.',
     tone: 'warning' as const,
     icon: ExclamationTriangleIcon,
     label: 'Atenção',
@@ -111,7 +111,9 @@ function statusIcon(status: ProjectDiagnosticStatus) {
   return InformationCircleIcon;
 }
 
-function groupStatus(checks: ProjectDiagnosticCheck[]): ProjectDiagnosticStatus {
+function groupStatus(
+  checks: ProjectDiagnosticCheck[],
+): ProjectDiagnosticStatus {
   if (checks.some((check) => check.status === 'failed')) return 'failed';
   if (checks.some((check) => check.status === 'warning')) return 'warning';
   if (checks.some((check) => check.status === 'skipped')) return 'skipped';
@@ -164,9 +166,10 @@ async function load(refresh = false): Promise<void> {
     report.value = result;
   } catch (error) {
     if (current === generation) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'Não foi possível diagnosticar o projeto.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível diagnosticar o projeto.';
     }
   } finally {
     if (current === generation) loading.value = false;
@@ -202,7 +205,10 @@ watch(
         </div>
 
         <button type="button" :disabled="loading" @click="load(true)">
-          <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
+          <ArrowPathIcon
+            aria-hidden="true"
+            :class="{ 'is-spinning': loading }"
+          />
           {{ loading ? 'Analisando…' : 'Executar nova análise' }}
         </button>
       </header>
@@ -253,7 +259,10 @@ watch(
           </article>
         </div>
 
-        <section class="project-doctor-areas" aria-labelledby="doctor-areas-title">
+        <section
+          class="project-doctor-areas"
+          aria-labelledby="doctor-areas-title"
+        >
           <header>
             <h4 id="doctor-areas-title">Áreas analisadas</h4>
             <span>Saúde</span>
@@ -279,8 +288,14 @@ watch(
                   <div>
                     <strong>{{ group.label }}</strong>
                     <span>
-                      {{ completedChecks(group.checks) }}/{{ group.checks.length }}
-                      {{ group.checks.length === 1 ? 'verificação' : 'verificações' }}
+                      {{ completedChecks(group.checks) }}/{{
+                        group.checks.length
+                      }}
+                      {{
+                        group.checks.length === 1
+                          ? 'verificação'
+                          : 'verificações'
+                      }}
                     </span>
                   </div>
                 </div>
@@ -300,7 +315,10 @@ watch(
                   class="project-doctor-check"
                   :class="`is-${check.status}`"
                 >
-                  <component :is="statusIcon(check.status)" aria-hidden="true" />
+                  <component
+                    :is="statusIcon(check.status)"
+                    aria-hidden="true"
+                  />
                   <div class="project-doctor-check-copy">
                     <div>
                       <strong>{{ check.label }}</strong>

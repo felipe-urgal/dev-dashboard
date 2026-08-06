@@ -18,10 +18,15 @@ import { createAppContext } from '../src/app-context.js';
 const TOKEN = 'e'.repeat(64);
 
 test('cria, revisa, renomeia e exclui itens do projeto autorizado', async (context) => {
-  const projectPath = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-route-file-mutations-'));
+  const projectPath = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-route-file-mutations-'),
+  );
   context.after(() => rm(projectPath, { recursive: true, force: true }));
   await mkdir(path.join(projectPath, 'src'), { recursive: true });
-  await writeFile(path.join(projectPath, 'src', 'index.ts'), 'export const value = 1;\n');
+  await writeFile(
+    path.join(projectPath, 'src', 'index.ts'),
+    'export const value = 1;\n',
+  );
 
   const appContext = createAppContext();
   const project: Project = {
@@ -96,7 +101,10 @@ test('cria, revisa, renomeia e exclui itens do projeto autorizado', async (conte
     },
   });
   assert.equal(createdDirectory.statusCode, 201);
-  await writeFile(path.join(projectPath, 'src', 'nested', 'child.txt'), 'child\n');
+  await writeFile(
+    path.join(projectPath, 'src', 'nested', 'child.txt'),
+    'child\n',
+  );
 
   const previewDelete = await app.inject({
     method: 'POST',

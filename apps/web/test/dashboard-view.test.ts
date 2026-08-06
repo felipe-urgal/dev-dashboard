@@ -38,8 +38,16 @@ vi.mock('../src/stores/dashboard', async () => {
       successMessage: ref(''),
       warningCount: ref(0),
       lastScannedPath: ref(''),
-      selectedWorkspace: computed(() => workspaces.value.find((item) => item.id === selectedWorkspaceId.value)),
-      sortedProjects: computed(() => [...projects.value].sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name))),
+      selectedWorkspace: computed(() =>
+        workspaces.value.find((item) => item.id === selectedWorkspaceId.value),
+      ),
+      sortedProjects: computed(() =>
+        [...projects.value].sort(
+          (a, b) =>
+            Number(b.favorite) - Number(a.favorite) ||
+            a.name.localeCompare(b.name),
+        ),
+      ),
       scanSelectedWorkspace: actions.escanear,
       handleDeleteWorkspace: actions.remover,
       toggleProjectFavorite: actions.favoritar,
@@ -51,8 +59,14 @@ import { dashboardStore } from '../src/stores/dashboard';
 import DashboardView from '../src/views/DashboardView.vue';
 
 const project: Project = {
-  id: 'p1', workspaceId: 'w1', name: 'Favorito', path: '/projetos/favorito', type: 'node',
-  source: 'workspace', favorite: true, capabilities: ['git'],
+  id: 'p1',
+  workspaceId: 'w1',
+  name: 'Favorito',
+  path: '/projetos/favorito',
+  type: 'node',
+  source: 'workspace',
+  favorite: true,
+  capabilities: ['git'],
 };
 
 function mountView() {
@@ -62,7 +76,8 @@ function mountView() {
         ProjectCard: {
           props: ['project', 'favoriteUpdating'],
           emits: ['toggle-favorite'],
-          template: '<li class="project-stub" @click="$emit(\'toggle-favorite\', project)">{{ project.name }}</li>',
+          template:
+            '<li class="project-stub" @click="$emit(\'toggle-favorite\', project)">{{ project.name }}</li>',
         },
       },
     },
@@ -103,7 +118,9 @@ describe('dashboard principal', () => {
     expect(wrapper.find('.workspace-panel').exists()).toBe(false);
     expect(wrapper.find('.workspace-create-form').exists()).toBe(false);
     expect(wrapper.find('.metrics-grid').exists()).toBe(false);
-    expect(wrapper.find('.repositories-section').classes()).toContain('dd-card');
+    expect(wrapper.find('.repositories-section').classes()).toContain(
+      'dd-card',
+    );
   });
 
   it('lista projetos em .projects-list em vez de grid de cards', () => {
@@ -129,7 +146,9 @@ describe('dashboard principal', () => {
     dashboardStore.loadingProjects.value = true;
     const wrapper = mountView();
     expect(wrapper.get('#overview').attributes('aria-busy')).toBe('true');
-    expect(wrapper.get('[role="status"]').text()).toContain('Carregando projetos detectados');
+    expect(wrapper.get('[role="status"]').text()).toContain(
+      'Carregando projetos detectados',
+    );
     expect(wrapper.find('.loading-skeleton-list').exists()).toBe(false);
 
     await vi.advanceTimersByTimeAsync(150);
@@ -165,13 +184,19 @@ describe('dashboard principal', () => {
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
     expect(wrapper.get('.project-stub').text()).toBe('Painel Rails');
 
-    await wrapper.get('.project-type-filters button:nth-child(2)').trigger('click');
+    await wrapper
+      .get('.project-type-filters button:nth-child(2)')
+      .trigger('click');
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
 
-    await wrapper.get('.project-type-filters button:nth-child(3)').trigger('click');
+    await wrapper
+      .get('.project-type-filters button:nth-child(3)')
+      .trigger('click');
     expect(wrapper.text()).toContain('Nenhum projeto encontrado');
 
-    await wrapper.get('.empty-state-filtered .secondary-button').trigger('click');
+    await wrapper
+      .get('.empty-state-filtered .secondary-button')
+      .trigger('click');
     expect(wrapper.findAll('.project-stub')).toHaveLength(2);
   });
 
@@ -207,7 +232,9 @@ describe('dashboard principal', () => {
         workspaceId: 'w1',
         kind: 'server',
       });
-      expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+      expect(
+        wrapper.get('.servers-start-button').attributes('disabled'),
+      ).toBeUndefined();
     });
 
     await wrapper.get('.servers-start-button').trigger('click');
@@ -217,7 +244,9 @@ describe('dashboard principal', () => {
 
     expect(actions.iniciarProcesso).toHaveBeenCalledWith('p2');
     expect(wrapper.text()).toContain('1 servidor iniciado.');
-    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeDefined();
+    expect(
+      wrapper.get('.servers-start-button').attributes('disabled'),
+    ).toBeDefined();
   });
 
   it('informa os projetos que falharam sem perder os servidores iniciados', async () => {
@@ -241,7 +270,9 @@ describe('dashboard principal', () => {
 
     const wrapper = mountView();
     await vi.waitFor(() => {
-      expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+      expect(
+        wrapper.get('.servers-start-button').attributes('disabled'),
+      ).toBeUndefined();
     });
 
     await wrapper.get('.servers-start-button').trigger('click');
@@ -249,29 +280,39 @@ describe('dashboard principal', () => {
       expect(actions.iniciarProcesso).toHaveBeenCalledTimes(2);
     });
 
-    expect(wrapper.text()).toContain('1 servidor iniciado. Não foi possível iniciar: Favorito.');
-    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+    expect(wrapper.text()).toContain(
+      '1 servidor iniciado. Não foi possível iniciar: Favorito.',
+    );
+    expect(
+      wrapper.get('.servers-start-button').attributes('disabled'),
+    ).toBeUndefined();
   });
 
   it('mantém a ação indisponível quando não consegue verificar os processos', async () => {
     actions.buscarProcessos.mockRejectedValue(
       new Error('Não foi possível consultar os processos.'),
     );
-    dashboardStore.projects.value = [
-      { ...project, capabilities: ['server'] },
-    ];
+    dashboardStore.projects.value = [{ ...project, capabilities: ['server'] }];
 
     const wrapper = mountView();
     await vi.waitFor(() => {
-      expect(wrapper.text()).toContain('Não foi possível consultar os processos.');
+      expect(wrapper.text()).toContain(
+        'Não foi possível consultar os processos.',
+      );
     });
 
-    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeDefined();
-    expect(wrapper.get('.servers-start-button').attributes('title'))
-      .toBe('Não foi possível verificar os servidores disponíveis.');
-    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeDefined();
-    expect(wrapper.get('.servers-stop-button').attributes('title'))
-      .toBe('Não foi possível verificar os servidores em execução.');
+    expect(
+      wrapper.get('.servers-start-button').attributes('disabled'),
+    ).toBeDefined();
+    expect(wrapper.get('.servers-start-button').attributes('title')).toBe(
+      'Não foi possível verificar os servidores disponíveis.',
+    );
+    expect(
+      wrapper.get('.servers-stop-button').attributes('disabled'),
+    ).toBeDefined();
+    expect(wrapper.get('.servers-stop-button').attributes('title')).toBe(
+      'Não foi possível verificar os servidores em execução.',
+    );
   });
 
   it('para todos os servidores ativos e ignora os projetos parados', async () => {
@@ -296,7 +337,9 @@ describe('dashboard principal', () => {
 
     const wrapper = mountView();
     await vi.waitFor(() => {
-      expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
+      expect(
+        wrapper.get('.servers-stop-button').attributes('disabled'),
+      ).toBeUndefined();
     });
 
     await wrapper.get('.servers-stop-button').trigger('click');
@@ -306,8 +349,12 @@ describe('dashboard principal', () => {
 
     expect(actions.pararProcesso).toHaveBeenCalledWith('p1');
     expect(wrapper.text()).toContain('1 servidor parado.');
-    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeDefined();
-    expect(wrapper.get('.servers-start-button').attributes('disabled')).toBeUndefined();
+    expect(
+      wrapper.get('.servers-stop-button').attributes('disabled'),
+    ).toBeDefined();
+    expect(
+      wrapper.get('.servers-start-button').attributes('disabled'),
+    ).toBeUndefined();
   });
 
   it('informa os servidores que falharam ao parar sem perder os demais resultados', async () => {
@@ -345,7 +392,9 @@ describe('dashboard principal', () => {
 
     const wrapper = mountView();
     await vi.waitFor(() => {
-      expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
+      expect(
+        wrapper.get('.servers-stop-button').attributes('disabled'),
+      ).toBeUndefined();
     });
 
     await wrapper.get('.servers-stop-button').trigger('click');
@@ -356,6 +405,8 @@ describe('dashboard principal', () => {
     expect(wrapper.text()).toContain(
       '1 servidor parado. Não foi possível parar: Favorito.',
     );
-    expect(wrapper.get('.servers-stop-button').attributes('disabled')).toBeUndefined();
+    expect(
+      wrapper.get('.servers-stop-button').attributes('disabled'),
+    ).toBeUndefined();
   });
 });

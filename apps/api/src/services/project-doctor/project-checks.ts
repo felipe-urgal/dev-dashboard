@@ -1,9 +1,6 @@
 import path from 'node:path';
 
-import type {
-  Project,
-  ProjectDiagnosticCheck,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectDiagnosticCheck } from '@dev-dashboard/contracts';
 
 import {
   formatVariableNames,
@@ -28,7 +25,8 @@ export async function checkProjectDirectory(
       : 'O diretório não existe ou não pode ser lido pela API.',
     ...(!readable
       ? {
-          recommendation: 'Revise o workspace configurado e as permissões do diretório.',
+          recommendation:
+            'Revise o workspace configurado e as permissões do diretório.',
           action: { label: 'Abrir configurações', target: 'settings' as const },
         }
       : {}),
@@ -45,7 +43,8 @@ export async function checkExpectedManifest(
       label: 'Estrutura esperada',
       status: 'skipped',
       summary: 'O tipo do projeto ainda não foi reconhecido.',
-      recommendation: 'Confirme se o projeto possui package.json ou Gemfile na raiz.',
+      recommendation:
+        'Confirme se o projeto possui package.json ou Gemfile na raiz.',
     });
   }
 
@@ -61,7 +60,8 @@ export async function checkExpectedManifest(
       : `${expectedFile} não foi encontrado na raiz do projeto.`,
     ...(!exists
       ? {
-          recommendation: 'Revise a raiz selecionada ou a estrutura do projeto.',
+          recommendation:
+            'Revise a raiz selecionada ou a estrutura do projeto.',
           action: { label: 'Abrir configurações', target: 'settings' as const },
         }
       : {}),
@@ -87,7 +87,8 @@ export async function checkEnvironmentVariables(
       category: 'configuration',
       label: 'Variáveis de ambiente',
       status: 'skipped',
-      summary: '.env.example e .env.sample não foram encontrados; não há referência segura para comparar nomes.',
+      summary:
+        '.env.example e .env.sample não foram encontrados; não há referência segura para comparar nomes.',
     });
   }
 
@@ -103,9 +104,10 @@ export async function checkEnvironmentVariables(
   }
 
   const localContent = await readLimitedText(path.join(project.path, '.env'));
-  const localNames = localContent === null
-    ? new Set<string>()
-    : parseEnvironmentVariableNames(localContent);
+  const localNames =
+    localContent === null
+      ? new Set<string>()
+      : parseEnvironmentVariableNames(localContent);
   const missingNames = [...expectedNames]
     .filter((name) => !localNames.has(name))
     .sort();
@@ -126,7 +128,8 @@ export async function checkEnvironmentVariables(
     label: 'Variáveis de ambiente',
     status: 'warning',
     summary: `${missingNames.length} nome(s) esperado(s) não foram encontrados em .env: ${formatVariableNames(missingNames)}.`,
-    recommendation: 'Adicione apenas os valores necessários ao ambiente local. O diagnóstico nunca retorna esses valores.',
+    recommendation:
+      'Adicione apenas os valores necessários ao ambiente local. O diagnóstico nunca retorna esses valores.',
     action: { label: 'Abrir configurações', target: 'settings' },
   });
 }

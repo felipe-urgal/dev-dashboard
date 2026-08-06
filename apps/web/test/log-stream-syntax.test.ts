@@ -31,12 +31,32 @@ test('tokeniza elementos técnicos sem depender de innerHTML', () => {
     'GET /dados/explorador 200 in 130ms SELECT users WHERE id = 2',
   );
 
-  assert.ok(tokens.some((token) => token.kind === 'method' && token.value === 'GET'));
-  assert.ok(tokens.some((token) => token.kind === 'route' && token.value === '/dados/explorador'));
-  assert.ok(tokens.some((token) => token.kind === 'status' && token.value === '200'));
-  assert.ok(tokens.some((token) => token.kind === 'duration' && token.value === '130ms'));
-  assert.ok(tokens.some((token) => token.kind === 'sql-keyword' && token.value === 'SELECT'));
-  assert.ok(tokens.some((token) => token.kind === 'sql-keyword' && token.value === 'WHERE'));
+  assert.ok(
+    tokens.some((token) => token.kind === 'method' && token.value === 'GET'),
+  );
+  assert.ok(
+    tokens.some(
+      (token) => token.kind === 'route' && token.value === '/dados/explorador',
+    ),
+  );
+  assert.ok(
+    tokens.some((token) => token.kind === 'status' && token.value === '200'),
+  );
+  assert.ok(
+    tokens.some(
+      (token) => token.kind === 'duration' && token.value === '130ms',
+    ),
+  );
+  assert.ok(
+    tokens.some(
+      (token) => token.kind === 'sql-keyword' && token.value === 'SELECT',
+    ),
+  );
+  assert.ok(
+    tokens.some(
+      (token) => token.kind === 'sql-keyword' && token.value === 'WHERE',
+    ),
+  );
 });
 
 test('renderiza compilação Node como linha estruturada e compacta', () => {
@@ -45,8 +65,14 @@ test('renderiza compilação Node como linha estruturada e compacta', () => {
   decorateRawLine(line);
 
   assert.ok(line.classList.contains('enhanced-log-build-card'));
-  assert.equal(line.querySelector('.enhanced-log-source-badge')?.textContent, 'NODE');
-  assert.equal(line.querySelector('.enhanced-log-kind-badge')?.textContent, 'BUILD');
+  assert.equal(
+    line.querySelector('.enhanced-log-source-badge')?.textContent,
+    'NODE',
+  );
+  assert.equal(
+    line.querySelector('.enhanced-log-kind-badge')?.textContent,
+    'BUILD',
+  );
   assert.match(line.textContent ?? '', /Compilado \/instrumentation/);
   assert.match(line.textContent ?? '', /2\.3s/);
   assert.match(line.textContent ?? '', /998 módulos/);
@@ -59,19 +85,32 @@ test('destaca eventos Rails preservando o texto original', () => {
   decorateRawLine(line);
 
   assert.ok(line.classList.contains('enhanced-log-framework-rails'));
-  assert.equal(line.querySelector('.enhanced-log-source-badge')?.textContent, 'RAILS');
-  assert.equal(line.querySelector('.log-token-controller')?.textContent, 'SessionsController#create');
-  assert.match(line.textContent ?? '', /Processing by SessionsController#create as HTML/);
+  assert.equal(
+    line.querySelector('.enhanced-log-source-badge')?.textContent,
+    'RAILS',
+  );
+  assert.equal(
+    line.querySelector('.log-token-controller')?.textContent,
+    'SessionsController#create',
+  );
+  assert.match(
+    line.textContent ?? '',
+    /Processing by SessionsController#create as HTML/,
+  );
 });
 
 test('reconhece warning do webpack mesmo sem prefixo WARN', () => {
-  const value = '<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (318kiB) impacts performance';
+  const value =
+    '<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (318kiB) impacts performance';
   assert.equal(isWarningMessage(value), true);
 
   const line = createLine(value);
   decorateRawLine(line);
 
   assert.ok(line.classList.contains('enhanced-log-warning-card'));
-  assert.equal(line.querySelector('.enhanced-log-kind-badge')?.textContent, 'AVISO');
+  assert.equal(
+    line.querySelector('.enhanced-log-kind-badge')?.textContent,
+    'AVISO',
+  );
   assert.match(line.textContent ?? '', /PackFileCacheStrategy/);
 });

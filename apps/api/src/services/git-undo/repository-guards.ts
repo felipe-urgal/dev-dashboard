@@ -13,7 +13,9 @@ export async function requireRepository(projectPath: string): Promise<void> {
 }
 
 export async function currentBranch(projectPath: string): Promise<string> {
-  const branch = (await runGit(projectPath, ['branch', '--show-current'])).trim();
+  const branch = (
+    await runGit(projectPath, ['branch', '--show-current'])
+  ).trim();
   if (!branch) {
     throw new GitUndoError(
       'GIT_DETACHED_HEAD',
@@ -23,9 +25,14 @@ export async function currentBranch(projectPath: string): Promise<string> {
   return branch;
 }
 
-export async function assertWorkingTreeClean(projectPath: string): Promise<void> {
+export async function assertWorkingTreeClean(
+  projectPath: string,
+): Promise<void> {
   const status = await runGit(projectPath, [
-    'status', '--porcelain=v2', '-z', '--untracked-files=all',
+    'status',
+    '--porcelain=v2',
+    '-z',
+    '--untracked-files=all',
   ]);
   if (status.length > 0) {
     throw new GitUndoError(
@@ -35,14 +42,22 @@ export async function assertWorkingTreeClean(projectPath: string): Promise<void>
   }
 }
 
-export async function localAheadOfUpstream(projectPath: string): Promise<number | null> {
+export async function localAheadOfUpstream(
+  projectPath: string,
+): Promise<number | null> {
   const upstream = await optionalGit(projectPath, [
-    'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}',
+    'rev-parse',
+    '--abbrev-ref',
+    '--symbolic-full-name',
+    '@{upstream}',
   ]);
   if (!upstream?.trim()) return null;
 
   const counts = await optionalGit(projectPath, [
-    'rev-list', '--left-right', '--count', 'HEAD...@{upstream}',
+    'rev-list',
+    '--left-right',
+    '--count',
+    'HEAD...@{upstream}',
   ]);
   if (!counts) return null;
   const [aheadRaw = '0'] = counts.trim().split(/\s+/);

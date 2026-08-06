@@ -8,23 +8,11 @@ export const managedProcessResponseSchema = {
     workspaceId: { type: 'string' },
     kind: {
       type: 'string',
-      enum: [
-        'server',
-        'webpack',
-        'worker',
-        'test',
-        'script',
-      ],
+      enum: ['server', 'webpack', 'worker', 'test', 'script'],
     },
     status: {
       type: 'string',
-      enum: [
-        'starting',
-        'running',
-        'stopping',
-        'stopped',
-        'failed',
-      ],
+      enum: ['starting', 'running', 'stopping', 'stopped', 'failed'],
     },
     pid: { type: 'integer' },
     port: { type: 'integer' },
@@ -91,13 +79,7 @@ export const projectServerSettingsResponseSchema = {
 export const projectServerHealthResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'projectId',
-    'path',
-    'pathSource',
-    'status',
-    'checkedAt',
-  ],
+  required: ['projectId', 'path', 'pathSource', 'status', 'checkedAt'],
   properties: {
     projectId: { type: 'string' },
     path: { type: 'string' },

@@ -2,7 +2,10 @@ import { isRedundantGitDiffHeaderLine } from '../git-diff-metadata';
 import { HUNK_PATTERN } from './constants';
 import type { GitDiffLineKind, GitUnifiedDiffLine } from './types';
 
-function metaLine(text: string, kind: GitDiffLineKind = 'meta'): GitUnifiedDiffLine {
+function metaLine(
+  text: string,
+  kind: GitDiffLineKind = 'meta',
+): GitUnifiedDiffLine {
   return {
     kind,
     text,
@@ -24,17 +27,18 @@ export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
       newLine = Number.parseInt(hunk[4] ?? '0', 10);
       const coordinates = hunk[1] ?? rawLine;
       const context = hunk[6]?.trim() ?? '';
-      const repeatedContext = Boolean(context) && context === previousHunkContext;
+      const repeatedContext =
+        Boolean(context) && context === previousHunkContext;
       lines.push(metaLine(repeatedContext ? coordinates : rawLine, 'hunk'));
       if (context) previousHunkContext = context;
       continue;
     }
 
     if (
-      rawLine.startsWith('diff --git ')
-      || rawLine.startsWith('index ')
-      || rawLine.startsWith('--- ')
-      || rawLine.startsWith('+++ ')
+      rawLine.startsWith('diff --git ') ||
+      rawLine.startsWith('index ') ||
+      rawLine.startsWith('--- ') ||
+      rawLine.startsWith('+++ ')
     ) {
       // O caminho do arquivo já aparece no cabeçalho da própria visualização
       // (lista de arquivos, seletor de arquivo); repetir "diff --git",
@@ -46,11 +50,11 @@ export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
     }
 
     if (
-      rawLine.startsWith('new file mode ')
-      || rawLine.startsWith('deleted file mode ')
-      || rawLine.startsWith('similarity index ')
-      || rawLine.startsWith('rename from ')
-      || rawLine.startsWith('rename to ')
+      rawLine.startsWith('new file mode ') ||
+      rawLine.startsWith('deleted file mode ') ||
+      rawLine.startsWith('similarity index ') ||
+      rawLine.startsWith('rename from ') ||
+      rawLine.startsWith('rename to ')
     ) {
       lines.push(metaLine(rawLine));
       continue;

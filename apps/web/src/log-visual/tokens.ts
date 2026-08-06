@@ -32,11 +32,13 @@ const tokenMatchers: Array<{
   },
   {
     kind: 'controller',
-    expression: /^(?:[A-Z][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*Controller#[A-Za-z0-9_!?]+/,
+    expression:
+      /^(?:[A-Z][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*Controller#[A-Za-z0-9_!?]+/,
   },
   {
     kind: 'file',
-    expression: /^(?:(?:app|config|lib|src|pages|components|server|test|spec)\/[^\s:]+(?::\d+)?(?::in\s+[`'][^`']+[`'])?)/,
+    expression:
+      /^(?:(?:app|config|lib|src|pages|components|server|test|spec)\/[^\s:]+(?::\d+)?(?::in\s+[`'][^`']+[`'])?)/,
   },
   {
     kind: 'env',
@@ -48,7 +50,8 @@ const tokenMatchers: Array<{
   },
   {
     kind: 'status',
-    expression: /^[1-5]\d{2}(?=\s+(?:in\b|OK\b|See\b|Not\b|Internal\b|Found\b|Created\b|No\b|Moved\b|Redirect\b))/,
+    expression:
+      /^[1-5]\d{2}(?=\s+(?:in\b|OK\b|See\b|Not\b|Internal\b|Found\b|Created\b|No\b|Moved\b|Redirect\b))/,
   },
   {
     kind: 'duration',
@@ -56,11 +59,13 @@ const tokenMatchers: Array<{
   },
   {
     kind: 'sql-keyword',
-    expression: /^(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|ORDER|GROUP|BY|HAVING|LIMIT|OFFSET|SET|VALUES|INTO|AS|IS|NULL|BEGIN|COMMIT|ROLLBACK|TRANSACTION|SAVEPOINT|RELEASE)\b/i,
+    expression:
+      /^(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|ORDER|GROUP|BY|HAVING|LIMIT|OFFSET|SET|VALUES|INTO|AS|IS|NULL|BEGIN|COMMIT|ROLLBACK|TRANSACTION|SAVEPOINT|RELEASE)\b/i,
   },
   {
     kind: 'route',
-    expression: /^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%\-/]*(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?\-]*)?/,
+    expression:
+      /^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%\-/]*(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?\-]*)?/,
   },
   {
     kind: 'marker',

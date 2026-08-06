@@ -21,9 +21,7 @@ export function fetchProjectDirectory(
   projectId: string,
   relativePath = '',
 ): Promise<ProjectDirectoryListing> {
-  const query = relativePath
-    ? `?path=${encodeURIComponent(relativePath)}`
-    : '';
+  const query = relativePath ? `?path=${encodeURIComponent(relativePath)}` : '';
   return requestJson<ProjectDirectoryListing>(
     `${projectFilesPath(projectId)}${query}`,
   );

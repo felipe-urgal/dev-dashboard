@@ -1,8 +1,5 @@
 export type ProjectDatabaseSource =
-  | 'rails-database-yml'
-  | 'dotenv'
-  | 'prisma'
-  | 'knex';
+  'rails-database-yml' | 'dotenv' | 'prisma' | 'knex';
 
 export type DatabaseReachability = 'reachable' | 'unreachable' | 'unknown';
 

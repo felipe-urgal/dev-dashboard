@@ -18,10 +18,13 @@ function rememberCommitFile(event: Event): void {
   const filePath = commitFilePath(button);
   if (!filePath) return;
   try {
-    window.sessionStorage.setItem(TARGET_FILE_KEY, JSON.stringify({
-      filePath,
-      createdAt: Date.now(),
-    }));
+    window.sessionStorage.setItem(
+      TARGET_FILE_KEY,
+      JSON.stringify({
+        filePath,
+        createdAt: Date.now(),
+      }),
+    );
   } catch {
     // A navegação para a aba Diff continua funcionando sem persistência.
   }
@@ -31,19 +34,33 @@ function openRememberedDiffFile(): void {
   let target: { filePath?: string; createdAt?: number } | null = null;
   try {
     const raw = window.sessionStorage.getItem(TARGET_FILE_KEY);
-    target = raw ? JSON.parse(raw) as { filePath?: string; createdAt?: number } : null;
+    target = raw
+      ? (JSON.parse(raw) as { filePath?: string; createdAt?: number })
+      : null;
   } catch {
     target = null;
   }
   if (!target?.filePath || Date.now() - (target.createdAt ?? 0) > 30_000) {
-    try { window.sessionStorage.removeItem(TARGET_FILE_KEY); } catch { /* noop */ }
+    try {
+      window.sessionStorage.removeItem(TARGET_FILE_KEY);
+    } catch {
+      /* noop */
+    }
     return;
   }
 
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-git-diff-path]'));
-  const button = buttons.find((candidate) => candidate.dataset.gitDiffPath === target?.filePath);
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[data-git-diff-path]'),
+  );
+  const button = buttons.find(
+    (candidate) => candidate.dataset.gitDiffPath === target?.filePath,
+  );
   if (!button) return;
-  try { window.sessionStorage.removeItem(TARGET_FILE_KEY); } catch { /* noop */ }
+  try {
+    window.sessionStorage.removeItem(TARGET_FILE_KEY);
+  } catch {
+    /* noop */
+  }
   button.click();
   button.focus({ preventScroll: true });
   button.scrollIntoView({ block: 'nearest' });
@@ -67,5 +84,8 @@ export function installGitInlineFileDiffEnhancer(): void {
       }
     }
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 }

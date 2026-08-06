@@ -44,16 +44,17 @@ const statusLabels: Record<GitFileStatus, string> = {
   'type-changed': 'Tipo alterado',
 };
 
-const publishedLatestCommit = computed(() =>
-  Boolean(props.overview.upstream) && props.overview.ahead === 0,
+const publishedLatestCommit = computed(
+  () => Boolean(props.overview.upstream) && props.overview.ahead === 0,
 );
 
-const canUndoCommit = computed(() =>
-  Boolean(props.overview.latestCommit)
-  && !props.overview.detached
-  && props.overview.clean
-  && !props.busy
-  && !running.value,
+const canUndoCommit = computed(
+  () =>
+    Boolean(props.overview.latestCommit) &&
+    !props.overview.detached &&
+    props.overview.clean &&
+    !props.busy &&
+    !running.value,
 );
 
 const commitActionLabel = computed(() =>
@@ -93,14 +94,16 @@ async function undoCommit(): Promise<void> {
       props.projectId,
       confirmation.token,
     );
-    successMessage.value = result.strategy === 'revert'
-      ? `Commit ${result.undone.shortHash} revertido com um novo commit${result.result ? ` (${result.result.shortHash})` : ''}.`
-      : `Commit ${result.undone.shortHash} desfeito. As alterações foram mantidas para edição.`;
+    successMessage.value =
+      result.strategy === 'revert'
+        ? `Commit ${result.undone.shortHash} revertido com um novo commit${result.result ? ` (${result.result.shortHash})` : ''}.`
+        : `Commit ${result.undone.shortHash} desfeito. As alterações foram mantidas para edição.`;
     emit('changed');
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível desfazer o último commit.';
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível desfazer o último commit.';
   } finally {
     running.value = false;
   }
@@ -134,9 +137,10 @@ async function undoFile(filePath: string): Promise<void> {
     successMessage.value = `Alterações de "${restored}" desfeitas.`;
     emit('changed');
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível desfazer as alterações do arquivo.';
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível desfazer as alterações do arquivo.';
   } finally {
     running.value = false;
   }
@@ -150,7 +154,8 @@ async function undoFile(filePath: string): Promise<void> {
         <span>Desfazer</span>
         <h3>Voltar alterações com segurança</h3>
         <p>
-          Commits locais voltam para edição. Commits já publicados são revertidos sem reescrever o histórico.
+          Commits locais voltam para edição. Commits já publicados são
+          revertidos sem reescrever o histórico.
         </p>
       </div>
       <ArrowUturnLeftIcon aria-hidden="true" />
@@ -215,9 +220,7 @@ async function undoFile(filePath: string): Promise<void> {
         </button>
       </article>
     </div>
-    <div v-else class="git-undo-empty">
-      Nenhum arquivo com alteração local.
-    </div>
+    <div v-else class="git-undo-empty">Nenhum arquivo com alteração local.</div>
   </section>
 </template>
 
@@ -300,7 +303,7 @@ async function undoFile(filePath: string): Promise<void> {
 
 .git-undo-danger:disabled,
 .git-undo-file-button:disabled {
-  opacity: .5;
+  opacity: 0.5;
 }
 
 .git-undo-divider {

@@ -14,7 +14,9 @@ it('anuncia o carregamento imediatamente e atrasa apenas a parte visual', async 
     props: { label: 'Carregando projetos detectados…', rows: 3 },
   });
 
-  expect(wrapper.get('[role="status"]').text()).toBe('Carregando projetos detectados…');
+  expect(wrapper.get('[role="status"]').text()).toBe(
+    'Carregando projetos detectados…',
+  );
   expect(wrapper.find('.loading-skeleton-list').exists()).toBe(false);
 
   await vi.advanceTimersByTimeAsync(149);
@@ -22,7 +24,9 @@ it('anuncia o carregamento imediatamente e atrasa apenas a parte visual', async 
 
   await vi.advanceTimersByTimeAsync(1);
   expect(wrapper.findAll('.loading-skeleton-row')).toHaveLength(3);
-  expect(wrapper.get('.loading-skeleton-list').attributes('aria-hidden')).toBe('true');
+  expect(wrapper.get('.loading-skeleton-list').attributes('aria-hidden')).toBe(
+    'true',
+  );
 });
 
 it('pode aparecer imediatamente sem perder o estado acessível', () => {

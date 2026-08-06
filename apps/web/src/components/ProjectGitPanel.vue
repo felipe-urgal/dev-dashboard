@@ -2,10 +2,7 @@
 import { inject } from 'vue';
 import { routeLocationKey } from 'vue-router';
 
-import type {
-  Project,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitChangeImpactBanner from './ProjectGitChangeImpactBanner.vue';
 import ProjectGitCommitPage from './ProjectGitCommitPage.vue';

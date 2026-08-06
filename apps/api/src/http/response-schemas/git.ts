@@ -1,30 +1,89 @@
 export const gitCommitResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['hash', 'shortHash', 'subject', 'authorName', 'authorEmail', 'authoredAt'],
-  properties: { hash: { type: 'string' }, shortHash: { type: 'string' }, subject: { type: 'string' }, authorName: { type: 'string' }, authorEmail: { type: 'string' }, authoredAt: { type: 'string' } },
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'hash',
+    'shortHash',
+    'subject',
+    'authorName',
+    'authorEmail',
+    'authoredAt',
+  ],
+  properties: {
+    hash: { type: 'string' },
+    shortHash: { type: 'string' },
+    subject: { type: 'string' },
+    authorName: { type: 'string' },
+    authorEmail: { type: 'string' },
+    authoredAt: { type: 'string' },
+  },
 } as const;
 
 export const gitFileChangeResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['path', 'indexStatus', 'worktreeStatus', 'status'],
   properties: {
-    path: { type: 'string' }, previousPath: { type: 'string' }, indexStatus: { type: 'string' }, worktreeStatus: { type: 'string' },
-    status: { type: 'string', enum: ['added', 'modified', 'deleted', 'renamed', 'copied', 'untracked', 'conflicted', 'type-changed'] },
+    path: { type: 'string' },
+    previousPath: { type: 'string' },
+    indexStatus: { type: 'string' },
+    worktreeStatus: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: [
+        'added',
+        'modified',
+        'deleted',
+        'renamed',
+        'copied',
+        'untracked',
+        'conflicted',
+        'type-changed',
+      ],
+    },
   },
 } as const;
 
 export const projectGitOverviewResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['repository', 'detached', 'ahead', 'behind', 'clean', 'files', 'recentCommits'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'repository',
+    'detached',
+    'ahead',
+    'behind',
+    'clean',
+    'files',
+    'recentCommits',
+  ],
   properties: {
-    repository: { type: 'boolean' }, branch: { type: 'string' }, detached: { type: 'boolean' }, upstream: { type: 'string' }, ahead: { type: 'integer', minimum: 0 }, behind: { type: 'integer', minimum: 0 }, clean: { type: 'boolean' }, files: { type: 'array', items: gitFileChangeResponseSchema }, latestCommit: gitCommitResponseSchema, recentCommits: { type: 'array', items: gitCommitResponseSchema },
+    repository: { type: 'boolean' },
+    branch: { type: 'string' },
+    detached: { type: 'boolean' },
+    upstream: { type: 'string' },
+    ahead: { type: 'integer', minimum: 0 },
+    behind: { type: 'integer', minimum: 0 },
+    clean: { type: 'boolean' },
+    files: { type: 'array', items: gitFileChangeResponseSchema },
+    latestCommit: gitCommitResponseSchema,
+    recentCommits: { type: 'array', items: gitCommitResponseSchema },
   },
 } as const;
 
-const gitFileStatusEnum = ['added', 'modified', 'deleted', 'renamed', 'copied', 'untracked', 'conflicted', 'type-changed'] as const;
+const gitFileStatusEnum = [
+  'added',
+  'modified',
+  'deleted',
+  'renamed',
+  'copied',
+  'untracked',
+  'conflicted',
+  'type-changed',
+] as const;
 
 export const gitDiffSnapshotResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['repository', 'scope', 'files'],
   properties: {
     repository: { type: 'boolean' },
@@ -32,7 +91,8 @@ export const gitDiffSnapshotResponseSchema = {
     files: {
       type: 'array',
       items: {
-        type: 'object', additionalProperties: false,
+        type: 'object',
+        additionalProperties: false,
         required: ['path', 'status', 'additions', 'deletions', 'binary'],
         properties: {
           path: { type: 'string' },
@@ -48,21 +108,29 @@ export const gitDiffSnapshotResponseSchema = {
 } as const;
 
 export const gitMutationConfirmationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['token', 'operation', 'target', 'expiresAt'],
   properties: {
     token: { type: 'string' },
-    operation: { type: 'string', enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit'] },
+    operation: {
+      type: 'string',
+      enum: ['create-branch', 'switch-branch', 'pull', 'push', 'commit'],
+    },
     target: { type: 'string' },
     expiresAt: { type: 'string' },
   },
 } as const;
 
 export const projectChangeImpactActionResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['category', 'label', 'description', 'matchedPaths'],
   properties: {
-    category: { type: 'string', enum: ['dependencies', 'database', 'environment', 'server', 'tests'] },
+    category: {
+      type: 'string',
+      enum: ['dependencies', 'database', 'environment', 'server', 'tests'],
+    },
     label: { type: 'string' },
     description: { type: 'string' },
     routeName: { type: 'string' },
@@ -71,7 +139,8 @@ export const projectChangeImpactActionResponseSchema = {
 } as const;
 
 export const projectChangeImpactResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['previousSha', 'currentSha', 'changedPaths', 'actions'],
   properties: {
     previousSha: { type: 'string' },
@@ -82,20 +151,39 @@ export const projectChangeImpactResponseSchema = {
 } as const;
 
 export const gitBranchMutationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['branch'],
-  properties: { branch: { type: 'string' }, impact: projectChangeImpactResponseSchema },
+  properties: {
+    branch: { type: 'string' },
+    impact: projectChangeImpactResponseSchema,
+  },
 } as const;
 
 export const gitCommitMutationResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['hash', 'shortHash', 'subject'],
-  properties: { hash: { type: 'string' }, shortHash: { type: 'string' }, subject: { type: 'string' } },
+  properties: {
+    hash: { type: 'string' },
+    shortHash: { type: 'string' },
+    subject: { type: 'string' },
+  },
 } as const;
 
 export const gitFileDiffResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['path', 'scope', 'status', 'binary', 'content', 'truncated', 'masked', 'redactionCount'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'path',
+    'scope',
+    'status',
+    'binary',
+    'content',
+    'truncated',
+    'masked',
+    'redactionCount',
+  ],
   properties: {
     path: { type: 'string' },
     scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
@@ -109,8 +197,18 @@ export const gitFileDiffResponseSchema = {
 } as const;
 
 export const gitFileLinesResponseSchema = {
-  type: 'object', additionalProperties: false,
-  required: ['path', 'scope', 'start', 'end', 'totalLines', 'lines', 'masked', 'redactionCount'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'path',
+    'scope',
+    'start',
+    'end',
+    'totalLines',
+    'lines',
+    'masked',
+    'redactionCount',
+  ],
   properties: {
     path: { type: 'string' },
     scope: { type: 'string', enum: ['worktree', 'index', 'combined'] },
@@ -124,14 +222,18 @@ export const gitFileLinesResponseSchema = {
 } as const;
 
 export const gitMutationHistoryEventResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['id', 'projectId', 'operationId', 'risk', 'occurredAt', 'result'],
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
     workspaceId: { type: 'string' },
     operationId: { type: 'string' },
-    risk: { type: 'string', enum: ['read-only', 'write-safe', 'write-remote', 'destructive'] },
+    risk: {
+      type: 'string',
+      enum: ['read-only', 'write-safe', 'write-remote', 'destructive'],
+    },
     occurredAt: { type: 'string' },
     result: { type: 'string', enum: ['succeeded', 'failed'] },
     errorCode: { type: 'string' },
@@ -139,7 +241,8 @@ export const gitMutationHistoryEventResponseSchema = {
 } as const;
 
 export const gitMutationHistoryPageResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['projectId', 'page', 'pageSize', 'total', 'totalPages', 'events'],
   properties: {
     projectId: { type: 'string' },
@@ -152,7 +255,8 @@ export const gitMutationHistoryPageResponseSchema = {
 } as const;
 
 export const gitPullRequestUrlResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['provider', 'url', 'branch', 'defaultBranch'],
   properties: {
     provider: { type: 'string', enum: ['github', 'gitlab'] },

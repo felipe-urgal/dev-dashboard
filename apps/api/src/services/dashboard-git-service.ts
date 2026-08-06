@@ -8,10 +8,7 @@ import {
   GIT_MUTATION_CONFIRMATION_TTL_MS,
   LOG_SEPARATOR,
 } from './git-service/constants.js';
-import {
-  GitMutationError,
-  GitService,
-} from './git-service.js';
+import { GitMutationError, GitService } from './git-service.js';
 import {
   requireRepository,
   validateBranchName,
@@ -28,9 +25,11 @@ type DashboardOperation = 'create-branch' | 'commit' | 'amend';
 function isDashboardOperation(
   operation: GitMutationOperation,
 ): operation is DashboardOperation {
-  return operation === 'create-branch'
-    || operation === 'commit'
-    || operation === 'amend';
+  return (
+    operation === 'create-branch' ||
+    operation === 'commit' ||
+    operation === 'amend'
+  );
 }
 
 /**
@@ -75,7 +74,8 @@ export class DashboardGitService extends GitService {
     }
 
     validateBranchName(target);
-    const confirmationTarget = operation === 'create-branch' ? target : UNSCOPED_TARGET;
+    const confirmationTarget =
+      operation === 'create-branch' ? target : UNSCOPED_TARGET;
     const { token, expiresAt } = this.dashboardConfirmations.prepare(
       projectId,
       operation,
@@ -93,7 +93,12 @@ export class DashboardGitService extends GitService {
   ): void {
     const confirmationTarget = expectedTarget ?? UNSCOPED_TARGET;
     try {
-      this.dashboardConfirmations.consume(projectId, operation, confirmationTarget, token);
+      this.dashboardConfirmations.consume(
+        projectId,
+        operation,
+        confirmationTarget,
+        token,
+      );
     } catch (error) {
       if (error instanceof GitMutationConfirmationError) {
         throw new GitMutationError(
@@ -157,11 +162,7 @@ export class DashboardGitService extends GitService {
   ): Promise<GitCommitResult> {
     validateCommitMessage(message);
     await requireRepository(projectPath);
-    this.consumeDashboardConfirmation(
-      projectId,
-      'commit',
-      confirmationToken,
-    );
+    this.consumeDashboardConfirmation(projectId, 'commit', confirmationToken);
 
     if (includeAllChanges) {
       await runGit(projectPath, ['add', '--update']);
@@ -200,11 +201,7 @@ export class DashboardGitService extends GitService {
   ): Promise<GitCommitResult> {
     validateCommitMessage(message);
     await requireRepository(projectPath);
-    this.consumeDashboardConfirmation(
-      projectId,
-      'amend',
-      confirmationToken,
-    );
+    this.consumeDashboardConfirmation(projectId, 'amend', confirmationToken);
 
     try {
       await runGit(projectPath, ['add', '.']);

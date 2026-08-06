@@ -3,7 +3,11 @@ import { afterEach, beforeEach, test, vi } from 'vitest';
 
 import { mount, flushPromises } from '@vue/test-utils';
 
-import type { ProjectScriptCatalog, ScriptExecution, ScriptExecutionEvent } from '@dev-dashboard/contracts';
+import type {
+  ProjectScriptCatalog,
+  ScriptExecution,
+  ScriptExecutionEvent,
+} from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
   publishTerminalNotice: vi.fn(),
@@ -45,7 +49,13 @@ const baseCatalog: ProjectScriptCatalog = {
   totalPages: 1,
 };
 
-const emptyHistory = { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 };
+const emptyHistory = {
+  items: [],
+  page: 1,
+  pageSize: 10,
+  total: 0,
+  totalPages: 0,
+};
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -59,7 +69,11 @@ function sseResponse(events: ScriptExecutionEvent[]): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const event of events) {
-        controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
+        controller.enqueue(
+          encoder.encode(
+            `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+          ),
+        );
       }
       controller.close();
     },
@@ -87,14 +101,24 @@ function installFetchMock(scenario: FetchScenario): () => void {
     if (init?.method === 'POST' && path.endsWith('/scripts/confirmations')) {
       const body = JSON.parse(String(init.body)) as unknown;
       scenario.requests?.push({ path, body });
-      return jsonResponse({
-        confirmation: { token: 't'.repeat(64), actionId: 'rails-task:import', expiresAt: '2026-08-02T12:01:00.000Z' },
-      }, 201);
+      return jsonResponse(
+        {
+          confirmation: {
+            token: 't'.repeat(64),
+            actionId: 'rails-task:import',
+            expiresAt: '2026-08-02T12:01:00.000Z',
+          },
+        },
+        201,
+      );
     }
     if (init?.method === 'POST' && path.endsWith('/scripts/executions')) {
       const body = JSON.parse(String(init.body)) as unknown;
       scenario.requests?.push({ path, body });
-      return jsonResponse({ execution: scenario.executionsById?.['exec-rake'] }, 201);
+      return jsonResponse(
+        { execution: scenario.executionsById?.['exec-rake'] },
+        201,
+      );
     }
 
     if (path.endsWith('/scripts/executions/latest')) {
@@ -102,7 +126,13 @@ function installFetchMock(scenario: FetchScenario): () => void {
     }
     if (path.endsWith('/log')) {
       return jsonResponse({
-        log: { executionId: 'exec', content: 'saída', truncated: false, masked: false, redactionCount: 0 },
+        log: {
+          executionId: 'exec',
+          content: 'saída',
+          truncated: false,
+          masked: false,
+          redactionCount: 0,
+        },
       });
     }
     if (path.endsWith('/events')) {
@@ -142,7 +172,9 @@ afterEach(() => {
 test('montagem básica renderiza catálogo sem erros', async () => {
   const restoreFetch = installFetchMock({ latestExecution: null });
 
-  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectScriptsPanel, {
+    props: { project: makeProject() },
+  });
   cleanup = () => {
     wrapper.unmount();
     restoreFetch();
@@ -159,28 +191,48 @@ test('montagem básica renderiza catálogo sem erros', async () => {
 
 test('monta formulário para variáveis Rake e envia somente os valores declarados', async () => {
   const execution: ScriptExecution = {
-    id: 'exec-rake', projectId: 'p1', actionId: 'rails-task:import',
-    actionName: 'import', risk: 'mutable', status: 'succeeded',
-    startedAt: '2026-08-02T12:00:00Z', finishedAt: '2026-08-02T12:00:01Z', exitCode: 0,
+    id: 'exec-rake',
+    projectId: 'p1',
+    actionId: 'rails-task:import',
+    actionName: 'import',
+    risk: 'mutable',
+    status: 'succeeded',
+    startedAt: '2026-08-02T12:00:00Z',
+    finishedAt: '2026-08-02T12:00:01Z',
+    exitCode: 0,
   };
   const requests: Array<{ path: string; body: unknown }> = [];
   const catalog: ProjectScriptCatalog = {
-    items: [{
-      id: 'rails-task:import', name: 'import', description: 'Importa registros',
-      command: 'bin/rails import FILE=… LIMIT=…', origin: 'rails-task',
-      risk: 'mutable', enabled: true,
-      variables: [
-        { name: 'FILE', required: true, placeholder: 'tmp/import.csv' },
-        { name: 'LIMIT', required: false, defaultValue: '100' },
-      ],
-    }],
-    page: 1, pageSize: 20, total: 1, totalPages: 1,
+    items: [
+      {
+        id: 'rails-task:import',
+        name: 'import',
+        description: 'Importa registros',
+        command: 'bin/rails import FILE=… LIMIT=…',
+        origin: 'rails-task',
+        risk: 'mutable',
+        enabled: true,
+        variables: [
+          { name: 'FILE', required: true, placeholder: 'tmp/import.csv' },
+          { name: 'LIMIT', required: false, defaultValue: '100' },
+        ],
+      },
+    ],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1,
   };
   const restoreFetch = installFetchMock({
-    latestExecution: null, catalog, requests, executionsById: { 'exec-rake': execution },
+    latestExecution: null,
+    catalog,
+    requests,
+    executionsById: { 'exec-rake': execution },
   });
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject({ type: 'rails' }) } });
+  const wrapper = mount(ProjectScriptsPanel, {
+    props: { project: makeProject({ type: 'rails' }) },
+  });
   cleanup = () => {
     confirm.mockRestore();
     wrapper.unmount();
@@ -196,14 +248,27 @@ test('monta formulário para variáveis Rake e envia somente os valores declarad
   const inputs = wrapper.findAll('.scripts-variables-form input');
   await inputs[0]!.setValue('tmp/import.csv');
   await inputs[1]!.setValue('25');
-  assert.equal(wrapper.get('.scripts-primary-action').attributes('disabled'), undefined);
+  assert.equal(
+    wrapper.get('.scripts-primary-action').attributes('disabled'),
+    undefined,
+  );
   await wrapper.get('.scripts-primary-action').trigger('click');
   await flushPromises();
 
-  assert.deepEqual(requests.map((request) => request.body), [
-    { actionId: 'rails-task:import', variables: { FILE: 'tmp/import.csv', LIMIT: '25' } },
-    { actionId: 'rails-task:import', variables: { FILE: 'tmp/import.csv', LIMIT: '25' }, confirmationToken: 't'.repeat(64) },
-  ]);
+  assert.deepEqual(
+    requests.map((request) => request.body),
+    [
+      {
+        actionId: 'rails-task:import',
+        variables: { FILE: 'tmp/import.csv', LIMIT: '25' },
+      },
+      {
+        actionId: 'rails-task:import',
+        variables: { FILE: 'tmp/import.csv', LIMIT: '25' },
+        confirmationToken: 't'.repeat(64),
+      },
+    ],
+  );
 });
 
 test('catálogo remove hooks e direciona comandos cobertos por outras áreas', async () => {
@@ -211,9 +276,24 @@ test('catálogo remove hooks e direciona comandos cobertos por outras áreas', a
     ...baseCatalog,
     items: [
       ...baseCatalog.items,
-      { ...baseCatalog.items[0]!, id: 'npm-run-dev', name: 'dev', command: 'npm run dev' },
-      { ...baseCatalog.items[0]!, id: 'npm-run-postbuild', name: 'postbuild', command: 'npm run postbuild' },
-      { ...baseCatalog.items[0]!, id: 'npm-run-lint', name: 'lint', command: 'npm run lint' },
+      {
+        ...baseCatalog.items[0]!,
+        id: 'npm-run-dev',
+        name: 'dev',
+        command: 'npm run dev',
+      },
+      {
+        ...baseCatalog.items[0]!,
+        id: 'npm-run-postbuild',
+        name: 'postbuild',
+        command: 'npm run postbuild',
+      },
+      {
+        ...baseCatalog.items[0]!,
+        id: 'npm-run-lint',
+        name: 'lint',
+        command: 'npm run lint',
+      },
     ],
     total: 5,
   };
@@ -258,7 +338,9 @@ test('transição de running para succeeded via SSE publica aviso uma única vez
     sseEvents: [{ type: 'state', execution: succeededExecution }],
   });
 
-  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectScriptsPanel, {
+    props: { project: makeProject() },
+  });
   cleanup = () => {
     wrapper.unmount();
     restoreFetch();
@@ -276,7 +358,10 @@ test('transição de running para succeeded via SSE publica aviso uma única vez
   assert.equal(call.projectId, 'p1');
   assert.equal(call.projectName, 'sample-node');
   assert.equal(call.label, 'npm run test');
-  assert.deepEqual(call.routeTo, { name: 'project-scripts', params: { projectId: 'p1' } });
+  assert.deepEqual(call.routeTo, {
+    name: 'project-scripts',
+    params: { projectId: 'p1' },
+  });
 });
 
 test('execução que chega terminal sem nunca ter sido observada running não gera aviso', async () => {
@@ -297,7 +382,9 @@ test('execução que chega terminal sem nunca ter sido observada running não ge
     executionsById: { 'exec-456': terminalExecution },
   });
 
-  const wrapper = mount(ProjectScriptsPanel, { props: { project: makeProject() } });
+  const wrapper = mount(ProjectScriptsPanel, {
+    props: { project: makeProject() },
+  });
   cleanup = () => {
     wrapper.unmount();
     restoreFetch();

@@ -11,7 +11,9 @@ import { makeProject, makeWorkspace } from './support/activity-fixtures.js';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => { resolve = r; });
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
   return { promise, resolve };
 }
 
@@ -22,29 +24,26 @@ interface MountArgs {
 
 async function mountView(args: MountArgs) {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     if (url.pathname === '/api/workspaces') {
-      return new Response(JSON.stringify({ workspaces: [makeWorkspace()] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ workspaces: [makeWorkspace()] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     if (url.pathname === '/api/projects') {
-      return new Response(JSON.stringify({ projects: [makeProject()] }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ projects: [makeProject()] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
-    if (
-      url.pathname === '/api/processes/cleanup' &&
-      init?.method === 'POST'
-    ) {
-      const removedCount = await args.cleanup?.() ?? 0;
-      return new Response(
-        JSON.stringify({ removed: [], removedCount }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        },
-      );
+    if (url.pathname === '/api/processes/cleanup' && init?.method === 'POST') {
+      const removedCount = (await args.cleanup?.()) ?? 0;
+      return new Response(JSON.stringify({ removed: [], removedCount }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     if (
       url.pathname === '/api/ports' &&
@@ -72,12 +71,19 @@ async function mountView(args: MountArgs) {
     ) {
       try {
         const processes = await args.processes();
-        return new Response(JSON.stringify({ processes }), { status: 200, headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ processes }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       } catch (error) {
         if (error instanceof ApiRequestError) {
-          return new Response(JSON.stringify({ error: error.code, message: error.message }), {
-            status: error.status, headers: { 'content-type': 'application/json' },
-          });
+          return new Response(
+            JSON.stringify({ error: error.code, message: error.message }),
+            {
+              status: error.status,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
         }
         throw error;
       }
@@ -85,7 +91,9 @@ async function mountView(args: MountArgs) {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProcessesView, { global: { stubs: { RouterLink: RouterLinkStub } } });
+  const wrapper = mount(ProcessesView, {
+    global: { stubs: { RouterLink: RouterLinkStub } },
+  });
   return {
     wrapper,
     restore: () => {
@@ -96,7 +104,9 @@ async function mountView(args: MountArgs) {
 }
 
 let cleanup: (() => void) | undefined;
-beforeEach(() => { cleanup = undefined; });
+beforeEach(() => {
+  cleanup = undefined;
+});
 afterEach(() => {
   cleanup?.();
   vi.useRealTimers();
@@ -105,7 +115,9 @@ afterEach(() => {
 test('mostra estado de carregamento enquanto a lista está pendente', async () => {
   vi.useFakeTimers();
   const pending = deferred<ManagedProcess[]>();
-  const { wrapper, restore } = await mountView({ processes: () => pending.promise });
+  const { wrapper, restore } = await mountView({
+    processes: () => pending.promise,
+  });
   cleanup = restore;
 
   await flushPromises();
@@ -146,9 +158,7 @@ test('preserva processos válidos durante uma atualização manual', async () =>
   const { wrapper, restore } = await mountView({
     processes: () => {
       calls += 1;
-      return calls === 1
-        ? Promise.resolve([existingProcess])
-        : pending.promise;
+      return calls === 1 ? Promise.resolve([existingProcess]) : pending.promise;
     },
   });
   cleanup = restore;
@@ -169,8 +179,25 @@ test('preserva processos válidos durante uma atualização manual', async () =>
 test('renderiza processos com nome do projeto, tipo, estado e detalhes', async () => {
   const { wrapper, restore } = await mountView({
     processes: async () => [
-      { id: 'srv-1', projectId: 'p1', workspaceId: 'w1', kind: 'server', status: 'running', pid: 4242, port: 3000, startedAt: '2026-07-26T09:00:00Z' },
-      { id: 'tst-1', projectId: 'p1', workspaceId: 'w1', kind: 'test', status: 'stopped', startedAt: '2026-07-26T08:00:00Z', stoppedAt: '2026-07-26T08:05:00Z' },
+      {
+        id: 'srv-1',
+        projectId: 'p1',
+        workspaceId: 'w1',
+        kind: 'server',
+        status: 'running',
+        pid: 4242,
+        port: 3000,
+        startedAt: '2026-07-26T09:00:00Z',
+      },
+      {
+        id: 'tst-1',
+        projectId: 'p1',
+        workspaceId: 'w1',
+        kind: 'test',
+        status: 'stopped',
+        startedAt: '2026-07-26T08:00:00Z',
+        stoppedAt: '2026-07-26T08:05:00Z',
+      },
     ],
   });
   cleanup = restore;
@@ -180,9 +207,13 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
   const text = wrapper.text();
   assert.match(text, /sample-node/);
   assert.match(text, /porta 3000/);
-  const kinds = wrapper.findAll('.processes-kind-badge').map((node) => node.text());
+  const kinds = wrapper
+    .findAll('.processes-kind-badge')
+    .map((node) => node.text());
   assert.deepEqual(kinds, ['Servidor', 'Testes']);
-  const statuses = wrapper.findAll('.dd-status-badge').map((node) => node.text());
+  const statuses = wrapper
+    .findAll('.dd-status-badge')
+    .map((node) => node.text());
   assert.deepEqual(statuses, ['Em execução', 'Parado']);
   assert.equal(wrapper.find('.processes-summary').text().includes('2'), true);
 });
@@ -190,8 +221,24 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
 test('congela a duração de processos terminais em stoppedAt na renderização', async () => {
   const { wrapper, restore } = await mountView({
     processes: async () => [
-      { id: 'tst-1', projectId: 'p1', workspaceId: 'w1', kind: 'test', status: 'stopped', startedAt: '2026-07-26T08:00:00Z', stoppedAt: '2026-07-26T08:05:00Z' },
-      { id: 'srv-1', projectId: 'p1', workspaceId: 'w1', kind: 'server', status: 'failed', startedAt: '2026-07-26T08:00:00Z', stoppedAt: '2026-07-26T08:02:30Z' },
+      {
+        id: 'tst-1',
+        projectId: 'p1',
+        workspaceId: 'w1',
+        kind: 'test',
+        status: 'stopped',
+        startedAt: '2026-07-26T08:00:00Z',
+        stoppedAt: '2026-07-26T08:05:00Z',
+      },
+      {
+        id: 'srv-1',
+        projectId: 'p1',
+        workspaceId: 'w1',
+        kind: 'server',
+        status: 'failed',
+        startedAt: '2026-07-26T08:00:00Z',
+        stoppedAt: '2026-07-26T08:02:30Z',
+      },
     ],
   });
   cleanup = restore;
@@ -209,7 +256,9 @@ test('congela a duração de processos terminais em stoppedAt na renderização'
 
 test('mostra a mensagem de erro quando o carregamento falha', async () => {
   const { wrapper, restore } = await mountView({
-    processes: async () => { throw new ApiRequestError({ status: 500, message: 'API indisponível.' }); },
+    processes: async () => {
+      throw new ApiRequestError({ status: 500, message: 'API indisponível.' });
+    },
   });
   cleanup = restore;
   await flushPromises();
@@ -271,22 +320,13 @@ test('limpa todos os processos finalizados e preserva os ativos', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.equal(
-    wrapper.findAll('.processes-table tbody tr').length,
-    3,
-  );
+  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 3);
   await wrapper.get('.processes-cleanup-button').trigger('click');
   await flushPromises();
   await flushPromises();
 
   assert.equal(cleanupCalls, 1);
-  assert.equal(
-    wrapper.findAll('.processes-table tbody tr').length,
-    1,
-  );
-  assert.match(
-    wrapper.text(),
-    /2 processos finalizados removidos/,
-  );
+  assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+  assert.match(wrapper.text(), /2 processos finalizados removidos/);
   assert.match(wrapper.text(), /Em execução/);
 });

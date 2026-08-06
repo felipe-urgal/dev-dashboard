@@ -1,10 +1,5 @@
 export type GitDiffLineKind =
-  | 'addition'
-  | 'deletion'
-  | 'context'
-  | 'hunk'
-  | 'meta'
-  | 'notice';
+  'addition' | 'deletion' | 'context' | 'hunk' | 'meta' | 'notice';
 
 export interface GitDiffLineSyntaxRange {
   start: number;

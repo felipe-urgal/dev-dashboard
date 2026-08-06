@@ -23,7 +23,12 @@ export interface UseDashboardServerActionsOptions {
 export function useDashboardServerActions(
   options: UseDashboardServerActionsOptions,
 ) {
-  const { projectsWithServer, selectedWorkspaceId, errorMessage, successMessage } = options;
+  const {
+    projectsWithServer,
+    selectedWorkspaceId,
+    errorMessage,
+    successMessage,
+  } = options;
 
   const activeServerProjectIds = ref(new Set<string>());
   const stoppableServerProjectIds = ref(new Set<string>());
@@ -43,8 +48,8 @@ export function useDashboardServerActions(
   );
 
   const stoppableServerProjects = computed(() =>
-    projectsWithServer.value.filter(
-      (project) => stoppableServerProjectIds.value.has(project.id),
+    projectsWithServer.value.filter((project) =>
+      stoppableServerProjectIds.value.has(project.id),
     ),
   );
 
@@ -114,18 +119,19 @@ export function useDashboardServerActions(
 
       activeServerProjectIds.value = new Set(
         managedProcesses
-          .filter((process) =>
-            process.status === 'starting' ||
-            process.status === 'running' ||
-            process.status === 'stopping',
+          .filter(
+            (process) =>
+              process.status === 'starting' ||
+              process.status === 'running' ||
+              process.status === 'stopping',
           )
           .map((process) => process.projectId),
       );
       stoppableServerProjectIds.value = new Set(
         managedProcesses
-          .filter((process) =>
-            process.status === 'starting' ||
-            process.status === 'running',
+          .filter(
+            (process) =>
+              process.status === 'starting' || process.status === 'running',
           )
           .map((process) => process.projectId),
       );
@@ -158,9 +164,7 @@ export function useDashboardServerActions(
 
     try {
       const results = await Promise.allSettled(
-        projectsToStart.map((project) =>
-          startProjectProcess(project.id),
-        ),
+        projectsToStart.map((project) => startProjectProcess(project.id)),
       );
 
       const startedProjectIds = projectsToStart
@@ -187,14 +191,14 @@ export function useDashboardServerActions(
         const failedNames = failedProjects
           .map((project) => project.name)
           .join(', ');
-        const successSummary = startedProjectIds.length > 0
-          ? startedProjectIds.length === 1
-            ? '1 servidor iniciado. '
-            : `${startedProjectIds.length} servidores iniciados. `
-          : '';
+        const successSummary =
+          startedProjectIds.length > 0
+            ? startedProjectIds.length === 1
+              ? '1 servidor iniciado. '
+              : `${startedProjectIds.length} servidores iniciados. `
+            : '';
 
-        errorMessage.value =
-          `${successSummary}Não foi possível iniciar: ${failedNames}.`;
+        errorMessage.value = `${successSummary}Não foi possível iniciar: ${failedNames}.`;
       }
     } finally {
       startingAllServers.value = false;
@@ -216,9 +220,7 @@ export function useDashboardServerActions(
 
     try {
       const results = await Promise.allSettled(
-        projectsToStop.map((project) =>
-          stopProjectProcess(project.id),
-        ),
+        projectsToStop.map((project) => stopProjectProcess(project.id)),
       );
 
       const stoppedProjectIds = projectsToStop
@@ -248,14 +250,14 @@ export function useDashboardServerActions(
         const failedNames = failedProjects
           .map((project) => project.name)
           .join(', ');
-        const successSummary = stoppedProjectIds.length > 0
-          ? stoppedProjectIds.length === 1
-            ? '1 servidor parado. '
-            : `${stoppedProjectIds.length} servidores parados. `
-          : '';
+        const successSummary =
+          stoppedProjectIds.length > 0
+            ? stoppedProjectIds.length === 1
+              ? '1 servidor parado. '
+              : `${stoppedProjectIds.length} servidores parados. `
+            : '';
 
-        errorMessage.value =
-          `${successSummary}Não foi possível parar: ${failedNames}.`;
+        errorMessage.value = `${successSummary}Não foi possível parar: ${failedNames}.`;
       }
     } finally {
       stoppingAllServers.value = false;

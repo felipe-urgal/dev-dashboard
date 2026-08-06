@@ -2,8 +2,15 @@ import path from 'node:path';
 
 import type { RailsMigrationEntry } from '@dev-dashboard/contracts';
 
-export function migrationsDirectory(projectPath: string, database: string): string {
-  return path.join(projectPath, 'db', database === 'primary' ? 'migrate' : `migrate_${database}`);
+export function migrationsDirectory(
+  projectPath: string,
+  database: string,
+): string {
+  return path.join(
+    projectPath,
+    'db',
+    database === 'primary' ? 'migrate' : `migrate_${database}`,
+  );
 }
 
 const COMPOSE_PREFIX = String.raw`(?:[^|\r\n]+\|\s*)?`;
@@ -27,7 +34,9 @@ export interface MigrationStatusBlock {
  * quando o projeto tem mais de um (Rails 6+). Cada bloco vira uma entrada própria,
  * em vez de misturar as migrations de todos os bancos numa lista só.
  */
-export function parseMigrationStatusBlocks(output: string): MigrationStatusBlock[] {
+export function parseMigrationStatusBlocks(
+  output: string,
+): MigrationStatusBlock[] {
   const blocks: MigrationStatusBlock[] = [];
   let current: MigrationStatusBlock | undefined;
 
@@ -69,14 +78,18 @@ export function matchMigrationStatusBlock(
 ): MigrationStatusBlock {
   if (database === 'primary') {
     const secondary = databases.filter((name) => name !== 'primary');
-    const remaining = blocks.filter((block) =>
-      !secondary.some((name) =>
-        block.database?.toLowerCase().includes(`_${name}`),
-      ),
+    const remaining = blocks.filter(
+      (block) =>
+        !secondary.some((name) =>
+          block.database?.toLowerCase().includes(`_${name}`),
+        ),
     );
     return remaining[0] ?? blocks[0] ?? { migrations: [] };
   }
-  return blocks.find((block) =>
-    block.database?.toLowerCase().includes(`_${database}`),
-  ) ?? blocks[0] ?? { migrations: [] };
+  return (
+    blocks.find((block) =>
+      block.database?.toLowerCase().includes(`_${database}`),
+    ) ??
+    blocks[0] ?? { migrations: [] }
+  );
 }

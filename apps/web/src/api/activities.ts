@@ -17,7 +17,9 @@ export interface ActivityQuery {
   signal?: AbortSignal;
 }
 
-interface ActivityListResponse { activities: ActivityList }
+interface ActivityListResponse {
+  activities: ActivityList;
+}
 
 export function buildActivityQuery(query: ActivityQuery): string {
   const parameters = new URLSearchParams();
@@ -27,11 +29,14 @@ export function buildActivityQuery(query: ActivityQuery): string {
   if (query.status) parameters.set('status', query.status);
   if (query.search) parameters.set('search', query.search);
   if (query.page !== undefined) parameters.set('page', String(query.page));
-  if (query.pageSize !== undefined) parameters.set('pageSize', String(query.pageSize));
+  if (query.pageSize !== undefined)
+    parameters.set('pageSize', String(query.pageSize));
   return parameters.toString();
 }
 
-export async function fetchActivities(query: ActivityQuery = {}): Promise<ActivityList> {
+export async function fetchActivities(
+  query: ActivityQuery = {},
+): Promise<ActivityList> {
   const search = buildActivityQuery(query);
   const url = `/api/activities${search ? `?${search}` : ''}`;
   const init: RequestInit = query.signal ? { signal: query.signal } : {};

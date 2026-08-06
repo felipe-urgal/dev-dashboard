@@ -11,7 +11,10 @@ function scan(root: ParentNode = document): void {
   root.querySelectorAll<HTMLElement>(CODE_SELECTOR).forEach(enhanceCode);
 }
 
-function closestFromMutationTarget(target: Node, selector: string): HTMLElement | null {
+function closestFromMutationTarget(
+  target: Node,
+  selector: string,
+): HTMLElement | null {
   const element = target instanceof HTMLElement ? target : target.parentElement;
   return element?.closest<HTMLElement>(selector) ?? null;
 }

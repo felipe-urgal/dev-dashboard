@@ -51,8 +51,6 @@ npm test
 
 - [ ] Expandir o Playwright para operações de banco de dados
   (snapshot/restore) — exige um serviço de banco na fixture.
-- [ ] Avaliar Prettier e uma política de formatação automática em entrega
-  própria, evitando um diff massivo misturado com mudanças funcionais.
 - [ ] Medir cobertura e definir metas por camada.
 
 Esses itens não formam uma única frente coerente: cada um deve ganhar uma

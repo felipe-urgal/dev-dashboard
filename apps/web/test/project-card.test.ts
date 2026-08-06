@@ -50,13 +50,14 @@ describe('ProjectCard', () => {
     });
 
     expect(wrapper.find('.project-avatar').exists()).toBe(false);
-    expect(wrapper.get('.project-row-identity').text())
-      .toContain('Projeto sem avatar');
+    expect(wrapper.get('.project-row-identity').text()).toContain(
+      'Projeto sem avatar',
+    );
     await vi.waitFor(() => {
-      expect(wrapper.get('.project-branch-badge').text())
-        .toContain('feature/listar-branch');
-      expect(wrapper.get('.project-port-badge').text())
-        .toBe('Porta 3003');
+      expect(wrapper.get('.project-branch-badge').text()).toContain(
+        'feature/listar-branch',
+      );
+      expect(wrapper.get('.project-port-badge').text()).toBe('Porta 3003');
     });
     expect(wrapper.text()).not.toContain('Git');
   });
@@ -74,8 +75,9 @@ describe('ProjectCard', () => {
     });
     const button = wrapper.get('.project-favorite-button');
 
-    expect(button.attributes('aria-label'))
-      .toBe('Adicionar Projeto sem avatar aos favoritos');
+    expect(button.attributes('aria-label')).toBe(
+      'Adicionar Projeto sem avatar aos favoritos',
+    );
     expect(button.attributes('aria-pressed')).toBe('false');
 
     await button.trigger('click');
@@ -88,8 +90,9 @@ describe('ProjectCard', () => {
         favorite: true,
       },
     });
-    expect(button.attributes('aria-label'))
-      .toBe('Remover Projeto sem avatar dos favoritos');
+    expect(button.attributes('aria-label')).toBe(
+      'Remover Projeto sem avatar dos favoritos',
+    );
     expect(button.attributes('aria-pressed')).toBe('true');
   });
 });

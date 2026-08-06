@@ -9,10 +9,7 @@ import {
   type ProjectLanguageServerService,
 } from '../services/project-language-server-service.js';
 import type { ProjectStore } from '../store/project-store.js';
-import {
-  projectParamsSchema,
-  type ProjectParams,
-} from './projects/helpers.js';
+import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface ProjectLanguageServerRouteOptions {
   projectStore: ProjectStore;
@@ -44,7 +41,10 @@ const railsStatusSchema = {
   required: ['addonAvailable', 'runtimeState', 'message'],
   properties: {
     addonAvailable: { type: 'boolean' },
-    runtimeState: { type: 'string', enum: ['unavailable', 'disabled', 'enabled'] },
+    runtimeState: {
+      type: 'string',
+      enum: ['unavailable', 'disabled', 'enabled'],
+    },
     message: { type: 'string' },
   },
 } as const;
@@ -111,7 +111,10 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
     throw new ApiError({
       statusCode: 500,
       code: 'LANGUAGE_SERVER_FAILED',
-      message: error instanceof Error ? error.message : 'Não foi possível concluir a operação.',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir a operação.',
     });
   }
 
@@ -137,7 +140,9 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
     '/projects/:projectId/language-server/:kind/connect',
     { websocket: true },
     (socket, request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         socket.close(1008, 'Projeto não encontrado');
         return;
@@ -148,7 +153,11 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
         .attach(project, request.params.kind, limitedSocket)
         .catch((error: unknown) => {
           request.log.error(
-            { err: error, projectId: request.params.projectId, kind: request.params.kind },
+            {
+              err: error,
+              projectId: request.params.projectId,
+              kind: request.params.kind,
+            },
             'Falha ao anexar o WebSocket ao servidor de linguagem.',
           );
           limitedSocket.close(1011, 'Falha ao iniciar servidor de linguagem');
@@ -177,7 +186,9 @@ export const projectLanguageServerRoutes: FastifyPluginAsync<
       try {
         return reply.code(201).send({
           confirmation:
-            await options.projectLanguageServerService.prepareRailsRuntimeConfirmation(project),
+            await options.projectLanguageServerService.prepareRailsRuntimeConfirmation(
+              project,
+            ),
         });
       } catch (error) {
         translateProtocolError(error);

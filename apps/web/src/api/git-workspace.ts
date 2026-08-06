@@ -29,7 +29,10 @@ interface GitBranchMutationResponse {
   };
 }
 
-async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+async function requestJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(input, {
     ...init,
     credentials: 'same-origin',
@@ -38,9 +41,10 @@ async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Pro
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const error = payload && typeof payload === 'object'
-      ? payload as ErrorResponse
-      : null;
+    const error =
+      payload && typeof payload === 'object'
+        ? (payload as ErrorResponse)
+        : null;
 
     throw new ApiRequestError({
       status: response.status,

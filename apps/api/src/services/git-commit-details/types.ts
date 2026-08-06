@@ -1,10 +1,5 @@
 export type GitCommitFileStatus =
-  | 'added'
-  | 'modified'
-  | 'deleted'
-  | 'renamed'
-  | 'copied'
-  | 'type-changed';
+  'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'type-changed';
 
 export type GitCommitHistoryKind = 'all' | 'merge' | 'regular';
 

@@ -2,7 +2,10 @@ import type { ManagedProcess } from '@dev-dashboard/contracts';
 
 import type { ExitTracker } from './process-exit-tracking.js';
 import { canConnect } from './port-utils.js';
-import { isManagedProcessAlive, verifyProcessDirectory } from './process-state.js';
+import {
+  isManagedProcessAlive,
+  verifyProcessDirectory,
+} from './process-state.js';
 import {
   listStoredProcessEntries,
   readStoredProcess,

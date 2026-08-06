@@ -3,7 +3,10 @@ import { afterEach, test, vi } from 'vitest';
 
 import { flushPromises, mount } from '@vue/test-utils';
 
-import type { GitDiffSnapshot, ProjectGitOverview } from '@dev-dashboard/contracts';
+import type {
+  GitDiffSnapshot,
+  ProjectGitOverview,
+} from '@dev-dashboard/contracts';
 
 import ProjectGitDiffPage from '../src/components/ProjectGitDiffPage.vue';
 
@@ -73,14 +76,21 @@ afterEach(() => {
  * esperar o módulo carregar antes de olhar para o conteúdo dos cartões.
  */
 async function settle(wrapper: { html: () => string }): Promise<void> {
-  await vi.waitFor(() => {
-    if (wrapper.html().includes('Carregando ')) throw new Error('diff ainda carregando');
-  }, { timeout: 5_000, interval: 10 });
+  await vi.waitFor(
+    () => {
+      if (wrapper.html().includes('Carregando '))
+        throw new Error('diff ainda carregando');
+    },
+    { timeout: 5_000, interval: 10 },
+  );
   await flushPromises();
 }
 
 function jsonResponse(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), { status, headers: jsonHeaders });
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: jsonHeaders,
+  });
 }
 
 async function mountPage(options: { lines?: string[] } = {}) {
@@ -123,7 +133,8 @@ async function mountPage(options: { lines?: string[] } = {}) {
         },
       });
     }
-    if (url.pathname.endsWith('/git/diff')) return jsonResponse({ diff: snapshot });
+    if (url.pathname.endsWith('/git/diff'))
+      return jsonResponse({ diff: snapshot });
     if (url.pathname.endsWith('/git')) return jsonResponse({ git: overview });
     return jsonResponse({}, 404);
   }) as typeof globalThis.fetch;
@@ -179,7 +190,9 @@ test('expande o contexto acima do hunk pela seta do cabeçalho', async () => {
   await expandUp.trigger('click');
   await settle(wrapper);
 
-  const lineRequest = requests.find((request) => request.path.endsWith('/git/diff/file/lines'));
+  const lineRequest = requests.find((request) =>
+    request.path.endsWith('/git/diff/file/lines'),
+  );
   assert.ok(lineRequest, 'esperava uma requisição de linhas');
   assert.equal(lineRequest!.query.get('path'), 'src/signup/index.tsx');
   assert.equal(lineRequest!.query.get('start'), '1');
@@ -194,7 +207,9 @@ test('marcar como revisado recolhe o arquivo e move o progresso', async () => {
   await card.find('.git-diff-viewed input').setValue(true);
 
   assert.ok(card.classes().includes('is-collapsed'));
-  assert.ok(wrapper.find('.git-diff-progress').text().includes('1 de 2 revisados'));
+  assert.ok(
+    wrapper.find('.git-diff-progress').text().includes('1 de 2 revisados'),
+  );
 });
 
 test('filtra os cartões pela busca de arquivo', async () => {
@@ -210,5 +225,8 @@ test('aplica realce de sintaxe pela extensão do arquivo', async () => {
 
   const card = wrapper.findAll('.git-diff-file-card')[1]!;
   assert.ok(card.text().includes('terms.ts'));
-  assert.ok(card.html().includes('hljs-keyword'), 'esperava tokens de sintaxe no diff');
+  assert.ok(
+    card.html().includes('hljs-keyword'),
+    'esperava tokens de sintaxe no diff',
+  );
 });

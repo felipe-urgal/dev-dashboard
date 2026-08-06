@@ -47,13 +47,7 @@ export const projectDiagnosticSummaryResponseSchema = {
 export const projectDiagnosticReportResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'projectId',
-    'generatedAt',
-    'overallStatus',
-    'summary',
-    'checks',
-  ],
+  required: ['projectId', 'generatedAt', 'overallStatus', 'summary', 'checks'],
   properties: {
     projectId: { type: 'string' },
     generatedAt: { type: 'string' },

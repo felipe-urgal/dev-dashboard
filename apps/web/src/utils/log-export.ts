@@ -48,7 +48,9 @@ export function safeLogFilenameSegment(value: string): string {
   return normalized || 'log';
 }
 
-export function prepareLogExport(options: LogExportOptions): PreparedLogExport | null {
+export function prepareLogExport(
+  options: LogExportOptions,
+): PreparedLogExport | null {
   if (!options.snapshot.content.trim()) return null;
 
   const capturedAt = options.capturedAt ?? new Date().toISOString();
@@ -89,7 +91,9 @@ export function exportLogSnapshot(options: LogExportOptions): boolean {
   const prepared = prepareLogExport(options);
   if (!prepared) return false;
 
-  const blob = new Blob([prepared.content], { type: 'text/plain;charset=utf-8' });
+  const blob = new Blob([prepared.content], {
+    type: 'text/plain;charset=utf-8',
+  });
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
 

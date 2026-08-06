@@ -57,13 +57,9 @@ async function resolveNodePackageManager(
   return 'npm';
 }
 
-function hasDependency(
-  manifest: PackageManifest,
-  name: string,
-): boolean {
+function hasDependency(manifest: PackageManifest, name: string): boolean {
   return Boolean(
-    manifest.devDependencies?.[name] ??
-      manifest.dependencies?.[name],
+    manifest.devDependencies?.[name] ?? manifest.dependencies?.[name],
   );
 }
 
@@ -160,12 +156,7 @@ export async function detectNodeCommands(
       originDetail: 'node_modules/.bin/vitest',
       priority: 30,
       resolved: {
-        command: path.join(
-          project.path,
-          'node_modules',
-          '.bin',
-          'vitest',
-        ),
+        command: path.join(project.path, 'node_modules', '.bin', 'vitest'),
         args: ['run'],
       },
     });
@@ -174,9 +165,7 @@ export async function detectNodeCommands(
   if (
     commands.length === 0 &&
     hasDependency(manifest, 'jest') &&
-    (await pathExists(
-      path.join(project.path, 'node_modules', '.bin', 'jest'),
-    ))
+    (await pathExists(path.join(project.path, 'node_modules', '.bin', 'jest')))
   ) {
     commands.push({
       id: 'node-jest-binary',
@@ -187,12 +176,7 @@ export async function detectNodeCommands(
       originDetail: 'node_modules/.bin/jest',
       priority: 30,
       resolved: {
-        command: path.join(
-          project.path,
-          'node_modules',
-          '.bin',
-          'jest',
-        ),
+        command: path.join(project.path, 'node_modules', '.bin', 'jest'),
         args: ['--ci'],
       },
     });

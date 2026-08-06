@@ -35,10 +35,12 @@ test('abre o caminho canônico usando o executável resolvido', async () => {
 
   const result = await service.open('/projetos/painel', 'vscode');
 
-  assert.deepEqual(launches, [{
-    command: '/usr/local/bin/code',
-    projectPath: '/projetos/painel',
-  }]);
+  assert.deepEqual(launches, [
+    {
+      command: '/usr/local/bin/code',
+      projectPath: '/projetos/painel',
+    },
+  ]);
   assert.deepEqual(result, {
     editor: { id: 'vscode', name: 'Visual Studio Code' },
     opened: true,
@@ -52,13 +54,15 @@ test('recusa editor fora do catálogo e editor indisponível', async () => {
 
   await assert.rejects(
     service.open('/projetos/painel', 'terminal' as ProjectEditorId),
-    (error: unknown) => error instanceof ProjectEditorError
-      && error.code === 'EDITOR_NOT_AVAILABLE',
+    (error: unknown) =>
+      error instanceof ProjectEditorError &&
+      error.code === 'EDITOR_NOT_AVAILABLE',
   );
   await assert.rejects(
     service.open('/projetos/painel', 'vscode'),
-    (error: unknown) => error instanceof ProjectEditorError
-      && error.code === 'EDITOR_NOT_AVAILABLE',
+    (error: unknown) =>
+      error instanceof ProjectEditorError &&
+      error.code === 'EDITOR_NOT_AVAILABLE',
   );
 });
 
@@ -72,8 +76,9 @@ test('traduz falha de inicialização sem expor detalhes do processo', async () 
 
   await assert.rejects(
     service.open('/projetos/painel', 'cursor'),
-    (error: unknown) => error instanceof ProjectEditorError
-      && error.code === 'EDITOR_LAUNCH_FAILED'
-      && !error.message.includes('segredo interno'),
+    (error: unknown) =>
+      error instanceof ProjectEditorError &&
+      error.code === 'EDITOR_LAUNCH_FAILED' &&
+      !error.message.includes('segredo interno'),
   );
 });

@@ -18,7 +18,8 @@ export function extractMainTable(statement: string): string | undefined {
 
 export function extractJoinedTables(statement: string): string[] {
   const tables: string[] = [];
-  const pattern = /\b(?:INNER|LEFT|RIGHT|FULL|CROSS)?\s*JOIN\s+((?:`[^`]+`|[A-Za-z_][\w$]*)(?:\.(?:`[^`]+`|[A-Za-z_][\w$]*))?)/gi;
+  const pattern =
+    /\b(?:INNER|LEFT|RIGHT|FULL|CROSS)?\s*JOIN\s+((?:`[^`]+`|[A-Za-z_][\w$]*)(?:\.(?:`[^`]+`|[A-Za-z_][\w$]*))?)/gi;
 
   for (const match of statement.matchAll(pattern)) {
     const table = cleanIdentifier(match[1]);

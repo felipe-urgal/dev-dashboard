@@ -5,7 +5,11 @@ export function projectIdFromLocation(): string {
   return match?.[1] ? decodeURIComponent(match[1]) : '';
 }
 
-export function mountIcon(host: HTMLElement, component: Parameters<typeof h>[0], className: string): void {
+export function mountIcon(
+  host: HTMLElement,
+  component: Parameters<typeof h>[0],
+  className: string,
+): void {
   const iconHost = document.createElement('span');
   iconHost.className = className;
   iconHost.setAttribute('aria-hidden', 'true');
@@ -13,15 +17,22 @@ export function mountIcon(host: HTMLElement, component: Parameters<typeof h>[0],
   host.append(iconHost);
 }
 
-export async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+export async function requestJson<T>(
+  url: string,
+  signal?: AbortSignal,
+): Promise<T> {
   const response = await fetch(url, {
     credentials: 'same-origin',
     ...(signal ? { signal } : {}),
   });
-  const payload = await response.json().catch(() => null) as T | { message?: string } | null;
+  const payload = (await response.json().catch(() => null)) as
+    T | { message?: string } | null;
   if (!response.ok) {
     throw new Error(
-      payload && typeof payload === 'object' && 'message' in payload && payload.message
+      payload &&
+        typeof payload === 'object' &&
+        'message' in payload &&
+        payload.message
         ? payload.message
         : `A API respondeu com HTTP ${response.status}.`,
     );
@@ -30,8 +41,9 @@ export async function requestJson<T>(url: string, signal?: AbortSignal): Promise
 }
 
 export function currentBranchFromSection(section: HTMLElement): string {
-  return section
-    .querySelector<HTMLElement>('.git-status-grid article:first-child strong')
-    ?.textContent
-    ?.trim() ?? '';
+  return (
+    section
+      .querySelector<HTMLElement>('.git-status-grid article:first-child strong')
+      ?.textContent?.trim() ?? ''
+  );
 }

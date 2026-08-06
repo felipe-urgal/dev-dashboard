@@ -50,9 +50,10 @@ export function useScriptCatalog<ScriptSection extends string>(
       }
     } catch (error) {
       if (current === generation && projectId === getProject().id) {
-        errorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível carregar o catálogo.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar o catálogo.';
       }
     } finally {
       if (current === generation) loading.value = false;

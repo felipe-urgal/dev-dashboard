@@ -59,7 +59,7 @@ function fakeModel(prefix: string, suffix: string): Monaco.editor.ITextModel {
   return {
     uri: { toString: () => 'file:///dev-dashboard/projects/project-1/app.rb' },
     getValueInRange: (range: Monaco.IRange) =>
-      (range.startLineNumber === 1 && range.startColumn === 1 ? prefix : suffix),
+      range.startLineNumber === 1 && range.startColumn === 1 ? prefix : suffix,
     getLineCount: () => 1,
     getLineMaxColumn: () => suffix.length + 1,
   } as unknown as Monaco.editor.ITextModel;
@@ -106,18 +106,23 @@ test('prefere um modelo com capacidade fill-in-the-middle e devolve a sugestão'
 
   const model = fakeModel('function sum(a, b) {\n  return ', '\n}');
   const token = fakeToken();
-  const resultPromise = monaco.provider()!.provideInlineCompletions(
-    model,
-    position,
-    {} as Monaco.languages.InlineCompletionContext,
-    token as unknown as Monaco.CancellationToken,
-  );
+  const resultPromise = monaco
+    .provider()!
+    .provideInlineCompletions(
+      model,
+      position,
+      {} as Monaco.languages.InlineCompletionContext,
+      token as unknown as Monaco.CancellationToken,
+    );
   await vi.advanceTimersByTimeAsync(500);
   const result = await resultPromise;
 
   assert.equal(api.complete.mock.calls[0]?.[0], 'project-1');
   assert.equal(api.complete.mock.calls[0]?.[1], 'qwen2.5-coder');
-  assert.equal(result && 'items' in result ? result.items[0]?.insertText : undefined, 'sum(a, b)');
+  assert.equal(
+    result && 'items' in result ? result.items[0]?.insertText : undefined,
+    'sum(a, b)',
+  );
 });
 
 test('não chama a API quando o token cancela durante o debounce', async () => {
@@ -133,12 +138,14 @@ test('não chama a API quando o token cancela durante o debounce', async () => {
 
   const model = fakeModel('const x = ', '');
   const token = fakeToken();
-  const resultPromise = monaco.provider()!.provideInlineCompletions(
-    model,
-    position,
-    {} as Monaco.languages.InlineCompletionContext,
-    token as unknown as Monaco.CancellationToken,
-  );
+  const resultPromise = monaco
+    .provider()!
+    .provideInlineCompletions(
+      model,
+      position,
+      {} as Monaco.languages.InlineCompletionContext,
+      token as unknown as Monaco.CancellationToken,
+    );
   token.trigger();
   await vi.advanceTimersByTimeAsync(500);
   const result = await resultPromise;
@@ -163,12 +170,14 @@ test('reaproveita o cache para o mesmo prefixo/sufixo sem chamar a API de novo',
 
   async function ask(): Promise<unknown> {
     const token = fakeToken();
-    const resultPromise = monaco.provider()!.provideInlineCompletions(
-      model,
-      position,
-      {} as Monaco.languages.InlineCompletionContext,
-      token as unknown as Monaco.CancellationToken,
-    );
+    const resultPromise = monaco
+      .provider()!
+      .provideInlineCompletions(
+        model,
+        position,
+        {} as Monaco.languages.InlineCompletionContext,
+        token as unknown as Monaco.CancellationToken,
+      );
     await vi.advanceTimersByTimeAsync(500);
     return resultPromise;
   }
@@ -185,9 +194,11 @@ test('cache tem tamanho máximo e descarta a entrada mais antiga', async () => {
     models: [{ name: 'llama3.1', capabilities: ['chat'] }],
     message: 'ok',
   } satisfies ProjectAiStatus);
-  api.complete.mockImplementation(async (_projectId: string, _model: string, prefix: string) => ({
-    text: `sugestao para ${prefix}`,
-  }));
+  api.complete.mockImplementation(
+    async (_projectId: string, _model: string, prefix: string) => ({
+      text: `sugestao para ${prefix}`,
+    }),
+  );
 
   const monaco = fakeMonaco();
   const provider = new AiInlineCompletionProvider(monaco.instance, 'project-1');
@@ -196,12 +207,14 @@ test('cache tem tamanho máximo e descarta a entrada mais antiga', async () => {
   async function ask(prefix: string): Promise<void> {
     const model = fakeModel(prefix, '');
     const token = fakeToken();
-    const resultPromise = monaco.provider()!.provideInlineCompletions(
-      model,
-      position,
-      {} as Monaco.languages.InlineCompletionContext,
-      token as unknown as Monaco.CancellationToken,
-    );
+    const resultPromise = monaco
+      .provider()!
+      .provideInlineCompletions(
+        model,
+        position,
+        {} as Monaco.languages.InlineCompletionContext,
+        token as unknown as Monaco.CancellationToken,
+      );
     await vi.advanceTimersByTimeAsync(500);
     await resultPromise;
   }
@@ -226,7 +239,13 @@ test('aborta a chamada em andamento quando o token cancela durante a requisiçã
   let capturedSignal: AbortSignal | undefined;
   let resolveComplete: (() => void) | undefined;
   api.complete.mockImplementation(
-    (_projectId: string, _model: string, _prefix: string, _suffix: string, signal: AbortSignal) => {
+    (
+      _projectId: string,
+      _model: string,
+      _prefix: string,
+      _suffix: string,
+      signal: AbortSignal,
+    ) => {
       capturedSignal = signal;
       return new Promise((resolve) => {
         resolveComplete = () => resolve({ text: '' });
@@ -240,12 +259,14 @@ test('aborta a chamada em andamento quando o token cancela durante a requisiçã
 
   const model = fakeModel('const x = ', '');
   const token = fakeToken();
-  const resultPromise = monaco.provider()!.provideInlineCompletions(
-    model,
-    position,
-    {} as Monaco.languages.InlineCompletionContext,
-    token as unknown as Monaco.CancellationToken,
-  );
+  const resultPromise = monaco
+    .provider()!
+    .provideInlineCompletions(
+      model,
+      position,
+      {} as Monaco.languages.InlineCompletionContext,
+      token as unknown as Monaco.CancellationToken,
+    );
   await vi.advanceTimersByTimeAsync(500);
 
   assert.ok(capturedSignal);

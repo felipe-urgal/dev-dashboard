@@ -42,7 +42,11 @@ function readBrowserBootstrap(): string | null {
 
   if (received) {
     window.sessionStorage.setItem(BOOTSTRAP_STORAGE_KEY, received);
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}`,
+    );
     return received;
   }
 
@@ -59,12 +63,24 @@ export async function bootstrapBrowserSession(): Promise<void> {
       ...(bootstrap ? { 'X-Dev-Dashboard-Browser-Bootstrap': bootstrap } : {}),
     },
     body: '{}',
-  }).then((response) => { if (!response.ok) throw new Error('Não foi possível iniciar a sessão segura do navegador.'); })
-    .finally(() => { bootstrapPromise = undefined; });
+  })
+    .then((response) => {
+      if (!response.ok)
+        throw new Error(
+          'Não foi possível iniciar a sessão segura do navegador.',
+        );
+    })
+    .finally(() => {
+      bootstrapPromise = undefined;
+    });
   return bootstrapPromise;
 }
 
-async function requestJsonAttempt<T>(input: RequestInfo | URL, init: RequestInit | undefined, mayRenew: boolean): Promise<T> {
+async function requestJsonAttempt<T>(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  mayRenew: boolean,
+): Promise<T> {
   let response = await fetch(input, { ...init, credentials: 'same-origin' });
   if (response.status === 401 && mayRenew) {
     await bootstrapBrowserSession();
@@ -72,9 +88,7 @@ async function requestJsonAttempt<T>(input: RequestInfo | URL, init: RequestInit
   }
 
   const payload: unknown =
-    response.status === 204
-      ? null
-      : await response.json().catch(() => null);
+    response.status === 204 ? null : await response.json().catch(() => null);
 
   if (!response.ok) {
     const errorPayload =
@@ -84,12 +98,9 @@ async function requestJsonAttempt<T>(input: RequestInfo | URL, init: RequestInit
 
     throw new ApiRequestError({
       status: response.status,
-      ...(errorPayload?.error
-        ? { code: errorPayload.error }
-        : {}),
+      ...(errorPayload?.error ? { code: errorPayload.error } : {}),
       message:
-        errorPayload?.message ??
-        `A API respondeu com HTTP ${response.status}`,
+        errorPayload?.message ?? `A API respondeu com HTTP ${response.status}`,
     });
   }
 
@@ -118,7 +129,10 @@ export function followEventStream<T>(
       await bootstrapBrowserSession();
       response = await fetch(url, requestInit);
     }
-    if (!response.ok || !response.body) throw new Error(`Não foi possível acompanhar a execução (HTTP ${response.status}).`);
+    if (!response.ok || !response.body)
+      throw new Error(
+        `Não foi possível acompanhar a execução (HTTP ${response.status}).`,
+      );
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -129,7 +143,10 @@ export function followEventStream<T>(
       const frames = buffer.split('\n\n');
       buffer = frames.pop() ?? '';
       for (const frame of frames) {
-        const data = frame.split('\n').find((line) => line.startsWith('data: '))?.slice(6);
+        const data = frame
+          .split('\n')
+          .find((line) => line.startsWith('data: '))
+          ?.slice(6);
         if (data) onEvent(JSON.parse(data) as T);
       }
     }

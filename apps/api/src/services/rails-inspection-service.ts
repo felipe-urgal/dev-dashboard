@@ -57,12 +57,23 @@ interface StoredMutationConfirmation {
 }
 
 export class RailsInspectionService {
-  private readonly mutationConfirmations = new Map<string, StoredMutationConfirmation>();
-  private readonly generatorConfirmations = new Map<string, StoredGeneratorConfirmation>();
+  private readonly mutationConfirmations = new Map<
+    string,
+    StoredMutationConfirmation
+  >();
+  private readonly generatorConfirmations = new Map<
+    string,
+    StoredGeneratorConfirmation
+  >();
 
-  public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
+  public constructor(
+    private readonly runCommand: CommandRunner = defaultCommandRunner,
+  ) {}
 
-  public async getMigrationsOverview(project: Project, database = 'primary'): Promise<RailsMigrationsOverview> {
+  public async getMigrationsOverview(
+    project: Project,
+    database = 'primary',
+  ): Promise<RailsMigrationsOverview> {
     const databases = await listDatabases(project);
     const selected = databases.includes(database) ? database : 'primary';
     const railsCommand = await resolveRailsCommand(project);
@@ -76,13 +87,22 @@ export class RailsInspectionService {
       );
       const blocks = parseMigrationStatusBlocks(stdout);
       const block = matchMigrationStatusBlock(blocks, databases, selected);
-      return { supported: true, databases, ...(block.database ? { database: block.database } : {}), migrations: block.migrations };
+      return {
+        supported: true,
+        databases,
+        ...(block.database ? { database: block.database } : {}),
+        migrations: block.migrations,
+      };
     } catch {
       return { supported: false, databases, migrations: [] };
     }
   }
 
-  public async getMigrationDetail(project: Project, version: string, database = 'primary'): Promise<RailsMigrationDetail> {
+  public async getMigrationDetail(
+    project: Project,
+    version: string,
+    database = 'primary',
+  ): Promise<RailsMigrationDetail> {
     if (!/^\d{8,20}$/.test(version)) {
       return { supported: false, version, truncated: false };
     }
@@ -90,13 +110,18 @@ export class RailsInspectionService {
     const databases = await listDatabases(project);
     const selected = databases.includes(database) ? database : 'primary';
     const overview = await this.getMigrationsOverview(project, selected);
-    const entry = overview.migrations.find((migration) => migration.version === version);
+    const entry = overview.migrations.find(
+      (migration) => migration.version === version,
+    );
     const migrateDir = migrationsDirectory(project.path, selected);
 
     let fileName: string | undefined;
     try {
       fileName = (await readdir(migrateDir))
-        .filter((candidate) => candidate.startsWith(`${version}_`) && candidate.endsWith('.rb'))
+        .filter(
+          (candidate) =>
+            candidate.startsWith(`${version}_`) && candidate.endsWith('.rb'),
+        )
         .sort()[0];
     } catch {
       fileName = undefined;
@@ -110,9 +135,14 @@ export class RailsInspectionService {
     let truncated = false;
     if (fileName) {
       try {
-        const rawSource = await readFile(path.join(migrateDir, fileName), 'utf8');
+        const rawSource = await readFile(
+          path.join(migrateDir, fileName),
+          'utf8',
+        );
         truncated = rawSource.length > MIGRATION_SOURCE_LIMIT;
-        source = truncated ? rawSource.slice(0, MIGRATION_SOURCE_LIMIT) : rawSource;
+        source = truncated
+          ? rawSource.slice(0, MIGRATION_SOURCE_LIMIT)
+          : rawSource;
       } catch {
         source = undefined;
       }
@@ -123,19 +153,33 @@ export class RailsInspectionService {
       version,
       ...(entry?.name ? { name: entry.name } : {}),
       ...(entry?.status ? { status: entry.status } : {}),
-      ...(fileName ? { filePath: path.posix.join('db', path.basename(migrateDir), fileName) } : {}),
+      ...(fileName
+        ? {
+            filePath: path.posix.join(
+              'db',
+              path.basename(migrateDir),
+              fileName,
+            ),
+          }
+        : {}),
       ...(source !== undefined ? { source } : {}),
       truncated,
     };
   }
 
-  public async getModelsOverview(project: Project, database = 'primary'): Promise<RailsModelsOverview> {
-    if (project.type !== 'rails') return { supported: false, databases: [], tables: [] };
+  public async getModelsOverview(
+    project: Project,
+    database = 'primary',
+  ): Promise<RailsModelsOverview> {
+    if (project.type !== 'rails')
+      return { supported: false, databases: [], tables: [] };
     const databases = await listDatabases(project);
     const selected = databases.includes(database) ? database : 'primary';
-    const fileName = selected === 'primary' ? 'schema.rb' : `${selected}_schema.rb`;
+    const fileName =
+      selected === 'primary' ? 'schema.rb' : `${selected}_schema.rb`;
     const schemaPath = path.join(project.path, 'db', fileName);
-    if (!(await pathExists(schemaPath))) return { supported: false, databases, tables: [] };
+    if (!(await pathExists(schemaPath)))
+      return { supported: false, databases, tables: [] };
 
     try {
       const source = await readFile(schemaPath, 'utf8');
@@ -150,7 +194,9 @@ export class RailsInspectionService {
     }
   }
 
-  public async getRoutesOverview(project: Project): Promise<RailsRoutesOverview> {
+  public async getRoutesOverview(
+    project: Project,
+  ): Promise<RailsRoutesOverview> {
     const railsCommand = await resolveRailsCommand(project);
     if (!railsCommand) return { supported: false, routes: [] };
 
@@ -171,12 +217,20 @@ export class RailsInspectionService {
     operation: RailsMigrationMutationOperation,
   ): Promise<RailsMigrationMutationConfirmation> {
     if (!(await resolveRailsCommand(project))) {
-      throw new RailsMutationError('RAILS_MUTATION_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+      throw new RailsMutationError(
+        'RAILS_MUTATION_UNSUPPORTED',
+        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
+      );
     }
     this.pruneExpiredConfirmations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + MUTATION_CONFIRMATION_TTL_MS;
-    this.mutationConfirmations.set(token, { token, projectId: project.id, operation, expiresAt });
+    this.mutationConfirmations.set(token, {
+      token,
+      projectId: project.id,
+      operation,
+      expiresAt,
+    });
     return { token, operation, expiresAt: new Date(expiresAt).toISOString() };
   }
 
@@ -189,7 +243,10 @@ export class RailsInspectionService {
 
     const railsCommand = await resolveRailsCommand(project);
     if (!railsCommand) {
-      throw new RailsMutationError('RAILS_MUTATION_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+      throw new RailsMutationError(
+        'RAILS_MUTATION_UNSUPPORTED',
+        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
+      );
     }
 
     let succeeded = true;
@@ -203,14 +260,27 @@ export class RailsInspectionService {
       rawOutput = [stdout, stderr].filter(Boolean).join('\n');
     } catch (error) {
       succeeded = false;
-      const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
-      rawOutput = [failure.stdout, failure.stderr]
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-        .join('\n') || (typeof failure.message === 'string' ? failure.message : 'Falha ao executar o comando.');
+      const failure = error as {
+        stdout?: unknown;
+        stderr?: unknown;
+        message?: unknown;
+      };
+      rawOutput =
+        [failure.stdout, failure.stderr]
+          .filter(
+            (value): value is string =>
+              typeof value === 'string' && value.length > 0,
+          )
+          .join('\n') ||
+        (typeof failure.message === 'string'
+          ? failure.message
+          : 'Falha ao executar o comando.');
     }
 
     const truncated = rawOutput.length > MUTATION_OUTPUT_LIMIT;
-    const trimmed = truncated ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT) : rawOutput;
+    const trimmed = truncated
+      ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT)
+      : rawOutput;
     const masked = maskSensitiveLogContent(trimmed);
 
     return {
@@ -230,8 +300,15 @@ export class RailsInspectionService {
   ): void {
     this.pruneExpiredConfirmations();
     const record = token ? this.mutationConfirmations.get(token) : undefined;
-    if (!record || record.projectId !== projectId || record.operation !== operation) {
-      throw new RailsMutationError('RAILS_MUTATION_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
+    if (
+      !record ||
+      record.projectId !== projectId ||
+      record.operation !== operation
+    ) {
+      throw new RailsMutationError(
+        'RAILS_MUTATION_CONFIRMATION_REQUIRED',
+        'Confirmação obrigatória para esta operação.',
+      );
     }
     this.mutationConfirmations.delete(token!);
   }
@@ -251,32 +328,63 @@ export class RailsInspectionService {
     database?: string,
   ): Promise<RailsGeneratorConfirmation> {
     if (!(await resolveRailsCommand(project))) {
-      throw new RailsMutationError('RAILS_GENERATOR_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_UNSUPPORTED',
+        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
+      );
     }
-    if (database && database !== 'primary' && !(await listDatabases(project)).includes(database)) {
-      throw new RailsMutationError('RAILS_GENERATOR_INVALID_INPUT', `Banco "${database}" não foi encontrado neste projeto.`);
+    if (
+      database &&
+      database !== 'primary' &&
+      !(await listDatabases(project)).includes(database)
+    ) {
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_INVALID_INPUT',
+        `Banco "${database}" não foi encontrado neste projeto.`,
+      );
     }
-    const effectiveDatabase = database && database !== 'primary' ? database : undefined;
+    const effectiveDatabase =
+      database && database !== 'primary' ? database : undefined;
     const args = buildGeneratorArgs(kind, name, fields, effectiveDatabase);
 
     this.pruneExpiredGeneratorConfirmations();
     const token = randomBytes(32).toString('hex');
     const expiresAt = Date.now() + GENERATOR_CONFIRMATION_TTL_MS;
     this.generatorConfirmations.set(token, {
-      token, projectId: project.id, kind, name, fields, ...(effectiveDatabase ? { database: effectiveDatabase } : {}), args, expiresAt,
+      token,
+      projectId: project.id,
+      kind,
+      name,
+      fields,
+      ...(effectiveDatabase ? { database: effectiveDatabase } : {}),
+      args,
+      expiresAt,
     });
     return {
-      token, kind, name, fields, ...(effectiveDatabase ? { database: effectiveDatabase } : {}),
+      token,
+      kind,
+      name,
+      fields,
+      ...(effectiveDatabase ? { database: effectiveDatabase } : {}),
       command: ['rails', ...args].join(' '),
       expiresAt: new Date(expiresAt).toISOString(),
     };
   }
 
-  public async runGenerator(project: Project, confirmationToken: string | undefined): Promise<RailsGeneratorResult> {
-    const record = this.consumeGeneratorConfirmation(project.id, confirmationToken);
+  public async runGenerator(
+    project: Project,
+    confirmationToken: string | undefined,
+  ): Promise<RailsGeneratorResult> {
+    const record = this.consumeGeneratorConfirmation(
+      project.id,
+      confirmationToken,
+    );
     const railsCommand = await resolveRailsCommand(project);
     if (!railsCommand) {
-      throw new RailsMutationError('RAILS_GENERATOR_UNSUPPORTED', 'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).');
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_UNSUPPORTED',
+        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
+      );
     }
 
     let succeeded = true;
@@ -290,14 +398,27 @@ export class RailsInspectionService {
       rawOutput = [stdout, stderr].filter(Boolean).join('\n');
     } catch (error) {
       succeeded = false;
-      const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
-      rawOutput = [failure.stdout, failure.stderr]
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-        .join('\n') || (typeof failure.message === 'string' ? failure.message : 'Falha ao executar o comando.');
+      const failure = error as {
+        stdout?: unknown;
+        stderr?: unknown;
+        message?: unknown;
+      };
+      rawOutput =
+        [failure.stdout, failure.stderr]
+          .filter(
+            (value): value is string =>
+              typeof value === 'string' && value.length > 0,
+          )
+          .join('\n') ||
+        (typeof failure.message === 'string'
+          ? failure.message
+          : 'Falha ao executar o comando.');
     }
 
     const truncated = rawOutput.length > MUTATION_OUTPUT_LIMIT;
-    const trimmed = truncated ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT) : rawOutput;
+    const trimmed = truncated
+      ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT)
+      : rawOutput;
     const masked = maskSensitiveLogContent(trimmed);
 
     return {
@@ -312,11 +433,17 @@ export class RailsInspectionService {
     };
   }
 
-  private consumeGeneratorConfirmation(projectId: string, token: string | undefined): StoredGeneratorConfirmation {
+  private consumeGeneratorConfirmation(
+    projectId: string,
+    token: string | undefined,
+  ): StoredGeneratorConfirmation {
     this.pruneExpiredGeneratorConfirmations();
     const record = token ? this.generatorConfirmations.get(token) : undefined;
     if (!record || record.projectId !== projectId) {
-      throw new RailsMutationError('RAILS_GENERATOR_CONFIRMATION_REQUIRED', 'Confirmação obrigatória para esta operação.');
+      throw new RailsMutationError(
+        'RAILS_GENERATOR_CONFIRMATION_REQUIRED',
+        'Confirmação obrigatória para esta operação.',
+      );
     }
     this.generatorConfirmations.delete(token!);
     return record;

@@ -50,29 +50,43 @@ function commitListItem(
 export function renderPagination(section: HTMLElement): void {
   const state = stateBySection.get(section);
   if (!state) return;
-  const previous = section.querySelector<HTMLButtonElement>('[data-history-page="previous"]');
-  const next = section.querySelector<HTMLButtonElement>('[data-history-page="next"]');
-  const label = section.querySelector<HTMLElement>('.git-summary-history-page-label');
+  const previous = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="previous"]',
+  );
+  const next = section.querySelector<HTMLButtonElement>(
+    '[data-history-page="next"]',
+  );
+  const label = section.querySelector<HTMLElement>(
+    '.git-summary-history-page-label',
+  );
   if (previous) previous.disabled = state.page <= 1 || state.totalPages <= 1;
-  if (next) next.disabled = state.totalPages <= 1 || state.page >= state.totalPages;
+  if (next)
+    next.disabled = state.totalPages <= 1 || state.page >= state.totalPages;
   if (label) {
-    label.textContent = state.totalPages > 0
-      ? `Página ${state.page} de ${state.totalPages}`
-      : 'Nenhuma página';
+    label.textContent =
+      state.totalPages > 0
+        ? `Página ${state.page} de ${state.totalPages}`
+        : 'Nenhuma página';
   }
 }
 
 export function renderHistoryList(section: HTMLElement): void {
   const state = stateBySection.get(section);
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
   if (!state || !list) return;
 
   const query = state.search.trim().toLocaleLowerCase('pt-BR');
   const commits = state.commits.filter((commit) => {
     if (!query) return true;
-    return [commit.shortHash, commit.subject, commit.authorName, commit.authorEmail]
-      .some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
+    return [
+      commit.shortHash,
+      commit.subject,
+      commit.authorName,
+      commit.authorEmail,
+    ].some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
   });
 
   list.replaceChildren();
@@ -82,7 +96,7 @@ export function renderHistoryList(section: HTMLElement): void {
     if (query) {
       count.textContent = `${commits.length} resultado${commits.length === 1 ? '' : 's'} nesta página · ${state.total} commits · ${state.branch}`;
     } else if (state.total > 0) {
-      const start = ((state.page - 1) * state.pageSize) + 1;
+      const start = (state.page - 1) * state.pageSize + 1;
       const end = start + state.commits.length - 1;
       count.textContent = `${start}–${end} de ${state.total} commits · ${state.branch}`;
     } else {
@@ -93,19 +107,23 @@ export function renderHistoryList(section: HTMLElement): void {
   if (commits.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'git-summary-history-empty';
-    empty.textContent = state.commits.length === 0
-      ? 'A branch atual ainda não possui commits.'
-      : 'Nenhum commit desta página corresponde à busca.';
+    empty.textContent =
+      state.commits.length === 0
+        ? 'A branch atual ainda não possui commits.'
+        : 'Nenhum commit desta página corresponde à busca.';
     list.append(empty);
   }
-  section.querySelector('.git-summary-history-shell')
+  section
+    .querySelector('.git-summary-history-shell')
     ?.classList.toggle('is-empty', state.commits.length === 0);
   renderPagination(section);
 }
 
 export function setHistoryLoading(section: HTMLElement): void {
   const list = section.querySelector<HTMLElement>('.git-summary-history-list');
-  const count = section.querySelector<HTMLElement>('.git-summary-history-count');
+  const count = section.querySelector<HTMLElement>(
+    '.git-summary-history-count',
+  );
   if (!list) return;
   list.replaceChildren();
   const loading = document.createElement('p');

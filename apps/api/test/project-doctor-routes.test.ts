@@ -1,10 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  mkdir,
-  mkdtemp,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -30,10 +25,13 @@ test('rota do Project Doctor', async (context) => {
   );
   const projectPath = path.join(fixtureRoot, 'sample-node');
   await mkdir(path.join(projectPath, 'node_modules'), { recursive: true });
-  await writeFile(path.join(projectPath, 'package.json'), JSON.stringify({
-    name: 'sample-node',
-    engines: { node: '>=22' },
-  }));
+  await writeFile(
+    path.join(projectPath, 'package.json'),
+    JSON.stringify({
+      name: 'sample-node',
+      engines: { node: '>=22' },
+    }),
+  );
   await writeFile(path.join(projectPath, 'package-lock.json'), '{}\n');
   await writeFile(
     path.join(projectPath, '.env.example'),
@@ -51,9 +49,8 @@ test('rota do Project Doctor', async (context) => {
 
   const { buildApp } = await import('../src/app.js');
   const { createAppContext } = await import('../src/app-context.js');
-  const { ProjectDoctorService } = await import(
-    '../src/services/project-doctor-service.js'
-  );
+  const { ProjectDoctorService } =
+    await import('../src/services/project-doctor-service.js');
 
   let now = Date.parse('2026-08-05T12:00:00.000Z');
   let commandCalls = 0;
@@ -106,53 +103,60 @@ test('rota do Project Doctor', async (context) => {
 
   const headers = { 'x-dev-dashboard-token': TOKEN };
 
-  await context.test('retorna diagnóstico sem expor valores do ambiente', async () => {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor',
-      headers,
-    });
+  await context.test(
+    'retorna diagnóstico sem expor valores do ambiente',
+    async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor',
+        headers,
+      });
 
-    assert.equal(response.statusCode, 200);
-    const { report } = response.json<DoctorResponse>();
-    assert.equal(report.projectId, 'p1');
-    assert.equal(report.overallStatus, 'attention');
-    assert.equal(report.summary.failed, 0);
-    assert.equal(report.summary.warnings, 1);
-    assert.equal(
-      report.checks.find((check) => check.id === 'node-package-manager')?.status,
-      'passed',
-    );
-    const environmentCheck = report.checks.find(
-      (check) => check.id === 'environment-variables',
-    );
-    assert.equal(environmentCheck?.status, 'warning');
-    assert.match(environmentCheck?.summary ?? '', /PUBLIC_URL/);
-    assert.doesNotMatch(response.body, /super-secret/);
-  });
+      assert.equal(response.statusCode, 200);
+      const { report } = response.json<DoctorResponse>();
+      assert.equal(report.projectId, 'p1');
+      assert.equal(report.overallStatus, 'attention');
+      assert.equal(report.summary.failed, 0);
+      assert.equal(report.summary.warnings, 1);
+      assert.equal(
+        report.checks.find((check) => check.id === 'node-package-manager')
+          ?.status,
+        'passed',
+      );
+      const environmentCheck = report.checks.find(
+        (check) => check.id === 'environment-variables',
+      );
+      assert.equal(environmentCheck?.status, 'warning');
+      assert.match(environmentCheck?.summary ?? '', /PUBLIC_URL/);
+      assert.doesNotMatch(response.body, /super-secret/);
+    },
+  );
 
-  await context.test('usa cache curto e permite atualização explícita', async () => {
-    const cached = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor',
-      headers,
-    });
-    assert.equal(cached.statusCode, 200);
-    assert.equal(commandCalls, 1);
+  await context.test(
+    'usa cache curto e permite atualização explícita',
+    async () => {
+      const cached = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor',
+        headers,
+      });
+      assert.equal(cached.statusCode, 200);
+      assert.equal(commandCalls, 1);
 
-    now += 1_000;
-    const refreshed = await app.inject({
-      method: 'GET',
-      url: '/api/projects/p1/doctor?refresh=true',
-      headers,
-    });
-    assert.equal(refreshed.statusCode, 200);
-    assert.equal(commandCalls, 2);
-    assert.equal(
-      refreshed.json<DoctorResponse>().report.generatedAt,
-      '2026-08-05T12:00:01.000Z',
-    );
-  });
+      now += 1_000;
+      const refreshed = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/doctor?refresh=true',
+        headers,
+      });
+      assert.equal(refreshed.statusCode, 200);
+      assert.equal(commandCalls, 2);
+      assert.equal(
+        refreshed.json<DoctorResponse>().report.generatedAt,
+        '2026-08-05T12:00:01.000Z',
+      );
+    },
+  );
 
   await context.test('retorna 404 para projeto inexistente', async () => {
     const response = await app.inject({

@@ -6,8 +6,12 @@ import test from 'node:test';
 
 import { GitMutationHistoryService } from '../src/services/git-mutation-history-service.js';
 
-async function withStateDirectory<T>(fn: (stateDirectory: string) => Promise<T>): Promise<T> {
-  const stateDirectory = await mkdtemp(path.join(tmpdir(), 'dev-dashboard-git-mutation-history-'));
+async function withStateDirectory<T>(
+  fn: (stateDirectory: string) => Promise<T>,
+): Promise<T> {
+  const stateDirectory = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-git-mutation-history-'),
+  );
   try {
     return await fn(stateDirectory);
   } finally {
@@ -18,7 +22,12 @@ async function withStateDirectory<T>(fn: (stateDirectory: string) => Promise<T>)
 test('record grava um evento com risco resolvido pelo catálogo e history o retorna', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
-    await service.record({ projectId: 'p1', workspaceId: 'w1', operationId: 'create-branch', result: 'succeeded' });
+    await service.record({
+      projectId: 'p1',
+      workspaceId: 'w1',
+      operationId: 'create-branch',
+      result: 'succeeded',
+    });
     const page = await service.history('p1');
     assert.equal(page.total, 1);
     assert.equal(page.events[0]!.operationId, 'create-branch');
@@ -49,7 +58,11 @@ test('record grava falha com o código de erro controlado, sem mensagem livre', 
 test('eventos sobrevivem à recriação do serviço (persistência em disco)', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const first = new GitMutationHistoryService(stateDirectory);
-    await first.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
+    await first.record({
+      projectId: 'p1',
+      operationId: 'commit',
+      result: 'succeeded',
+    });
 
     const second = new GitMutationHistoryService(stateDirectory);
     const page = await second.history('p1');
@@ -61,8 +74,16 @@ test('eventos sobrevivem à recriação do serviço (persistência em disco)', a
 test('history filtra por projeto e não mistura eventos de outros projetos', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
-    await service.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
-    await service.record({ projectId: 'p2', operationId: 'push', result: 'succeeded' });
+    await service.record({
+      projectId: 'p1',
+      operationId: 'commit',
+      result: 'succeeded',
+    });
+    await service.record({
+      projectId: 'p2',
+      operationId: 'push',
+      result: 'succeeded',
+    });
     const pageOne = await service.history('p1');
     const pageTwo = await service.history('p2');
     assert.equal(pageOne.total, 1);
@@ -76,7 +97,11 @@ test('history pagina, mais recente primeiro', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
     for (let index = 0; index < 5; index += 1) {
-      await service.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
+      await service.record({
+        projectId: 'p1',
+        operationId: 'commit',
+        result: 'succeeded',
+      });
     }
     const pageOne = await service.history('p1', 1, 2);
     assert.equal(pageOne.total, 5);
@@ -96,7 +121,11 @@ test('limite de 200 eventos por projeto é respeitado, preservando os mais recen
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
     for (let index = 0; index < 205; index += 1) {
-      await service.record({ projectId: 'p1', operationId: 'commit', result: 'succeeded' });
+      await service.record({
+        projectId: 'p1',
+        operationId: 'commit',
+        result: 'succeeded',
+      });
     }
     const page = await service.history('p1', 1, 500);
     assert.equal(page.total, 200);
@@ -109,7 +138,11 @@ test('limite global de 2000 eventos corta os mais antigos entre projetos', async
     // 11 projetos * 200 = 2200 tentativas; o limite global de 2000 corta as mais antigas.
     for (let project = 0; project < 11; project += 1) {
       for (let index = 0; index < 200; index += 1) {
-        await service.record({ projectId: `p${project}`, operationId: 'commit', result: 'succeeded' });
+        await service.record({
+          projectId: `p${project}`,
+          operationId: 'commit',
+          result: 'succeeded',
+        });
       }
     }
     let total = 0;
@@ -133,8 +166,18 @@ test('nenhum evento contém caminho absoluto, comando livre, credencial ou conte
     });
     const page = await service.history('p1');
     const serialized = JSON.stringify(page.events[0]);
-    const allowedKeys = new Set(['id', 'projectId', 'workspaceId', 'operationId', 'risk', 'occurredAt', 'result', 'errorCode']);
-    for (const key of Object.keys(page.events[0]!)) assert.ok(allowedKeys.has(key), `campo inesperado: ${key}`);
+    const allowedKeys = new Set([
+      'id',
+      'projectId',
+      'workspaceId',
+      'operationId',
+      'risk',
+      'occurredAt',
+      'result',
+      'errorCode',
+    ]);
+    for (const key of Object.keys(page.events[0]!))
+      assert.ok(allowedKeys.has(key), `campo inesperado: ${key}`);
     assert.doesNotMatch(serialized, /\/home\/|\/Users\/|C:\\/);
     assert.doesNotMatch(serialized, /password|secret|token|bearer/i);
   });

@@ -9,10 +9,7 @@ import {
 
 import type { ProcessLogSnapshot, Project } from '@dev-dashboard/contracts';
 
-import {
-  clearProjectProcessLog,
-  fetchProjectProcessLog,
-} from '../api';
+import { clearProjectProcessLog, fetchProjectProcessLog } from '../api';
 import { RequestGate, RequestGeneration } from '../utils/request-generation';
 
 export function useProjectLogsPolling(
@@ -33,13 +30,9 @@ export function useProjectLogsPolling(
   let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
   let clearingLog = false;
 
-  function isCurrentProject(
-    projectId: string,
-    generation: number,
-  ): boolean {
+  function isCurrentProject(projectId: string, generation: number): boolean {
     return (
-      getProject().id === projectId &&
-      projectRequests.isCurrent(generation)
+      getProject().id === projectId && projectRequests.isCurrent(generation)
     );
   }
 

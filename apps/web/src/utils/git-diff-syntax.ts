@@ -133,13 +133,14 @@ const AUTO_DETECTION_SUBSET = [
 const MIN_AUTO_DETECTION_RELEVANCE = 8;
 
 export function languageForPath(filePath: string): string | null {
-  const name = filePath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en') ?? '';
+  const name =
+    filePath.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase('en') ?? '';
   if (!name) return null;
 
   const byName = FILENAME_LANGUAGES[name];
   if (byName) return byName;
 
-  const extension = name.includes('.') ? name.split('.').at(-1) ?? '' : '';
+  const extension = name.includes('.') ? (name.split('.').at(-1) ?? '') : '';
   return EXTENSION_LANGUAGES[extension] ?? null;
 }
 
@@ -147,7 +148,10 @@ export function languageForPath(filePath: string): string | null {
  * Descobre a linguagem do arquivo: a extensão é a pista mais confiável e vem
  * primeiro; a auto-detecção do highlight.js só entra quando ela não diz nada.
  */
-export function detectLanguage(filePath: string, sample: string): string | null {
+export function detectLanguage(
+  filePath: string,
+  sample: string,
+): string | null {
   ensureRegistered();
   const byPath = languageForPath(filePath);
   if (byPath) return byPath;
@@ -155,7 +159,8 @@ export function detectLanguage(filePath: string, sample: string): string | null 
 
   const result = hljs.highlightAuto(sample, AUTO_DETECTION_SUBSET);
   // Relevância baixa costuma ser chute; sem cor é melhor que cor errada.
-  if (!result.language || result.relevance < MIN_AUTO_DETECTION_RELEVANCE) return null;
+  if (!result.language || result.relevance < MIN_AUTO_DETECTION_RELEVANCE)
+    return null;
   return result.language;
 }
 
@@ -188,7 +193,8 @@ export function syntaxRangesFromHighlightedHtml(
   let plain = '';
   let cursor = 0;
 
-  const pattern = /<span class="([^"]*)">|<\/span>|&([a-z#0-9]+);|[^<&]+|[<&]/gi;
+  const pattern =
+    /<span class="([^"]*)">|<\/span>|&([a-z#0-9]+);|[^<&]+|[<&]/gi;
   let match = pattern.exec(html);
   while (match) {
     const [token, openClass, entity] = match;
@@ -203,8 +209,10 @@ export function syntaxRangesFromHighlightedHtml(
       const className = stack.at(-1);
       if (className) {
         const last = ranges.at(-1);
-        if (last && last.end === cursor && last.className === className) last.end = cursor + text.length;
-        else ranges.push({ start: cursor, end: cursor + text.length, className });
+        if (last && last.end === cursor && last.className === className)
+          last.end = cursor + text.length;
+        else
+          ranges.push({ start: cursor, end: cursor + text.length, className });
       }
       cursor += text.length;
     }
@@ -217,7 +225,10 @@ export function syntaxRangesFromHighlightedHtml(
   return plain === expectedText ? ranges : [];
 }
 
-export function syntaxRangesFor(text: string, language: string | null): GitDiffSyntaxRange[] {
+export function syntaxRangesFor(
+  text: string,
+  language: string | null,
+): GitDiffSyntaxRange[] {
   if (!language || !text) return [];
   ensureRegistered();
   if (!hljs.getLanguage(language)) return [];

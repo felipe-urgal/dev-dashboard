@@ -158,7 +158,9 @@ export interface ProcessesQuery {
   signal?: AbortSignal;
 }
 
-interface ProcessesResponse { processes: ManagedProcess[] }
+interface ProcessesResponse {
+  processes: ManagedProcess[];
+}
 
 export function buildProcessesQuery(query: ProcessesQuery): string {
   const parameters = new URLSearchParams();
@@ -168,7 +170,9 @@ export function buildProcessesQuery(query: ProcessesQuery): string {
   return parameters.toString();
 }
 
-export async function fetchManagedProcesses(query: ProcessesQuery = {}): Promise<ManagedProcess[]> {
+export async function fetchManagedProcesses(
+  query: ProcessesQuery = {},
+): Promise<ManagedProcess[]> {
   const search = buildProcessesQuery(query);
   const url = `/api/processes${search ? `?${search}` : ''}`;
   const init: RequestInit = query.signal ? { signal: query.signal } : {};
@@ -176,12 +180,20 @@ export async function fetchManagedProcesses(query: ProcessesQuery = {}): Promise
   return response.processes;
 }
 
-interface CleanupResponse { removed: unknown[]; removedCount: number }
+interface CleanupResponse {
+  removed: unknown[];
+  removedCount: number;
+}
 
 export async function cleanupManagedProcesses(): Promise<number> {
-  const response = await requestJson<CleanupResponse>('/api/processes/cleanup', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
-  });
+  const response = await requestJson<CleanupResponse>(
+    '/api/processes/cleanup',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    },
+  );
   return response.removedCount;
 }
 

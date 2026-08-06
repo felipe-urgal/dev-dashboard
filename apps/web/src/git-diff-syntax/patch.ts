@@ -2,8 +2,10 @@ import { highlightGitPatch } from '../utils/git-syntax-highlight';
 import { sourceByPatch } from './state';
 
 function looksLikePatch(value: string): boolean {
-  return /^diff --git /m.test(value)
-    || /^@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@/m.test(value);
+  return (
+    /^diff --git /m.test(value) ||
+    /^@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@/m.test(value)
+  );
 }
 
 export function enhancePatch(element: HTMLElement): void {

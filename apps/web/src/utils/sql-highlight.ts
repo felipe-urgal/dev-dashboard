@@ -1,13 +1,60 @@
 import type { RailsLogLine } from './rails-log-parser';
 
 const KEYWORDS = [
-  'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'IS', 'NULL',
-  'LEFT', 'RIGHT', 'INNER', 'OUTER', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP',
-  'HAVING', 'LIMIT', 'OFFSET', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET',
-  'DELETE', 'BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'RELEASE', 'AS',
-  'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN', 'LIKE', 'BETWEEN',
-  'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'ASC', 'DESC', 'UNION',
-  'ALL', 'TRANSACTION', 'TO', 'USING',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'IS',
+  'NULL',
+  'LEFT',
+  'RIGHT',
+  'INNER',
+  'OUTER',
+  'JOIN',
+  'ON',
+  'ORDER',
+  'BY',
+  'GROUP',
+  'HAVING',
+  'LIMIT',
+  'OFFSET',
+  'INSERT',
+  'INTO',
+  'VALUES',
+  'UPDATE',
+  'SET',
+  'DELETE',
+  'BEGIN',
+  'COMMIT',
+  'ROLLBACK',
+  'SAVEPOINT',
+  'RELEASE',
+  'AS',
+  'DISTINCT',
+  'COUNT',
+  'SUM',
+  'AVG',
+  'MAX',
+  'MIN',
+  'LIKE',
+  'BETWEEN',
+  'EXISTS',
+  'CASE',
+  'WHEN',
+  'THEN',
+  'ELSE',
+  'END',
+  'ASC',
+  'DESC',
+  'UNION',
+  'ALL',
+  'TRANSACTION',
+  'TO',
+  'USING',
 ];
 
 const TOKEN_PATTERN = new RegExp(
@@ -20,7 +67,10 @@ const TOKEN_PATTERN = new RegExp(
 );
 
 function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /** Renders a single SQL statement as HTML with token-colored spans (already HTML-escaped). */
@@ -34,11 +84,15 @@ export function highlightSqlHtml(text: string): string {
     result += escapeHtml(text.slice(lastIndex, match.index));
     const [full, ident, str, num, placeholder, keyword] = match;
 
-    if (ident) result += `<span class="sql-tk-ident">${escapeHtml(ident)}</span>`;
-    else if (str) result += `<span class="sql-tk-str">${escapeHtml(str)}</span>`;
-    else if (num) result += `<span class="sql-tk-num">${escapeHtml(num)}</span>`;
+    if (ident)
+      result += `<span class="sql-tk-ident">${escapeHtml(ident)}</span>`;
+    else if (str)
+      result += `<span class="sql-tk-str">${escapeHtml(str)}</span>`;
+    else if (num)
+      result += `<span class="sql-tk-num">${escapeHtml(num)}</span>`;
     else if (placeholder) result += `<span class="sql-tk-num">?</span>`;
-    else if (keyword) result += `<span class="sql-tk-kw">${escapeHtml(keyword.toUpperCase())}</span>`;
+    else if (keyword)
+      result += `<span class="sql-tk-kw">${escapeHtml(keyword.toUpperCase())}</span>`;
 
     lastIndex = match.index + full.length;
   }

@@ -1,9 +1,5 @@
 import { constants as fsConstants } from 'node:fs';
-import {
-  access,
-  readFile,
-  stat,
-} from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 
 const MAX_TEXT_FILE_BYTES = 256 * 1024;
 
@@ -16,9 +12,7 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-export async function directoryExists(
-  directoryPath: string,
-): Promise<boolean> {
+export async function directoryExists(directoryPath: string): Promise<boolean> {
   try {
     return (await stat(directoryPath)).isDirectory();
   } catch {
@@ -62,8 +56,9 @@ export function parseEnvironmentVariableNames(content: string): Set<string> {
 
 export function formatVariableNames(names: readonly string[]): string {
   const visible = names.slice(0, 8);
-  const suffix = names.length > visible.length
-    ? ` e mais ${names.length - visible.length}`
-    : '';
+  const suffix =
+    names.length > visible.length
+      ? ` e mais ${names.length - visible.length}`
+      : '';
   return `${visible.join(', ')}${suffix}`;
 }

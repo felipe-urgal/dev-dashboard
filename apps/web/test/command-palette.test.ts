@@ -9,14 +9,49 @@ const api = vi.hoisted(() => ({
   fetchProjectProcess: vi.fn().mockResolvedValue(null),
   fetchProjectTests: vi.fn().mockResolvedValue({
     supported: true,
-    commands: [{ id: 'all', runner: 'vitest', label: 'Executar todos os testes', description: 'Rodar a suíte completa', origin: 'package-script', priority: 1, supportsFileTarget: true }],
+    commands: [
+      {
+        id: 'all',
+        runner: 'vitest',
+        label: 'Executar todos os testes',
+        description: 'Rodar a suíte completa',
+        origin: 'package-script',
+        priority: 1,
+        supportsFileTarget: true,
+      },
+    ],
   }),
   fetchProjectTestProcess: vi.fn().mockResolvedValue(null),
   fetchProjectScripts: vi.fn().mockResolvedValue({
     items: [
-      { id: 'lint', name: 'Verificar lint', description: 'Analisar o código', command: 'npm run lint', origin: 'package-script', risk: 'read-only', enabled: true },
-      { id: 'seed', name: 'Popular banco', description: 'Executar seeds locais', command: 'npm run seed', origin: 'package-script', risk: 'mutable', enabled: true },
-      { id: 'rails-task:import', name: 'Importar CSV', description: 'Importar dados', command: 'bin/rails dados:importar FILE=…', origin: 'rails-task', risk: 'mutable', enabled: true, variables: [{ name: 'FILE', required: true }] },
+      {
+        id: 'lint',
+        name: 'Verificar lint',
+        description: 'Analisar o código',
+        command: 'npm run lint',
+        origin: 'package-script',
+        risk: 'read-only',
+        enabled: true,
+      },
+      {
+        id: 'seed',
+        name: 'Popular banco',
+        description: 'Executar seeds locais',
+        command: 'npm run seed',
+        origin: 'package-script',
+        risk: 'mutable',
+        enabled: true,
+      },
+      {
+        id: 'rails-task:import',
+        name: 'Importar CSV',
+        description: 'Importar dados',
+        command: 'bin/rails dados:importar FILE=…',
+        origin: 'rails-task',
+        risk: 'mutable',
+        enabled: true,
+        variables: [{ name: 'FILE', required: true }],
+      },
     ],
     page: 1,
     pageSize: 100,
@@ -24,12 +59,25 @@ const api = vi.hoisted(() => ({
     totalPages: 1,
   }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({ port: 3100 }),
-  startProjectProcess: vi.fn().mockResolvedValue({ id: 'processo-1', kind: 'server', status: 'running', port: 3100 }),
+  startProjectProcess: vi.fn().mockResolvedValue({
+    id: 'processo-1',
+    kind: 'server',
+    status: 'running',
+    port: 3100,
+  }),
   stopProjectProcess: vi.fn(),
-  startProjectTest: vi.fn().mockResolvedValue({ id: 'teste-1', kind: 'test', status: 'running' }),
+  startProjectTest: vi
+    .fn()
+    .mockResolvedValue({ id: 'teste-1', kind: 'test', status: 'running' }),
   stopProjectTest: vi.fn(),
-  prepareScriptExecution: vi.fn().mockResolvedValue({ token: 'confirmacao-1', actionId: 'seed', expiresAt: '2026-08-01T12:00:00.000Z' }),
-  startScriptExecution: vi.fn().mockResolvedValue({ id: 'execucao-1', status: 'running' }),
+  prepareScriptExecution: vi.fn().mockResolvedValue({
+    token: 'confirmacao-1',
+    actionId: 'seed',
+    expiresAt: '2026-08-01T12:00:00.000Z',
+  }),
+  startScriptExecution: vi
+    .fn()
+    .mockResolvedValue({ id: 'execucao-1', status: 'running' }),
 }));
 
 vi.mock('../src/api', async (importOriginal) => {
@@ -39,22 +87,68 @@ vi.mock('../src/api', async (importOriginal) => {
 
 const wrappers: VueWrapper[] = [];
 
-async function mountPalette(path = '/'): Promise<{ wrapper: VueWrapper; router: Router }> {
+async function mountPalette(
+  path = '/',
+): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
-      { path: '/activity', name: 'activity', component: { template: '<div />' } },
-      { path: '/processes', name: 'processes', component: { template: '<div />' } },
-      { path: '/settings', name: 'settings', component: { template: '<div />' } },
-      { path: '/projects/:projectId', name: 'project-details', component: { template: '<div />' } },
-      { path: '/projects/:projectId/server', name: 'project-server', component: { template: '<div />' } },
-      { path: '/projects/:projectId/logs', name: 'project-logs', component: { template: '<div />' } },
-      { path: '/projects/:projectId/git', name: 'project-git', component: { template: '<div />' } },
-      { path: '/projects/:projectId/tests', name: 'project-tests', component: { template: '<div />' } },
-      { path: '/projects/:projectId/database', name: 'project-database', component: { template: '<div />' } },
-      { path: '/projects/:projectId/docker', name: 'project-docker', component: { template: '<div />' } },
-      { path: '/projects/:projectId/scripts', name: 'project-scripts', component: { template: '<div />' } },
+      {
+        path: '/activity',
+        name: 'activity',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/processes',
+        name: 'processes',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/settings',
+        name: 'settings',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId',
+        name: 'project-details',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/server',
+        name: 'project-server',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/logs',
+        name: 'project-logs',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/git',
+        name: 'project-git',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/tests',
+        name: 'project-tests',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/database',
+        name: 'project-database',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/docker',
+        name: 'project-docker',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/scripts',
+        name: 'project-scripts',
+        component: { template: '<div />' },
+      },
     ],
   });
   await router.push(path);
@@ -65,8 +159,17 @@ async function mountPalette(path = '/'): Promise<{ wrapper: VueWrapper; router: 
     global: { plugins: [router] },
     props: {
       projects: [
-        makeProject({ id: 'p1', name: 'Aplicação principal', path: '/projetos/principal', capabilities: ['server', 'tests', 'scripts', 'database'] }),
-        makeProject({ id: 'p2', name: 'Serviço financeiro', path: '/clientes/financas' }),
+        makeProject({
+          id: 'p1',
+          name: 'Aplicação principal',
+          path: '/projetos/principal',
+          capabilities: ['server', 'tests', 'scripts', 'database'],
+        }),
+        makeProject({
+          id: 'p2',
+          name: 'Serviço financeiro',
+          path: '/clientes/financas',
+        }),
       ],
       workspaces: [makeWorkspace()],
     },
@@ -88,15 +191,23 @@ describe('paleta de navegação', () => {
     const outsideInput = document.createElement('input');
     document.body.append(outsideInput);
     outsideInput.focus();
-    outsideInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    outsideInput.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
     expect(document.querySelector('[role="dialog"]')).toBeNull();
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }),
+    );
     await flushPromises();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(document.activeElement?.getAttribute('aria-label')).toBe('Buscar ou executar um comando');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(
+      'Buscar ou executar um comando',
+    );
 
-    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
     await flushPromises();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
@@ -106,7 +217,9 @@ describe('paleta de navegação', () => {
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const search = document.querySelector<HTMLInputElement>('[aria-label="Buscar ou executar um comando"]')!;
+    const search = document.querySelector<HTMLInputElement>(
+      '[aria-label="Buscar ou executar um comando"]',
+    )!;
     search.value = 'financas';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await flushPromises();
@@ -121,9 +234,15 @@ describe('paleta de navegação', () => {
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const search = document.querySelector<HTMLInputElement>('[aria-label="Buscar ou executar um comando"]')!;
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const search = document.querySelector<HTMLInputElement>(
+      '[aria-label="Buscar ou executar um comando"]',
+    )!;
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+    );
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
     await flushPromises();
 
     expect(router.currentRoute.value.name).toBe('activity');
@@ -143,8 +262,9 @@ describe('paleta de navegação', () => {
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const action = [...document.querySelectorAll<HTMLButtonElement>('.command-palette-item')]
-      .find((button) => button.textContent?.includes('Iniciar servidor'))!;
+    const action = [
+      ...document.querySelectorAll<HTMLButtonElement>('.command-palette-item'),
+    ].find((button) => button.textContent?.includes('Iniciar servidor'))!;
     expect(action.textContent).toContain('Executar');
     action.click();
     await flushPromises();
@@ -153,7 +273,9 @@ describe('paleta de navegação', () => {
     action.click();
     await flushPromises();
     expect(api.startProjectProcess).toHaveBeenCalledWith('p1', { port: 3100 });
-    expect(document.body.textContent).toContain('Servidor iniciado com sucesso.');
+    expect(document.body.textContent).toContain(
+      'Servidor iniciado com sucesso.',
+    );
     expect(document.body.textContent).toContain('Parar servidor');
   });
 
@@ -161,7 +283,9 @@ describe('paleta de navegação', () => {
     const { wrapper } = await mountPalette('/projects/p1');
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
-    const search = document.querySelector<HTMLInputElement>('[aria-label="Buscar ou executar um comando"]')!;
+    const search = document.querySelector<HTMLInputElement>(
+      '[aria-label="Buscar ou executar um comando"]',
+    )!;
 
     search.value = '> ex tds tst';
     search.dispatchEvent(new Event('input', { bubbles: true }));
@@ -186,22 +310,32 @@ describe('paleta de navegação', () => {
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const testAction = [...document.querySelectorAll<HTMLButtonElement>('.command-palette-item')]
-      .find((button) => button.textContent?.includes('Executar todos os testes'))!;
+    const testAction = [
+      ...document.querySelectorAll<HTMLButtonElement>('.command-palette-item'),
+    ].find((button) =>
+      button.textContent?.includes('Executar todos os testes'),
+    )!;
     expect(document.body.textContent).not.toContain('Importar CSV');
     testAction.click();
     testAction.click();
     await flushPromises();
     expect(api.startProjectTest).toHaveBeenCalledWith('p1', 'all');
-    expect(document.body.textContent).toContain('Testes iniciados com sucesso.');
+    expect(document.body.textContent).toContain(
+      'Testes iniciados com sucesso.',
+    );
 
-    const scriptAction = [...document.querySelectorAll<HTMLButtonElement>('.command-palette-item')]
-      .find((button) => button.textContent?.includes('Popular banco'))!;
+    const scriptAction = [
+      ...document.querySelectorAll<HTMLButtonElement>('.command-palette-item'),
+    ].find((button) => button.textContent?.includes('Popular banco'))!;
     scriptAction.click();
     scriptAction.click();
     await flushPromises();
     expect(api.prepareScriptExecution).toHaveBeenCalledWith('p1', 'seed');
-    expect(api.startScriptExecution).toHaveBeenCalledWith('p1', 'seed', 'confirmacao-1');
+    expect(api.startScriptExecution).toHaveBeenCalledWith(
+      'p1',
+      'seed',
+      'confirmacao-1',
+    );
   });
 
   it('abre ferramentas na seção correta e registra o comando recente', async () => {
@@ -209,8 +343,9 @@ describe('paleta de navegação', () => {
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
 
-    const snapshot = [...document.querySelectorAll<HTMLButtonElement>('.command-palette-item')]
-      .find((button) => button.textContent?.includes('Criar snapshot'))!;
+    const snapshot = [
+      ...document.querySelectorAll<HTMLButtonElement>('.command-palette-item'),
+    ].find((button) => button.textContent?.includes('Criar snapshot'))!;
     snapshot.click();
     await flushPromises();
     expect(router.currentRoute.value.name).toBe('project-database');
@@ -227,16 +362,22 @@ describe('paleta de navegação', () => {
     const { wrapper } = await mountPalette('/');
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();
-    const search = document.querySelector<HTMLInputElement>('[aria-label="Buscar ou executar um comando"]')!;
+    const search = document.querySelector<HTMLInputElement>(
+      '[aria-label="Buscar ou executar um comando"]',
+    )!;
 
     search.value = '@aplic princ';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await flushPromises();
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }),
+    );
     await flushPromises();
 
     expect(search.value).toBe('@Aplicação principal > ');
-    expect(document.querySelector('.command-palette-context')?.textContent).toContain('Aplicação principal');
+    expect(
+      document.querySelector('.command-palette-context')?.textContent,
+    ).toContain('Aplicação principal');
     expect(api.fetchProjectProcess).toHaveBeenCalledWith('p1');
 
     search.value += 'iniciar server';
@@ -245,18 +386,26 @@ describe('paleta de navegação', () => {
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(1);
     expect(document.body.textContent).toContain('Iniciar servidor');
 
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }),
+    );
     await flushPromises();
     expect(search.value).toBe('@Aplicação principal > Iniciar servidor');
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    search.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
     await flushPromises();
     expect(api.startProjectProcess).toHaveBeenCalledWith('p1', { port: 3100 });
   });
 
   it('não oferece ação de servidor sem a capacidade correspondente', async () => {
     const { wrapper } = await mountPalette('/projects/p1');
-    await wrapper.setProps({ projects: [makeProject({ id: 'p1', capabilities: ['git'] })] });
+    await wrapper.setProps({
+      projects: [makeProject({ id: 'p1', capabilities: ['git'] })],
+    });
     api.fetchProjectProcess.mockClear();
     (wrapper.vm as unknown as { show: () => void }).show();
     await flushPromises();

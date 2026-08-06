@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -70,14 +67,7 @@ const commitSummarySchema = {
 const historySchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'branch',
-    'page',
-    'pageSize',
-    'total',
-    'totalPages',
-    'commits',
-  ],
+  required: ['branch', 'page', 'pageSize', 'total', 'totalPages', 'commits'],
   properties: {
     branch: { type: 'string' },
     page: { type: 'integer', minimum: 1 },
@@ -109,7 +99,9 @@ export const gitCurrentBranchHistoryRoutes: FastifyPluginAsync<
       },
     },
     async (request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,
@@ -140,9 +132,10 @@ export const gitCurrentBranchHistoryRoutes: FastifyPluginAsync<
         throw new ApiError({
           statusCode: 500,
           code: 'GIT_COMMAND_FAILED',
-          message: error instanceof Error
-            ? error.message
-            : 'Não foi possível consultar os commits exclusivos da branch atual.',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível consultar os commits exclusivos da branch atual.',
         });
       }
     },

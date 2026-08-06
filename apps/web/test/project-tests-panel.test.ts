@@ -14,7 +14,8 @@ vi.mock('../src/stores/notice-center', () => ({
   noticeCenterStore: {
     publishTerminalNotice: vi.fn((input: Record<string, unknown>) => {
       const dedupeKey = input.dedupeKey as string;
-      if (!publishedNotices.has(dedupeKey)) publishedNotices.set(dedupeKey, input);
+      if (!publishedNotices.has(dedupeKey))
+        publishedNotices.set(dedupeKey, input);
     }),
   },
 }));
@@ -42,7 +43,9 @@ beforeEach(() => {
   publishedNotices.clear();
 });
 
-afterEach(() => { cleanup?.(); });
+afterEach(() => {
+  cleanup?.();
+});
 
 function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -53,8 +56,10 @@ function jsonResponse(value: unknown, status = 200): Response {
 
 function emptyPanelFetch(input: RequestInfo | URL): Promise<Response> {
   const url = new URL(String(input), 'http://localhost');
-  if (url.pathname.endsWith('/tests')) return Promise.resolve(jsonResponse({ tests: baseOverview }));
-  if (url.pathname.endsWith('/tests/process')) return Promise.resolve(jsonResponse({ process: null }));
+  if (url.pathname.endsWith('/tests'))
+    return Promise.resolve(jsonResponse({ tests: baseOverview }));
+  if (url.pathname.endsWith('/tests/process'))
+    return Promise.resolve(jsonResponse({ process: null }));
   return Promise.resolve(new Response('not found', { status: 404 }));
 }
 
@@ -80,9 +85,15 @@ test('apresenta o fluxo guiado e remove comandos detectados e histórico', async
   assert.doesNotMatch(wrapper.text(), /Comandos detectados/);
   assert.doesNotMatch(wrapper.text(), /Histórico de execuções/);
 
-  const options = wrapper.findAll('.tests-execution-select option').map((option) => option.text());
-  assert.ok(options.some((option) => option.includes('Vitest — suíte completa')));
-  assert.ok(options.some((option) => option.includes('Vitest — arquivo específico')));
+  const options = wrapper
+    .findAll('.tests-execution-select option')
+    .map((option) => option.text());
+  assert.ok(
+    options.some((option) => option.includes('Vitest — suíte completa')),
+  );
+  assert.ok(
+    options.some((option) => option.includes('Vitest — arquivo específico')),
+  );
 });
 
 test('executa a suíte selecionada pelo novo seletor', async () => {
@@ -92,15 +103,22 @@ test('executa a suíte selecionada pelo novo seletor', async () => {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     calls.push(url.pathname);
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname.endsWith('/node-script-test/start')) {
       currentProcess = {
-        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
-        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+        id: 'node-script-test',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'npm',
+        args: ['run', 'test'],
+        startedAt: '2026-07-27T10:00:00Z',
       };
       return jsonResponse({ process: currentProcess }, 201);
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -115,13 +133,21 @@ test('executa a suíte selecionada pelo novo seletor', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.equal((wrapper.find('.tests-execution-select').element as HTMLSelectElement).value, 'node-script-test::suite');
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  assert.equal(
+    (wrapper.find('.tests-execution-select').element as HTMLSelectElement)
+      .value,
+    'node-script-test::suite',
+  );
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   await executeButton.trigger('click');
   await flushPromises();
 
-  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/start')));
+  assert.ok(
+    calls.some((path) => path.endsWith('/tests/node-script-test/start')),
+  );
   assert.match(wrapper.text(), /Executando|Iniciando/);
 });
 
@@ -132,18 +158,28 @@ test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async (
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
     calls.push(url.pathname);
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
-    if (url.pathname.endsWith('/files') && !url.pathname.endsWith('/files/start')) {
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
+    if (
+      url.pathname.endsWith('/files') &&
+      !url.pathname.endsWith('/files/start')
+    ) {
       return jsonResponse({ files: [{ path: 'src/app.test.ts' }] });
     }
     if (url.pathname.endsWith('/files/start')) {
       currentProcess = {
-        id: 'node-script-test:file', projectId: 'p1', kind: 'test', status: 'running',
-        command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'], startedAt: '2026-07-27T10:00:00Z',
+        id: 'node-script-test:file',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'npm',
+        args: ['run', 'test', '--', 'src/app.test.ts'],
+        startedAt: '2026-07-27T10:00:00Z',
       };
       return jsonResponse({ process: currentProcess }, 201);
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -158,21 +194,29 @@ test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async (
   await flushPromises();
   await flushPromises();
 
-  await wrapper.find('.tests-execution-select').setValue('node-script-test::file');
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::file');
   await flushPromises();
   await flushPromises();
 
-  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/files')));
+  assert.ok(
+    calls.some((path) => path.endsWith('/tests/node-script-test/files')),
+  );
   const fileSelect = wrapper.find('.tests-file-select');
   assert.ok(fileSelect.exists());
   await fileSelect.setValue('src/app.test.ts');
 
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   await executeButton.trigger('click');
   await flushPromises();
 
-  assert.ok(calls.some((path) => path.endsWith('/tests/node-script-test/files/start')));
+  assert.ok(
+    calls.some((path) => path.endsWith('/tests/node-script-test/files/start')),
+  );
   assert.match(wrapper.text(), /src\/app\.test\.ts/);
 });
 
@@ -180,13 +224,18 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: null });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: null });
     if (url.pathname.endsWith('/files')) {
-      return jsonResponse({
-        error: 'TEST_COMMAND_NOT_FOUND',
-        message: 'Comando de teste não encontrado para este projeto.',
-      }, 404);
+      return jsonResponse(
+        {
+          error: 'TEST_COMMAND_NOT_FOUND',
+          message: 'Comando de teste não encontrado para este projeto.',
+        },
+        404,
+      );
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
@@ -202,7 +251,9 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
   await flushPromises();
   await flushPromises();
 
-  await wrapper.find('.tests-execution-select').setValue('node-script-test::file');
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::file');
   await flushPromises();
   await flushPromises();
 
@@ -217,29 +268,55 @@ function sseResponse(frames: string[]): Response {
       controller.close();
     },
   });
-  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  });
 }
 
 test('acompanha a execução em andamento via SSE e atualiza estado e log em tempo real', async () => {
   const originalFetch = globalThis.fetch;
   let currentProcess: Record<string, unknown> = {
-    id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
-    command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+    id: 'node-script-test',
+    projectId: 'p1',
+    kind: 'test',
+    status: 'running',
+    command: 'npm',
+    args: ['run', 'test'],
+    startedAt: '2026-07-27T10:00:00Z',
   };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/tests')) return jsonResponse({ tests: baseOverview });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname.endsWith('/tests/process/events')) {
-      currentProcess = { ...currentProcess, status: 'stopped', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 0 };
+      currentProcess = {
+        ...currentProcess,
+        status: 'stopped',
+        stoppedAt: '2026-07-27T10:00:05Z',
+        exitCode: 0,
+      };
       return sseResponse([
         `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
         `event: log\ndata: ${JSON.stringify({ type: 'log', log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } })}\n\n`,
       ]);
     }
     if (url.pathname.endsWith('/tests/process/logs')) {
-      return jsonResponse({ log: { projectId: 'p1', processId: 'node-script-test', content: 'saída via SSE', sizeBytes: 13, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } });
+      return jsonResponse({
+        log: {
+          projectId: 'p1',
+          processId: 'node-script-test',
+          content: 'saída via SSE',
+          sizeBytes: 13,
+          truncated: false,
+          masked: false,
+          redactionCount: 0,
+          readAt: new Date().toISOString(),
+        },
+      });
     }
-    if (url.pathname.endsWith('/tests/process')) return jsonResponse({ process: currentProcess });
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -251,7 +328,11 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
     wrapper.unmount();
     globalThis.fetch = originalFetch;
   };
-  for (let attempt = 0; attempt < 20 && !wrapper.text().includes('Concluído com sucesso'); attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 20 && !wrapper.text().includes('Concluído com sucesso');
+    attempt += 1
+  ) {
     await flushPromises();
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -265,19 +346,33 @@ test('publica aviso ao receber estado terminal após passar por running', async 
   let currentProcess: Record<string, unknown> | null = null;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
+    if (url.pathname === '/api/projects/p1/tests')
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
       currentProcess = {
-        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
-        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+        id: 'node-script-test',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'npm',
+        args: ['run', 'test'],
+        startedAt: '2026-07-27T10:00:00Z',
       };
       return jsonResponse({ process: currentProcess }, 201);
     }
     if (url.pathname === '/api/projects/p1/tests/process/events') {
-      currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
-      return sseResponse([`event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`]);
+      currentProcess = {
+        ...currentProcess,
+        status: 'failed',
+        stoppedAt: '2026-07-27T10:00:05Z',
+        exitCode: 1,
+      };
+      return sseResponse([
+        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
+      ]);
     }
-    if (url.pathname === '/api/projects/p1/tests/process') return jsonResponse({ process: currentProcess });
+    if (url.pathname === '/api/projects/p1/tests/process')
+      return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -292,24 +387,36 @@ test('publica aviso ao receber estado terminal após passar por running', async 
   await flushPromises();
   await flushPromises();
 
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   await executeButton.trigger('click');
   await flushPromises();
 
-  for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 20 && publishedNotices.size === 0;
+    attempt += 1
+  ) {
     await flushPromises();
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  assert.equal(publishedNotices.size, 1, 'deve ter publicado com um dedupeKey único');
+  assert.equal(
+    publishedNotices.size,
+    1,
+    'deve ter publicado com um dedupeKey único',
+  );
   const call = Array.from(publishedNotices.values())[0]!;
   assert.equal(call.origin, 'test');
   assert.equal(call.outcome, 'failed');
   assert.equal(call.projectId, 'p1');
   assert.equal(call.label, 'npm run test');
   assert.equal((call.routeTo as Record<string, unknown>).name, 'project-tests');
-  assert.deepEqual((call.routeTo as Record<string, unknown>).params, { projectId: 'p1' });
+  assert.deepEqual((call.routeTo as Record<string, unknown>).params, {
+    projectId: 'p1',
+  });
 });
 
 test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', async () => {
@@ -317,19 +424,33 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
   let currentProcess: Record<string, unknown> | null = null;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
+    if (url.pathname === '/api/projects/p1/tests')
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/node-script-test/start') {
       currentProcess = {
-        id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'running',
-        command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T10:00:00Z',
+        id: 'node-script-test',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'npm',
+        args: ['run', 'test'],
+        startedAt: '2026-07-27T10:00:00Z',
       };
       return jsonResponse({ process: currentProcess }, 201);
     }
     if (url.pathname === '/api/projects/p1/tests/process/events') {
-      currentProcess = { ...currentProcess, status: 'failed', stoppedAt: '2026-07-27T10:00:05Z', exitCode: 1 };
-      return sseResponse([`event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`]);
+      currentProcess = {
+        ...currentProcess,
+        status: 'failed',
+        stoppedAt: '2026-07-27T10:00:05Z',
+        exitCode: 1,
+      };
+      return sseResponse([
+        `event: state\ndata: ${JSON.stringify({ type: 'state', process: currentProcess })}\n\n`,
+      ]);
     }
-    if (url.pathname === '/api/projects/p1/tests/process') return jsonResponse({ process: currentProcess });
+    if (url.pathname === '/api/projects/p1/tests/process')
+      return jsonResponse({ process: currentProcess });
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
@@ -344,12 +465,18 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
   await flushPromises();
   await flushPromises();
 
-  const executeButton = wrapper.findAll('button').find((button) => button.text() === 'Executar agora');
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
   assert.ok(executeButton);
   await executeButton.trigger('click');
   await flushPromises();
 
-  for (let attempt = 0; attempt < 20 && publishedNotices.size === 0; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 20 && publishedNotices.size === 0;
+    attempt += 1
+  ) {
     await flushPromises();
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -369,18 +496,36 @@ test('não publica aviso quando processo já chega parado na primeira renderiza�
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname === '/api/projects/p1/tests') return jsonResponse({ tests: baseOverview });
+    if (url.pathname === '/api/projects/p1/tests')
+      return jsonResponse({ tests: baseOverview });
     if (url.pathname === '/api/projects/p1/tests/process') {
       return jsonResponse({
         process: {
-          id: 'node-script-test', projectId: 'p1', kind: 'test', status: 'stopped',
-          command: 'npm', args: ['run', 'test'], startedAt: '2026-07-27T09:00:00Z',
-          stoppedAt: '2026-07-27T09:00:05Z', exitCode: 0,
+          id: 'node-script-test',
+          projectId: 'p1',
+          kind: 'test',
+          status: 'stopped',
+          command: 'npm',
+          args: ['run', 'test'],
+          startedAt: '2026-07-27T09:00:00Z',
+          stoppedAt: '2026-07-27T09:00:05Z',
+          exitCode: 0,
         },
       });
     }
     if (url.pathname.endsWith('/tests/process/logs')) {
-      return jsonResponse({ log: { projectId: 'p1', processId: 'node-script-test', content: '', sizeBytes: 0, truncated: false, masked: false, redactionCount: 0, readAt: new Date().toISOString() } });
+      return jsonResponse({
+        log: {
+          projectId: 'p1',
+          processId: 'node-script-test',
+          content: '',
+          sizeBytes: 0,
+          truncated: false,
+          masked: false,
+          redactionCount: 0,
+          readAt: new Date().toISOString(),
+        },
+      });
     }
     return new Response('not found', { status: 404 });
   }) as typeof fetch;

@@ -69,7 +69,10 @@ test('converte a saída do highlight.js em faixas sobre o texto puro', () => {
 
 test('descarta as faixas quando o texto reconstruído não bate', () => {
   assert.deepEqual(
-    syntaxRangesFromHighlightedHtml('<span class="hljs-keyword">const</span>', 'outro'),
+    syntaxRangesFromHighlightedHtml(
+      '<span class="hljs-keyword">const</span>',
+      'outro',
+    ),
     [],
   );
 });
@@ -80,7 +83,10 @@ test('mantém o alinhamento das faixas em linhas com caracteres escapados', () =
 
   assert.ok(ranges.length > 0);
   for (const range of ranges) {
-    assert.ok(range.start >= 0 && range.end <= text.length, 'faixa dentro do texto');
+    assert.ok(
+      range.start >= 0 && range.end <= text.length,
+      'faixa dentro do texto',
+    );
   }
   const keyword = ranges.find((range) => range.className === 'hljs-keyword');
   assert.equal(text.slice(keyword!.start, keyword!.end), 'const');
@@ -102,5 +108,8 @@ test('combina realce de sintaxe, trecho alterado e busca na mesma linha', () => 
   assert.match(html, /class="hljs-keyword"/);
   assert.match(html, /<mark>valor<\/mark>/);
   assert.match(html, /git-diff-word/);
-  assert.ok(!html.includes('<span class="hljs-number">2</span><span'), 'sem faixas duplicadas');
+  assert.ok(
+    !html.includes('<span class="hljs-number">2</span><span'),
+    'sem faixas duplicadas',
+  );
 });

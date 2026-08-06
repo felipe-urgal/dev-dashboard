@@ -10,14 +10,7 @@ import {
   MagnifyingGlassIcon,
   ViewColumnsIcon,
 } from '@heroicons/vue/24/outline';
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  reactive,
-  ref,
-  watch,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import type {
   GitDiffFile,
@@ -34,10 +27,7 @@ import {
   fetchProjectGitFileDiff,
   fetchProjectGitFileLines,
 } from '../api';
-import type {
-  GitDiffHunk,
-  GitUnifiedDiffLine,
-} from '../utils/git-diff-view';
+import type { GitDiffHunk, GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {
   annotateGitDiffWordChanges,
   buildGitDiffContextLines,

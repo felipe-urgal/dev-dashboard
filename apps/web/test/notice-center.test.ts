@@ -18,7 +18,9 @@ vi.mock('../src/stores/notice-center', async () => {
   return {
     noticeCenterStore: {
       notices,
-      unreadCount: computed(() => notices.value.filter((notice) => !notice.read).length),
+      unreadCount: computed(
+        () => notices.value.filter((notice) => !notice.read).length,
+      ),
       markRead: actions.markRead,
       markAllRead: actions.markAllRead,
       dismiss: actions.dismiss,
@@ -46,13 +48,24 @@ function makeNotice(overrides: Partial<Notice> = {}): Notice {
   };
 }
 
-async function mountNoticeCenter(): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
+async function mountNoticeCenter(): Promise<{
+  wrapper: ReturnType<typeof mount>;
+  router: Router;
+}> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
-      { path: '/activity', name: 'activity', component: { template: '<div />' } },
-      { path: '/projects/:projectId/tests', name: 'project-tests', component: { template: '<div />' } },
+      {
+        path: '/activity',
+        name: 'activity',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/projects/:projectId/tests',
+        name: 'project-tests',
+        component: { template: '<div />' },
+      },
     ],
   });
   await router.push('/');
@@ -89,8 +102,12 @@ describe('central de notificações', () => {
     await wrapper.find('.notice-bell-button').trigger('click');
     expect(wrapper.find('.notice-item-overline').text()).toContain('Testes');
     expect(wrapper.find('.notice-item-overline time').text()).toBe('há 4 min');
-    expect(wrapper.find('.notice-item-body strong').text()).toBe('Testes concluídos com falhas');
-    expect(wrapper.find('.notice-item-meta').text()).toBe('Aplicação principal · rspec spec/models');
+    expect(wrapper.find('.notice-item-body strong').text()).toBe(
+      'Testes concluídos com falhas',
+    );
+    expect(wrapper.find('.notice-item-meta').text()).toBe(
+      'Aplicação principal · rspec spec/models',
+    );
   });
 
   it('clique no corpo do item marca como lido e navega para routeTo', async () => {
@@ -157,7 +174,9 @@ describe('central de notificações', () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper } = await mountNoticeCenter();
 
-    expect(wrapper.find('.notice-bell-button').attributes('aria-label')).toBe('1 notificação(ões) não lida(s)');
+    expect(wrapper.find('.notice-bell-button').attributes('aria-label')).toBe(
+      '1 notificação(ões) não lida(s)',
+    );
 
     await wrapper.find('.notice-bell-button').trigger('click');
     expect(wrapper.find('.notice-item-dismiss').attributes('aria-label')).toBe(
@@ -181,7 +200,9 @@ describe('central de notificações', () => {
     await panel.trigger('keydown', { key: 'Escape' });
 
     expect(wrapper.find('.notice-panel').exists()).toBe(false);
-    expect(document.activeElement).toBe(wrapper.find('.notice-bell-button').element);
+    expect(document.activeElement).toBe(
+      wrapper.find('.notice-bell-button').element,
+    );
 
     wrapper.unmount();
   });

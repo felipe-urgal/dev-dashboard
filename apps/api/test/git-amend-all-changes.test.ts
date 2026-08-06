@@ -28,13 +28,19 @@ async function makeRepo(): Promise<string> {
 
 test('amend adiciona todas as alterações atuais antes de substituir o último commit', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   await writeFile(path.join(root, 'README.md'), 'v2\n');
   await writeFile(path.join(root, 'novo-arquivo.txt'), 'novo\n');
 
   const service = new GitService();
-  const confirmation = service.prepareMutationConfirmation('p1', 'amend', 'main');
+  const confirmation = service.prepareMutationConfirmation(
+    'p1',
+    'amend',
+    'main',
+  );
   const result = await service.amend(
     root,
     'p1',
@@ -50,7 +56,9 @@ test('amend adiciona todas as alterações atuais antes de substituir o último 
 
 test('amend não faz stage quando a confirmação é inválida', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   await writeFile(path.join(root, 'README.md'), 'v2\n');
   await writeFile(path.join(root, 'novo-arquivo.txt'), 'novo\n');
@@ -59,8 +67,8 @@ test('amend não faz stage quando a confirmação é inválida', async (context)
   await assert.rejects(
     () => service.amend(root, 'p1', 'commit alterado'),
     (error: unknown) =>
-      error instanceof GitMutationError
-      && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+      error instanceof GitMutationError &&
+      error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
   );
 
   const staged = await git(root, ['diff', '--cached', '--name-only']);

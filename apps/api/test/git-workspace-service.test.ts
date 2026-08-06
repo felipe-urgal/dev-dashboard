@@ -15,7 +15,9 @@ async function git(cwd: string, ...args: string[]): Promise<void> {
 }
 
 test('lists local, origin and upstream branches with commit and tracking details', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-workspace-'));
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-workspace-'),
+  );
   const local = path.join(root, 'local');
   const origin = path.join(root, 'origin.git');
   const upstream = path.join(root, 'upstream.git');
@@ -40,16 +42,28 @@ test('lists local, origin and upstream branches with commit and tracking details
     await writeFile(path.join(local, 'feature.txt'), 'feature\n');
     await git(local, 'add', 'feature.txt');
     await git(local, 'commit', '-m', 'feature commit');
-    await git(local, 'push', '--set-upstream', 'origin', 'feature/git-workspace');
+    await git(
+      local,
+      'push',
+      '--set-upstream',
+      'origin',
+      'feature/git-workspace',
+    );
 
     const workspace = await new GitWorkspaceService().inspect(local);
 
-    assert.equal(workspace.remotes.find((remote) => remote.name === 'origin')?.role, 'origin');
-    assert.equal(workspace.remotes.find((remote) => remote.name === 'upstream')?.role, 'upstream');
+    assert.equal(
+      workspace.remotes.find((remote) => remote.name === 'origin')?.role,
+      'origin',
+    );
+    assert.equal(
+      workspace.remotes.find((remote) => remote.name === 'upstream')?.role,
+      'upstream',
+    );
 
-    const current = workspace.branches.find((branch) =>
-      branch.kind === 'local'
-      && branch.name === 'feature/git-workspace',
+    const current = workspace.branches.find(
+      (branch) =>
+        branch.kind === 'local' && branch.name === 'feature/git-workspace',
     );
     assert.equal(current?.current, true);
     assert.equal(current?.upstream, 'origin/feature/git-workspace');
@@ -59,14 +73,16 @@ test('lists local, origin and upstream branches with commit and tracking details
     assert.equal(current?.latestCommit?.authorName, 'Dashboard Test');
     assert.equal(current?.latestCommit?.authorEmail, 'dashboard@example.test');
 
-    const originFeature = workspace.branches.find((branch) =>
-      branch.name === 'origin/feature/git-workspace',
+    const originFeature = workspace.branches.find(
+      (branch) => branch.name === 'origin/feature/git-workspace',
     );
     assert.equal(originFeature?.latestCommit?.subject, 'feature commit');
     assert.equal(originFeature?.ahead, 0);
     assert.equal(originFeature?.behind, 0);
 
-    assert.ok(workspace.branches.some((branch) => branch.name === 'upstream/main'));
+    assert.ok(
+      workspace.branches.some((branch) => branch.name === 'upstream/main'),
+    );
     assert.deepEqual(workspace.originComparison, {
       reference: 'origin/feature/git-workspace',
       ahead: 0,
@@ -83,7 +99,9 @@ test('lists local, origin and upstream branches with commit and tracking details
 });
 
 test('returns empty collections outside a git repository', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'dashboard-git-workspace-empty-'));
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), 'dashboard-git-workspace-empty-'),
+  );
 
   try {
     const workspace = await new GitWorkspaceService().inspect(directory);

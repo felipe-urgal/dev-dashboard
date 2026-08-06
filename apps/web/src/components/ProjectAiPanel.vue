@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 import type {
   AiChatMessage,
@@ -40,10 +47,11 @@ let stickToBottom = true;
 let activeStream: { close: () => void; done: Promise<void> } | undefined;
 
 const modelOptions = computed(() => status.value?.models ?? []);
-const canSend = computed(() =>
-  !streaming.value
-  && draft.value.trim().length > 0
-  && Boolean(selectedModel.value),
+const canSend = computed(
+  () =>
+    !streaming.value &&
+    draft.value.trim().length > 0 &&
+    Boolean(selectedModel.value),
 );
 
 async function loadStatus(): Promise<void> {
@@ -55,9 +63,10 @@ async function loadStatus(): Promise<void> {
       selectedModel.value = status.value.models[0]?.name ?? '';
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Não foi possível consultar o assistente de IA.';
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível consultar o assistente de IA.';
   } finally {
     loadingStatus.value = false;
   }
@@ -82,7 +91,8 @@ const STICK_TO_BOTTOM_THRESHOLD_PX = 24;
 function handleTranscriptScroll(): void {
   const container = transcriptContainer.value;
   if (!container) return;
-  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+  const distanceFromBottom =
+    container.scrollHeight - container.scrollTop - container.clientHeight;
   stickToBottom = distanceFromBottom <= STICK_TO_BOTTOM_THRESHOLD_PX;
 }
 
@@ -106,7 +116,10 @@ async function send(): Promise<void> {
   if (!canSend.value) return;
   const userMessage: TranscriptEntry = { role: 'user', content: draft.value };
   const history: AiChatMessage[] = [
-    ...transcript.value.map((entry) => ({ role: entry.role, content: entry.content })),
+    ...transcript.value.map((entry) => ({
+      role: entry.role,
+      content: entry.content,
+    })),
     { role: 'user', content: userMessage.content },
   ];
   transcript.value = [...transcript.value, userMessage];
@@ -129,10 +142,14 @@ async function send(): Promise<void> {
     (event: AiChatStreamEvent) => {
       if (event.type === 'message-delta') {
         assistantContent += event.content;
-        const withoutLast = assistantContent === event.content
-          ? transcript.value
-          : transcript.value.slice(0, -1);
-        transcript.value = [...withoutLast, { role: 'assistant', content: assistantContent }];
+        const withoutLast =
+          assistantContent === event.content
+            ? transcript.value
+            : transcript.value.slice(0, -1);
+        transcript.value = [
+          ...withoutLast,
+          { role: 'assistant', content: assistantContent },
+        ];
         void scrollToEnd();
         return;
       }
@@ -141,7 +158,10 @@ async function send(): Promise<void> {
         return;
       }
       if (event.type === 'tool-result') {
-        activityLog.value = [...activityLog.value, `${event.tool}: ${event.summary}`];
+        activityLog.value = [
+          ...activityLog.value,
+          `${event.tool}: ${event.summary}`,
+        ];
         return;
       }
       if (event.type === 'workspace-edit-proposed') {
@@ -163,9 +183,10 @@ async function send(): Promise<void> {
     await activeStream.done;
   } catch (error) {
     if (streaming.value) {
-      errorMessage.value = error instanceof Error
-        ? error.message
-        : 'A conexão com o assistente de IA foi interrompida.';
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'A conexão com o assistente de IA foi interrompida.';
     }
   } finally {
     finish();
@@ -178,14 +199,17 @@ function cancel(): void {
   activeStream = undefined;
 }
 
-watch(() => props.projectId, () => {
-  cancel();
-  transcript.value = [];
-  activityLog.value = [];
-  errorMessage.value = '';
-  selectedModel.value = '';
-  void loadStatus();
-});
+watch(
+  () => props.projectId,
+  () => {
+    cancel();
+    transcript.value = [];
+    activityLog.value = [];
+    errorMessage.value = '';
+    selectedModel.value = '';
+    void loadStatus();
+  },
+);
 
 onMounted(() => void loadStatus());
 onBeforeUnmount(() => cancel());
@@ -204,7 +228,11 @@ onBeforeUnmount(() => cancel());
         class="ai-panel-model"
         aria-label="Modelo de IA"
       >
-        <option v-for="model in modelOptions" :key="model.name" :value="model.name">
+        <option
+          v-for="model in modelOptions"
+          :key="model.name"
+          :value="model.name"
+        >
           {{ model.name }}
         </option>
       </select>
@@ -213,21 +241,45 @@ onBeforeUnmount(() => cancel());
     <p v-if="loadingStatus" class="ai-panel-placeholder" role="status">
       Verificando o Ollama local…
     </p>
-    <p v-else-if="!status?.available" class="ai-panel-placeholder" role="status">
+    <p
+      v-else-if="!status?.available"
+      class="ai-panel-placeholder"
+      role="status"
+    >
       {{ status?.message ?? 'Assistente de IA indisponível.' }}
     </p>
     <template v-else>
       <div class="ai-panel-actions">
-        <button type="button" @click="quickAction('Explique o que este trecho faz.')">
+        <button
+          type="button"
+          @click="quickAction('Explique o que este trecho faz.')"
+        >
           Explicar
         </button>
-        <button type="button" @click="quickAction('Encontre o problema neste trecho e sugira uma correção.')">
+        <button
+          type="button"
+          @click="
+            quickAction(
+              'Encontre o problema neste trecho e sugira uma correção.',
+            )
+          "
+        >
           Corrigir
         </button>
-        <button type="button" @click="quickAction('Sugira testes automatizados para este trecho.')">
+        <button
+          type="button"
+          @click="quickAction('Sugira testes automatizados para este trecho.')"
+        >
           Gerar testes
         </button>
-        <button type="button" @click="quickAction('Sugira uma refatoração para este trecho, explicando o motivo.')">
+        <button
+          type="button"
+          @click="
+            quickAction(
+              'Sugira uma refatoração para este trecho, explicando o motivo.',
+            )
+          "
+        >
           Refatorar
         </button>
       </div>
@@ -240,8 +292,8 @@ onBeforeUnmount(() => cancel());
         @scroll="handleTranscriptScroll"
       >
         <p v-if="transcript.length === 0" class="ai-panel-placeholder">
-          Pergunte sobre o arquivo atual, uma seleção ou o projeto. As respostas não são
-          salvas entre sessões.
+          Pergunte sobre o arquivo atual, uma seleção ou o projeto. As respostas
+          não são salvas entre sessões.
         </p>
         <div
           v-for="(entry, index) in transcript"
@@ -252,17 +304,27 @@ onBeforeUnmount(() => cancel());
           <strong>{{ entry.role === 'user' ? 'Você' : 'Assistente' }}</strong>
           <pre>{{ entry.content }}</pre>
         </div>
-        <p v-if="activityLog.length > 0" class="ai-panel-activity" role="status">
+        <p
+          v-if="activityLog.length > 0"
+          class="ai-panel-activity"
+          role="status"
+        >
           {{ activityLog.at(-1) }}
         </p>
       </div>
 
-      <p v-if="errorMessage" class="alert alert-error ai-panel-error" role="alert">
+      <p
+        v-if="errorMessage"
+        class="alert alert-error ai-panel-error"
+        role="alert"
+      >
         {{ errorMessage }}
       </p>
 
       <form class="ai-panel-composer" @submit.prevent="send">
-        <label class="sr-only" for="ai-panel-input">Mensagem para o assistente de IA</label>
+        <label class="sr-only" for="ai-panel-input"
+          >Mensagem para o assistente de IA</label
+        >
         <textarea
           id="ai-panel-input"
           v-model="draft"
@@ -272,12 +334,7 @@ onBeforeUnmount(() => cancel());
           @keydown.enter.exact.prevent="send"
         />
         <div class="ai-panel-composer-actions">
-          <button
-            v-if="streaming"
-            type="button"
-            class="button"
-            @click="cancel"
-          >
+          <button v-if="streaming" type="button" class="button" @click="cancel">
             Cancelar
           </button>
           <button

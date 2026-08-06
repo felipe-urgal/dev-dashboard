@@ -1,8 +1,4 @@
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 import type {
   Project,
   ProjectTestCommand,
@@ -98,13 +94,15 @@ export function useProjectTestsPanel(props: { project: Project }) {
   const executionChoices = computed<ExecutionChoice[]>(() =>
     (overview.value?.commands ?? []).flatMap((command) => {
       const runner = runnerLabels[command.runner];
-      const choices: ExecutionChoice[] = [{
-        key: choiceKey(command.id, 'suite'),
-        commandId: command.id,
-        scope: 'suite',
-        label: `${runner} — suíte completa`,
-        description: command.label,
-      }];
+      const choices: ExecutionChoice[] = [
+        {
+          key: choiceKey(command.id, 'suite'),
+          commandId: command.id,
+          scope: 'suite',
+          label: `${runner} — suíte completa`,
+          description: command.label,
+        },
+      ];
       if (command.supportsFileTarget) {
         choices.push(
           {
@@ -124,27 +122,37 @@ export function useProjectTestsPanel(props: { project: Project }) {
         );
       }
       return choices;
-    }));
+    }),
+  );
 
   const selectedChoice = computed(() =>
-    executionChoices.value.find((choice) => choice.key === selectedExecutionKey.value));
+    executionChoices.value.find(
+      (choice) => choice.key === selectedExecutionKey.value,
+    ),
+  );
 
   const selectedCommand = computed<ProjectTestCommand | undefined>(() => {
     const commandId = selectedChoice.value?.commandId;
     return overview.value?.commands.find((command) => command.id === commandId);
   });
 
-  const selectionConfigured = computed(() => Boolean(
-    selectedChoice.value && (
-      selectedChoice.value.scope === 'suite' ||
-      (selectedChoice.value.scope === 'file' && selectedFilePath.value) ||
-      (selectedChoice.value.scope === 'related' && (relatedTests.value?.testFiles.length ?? 0) > 0)
+  const selectionConfigured = computed(() =>
+    Boolean(
+      selectedChoice.value &&
+      (selectedChoice.value.scope === 'suite' ||
+        (selectedChoice.value.scope === 'file' && selectedFilePath.value) ||
+        (selectedChoice.value.scope === 'related' &&
+          (relatedTests.value?.testFiles.length ?? 0) > 0)),
     ),
-  ));
+  );
 
-  const canExecuteSelection = computed(() => Boolean(
-    selectionConfigured.value && !isRunning.value && startingCommandId.value === null,
-  ));
+  const canExecuteSelection = computed(() =>
+    Boolean(
+      selectionConfigured.value &&
+      !isRunning.value &&
+      startingCommandId.value === null,
+    ),
+  );
 
   const executionPreview = computed(() => {
     const command = selectedCommand.value;
@@ -167,11 +175,21 @@ export function useProjectTestsPanel(props: { project: Project }) {
   const logLines = computed<TestLogLine[]>(() => {
     const lines = cleanLogContent.value.replace(/\r/g, '').split('\n');
     while (lines.length > 0 && lines.at(-1) === '') lines.pop();
-    return lines.map((text, index) => ({ number: index + 1, text, tone: logLineTone(text) }));
+    return lines.map((text, index) => ({
+      number: index + 1,
+      text,
+      tone: logLineTone(text),
+    }));
   });
-  const errorLogLines = computed(() => logLines.value.filter((line) => isErrorLine(line.text)));
-  const warningLogLines = computed(() => logLines.value.filter((line) => isWarningLine(line.text)));
-  const detailLogLines = computed(() => logLines.value.filter((line) => isDetailLine(line.text)));
+  const errorLogLines = computed(() =>
+    logLines.value.filter((line) => isErrorLine(line.text)),
+  );
+  const warningLogLines = computed(() =>
+    logLines.value.filter((line) => isWarningLine(line.text)),
+  );
+  const detailLogLines = computed(() =>
+    logLines.value.filter((line) => isDetailLine(line.text)),
+  );
   const visibleLogLines = computed(() => {
     if (activeLogTab.value === 'errors') return errorLogLines.value;
     if (activeLogTab.value === 'warnings') return warningLogLines.value;
@@ -179,9 +197,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
     return logLines.value;
   });
   const activeLogEmptyLabel = computed(() => {
-    if (activeLogTab.value === 'errors') return 'Nenhuma linha de erro identificada.';
+    if (activeLogTab.value === 'errors')
+      return 'Nenhuma linha de erro identificada.';
     if (activeLogTab.value === 'warnings') return 'Nenhum aviso identificado.';
-    if (activeLogTab.value === 'details') return 'Nenhum detalhe estruturado identificado.';
+    if (activeLogTab.value === 'details')
+      return 'Nenhum detalhe estruturado identificado.';
     return 'Sem saída registrada ainda.';
   });
 
@@ -189,17 +209,25 @@ export function useProjectTestsPanel(props: { project: Project }) {
     const commandId = currentTarget.value?.commandId;
     return overview.value?.commands.find((command) => command.id === commandId);
   });
-  const currentRunner = computed(() =>
-    currentCommand.value?.runner ?? selectedCommand.value?.runner);
+  const currentRunner = computed(
+    () => currentCommand.value?.runner ?? selectedCommand.value?.runner,
+  );
 
   const runSummary = computed<TestRunSummary>(() => {
     const text = cleanLogContent.value;
-    const vitestPassed = matchNumber(text, /\bTests\s+(\d+)\s+passed\b/i)
-      ?? matchNumber(text, /\b(\d+)\s+tests?\s+passed\b/i);
-    const vitestFailed = matchNumber(text, /\bTests\s+(?:\d+\s+passed\s*\|\s*)?(\d+)\s+failed\b/i)
-      ?? matchNumber(text, /\b(\d+)\s+tests?\s+failed\b/i);
+    const vitestPassed =
+      matchNumber(text, /\bTests\s+(\d+)\s+passed\b/i) ??
+      matchNumber(text, /\b(\d+)\s+tests?\s+passed\b/i);
+    const vitestFailed =
+      matchNumber(
+        text,
+        /\bTests\s+(?:\d+\s+passed\s*\|\s*)?(\d+)\s+failed\b/i,
+      ) ?? matchNumber(text, /\b(\d+)\s+tests?\s+failed\b/i);
     const rspec = /\b(\d+)\s+examples?,\s*(\d+)\s+failures?/i.exec(text);
-    const rails = /\b(\d+)\s+runs?,\s*(\d+)\s+assertions?,\s*(\d+)\s+failures?,\s*(\d+)\s+errors?/i.exec(text);
+    const rails =
+      /\b(\d+)\s+runs?,\s*(\d+)\s+assertions?,\s*(\d+)\s+failures?,\s*(\d+)\s+errors?/i.exec(
+        text,
+      );
     let passed = vitestPassed;
     let failed = vitestFailed;
     if (rspec) {
@@ -209,16 +237,23 @@ export function useProjectTestsPanel(props: { project: Project }) {
       failed = Number(rails[3]) + Number(rails[4]);
       passed = Math.max(0, Number(rails[1]) - failed);
     }
-    const runner = currentCommand.value ? runnerLabels[currentCommand.value.runner] : projectRunnerFallback();
-    const targetFile = currentTarget.value?.scope === 'related'
-      ? 'Alterações da branch'
-      : currentTarget.value?.targetFile ?? extractTargetFile(text) ?? 'Suíte completa';
-    const testDuration = /\btests\s+([\d.]+(?:ms|s))\b/i.exec(text)?.[1]
-      ?? /\bFinished in\s+([^\n]+)/i.exec(text)?.[1]?.trim()
-      ?? /\bDone in\s+([\d.]+s)\b/i.exec(text)?.[1]
-      ?? duration.value;
-    const version = /\b(?:Vitest|Jest|RSpec|pytest)\s+v?([\d.]+)/i.exec(text)?.[1]
-      ?? /\bv(\d+\.\d+\.\d+)\b/.exec(text)?.[1];
+    const runner = currentCommand.value
+      ? runnerLabels[currentCommand.value.runner]
+      : projectRunnerFallback();
+    const targetFile =
+      currentTarget.value?.scope === 'related'
+        ? 'Alterações da branch'
+        : (currentTarget.value?.targetFile ??
+          extractTargetFile(text) ??
+          'Suíte completa');
+    const testDuration =
+      /\btests\s+([\d.]+(?:ms|s))\b/i.exec(text)?.[1] ??
+      /\bFinished in\s+([^\n]+)/i.exec(text)?.[1]?.trim() ??
+      /\bDone in\s+([\d.]+s)\b/i.exec(text)?.[1] ??
+      duration.value;
+    const version =
+      /\b(?:Vitest|Jest|RSpec|pytest)\s+v?([\d.]+)/i.exec(text)?.[1] ??
+      /\bv(\d+\.\d+\.\d+)\b/.exec(text)?.[1];
     return {
       targetFile,
       ...(passed !== undefined ? { passed } : {}),
@@ -230,7 +265,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
   });
 
   const totalTests = computed(() => {
-    if (runSummary.value.passed === undefined && runSummary.value.failed === undefined) return undefined;
+    if (
+      runSummary.value.passed === undefined &&
+      runSummary.value.failed === undefined
+    )
+      return undefined;
     return (runSummary.value.passed ?? 0) + (runSummary.value.failed ?? 0);
   });
 
@@ -247,15 +286,24 @@ export function useProjectTestsPanel(props: { project: Project }) {
   function syncSelectionFromProcess(): void {
     const target = currentTarget.value;
     if (!target || !overview.value) return;
-    const scope: ExecutionScope = target.scope ?? (target.targetFile ? 'file' : 'suite');
+    const scope: ExecutionScope =
+      target.scope ?? (target.targetFile ? 'file' : 'suite');
     const key = choiceKey(target.commandId, scope);
     if (!executionChoices.value.some((choice) => choice.key === key)) return;
     selectedExecutionKey.value = key;
     selectedFilePath.value = target.targetFile ?? '';
-    if (scope === 'file' && loadingFilesCommandId.value !== target.commandId && testFiles.value.length === 0) {
+    if (
+      scope === 'file' &&
+      loadingFilesCommandId.value !== target.commandId &&
+      testFiles.value.length === 0
+    ) {
       void loadFilesForCommand(target.commandId);
     }
-    if (scope === 'related' && loadingRelatedCommandId.value !== target.commandId && relatedTests.value === null) {
+    if (
+      scope === 'related' &&
+      loadingRelatedCommandId.value !== target.commandId &&
+      relatedTests.value === null
+    ) {
       void loadRelatedForCommand(target.commandId);
     }
   }
@@ -266,7 +314,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
       return;
     }
     syncSelectionFromProcess();
-    if (!executionChoices.value.some((choice) => choice.key === selectedExecutionKey.value)) {
+    if (
+      !executionChoices.value.some(
+        (choice) => choice.key === selectedExecutionKey.value,
+      )
+    ) {
       selectedExecutionKey.value = executionChoices.value[0]!.key;
     }
   }
@@ -282,7 +334,10 @@ export function useProjectTestsPanel(props: { project: Project }) {
       ensureDefaultSelection();
     } catch (error) {
       if (projectId === props.project.id) {
-        errorMessage.value = error instanceof Error ? error.message : 'Não foi possível carregar as opções de teste.';
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar as opções de teste.';
       }
     } finally {
       if (projectId === props.project.id) loadingOverview.value = false;
@@ -297,7 +352,8 @@ export function useProjectTestsPanel(props: { project: Project }) {
     relatedErrorMessage.value = '';
     const choice = selectedChoice.value;
     if (choice?.scope === 'file') await loadFilesForCommand(choice.commandId);
-    if (choice?.scope === 'related') await loadRelatedForCommand(choice.commandId);
+    if (choice?.scope === 'related')
+      await loadRelatedForCommand(choice.commandId);
   }
 
   async function loadFilesForCommand(commandId: string): Promise<void> {
@@ -308,19 +364,36 @@ export function useProjectTestsPanel(props: { project: Project }) {
     try {
       const files = await fetchProjectTestFiles(projectId, commandId);
       const choice = selectedChoice.value;
-      if (projectId !== props.project.id || choice?.commandId !== commandId || choice.scope !== 'file') return;
+      if (
+        projectId !== props.project.id ||
+        choice?.commandId !== commandId ||
+        choice.scope !== 'file'
+      )
+        return;
       testFiles.value = files;
       const target = currentTarget.value;
-      if (target?.commandId === commandId && target.targetFile && files.some((file) => file.path === target.targetFile)) {
+      if (
+        target?.commandId === commandId &&
+        target.targetFile &&
+        files.some((file) => file.path === target.targetFile)
+      ) {
         selectedFilePath.value = target.targetFile;
       }
     } catch (error) {
       const choice = selectedChoice.value;
-      if (projectId === props.project.id && choice?.commandId === commandId && choice.scope === 'file') {
-        fileErrorMessage.value = error instanceof Error ? error.message : 'Não foi possível listar os arquivos de teste.';
+      if (
+        projectId === props.project.id &&
+        choice?.commandId === commandId &&
+        choice.scope === 'file'
+      ) {
+        fileErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível listar os arquivos de teste.';
       }
     } finally {
-      if (loadingFilesCommandId.value === commandId) loadingFilesCommandId.value = null;
+      if (loadingFilesCommandId.value === commandId)
+        loadingFilesCommandId.value = null;
     }
   }
 
@@ -332,17 +405,28 @@ export function useProjectTestsPanel(props: { project: Project }) {
     try {
       const related = await fetchProjectRelatedTests(projectId, commandId);
       const choice = selectedChoice.value;
-      if (projectId !== props.project.id || choice?.commandId !== commandId || choice.scope !== 'related') return;
+      if (
+        projectId !== props.project.id ||
+        choice?.commandId !== commandId ||
+        choice.scope !== 'related'
+      )
+        return;
       relatedTests.value = related;
     } catch (error) {
       const choice = selectedChoice.value;
-      if (projectId === props.project.id && choice?.commandId === commandId && choice.scope === 'related') {
-        relatedErrorMessage.value = error instanceof Error
-          ? error.message
-          : 'Não foi possível identificar os testes relacionados às alterações.';
+      if (
+        projectId === props.project.id &&
+        choice?.commandId === commandId &&
+        choice.scope === 'related'
+      ) {
+        relatedErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível identificar os testes relacionados às alterações.';
       }
     } finally {
-      if (loadingRelatedCommandId.value === commandId) loadingRelatedCommandId.value = null;
+      if (loadingRelatedCommandId.value === commandId)
+        loadingRelatedCommandId.value = null;
     }
   }
 
@@ -352,13 +436,16 @@ export function useProjectTestsPanel(props: { project: Project }) {
     await startExecution({
       commandId: choice.commandId,
       scope: choice.scope,
-      ...(choice.scope === 'file' && selectedFilePath.value ? { targetFile: selectedFilePath.value } : {}),
+      ...(choice.scope === 'file' && selectedFilePath.value
+        ? { targetFile: selectedFilePath.value }
+        : {}),
     });
   }
 
   async function handleRepeat(target: TestExecutionTarget): Promise<void> {
     if (isRunning.value || startingCommandId.value !== null) return;
-    const scope: ExecutionScope = target.scope ?? (target.targetFile ? 'file' : 'suite');
+    const scope: ExecutionScope =
+      target.scope ?? (target.targetFile ? 'file' : 'suite');
     selectedExecutionKey.value = choiceKey(target.commandId, scope);
     selectedFilePath.value = target.targetFile ?? '';
     if (scope === 'related') await loadRelatedForCommand(target.commandId);

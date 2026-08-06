@@ -23,17 +23,18 @@ export function parsePaletteQuery(query: string): ParsedPaletteQuery {
     if (actionSeparator >= 0) {
       return {
         mode: 'action',
-        project: normalizePaletteText(projectAndAction.slice(0, actionSeparator)),
-        value: normalizePaletteText(projectAndAction.slice(actionSeparator + 1)),
+        project: normalizePaletteText(
+          projectAndAction.slice(0, actionSeparator),
+        ),
+        value: normalizePaletteText(
+          projectAndAction.slice(actionSeparator + 1),
+        ),
       };
     }
     return { mode: 'project', value: normalizePaletteText(projectAndAction) };
   }
-  const mode: CommandPaletteMode = prefix === '>'
-    ? 'action'
-    : prefix === '/'
-      ? 'page'
-      : 'all';
+  const mode: CommandPaletteMode =
+    prefix === '>' ? 'action' : prefix === '/' ? 'page' : 'all';
 
   return {
     mode,

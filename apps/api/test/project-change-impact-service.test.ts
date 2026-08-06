@@ -53,7 +53,10 @@ test('classifyProjectChangeImpact reconhece migrations como database, inclusive 
 });
 
 test('classifyProjectChangeImpact reconhece .env.example e .env.sample como environment', () => {
-  const actions = classifyProjectChangeImpact(['.env.example', 'config/.env.sample']);
+  const actions = classifyProjectChangeImpact([
+    '.env.example',
+    'config/.env.sample',
+  ]);
   assert.equal(actions.length, 1);
   assert.equal(actions[0]?.category, 'environment');
 });
@@ -95,7 +98,11 @@ test('classifyProjectChangeImpact deduplica e ordena por prioridade fixa', () =>
 });
 
 test('classifyProjectChangeImpact ignora caminhos irrelevantes ou fora do projeto', () => {
-  const actions = classifyProjectChangeImpact(['app/models/user.rb', '../outside.lock', '/etc/passwd']);
+  const actions = classifyProjectChangeImpact([
+    'app/models/user.rb',
+    '../outside.lock',
+    '/etc/passwd',
+  ]);
   assert.deepEqual(actions, []);
 });
 
@@ -104,7 +111,12 @@ test('computeProjectChangeImpact retorna vazio e seguro quando os SHAs são igua
   try {
     const sha = await git(root, ['rev-parse', 'HEAD']);
     const impact = await computeProjectChangeImpact(root, sha, sha);
-    assert.deepEqual(impact, { previousSha: sha, currentSha: sha, changedPaths: [], actions: [] });
+    assert.deepEqual(impact, {
+      previousSha: sha,
+      currentSha: sha,
+      changedPaths: [],
+      actions: [],
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -114,7 +126,11 @@ test('computeProjectChangeImpact retorna vazio e seguro para SHA inválido', asy
   const root = await makeRepo();
   try {
     const sha = await git(root, ['rev-parse', 'HEAD']);
-    const impact = await computeProjectChangeImpact(root, sha, 'not-a-sha; rm -rf /');
+    const impact = await computeProjectChangeImpact(
+      root,
+      sha,
+      'not-a-sha; rm -rf /',
+    );
     assert.deepEqual(impact.actions, []);
     assert.deepEqual(impact.changedPaths, []);
   } finally {
@@ -131,7 +147,11 @@ test('computeProjectChangeImpact classifica o diff real entre dois commits', asy
     await git(root, ['commit', '-q', '-m', 'chore: adiciona lockfile']);
     const currentSha = await git(root, ['rev-parse', 'HEAD']);
 
-    const impact = await computeProjectChangeImpact(root, previousSha, currentSha);
+    const impact = await computeProjectChangeImpact(
+      root,
+      previousSha,
+      currentSha,
+    );
     assert.deepEqual(impact.changedPaths, ['package-lock.json']);
     assert.equal(impact.actions.length, 1);
     assert.equal(impact.actions[0]?.category, 'dependencies');

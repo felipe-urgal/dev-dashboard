@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  LOG_MASK,
-  maskSensitiveLogContent,
-} from '../src/log-protection.js';
+import { LOG_MASK, maskSensitiveLogContent } from '../src/log-protection.js';
 
 test('mascara atribuições, bearer, URL e tokens conhecidos', () => {
-  const result = maskSensitiveLogContent([
-    'PASSWORD=segredo',
-    'Authorization: Bearer abc.def.ghi',
-    'postgres://usuario:senha@localhost/app',
-    'token: "valor-super-secreto"',
-    'ghp_abcdefghijklmnopqrstuvwxyz123456',
-  ].join('\n'));
+  const result = maskSensitiveLogContent(
+    [
+      'PASSWORD=segredo',
+      'Authorization: Bearer abc.def.ghi',
+      'postgres://usuario:senha@localhost/app',
+      'token: "valor-super-secreto"',
+      'ghp_abcdefghijklmnopqrstuvwxyz123456',
+    ].join('\n'),
+  );
 
   assert.equal(result.masked, true);
   assert.equal(result.redactionCount, 5);
@@ -41,30 +40,34 @@ test('preserva termos sem contexto sensível e valores parecidos', () => {
 });
 
 test('mascara segmentos sensíveis em nomes compostos de variáveis', () => {
-  const result = maskSensitiveLogContent([
-    'DATABASE_PASSWORD=segredo-do-banco',
-    'JWT_SECRET=segredo-do-jwt',
-    'NPM_TOKEN=segredo-do-npm',
-    'SERVICE-ACCESS-TOKEN=segredo-do-servico',
-    '{"APP_DATABASE_PASSWORD":"segredo-em-json"}',
-  ].join('\n'));
+  const result = maskSensitiveLogContent(
+    [
+      'DATABASE_PASSWORD=segredo-do-banco',
+      'JWT_SECRET=segredo-do-jwt',
+      'NPM_TOKEN=segredo-do-npm',
+      'SERVICE-ACCESS-TOKEN=segredo-do-servico',
+      '{"APP_DATABASE_PASSWORD":"segredo-em-json"}',
+    ].join('\n'),
+  );
 
   assert.equal(result.masked, true);
   assert.equal(result.redactionCount, 5);
-  assert.equal(result.content, [
-    `DATABASE_PASSWORD=${LOG_MASK}`,
-    `JWT_SECRET=${LOG_MASK}`,
-    `NPM_TOKEN=${LOG_MASK}`,
-    `SERVICE-ACCESS-TOKEN=${LOG_MASK}`,
-    `{"APP_DATABASE_PASSWORD":"${LOG_MASK}"}`,
-  ].join('\n'));
+  assert.equal(
+    result.content,
+    [
+      `DATABASE_PASSWORD=${LOG_MASK}`,
+      `JWT_SECRET=${LOG_MASK}`,
+      `NPM_TOKEN=${LOG_MASK}`,
+      `SERVICE-ACCESS-TOKEN=${LOG_MASK}`,
+      `{"APP_DATABASE_PASSWORD":"${LOG_MASK}"}`,
+    ].join('\n'),
+  );
 });
 
 test('é idempotente ao receber conteúdo já mascarado', () => {
-  const first = maskSensitiveLogContent([
-    'token=valor',
-    'Authorization: Bearer outro-valor',
-  ].join('\n'));
+  const first = maskSensitiveLogContent(
+    ['token=valor', 'Authorization: Bearer outro-valor'].join('\n'),
+  );
   const second = maskSensitiveLogContent(first.content);
 
   assert.equal(second.content, first.content);
@@ -73,11 +76,13 @@ test('é idempotente ao receber conteúdo já mascarado', () => {
 });
 
 test('mascara por inteiro valores entre aspas e propriedades JSON', () => {
-  const result = maskSensitiveLogContent([
-    'token="valor com espaços" restante',
-    '{"password":"segredo com espaços"}',
-    "client_secret='valor com \\' escape'",
-  ].join('\n'));
+  const result = maskSensitiveLogContent(
+    [
+      'token="valor com espaços" restante',
+      '{"password":"segredo com espaços"}',
+      "client_secret='valor com \\' escape'",
+    ].join('\n'),
+  );
 
   assert.equal(result.redactionCount, 3);
   assert.equal(result.content.includes('valor com'), false);

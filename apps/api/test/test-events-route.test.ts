@@ -10,12 +10,22 @@ test('remove propriedades fora do contrato nos eventos SSE de teste', async (t) 
   const app = Fastify();
   t.after(() => app.close());
   const managedProcess = {
-    id: 'projeto-1:test:node-script-test', projectId: 'projeto-1', kind: 'test', status: 'running',
-    command: 'npm', args: ['run', 'test'], startedAt: new Date().toISOString(),
-    cwd: '/caminho/interno/nao/deve/sair', logPath: '/outro/caminho/interno', host: '127.0.0.1',
+    id: 'projeto-1:test:node-script-test',
+    projectId: 'projeto-1',
+    kind: 'test',
+    status: 'running',
+    command: 'npm',
+    args: ['run', 'test'],
+    startedAt: new Date().toISOString(),
+    cwd: '/caminho/interno/nao/deve/sair',
+    logPath: '/outro/caminho/interno',
+    host: '127.0.0.1',
   };
   const testExecutionHistoryService = {
-    subscribe: async (_projectId: string, subscriber: { send: (event: unknown) => void; close: () => void }) => {
+    subscribe: async (
+      _projectId: string,
+      subscriber: { send: (event: unknown) => void; close: () => void },
+    ) => {
       subscriber.send({ type: 'state', process: managedProcess });
       queueMicrotask(subscriber.close);
       return () => undefined;
@@ -44,10 +54,14 @@ test('traduz TEST_EXECUTION_NOT_FOUND em 404', async (t) => {
   const app = Fastify();
   registerApiErrorHandling(app);
   t.after(() => app.close());
-  const { TestExecutionSubscriptionError } = await import('../src/services/test-execution-history-service.js');
+  const { TestExecutionSubscriptionError } =
+    await import('../src/services/test-execution-history-service.js');
   const testExecutionHistoryService = {
     subscribe: async () => {
-      throw new TestExecutionSubscriptionError('TEST_EXECUTION_NOT_FOUND', 'Não há execução de teste em andamento para este projeto.');
+      throw new TestExecutionSubscriptionError(
+        'TEST_EXECUTION_NOT_FOUND',
+        'Não há execução de teste em andamento para este projeto.',
+      );
     },
   } as unknown as TestExecutionHistoryService;
 
@@ -58,7 +72,12 @@ test('traduz TEST_EXECUTION_NOT_FOUND em 404', async (t) => {
     testExecutionHistoryService,
   });
 
-  const response = await app.inject({ url: '/projects/projeto-1/tests/process/events' });
+  const response = await app.inject({
+    url: '/projects/projeto-1/tests/process/events',
+  });
   assert.equal(response.statusCode, 404);
-  assert.equal(response.json<{ error?: string }>().error, 'TEST_EXECUTION_NOT_FOUND');
+  assert.equal(
+    response.json<{ error?: string }>().error,
+    'TEST_EXECUTION_NOT_FOUND',
+  );
 });

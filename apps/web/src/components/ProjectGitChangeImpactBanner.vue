@@ -13,8 +13,11 @@ defineProps<{
   <aside class="git-change-impact" aria-live="polite">
     <p class="git-change-impact-title">
       A mudança trouxe {{ impact.changedPaths.length }}
-      {{ impact.changedPaths.length === 1 ? 'arquivo alterado' : 'arquivos alterados' }}.
-      Recomendações:
+      {{
+        impact.changedPaths.length === 1
+          ? 'arquivo alterado'
+          : 'arquivos alterados'
+      }}. Recomendações:
     </p>
     <ul class="git-change-impact-list">
       <li v-for="action in impact.actions" :key="action.category">

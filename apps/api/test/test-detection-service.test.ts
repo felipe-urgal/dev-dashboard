@@ -6,7 +6,10 @@ import test from 'node:test';
 
 import type { Project } from '@dev-dashboard/contracts';
 
-import { TestDetectionService, TestFileError } from '../src/services/test-detection-service.js';
+import {
+  TestDetectionService,
+  TestFileError,
+} from '../src/services/test-detection-service.js';
 
 async function makeProject(
   type: Project['type'],
@@ -66,7 +69,9 @@ test('detects rspec from Gemfile', async () => {
   try {
     const overview = await new TestDetectionService().getOverview(project);
     assert.equal(overview.supported, true);
-    const rspec = overview.commands.find((command) => command.runner === 'rspec');
+    const rspec = overview.commands.find(
+      (command) => command.runner === 'rspec',
+    );
     assert.ok(rspec);
   } finally {
     await rm(project.path, { recursive: true, force: true });
@@ -80,7 +85,9 @@ test('does not suggest pytest when there is no python signal', async () => {
   });
   try {
     const overview = await new TestDetectionService().getOverview(project);
-    const pytest = overview.commands.find((command) => command.runner === 'pytest');
+    const pytest = overview.commands.find(
+      (command) => command.runner === 'pytest',
+    );
     assert.equal(pytest, undefined);
   } finally {
     await rm(project.path, { recursive: true, force: true });
@@ -110,7 +117,9 @@ test('falls back to bundle exec rails test when bin/rails is missing', async () 
   });
   try {
     const overview = await new TestDetectionService().getOverview(project);
-    const railsTest = overview.commands.find((command) => command.runner === 'rails-test');
+    const railsTest = overview.commands.find(
+      (command) => command.runner === 'rails-test',
+    );
     assert.ok(railsTest);
     assert.equal(railsTest?.label, 'bundle exec rails test');
   } finally {
@@ -200,7 +209,10 @@ test('listTestFiles encontra arquivos de teste do Vitest ignorando node_modules'
 
 test('listTestFiles retorna null para comando desconhecido', async () => {
   const project = await makeProject('node', {
-    'package.json': JSON.stringify({ name: 'demo', scripts: { test: 'vitest run' } }),
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+    }),
   });
   try {
     const service = new TestDetectionService();
@@ -225,8 +237,15 @@ test('resolveFileCommand compõe o comando com "--" para invocação via script 
     const service = new TestDetectionService();
     const overview = await service.getOverview(project);
     const commandId = overview.commands[0]!.id;
-    const resolved = await service.resolveFileCommand(project, commandId, 'src/app.test.ts');
-    assert.deepEqual(resolved, { command: 'npm', args: ['run', 'test', '--', 'src/app.test.ts'] });
+    const resolved = await service.resolveFileCommand(
+      project,
+      commandId,
+      'src/app.test.ts',
+    );
+    assert.deepEqual(resolved, {
+      command: 'npm',
+      args: ['run', 'test', '--', 'src/app.test.ts'],
+    });
   } finally {
     await rm(project.path, { recursive: true, force: true });
   }
@@ -245,8 +264,10 @@ test('resolveFileCommand rejeita caminho fora do projeto', async () => {
     const overview = await service.getOverview(project);
     const commandId = overview.commands[0]!.id;
     await assert.rejects(
-      () => service.resolveFileCommand(project, commandId, '../outside.test.ts'),
-      (error: unknown) => error instanceof TestFileError && error.code === 'TEST_FILE_NOT_FOUND',
+      () =>
+        service.resolveFileCommand(project, commandId, '../outside.test.ts'),
+      (error: unknown) =>
+        error instanceof TestFileError && error.code === 'TEST_FILE_NOT_FOUND',
     );
   } finally {
     await rm(project.path, { recursive: true, force: true });
@@ -268,7 +289,8 @@ test('resolveFileCommand rejeita arquivo que não corresponde ao padrão do runn
     const commandId = overview.commands[0]!.id;
     await assert.rejects(
       () => service.resolveFileCommand(project, commandId, 'src/app.ts'),
-      (error: unknown) => error instanceof TestFileError && error.code === 'TEST_FILE_NOT_FOUND',
+      (error: unknown) =>
+        error instanceof TestFileError && error.code === 'TEST_FILE_NOT_FOUND',
     );
   } finally {
     await rm(project.path, { recursive: true, force: true });
@@ -283,10 +305,19 @@ test('resolveFileCommand compõe o comando do rails-test com o arquivo por últi
   try {
     const service = new TestDetectionService();
     const overview = await service.getOverview(project);
-    const railsTest = overview.commands.find((command) => command.runner === 'rails-test');
+    const railsTest = overview.commands.find(
+      (command) => command.runner === 'rails-test',
+    );
     assert.ok(railsTest, 'esperava reconhecer o comando rails-test');
-    const resolved = await service.resolveFileCommand(project, railsTest!.id, 'test/models/user_test.rb');
-    assert.deepEqual(resolved, { command: 'bundle', args: ['exec', 'rails', 'test', 'test/models/user_test.rb'] });
+    const resolved = await service.resolveFileCommand(
+      project,
+      railsTest!.id,
+      'test/models/user_test.rb',
+    );
+    assert.deepEqual(resolved, {
+      command: 'bundle',
+      args: ['exec', 'rails', 'test', 'test/models/user_test.rb'],
+    });
   } finally {
     await rm(project.path, { recursive: true, force: true });
   }
@@ -300,12 +331,21 @@ test('resolveFileCommand rejeita runner sem suporte a arquivo específico', asyn
   try {
     const service = new TestDetectionService();
     const overview = await service.getOverview(project);
-    const minitest = overview.commands.find((command) => command.runner === 'minitest');
+    const minitest = overview.commands.find(
+      (command) => command.runner === 'minitest',
+    );
     assert.ok(minitest, 'esperava reconhecer o comando minitest');
     assert.equal(minitest!.supportsFileTarget, false);
     await assert.rejects(
-      () => service.resolveFileCommand(project, minitest!.id, 'test/models/user_test.rb'),
-      (error: unknown) => error instanceof TestFileError && error.code === 'TEST_FILE_TARGET_UNSUPPORTED',
+      () =>
+        service.resolveFileCommand(
+          project,
+          minitest!.id,
+          'test/models/user_test.rb',
+        ),
+      (error: unknown) =>
+        error instanceof TestFileError &&
+        error.code === 'TEST_FILE_TARGET_UNSUPPORTED',
     );
   } finally {
     await rm(project.path, { recursive: true, force: true });

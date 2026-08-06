@@ -15,7 +15,10 @@ import {
 import { detectNodeCommands } from './test-detection/node-detection.js';
 import { detectPythonCommands } from './test-detection/python-detection.js';
 import { detectRailsCommands } from './test-detection/rails-detection.js';
-import type { DetectedTestCommand, ResolvedCommand } from './test-detection/types.js';
+import type {
+  DetectedTestCommand,
+  ResolvedCommand,
+} from './test-detection/types.js';
 import { TestFileError } from './test-detection/errors.js';
 
 export { TestFileError } from './test-detection/errors.js';
@@ -32,9 +35,7 @@ export class TestDetectionService {
     }
   }
 
-  public async getOverview(
-    project: Project,
-  ): Promise<ProjectTestOverview> {
+  public async getOverview(project: Project): Promise<ProjectTestOverview> {
     const commands = await this.detect(project);
 
     return {
@@ -83,20 +84,24 @@ export class TestDetectionService {
 
     const pattern = FILE_TARGET_PATTERNS[command.runner];
     if (!pattern) {
-      throw new TestFileError('TEST_FILE_TARGET_UNSUPPORTED', 'Este comando não suporta executar um arquivo específico.');
+      throw new TestFileError(
+        'TEST_FILE_TARGET_UNSUPPORTED',
+        'Este comando não suporta executar um arquivo específico.',
+      );
     }
 
     const safePath = ensureTestPathInsideProject(project.path, filePath);
     if (!pattern.test(path.basename(safePath))) {
-      throw new TestFileError('TEST_FILE_NOT_FOUND', 'O arquivo informado não corresponde a um arquivo de teste reconhecido.');
+      throw new TestFileError(
+        'TEST_FILE_NOT_FOUND',
+        'O arquivo informado não corresponde a um arquivo de teste reconhecido.',
+      );
     }
 
     return composeFileCommand(command.resolved, safePath);
   }
 
-  private async detect(
-    project: Project,
-  ): Promise<DetectedTestCommand[]> {
+  private async detect(project: Project): Promise<DetectedTestCommand[]> {
     const cached = this.cache.get(project.id);
     if (cached) {
       return cached;

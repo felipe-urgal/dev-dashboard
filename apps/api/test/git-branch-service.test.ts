@@ -71,7 +71,13 @@ test('creates a local branch tracking the selected remote branch', async () => {
     assert.equal(result.branch, 'release/2.0');
     assert.equal(await git(local, 'branch', '--show-current'), 'release/2.0');
     assert.equal(
-      await git(local, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'),
+      await git(
+        local,
+        'rev-parse',
+        '--abbrev-ref',
+        '--symbolic-full-name',
+        '@{upstream}',
+      ),
       'origin/release/2.0',
     );
   } finally {
@@ -91,12 +97,13 @@ test('requires a clean working tree before tracking a remote branch', async () =
     );
 
     await assert.rejects(
-      () => service.trackRemoteBranch(
-        local,
-        'project-1',
-        'origin/release/2.0',
-        confirmation.token,
-      ),
+      () =>
+        service.trackRemoteBranch(
+          local,
+          'project-1',
+          'origin/release/2.0',
+          confirmation.token,
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchServiceError);
         assert.equal(error.code, 'GIT_WORKING_TREE_DIRTY');
@@ -114,12 +121,13 @@ test('rejects tracking without the matching confirmation', async () => {
   try {
     const service = new GitBranchService();
     await assert.rejects(
-      () => service.trackRemoteBranch(
-        local,
-        'project-1',
-        'origin/release/2.0',
-        'invalid-token',
-      ),
+      () =>
+        service.trackRemoteBranch(
+          local,
+          'project-1',
+          'origin/release/2.0',
+          'invalid-token',
+        ),
       (error: unknown) => {
         assert.ok(error instanceof GitBranchServiceError);
         assert.equal(error.code, 'GIT_MUTATION_CONFIRMATION_REQUIRED');

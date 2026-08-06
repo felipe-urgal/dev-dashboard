@@ -4,7 +4,11 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
-import type { BundlerOutdatedGem, BundlerOverview, Project } from '@dev-dashboard/contracts';
+import type {
+  BundlerOutdatedGem,
+  BundlerOverview,
+  Project,
+} from '@dev-dashboard/contracts';
 
 type CommandRunner = (
   command: string,
@@ -36,7 +40,10 @@ async function pathExists(target: string): Promise<boolean> {
 }
 
 async function hasGemfile(project: Project): Promise<boolean> {
-  return project.type === 'rails' && (await pathExists(path.join(project.path, 'Gemfile')));
+  return (
+    project.type === 'rails' &&
+    (await pathExists(path.join(project.path, 'Gemfile')))
+  );
 }
 
 const OUTDATED_LINE = /^\s*\*\s*(\S+)\s*\(([^)]*)\)/;
@@ -72,31 +79,46 @@ async function runCapture(
     const { stdout, stderr } = await runner('bundle', args, { cwd });
     return { stdout, stderr: stderr ?? '', failed: false };
   } catch (error) {
-    const failure = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+    const failure = error as {
+      stdout?: unknown;
+      stderr?: unknown;
+      message?: unknown;
+    };
     return {
       stdout: typeof failure.stdout === 'string' ? failure.stdout : '',
-      stderr: typeof failure.stderr === 'string'
-        ? failure.stderr
-        : (typeof failure.message === 'string' ? failure.message : ''),
+      stderr:
+        typeof failure.stderr === 'string'
+          ? failure.stderr
+          : typeof failure.message === 'string'
+            ? failure.message
+            : '',
       failed: true,
     };
   }
 }
 
 export class BundlerInspectionService {
-  public constructor(private readonly runCommand: CommandRunner = defaultCommandRunner) {}
+  public constructor(
+    private readonly runCommand: CommandRunner = defaultCommandRunner,
+  ) {}
 
   public async getOverview(project: Project): Promise<BundlerOverview> {
     if (!(await hasGemfile(project))) return { supported: false, outdated: [] };
 
     const check = await runCapture(this.runCommand, ['check'], project.path);
-    const outdated = await runCapture(this.runCommand, ['outdated'], project.path);
+    const outdated = await runCapture(
+      this.runCommand,
+      ['outdated'],
+      project.path,
+    );
 
     return {
       supported: true,
       check: {
         satisfied: !check.failed,
-        message: maskAndTrim([check.stdout, check.stderr].filter(Boolean).join('\n')),
+        message: maskAndTrim(
+          [check.stdout, check.stderr].filter(Boolean).join('\n'),
+        ),
       },
       outdated: parseOutdated(outdated.stdout),
     };

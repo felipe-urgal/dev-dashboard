@@ -8,7 +8,8 @@ import {
 
 const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
-const BRANCH_NAME_PATTERN = /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
+const BRANCH_NAME_PATTERN =
+  /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
 /** Identificador do catálogo (`git-mutation-catalog.ts`) para esta operação. */
 const CATALOG_OPERATION_ID = 'branch-delete';
 
@@ -38,8 +39,10 @@ export interface GitBranchDeleteConfirmation {
   expiresAt: string;
 }
 
-
-async function runGit(projectPath: string, args: readonly string[]): Promise<string> {
+async function runGit(
+  projectPath: string,
+  args: readonly string[],
+): Promise<string> {
   const result = await execFileAsync('git', [...args], {
     cwd: projectPath,
     encoding: 'utf8',
@@ -54,7 +57,10 @@ async function runGit(projectPath: string, args: readonly string[]): Promise<str
   return result.stdout.trim();
 }
 
-async function gitSucceeds(projectPath: string, args: readonly string[]): Promise<boolean> {
+async function gitSucceeds(
+  projectPath: string,
+  args: readonly string[],
+): Promise<boolean> {
   try {
     await runGit(projectPath, args);
     return true;
@@ -85,7 +91,8 @@ async function protectedBranches(projectPath: string): Promise<Set<string>> {
         `refs/remotes/${remote}/HEAD`,
       ]);
       const prefix = `${remote}/`;
-      if (reference.startsWith(prefix)) branches.add(reference.slice(prefix.length));
+      if (reference.startsWith(prefix))
+        branches.add(reference.slice(prefix.length));
     } catch {
       // O remote pode não possuir HEAD simbólico configurado.
     }
@@ -99,14 +106,20 @@ export class GitBranchDeleteService {
    * no lugar do `Map` privado que este serviço mantinha — mesma TTL e mesmo
    * comportamento externo (`GIT_MUTATION_CONFIRMATION_REQUIRED`).
    */
-  private readonly confirmations = new GitMutationConfirmationService(CONFIRMATION_TTL_MS);
+  private readonly confirmations = new GitMutationConfirmationService(
+    CONFIRMATION_TTL_MS,
+  );
 
   public prepareConfirmation(
     projectId: string,
     branch: string,
   ): GitBranchDeleteConfirmation {
     const target = validateBranch(branch);
-    const { token, expiresAt } = this.confirmations.prepare(projectId, CATALOG_OPERATION_ID, target);
+    const { token, expiresAt } = this.confirmations.prepare(
+      projectId,
+      CATALOG_OPERATION_ID,
+      target,
+    );
     return { token, operation: 'delete-branch', target, expiresAt };
   }
 
@@ -119,7 +132,9 @@ export class GitBranchDeleteService {
     const target = validateBranch(branch);
     this.consumeConfirmation(projectId, target, confirmationToken);
 
-    if (!await gitSucceeds(projectPath, ['rev-parse', '--is-inside-work-tree'])) {
+    if (
+      !(await gitSucceeds(projectPath, ['rev-parse', '--is-inside-work-tree']))
+    ) {
       throw new GitBranchDeleteError(
         'GIT_NOT_REPOSITORY',
         'O projeto não é um repositório Git.',
@@ -141,12 +156,14 @@ export class GitBranchDeleteService {
       );
     }
 
-    if (!await gitSucceeds(projectPath, [
-      'show-ref',
-      '--verify',
-      '--quiet',
-      `refs/heads/${target}`,
-    ])) {
+    if (
+      !(await gitSucceeds(projectPath, [
+        'show-ref',
+        '--verify',
+        '--quiet',
+        `refs/heads/${target}`,
+      ]))
+    ) {
       throw new GitBranchDeleteError(
         'GIT_BRANCH_NOT_FOUND',
         `A branch local "${target}" não foi encontrada.`,
@@ -154,10 +171,13 @@ export class GitBranchDeleteService {
     }
 
     try {
-      await runGit(
-        projectPath,
-        ['branch', '--delete', '--force', '--', target],
-      );
+      await runGit(projectPath, [
+        'branch',
+        '--delete',
+        '--force',
+        '--',
+        target,
+      ]);
     } catch {
       throw new GitBranchDeleteError(
         'GIT_COMMAND_FAILED',
@@ -174,7 +194,12 @@ export class GitBranchDeleteService {
     token: string | undefined,
   ): void {
     try {
-      this.confirmations.consume(projectId, CATALOG_OPERATION_ID, branch, token);
+      this.confirmations.consume(
+        projectId,
+        CATALOG_OPERATION_ID,
+        branch,
+        token,
+      );
     } catch (error) {
       if (error instanceof GitMutationConfirmationError) {
         throw new GitBranchDeleteError(

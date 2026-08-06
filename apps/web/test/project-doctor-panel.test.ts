@@ -1,14 +1,5 @@
-import {
-  flushPromises,
-  mount,
-} from '@vue/test-utils';
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest';
+import { flushPromises, mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   Project,
@@ -130,11 +121,12 @@ describe('ProjectDoctorPanel', () => {
 
   it('descarta o relatório anterior ao trocar de projeto', async () => {
     let resolveSecond: ((value: ProjectDiagnosticReport) => void) | undefined;
-    fetchProjectDoctor
-      .mockResolvedValueOnce(report)
-      .mockImplementationOnce(() => new Promise<ProjectDiagnosticReport>((resolve) => {
-        resolveSecond = resolve;
-      }));
+    fetchProjectDoctor.mockResolvedValueOnce(report).mockImplementationOnce(
+      () =>
+        new Promise<ProjectDiagnosticReport>((resolve) => {
+          resolveSecond = resolve;
+        }),
+    );
 
     const wrapper = mount(ProjectDoctorPanel, {
       props: { project },

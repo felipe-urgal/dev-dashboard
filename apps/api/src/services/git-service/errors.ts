@@ -44,7 +44,10 @@ export type GitMutationErrorCode =
   | 'GIT_FILE_MUTATION_FAILED';
 
 export class GitMutationError extends Error {
-  public constructor(public readonly code: GitMutationErrorCode, message: string) {
+  public constructor(
+    public readonly code: GitMutationErrorCode,
+    message: string,
+  ) {
     super(message);
     this.name = 'GitMutationError';
   }

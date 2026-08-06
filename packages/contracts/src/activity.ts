@@ -1,11 +1,7 @@
 export type ActivityOrigin = 'script' | 'test' | 'server';
 
 export type ActivityStatus =
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'unknown';
+  'running' | 'succeeded' | 'failed' | 'cancelled' | 'unknown';
 
 export interface ActivityBase {
   id: string;

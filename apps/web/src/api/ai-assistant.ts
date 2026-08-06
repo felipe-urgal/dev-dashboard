@@ -7,7 +7,9 @@ import type {
 
 import { followEventStream, requestJson } from './core';
 
-export function fetchProjectAiStatus(projectId: string): Promise<ProjectAiStatus> {
+export function fetchProjectAiStatus(
+  projectId: string,
+): Promise<ProjectAiStatus> {
   return requestJson<ProjectAiStatus>(
     `/api/projects/${encodeURIComponent(projectId)}/ai/status`,
   );

@@ -31,7 +31,9 @@ describe('abertura do editor local', () => {
     await flushPromises();
 
     expect(wrapper.find('select').exists()).toBe(false);
-    expect(wrapper.get('button').text()).toContain('Abrir no Visual Studio Code');
+    expect(wrapper.get('button').text()).toContain(
+      'Abrir no Visual Studio Code',
+    );
     await wrapper.get('button').trigger('click');
     await flushPromises();
 
@@ -58,7 +60,9 @@ describe('abertura do editor local', () => {
     });
     await flushPromises();
 
-    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('cursor');
+    expect((wrapper.get('select').element as HTMLSelectElement).value).toBe(
+      'cursor',
+    );
     await wrapper.get('select').setValue('vscode');
     await wrapper.get('button').trigger('click');
     await flushPromises();

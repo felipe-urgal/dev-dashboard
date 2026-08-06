@@ -1,16 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-import {
-  flushPromises,
-  mount,
-} from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 
 import AppDialog from '../src/components/AppDialog.vue';
-import {
-  alertDialog,
-  confirmDialog,
-} from '../src/stores/app-dialog';
+import { alertDialog, confirmDialog } from '../src/stores/app-dialog';
 
 test('resolve confirmação ao cancelar ou confirmar pelo modal', async () => {
   const wrapper = mount(AppDialog, {

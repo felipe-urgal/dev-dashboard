@@ -30,15 +30,20 @@ test('persiste a preferência do menu lateral', () => {
 });
 
 test('ignora falhas do armazenamento local', () => {
-  assert.equal(readSidebarCollapsed({
-    getItem: () => {
-      throw new Error('indisponível');
-    },
-  }), false);
+  assert.equal(
+    readSidebarCollapsed({
+      getItem: () => {
+        throw new Error('indisponível');
+      },
+    }),
+    false,
+  );
 
-  assert.doesNotThrow(() => storeSidebarCollapsed(true, {
-    setItem: () => {
-      throw new Error('indisponível');
-    },
-  }));
+  assert.doesNotThrow(() =>
+    storeSidebarCollapsed(true, {
+      setItem: () => {
+        throw new Error('indisponível');
+      },
+    }),
+  );
 });

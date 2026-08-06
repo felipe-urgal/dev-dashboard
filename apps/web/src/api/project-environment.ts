@@ -5,11 +5,19 @@ import type {
 
 import { requestJson } from './core';
 
-interface ProjectEnvironmentResponse { environment: ProjectEnvironmentOverview }
-interface ProjectEnvironmentVariableValueResponse { variable: ProjectEnvironmentVariableValue }
+interface ProjectEnvironmentResponse {
+  environment: ProjectEnvironmentOverview;
+}
+interface ProjectEnvironmentVariableValueResponse {
+  variable: ProjectEnvironmentVariableValue;
+}
 
-export async function fetchProjectEnvironmentVariables(projectId: string): Promise<ProjectEnvironmentOverview> {
-  const response = await requestJson<ProjectEnvironmentResponse>(`/api/projects/${encodeURIComponent(projectId)}/environment-variables`);
+export async function fetchProjectEnvironmentVariables(
+  projectId: string,
+): Promise<ProjectEnvironmentOverview> {
+  const response = await requestJson<ProjectEnvironmentResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/environment-variables`,
+  );
   return response.environment;
 }
 

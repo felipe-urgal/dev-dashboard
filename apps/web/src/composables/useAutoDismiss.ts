@@ -1,8 +1,4 @@
-import {
-  onScopeDispose,
-  watch,
-  type Ref,
-} from 'vue';
+import { onScopeDispose, watch, type Ref } from 'vue';
 
 export const ALERT_AUTO_DISMISS_MS = 5_000;
 

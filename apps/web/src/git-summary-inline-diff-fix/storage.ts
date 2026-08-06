@@ -4,7 +4,9 @@ const MODE_KEY = 'dev-dashboard-git-inline-diff-mode';
 
 export function readMode(): ViewMode {
   try {
-    return window.localStorage.getItem(MODE_KEY) === 'split' ? 'split' : 'unified';
+    return window.localStorage.getItem(MODE_KEY) === 'split'
+      ? 'split'
+      : 'unified';
   } catch {
     return 'unified';
   }

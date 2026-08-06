@@ -57,11 +57,19 @@ export function renderViewer(
     });
     body.replaceChildren();
     if (options.binary) {
-      body.append(emptyView('Arquivos binários não possuem visualização textual.'));
+      body.append(
+        emptyView('Arquivos binários não possuem visualização textual.'),
+      );
     } else if (!options.content.trim()) {
-      body.append(emptyView('O patch deste arquivo não está disponível ou foi truncado.'));
+      body.append(
+        emptyView('O patch deste arquivo não está disponível ou foi truncado.'),
+      );
     } else {
-      body.append(mode === 'split' ? splitView(options.content) : unifiedView(options.content));
+      body.append(
+        mode === 'split'
+          ? splitView(options.content)
+          : unifiedView(options.content),
+      );
     }
   };
 

@@ -24,8 +24,7 @@ interface ProjectOption {
   workspaceId?: string;
 }
 
-type ProcessStatusFilter =
-  '' | 'active' | 'stopped' | 'failed';
+type ProcessStatusFilter = '' | 'active' | 'stopped' | 'failed';
 
 const ACTIVE_STATUSES = new Set<ManagedProcessStatus>([
   'starting',
@@ -33,10 +32,7 @@ const ACTIVE_STATUSES = new Set<ManagedProcessStatus>([
   'stopping',
 ]);
 
-const TERMINAL_STATUSES = new Set<ManagedProcessStatus>([
-  'stopped',
-  'failed',
-]);
+const TERMINAL_STATUSES = new Set<ManagedProcessStatus>(['stopped', 'failed']);
 
 /**
  * Estado e ações da tela de processos gerenciados: filtros, carregamento de
@@ -94,60 +90,44 @@ export function useProcessesView() {
   const eligibleProjects = computed(() =>
     workspaceFilter.value
       ? projects.value.filter(
-        (project) =>
-          project.workspaceId === workspaceFilter.value,
-      )
+          (project) => project.workspaceId === workspaceFilter.value,
+        )
       : projects.value,
   );
 
   const visibleItems = computed(() =>
-    [...items.value]
-      .filter(matchesStatusFilter)
-      .sort((left, right) => {
-        const statusDifference =
-          processOrder(left) - processOrder(right);
-        if (statusDifference !== 0) return statusDifference;
+    [...items.value].filter(matchesStatusFilter).sort((left, right) => {
+      const statusDifference = processOrder(left) - processOrder(right);
+      if (statusDifference !== 0) return statusDifference;
 
-        const leftStartedAt = left.startedAt
-          ? new Date(left.startedAt).getTime()
-          : 0;
-        const rightStartedAt = right.startedAt
-          ? new Date(right.startedAt).getTime()
-          : 0;
-        return rightStartedAt - leftStartedAt;
-      }),
+      const leftStartedAt = left.startedAt
+        ? new Date(left.startedAt).getTime()
+        : 0;
+      const rightStartedAt = right.startedAt
+        ? new Date(right.startedAt).getTime()
+        : 0;
+      return rightStartedAt - leftStartedAt;
+    }),
   );
 
-  const hasVisibleItems = computed(
-    () => visibleItems.value.length > 0,
-  );
+  const hasVisibleItems = computed(() => visibleItems.value.length > 0);
 
   const activeCount = computed(
     () =>
-      items.value.filter((process) =>
-        isActiveStatus(process.status),
-      ).length,
+      items.value.filter((process) => isActiveStatus(process.status)).length,
   );
 
   const stoppedCount = computed(
-    () =>
-      items.value.filter(
-        (process) => process.status === 'stopped',
-      ).length,
+    () => items.value.filter((process) => process.status === 'stopped').length,
   );
 
   const failedCount = computed(
-    () =>
-      items.value.filter(
-        (process) => process.status === 'failed',
-      ).length,
+    () => items.value.filter((process) => process.status === 'failed').length,
   );
 
   const terminalCount = computed(
     () =>
-      items.value.filter((process) =>
-        isTerminalStatus(process.status),
-      ).length,
+      items.value.filter((process) => isTerminalStatus(process.status)).length,
   );
 
   const projectNameById = computed(() => {
@@ -178,26 +158,22 @@ export function useProcessesView() {
 
   function workspaceNameFor(process: ManagedProcess): string {
     const workspaceId =
-      process.workspaceId ??
-      projectWorkspaceById.value.get(process.projectId);
+      process.workspaceId ?? projectWorkspaceById.value.get(process.projectId);
     if (!workspaceId) return '—';
     return workspaceNameById.value.get(workspaceId) ?? workspaceId;
   }
 
   async function loadReferenceData(): Promise<void> {
     try {
-      const [loadedWorkspaces, loadedProjects] =
-        await Promise.all([
-          fetchWorkspaces(),
-          fetchProjects(),
-        ]);
+      const [loadedWorkspaces, loadedProjects] = await Promise.all([
+        fetchWorkspaces(),
+        fetchProjects(),
+      ]);
       workspaces.value = loadedWorkspaces;
       projects.value = loadedProjects.map((project) => ({
         id: project.id,
         name: project.name,
-        ...(project.workspaceId
-          ? { workspaceId: project.workspaceId }
-          : {}),
+        ...(project.workspaceId ? { workspaceId: project.workspaceId } : {}),
       }));
       referenceErrorMessage.value = '';
     } catch (error) {

@@ -39,7 +39,6 @@ export function useProjectGitPanel(
   route: { query: Record<string, unknown> } | undefined,
   emit: (event: 'git-updated', overview: ProjectGitOverview) => void,
 ) {
-
   type GitTab =
     | 'branches'
     | 'sync'
@@ -106,8 +105,10 @@ export function useProjectGitPanel(
   }
 
   function tabFromQuery(): GitTab {
-    const value = Array.isArray(route?.query.tab) ? route.query.tab[0] : route?.query.tab;
-    return tabs.some((tab) => tab.id === value) ? value as GitTab : 'sync';
+    const value = Array.isArray(route?.query.tab)
+      ? route.query.tab[0]
+      : route?.query.tab;
+    return tabs.some((tab) => tab.id === value) ? (value as GitTab) : 'sync';
   }
 
   async function loadGit(): Promise<void> {
@@ -137,9 +138,7 @@ export function useProjectGitPanel(
     workspaceErrorMessage.value = '';
 
     try {
-      workspace.value = await fetchProjectGitWorkspace(
-        props.project.id,
-      );
+      workspace.value = await fetchProjectGitWorkspace(props.project.id);
     } catch (error) {
       workspaceErrorMessage.value =
         error instanceof Error
@@ -152,7 +151,9 @@ export function useProjectGitPanel(
 
   function configuredRemoteNames(): string[] {
     return (workspace.value?.remotes ?? [])
-      .filter((remote) => remote.name === 'origin' || remote.name === 'upstream')
+      .filter(
+        (remote) => remote.name === 'origin' || remote.name === 'upstream',
+      )
       .map((remote) => remote.name);
   }
 
@@ -164,7 +165,9 @@ export function useProjectGitPanel(
     remoteRefreshRunning.value = true;
     try {
       const results = await Promise.allSettled(
-        remotes.map((remote) => fetchProjectGitRemote(props.project.id, remote)),
+        remotes.map((remote) =>
+          fetchProjectGitRemote(props.project.id, remote),
+        ),
       );
       if (results.some((result) => result.status === 'fulfilled')) {
         await loadWorkspace();
@@ -176,9 +179,7 @@ export function useProjectGitPanel(
 
   async function reloadGitData(): Promise<void> {
     await loadGit();
-    await Promise.all([
-      loadWorkspace(),
-    ]);
+    await Promise.all([loadWorkspace()]);
   }
 
   async function runMutation(
@@ -263,8 +264,7 @@ export function useProjectGitPanel(
         nextName,
         confirmationToken,
       );
-      mutationMessage.value =
-        `Branch "${currentName}" renomeada para "${branch}".`;
+      mutationMessage.value = `Branch "${currentName}" renomeada para "${branch}".`;
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =
@@ -318,7 +318,9 @@ export function useProjectGitPanel(
 
     try {
       await Promise.all(
-        remotes.map((remote) => fetchProjectGitRemote(props.project.id, remote)),
+        remotes.map((remote) =>
+          fetchProjectGitRemote(props.project.id, remote),
+        ),
       );
       mutationMessage.value = 'Branches remotas atualizadas.';
       await reloadGitData();
@@ -358,8 +360,7 @@ export function useProjectGitPanel(
         remoteBranch,
         confirmation.token,
       );
-      mutationMessage.value =
-        `Branch remota "${remoteBranch}" criada localmente como "${branch}" e selecionada.`;
+      mutationMessage.value = `Branch remota "${remoteBranch}" criada localmente como "${branch}" e selecionada.`;
       await reloadGitData();
     } catch (error) {
       mutationErrorMessage.value =
@@ -410,8 +411,7 @@ export function useProjectGitPanel(
       return;
     }
     if (!upstream) {
-      mutationErrorMessage.value =
-        `A branch "${branch}" não possui upstream configurado.`;
+      mutationErrorMessage.value = `A branch "${branch}" não possui upstream configurado.`;
       return;
     }
     if (!overview.value?.clean) {
@@ -423,8 +423,8 @@ export function useProjectGitPanel(
     const confirmed = await confirmDialog({
       title: 'Atualizar branch local?',
       message:
-        `Os commits de "${upstream}" serão trazidos para "${branch}" `
-        + 'somente por fast-forward. Nenhum merge ou rebase será criado automaticamente.',
+        `Os commits de "${upstream}" serão trazidos para "${branch}" ` +
+        'somente por fast-forward. Nenhum merge ou rebase será criado automaticamente.',
       confirmLabel: 'Atualizar local',
       tone: 'warning',
     });
@@ -445,8 +445,7 @@ export function useProjectGitPanel(
         props.project.id,
         confirmation.token,
       );
-      mutationMessage.value =
-        `Branch "${result.branch}" atualizada a partir de ${upstream}.`;
+      mutationMessage.value = `Branch "${result.branch}" atualizada a partir de ${upstream}.`;
       applyChangeImpact(result.impact);
       await reloadGitData();
     } catch (error) {
@@ -477,9 +476,7 @@ export function useProjectGitPanel(
     changeImpact.value = null;
 
     try {
-      const confirmation = await prepareProjectGitMainSync(
-        props.project.id,
-      );
+      const confirmation = await prepareProjectGitMainSync(props.project.id);
       const result = await synchronizeProjectGitMain(
         props.project.id,
         confirmation.token,
@@ -535,11 +532,7 @@ export function useProjectGitPanel(
         currentBranchOrHead(),
       );
       const commit = amend
-        ? await amendProjectGit(
-            props.project.id,
-            message,
-            confirmation.token,
-          )
+        ? await amendProjectGit(props.project.id, message, confirmation.token)
         : await commitProjectGit(
             props.project.id,
             message,
@@ -550,11 +543,11 @@ export function useProjectGitPanel(
         ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
         : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
       if (
-        amend
-        && branchBeforeCommit
-        && branchBeforeCommit !== 'main'
-        && branchBeforeCommit !== 'master'
-        && upstreamBeforeCommit === `origin/${branchBeforeCommit}`
+        amend &&
+        branchBeforeCommit &&
+        branchBeforeCommit !== 'main' &&
+        branchBeforeCommit !== 'master' &&
+        upstreamBeforeCommit === `origin/${branchBeforeCommit}`
       ) {
         amendedBranch.value = branchBeforeCommit;
       }
@@ -583,16 +576,16 @@ export function useProjectGitPanel(
       amendedBranch.value = null;
       changeImpact.value = null;
       activeTab.value = tabFromQuery();
-      await Promise.all([
-        loadGit(),
-        loadWorkspace(),
-      ]);
+      await Promise.all([loadGit(), loadWorkspace()]);
       void refreshRemotesSilently();
     },
     { immediate: true },
   );
 
-  watch(() => route?.query.tab, () => openTab(tabFromQuery()));
+  watch(
+    () => route?.query.tab,
+    () => openTab(tabFromQuery()),
+  );
 
   return {
     tabs,

@@ -88,7 +88,9 @@ test('revisa impacto e exige frase para excluir diretório com conteúdo', async
     },
   });
 
-  await wrapper.get('button[aria-label="Excluir item selecionado"]').trigger('click');
+  await wrapper
+    .get('button[aria-label="Excluir item selecionado"]')
+    .trigger('click');
   await wrapper.get('form').trigger('submit');
   await flushPromises();
 
@@ -113,8 +115,7 @@ test('revisa impacto e exige frase para excluir diretório com conteúdo', async
     },
   ]);
   const completed = wrapper.emitted('completed')?.[0]?.[0] as
-    | { operation: string }
-    | undefined;
+    { operation: string } | undefined;
   assert.equal(completed?.operation, 'delete');
 });
 

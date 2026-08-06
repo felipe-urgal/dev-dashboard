@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import type { ProjectStore } from '../store/project-store.js';
 import {
@@ -10,10 +7,7 @@ import {
   type GitPullRequestTargetRemote,
 } from '../services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from '../services/git-pull-request-status-service.js';
-import {
-  ApiError,
-  type ApiErrorCode,
-} from '../http/api-error.js';
+import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
   gitPullRequestUrlResponseSchema,
@@ -131,7 +125,8 @@ function translatePullRequestError(error: unknown): never {
       GIT_REMOTE_NOT_CONFIGURED: 'GIT_REMOTE_NOT_CONFIGURED',
       GIT_PULL_REQUEST_NOT_PUBLISHED: 'GIT_PULL_REQUEST_NOT_PUBLISHED',
       GIT_PULL_REQUEST_BRANCH_IS_DEFAULT: 'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT',
-      GIT_PULL_REQUEST_REMOTE_UNSUPPORTED: 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
+      GIT_PULL_REQUEST_REMOTE_UNSUPPORTED:
+        'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
       GIT_PULL_REQUEST_BASE_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
     };
     throw new ApiError({
@@ -143,9 +138,10 @@ function translatePullRequestError(error: unknown): never {
   throw new ApiError({
     statusCode: 500,
     code: 'GIT_COMMAND_FAILED',
-    message: error instanceof Error
-      ? error.message
-      : 'Não foi possível compor a URL da Pull Request.',
+    message:
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível compor a URL da Pull Request.',
   });
 }
 

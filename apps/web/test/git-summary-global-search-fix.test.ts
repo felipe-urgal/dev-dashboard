@@ -6,11 +6,18 @@ import { buildSummaryHistorySearchUrl } from '../src/git-summary-global-search-f
 
 test('monta a busca do resumo para todo o histórico e volta para a primeira página', () => {
   const url = new URL(
-    buildSummaryHistorySearchUrl('projeto com espaço', '  correção urgente  ', 0),
+    buildSummaryHistorySearchUrl(
+      'projeto com espaço',
+      '  correção urgente  ',
+      0,
+    ),
     'http://dashboard.local',
   );
 
-  assert.equal(url.pathname, '/api/projects/projeto%20com%20espa%C3%A7o/git/commits');
+  assert.equal(
+    url.pathname,
+    '/api/projects/projeto%20com%20espa%C3%A7o/git/commits',
+  );
   assert.equal(url.searchParams.get('search'), 'correção urgente');
   assert.equal(url.searchParams.get('page'), '1');
   assert.equal(url.searchParams.get('pageSize'), '10');

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-} from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import {
   ArrowPathIcon,
@@ -14,10 +10,7 @@ import {
 
 import type { Project, ProjectFileEntry } from '@dev-dashboard/contracts';
 
-import {
-  fetchProjectFileContent,
-  fetchProjectMarkdownFiles,
-} from '../api';
+import { fetchProjectFileContent, fetchProjectMarkdownFiles } from '../api';
 
 type TableAlignment = 'left' | 'center' | 'right' | null;
 
@@ -148,7 +141,8 @@ function linkHref(target: string): string {
 }
 
 function renderInlineMarkdown(value: string): string {
-  const pattern = /!\[([^\]]*)\]\(\s*(?:<[^>]+>|[^)]+)\s*\)|\[([^\]]+)\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\s*\)|`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
+  const pattern =
+    /!\[([^\]]*)\]\(\s*(?:<[^>]+>|[^)]+)\s*\)|\[([^\]]+)\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\s*\)|`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
   let result = '';
   let cursor = 0;
 
@@ -395,13 +389,17 @@ function parseMarkdown(source: string): MarkdownBlock[] {
   return blocks;
 }
 
-const blocks = computed(() => (content.value ? parseMarkdown(content.value) : []));
+const blocks = computed(() =>
+  content.value ? parseMarkdown(content.value) : [],
+);
 
 const selectedFile = computed(
   () => files.value.find((file) => file.path === selectedPath.value) ?? null,
 );
 
-function tableAlignmentClass(alignment: TableAlignment | undefined): string | undefined {
+function tableAlignmentClass(
+  alignment: TableAlignment | undefined,
+): string | undefined {
   return alignment ? `readme-table-align-${alignment}` : undefined;
 }
 
@@ -495,9 +493,11 @@ watch(
             {{ selectedFile?.name ?? 'Documentação' }}
           </strong>
           <span>
-            {{ files.length > 1
-              ? `${files.length} arquivos Markdown encontrados`
-              : 'Documentação principal do projeto' }}
+            {{
+              files.length > 1
+                ? `${files.length} arquivos Markdown encontrados`
+                : 'Documentação principal do projeto'
+            }}
           </span>
         </div>
       </div>

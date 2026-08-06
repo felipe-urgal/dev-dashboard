@@ -1,17 +1,8 @@
-import {
-  computed,
-  ref,
-} from 'vue';
+import { computed, ref } from 'vue';
 
-import type {
-  Project,
-  Workspace,
-} from '@dev-dashboard/contracts';
+import type { Project, Workspace } from '@dev-dashboard/contracts';
 
-import {
-  ApiRequestError,
-  type WorkspaceScanResponse,
-} from '../api';
+import { ApiRequestError, type WorkspaceScanResponse } from '../api';
 
 import * as dashboardApi from '../api';
 import { confirmDialog } from './app-dialog';
@@ -28,9 +19,7 @@ export interface DashboardApi {
   updateWorkspaceRecursiveScan: typeof dashboardApi.updateWorkspaceRecursiveScan;
 }
 
-export function createDashboardStore(
-  api: DashboardApi = dashboardApi,
-) {
+export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const {
     createWorkspace,
     deleteWorkspace,
@@ -106,14 +95,9 @@ export function createDashboardStore(
     projectIndex.value = nextIndex;
   }
 
-  function replaceProjectFavorite(
-    projectId: string,
-    favorite: boolean,
-  ): void {
+  function replaceProjectFavorite(projectId: string, favorite: boolean): void {
     projects.value = projects.value.map((item) =>
-      item.id === projectId
-        ? { ...item, favorite }
-        : item,
+      item.id === projectId ? { ...item, favorite } : item,
     );
 
     const indexedProject = projectIndex.value[projectId];
@@ -133,38 +117,25 @@ export function createDashboardStore(
         ([workspaceId, workspaceProjects]) => [
           workspaceId,
           workspaceProjects.map((item) =>
-            item.id === projectId
-              ? { ...item, favorite }
-              : item,
+            item.id === projectId ? { ...item, favorite } : item,
           ),
         ],
       ),
     );
   }
 
-  async function toggleProjectFavorite(
-    project: Project,
-  ): Promise<void> {
+  async function toggleProjectFavorite(project: Project): Promise<void> {
     if (favoriteUpdatingIds.value.includes(project.id)) {
       return;
     }
 
     const favorite = !project.favorite;
-    favoriteUpdatingIds.value = [
-      ...favoriteUpdatingIds.value,
-      project.id,
-    ];
+    favoriteUpdatingIds.value = [...favoriteUpdatingIds.value, project.id];
     replaceProjectFavorite(project.id, favorite);
 
     try {
-      const updatedProject = await updateProjectFavorite(
-        project.id,
-        favorite,
-      );
-      replaceProjectFavorite(
-        updatedProject.id,
-        updatedProject.favorite,
-      );
+      const updatedProject = await updateProjectFavorite(project.id, favorite);
+      replaceProjectFavorite(updatedProject.id, updatedProject.favorite);
     } catch (error) {
       replaceProjectFavorite(project.id, project.favorite);
       errorMessage.value =
@@ -177,7 +148,6 @@ export function createDashboardStore(
       );
     }
   }
-
 
   function replaceWorkspaceRecursiveScan(
     workspaceId: string,
@@ -215,19 +185,15 @@ export function createDashboardStore(
         updatedWorkspace.recursiveScan,
       );
     } catch (error) {
-      replaceWorkspaceRecursiveScan(
-        workspace.id,
-        workspace.recursiveScan,
-      );
+      replaceWorkspaceRecursiveScan(workspace.id, workspace.recursiveScan);
       errorMessage.value =
         error instanceof Error
           ? error.message
           : 'Não foi possível atualizar a preferência de varredura recursiva.';
     } finally {
-      recursiveScanUpdatingIds.value =
-        recursiveScanUpdatingIds.value.filter(
-          (workspaceId) => workspaceId !== workspace.id,
-        );
+      recursiveScanUpdatingIds.value = recursiveScanUpdatingIds.value.filter(
+        (workspaceId) => workspaceId !== workspace.id,
+      );
     }
   }
 
@@ -235,8 +201,7 @@ export function createDashboardStore(
     workspaceId: string,
     items: Project[],
   ): void {
-    const previousProjects =
-      projectsByWorkspace.value[workspaceId] ?? [];
+    const previousProjects = projectsByWorkspace.value[workspaceId] ?? [];
 
     const nextIndex = {
       ...projectIndex.value,
@@ -266,9 +231,7 @@ export function createDashboardStore(
     selectedWorkspaceId.value = workspaceId;
 
     projects.value =
-      workspaceProjects ??
-      projectsByWorkspace.value[workspaceId] ??
-      [];
+      workspaceProjects ?? projectsByWorkspace.value[workspaceId] ?? [];
   }
 
   async function scanWorkspaceById(
@@ -294,10 +257,7 @@ export function createDashboardStore(
     try {
       const result = await scanWorkspace(workspaceId);
 
-      replaceWorkspaceProjects(
-        workspaceId,
-        result.projects,
-      );
+      replaceWorkspaceProjects(workspaceId, result.projects);
       scannedWorkspaceIds.add(workspaceId);
 
       if (shouldActivate) {
@@ -309,8 +269,7 @@ export function createDashboardStore(
       apiConnected.value = true;
 
       if (shouldShowMessages) {
-        successMessage.value =
-          `${result.projects.length} projeto(s) detectado(s).`;
+        successMessage.value = `${result.projects.length} projeto(s) detectado(s).`;
       }
 
       return result;
@@ -397,9 +356,7 @@ export function createDashboardStore(
     return initialLoadPromise;
   }
 
-  async function ensureProject(
-    projectId: string,
-  ): Promise<Project | null> {
+  async function ensureProject(projectId: string): Promise<Project | null> {
     await ensureDashboardLoaded();
 
     const cachedProject = projectIndex.value[projectId];
@@ -437,9 +394,7 @@ export function createDashboardStore(
       }
 
       const result = await scanWorkspaceById(workspace.id);
-      const project = result.projects.find(
-        (item) => item.id === projectId,
-      );
+      const project = result.projects.find((item) => item.id === projectId);
 
       if (project) {
         activateWorkspace(workspace.id, result.projects);
@@ -475,8 +430,8 @@ export function createDashboardStore(
         recursiveScan: newWorkspaceRecursiveScan.value,
       });
 
-      workspaces.value = [...workspaces.value, workspace].sort(
-        (left, right) => left.name.localeCompare(right.name),
+      workspaces.value = [...workspaces.value, workspace].sort((left, right) =>
+        left.name.localeCompare(right.name),
       );
 
       activateWorkspace(workspace.id);
@@ -562,8 +517,7 @@ export function createDashboardStore(
         await scanSelectedWorkspace();
       } else {
         selectedWorkspaceId.value = '';
-        successMessage.value =
-          `Workspace "${workspace.name}" removido.`;
+        successMessage.value = `Workspace "${workspace.name}" removido.`;
       }
     } catch (error) {
       errorMessage.value =

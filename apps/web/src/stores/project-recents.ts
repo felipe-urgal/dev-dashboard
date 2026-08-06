@@ -6,8 +6,8 @@ import { dashboardStore } from './dashboard';
 let lastRecordedProjectId = '';
 
 function replaceProject(updatedProject: Project): void {
-  dashboardStore.projects.value = dashboardStore.projects.value.map((project) =>
-    project.id === updatedProject.id ? updatedProject : project,
+  dashboardStore.projects.value = dashboardStore.projects.value.map(
+    (project) => (project.id === updatedProject.id ? updatedProject : project),
   );
 
   dashboardStore.projectsByWorkspace.value = Object.fromEntries(

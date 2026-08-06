@@ -1,6 +1,15 @@
-import { FUNCTION_DECLARATIONS, KEYWORDS, LITERALS, TYPE_DECLARATIONS } from './keywords';
+import {
+  FUNCTION_DECLARATIONS,
+  KEYWORDS,
+  LITERALS,
+  TYPE_DECLARATIONS,
+} from './keywords';
 import { renderText, renderToken } from './render-text';
-import { commentMarker, nextNonWhitespace, quotedEnd } from './tokenize-helpers';
+import {
+  commentMarker,
+  nextNonWhitespace,
+  quotedEnd,
+} from './tokenize-helpers';
 import type { GitSyntaxLanguage, SyntaxTokenKind } from './types';
 
 export function highlightGenericLine(
@@ -50,7 +59,9 @@ export function highlightGenericLine(
       }
     }
 
-    const variable = rest.match(/^(?:@@?[A-Za-z_][A-Za-z0-9_]*[!?=]?|\$[A-Za-z_][A-Za-z0-9_]*)/)?.[0];
+    const variable = rest.match(
+      /^(?:@@?[A-Za-z_][A-Za-z0-9_]*[!?=]?|\$[A-Za-z_][A-Za-z0-9_]*)/,
+    )?.[0];
     if (variable) {
       result += renderToken('variable', variable, query);
       previousSignificant = variable;
@@ -59,7 +70,9 @@ export function highlightGenericLine(
       continue;
     }
 
-    const number = rest.match(/^(?:0x[\da-f]+|0b[01]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)/i)?.[0];
+    const number = rest.match(
+      /^(?:0x[\da-f]+|0b[01]+|\d+(?:\.\d+)?(?:e[+-]?\d+)?)/i,
+    )?.[0];
     if (number) {
       result += renderToken('number', number, query);
       previousSignificant = number;
@@ -76,9 +89,14 @@ export function highlightGenericLine(
       let kind: SyntaxTokenKind | null = null;
 
       if (keywords.has(identifier) || keywords.has(normalized)) {
-        kind = normalized === 'self' || normalized === 'this' ? 'variable' : 'keyword';
-        if (FUNCTION_DECLARATIONS.has(normalized)) expectedDeclaration = 'function';
-        else if (TYPE_DECLARATIONS.has(normalized)) expectedDeclaration = 'type';
+        kind =
+          normalized === 'self' || normalized === 'this'
+            ? 'variable'
+            : 'keyword';
+        if (FUNCTION_DECLARATIONS.has(normalized))
+          expectedDeclaration = 'function';
+        else if (TYPE_DECLARATIONS.has(normalized))
+          expectedDeclaration = 'type';
       } else if (LITERALS.has(normalized)) {
         kind = 'literal';
       } else if (expectedDeclaration === 'function') {
@@ -90,20 +108,23 @@ export function highlightGenericLine(
       } else if (/^[A-Z]/.test(identifier)) {
         kind = 'type';
       } else if (
-        next === ':'
-        && ['css', 'javascript', 'json', 'typescript', 'yaml'].includes(language)
+        next === ':' &&
+        ['css', 'javascript', 'json', 'typescript', 'yaml'].includes(language)
       ) {
         kind = 'property';
       } else if (next === '(') {
         kind = 'function';
-      } else if ((previousSignificant === '.' || previousSignificant === '::') && language === 'ruby') {
+      } else if (
+        (previousSignificant === '.' || previousSignificant === '::') &&
+        language === 'ruby'
+      ) {
         kind = 'function';
       } else if (
-        firstCodeToken
-        && language === 'ruby'
-        && next !== '='
-        && next !== ':'
-        && next !== '=>'
+        firstCodeToken &&
+        language === 'ruby' &&
+        next !== '=' &&
+        next !== ':' &&
+        next !== '=>'
       ) {
         kind = 'function';
       } else if (firstCodeToken && language === 'shell') {
@@ -117,7 +138,9 @@ export function highlightGenericLine(
       continue;
     }
 
-    const operator = rest.match(/^(?:::|===|!==|=>|==|!=|<=|>=|&&|\|\||\*\*|\.\.\.?|[-+*/%=<>!&|^~?:.,;()[\]{}])/)?.[0];
+    const operator = rest.match(
+      /^(?:::|===|!==|=>|==|!=|<=|>=|&&|\|\||\*\*|\.\.\.?|[-+*/%=<>!&|^~?:.,;()[\]{}])/,
+    )?.[0];
     if (operator) {
       result += renderToken('operator', operator, query);
       previousSignificant = operator;

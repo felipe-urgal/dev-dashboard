@@ -19,7 +19,10 @@ const emit = defineEmits<{
         <span>Conflito externo</span>
         <strong id="editor-conflict-title">{{ path }}</strong>
       </div>
-      <p>Compare as três versões antes de decidir. Nada é sobrescrito automaticamente.</p>
+      <p>
+        Compare as três versões antes de decidir. Nada é sobrescrito
+        automaticamente.
+      </p>
     </header>
 
     <div class="editor-conflict-grid">
@@ -77,7 +80,7 @@ const emit = defineEmits<{
   font-size: var(--font-xs);
   font-weight: var(--font-weight-strong);
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
 }
 
 .editor-conflict header strong {

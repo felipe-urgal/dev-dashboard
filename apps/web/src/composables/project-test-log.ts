@@ -5,7 +5,8 @@ import {
 } from '../test-log-tone-enhancer';
 
 export type TestLogTab = 'log' | 'errors' | 'warnings' | 'details';
-export type TestLogLineTone = 'default' | 'success' | 'error' | 'warning' | 'muted';
+export type TestLogLineTone =
+  'default' | 'success' | 'error' | 'warning' | 'muted';
 
 export interface TestLogLine {
   number: number;
@@ -26,7 +27,10 @@ export function stripAnsi(value: string): string {
   return value.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '');
 }
 
-export function matchNumber(value: string, pattern: RegExp): number | undefined {
+export function matchNumber(
+  value: string,
+  pattern: RegExp,
+): number | undefined {
   const match = pattern.exec(value);
   if (!match?.[1]) return undefined;
   const number = Number(match[1]);
@@ -42,7 +46,9 @@ export function isWarningLine(value: string): boolean {
 }
 
 export function isDetailLine(value: string): boolean {
-  return /\b(?:run|test files?|tests?|examples?|assertions?|start at|duration|finished in|done in|seed|environment|transform|setup|collect|prepare)\b/i.test(value);
+  return /\b(?:run|test files?|tests?|examples?|assertions?|start at|duration|finished in|done in|seed|environment|transform|setup|collect|prepare)\b/i.test(
+    value,
+  );
 }
 
 export function logLineTone(value: string): TestLogLineTone {
@@ -50,7 +56,9 @@ export function logLineTone(value: string): TestLogLineTone {
 }
 
 export function extractTargetFile(value: string): string | undefined {
-  const candidates = value.match(/[\w./@-]+(?:\.spec|\.test|_spec|_test)\.(?:[cm]?[jt]sx?|rb|py)/gi);
+  const candidates = value.match(
+    /[\w./@-]+(?:\.spec|\.test|_spec|_test)\.(?:[cm]?[jt]sx?|rb|py)/gi,
+  );
   return candidates?.at(-1);
 }
 
@@ -64,7 +72,10 @@ export function formatTimestamp(value: string | undefined): string {
   }).format(date);
 }
 
-export function formatDurationBetween(startedAt?: string, finishedAt?: string): string {
+export function formatDurationBetween(
+  startedAt?: string,
+  finishedAt?: string,
+): string {
   if (!startedAt) return '—';
   const start = new Date(startedAt).getTime();
   const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();

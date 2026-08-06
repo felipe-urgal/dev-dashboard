@@ -1,18 +1,10 @@
-import {
-  homedir,
-} from 'node:os';
+import { homedir } from 'node:os';
 
-import {
-  readdir,
-  realpath,
-  stat,
-} from 'node:fs/promises';
+import { readdir, realpath, stat } from 'node:fs/promises';
 
 import path from 'node:path';
 
-import type {
-  FastifyPluginAsync,
-} from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -23,8 +15,7 @@ interface DirectoryQuery {
 
 function configuredRoot(): string {
   return path.resolve(
-    process.env.DEV_DASHBOARD_DIRECTORY_ROOT?.trim() ||
-      homedir(),
+    process.env.DEV_DASHBOARD_DIRECTORY_ROOT?.trim() || homedir(),
   );
 }
 
@@ -85,20 +76,12 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
           200: {
             type: 'object',
             additionalProperties: false,
-            required: [
-              'rootPath',
-              'currentPath',
-              'parentPath',
-              'directories',
-            ],
+            required: ['rootPath', 'currentPath', 'parentPath', 'directories'],
             properties: {
               rootPath: { type: 'string' },
               currentPath: { type: 'string' },
               parentPath: {
-                anyOf: [
-                  { type: 'string' },
-                  { type: 'null' },
-                ],
+                anyOf: [{ type: 'string' }, { type: 'null' }],
               },
               directories: {
                 type: 'array',
@@ -150,9 +133,7 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
       const entries = await readdir(currentPath, {
         withFileTypes: true,
       }).catch(() => {
-        throw invalidDirectory(
-          'O diretório selecionado não pode ser listado.',
-        );
+        throw invalidDirectory('O diretório selecionado não pode ser listado.');
       });
 
       const directories: Array<{
@@ -185,14 +166,11 @@ export const directoryRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      directories.sort((left, right) =>
-        left.name.localeCompare(right.name),
-      );
+      directories.sort((left, right) => left.name.localeCompare(right.name));
 
       const parentCandidate = path.dirname(currentPath);
       const parentPath =
-        currentPath !== rootPath &&
-        isInside(rootPath, parentCandidate)
+        currentPath !== rootPath && isInside(rootPath, parentCandidate)
           ? parentCandidate
           : null;
 

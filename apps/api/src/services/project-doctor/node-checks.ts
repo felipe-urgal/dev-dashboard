@@ -1,17 +1,10 @@
 import path from 'node:path';
 
-import type {
-  Project,
-  ProjectDiagnosticCheck,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectDiagnosticCheck } from '@dev-dashboard/contracts';
 
 import type { DoctorCommandRunner } from './check-types.js';
 import { createDiagnosticCheck } from './check-types.js';
-import {
-  directoryExists,
-  pathExists,
-  readLimitedText,
-} from './file-utils.js';
+import { directoryExists, pathExists, readLimitedText } from './file-utils.js';
 
 interface NodeManifestInfo {
   exists: boolean;
@@ -25,14 +18,17 @@ interface PackageManagerDetection {
 }
 
 async function readNodeManifest(project: Project): Promise<NodeManifestInfo> {
-  const content = await readLimitedText(path.join(project.path, 'package.json'));
+  const content = await readLimitedText(
+    path.join(project.path, 'package.json'),
+  );
   if (content === null) return { exists: false, valid: false };
 
   try {
     const parsed = JSON.parse(content) as { engines?: { node?: unknown } };
-    const enginesNode = typeof parsed.engines?.node === 'string'
-      ? parsed.engines.node.trim()
-      : '';
+    const enginesNode =
+      typeof parsed.engines?.node === 'string'
+        ? parsed.engines.node.trim()
+        : '';
     return {
       exists: true,
       valid: true,
@@ -57,12 +53,14 @@ async function detectPackageManager(
   const lockfiles: string[] = [];
   const managers = new Set<string>();
 
-  await Promise.all(candidates.map(async ({ file, manager }) => {
-    if (await pathExists(path.join(project.path, file))) {
-      lockfiles.push(file);
-      managers.add(manager);
-    }
-  }));
+  await Promise.all(
+    candidates.map(async ({ file, manager }) => {
+      if (await pathExists(path.join(project.path, file))) {
+        lockfiles.push(file);
+        managers.add(manager);
+      }
+    }),
+  );
 
   const manager = managers.size === 1 ? [...managers][0] : undefined;
   return {
@@ -82,14 +80,17 @@ export async function checkNodeRuntime(
       label: 'Runtime Node',
       status: 'warning',
       summary: 'package.json existe, mas não contém JSON válido.',
-      recommendation: 'Corrija o package.json antes de instalar dependências ou iniciar o projeto.',
+      recommendation:
+        'Corrija o package.json antes de instalar dependências ou iniciar o projeto.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
 
   const declarations = new Set<string>();
   for (const fileName of ['.node-version', '.nvmrc']) {
-    const value = (await readLimitedText(path.join(project.path, fileName)))?.trim();
+    const value = (
+      await readLimitedText(path.join(project.path, fileName))
+    )?.trim();
     if (value) declarations.add(value);
   }
   if (manifest.enginesNode) declarations.add(manifest.enginesNode);
@@ -102,7 +103,8 @@ export async function checkNodeRuntime(
       label: 'Runtime Node',
       status: 'warning',
       summary: `A API usa ${process.version}, mas o projeto possui declarações diferentes: ${declared.join(', ')}.`,
-      recommendation: 'Unifique .node-version, .nvmrc e engines.node para evitar ambientes diferentes.',
+      recommendation:
+        'Unifique .node-version, .nvmrc e engines.node para evitar ambientes diferentes.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -131,7 +133,8 @@ export async function checkNodePackageManager(
       category: 'dependencies',
       label: 'Gerenciador Node',
       status: project.type === 'rails' ? 'skipped' : 'warning',
-      summary: 'package.json não foi encontrado; a parte Node não será verificada.',
+      summary:
+        'package.json não foi encontrado; a parte Node não será verificada.',
     });
   }
 
@@ -143,7 +146,8 @@ export async function checkNodePackageManager(
       label: 'Gerenciador Node',
       status: 'warning',
       summary: 'Nenhum lockfile Node foi encontrado.',
-      recommendation: 'Gere e versione um único lockfile para tornar as instalações reproduzíveis.',
+      recommendation:
+        'Gere e versione um único lockfile para tornar as instalações reproduzíveis.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -155,7 +159,8 @@ export async function checkNodePackageManager(
       label: 'Gerenciador Node',
       status: 'warning',
       summary: `Há mais de um lockfile detectado: ${detection.lockfiles.join(', ')}.`,
-      recommendation: 'Mantenha apenas o lockfile do gerenciador adotado pelo projeto.',
+      recommendation:
+        'Mantenha apenas o lockfile do gerenciador adotado pelo projeto.',
       action: { label: 'Abrir dependências', target: 'dependencies' },
     });
   }
@@ -199,7 +204,9 @@ export async function checkNodeDependencies(
     });
   }
 
-  const installed = await directoryExists(path.join(project.path, 'node_modules'));
+  const installed = await directoryExists(
+    path.join(project.path, 'node_modules'),
+  );
   return createDiagnosticCheck({
     id: 'node-dependencies',
     category: 'dependencies',
@@ -210,8 +217,12 @@ export async function checkNodeDependencies(
       : 'O diretório node_modules não foi encontrado.',
     ...(!installed
       ? {
-          recommendation: 'Instale as dependências usando o gerenciador detectado.',
-          action: { label: 'Abrir dependências', target: 'dependencies' as const },
+          recommendation:
+            'Instale as dependências usando o gerenciador detectado.',
+          action: {
+            label: 'Abrir dependências',
+            target: 'dependencies' as const,
+          },
         }
       : {}),
   });

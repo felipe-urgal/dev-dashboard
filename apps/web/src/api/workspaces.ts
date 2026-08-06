@@ -40,9 +40,7 @@ export interface DirectoryListing {
   directories: DirectoryEntry[];
 }
 
-export async function fetchProject(
-  projectId: string,
-): Promise<Project> {
+export async function fetchProject(projectId: string): Promise<Project> {
   const response = await requestJson<ProjectResponse>(
     `/api/projects/${encodeURIComponent(projectId)}`,
   );
@@ -51,15 +49,12 @@ export async function fetchProject(
 }
 
 export async function fetchProjects(): Promise<Project[]> {
-  const response =
-    await requestJson<ProjectsResponse>('/api/projects');
+  const response = await requestJson<ProjectsResponse>('/api/projects');
 
   return response.projects;
 }
 
-export async function recordProjectAccess(
-  projectId: string,
-): Promise<Project> {
+export async function recordProjectAccess(projectId: string): Promise<Project> {
   const response = await requestJson<ProjectResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/access`,
     {
@@ -93,8 +88,7 @@ export async function updateProjectFavorite(
 }
 
 export async function fetchWorkspaces(): Promise<Workspace[]> {
-  const response =
-    await requestJson<WorkspacesResponse>('/api/workspaces');
+  const response = await requestJson<WorkspacesResponse>('/api/workspaces');
 
   return response.workspaces;
 }
@@ -140,9 +134,7 @@ export function scanWorkspace(
   );
 }
 
-export async function deleteWorkspace(
-  workspaceId: string,
-): Promise<void> {
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
   await requestJson<null>(
     `/api/workspaces/${encodeURIComponent(workspaceId)}`,
     {
@@ -151,9 +143,7 @@ export async function deleteWorkspace(
   );
 }
 
-export function projectFaviconUrl(
-  projectId: string,
-): string {
+export function projectFaviconUrl(projectId: string): string {
   return `/api/projects/${encodeURIComponent(projectId)}/favicon`;
 }
 

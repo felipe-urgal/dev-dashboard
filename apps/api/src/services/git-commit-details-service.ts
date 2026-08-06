@@ -9,7 +9,10 @@ import {
   PATCH_LIMIT,
 } from './git-commit-details/constants.js';
 import { GitCommitDetailsError } from './git-commit-details/errors.js';
-import { parseNameStatus, parseNumstat } from './git-commit-details/file-status-parsing.js';
+import {
+  parseNameStatus,
+  parseNumstat,
+} from './git-commit-details/file-status-parsing.js';
 import {
   filterHistory,
   hasHistoryFilters,
@@ -46,8 +49,14 @@ export async function listBranchCommits(
   await requireRepository(projectPath);
 
   const page = Math.max(1, Math.floor(requestedPage));
-  const pageSize = Math.min(HISTORY_PAGE_SIZE_LIMIT, Math.max(1, Math.floor(requestedPageSize)));
-  const reference = await resolveHistoryReference(projectPath, requestedReference);
+  const pageSize = Math.min(
+    HISTORY_PAGE_SIZE_LIMIT,
+    Math.max(1, Math.floor(requestedPageSize)),
+  );
+  const reference = await resolveHistoryReference(
+    projectPath,
+    requestedReference,
+  );
 
   if (!reference.exists) {
     return {
@@ -82,10 +91,13 @@ export async function listBranchCommits(
     };
   }
 
-  const total = Number.parseInt(
-    (await runGit(projectPath, ['rev-list', '--count', reference.revision])).trim(),
-    10,
-  ) || 0;
+  const total =
+    Number.parseInt(
+      (
+        await runGit(projectPath, ['rev-list', '--count', reference.revision])
+      ).trim(),
+      10,
+    ) || 0;
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const effectivePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
   const skip = (effectivePage - 1) * pageSize;
@@ -126,15 +138,25 @@ export async function inspectGitCommit(
   commitHash: string,
 ): Promise<GitCommitDetails> {
   if (!COMMIT_HASH_PATTERN.test(commitHash)) {
-    throw new GitCommitDetailsError('GIT_COMMIT_INVALID', 'Hash de commit inválido.');
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_INVALID',
+      'Hash de commit inválido.',
+    );
   }
 
   await requireRepository(projectPath);
 
   try {
-    await runGit(projectPath, ['rev-parse', '--verify', `${commitHash}^{commit}`]);
+    await runGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      `${commitHash}^{commit}`,
+    ]);
   } catch {
-    throw new GitCommitDetailsError('GIT_COMMIT_NOT_FOUND', 'Commit não encontrado neste repositório.');
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_NOT_FOUND',
+      'Commit não encontrado neste repositório.',
+    );
   }
 
   const metadata = await runGit(projectPath, [
@@ -154,9 +176,30 @@ export async function inspectGitCommit(
   ] = metadata.split(FIELD_SEPARATOR);
 
   const [nameStatus, numstat, rawPatch] = await Promise.all([
-    runGit(projectPath, ['show', '--format=', '--name-status', '-z', '--find-renames', commitHash]),
-    runGit(projectPath, ['show', '--format=', '--numstat', '-z', '--find-renames', commitHash]),
-    runGit(projectPath, ['show', '--format=', '--find-renames', '--no-ext-diff', '--unified=3', commitHash]),
+    runGit(projectPath, [
+      'show',
+      '--format=',
+      '--name-status',
+      '-z',
+      '--find-renames',
+      commitHash,
+    ]),
+    runGit(projectPath, [
+      'show',
+      '--format=',
+      '--numstat',
+      '-z',
+      '--find-renames',
+      commitHash,
+    ]),
+    runGit(projectPath, [
+      'show',
+      '--format=',
+      '--find-renames',
+      '--no-ext-diff',
+      '--unified=3',
+      commitHash,
+    ]),
   ]);
 
   const statuses = parseNameStatus(nameStatus);
@@ -198,25 +241,46 @@ export async function inspectGitCommitFile(
   filePath: string,
 ): Promise<GitCommitFileDiff> {
   if (!COMMIT_HASH_PATTERN.test(commitHash)) {
-    throw new GitCommitDetailsError('GIT_COMMIT_INVALID', 'Hash de commit inválido.');
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_INVALID',
+      'Hash de commit inválido.',
+    );
   }
 
   await requireRepository(projectPath);
 
   try {
-    await runGit(projectPath, ['rev-parse', '--verify', `${commitHash}^{commit}`]);
+    await runGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      `${commitHash}^{commit}`,
+    ]);
   } catch {
-    throw new GitCommitDetailsError('GIT_COMMIT_NOT_FOUND', 'Commit não encontrado neste repositório.');
+    throw new GitCommitDetailsError(
+      'GIT_COMMIT_NOT_FOUND',
+      'Commit não encontrado neste repositório.',
+    );
   }
 
   const nameStatus = await runGit(projectPath, [
-    'show', '--format=', '--name-status', '-z', '--find-renames', commitHash,
+    'show',
+    '--format=',
+    '--name-status',
+    '-z',
+    '--find-renames',
+    commitHash,
   ]);
   const numstat = await runGit(projectPath, [
-    'show', '--format=', '--numstat', '-z', '--find-renames', commitHash,
+    'show',
+    '--format=',
+    '--numstat',
+    '-z',
+    '--find-renames',
+    commitHash,
   ]);
-  const entry = parseNumstat(numstat, parseNameStatus(nameStatus))
-    .find((file) => file.path === filePath);
+  const entry = parseNumstat(numstat, parseNameStatus(nameStatus)).find(
+    (file) => file.path === filePath,
+  );
 
   if (!entry) {
     throw new GitCommitDetailsError(
@@ -226,15 +290,25 @@ export async function inspectGitCommitFile(
   }
 
   // Renomeados precisam do caminho anterior para o git localizar as duas pontas.
-  const pathArguments = entry.previousPath ? [entry.previousPath, entry.path] : [entry.path];
+  const pathArguments = entry.previousPath
+    ? [entry.previousPath, entry.path]
+    : [entry.path];
   const raw = await runGit(projectPath, [
-    'show', '--format=', '--find-renames', '--no-ext-diff', '--unified=3',
-    commitHash, '--', ...pathArguments,
+    'show',
+    '--format=',
+    '--find-renames',
+    '--no-ext-diff',
+    '--unified=3',
+    commitHash,
+    '--',
+    ...pathArguments,
   ]);
 
   const binary = entry.binary || /^Binary files /m.test(raw);
   const truncated = raw.length > FILE_PATCH_LIMIT;
-  const masked = maskSensitiveLogContent(truncated ? raw.slice(0, FILE_PATCH_LIMIT) : raw);
+  const masked = maskSensitiveLogContent(
+    truncated ? raw.slice(0, FILE_PATCH_LIMIT) : raw,
+  );
 
   return {
     hash: commitHash,

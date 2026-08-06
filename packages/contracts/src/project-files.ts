@@ -97,10 +97,7 @@ export interface ProjectFileWatchRequest {
 }
 
 export type ProjectFileWatchState =
-  | 'unchanged'
-  | 'changed'
-  | 'deleted'
-  | 'unavailable';
+  'unchanged' | 'changed' | 'deleted' | 'unavailable';
 
 export interface ProjectFileWatchItem {
   path: string;

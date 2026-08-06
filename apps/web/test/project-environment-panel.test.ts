@@ -71,7 +71,9 @@ describe('ProjectEnvironmentPanel', () => {
     const wrapper = mount(ProjectEnvironmentPanel, { props: { project } });
     await flushPromises();
 
-    await wrapper.get('button[aria-label="Exibir valor de API_SECRET_TOKEN"]').trigger('click');
+    await wrapper
+      .get('button[aria-label="Exibir valor de API_SECRET_TOKEN"]')
+      .trigger('click');
     await flushPromises();
 
     expect(fetchProjectEnvironmentVariableValue).toHaveBeenCalledWith(
@@ -81,7 +83,9 @@ describe('ProjectEnvironmentPanel', () => {
     );
     expect(wrapper.text()).toContain('super-secreto');
 
-    await wrapper.get('button[aria-label="Ocultar valor de API_SECRET_TOKEN"]').trigger('click');
+    await wrapper
+      .get('button[aria-label="Ocultar valor de API_SECRET_TOKEN"]')
+      .trigger('click');
 
     expect(wrapper.html()).not.toContain('super-secreto');
     expect(wrapper.text()).toContain('Oculto (segredo)');

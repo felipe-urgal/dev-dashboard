@@ -90,7 +90,11 @@ export const projectBrowserRoutes: FastifyPluginAsync<
       const managedProcess = await options.processManager.getServerProcess(
         project.id,
       );
-      if (!managedProcess || managedProcess.status !== 'running' || !managedProcess.url) {
+      if (
+        !managedProcess ||
+        managedProcess.status !== 'running' ||
+        !managedProcess.url
+      ) {
         throw new ApiError({
           statusCode: 409,
           code: 'BROWSER_TARGET_NOT_RUNNING',

@@ -2,10 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { computed, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  ManagedProcess,
-  Project,
-} from '@dev-dashboard/contracts';
+import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
 
 const fetchProjectServerConfiguration = vi.hoisted(() => vi.fn());
 const saveProjectServerSettings = vi.hoisted(() => vi.fn());
@@ -105,9 +102,7 @@ describe('ambiente do servidor Node', () => {
     });
     await flushPromises();
 
-    const select = wrapper.get<HTMLSelectElement>(
-      '.server-environment-select',
-    );
+    const select = wrapper.get<HTMLSelectElement>('.server-environment-select');
     expect(select.element.value).toBe('staging');
     await select.setValue('development');
 
@@ -129,10 +124,7 @@ describe('ambiente do servidor Node', () => {
         environment: 'development',
       }),
     );
-    expect(startProjectProcess).toHaveBeenCalledWith(
-      'p1',
-      { port: null },
-    );
+    expect(startProjectProcess).toHaveBeenCalledWith('p1', { port: null });
 
     wrapper.unmount();
   });

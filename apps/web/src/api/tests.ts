@@ -17,7 +17,9 @@ interface ProcessLogResponse {
   log: ProcessLogSnapshot;
 }
 
-interface ProjectTestsResponse { tests: ProjectTestOverview; }
+interface ProjectTestsResponse {
+  tests: ProjectTestOverview;
+}
 
 export interface ProjectRelatedTests {
   baseBranch: string;
@@ -62,7 +64,7 @@ export async function startProjectTest(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({}),
-    }
+    },
   );
   if (!response.process) {
     throw new Error('A API não retornou o processo iniciado.');
@@ -109,7 +111,7 @@ export async function stopProjectTest(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({}),
-    }
+    },
   );
   if (!response.process) {
     throw new Error('A API não retornou o processo interrompido.');
@@ -138,7 +140,9 @@ export async function clearProjectTestLog(
   return response.log;
 }
 
-interface ProjectTestFilesResponse { files: ProjectTestFile[] }
+interface ProjectTestFilesResponse {
+  files: ProjectTestFile[];
+}
 
 export async function fetchProjectTestFiles(
   projectId: string,
@@ -169,23 +173,32 @@ export async function startProjectTestFile(
   return response.process;
 }
 
-interface TestExecutionHistoryResponse { history: TestExecutionHistory }
+interface TestExecutionHistoryResponse {
+  history: TestExecutionHistory;
+}
 
 export async function fetchProjectTestHistory(
   projectId: string,
   page = 1,
   pageSize = 10,
 ): Promise<TestExecutionHistory> {
-  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
   const response = await requestJson<TestExecutionHistoryResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/history?${query}`,
   );
   return response.history;
 }
 
-interface TestExecutionHistoryClearResponse { history: { removedCount: number } }
+interface TestExecutionHistoryClearResponse {
+  history: { removedCount: number };
+}
 
-export async function clearProjectTestHistory(projectId: string): Promise<number> {
+export async function clearProjectTestHistory(
+  projectId: string,
+): Promise<number> {
   const response = await requestJson<TestExecutionHistoryClearResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/history`,
     { method: 'DELETE' },

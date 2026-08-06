@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-} from 'vue';
+import { computed, ref } from 'vue';
 import {
   MagnifyingGlassIcon,
   PlayIcon,
@@ -18,7 +15,10 @@ import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useDashboardServerActions } from '../composables/useDashboardServerActions';
 import { dashboardStore } from '../stores/dashboard';
-import { recentProjectIds, sortProjectsByPriority } from '../utils/project-priority';
+import {
+  recentProjectIds,
+  sortProjectsByPriority,
+} from '../utils/project-priority';
 
 const {
   projects,
@@ -45,7 +45,9 @@ type ProjectFilter = 'all' | ProjectType;
 const projectSearch = ref('');
 const projectFilter = ref<ProjectFilter>('all');
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
-const visibleRecentProjectIds = computed(() => recentProjectIds(projects.value));
+const visibleRecentProjectIds = computed(() =>
+  recentProjectIds(projects.value),
+);
 
 const projectTypeFilters: Array<{
   value: ProjectFilter;
@@ -63,8 +65,7 @@ const normalizedProjectSearch = computed(() =>
 const filteredProjects = computed(() =>
   sortedProjects.value.filter((project) => {
     const matchesType =
-      projectFilter.value === 'all' ||
-      project.type === projectFilter.value;
+      projectFilter.value === 'all' || project.type === projectFilter.value;
     const matchesSearch =
       normalizedProjectSearch.value.length === 0 ||
       project.name
@@ -80,8 +81,7 @@ const filteredProjects = computed(() =>
 
 const hasActiveProjectFilters = computed(
   () =>
-    projectFilter.value !== 'all' ||
-    normalizedProjectSearch.value.length > 0,
+    projectFilter.value !== 'all' || normalizedProjectSearch.value.length > 0,
 );
 
 const projectsWithServer = computed(() =>
@@ -217,10 +217,7 @@ const {
             {{ projects.length === 1 ? 'projeto' : 'projetos' }}
           </span>
 
-          <div
-            v-if="projectsWithServer.length > 0"
-            class="servers-actions"
-          >
+          <div v-if="projectsWithServer.length > 0" class="servers-actions">
             <button
               type="button"
               class="primary-button servers-action-button servers-start-button"
@@ -319,7 +316,11 @@ const {
         aria-atomic="true"
       >
         {{ filteredProjects.length }}
-        {{ filteredProjects.length === 1 ? 'projeto encontrado' : 'projetos encontrados' }}.
+        {{
+          filteredProjects.length === 1
+            ? 'projeto encontrado'
+            : 'projetos encontrados'
+        }}.
       </p>
 
       <LoadingSkeleton
@@ -328,15 +329,12 @@ const {
         :rows="3"
       />
 
-      <div
-        v-else-if="sortedProjects.length === 0"
-        class="empty-state"
-      >
+      <div v-else-if="sortedProjects.length === 0" class="empty-state">
         <div class="empty-icon">◇</div>
         <h3>Nenhum projeto carregado</h3>
         <p>
-          Cadastre ou selecione um workspace na barra lateral para
-          detectar aplicações Rails e Node.
+          Cadastre ou selecione um workspace na barra lateral para detectar
+          aplicações Rails e Node.
         </p>
       </div>
 

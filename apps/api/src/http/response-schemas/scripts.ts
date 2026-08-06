@@ -3,32 +3,87 @@ export const projectScriptCatalogResponseSchema = {
   additionalProperties: false,
   required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
   properties: {
-    items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'name', 'description', 'command', 'origin', 'risk', 'enabled'], properties: {
-      id: { type: 'string' }, name: { type: 'string' }, description: { type: 'string' }, command: { type: 'string' },
-      origin: { type: 'string', enum: ['package-script', 'package-manager', 'bundler', 'rails-task', 'bin'] },
-      risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] }, enabled: { type: 'boolean' },
-      variables: { type: 'array', maxItems: 20, items: {
-        type: 'object', additionalProperties: false, required: ['name', 'required'], properties: {
-          name: { type: 'string' }, required: { type: 'boolean' },
-          defaultValue: { type: 'string' }, placeholder: { type: 'string' },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'id',
+          'name',
+          'description',
+          'command',
+          'origin',
+          'risk',
+          'enabled',
+        ],
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          command: { type: 'string' },
+          origin: {
+            type: 'string',
+            enum: [
+              'package-script',
+              'package-manager',
+              'bundler',
+              'rails-task',
+              'bin',
+            ],
+          },
+          risk: {
+            type: 'string',
+            enum: ['read-only', 'mutable', 'destructive'],
+          },
+          enabled: { type: 'boolean' },
+          variables: {
+            type: 'array',
+            maxItems: 20,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['name', 'required'],
+              properties: {
+                name: { type: 'string' },
+                required: { type: 'boolean' },
+                defaultValue: { type: 'string' },
+                placeholder: { type: 'string' },
+              },
+            },
+          },
         },
-      } },
-    } } },
-    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' },
+      },
+    },
+    page: { type: 'integer' },
+    pageSize: { type: 'integer' },
+    total: { type: 'integer' },
+    totalPages: { type: 'integer' },
   },
 } as const;
 
 export const scriptExecutionResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'projectId', 'actionId', 'actionName', 'risk', 'status', 'startedAt'],
+  required: [
+    'id',
+    'projectId',
+    'actionId',
+    'actionName',
+    'risk',
+    'status',
+    'startedAt',
+  ],
   properties: {
     id: { type: 'string' },
     projectId: { type: 'string' },
     actionId: { type: 'string' },
     actionName: { type: 'string' },
     risk: { type: 'string', enum: ['read-only', 'mutable', 'destructive'] },
-    status: { type: 'string', enum: ['running', 'succeeded', 'failed', 'cancelled'] },
+    status: {
+      type: 'string',
+      enum: ['running', 'succeeded', 'failed', 'cancelled'],
+    },
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
     exitCode: { type: 'integer' },
@@ -47,11 +102,15 @@ export const latestScriptExecutionResponseSchema = {
 } as const;
 
 export const scriptExecutionHistoryResponseSchema = {
-  type: 'object', additionalProperties: false,
+  type: 'object',
+  additionalProperties: false,
   required: ['items', 'page', 'pageSize', 'total', 'totalPages'],
   properties: {
     items: { type: 'array', items: scriptExecutionResponseSchema },
-    page: { type: 'integer' }, pageSize: { type: 'integer' }, total: { type: 'integer' }, totalPages: { type: 'integer' },
+    page: { type: 'integer' },
+    pageSize: { type: 'integer' },
+    total: { type: 'integer' },
+    totalPages: { type: 'integer' },
   },
 } as const;
 

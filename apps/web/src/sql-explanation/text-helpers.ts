@@ -14,5 +14,7 @@ export function code(value: string): string {
 }
 
 export function unique(values: Array<string | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value))),
+  );
 }

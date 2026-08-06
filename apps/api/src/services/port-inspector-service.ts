@@ -1,4 +1,3 @@
-
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 
@@ -15,11 +14,7 @@ const MAX_OUTPUT_BYTES = 256 * 1_024;
 const DEFAULT_MAX_ENTRIES = 100;
 const MAX_SUGGESTION_DISTANCE = 100;
 
-const ACTIVE_STATUSES = new Set([
-  'starting',
-  'running',
-  'stopping',
-]);
+const ACTIVE_STATUSES = new Set(['starting', 'running', 'stopping']);
 
 interface ParsedSocket {
   address: string;
@@ -35,8 +30,7 @@ interface PendingEntry {
   externalName?: string;
 }
 
-export interface ExpectedLocalPort
-  extends LocalPortExpectation {
+export interface ExpectedLocalPort extends LocalPortExpectation {
   port: number;
 }
 
@@ -119,9 +113,7 @@ function normalizeAddress(
     /^127(?:\.\d{1,3}){3}$/.test(address)
   ) {
     return {
-      address: address === 'localhost'
-        ? '127.0.0.1'
-        : address,
+      address: address === 'localhost' ? '127.0.0.1' : address,
       scope: 'loopback',
     };
   }
@@ -129,25 +121,18 @@ function normalizeAddress(
   return null;
 }
 
-function parseEndpoint(value: string): Pick<
-  ParsedSocket,
-  'address' | 'port' | 'scope'
-> | null {
+function parseEndpoint(
+  value: string,
+): Pick<ParsedSocket, 'address' | 'port' | 'scope'> | null {
   const separator = value.lastIndexOf(':');
   if (separator <= 0) return null;
 
   const port = Number(value.slice(separator + 1));
-  if (
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65_535
-  ) {
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     return null;
   }
 
-  const normalized = normalizeAddress(
-    value.slice(0, separator),
-  );
+  const normalized = normalizeAddress(value.slice(0, separator));
   if (!normalized) return null;
 
   return {
@@ -161,16 +146,10 @@ function parseSocketLine(line: string): ParsedSocket | null {
   const endpoint = parseEndpoint(columns[3] ?? '');
   if (!endpoint) return null;
 
-  const processMatch = line.match(
-    /\("([^"]{1,64})",pid=(\d+)/,
-  );
-  const parsedPid = processMatch?.[2]
-    ? Number(processMatch[2])
-    : undefined;
+  const processMatch = line.match(/\("([^"]{1,64})",pid=(\d+)/);
+  const parsedPid = processMatch?.[2] ? Number(processMatch[2]) : undefined;
   const pid =
-    parsedPid !== undefined &&
-    Number.isInteger(parsedPid) &&
-    parsedPid > 0
+    parsedPid !== undefined && Number.isInteger(parsedPid) && parsedPid > 0
       ? parsedPid
       : undefined;
 
@@ -191,11 +170,7 @@ function parseSockets(contents: string): ParsedSocket[] {
     const socket = parseSocketLine(line);
     if (!socket) continue;
 
-    const key = [
-      socket.address,
-      socket.port,
-      socket.pid ?? '',
-    ].join(':');
+    const key = [socket.address, socket.port, socket.pid ?? ''].join(':');
     if (seen.has(key)) continue;
     seen.add(key);
     sockets.push(socket);
@@ -210,35 +185,23 @@ function chooseManagedProcess(
 ): ManagedProcess | undefined {
   const candidates = managedProcesses.filter(
     (managed) =>
-      managed.port === socket.port &&
-      ACTIVE_STATUSES.has(managed.status),
+      managed.port === socket.port && ACTIVE_STATUSES.has(managed.status),
   );
 
   if (socket.pid !== undefined) {
-    return candidates.find(
-      (managed) => managed.pid === socket.pid,
-    );
+    return candidates.find((managed) => managed.pid === socket.pid);
   }
 
-  return candidates.length === 1
-    ? candidates[0]
-    : undefined;
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 function nextSuggestedPort(
   port: number,
   occupiedPorts: ReadonlySet<number>,
 ): number | undefined {
-  const finalPort = Math.min(
-    65_535,
-    port + MAX_SUGGESTION_DISTANCE,
-  );
+  const finalPort = Math.min(65_535, port + MAX_SUGGESTION_DISTANCE);
 
-  for (
-    let candidate = port + 1;
-    candidate <= finalPort;
-    candidate += 1
-  ) {
+  for (let candidate = port + 1; candidate <= finalPort; candidate += 1) {
     if (!occupiedPorts.has(candidate)) return candidate;
   }
 
@@ -261,10 +224,7 @@ function groupExpectations(
 
     const current = grouped.get(expected.port) ?? [];
     if (
-      current.some(
-        (candidate) =>
-          candidate.projectId === expected.projectId,
-      )
+      current.some((candidate) => candidate.projectId === expected.projectId)
     ) {
       continue;
     }
@@ -287,33 +247,23 @@ export class PortInspectorService {
   private readonly platform: NodeJS.Platform;
   private readonly now: () => Date;
   private readonly runSs: () => Promise<string>;
-  private readonly readTextFile: (
-    filePath: string,
-  ) => Promise<string>;
+  private readonly readTextFile: (filePath: string) => Promise<string>;
   private readonly getUid: () => number | undefined;
   private readonly maxEntries: number;
 
-  public constructor(
-    options: PortInspectorServiceOptions = {},
-  ) {
+  public constructor(options: PortInspectorServiceOptions = {}) {
     this.platform = options.platform ?? process.platform;
     this.now = options.now ?? (() => new Date());
     this.runSs = options.runSs ?? runSsCommand;
     this.readTextFile =
-      options.readTextFile ??
-      ((filePath) => readFile(filePath, 'utf8'));
+      options.readTextFile ?? ((filePath) => readFile(filePath, 'utf8'));
     this.getUid =
       options.getUid ??
       (() =>
-        typeof process.getuid === 'function'
-          ? process.getuid()
-          : undefined);
+        typeof process.getuid === 'function' ? process.getuid() : undefined);
     this.maxEntries = Math.max(
       1,
-      Math.min(
-        DEFAULT_MAX_ENTRIES,
-        options.maxEntries ?? DEFAULT_MAX_ENTRIES,
-      ),
+      Math.min(DEFAULT_MAX_ENTRIES, options.maxEntries ?? DEFAULT_MAX_ENTRIES),
     );
   }
 
@@ -326,18 +276,13 @@ export class PortInspectorService {
 
     let status: string;
     try {
-      status = await this.readTextFile(
-        `/proc/${pid}/status`,
-      );
+      status = await this.readTextFile(`/proc/${pid}/status`);
     } catch {
       return undefined;
     }
 
     const uidMatch = status.match(/^Uid:\s+(\d+)/m);
-    if (
-      !uidMatch?.[1] ||
-      Number(uidMatch[1]) !== currentUid
-    ) {
+    if (!uidMatch?.[1] || Number(uidMatch[1]) !== currentUid) {
       return undefined;
     }
 
@@ -388,33 +333,22 @@ export class PortInspectorService {
     }
 
     const sockets = parseSockets(output);
-    const occupiedPorts = new Set(
-      sockets.map((socket) => socket.port),
-    );
+    const occupiedPorts = new Set(sockets.map((socket) => socket.port));
     const managedProcesses = input.managedProcesses ?? [];
     const projectNames = input.projectNames ?? {};
-    const expectations = groupExpectations(
-      input.expectedPorts ?? [],
-    );
+    const expectations = groupExpectations(input.expectedPorts ?? []);
     const pending: PendingEntry[] = [];
 
     for (const socket of sockets) {
       const expected = expectations.get(socket.port) ?? [];
-      const managed = chooseManagedProcess(
-        socket,
-        managedProcesses,
-      );
+      const managed = chooseManagedProcess(socket, managedProcesses);
       const conflict =
         expected.length > 0 &&
         expected.some(
-          (candidate) =>
-            managed?.projectId !== candidate.projectId,
+          (candidate) => managed?.projectId !== candidate.projectId,
         );
       const suggestedPort = conflict
-        ? nextSuggestedPort(
-            socket.port,
-            occupiedPorts,
-          )
+        ? nextSuggestedPort(socket.port, occupiedPorts)
         : undefined;
 
       const entry: LocalPortEntry = {
@@ -430,16 +364,13 @@ export class PortInspectorService {
                 id: managed.id,
                 projectId: managed.projectId,
                 projectName:
-                  projectNames[managed.projectId] ??
-                  managed.projectId,
+                  projectNames[managed.projectId] ?? managed.projectId,
                 kind: managed.kind,
                 status: managed.status,
               },
             }
           : {}),
-        ...(suggestedPort !== undefined
-          ? { suggestedPort }
-          : {}),
+        ...(suggestedPort !== undefined ? { suggestedPort } : {}),
       };
 
       pending.push({
@@ -470,8 +401,7 @@ export class PortInspectorService {
 
     pending.sort((left, right) => {
       const conflictDifference =
-        Number(right.entry.conflict) -
-        Number(left.entry.conflict);
+        Number(right.entry.conflict) - Number(left.entry.conflict);
       if (conflictDifference !== 0) {
         return conflictDifference;
       }
@@ -483,12 +413,9 @@ export class PortInspectorService {
         return expectedDifference;
       }
 
-      const portDifference =
-        left.entry.port - right.entry.port;
+      const portDifference = left.entry.port - right.entry.port;
       if (portDifference !== 0) return portDifference;
-      return left.entry.address.localeCompare(
-        right.entry.address,
-      );
+      return left.entry.address.localeCompare(right.entry.address);
     });
 
     const truncated = pending.length > this.maxEntries;

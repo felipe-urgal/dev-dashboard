@@ -10,12 +10,8 @@ export async function detectPythonCommands(
   project: Project,
 ): Promise<DetectedTestCommand[]> {
   // Só oferece pytest se houver sinal explícito de Python + pytest.
-  const hasPytestIni = await pathExists(
-    path.join(project.path, 'pytest.ini'),
-  );
-  const hasConftest = await pathExists(
-    path.join(project.path, 'conftest.py'),
-  );
+  const hasPytestIni = await pathExists(path.join(project.path, 'pytest.ini'));
+  const hasConftest = await pathExists(path.join(project.path, 'conftest.py'));
 
   let pyprojectDeclaresPytest = false;
   try {
@@ -74,9 +70,8 @@ export async function detectPythonCommands(
       runner: 'pytest',
       label: 'pytest',
       description: 'Executa o pytest na raiz do projeto.',
-      origin: hasPytestIni || pyprojectDeclaresPytest
-        ? 'python-config'
-        : 'directory',
+      origin:
+        hasPytestIni || pyprojectDeclaresPytest ? 'python-config' : 'directory',
       originDetail,
       priority: 40,
       resolved: { command: 'pytest', args: [] },

@@ -26,7 +26,9 @@ export function readVisualPreferences(storage?: Storage): VisualPreferences {
   const theme = storedValue(storage, THEME_KEY);
 
   return {
-    theme: THEMES.includes(theme as Theme) ? theme as Theme : DEFAULT_VISUAL_PREFERENCES.theme,
+    theme: THEMES.includes(theme as Theme)
+      ? (theme as Theme)
+      : DEFAULT_VISUAL_PREFERENCES.theme,
   };
 }
 

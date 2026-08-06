@@ -1,13 +1,20 @@
 import { open } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { GitDiffFile, GitDiffScope, GitFileChange } from '@dev-dashboard/contracts';
+import type {
+  GitDiffFile,
+  GitDiffScope,
+  GitFileChange,
+} from '@dev-dashboard/contracts';
 
 import { GIT_DIFF_FILE_LIMIT, EMPTY_TREE_HASH } from './constants.js';
 import { GitDiffError } from './errors.js';
 import { runGit } from './run.js';
 
-export async function resolveDiffBase(projectPath: string, scope: GitDiffScope): Promise<string | null> {
+export async function resolveDiffBase(
+  projectPath: string,
+  scope: GitDiffScope,
+): Promise<string | null> {
   if (scope === 'worktree') return null;
   try {
     await runGit(projectPath, ['rev-parse', '--verify', '--quiet', 'HEAD']);
@@ -17,13 +24,21 @@ export async function resolveDiffBase(projectPath: string, scope: GitDiffScope):
   }
 }
 
-export function gitDiffArgs(scope: GitDiffScope, base: string | null, extra: readonly string[] = []): string[] {
-  if (scope === 'index') return ['diff', '--cached', ...(base ? [base] : []), ...extra];
+export function gitDiffArgs(
+  scope: GitDiffScope,
+  base: string | null,
+  extra: readonly string[] = [],
+): string[] {
+  if (scope === 'index')
+    return ['diff', '--cached', ...(base ? [base] : []), ...extra];
   if (scope === 'combined') return ['diff', ...(base ? [base] : []), ...extra];
   return ['diff', ...extra];
 }
 
-export function parseNumstat(output: string, statusByPath: Map<string, GitFileChange>): GitDiffFile[] {
+export function parseNumstat(
+  output: string,
+  statusByPath: Map<string, GitFileChange>,
+): GitDiffFile[] {
   const files: GitDiffFile[] = [];
   const records = output.split('\0');
   let index = 0;
@@ -51,7 +66,8 @@ export function parseNumstat(output: string, statusByPath: Map<string, GitFileCh
 
     const change = statusByPath.get(filePath);
     const effectivePreviousPath = previousPath || change?.previousPath;
-    const effectiveStatus = change?.status ?? (previousPath ? 'renamed' : 'modified');
+    const effectiveStatus =
+      change?.status ?? (previousPath ? 'renamed' : 'modified');
     files.push({
       path: filePath,
       ...(effectivePreviousPath ? { previousPath: effectivePreviousPath } : {}),
@@ -64,24 +80,39 @@ export function parseNumstat(output: string, statusByPath: Map<string, GitFileCh
   return files;
 }
 
-export function ensurePathInsideProject(projectPath: string, requested: string): string {
+export function ensurePathInsideProject(
+  projectPath: string,
+  requested: string,
+): string {
   if (!requested || requested.includes('\0')) {
-    throw new GitDiffError('GIT_DIFF_PATH_INVALID', 'Caminho inválido para diff.');
+    throw new GitDiffError(
+      'GIT_DIFF_PATH_INVALID',
+      'Caminho inválido para diff.',
+    );
   }
   const normalizedProject = path.resolve(projectPath);
   const resolved = path.resolve(normalizedProject, requested);
   const relative = path.relative(normalizedProject, resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new GitDiffError('GIT_DIFF_PATH_OUTSIDE_PROJECT', 'Caminho fora do projeto.');
+    throw new GitDiffError(
+      'GIT_DIFF_PATH_OUTSIDE_PROJECT',
+      'Caminho fora do projeto.',
+    );
   }
   return relative || '.';
 }
 
-export async function readIndexBlob(projectPath: string, safePath: string): Promise<string> {
+export async function readIndexBlob(
+  projectPath: string,
+  safePath: string,
+): Promise<string> {
   try {
     return await runGit(projectPath, ['show', `:${safePath}`]);
   } catch {
-    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O arquivo não está no índice.');
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      'O arquivo não está no índice.',
+    );
   }
 }
 
@@ -90,18 +121,27 @@ export async function readIndexBlob(projectPath: string, safePath: string): Prom
  * contexto numera linhas a partir do topo, então o começo é o trecho útil —
  * ao contrário dos logs, onde o final é que importa.
  */
-export async function readWorkingTreeFile(projectPath: string, safePath: string): Promise<string> {
+export async function readWorkingTreeFile(
+  projectPath: string,
+  safePath: string,
+): Promise<string> {
   const absolute = path.resolve(projectPath, safePath);
   let handle;
   try {
     handle = await open(absolute, 'r');
   } catch {
-    throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'Arquivo indisponível na árvore de trabalho.');
+    throw new GitDiffError(
+      'GIT_DIFF_LINES_UNAVAILABLE',
+      'Arquivo indisponível na árvore de trabalho.',
+    );
   }
   try {
     const stats = await handle.stat();
     if (!stats.isFile()) {
-      throw new GitDiffError('GIT_DIFF_LINES_UNAVAILABLE', 'O caminho não é um arquivo comum.');
+      throw new GitDiffError(
+        'GIT_DIFF_LINES_UNAVAILABLE',
+        'O caminho não é um arquivo comum.',
+      );
     }
     const size = Math.min(stats.size, GIT_DIFF_FILE_LIMIT);
     const buffer = Buffer.alloc(size);

@@ -1,11 +1,19 @@
-import { WORD_DIFF_MAX_CELLS, WORD_DIFF_MIN_SIMILARITY, WORD_PATTERN } from './constants';
+import {
+  WORD_DIFF_MAX_CELLS,
+  WORD_DIFF_MIN_SIMILARITY,
+  WORD_PATTERN,
+} from './constants';
 import type { GitDiffWordRange, GitUnifiedDiffLine } from './types';
 
 function tokenizeLine(text: string): string[] {
   return text.match(WORD_PATTERN) ?? [];
 }
 
-function appendRange(ranges: GitDiffWordRange[], start: number, end: number): void {
+function appendRange(
+  ranges: GitDiffWordRange[],
+  start: number,
+  end: number,
+): void {
   const last = ranges.at(-1);
   if (last && last.end === start) last.end = end;
   else ranges.push({ start, end });
@@ -29,20 +37,24 @@ export function computeGitDiffWordRanges(
   if (left.length === 0 || right.length === 0) return null;
   if (left.length * right.length > WORD_DIFF_MAX_CELLS) return null;
 
-  const table: number[][] = Array.from(
-    { length: left.length + 1 },
-    () => new Array<number>(right.length + 1).fill(0),
+  const table: number[][] = Array.from({ length: left.length + 1 }, () =>
+    new Array<number>(right.length + 1).fill(0),
   );
   for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
     for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
-      table[leftIndex]![rightIndex] = left[leftIndex] === right[rightIndex]
-        ? table[leftIndex + 1]![rightIndex + 1]! + 1
-        : Math.max(table[leftIndex + 1]![rightIndex]!, table[leftIndex]![rightIndex + 1]!);
+      table[leftIndex]![rightIndex] =
+        left[leftIndex] === right[rightIndex]
+          ? table[leftIndex + 1]![rightIndex + 1]! + 1
+          : Math.max(
+              table[leftIndex + 1]![rightIndex]!,
+              table[leftIndex]![rightIndex + 1]!,
+            );
     }
   }
 
   const common = table[0]![0]!;
-  if (common / Math.max(left.length, right.length) < WORD_DIFF_MIN_SIMILARITY) return null;
+  if (common / Math.max(left.length, right.length) < WORD_DIFF_MIN_SIMILARITY)
+    return null;
 
   const leftRanges: GitDiffWordRange[] = [];
   const rightRanges: GitDiffWordRange[] = [];
@@ -59,7 +71,9 @@ export function computeGitDiffWordRanges(
       rightOffset += rightToken.length;
       leftIndex += 1;
       rightIndex += 1;
-    } else if (table[leftIndex + 1]![rightIndex]! >= table[leftIndex]![rightIndex + 1]!) {
+    } else if (
+      table[leftIndex + 1]![rightIndex]! >= table[leftIndex]![rightIndex + 1]!
+    ) {
       appendRange(leftRanges, leftOffset, leftOffset + leftToken.length);
       leftOffset += leftToken.length;
       leftIndex += 1;

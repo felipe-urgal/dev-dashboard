@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import {
-  access,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -37,7 +31,9 @@ async function makeRepo(): Promise<string> {
 
 test('desfaz commit local com reset soft e mantém alterações staged', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   const initialHead = (await git(root, ['rev-parse', 'HEAD'])).trim();
   await writeFile(path.join(root, 'README.md'), 'v2\n');
@@ -64,13 +60,20 @@ test('desfaz commit local com reset soft e mantém alterações staged', async (
 
 test('reverte commit já publicado sem reescrever histórico', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   await writeFile(path.join(root, 'README.md'), 'publicado\n');
   await git(root, ['add', '.']);
   await git(root, ['commit', '-q', '-m', 'commit publicado']);
   const publishedHead = (await git(root, ['rev-parse', 'HEAD'])).trim();
-  await git(root, ['remote', 'add', 'origin', 'https://example.invalid/projeto.git']);
+  await git(root, [
+    'remote',
+    'add',
+    'origin',
+    'https://example.invalid/projeto.git',
+  ]);
   await git(root, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
   await git(root, ['branch', '--set-upstream-to=origin/main', 'main']);
 
@@ -94,7 +97,9 @@ test('reverte commit já publicado sem reescrever histórico', async (context) =
 
 test('desfaz arquivo modificado mesmo quando está staged', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   await writeFile(path.join(root, 'README.md'), 'alterado\n');
   await git(root, ['add', 'README.md']);
@@ -120,7 +125,9 @@ test('desfaz arquivo modificado mesmo quando está staged', async (context) => {
 
 test('desfazer arquivo não rastreado remove o arquivo', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   const filePath = path.join(root, 'temporario.txt');
   await writeFile(filePath, 'temporário\n');
@@ -140,7 +147,9 @@ test('desfazer arquivo não rastreado remove o arquivo', async (context) => {
 
 test('confirmação inválida não altera o repositório', async (context) => {
   const root = await makeRepo();
-  context.after(async () => { await rm(root, { recursive: true, force: true }); });
+  context.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   await writeFile(path.join(root, 'README.md'), 'alterado\n');
   const service = new GitUndoService();
@@ -148,9 +157,12 @@ test('confirmação inválida não altera o repositório', async (context) => {
   await assert.rejects(
     () => service.undoFile(root, 'p1', 'README.md'),
     (error: unknown) =>
-      error instanceof GitUndoError
-      && error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
+      error instanceof GitUndoError &&
+      error.code === 'GIT_MUTATION_CONFIRMATION_REQUIRED',
   );
 
-  assert.equal(await readFile(path.join(root, 'README.md'), 'utf8'), 'alterado\n');
+  assert.equal(
+    await readFile(path.join(root, 'README.md'), 'utf8'),
+    'alterado\n',
+  );
 });

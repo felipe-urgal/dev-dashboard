@@ -47,15 +47,9 @@ export function registerServerProcessRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
-      const managedProcess =
-        await processManager.getServerProcess(
-          project.id,
-        );
+      const managedProcess = await processManager.getServerProcess(project.id);
 
       return {
         process: managedProcess,
@@ -96,22 +90,16 @@ export function registerServerProcessRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
       try {
-        const log = await processManager.readServerLog(
-          project.id,
-          {
-            ...(request.query.maxBytes !== undefined
-              ? {
-                  maxBytes: request.query.maxBytes,
-                }
-              : {}),
-          },
-        );
+        const log = await processManager.readServerLog(project.id, {
+          ...(request.query.maxBytes !== undefined
+            ? {
+                maxBytes: request.query.maxBytes,
+              }
+            : {}),
+        });
 
         return {
           log,
@@ -147,16 +135,11 @@ export function registerServerProcessRoutes(
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
       try {
         return {
-          log: await processManager.clearServerLog(
-            project.id,
-          ),
+          log: await processManager.clearServerLog(project.id),
         };
       } catch (error) {
         if (error instanceof ProcessManagerError) {
@@ -195,44 +178,29 @@ export function registerServerProcessRoutes(
           },
         },
         response: {
-          201: processEnvelopeResponseSchema(
-            managedProcessResponseSchema,
-          ),
+          201: processEnvelopeResponseSchema(managedProcessResponseSchema),
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request, reply) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
       try {
-        let settings =
-          await serverSettingsRepository.find(
-            project.id,
-          );
+        let settings = await serverSettingsRepository.find(project.id);
 
         if (request.body.port !== undefined) {
-          settings =
-            await serverSettingsRepository.save(
-              project.id,
-              {
-                ...(request.body.port !== null
-                  ? { port: request.body.port }
-                  : {}),
-                ...(settings.healthCheckPath
-                  ? {
-                      healthCheckPath:
-                        settings.healthCheckPath,
-                    }
-                  : {}),
-                ...(settings.environment
-                  ? { environment: settings.environment }
-                  : {}),
-              },
-            );
+          settings = await serverSettingsRepository.save(project.id, {
+            ...(request.body.port !== null ? { port: request.body.port } : {}),
+            ...(settings.healthCheckPath
+              ? {
+                  healthCheckPath: settings.healthCheckPath,
+                }
+              : {}),
+            ...(settings.environment
+              ? { environment: settings.environment }
+              : {}),
+          });
         }
 
         if (project.type === 'node') {
@@ -242,17 +210,13 @@ export function registerServerProcessRoutes(
           );
         }
 
-        const managedProcess =
-          await processManager.startServer(
-            project,
-            {
-              ...(settings.port !== undefined
-                ? {
-                    port: settings.port,
-                  }
-                : {}),
-            },
-          );
+        const managedProcess = await processManager.startServer(project, {
+          ...(settings.port !== undefined
+            ? {
+                port: settings.port,
+              }
+            : {}),
+        });
 
         return reply.code(201).send({
           process: managedProcess,
@@ -262,9 +226,7 @@ export function registerServerProcessRoutes(
           throw processManagerApiError(error);
         }
 
-        if (
-          error instanceof ProjectServerSettingsError
-        ) {
+        if (error instanceof ProjectServerSettingsError) {
           throw serverSettingsApiError(error);
         }
 
@@ -279,8 +241,7 @@ export function registerServerProcessRoutes(
         throw new ApiError({
           statusCode: 500,
           code: 'PROCESS_START_FAILED',
-          message:
-            'Não foi possível iniciar o servidor.',
+          message: 'Não foi possível iniciar o servidor.',
         });
       }
     },
@@ -294,24 +255,16 @@ export function registerServerProcessRoutes(
       schema: {
         params: projectParamsSchema,
         response: {
-          200: processEnvelopeResponseSchema(
-            managedProcessResponseSchema,
-          ),
+          200: processEnvelopeResponseSchema(managedProcessResponseSchema),
           ...commonErrorResponseSchemas,
         },
       },
     },
     async (request) => {
-      const project = requireProject(
-        projectStore,
-        request.params.projectId,
-      );
+      const project = requireProject(projectStore, request.params.projectId);
 
       try {
-        const managedProcess =
-          await processManager.stopServer(
-            project.id,
-          );
+        const managedProcess = await processManager.stopServer(project.id);
 
         return {
           process: managedProcess,

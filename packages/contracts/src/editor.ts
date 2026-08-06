@@ -1,9 +1,5 @@
 export type ProjectEditorId =
-  | 'vscode'
-  | 'cursor'
-  | 'vscodium'
-  | 'sublime'
-  | 'zed';
+  'vscode' | 'cursor' | 'vscodium' | 'sublime' | 'zed';
 
 export interface ProjectEditor {
   id: ProjectEditorId;

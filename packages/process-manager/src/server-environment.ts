@@ -15,12 +15,9 @@ import {
 } from './server-settings.js';
 
 const MAX_ENVIRONMENT_FILE_BYTES = 256 * 1_024;
-const TEMPLATE_OR_LOCAL_SUFFIX =
-  /(?:^|\.)(?:local|sample|example)$/i;
+const TEMPLATE_OR_LOCAL_SUFFIX = /(?:^|\.)(?:local|sample|example)$/i;
 
-function isErrnoException(
-  error: unknown,
-): error is NodeJS.ErrnoException {
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }
 
@@ -50,10 +47,7 @@ export async function listNodeServerEnvironments(
 
     const environment = entry.name.slice('.env.'.length);
 
-    if (
-      !environment ||
-      TEMPLATE_OR_LOCAL_SUFFIX.test(environment)
-    ) {
+    if (!environment || TEMPLATE_OR_LOCAL_SUFFIX.test(environment)) {
       continue;
     }
 
@@ -65,9 +59,7 @@ export async function listNodeServerEnvironments(
     }
   }
 
-  return [...environments].sort((left, right) =>
-    left.localeCompare(right),
-  );
+  return [...environments].sort((left, right) => left.localeCompare(right));
 }
 
 export async function prepareNodeServerEnvironment(
@@ -105,10 +97,7 @@ export async function prepareNodeServerEnvironment(
     );
   }
 
-  const source = path.join(
-    projectPath,
-    `.env.${selectedEnvironment}`,
-  );
+  const source = path.join(projectPath, `.env.${selectedEnvironment}`);
   const target = path.join(projectPath, '.env.local');
   const temporary = path.join(
     projectPath,
@@ -117,10 +106,7 @@ export async function prepareNodeServerEnvironment(
 
   const sourceStats = await stat(source);
 
-  if (
-    !sourceStats.isFile() ||
-    sourceStats.size > MAX_ENVIRONMENT_FILE_BYTES
-  ) {
+  if (!sourceStats.isFile() || sourceStats.size > MAX_ENVIRONMENT_FILE_BYTES) {
     throw new ProjectServerSettingsError(
       'SERVER_ENVIRONMENT_FILE_TOO_LARGE',
       'O arquivo de ambiente excede o limite seguro de 256 KiB.',

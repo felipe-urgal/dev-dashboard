@@ -14,14 +14,19 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 
 const HISTORY_VERSION = 1;
 const DEFAULT_HISTORY_LIMIT = 50;
-const OPEN_STATUSES: readonly TestExecutionStatus[] = ['starting', 'running', 'stopping'];
+const OPEN_STATUSES: readonly TestExecutionStatus[] = [
+  'starting',
+  'running',
+  'stopping',
+];
 const FILE_SUFFIX = ':file';
 
 const SUBSCRIBER_LIMIT_PER_PROJECT = 5;
 const SUBSCRIBER_LIMIT_TOTAL = 20;
 const POLL_INTERVAL_MS = 500;
 
-export type TestExecutionSubscriptionErrorCode = 'TEST_EXECUTION_NOT_FOUND' | 'TEST_EXECUTION_SUBSCRIBER_LIMIT';
+export type TestExecutionSubscriptionErrorCode =
+  'TEST_EXECUTION_NOT_FOUND' | 'TEST_EXECUTION_SUBSCRIBER_LIMIT';
 
 export class TestExecutionSubscriptionError extends Error {
   public constructor(
@@ -38,24 +43,38 @@ export interface TestExecutionSubscriber {
   close: () => void;
 }
 
-interface StoredHistory { version: 1; items: TestExecutionRecord[] }
+interface StoredHistory {
+  version: 1;
+  items: TestExecutionRecord[];
+}
 
 function isValidRecord(value: unknown): value is TestExecutionRecord {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
   return (
-    typeof item.id === 'string' && item.id.length > 0 &&
-    typeof item.projectId === 'string' && item.projectId.length > 0 &&
-    typeof item.commandId === 'string' && item.commandId.length > 0 &&
+    typeof item.id === 'string' &&
+    item.id.length > 0 &&
+    typeof item.projectId === 'string' &&
+    item.projectId.length > 0 &&
+    typeof item.commandId === 'string' &&
+    item.commandId.length > 0 &&
     (item.targetFile === undefined || typeof item.targetFile === 'string') &&
-    ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(String(item.status)) &&
-    typeof item.startedAt === 'string' && Number.isFinite(Date.parse(item.startedAt)) &&
-    (item.finishedAt === undefined || (typeof item.finishedAt === 'string' && Number.isFinite(Date.parse(item.finishedAt)))) &&
+    ['starting', 'running', 'stopping', 'stopped', 'failed'].includes(
+      String(item.status),
+    ) &&
+    typeof item.startedAt === 'string' &&
+    Number.isFinite(Date.parse(item.startedAt)) &&
+    (item.finishedAt === undefined ||
+      (typeof item.finishedAt === 'string' &&
+        Number.isFinite(Date.parse(item.finishedAt)))) &&
     (item.exitCode === undefined || Number.isInteger(item.exitCode))
   );
 }
 
-function deriveTarget(managedProcess: ManagedProcess): { commandId: string; targetFile?: string } {
+function deriveTarget(managedProcess: ManagedProcess): {
+  commandId: string;
+  targetFile?: string;
+} {
   const prefix = `${managedProcess.projectId}:${managedProcess.kind}:`;
   const rawId = managedProcess.id.startsWith(prefix)
     ? managedProcess.id.slice(prefix.length)
@@ -77,14 +96,21 @@ function sanitizeProjectId(projectId: string): string {
 export class TestExecutionHistoryService {
   private readonly stateDirectory: string;
   private readonly historyLimit: number;
-  private readonly subscribers = new Map<string, Set<TestExecutionSubscriber>>();
+  private readonly subscribers = new Map<
+    string,
+    Set<TestExecutionSubscriber>
+  >();
   private readonly pollTimers = new Map<string, NodeJS.Timeout>();
   private readonly lastSentStatus = new Map<string, TestExecutionStatus>();
   private readonly lastSentLog = new Map<string, string>();
 
   public constructor(
-    private readonly processManager: Pick<ProcessManager, 'getTestProcess' | 'readTestLog'>,
-    stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() || path.join(homedir(), '.local', 'state', 'dev-dashboard'),
+    private readonly processManager: Pick<
+      ProcessManager,
+      'getTestProcess' | 'readTestLog'
+    >,
+    stateDirectory = process.env.DEV_DASHBOARD_STATE_DIR?.trim() ||
+      path.join(homedir(), '.local', 'state', 'dev-dashboard'),
     historyLimit = readHistoryLimit(),
   ) {
     this.stateDirectory = path.resolve(stateDirectory, 'tests-history');
@@ -102,23 +128,41 @@ export class TestExecutionHistoryService {
     this.lastSentLog.clear();
   }
 
-  public async subscribe(projectId: string, subscriber: TestExecutionSubscriber): Promise<() => void> {
+  public async subscribe(
+    projectId: string,
+    subscriber: TestExecutionSubscriber,
+  ): Promise<() => void> {
     const current = await this.processManager.getTestProcess(projectId);
     if (!current) {
-      throw new TestExecutionSubscriptionError('TEST_EXECUTION_NOT_FOUND', 'Não há execução de teste em andamento para este projeto.');
+      throw new TestExecutionSubscriptionError(
+        'TEST_EXECUTION_NOT_FOUND',
+        'Não há execução de teste em andamento para este projeto.',
+      );
     }
 
-    const projectSubscribers = this.subscribers.get(projectId) ?? new Set<TestExecutionSubscriber>();
-    const totalSubscribers = Array.from(this.subscribers.values()).reduce((sum, set) => sum + set.size, 0);
-    if (projectSubscribers.size >= SUBSCRIBER_LIMIT_PER_PROJECT || totalSubscribers >= SUBSCRIBER_LIMIT_TOTAL) {
-      throw new TestExecutionSubscriptionError('TEST_EXECUTION_SUBSCRIBER_LIMIT', 'O limite de acompanhamentos simultâneos foi atingido.');
+    const projectSubscribers =
+      this.subscribers.get(projectId) ?? new Set<TestExecutionSubscriber>();
+    const totalSubscribers = Array.from(this.subscribers.values()).reduce(
+      (sum, set) => sum + set.size,
+      0,
+    );
+    if (
+      projectSubscribers.size >= SUBSCRIBER_LIMIT_PER_PROJECT ||
+      totalSubscribers >= SUBSCRIBER_LIMIT_TOTAL
+    ) {
+      throw new TestExecutionSubscriptionError(
+        'TEST_EXECUTION_SUBSCRIBER_LIMIT',
+        'O limite de acompanhamentos simultâneos foi atingido.',
+      );
     }
     projectSubscribers.add(subscriber);
     this.subscribers.set(projectId, projectSubscribers);
 
     subscriber.send({ type: 'state', process: current });
     this.lastSentStatus.set(projectId, current.status);
-    const log = await this.processManager.readTestLog(projectId).catch(() => null);
+    const log = await this.processManager
+      .readTestLog(projectId)
+      .catch(() => null);
     if (log) {
       subscriber.send({ type: 'log', log });
       this.lastSentLog.set(projectId, log.content);
@@ -141,7 +185,9 @@ export class TestExecutionHistoryService {
     // Sem unref(): a assinatura precisa manter o laço de eventos vivo enquanto
     // houver acompanhamento ativo (o listener HTTP do servidor já cumpre esse
     // papel em produção, mas a chamada explícita evita depender disso).
-    const timer = setInterval(() => { void this.pollOnce(projectId); }, POLL_INTERVAL_MS);
+    const timer = setInterval(() => {
+      void this.pollOnce(projectId);
+    }, POLL_INTERVAL_MS);
     this.pollTimers.set(projectId, timer);
   }
 
@@ -153,8 +199,12 @@ export class TestExecutionHistoryService {
     this.lastSentLog.delete(projectId);
   }
 
-  private emitToSubscribers(projectId: string, event: TestExecutionEvent): void {
-    for (const subscriber of this.subscribers.get(projectId) ?? []) subscriber.send(event);
+  private emitToSubscribers(
+    projectId: string,
+    event: TestExecutionEvent,
+  ): void {
+    for (const subscriber of this.subscribers.get(projectId) ?? [])
+      subscriber.send(event);
   }
 
   private closeSubscribers(projectId: string): void {
@@ -173,7 +223,9 @@ export class TestExecutionHistoryService {
       return;
     }
 
-    const current = await this.processManager.getTestProcess(projectId).catch(() => null);
+    const current = await this.processManager
+      .getTestProcess(projectId)
+      .catch(() => null);
     if (!current) {
       await this.reconcile(projectId);
       this.closeSubscribers(projectId);
@@ -185,7 +237,9 @@ export class TestExecutionHistoryService {
       this.emitToSubscribers(projectId, { type: 'state', process: current });
     }
 
-    const log = await this.processManager.readTestLog(projectId).catch(() => null);
+    const log = await this.processManager
+      .readTestLog(projectId)
+      .catch(() => null);
     if (log && log.content !== this.lastSentLog.get(projectId)) {
       this.lastSentLog.set(projectId, log.content);
       this.emitToSubscribers(projectId, { type: 'log', log });
@@ -199,14 +253,20 @@ export class TestExecutionHistoryService {
 
   public async reconcile(projectId: string): Promise<void> {
     const items = await this.load(projectId);
-    const openIndex = items.findIndex((item) => OPEN_STATUSES.includes(item.status));
+    const openIndex = items.findIndex((item) =>
+      OPEN_STATUSES.includes(item.status),
+    );
     if (openIndex === -1) return;
 
     const current = await this.processManager.getTestProcess(projectId);
     const openRecord = items[openIndex]!;
 
     if (!current) {
-      items[openIndex] = { ...openRecord, status: 'failed', finishedAt: new Date().toISOString() };
+      items[openIndex] = {
+        ...openRecord,
+        status: 'failed',
+        finishedAt: new Date().toISOString(),
+      };
       await this.save(projectId, items);
       return;
     }
@@ -221,13 +281,18 @@ export class TestExecutionHistoryService {
     items[openIndex] = {
       ...openRecord,
       status: current.status,
-      ...(current.stoppedAt ? { finishedAt: current.stoppedAt } : { finishedAt: new Date().toISOString() }),
+      ...(current.stoppedAt
+        ? { finishedAt: current.stoppedAt }
+        : { finishedAt: new Date().toISOString() }),
       ...(current.exitCode !== undefined ? { exitCode: current.exitCode } : {}),
     };
     await this.save(projectId, items);
   }
 
-  public async recordStart(projectId: string, managedProcess: ManagedProcess): Promise<void> {
+  public async recordStart(
+    projectId: string,
+    managedProcess: ManagedProcess,
+  ): Promise<void> {
     const items = await this.load(projectId);
     const { commandId, targetFile } = deriveTarget(managedProcess);
     const record: TestExecutionRecord = {
@@ -242,12 +307,18 @@ export class TestExecutionHistoryService {
     await this.save(projectId, items.slice(0, this.historyLimit));
   }
 
-  public async history(projectId: string, page = 1, pageSize = 20): Promise<TestExecutionHistory> {
+  public async history(
+    projectId: string,
+    page = 1,
+    pageSize = 20,
+  ): Promise<TestExecutionHistory> {
     await this.reconcile(projectId);
     const items = await this.load(projectId);
     const total = items.length;
     return {
-      items: items.slice((page - 1) * pageSize, page * pageSize).map((item) => ({ ...item })),
+      items: items
+        .slice((page - 1) * pageSize, page * pageSize)
+        .map((item) => ({ ...item })),
       page,
       pageSize,
       total,
@@ -265,31 +336,46 @@ export class TestExecutionHistoryService {
   }
 
   private filePath(projectId: string): string {
-    return path.join(this.stateDirectory, `${sanitizeProjectId(projectId)}.json`);
+    return path.join(
+      this.stateDirectory,
+      `${sanitizeProjectId(projectId)}.json`,
+    );
   }
 
   private async load(projectId: string): Promise<TestExecutionRecord[]> {
     try {
       const raw = await readFile(this.filePath(projectId), 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoredHistory>;
-      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.items)) return [];
+      if (parsed.version !== HISTORY_VERSION || !Array.isArray(parsed.items))
+        return [];
       return parsed.items.filter(isValidRecord);
     } catch {
       return [];
     }
   }
 
-  private async save(projectId: string, items: TestExecutionRecord[]): Promise<void> {
+  private async save(
+    projectId: string,
+    items: TestExecutionRecord[],
+  ): Promise<void> {
     await mkdir(this.stateDirectory, { recursive: true, mode: 0o700 });
     const target = this.filePath(projectId);
     const temporary = `${target}.${randomUUID()}.tmp`;
-    const stored: StoredHistory = { version: HISTORY_VERSION, items: items.slice(0, this.historyLimit) };
+    const stored: StoredHistory = {
+      version: HISTORY_VERSION,
+      items: items.slice(0, this.historyLimit),
+    };
     await writeFile(temporary, JSON.stringify(stored), { mode: 0o600 });
     await rename(temporary, target);
   }
 }
 
 function readHistoryLimit(): number {
-  const parsed = Number.parseInt(process.env.DEV_DASHBOARD_TEST_HISTORY_LIMIT ?? '', 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_HISTORY_LIMIT;
+  const parsed = Number.parseInt(
+    process.env.DEV_DASHBOARD_TEST_HISTORY_LIMIT ?? '',
+    10,
+  );
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_HISTORY_LIMIT;
 }

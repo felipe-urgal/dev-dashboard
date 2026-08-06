@@ -5,6 +5,9 @@ export interface ResolvedCommand {
   args: string[];
 }
 
-export interface DetectedTestCommand extends Omit<ProjectTestCommand, 'supportsFileTarget'> {
+export interface DetectedTestCommand extends Omit<
+  ProjectTestCommand,
+  'supportsFileTarget'
+> {
   resolved: ResolvedCommand;
 }

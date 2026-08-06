@@ -1,8 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
-import type {
-  WorkspaceRepositoryErrorCode,
-} from '@dev-dashboard/core';
+import type { WorkspaceRepositoryErrorCode } from '@dev-dashboard/core';
 
 import type {
   ProcessManagerErrorCode,
@@ -188,9 +186,7 @@ function validationDetails(validation: unknown): ApiErrorDetails[] {
     const record = item as Record<string, unknown>;
 
     const instancePath =
-      typeof record.instancePath === 'string'
-        ? record.instancePath
-        : '';
+      typeof record.instancePath === 'string' ? record.instancePath : '';
 
     const params =
       typeof record.params === 'object' && record.params !== null
@@ -202,14 +198,10 @@ function validationDetails(validation: unknown): ApiErrorDetails[] {
         ? params.missingProperty
         : undefined;
 
-    const path = [instancePath, missingProperty]
-      .filter(Boolean)
-      .join('/');
+    const path = [instancePath, missingProperty].filter(Boolean).join('/');
 
     const message =
-      typeof record.message === 'string'
-        ? record.message
-        : 'Valor inválido.';
+      typeof record.message === 'string' ? record.message : 'Valor inválido.';
 
     return {
       ...(path
@@ -223,11 +215,7 @@ function validationDetails(validation: unknown): ApiErrorDetails[] {
 }
 
 function errorValidation(error: unknown): unknown {
-  if (
-    typeof error !== 'object' ||
-    error === null ||
-    !('validation' in error)
-  ) {
+  if (typeof error !== 'object' || error === null || !('validation' in error)) {
     return undefined;
   }
 
@@ -238,14 +226,8 @@ function errorValidation(error: unknown): unknown {
   ).validation;
 }
 
-function errorStatusCode(
-  error: unknown
-): number | undefined {
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("statusCode" in error)
-  ) {
+function errorStatusCode(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null || !('statusCode' in error)) {
     return undefined;
   }
 
@@ -255,55 +237,51 @@ function errorStatusCode(
     }
   ).statusCode;
 
-  return typeof statusCode === "number"
-    ? statusCode
-    : undefined;
+  return typeof statusCode === 'number' ? statusCode : undefined;
 }
 
-function clientErrorCode(
-  statusCode: number
-): ApiErrorCode {
+function clientErrorCode(statusCode: number): ApiErrorCode {
   switch (statusCode) {
     case 401:
-      return "UNAUTHORIZED";
+      return 'UNAUTHORIZED';
 
     case 403:
-      return "FORBIDDEN";
+      return 'FORBIDDEN';
 
     case 404:
-      return "NOT_FOUND";
+      return 'NOT_FOUND';
 
     case 409:
-      return "CONFLICT";
+      return 'CONFLICT';
 
     default:
-      return "BAD_REQUEST";
+      return 'BAD_REQUEST';
   }
 }
 
-function clientErrorMessage(
-  statusCode: number
-): string {
+function clientErrorMessage(statusCode: number): string {
   switch (statusCode) {
     case 401:
-      return "Autenticação necessária.";
+      return 'Autenticação necessária.';
 
     case 403:
-      return "A operação não é permitida.";
+      return 'A operação não é permitida.';
 
     case 404:
-      return "Recurso não encontrado.";
+      return 'Recurso não encontrado.';
 
     case 409:
-      return "A requisição conflita com o estado atual.";
+      return 'A requisição conflita com o estado atual.';
 
     default:
-      return "A requisição não pôde ser processada.";
+      return 'A requisição não pôde ser processada.';
   }
 }
 
-
-export function registerApiErrorHandling(app: FastifyInstance, options: { registerNotFound?: boolean } = {}): void {
+export function registerApiErrorHandling(
+  app: FastifyInstance,
+  options: { registerNotFound?: boolean } = {},
+): void {
   if (options.registerNotFound !== false) {
     app.setNotFoundHandler(async (_request, reply) => {
       return reply.code(404).send({
@@ -336,29 +314,23 @@ export function registerApiErrorHandling(app: FastifyInstance, options: { regist
       });
     }
 
-const statusCode =
-  errorStatusCode(error);
+    const statusCode = errorStatusCode(error);
 
-if (
-  statusCode !== undefined &&
-  statusCode >= 400 &&
-  statusCode < 500
-) {
-  return reply.code(statusCode).send({
-    error: clientErrorCode(statusCode),
-    message:
-      clientErrorMessage(statusCode)
-  });
-}
+    if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
+      return reply.code(statusCode).send({
+        error: clientErrorCode(statusCode),
+        message: clientErrorMessage(statusCode),
+      });
+    }
 
-request.log.error(
-  {
-    err: error
-  },
-  "Unhandled API error"
-);
+    request.log.error(
+      {
+        err: error,
+      },
+      'Unhandled API error',
+    );
 
-return reply.code(500).send({
+    return reply.code(500).send({
       error: 'INTERNAL_ERROR',
       message: 'Não foi possível concluir a operação.',
     });

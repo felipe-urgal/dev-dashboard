@@ -1,7 +1,4 @@
-import type {
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-} from 'fastify';
+import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import type { ProjectStore } from '../store/project-store.js';
 import type { GitMutationHistoryService } from '../services/git-mutation-history-service.js';
@@ -50,7 +47,9 @@ interface GitMutationHistoryRouteOptions extends FastifyPluginOptions {
  * passou por `GitMutationHistoryService.record`, sempre metadados limitados
  * (ver `docs/architecture/security.md`).
  */
-export const gitMutationHistoryRoutes: FastifyPluginAsync<GitMutationHistoryRouteOptions> = async (app, options) => {
+export const gitMutationHistoryRoutes: FastifyPluginAsync<
+  GitMutationHistoryRouteOptions
+> = async (app, options) => {
   const { projectStore, gitMutationHistoryService } = options;
 
   app.get<{ Params: ProjectParams; Querystring: HistoryQuery }>(
@@ -68,7 +67,11 @@ export const gitMutationHistoryRoutes: FastifyPluginAsync<GitMutationHistoryRout
     async (request) => {
       const project = projectStore.findProject(request.params.projectId);
       if (!project) {
-        throw new ApiError({ statusCode: 404, code: 'PROJECT_NOT_FOUND', message: 'Projeto não encontrado.' });
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
       }
       return gitMutationHistoryService.history(
         project.id,

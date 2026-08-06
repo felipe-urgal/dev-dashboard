@@ -8,5 +8,6 @@ export function toggleExclusiveClass(
       element.classList.remove(className);
     }
   });
-  if (!element.classList.contains(desiredClass)) element.classList.add(desiredClass);
+  if (!element.classList.contains(desiredClass))
+    element.classList.add(desiredClass);
 }
