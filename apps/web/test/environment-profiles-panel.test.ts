@@ -114,6 +114,43 @@ describe('EnvironmentProfilesPanel', () => {
     );
   });
 
+  it('filtra a lista de perfis pelo campo de busca', async () => {
+    const wrapper = mount(EnvironmentProfilesPanel);
+    await flushPromises();
+
+    await wrapper.get('.environment-profiles-search input').setValue('teste');
+
+    const items = wrapper.findAll('.environment-profile-list-item');
+    expect(items).toHaveLength(1);
+    expect(items[0]?.text()).toContain('Testes locais');
+  });
+
+  it('mostra alterações não salvas e descarta ao clicar em Descartar', async () => {
+    const wrapper = mount(EnvironmentProfilesPanel);
+    await flushPromises();
+
+    expect(wrapper.find('.environment-profile-unsaved-bar').exists()).toBe(
+      false,
+    );
+
+    await wrapper.get('#environment-profile-name-input').setValue('Editado');
+    expect(wrapper.find('.environment-profile-unsaved-bar').exists()).toBe(
+      true,
+    );
+
+    await wrapper
+      .get('.environment-profile-unsaved-bar button')
+      .trigger('click');
+
+    expect(
+      wrapper.get<HTMLInputElement>('#environment-profile-name-input').element
+        .value,
+    ).toBe('Desenvolvimento');
+    expect(wrapper.find('.environment-profile-unsaved-bar').exists()).toBe(
+      false,
+    );
+  });
+
   it('cria um perfil e não envia valor de variável sensível', async () => {
     createEnvironmentProfile.mockImplementation(
       async (input: CreateEnvironmentProfileInput) => {

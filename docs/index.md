@@ -74,7 +74,7 @@ Os objetivos principais são:
 - identificação de serviço local ou Docker;
 - inicialização de serviços reconhecidos;
 - snapshots e restauração protegida por confirmação;
-- perfis de ambiente reutilizáveis;
+- perfis de ambiente reutilizáveis, com busca na lista e aviso de alterações não salvas;
 - proteção contra persistência acidental de valores sensíveis.
 
 ## Arquitetura em uma página
