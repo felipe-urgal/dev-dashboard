@@ -240,6 +240,47 @@ mais lento. O mesmo modal também lista os workspaces já cadastrados
 `PATCH /api/workspaces/:workspaceId` e desfaz a mudança local se a API
 falhar), no mesmo padrão já usado por `toggleProjectFavorite`.
 
+### Regras compartilhadas entre CLI e web
+
+`shared/project-type-rules.json` (raiz do repo) é a fonte única para a regra
+de detecção de tipo de projeto (Rails via nome exato da gem no `Gemfile`,
+Node via presença de `package.json`) — a única regra hoje duplicada nos dois
+lados com um comportamento real de divergência já encontrado (o CLI bash
+fazia um `grep` por substring "rails", confundindo gems como
+`rails-html-sanitizer` com a própria gem `rails`; o TypeScript já usava um
+regex de nome exato).
+
+O arquivo guarda dois campos de padrão para a mesma regra — `gemNamePattern`
+(sintaxe `RegExp` do JavaScript, usado por
+`packages/project-discovery/src/project-type-rules.ts`) e
+`gemNamePatternPosix` (sintaxe POSIX ERE, usado por
+`lib/projects/detect.sh` via `grep -E`) — porque bash e TypeScript não
+compartilham sintaxe de regex; nenhum dos dois lados faz tradução automática
+de um formato para o outro. Cada lado lê e cacheia o arquivo em runtime (não
+o compila/embute); se o arquivo estiver ausente ou malformado, cada lado cai
+num padrão embutido idêntico ao valor atual do arquivo compartilhado, então
+a leitura nunca é um requisito rígido.
+
+`packages/project-discovery` lê o arquivo relativo à própria localização do
+módulo (`import.meta.url`), estável tanto rodando de `src/` via `tsx` quanto
+de `dist/` compilado, sem depender do `cwd` do processo. `lib/projects/detect.sh`
+lê o arquivo via `jq` quando disponível (dependência opcional, verificada por
+`dev-doctor` no mesmo padrão de `gum`/`gh` — um aviso, não um bloqueio); sem
+`jq`, usa o padrão POSIX embutido.
+
+Esse mecanismo cobre só a detecção de tipo — deliberadamente não tenta unificar
+gerenciamento de processo (`lib/server/core/start.sh` vs.
+`packages/process-manager`) nem detecção de capacidades além do tipo
+(`config/webpack`, MySQL, sidekiq, etc.): os dois lados divergiram demais em
+maturidade e escopo (o `process-manager` cresceu para tratar retenção de log,
+rastreamento de saída de processo e verificação de identidade via
+`/proc/<pid>/cwd`, muito além do que o CLI bash faz) para uma regra
+declarativa compartilhada fazer sentido ali. Uma eventual extração mais
+profunda — ex. o CLI bash chamando um binário Node compartilhado — quebraria
+o princípio explícito do CLI de não exigir build step/compilador e precisa de
+decisão arquitetural e modelo de ameaça próprios (ver
+`tasks/132-cli-web-shared-rules-strategy.md`), não um mecanismo genérico.
+
 ## Process Manager
 
 Localização:

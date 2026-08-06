@@ -84,6 +84,13 @@ dev-doctor() {
     echo "   Instale em: https://cli.github.com/" >&2
   fi
 
+  if _dev_has jq; then
+    _dev_ok "jq instalado ($(jq --version 2>/dev/null))"
+  else
+    _dev_warn "jq não encontrado. Detecção de tipo de projeto usa um padrão embutido em vez de shared/project-type-rules.json."
+    echo "   Instale com: sudo apt install jq / brew install jq" >&2
+  fi
+
   if [[ -d "${DEV_BASE:-}" ]]; then
     _dev_ok "Pasta base: $DEV_BASE"
   else

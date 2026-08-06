@@ -23,6 +23,11 @@ export interface ProjectTestCommand {
   supportsFileTarget: boolean;
   /** Suporta executar um caso/exemplo específico (ex. RSpec `arquivo:linha`). */
   supportsCaseTarget: boolean;
+  /**
+   * Suporta filtrar por padrão de nome de `describe`/`it` (ex. `node --test`,
+   * Jest, Vitest via `-t`/`--test-name-pattern`).
+   */
+  supportsNamePatternTarget: boolean;
 }
 
 export interface ProjectTestOverview {

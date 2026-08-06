@@ -12,6 +12,7 @@ export * from './api/settings';
 export * from './api/editor';
 export * from './api/browser';
 export * from './api/project-doctor';
+export * from './api/project-coverage';
 export * from './api/project-files';
 export * from './api/project-readme';
 export * from './api/project-file-mutations';

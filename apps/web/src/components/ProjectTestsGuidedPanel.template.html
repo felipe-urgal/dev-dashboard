@@ -129,6 +129,21 @@
                   Roda só o exemplo/grupo daquela linha do arquivo (RSpec resolve sozinho).
                 </small>
               </label>
+
+              <label v-if="supportsNamePatternTarget" class="tests-field">
+                <span>Padrão de nome do caso/describe (opcional)</span>
+                <input
+                  v-model="selectedNamePattern"
+                  type="text"
+                  maxlength="200"
+                  placeholder="ex.: soma valores"
+                  class="tests-name-pattern-input"
+                  :disabled="isRunning"
+                />
+                <small>
+                  Roda só os casos cujo nome combina com o padrão (-t/--test-name-pattern), deixe em branco para rodar o arquivo inteiro.
+                </small>
+              </label>
             </template>
 
             <template v-else-if="selectedChoice?.scope === 'related'">
@@ -396,3 +411,5 @@
       </section>
     </template>
   </Card>
+
+  <ProjectCoveragePanel :project-id="project.id" :project-type="project.type" />

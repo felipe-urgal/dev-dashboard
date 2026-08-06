@@ -33,6 +33,8 @@ import { AiAssistantService } from './services/ai-assistant-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import { ProjectLanguageServerService } from './services/project-language-server-service.js';
 import { ProjectTerminalService } from './services/project-terminal-service.js';
+import { ProjectCoverageService } from './services/project-coverage-service.js';
+import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 
 export interface AppContext {
   workspaceRepository: WorkspaceRepository;
@@ -46,6 +48,8 @@ export interface AppContext {
   gitMutationHistoryService: GitMutationHistoryService;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
+  projectCoverageService: ProjectCoverageService;
+  projectCoverageHistoryService: ProjectCoverageHistoryService;
   databaseDetectionService: DatabaseDetectionService;
   databaseSnapshotService: DatabaseSnapshotService;
   railsInspectionService: RailsInspectionService;
@@ -98,6 +102,8 @@ export function createAppContext(): AppContext {
     testExecutionHistoryService: new TestExecutionHistoryService(
       processManager,
     ),
+    projectCoverageService: new ProjectCoverageService(),
+    projectCoverageHistoryService: new ProjectCoverageHistoryService(),
     databaseDetectionService,
     databaseSnapshotService: new DatabaseSnapshotService(
       databaseDetectionService,

@@ -192,6 +192,15 @@ export type {
 } from './test.js';
 
 export type {
+  ProjectCoverageFileSummary,
+  ProjectCoverageHistory,
+  ProjectCoverageHistoryEntry,
+  ProjectCoverageMetric,
+  ProjectCoverageSummary,
+  ProjectCoverageTotals,
+} from './coverage.js';
+
+export type {
   DatabaseReachability,
   DatabaseRestoreResult,
   DatabaseServiceAction,

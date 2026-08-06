@@ -9,6 +9,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { resolveConfigDirectory } from './config-directory.js';
+import {
+  isFileNotFoundError,
+  quarantineUnreadableStateFile,
+} from './state-file-recovery.js';
 
 export const RETENTION_SETTINGS_LIMITS: RetentionSettingsLimits = {
   retentionDays: { minimum: 1, maximum: 365, default: 7 },
@@ -84,7 +88,10 @@ export class RetentionSettingsRepository {
     this.file = path.join(directory, 'retention.json');
     try {
       this.values = parse(readFileSync(this.file, 'utf8'));
-    } catch {
+    } catch (error) {
+      if (!isFileNotFoundError(error)) {
+        quarantineUnreadableStateFile(this.file);
+      }
       this.values = defaultValues();
     }
     this.applyToEnvironment();

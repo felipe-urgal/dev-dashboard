@@ -60,6 +60,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
   const testFiles = ref<ProjectTestFile[]>([]);
   const selectedFilePath = ref('');
   const selectedCaseLine = ref('');
+  const selectedNamePattern = ref('');
   const fileErrorMessage = ref('');
   const loadingRelatedCommandId = ref<string | null>(null);
   const relatedTests = ref<ProjectRelatedTests | null>(null);
@@ -158,6 +159,14 @@ export function useProjectTestsPanel(props: { project: Project }) {
       parsedCaseLine.value === undefined,
   );
 
+  const supportsNamePatternTarget = computed(
+    () =>
+      selectedChoice.value?.scope === 'file' &&
+      Boolean(selectedCommand.value?.supportsNamePatternTarget),
+  );
+
+  const trimmedNamePattern = computed(() => selectedNamePattern.value.trim());
+
   const selectionConfigured = computed(() =>
     Boolean(
       selectedChoice.value &&
@@ -187,7 +196,11 @@ export function useProjectTestsPanel(props: { project: Project }) {
         supportsCaseTarget.value && parsedCaseLine.value !== undefined
           ? `${selectedFilePath.value}:${parsedCaseLine.value}`
           : selectedFilePath.value;
-      return `${command.label} ${target}`;
+      const suffix =
+        supportsNamePatternTarget.value && trimmedNamePattern.value
+          ? ` -t "${trimmedNamePattern.value}"`
+          : '';
+      return `${command.label} ${target}${suffix}`;
     }
     if (selectedChoice.value?.scope === 'related') {
       const files = relatedTests.value?.testFiles ?? [];
@@ -374,6 +387,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
   async function handleExecutionChoiceChange(): Promise<void> {
     selectedFilePath.value = '';
     selectedCaseLine.value = '';
+    selectedNamePattern.value = '';
     testFiles.value = [];
     fileErrorMessage.value = '';
     relatedTests.value = null;
@@ -470,6 +484,9 @@ export function useProjectTestsPanel(props: { project: Project }) {
       ...(supportsCaseTarget.value && parsedCaseLine.value !== undefined
         ? { targetLine: parsedCaseLine.value }
         : {}),
+      ...(supportsNamePatternTarget.value && trimmedNamePattern.value
+        ? { targetNamePattern: trimmedNamePattern.value }
+        : {}),
     });
   }
 
@@ -510,6 +527,7 @@ export function useProjectTestsPanel(props: { project: Project }) {
       testFiles.value = [];
       selectedFilePath.value = '';
       selectedCaseLine.value = '';
+      selectedNamePattern.value = '';
       fileErrorMessage.value = '';
       loadingRelatedCommandId.value = null;
       relatedTests.value = null;
@@ -562,11 +580,13 @@ export function useProjectTestsPanel(props: { project: Project }) {
     selectedChoice,
     selectedExecutionKey,
     selectedFilePath,
+    selectedNamePattern,
     selectionConfigured,
     startingCommandId,
     statusLabel,
     stopping,
     supportsCaseTarget,
+    supportsNamePatternTarget,
     testFiles,
     totalTests,
     visibleLogLines,

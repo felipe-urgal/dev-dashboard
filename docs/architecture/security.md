@@ -102,6 +102,19 @@ com o diretório esperado do projeto.
 
 Se não houver correspondência, o processo não deve ser encerrado.
 
+No macOS (task 133), não existe `/proc`; `verifyProcessDirectory` usa
+`lsof -a -p <pid> -d cwd -Fn` como equivalente prático. Ao contrário do
+Linux — onde uma falha na leitura do `/proc/<pid>/cwd` é tratada como
+identidade não confirmada (não encerra) — no macOS só uma divergência
+concreta (o `lsof` reportou um cwd que não bate com o esperado) bloqueia o
+encerramento; qualquer falha em rodar/interpretar o `lsof` (binário
+ausente, processo já encerrado, saída inesperada) faz a verificação
+retornar "confirmado", o mesmo comportamento de "não verificado, não
+bloqueia" que este pacote já tinha para qualquer plataforma fora do Linux
+antes desta função existir. Essa implementação ainda não foi validada
+contra um `lsof` real de macOS (só testada com saída simulada) — ver
+`docs/operations-and-troubleshooting.md`.
+
 ### Encerramento gradual
 
 A sequência padrão deve ser:
@@ -219,6 +232,22 @@ Caminhos atuais:
 ~/.config/dev-dashboard
 ~/.local/state/dev-dashboard
 ```
+
+### Backup e restauração do estado local (CLI)
+
+`dev-backup`/`dev-restore` (`lib/backup/`, task 133) empacotam/restauram o
+estado local do dashboard web num `.tar.gz` em `~/.dev-dashboard-backups`
+(`0700` no diretório, `0600` no arquivo). Por padrão o token da API
+(`~/.config/dev-dashboard/api-token`) nunca é incluído — é regenerado
+automaticamente na próxima vez que a API iniciar, e incluí-lo tornaria o
+arquivo de backup equivalente a uma credencial válida. `~/.dev-dashboard.secrets`
+(segredos do CLI bash) também fica de fora por padrão; só é incluído com
+`dev-backup --include-secrets`, e nesse caso o arquivo resultante contém
+segredos em texto plano — protegido apenas pela permissão `0600` do
+`.tar.gz`, sem criptografia adicional. `dev-restore` sempre pede confirmação
+(gum ou `read -r -p`) antes de sobrescrever a configuração local, e valida
+que o arquivo tem a estrutura esperada (`config/` e/ou `state/` dentro do
+tar) antes de extrair qualquer coisa.
 
 ### Variáveis de ambiente
 

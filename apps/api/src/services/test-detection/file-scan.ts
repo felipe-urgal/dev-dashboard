@@ -25,6 +25,20 @@ export const CASE_TARGET_RUNNERS: ReadonlySet<ProjectTestRunner> = new Set([
   'rspec',
 ]);
 
+/**
+ * Runners que resolvem caso/`describe` específico por padrão de nome (não
+ * por linha) via `-t`/`--test-name-pattern` — diferente de `CASE_TARGET_RUNNERS`,
+ * que resolve por `arquivo:linha` sem precisar de nome.
+ */
+export const NAME_PATTERN_TARGET_RUNNERS: ReadonlySet<ProjectTestRunner> =
+  new Set(['vitest', 'jest', 'node-test']);
+
+const NAME_PATTERN_FLAG: Partial<Record<ProjectTestRunner, string>> = {
+  vitest: '-t',
+  jest: '-t',
+  'node-test': '--test-name-pattern',
+};
+
 const IGNORED_TEST_SCAN_DIRECTORIES = new Set([
   '.git',
   '.idea',
@@ -124,4 +138,17 @@ export function composeFileCommand(
     };
   }
   return { command: resolved.command, args: [...resolved.args, filePath] };
+}
+
+export function composeNamePatternArgs(
+  resolved: ResolvedCommand,
+  runner: ProjectTestRunner,
+  namePattern: string,
+): ResolvedCommand {
+  const flag = NAME_PATTERN_FLAG[runner];
+  if (!flag) return resolved;
+  return {
+    command: resolved.command,
+    args: [...resolved.args, flag, namePattern],
+  };
 }

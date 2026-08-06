@@ -6,7 +6,12 @@ import { tmpdir } from 'node:os';
 
 import path from 'node:path';
 
-import { scanWorkspace } from '../src/index.js';
+import { detectProject, scanWorkspace } from '../src/index.js';
+import {
+  loadProjectTypeRules,
+  parseRules,
+  resetProjectTypeRulesCache,
+} from '../src/project-type-rules.js';
 
 async function createRailsProject(projectPath: string): Promise<void> {
   await Promise.all([
@@ -325,4 +330,88 @@ try {
     recursive: true,
     force: true,
   });
+}
+
+// Regressão: uma gem cujo nome só contém "rails" como substring (ex.
+// rails-html-sanitizer) não deve ser confundida com a gem "rails" — mesma
+// regra compartilhada com o CLI bash via shared/project-type-rules.json
+// (lib/projects/detect.sh usa o padrão POSIX ERE equivalente).
+{
+  const fakeRailsWorkspacePath = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-discovery-fake-rails-'),
+  );
+
+  try {
+    await writeFile(
+      path.join(fakeRailsWorkspacePath, 'Gemfile'),
+      ['source "https://rubygems.org"', 'gem "rails-html-sanitizer"', ''].join(
+        '\n',
+      ),
+    );
+
+    const project = await detectProject(fakeRailsWorkspacePath, {
+      includeUnknown: true,
+    });
+
+    assert.ok(project);
+    assert.equal(
+      project.type,
+      'unknown',
+      'rails-html-sanitizer não deve ser detectado como Rails',
+    );
+  } finally {
+    await rm(fakeRailsWorkspacePath, { recursive: true, force: true });
+  }
+}
+
+// loadProjectTypeRules lê shared/project-type-rules.json (fonte compartilhada
+// com o CLI bash) e cai no padrão embutido se o arquivo não existir/estiver
+// malformado.
+{
+  resetProjectTypeRulesCache();
+  const rules = loadProjectTypeRules();
+  assert.equal(rules.rails.requiredFile, 'Gemfile');
+  assert.match(rules.rails.gemNamePattern, /rails/);
+  assert.equal(rules.node.requiredFile, 'package.json');
+  assert.equal(
+    new RegExp(rules.rails.gemNamePattern, 'm').test(
+      'gem "rails-html-sanitizer"',
+    ),
+    false,
+  );
+  assert.equal(
+    new RegExp(rules.rails.gemNamePattern, 'm').test('gem "rails"'),
+    true,
+  );
+}
+
+// parseRules cai no padrão embutido campo a campo quando o JSON compartilhado
+// está ausente/malformado/parcial — nunca lança erro.
+{
+  assert.deepEqual(parseRules(null), {
+    rails: {
+      requiredFile: 'Gemfile',
+      gemNamePattern: '^\\s*gem\\s+["\']rails["\']',
+    },
+    node: { requiredFile: 'package.json' },
+  });
+
+  assert.deepEqual(parseRules({ rails: { requiredFile: 42 } }), {
+    rails: {
+      requiredFile: 'Gemfile',
+      gemNamePattern: '^\\s*gem\\s+["\']rails["\']',
+    },
+    node: { requiredFile: 'package.json' },
+  });
+
+  assert.deepEqual(
+    parseRules({
+      rails: { requiredFile: 'Gemfile.custom', gemNamePattern: 'gem rails' },
+      node: { requiredFile: 'package.custom.json' },
+    }),
+    {
+      rails: { requiredFile: 'Gemfile.custom', gemNamePattern: 'gem rails' },
+      node: { requiredFile: 'package.custom.json' },
+    },
+  );
 }

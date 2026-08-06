@@ -12,6 +12,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { resolveConfigDirectory } from './config-directory.js';
+import {
+  isFileNotFoundError,
+  quarantineUnreadableStateFile,
+} from './state-file-recovery.js';
 
 export const ENVIRONMENT_PROFILE_LIMITS: EnvironmentProfileLimits = {
   maxProfiles: 50,
@@ -164,7 +168,10 @@ export class EnvironmentProfileRepository {
     this.file = path.join(directory, 'environment-profiles.json');
     try {
       this.profiles = parseConfig(readFileSync(this.file, 'utf8'));
-    } catch {
+    } catch (error) {
+      if (!isFileNotFoundError(error)) {
+        quarantineUnreadableStateFile(this.file);
+      }
       this.profiles = [];
     }
   }

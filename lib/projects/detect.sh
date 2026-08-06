@@ -7,13 +7,33 @@
 # Retorna via stdout: "rails" ou "node" ou "unknown"
 _project_detect_type() {
   local dir="$1"
-  if [ -f "$dir/Gemfile" ] && grep -q "rails" "$dir/Gemfile" 2>/dev/null; then
+  if [ -f "$dir/Gemfile" ] && _project_gemfile_is_rails "$dir/Gemfile"; then
     echo "rails"
   elif [ -f "$dir/package.json" ]; then
     echo "node"
   else
     echo "unknown"
   fi
+}
+
+# Regra de detecção do Rails compartilhada com packages/project-discovery via
+# shared/project-type-rules.json (ver docs/architecture/overview.md, seção
+# "Regras compartilhadas entre CLI e web"). Usa jq quando disponível para ler
+# o padrão POSIX ERE do arquivo compartilhado; sem jq (ou sem o arquivo), cai
+# no mesmo padrão embutido como fallback — dev-doctor avisa (não bloqueia)
+# quando jq está ausente.
+_project_gemfile_is_rails() {
+  local gemfile="$1"
+  local pattern='^[[:space:]]*gem[[:space:]]+["'"'"']rails["'"'"']'
+  local rules_file="$DEV_DASHBOARD_DIR/shared/project-type-rules.json"
+
+  if [ -f "$rules_file" ] && declare -f _dev_has &>/dev/null && _dev_has jq; then
+    local shared_pattern
+    shared_pattern=$(jq -r '.rails.gemNamePatternPosix // empty' "$rules_file" 2>/dev/null)
+    [ -n "$shared_pattern" ] && pattern="$shared_pattern"
+  fi
+
+  grep -Eq "$pattern" "$gemfile" 2>/dev/null
 }
 
 # Ponto de entrada público. Usa o cache de lib/projects/cache.sh quando a

@@ -33,6 +33,7 @@ const baseOverview: ProjectTestOverview = {
       priority: 10,
       supportsFileTarget: true,
       supportsCaseTarget: false,
+      supportsNamePatternTarget: true,
     },
   ],
 };
@@ -49,6 +50,7 @@ const rspecOverview: ProjectTestOverview = {
       priority: 10,
       supportsFileTarget: true,
       supportsCaseTarget: true,
+      supportsNamePatternTarget: false,
     },
   ],
 };
@@ -265,6 +267,121 @@ test('não mostra o campo de linha para runners sem suporte a caso específico',
   await flushPromises();
 
   assert.equal(wrapper.find('.tests-case-line-input').exists(), false);
+});
+
+test('exibe o campo de padrão de nome para vitest/jest/node-test e envia o padrão', async () => {
+  const calls: Array<{ path: string; body?: unknown }> = [];
+  let currentProcess: Record<string, unknown> | null = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost');
+    calls.push({
+      path: url.pathname,
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: baseOverview });
+    if (
+      url.pathname.endsWith('/files') &&
+      !url.pathname.endsWith('/files/start')
+    ) {
+      return jsonResponse({ files: [{ path: 'src/app.test.ts' }] });
+    }
+    if (url.pathname.endsWith('/files/start')) {
+      currentProcess = {
+        id: 'node-script-test:file',
+        projectId: 'p1',
+        kind: 'test',
+        status: 'running',
+        command: 'npm',
+        args: ['run', 'test', '--', 'src/app.test.ts', '-t', 'soma valores'],
+        startedAt: '2026-07-27T10:00:00Z',
+      };
+      return jsonResponse({ process: currentProcess }, 201);
+    }
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: currentProcess });
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper
+    .find('.tests-execution-select')
+    .setValue('node-script-test::file');
+  await flushPromises();
+  await flushPromises();
+
+  const fileSelect = wrapper.find('.tests-file-select');
+  assert.ok(fileSelect.exists());
+  await fileSelect.setValue('src/app.test.ts');
+
+  const patternInput = wrapper.find('.tests-name-pattern-input');
+  assert.ok(
+    patternInput.exists(),
+    'esperava campo de padrão de nome para vitest',
+  );
+  await patternInput.setValue('soma valores');
+
+  const executeButton = wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Executar agora');
+  assert.ok(executeButton);
+  await executeButton.trigger('click');
+  await flushPromises();
+
+  const startCall = calls.find((call) =>
+    call.path.endsWith('/tests/node-script-test/files/start'),
+  );
+  assert.ok(startCall);
+  assert.deepEqual(startCall.body, {
+    path: 'src/app.test.ts',
+    namePattern: 'soma valores',
+  });
+});
+
+test('não mostra o campo de padrão de nome para runners sem suporte (RSpec)', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/tests'))
+      return jsonResponse({ tests: rspecOverview });
+    if (
+      url.pathname.endsWith('/files') &&
+      !url.pathname.endsWith('/files/start')
+    ) {
+      return jsonResponse({ files: [{ path: 'spec/models/user_spec.rb' }] });
+    }
+    if (url.pathname.endsWith('/tests/process'))
+      return jsonResponse({ process: null });
+    return new Response('not found', { status: 404 });
+  }) as typeof fetch;
+
+  const wrapper = mount(ProjectTestsPanel, {
+    props: { project: makeProject() },
+    global: { plugins: [createTestRouter()] },
+  });
+  cleanup = () => {
+    wrapper.unmount();
+    globalThis.fetch = originalFetch;
+  };
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper.find('.tests-execution-select').setValue('rspec-suite::file');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(wrapper.find('.tests-name-pattern-input').exists(), false);
 });
 
 test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async () => {

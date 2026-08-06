@@ -156,3 +156,103 @@ try {
     force: true,
   });
 }
+
+// Regressão: config.json corrompido/com versão não suportada não deve mais
+// derrubar o repositório inteiro (comportamento antigo: lançava e propagava
+// o erro para quem chamasse list()/etc.) — agora degrada para uma lista
+// vazia, como os demais repositórios, e guarda uma cópia do arquivo original
+// ao lado antes de recriá-lo, para nunca perder a configuração do usuário
+// silenciosamente.
+{
+  const corruptedFixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-core-corrupted-'),
+  );
+  const corruptedConfigDirectory = path.join(corruptedFixtureRoot, 'config');
+
+  try {
+    await mkdir(corruptedConfigDirectory, { recursive: true });
+    await writeFile(
+      path.join(corruptedConfigDirectory, 'config.json'),
+      'isso não é json válido',
+      'utf8',
+    );
+
+    const corruptedRepository = new WorkspaceRepository(
+      corruptedConfigDirectory,
+    );
+
+    assert.deepEqual(await corruptedRepository.list(), []);
+
+    const { readdir } = await import('node:fs/promises');
+    const entries = await readdir(corruptedConfigDirectory);
+    assert.ok(
+      entries.some((entry) => entry.includes('.unreadable-')),
+      'uma cópia de segurança do config.json corrompido deve ser criada ao lado',
+    );
+
+    // O repositório continua utilizável normalmente após a quarentena.
+    const workspace = await corruptedRepository.create({
+      name: 'Novo Workspace',
+      path: corruptedFixtureRoot,
+    });
+    assert.equal(workspace.name, 'Novo Workspace');
+  } finally {
+    await rm(corruptedFixtureRoot, { recursive: true, force: true });
+  }
+}
+
+// version não suportada (ex. um schema futuro) tem o mesmo tratamento:
+// quarentena + degrada para lista vazia, sem lançar.
+{
+  const futureVersionFixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-core-future-version-'),
+  );
+  const futureVersionConfigDirectory = path.join(
+    futureVersionFixtureRoot,
+    'config',
+  );
+
+  try {
+    await mkdir(futureVersionConfigDirectory, { recursive: true });
+    await writeFile(
+      path.join(futureVersionConfigDirectory, 'config.json'),
+      JSON.stringify({ version: 2, workspaces: [] }),
+      'utf8',
+    );
+
+    const futureVersionRepository = new WorkspaceRepository(
+      futureVersionConfigDirectory,
+    );
+
+    assert.deepEqual(await futureVersionRepository.list(), []);
+
+    const { readdir } = await import('node:fs/promises');
+    const entries = await readdir(futureVersionConfigDirectory);
+    assert.ok(entries.some((entry) => entry.includes('.unreadable-')));
+  } finally {
+    await rm(futureVersionFixtureRoot, { recursive: true, force: true });
+  }
+}
+
+// Arquivo ausente (primeira execução) continua o caso normal — sem
+// quarentena, sem aviso.
+{
+  const missingFixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-core-missing-'),
+  );
+  const missingConfigDirectory = path.join(missingFixtureRoot, 'config');
+
+  try {
+    const missingRepository = new WorkspaceRepository(missingConfigDirectory);
+    assert.deepEqual(await missingRepository.list(), []);
+
+    const { existsSync } = await import('node:fs');
+    assert.equal(
+      existsSync(missingConfigDirectory),
+      false,
+      'nenhum diretório/arquivo deve ser criado só por listar um workspace inexistente',
+    );
+  } finally {
+    await rm(missingFixtureRoot, { recursive: true, force: true });
+  }
+}

@@ -19,37 +19,11 @@ npm run build
 npm test
 ```
 
-## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
-
-- Smoke E2E dedicado para `propose_workspace_edit` e para as ferramentas de
-  símbolo (já cobertos por testes de unidade; estender o double do Ollama
-  para emitir os `tool_calls` correspondentes fica como possibilidade futura,
-  não bloqueante).
-
-## Produto e fluxos operacionais
-
-- [ ] Executar caso/`describe` específico para os runners Node (`node --test`,
-  Jest, Vitest) via `-t`/`--test-name-pattern` — RSpec já foi entregue na
-  task 123 (`arquivo:linha`, sem precisar de parser/AST); os runners Node
-  usam padrão de nome, não linha, e a UI precisaria descobrir esses nomes
-  (hoje só lista arquivos, sem outline de `describe`/`it`) ou aceitar que o
-  usuário digite o padrão à mão — decisão de UX em aberto antes de
-  implementar.
-- [ ] Persistir relatórios de cobertura de projetos gerenciados (não deste
-  codebase) — funcionalidade nova, sem nenhuma base hoje; formatos
-  completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
-  `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
-  próprio.
-
-## CLI Bash
-
-- [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
-  a independência do CLI existente.
-
-## Distribuição, governança e compatibilidade
-
-- [ ] Criar uma política versionada de migração e backup do estado local.
-- [ ] Validar e implementar compatibilidade com macOS (a matriz de suporte
-  atual, publicada na task 113, já documenta o que é tratado hoje no CLI
-  bash e o que falta: cobertura de teste dedicada e identidade de processo
-  equivalente ao `/proc/<pid>/cwd` no dashboard web).
+Nenhum item está registrado como pendente no momento. Os últimos três itens
+desta lista (migração automática de schema, validação em macOS real, smoke
+E2E de tool-calling do assistente de IA) foram resolvidos ou removidos por
+decisão explícita do usuário — os dois primeiros seguem bloqueados por
+pré-condições que ainda não existem (nenhum `version: 2` real, sem acesso a
+uma máquina macOS neste ambiente) e podem ser reabertos quando essas
+pré-condições mudarem; ver `tasks/133-local-state-backup-policy.md` e
+`tasks/134-macos-process-identity.md` para o contexto de cada um.
