@@ -67,6 +67,18 @@ implementação, dado o impacto no modelo de ameaça.
 - Testes: `apps/api/test/project-terminal-service.test.ts` (protocolo completo, com PTY e
   WebSocket falsos) e `apps/api/test/project-terminal-routes.test.ts` (rotas HTTP: status,
   confirmação, validação de `kind`, projeto inexistente, autenticação).
+- **Correção incidental em `apps/web/vite.config.ts`**: durante o teste manual desta entrega, a
+  aba ficava presa em "Conectando…" indefinidamente ao rodar `npm run dev`. Causa: o proxy `/api`
+  do Vite nunca tinha o flag `ws: true`, então o servidor de desenvolvimento nunca encaminhava o
+  upgrade de WebSocket para a API — o handshake simplesmente não recebia resposta, sem erro
+  visível. Isso já afetava silenciosamente o gateway de Language Server do Editor (mesma causa),
+  só não tinha sido notado porque `npm run dev-web` (distribuição local, sem proxy separado) e o
+  smoke E2E via Playwright (que builda e serve estático) não passam por esse caminho. Corrigido
+  adicionando `ws: true` e um listener `proxyReqWs` (espelhando o `proxyReq` já existente, já que
+  o `http-proxy` interno do Vite dispara um evento diferente para upgrades de WebSocket) para
+  injetar o token local também nessas conexões. Validado manualmente com um cliente `ws` conectando
+  por `ws://127.0.0.1:5173/api/...`, antes e depois da correção, tanto para `terminal/shell/connect`
+  quanto para `language-server/ruby/connect`.
 - Documentação: `docs/architecture/security.md` (nova seção "Terminal e console do projeto",
   respondendo item a item o checklist de "Requisitos antes de operações destrutivas" já existente
   para "terminal arbitrário"), `docs/architecture/overview.md`, `docs/guia/README.md` +
