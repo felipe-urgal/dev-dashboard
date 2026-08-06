@@ -35,10 +35,12 @@ painel próprio, sem virar dependência do fluxo principal.
 
 ## Horizonte 3 — projetos maiores e integrações (em aberto)
 
-- detecção de monorepos e scan recursivo opt-in — entregue na biblioteca
-  (`packages/project-discovery`, task 110), limitado por profundidade,
-  quantidade, timeout e com política de symlinks; falta expor na API/UI
-  (ver `tasks/PENDENCIAS.md`);
+- detecção de monorepos e scan recursivo opt-in — entregue de ponta a ponta
+  (biblioteca na task 110, API/UI na task 111): opção persistida por
+  workspace (`recursiveScan`), definida no cadastro e alterável via `PATCH
+  /api/workspaces/:workspaceId`; falta só uma tela de edição de workspace
+  para alternar a opção de um workspace já cadastrado pela UI (ver
+  `tasks/PENDENCIAS.md`);
 - GitHub CLI somente após revisão do modelo de autorização.
 
 Critério de saída: atender repositórios complexos mantendo descoberta

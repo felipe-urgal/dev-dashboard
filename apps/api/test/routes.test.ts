@@ -662,6 +662,100 @@ test(
     );
 
     await context.test(
+      "toggles recursiveScan via PATCH and detects a nested project",
+      async () => {
+        const nestedProjectPath = path.join(
+          workspacePath,
+          "apps",
+          "nested-node"
+        );
+
+        await mkdir(nestedProjectPath, {
+          recursive: true
+        });
+
+        await writeFile(
+          path.join(nestedProjectPath, "package.json"),
+          JSON.stringify(
+            {
+              name: "nested-node",
+              private: true,
+              scripts: {}
+            },
+            null,
+            2
+          )
+        );
+
+        const nonRecursiveScanResponse = await app.inject({
+          method: "POST",
+          url: `/api/workspaces/${workspaceId}/scan`,
+          headers
+        });
+
+        assert.equal(nonRecursiveScanResponse.statusCode, 200);
+        assert.equal(
+          nonRecursiveScanResponse.json<{
+            projects: Array<{ name: string }>;
+          }>().projects.length,
+          1
+        );
+
+        const patchResponse = await app.inject({
+          method: "PATCH",
+          url: `/api/workspaces/${workspaceId}`,
+          headers,
+          payload: {
+            recursiveScan: true
+          }
+        });
+
+        const patchBody = patchResponse.json<{
+          recursiveScan: boolean;
+        }>();
+
+        assert.equal(patchResponse.statusCode, 200);
+        assert.equal(patchBody.recursiveScan, true);
+
+        const recursiveScanResponse = await app.inject({
+          method: "POST",
+          url: `/api/workspaces/${workspaceId}/scan`,
+          headers
+        });
+
+        const recursiveScanBody = recursiveScanResponse.json<{
+          projects: Array<{ name: string }>;
+        }>();
+
+        assert.equal(recursiveScanResponse.statusCode, 200);
+        assert.equal(recursiveScanBody.projects.length, 2);
+        assert.ok(
+          recursiveScanBody.projects.some(
+            (project) => project.name === "nested-node"
+          )
+        );
+
+        const patchMissingResponse = await app.inject({
+          method: "PATCH",
+          url: "/api/workspaces/missing",
+          headers,
+          payload: {
+            recursiveScan: true
+          }
+        });
+
+        const patchMissingBody =
+          patchMissingResponse.json<JsonResponse>();
+
+        assert.equal(patchMissingResponse.statusCode, 404);
+        assert.equal(
+          patchMissingBody.error,
+          "WORKSPACE_NOT_FOUND"
+        );
+      }
+    );
+
+    await context.test(
       "removes the workspace",
       async () => {
         const response = await app.inject({

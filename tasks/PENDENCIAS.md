@@ -31,12 +31,11 @@ o histórico de entregas.
 
 ## Descoberta e projetos complexos
 
-- [ ] Expor a varredura recursiva de workspace (`scanWorkspace({ recursive:
-  true })`, entregue na task 110 em `packages/project-discovery`) na rota
-  `POST /api/workspaces/:workspaceId/scan` e na UI — decisão de produto em
-  aberto: opt-in por workspace, com aviso do custo de uma varredura mais
-  lenta. A biblioteca já tem limites de profundidade/quantidade/timeout e
-  política de symlinks (não segue por padrão); falta só o fio até API/UI.
+- [ ] Tela para alternar `recursiveScan` de um workspace **já cadastrado**
+  pela UI — a task 111 entregou a opção no cadastro (checkbox no
+  `WorkspaceManagerModal`) e `PATCH /api/workspaces/:workspaceId` na API,
+  mas não existe hoje nenhuma tela de edição de workspace na UI (o modal só
+  cria); só é possível alternar via API diretamente ou recadastrando.
 
 ## CLI Bash
 
@@ -61,8 +60,11 @@ task própria quando houver motivação, escopo e critério de saída concretos.
 - Task 110 — Varredura recursiva de workspace (opt-in) em
   `packages/project-discovery`: `scanWorkspace({ recursive: true })` com
   `maxDepth`/`maxProjects`/`timeoutMs` e política de symlinks (não segue por
-  padrão). Só a biblioteca; API e UI continuam usando o modo não recursivo
-  (ver item em "Descoberta e projetos complexos" acima).
+  padrão).
+- Task 111 — Expõe a varredura recursiva na API e na UI: `Workspace.
+  recursiveScan` persistido, checkbox no cadastro do workspace, `PATCH
+  /api/workspaces/:workspaceId` para alternar depois. Falta só a tela de
+  edição de workspace na UI (ver item acima).
 
 ## Distribuição, governança e compatibilidade
 

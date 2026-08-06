@@ -49,6 +49,7 @@ export function createDashboardStore(
 
   const newWorkspaceName = ref('');
   const newWorkspacePath = ref('');
+  const newWorkspaceRecursiveScan = ref(false);
 
   const apiConnected = ref(false);
   const loadingProjects = ref(true);
@@ -416,6 +417,7 @@ export function createDashboardStore(
       const workspace = await createWorkspace({
         name,
         path,
+        recursiveScan: newWorkspaceRecursiveScan.value,
       });
 
       workspaces.value = [...workspaces.value, workspace].sort(
@@ -425,6 +427,7 @@ export function createDashboardStore(
       activateWorkspace(workspace.id);
       newWorkspaceName.value = '';
       newWorkspacePath.value = '';
+      newWorkspaceRecursiveScan.value = false;
       successMessage.value = `Workspace "${workspace.name}" cadastrado.`;
 
       await scanWorkspaceById(workspace.id, {
@@ -524,6 +527,7 @@ export function createDashboardStore(
     selectedWorkspaceId,
     newWorkspaceName,
     newWorkspacePath,
+    newWorkspaceRecursiveScan,
     apiConnected,
     loadingProjects,
     scanningWorkspace,

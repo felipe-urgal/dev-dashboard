@@ -17,6 +17,7 @@ const workspace: Workspace = {
   name: 'Workspace',
   path: '/tmp/workspace',
   enabled: true,
+  recursiveScan: false,
 };
 
 const secondWorkspace: Workspace = {
@@ -24,6 +25,7 @@ const secondWorkspace: Workspace = {
   name: 'Second workspace',
   path: '/tmp/second-workspace',
   enabled: true,
+  recursiveScan: false,
 };
 
 const project: Project = {
