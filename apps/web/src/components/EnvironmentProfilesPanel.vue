@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   KeyIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
   ShieldCheckIcon,
   TrashIcon,
@@ -28,6 +29,17 @@ const shortDateFormatter = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 });
 
+// Classificação puramente visual (não persistida) para o ponto colorido da
+// lista — apenas um indício a partir do nome do perfil, não um campo do modelo.
+const PROFILE_KIND_PATTERNS: Array<{
+  kind: 'dev' | 'staging' | 'prod';
+  pattern: RegExp;
+}> = [
+  { kind: 'prod', pattern: /produ|prod\b/i },
+  { kind: 'staging', pattern: /stag|homolog|hml/i },
+  { kind: 'dev', pattern: /desenv|dev\b|local/i },
+];
+
 interface ProfileVariableRow {
   name: string;
   value: string;
@@ -38,6 +50,7 @@ const profilesLoading = ref(true);
 const profileSaving = ref(false);
 const profilesError = ref('');
 const profilesFeedback = ref('');
+const profileSearch = ref('');
 const profileForm = reactive<{
   id: string | undefined;
   name: string;
@@ -47,6 +60,7 @@ const profileForm = reactive<{
   name: '',
   variables: [{ name: '', value: '' }],
 });
+const profileSnapshot = ref('');
 
 const configuredVariableCount = computed(
   () =>
@@ -61,11 +75,36 @@ const canAddVariable = computed(
       profileList.value.limits.maxVariablesPerProfile,
 );
 
+const filteredProfiles = computed(() => {
+  const profiles = profileList.value?.profiles ?? [];
+  const query = profileSearch.value.trim().toLowerCase();
+  if (!query) return profiles;
+  return profiles.filter((profile) =>
+    profile.name.toLowerCase().includes(query),
+  );
+});
+
+const isDirty = computed(
+  () => Boolean(profileForm.id) && formSnapshot() !== profileSnapshot.value,
+);
+
 useAutoDismiss(profilesError, '');
 useAutoDismiss(profilesFeedback, '');
 
 function isSensitiveVariableName(name: string): boolean {
   return SENSITIVE_VARIABLE_NAME_PATTERN.test(name);
+}
+
+function profileKind(name: string): 'dev' | 'staging' | 'prod' | 'other' {
+  const match = PROFILE_KIND_PATTERNS.find(({ pattern }) => pattern.test(name));
+  return match?.kind ?? 'other';
+}
+
+function formSnapshot(): string {
+  return JSON.stringify({
+    name: profileForm.name,
+    variables: profileForm.variables,
+  });
 }
 
 function resetProfileForm(): void {
@@ -74,6 +113,7 @@ function resetProfileForm(): void {
   profileForm.variables = [{ name: '', value: '' }];
   profilesError.value = '';
   profilesFeedback.value = '';
+  profileSnapshot.value = formSnapshot();
 }
 
 function editProfile(profile: EnvironmentProfile): void {
@@ -88,6 +128,14 @@ function editProfile(profile: EnvironmentProfile): void {
       : [{ name: '', value: '' }];
   profilesError.value = '';
   profilesFeedback.value = '';
+  profileSnapshot.value = formSnapshot();
+}
+
+function discardChanges(): void {
+  const original = profileList.value?.profiles.find(
+    (profile) => profile.id === profileForm.id,
+  );
+  if (original) editProfile(original);
 }
 
 async function loadProfiles(preferredProfileId?: string): Promise<void> {
@@ -216,6 +264,10 @@ onMounted(() => void loadProfiles());
       <div>
         <h3 id="environment-profiles-title">Perfis de ambiente</h3>
         <p>
+          Guarde conjuntos de variáveis por contexto — um perfil por ambiente
+          (desenvolvimento, staging, produção etc.) — para reaproveitar
+          rapidamente ao configurar um projeto, sem digitar tudo de novo. Nada
+          aqui é aplicado automaticamente ao projeto: é só uma referência local.
           Selecione um perfil e edite nome e variáveis sem trocar de contexto.
           Valores de token, senha, chave ou credencial nunca são armazenados.
         </p>
@@ -255,11 +307,24 @@ onMounted(() => void loadProfiles());
 
           <div
             v-if="profileList.profiles.length > 0"
+            class="environment-profiles-search"
+          >
+            <MagnifyingGlassIcon aria-hidden="true" />
+            <input
+              v-model="profileSearch"
+              type="search"
+              placeholder="Buscar perfil…"
+              aria-label="Buscar perfil de ambiente"
+            />
+          </div>
+
+          <div
+            v-if="profileList.profiles.length > 0"
             class="environment-profiles-list"
             role="list"
           >
             <button
-              v-for="profile in profileList.profiles"
+              v-for="profile in filteredProfiles"
               :key="profile.id"
               type="button"
               class="environment-profile-list-item"
@@ -268,6 +333,11 @@ onMounted(() => void loadProfiles());
               role="listitem"
               @click="editProfile(profile)"
             >
+              <span
+                class="environment-profile-kind-dot"
+                :class="`is-${profileKind(profile.name)}`"
+                aria-hidden="true"
+              />
               <span>
                 <strong>{{ profile.name }}</strong>
                 <small>{{ profileUpdatedLabel(profile.updatedAt) }}</small>
@@ -279,6 +349,12 @@ onMounted(() => void loadProfiles());
                 {{ profile.variables.length }}
               </span>
             </button>
+            <p
+              v-if="filteredProfiles.length === 0"
+              class="environment-profiles-empty"
+            >
+              Nenhum perfil encontrado para "{{ profileSearch }}".
+            </p>
           </div>
           <p v-else class="environment-profiles-empty">
             Nenhum perfil de ambiente cadastrado. Crie o primeiro ao lado.
@@ -302,19 +378,27 @@ onMounted(() => void loadProfiles());
           @submit.prevent="saveProfile"
         >
           <header class="environment-profile-editor-header">
-            <div>
-              <strong>{{
-                profileForm.id
-                  ? profileForm.name || 'Perfil sem nome'
-                  : 'Novo perfil'
-              }}</strong>
-              <span>
-                {{
+            <div class="environment-profile-editor-title">
+              <span
+                v-if="profileForm.id"
+                class="environment-profile-kind-dot"
+                :class="`is-${profileKind(profileForm.name)}`"
+                aria-hidden="true"
+              />
+              <div>
+                <strong>{{
                   profileForm.id
-                    ? `${configuredVariableCount} ${configuredVariableCount === 1 ? 'variável configurada' : 'variáveis configuradas'}`
-                    : 'Defina um nome e adicione as variáveis necessárias'
-                }}
-              </span>
+                    ? profileForm.name || 'Perfil sem nome'
+                    : 'Novo perfil'
+                }}</strong>
+                <span>
+                  {{
+                    profileForm.id
+                      ? `${configuredVariableCount} ${configuredVariableCount === 1 ? 'variável configurada' : 'variáveis configuradas'}`
+                      : 'Defina um nome e adicione as variáveis necessárias'
+                  }}
+                </span>
+              </div>
             </div>
             <div class="environment-profile-editor-actions">
               <button
@@ -438,6 +522,33 @@ onMounted(() => void loadProfiles());
               </div>
             </section>
           </div>
+
+          <footer v-if="isDirty" class="environment-profile-unsaved-bar">
+            <span>
+              <span
+                class="environment-profile-unsaved-dot"
+                aria-hidden="true"
+              />
+              Alterações não salvas
+            </span>
+            <span class="environment-profile-unsaved-actions">
+              <button
+                type="button"
+                class="secondary-button"
+                :disabled="profileSaving"
+                @click="discardChanges"
+              >
+                Descartar
+              </button>
+              <button
+                type="submit"
+                class="primary-button"
+                :disabled="profileSaving || !profileForm.name.trim()"
+              >
+                {{ profileSaving ? 'Salvando…' : 'Salvar alterações' }}
+              </button>
+            </span>
+          </footer>
         </form>
       </div>
     </template>
@@ -493,10 +604,17 @@ onMounted(() => void loadProfiles());
 }
 
 .environment-profiles-sidebar-header > div,
-.environment-profile-editor-header > div:first-child,
+.environment-profile-editor-title > div,
 .environment-profile-variable-header > div {
   display: grid;
   gap: 3px;
+}
+
+.environment-profile-editor-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
 }
 
 .environment-profiles-sidebar-header strong,
@@ -520,7 +638,8 @@ onMounted(() => void loadProfiles());
 
 .environment-profile-list-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 8px;
   width: 100%;
   padding: 10px;
@@ -530,6 +649,53 @@ onMounted(() => void loadProfiles());
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.environment-profiles-search {
+  position: relative;
+  padding: 8px 8px 0;
+}
+
+.environment-profiles-search svg {
+  position: absolute;
+  top: 50%;
+  left: 17px;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.environment-profiles-search input {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px 0 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.environment-profile-kind-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.environment-profile-kind-dot.is-dev {
+  background: var(--accent);
+}
+
+.environment-profile-kind-dot.is-staging {
+  background: var(--warning-text, #d7ab4a);
+}
+
+.environment-profile-kind-dot.is-prod {
+  background: var(--danger-text, #c43d4f);
 }
 
 .environment-profile-list-item:hover {
@@ -606,6 +772,35 @@ onMounted(() => void loadProfiles());
   display: grid;
   gap: 14px;
   padding: 16px;
+}
+
+.environment-profile-unsaved-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted, rgba(127, 127, 127, 0.06));
+  color: var(--warning-text, #7a5a10);
+  font-size: 11px;
+  font-weight: var(--font-weight-strong);
+}
+
+.environment-profile-unsaved-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.environment-profile-unsaved-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .environment-profile-name-row {
@@ -764,6 +959,15 @@ onMounted(() => void loadProfiles());
 
   .environment-profile-editor-actions > *,
   .environment-profile-variable-header .secondary-button {
+    width: 100%;
+  }
+
+  .environment-profile-unsaved-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .environment-profile-unsaved-actions > * {
     width: 100%;
   }
 

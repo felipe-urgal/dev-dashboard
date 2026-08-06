@@ -21,10 +21,6 @@ npm test
 
 ## Assistente de IA e IDE embutida — candidatos ainda sem plano detalhado
 
-- [ ] Contexto semântico via embeddings locais e restauração de abas/estado
-  entre sessões — exigem desenho próprio de índice, política de exclusão e
-  tela de configurações; duas frentes distintas, grandes e não bloqueantes,
-  atrás de melhorias operacionais menores.
 - Smoke E2E dedicado para `propose_workspace_edit` e para as ferramentas de
   símbolo (já cobertos por testes de unidade; estender o double do Ollama
   para emitir os `tool_calls` correspondentes fica como possibilidade futura,
@@ -49,8 +45,6 @@ npm test
 
 ## Qualidade e manutenção
 
-- [ ] Expandir o Playwright para operações de banco de dados
-  (snapshot/restore) — exige um serviço de banco na fixture.
 - [ ] Medir cobertura e definir metas por camada.
 
 Esses itens não formam uma única frente coerente: cada um deve ganhar uma
@@ -63,11 +57,3 @@ task própria quando houver motivação, escopo e critério de saída concretos.
   atual, publicada na task 113, já documenta o que é tratado hoje no CLI
   bash e o que falta: cobertura de teste dedicada e identidade de processo
   equivalente ao `/proc/<pid>/cwd` no dashboard web).
-- [ ] Definir uma estratégia específica para Windows, considerando diferenças
-  de processos, sinais e filesystem.
-
-## Extensibilidade futura
-
-- [ ] Definir um manifesto declarativo de extensões e capacidades.
-- [ ] Criar adaptadores versionados e revisados.
-- [ ] Permitir temas e painéis adicionais sem execução remota.
