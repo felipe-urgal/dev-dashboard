@@ -16050,7 +16050,8 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "id",
             "name",
             "path",
-            "enabled"
+            "enabled",
+            "recursiveScan"
           ],
           "properties": {
             "id": {
@@ -16063,6 +16064,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
               "type": "string"
             },
             "enabled": {
+              "type": "boolean"
+            },
+            "recursiveScan": {
               "type": "boolean"
             }
           }
@@ -16104,6 +16108,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "path": {
       "type": "string",
       "minLength": 1
+    },
+    "recursiveScan": {
+      "type": "boolean"
     }
   }
 }
@@ -16121,7 +16128,8 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
       "id",
       "name",
       "path",
-      "enabled"
+      "enabled",
+      "recursiveScan"
     ],
     "properties": {
       "id": {
@@ -16134,6 +16142,9 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
         "type": "string"
       },
       "enabled": {
+        "type": "boolean"
+      },
+      "recursiveScan": {
         "type": "boolean"
       }
     }
@@ -16173,6 +16184,84 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
   ```json
   {
     "type": "null"
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `PATCH /api/workspaces/:workspaceId`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recursiveScan"
+  ],
+  "properties": {
+    "recursiveScan": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "name",
+      "path",
+      "enabled",
+      "recursiveScan"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "recursiveScan": {
+        "type": "boolean"
+      }
+    }
   }
   ```
 - **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
@@ -16314,7 +16403,10 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
               "type": "string",
               "enum": [
                 "UNREADABLE_DIRECTORY",
-                "PROJECT_DETECTION_FAILED"
+                "PROJECT_DETECTION_FAILED",
+                "SCAN_DEPTH_LIMIT_REACHED",
+                "SCAN_PROJECT_LIMIT_REACHED",
+                "SCAN_TIMEOUT"
               ]
             },
             "message": {
