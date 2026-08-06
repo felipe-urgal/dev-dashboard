@@ -26,11 +26,6 @@ npm test
   para emitir os `tool_calls` correspondentes fica como possibilidade futura,
   não bloqueante).
 
-## CLI Bash
-
-- [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar
-  a independência do CLI existente.
-
 ## Distribuição, governança e compatibilidade
 
 - [ ] Criar uma política versionada de migração e backup do estado local.

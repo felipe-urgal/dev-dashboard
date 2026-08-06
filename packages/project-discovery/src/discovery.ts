@@ -10,6 +10,8 @@ import type {
   Workspace,
 } from '@dev-dashboard/contracts';
 
+import { loadProjectTypeRules } from './project-type-rules.js';
+
 interface PackageManifest {
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
@@ -170,7 +172,12 @@ function detectProjectType(
   gemfile: string | null,
   hasPackageJson: boolean,
 ): ProjectType {
-  if (hasGem(gemfile, 'rails')) {
+  const rules = loadProjectTypeRules();
+  const isRails =
+    gemfile !== null &&
+    new RegExp(rules.rails.gemNamePattern, 'm').test(gemfile);
+
+  if (isRails) {
     return 'rails';
   }
 

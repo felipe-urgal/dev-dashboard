@@ -1,0 +1,12 @@
+{
+  "$comment": "Fonte única para a regra de detecção de tipo de projeto (Rails/Node), compartilhada entre o CLI bash (lib/projects/detect.sh) e o dashboard web (packages/project-discovery/src/discovery.ts) — ver docs/architecture/overview.md, seção \"Regras compartilhadas entre CLI e web\". Dois campos de padrão porque bash (grep -E, POSIX ERE) e TypeScript (RegExp) não compartilham sintaxe de regex: mesma regra, duas notações equivalentes. Ao mudar a heurística, atualize os dois campos e rode `tests/cli/run.sh` (bash) e `node --import=tsx --test packages/project-discovery/test/discovery.test.ts` (TS).",
+  "version": 1,
+  "rails": {
+    "requiredFile": "Gemfile",
+    "gemNamePattern": "^\\s*gem\\s+[\"']rails[\"']",
+    "gemNamePatternPosix": "^[[:space:]]*gem[[:space:]]+[\"']rails[\"']"
+  },
+  "node": {
+    "requiredFile": "package.json"
+  }
+}
