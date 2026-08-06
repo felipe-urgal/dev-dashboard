@@ -298,7 +298,7 @@ try {
     },
     {
       recursive: true,
-      timeoutMs: 0
+      timeoutMs: -1000
     }
   );
 
