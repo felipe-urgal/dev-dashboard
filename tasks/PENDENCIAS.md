@@ -28,11 +28,15 @@ npm test
 
 ## Produto e fluxos operacionais
 
-- [ ] Persistir relatórios de cobertura de projetos gerenciados (não deste
-  codebase) — funcionalidade nova, sem nenhuma base hoje; formatos
-  completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
-  `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
-  próprio.
+- [ ] Persistir relatórios de cobertura de projetos gerenciados para
+  ecossistemas além do Node/Istanbul já entregue na task 128 — SimpleCov
+  (Rails), que usa `coverage/.resultset.json`, um formato completamente
+  diferente do Istanbul, exigindo parser próprio. A task 128 também deixou
+  de escopo, deliberadamente: histórico entre execuções (só o relatório
+  mais recente é lido, sem persistência própria) e
+  `coverage-summary.json` pré-calculado (só `coverage-final.json` bruto é
+  suportado hoje).
+
 ## CLI Bash
 
 - [ ] Definir a estratégia para compartilhar regras com web e API sem quebrar

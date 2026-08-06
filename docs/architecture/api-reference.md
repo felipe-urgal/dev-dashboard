@@ -8329,6 +8329,298 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Project Coverage
+
+### `GET /api/projects/:projectId/coverage`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "coverage"
+    ],
+    "properties": {
+      "coverage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "generatedAt": {
+            "type": "string"
+          },
+          "total": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "statements",
+              "branches",
+              "functions",
+              "lines"
+            ],
+            "properties": {
+              "statements": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "total",
+                  "covered",
+                  "pct"
+                ],
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "covered": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              },
+              "branches": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "total",
+                  "covered",
+                  "pct"
+                ],
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "covered": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              },
+              "functions": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "total",
+                  "covered",
+                  "pct"
+                ],
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "covered": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              },
+              "lines": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "total",
+                  "covered",
+                  "pct"
+                ],
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "covered": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "pct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "statements",
+                "branches",
+                "functions",
+                "lines"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "statements": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "total",
+                    "covered",
+                    "pct"
+                  ],
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "covered": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pct": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                },
+                "branches": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "total",
+                    "covered",
+                    "pct"
+                  ],
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "covered": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pct": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                },
+                "functions": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "total",
+                    "covered",
+                    "pct"
+                  ],
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "covered": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pct": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                },
+                "lines": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "total",
+                    "covered",
+                    "pct"
+                  ],
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "covered": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pct": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Project Doctor
 
 ### `GET /api/projects/:projectId/doctor`

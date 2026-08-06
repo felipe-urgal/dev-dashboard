@@ -19,6 +19,7 @@ import type { Project } from '@dev-dashboard/contracts';
 import { useProjectTestsPanel } from '../composables/useProjectTestsPanel';
 import { exportLogSnapshot } from '../utils/log-export';
 import Card from './Card.vue';
+import ProjectCoveragePanel from './ProjectCoveragePanel.vue';
 import ProjectTestFailureNavigator from './ProjectTestFailureNavigator.vue';
 
 const props = defineProps<{ project: Project }>();

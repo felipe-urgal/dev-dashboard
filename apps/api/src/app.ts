@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 
 import { projectRoutes } from './routes/projects.js';
 import { projectDoctorRoutes } from './routes/project-doctor.js';
+import { projectCoverageRoutes } from './routes/project-coverage.js';
 import { gitMutationRoutes } from './routes/git-mutations.js';
 import { gitMutationHistoryRoutes } from './routes/git-mutation-history.js';
 import { projectReadmeRoutes } from './routes/project-readme.js';
@@ -164,6 +165,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectDoctorService,
+  });
+
+  app.register(projectCoverageRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectCoverageService: context.projectCoverageService,
   });
 
   app.register(gitMutationRoutes, {
