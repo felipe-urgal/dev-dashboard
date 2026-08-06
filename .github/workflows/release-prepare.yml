@@ -1,0 +1,65 @@
+name: Release — prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Tipo de incremento de versão'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Abre PR de release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version e regenera CHANGELOG.md
+        id: bump
+        run: |
+          npm run release -- "${{ inputs.bump }}"
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Abre PR de release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch="release/v${{ steps.bump.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): v${{ steps.bump.outputs.version }}"
+          git push origin "$branch"
+          gh pr create \
+            --title "chore(release): v${{ steps.bump.outputs.version }}" \
+            --body "Bump de versão (\`${{ inputs.bump }}\`) e regeneração do CHANGELOG.md. Ao ser mergeado em \`main\`, o workflow \"Release — tag\" cria a tag \`v${{ steps.bump.outputs.version }}\` e o GitHub Release automaticamente." \
+            --base main \
+            --head "$branch"

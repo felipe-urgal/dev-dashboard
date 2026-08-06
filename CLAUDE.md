@@ -86,6 +86,17 @@ npm test           # --workspaces --if-present
 npm run test:e2e   # build + Playwright smoke em apps/web/e2e
 npm run doctor     # valida Node/npm/Git/dependências/portas sem iniciar nada
 npm run dev-web    # builda e serve API + frontend estático numa porta só (distribuição local)
+
+npm run lint         # ESLint em apps/, packages/ e scripts/
+npm run lint:fix     # idem, aplicando correções automáticas possíveis
+npm run format       # Prettier no mesmo escopo do lint
+npm run format:check # confere formatação sem regravar (usado no CI)
+
+npm run docs:dev        # central de documentação local em 127.0.0.1:4545
+npm run docs:api        # regenera docs/architecture/api-reference.md a partir dos schemas Fastify
+npm run docs:api:check  # confere se a referência está atualizada, sem regravar (usado no CI)
+npm run changelog       # regenera CHANGELOG.md a partir do git log (task 093)
+npm run release -- <patch|minor|major>  # bump de versão + changelog (task 116; ver CONTRIBUTING.md)
 ```
 
 `build`, `typecheck`, `dev`, `dev:api` e `dev:web` têm todos um script `pre*` que roda
@@ -94,8 +105,13 @@ ordem) — os apps importam a saída compilada em `dist/` desses packages, não 
 diretamente, então um `dist/` desatualizado depois de editar um package é uma fonte comum de
 confusão.
 
-`.github/workflows/ci.yml` roda `typecheck` → `build` → `test` em todo push/PR (Node 24). O
+`.github/workflows/ci.yml` roda `typecheck` → `lint` → `format:check` → `build` →
+`docs:api:check` → `test` em todo push/PR (Node 24), mais um job separado de smoke E2E. O
 `engines` do `package.json` raiz exige Node `^20.19.0 || >=22.12.0`.
+
+`.github/workflows/release-prepare.yml` (disparo manual) e `release-tag.yml` (em push que muda
+`package.json` em `main`) automatizam bump de versão, `CHANGELOG.md` e GitHub Release — projeto é
+`"private": true`, sem publicação em registro npm (task 116, ver "Release" em `CONTRIBUTING.md`).
 
 ### Rodando um teste específico
 

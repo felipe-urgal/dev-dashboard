@@ -20,6 +20,7 @@
     "predocs:api": "npm run build:packages",
     "predocs:api:check": "npm run build:packages",
     "changelog": "node scripts/generate-changelog.mjs",
+    "release": "node scripts/release.mjs",
     "build": "npm run build:packages && npm run build:apps",
     "test": "node --test scripts/*.test.mjs && npm run test --workspaces --if-present",
     "test:e2e": "npm run build && npm run test:e2e --workspace=@dev-dashboard/web",

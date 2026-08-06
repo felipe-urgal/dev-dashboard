@@ -58,11 +58,6 @@ task própria quando houver motivação, escopo e critério de saída concretos.
 
 ## Distribuição, governança e compatibilidade
 
-- [ ] Automatizar release e tags de versão. Fica pendente de uma decisão de
-  política de versionamento (cadência de release, formato de tag, se o
-  projeto algum dia será publicado — hoje `package.json` raiz tem
-  `"private": true`) que não cabe a uma única frente paralela decidir
-  sozinha.
 - [ ] Criar uma política versionada de migração e backup do estado local.
 - [ ] Validar e implementar compatibilidade com macOS (a matriz de suporte
   atual, publicada na task 113, já documenta o que é tratado hoje no CLI

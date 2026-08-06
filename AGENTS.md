@@ -66,6 +66,9 @@ npm run typecheck              # tsc --build em todos os workspaces
 npm run build                  # packages primeiro, depois apps
 npm test                       # --workspaces --if-present
 npm run dev                    # API (:4343) + web (:5173) juntos
+npm run lint                   # ESLint em apps/, packages/ e scripts/
+npm run format:check           # Prettier, sem regravar
+tests/cli/run.sh               # suíte do CLI bash (helpers não interativos)
 ```
 
 `build:packages` roda `contracts → core → project-discovery →
@@ -114,10 +117,15 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
 
 ## Testes
 
-- Node test runner (`node --test`) com `tsx` para carregar `.ts`.
-- Padrão de nome: `*.test.ts` em `test/` de cada workspace.
-- Não há suíte automatizada para o CLI bash — a validação lá é manual
-  ou usa a suíte do próprio projeto alvo.
+- Node test runner (`node --test`) com `tsx` para carregar `.ts`, exceto
+  `apps/web` (Vitest para unitários/componentes, Playwright para o smoke
+  E2E). Padrão de nome: `*.test.ts` em `test/` de cada workspace.
+- CLI bash: os helpers **não interativos** (`_dev_*`/`_project_*`/`_git_*`
+  puros, sem `gum`/`read -r -p`) têm suíte própria em `tests/cli/`
+  (`tests/cli/run.sh`, só `bash` + `git`). Funções interativas continuam
+  validadas manualmente, rodando a função direto num shell com o dashboard
+  carregado. `lib/*/tests/` é outra coisa — menus para rodar a suíte do
+  *projeto alvo* (ex. `bundle exec rspec`), não testes deste codebase.
 
 ## Como abrir e fechar uma task de trabalho
 
@@ -125,7 +133,7 @@ esqueceu de rebuildar após editar um package, o typecheck pode mentir.
    relevante.
 2. Implementar, adicionando ao menos um teste automatizado quando o
    escopo suportar.
-3. Rodar `npm run typecheck && npm run build && npm test`.
+3. Rodar `npm run typecheck && npm run lint && npm run format:check && npm run build && npm test`.
 4. Atualizar o documento da task e reconciliar `tasks/PENDENCIAS.md`.
 5. Substituir `tasks/NEXT.md` pelo próximo plano.
 6. Commit descritivo em português, PR em draft.
