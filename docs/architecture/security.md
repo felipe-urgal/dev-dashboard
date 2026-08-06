@@ -455,16 +455,49 @@ ameaça atual (um único usuário local confiável): o dashboard só pode fazer
 com `gh` o que o próprio usuário já pode fazer no terminal dele.
 
 **O que isso autoriza hoje**: chamadas de leitura (`gh api` com método GET ou
-query GraphQL somente leitura) para enriquecer dados já públicos de PR/CI.
+query GraphQL somente leitura) para enriquecer dados já públicos de PR/CI, e
+(task 126, decisão explícita do usuário) um catálogo fechado de quatro ações
+mutáveis: `pr create`, `pr edit`, `pr close`, `pr merge`
+(`apps/api/src/services/git-pull-request-mutation-service.ts`,
+`apps/api/src/routes/git-pull-request-mutations.ts`).
 
-**O que isso não autoriza**: nenhuma ação mutável do `gh` (`pr create`,
-`pr merge`, `pr close`, `pr edit`, etc.) está em uso ou planejada por esta
-decisão. Expor qualquer uma delas no dashboard web exigiria, antes de
-implementar: um catálogo fechado dos subcomandos permitidos (nunca `gh`
-arbitrário vindo do navegador), o mesmo padrão de token de confirmação de
-ações mutáveis já usado no catálogo de scripts e nas mutações Git, e ações
-destrutivas (`pr close`, `pr merge`) permanecerem bloqueadas por padrão até
-decisão explícita — seguindo o checklist de novos endpoints.
+**Catálogo fechado**: os quatro identificadores (`pull-request-create`,
+`pull-request-edit`, `pull-request-close`, `pull-request-merge`) estão
+registrados em `packages/contracts/src/git-mutation-catalog.ts`
+(`GIT_MUTATION_CATALOG`) com risco `write-remote` (criar/editar) ou
+`destructive` (fechar/mesclar) — nenhum subcomando ou flag arbitrária do
+`gh` chega ao `execFile`; os argumentos são montados inteiramente pelo
+serviço a partir de campos validados (`number`, `title`, `description`,
+`baseBranch`, `mergeMethod`).
+
+**Confirmação em duas etapas**: as quatro ações — não só as destrutivas —
+exigem o mesmo padrão de token de confirmação de uso único já usado no
+catálogo de scripts e nas mutações Git
+(`GitMutationConfirmationService`, TTL de 60s): `POST
+.../git/pull-request/confirmations` retorna um token vinculado ao projeto,
+à ação e a uma assinatura dos campos exatos da mutação (o token não pode
+ser reaproveitado para um número de PR ou um título diferente); `POST
+.../git/pull-request/actions` consome esse token antes de qualquer chamada
+ao `gh`.
+
+**Ações destrutivas**: `pull-request-close` e `pull-request-merge` foram
+explicitamente autorizadas nesta decisão (task 126) — a orientação anterior
+de ficarem bloqueadas por padrão até decisão explícita foi essa mesma
+decisão. A interface exige que a pessoa usuária digite o número da PR para
+habilitar o botão de confirmação (mesmo padrão de "digite para confirmar"
+de `ProjectGitBranchesPage.vue`) e mostra o comando `gh` literal que será
+executado antes da confirmação.
+
+**Trilha de auditoria e erros seguros**: toda execução (sucesso ou falha)
+passa por `withGitMutationHistory` e aparece em
+`GET /projects/:projectId/git/mutation-history`, no mesmo histórico das
+mutações Git; confirmação ausente/expirada não é registrada (falha de
+protocolo do cliente, não uma tentativa de operação). Falhas do `gh`
+(`execFile` rejeitado) nunca propagam stdout/stderr bruto para o cliente —
+a API responde com uma mensagem fixa (`GIT_PULL_REQUEST_MUTATION_FAILED`).
+Ações restritas a remotos GitHub: um remoto GitLab é rejeitado antes de
+qualquer chamada ao `gh` (`GIT_PULL_REQUEST_REMOTE_UNSUPPORTED`), já que o
+`gh` não opera contra GitLab.
 
 ### Processos fora do dashboard
 

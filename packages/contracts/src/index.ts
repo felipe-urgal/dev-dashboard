@@ -170,6 +170,14 @@ export type {
 } from './git-mutation-history.js';
 
 export type {
+  GitPullRequestMergeMethod,
+  GitPullRequestMutationActionId,
+  GitPullRequestMutationConfirmation,
+  GitPullRequestMutationResult,
+  GitPullRequestMutationState,
+} from './git-pull-request-mutation.js';
+
+export type {
   ProjectTestCommand,
   ProjectTestFile,
   ProjectTestOrigin,

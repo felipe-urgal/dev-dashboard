@@ -23,6 +23,7 @@ function errorCodeOf(error: unknown): string | undefined {
 const CONFIRMATION_REQUIRED_CODES = new Set([
   'GIT_MUTATION_CONFIRMATION_REQUIRED',
   'GIT_SYNC_CONFIRMATION_REQUIRED',
+  'GIT_PULL_REQUEST_MUTATION_CONFIRMATION_REQUIRED',
 ]);
 
 /**
