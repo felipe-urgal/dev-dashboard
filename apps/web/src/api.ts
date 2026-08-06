@@ -17,3 +17,4 @@ export * from './api/project-readme';
 export * from './api/project-file-mutations';
 export * from './api/language-server';
 export * from './api/ai-assistant';
+export * from './api/terminal';

@@ -264,6 +264,59 @@ A configuração é limitada, validada e persistida atomicamente em
 `0600`. A rota de alteração usa autenticação local e schema fechado; ela não
 aceita caminhos nem conteúdo livre para gravação.
 
+### Terminal e console do projeto
+
+As abas Terminal (qualquer projeto) e Console (só Rails) são a **única exceção deliberada** ao
+princípio de catálogo fechado de ações acima: o navegador abre uma sessão de shell interativa de
+verdade — `$SHELL` do usuário (fallback `/bin/bash`) para o Terminal, `bin/rails console` (ou
+`bundle exec rails console` sem binstub) para o Console — sem lista fechada de comandos permitidos.
+Isso corresponde exatamente ao "terminal arbitrário" listado em "Requisitos antes de operações
+destrutivas" abaixo, e esta seção documenta como cada item daquela lista é atendido:
+
+- **Autenticação local**: a rota HTTP de status, a de confirmação e o upgrade do WebSocket de
+  conexão passam pelo mesmo hook de autenticação global das demais rotas privadas (cookie de sessão
+  local ou `X-Dev-Dashboard-Token`).
+- **Confirmação explícita**: além da autenticação acima, cada abertura de sessão exige um token de
+  confirmação dedicado (32 bytes aleatórios, válido por um minuto, vinculado ao projeto e ao `kind`
+  — `shell` ou `rails-console` —, consumido na primeira tentativa), obtido por
+  `POST /api/projects/:id/terminal/:kind/confirmations` e enviado como query string na conexão do
+  WebSocket. Reconectar depois de qualquer desconexão passa pelo mesmo fluxo — não existe token de
+  sessão de longa duração nem reconexão automática silenciosa.
+- **Descrição da ação / visualização do comando**: a interface mostra um aviso de risco antes do
+  primeiro clique em "Iniciar sessão", explicando que os comandos rodam com as permissões do
+  usuário do sistema operacional sem filtro algum.
+- **Trilha de auditoria**: cada conexão, o comando resolvido (`shell` ou `bin/rails
+  console`/`bundle exec rails console`) e cada encerramento de sessão são registrados nos logs
+  estruturados da API (`request.log`), no mesmo padrão usado para falhas do gateway de Language
+  Server. Não existe hoje um log persistido e pesquisável do que foi digitado dentro da sessão —
+  isso ficaria em `docs/architecture/overview.md`/`tasks/PENDENCIAS.md` como possível melhoria
+  futura, não bloqueante para esta entrega.
+- **Classificação de risco**: alta. Esta é a única superfície da API que executa um shell genuíno;
+  o restante do modelo de ameaça (usuário único confiável, projetos potencialmente não confiáveis)
+  se aplica integralmente — abrir um Terminal ou Console em um projeto não confiável tem o mesmo
+  risco que abrir um terminal manualmente nesse mesmo diretório.
+- **Testes automatizados**: `apps/api/test/project-terminal-service.test.ts` (protocolo completo —
+  confirmação, input/output, resize, limites, encerramento) e
+  `apps/api/test/project-terminal-routes.test.ts` (rotas HTTP, autenticação, validação de `kind`,
+  projeto inexistente).
+- **Cancelamento**: fechar a aba, recarregar a página ou clicar em "Encerrar sessão" fecha o
+  WebSocket, o que mata o processo do pseudoterminal (`SIGHUP` via `node-pty`) imediatamente — não
+  existe sessão sobrevivendo sem um WebSocket conectado a ela.
+
+Outras salvaguardas, além do checklist:
+
+- Sessões são efêmeras: o processo do shell vive e morre com a conexão WebSocket. Não há
+  persistência entre reconexões (nada equivalente a `tmux`/`screen`).
+- Limite de sessões simultâneas por projeto+kind (4) e por instância (16), para conter uma aba
+  esquecida aberta ou um script automatizando conexões repetidas.
+- O processo herda o ambiente da API (mesma ressalva de "Variáveis de ambiente" acima) e roda com
+  `cwd` fixado no caminho canônico do projeto vindo do `ProjectStore` — nunca um caminho vindo do
+  navegador.
+- Mensagens do cliente são limitadas a 65536 bytes e usam o mesmo limitador de taxa por mensagem já
+  usado no gateway de Language Server (`withWebSocketMessageRateLimit`).
+- Dimensões de `resize` são fixadas em limites (1–500 colunas, 1–200 linhas) antes de chegar ao
+  pseudoterminal.
+
 ## Autenticação local
 
 No primeiro uso, o Dev Dashboard gera um token criptograficamente aleatório de
