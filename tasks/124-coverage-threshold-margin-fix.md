@@ -1,9 +1,9 @@
-# Task 120 — Corrige limiares de cobertura sem margem (CI quebrado após task 118)
+# Task 124 — Corrige limiares de cobertura sem margem (CI quebrado após task 122)
 
 ## Contexto
 
-O CI do PR #232 (tasks 118/119) falhou no step "Test" logo após o push da
-task 118, com `packages/project-discovery` saindo com código 1 — mesmo com
+O CI do PR #232 (tasks 122/123) falhou no step "Test" logo após o push da
+task 122, com `packages/project-discovery` saindo com código 1 — mesmo com
 a tabela de cobertura exibida no log mostrando exatamente os números
 esperados (`all files | 94.23 | 76.15 | 100.00`, limiares configurados em
 `94/76/100`). Investigação: tentei reproduzir localmente com Node 22.22.2
@@ -14,7 +14,7 @@ localmente.
 
 ## Causa raiz
 
-Os limiares da task 118 foram fixados **exatamente** no valor medido
+Os limiares da task 122 foram fixados **exatamente** no valor medido
 (arredondado para baixo), sem nenhuma margem de segurança —
 `packages/project-discovery` tinha limiar de branches em `76` contra um
 valor medido de `76.15` (margem de 0.15 ponto percentual);
@@ -49,7 +49,7 @@ Validado localmente contra Node 22.22.2 e Node 24.19.0 (via `nvm install
 A política de ratchet continua a mesma (piso nunca desce sem justificativa,
 sobe quando fizer sentido), mas o texto agora deixa claro que o piso fica
 **abaixo** do valor medido por uma margem de segurança, não exatamente
-nele — a task 118 tratou "ratchet" como "piso = valor exato medido", o que
+nele — a task 122 tratou "ratchet" como "piso = valor exato medido", o que
 na prática se provou frágil demais para uso real em CI.
 
 ## Arquivos
