@@ -16,6 +16,15 @@ export const FILE_TARGET_PATTERNS: Partial<Record<ProjectTestRunner, RegExp>> =
     pytest: /^(test_.*|.*_test)\.py$/i,
   };
 
+/**
+ * Runners que aceitam `arquivo:linha` na linha de comando para rodar só o
+ * exemplo/grupo daquela linha (RSpec resolve `describe`/`it` sozinho a
+ * partir da linha, sem precisar de nome ou parser de AST no dashboard).
+ */
+export const CASE_TARGET_RUNNERS: ReadonlySet<ProjectTestRunner> = new Set([
+  'rspec',
+]);
+
 const IGNORED_TEST_SCAN_DIRECTORIES = new Set([
   '.git',
   '.idea',

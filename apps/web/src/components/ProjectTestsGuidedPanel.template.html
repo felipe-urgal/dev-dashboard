@@ -108,6 +108,27 @@
                   </option>
                 </select>
               </label>
+
+              <label v-if="supportsCaseTarget" class="tests-field">
+                <span>Linha do caso/exemplo (opcional)</span>
+                <input
+                  v-model="selectedCaseLine"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  placeholder="ex.: 42"
+                  class="tests-case-line-input"
+                  :disabled="isRunning"
+                  :aria-invalid="caseLineInvalid"
+                />
+                <small v-if="caseLineInvalid" class="project-error" role="alert">
+                  Informe um número de linha válido, ou deixe em branco para rodar o arquivo inteiro.
+                </small>
+                <small v-else>
+                  Roda só o exemplo/grupo daquela linha do arquivo (RSpec resolve sozinho).
+                </small>
+              </label>
             </template>
 
             <template v-else-if="selectedChoice?.scope === 'related'">

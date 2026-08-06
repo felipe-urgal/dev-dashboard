@@ -158,13 +158,14 @@ export async function startProjectTestFile(
   projectId: string,
   commandId: string,
   path: string,
+  line?: number,
 ): Promise<ManagedProcess> {
   const response = await requestJson<ProcessResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/tests/${encodeURIComponent(commandId)}/files/start`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
+      body: JSON.stringify(line === undefined ? { path } : { path, line }),
     },
   );
   if (!response.process) {

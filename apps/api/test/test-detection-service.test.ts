@@ -351,3 +351,70 @@ test('resolveFileCommand rejeita runner sem suporte a arquivo específico', asyn
     await rm(project.path, { recursive: true, force: true });
   }
 });
+
+test('overview marca supportsCaseTarget só para rspec', async () => {
+  const project = await makeProject('rails', {
+    Gemfile: "source 'https://rubygems.org'\ngem 'rails'\ngem 'rspec-rails'\n",
+    'spec/spec_helper.rb': '',
+  });
+  try {
+    const overview = await new TestDetectionService().getOverview(project);
+    const rspec = overview.commands.find(
+      (command) => command.runner === 'rspec',
+    );
+    assert.ok(rspec);
+    assert.equal(rspec.supportsCaseTarget, true);
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('resolveFileCommand com linha compõe "arquivo:linha" para rspec', async () => {
+  const project = await makeProject('rails', {
+    Gemfile: "source 'https://rubygems.org'\ngem 'rails'\ngem 'rspec-rails'\n",
+    'spec/models/user_spec.rb': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const rspec = overview.commands.find(
+      (command) => command.runner === 'rspec',
+    );
+    assert.ok(rspec);
+    const resolved = await service.resolveFileCommand(
+      project,
+      rspec.id,
+      'spec/models/user_spec.rb',
+      42,
+    );
+    assert.deepEqual(resolved!.args.at(-1), 'spec/models/user_spec.rb:42');
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});
+
+test('resolveFileCommand rejeita linha para runner sem suporte a caso específico', async () => {
+  const project = await makeProject('node', {
+    'package.json': JSON.stringify({
+      name: 'demo',
+      scripts: { test: 'vitest run' },
+      devDependencies: { vitest: '^1.0.0' },
+    }),
+    'src/app.test.ts': '',
+  });
+  try {
+    const service = new TestDetectionService();
+    const overview = await service.getOverview(project);
+    const commandId = overview.commands[0]!.id;
+    assert.equal(overview.commands[0]!.supportsCaseTarget, false);
+    await assert.rejects(
+      () =>
+        service.resolveFileCommand(project, commandId, 'src/app.test.ts', 10),
+      (error: unknown) =>
+        error instanceof TestFileError &&
+        error.code === 'TEST_CASE_TARGET_UNSUPPORTED',
+    );
+  } finally {
+    await rm(project.path, { recursive: true, force: true });
+  }
+});

@@ -21,6 +21,8 @@ export interface ProjectTestCommand {
   originDetail?: string;
   priority: number;
   supportsFileTarget: boolean;
+  /** Suporta executar um caso/exemplo específico (ex. RSpec `arquivo:linha`). */
+  supportsCaseTarget: boolean;
 }
 
 export interface ProjectTestOverview {

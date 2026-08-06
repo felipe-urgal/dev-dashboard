@@ -9,6 +9,7 @@ export const projectTestCommandResponseSchema = {
     'origin',
     'priority',
     'supportsFileTarget',
+    'supportsCaseTarget',
   ],
   properties: {
     id: { type: 'string' },
@@ -39,6 +40,7 @@ export const projectTestCommandResponseSchema = {
     originDetail: { type: 'string' },
     priority: { type: 'integer' },
     supportsFileTarget: { type: 'boolean' },
+    supportsCaseTarget: { type: 'boolean' },
   },
 } as const;
 

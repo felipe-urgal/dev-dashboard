@@ -28,9 +28,18 @@ npm test
 
 ## Produto e fluxos operacionais
 
-- [ ] Executar caso ou `describe` de teste específico e persistir relatórios de
-  cobertura — dividir em entregas separadas antes de implementar, porque os
-  runners e formatos de relatório diferem.
+- [ ] Executar caso/`describe` específico para os runners Node (`node --test`,
+  Jest, Vitest) via `-t`/`--test-name-pattern` — RSpec já foi entregue na
+  task 119 (`arquivo:linha`, sem precisar de parser/AST); os runners Node
+  usam padrão de nome, não linha, e a UI precisaria descobrir esses nomes
+  (hoje só lista arquivos, sem outline de `describe`/`it`) ou aceitar que o
+  usuário digite o padrão à mão — decisão de UX em aberto antes de
+  implementar.
+- [ ] Persistir relatórios de cobertura de projetos gerenciados (não deste
+  codebase) — funcionalidade nova, sem nenhuma base hoje; formatos
+  completamente diferentes por ecossistema (LCOV/JSON de Istanbul/c8/nyc vs.
+  `.resultset.json`+HTML do SimpleCov/Rails), cada um exigindo parser
+  próprio.
 - [ ] Expor ações mutáveis do GitHub CLI (`gh pr create`/`merge`/`close`) no
   dashboard web — o modelo de autorização já foi definido e documentado na
   task 114 (`docs/architecture/security.md`, "Integração com o GitHub CLI");

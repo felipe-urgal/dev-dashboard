@@ -2,14 +2,12 @@
 
 Nenhuma entrega sequencial está aprovada no momento.
 
-A task mais recente concluída foi a **118 — Mede cobertura e define metas
-por camada** (ver `tasks/118-test-coverage-thresholds.md`): política de
-ratchet (piso = cobertura medida hoje, só sobe), aplicada direto no script
-`test` de cada workspace via `--experimental-test-coverage` (Node) e
-`@vitest/coverage-v8` (apps/web) — `npm test` já passa a bloquear regressão
-de cobertura, sem comando novo pra lembrar.
+A task mais recente concluída foi a **119 — Executa caso/exemplo específico
+do RSpec (`arquivo:linha`)** (ver `tasks/119-rspec-case-execution.md`):
+reaproveita a infraestrutura de "arquivo específico" já existente, sem
+mudança de contrato no histórico. Node (`node --test`/Jest/Vitest) e
+persistência de relatórios de cobertura de projetos gerenciados ficam como
+itens próprios em `tasks/PENDENCIAS.md`.
 
-Para escolher a próxima, veja os itens em aberto em `tasks/PENDENCIAS.md`
-— só resta "Executar caso/`describe` específico de teste e persistir
-relatórios de cobertura" na lista principal, mais os itens de "CLI Bash" e
-"Distribuição, governança e compatibilidade".
+Isso fecha a lista de itens que vinham sendo trabalhados nesta sessão. Para
+escolher a próxima, veja `tasks/PENDENCIAS.md`.
