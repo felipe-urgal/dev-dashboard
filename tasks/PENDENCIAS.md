@@ -61,8 +61,10 @@ task própria quando houver motivação, escopo e critério de saída concretos.
   `"private": true`) que não cabe a uma única frente paralela decidir
   sozinha.
 - [ ] Criar uma política versionada de migração e backup do estado local.
-- [ ] Publicar a matriz de suporte de sistemas operacionais e runtimes.
-- [ ] Validar e implementar compatibilidade com macOS.
+- [ ] Validar e implementar compatibilidade com macOS (a matriz de suporte
+  atual, publicada na task 113, já documenta o que é tratado hoje no CLI
+  bash e o que falta: cobertura de teste dedicada e identidade de processo
+  equivalente ao `/proc/<pid>/cwd` no dashboard web).
 - [ ] Definir uma estratégia específica para Windows, considerando diferenças
   de processos, sinais e filesystem.
 

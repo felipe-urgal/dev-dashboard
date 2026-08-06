@@ -2,6 +2,36 @@
 
 Este guia reúne portas, variáveis, persistência, observabilidade e procedimentos para diagnosticar falhas no ambiente local.
 
+## Sistemas e runtimes suportados
+
+Esta matriz descreve o que é validado hoje (CI, código com tratamento
+explícito por SO) — não é uma promessa de suporte, e evolui junto com o
+código. Validar e ampliar essa cobertura (macOS, Windows) é trabalho em
+aberto, listado em `tasks/PENDENCIAS.md`.
+
+| Sistema operacional | Dashboard web (`apps/`, `packages/`) | CLI bash (`lib/`) |
+|---|---|---|
+| Linux | Suportado e testado em CI (`ubuntu-latest`, Node 24). Identidade de processo validada via `/proc/<pid>/cwd` (ver `docs/architecture/security.md`). | Suportado; caminho principal de desenvolvimento. |
+| macOS | Não validado em CI; nenhuma verificação de identidade de processo equivalente ao `/proc/<pid>/cwd` foi implementada. | Parcialmente tratado (`_dev_os` em `lib/core/checks.sh` distingue `mac`/`linux` para abrir navegador e iniciar/parar banco local), mas sem cobertura de teste dedicada. |
+| Windows (nativo, fora de WSL) | Não suportado. | Não suportado — o CLI depende de Bash; WSL não é testado nem documentado oficialmente. |
+
+Requisitos de runtime:
+
+| Dependência | Onde é exigida | Obrigatória? |
+|---|---|---|
+| Node.js `^20.19.0 \|\| >=22.12.0` (`package.json` raiz, `engines`) | Dashboard web | Sim, para `apps/`/`packages/`. |
+| Bash >= 4.0 | CLI bash | Sim, para `lib/`/`init.sh`. |
+| `git` | Ambos | Sim. |
+| `gum` ([charmbracelet/gum](https://github.com/charmbracelet/gum)) | CLI bash | Não — fallback em texto puro quando ausente (ver `dev-doctor`). |
+| `lsof` | CLI bash | Sim (liberação de porta em `dev-stop`). |
+| `ruby`, `bundle` | CLI bash, projetos Rails | Só para projetos Rails. |
+| `mysql` (cliente) | CLI bash, projetos com MySQL | Só se o projeto usar MySQL. |
+| `mysqldump`/`pg_dump` | CLI bash, `db:snapshot`/`db:restore` | Só para essas ações. |
+| `gh` (GitHub CLI) | CLI bash, `git-pr`/detecção de PR em `git-publish` | Não — aviso em `dev-doctor` se ausente. |
+
+Rode `npm run doctor` (dashboard web) ou `dev-doctor` (CLI bash) para
+verificar o ambiente atual contra essa lista.
+
 ## Mapa de serviços
 
 | Serviço | Porta padrão | Processo | Escopo |
