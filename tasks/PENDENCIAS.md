@@ -335,14 +335,21 @@ manter cópias locais divergentes (`isWithinRoot`/`isIgnoredPath`/
 funcional, mas frágil de manter. Vale considerar particionar por domínio
 (`GitApiErrorCode`, `RailsApiErrorCode`, ...) unidos via union.
 
-#### B.5 `apps/api/src/store/project-store.ts`
+#### B.5 `apps/api/src/store/project-store.ts` — resolvido (2026-08-07)
 
-- `findProject` reconstrói `listProjects()` inteiro (percorre todos os
-  scans) só para achar um projeto por id — usado em `recordAccess` e várias
-  rotas; padrão O(n) num caminho chamado com frequência.
-- `updateProject` percorre todos os `workspaceScans`/`projects` a cada
-  chamada de `setFavorite`/`setLastAccessedAt` — mesmo padrão.
-- Sugestão: manter um índice `Map<projectId, {...}>` incremental.
+- ~~`findProject` reconstrói `listProjects()` inteiro (percorre todos os
+  scans) só para achar um projeto por id~~ / ~~`updateProject` percorre
+  todos os `workspaceScans`/`projects` a cada chamada de
+  `setFavorite`/`setLastAccessedAt`~~ — adicionado um índice incremental
+  `Map<projectId, Set<workspaceId>>` (`projectWorkspaces`), mantido em
+  `saveWorkspaceScan`/`deleteWorkspaceScan` sem remover-e-readicionar
+  associações que persistem entre scans (preserva a ordem que
+  `updateProject` usa para decidir qual ocorrência retornar quando um
+  projeto aparece em mais de um workspace). `findProject`/`updateProject`
+  agora só tocam os scans que de fato contêm o projeto, em vez de
+  `O(total de projetos em todos os workspaces)`. Testes cobrindo rescan
+  que remove um projeto, `deleteWorkspaceScan`, e um projeto que some e
+  reaparece entre scans.
 
 #### B.6 `packages/core` — concorrência inconsistente entre repositórios
 

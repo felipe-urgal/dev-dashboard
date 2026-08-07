@@ -9,6 +9,15 @@ export interface StoredWorkspaceScan extends WorkspaceScanResult {
 
 export class ProjectStore {
   private readonly workspaceScans = new Map<string, StoredWorkspaceScan>();
+  /**
+   * projectId -> workspaceIds dos scans que atualmente contêm esse projeto,
+   * na ordem em que cada associação apareceu pela primeira vez. Mantido
+   * incrementalmente para que `findProject`/`updateProject` não precisem
+   * varrer todos os workspaces a cada chamada — só os que de fato contêm o
+   * projeto. Um projeto pode aparecer em mais de um scan (workspaces que se
+   * sobrepõem), daí ser um conjunto e não uma entrada única.
+   */
+  private readonly projectWorkspaces = new Map<string, Set<string>>();
 
   public constructor(
     private readonly projectRecentRepository = new ProjectRecentRepository(),
@@ -31,6 +40,7 @@ export class ProjectStore {
       scannedAt: new Date().toISOString(),
     };
 
+    this.reindexWorkspaceScan(result.workspaceId, storedScan);
     this.workspaceScans.set(result.workspaceId, storedScan);
 
     return storedScan;
@@ -57,13 +67,25 @@ export class ProjectStore {
   }
 
   public deleteWorkspaceScan(workspaceId: string): void {
+    const scan = this.workspaceScans.get(workspaceId);
+    if (scan) {
+      for (const project of scan.projects) {
+        this.removeProjectWorkspace(project.id, workspaceId);
+      }
+    }
     this.workspaceScans.delete(workspaceId);
   }
 
   public findProject(projectId: string): Project | null {
-    return (
-      this.listProjects().find((project) => project.id === projectId) ?? null
-    );
+    const workspaceIds = this.projectWorkspaces.get(projectId);
+    if (!workspaceIds || workspaceIds.size === 0) return null;
+
+    const lastWorkspaceId = [...workspaceIds].at(-1);
+    const scan = lastWorkspaceId
+      ? this.workspaceScans.get(lastWorkspaceId)
+      : undefined;
+
+    return scan?.projects.find((project) => project.id === projectId) ?? null;
   }
 
   public setFavorite(projectId: string, favorite: boolean): Project | null {
@@ -105,9 +127,15 @@ export class ProjectStore {
     projectId: string,
     update: (project: Project) => Project,
   ): Project | null {
+    const workspaceIds = this.projectWorkspaces.get(projectId);
+    if (!workspaceIds || workspaceIds.size === 0) return null;
+
     let updatedProject: Project | null = null;
 
-    for (const [workspaceId, scan] of this.workspaceScans) {
+    for (const workspaceId of workspaceIds) {
+      const scan = this.workspaceScans.get(workspaceId);
+      if (!scan) continue;
+
       let scanChanged = false;
       const projects = scan.projects.map((project) => {
         if (project.id !== projectId) return project;
@@ -123,5 +151,50 @@ export class ProjectStore {
     }
 
     return updatedProject;
+  }
+
+  /**
+   * Atualiza o índice `projectWorkspaces` para refletir os projetos do novo
+   * scan de `workspaceId`, adicionando só as associações novas e removendo
+   * só as que deixaram de existir — nunca remove e readiciona uma
+   * associação que persiste entre scans, para não alterar a ordem relativa
+   * usada por `updateProject` ao escolher qual ocorrência retornar.
+   */
+  private reindexWorkspaceScan(
+    workspaceId: string,
+    nextScan: StoredWorkspaceScan,
+  ): void {
+    const previousScan = this.workspaceScans.get(workspaceId);
+    const previousIds = new Set(
+      previousScan?.projects.map((project) => project.id) ?? [],
+    );
+    const nextIds = new Set(nextScan.projects.map((project) => project.id));
+
+    for (const projectId of previousIds) {
+      if (!nextIds.has(projectId)) {
+        this.removeProjectWorkspace(projectId, workspaceId);
+      }
+    }
+    for (const projectId of nextIds) {
+      if (!previousIds.has(projectId)) {
+        this.addProjectWorkspace(projectId, workspaceId);
+      }
+    }
+  }
+
+  private addProjectWorkspace(projectId: string, workspaceId: string): void {
+    let workspaceIds = this.projectWorkspaces.get(projectId);
+    if (!workspaceIds) {
+      workspaceIds = new Set();
+      this.projectWorkspaces.set(projectId, workspaceIds);
+    }
+    workspaceIds.add(workspaceId);
+  }
+
+  private removeProjectWorkspace(projectId: string, workspaceId: string): void {
+    const workspaceIds = this.projectWorkspaces.get(projectId);
+    if (!workspaceIds) return;
+    workspaceIds.delete(workspaceId);
+    if (workspaceIds.size === 0) this.projectWorkspaces.delete(projectId);
   }
 }

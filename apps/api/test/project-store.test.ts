@@ -96,3 +96,80 @@ test('updates every occurrence of a favorite shared by workspace scans', () => {
     ],
   );
 });
+
+test('forgets a project once a rescan of its workspace no longer lists it', () => {
+  const store = new ProjectStore();
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [project('dropped-project', 'workspace-a')],
+    warnings: [],
+  });
+  assert.equal(store.findProject('dropped-project')?.id, 'dropped-project');
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [],
+    warnings: [],
+  });
+
+  assert.equal(store.findProject('dropped-project'), null);
+  assert.equal(store.setFavorite('dropped-project', true), null);
+});
+
+test('forgets every occurrence of a project once its workspace scan is deleted', () => {
+  const store = new ProjectStore();
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [project('shared-project', 'workspace-a')],
+    warnings: [],
+  });
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-b',
+    workspacePath: '/tmp/workspace-b',
+    projects: [project('shared-project', 'workspace-b')],
+    warnings: [],
+  });
+
+  store.deleteWorkspaceScan('workspace-a');
+
+  assert.equal(store.findProject('shared-project')?.workspaceId, 'workspace-b');
+
+  store.deleteWorkspaceScan('workspace-b');
+
+  assert.equal(store.findProject('shared-project'), null);
+  assert.equal(store.setFavorite('shared-project', true), null);
+});
+
+test('keeps tracking a project that disappears and reappears across rescans', () => {
+  const store = new ProjectStore();
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [project('flaky-project', 'workspace-a')],
+    warnings: [],
+  });
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [],
+    warnings: [],
+  });
+  assert.equal(store.findProject('flaky-project'), null);
+
+  store.saveWorkspaceScan({
+    workspaceId: 'workspace-a',
+    workspacePath: '/tmp/workspace-a',
+    projects: [project('flaky-project', 'workspace-a')],
+    warnings: [],
+  });
+
+  assert.equal(store.findProject('flaky-project')?.id, 'flaky-project');
+  assert.equal(store.setFavorite('flaky-project', true)?.favorite, true);
+});
