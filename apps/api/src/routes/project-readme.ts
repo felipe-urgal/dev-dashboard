@@ -110,7 +110,9 @@ async function listMarkdownFiles(
 
       let canonicalEntry: string;
       try {
-        canonicalEntry = await realpath(path.join(canonicalDirectory, entry.name));
+        canonicalEntry = await realpath(
+          path.join(canonicalDirectory, entry.name),
+        );
       } catch {
         continue;
       }
