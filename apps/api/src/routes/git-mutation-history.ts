@@ -41,6 +41,18 @@ interface GitMutationHistoryRouteOptions extends FastifyPluginOptions {
   gitMutationHistoryService: GitMutationHistoryService;
 }
 
+function projectOrThrow(projectStore: ProjectStore, projectId: string) {
+  const project = projectStore.findProject(projectId);
+  if (!project) {
+    throw new ApiError({
+      statusCode: 404,
+      code: 'PROJECT_NOT_FOUND',
+      message: 'Projeto não encontrado.',
+    });
+  }
+  return project;
+}
+
 /**
  * Rota paginada e autenticada para o histórico de resultados de mutações Git
  * de um projeto — nunca das leituras. Só é registrada em memória o que já
@@ -65,19 +77,38 @@ export const gitMutationHistoryRoutes: FastifyPluginAsync<
       },
     },
     async (request) => {
-      const project = projectStore.findProject(request.params.projectId);
-      if (!project) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
+      const project = projectOrThrow(projectStore, request.params.projectId);
       return gitMutationHistoryService.history(
         project.id,
         request.query.page ?? 1,
         request.query.pageSize ?? 20,
       );
+    },
+  );
+
+  app.delete<{ Params: ProjectParams }>(
+    '/projects/:projectId/git/mutation-history',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['cleared'],
+            properties: {
+              cleared: { type: 'integer', minimum: 0 },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectOrThrow(projectStore, request.params.projectId);
+      return {
+        cleared: await gitMutationHistoryService.clear(project.id),
+      };
     },
   );
 };

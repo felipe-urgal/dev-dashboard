@@ -23,15 +23,31 @@
 }
 
 .project-details-actions {
-  display: grid;
-  justify-items: end;
-  gap: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.project-details-actions > .secondary-button {
+  order: 1;
 }
 
 .project-details-actions-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  display: contents;
+}
+
+.project-details-actions :deep(.project-editor-launcher) {
+  order: 2;
+}
+
+.project-details-actions :deep(.project-pr-summary) {
+  order: 3;
+}
+
+.project-details-actions-row :deep(.processes-menu) {
+  order: 4;
 }
 
 .project-details-copy {
@@ -176,7 +192,7 @@
 
   .project-details-actions {
     width: 100%;
-    justify-items: start;
+    justify-content: flex-start;
   }
 }
 
@@ -198,6 +214,21 @@
 
   .project-details-copy code {
     max-width: 62vw;
+  }
+
+  .project-details-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-details-actions :deep(.project-editor-launcher),
+  .project-details-actions :deep(.project-editor-controls),
+  .project-details-actions :deep(.project-pr-summary) {
+    width: 100%;
+  }
+
+  .project-details-actions-row :deep(.processes-menu) {
+    align-self: flex-start;
   }
 
   .project-details-tab {

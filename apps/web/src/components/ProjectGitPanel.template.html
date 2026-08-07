@@ -89,8 +89,10 @@
         v-model:mode="commitMode"
         :overview="overview"
         :busy="mutationRunning"
+        :push-branch="pendingPushBranch"
         :force-push-branch="amendedBranch"
         @submit="runCommit"
+        @push="runPublishBranch"
         @force-push="runForcePushWithLease"
       />
 
@@ -110,7 +112,10 @@
         :busy="mutationRunning"
       />
 
-      <ProjectGitHistoryPage v-else-if="activeTab === 'history'" :project-id="project.id" />
+      <ProjectGitHistoryPage
+        v-else-if="activeTab === 'history'"
+        :project-id="project.id"
+      />
 
       <ProjectGitMutationHistoryPage v-else :project="project" />
     </template>

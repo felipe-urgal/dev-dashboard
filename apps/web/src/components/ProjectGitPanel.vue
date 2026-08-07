@@ -40,6 +40,7 @@ const {
   commitMessage,
   commitMode,
   amendedBranch,
+  pendingPushBranch,
   changeImpact,
   generation,
   formatDate,

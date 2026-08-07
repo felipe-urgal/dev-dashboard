@@ -100,6 +100,46 @@ test('mantém progresso longo do RSpec em um único nó de texto', () => {
   assert.equal(code.childNodes.length, 1);
 });
 
+test('mantém saída longa de Vitest com DOM estável em reprocessamentos', () => {
+  const total = 2_000;
+  const rows = Array.from(
+    { length: total },
+    (_, index) =>
+      `<li class="tests-log-line-default"><span>${index + 1}</span><code>✓ src/features/case-${index}.test.ts &gt; cenário ${index} (1 test) ${index % 40}ms</code></li>`,
+  ).join('');
+
+  document.body.innerHTML = `
+    <div class="tests-log-shell">
+      <div class="tests-log-tabs">
+        <button class="active">Log</button>
+        <button>Erros (0)</button>
+        <button>Avisos (0)</button>
+      </div>
+      <div class="tests-log-output">
+        <ol class="tests-log-lines">${rows}</ol>
+      </div>
+    </div>
+  `;
+
+  enhanceTestLogTones(document);
+  enhanceTestLogTones(document);
+  enhanceTestLogTones(document);
+
+  const renderedRows = document.querySelectorAll('.tests-log-lines > li');
+  const codeNodes = document.querySelectorAll('.tests-log-lines > li > code');
+  assert.equal(renderedRows.length, total);
+  assert.equal(codeNodes.length, total);
+  assert.equal(document.querySelectorAll('.test-log-progress-token').length, 0);
+  assert.equal(
+    Array.from(codeNodes).every((code) => code.childElementCount === 0),
+    true,
+  );
+  assert.equal(
+    document.querySelector('.tests-log-tabs button:nth-child(2)')?.textContent,
+    'Erros (0)',
+  );
+});
+
 test('remove o falso diagnóstico estruturado quando não há erro real', () => {
   document.body.innerHTML = `
     <div class="tests-log-shell">

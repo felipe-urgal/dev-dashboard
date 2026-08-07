@@ -3,6 +3,8 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 import type { GitMutationHistoryPage, Project } from '@dev-dashboard/contracts';
 
 import { fetchProjectGitMutationHistory } from '../api';
+import { clearProjectGitMutationHistory } from '../api/git-mutation-history';
+import { confirmDialog } from '../stores/app-dialog';
 import { RequestGeneration } from '../utils/request-generation';
 
 const PAGE_SIZE = 10;
@@ -17,6 +19,7 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
   const page = ref<GitMutationHistoryPage | null>(null);
   const currentPage = ref(1);
   const loading = ref(false);
+  const clearing = ref(false);
   const errorMessage = ref('');
 
   const projectRequests = new RequestGeneration();
@@ -56,11 +59,44 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
     }
   }
 
+  async function clearHistory(): Promise<void> {
+    if (clearing.value || (page.value?.total ?? 0) === 0) return;
+    const confirmed = await confirmDialog({
+      title: 'Limpar histórico de mutações?',
+      message:
+        'Os registros de alterações Git deste projeto serão removidos. O histórico de commits não será alterado.',
+      confirmLabel: 'Limpar histórico',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    const projectId = getProject().id;
+    const generation = projectRequests.capture();
+    clearing.value = true;
+    errorMessage.value = '';
+    try {
+      await clearProjectGitMutationHistory(projectId);
+      if (!isCurrentProject(projectId, generation)) return;
+      currentPage.value = 1;
+      await refresh();
+    } catch (error) {
+      if (isCurrentProject(projectId, generation)) {
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível limpar o histórico de mutações.';
+      }
+    } finally {
+      if (isCurrentProject(projectId, generation)) clearing.value = false;
+    }
+  }
+
   async function initialize(): Promise<void> {
     projectRequests.invalidate();
     page.value = null;
     currentPage.value = 1;
     loading.value = false;
+    clearing.value = false;
     errorMessage.value = '';
     await refresh();
   }
@@ -84,5 +120,14 @@ export function useProjectGitMutationHistoryPanel(getProject: () => Project) {
     projectRequests.invalidate();
   });
 
-  return { page, currentPage, loading, errorMessage, refresh, goToPage };
+  return {
+    page,
+    currentPage,
+    loading,
+    clearing,
+    errorMessage,
+    refresh,
+    clearHistory,
+    goToPage,
+  };
 }

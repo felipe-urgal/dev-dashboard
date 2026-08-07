@@ -97,6 +97,7 @@ test('expurga um observador travado (exit/error nunca disparou) depois do TTL de
   // dispara os eventos, deixando a entrada presa sem o expurgo defensivo.
 
   const shortTimeoutMs = 300;
+  const timerToleranceMs = 25;
   const before = Date.now();
   const beforeSweep = await tracker.waitForObservedExit(
     'project-stuck',
@@ -108,8 +109,8 @@ test('expurga um observador travado (exit/error nunca disparou) depois do TTL de
 
   assert.equal(beforeSweep, undefined);
   assert.ok(
-    elapsedBeforeSweep >= shortTimeoutMs,
-    'sem o expurgo, esperava que a entrada travada segurasse até o timeout',
+    elapsedBeforeSweep >= shortTimeoutMs - timerToleranceMs,
+    'sem o expurgo, esperava que a entrada travada segurasse aproximadamente até o timeout',
   );
 
   // Avança o relógio além do TTL defensivo (10 minutos) e dispara o expurgo

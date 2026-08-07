@@ -199,15 +199,6 @@ async function startSession(): Promise<void> {
   }
 }
 
-function restartSession(): void {
-  disconnect();
-  disposeTerminal();
-  sessionState.value = 'idle';
-  maximized.value = false;
-  errorMessage.value = '';
-  void loadStatus();
-}
-
 function toggleMaximized(): void {
   maximized.value = !maximized.value;
   requestAnimationFrame(() => {
@@ -327,22 +318,6 @@ onBeforeUnmount(() => {
                   stroke-width="1.6"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="terminal-icon-button"
-              title="Encerrar sessão"
-              aria-label="Encerrar sessão"
-              @click="restartSession"
-            >
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path
-                  d="M5 5l10 10M15 5L5 15"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
                 />
               </svg>
             </button>

@@ -136,11 +136,24 @@ export class GitMutationHistoryService {
     }
   }
 
+  public async clear(projectId: string): Promise<number> {
+    let cleared = 0;
+    this.writeQueue = this.writeQueue.then(async () => {
+      const items = await this.load();
+      const kept = items.filter((event) => event.projectId !== projectId);
+      cleared = items.length - kept.length;
+      if (cleared > 0) await this.save(kept);
+    });
+    await this.writeQueue;
+    return cleared;
+  }
+
   public async history(
     projectId: string,
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
   ): Promise<GitMutationHistoryPage> {
+    await this.writeQueue;
     const events = (await this.load()).filter(
       (event) => event.projectId === projectId,
     );
