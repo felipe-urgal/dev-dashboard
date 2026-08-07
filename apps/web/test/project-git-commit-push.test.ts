@@ -13,7 +13,9 @@ const overview = {
   upstream: 'origin/feature/minha-branch',
   ahead: 1,
   behind: 0,
+  clean: true,
   files: [],
+  recentCommits: [],
   latestCommit: {
     hash: 'abcdef1234567890',
     shortHash: 'abcdef1',
