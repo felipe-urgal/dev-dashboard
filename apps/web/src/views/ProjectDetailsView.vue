@@ -223,7 +223,10 @@ async function handleToggleEnabled(): Promise<void> {
                   : 'Reativar projeto'
             }}
           </button>
-          <ProjectEditorLauncher v-if="project.enabled" :project-id="project.id" />
+          <ProjectEditorLauncher
+            v-if="project.enabled"
+            :project-id="project.id"
+          />
           <ProjectPullRequestSummary
             v-if="project.enabled && gitOverview"
             :project-id="project.id"
@@ -236,8 +239,8 @@ async function handleToggleEnabled(): Promise<void> {
         <div class="empty-icon">⏻</div>
         <h3>Projeto desativado</h3>
         <p>
-          Reative o projeto para acessar servidor, logs, git, testes e as
-          demais ações.
+          Reative o projeto para acessar servidor, logs, git, testes e as demais
+          ações.
         </p>
         <button
           class="primary-button"
@@ -250,226 +253,229 @@ async function handleToggleEnabled(): Promise<void> {
       </div>
 
       <template v-else>
-      <nav class="project-details-tabs" aria-label="Áreas do projeto">
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isReadmeRoute }"
-          :to="{ name: 'project-details', params: { projectId: project.id } }"
-        >
-          README
-        </RouterLink>
+        <nav class="project-details-tabs" aria-label="Áreas do projeto">
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isReadmeRoute }"
+            :to="{ name: 'project-details', params: { projectId: project.id } }"
+          >
+            README
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isDoctorRoute }"
-          :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-        >
-          Diagnóstico
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isDoctorRoute }"
+            :to="{ name: 'project-doctor', params: { projectId: project.id } }"
+          >
+            Diagnóstico
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isEditorRoute }"
-          :to="{ name: 'project-editor', params: { projectId: project.id } }"
-        >
-          Editor
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isEditorRoute }"
+            :to="{ name: 'project-editor', params: { projectId: project.id } }"
+          >
+            Editor
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isServerRoute }"
-          :to="{ name: 'project-server', params: { projectId: project.id } }"
-        >
-          Servidor
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isServerRoute }"
+            :to="{ name: 'project-server', params: { projectId: project.id } }"
+          >
+            Servidor
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isLogsRoute }"
-          :to="{ name: 'project-logs', params: { projectId: project.id } }"
-        >
-          Logs
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isLogsRoute }"
+            :to="{ name: 'project-logs', params: { projectId: project.id } }"
+          >
+            Logs
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isGitRoute }"
-          :to="{ name: 'project-git', params: { projectId: project.id } }"
-        >
-          Git
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isGitRoute }"
+            :to="{ name: 'project-git', params: { projectId: project.id } }"
+          >
+            Git
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isTestsRoute }"
-          :to="{ name: 'project-tests', params: { projectId: project.id } }"
-        >
-          Testes
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTestsRoute }"
+            :to="{ name: 'project-tests', params: { projectId: project.id } }"
+          >
+            Testes
+          </RouterLink>
 
-        <RouterLink
-          v-if="databaseSupported"
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isDatabaseRoute }"
-          :to="{
-            name: 'project-database',
-            params: { projectId: project.id },
-          }"
-        >
-          Banco de dados
-        </RouterLink>
+          <RouterLink
+            v-if="databaseSupported"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isDatabaseRoute }"
+            :to="{
+              name: 'project-database',
+              params: { projectId: project.id },
+            }"
+          >
+            Banco de dados
+          </RouterLink>
 
-        <RouterLink
-          v-if="project.type === 'rails' || project.type === 'node'"
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isDependenciesRoute }"
-          :to="{
-            name: 'project-dependencies',
-            params: { projectId: project.id },
-          }"
-        >
-          Dependências
-        </RouterLink>
+          <RouterLink
+            v-if="project.type === 'rails' || project.type === 'node'"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isDependenciesRoute }"
+            :to="{
+              name: 'project-dependencies',
+              params: { projectId: project.id },
+            }"
+          >
+            Dependências
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isScriptsRoute }"
-          :to="{ name: 'project-scripts', params: { projectId: project.id } }"
-        >
-          Scripts
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isScriptsRoute }"
+            :to="{ name: 'project-scripts', params: { projectId: project.id } }"
+          >
+            Scripts
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isTerminalRoute }"
-          :to="{ name: 'project-terminal', params: { projectId: project.id } }"
-        >
-          Terminal
-        </RouterLink>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTerminalRoute }"
+            :to="{
+              name: 'project-terminal',
+              params: { projectId: project.id },
+            }"
+          >
+            Terminal
+          </RouterLink>
 
-        <RouterLink
-          v-if="project.type === 'rails'"
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isConsoleRoute }"
-          :to="{ name: 'project-console', params: { projectId: project.id } }"
-        >
-          Console
-        </RouterLink>
+          <RouterLink
+            v-if="project.type === 'rails'"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isConsoleRoute }"
+            :to="{ name: 'project-console', params: { projectId: project.id } }"
+          >
+            Console
+          </RouterLink>
 
-        <RouterLink
-          v-if="project.type === 'rails'"
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
-          :to="{
-            name: 'project-rails-runtime',
-            params: { projectId: project.id },
-          }"
-        >
-          Sidekiq/webpack
-        </RouterLink>
+          <RouterLink
+            v-if="project.type === 'rails'"
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
+            :to="{
+              name: 'project-rails-runtime',
+              params: { projectId: project.id },
+            }"
+          >
+            Sidekiq/webpack
+          </RouterLink>
 
-        <RouterLink
-          class="project-details-tab"
-          :class="{ 'project-details-tab-active': isEnvironmentRoute }"
-          :to="{
-            name: 'project-environment',
-            params: { projectId: project.id },
-          }"
-        >
-          Variáveis de ambiente
-        </RouterLink>
-      </nav>
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isEnvironmentRoute }"
+            :to="{
+              name: 'project-environment',
+              params: { projectId: project.id },
+            }"
+          >
+            Variáveis de ambiente
+          </RouterLink>
+        </nav>
 
-      <ProjectReadmePanel
-        v-if="isReadmeRoute"
-        :key="`readme-${project.id}`"
-        :project="project"
-      />
+        <ProjectReadmePanel
+          v-if="isReadmeRoute"
+          :key="`readme-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectDoctorPanel
-        v-else-if="isDoctorRoute"
-        :key="`doctor-${project.id}`"
-        :project="project"
-      />
+        <ProjectDoctorPanel
+          v-else-if="isDoctorRoute"
+          :key="`doctor-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectEmbeddedEditor
-        v-else-if="isEditorRoute"
-        :key="`editor-${project.id}`"
-        :project="project"
-      />
+        <ProjectEmbeddedEditor
+          v-else-if="isEditorRoute"
+          :key="`editor-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectServerPanel
-        v-else-if="isServerRoute"
-        :key="`server-${project.id}`"
-        :project="project"
-      />
+        <ProjectServerPanel
+          v-else-if="isServerRoute"
+          :key="`server-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectLogsPanel
-        v-else-if="isLogsRoute"
-        :key="`logs-${project.id}`"
-        :project="project"
-      />
+        <ProjectLogsPanel
+          v-else-if="isLogsRoute"
+          :key="`logs-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectGitPanel
-        v-else-if="isGitRoute"
-        :key="`git-${project.id}`"
-        :project="project"
-        @git-updated="updateGitOverview"
-      />
+        <ProjectGitPanel
+          v-else-if="isGitRoute"
+          :key="`git-${project.id}`"
+          :project="project"
+          @git-updated="updateGitOverview"
+        />
 
-      <ProjectTestsPanel
-        v-else-if="isTestsRoute"
-        :key="`tests-${project.id}`"
-        :project="project"
-      />
+        <ProjectTestsPanel
+          v-else-if="isTestsRoute"
+          :key="`tests-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectDatabasePanel
-        v-else-if="isDatabaseRoute"
-        :key="`database-${project.id}`"
-        :project="project"
-      />
+        <ProjectDatabasePanel
+          v-else-if="isDatabaseRoute"
+          :key="`database-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectDependenciesPanel
-        v-else-if="isDependenciesRoute"
-        :key="`dependencies-${project.id}`"
-        :project="project"
-      />
+        <ProjectDependenciesPanel
+          v-else-if="isDependenciesRoute"
+          :key="`dependencies-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectScriptsPanel
-        v-else-if="isScriptsRoute"
-        :key="`scripts-${project.id}`"
-        :project="project"
-      />
+        <ProjectScriptsPanel
+          v-else-if="isScriptsRoute"
+          :key="`scripts-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectTerminalPanel
-        v-else-if="isTerminalRoute"
-        :key="`terminal-${project.id}`"
-        :project="project"
-        kind="shell"
-        title="Terminal"
-        description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
-      />
+        <ProjectTerminalPanel
+          v-else-if="isTerminalRoute"
+          :key="`terminal-${project.id}`"
+          :project="project"
+          kind="shell"
+          title="Terminal"
+          description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
+        />
 
-      <ProjectTerminalPanel
-        v-else-if="isConsoleRoute"
-        :key="`console-${project.id}`"
-        :project="project"
-        kind="rails-console"
-        title="Console Rails"
-        description="Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto."
-      />
+        <ProjectTerminalPanel
+          v-else-if="isConsoleRoute"
+          :key="`console-${project.id}`"
+          :project="project"
+          kind="rails-console"
+          title="Console Rails"
+          description="Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto."
+        />
 
-      <ProjectRailsRuntimePanel
-        v-else-if="isRailsRuntimeRoute"
-        :key="`rails-runtime-${project.id}`"
-        :project="project"
-      />
+        <ProjectRailsRuntimePanel
+          v-else-if="isRailsRuntimeRoute"
+          :key="`rails-runtime-${project.id}`"
+          :project="project"
+        />
 
-      <ProjectEnvironmentPanel
-        v-else-if="isEnvironmentRoute"
-        :key="`environment-${project.id}`"
-        :project="project"
-      />
+        <ProjectEnvironmentPanel
+          v-else-if="isEnvironmentRoute"
+          :key="`environment-${project.id}`"
+          :project="project"
+        />
       </template>
     </template>
   </section>

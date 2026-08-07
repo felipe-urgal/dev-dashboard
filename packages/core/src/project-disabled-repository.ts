@@ -40,7 +40,9 @@ function parseConfig(contents: string): Set<string> {
   const parsed: unknown = JSON.parse(contents);
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('A configuração de projetos desativados possui formato inválido.');
+    throw new Error(
+      'A configuração de projetos desativados possui formato inválido.',
+    );
   }
 
   const candidate = parsed as Record<string, unknown>;

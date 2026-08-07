@@ -252,10 +252,7 @@ export function registerProjectListRoutes(
       }
 
       try {
-        await projectDisabledRepository.set(
-          project.id,
-          !request.body.enabled,
-        );
+        await projectDisabledRepository.set(project.id, !request.body.enabled);
       } catch (error) {
         if (
           error instanceof ProjectDisabledRepositoryError &&
