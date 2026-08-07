@@ -1,11 +1,5 @@
-import {
-  TEST_LOG_ROW_TONE_CLASSES,
-  TEST_LOG_TONE_CLASSES,
-} from './constants';
-import {
-  classifyTestLogLine,
-  classifyTestLogSemanticTone,
-} from './classify';
+import { TEST_LOG_ROW_TONE_CLASSES, TEST_LOG_TONE_CLASSES } from './constants';
+import { classifyTestLogLine, classifyTestLogSemanticTone } from './classify';
 import { toggleExclusiveClass } from './dom-helpers';
 
 function restorePlainProgressText(code: HTMLElement, text: string): void {
