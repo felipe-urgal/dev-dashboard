@@ -130,12 +130,11 @@ export function createAppContext(): AppContext {
     projectWorkspaceEditService,
     projectLanguageServerService,
     projectTerminalService,
-    aiAssistantService: new AiAssistantService(
+    aiAssistantService: new AiAssistantService({
       projectFileService,
       gitService,
-      undefined,
-      projectWorkspaceEditService,
-      projectLanguageServerService,
-    ),
+      workspaceEditService: projectWorkspaceEditService,
+      languageServerService: projectLanguageServerService,
+    }),
   };
 }

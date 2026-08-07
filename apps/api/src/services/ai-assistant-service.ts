@@ -307,18 +307,35 @@ function isToolName(value: string): value is AiTool {
   return (TOOL_NAMES as readonly string[]).includes(value);
 }
 
+export interface AiAssistantServiceOptions {
+  projectFileService?: ProjectFileService;
+  gitService?: GitService;
+  fetchImpl?: typeof fetch;
+  workspaceEditService?: ProjectWorkspaceEditService;
+  languageServerService?: ProjectLanguageServerService;
+}
+
 export class AiAssistantService {
-  public constructor(
-    private readonly projectFileService: ProjectFileService = new ProjectFileService(),
-    private readonly gitService: GitService = new GitService(),
-    private readonly fetchImpl: typeof fetch = fetch,
-    private readonly workspaceEditService: ProjectWorkspaceEditService = new ProjectWorkspaceEditService(
-      projectFileService,
-    ),
-    private readonly languageServerService: ProjectLanguageServerService = new ProjectLanguageServerService(
-      { projectFileService },
-    ),
-  ) {}
+  private readonly projectFileService: ProjectFileService;
+  private readonly gitService: GitService;
+  private readonly fetchImpl: typeof fetch;
+  private readonly workspaceEditService: ProjectWorkspaceEditService;
+  private readonly languageServerService: ProjectLanguageServerService;
+
+  public constructor(options: AiAssistantServiceOptions = {}) {
+    const projectFileService =
+      options.projectFileService ?? new ProjectFileService();
+
+    this.projectFileService = projectFileService;
+    this.gitService = options.gitService ?? new GitService();
+    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.workspaceEditService =
+      options.workspaceEditService ??
+      new ProjectWorkspaceEditService(projectFileService);
+    this.languageServerService =
+      options.languageServerService ??
+      new ProjectLanguageServerService({ projectFileService });
+  }
 
   public async status(): Promise<ProjectAiStatus> {
     const baseUrl = resolveOllamaBaseUrl();

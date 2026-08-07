@@ -46,10 +46,10 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
     warnings: [],
   });
 
-  appContext.aiAssistantService = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async (input) => {
+  appContext.aiAssistantService = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (input) => {
       const url = String(input);
       if (url.endsWith('/api/tags')) {
         return new Response(JSON.stringify({ models: [{ name: 'llama3.1' }] }));
@@ -77,7 +77,7 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
       }
       throw new Error(`chamada inesperada: ${url}`);
     },
-  );
+  });
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {

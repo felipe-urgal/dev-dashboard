@@ -397,9 +397,13 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.9 `apps/api/src/app-context.ts`
 
-- `AiAssistantService` tem 5 parâmetros posicionais com `fetchImpl` no meio,
-  obrigando `app-context.ts:130-136` a passar `undefined` explícito só para
-  preencher a posição. Sugestão: converter para objeto de opções nomeado.
+- ~~`AiAssistantService` tem 5 parâmetros posicionais com `fetchImpl` no
+  meio, obrigando `app-context.ts:130-136` a passar `undefined` explícito
+  só para preencher a posição~~ — **resolvido (2026-08-07)**: o construtor
+  agora recebe um único `AiAssistantServiceOptions` nomeado
+  (`projectFileService`/`gitService`/`fetchImpl`/`workspaceEditService`/
+  `languageServerService`, todos opcionais); `app-context.ts` só passa os
+  campos que de fato substitui, sem `undefined` de preenchimento.
 - `createAppContext()` é uma raiz de composição manual de ~25 serviços sem
   DI, com dependências de ordem implícitas (não documentadas) entre alguns
   deles.
@@ -490,5 +494,4 @@ intencional ou atualização automática indevida.
 
 **Prioridades sugeridas (web):** 1) decompor componentes grandes (B.12);
 avaliar migração gradual dos "enhancers" DOM (B.10); padronizar
-`RequestGeneration` (B.11); simplificar assinatura de `AiAssistantService`
-(B.9).
+`RequestGeneration` (B.11).
