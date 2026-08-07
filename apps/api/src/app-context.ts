@@ -33,7 +33,10 @@ import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
-import { ProjectLanguageServerService } from './services/project-language-server-service.js';
+import {
+  ProjectLanguageServerService,
+  type LanguageServerLogger,
+} from './services/project-language-server-service.js';
 import { ProjectTerminalService } from './services/project-terminal-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
 import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
@@ -73,7 +76,13 @@ export interface AppContext {
   aiAssistantService: AiAssistantService;
 }
 
-export function createAppContext(): AppContext {
+export interface CreateAppContextOptions {
+  languageServerLogger?: LanguageServerLogger;
+}
+
+export function createAppContext(
+  options: CreateAppContextOptions = {},
+): AppContext {
   const retentionSettingsRepository = new RetentionSettingsRepository();
   const scriptDetectionService = new ScriptDetectionService();
   const processManager = new ProcessManager();
@@ -90,6 +99,9 @@ export function createAppContext(): AppContext {
   );
   const projectLanguageServerService = new ProjectLanguageServerService({
     projectFileService,
+    ...(options.languageServerLogger
+      ? { logger: options.languageServerLogger }
+      : {}),
   });
   const projectTerminalService = new ProjectTerminalService();
   return {

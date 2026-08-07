@@ -94,7 +94,8 @@ export async function buildApp(options: BuildAppOptions = {}) {
     registerNotFound: !options.staticDashboardEnabled,
   });
 
-  const context = options.context ?? createAppContext();
+  const context =
+    options.context ?? createAppContext({ languageServerLogger: app.log });
   const projectDoctorService =
     options.projectDoctorService ??
     new ProjectDoctorService(options.now ? { now: options.now } : {});
