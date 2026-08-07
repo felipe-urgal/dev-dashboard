@@ -88,6 +88,8 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   let snapshotController: AbortController | undefined;
   let fileControllers: AbortController[] = [];
   let observer: IntersectionObserver | undefined;
+  /** Descarta respostas de `loadOverview()` fora de ordem numa troca rápida de projeto. */
+  let overviewGeneration = 0;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
   const statusLabels: Record<GitFileStatus, string> = {
@@ -472,9 +474,13 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   }
 
   async function loadOverview(): Promise<void> {
+    const requestGeneration = ++overviewGeneration;
     try {
-      overview.value = await fetchProjectGit(props.projectId);
+      const result = await fetchProjectGit(props.projectId);
+      if (requestGeneration !== overviewGeneration) return;
+      overview.value = result;
     } catch {
+      if (requestGeneration !== overviewGeneration) return;
       overview.value = null;
     }
   }
