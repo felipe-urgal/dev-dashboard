@@ -150,7 +150,7 @@ export function updateWorkspaceRecursiveScan(
 export function scanWorkspace(
   workspaceId: string,
   options: {
-    restoreDismissed?: boolean;
+    restoreDismissed?: boolean | undefined;
   } = {},
 ): Promise<WorkspaceScanResponse> {
   const parameters = new URLSearchParams();
