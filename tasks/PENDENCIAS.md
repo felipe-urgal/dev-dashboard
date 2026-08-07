@@ -400,13 +400,26 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.8 `packages/project-discovery/src/discovery.ts`
 
-- Duplicação significativa (~50 linhas) entre a varredura recursiva
-  (`walkForProjects`, linha 367-483) e a não-recursiva dentro de
-  `scanWorkspace` (linhas 515-563) — mesmo filtro de diretórios ignorados,
-  mesma detecção, mesmo padrão de warning. Sugestão: unificar chamando
-  `walkForProjects` com `maxDepth = 0` no caso não-recursivo.
+- ~~Duplicação significativa (~50 linhas) entre a varredura recursiva
+  (`walkForProjects`) e a não-recursiva dentro de `scanWorkspace` — mesmo
+  filtro de diretórios ignorados, mesma detecção, mesmo padrão de
+  warning~~ — **resolvido (2026-08-07)**: `scanWorkspace` agora sempre
+  chama `walkForProjects`, com a varredura não-recursiva montando um
+  `WalkContext` com `maxDepth: 0`, sem os limites de projetos/tempo da
+  varredura recursiva (`maxProjects`/`deadlineAt` como `Infinity`) e
+  seguindo símlinks de topo (`followSymlinks: true`), que era o
+  comportamento implícito da versão não-recursiva antiga. Um novo campo
+  `reportDepthLimit` no contexto evita que subdiretórios não explorados no
+  nível único virem aviso `SCAN_DEPTH_LIMIT_REACHED` — isso só é reportado
+  na varredura recursiva de verdade. Teste novo trava que a varredura
+  não-recursiva continua seguindo símlinks de topo (comportamento que só
+  existia implicitamente, sem cobertura, antes da unificação).
 - Ambas processam candidatos sequencialmente (`for...of` com `await`
-  dentro), serializando I/O que poderia rodar com `Promise.all` limitado.
+  dentro), serializando I/O que poderia rodar com `Promise.all` limitado —
+  não mexido nesta entrega: a varredura recursiva depende da checagem
+  incremental de `maxProjects`/timeout a cada candidato, então paralelizar
+  exigiria repensar esse controle de parada antecipada, não é uma
+  mudança pontual.
 
 #### B.9 `apps/api/src/app-context.ts`
 

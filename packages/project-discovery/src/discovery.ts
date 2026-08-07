@@ -349,6 +349,13 @@ interface WalkContext {
   projects: Project[];
   warnings: WorkspaceScanWarning[];
   stopped: boolean;
+  /**
+   * A varredura não-recursiva reaproveita `walkForProjects` com
+   * `maxDepth: 0`, mas não deve avisar sobre subdiretórios não explorados —
+   * isso é o comportamento normal dela, não um limite atingido. Só a
+   * varredura recursiva de fato reporta `SCAN_DEPTH_LIMIT_REACHED`.
+   */
+  reportDepthLimit: boolean;
 }
 
 function requestStop(
@@ -463,7 +470,7 @@ async function walkForProjects(
 
       if (depth < context.maxDepth) {
         await walkForProjects(candidatePath, depth + 1, context);
-      } else {
+      } else if (context.reportDepthLimit) {
         context.warnings.push({
           path: candidatePath,
           code: 'SCAN_DEPTH_LIMIT_REACHED',
@@ -489,84 +496,43 @@ export async function scanWorkspace(
 ): Promise<WorkspaceScanResult> {
   const workspacePath = await realpath(workspace.path);
 
-  if (options.recursive) {
-    const context: WalkContext = {
-      workspaceId: workspace.id,
-      includeUnknown: options.includeUnknown,
-      maxDepth: options.maxDepth ?? DEFAULT_RECURSIVE_MAX_DEPTH,
-      maxProjects: options.maxProjects ?? DEFAULT_RECURSIVE_MAX_PROJECTS,
-      followSymlinks: options.followSymlinks ?? false,
-      deadlineAt:
-        Date.now() + (options.timeoutMs ?? DEFAULT_RECURSIVE_TIMEOUT_MS),
-      projects: [],
-      warnings: [],
-      stopped: false,
-    };
-
-    await walkForProjects(workspacePath, 0, context);
-
-    return {
-      workspaceId: workspace.id,
-      workspacePath,
-      projects: context.projects,
-      warnings: context.warnings,
-    };
-  }
-
-  const entries = await readdir(workspacePath, {
-    withFileTypes: true,
-  });
-
-  const projects: Project[] = [];
-  const warnings: WorkspaceScanWarning[] = [];
-
-  const candidates = entries
-    .filter((entry) => !IGNORED_DIRECTORIES.has(entry.name))
-    .filter((entry) => !entry.name.startsWith('.'))
-    .sort((left, right) => left.name.localeCompare(right.name));
-
-  for (const entry of candidates) {
-    const candidatePath = path.join(workspacePath, entry.name);
-
-    try {
-      const candidateStats = entry.isDirectory()
-        ? null
-        : await stat(candidatePath);
-
-      const isDirectory =
-        entry.isDirectory() || candidateStats?.isDirectory() === true;
-
-      if (!isDirectory) {
-        continue;
-      }
-
-      const project = await detectProject(candidatePath, {
+  const context: WalkContext = options.recursive
+    ? {
         workspaceId: workspace.id,
-        source: 'workspace',
-        ...(options.includeUnknown !== undefined
-          ? { includeUnknown: options.includeUnknown }
-          : {}),
-      });
-
-      if (project) {
-        projects.push(project);
+        includeUnknown: options.includeUnknown,
+        maxDepth: options.maxDepth ?? DEFAULT_RECURSIVE_MAX_DEPTH,
+        maxProjects: options.maxProjects ?? DEFAULT_RECURSIVE_MAX_PROJECTS,
+        followSymlinks: options.followSymlinks ?? false,
+        deadlineAt:
+          Date.now() + (options.timeoutMs ?? DEFAULT_RECURSIVE_TIMEOUT_MS),
+        projects: [],
+        warnings: [],
+        stopped: false,
+        reportDepthLimit: true,
       }
-    } catch (error) {
-      warnings.push({
-        path: candidatePath,
-        code: 'PROJECT_DETECTION_FAILED',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível detectar o projeto',
-      });
-    }
-  }
+    : {
+        // Varredura de só os filhos diretos: reaproveita walkForProjects com
+        // maxDepth 0 (não desce além do primeiro nível) e sem os limites de
+        // projetos/tempo/símlinks da varredura recursiva, que não fazem
+        // sentido para um único nível.
+        workspaceId: workspace.id,
+        includeUnknown: options.includeUnknown,
+        maxDepth: 0,
+        maxProjects: Infinity,
+        followSymlinks: true,
+        deadlineAt: Infinity,
+        projects: [],
+        warnings: [],
+        stopped: false,
+        reportDepthLimit: false,
+      };
+
+  await walkForProjects(workspacePath, 0, context);
 
   return {
     workspaceId: workspace.id,
     workspacePath,
-    projects,
-    warnings,
+    projects: context.projects,
+    warnings: context.warnings,
   };
 }
