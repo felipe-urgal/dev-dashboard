@@ -11,6 +11,7 @@ import {
   MagnifyingGlassIcon,
   PlayIcon,
   StopCircleIcon,
+  TrashIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -51,9 +52,11 @@ const {
   executionLogSnapshot,
   maskedLogEntries,
   startingActionId,
+  clearingHistory,
   run,
   selectHistory,
   cancel,
+  clearHistory,
   activeSection,
   category,
   copiedActionId,
@@ -446,6 +449,16 @@ function handleExportLog(): void {
               <h4>Histórico</h4>
               <span>{{ history?.total ?? 0 }}</span>
             </div>
+            <button
+              v-if="(history?.total ?? 0) > 0"
+              type="button"
+              class="scripts-explorer-refresh"
+              :disabled="clearingHistory"
+              @click="clearHistory"
+            >
+              <TrashIcon aria-hidden="true" />
+              {{ clearingHistory ? 'Limpando…' : 'Limpar histórico' }}
+            </button>
           </header>
 
           <div v-if="!history?.items.length" class="scripts-empty-state">
