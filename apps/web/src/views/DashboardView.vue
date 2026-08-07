@@ -217,10 +217,14 @@ const {
               type="button"
               :disabled="scanningWorkspace"
               :aria-label="
-                scanningWorkspace ? 'Escaneando workspace' : 'Escanear novamente'
+                scanningWorkspace
+                  ? 'Escaneando workspace'
+                  : 'Escanear novamente'
               "
               :title="
-                scanningWorkspace ? 'Escaneando workspace' : 'Escanear novamente'
+                scanningWorkspace
+                  ? 'Escaneando workspace'
+                  : 'Escanear novamente'
               "
               @click="scanSelectedWorkspace"
             >
@@ -232,10 +236,14 @@ const {
               type="button"
               :disabled="deletingWorkspace"
               :aria-label="
-                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
+                deletingWorkspace
+                  ? 'Removendo workspace'
+                  : 'Remover workspace'
               "
               :title="
-                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
+                deletingWorkspace
+                  ? 'Removendo workspace'
+                  : 'Remover workspace'
               "
               @click="handleDeleteWorkspace"
             >
