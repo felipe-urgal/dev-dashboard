@@ -36,7 +36,7 @@ export function useProjectLogsPolling(
     );
   }
 
-  // The log feed renders newest-first, so "following" means staying pinned to the top.
+  // Fluxos normais seguem o padrão de terminal: eventos novos aparecem no final.
   async function scrollLogsToLatest(): Promise<void> {
     if (!followLogs.value) return;
 
@@ -44,7 +44,7 @@ export function useProjectLogsPolling(
     const element = logContainer.value;
 
     if (element) {
-      element.scrollTop = 0;
+      element.scrollTop = element.scrollHeight;
     }
   }
 
@@ -125,7 +125,8 @@ export function useProjectLogsPolling(
     const element = logContainer.value;
     if (!element) return;
 
-    followLogs.value = element.scrollTop < 40;
+    followLogs.value =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 40;
   }
 
   async function clearLogView(): Promise<void> {
