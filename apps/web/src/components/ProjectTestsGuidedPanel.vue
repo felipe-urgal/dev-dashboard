@@ -21,6 +21,7 @@ import Card from './Card.vue';
 import ProjectCoveragePanel from './ProjectCoveragePanel.vue';
 import ProjectLogExperience from './ProjectLogExperience.vue';
 import ProjectTestFailureNavigator from './ProjectTestFailureNavigator.vue';
+import './ProjectTestsLogExperience.css';
 
 const props = defineProps<{ project: Project }>();
 const {
