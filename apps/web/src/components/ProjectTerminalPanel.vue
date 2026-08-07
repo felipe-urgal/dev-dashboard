@@ -14,12 +14,16 @@ import {
 } from '../api';
 import Card from './Card.vue';
 
-const props = defineProps<{
-  project: Project;
-  kind: ProjectTerminalKind;
-  title: string;
-  description: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    project: Project;
+    kind: ProjectTerminalKind;
+    title: string;
+    description: string;
+    autoStart?: boolean;
+  }>(),
+  { autoStart: false },
+);
 
 type SessionState = 'idle' | 'connecting' | 'connected' | 'closed';
 
@@ -29,6 +33,7 @@ const statusMessage = ref('');
 const sessionState = ref<SessionState>('idle');
 const errorMessage = ref('');
 const maximized = ref(false);
+const hasAutoStarted = ref(false);
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
@@ -57,6 +62,16 @@ async function loadStatus(): Promise<void> {
         : 'Não foi possível consultar a disponibilidade desta sessão.';
   } finally {
     loadingStatus.value = false;
+  }
+
+  if (
+    props.autoStart &&
+    supported.value &&
+    !hasAutoStarted.value &&
+    sessionState.value === 'idle'
+  ) {
+    hasAutoStarted.value = true;
+    void startSession();
   }
 }
 
@@ -213,6 +228,7 @@ watch(
     sessionState.value = 'idle';
     maximized.value = false;
     errorMessage.value = '';
+    hasAutoStarted.value = false;
     void loadStatus();
   },
 );
