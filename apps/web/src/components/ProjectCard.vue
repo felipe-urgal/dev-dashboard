@@ -6,6 +6,7 @@ import {
   NoSymbolIcon,
   PowerIcon,
   StarIcon,
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
 
@@ -20,12 +21,14 @@ const props = defineProps<{
   project: Project;
   favoriteUpdating?: boolean;
   enabledUpdating?: boolean;
+  removing?: boolean;
   recent?: boolean;
 }>();
 
 const emit = defineEmits<{
   'toggle-favorite': [project: Project];
   'toggle-enabled': [project: Project];
+  remove: [project: Project];
 }>();
 
 const { managedProcess, supportsServer, isRunning } = useProjectProcessStatus(
@@ -126,6 +129,17 @@ const recentAccessTitle = computed(() => {
     >
       <PowerIcon v-if="project.enabled" aria-hidden="true" />
       <NoSymbolIcon v-else aria-hidden="true" />
+    </button>
+
+    <button
+      type="button"
+      class="project-remove-button"
+      :aria-label="`Remover ${project.name} do dashboard`"
+      :title="`Remover ${project.name} do dashboard`"
+      :disabled="removing"
+      @click="emit('remove', project)"
+    >
+      <TrashIcon aria-hidden="true" />
     </button>
 
     <RouterLink
