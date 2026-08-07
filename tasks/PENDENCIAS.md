@@ -382,10 +382,16 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
   `quarantineUnreadableStateFile` de `packages/core`, replicado localmente
   em `state-file-recovery.ts` porque `process-manager` não depende de
   `core`.
-- `process-exit-tracking.ts:59-81`: mapas `observedExits`/`exitWaiters` só
+- ~~`process-exit-tracking.ts:59-81`: mapas `observedExits`/`exitWaiters` só
   são limpos quando `recordChildExit` completa com sucesso — se o evento
   `exit`/`error` nunca disparar, a entrada fica presa indefinidamente sem
-  TTL de expurgo defensivo.
+  TTL de expurgo defensivo~~ — **resolvido (2026-08-07)**: `createExitTracker`
+  agora aceita um relógio injetável (`now`, padrão `Date.now`) e roda um
+  expurgo defensivo (`STALE_ENTRY_TTL_MS` = 10 minutos, bem acima de
+  qualquer timeout real de start/stop) a cada novo `observeChild` —
+  entradas mais velhas que o TTL são removidas de ambos os mapas. Teste de
+  regressão simula um processo cujo `exit`/`error` nunca dispara e confirma
+  que a entrada trava até o TTL (sem o expurgo) e é liberada depois dele.
 - `port-utils.ts:92-106`: `findAvailablePort` varre portas sequencialmente
   (até 1000 portas no intervalo padrão) — poderia paralelizar em lotes.
 - `ManagedKind` (`process-store.ts:12`) não inclui `'script'`, presente em
