@@ -236,14 +236,10 @@ const {
               type="button"
               :disabled="deletingWorkspace"
               :aria-label="
-                deletingWorkspace
-                  ? 'Removendo workspace'
-                  : 'Remover workspace'
+                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
               "
               :title="
-                deletingWorkspace
-                  ? 'Removendo workspace'
-                  : 'Remover workspace'
+                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
               "
               @click="handleDeleteWorkspace"
             >
