@@ -8,6 +8,7 @@ import {
   ClockIcon,
   DocumentTextIcon,
   ShareIcon,
+  TrashIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 import { computed } from 'vue';
@@ -25,8 +26,16 @@ import type { StatusBadgeTone } from './status-badge-types';
 
 const props = defineProps<{ project: Project }>();
 
-const { page, currentPage, loading, errorMessage, refresh, goToPage } =
-  useProjectGitMutationHistoryPanel(() => props.project);
+const {
+  page,
+  currentPage,
+  loading,
+  clearing,
+  errorMessage,
+  refresh,
+  clearHistory,
+  goToPage,
+} = useProjectGitMutationHistoryPanel(() => props.project);
 
 const riskLabels: Record<string, string> = {
   'read-only': 'Leitura',
@@ -114,15 +123,27 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
     </template>
 
     <template #actions>
-      <button
-        type="button"
-        class="git-mutation-refresh"
-        :disabled="loading"
-        @click="refresh"
-      >
-        <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
+      <div class="git-mutation-actions">
+        <button
+          v-if="(page?.total ?? 0) > 0"
+          type="button"
+          class="git-mutation-refresh git-mutation-clear"
+          :disabled="loading || clearing"
+          @click="clearHistory"
+        >
+          <TrashIcon aria-hidden="true" />
+          {{ clearing ? 'Limpando…' : 'Limpar histórico' }}
+        </button>
+        <button
+          type="button"
+          class="git-mutation-refresh"
+          :disabled="loading || clearing"
+          @click="refresh"
+        >
+          <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
+          {{ loading ? 'Atualizando…' : 'Atualizar' }}
+        </button>
+      </div>
     </template>
 
     <div v-if="errorMessage" class="project-error" role="alert">
@@ -281,7 +302,7 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
         <button
           type="button"
           class="git-mutation-refresh git-mutation-refresh-footer"
-          :disabled="loading"
+          :disabled="loading || clearing"
           @click="refresh"
         >
           <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
@@ -311,6 +332,12 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
   font-size: var(--font-sm);
 }
 
+.git-mutation-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .git-mutation-refresh {
   display: inline-flex;
   align-items: center;
@@ -331,6 +358,16 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
 .git-mutation-refresh:hover:not(:disabled) {
   border-color: var(--border-strong);
   color: var(--text);
+}
+
+.git-mutation-clear {
+  color: var(--danger-text);
+}
+
+.git-mutation-clear:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: var(--danger-surface);
+  color: var(--danger-text);
 }
 
 .git-mutation-refresh:disabled {
@@ -714,6 +751,11 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
 @media (max-width: 620px) {
   .git-mutation-history-page :deep(.dd-card-header) {
     align-items: flex-start;
+  }
+
+  .git-mutation-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .git-mutation-footer {
