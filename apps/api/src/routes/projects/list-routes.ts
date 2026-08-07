@@ -327,7 +327,7 @@ export function registerProjectListRoutes(
         ) {
           throw new ApiError({
             statusCode: 409,
-            code: error.code,
+            code: 'CONFLICT',
             message: error.message,
           });
         }
