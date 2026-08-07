@@ -22,6 +22,12 @@ import type {
   ProjectFileMutationResult,
 } from '@dev-dashboard/contracts';
 
+import {
+  isIgnoredProjectPath,
+  isPathWithinRoot,
+  isSensitiveProjectPath,
+} from './shared/path-guards.js';
+
 export type ProjectFileMutationErrorCode =
   | 'FILE_PATH_INVALID'
   | 'FILE_OUTSIDE_PROJECT'
@@ -71,16 +77,6 @@ const MAX_MUTATION_ENTRIES = 2_000;
 const MAX_MUTATION_BYTES = 100 * 1024 * 1024;
 const CONFIRMATION_TTL_MS = 5 * 60 * 1_000;
 
-const ignoredPaths = [
-  '.git',
-  'node_modules',
-  'vendor/bundle',
-  'coverage',
-  'dist',
-  'build',
-  'tmp/log',
-] as const;
-
 function normalizeRelativePath(value: string): string {
   if (value.includes('\0') || value.includes('\\') || path.isAbsolute(value)) {
     throw new ProjectFileMutationError(
@@ -112,32 +108,11 @@ function normalizeRelativePath(value: string): string {
   return normalized;
 }
 
-function isWithinRoot(root: string, target: string): boolean {
-  return target === root || target.startsWith(`${root}${path.sep}`);
-}
-
-function isIgnoredPath(relativePath: string): boolean {
-  return ignoredPaths.some(
-    (ignored) =>
-      relativePath === ignored || relativePath.startsWith(`${ignored}/`),
-  );
-}
-
-function isSensitivePath(relativePath: string): boolean {
-  const normalized = relativePath.toLowerCase();
-  const name = path.posix.basename(normalized);
-  return (
-    normalized === 'config/master.key' ||
-    name === 'id_rsa' ||
-    name === 'id_ed25519' ||
-    name.startsWith('.env') ||
-    name.endsWith('.pem') ||
-    name.endsWith('.key')
-  );
-}
-
 function assertVisiblePath(relativePath: string): void {
-  if (isIgnoredPath(relativePath) || isSensitivePath(relativePath)) {
+  if (
+    isIgnoredProjectPath(relativePath) ||
+    isSensitiveProjectPath(relativePath)
+  ) {
     throw new ProjectFileMutationError(
       'FILE_IGNORED',
       'Este caminho não pode ser alterado pelo editor embutido.',
@@ -194,7 +169,7 @@ async function resolveExistingPath(
   }
 
   const canonical = await realpath(candidate);
-  if (canonical !== candidate || !isWithinRoot(root, canonical)) {
+  if (canonical !== candidate || !isPathWithinRoot(root, canonical)) {
     throw new ProjectFileMutationError(
       'FILE_OUTSIDE_PROJECT',
       'O caminho solicitado saiu da raiz canônica do projeto.',
@@ -230,7 +205,10 @@ async function resolveDestination(
       'O diretório de destino não existe.',
     );
   }
-  if (canonicalParent !== parentPath || !isWithinRoot(root, canonicalParent)) {
+  if (
+    canonicalParent !== parentPath ||
+    !isPathWithinRoot(root, canonicalParent)
+  ) {
     throw new ProjectFileMutationError(
       'FILE_OUTSIDE_PROJECT',
       'O diretório de destino saiu da raiz canônica do projeto.',
@@ -303,7 +281,7 @@ async function scanImpact(
     }
 
     const canonical = await realpath(absolutePath);
-    if (canonical !== absolutePath || !isWithinRoot(root, canonical)) {
+    if (canonical !== absolutePath || !isPathWithinRoot(root, canonical)) {
       throw new ProjectFileMutationError(
         'FILE_OUTSIDE_PROJECT',
         'A operação saiu da raiz canônica do projeto.',
@@ -341,7 +319,10 @@ async function scanImpact(
       entries.sort((left, right) => left.name.localeCompare(right.name));
       for (const entry of entries) {
         const childPath = `${publicPath}/${entry.name}`;
-        if (isIgnoredPath(childPath) || isSensitivePath(childPath)) {
+        if (
+          isIgnoredProjectPath(childPath) ||
+          isSensitiveProjectPath(childPath)
+        ) {
           throw new ProjectFileMutationError(
             'FILE_MUTATION_HIDDEN_CONTENT',
             'A operação inclui conteúdo protegido que não aparece no explorer.',
@@ -417,7 +398,10 @@ export class ProjectFileMutationService {
       }
 
       const canonical = await realpath(destination.target);
-      if (canonical !== destination.target || !isWithinRoot(root, canonical)) {
+      if (
+        canonical !== destination.target ||
+        !isPathWithinRoot(root, canonical)
+      ) {
         await rm(destination.target, { recursive: true, force: true });
         throw new ProjectFileMutationError(
           'FILE_OUTSIDE_PROJECT',
@@ -558,7 +542,7 @@ export class ProjectFileMutationService {
         const canonical = await realpath(destination.target);
         if (
           canonical !== destination.target ||
-          !isWithinRoot(root, canonical)
+          !isPathWithinRoot(root, canonical)
         ) {
           throw new ProjectFileMutationError(
             'FILE_OUTSIDE_PROJECT',

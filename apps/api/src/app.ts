@@ -121,7 +121,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
 
   await registerLocalSecurity(app, {
     token: localToken,
-    sessionSecret: options.sessionSecret ?? localToken,
+    ...(options.sessionSecret ? { sessionSecret: options.sessionSecret } : {}),
     ...(options.browserBootstrapToken
       ? { browserBootstrapToken: options.browserBootstrapToken }
       : {}),

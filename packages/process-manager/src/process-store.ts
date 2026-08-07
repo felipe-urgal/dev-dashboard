@@ -8,6 +8,7 @@ import type { ManagedProcessStatus } from '@dev-dashboard/contracts';
 
 import { isErrnoException } from './errors.js';
 import { isStoredProcess, type StoredProcess } from './process-state.js';
+import { quarantineUnreadableStateFile } from './state-file-recovery.js';
 
 export type ManagedKind = 'server' | 'test' | 'worker' | 'webpack';
 
@@ -51,21 +52,11 @@ export async function readStoredProcess(
   projectId: string,
   kind: ManagedKind,
 ): Promise<StoredProcess | null> {
+  const processFile = resolveProcessFile(context, projectId, kind);
+
+  let contents: string;
   try {
-    const contents = await readFile(
-      resolveProcessFile(context, projectId, kind),
-      'utf8',
-    );
-
-    const parsed: unknown = JSON.parse(contents);
-
-    if (!isStoredProcess(parsed)) {
-      throw new Error(
-        'O arquivo de estado do processo possui formato inválido.',
-      );
-    }
-
-    return parsed;
+    contents = await readFile(processFile, 'utf8');
   } catch (error) {
     if (isErrnoException(error) && error.code === 'ENOENT') {
       return null;
@@ -73,6 +64,21 @@ export async function readStoredProcess(
 
     throw error;
   }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch {
+    quarantineUnreadableStateFile(processFile);
+    return null;
+  }
+
+  if (!isStoredProcess(parsed)) {
+    quarantineUnreadableStateFile(processFile);
+    return null;
+  }
+
+  return parsed;
 }
 
 export async function writeStoredProcess(
@@ -127,17 +133,30 @@ export async function listStoredProcessEntries(
       continue;
     }
 
-    const contents = await readFile(
-      path.join(context.processDirectory, entry.name),
-      'utf8',
-    );
+    const entryFile = path.join(context.processDirectory, entry.name);
 
-    const parsed: unknown = JSON.parse(contents);
+    let contents: string;
+    try {
+      contents = await readFile(entryFile, 'utf8');
+    } catch (error) {
+      if (isErrnoException(error) && error.code === 'ENOENT') {
+        continue;
+      }
+
+      throw error;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(contents);
+    } catch {
+      quarantineUnreadableStateFile(entryFile);
+      continue;
+    }
 
     if (!isStoredProcess(parsed)) {
-      throw new Error(
-        `O arquivo de estado ${entry.name} possui formato inválido.`,
-      );
+      quarantineUnreadableStateFile(entryFile);
+      continue;
     }
 
     processes.push(parsed);

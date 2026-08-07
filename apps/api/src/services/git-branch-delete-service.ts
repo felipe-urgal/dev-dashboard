@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
 import {
   GitMutationConfirmationError,
   GitMutationConfirmationService,
 } from './git-mutation-confirmation-service.js';
+import { runGit as sharedRunGit } from './shared/run-git.js';
 
-const execFileAsync = promisify(execFile);
 const CONFIRMATION_TTL_MS = 60_000;
 const BRANCH_NAME_PATTERN =
   /^(?!-)(?!\/)(?!.*\/\/)(?!.*\.\.)[A-Za-z0-9._/-]+(?<!\/)(?<!\.)$/;
@@ -43,18 +40,7 @@ async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout.trim();
+  return (await sharedRunGit(projectPath, args)).trim();
 }
 
 async function gitSucceeds(

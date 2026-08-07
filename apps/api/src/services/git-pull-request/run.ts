@@ -1,46 +1,12 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { runGit as sharedRunGit, runProviderCli } from '../shared/run-git.js';
 
-const execFileAsync = promisify(execFile);
+export { runProviderCli };
 
 export async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout.trim();
-}
-
-export async function runProviderCli(
-  command: string,
-  args: readonly string[],
-  cwd: string,
-): Promise<string | null> {
-  try {
-    const result = await execFileAsync(command, [...args], {
-      cwd,
-      encoding: 'utf8',
-      maxBuffer: 2 * 1024 * 1024,
-      windowsHide: true,
-      env: {
-        ...process.env,
-        LC_ALL: 'C',
-      },
-    });
-    return result.stdout.trim();
-  } catch {
-    return null;
-  }
+  return (await sharedRunGit(projectPath, args)).trim();
 }
 
 export async function optionalGit(

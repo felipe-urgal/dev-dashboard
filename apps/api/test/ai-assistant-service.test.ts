@@ -67,13 +67,13 @@ async function collect(
 }
 
 test('status() informa indisponibilidade sem instalar nada quando o Ollama não responde', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       throw new Error('conexão recusada');
     },
-  );
+  });
   const status = await service.status();
   assert.equal(status.available, false);
   assert.deepEqual(status.models, []);
@@ -82,10 +82,10 @@ test('status() informa indisponibilidade sem instalar nada quando o Ollama não 
 
 test('status() lista modelos instalados e capacidades sem baixar nada', async () => {
   const calls: string[] = [];
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async (input) => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (input) => {
       const url = String(input);
       calls.push(url);
       if (url.endsWith('/api/tags')) {
@@ -98,7 +98,7 @@ test('status() lista modelos instalados e capacidades sem baixar nada', async ()
       }
       throw new Error(`chamada inesperada: ${url}`);
     },
-  );
+  });
   const status = await service.status();
   assert.equal(status.available, true);
   assert.deepEqual(status.models, [
@@ -109,13 +109,13 @@ test('status() lista modelos instalados e capacidades sem baixar nada', async ()
 });
 
 test('chat() recusa conversas vazias ou fora dos limites sem chamar o Ollama', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       throw new Error('não deveria chamar o Ollama');
     },
-  );
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -127,16 +127,16 @@ test('chat() recusa conversas vazias ou fora dos limites sem chamar o Ollama', a
 });
 
 test('chat() transmite deltas de mensagem e sinaliza o fim da resposta', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () =>
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () =>
       ndjsonResponse([
         { message: { role: 'assistant', content: 'Olá' }, done: false },
         { message: { role: 'assistant', content: ' mundo' }, done: false },
         { message: { role: 'assistant', content: '' }, done: true },
       ]),
-  );
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -157,10 +157,10 @@ test('chat() executa read_project_file do catálogo fechado e devolve o resultad
   await writeFile(path.join(root, 'README.md'), '# Painel\n', 'utf8');
   try {
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -188,7 +188,7 @@ test('chat() executa read_project_file do catálogo fechado e devolve o resultad
           },
         ]);
       },
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'O que tem no README?' },
     ]);
@@ -210,10 +210,10 @@ test('chat() executa read_project_file do catálogo fechado e devolve o resultad
 });
 
 test('chat() recusa ferramenta fora do catálogo fechado sem executar nada', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () =>
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () =>
       ndjsonResponse([
         {
           message: {
@@ -231,7 +231,7 @@ test('chat() recusa ferramenta fora do catálogo fechado sem executar nada', asy
           done: true,
         },
       ]),
-  );
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -255,10 +255,10 @@ test('chat() lista arquivos e busca texto restritos ao projeto atual', async () 
   try {
     const fileService = new ProjectFileService();
     let round = 0;
-    const service = new AiAssistantService(
-      fileService,
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: fileService,
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -287,7 +287,7 @@ test('chat() lista arquivos e busca texto restritos ao projeto atual', async () 
           },
         ]);
       },
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Onde está "alfa"?' },
     ]);
@@ -319,10 +319,10 @@ test('chat() obtém diff Git de um arquivo do projeto', async () => {
     await writeFile(path.join(root, 'app.rb'), 'puts 2\n', 'utf8');
 
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -353,7 +353,7 @@ test('chat() obtém diff Git de um arquivo do projeto', async () => {
           },
         ]);
       },
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'O que mudou em app.rb?' },
     ]);
@@ -372,10 +372,10 @@ test('chat() propõe uma edição de workspace e emite um preview aguardando con
   await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
   try {
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -418,7 +418,7 @@ test('chat() propõe uma edição de workspace e emite um preview aguardando con
           },
         ]);
       },
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Corrija o texto de app.rb.' },
     ]);
@@ -453,10 +453,10 @@ test('chat() ignora expectedVersion vindo do modelo e sempre lê a versão atual
   );
   await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
   try {
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () =>
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () =>
         ndjsonResponse([
           {
             message: {
@@ -493,7 +493,7 @@ test('chat() ignora expectedVersion vindo do modelo e sempre lê a versão atual
             done: true,
           },
         ]),
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Corrija app.rb.' },
     ]);
@@ -518,10 +518,10 @@ test('chat() recusa propose_workspace_edit sem edições e não gera preview', a
   await writeFile(path.join(root, 'app.rb'), 'old text\n', 'utf8');
   try {
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -552,7 +552,7 @@ test('chat() recusa propose_workspace_edit sem edições e não gera preview', a
           },
         ]);
       },
-    );
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Corrija app.rb.' },
     ]);
@@ -574,13 +574,13 @@ test('chat() recusa propose_workspace_edit sem edições e não gera preview', a
 test('chat() não emite eventos quando o sinal já está abortado', async () => {
   const controller = new AbortController();
   controller.abort();
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       throw new Error('não deveria chamar o Ollama após abort');
     },
-  );
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -621,11 +621,12 @@ test('resolveOllamaBaseUrl() aceita loopback IPv4/IPv6 e recusa hosts remotos', 
 });
 
 test('chat() emite um erro claro quando o Ollama envia NDJSON malformado', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => new Response('{ isto não é json válido', { status: 200 }),
-  );
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () =>
+      new Response('{ isto não é json válido', { status: 200 }),
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -641,16 +642,16 @@ test('chat() emite um erro claro quando o Ollama envia NDJSON malformado', async
 });
 
 test('chat() traduz o timeout interno da rodada num erro claro em vez do texto nativo do AbortController', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       // Simula o que o `fetch` nativo lança quando o `timeoutController` interno
       // (não o cancelamento do usuário) aborta a requisição por estourar o
       // tempo limite da rodada.
       throw new DOMException('This operation was aborted', 'AbortError');
     },
-  );
+  });
   const events = await collect(
     service,
     project('/tmp/inexistente'),
@@ -665,10 +666,10 @@ test('chat() traduz o timeout interno da rodada num erro claro em vez do texto n
 });
 
 test('status() reporta fill-in-the-middle quando o Ollama anuncia a capacidade insert', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async (input) => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (input) => {
       const url = String(input);
       if (url.endsWith('/api/tags')) {
         return new Response(
@@ -682,7 +683,7 @@ test('status() reporta fill-in-the-middle quando o Ollama anuncia a capacidade i
       }
       throw new Error(`chamada inesperada: ${url}`);
     },
-  );
+  });
   const status = await service.status();
   assert.deepEqual(status.models, [
     { name: 'qwen2.5-coder', capabilities: ['chat', 'fill-in-the-middle'] },
@@ -690,13 +691,13 @@ test('status() reporta fill-in-the-middle quando o Ollama anuncia a capacidade i
 });
 
 test('complete() não chama o Ollama quando prefixo e sufixo estão vazios', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       throw new Error('não deveria chamar o Ollama');
     },
-  );
+  });
   const result = await service.complete(
     'llama3.1',
     '',
@@ -707,13 +708,13 @@ test('complete() não chama o Ollama quando prefixo e sufixo estão vazios', asy
 });
 
 test('complete() recusa modelo vazio e contexto acima do limite sem chamar o Ollama', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
       throw new Error('não deveria chamar o Ollama');
     },
-  );
+  });
   await assert.rejects(
     () =>
       service.complete('', 'const x = 1;', '', new AbortController().signal),
@@ -733,14 +734,14 @@ test('complete() recusa modelo vazio e contexto acima do limite sem chamar o Oll
 
 test('complete() envia suffix apenas quando presente e devolve o texto truncado', async () => {
   const calls: Array<Record<string, unknown>> = [];
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async (_input, init) => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (_input, init) => {
       calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
       return new Response(JSON.stringify({ response: 'return a + b;' }));
     },
-  );
+  });
 
   const withoutSuffix = await service.complete(
     'llama3.1',
@@ -761,11 +762,11 @@ test('complete() envia suffix apenas quando presente e devolve o texto truncado'
 });
 
 test('complete() propaga falha do Ollama como erro claro', async () => {
-  const service = new AiAssistantService(
-    new ProjectFileService(),
-    new GitService(),
-    async () => new Response('erro interno', { status: 500 }),
-  );
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => new Response('erro interno', { status: 500 }),
+  });
   await assert.rejects(
     () =>
       service.complete(
@@ -801,10 +802,10 @@ test('chat() consulta a definição de um símbolo via LSP e devolve os locais a
         ];
       },
     );
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -832,9 +833,11 @@ test('chat() consulta a definição de um símbolo via LSP e devolve os locais a
           },
         ]);
       },
-      new ProjectWorkspaceEditService(new ProjectFileService()),
-      languageServerService,
-    );
+      workspaceEditService: new ProjectWorkspaceEditService(
+        new ProjectFileService(),
+      ),
+      languageServerService: languageServerService,
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Onde isso é definido?' },
     ]);
@@ -857,10 +860,10 @@ test('chat() consulta referências de um símbolo e informa quando o LSP não es
       async () => undefined,
     );
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -888,9 +891,11 @@ test('chat() consulta referências de um símbolo e informa quando o LSP não es
           },
         ]);
       },
-      new ProjectWorkspaceEditService(new ProjectFileService()),
-      languageServerService,
-    );
+      workspaceEditService: new ProjectWorkspaceEditService(
+        new ProjectFileService(),
+      ),
+      languageServerService: languageServerService,
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Onde isso é usado?' },
     ]);
@@ -915,10 +920,10 @@ test('chat() recusa get_symbol_definition para extensão sem servidor de linguag
       return [];
     });
     let round = 0;
-    const service = new AiAssistantService(
-      new ProjectFileService(),
-      new GitService(),
-      async () => {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () => {
         round += 1;
         if (round === 1) {
           return ndjsonResponse([
@@ -949,9 +954,11 @@ test('chat() recusa get_symbol_definition para extensão sem servidor de linguag
           },
         ]);
       },
-      new ProjectWorkspaceEditService(new ProjectFileService()),
-      languageServerService,
-    );
+      workspaceEditService: new ProjectWorkspaceEditService(
+        new ProjectFileService(),
+      ),
+      languageServerService: languageServerService,
+    });
     const events = await collect(service, project(root), 'llama3.1', [
       { role: 'user', content: 'Onde isso é definido?' },
     ]);

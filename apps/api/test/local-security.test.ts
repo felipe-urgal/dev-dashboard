@@ -315,3 +315,32 @@ test('origem da distribuição entra na allowlist e autoriza mutação com cooki
     distributedOrigin,
   );
 });
+
+test('sem sessionSecret explícito, a sessão não é assinada com o token bruto como chave HMAC', async (context) => {
+  const app = Fastify({ logger: false });
+  await registerLocalSecurity(app, {
+    token: TOKEN,
+    browserBootstrapToken: BOOTSTRAP_TOKEN,
+    localOrigin: 'http://127.0.0.1:4343',
+  });
+  app.get('/api/private', async () => ({ ok: true }));
+  context.after(async () => app.close());
+
+  const { createHmac } = await import('node:crypto');
+  const expiresAt = Math.floor(Date.now() / 1000) + 900;
+  const nonce = 'nonce';
+  const payload = `${expiresAt}.${nonce}`;
+  const forgedWithRawToken = `${payload}.${createHmac('sha256', TOKEN).update(payload).digest('hex')}`;
+
+  const response = await app.inject({
+    url: '/api/private',
+    headers: { cookie: `dev_dashboard_session=${forgedWithRawToken}` },
+  });
+
+  assert.equal(
+    response.statusCode,
+    401,
+    'uma assinatura calculada com o token bruto como chave HMAC não deve validar a sessão',
+  );
+  assert.equal(response.json().error, 'INVALID_LOCAL_TOKEN');
+});

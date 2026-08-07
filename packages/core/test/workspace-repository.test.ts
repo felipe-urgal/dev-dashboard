@@ -256,3 +256,55 @@ try {
     await rm(missingFixtureRoot, { recursive: true, force: true });
   }
 }
+
+// Chamadas concorrentes de create()/remove() na mesma instância não podem
+// perder atualizações: sem serialização, um read-modify-write intercalado
+// faria uma escrita sobrescrever a outra.
+{
+  const concurrencyFixtureRoot = await mkdtemp(
+    path.join(tmpdir(), 'dev-dashboard-core-concurrency-'),
+  );
+  const concurrencyConfigDirectory = path.join(
+    concurrencyFixtureRoot,
+    'config',
+  );
+  const concurrencyProjectsRoot = path.join(concurrencyFixtureRoot, 'projects');
+
+  try {
+    const workspacePaths = await Promise.all(
+      Array.from({ length: 8 }, async (_value, index) => {
+        const projectPath = path.join(concurrencyProjectsRoot, `p${index}`);
+        await mkdir(projectPath, { recursive: true });
+        return projectPath;
+      }),
+    );
+
+    const concurrencyRepository = new WorkspaceRepository(
+      concurrencyConfigDirectory,
+    );
+
+    await Promise.all(
+      workspacePaths.map((workspaceDirectory, index) =>
+        concurrencyRepository.create({
+          name: `Concorrente ${index}`,
+          path: workspaceDirectory,
+        }),
+      ),
+    );
+
+    const stored = await concurrencyRepository.list();
+    assert.equal(
+      stored.length,
+      workspacePaths.length,
+      'todas as criações concorrentes devem ser persistidas, sem lost update',
+    );
+
+    await Promise.all(
+      stored.map((workspace) => concurrencyRepository.remove(workspace.id)),
+    );
+
+    assert.deepEqual(await concurrencyRepository.list(), []);
+  } finally {
+    await rm(concurrencyFixtureRoot, { recursive: true, force: true });
+  }
+}

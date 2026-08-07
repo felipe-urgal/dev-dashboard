@@ -1,6 +1,3 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
 import type {
   GitBranch,
   GitCommit,
@@ -9,7 +6,11 @@ import type {
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
-const execFileAsync = promisify(execFile);
+import {
+  commandFailureText,
+  runGit as sharedRunGit,
+} from './shared/run-git.js';
+
 const FIELD_SEPARATOR = '\u001f';
 const REMOTE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const REMOTE_UNAVAILABLE_PATTERN =
@@ -36,27 +37,7 @@ async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-
-  return result.stdout.trim();
-}
-
-function commandFailureText(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const withOutput = error as Error & { stdout?: string; stderr?: string };
-  return [withOutput.message, withOutput.stdout, withOutput.stderr]
-    .filter(Boolean)
-    .join('\n');
+  return (await sharedRunGit(projectPath, args)).trim();
 }
 
 function sanitizeRemoteUrl(value: string): string {

@@ -278,55 +278,56 @@ Observação geral: `tsconfig.base.json` já usa `strict`,
 `packages/*/src`, e a cobertura de testes é boa na maior parte dos pacotes.
 Os pontos abaixo são refinamentos sobre uma base já sólida.
 
-#### B.1 `runGit` reimplementado em 11 lugares diferentes (alta prioridade)
+#### B.1 `runGit` reimplementado em 11 lugares diferentes — resolvido (2026-08-07)
 
-Wrapper de `execFile('git', ...)` duplicado quase identicamente em:
-`services/git-service/run.ts:11`, `git-pull-request/run.ts:7`,
-`git-undo/run.ts:7`, `git-commit-details/run.ts:9`, `git-sync/run.ts:6`,
-`git-workspace-service.ts:39`, `git-branch-service.ts:45-50`,
-`git-branch-delete-service.ts:46`, `git-branch-rename-service.ts:51`,
-`git-current-branch-history-service.ts:48`,
-`git-exclusive-branch-history-service.ts:60`.
+Extraído `apps/api/src/services/shared/run-git.ts` como único ponto que
+efetivamente dispara `execFile('git', ...)`: agora define
+`GIT_TERMINAL_PROMPT: '0'` e `GCM_INTERACTIVE: 'Never'` em todo lugar (o
+risco real de travar o processo esperando um prompt de credencial
+interativo), além de `timeoutMs`/`maxBufferBytes` parametrizáveis e
+`commandFailureText`/`optionalGit`/`runProviderCli` centralizados.
+`git-service/run.ts`, `git-undo/run.ts`, `git-sync/run.ts`,
+`git-commit-details/run.ts` e `git-pull-request/run.ts` passaram a
+reexportar ou delegar para o módulo compartilhado; os seis serviços que
+tinham `runGit` local (`git-workspace-service.ts`, `git-branch-service.ts`,
+`git-branch-delete-service.ts`, `git-branch-rename-service.ts`,
+`git-current-branch-history-service.ts`,
+`git-exclusive-branch-history-service.ts`) mantiveram wrappers finos só
+para preservar `trim()`/`maxBuffer` específicos de cada um, delegando a
+chamada real ao módulo compartilhado.
 
-- **Risco funcional real:** só `git-service/run.ts` define
-  `GIT_TERMINAL_PROMPT: '0'` e `GCM_INTERACTIVE: 'Never'`. As outras 10
-  cópias não têm essas variáveis — um `git pull`/`push` disparado por essas
-  rotas pode, em teoria, tentar abrir um prompt de credencial interativo e
-  travar o processo do servidor.
-- `maxBuffer` varia sem razão aparente entre 4MB e 24MB
-  (`git-commit-details/run.ts:16`); algumas variantes fazem `.trim()` no
-  stdout, outras não.
-- `commandFailureText`/`failureText` e `optionalGit` são a mesma lógica
-  duplicada com nomes diferentes em arquivos diferentes.
+#### B.2 Lógica de path traversal triplicada — resolvido (2026-08-07)
 
-**Sugestão:** extrair um único módulo `services/shared/run-git.ts` usado por
-todos os serviços, garantindo as mesmas env vars/timeout/maxBuffer em toda a
-base.
+Extraído `apps/api/src/services/shared/path-guards.ts` com
+`isPathWithinRoot` (baseado em `path.relative`, como a variante que já
+existia em `workspaces.ts`), `isIgnoredProjectPath` e
+`isSensitiveProjectPath` como único ponto de verdade. `project-file-service.ts`,
+`project-file-mutation-service.ts`, `project-language-server-service.ts` e
+`apps/api/src/routes/workspaces.ts` passaram a importar dali em vez de
+manter cópias locais divergentes (`isWithinRoot`/`isIgnoredPath`/
+`isPathInside`).
 
-#### B.2 Lógica de path traversal triplicada (alta prioridade — segurança)
+#### B.3 `apps/api/src/security/local-security.ts` — resolvido (2026-08-07)
 
-`isWithinRoot`/`isIgnoredPath` estão copiadas literalmente entre
-`project-file-service.ts:143-152` e
-`project-file-mutation-service.ts:115-124`, incluindo a lista
-`ignoredPaths` duplicada byte a byte (linhas 59-67 vs 74-82). Além disso,
-`apps/api/src/routes/workspaces.ts:51-60` implementa uma **terceira**
-variante (`isPathInside`) com lógica ligeiramente diferente. Como é lógica
-crítica de segurança (prevenção de path traversal), ter três implementações
-divergentes é um risco: uma correção pode ser aplicada em só um dos três
-lugares. **Sugestão:** consolidar num único utilitário `isPathWithinRoot`
-compartilhado.
-
-#### B.3 `apps/api/src/security/local-security.ts`
-
-- `sessionSecret = options.sessionSecret ?? options.token` (linha 86,
-  replicado em `app.ts:124`): quando não há `sessionSecret` configurado, o
-  HMAC de sessão do navegador usa o próprio token de autenticação como
-  chave — reuso de segredo entre dois propósitos distintos.
-- Os códigos de erro do `onRequest` hook (`BOOTSTRAP_NOT_ALLOWED`,
+- ~~`sessionSecret = options.sessionSecret ?? options.token`, replicado em
+  `app.ts:124`: quando não há `sessionSecret` configurado, o HMAC de sessão
+  do navegador usa o próprio token de autenticação como chave~~ — agora
+  `registerLocalSecurity` deriva a chave por padrão via
+  `deriveSessionSecret` (HMAC-SHA256 do token com um rótulo de domínio
+  fixo), mantendo a comparação de token e a assinatura de cookie de sessão
+  criptograficamente independentes mesmo partindo do mesmo segredo
+  armazenado; `app.ts` não replica mais o fallback, só repassa
+  `sessionSecret` quando explicitamente configurado. Teste de regressão em
+  `local-security.test.ts` confirma que uma assinatura forjada com o token
+  bruto como chave HMAC não valida a sessão.
+- ~~Os códigos de erro do `onRequest` hook (`BOOTSTRAP_NOT_ALLOWED`,
   `INVALID_BROWSER_BOOTSTRAP`, `ORIGIN_NOT_ALLOWED`, `ORIGIN_REQUIRED`,
-  `SESSION_EXPIRED`, `INVALID_LOCAL_TOKEN`) são strings soltas fora do union
-  `ApiErrorCode`, com respostas montadas manualmente em vez de via
-  `ApiError` — quebra a garantia de tipo único de erro da API.
+  `SESSION_EXPIRED`, `INVALID_LOCAL_TOKEN`) eram strings soltas fora do
+  union `ApiErrorCode`~~ — agora fazem parte do union e as respostas são
+  montadas por um helper local (`sendApiError`) tipado contra
+  `ApiErrorCode`, sem depender de lançar `ApiError`/`registerApiErrorHandling`
+  (este módulo é testado de forma isolada, só com Fastify puro, antes do
+  error handler global existir necessariamente).
 
 #### B.4 `apps/api/src/http/api-error.ts`
 
@@ -347,11 +348,15 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 - `ProjectFavoriteRepository`/`ProjectRecentRepository` usam cache em
   memória + `mutationQueue` para serializar escritas.
-- `WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
-  esse mecanismo: `create`/`setRecursiveScan`/`remove` fazem
-  ler-todo-modificar-escrever sem lock nem fila — duas chamadas concorrentes
-  a `POST /api/workspaces` podem causar lost update. Não coberto por teste.
-  **Sugestão:** aplicar o mesmo padrão `mutationQueue`.
+- ~~`WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
+  esse mecanismo~~ — **resolvido (2026-08-07)**: `create`/`setRecursiveScan`/
+  `remove` agora passam pelo mesmo `mutationQueue`/`enqueue<T>` usado em
+  `ProjectFavoriteRepository`/`EnvironmentProfileRepository`, serializando o
+  ler-modificar-escrever. Teste de regressão em
+  `workspace-repository.test.ts` dispara 8 `create()` concorrentes na mesma
+  instância e confirma que nenhum é perdido (falhava com `ENOENT` no
+  `rename()` antes da correção, por duas escritas colidirem no mesmo
+  arquivo temporário).
 - `state-file-recovery.ts:17-33` usa `existsSync`/`copyFileSync` síncronos
   num codebase inteiramente assíncrono — bloqueia o event loop no caso raro
   de arquivo corrompido.
@@ -361,11 +366,15 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.7 `packages/process-manager`
 
-- `process-store.ts:62-66,137-141` lança exceção em arquivo de estado
-  corrompido — um único arquivo ruim derruba `listProcesses()` inteiro para
-  todos os projetos, ao contrário de `packages/core`, que já usa
-  `quarantineUnreadableStateFile`. Sugestão: aplicar o mesmo padrão de
-  quarentena aqui.
+- ~~`process-store.ts:62-66,137-141` lança exceção em arquivo de estado
+  corrompido~~ — **resolvido (2026-08-07)**: `readStoredProcess` e
+  `listStoredProcessEntries` agora tratam JSON corrompido/formato
+  inesperado como o mesmo caso de "arquivo ausente" (retornam `null`/pulam
+  a entrada) em vez de lançar, e movem o arquivo para uma cópia
+  `.unreadable-<timestamp>.bak` antes — mesmo padrão de
+  `quarantineUnreadableStateFile` de `packages/core`, replicado localmente
+  em `state-file-recovery.ts` porque `process-manager` não depende de
+  `core`.
 - `process-exit-tracking.ts:59-81`: mapas `observedExits`/`exitWaiters` só
   são limpos quando `recordChildExit` completa com sucesso — se o evento
   `exit`/`error` nunca disparar, a entrada fica presa indefinidamente sem
@@ -388,9 +397,13 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.9 `apps/api/src/app-context.ts`
 
-- `AiAssistantService` tem 5 parâmetros posicionais com `fetchImpl` no meio,
-  obrigando `app-context.ts:130-136` a passar `undefined` explícito só para
-  preencher a posição. Sugestão: converter para objeto de opções nomeado.
+- ~~`AiAssistantService` tem 5 parâmetros posicionais com `fetchImpl` no
+  meio, obrigando `app-context.ts:130-136` a passar `undefined` explícito
+  só para preencher a posição~~ — **resolvido (2026-08-07)**: o construtor
+  agora recebe um único `AiAssistantServiceOptions` nomeado
+  (`projectFileService`/`gitService`/`fetchImpl`/`workspaceEditService`/
+  `languageServerService`, todos opcionais); `app-context.ts` só passa os
+  campos que de fato substitui, sem `undefined` de preenchimento.
 - `createAppContext()` é uma raiz de composição manual de ~25 serviços sem
   DI, com dependências de ordem implícitas (não documentadas) entre alguns
   deles.
@@ -479,11 +492,6 @@ intencional ou atualização automática indevida.
   `listServerUrls`) nem `command-resolution.ts` — conferir se são
   exercitados indiretamente ou ficam sem cobertura direta.
 
-**Prioridades sugeridas (web):** 1) unificar `runGit` (B.1) — risco real de
-travamento; consolidar `isWithinRoot`/`isIgnoredPath`/`isPathInside` (B.2) —
-lógica de segurança triplicada; 2) serialização de escrita em
-`WorkspaceRepository` (B.6); tratar estado corrompido com quarentena em
-`process-store.ts` (B.7); revisar fallback de `sessionSecret` (B.3); 3)
-decompor componentes grandes (B.12); avaliar migração gradual dos
-"enhancers" DOM (B.10); padronizar `RequestGeneration` (B.11); simplificar
-assinatura de `AiAssistantService` (B.9).
+**Prioridades sugeridas (web):** 1) decompor componentes grandes (B.12);
+avaliar migração gradual dos "enhancers" DOM (B.10); padronizar
+`RequestGeneration` (B.11).

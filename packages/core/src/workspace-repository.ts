@@ -125,6 +125,7 @@ function parseConfig(contents: string): DashboardConfig {
 export class WorkspaceRepository {
   private readonly configDirectory: string;
   private readonly configFile: string;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
   public constructor(configDirectory = resolveConfigDirectory()) {
     this.configDirectory = configDirectory;
@@ -173,95 +174,101 @@ export class WorkspaceRepository {
       );
     }
 
-    const config = await this.readConfig();
+    return this.enqueue(async () => {
+      const config = await this.readConfig();
 
-    const existingByPath = config.workspaces.find(
-      (workspace) => workspace.path === resolvedPath,
-    );
-
-    if (existingByPath) {
-      throw new WorkspaceRepositoryError(
-        'WORKSPACE_ALREADY_EXISTS',
-        `O diretório já pertence ao workspace "${existingByPath.name}".`,
+      const existingByPath = config.workspaces.find(
+        (workspace) => workspace.path === resolvedPath,
       );
-    }
 
-    const requestedId = input.id?.trim();
-    const baseId = slugify(requestedId || name);
+      if (existingByPath) {
+        throw new WorkspaceRepositoryError(
+          'WORKSPACE_ALREADY_EXISTS',
+          `O diretório já pertence ao workspace "${existingByPath.name}".`,
+        );
+      }
 
-    const existingById = config.workspaces.find(
-      (workspace) => workspace.id === baseId,
-    );
+      const requestedId = input.id?.trim();
+      const baseId = slugify(requestedId || name);
 
-    const id = existingById
-      ? `${baseId}-${createPathHash(resolvedPath)}`
-      : baseId;
+      const existingById = config.workspaces.find(
+        (workspace) => workspace.id === baseId,
+      );
 
-    const workspace: Workspace = {
-      id,
-      name,
-      path: resolvedPath,
-      enabled: input.enabled ?? true,
-      recursiveScan: input.recursiveScan ?? false,
-    };
+      const id = existingById
+        ? `${baseId}-${createPathHash(resolvedPath)}`
+        : baseId;
 
-    await this.writeConfig({
-      version: 1,
-      workspaces: [...config.workspaces, workspace],
+      const workspace: Workspace = {
+        id,
+        name,
+        path: resolvedPath,
+        enabled: input.enabled ?? true,
+        recursiveScan: input.recursiveScan ?? false,
+      };
+
+      await this.writeConfig({
+        version: 1,
+        workspaces: [...config.workspaces, workspace],
+      });
+
+      return workspace;
     });
-
-    return workspace;
   }
 
   public async setRecursiveScan(
     workspaceId: string,
     recursiveScan: boolean,
   ): Promise<Workspace> {
-    const config = await this.readConfig();
+    return this.enqueue(async () => {
+      const config = await this.readConfig();
 
-    const existingWorkspace = config.workspaces.find(
-      (workspace) => workspace.id === workspaceId,
-    );
-
-    if (!existingWorkspace) {
-      throw new WorkspaceRepositoryError(
-        'WORKSPACE_NOT_FOUND',
-        'Workspace não encontrado.',
+      const existingWorkspace = config.workspaces.find(
+        (workspace) => workspace.id === workspaceId,
       );
-    }
 
-    const updatedWorkspace: Workspace = {
-      ...existingWorkspace,
-      recursiveScan,
-    };
+      if (!existingWorkspace) {
+        throw new WorkspaceRepositoryError(
+          'WORKSPACE_NOT_FOUND',
+          'Workspace não encontrado.',
+        );
+      }
 
-    await this.writeConfig({
-      version: 1,
-      workspaces: config.workspaces.map((workspace) =>
-        workspace.id === workspaceId ? updatedWorkspace : workspace,
-      ),
+      const updatedWorkspace: Workspace = {
+        ...existingWorkspace,
+        recursiveScan,
+      };
+
+      await this.writeConfig({
+        version: 1,
+        workspaces: config.workspaces.map((workspace) =>
+          workspace.id === workspaceId ? updatedWorkspace : workspace,
+        ),
+      });
+
+      return updatedWorkspace;
     });
-
-    return updatedWorkspace;
   }
 
   public async remove(workspaceId: string): Promise<void> {
-    const config = await this.readConfig();
+    return this.enqueue(async () => {
+      const config = await this.readConfig();
 
-    const nextWorkspaces = config.workspaces.filter(
-      (workspace) => workspace.id !== workspaceId,
-    );
-
-    if (nextWorkspaces.length === config.workspaces.length) {
-      throw new WorkspaceRepositoryError(
-        'WORKSPACE_NOT_FOUND',
-        'Workspace não encontrado.',
+      const nextWorkspaces = config.workspaces.filter(
+        (workspace) => workspace.id !== workspaceId,
       );
-    }
 
-    await this.writeConfig({
-      version: 1,
-      workspaces: nextWorkspaces,
+      if (nextWorkspaces.length === config.workspaces.length) {
+        throw new WorkspaceRepositoryError(
+          'WORKSPACE_NOT_FOUND',
+          'Workspace não encontrado.',
+        );
+      }
+
+      await this.writeConfig({
+        version: 1,
+        workspaces: nextWorkspaces,
+      });
     });
   }
 
@@ -296,5 +303,14 @@ export class WorkspaceRepository {
     });
 
     await rename(temporaryFile, this.configFile);
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.mutationQueue.then(operation);
+    this.mutationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 }
