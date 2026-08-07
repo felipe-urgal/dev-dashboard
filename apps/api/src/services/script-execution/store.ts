@@ -192,6 +192,24 @@ async function removeStored(
   ]);
 }
 
+export async function clearExecutionHistory(
+  context: ScriptExecutionContext,
+  projectId: string,
+): Promise<number> {
+  await waitForAllPersistence(context);
+  const removable = Array.from(context.executions.values()).filter(
+    (record) =>
+      record.execution.projectId === projectId &&
+      record.execution.status !== 'running',
+  );
+  await Promise.all(removable.map((record) => record.logFlush));
+  for (const record of removable) {
+    context.executions.delete(record.execution.id);
+    await removeStored(context, record.execution.id);
+  }
+  return removable.length;
+}
+
 export async function pruneHistory(
   context: ScriptExecutionContext,
 ): Promise<void> {
