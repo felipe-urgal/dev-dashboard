@@ -27,6 +27,11 @@ export {
 } from './project-disabled-repository.js';
 
 export {
+  ProjectDismissedRepository,
+  ProjectDismissedRepositoryError,
+} from './project-dismissed-repository.js';
+
+export {
   ProjectRecentRepository,
   PROJECT_RECENT_LIMITS,
 } from './project-recent-repository.js';

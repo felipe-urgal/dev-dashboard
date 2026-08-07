@@ -105,6 +105,12 @@ export async function updateProjectEnabled(
   return response.project;
 }
 
+export async function dismissProject(projectId: string): Promise<void> {
+  await requestJson<null>(`/api/projects/${encodeURIComponent(projectId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function fetchWorkspaces(): Promise<Workspace[]> {
   const response = await requestJson<WorkspacesResponse>('/api/workspaces');
 
@@ -143,9 +149,20 @@ export function updateWorkspaceRecursiveScan(
 
 export function scanWorkspace(
   workspaceId: string,
+  options: {
+    restoreDismissed?: boolean | undefined;
+  } = {},
 ): Promise<WorkspaceScanResponse> {
+  const parameters = new URLSearchParams();
+
+  if (options.restoreDismissed) {
+    parameters.set('restoreDismissed', 'true');
+  }
+
+  const query = parameters.toString();
+
   return requestJson<WorkspaceScanResponse>(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/scan`,
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/scan${query ? `?${query}` : ''}`,
     {
       method: 'POST',
     },

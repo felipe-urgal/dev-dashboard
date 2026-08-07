@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   ProjectDisabledRepositoryError,
+  ProjectDismissedRepositoryError,
   ProjectFavoriteRepositoryError,
 } from '@dev-dashboard/core';
 
@@ -19,8 +20,12 @@ export function registerProjectListRoutes(
   app: FastifyInstance,
   options: ProjectRouteOptions,
 ): void {
-  const { projectFavoriteRepository, projectDisabledRepository, projectStore } =
-    options;
+  const {
+    projectFavoriteRepository,
+    projectDisabledRepository,
+    projectDismissedRepository,
+    projectStore,
+  } = options;
 
   app.get(
     '/projects',
@@ -284,6 +289,55 @@ export function registerProjectListRoutes(
       return {
         project: updatedProject,
       };
+    },
+  );
+
+  app.delete<{
+    Params: ProjectParams;
+  }>(
+    '/projects/:projectId',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          204: {
+            type: 'null',
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectStore.findProject(request.params.projectId);
+
+      if (!project) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      try {
+        await projectDismissedRepository.set(project.id, true);
+      } catch (error) {
+        if (
+          error instanceof ProjectDismissedRepositoryError &&
+          error.code === 'PROJECT_DISMISSED_LIMIT_REACHED'
+        ) {
+          throw new ApiError({
+            statusCode: 409,
+            code: 'CONFLICT',
+            message: error.message,
+          });
+        }
+
+        throw error;
+      }
+
+      projectStore.removeProject(project.id);
+
+      return reply.code(204).send();
     },
   );
 }

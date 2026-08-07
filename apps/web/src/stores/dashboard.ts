@@ -10,6 +10,7 @@ import { confirmDialog } from './app-dialog';
 export interface DashboardApi {
   createWorkspace: typeof dashboardApi.createWorkspace;
   deleteWorkspace: typeof dashboardApi.deleteWorkspace;
+  dismissProject: typeof dashboardApi.dismissProject;
   fetchHealth: typeof dashboardApi.fetchHealth;
   fetchProject: typeof dashboardApi.fetchProject;
   fetchProjects: typeof dashboardApi.fetchProjects;
@@ -24,6 +25,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const {
     createWorkspace,
     deleteWorkspace,
+    dismissProject,
     fetchHealth,
     fetchProject,
     fetchProjects,
@@ -51,6 +53,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const deletingWorkspace = ref(false);
   const favoriteUpdatingIds = ref<string[]>([]);
   const enabledUpdatingIds = ref<string[]>([]);
+  const dismissingProjectIds = ref<string[]>([]);
   const recursiveScanUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
@@ -96,6 +99,27 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
 
     projectIndex.value = nextIndex;
+  }
+
+  function forgetProject(projectId: string): void {
+    projects.value = projects.value.filter(
+      (project) => project.id !== projectId,
+    );
+
+    const nextIndex = {
+      ...projectIndex.value,
+    };
+    delete nextIndex[projectId];
+    projectIndex.value = nextIndex;
+
+    projectsByWorkspace.value = Object.fromEntries(
+      Object.entries(projectsByWorkspace.value).map(
+        ([workspaceId, workspaceProjects]) => [
+          workspaceId,
+          workspaceProjects.filter((project) => project.id !== projectId),
+        ],
+      ),
+    );
   }
 
   function replaceProjectFavorite(projectId: string, favorite: boolean): void {
@@ -206,6 +230,43 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
   }
 
+  async function removeProject(project: Project): Promise<void> {
+    if (dismissingProjectIds.value.includes(project.id)) {
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Remover projeto?',
+      message:
+        `O projeto "${project.name}" será removido do dashboard. ` +
+        'Os arquivos locais não serão apagados. Ele voltará a aparecer quando você escanear o workspace novamente.',
+      confirmLabel: 'Remover projeto',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    dismissingProjectIds.value = [...dismissingProjectIds.value, project.id];
+    clearMessages();
+
+    try {
+      await dismissProject(project.id);
+      forgetProject(project.id);
+      successMessage.value = `Projeto "${project.name}" removido do dashboard.`;
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível remover o projeto do dashboard.';
+    } finally {
+      dismissingProjectIds.value = dismissingProjectIds.value.filter(
+        (projectId) => projectId !== project.id,
+      );
+    }
+  }
+
   function replaceWorkspaceRecursiveScan(
     workspaceId: string,
     recursiveScan: boolean,
@@ -296,6 +357,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     options: {
       activate?: boolean;
       showMessages?: boolean;
+      restoreDismissed?: boolean;
     } = {},
   ): Promise<WorkspaceScanResponse> {
     const shouldActivate = options.activate ?? false;
@@ -312,7 +374,9 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
 
     try {
-      const result = await scanWorkspace(workspaceId);
+      const result = await scanWorkspace(workspaceId, {
+        restoreDismissed: options.restoreDismissed,
+      });
 
       replaceWorkspaceProjects(workspaceId, result.projects);
       scannedWorkspaceIds.add(workspaceId);
@@ -351,6 +415,29 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       await scanWorkspaceById(workspace.id, {
         activate: true,
         showMessages: true,
+      });
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível escanear o workspace.';
+    }
+  }
+
+  async function rescanSelectedWorkspace(): Promise<void> {
+    const workspace = selectedWorkspace.value;
+
+    if (!workspace) {
+      projects.value = [];
+      lastScannedPath.value = '';
+      return;
+    }
+
+    try {
+      await scanWorkspaceById(workspace.id, {
+        activate: true,
+        showMessages: true,
+        restoreDismissed: true,
       });
     } catch (error) {
       errorMessage.value =
@@ -602,6 +689,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     deletingWorkspace,
     favoriteUpdatingIds,
     enabledUpdatingIds,
+    dismissingProjectIds,
     recursiveScanUpdatingIds,
     errorMessage,
     successMessage,
@@ -613,11 +701,13 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     ensureDashboardLoaded,
     ensureProject,
     scanSelectedWorkspace,
+    rescanSelectedWorkspace,
     switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
     toggleProjectFavorite,
     toggleProjectEnabled,
+    removeProject,
     toggleWorkspaceRecursiveScan,
   };
 }

@@ -12,6 +12,7 @@ const actions = vi.hoisted(() => ({
   pararProcesso: vi.fn(),
   favoritar: vi.fn(),
   desativar: vi.fn(),
+  removerProjeto: vi.fn(),
 }));
 
 vi.mock('../src/api', () => ({
@@ -36,6 +37,7 @@ vi.mock('../src/stores/dashboard', async () => {
       deletingWorkspace: ref(false),
       favoriteUpdatingIds: ref<string[]>([]),
       enabledUpdatingIds: ref<string[]>([]),
+      dismissingProjectIds: ref<string[]>([]),
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
@@ -50,10 +52,11 @@ vi.mock('../src/stores/dashboard', async () => {
             a.name.localeCompare(b.name),
         ),
       ),
-      scanSelectedWorkspace: actions.escanear,
+      rescanSelectedWorkspace: actions.escanear,
       handleDeleteWorkspace: actions.remover,
       toggleProjectFavorite: actions.favoritar,
       toggleProjectEnabled: actions.desativar,
+      removeProject: actions.removerProjeto,
     },
   };
 });
@@ -138,7 +141,9 @@ describe('dashboard principal', () => {
     dashboardStore.lastScannedPath.value = '/home/ubunru/Caiena/Projetos';
     const wrapper = mountView();
 
-    await wrapper.get('[aria-label="Escanear novamente"]').trigger('click');
+    await wrapper
+      .get('[aria-label="Escanear novamente e restaurar projetos removidos"]')
+      .trigger('click');
     await wrapper.get('[aria-label="Remover workspace"]').trigger('click');
 
     expect(actions.escanear).toHaveBeenCalledOnce();

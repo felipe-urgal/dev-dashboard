@@ -36,10 +36,12 @@ const {
   selectedWorkspaceId,
   favoriteUpdatingIds,
   enabledUpdatingIds,
-  scanSelectedWorkspace,
+  dismissingProjectIds,
+  rescanSelectedWorkspace,
   handleDeleteWorkspace,
   toggleProjectFavorite,
   toggleProjectEnabled,
+  removeProject,
 } = dashboardStore;
 
 useAutoDismiss(errorMessage, '');
@@ -219,14 +221,14 @@ const {
               :aria-label="
                 scanningWorkspace
                   ? 'Escaneando workspace'
-                  : 'Escanear novamente'
+                  : 'Escanear novamente e restaurar projetos removidos'
               "
               :title="
                 scanningWorkspace
                   ? 'Escaneando workspace'
-                  : 'Escanear novamente'
+                  : 'Escanear novamente e restaurar projetos removidos'
               "
-              @click="scanSelectedWorkspace"
+              @click="rescanSelectedWorkspace"
             >
               <ArrowPathIcon aria-hidden="true" />
             </button>
@@ -425,8 +427,10 @@ const {
           :recent="visibleRecentProjectIds.has(project.id)"
           :favorite-updating="favoriteUpdatingIds.includes(project.id)"
           :enabled-updating="enabledUpdatingIds.includes(project.id)"
+          :removing="dismissingProjectIds.includes(project.id)"
           @toggle-favorite="toggleProjectFavorite"
           @toggle-enabled="toggleProjectEnabled"
+          @remove="removeProject"
         />
       </ul>
     </Card>

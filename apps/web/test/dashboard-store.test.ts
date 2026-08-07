@@ -51,6 +51,7 @@ function createApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
   return {
     createWorkspace: async () => workspace,
     deleteWorkspace: async () => undefined,
+    dismissProject: async () => undefined,
     fetchHealth: async () => ({
       status: 'ok',
       service: 'api',

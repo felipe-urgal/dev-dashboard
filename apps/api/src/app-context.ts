@@ -1,6 +1,7 @@
 import {
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
+  ProjectDismissedRepository,
   ProjectFavoriteRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
@@ -43,6 +44,7 @@ export interface AppContext {
   environmentProfileRepository: EnvironmentProfileRepository;
   projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
+  projectDismissedRepository: ProjectDismissedRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -96,6 +98,7 @@ export function createAppContext(): AppContext {
     environmentProfileRepository: new EnvironmentProfileRepository(),
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
+    projectDismissedRepository: new ProjectDismissedRepository(),
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
