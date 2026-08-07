@@ -160,6 +160,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
+- [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
 - [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
 - [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.
 
