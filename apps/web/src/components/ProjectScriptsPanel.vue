@@ -29,6 +29,7 @@ import {
 } from '../composables/useProjectScriptsPanel';
 import { exportLogSnapshot } from '../utils/log-export';
 import { riskToneFor } from '../utils/status-tones';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import ProjectScriptCatalogCard from './ProjectScriptCatalogCard.vue';
 import ProjectScriptCatalogSidebar from './ProjectScriptCatalogSidebar.vue';
 import ProjectScriptExecutionStrip from './ProjectScriptExecutionStrip.vue';
@@ -177,20 +178,13 @@ function handleExportLog(): void {
           :disabled="isRefreshing"
           @click="load"
         >
-          <ArrowPathIcon
-            aria-hidden="true"
-            :class="{ 'is-spinning': isRefreshing }"
-          />
+          <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': isRefreshing }" />
           {{ isRefreshing ? 'Atualizando…' : 'Atualizar' }}
         </button>
       </div>
     </header>
 
-    <nav
-      class="scripts-explorer-tabs"
-      role="tablist"
-      aria-label="Seções de scripts e tarefas"
-    >
+    <nav class="scripts-explorer-tabs" role="tablist" aria-label="Seções de scripts e tarefas">
       <button
         v-for="tab in sectionTabs"
         :key="tab.id"
@@ -215,11 +209,7 @@ function handleExportLog(): void {
       @open="selectSection('executions')"
     />
 
-    <section
-      v-if="activeSection === 'catalog'"
-      class="scripts-section"
-      role="tabpanel"
-    >
+    <section v-if="activeSection === 'catalog'" class="scripts-section" role="tabpanel">
       <div class="scripts-catalog-layout">
         <ProjectScriptCatalogSidebar
           :category="category"
@@ -246,27 +236,15 @@ function handleExportLog(): void {
 
           <p v-if="delegatedScriptsCount > 0" class="scripts-catalog-note">
             {{ delegatedScriptsCount }}
-            {{
-              delegatedScriptsCount === 1
-                ? 'comando foi direcionado'
-                : 'comandos foram direcionados'
-            }}
+            {{ delegatedScriptsCount === 1 ? 'comando foi direcionado' : 'comandos foram direcionados' }}
             para a área adequada ou ocultados por serem automáticos.
           </p>
 
-          <div v-if="loading && !catalog" class="scripts-empty-state">
-            Carregando catálogo…
-          </div>
+          <div v-if="loading && !catalog" class="scripts-empty-state">Carregando catálogo…</div>
 
-          <div
-            v-else-if="visibleScripts.length === 0"
-            class="scripts-empty-state"
-          >
+          <div v-else-if="visibleScripts.length === 0" class="scripts-empty-state">
             <strong>Nenhuma ação encontrada</strong>
-            <span
-              >Ajuste os filtros ou confirme se o projeto possui scripts
-              reconhecidos.</span
-            >
+            <span>Ajuste os filtros ou confirme se o projeto possui scripts reconhecidos.</span>
           </div>
 
           <div v-else class="scripts-list">
@@ -275,19 +253,14 @@ function handleExportLog(): void {
               :key="item.id"
               :item="item"
               :selected="selectedScript?.id === item.id"
-              :disabled="
-                startingActionId !== null || execution?.status === 'running'
-              "
+              :disabled="startingActionId !== null || execution?.status === 'running'"
               :starting="startingActionId === item.id"
               @select="selectedActionId = item.id"
               @run="requestRun(item)"
             />
           </div>
 
-          <nav
-            v-if="catalog && catalog.totalPages > 1"
-            class="scripts-pagination"
-          >
+          <nav v-if="catalog && catalog.totalPages > 1" class="scripts-pagination">
             <button
               type="button"
               :disabled="page <= 1"
@@ -295,13 +268,8 @@ function handleExportLog(): void {
                 page -= 1;
                 load();
               "
-            >
-              Anterior
-            </button>
-            <span
-              >Página {{ catalog.page }} de {{ catalog.totalPages }} ·
-              {{ catalog.total }} itens</span
-            >
+            >Anterior</button>
+            <span>Página {{ catalog.page }} de {{ catalog.totalPages }} · {{ catalog.total }} itens</span>
             <button
               type="button"
               :disabled="page >= catalog.totalPages"
@@ -309,9 +277,7 @@ function handleExportLog(): void {
                 page += 1;
                 load();
               "
-            >
-              Próxima
-            </button>
+            >Próxima</button>
           </nav>
         </div>
 
@@ -329,24 +295,10 @@ function handleExportLog(): void {
           <section>
             <h5>Detalhes do script</h5>
             <dl>
-              <div>
-                <dt>Origem</dt>
-                <dd>{{ originLabels[selectedScript.origin] }}</dd>
-              </div>
-              <div>
-                <dt>Categoria</dt>
-                <dd>{{ categoryLabels[categoryFor(selectedScript)] }}</dd>
-              </div>
-              <div>
-                <dt>Risco</dt>
-                <dd>{{ riskLabels[selectedScript.risk] }}</dd>
-              </div>
-              <div>
-                <dt>Disponibilidade</dt>
-                <dd>
-                  {{ selectedScript.enabled ? 'Disponível' : 'Bloqueado' }}
-                </dd>
-              </div>
+              <div><dt>Origem</dt><dd>{{ originLabels[selectedScript.origin] }}</dd></div>
+              <div><dt>Categoria</dt><dd>{{ categoryLabels[categoryFor(selectedScript)] }}</dd></div>
+              <div><dt>Risco</dt><dd>{{ riskLabels[selectedScript.risk] }}</dd></div>
+              <div><dt>Disponibilidade</dt><dd>{{ selectedScript.enabled ? 'Disponível' : 'Bloqueado' }}</dd></div>
             </dl>
           </section>
 
@@ -354,49 +306,29 @@ function handleExportLog(): void {
             <h5>Comando</h5>
             <div class="scripts-command-box">
               <code>{{ commandPreview }}</code>
-              <button
-                type="button"
-                @click="copyCommand(selectedScript, commandPreview)"
-              >
+              <button type="button" @click="copyCommand(selectedScript, commandPreview)">
                 <ClipboardDocumentIcon aria-hidden="true" />
-                {{
-                  copiedActionId === selectedScript.id ? 'Copiado' : 'Copiar'
-                }}
+                {{ copiedActionId === selectedScript.id ? 'Copiado' : 'Copiar' }}
               </button>
             </div>
           </section>
 
-          <section
-            v-if="selectedVariables.length"
-            class="scripts-variables-form"
-          >
+          <section v-if="selectedVariables.length" class="scripts-variables-form">
             <h5>Variáveis da tarefa</h5>
-            <p>
-              Os campos foram detectados estaticamente no arquivo Rake e serão
-              enviados pelo ambiente do processo.
-            </p>
+            <p>Os campos foram detectados estaticamente no arquivo Rake e serão enviados pelo ambiente do processo.</p>
             <label v-for="variable in selectedVariables" :key="variable.name">
               <span>
                 <strong>{{ variable.name }}</strong>
-                <small>{{
-                  variable.required ? 'Obrigatória' : 'Opcional'
-                }}</small>
+                <small>{{ variable.required ? 'Obrigatória' : 'Opcional' }}</small>
               </span>
               <input
                 v-model="variableValues[variable.name]"
                 type="text"
                 maxlength="4096"
                 :required="variable.required"
-                :placeholder="
-                  variable.placeholder ??
-                  (variable.defaultValue
-                    ? `Padrão: ${variable.defaultValue}`
-                    : 'Valor')
-                "
+                :placeholder="variable.placeholder ?? (variable.defaultValue ? `Padrão: ${variable.defaultValue}` : 'Valor')"
               />
-              <small v-if="variable.defaultValue"
-                >Se vazio, a tarefa usa {{ variable.defaultValue }}.</small
-              >
+              <small v-if="variable.defaultValue">Se vazio, a tarefa usa {{ variable.defaultValue }}.</small>
             </label>
           </section>
 
@@ -417,22 +349,12 @@ function handleExportLog(): void {
             @click="executeSelected"
           >
             <PlayIcon aria-hidden="true" />
-            {{
-              startingActionId === selectedScript.id
-                ? 'Iniciando…'
-                : 'Executar script'
-            }}
+            {{ startingActionId === selectedScript.id ? 'Iniciando…' : 'Executar script' }}
           </button>
 
-          <aside
-            v-if="selectedScript.risk !== 'read-only'"
-            class="scripts-risk-notice"
-          >
+          <aside v-if="selectedScript.risk !== 'read-only'" class="scripts-risk-notice">
             <ExclamationTriangleIcon aria-hidden="true" />
-            <span
-              >Esta ação pedirá confirmação antes de executar código
-              localmente.</span
-            >
+            <span>Esta ação pedirá confirmação antes de executar código localmente.</span>
           </aside>
         </aside>
       </div>
@@ -448,9 +370,7 @@ function handleExportLog(): void {
             </div>
           </header>
 
-          <div v-if="!history?.items.length" class="scripts-empty-state">
-            Nenhuma execução registrada.
-          </div>
+          <div v-if="!history?.items.length" class="scripts-empty-state">Nenhuma execução registrada.</div>
 
           <div v-else class="scripts-history-list">
             <button
@@ -458,16 +378,11 @@ function handleExportLog(): void {
               :key="item.id"
               type="button"
               :class="{ active: execution?.id === item.id }"
-              :disabled="
-                execution?.status === 'running' && execution.id !== item.id
-              "
+              :disabled="execution?.status === 'running' && execution.id !== item.id"
               @click="selectHistory(item)"
             >
               <span class="scripts-history-icon" :class="`is-${item.status}`">
-                <component
-                  :is="executionIcon(item.status)"
-                  aria-hidden="true"
-                />
+                <component :is="executionIcon(item.status)" aria-hidden="true" />
               </span>
               <span>
                 <strong>{{ item.actionName }}</strong>
@@ -483,18 +398,13 @@ function handleExportLog(): void {
         <article v-if="execution" class="scripts-execution-detail">
           <header>
             <div>
-              <span
-                class="scripts-execution-detail-icon"
-                :class="`is-${execution.status}`"
-              >
-                <component
-                  :is="executionIcon(execution.status)"
-                  aria-hidden="true"
-                />
+              <span class="scripts-execution-detail-icon" :class="`is-${execution.status}`">
+                <component :is="executionIcon(execution.status)" aria-hidden="true" />
               </span>
               <div>
                 <h4>{{ execution.actionName }}</h4>
                 <p>{{ executionStatusLabels[execution.status] }}</p>
+                <span class="scripts-execution-summary">{{ execution.actionName }} · {{ executionStatusLabels[execution.status] }}</span>
               </div>
             </div>
             <StatusBadge :tone="executionTone(execution.status)">
@@ -503,40 +413,19 @@ function handleExportLog(): void {
           </header>
 
           <dl class="scripts-execution-metadata">
-            <div>
-              <dt>Início</dt>
-              <dd>{{ formatDate(execution.startedAt) }}</dd>
-            </div>
-            <div>
-              <dt>Fim</dt>
-              <dd>{{ formatDate(execution.finishedAt) }}</dd>
-            </div>
-            <div>
-              <dt>Duração</dt>
-              <dd>{{ executionDuration(execution) }}</dd>
-            </div>
-            <div>
-              <dt>Exit code</dt>
-              <dd>{{ execution.exitCode ?? '—' }}</dd>
-            </div>
+            <div><dt>Início</dt><dd>{{ formatDate(execution.startedAt) }}</dd></div>
+            <div><dt>Fim</dt><dd>{{ formatDate(execution.finishedAt) }}</dd></div>
+            <div><dt>Duração</dt><dd>{{ executionDuration(execution) }}</dd></div>
+            <div><dt>Exit code</dt><dd>{{ execution.exitCode ?? '—' }}</dd></div>
           </dl>
 
           <div class="scripts-execution-actions">
-            <button
-              v-if="execution.status === 'running'"
-              type="button"
-              class="is-danger"
-              @click="cancel"
-            >
+            <button v-if="execution.status === 'running'" type="button" class="is-danger" @click="cancel">
               <StopCircleIcon aria-hidden="true" />
               Cancelar execução
             </button>
             <button
-              v-else-if="
-                selectedScript &&
-                selectedScript.enabled &&
-                !selectedScript.variables?.length
-              "
+              v-else-if="selectedScript && selectedScript.enabled && !selectedScript.variables?.length"
               type="button"
               @click="run(selectedScript)"
             >
@@ -553,15 +442,12 @@ function handleExportLog(): void {
             </button>
           </div>
 
-          <section class="scripts-log-panel">
+          <section class="scripts-log-panel scripts-log-panel--experience">
             <header>
               <div>
                 <CommandLineIcon aria-hidden="true" />
-                <h5>Saída da execução</h5>
+                <h5>Saída e diagnóstico</h5>
               </div>
-              <span v-if="maskedLogEntries">
-                {{ maskedLogEntries }} ocorrência(s) sensível(is) mascarada(s)
-              </span>
               <button
                 type="button"
                 class="scripts-explorer-refresh"
@@ -572,9 +458,14 @@ function handleExportLog(): void {
                 Exportar log
               </button>
             </header>
-            <pre>{{
-              executionLog || 'A execução ainda não produziu saída.'
-            }}</pre>
+            <ProjectLogExperience
+              :content="executionLog"
+              source="script"
+              flow-label="Saída"
+              :running="execution.status === 'running'"
+              :masked-count="maskedLogEntries"
+              empty-label="A execução ainda não produziu saída."
+            />
           </section>
         </article>
 
@@ -582,9 +473,7 @@ function handleExportLog(): void {
           <ClockIcon aria-hidden="true" />
           <strong>Nenhuma execução selecionada</strong>
           <span>Execute um script ou selecione um item do histórico.</span>
-          <button type="button" @click="selectSection('catalog')">
-            Abrir catálogo
-          </button>
+          <button type="button" @click="selectSection('catalog')">Abrir catálogo</button>
         </div>
       </div>
     </section>
