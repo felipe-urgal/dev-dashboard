@@ -1,3 +1,3 @@
 # Teste pré-PR
 
-- npm test: failure
+- npm test: success
