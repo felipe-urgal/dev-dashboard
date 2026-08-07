@@ -352,11 +352,15 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.7 `packages/process-manager`
 
-- `process-store.ts:62-66,137-141` lança exceção em arquivo de estado
-  corrompido — um único arquivo ruim derruba `listProcesses()` inteiro para
-  todos os projetos, ao contrário de `packages/core`, que já usa
-  `quarantineUnreadableStateFile`. Sugestão: aplicar o mesmo padrão de
-  quarentena aqui.
+- ~~`process-store.ts:62-66,137-141` lança exceção em arquivo de estado
+  corrompido~~ — **resolvido (2026-08-07)**: `readStoredProcess` e
+  `listStoredProcessEntries` agora tratam JSON corrompido/formato
+  inesperado como o mesmo caso de "arquivo ausente" (retornam `null`/pulam
+  a entrada) em vez de lançar, e movem o arquivo para uma cópia
+  `.unreadable-<timestamp>.bak` antes — mesmo padrão de
+  `quarantineUnreadableStateFile` de `packages/core`, replicado localmente
+  em `state-file-recovery.ts` porque `process-manager` não depende de
+  `core`.
 - `process-exit-tracking.ts:59-81`: mapas `observedExits`/`exitWaiters` só
   são limpos quando `recordChildExit` completa com sucesso — se o evento
   `exit`/`error` nunca disparar, a entrada fica presa indefinidamente sem
@@ -471,8 +475,7 @@ intencional ou atualização automática indevida.
   exercitados indiretamente ou ficam sem cobertura direta.
 
 **Prioridades sugeridas (web):** 1) serialização de escrita em
-`WorkspaceRepository` (B.6); tratar estado corrompido com quarentena em
-`process-store.ts` (B.7); revisar fallback de `sessionSecret` (B.3); 2)
+`WorkspaceRepository` (B.6); revisar fallback de `sessionSecret` (B.3); 2)
 decompor componentes grandes (B.12); avaliar migração gradual dos
 "enhancers" DOM (B.10); padronizar `RequestGeneration` (B.11); simplificar
 assinatura de `AiAssistantService` (B.9).

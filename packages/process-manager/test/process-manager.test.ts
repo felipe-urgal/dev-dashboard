@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 
 import { createServer } from 'node:net';
 
@@ -13,6 +20,7 @@ import { test } from 'node:test';
 import type { Project } from '@dev-dashboard/contracts';
 
 import { ProcessManager, ProcessManagerError } from '../src/index.js';
+import { resolveProcessFile } from '../src/process-store.js';
 
 interface Fixture {
   stateDirectory: string;
@@ -699,5 +707,65 @@ test('rejects starting a worker that is already running', async (context) => {
       assert.equal(error.code, 'PROCESS_ALREADY_RUNNING');
       return true;
     },
+  );
+});
+
+test('quarantines a corrupted process state file instead of failing listProcesses for everyone', async (context) => {
+  const fixture = await createFixture({
+    name: 'fixture',
+    scripts: { dev: 'node -e "setInterval(() => {}, 60000)"' },
+  });
+
+  context.after(fixture.cleanup);
+
+  const processDirectory = path.join(fixture.stateDirectory, 'processes');
+  await mkdir(processDirectory, { recursive: true });
+
+  const corruptedFile = path.join(
+    processDirectory,
+    'other-project.server.json',
+  );
+  await writeFile(corruptedFile, 'isto não é json{{{');
+
+  const processes = await fixture.manager.listProcesses();
+  assert.deepEqual(processes, []);
+
+  const entries = await readdir(processDirectory);
+  assert.ok(
+    entries.some((name) =>
+      name.startsWith('other-project.server.json.unreadable-'),
+    ),
+    'esperava uma cópia de quarentena do arquivo corrompido',
+  );
+});
+
+test('treats a project with a corrupted state file as having no process, without throwing', async (context) => {
+  const fixture = await createFixture({
+    name: 'fixture',
+    scripts: { dev: 'node -e "setInterval(() => {}, 60000)"' },
+  });
+
+  context.after(fixture.cleanup);
+
+  const processDirectory = path.join(fixture.stateDirectory, 'processes');
+  await mkdir(processDirectory, { recursive: true });
+
+  const processFile = resolveProcessFile(
+    {
+      processDirectory,
+      logDirectory: path.join(fixture.stateDirectory, 'logs'),
+    },
+    fixture.project.id,
+    'server',
+  );
+  await writeFile(processFile, '{"not":"a stored process"}');
+
+  const result = await fixture.manager.getServerProcess(fixture.project.id);
+  assert.equal(result, null);
+
+  const entries = await readdir(processDirectory);
+  assert.ok(
+    entries.some((name) => name.includes('.unreadable-')),
+    'esperava uma cópia de quarentena do arquivo corrompido',
   );
 });
