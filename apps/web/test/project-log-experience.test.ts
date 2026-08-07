@@ -16,7 +16,8 @@ describe('ProjectLogExperience', () => {
         ].join('\n'),
       },
       slots: {
-        'diagnostic-extra': '<div class="extra-diagnostic">Detalhe especializado</div>',
+        'diagnostic-extra':
+          '<div class="extra-diagnostic">Detalhe especializado</div>',
       },
     });
 
@@ -47,7 +48,9 @@ describe('ProjectLogExperience', () => {
       },
     });
 
-    await wrapper.findAll('.log-experience-mode-switch button')[1]?.trigger('click');
+    await wrapper
+      .findAll('.log-experience-mode-switch button')[1]
+      ?.trigger('click');
     expect(wrapper.text()).toContain('Nenhum problema evidente encontrado');
   });
 });

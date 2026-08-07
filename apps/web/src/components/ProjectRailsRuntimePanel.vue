@@ -60,11 +60,7 @@ function formatDate(value?: string): string {
 
 <template>
   <div class="rails-runtime-panel">
-    <nav
-      class="rails-runtime-tabs"
-      role="tablist"
-      aria-label="Processos Rails"
-    >
+    <nav class="rails-runtime-tabs" role="tablist" aria-label="Processos Rails">
       <button
         v-for="worker in railsWorkers"
         :id="`rails-worker-tab-${worker.id}`"
@@ -161,7 +157,9 @@ function formatDate(value?: string): string {
                 <div>
                   <dt>Iniciado em</dt>
                   <dd>
-                    {{ formatDate(worker.state.managedProcess.value?.startedAt) }}
+                    {{
+                      formatDate(worker.state.managedProcess.value?.startedAt)
+                    }}
                   </dd>
                 </div>
                 <div class="rails-worker-command">
@@ -260,7 +258,9 @@ function formatDate(value?: string): string {
                 :running="worker.state.canStop.value"
                 :masked-count="worker.state.log.value?.redactionCount ?? 0"
                 :empty-label="
-                  worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.'
+                  worker.state.logLoading.value
+                    ? 'Carregando…'
+                    : 'Sem conteúdo.'
                 "
               />
             </div>

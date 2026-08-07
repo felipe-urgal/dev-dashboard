@@ -58,7 +58,10 @@ function runningProcess(
   } as ManagedProcess;
 }
 
-async function mountPanel(logContent = railsLog, type: 'rails' | 'node' = 'rails') {
+async function mountPanel(
+  logContent = railsLog,
+  type: 'rails' | 'node' = 'rails',
+) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
@@ -154,7 +157,11 @@ describe('ProjectLogsPanel', () => {
         'details.server-investigation-details',
       );
       expect(detailSections.length).toBeGreaterThan(0);
-      expect(detailSections.every((details) => details.attributes('open') === undefined)).toBe(true);
+      expect(
+        detailSections.every(
+          (details) => details.attributes('open') === undefined,
+        ),
+      ).toBe(true);
     } finally {
       wrapper.unmount();
       restoreFetch();

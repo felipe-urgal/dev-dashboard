@@ -334,7 +334,10 @@ watch(issues, (nextIssues) => {
         </div>
 
         <div v-else class="log-experience-diagnostic-layout">
-          <aside class="log-experience-issues" aria-label="Problemas encontrados">
+          <aside
+            class="log-experience-issues"
+            aria-label="Problemas encontrados"
+          >
             <header>
               <strong>Problemas encontrados</strong>
               <span>{{ issues.length }}</span>
@@ -356,10 +359,7 @@ watch(issues, (nextIssues) => {
                 <strong>{{ issue.title }}</strong>
                 <small>{{ issue.summary }}</small>
               </span>
-              <span
-                v-if="issue.count > 1"
-                class="log-experience-issue-count"
-              >
+              <span v-if="issue.count > 1" class="log-experience-issue-count">
                 {{ issue.count }}×
               </span>
             </button>

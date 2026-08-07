@@ -23,7 +23,9 @@ test('classifica fluxo Sidekiq com falha, retry e job lento', () => {
   assert.equal(lines[2]?.tone, 'danger');
   assert.equal(lines[3]?.issueKind, 'retry');
 
-  const summary = summarizeLogDiagnostics(buildLogDiagnostics(lines, 'sidekiq'));
+  const summary = summarizeLogDiagnostics(
+    buildLogDiagnostics(lines, 'sidekiq'),
+  );
   assert.equal(summary.errors, 1);
   assert.equal(summary.retries, 1);
   assert.equal(summary.slow, 1);

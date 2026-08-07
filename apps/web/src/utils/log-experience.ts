@@ -1,36 +1,22 @@
 export type LogExperienceSource =
-  | 'server'
-  | 'sidekiq'
-  | 'webpack'
-  | 'test'
-  | 'script'
-  | 'dependency';
+  'server' | 'sidekiq' | 'webpack' | 'test' | 'script' | 'dependency';
 
 export type LogExperienceTone =
-  | 'neutral'
-  | 'info'
-  | 'success'
-  | 'warning'
-  | 'danger';
+  'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
 export type LogExperienceIssueKind =
-  | 'error'
-  | 'warning'
-  | 'slow'
-  | 'retry'
-  | 'failure'
-  | 'build';
+  'error' | 'warning' | 'slow' | 'retry' | 'failure' | 'build';
 
 export interface LogExperienceLine {
   id: string;
   index: number;
   raw: string;
   text: string;
-  time?: string;
+  time?: string | undefined;
   tag: string;
   tone: LogExperienceTone;
-  durationMs?: number;
-  issueKind?: LogExperienceIssueKind;
+  durationMs?: number | undefined;
+  issueKind?: LogExperienceIssueKind | undefined;
 }
 
 export interface LogExperienceIssue {
@@ -43,7 +29,7 @@ export interface LogExperienceIssue {
   count: number;
   firstLineIndex: number;
   lastLineIndex: number;
-  durationMs?: number;
+  durationMs?: number | undefined;
 }
 
 export interface LogExperienceSummary {
@@ -72,8 +58,7 @@ const TEST_FAILURE_PATTERN =
 const TEST_SUCCESS_PATTERN = /^\s*(?:✓|✔|PASS\b|\.+$)/i;
 const WEBPACK_PATTERN = /\b(compiling|compiled|build|building|webpack)\b/i;
 const SIDEKIQ_PATTERN = /\b(sidekiq|jid=|queue=|class=|perform|job)\b/i;
-const SQL_PATTERN =
-  /\b(SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK)\b/i;
+const SQL_PATTERN = /\b(SELECT|INSERT|UPDATE|DELETE|BEGIN|COMMIT|ROLLBACK)\b/i;
 
 function cleanLine(line: string): string {
   return line.replace(ANSI_PATTERN, '').replace(/\r$/, '');
@@ -130,7 +115,8 @@ function tagForLine(text: string, source: LogExperienceSource): string {
   }
   if (source === 'test') {
     if (TEST_SUCCESS_PATTERN.test(text)) return 'PASS';
-    if (TEST_FAILURE_PATTERN.test(text) || ERROR_PATTERN.test(text)) return 'FAIL';
+    if (TEST_FAILURE_PATTERN.test(text) || ERROR_PATTERN.test(text))
+      return 'FAIL';
     if (WARNING_PATTERN.test(text)) return 'WARN';
     return 'TEST';
   }

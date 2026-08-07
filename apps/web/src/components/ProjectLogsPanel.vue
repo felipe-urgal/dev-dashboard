@@ -46,7 +46,7 @@ interface ServerDiagnosticIssue {
   title: string;
   summary: string;
   groupKey: string;
-  durationMs?: number;
+  durationMs?: number | undefined;
   count?: number;
 }
 
@@ -95,7 +95,9 @@ useAutoDismiss(processErrorMessage, '');
 useAutoDismiss(logErrorMessage, '');
 useAutoDismiss(copiedRequestId, '');
 
-const parsedLog = computed(() => parseRailsLog(logSnapshot.value?.content ?? ''));
+const parsedLog = computed(() =>
+  parseRailsLog(logSnapshot.value?.content ?? ''),
+);
 const hasStructuredRequests = computed(() =>
   parsedLog.value.groups.some((group) => group.kind === 'request'),
 );
@@ -395,9 +397,7 @@ watch(viewMode, () => {
 
 watch(visibleGroups, (groups) => {
   if (
-    !groups.some(
-      (group) => groupSelectionKey(group) === selectedGroupKey.value,
-    )
+    !groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)
   ) {
     selectedGroupKey.value = groups[0] ? groupSelectionKey(groups[0]) : '';
   }
