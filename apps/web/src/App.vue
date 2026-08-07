@@ -225,6 +225,28 @@ onMounted(() => {
         </RouterLink>
       </nav>
 
+      <div class="sidebar-tools">
+        <span class="sidebar-label sidebar-tools-label">Preferências</span>
+
+        <a
+          class="navigation-item sidebar-docs-link"
+          :href="DOCS_SITE_URL"
+          target="_blank"
+          rel="noopener"
+          :aria-label="sidebarCollapsed ? 'Documentação' : undefined"
+          :title="
+            sidebarCollapsed
+              ? 'Documentação'
+              : 'Abrir a documentação do projeto'
+          "
+        >
+          <BookOpenIcon class="navigation-icon" aria-hidden="true" />
+          <span class="navigation-text">Documentação</span>
+        </a>
+
+        <VisualPreferences />
+      </div>
+
       <div class="sidebar-footer">
         <span
           class="connection-dot"
@@ -256,20 +278,7 @@ onMounted(() => {
         </div>
 
         <div class="topbar-actions">
-          <a
-            class="docs-link-button"
-            :href="DOCS_SITE_URL"
-            target="_blank"
-            rel="noopener"
-            title="Abrir a documentação do projeto"
-          >
-            <BookOpenIcon aria-hidden="true" />
-            <span>Documentação</span>
-          </a>
-
           <NoticeCenter />
-
-          <VisualPreferences />
 
           <button
             class="command-button"
