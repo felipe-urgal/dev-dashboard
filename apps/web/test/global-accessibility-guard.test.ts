@@ -100,10 +100,7 @@ test('páginas globais possuem landmark nomeado pelo título visível', async ()
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /class="project-filter-menu"/);
-  assert.match(
-    dashboard,
-    /class="project-filter-popover"\s+role="menu"/,
-  );
+  assert.match(dashboard, /class="project-filter-popover"\s+role="menu"/);
   assert.match(dashboard, /role="menuitemradio"/);
   assert.match(dashboard, /hasActiveProjectFilters[\s\S]*role="status"/);
   assert.match(dashboard, /class="alert alert-warning"[\s\S]*role="status"/);
