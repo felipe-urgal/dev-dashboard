@@ -178,33 +178,6 @@ const {
       </button>
     </div>
 
-    <div v-if="lastScannedPath" class="scan-result">
-      <span>
-        Workspace carregado:
-        <code>{{ lastScannedPath }}</code>
-      </span>
-
-      <div class="workspace-actions">
-        <button
-          class="secondary-button"
-          type="button"
-          :disabled="scanningWorkspace"
-          @click="scanSelectedWorkspace"
-        >
-          {{ scanningWorkspace ? 'Escaneando...' : 'Escanear novamente' }}
-        </button>
-
-        <button
-          class="danger-button"
-          type="button"
-          :disabled="deletingWorkspace"
-          @click="handleDeleteWorkspace"
-        >
-          {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
-        </button>
-      </div>
-    </div>
-
     <Card id="repositories" class="repositories-section">
       <template #header>
         <div>
@@ -213,56 +186,78 @@ const {
         </div>
       </template>
       <template #actions>
-        <div class="repositories-actions">
-          <span v-if="!loadingProjects" class="section-count">
-            {{ projects.length }}
-            {{ projects.length === 1 ? 'projeto' : 'projetos' }}
-          </span>
-
-          <div v-if="projectsWithServer.length > 0" class="servers-actions">
+        <div class="repositories-header-actions">
+          <div v-if="lastScannedPath" class="workspace-actions">
             <button
+              class="secondary-button"
               type="button"
-              class="primary-button servers-action-button servers-start-button"
-              :disabled="
-                loadingServerStatuses ||
-                !serverStatusesLoaded ||
-                serverActionInProgress ||
-                startableServerProjects.length === 0
-              "
-              :title="serverStartActionTitle"
-              @click="handleStartAllServers"
+              :disabled="scanningWorkspace"
+              @click="scanSelectedWorkspace"
             >
-              <PlayIcon aria-hidden="true" />
-              <span>
-                {{
-                  startingAllServers
-                    ? `Iniciando ${serversBeingStarted}...`
-                    : 'Iniciar servidores'
-                }}
-              </span>
+              {{ scanningWorkspace ? 'Escaneando...' : 'Escanear novamente' }}
             </button>
 
             <button
+              class="danger-button"
               type="button"
-              class="danger-button servers-action-button servers-stop-button"
-              :disabled="
-                loadingServerStatuses ||
-                !serverStatusesLoaded ||
-                serverActionInProgress ||
-                stoppableServerProjects.length === 0
-              "
-              :title="serverStopActionTitle"
-              @click="handleStopAllServers"
+              :disabled="deletingWorkspace"
+              @click="handleDeleteWorkspace"
             >
-              <StopIcon aria-hidden="true" />
-              <span>
-                {{
-                  stoppingAllServers
-                    ? `Parando ${serversBeingStopped}...`
-                    : 'Parar servidores'
-                }}
-              </span>
+              {{ deletingWorkspace ? 'Removendo...' : 'Remover' }}
             </button>
+          </div>
+
+          <div class="repositories-actions">
+            <span v-if="!loadingProjects" class="section-count">
+              {{ projects.length }}
+              {{ projects.length === 1 ? 'projeto' : 'projetos' }}
+            </span>
+
+            <div v-if="projectsWithServer.length > 0" class="servers-actions">
+              <button
+                type="button"
+                class="primary-button servers-action-button servers-start-button"
+                :disabled="
+                  loadingServerStatuses ||
+                  !serverStatusesLoaded ||
+                  serverActionInProgress ||
+                  startableServerProjects.length === 0
+                "
+                :title="serverStartActionTitle"
+                @click="handleStartAllServers"
+              >
+                <PlayIcon aria-hidden="true" />
+                <span>
+                  {{
+                    startingAllServers
+                      ? `Iniciando ${serversBeingStarted}...`
+                      : 'Iniciar servidores'
+                  }}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                class="danger-button servers-action-button servers-stop-button"
+                :disabled="
+                  loadingServerStatuses ||
+                  !serverStatusesLoaded ||
+                  serverActionInProgress ||
+                  stoppableServerProjects.length === 0
+                "
+                :title="serverStopActionTitle"
+                @click="handleStopAllServers"
+              >
+                <StopIcon aria-hidden="true" />
+                <span>
+                  {{
+                    stoppingAllServers
+                      ? `Parando ${serversBeingStopped}...`
+                      : 'Parar servidores'
+                  }}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </template>
@@ -373,3 +368,24 @@ const {
     </Card>
   </section>
 </template>
+
+<style scoped>
+.repositories-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 720px) {
+  .repositories-header-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .repositories-header-actions .workspace-actions,
+  .repositories-header-actions .repositories-actions {
+    justify-content: space-between;
+  }
+}
+</style>
