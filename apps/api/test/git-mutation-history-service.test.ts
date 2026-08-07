@@ -93,6 +93,35 @@ test('history filtra por projeto e não mistura eventos de outros projetos', asy
   });
 });
 
+test('clear remove somente os eventos do projeto solicitado e persiste a limpeza', async () => {
+  await withStateDirectory(async (stateDirectory) => {
+    const service = new GitMutationHistoryService(stateDirectory);
+    await service.record({
+      projectId: 'p1',
+      operationId: 'commit',
+      result: 'succeeded',
+    });
+    await service.record({
+      projectId: 'p1',
+      operationId: 'push',
+      result: 'succeeded',
+    });
+    await service.record({
+      projectId: 'p2',
+      operationId: 'commit',
+      result: 'failed',
+    });
+
+    assert.equal(await service.clear('p1'), 2);
+    assert.equal((await service.history('p1')).total, 0);
+    assert.equal((await service.history('p2')).total, 1);
+
+    const restored = new GitMutationHistoryService(stateDirectory);
+    assert.equal((await restored.history('p1')).total, 0);
+    assert.equal((await restored.history('p2')).total, 1);
+  });
+});
+
 test('history pagina, mais recente primeiro', async () => {
   await withStateDirectory(async (stateDirectory) => {
     const service = new GitMutationHistoryService(stateDirectory);
