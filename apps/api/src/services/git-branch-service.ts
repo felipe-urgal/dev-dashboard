@@ -1,13 +1,12 @@
-import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { promisify } from 'node:util';
 
 import type {
   GitMutationConfirmation,
   GitMutationOperation,
 } from '@dev-dashboard/contracts';
 
-const execFileAsync = promisify(execFile);
+import { runGit as sharedRunGit } from './shared/run-git.js';
+
 const CONFIRMATION_TTL_MS = 60_000;
 const REMOTE_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const BRANCH_NAME_PATTERN =
@@ -47,18 +46,7 @@ async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout.trim();
+  return (await sharedRunGit(projectPath, args)).trim();
 }
 
 function splitRemoteBranch(remoteBranch: string): {

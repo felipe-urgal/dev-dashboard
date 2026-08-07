@@ -1,7 +1,4 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execFileAsync = promisify(execFile);
+import { runGit as sharedRunGit } from './shared/run-git.js';
 
 /** Teto de itens por página, alinhado ao schema das rotas de histórico. */
 const HISTORY_PAGE_SIZE_LIMIT = 50;
@@ -53,22 +50,13 @@ export class ExclusiveBranchHistoryError extends Error {
   }
 }
 
+const MAX_BUFFER_BYTES = 24 * 1024 * 1024;
+
 async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 24 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout;
+  return sharedRunGit(projectPath, args, { maxBufferBytes: MAX_BUFFER_BYTES });
 }
 
 async function requireRepository(projectPath: string): Promise<void> {

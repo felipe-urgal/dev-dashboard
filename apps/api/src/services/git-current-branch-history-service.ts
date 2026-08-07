@@ -1,7 +1,5 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { runGit as sharedRunGit } from './shared/run-git.js';
 
-const execFileAsync = promisify(execFile);
 const FIELD_SEPARATOR = '\u001f';
 const RECORD_SEPARATOR = '\u001e';
 const HISTORY_FORMAT = `--format=%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%ae${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%P${RECORD_SEPARATOR}`;
@@ -41,22 +39,13 @@ export class CurrentBranchHistoryError extends Error {
   }
 }
 
+const MAX_BUFFER_BYTES = 24 * 1024 * 1024;
+
 async function runGit(
   projectPath: string,
   args: readonly string[],
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd: projectPath,
-    encoding: 'utf8',
-    maxBuffer: 24 * 1024 * 1024,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      GIT_OPTIONAL_LOCKS: '0',
-      LC_ALL: 'C',
-    },
-  });
-  return result.stdout;
+  return sharedRunGit(projectPath, args, { maxBufferBytes: MAX_BUFFER_BYTES });
 }
 
 async function requireRepository(projectPath: string): Promise<void> {

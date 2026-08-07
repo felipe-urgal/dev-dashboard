@@ -278,30 +278,23 @@ Observação geral: `tsconfig.base.json` já usa `strict`,
 `packages/*/src`, e a cobertura de testes é boa na maior parte dos pacotes.
 Os pontos abaixo são refinamentos sobre uma base já sólida.
 
-#### B.1 `runGit` reimplementado em 11 lugares diferentes (alta prioridade)
+#### B.1 `runGit` reimplementado em 11 lugares diferentes — resolvido (2026-08-07)
 
-Wrapper de `execFile('git', ...)` duplicado quase identicamente em:
-`services/git-service/run.ts:11`, `git-pull-request/run.ts:7`,
-`git-undo/run.ts:7`, `git-commit-details/run.ts:9`, `git-sync/run.ts:6`,
-`git-workspace-service.ts:39`, `git-branch-service.ts:45-50`,
-`git-branch-delete-service.ts:46`, `git-branch-rename-service.ts:51`,
-`git-current-branch-history-service.ts:48`,
-`git-exclusive-branch-history-service.ts:60`.
-
-- **Risco funcional real:** só `git-service/run.ts` define
-  `GIT_TERMINAL_PROMPT: '0'` e `GCM_INTERACTIVE: 'Never'`. As outras 10
-  cópias não têm essas variáveis — um `git pull`/`push` disparado por essas
-  rotas pode, em teoria, tentar abrir um prompt de credencial interativo e
-  travar o processo do servidor.
-- `maxBuffer` varia sem razão aparente entre 4MB e 24MB
-  (`git-commit-details/run.ts:16`); algumas variantes fazem `.trim()` no
-  stdout, outras não.
-- `commandFailureText`/`failureText` e `optionalGit` são a mesma lógica
-  duplicada com nomes diferentes em arquivos diferentes.
-
-**Sugestão:** extrair um único módulo `services/shared/run-git.ts` usado por
-todos os serviços, garantindo as mesmas env vars/timeout/maxBuffer em toda a
-base.
+Extraído `apps/api/src/services/shared/run-git.ts` como único ponto que
+efetivamente dispara `execFile('git', ...)`: agora define
+`GIT_TERMINAL_PROMPT: '0'` e `GCM_INTERACTIVE: 'Never'` em todo lugar (o
+risco real de travar o processo esperando um prompt de credencial
+interativo), além de `timeoutMs`/`maxBufferBytes` parametrizáveis e
+`commandFailureText`/`optionalGit`/`runProviderCli` centralizados.
+`git-service/run.ts`, `git-undo/run.ts`, `git-sync/run.ts`,
+`git-commit-details/run.ts` e `git-pull-request/run.ts` passaram a
+reexportar ou delegar para o módulo compartilhado; os seis serviços que
+tinham `runGit` local (`git-workspace-service.ts`, `git-branch-service.ts`,
+`git-branch-delete-service.ts`, `git-branch-rename-service.ts`,
+`git-current-branch-history-service.ts`,
+`git-exclusive-branch-history-service.ts`) mantiveram wrappers finos só
+para preservar `trim()`/`maxBuffer` específicos de cada um, delegando a
+chamada real ao módulo compartilhado.
 
 #### B.2 Lógica de path traversal triplicada (alta prioridade — segurança)
 
@@ -479,9 +472,8 @@ intencional ou atualização automática indevida.
   `listServerUrls`) nem `command-resolution.ts` — conferir se são
   exercitados indiretamente ou ficam sem cobertura direta.
 
-**Prioridades sugeridas (web):** 1) unificar `runGit` (B.1) — risco real de
-travamento; consolidar `isWithinRoot`/`isIgnoredPath`/`isPathInside` (B.2) —
-lógica de segurança triplicada; 2) serialização de escrita em
+**Prioridades sugeridas (web):** 1) consolidar `isWithinRoot`/`isIgnoredPath`/
+`isPathInside` (B.2) — lógica de segurança triplicada; 2) serialização de escrita em
 `WorkspaceRepository` (B.6); tratar estado corrompido com quarentena em
 `process-store.ts` (B.7); revisar fallback de `sessionSecret` (B.3); 3)
 decompor componentes grandes (B.12); avaliar migração gradual dos
