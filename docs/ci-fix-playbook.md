@@ -36,6 +36,15 @@ Erros comuns e sua causa típica:
 | `expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)` em `responsive.spec.ts` (job Smoke E2E)     | Mudança de layout/CSS quebrou a largura em algum viewport (desktop/tablet/estreito) | Ver seção 3                                                                                         |
 | `tsc` reportando erro de tipo                                                                                        | Regressão real de tipagem                                                           | Corrigir o tipo, não usar `any`/`@ts-ignore`                                                        |
 | Falha de teste unitário (`node --test`)                                                                              | Regressão de comportamento ou teste desatualizado                                   | Ler a asserção que falhou; corrigir o código ou, se o teste é que ficou obsoleto, atualizar o teste |
+| `error TS2322: ... not assignable to type 'DashboardApi'` só dentro de `npm test` (workspace `apps/web`), nunca em `npm run typecheck` | Mock de teste (`test/*.test.ts`) não foi atualizado com um campo novo obrigatório na interface (ex.: nova função da store) | Adicionar o campo faltante no mock/objeto de fixture, não relaxar o tipo |
+
+`npm run typecheck` roda `tsc` sobre `tsconfig.json` de cada workspace, que **não inclui**
+`apps/web/test/**`. Erros de tipo em arquivos de teste (mocks incompletos, principalmente) só
+aparecem no passo `tsc -p tsconfig.test.json --noEmit` embutido no script `test` do workspace
+`apps/web` — ou seja, só rodando `npm test`/`npm run test --workspace=@dev-dashboard/web`, nunca
+com `npm run typecheck` isolado. Depois de mudar uma interface de store/API usada por testes
+(`DashboardApi`, mocks de `vi.mock('../src/stores/dashboard', ...)`, etc.), rode `npm test` antes
+de considerar a validação completa — `typecheck` sozinho não é suficiente.
 
 ## 2. Reproduza localmente antes de tocar em código
 
