@@ -9,7 +9,7 @@ import {
 import { toggleExclusiveClass } from './dom-helpers';
 
 function restorePlainProgressText(code: HTMLElement, text: string): void {
-  if (!code.querySelector('.test-log-progress-token')) return;
+  if (code.dataset.testLogProgressSource === undefined) return;
   code.replaceChildren(code.ownerDocument.createTextNode(text));
   delete code.dataset.testLogProgressSource;
 }
