@@ -22,11 +22,7 @@ import { useAutoDismiss } from './useAutoDismiss';
 import { formatDurationBetween, type TestLogTab } from './project-test-log';
 
 export type TestStatusTone =
-  | 'success'
-  | 'danger'
-  | 'warning'
-  | 'info'
-  | 'neutral';
+  'success' | 'danger' | 'warning' | 'info' | 'neutral';
 export type TestExecutionScope = 'suite' | 'file' | 'related';
 
 export interface TestExecutionTarget {
