@@ -20,7 +20,10 @@ export function isTestLogNearEnd(
 }
 
 function lineCount(viewport: HTMLElement): number {
-  return viewport.querySelectorAll('.tests-log-lines > li').length;
+  return (
+    viewport.querySelector<HTMLOListElement>('.tests-log-lines')
+      ?.childElementCount ?? 0
+  );
 }
 
 function scheduleScrollToEnd(
