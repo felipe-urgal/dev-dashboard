@@ -427,17 +427,35 @@ diretamente via `MutationObserver`/`querySelectorAll` fora do Vue (mais de
   componentes/composables Vue nativos, ou ao menos consolidar num único
   `MutationObserver` compartilhado com pipeline de decoradores.
 
-#### B.11 Padrão `RequestGeneration`/`RequestGate` aplicado de forma inconsistente
+#### B.11 Padrão `RequestGeneration`/`RequestGate` aplicado de forma inconsistente — revisado (2026-08-07)
 
-Usado em 13 composables/componentes para evitar que respostas antigas
-sobrescrevam estado mais novo, mas outros composables com fetch assíncrono
-não o usam: `useProjectDatabaseOverview.ts`, `useProjectDatabaseSnapshots.ts`,
-`useRailsGenerator.ts`, `useRailsMigrations.ts`, `useRailsModels.ts`,
-`useScriptCatalog.ts`, `useProjectGitDiffPage.ts`,
-`useProjectGitHistoryPage.ts`, `useProjectGitPanel.ts`,
-`useProjectTestProcess.ts`, `useProjectTestsPanel.ts`,
-`useProjectScriptsPanel.ts`. Vale revisar quais realmente podem sofrer
-out-of-order responses (ex.: troca rápida de projeto/branch) e padronizar.
+A lista original desta varredura estava desatualizada: `useProjectDatabaseOverview.ts`,
+`useProjectDatabaseSnapshots.ts`, `useRailsMigrations.ts`, `useRailsModels.ts`,
+`useScriptCatalog.ts`, `useProjectGitPanel.ts` e `useProjectTestProcess.ts` **já**
+guardam contra resposta fora de ordem (contador `generation` manual ou
+`AbortController`); `useProjectScriptsPanel.ts` não precisa de guarda própria
+porque delega inteiramente a `useScriptCatalog`/`useScriptExecution`, que já
+guardam. Revisão completa achou 3 gaps reais, todos corrigidos com o mesmo
+idioma já usado no restante do arquivo (contador `generation` local, ou
+`AbortController` quando o arquivo já usava esse padrão para outras
+chamadas):
+
+- `useProjectGitDiffPage.ts`: `loadOverview()` não tinha guarda (ao contrário
+  de `loadSnapshot()`, que já usa `AbortController`) — numa troca rápida de
+  projeto, o overview (branch exibida no cabeçalho) podia ficar preso no
+  projeto anterior.
+- `useProjectGitHistoryPage.ts`: mesmo gap em `loadWorkspace()` (lista de
+  branches do seletor), ao contrário de `loadHistory()`/`openCommit()`.
+- `useRailsGenerator.ts`: sem guarda nenhuma — `reset()` (chamado pelo
+  componente ao trocar de projeto) não cancelava uma preparação/confirmação
+  em andamento, então a resposta atrasada reescrevia `pendingConfirmation`/
+  `result` com dados do projeto errado, e `preparing`/`running` podiam ficar
+  presos em `true` indefinidamente. Corrigido com um contador `generation`
+  e `reset()` agora também limpa `preparing`/`running`.
+
+Teste de regressão para cada um em `apps/web/test/` reproduz a falha antes
+do fix (resposta atrasada de um projeto sobrescrevendo o projeto atual) e
+passa depois.
 
 #### B.12 Componentes/composables grandes demais
 
@@ -493,5 +511,4 @@ intencional ou atualização automática indevida.
   exercitados indiretamente ou ficam sem cobertura direta.
 
 **Prioridades sugeridas (web):** 1) decompor componentes grandes (B.12);
-avaliar migração gradual dos "enhancers" DOM (B.10); padronizar
-`RequestGeneration` (B.11).
+avaliar migração gradual dos "enhancers" DOM (B.10).

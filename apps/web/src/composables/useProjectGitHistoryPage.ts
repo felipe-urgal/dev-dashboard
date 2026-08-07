@@ -65,6 +65,8 @@ export function useProjectGitHistoryPage(
   let historyController: AbortController | undefined;
   let detailController: AbortController | undefined;
   let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Descarta respostas de `loadWorkspace()` fora de ordem numa troca rápida de projeto. */
+  let workspaceGeneration = 0;
 
   const statusLabels: Record<GitCommitDetailFile['status'], string> = {
     added: 'Adicionado',
@@ -340,9 +342,13 @@ export function useProjectGitHistoryPage(
   }
 
   async function loadWorkspace(): Promise<void> {
+    const requestGeneration = ++workspaceGeneration;
     try {
-      workspace.value = await fetchProjectGitWorkspace(props.projectId);
+      const result = await fetchProjectGitWorkspace(props.projectId);
+      if (requestGeneration !== workspaceGeneration) return;
+      workspace.value = result;
     } catch {
+      if (requestGeneration !== workspaceGeneration) return;
       workspace.value = null;
     }
   }
