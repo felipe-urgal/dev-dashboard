@@ -46,7 +46,9 @@ export const scriptHistoryRoutes: FastifyPluginAsync<Options> = async (
       },
     },
     async (request) => {
-      const project = options.projectStore.findProject(request.params.projectId);
+      const project = options.projectStore.findProject(
+        request.params.projectId,
+      );
       if (!project) {
         throw new ApiError({
           statusCode: 404,

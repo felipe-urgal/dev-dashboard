@@ -43,7 +43,11 @@ async function waitForTerminal(
   executionId: string,
 ) {
   let execution = await service.get(projectId, executionId);
-  for (let attempt = 0; attempt < 80 && execution.status === 'running'; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 80 && execution.status === 'running';
+    attempt += 1
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 20));
     execution = await service.get(projectId, executionId);
   }

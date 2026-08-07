@@ -129,10 +129,7 @@ test('mantém saída longa de Vitest com DOM estável em reprocessamentos', () =
   const codeNodes = document.querySelectorAll('.tests-log-lines > li > code');
   assert.equal(renderedRows.length, total);
   assert.equal(codeNodes.length, total);
-  assert.equal(
-    document.querySelectorAll('.test-log-progress-token').length,
-    0,
-  );
+  assert.equal(document.querySelectorAll('.test-log-progress-token').length, 0);
   assert.equal(
     Array.from(codeNodes).every((code) => code.childElementCount === 0),
     true,

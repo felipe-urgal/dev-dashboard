@@ -97,15 +97,12 @@ function updateMessage(event: Event): void {
         <strong>Novo commit pronto para enviar</strong>
         <p>
           Envie os commits novos de <code>{{ pushBranch }}</code> para
-          <code>origin/{{ pushBranch }}</code>. Se já existir uma Pull Request,
-          ela será atualizada automaticamente pelo GitHub.
+          <code>origin/{{ pushBranch }}</code
+          >. Se já existir uma Pull Request, ela será atualizada automaticamente
+          pelo GitHub.
         </p>
       </div>
-      <button
-        type="button"
-        :disabled="busy"
-        @click="emit('push', pushBranch)"
-      >
+      <button type="button" :disabled="busy" @click="emit('push', pushBranch)">
         Push
       </button>
     </section>

@@ -59,5 +59,8 @@ test('mantém force push separado para alteração do último commit', () => {
 
   assert.match(wrapper.text(), /O último commit foi reescrito/);
   assert.match(wrapper.text(), /Reenviar com lease/);
-  assert.equal(wrapper.text().includes('Novo commit pronto para enviar'), false);
+  assert.equal(
+    wrapper.text().includes('Novo commit pronto para enviar'),
+    false,
+  );
 });
