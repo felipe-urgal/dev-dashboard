@@ -523,12 +523,19 @@ Como os dois tipos usam convenções de índice diferentes (0-based vs
 1-based), um cast direto esconde a ausência de conversão real. Sugestão:
 função explícita `toLspRange`/`fromLspRange`.
 
-#### B.14 `packages/contracts`
+#### B.14 `packages/contracts` — resolvido (2026-08-07)
 
-`ManagedProcess.exitCode?: number` não distingue `null`, enquanto
+~~`ManagedProcess.exitCode?: number` não distingue `null`, enquanto
 `process-manager` circula `exitCode` como `number | null | undefined` em
 vários pontos — vale alinhar o contrato público ou documentar a normalização
-feita na fronteira.
+feita na fronteira~~ — confirmado que não é uma inconsistência real: o
+`null` (valor bruto de `child.exitCode` do Node quando o processo morre por
+sinal) só existe na parte interna e transitória de `process-exit-tracking.ts`
+(`ObservedExit`, `recordChildExit`). `terminalProcess`
+(`process-store.ts`) é a fronteira que normaliza — omite o campo
+`exitCode` inteiramente quando é `null`/`undefined`, em vez de propagar
+`null` — e `isStoredProcess` já valida que um `StoredProcess` persistido
+nunca tem `exitCode: null`. Documentado com comentários nos dois pontos.
 
 #### B.15 Configuração/build
 

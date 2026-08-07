@@ -178,6 +178,14 @@ export async function listStoredProcessEntries(
   return processes;
 }
 
+/**
+ * Fronteira onde `exitCode` deixa de aceitar `null`: o chamador pode passar
+ * o valor bruto de `child.exitCode` do Node (`number | null`, `null` quando
+ * o processo morreu por sinal), mas o `StoredProcess` resultante — e o
+ * `ManagedProcess` público de `@dev-dashboard/contracts` — só declaram
+ * `exitCode?: number`. Um `exitCode` `null` ou `undefined` aqui simplesmente
+ * não entra no objeto retornado, em vez de virar `exitCode: null`.
+ */
 export function terminalProcess(
   storedProcess: StoredProcess,
   status: Extract<ManagedProcessStatus, 'stopped' | 'failed'>,

@@ -10,6 +10,15 @@ import {
   type ProcessStoreContext,
 } from './process-store.js';
 
+/**
+ * `exitCode` aceita `null` aqui (e em `recordChildExit`/`record` abaixo)
+ * porque é o valor bruto de `child.exitCode` do Node, que é `null` quando o
+ * processo foi encerrado por sinal em vez de terminar sozinho. Esse `null`
+ * nunca chega ao contrato público: `terminalProcess`
+ * (`process-store.ts`) omite o campo `exitCode` inteiramente quando ele é
+ * `null` ou `undefined`, então `ManagedProcess.exitCode` em
+ * `@dev-dashboard/contracts` continua podendo ser só `number | undefined`.
+ */
 export interface ObservedExit {
   pid: number;
   exitCode?: number | null;
