@@ -234,6 +234,51 @@ test('inicia sob demanda, bloqueia executeCommand e encerra após inatividade', 
   }
 });
 
+test('registra stderr e código de saída quando o processo encerra inesperadamente', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-lsp-crash-'),
+  );
+  await writeFile(
+    path.join(root, 'Gemfile'),
+    'source "https://rubygems.org"\n',
+  );
+  const child = new FakeChild();
+  const errors: Array<{ context: Record<string, unknown>; message: string }> =
+    [];
+  const service = new ProjectLanguageServerService({
+    findCommand: async () => ({
+      executable: '/usr/bin/ruby-lsp',
+      args: ['--stdio'],
+      usesRailsRuntime: false,
+    }),
+    spawnProcess: () => child as unknown as ChildProcessWithoutNullStreams,
+    logger: {
+      error: (context, message) => errors.push({ context, message }),
+    },
+  });
+  const socket = new FakeSocket();
+
+  try {
+    await service.attach(project(root), 'ruby', socket as unknown as WebSocket);
+    child.stderr.write('bundler: command not found: ruby-lsp\n');
+    child.exitCode = 1;
+    child.emit('exit', 1, null);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(errors.length, 1);
+    assert.match(errors[0]!.message, /encerrado inesperadamente/);
+    assert.equal(errors[0]!.context.exitCode, 1);
+    assert.match(
+      String(errors[0]!.context.stderrTail),
+      /command not found: ruby-lsp/,
+    );
+    assert.match(socket.sent.at(-1) ?? '', /encerrado/);
+  } finally {
+    service.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('informa indisponibilidade sem instalar ferramentas', async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'dev-dashboard-lsp-missing-'),

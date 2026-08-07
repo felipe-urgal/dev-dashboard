@@ -26,7 +26,16 @@ const FORCE_KILL_DELAY_MS = 2_000;
 const RESTART_WINDOW_MS = 60_000;
 const MAX_STARTS_PER_WINDOW = 3;
 const RAILS_RUNTIME_CONFIRMATION_TTL_MS = 60_000;
+const STDERR_TAIL_BYTES = 4096;
 const OMIT = Symbol('omit');
+
+/**
+ * Subconjunto mínimo do logger do Fastify (`app.log`) que este serviço
+ * precisa — evita acoplar o serviço ao tipo completo de `FastifyBaseLogger`.
+ */
+export interface LanguageServerLogger {
+  error: (context: Record<string, unknown>, message: string) => void;
+}
 
 export const LANGUAGE_SERVER_KINDS: readonly ProjectLanguageServerKind[] = [
   'javascript-typescript',
@@ -69,6 +78,12 @@ interface LanguageServerSession {
    */
   terminated: boolean;
   /**
+   * Últimos bytes de stderr do processo, mantidos só para diagnóstico em log
+   * quando a sessão falha — nunca enviados ao navegador (ver
+   * `child.stderr.on('data', ...)` em `start`).
+   */
+  stderrTail: string;
+  /**
    * Correlator de requisição/resposta para chamadas "de uma vez" (ex.
    * ferramentas de símbolo do assistente de IA), simétrico ao `pending` map
    * que já existe do lado do cliente Monaco
@@ -100,6 +115,7 @@ export interface ProjectLanguageServerServiceOptions {
     cwd: string,
   ) => ChildProcessWithoutNullStreams;
   projectFileService?: ProjectFileService;
+  logger?: LanguageServerLogger;
 }
 
 export class LanguageServerProtocolError extends Error {
@@ -631,6 +647,7 @@ export class ProjectLanguageServerService {
     cwd: string,
   ) => ChildProcessWithoutNullStreams;
   private readonly projectFileService: ProjectFileService;
+  private readonly logger: LanguageServerLogger | undefined;
   private nextOneShotRequestId = -1;
 
   public constructor(options: ProjectLanguageServerServiceOptions = {}) {
@@ -642,6 +659,7 @@ export class ProjectLanguageServerService {
     this.spawnProcess = options.spawnProcess ?? defaultSpawnProcess;
     this.projectFileService =
       options.projectFileService ?? new ProjectFileService();
+    this.logger = options.logger;
   }
 
   public async status(
@@ -1017,6 +1035,7 @@ export class ProjectLanguageServerService {
       usesRailsRuntime: command.usesRailsRuntime,
       rails: kind === 'ruby' ? await this.railsStatus(project) : undefined,
       terminated: false,
+      stderrTail: '',
       pending: new Map(),
     };
     this.sessions.set(key, session);
@@ -1066,17 +1085,42 @@ export class ProjectLanguageServerService {
         );
       }
     });
-    child.stderr.on('data', () => {
-      // Logs internos não são enviados ao navegador.
+    child.stderr.on('data', (chunk: Buffer) => {
+      // Nunca enviado ao navegador — só mantido para diagnóstico em log
+      // quando a sessão falha (ver `failSession`).
+      session.stderrTail = (session.stderrTail + chunk.toString('utf8')).slice(
+        -STDERR_TAIL_BYTES,
+      );
     });
-    child.once('error', () => {
+    child.once('error', (error: Error) => {
+      this.logger?.error(
+        {
+          projectId: project.id,
+          kind,
+          executable: command.executable,
+          err: error,
+          stderrTail: session.stderrTail,
+        },
+        'Não foi possível iniciar o servidor de linguagem.',
+      );
       this.failSession(
         session,
         'Não foi possível iniciar o servidor de linguagem.',
       );
     });
-    child.once('exit', () => {
+    child.once('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       if (!session.terminated) {
+        this.logger?.error(
+          {
+            projectId: project.id,
+            kind,
+            executable: command.executable,
+            exitCode: code,
+            signal,
+            stderrTail: session.stderrTail,
+          },
+          'O servidor de linguagem foi encerrado inesperadamente.',
+        );
         this.failSession(session, 'O servidor de linguagem foi encerrado.');
       }
     });
