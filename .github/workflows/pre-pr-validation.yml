@@ -1,0 +1,133 @@
+name: Pre-PR Validation
+
+on:
+  push:
+    branches:
+      - feature/log-experience-standard
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: pre-pr-log-experience
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate before PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - id: typecheck
+        name: Typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - id: lint
+        name: Lint
+        continue-on-error: true
+        run: npm run lint
+
+      - id: format
+        name: Format check
+        continue-on-error: true
+        run: npm run format:check
+
+      - id: build
+        name: Build
+        continue-on-error: true
+        run: npm run build
+
+      - id: docs_api
+        name: Docs API check
+        continue-on-error: true
+        run: npm run docs:api:check
+
+      - id: test
+        name: Test
+        continue-on-error: true
+        run: npm test
+
+      - id: playwright_install
+        name: Install Playwright browsers
+        continue-on-error: true
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - id: e2e
+        name: Smoke E2E
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Publish command statuses
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          DOCS_API: ${{ steps.docs_api.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          PLAYWRIGHT_INSTALL: ${{ steps.playwright_install.outcome }}
+          E2E: ${{ steps.e2e.outcome }}
+        with:
+          script: |
+            const checks = [
+              ['prepr/typecheck', process.env.TYPECHECK, 'npm run typecheck'],
+              ['prepr/lint', process.env.LINT, 'npm run lint'],
+              ['prepr/format-check', process.env.FORMAT, 'npm run format:check'],
+              ['prepr/build', process.env.BUILD, 'npm run build'],
+              ['prepr/docs-api-check', process.env.DOCS_API, 'npm run docs:api:check'],
+              ['prepr/test', process.env.TEST, 'npm test'],
+              [
+                'prepr/smoke-e2e',
+                process.env.PLAYWRIGHT_INSTALL === 'success' && process.env.E2E === 'success'
+                  ? 'success'
+                  : 'failure',
+                'Smoke E2E / Playwright',
+              ],
+            ];
+
+            for (const [context, outcome, description] of checks) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: outcome === 'success' ? 'success' : 'failure',
+                context,
+                description: `${description}: ${outcome === 'success' ? 'ok' : 'falhou'}`.slice(0, 140),
+              });
+            }
+
+      - name: Fail if any required check failed
+        if: always()
+        env:
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          DOCS_API: ${{ steps.docs_api.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          PLAYWRIGHT_INSTALL: ${{ steps.playwright_install.outcome }}
+          E2E: ${{ steps.e2e.outcome }}
+        run: |
+          for result in "$TYPECHECK" "$LINT" "$FORMAT" "$BUILD" "$DOCS_API" "$TEST" "$PLAYWRIGHT_INSTALL" "$E2E"; do
+            if [ "$result" != "success" ]; then
+              exit 1
+            fi
+          done
