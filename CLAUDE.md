@@ -140,10 +140,14 @@ npm workspaces, definidos no `package.json` raiz (`apps/*`, `packages/*`):
   `apps/api/src/http/api-error.ts` — um novo tipo de erro precisa entrar nessa união; schemas de
   resposta compartilhados em `apps/api/src/http/response-schemas.ts`; validação de token/CORS em
   `apps/api/src/security/local-security.ts`; cache em memória de projetos descobertos em
-  `apps/api/src/store/project-store.ts`. Processos gerenciados têm `kind` `'server'` ou `'test'`
-  (`packages/process-manager`) — adicionar um novo `kind` exige generalizar `resolveLogFile`,
-  `resolveProcessFile`, os mapas `observedExits`/`exitWaiters` e o regex de
-  `sweepStaleProcesses`.
+  `apps/api/src/store/project-store.ts`. Processos gerenciados têm `kind` `'server'`, `'test'`,
+  `'worker'` ou `'webpack'` (`packages/process-manager`) — a lista `MANAGED_KINDS`
+  (`process-store.ts`) é a única fonte de verdade, compartilhada com o regex de nome de arquivo em
+  `sweepStaleProcesses` (`log-retention.ts`), então adicionar um `kind` novo é só atualizar essa
+  lista; `resolveLogFile`/`resolveProcessFile` e os mapas `observedExits`/`exitWaiters` já são
+  genéricos por chave de string, não precisam de mudança. `'script'` fica de fora de propósito —
+  processos de script têm ciclo de vida e persistência próprios em
+  `apps/api/src/services/script-execution/`, independentes do `ProcessStore`.
 - **`apps/web`** — SFCs Vue 3 + Vite, comunica com a API via `fetch` (`apps/web/src/api.ts`,
   `requestJson` centraliza o tratamento de erro). Não deve executar comandos locais nem acessar o
   filesystem diretamente — isso é responsabilidade da API. Ao trocar de projeto selecionado, painéis

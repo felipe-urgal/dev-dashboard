@@ -394,9 +394,20 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
   que a entrada trava até o TTL (sem o expurgo) e é liberada depois dele.
 - `port-utils.ts:92-106`: `findAvailablePort` varre portas sequencialmente
   (até 1000 portas no intervalo padrão) — poderia paralelizar em lotes.
-- `ManagedKind` (`process-store.ts:12`) não inclui `'script'`, presente em
+- ~~`ManagedKind` (`process-store.ts:12`) não inclui `'script'`, presente em
   `ManagedProcessKind` de `packages/contracts` — inconsistência de tipos
-  entre contrato público e cobertura real, vale documentar o motivo.
+  entre contrato público e cobertura real, vale documentar o
+  motivo~~ — **resolvido (2026-08-07)**: intencional, não é lacuna — scripts
+  têm ciclo de vida e persistência próprios em
+  `apps/api/src/services/script-execution/`, independentes do
+  `ProcessStore`. Documentado com comentário no tipo `ManagedKind`.
+  Aproveitado para também consolidar os três regex `.(server|test|worker|
+  webpack)` duplicados entre `process-store.ts` e `log-retention.ts` (o
+  "regex de `sweepStaleProcesses`" citado na nota de arquitetura sobre
+  generalizar um novo `kind`) numa única lista `MANAGED_KINDS`, para os
+  dois nunca divergirem silenciosamente. Teste novo cobre
+  `sweepStaleProcesses` para um processo `webpack` (só `server` era
+  exercitado antes).
 
 #### B.8 `packages/project-discovery/src/discovery.ts`
 

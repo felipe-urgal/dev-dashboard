@@ -525,3 +525,40 @@ test('never removes a log path outside the managed logs directory', async (conte
   assert.equal(removed.length, 1);
   assert.equal(await readFile(protectedFile, 'utf8'), 'não remover\n');
 });
+
+test('sweeps a stale worker/webpack process, not just server', async (context) => {
+  const fixture = await createFixture();
+
+  context.after(fixture.cleanup);
+
+  const eightDaysAgo = new Date(Date.now() - 8 * DAY_IN_MS).toISOString();
+
+  const stateFilePath = path.join(fixture.processDirectory, 'old.webpack.json');
+  const logPath = path.join(fixture.logDirectory, 'old.webpack.log');
+
+  await writeFile(logPath, 'log de exemplo\n');
+  await writeFile(
+    stateFilePath,
+    JSON.stringify({
+      id: 'old:webpack',
+      projectId: 'old-project',
+      kind: 'webpack',
+      status: 'stopped',
+      stoppedAt: eightDaysAgo,
+      command: 'npm',
+      args: ['run', 'webpack'],
+      cwd: fixture.stateDirectory,
+      logPath,
+    }),
+  );
+
+  const removed = await sweepStaleProcesses(fixture.stateDirectory, {
+    maxAgeMs: 7 * DAY_IN_MS,
+  });
+
+  assert.equal(removed.length, 1);
+  assert.equal(removed[0]?.projectId, 'old-project');
+
+  await assert.rejects(stat(stateFilePath));
+  await assert.rejects(stat(logPath));
+});
