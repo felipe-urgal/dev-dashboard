@@ -31,13 +31,6 @@ outras abas não precisam:
 - Fechar a aba, recarregar a página ou clicar em "Encerrar sessão" mata o processo do shell —
   não existe sessão "em segundo plano" sobrevivendo sem um navegador conectado a ela.
 
-## Cabeçalho compacto
-
-Nas abas Terminal e Console, um botão no canto do cabeçalho do projeto ("Ocultar abas e compactar
-cabeçalho") esconde a barra de abas e reduz o cabeçalho do projeto a uma única linha com o nome,
-dando mais espaço vertical para a janela do terminal. O botão continua visível para reverter
-("Mostrar abas e cabeçalho") a qualquer momento; a preferência não é salva entre visitas.
-
 ## O que não existe (ainda)
 
 - Não há persistência de sessão entre reconexões (tipo `tmux`/`screen`): cada conexão nova é um
