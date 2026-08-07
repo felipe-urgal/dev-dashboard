@@ -1,4 +1,4 @@
-name: Correção pré-PR
+name: Diagnóstico de testes pré-PR
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  fix:
+  diagnose:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -30,40 +30,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Aplica Prettier
-        run: npm run format
-
-      - name: Regenera documentação da API
-        run: npm run docs:api
-
-      - name: Executa testes e captura diagnóstico
+      - name: Executa testes e captura saída
         id: tests
         continue-on-error: true
         run: |
           set +e
-          npm test 2>&1 | tee pre-pr-test.log
+          npm test 2>&1 | tee pre-pr-test-output.txt
           exit ${PIPESTATUS[0]}
 
-      - name: Registra correções e resultado
+      - name: Registra diagnóstico
         if: always()
         env:
           TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
-          cat > pre-pr-autofix-result.md <<EOF
-          # Correção pré-PR
+          cat > pre-pr-test-result.md <<EOF
+          # Teste pré-PR
 
-          - npm run format: executado
-          - npm run docs:api: executado
           - npm test: $TEST_OUTCOME
           EOF
-          if [ "$TEST_OUTCOME" = success ]; then
-            rm -f pre-pr-test.log
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -f pre-pr-test-output.txt pre-pr-test-result.md
           if ! git diff --cached --quiet; then
-            git commit -m "fix: aplica correções da validação pré-PR"
+            git commit -m "chore(ci): registra diagnóstico de testes"
             git pull --rebase origin feature/ajustes-ux-historicos-e-push
             git push origin HEAD:feature/ajustes-ux-historicos-e-push
           fi
