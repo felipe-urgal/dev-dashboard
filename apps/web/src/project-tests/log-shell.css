@@ -60,7 +60,7 @@
   min-height: 260px;
   overflow: auto;
   scrollbar-gutter: stable;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   color: var(--text);
   background: #0b0e14;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -117,10 +117,18 @@
   white-space: pre;
 }
 
-.tests-log-line-success code { color: var(--success-text); }
-.tests-log-line-error code { color: var(--danger-text); }
-.tests-log-line-warning code { color: var(--warning-text); }
-.tests-log-line-muted code { color: var(--text-muted); }
+.tests-log-line-success code {
+  color: var(--success-text);
+}
+.tests-log-line-error code {
+  color: var(--danger-text);
+}
+.tests-log-line-warning code {
+  color: var(--warning-text);
+}
+.tests-log-line-muted code {
+  color: var(--text-muted);
+}
 
 .tests-log-empty-state {
   display: grid;
