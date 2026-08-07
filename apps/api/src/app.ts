@@ -37,6 +37,7 @@ import { railsRoutes } from './routes/rails.js';
 import { bundlerRoutes } from './routes/bundler.js';
 import { projectEnvironmentRoutes } from './routes/project-environment.js';
 import { scriptRoutes } from './routes/scripts.js';
+import { scriptHistoryRoutes } from './routes/script-history.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectEditorRoutes } from './routes/project-editor.js';
@@ -365,6 +366,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     scriptDetectionService: context.scriptDetectionService,
+    scriptExecutionService: context.scriptExecutionService,
+  });
+
+  app.register(scriptHistoryRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
     scriptExecutionService: context.scriptExecutionService,
   });
 
