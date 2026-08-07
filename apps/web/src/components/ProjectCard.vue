@@ -133,7 +133,7 @@ const recentAccessTitle = computed(() => {
 
     <button
       type="button"
-      class="project-remove-button"
+      class="project-disable-button project-remove-button"
       :aria-label="`Remover ${project.name} do dashboard`"
       :title="`Remover ${project.name} do dashboard`"
       :disabled="removing"
@@ -219,3 +219,13 @@ const recentAccessTitle = computed(() => {
     </RouterLink>
   </li>
 </template>
+
+<style scoped>
+.project-row-link {
+  padding-left: 122px;
+}
+
+.project-remove-button {
+  left: 82px;
+}
+</style>
