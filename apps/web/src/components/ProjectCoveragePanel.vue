@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChartBarIcon } from '@heroicons/vue/24/outline';
+import { ChartBarSquareIcon } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 
 import type {
@@ -16,23 +16,15 @@ const props = defineProps<{
   projectType?: ProjectType;
 }>();
 
-const reportHint = computed(() =>
-  props.projectType === 'rails'
-    ? 'coverage/.resultset.json'
-    : 'coverage/coverage-final.json',
-);
-
-const emptyStateHint = computed(() =>
-  props.projectType === 'rails'
-    ? 'Rode os testes com o SimpleCov habilitado (`SimpleCov.start` no `spec_helper.rb`/`rails_helper.rb`) para ver o resumo aqui.'
-    : 'Rode os testes com cobertura habilitada (Vitest/Jest/c8/nyc) para ver o resumo aqui — coverage-summary.json também é aceito quando coverage-final.json não estiver disponível.',
-);
-
 const loading = ref(false);
 const errorMessage = ref('');
 const coverage = ref<ProjectCoverageSummary | null>(null);
 const history = ref<ProjectCoverageHistory | null>(null);
 let generation = 0;
+
+const hasCoverage = computed(() =>
+  Boolean(coverage.value?.available && coverage.value.total),
+);
 
 const metrics = computed<
   Array<{ key: keyof ProjectCoverageTotals; label: string }>
@@ -53,10 +45,14 @@ async function load(): Promise<void> {
   const requestGeneration = ++generation;
   loading.value = true;
   errorMessage.value = '';
+  coverage.value = null;
+  history.value = null;
+
   try {
     const result = await fetchProjectCoverage(props.projectId);
     if (requestGeneration !== generation) return;
     coverage.value = result;
+    if (!result.available || !result.total) return;
   } catch (error) {
     if (requestGeneration !== generation) return;
     coverage.value = null;
@@ -64,6 +60,7 @@ async function load(): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível carregar a cobertura de testes.';
+    return;
   } finally {
     if (requestGeneration === generation) loading.value = false;
   }
@@ -84,30 +81,20 @@ defineExpose({ load });
 </script>
 
 <template>
-  <section class="coverage-panel" aria-labelledby="coverage-panel-title">
+  <section
+    v-if="hasCoverage"
+    class="coverage-panel"
+    aria-labelledby="coverage-panel-title"
+  >
     <header class="coverage-panel-heading">
       <div>
         <span id="coverage-panel-title">Cobertura de testes</span>
         <h3>Último relatório encontrado no projeto</h3>
       </div>
-      <ChartBarIcon aria-hidden="true" />
+      <ChartBarSquareIcon aria-hidden="true" />
     </header>
 
-    <p v-if="errorMessage" class="project-error" role="alert">
-      {{ errorMessage }}
-    </p>
-
-    <p v-else-if="loading" class="coverage-loading" aria-live="polite">
-      Procurando relatório de cobertura…
-    </p>
-
-    <div v-else-if="coverage && !coverage.available" class="coverage-empty">
-      Nenhum relatório encontrado em <code>{{ reportHint }}</code
-      >.
-      {{ emptyStateHint }}
-    </div>
-
-    <div v-else-if="coverage?.total" class="coverage-content">
+    <div v-if="coverage?.total" class="coverage-content">
       <p v-if="coverage.generatedAt" class="coverage-generated-at">
         Gerado em {{ new Date(coverage.generatedAt).toLocaleString('pt-BR') }}
       </p>
@@ -233,22 +220,11 @@ defineExpose({ load });
 }
 
 .coverage-panel-heading svg {
+  display: block;
   width: 24px;
   height: 24px;
   flex: none;
   color: var(--text-dim);
-}
-
-.coverage-loading,
-.coverage-empty {
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  color: var(--text-muted);
-  padding: var(--space-3);
-}
-
-.coverage-empty code {
-  color: var(--text);
 }
 
 .coverage-generated-at {
