@@ -134,12 +134,12 @@ describe('dashboard principal', () => {
     expect(wrapper.find('.projects-grid').exists()).toBe(false);
   });
 
-  it('aciona escanear/remover a partir da linha de workspace carregado', async () => {
+  it('aciona escanear/remover a partir das ações compactas do cabeçalho', async () => {
     dashboardStore.lastScannedPath.value = '/home/ubunru/Caiena/Projetos';
     const wrapper = mountView();
 
-    await wrapper.get('.secondary-button').trigger('click');
-    await wrapper.get('.danger-button').trigger('click');
+    await wrapper.get('[aria-label="Escanear novamente"]').trigger('click');
+    await wrapper.get('[aria-label="Remover workspace"]').trigger('click');
 
     expect(actions.escanear).toHaveBeenCalledOnce();
     expect(actions.remover).toHaveBeenCalledOnce();
@@ -189,12 +189,12 @@ describe('dashboard principal', () => {
     expect(wrapper.get('.project-stub').text()).toBe('Painel Rails');
 
     await wrapper
-      .get('.project-type-filters button:nth-child(2)')
+      .get('.project-filter-popover button:nth-child(2)')
       .trigger('click');
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
 
     await wrapper
-      .get('.project-type-filters button:nth-child(3)')
+      .get('.project-filter-popover button:nth-child(3)')
       .trigger('click');
     expect(wrapper.text()).toContain('Nenhum projeto encontrado');
 
@@ -237,11 +237,11 @@ describe('dashboard principal', () => {
         kind: 'server',
       });
       expect(
-        wrapper.get('.servers-start-button').attributes('disabled'),
+        wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
       ).toBeUndefined();
     });
 
-    await wrapper.get('.servers-start-button').trigger('click');
+    await wrapper.get('[aria-label="Iniciar servidores"]').trigger('click');
     await vi.waitFor(() => {
       expect(actions.iniciarProcesso).toHaveBeenCalledOnce();
     });
@@ -249,7 +249,7 @@ describe('dashboard principal', () => {
     expect(actions.iniciarProcesso).toHaveBeenCalledWith('p2');
     expect(wrapper.text()).toContain('1 servidor iniciado.');
     expect(
-      wrapper.get('.servers-start-button').attributes('disabled'),
+      wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
     ).toBeDefined();
   });
 
@@ -275,11 +275,11 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
     await vi.waitFor(() => {
       expect(
-        wrapper.get('.servers-start-button').attributes('disabled'),
+        wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
       ).toBeUndefined();
     });
 
-    await wrapper.get('.servers-start-button').trigger('click');
+    await wrapper.get('[aria-label="Iniciar servidores"]').trigger('click');
     await vi.waitFor(() => {
       expect(actions.iniciarProcesso).toHaveBeenCalledTimes(2);
     });
@@ -288,7 +288,7 @@ describe('dashboard principal', () => {
       '1 servidor iniciado. Não foi possível iniciar: Favorito.',
     );
     expect(
-      wrapper.get('.servers-start-button').attributes('disabled'),
+      wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
     ).toBeUndefined();
   });
 
@@ -306,17 +306,17 @@ describe('dashboard principal', () => {
     });
 
     expect(
-      wrapper.get('.servers-start-button').attributes('disabled'),
+      wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
     ).toBeDefined();
-    expect(wrapper.get('.servers-start-button').attributes('title')).toBe(
-      'Não foi possível verificar os servidores disponíveis.',
-    );
     expect(
-      wrapper.get('.servers-stop-button').attributes('disabled'),
+      wrapper.get('[aria-label="Iniciar servidores"]').attributes('title'),
+    ).toBe('Não foi possível verificar os servidores disponíveis.');
+    expect(
+      wrapper.get('[aria-label="Parar servidores"]').attributes('disabled'),
     ).toBeDefined();
-    expect(wrapper.get('.servers-stop-button').attributes('title')).toBe(
-      'Não foi possível verificar os servidores em execução.',
-    );
+    expect(
+      wrapper.get('[aria-label="Parar servidores"]').attributes('title'),
+    ).toBe('Não foi possível verificar os servidores em execução.');
   });
 
   it('para todos os servidores ativos e ignora os projetos parados', async () => {
@@ -342,11 +342,11 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
     await vi.waitFor(() => {
       expect(
-        wrapper.get('.servers-stop-button').attributes('disabled'),
+        wrapper.get('[aria-label="Parar servidores"]').attributes('disabled'),
       ).toBeUndefined();
     });
 
-    await wrapper.get('.servers-stop-button').trigger('click');
+    await wrapper.get('[aria-label="Parar servidores"]').trigger('click');
     await vi.waitFor(() => {
       expect(actions.pararProcesso).toHaveBeenCalledOnce();
     });
@@ -354,10 +354,10 @@ describe('dashboard principal', () => {
     expect(actions.pararProcesso).toHaveBeenCalledWith('p1');
     expect(wrapper.text()).toContain('1 servidor parado.');
     expect(
-      wrapper.get('.servers-stop-button').attributes('disabled'),
+      wrapper.get('[aria-label="Parar servidores"]').attributes('disabled'),
     ).toBeDefined();
     expect(
-      wrapper.get('.servers-start-button').attributes('disabled'),
+      wrapper.get('[aria-label="Iniciar servidores"]').attributes('disabled'),
     ).toBeUndefined();
   });
 
@@ -397,11 +397,11 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
     await vi.waitFor(() => {
       expect(
-        wrapper.get('.servers-stop-button').attributes('disabled'),
+        wrapper.get('[aria-label="Parar servidores"]').attributes('disabled'),
       ).toBeUndefined();
     });
 
-    await wrapper.get('.servers-stop-button').trigger('click');
+    await wrapper.get('[aria-label="Parar servidores"]').trigger('click');
     await vi.waitFor(() => {
       expect(actions.pararProcesso).toHaveBeenCalledTimes(2);
     });
@@ -410,7 +410,7 @@ describe('dashboard principal', () => {
       '1 servidor parado. Não foi possível parar: Favorito.',
     );
     expect(
-      wrapper.get('.servers-stop-button').attributes('disabled'),
+      wrapper.get('[aria-label="Parar servidores"]').attributes('disabled'),
     ).toBeUndefined();
   });
 });
