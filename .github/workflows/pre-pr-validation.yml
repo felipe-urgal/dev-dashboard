@@ -102,6 +102,7 @@ jobs:
                 'Smoke E2E / Playwright',
               ],
             ];
+            const targetUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             for (const [statusContext, outcome, description] of checks) {
               await github.rest.repos.createCommitStatus({
@@ -110,6 +111,7 @@ jobs:
                 sha: context.sha,
                 state: outcome === 'success' ? 'success' : 'failure',
                 context: statusContext,
+                target_url: targetUrl,
                 description: `${description}: ${outcome === 'success' ? 'ok' : 'falhou'}`.slice(0, 140),
               });
             }
