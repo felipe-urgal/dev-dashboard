@@ -11,6 +11,7 @@ import type {
 
 import {
   cancelScriptExecution,
+  clearScriptExecutionHistory,
   fetchLatestScriptExecution,
   fetchScriptExecution,
   fetchScriptExecutionHistory,
@@ -42,6 +43,7 @@ export function useScriptExecution<ScriptSection extends string>(
   const executionLog = ref('');
   const maskedLogEntries = ref(0);
   const startingActionId = ref<string | null>(null);
+  const clearingHistory = ref(false);
   const resolvedNoticeRouteName: ScriptNoticeRouteName =
     noticeRouteName ??
     (executionsSection === 'execution'
@@ -263,6 +265,42 @@ export function useScriptExecution<ScriptSection extends string>(
     }
   }
 
+  async function clearHistory(): Promise<void> {
+    if (clearingHistory.value) return;
+    const confirmed = await confirmDialog({
+      title: 'Limpar histórico de execuções?',
+      message:
+        'As execuções finalizadas e seus logs salvos serão removidos. Uma execução em andamento será mantida.',
+      confirmLabel: 'Limpar histórico',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    const projectId = getProject().id;
+    const current = generation;
+    clearingHistory.value = true;
+    errorMessage.value = '';
+    try {
+      await clearScriptExecutionHistory(projectId);
+      if (current !== generation || projectId !== getProject().id) return;
+      if (execution.value?.status !== 'running') {
+        executionGeneration += 1;
+        execution.value = null;
+        applyLogSnapshot(null);
+      }
+      await loadHistory(projectId, current);
+    } catch (error) {
+      if (current === generation) {
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível limpar o histórico.';
+      }
+    } finally {
+      if (current === generation) clearingHistory.value = false;
+    }
+  }
+
   watch(
     () => getProject().id,
     () => {
@@ -276,6 +314,7 @@ export function useScriptExecution<ScriptSection extends string>(
       execution.value = null;
       applyLogSnapshot(null);
       startingActionId.value = null;
+      clearingHistory.value = false;
       hasObservedRunning = false;
       void loadHistory(projectId, current);
       void restoreExecution(projectId, current);
@@ -320,10 +359,12 @@ export function useScriptExecution<ScriptSection extends string>(
     executionLogSnapshot,
     maskedLogEntries,
     startingActionId,
+    clearingHistory,
     errorMessage,
     run,
     loadHistory,
     selectHistory,
     cancel,
+    clearHistory,
   };
 }
