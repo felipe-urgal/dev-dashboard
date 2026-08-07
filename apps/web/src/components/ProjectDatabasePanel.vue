@@ -42,6 +42,7 @@ import {
   dbReachabilityToneFor,
   railsMigrationToneFor,
 } from '../utils/status-tones';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import RailsGeneratorForm from './RailsGeneratorForm.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -397,8 +398,9 @@ function sectionFromQuery(): DatabaseSection {
   if (
     !isRailsProject.value &&
     !['overview', 'environments', 'snapshots'].includes(value ?? '')
-  )
+  ) {
     return 'overview';
+  }
   return value as DatabaseSection;
 }
 
@@ -420,10 +422,11 @@ function columnTypeLabel(table: RailsSchemaTable, columnName: string): string {
   if (!column) return '—';
   const details = [column.type];
   if (column.limit) details.push(String(column.limit));
-  if (column.precision)
+  if (column.precision) {
     details.push(
       `${column.precision}${column.scale !== undefined ? `,${column.scale}` : ''}`,
     );
+  }
   return details.length > 1
     ? `${details[0]}(${details.slice(1).join(', ')})`
     : (details[0] ?? '—');
