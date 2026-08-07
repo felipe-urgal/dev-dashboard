@@ -5,6 +5,10 @@ on:
     branches:
       - feature/ajustes-ux-historicos-e-push
 
+concurrency:
+  group: pre-pr-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
