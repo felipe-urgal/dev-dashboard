@@ -4,3 +4,4 @@ Correção automática de formatação e documentação.
 Diagnóstico do npm test.
 Validação final completa.
 Rodada final pós-correções.
+Validação final serializada.
