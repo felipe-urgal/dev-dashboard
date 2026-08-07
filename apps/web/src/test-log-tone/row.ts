@@ -1,55 +1,23 @@
-import {
-  RSPEC_PROGRESS_PATTERN,
-  TEST_LOG_ROW_TONE_CLASSES,
-  TEST_LOG_TONE_CLASSES,
-} from './constants';
-import {
-  classifyTestLogLine,
-  classifyTestLogSemanticTone,
-  normalizedLine,
-} from './classify';
+import { TEST_LOG_ROW_TONE_CLASSES, TEST_LOG_TONE_CLASSES } from './constants';
+import { classifyTestLogLine, classifyTestLogSemanticTone } from './classify';
 import { toggleExclusiveClass } from './dom-helpers';
 
-function decorateRspecProgress(code: HTMLElement, text: string): void {
-  const line = normalizedLine(text);
-  if (!RSPEC_PROGRESS_PATTERN.test(line) || line.length < 3) {
-    if (code.dataset.testLogProgressSource !== undefined) {
-      code.replaceChildren(code.ownerDocument.createTextNode(text));
-      delete code.dataset.testLogProgressSource;
-    }
-    return;
-  }
-
-  if (
-    code.dataset.testLogProgressSource === text &&
-    code.querySelector('.test-log-progress-token')
-  )
-    return;
-
-  const fragment = code.ownerDocument.createDocumentFragment();
-  for (const character of text) {
-    if (!/[.·•*EFSPX]/i.test(character)) {
-      fragment.append(code.ownerDocument.createTextNode(character));
-      continue;
-    }
-    const token = code.ownerDocument.createElement('span');
-    token.className = 'test-log-progress-token';
-    if (/[EFX]/i.test(character))
-      token.classList.add('test-log-progress-failure');
-    else if (/[SP]/i.test(character))
-      token.classList.add('test-log-progress-pending');
-    else token.classList.add('test-log-progress-success');
-    token.textContent = character;
-    fragment.append(token);
-  }
-  code.replaceChildren(fragment);
-  code.dataset.testLogProgressSource = text;
+function restorePlainProgressText(code: HTMLElement, text: string): void {
+  if (code.dataset.testLogProgressSource === undefined) return;
+  code.replaceChildren(code.ownerDocument.createTextNode(text));
+  delete code.dataset.testLogProgressSource;
 }
 
 export function enhanceRow(row: HTMLElement): void {
   const code = row.querySelector<HTMLElement>('code');
   const text = code?.textContent ?? '';
   if (!code) return;
+
+  // O progresso do RSpec pode ter milhares de caracteres. Mantê-lo como texto
+  // evita criar um <span> por ponto e disparar uma cascata de MutationObservers
+  // durante o streaming do log.
+  restorePlainProgressText(code, text);
+  if (row.dataset.testLogToneSource === text) return;
 
   const semanticTone = classifyTestLogSemanticTone(text);
   toggleExclusiveClass(
@@ -66,6 +34,5 @@ export function enhanceRow(row: HTMLElement): void {
     }
   });
 
-  decorateRspecProgress(code, text);
   row.dataset.testLogToneSource = text;
 }

@@ -27,7 +27,7 @@ test('não interpreta arquivo aprovado com error no nome como falha', () => {
   );
 });
 
-test('aplica verde, vermelho e tokens semânticos ao progresso do RSpec', () => {
+test('aplica verde e vermelho ao progresso do RSpec sem tokenizar caracteres', () => {
   document.body.innerHTML = `
     <div class="tests-log-shell">
       <div class="tests-log-tabs">
@@ -53,16 +53,12 @@ test('aplica verde, vermelho e tokens semânticos ao progresso do RSpec', () => 
   assert.equal(rows[0]?.classList.contains('tests-log-line-error'), false);
   assert.equal(rows[1]?.classList.contains('tests-log-line-error'), true);
   assert.equal(rows[2]?.classList.contains('tests-log-line-error'), true);
+  assert.equal(rows[2]?.classList.contains('test-log-visual-progress'), true);
   assert.equal(rows[3]?.classList.contains('tests-log-line-error'), true);
 
-  assert.equal(
-    rows[2]?.querySelectorAll('.test-log-progress-success').length,
-    5,
-  );
-  assert.equal(
-    rows[2]?.querySelectorAll('.test-log-progress-failure').length,
-    1,
-  );
+  const progressCode = rows[2]?.querySelector('code');
+  assert.equal(progressCode?.textContent, '...F..');
+  assert.equal(progressCode?.childElementCount, 0);
   assert.equal(
     document.querySelector('.tests-log-tabs button:nth-child(2)')?.textContent,
     'Erros (3)',
@@ -71,6 +67,37 @@ test('aplica verde, vermelho e tokens semânticos ao progresso do RSpec', () => 
     document.querySelector('.tests-log-tabs button:nth-child(3)')?.textContent,
     'Avisos (0)',
   );
+});
+
+test('mantém progresso longo do RSpec em um único nó de texto', () => {
+  const progress = `${'.'.repeat(5_000)}F${'.'.repeat(5_000)}`;
+  document.body.innerHTML = `
+    <div class="tests-log-shell">
+      <div class="tests-log-tabs">
+        <button class="active">Log</button>
+        <button>Erros (0)</button>
+        <button>Avisos (0)</button>
+      </div>
+      <div class="tests-log-output">
+        <ol class="tests-log-lines">
+          <li class="tests-log-line-default"><span>1</span><code>${progress}</code></li>
+        </ol>
+      </div>
+    </div>
+  `;
+
+  enhanceTestLogTones(document);
+  enhanceTestLogTones(document);
+
+  const row = document.querySelector<HTMLElement>('.tests-log-lines li');
+  const code = row?.querySelector<HTMLElement>('code');
+  assert.ok(row);
+  assert.ok(code);
+  assert.equal(row.classList.contains('test-log-visual-progress'), true);
+  assert.equal(row.classList.contains('tests-log-line-error'), true);
+  assert.equal(code.textContent, progress);
+  assert.equal(code.childElementCount, 0);
+  assert.equal(code.childNodes.length, 1);
 });
 
 test('remove o falso diagnóstico estruturado quando não há erro real', () => {
