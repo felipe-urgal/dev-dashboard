@@ -8,4 +8,4 @@
 - npm run docs:api:check: success
 - npm test: success
 - playwright install: success
-- npm run test:e2e: cancelled
+- npm run test:e2e: success
