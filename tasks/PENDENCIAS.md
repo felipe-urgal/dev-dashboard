@@ -338,11 +338,15 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 - `ProjectFavoriteRepository`/`ProjectRecentRepository` usam cache em
   memória + `mutationQueue` para serializar escritas.
-- `WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
-  esse mecanismo: `create`/`setRecursiveScan`/`remove` fazem
-  ler-todo-modificar-escrever sem lock nem fila — duas chamadas concorrentes
-  a `POST /api/workspaces` podem causar lost update. Não coberto por teste.
-  **Sugestão:** aplicar o mesmo padrão `mutationQueue`.
+- ~~`WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
+  esse mecanismo~~ — **resolvido (2026-08-07)**: `create`/`setRecursiveScan`/
+  `remove` agora passam pelo mesmo `mutationQueue`/`enqueue<T>` usado em
+  `ProjectFavoriteRepository`/`EnvironmentProfileRepository`, serializando o
+  ler-modificar-escrever. Teste de regressão em
+  `workspace-repository.test.ts` dispara 8 `create()` concorrentes na mesma
+  instância e confirma que nenhum é perdido (falhava com `ENOENT` no
+  `rename()` antes da correção, por duas escritas colidirem no mesmo
+  arquivo temporário).
 - `state-file-recovery.ts:17-33` usa `existsSync`/`copyFileSync` síncronos
   num codebase inteiramente assíncrono — bloqueia o event loop no caso raro
   de arquivo corrompido.
@@ -474,8 +478,7 @@ intencional ou atualização automática indevida.
   `listServerUrls`) nem `command-resolution.ts` — conferir se são
   exercitados indiretamente ou ficam sem cobertura direta.
 
-**Prioridades sugeridas (web):** 1) serialização de escrita em
-`WorkspaceRepository` (B.6); revisar fallback de `sessionSecret` (B.3); 2)
-decompor componentes grandes (B.12); avaliar migração gradual dos
+**Prioridades sugeridas (web):** 1) revisar fallback de `sessionSecret`
+(B.3); 2) decompor componentes grandes (B.12); avaliar migração gradual dos
 "enhancers" DOM (B.10); padronizar `RequestGeneration` (B.11); simplificar
 assinatura de `AiAssistantService` (B.9).
