@@ -27,6 +27,7 @@ import {
 } from '../composables/useProjectScriptsPanel';
 import { useScriptExecution } from '../composables/useScriptExecution';
 import { projectScriptDestination } from '../utils/project-script-visibility';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -80,15 +81,12 @@ const currentExecution = computed(() =>
     : null,
 );
 const relevantHistory = computed(() =>
-  (history.value?.items ?? []).filter((item) =>
-    actionIds.value.has(item.actionId),
-  ),
+  (history.value?.items ?? []).filter((item) => actionIds.value.has(item.actionId)),
 );
 const currentAction = computed(
   () =>
-    actions.value.find(
-      (item) => item.id === currentExecution.value?.actionId,
-    ) ?? null,
+    actions.value.find((item) => item.id === currentExecution.value?.actionId) ??
+    null,
 );
 
 const nodeManager = computed(() => {
@@ -208,9 +206,7 @@ watch(
         aria-label="Gerenciadores detectados"
       >
         <article v-if="railsActions.length" class="dependencies-manager-card">
-          <span class="dependencies-manager-icon"
-            ><CubeIcon aria-hidden="true"
-          /></span>
+          <span class="dependencies-manager-icon"><CubeIcon aria-hidden="true" /></span>
           <div>
             <strong>Ruby / Bundler</strong>
             <small>Gemfile e Gemfile.lock detectados</small>
@@ -219,9 +215,7 @@ watch(
         </article>
 
         <article v-if="nodeActions.length" class="dependencies-manager-card">
-          <span class="dependencies-manager-icon"
-            ><CommandLineIcon aria-hidden="true"
-          /></span>
+          <span class="dependencies-manager-icon"><CommandLineIcon aria-hidden="true" /></span>
           <div>
             <strong>Node / {{ nodeManager }}</strong>
             <small>Lockfile e script build detectados</small>
@@ -259,10 +253,7 @@ watch(
           <tbody>
             <tr v-for="item in actions" :key="item.id">
               <td data-label="Gerenciador">
-                <span
-                  class="dependencies-manager-name"
-                  :class="managerClass(item)"
-                >
+                <span class="dependencies-manager-name" :class="managerClass(item)">
                   <i aria-hidden="true"></i>
                   {{ managerName(item) }}
                 </span>
@@ -270,17 +261,12 @@ watch(
               <td data-label="Ação">
                 <strong>{{ item.name }}</strong>
                 <small>{{ item.description }}</small>
-                <span
-                  v-if="item.id === 'bundler:update'"
-                  class="dependencies-warning"
-                >
+                <span v-if="item.id === 'bundler:update'" class="dependencies-warning">
                   <ExclamationTriangleIcon aria-hidden="true" />
                   Pode alterar o Gemfile.lock.
                 </span>
               </td>
-              <td data-label="Comando">
-                <code>{{ item.command }}</code>
-              </td>
+              <td data-label="Comando"><code>{{ item.command }}</code></td>
               <td class="dependencies-row-action">
                 <button
                   type="button"
@@ -302,10 +288,7 @@ watch(
 
       <div v-else class="dependencies-empty">
         <strong>Nenhuma ação disponível</strong>
-        <span
-          >O projeto precisa ter Gemfile, um lockfile Node ou o script build no
-          package.json.</span
-        >
+        <span>O projeto precisa ter Gemfile, um lockfile Node ou o script build no package.json.</span>
       </div>
 
       <section class="dependencies-console" aria-label="Detalhes da execução">
@@ -313,15 +296,10 @@ watch(
           <header class="dependencies-console-header">
             <div class="dependencies-console-title">
               <span :class="`is-${currentExecution.status}`">
-                <component
-                  :is="executionIcon(currentExecution.status)"
-                  aria-hidden="true"
-                />
+                <component :is="executionIcon(currentExecution.status)" aria-hidden="true" />
               </span>
               <strong>{{ currentExecution.actionName }}</strong>
-              <small>{{
-                formatScriptExecutionDate(currentExecution.startedAt)
-              }}</small>
+              <small>{{ formatScriptExecutionDate(currentExecution.startedAt) }}</small>
               <small>{{ scriptExecutionDuration(currentExecution) }}</small>
               <small>exit {{ currentExecution.exitCode ?? '—' }}</small>
             </div>
@@ -345,16 +323,21 @@ watch(
             </div>
           </header>
 
-          <div class="dependencies-console-body">
-            <pre><code>$ {{ currentAction?.command ?? currentExecution.actionName }}
-{{ executionLog || 'A execução ainda não produziu saída.' }}</code></pre>
+          <div class="dependencies-console-body dependencies-console-body--diagnostic">
+            <ProjectLogExperience
+              :content="`$ ${currentAction?.command ?? currentExecution.actionName}\n${executionLog || ''}`"
+              source="dependency"
+              flow-label="Saída"
+              :running="currentExecution.status === 'running'"
+              :masked-count="maskedLogEntries"
+              empty-label="A execução ainda não produziu saída."
+              compact
+            />
 
             <aside class="dependencies-history" aria-label="Execuções recentes">
               <header>
                 <strong>Execuções recentes</strong>
-                <small v-if="maskedLogEntries"
-                  >{{ maskedLogEntries }} item(ns) mascarado(s)</small
-                >
+                <small v-if="maskedLogEntries">{{ maskedLogEntries }} item(ns) mascarado(s)</small>
               </header>
               <button
                 v-for="item in relevantHistory.slice(0, 5)"
@@ -362,25 +345,14 @@ watch(
                 type="button"
                 @click="selectHistory(item)"
               >
-                <component
-                  :is="executionIcon(item.status)"
-                  aria-hidden="true"
-                />
+                <component :is="executionIcon(item.status)" aria-hidden="true" />
                 <span>
                   <strong>{{ item.actionName }}</strong>
-                  <small
-                    >{{ formatScriptExecutionDate(item.startedAt) }} ·
-                    {{ scriptExecutionDuration(item) }}</small
-                  >
+                  <small>{{ formatScriptExecutionDate(item.startedAt) }} · {{ scriptExecutionDuration(item) }}</small>
                 </span>
-                <StatusBadge :tone="executionTone(item.status)">{{
-                  scriptExecutionStatusLabels[item.status]
-                }}</StatusBadge>
+                <StatusBadge :tone="executionTone(item.status)">{{ scriptExecutionStatusLabels[item.status] }}</StatusBadge>
               </button>
-              <span
-                v-if="relevantHistory.length === 0"
-                class="dependencies-history-empty"
-              >
+              <span v-if="relevantHistory.length === 0" class="dependencies-history-empty">
                 Nenhuma execução recente.
               </span>
             </aside>
