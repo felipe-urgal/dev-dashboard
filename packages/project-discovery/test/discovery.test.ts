@@ -319,6 +319,17 @@ try {
     );
 
     assert.equal(followSymlinksResult.projects.length, 1);
+
+    const nonRecursiveResult = await scanWorkspace({
+      id: 'fixture-symlink',
+      path: symlinkWorkspacePath,
+    });
+
+    assert.equal(
+      nonRecursiveResult.projects.length,
+      1,
+      'a varredura não-recursiva (só filhos diretos) segue símlinks de topo',
+    );
   } finally {
     await rm(realProjectsDir, {
       recursive: true,

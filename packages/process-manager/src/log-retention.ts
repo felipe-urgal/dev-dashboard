@@ -8,6 +8,7 @@ import {
   type StoredProcess,
   verifyProcessDirectory,
 } from './process-state.js';
+import { MANAGED_KINDS } from './process-store.js';
 
 export interface SweepStaleProcessesOptions {
   maxAgeMs?: number;
@@ -88,14 +89,17 @@ async function isEligibleForRemoval(
   return Date.now() - referenceTimestamp > maxAgeMs;
 }
 
-const MANAGED_STATE_SUFFIX_PATTERN = /\.(server|test|worker|webpack)\.json$/;
+const MANAGED_KIND_GROUP = MANAGED_KINDS.join('|');
+const MANAGED_STATE_SUFFIX_PATTERN = new RegExp(
+  `\\.(${MANAGED_KIND_GROUP})\\.json$`,
+);
 
 function resolveManagedLogPath(
   logDirectory: string,
   stateFileName: string,
 ): string {
   const logFileName = stateFileName.replace(
-    /\.(server|test|worker|webpack)\.json$/,
+    MANAGED_STATE_SUFFIX_PATTERN,
     (_match, kind: string) => `.${kind}.log`,
   );
 
@@ -181,7 +185,9 @@ export async function sweepStaleProcesses(
   return [...swept, ...sweptOrphanLogs];
 }
 
-const MANAGED_LOG_SUFFIX_PATTERN = /\.(server|test|worker|webpack)\.log$/;
+const MANAGED_LOG_SUFFIX_PATTERN = new RegExp(
+  `\\.(${MANAGED_KIND_GROUP})\\.log$`,
+);
 
 function resolveManagedStateFileName(logFileName: string): string {
   return logFileName.replace(

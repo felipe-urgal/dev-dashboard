@@ -60,6 +60,9 @@ test.describe('Banco de dados do projeto', () => {
     await expect(page.getByRole('status')).toContainText('criado');
 
     const snapshotItem = page.locator('.database-snapshot-list li').first();
+    await expect(snapshotItem).toBeVisible();
+    await expect(snapshotItem).toContainText('sample_rails_development');
+
     await snapshotItem.getByRole('button', { name: 'Restaurar' }).click();
     await expect(
       snapshotItem.getByText('Restaurar sobrescreve o banco atual.'),

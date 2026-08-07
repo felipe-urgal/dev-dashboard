@@ -10,7 +10,23 @@ import { isErrnoException } from './errors.js';
 import { isStoredProcess, type StoredProcess } from './process-state.js';
 import { quarantineUnreadableStateFile } from './state-file-recovery.js';
 
-export type ManagedKind = 'server' | 'test' | 'worker' | 'webpack';
+/**
+ * Subconjunto de `ManagedProcessKind` (`@dev-dashboard/contracts`) que este
+ * `ProcessStore` de fato gerencia. `'script'` fica de fora de propósito:
+ * scripts têm seu próprio ciclo de vida e persistência independentes em
+ * `apps/api/src/services/script-execution/`, que não passa por
+ * `readStoredProcess`/`writeStoredProcess`/`listStoredProcessEntries` — não
+ * é uma lacuna a preencher, é um gerenciador diferente para um tipo de
+ * processo diferente. Única fonte de verdade também para o regex de nome de
+ * arquivo em `listStoredProcessEntries`, para os dois nunca divergirem.
+ */
+export const MANAGED_KINDS = ['server', 'test', 'worker', 'webpack'] as const;
+
+export type ManagedKind = (typeof MANAGED_KINDS)[number];
+
+const MANAGED_KIND_FILE_PATTERN = new RegExp(
+  `\\.(${MANAGED_KINDS.join('|')})\\.json$`,
+);
 
 export interface ProcessStoreContext {
   readonly processDirectory: string;
@@ -126,10 +142,7 @@ export async function listStoredProcessEntries(
   const processes: StoredProcess[] = [];
 
   for (const entry of entries) {
-    if (
-      !entry.isFile() ||
-      !/\.(server|test|worker|webpack)\.json$/.test(entry.name)
-    ) {
+    if (!entry.isFile() || !MANAGED_KIND_FILE_PATTERN.test(entry.name)) {
       continue;
     }
 
@@ -165,6 +178,14 @@ export async function listStoredProcessEntries(
   return processes;
 }
 
+/**
+ * Fronteira onde `exitCode` deixa de aceitar `null`: o chamador pode passar
+ * o valor bruto de `child.exitCode` do Node (`number | null`, `null` quando
+ * o processo morreu por sinal), mas o `StoredProcess` resultante — e o
+ * `ManagedProcess` público de `@dev-dashboard/contracts` — só declaram
+ * `exitCode?: number`. Um `exitCode` `null` ou `undefined` aqui simplesmente
+ * não entra no objeto retornado, em vez de virar `exitCode: null`.
+ */
 export function terminalProcess(
   storedProcess: StoredProcess,
   status: Extract<ManagedProcessStatus, 'stopped' | 'failed'>,

@@ -394,19 +394,43 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
   que a entrada trava até o TTL (sem o expurgo) e é liberada depois dele.
 - `port-utils.ts:92-106`: `findAvailablePort` varre portas sequencialmente
   (até 1000 portas no intervalo padrão) — poderia paralelizar em lotes.
-- `ManagedKind` (`process-store.ts:12`) não inclui `'script'`, presente em
+- ~~`ManagedKind` (`process-store.ts:12`) não inclui `'script'`, presente em
   `ManagedProcessKind` de `packages/contracts` — inconsistência de tipos
-  entre contrato público e cobertura real, vale documentar o motivo.
+  entre contrato público e cobertura real, vale documentar o
+  motivo~~ — **resolvido (2026-08-07)**: intencional, não é lacuna — scripts
+  têm ciclo de vida e persistência próprios em
+  `apps/api/src/services/script-execution/`, independentes do
+  `ProcessStore`. Documentado com comentário no tipo `ManagedKind`.
+  Aproveitado para também consolidar os três regex `.(server|test|worker|
+  webpack)` duplicados entre `process-store.ts` e `log-retention.ts` (o
+  "regex de `sweepStaleProcesses`" citado na nota de arquitetura sobre
+  generalizar um novo `kind`) numa única lista `MANAGED_KINDS`, para os
+  dois nunca divergirem silenciosamente. Teste novo cobre
+  `sweepStaleProcesses` para um processo `webpack` (só `server` era
+  exercitado antes).
 
 #### B.8 `packages/project-discovery/src/discovery.ts`
 
-- Duplicação significativa (~50 linhas) entre a varredura recursiva
-  (`walkForProjects`, linha 367-483) e a não-recursiva dentro de
-  `scanWorkspace` (linhas 515-563) — mesmo filtro de diretórios ignorados,
-  mesma detecção, mesmo padrão de warning. Sugestão: unificar chamando
-  `walkForProjects` com `maxDepth = 0` no caso não-recursivo.
+- ~~Duplicação significativa (~50 linhas) entre a varredura recursiva
+  (`walkForProjects`) e a não-recursiva dentro de `scanWorkspace` — mesmo
+  filtro de diretórios ignorados, mesma detecção, mesmo padrão de
+  warning~~ — **resolvido (2026-08-07)**: `scanWorkspace` agora sempre
+  chama `walkForProjects`, com a varredura não-recursiva montando um
+  `WalkContext` com `maxDepth: 0`, sem os limites de projetos/tempo da
+  varredura recursiva (`maxProjects`/`deadlineAt` como `Infinity`) e
+  seguindo símlinks de topo (`followSymlinks: true`), que era o
+  comportamento implícito da versão não-recursiva antiga. Um novo campo
+  `reportDepthLimit` no contexto evita que subdiretórios não explorados no
+  nível único virem aviso `SCAN_DEPTH_LIMIT_REACHED` — isso só é reportado
+  na varredura recursiva de verdade. Teste novo trava que a varredura
+  não-recursiva continua seguindo símlinks de topo (comportamento que só
+  existia implicitamente, sem cobertura, antes da unificação).
 - Ambas processam candidatos sequencialmente (`for...of` com `await`
-  dentro), serializando I/O que poderia rodar com `Promise.all` limitado.
+  dentro), serializando I/O que poderia rodar com `Promise.all` limitado —
+  não mexido nesta entrega: a varredura recursiva depende da checagem
+  incremental de `maxProjects`/timeout a cada candidato, então paralelizar
+  exigiria repensar esse controle de parada antecipada, não é uma
+  mudança pontual.
 
 #### B.9 `apps/api/src/app-context.ts`
 
@@ -499,12 +523,19 @@ Como os dois tipos usam convenções de índice diferentes (0-based vs
 1-based), um cast direto esconde a ausência de conversão real. Sugestão:
 função explícita `toLspRange`/`fromLspRange`.
 
-#### B.14 `packages/contracts`
+#### B.14 `packages/contracts` — resolvido (2026-08-07)
 
-`ManagedProcess.exitCode?: number` não distingue `null`, enquanto
+~~`ManagedProcess.exitCode?: number` não distingue `null`, enquanto
 `process-manager` circula `exitCode` como `number | null | undefined` em
 vários pontos — vale alinhar o contrato público ou documentar a normalização
-feita na fronteira.
+feita na fronteira~~ — confirmado que não é uma inconsistência real: o
+`null` (valor bruto de `child.exitCode` do Node quando o processo morre por
+sinal) só existe na parte interna e transitória de `process-exit-tracking.ts`
+(`ObservedExit`, `recordChildExit`). `terminalProcess`
+(`process-store.ts`) é a fronteira que normaliza — omite o campo
+`exitCode` inteiramente quando é `null`/`undefined`, em vez de propagar
+`null` — e `isStoredProcess` já valida que um `StoredProcess` persistido
+nunca tem `exitCode: null`. Documentado com comentários nos dois pontos.
 
 #### B.15 Configuração/build
 
