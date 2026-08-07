@@ -1,6 +1,7 @@
 import type { FastifyPluginOptions } from 'fastify';
 import type {
   ProjectDisabledRepository,
+  ProjectDismissedRepository,
   ProjectFavoriteRepository,
 } from '@dev-dashboard/core';
 
@@ -15,6 +16,7 @@ export interface ProjectRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
+  projectDismissedRepository: ProjectDismissedRepository;
   gitService: GitService;
 }
 
