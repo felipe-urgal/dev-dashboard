@@ -1,7 +1,5 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import path from 'node:path';
-
 import {
   type ProjectDisabledRepository,
   type ProjectFavoriteRepository,
@@ -16,6 +14,8 @@ import type { ProcessManager } from '@dev-dashboard/process-manager';
 import type { TestDetectionService } from '../services/test-detection-service.js';
 
 import { ApiError } from '../http/api-error.js';
+
+import { isPathWithinRoot } from '../services/shared/path-guards.js';
 
 import type { ProjectStore } from '../store/project-store.js';
 
@@ -48,17 +48,6 @@ interface UpdateWorkspaceBody {
 
 interface WorkspaceParams {
   workspaceId: string;
-}
-
-function isPathInside(parentPath: string, candidatePath: string): boolean {
-  const relativePath = path.relative(parentPath, candidatePath);
-
-  return (
-    relativePath === '' ||
-    (!relativePath.startsWith(`..${path.sep}`) &&
-      relativePath !== '..' &&
-      !path.isAbsolute(relativePath))
-  );
 }
 
 function workspaceRepositoryApiError(
@@ -404,7 +393,7 @@ export const workspaceRoutes: FastifyPluginAsync<
               managedProcess.status === 'stopping') &&
             (managedProcess.workspaceId === workspace.id ||
               (managedProcess.cwd !== undefined &&
-                isPathInside(workspace.path, managedProcess.cwd))),
+                isPathWithinRoot(workspace.path, managedProcess.cwd))),
         );
 
         if (activeProcess) {

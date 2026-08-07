@@ -17,6 +17,7 @@ import type {
 import type { RawData, WebSocket } from 'ws';
 
 import { ProjectFileService } from './project-file-service.js';
+import { isPathWithinRoot } from './shared/path-guards.js';
 
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const SYMBOL_REQUEST_TIMEOUT_MS = 10_000;
@@ -171,10 +172,6 @@ export function encodeLspMessage(message: unknown): Buffer {
   ]);
 }
 
-function isWithinRoot(root: string, target: string): boolean {
-  return target === root || target.startsWith(`${root}${path.sep}`);
-}
-
 function syntheticRootUri(projectId: string): string {
   return `file:///dev-dashboard/projects/${encodeURIComponent(projectId)}`;
 }
@@ -230,7 +227,7 @@ export function clientUriToServerUri(
     projectRoot,
     ...relativePath.split('/').filter(Boolean),
   );
-  if (!isWithinRoot(projectRoot, target)) {
+  if (!isPathWithinRoot(projectRoot, target)) {
     throw new LanguageServerProtocolError(
       'A URI do documento escapa da raiz do projeto.',
     );
@@ -251,7 +248,7 @@ export function serverUriToClientUri(
     return undefined;
   }
   const normalizedTarget = path.resolve(target);
-  if (!isWithinRoot(projectRoot, normalizedTarget)) return undefined;
+  if (!isPathWithinRoot(projectRoot, normalizedTarget)) return undefined;
   const relativePath = path
     .relative(projectRoot, normalizedTarget)
     .split(path.sep)

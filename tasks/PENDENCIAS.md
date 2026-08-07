@@ -296,18 +296,16 @@ tinham `runGit` local (`git-workspace-service.ts`, `git-branch-service.ts`,
 para preservar `trim()`/`maxBuffer` específicos de cada um, delegando a
 chamada real ao módulo compartilhado.
 
-#### B.2 Lógica de path traversal triplicada (alta prioridade — segurança)
+#### B.2 Lógica de path traversal triplicada — resolvido (2026-08-07)
 
-`isWithinRoot`/`isIgnoredPath` estão copiadas literalmente entre
-`project-file-service.ts:143-152` e
-`project-file-mutation-service.ts:115-124`, incluindo a lista
-`ignoredPaths` duplicada byte a byte (linhas 59-67 vs 74-82). Além disso,
-`apps/api/src/routes/workspaces.ts:51-60` implementa uma **terceira**
-variante (`isPathInside`) com lógica ligeiramente diferente. Como é lógica
-crítica de segurança (prevenção de path traversal), ter três implementações
-divergentes é um risco: uma correção pode ser aplicada em só um dos três
-lugares. **Sugestão:** consolidar num único utilitário `isPathWithinRoot`
-compartilhado.
+Extraído `apps/api/src/services/shared/path-guards.ts` com
+`isPathWithinRoot` (baseado em `path.relative`, como a variante que já
+existia em `workspaces.ts`), `isIgnoredProjectPath` e
+`isSensitiveProjectPath` como único ponto de verdade. `project-file-service.ts`,
+`project-file-mutation-service.ts`, `project-language-server-service.ts` e
+`apps/api/src/routes/workspaces.ts` passaram a importar dali em vez de
+manter cópias locais divergentes (`isWithinRoot`/`isIgnoredPath`/
+`isPathInside`).
 
 #### B.3 `apps/api/src/security/local-security.ts`
 
@@ -472,10 +470,9 @@ intencional ou atualização automática indevida.
   `listServerUrls`) nem `command-resolution.ts` — conferir se são
   exercitados indiretamente ou ficam sem cobertura direta.
 
-**Prioridades sugeridas (web):** 1) consolidar `isWithinRoot`/`isIgnoredPath`/
-`isPathInside` (B.2) — lógica de segurança triplicada; 2) serialização de escrita em
+**Prioridades sugeridas (web):** 1) serialização de escrita em
 `WorkspaceRepository` (B.6); tratar estado corrompido com quarentena em
-`process-store.ts` (B.7); revisar fallback de `sessionSecret` (B.3); 3)
+`process-store.ts` (B.7); revisar fallback de `sessionSecret` (B.3); 2)
 decompor componentes grandes (B.12); avaliar migração gradual dos
 "enhancers" DOM (B.10); padronizar `RequestGeneration` (B.11); simplificar
 assinatura de `AiAssistantService` (B.9).

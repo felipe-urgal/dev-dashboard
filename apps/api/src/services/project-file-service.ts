@@ -23,6 +23,12 @@ import type {
   ProjectFileSearchResult,
 } from '@dev-dashboard/contracts';
 
+import {
+  isIgnoredProjectPath,
+  isPathWithinRoot,
+  isSensitiveProjectPath,
+} from './shared/path-guards.js';
+
 export type ProjectFileErrorCode =
   | 'FILE_PATH_INVALID'
   | 'FILE_OUTSIDE_PROJECT'
@@ -55,16 +61,6 @@ const MAX_SEARCH_RESULTS = 100;
 const MAX_SEARCHED_FILES = 2_000;
 const MAX_SEARCH_DEPTH = 12;
 const decoder = new TextDecoder('utf-8', { fatal: true });
-
-const ignoredPaths = [
-  '.git',
-  'node_modules',
-  'vendor/bundle',
-  'coverage',
-  'dist',
-  'build',
-  'tmp/log',
-] as const;
 
 const languageByExtension: Record<string, string> = {
   '.adoc': 'asciidoc',
@@ -140,32 +136,10 @@ function normalizeRelativePath(value: string): string {
   return normalized;
 }
 
-function isWithinRoot(root: string, target: string): boolean {
-  return target === root || target.startsWith(`${root}${path.sep}`);
-}
-
-function isIgnoredPath(relativePath: string): boolean {
-  return ignoredPaths.some(
-    (ignored) =>
-      relativePath === ignored || relativePath.startsWith(`${ignored}/`),
-  );
-}
-
-function isSensitivePath(relativePath: string): boolean {
-  const name = path.posix.basename(relativePath).toLowerCase();
-  return (
-    name === 'config/master.key' ||
-    relativePath.toLowerCase() === 'config/master.key' ||
-    name === 'id_rsa' ||
-    name === 'id_ed25519' ||
-    name.startsWith('.env') ||
-    name.endsWith('.pem') ||
-    name.endsWith('.key')
-  );
-}
-
 function shouldHide(relativePath: string): boolean {
-  return isIgnoredPath(relativePath) || isSensitivePath(relativePath);
+  return (
+    isIgnoredProjectPath(relativePath) || isSensitiveProjectPath(relativePath)
+  );
 }
 
 function languageFor(relativePath: string): string {
@@ -238,7 +212,7 @@ async function resolveExistingPath(
     );
   }
 
-  if (!isWithinRoot(root, canonical)) {
+  if (!isPathWithinRoot(root, canonical)) {
     throw new ProjectFileError(
       'FILE_OUTSIDE_PROJECT',
       'O caminho solicitado está fora da raiz do projeto.',
@@ -271,7 +245,7 @@ async function safeEntry(
   } catch {
     return null;
   }
-  if (!isWithinRoot(root, canonical)) return null;
+  if (!isPathWithinRoot(root, canonical)) return null;
 
   let stats;
   try {
@@ -483,7 +457,10 @@ export class ProjectFileService {
         );
       }
       const latestCanonical = await realpath(target);
-      if (latestCanonical !== target || !isWithinRoot(root, latestCanonical)) {
+      if (
+        latestCanonical !== target ||
+        !isPathWithinRoot(root, latestCanonical)
+      ) {
         throw new ProjectFileError(
           'FILE_OUTSIDE_PROJECT',
           'O destino do salvamento saiu da raiz do projeto.',
