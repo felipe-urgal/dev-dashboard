@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/ajustes-ux-historicos-e-push
   pull_request:
     branches:
       - main
