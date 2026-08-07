@@ -102,7 +102,9 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   }
 
   function forgetProject(projectId: string): void {
-    projects.value = projects.value.filter((project) => project.id !== projectId);
+    projects.value = projects.value.filter(
+      (project) => project.id !== projectId,
+    );
 
     const nextIndex = {
       ...projectIndex.value,
