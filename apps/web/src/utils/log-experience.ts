@@ -69,6 +69,7 @@ const SUCCESS_PATTERN =
 const RETRY_PATTERN = /\b(retry|retrying|retried)\b/i;
 const TEST_FAILURE_PATTERN =
   /(?:^|\s)(?:F|E|FAIL|FAILED|Failures?:|Failure\/Error:|AssertionError)\b/i;
+const TEST_SUCCESS_PATTERN = /^\s*(?:✓|✔|PASS\b|\.+$)/i;
 const WEBPACK_PATTERN = /\b(compiling|compiled|build|building|webpack)\b/i;
 const SIDEKIQ_PATTERN = /\b(sidekiq|jid=|queue=|class=|perform|job)\b/i;
 const SQL_PATTERN =
@@ -85,7 +86,8 @@ function parseDurationMs(text: string): number | undefined {
   for (const match of text.matchAll(DURATION_PATTERN)) {
     const value = Number.parseFloat(match[1] ?? '');
     if (!Number.isFinite(value)) continue;
-    const milliseconds = (match[2] ?? '').toLowerCase() === 's' ? value * 1_000 : value;
+    const milliseconds =
+      (match[2] ?? '').toLowerCase() === 's' ? value * 1_000 : value;
     slowest = Math.max(slowest ?? 0, milliseconds);
   }
 
@@ -127,8 +129,8 @@ function tagForLine(text: string, source: LogExperienceSource): string {
     return 'WEBPACK';
   }
   if (source === 'test') {
+    if (TEST_SUCCESS_PATTERN.test(text)) return 'PASS';
     if (TEST_FAILURE_PATTERN.test(text) || ERROR_PATTERN.test(text)) return 'FAIL';
-    if (/^[\s]*(?:✓|✔|PASS\b|\.+$)/i.test(text)) return 'PASS';
     if (WARNING_PATTERN.test(text)) return 'WARN';
     return 'TEST';
   }
@@ -136,7 +138,11 @@ function tagForLine(text: string, source: LogExperienceSource): string {
   if (ERROR_PATTERN.test(text)) return 'ERROR';
   if (WARNING_PATTERN.test(text)) return 'WARN';
   if (WEBPACK_PATTERN.test(text)) return 'BUILD';
-  return source === 'dependency' ? 'BUILD' : source === 'script' ? 'SCRIPT' : 'INFO';
+  return source === 'dependency'
+    ? 'BUILD'
+    : source === 'script'
+      ? 'SCRIPT'
+      : 'INFO';
 }
 
 function toneAndIssueForLine(
@@ -148,11 +154,17 @@ function toneAndIssueForLine(
   if (Number.isFinite(status) && status >= 500) {
     return { tone: 'danger', issueKind: 'error' };
   }
+  if (source === 'test' && TEST_SUCCESS_PATTERN.test(text)) {
+    return { tone: 'success' };
+  }
   if (TEST_FAILURE_PATTERN.test(text)) {
     return { tone: 'danger', issueKind: 'failure' };
   }
   if (ERROR_PATTERN.test(text)) {
-    return { tone: 'danger', issueKind: source === 'test' ? 'failure' : 'error' };
+    return {
+      tone: 'danger',
+      issueKind: source === 'test' ? 'failure' : 'error',
+    };
   }
   if (RETRY_PATTERN.test(text) && source === 'sidekiq') {
     return { tone: 'warning', issueKind: 'retry' };
@@ -168,7 +180,11 @@ function toneAndIssueForLine(
     return { tone: 'warning', issueKind: 'slow' };
   }
   if (SUCCESS_PATTERN.test(text)) return { tone: 'success' };
-  if (WEBPACK_PATTERN.test(text) || SIDEKIQ_PATTERN.test(text) || HTTP_PATTERN.test(text)) {
+  if (
+    WEBPACK_PATTERN.test(text) ||
+    SIDEKIQ_PATTERN.test(text) ||
+    HTTP_PATTERN.test(text)
+  ) {
     return { tone: 'info' };
   }
   return { tone: 'neutral' };
@@ -211,7 +227,10 @@ function normalizedIssueKey(line: LogExperienceLine): string {
     .slice(0, 180);
 }
 
-function issueTitle(line: LogExperienceLine, source: LogExperienceSource): string {
+function issueTitle(
+  line: LogExperienceLine,
+  source: LogExperienceSource,
+): string {
   if (line.issueKind === 'retry') return 'Job entrou em retry';
   if (line.issueKind === 'slow') {
     if (source === 'webpack') return 'Build lento';
@@ -224,9 +243,13 @@ function issueTitle(line: LogExperienceLine, source: LogExperienceSource): strin
   return source === 'webpack' ? 'Erro de compilação' : 'Erro detectado';
 }
 
-function issueTone(kind: LogExperienceIssueKind): Exclude<LogExperienceTone, 'neutral'> {
+function issueTone(
+  kind: LogExperienceIssueKind,
+): Exclude<LogExperienceTone, 'neutral'> {
   if (kind === 'error' || kind === 'failure') return 'danger';
-  if (kind === 'warning' || kind === 'retry' || kind === 'slow') return 'warning';
+  if (kind === 'warning' || kind === 'retry' || kind === 'slow') {
+    return 'warning';
+  }
   return 'info';
 }
 
@@ -243,11 +266,13 @@ export function buildLogDiagnostics(
     if (existing) {
       existing.count += 1;
       existing.lastLineIndex = line.index;
-      existing.durationMs = Math.max(existing.durationMs ?? 0, line.durationMs ?? 0) || undefined;
+      existing.durationMs =
+        Math.max(existing.durationMs ?? 0, line.durationMs ?? 0) || undefined;
       continue;
     }
 
-    const detail = line.text.length > 220 ? `${line.text.slice(0, 217)}…` : line.text;
+    const detail =
+      line.text.length > 220 ? `${line.text.slice(0, 217)}…` : line.text;
     issues.set(key, {
       id: key,
       kind: line.issueKind,
@@ -263,7 +288,12 @@ export function buildLogDiagnostics(
   }
 
   return [...issues.values()].sort((left, right) => {
-    const toneWeight = { danger: 3, warning: 2, info: 1, success: 0 } as const;
+    const toneWeight = {
+      danger: 3,
+      warning: 2,
+      info: 1,
+      success: 0,
+    } as const;
     const weight = toneWeight[right.tone] - toneWeight[left.tone];
     if (weight !== 0) return weight;
     return right.lastLineIndex - left.lastLineIndex;
