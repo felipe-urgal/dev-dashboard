@@ -33,6 +33,7 @@ import {
 } from '../utils/rails-log-parser';
 import { parseRubyInspect } from '../utils/ruby-inspect-parser';
 import { groupSqlLines, highlightSqlHtml } from '../utils/sql-highlight';
+import './ProjectLogsExperience.css';
 
 type ViewMode = 'flow' | 'diagnostic';
 type CategoryFilter = 'all' | 'requests' | 'sql' | 'render' | 'errors';
@@ -49,7 +50,6 @@ interface ServerDiagnosticIssue {
   count?: number;
 }
 
-const REQUEST_LIST_PAGE_SIZE = 150;
 const RAW_LINE_PAGE_SIZE = 1500;
 
 const props = defineProps<{ project: Project }>();
@@ -71,7 +71,6 @@ const viewMode = ref<ViewMode>('flow');
 const copiedRequestId = ref('');
 const selectedGroupKey = ref('');
 const selectedIssueId = ref('');
-const requestListLimit = ref(REQUEST_LIST_PAGE_SIZE);
 const rawLineLimit = ref(RAW_LINE_PAGE_SIZE);
 
 const {
@@ -134,7 +133,9 @@ function groupMatchesCategory(group: RailsLogGroup): boolean {
 function lineMatchesCategory(line: RailsLogLine): boolean {
   switch (categoryFilter.value) {
     case 'requests':
-      return ['request', 'controller', 'parameters', 'completed'].includes(line.kind);
+      return ['request', 'controller', 'parameters', 'completed'].includes(
+        line.kind,
+      );
     case 'sql':
       return line.kind === 'sql' || line.kind === 'source';
     case 'render':
@@ -154,14 +155,6 @@ const visibleGroups = computed(() => {
   });
 });
 
-const cappedGroups = computed(() =>
-  visibleGroups.value.slice(0, requestListLimit.value),
-);
-const hiddenGroupsCount = computed(() =>
-  Math.max(0, visibleGroups.value.length - cappedGroups.value.length),
-);
-
-// Fluxo é cronológico, como um terminal: a linha mais recente fica no final.
 const flowRawLines = computed<RailsLogLine[]>(() => parsedLog.value.lines);
 const visibleRawLines = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -171,7 +164,9 @@ const visibleRawLines = computed(() => {
   });
 });
 const cappedRawLines = computed(() =>
-  visibleRawLines.value.slice(Math.max(0, visibleRawLines.value.length - rawLineLimit.value)),
+  visibleRawLines.value.slice(
+    Math.max(0, visibleRawLines.value.length - rawLineLimit.value),
+  ),
 );
 const hiddenRawLinesCount = computed(() =>
   Math.max(0, visibleRawLines.value.length - cappedRawLines.value.length),
@@ -179,9 +174,9 @@ const hiddenRawLinesCount = computed(() =>
 
 const selectedGroup = computed<RailsLogGroup | undefined>(
   () =>
-    cappedGroups.value.find(
+    visibleGroups.value.find(
       (group) => groupSelectionKey(group) === selectedGroupKey.value,
-    ) ?? cappedGroups.value[0],
+    ) ?? visibleGroups.value[0],
 );
 const selectedRequestGroup = computed<RailsRequestLogGroup | undefined>(() =>
   selectedGroup.value?.kind === 'request' ? selectedGroup.value : undefined,
@@ -268,34 +263,33 @@ const diagnosticIssues = computed<ServerDiagnosticIssue[]>(() => {
 
 const selectedIssue = computed(
   () =>
-    diagnosticIssues.value.find((issue) => issue.id === selectedIssueId.value) ??
-    diagnosticIssues.value[0],
+    diagnosticIssues.value.find(
+      (issue) => issue.id === selectedIssueId.value,
+    ) ?? diagnosticIssues.value[0],
 );
 
 const diagnosticSummary = computed(() => ({
-  errors: diagnosticIssues.value.filter((issue) => issue.kind === 'error').length,
+  errors: diagnosticIssues.value.filter((issue) => issue.kind === 'error')
+    .length,
   slow: diagnosticIssues.value.filter((issue) => issue.kind === 'slow').length,
   n1: diagnosticIssues.value.filter((issue) => issue.kind === 'n1').length,
-  repeated: diagnosticIssues.value.filter((issue) => issue.kind === 'repeated-sql').length,
+  repeated: diagnosticIssues.value.filter(
+    (issue) => issue.kind === 'repeated-sql',
+  ).length,
 }));
 
 const visibleLineCount = computed(() =>
   viewMode.value === 'diagnostic'
-    ? visibleGroups.value.reduce((total, group) => total + group.lines.length, 0)
+    ? visibleGroups.value.reduce(
+        (total, group) => total + group.lines.length,
+        0,
+      )
     : visibleRawLines.value.length,
 );
-
-function selectGroup(group: RailsLogGroup): void {
-  selectedGroupKey.value = groupSelectionKey(group);
-}
 
 function selectIssue(issue: ServerDiagnosticIssue): void {
   selectedIssueId.value = issue.id;
   selectedGroupKey.value = issue.groupKey;
-}
-
-function loadMoreRequests(): void {
-  requestListLimit.value += REQUEST_LIST_PAGE_SIZE;
 }
 
 function loadMoreRawLines(): void {
@@ -312,7 +306,6 @@ function resetFilters(): void {
   viewMode.value = 'flow';
   selectedGroupKey.value = '';
   selectedIssueId.value = '';
-  requestListLimit.value = REQUEST_LIST_PAGE_SIZE;
   rawLineLimit.value = RAW_LINE_PAGE_SIZE;
 }
 
@@ -400,8 +393,12 @@ watch(viewMode, () => {
   }
 });
 
-watch(cappedGroups, (groups) => {
-  if (!groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)) {
+watch(visibleGroups, (groups) => {
+  if (
+    !groups.some(
+      (group) => groupSelectionKey(group) === selectedGroupKey.value,
+    )
+  ) {
     selectedGroupKey.value = groups[0] ? groupSelectionKey(groups[0]) : '';
   }
 });
@@ -410,6 +407,10 @@ watch(diagnosticIssues, (issues) => {
   if (!issues.some((issue) => issue.id === selectedIssueId.value)) {
     selectedIssueId.value = issues[0]?.id ?? '';
   }
+});
+
+watch(selectedIssue, (issue) => {
+  if (issue) selectedGroupKey.value = issue.groupKey;
 });
 </script>
 
