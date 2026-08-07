@@ -1,3 +1,6 @@
+import { readdir, realpath, stat } from 'node:fs/promises';
+import path from 'node:path';
+
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import type { ProjectFileEntry } from '@dev-dashboard/contracts';
@@ -5,6 +8,11 @@ import type { ProjectFileEntry } from '@dev-dashboard/contracts';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { ProjectFileService } from '../services/project-file-service.js';
+import {
+  isIgnoredProjectPath,
+  isPathWithinRoot,
+  isSensitiveProjectPath,
+} from '../services/shared/path-guards.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { fileEntrySchema } from './project-files.js';
 
@@ -17,13 +25,6 @@ interface ProjectReadmeRouteOptions extends FastifyPluginOptions {
   projectFileService: ProjectFileService;
 }
 
-/**
- * Limites do catálogo de Markdown: mesma régua de `ProjectFileService.search`
- * (varredura em largura, ignorando `node_modules`/`.git`/etc. via
- * `listDirectory`), só que catalogando nome em vez de conteúdo.
- */
-const MAX_MARKDOWN_FILES = 200;
-const MAX_MARKDOWN_SCAN_DEPTH = 8;
 const MARKDOWN_EXTENSION_PATTERN = /\.(?:md|markdown|mdown)$/i;
 
 const projectParamsSchema = {
@@ -51,54 +52,95 @@ function readmePriority(filename: string): number {
   return 10;
 }
 
+function publicPath(parent: string, name: string): string {
+  return parent ? `${parent}/${name}` : name;
+}
+
+function shouldHide(relativePath: string): boolean {
+  return (
+    isIgnoredProjectPath(relativePath) || isSensitiveProjectPath(relativePath)
+  );
+}
+
 /**
- * Catálogo de todo arquivo Markdown do projeto (não só o README da raiz),
- * ordenado com os candidatos a README raiz primeiro (mesma prioridade que o
- * dashboard já usava para escolher o README único) e o restante em ordem
- * alfabética por caminho. Reaproveita `ProjectFileService.listDirectory` —
- * já bounded, já ignora `node_modules`/`.git`/etc. e já valida contenção no
- * projeto — em vez de reimplementar a varredura segura de diretórios.
+ * Catálogo de todos os arquivos Markdown visíveis do projeto, sem limite de
+ * quantidade, profundidade ou tamanho de diretório. A varredura continua
+ * respeitando os mesmos caminhos ignorados/sensíveis do editor, impede saída
+ * da raiz do projeto e evita ciclos de links simbólicos pelo caminho canônico.
  */
 async function listMarkdownFiles(
-  projectFileService: ProjectFileService,
   projectPath: string,
-): Promise<{ files: ProjectFileEntry[]; truncated: boolean }> {
-  const queue: Array<{ relativePath: string; depth: number }> = [
-    { relativePath: '', depth: 0 },
+): Promise<{ files: ProjectFileEntry[]; truncated: false }> {
+  const root = await realpath(projectPath);
+  const queue: Array<{ relativePath: string; absolutePath: string }> = [
+    { relativePath: '', absolutePath: root },
   ];
+  const visitedDirectories = new Set<string>();
   const files: ProjectFileEntry[] = [];
-  let truncated = false;
 
-  while (queue.length > 0 && files.length < MAX_MARKDOWN_FILES) {
+  while (queue.length > 0) {
     const current = queue.shift();
     if (!current) break;
-    if (current.depth > MAX_MARKDOWN_SCAN_DEPTH) {
-      truncated = true;
-      continue;
-    }
 
-    let listing;
+    let canonicalDirectory: string;
     try {
-      listing = await projectFileService.listDirectory(
-        projectPath,
-        current.relativePath,
-      );
+      canonicalDirectory = await realpath(current.absolutePath);
     } catch {
       continue;
     }
-    truncated ||= listing.truncated;
 
-    for (const entry of listing.entries) {
-      if (entry.kind === 'directory') {
-        queue.push({ relativePath: entry.path, depth: current.depth + 1 });
+    if (
+      !isPathWithinRoot(root, canonicalDirectory) ||
+      visitedDirectories.has(canonicalDirectory)
+    ) {
+      continue;
+    }
+    visitedDirectories.add(canonicalDirectory);
+
+    let entries;
+    try {
+      entries = await readdir(canonicalDirectory, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const relativePath = publicPath(current.relativePath, entry.name);
+      if (shouldHide(relativePath)) continue;
+
+      let canonicalEntry: string;
+      try {
+        canonicalEntry = await realpath(path.join(canonicalDirectory, entry.name));
+      } catch {
         continue;
       }
-      if (!MARKDOWN_EXTENSION_PATTERN.test(entry.name)) continue;
-      files.push(entry);
-      if (files.length >= MAX_MARKDOWN_FILES) {
-        truncated = true;
-        break;
+      if (!isPathWithinRoot(root, canonicalEntry)) continue;
+
+      let stats;
+      try {
+        stats = await stat(canonicalEntry);
+      } catch {
+        continue;
       }
+
+      if (stats.isDirectory()) {
+        queue.push({
+          relativePath,
+          absolutePath: canonicalEntry,
+        });
+        continue;
+      }
+      if (!stats.isFile() || !MARKDOWN_EXTENSION_PATTERN.test(entry.name)) {
+        continue;
+      }
+
+      files.push({
+        path: relativePath,
+        name: entry.name,
+        kind: 'file',
+        language: 'markdown',
+        size: stats.size,
+      });
     }
   }
 
@@ -108,7 +150,7 @@ async function listMarkdownFiles(
     return left.path.localeCompare(right.path, 'pt-BR');
   });
 
-  return { files, truncated };
+  return { files, truncated: false };
 }
 
 export const projectReadmeRoutes: FastifyPluginAsync<
@@ -147,7 +189,7 @@ export const projectReadmeRoutes: FastifyPluginAsync<
     },
     async (request) => {
       const project = projectFor(request.params.projectId);
-      return listMarkdownFiles(options.projectFileService, project.path);
+      return listMarkdownFiles(project.path);
     },
   );
 };
