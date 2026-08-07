@@ -9,6 +9,7 @@ import {
   ExclamationTriangleIcon,
   PlayIcon,
   StopCircleIcon,
+  TrashIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -44,9 +45,11 @@ const {
   executionLog,
   maskedLogEntries,
   startingActionId,
+  clearingHistory,
   run,
   selectHistory,
   cancel,
+  clearHistory,
 } = useScriptExecution(
   () => props.project,
   activeSection,
@@ -351,10 +354,22 @@ watch(
 
             <aside class="dependencies-history" aria-label="Execuções recentes">
               <header>
-                <strong>Execuções recentes</strong>
-                <small v-if="maskedLogEntries"
-                  >{{ maskedLogEntries }} item(ns) mascarado(s)</small
+                <div>
+                  <strong>Execuções recentes</strong>
+                  <small v-if="maskedLogEntries"
+                    >{{ maskedLogEntries }} item(ns) mascarado(s)</small
+                  >
+                </div>
+                <button
+                  v-if="relevantHistory.length > 0"
+                  type="button"
+                  class="dependencies-history-clear"
+                  :disabled="clearingHistory"
+                  @click="clearHistory"
                 >
+                  <TrashIcon aria-hidden="true" />
+                  {{ clearingHistory ? 'Limpando…' : 'Limpar' }}
+                </button>
               </header>
               <button
                 v-for="item in relevantHistory.slice(0, 5)"
