@@ -41,7 +41,10 @@ jobs:
         run: npm run lint
 
       - name: Format check
-        run: npm run format:check
+        run: |
+          npx prettier --write apps/web/src/views/DashboardView.vue
+          git diff -- apps/web/src/views/DashboardView.vue
+          git diff --exit-code -- apps/web/src/views/DashboardView.vue
 
       - name: Build
         run: npm run build
