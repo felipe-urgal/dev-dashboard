@@ -65,21 +65,6 @@ const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
 
-/** Alternado pelo usuário nas abas de Terminal/Console para reduzir distração
- * enquanto opera uma sessão interativa: esconde a navegação por abas e
- * compacta o cabeçalho do projeto. */
-const compactChrome = ref(false);
-const canCompactChrome = computed(
-  () => isTerminalRoute.value || isConsoleRoute.value,
-);
-const isChromeCompacted = computed(
-  () => compactChrome.value && canCompactChrome.value,
-);
-
-function toggleCompactChrome(): void {
-  compactChrome.value = !compactChrome.value;
-}
-
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
   gitOverview.value = git;
@@ -198,10 +183,7 @@ async function handleToggleEnabled(): Promise<void> {
     </div>
 
     <template v-else>
-      <header
-        class="project-details-hero"
-        :class="{ 'project-details-hero-compact': isChromeCompacted }"
-      >
+      <header class="project-details-hero">
         <div class="project-details-main">
           <div class="project-details-copy">
             <div class="project-title-row">
@@ -210,11 +192,11 @@ async function handleToggleEnabled(): Promise<void> {
                 {{ projectTypeLabels[project.type] }}
               </span>
             </div>
-            <code v-if="!isChromeCompacted">{{ project.path }}</code>
+            <code>{{ project.path }}</code>
           </div>
 
           <div
-            v-if="gitBranch && !isChromeCompacted"
+            v-if="gitBranch"
             class="project-details-branch"
             aria-label="Branch atual"
           >
@@ -225,7 +207,7 @@ async function handleToggleEnabled(): Promise<void> {
           </div>
         </div>
 
-        <div v-if="!isChromeCompacted" class="project-details-actions">
+        <div class="project-details-actions">
           <button
             type="button"
             class="secondary-button"
@@ -252,20 +234,6 @@ async function handleToggleEnabled(): Promise<void> {
             :overview="gitOverview"
           />
         </div>
-
-        <button
-          v-if="canCompactChrome"
-          type="button"
-          class="project-details-chrome-toggle"
-          :aria-pressed="compactChrome"
-          @click="toggleCompactChrome"
-        >
-          {{
-            compactChrome
-              ? 'Mostrar abas e cabeçalho'
-              : 'Ocultar abas e compactar cabeçalho'
-          }}
-        </button>
       </header>
 
       <div v-if="!project.enabled" class="empty-state page-empty-state">
@@ -286,11 +254,7 @@ async function handleToggleEnabled(): Promise<void> {
       </div>
 
       <template v-else>
-        <nav
-          v-if="!isChromeCompacted"
-          class="project-details-tabs"
-          aria-label="Áreas do projeto"
-        >
+        <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isReadmeRoute }"
