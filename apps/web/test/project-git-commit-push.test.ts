@@ -20,6 +20,9 @@ const overview = {
     hash: 'abcdef1234567890',
     shortHash: 'abcdef1',
     subject: 'novo commit',
+    authorName: 'Felipe',
+    authorEmail: 'felipe@example.com',
+    authoredAt: '2026-08-07T19:00:00.000Z',
   },
 } as ProjectGitOverview;
 
