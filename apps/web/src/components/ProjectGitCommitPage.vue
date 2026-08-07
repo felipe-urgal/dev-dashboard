@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowUpTrayIcon,
   ArrowPathRoundedSquareIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -15,6 +16,7 @@ const props = defineProps<{
   busy: boolean;
   message: string;
   mode: CommitMode;
+  pushBranch: string | null;
   forcePushBranch: string | null;
 }>();
 
@@ -22,6 +24,7 @@ const emit = defineEmits<{
   'update:message': [value: string];
   'update:mode': [value: CommitMode];
   submit: [];
+  push: [branch: string];
   'force-push': [];
 }>();
 
@@ -83,6 +86,29 @@ function updateMessage(event: Event): void {
     </div>
 
     <div class="git-commit-divider" />
+
+    <section
+      v-if="pushBranch"
+      class="git-push-notice"
+      aria-label="Novo commit aguardando envio"
+    >
+      <ArrowUpTrayIcon aria-hidden="true" />
+      <div>
+        <strong>Novo commit pronto para enviar</strong>
+        <p>
+          Envie os commits novos de <code>{{ pushBranch }}</code> para
+          <code>origin/{{ pushBranch }}</code>. Se já existir uma Pull Request,
+          ela será atualizada automaticamente pelo GitHub.
+        </p>
+      </div>
+      <button
+        type="button"
+        :disabled="busy"
+        @click="emit('push', pushBranch)"
+      >
+        Push
+      </button>
+    </section>
 
     <section
       v-if="forcePushBranch"
@@ -218,6 +244,7 @@ function updateMessage(event: Event): void {
   background: var(--border);
 }
 
+.git-push-notice,
 .git-force-push-notice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -225,30 +252,56 @@ function updateMessage(event: Event): void {
   gap: var(--space-3);
   margin-bottom: 20px;
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
   border-radius: var(--radius-md);
+}
+
+.git-push-notice {
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent-soft);
+}
+
+.git-force-push-notice {
+  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
   background: var(--warning-surface);
 }
 
+.git-push-notice > svg,
 .git-force-push-notice > svg {
   width: 22px;
   height: 22px;
+}
+
+.git-push-notice > svg {
+  color: var(--accent);
+}
+
+.git-force-push-notice > svg {
   color: var(--warning-text);
 }
 
+.git-push-notice p,
 .git-force-push-notice p {
   margin: 3px 0 0;
   color: var(--text-muted);
 }
 
+.git-push-notice button,
 .git-force-push-notice button {
   min-height: 38px;
   padding: 0 14px;
-  border-color: var(--warning-text);
-  color: var(--warning-text);
   background: var(--surface-1);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.git-push-notice button {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.git-force-push-notice button {
+  border-color: var(--warning-text);
+  color: var(--warning-text);
 }
 
 .git-commit-context {
@@ -348,10 +401,12 @@ function updateMessage(event: Event): void {
     border-bottom: 0;
   }
 
+  .git-push-notice,
   .git-force-push-notice {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .git-push-notice button,
   .git-force-push-notice button {
     grid-column: 1 / -1;
     width: 100%;
