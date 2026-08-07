@@ -47,7 +47,10 @@ function parseConfig(contents: string): Set<string> {
 
   const candidate = parsed as Record<string, unknown>;
 
-  if (candidate.version !== 1 || !Array.isArray(candidate.dismissedProjectIds)) {
+  if (
+    candidate.version !== 1 ||
+    !Array.isArray(candidate.dismissedProjectIds)
+  ) {
     throw new Error(
       'A versão da configuração de projetos removidos não é suportada.',
     );
