@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/ajustes-ux-historicos-e-push
+    paths-ignore:
+      - pre-pr-validation-result.md
 
 concurrency:
   group: pre-pr-validation-${{ github.ref }}
