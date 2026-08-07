@@ -1,0 +1,122 @@
+name: Validação pré-PR
+
+on:
+  push:
+    branches:
+      - feature/ajustes-ux-historicos-e-push
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/ajustes-ux-historicos-e-push
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - id: install
+        name: Install dependencies
+        continue-on-error: true
+        run: npm ci
+
+      - id: typecheck
+        name: Typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - id: lint
+        name: Lint
+        continue-on-error: true
+        run: npm run lint
+
+      - id: format
+        name: Format check
+        continue-on-error: true
+        run: npm run format:check
+
+      - id: build
+        name: Build
+        continue-on-error: true
+        run: npm run build
+
+      - id: docs
+        name: Verifica docs/architecture/api-reference.md
+        continue-on-error: true
+        run: npm run docs:api:check
+
+      - id: test
+        name: Test
+        continue-on-error: true
+        run: npm test
+
+      - id: playwright_install
+        name: Install Playwright browsers
+        continue-on-error: true
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - id: e2e
+        name: Smoke E2E
+        continue-on-error: true
+        run: npm run test:e2e
+
+      - name: Registra resultado
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          DOCS: ${{ steps.docs.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          PLAYWRIGHT_INSTALL: ${{ steps.playwright_install.outcome }}
+          E2E: ${{ steps.e2e.outcome }}
+        run: |
+          cat > pre-pr-validation-result.md <<EOF
+          # Validação pré-PR
+
+          - npm ci: $INSTALL
+          - npm run typecheck: $TYPECHECK
+          - npm run lint: $LINT
+          - npm run format:check: $FORMAT
+          - npm run build: $BUILD
+          - npm run docs:api:check: $DOCS
+          - npm test: $TEST
+          - playwright install: $PLAYWRIGHT_INSTALL
+          - npm run test:e2e: $E2E
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pre-pr-validation-result.md
+          git commit -m "chore(ci): registra validação pré-PR"
+          git push origin HEAD:feature/ajustes-ux-historicos-e-push
+
+      - name: Falha se alguma validação falhou
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          DOCS: ${{ steps.docs.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          PLAYWRIGHT_INSTALL: ${{ steps.playwright_install.outcome }}
+          E2E: ${{ steps.e2e.outcome }}
+        run: |
+          for outcome in "$INSTALL" "$TYPECHECK" "$LINT" "$FORMAT" "$BUILD" "$DOCS" "$TEST" "$PLAYWRIGHT_INSTALL" "$E2E"; do
+            test "$outcome" = success || exit 1
+          done
