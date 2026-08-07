@@ -1,3 +1,5 @@
+import { ref, watch } from 'vue';
+
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import { createProjectGitBranch, prepareProjectGitMutation } from '../api';
@@ -16,6 +18,7 @@ export function useProjectGitPanelPolicy(
   emit: (event: 'git-updated', overview: ProjectGitOverview) => void,
 ) {
   const panel = useProjectGitPanel(props, route, emit);
+  const pendingPushBranch = ref<string | null>(null);
 
   async function runMutation(
     operation: 'create-branch' | 'switch-branch',
@@ -112,6 +115,9 @@ export function useProjectGitPanelPolicy(
       panel.mutationMessage.value = alreadyPublished
         ? `Commits novos de "${publishedBranch}" enviados para origin/${publishedBranch}.`
         : `Branch "${publishedBranch}" publicada em origin/${publishedBranch}.`;
+      if (pendingPushBranch.value === publishedBranch) {
+        pendingPushBranch.value = null;
+      }
       await panel.reloadGitData();
     } catch (error) {
       panel.mutationErrorMessage.value =
@@ -152,6 +158,7 @@ export function useProjectGitPanelPolicy(
         confirmation.token,
       );
       panel.amendedBranch.value = null;
+      pendingPushBranch.value = null;
       panel.mutationMessage.value = `Branch "${pushedBranch}" atualizada em origin/${pushedBranch} com lease.`;
       await panel.reloadGitData();
     } catch (error) {
@@ -164,10 +171,43 @@ export function useProjectGitPanelPolicy(
     }
   }
 
+  async function runCommit(): Promise<void> {
+    const mode = panel.commitMode.value;
+    const branch = panel.overview.value?.branch;
+    const previousHash = panel.overview.value?.latestCommit?.hash;
+
+    await panel.runCommit();
+
+    if (
+      mode !== 'create' ||
+      !branch ||
+      branch === 'main' ||
+      branch === 'master'
+    ) {
+      return;
+    }
+
+    const currentHash = panel.overview.value?.latestCommit?.hash;
+    if (currentHash && currentHash !== previousHash) {
+      pendingPushBranch.value = branch;
+    }
+  }
+
+  watch(
+    () => [props.project.id, panel.overview.value?.branch] as const,
+    ([, branch]) => {
+      if (pendingPushBranch.value && pendingPushBranch.value !== branch) {
+        pendingPushBranch.value = null;
+      }
+    },
+  );
+
   return {
     ...panel,
+    pendingPushBranch,
     runMutation,
     runPublishBranch,
     runForcePushWithLease,
+    runCommit,
   };
 }
