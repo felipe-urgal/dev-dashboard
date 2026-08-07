@@ -95,6 +95,8 @@ Isso é útil para investigar um serviço isoladamente. A web depende da API par
 4. Selecione um projeto detectado.
 5. Abra a área desejada: servidor, Git, testes, banco, scripts, dependências ou ambiente.
 
+A barra lateral também concentra os atalhos de **Documentação** e a alternância entre os temas **Escuro** e **Claro**, logo acima do status da API.
+
 Um workspace representa a pasta que contém projetos. O scanner analisa os diretórios imediatamente abaixo dela.
 
 ## Como projetos são reconhecidos

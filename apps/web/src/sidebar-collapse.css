@@ -94,6 +94,31 @@
     height: 20px;
   }
 
+  .sidebar-collapsed .sidebar-tools {
+    gap: 6px;
+    padding-inline: 0;
+  }
+
+  .sidebar-collapsed .sidebar-theme-toggle {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .sidebar-collapsed .sidebar-theme-toggle button {
+    justify-content: center;
+    min-height: 38px;
+    padding: 8px;
+    font-size: 0;
+  }
+
+  .sidebar-collapsed .sidebar-theme-toggle button svg {
+    width: 18px;
+    height: 18px;
+  }
+
   .sidebar-collapsed .sidebar-footer {
     justify-content: center;
     padding-inline: 0;

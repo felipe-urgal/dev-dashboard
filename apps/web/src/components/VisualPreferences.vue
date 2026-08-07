@@ -22,7 +22,7 @@ function selectTheme(value: Theme): void {
 
 <template>
   <div
-    class="segmented-control topbar-theme-toggle"
+    class="segmented-control sidebar-theme-toggle"
     role="group"
     aria-label="Tema"
   >
