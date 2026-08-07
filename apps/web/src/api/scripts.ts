@@ -28,6 +28,9 @@ interface ScriptExecutionLogResponse {
 interface ScriptExecutionConfirmationResponse {
   confirmation: ScriptExecutionConfirmation;
 }
+interface ClearScriptExecutionHistoryResponse {
+  cleared: number;
+}
 
 export async function fetchProjectScripts(
   projectId: string,
@@ -99,6 +102,15 @@ export async function fetchScriptExecutionHistory(
     `/api/projects/${encodeURIComponent(projectId)}/scripts/executions?page=${page}&pageSize=10`,
   );
   return response.history;
+}
+export async function clearScriptExecutionHistory(
+  projectId: string,
+): Promise<number> {
+  const response = await requestJson<ClearScriptExecutionHistoryResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/scripts/executions`,
+    { method: 'DELETE' },
+  );
+  return response.cleared;
 }
 export async function fetchScriptExecutionLog(
   projectId: string,
