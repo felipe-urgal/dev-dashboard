@@ -19,6 +19,14 @@ import {
 } from '../utils/log-experience';
 
 type FlowFilter = 'all' | 'errors' | 'warnings' | 'activity';
+type MetricTone = 'danger' | 'warning' | 'info';
+
+interface MetricCard {
+  key: string;
+  label: string;
+  value: number;
+  tone: MetricTone;
+}
 
 const props = withDefaults(
   defineProps<{
@@ -56,12 +64,8 @@ const filteredLines = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   return lines.value.filter((line) => {
     if (query && !line.raw.toLowerCase().includes(query)) return false;
-    if (filter.value === 'errors') {
-      return line.tone === 'danger';
-    }
-    if (filter.value === 'warnings') {
-      return line.tone === 'warning';
-    }
+    if (filter.value === 'errors') return line.tone === 'danger';
+    if (filter.value === 'warnings') return line.tone === 'warning';
     if (filter.value === 'activity') {
       return line.tone === 'info' || line.tone === 'success';
     }
@@ -84,13 +88,14 @@ const selectedContext = computed(() => {
   return lines.value.filter((line) => line.index >= from && line.index <= to);
 });
 
-const metricCards = computed(() => {
-  const base = [
+const metricCards = computed<MetricCard[]>(() => {
+  const base: MetricCard[] = [
     {
       key: 'errors',
       label: props.source === 'test' ? 'Falhas' : 'Erros',
-      value: props.source === 'test' ? summary.value.failures : summary.value.errors,
-      tone: 'danger' as const,
+      value:
+        props.source === 'test' ? summary.value.failures : summary.value.errors,
+      tone: 'danger',
     },
     {
       key: 'slow',
@@ -101,7 +106,7 @@ const metricCards = computed(() => {
             ? 'Jobs lentos'
             : 'Execuções lentas',
       value: summary.value.slow,
-      tone: 'warning' as const,
+      tone: 'warning',
     },
   ];
 
@@ -110,7 +115,7 @@ const metricCards = computed(() => {
       key: 'retries',
       label: 'Retries',
       value: summary.value.retries,
-      tone: 'warning' as const,
+      tone: 'warning',
     });
   }
 
@@ -118,7 +123,7 @@ const metricCards = computed(() => {
     key: 'warnings',
     label: 'Avisos',
     value: summary.value.warnings,
-    tone: 'info' as const,
+    tone: 'info',
   });
 
   return base;
@@ -147,7 +152,9 @@ function issueKindLabel(kind: LogExperienceIssueKind): string {
 
 function formatDuration(value?: number): string {
   if (value === undefined) return '';
-  if (value >= 1_000) return `${(value / 1_000).toFixed(value >= 10_000 ? 1 : 2)}s`;
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(value >= 10_000 ? 1 : 2)}s`;
+  }
   return `${Number.isInteger(value) ? value : value.toFixed(1)}ms`;
 }
 
@@ -192,7 +199,11 @@ watch(issues, (nextIssues) => {
     :class="{ 'log-experience--compact': compact }"
   >
     <header class="log-experience-toolbar">
-      <div class="log-experience-mode-switch" role="tablist" aria-label="Modo do log">
+      <div
+        class="log-experience-mode-switch"
+        role="tablist"
+        aria-label="Modo do log"
+      >
         <button
           type="button"
           role="tab"
@@ -210,7 +221,9 @@ watch(issues, (nextIssues) => {
           @click="mode = 'diagnostic'"
         >
           {{ diagnosticLabel }}
-          <span v-if="issues.length" class="log-experience-mode-count">{{ issues.length }}</span>
+          <span v-if="issues.length" class="log-experience-mode-count">
+            {{ issues.length }}
+          </span>
         </button>
       </div>
 
@@ -235,11 +248,37 @@ watch(issues, (nextIssues) => {
 
     <template v-if="mode === 'flow'">
       <nav class="log-experience-filters" aria-label="Filtrar fluxo">
-        <button type="button" :class="{ active: filter === 'all' }" @click="filter = 'all'">Tudo</button>
-        <button type="button" :class="{ active: filter === 'errors' }" @click="filter = 'errors'">Erros</button>
-        <button type="button" :class="{ active: filter === 'warnings' }" @click="filter = 'warnings'">Avisos</button>
-        <button type="button" :class="{ active: filter === 'activity' }" @click="filter = 'activity'">Atividade</button>
-        <span class="log-experience-follow">{{ follow ? 'Auto scroll' : 'Rolagem pausada' }}</span>
+        <button
+          type="button"
+          :class="{ active: filter === 'all' }"
+          @click="filter = 'all'"
+        >
+          Tudo
+        </button>
+        <button
+          type="button"
+          :class="{ active: filter === 'errors' }"
+          @click="filter = 'errors'"
+        >
+          Erros
+        </button>
+        <button
+          type="button"
+          :class="{ active: filter === 'warnings' }"
+          @click="filter = 'warnings'"
+        >
+          Avisos
+        </button>
+        <button
+          type="button"
+          :class="{ active: filter === 'activity' }"
+          @click="filter = 'activity'"
+        >
+          Atividade
+        </button>
+        <span class="log-experience-follow">
+          {{ follow ? 'Auto scroll' : 'Rolagem pausada' }}
+        </span>
       </nav>
 
       <div
@@ -249,7 +288,11 @@ watch(issues, (nextIssues) => {
         @scroll="handleFlowScroll"
       >
         <div v-if="!filteredLines.length" class="log-experience-empty">
-          {{ searchQuery || filter !== 'all' ? 'Nenhuma linha corresponde aos filtros.' : emptyLabel }}
+          {{
+            searchQuery || filter !== 'all'
+              ? 'Nenhuma linha corresponde aos filtros.'
+              : emptyLabel
+          }}
         </div>
         <div
           v-for="line in filteredLines"
@@ -258,10 +301,14 @@ watch(issues, (nextIssues) => {
           class="log-experience-line"
           :class="toneClass(line.tone)"
         >
-          <span class="log-experience-time">{{ line.time ?? String(line.index + 1).padStart(4, '0') }}</span>
+          <span class="log-experience-time">
+            {{ line.time ?? String(line.index + 1).padStart(4, '0') }}
+          </span>
           <span class="log-experience-tag">{{ line.tag }}</span>
           <span class="log-experience-line-text">{{ line.text }}</span>
-          <span class="log-experience-duration">{{ formatDuration(line.durationMs) }}</span>
+          <span class="log-experience-duration">
+            {{ formatDuration(line.durationMs) }}
+          </span>
         </div>
       </div>
     </template>
@@ -279,7 +326,10 @@ watch(issues, (nextIssues) => {
           <span class="log-experience-healthy-icon">✓</span>
           <div>
             <strong>Nenhum problema evidente encontrado</strong>
-            <p>O diagnóstico não encontrou erros, avisos, retries ou eventos lentos no trecho disponível.</p>
+            <p>
+              O diagnóstico não encontrou erros, avisos, retries ou eventos
+              lentos no trecho disponível.
+            </p>
           </div>
         </div>
 
@@ -299,19 +349,30 @@ watch(issues, (nextIssues) => {
               ]"
               @click="selectedIssueId = issue.id"
             >
-              <span class="log-experience-issue-kind">{{ issueKindLabel(issue.kind) }}</span>
+              <span class="log-experience-issue-kind">
+                {{ issueKindLabel(issue.kind) }}
+              </span>
               <span class="log-experience-issue-copy">
                 <strong>{{ issue.title }}</strong>
                 <small>{{ issue.summary }}</small>
               </span>
-              <span v-if="issue.count > 1" class="log-experience-issue-count">{{ issue.count }}×</span>
+              <span
+                v-if="issue.count > 1"
+                class="log-experience-issue-count"
+              >
+                {{ issue.count }}×
+              </span>
             </button>
           </aside>
 
           <article v-if="selectedIssue" class="log-experience-investigation">
             <header :class="`is-${selectedIssue.tone}`">
               <component
-                :is="selectedIssue.tone === 'danger' ? XCircleIcon : ExclamationTriangleIcon"
+                :is="
+                  selectedIssue.tone === 'danger'
+                    ? XCircleIcon
+                    : ExclamationTriangleIcon
+                "
                 aria-hidden="true"
               />
               <div>
@@ -319,7 +380,9 @@ watch(issues, (nextIssues) => {
                 <h4>{{ selectedIssue.title }}</h4>
                 <p>{{ selectedIssue.detail }}</p>
               </div>
-              <strong v-if="selectedIssue.durationMs">{{ formatDuration(selectedIssue.durationMs) }}</strong>
+              <strong v-if="selectedIssue.durationMs">
+                {{ formatDuration(selectedIssue.durationMs) }}
+              </strong>
             </header>
 
             <section>
@@ -348,7 +411,11 @@ watch(issues, (nextIssues) => {
                   :key="line.id"
                   :class="[
                     toneClass(line.tone),
-                    { active: line.index >= selectedIssue.firstLineIndex && line.index <= selectedIssue.lastLineIndex },
+                    {
+                      active:
+                        line.index >= selectedIssue.firstLineIndex &&
+                        line.index <= selectedIssue.lastLineIndex,
+                    },
                   ]"
                 >
                   <span>{{ line.index + 1 }}</span>
@@ -357,6 +424,10 @@ watch(issues, (nextIssues) => {
               </div>
             </section>
           </article>
+        </div>
+
+        <div class="log-experience-diagnostic-extra">
+          <slot name="diagnostic-extra" />
         </div>
       </div>
     </template>
@@ -950,6 +1021,14 @@ watch(issues, (nextIssues) => {
   color: var(--text-dim);
   font-size: 10.5px;
   line-height: 1.5;
+}
+
+.log-experience-diagnostic-extra:empty {
+  display: none;
+}
+
+.log-experience-diagnostic-extra:not(:empty) {
+  margin-top: 12px;
 }
 
 @media (max-width: 900px) {
