@@ -127,12 +127,7 @@ test('expurga um observador travado (exit/error nunca disparou) depois do TTL de
 
   const stateAfterSweep = await Promise.race([
     tracker
-      .waitForObservedExit(
-        'project-stuck',
-        'server',
-        4_001,
-        shortTimeoutMs,
-      )
+      .waitForObservedExit('project-stuck', 'server', 4_001, shortTimeoutMs)
       .then((observation) => ({ state: 'resolved' as const, observation })),
     new Promise<{ state: 'pending' }>((resolve) => {
       setTimeout(() => resolve({ state: 'pending' }), 50);
