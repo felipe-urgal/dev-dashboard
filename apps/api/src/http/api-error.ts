@@ -155,6 +155,12 @@ export type ApiErrorCode =
   | 'ENVIRONMENT_PROFILE_LIMIT_REACHED'
   | 'ENVIRONMENT_PROFILE_NOT_FOUND'
   | 'ENVIRONMENT_PROFILE_NAME_TAKEN'
+  | 'BOOTSTRAP_NOT_ALLOWED'
+  | 'INVALID_BROWSER_BOOTSTRAP'
+  | 'ORIGIN_NOT_ALLOWED'
+  | 'ORIGIN_REQUIRED'
+  | 'SESSION_EXPIRED'
+  | 'INVALID_LOCAL_TOKEN'
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

@@ -307,17 +307,27 @@ existia em `workspaces.ts`), `isIgnoredProjectPath` e
 manter cópias locais divergentes (`isWithinRoot`/`isIgnoredPath`/
 `isPathInside`).
 
-#### B.3 `apps/api/src/security/local-security.ts`
+#### B.3 `apps/api/src/security/local-security.ts` — resolvido (2026-08-07)
 
-- `sessionSecret = options.sessionSecret ?? options.token` (linha 86,
-  replicado em `app.ts:124`): quando não há `sessionSecret` configurado, o
-  HMAC de sessão do navegador usa o próprio token de autenticação como
-  chave — reuso de segredo entre dois propósitos distintos.
-- Os códigos de erro do `onRequest` hook (`BOOTSTRAP_NOT_ALLOWED`,
+- ~~`sessionSecret = options.sessionSecret ?? options.token`, replicado em
+  `app.ts:124`: quando não há `sessionSecret` configurado, o HMAC de sessão
+  do navegador usa o próprio token de autenticação como chave~~ — agora
+  `registerLocalSecurity` deriva a chave por padrão via
+  `deriveSessionSecret` (HMAC-SHA256 do token com um rótulo de domínio
+  fixo), mantendo a comparação de token e a assinatura de cookie de sessão
+  criptograficamente independentes mesmo partindo do mesmo segredo
+  armazenado; `app.ts` não replica mais o fallback, só repassa
+  `sessionSecret` quando explicitamente configurado. Teste de regressão em
+  `local-security.test.ts` confirma que uma assinatura forjada com o token
+  bruto como chave HMAC não valida a sessão.
+- ~~Os códigos de erro do `onRequest` hook (`BOOTSTRAP_NOT_ALLOWED`,
   `INVALID_BROWSER_BOOTSTRAP`, `ORIGIN_NOT_ALLOWED`, `ORIGIN_REQUIRED`,
-  `SESSION_EXPIRED`, `INVALID_LOCAL_TOKEN`) são strings soltas fora do union
-  `ApiErrorCode`, com respostas montadas manualmente em vez de via
-  `ApiError` — quebra a garantia de tipo único de erro da API.
+  `SESSION_EXPIRED`, `INVALID_LOCAL_TOKEN`) eram strings soltas fora do
+  union `ApiErrorCode`~~ — agora fazem parte do union e as respostas são
+  montadas por um helper local (`sendApiError`) tipado contra
+  `ApiErrorCode`, sem depender de lançar `ApiError`/`registerApiErrorHandling`
+  (este módulo é testado de forma isolada, só com Fastify puro, antes do
+  error handler global existir necessariamente).
 
 #### B.4 `apps/api/src/http/api-error.ts`
 
@@ -478,7 +488,7 @@ intencional ou atualização automática indevida.
   `listServerUrls`) nem `command-resolution.ts` — conferir se são
   exercitados indiretamente ou ficam sem cobertura direta.
 
-**Prioridades sugeridas (web):** 1) revisar fallback de `sessionSecret`
-(B.3); 2) decompor componentes grandes (B.12); avaliar migração gradual dos
-"enhancers" DOM (B.10); padronizar `RequestGeneration` (B.11); simplificar
-assinatura de `AiAssistantService` (B.9).
+**Prioridades sugeridas (web):** 1) decompor componentes grandes (B.12);
+avaliar migração gradual dos "enhancers" DOM (B.10); padronizar
+`RequestGeneration` (B.11); simplificar assinatura de `AiAssistantService`
+(B.9).

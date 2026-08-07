@@ -1,7 +1,8 @@
 import cors from '@fastify/cors';
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 
+import type { ApiErrorCode } from '../http/api-error.js';
 import {
   apiErrorResponseSchema,
   emptyResponseSchema,
@@ -64,6 +65,37 @@ function validateSession(
   return Number(expiry) > now ? 'valid' : 'expired';
 }
 
+/**
+ * Deriva a chave de assinatura de sessão a partir do token de autenticação
+ * quando nenhum `sessionSecret` explícito é configurado. Não reutiliza o
+ * token diretamente como chave HMAC: uma PRF com rótulo de domínio distinto
+ * mantém os dois usos (comparação de token vs. assinatura de cookie de
+ * sessão) criptograficamente independentes, mesmo derivando do mesmo
+ * segredo armazenado.
+ */
+function deriveSessionSecret(token: string): string {
+  return createHmac('sha256', token)
+    .update('dev-dashboard:session-secret:v1')
+    .digest('hex');
+}
+
+/**
+ * Responde um erro local no mesmo formato de `ApiError`
+ * (`{ error, message }`), mas tipando `code` contra `ApiErrorCode` — este
+ * módulo roda antes de `registerApiErrorHandling` estar necessariamente
+ * registrado (é testado de forma isolada, só com Fastify puro), então não
+ * pode depender de lançar `ApiError` e contar com o error handler global
+ * da aplicação; o ganho de tipo é obtido sem essa dependência.
+ */
+function sendApiError(
+  reply: FastifyReply,
+  statusCode: number,
+  code: ApiErrorCode,
+  message: string,
+) {
+  return reply.code(statusCode).send({ error: code, message });
+}
+
 function requestPath(url: string): string {
   return url.split('?', 1)[0] ?? url;
 }
@@ -83,7 +115,8 @@ export async function registerLocalSecurity(
   );
   const localOrigin = options.localOrigin ?? 'http://127.0.0.1:4343';
   allowedOrigins.add(localOrigin);
-  const sessionSecret = options.sessionSecret ?? options.token;
+  const sessionSecret =
+    options.sessionSecret ?? deriveSessionSecret(options.token);
   const browserBootstrapToken =
     options.browserBootstrapToken ?? randomBytes(32).toString('hex');
   const ttl = options.sessionTtlSeconds ?? 900;
@@ -106,10 +139,12 @@ export async function registerLocalSecurity(
         request.headers.origin !== localOrigin ||
         request.headers['content-type']?.split(';')[0] !== 'application/json'
       ) {
-        return reply.code(403).send({
-          error: 'BOOTSTRAP_NOT_ALLOWED',
-          message: 'Bootstrap de navegador não permitido.',
-        });
+        return sendApiError(
+          reply,
+          403,
+          'BOOTSTRAP_NOT_ALLOWED',
+          'Bootstrap de navegador não permitido.',
+        );
       }
       const expiresAt = now() + ttl;
       const session = signSession(
@@ -159,10 +194,12 @@ export async function registerLocalSecurity(
         !secureTokenEqual(bootstrapCandidate, browserBootstrapToken) &&
         !secureTokenEqual(candidateToken, options.token)
       ) {
-        return reply.code(401).send({
-          error: 'INVALID_BROWSER_BOOTSTRAP',
-          message: 'A capacidade de bootstrap está ausente ou é inválida.',
-        });
+        return sendApiError(
+          reply,
+          401,
+          'INVALID_BROWSER_BOOTSTRAP',
+          'A capacidade de bootstrap está ausente ou é inválida.',
+        );
       }
 
       return;
@@ -175,10 +212,12 @@ export async function registerLocalSecurity(
       originHeader !== undefined &&
       (origin === undefined || !allowedOrigins.has(origin))
     ) {
-      return reply.code(403).send({
-        error: 'ORIGIN_NOT_ALLOWED',
-        message: 'A origem da requisição não é permitida.',
-      });
+      return sendApiError(
+        reply,
+        403,
+        'ORIGIN_NOT_ALLOWED',
+        'A origem da requisição não é permitida.',
+      );
     }
 
     const candidateToken = headerToken(request.headers[LOCAL_TOKEN_HEADER]);
@@ -195,18 +234,21 @@ export async function registerLocalSecurity(
       MUTABLE_METHODS.has(request.method) &&
       origin !== localOrigin
     ) {
-      return reply.code(403).send({
-        error: 'ORIGIN_REQUIRED',
-        message: 'A origem local exata é obrigatória para alterações.',
-      });
+      return sendApiError(
+        reply,
+        403,
+        'ORIGIN_REQUIRED',
+        'A origem local exata é obrigatória para alterações.',
+      );
     }
 
     if (!cookieAuthorized && !secureTokenEqual(candidateToken, options.token)) {
-      return reply.code(401).send({
-        error:
-          session === 'expired' ? 'SESSION_EXPIRED' : 'INVALID_LOCAL_TOKEN',
-        message: 'O token local está ausente ou é inválido.',
-      });
+      return sendApiError(
+        reply,
+        401,
+        session === 'expired' ? 'SESSION_EXPIRED' : 'INVALID_LOCAL_TOKEN',
+        'O token local está ausente ou é inválido.',
+      );
     }
   });
 }
