@@ -30,6 +30,7 @@ import {
 } from '../composables/useProjectScriptsPanel';
 import { exportLogSnapshot } from '../utils/log-export';
 import { riskToneFor } from '../utils/status-tones';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import ProjectScriptCatalogCard from './ProjectScriptCatalogCard.vue';
 import ProjectScriptCatalogSidebar from './ProjectScriptCatalogSidebar.vue';
 import ProjectScriptExecutionStrip from './ProjectScriptExecutionStrip.vue';
@@ -508,6 +509,10 @@ function handleExportLog(): void {
               <div>
                 <h4>{{ execution.actionName }}</h4>
                 <p>{{ executionStatusLabels[execution.status] }}</p>
+                <span class="scripts-execution-summary"
+                  >{{ execution.actionName }} ·
+                  {{ executionStatusLabels[execution.status] }}</span
+                >
               </div>
             </div>
             <StatusBadge :tone="executionTone(execution.status)">
@@ -566,15 +571,12 @@ function handleExportLog(): void {
             </button>
           </div>
 
-          <section class="scripts-log-panel">
+          <section class="scripts-log-panel scripts-log-panel--experience">
             <header>
               <div>
                 <CommandLineIcon aria-hidden="true" />
-                <h5>Saída da execução</h5>
+                <h5>Saída e diagnóstico</h5>
               </div>
-              <span v-if="maskedLogEntries">
-                {{ maskedLogEntries }} ocorrência(s) sensível(is) mascarada(s)
-              </span>
               <button
                 type="button"
                 class="scripts-explorer-refresh"
@@ -585,9 +587,14 @@ function handleExportLog(): void {
                 Exportar log
               </button>
             </header>
-            <pre>{{
-              executionLog || 'A execução ainda não produziu saída.'
-            }}</pre>
+            <ProjectLogExperience
+              :content="executionLog"
+              source="script"
+              flow-label="Saída"
+              :running="execution.status === 'running'"
+              :masked-count="maskedLogEntries"
+              empty-label="A execução ainda não produziu saída."
+            />
           </section>
         </article>
 

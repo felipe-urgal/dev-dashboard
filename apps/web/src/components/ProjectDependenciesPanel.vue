@@ -28,6 +28,7 @@ import {
 } from '../composables/useProjectScriptsPanel';
 import { useScriptExecution } from '../composables/useScriptExecution';
 import { projectScriptDestination } from '../utils/project-script-visibility';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -348,9 +349,18 @@ watch(
             </div>
           </header>
 
-          <div class="dependencies-console-body">
-            <pre><code>$ {{ currentAction?.command ?? currentExecution.actionName }}
-{{ executionLog || 'A execução ainda não produziu saída.' }}</code></pre>
+          <div
+            class="dependencies-console-body dependencies-console-body--diagnostic"
+          >
+            <ProjectLogExperience
+              :content="`$ ${currentAction?.command ?? currentExecution.actionName}\n${executionLog || ''}`"
+              source="dependency"
+              flow-label="Saída"
+              :running="currentExecution.status === 'running'"
+              :masked-count="maskedLogEntries"
+              empty-label="A execução ainda não produziu saída."
+              compact
+            />
 
             <aside class="dependencies-history" aria-label="Execuções recentes">
               <header>

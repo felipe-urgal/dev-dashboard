@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 
 import type {
   ManagedProcess,
@@ -58,7 +58,10 @@ function runningProcess(
   } as ManagedProcess;
 }
 
-async function mountPanel(logContent = railsLog) {
+async function mountPanel(
+  logContent = railsLog,
+  type: 'rails' | 'node' = 'rails',
+) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
@@ -82,13 +85,10 @@ async function mountPanel(logContent = railsLog) {
 
   const project = makeProject({
     id: 'p1',
-    type: 'rails',
+    type,
     capabilities: ['server'],
   });
-  const wrapper = mount(ProjectLogsPanel, {
-    props: { project },
-    global: { stubs: { RouterLink: RouterLinkStub } },
-  });
+  const wrapper = mount(ProjectLogsPanel, { props: { project } });
 
   await flushPromises();
   await flushPromises();
@@ -106,72 +106,91 @@ describe('ProjectLogsPanel', () => {
     document.body.innerHTML = '';
   });
 
-  it('mostra a requisição mais recente no topo da lista e a seleciona por padrão', async () => {
+  it('abre em Fluxo e mantém a ordem cronológica com o mais recente embaixo', async () => {
     const { wrapper, restoreFetch } = await mountPanel();
 
     try {
-      const items = wrapper.findAll('.rails-list-item');
-      expect(items.length).toBeGreaterThanOrEqual(2);
-      expect(items[0]?.text()).toContain('/export');
-      expect(items[0]?.classes()).toContain('selected');
-
-      expect(wrapper.get('.rails-detail-heading h3').text()).toContain(
-        '/export',
-      );
-      expect(wrapper.find('.project-logs-sidebar').exists()).toBe(false);
-      expect(wrapper.get('.project-logs-topbar').text()).toContain(
-        'Status do servidor',
-      );
-      expect(wrapper.get('.project-logs-topbar').text()).toContain(
-        'Ações rápidas',
-      );
-      expect(wrapper.findAll('.project-log-quick-actions a')).toHaveLength(2);
-    } finally {
-      restoreFetch();
-    }
-  });
-
-  it('agrupa SQL repetido, sinaliza N+1 e faz o parse dos parâmetros em árvore', async () => {
-    const { wrapper, restoreFetch } = await mountPanel();
-
-    try {
-      expect(wrapper.get('.rails-n1-callout').text()).toContain('3×');
-      expect(wrapper.find('.sql-tk-kw').exists()).toBe(true);
-
-      await wrapper.findAll('.rails-list-item')[1]?.trigger('click');
-      expect(wrapper.find('.ptree').exists()).toBe(true);
-      expect(wrapper.text()).toContain('sort_column');
-    } finally {
-      restoreFetch();
-    }
-  });
-
-  it('troca para o modo raw sem lançar erros e mostra as linhas mais recentes primeiro', async () => {
-    const { wrapper, restoreFetch } = await mountPanel();
-
-    try {
-      const rawButton = wrapper.findAll('.project-log-view-switch button')[1];
-      await rawButton?.trigger('click');
+      const modes = wrapper.findAll('.project-log-view-switch button');
+      expect(modes[0]?.text()).toContain('Fluxo');
+      expect(modes[0]?.classes()).toContain('active');
+      expect(modes[1]?.text()).toContain('Diagnóstico');
 
       const lines = wrapper
-        .findAll('.project-log-line')
+        .findAll('.project-log-flow .project-log-line')
         .map((line) => line.text());
       expect(lines.length).toBeGreaterThan(0);
 
-      const exportIndex = lines.findIndex((text) => text.includes('/export'));
       const researchesIndex = lines.findIndex((text) =>
         text.includes('"/platform/observatorio/indicators/researches"'),
       );
-      expect(exportIndex).toBeGreaterThanOrEqual(0);
+      const exportIndex = lines.findIndex((text) => text.includes('/export'));
       expect(researchesIndex).toBeGreaterThanOrEqual(0);
-      expect(exportIndex).toBeLessThan(researchesIndex);
+      expect(exportIndex).toBeGreaterThan(researchesIndex);
+      expect(wrapper.text()).toContain('mais recente embaixo');
     } finally {
+      wrapper.unmount();
       restoreFetch();
     }
   });
 
-  it('não trava com um log grande (milhares de linhas) e respeita o teto de itens renderizados', async () => {
-    const manyRequests = Array.from({ length: 200 }, (_, index) => {
+  it('leva erros, requests lentas e N+1 para o Diagnóstico antes dos detalhes', async () => {
+    const { wrapper, restoreFetch } = await mountPanel();
+
+    try {
+      const diagnosticButton = wrapper.findAll(
+        '.project-log-view-switch button',
+      )[1];
+      await diagnosticButton?.trigger('click');
+
+      const diagnostic = wrapper.get('.server-diagnostic');
+      expect(diagnostic.text()).toContain('Erros');
+      expect(diagnostic.text()).toContain('Requests lentas');
+      expect(diagnostic.text()).toContain('Possível N+1');
+      expect(diagnostic.text()).toContain('/export');
+      expect(diagnostic.text()).toContain('3×');
+      expect(wrapper.get('.server-investigation-callout').text()).toContain(
+        'O que chamou atenção',
+      );
+      expect(wrapper.get('.rails-n1-callout').text()).toContain('3×');
+
+      const detailSections = wrapper.findAll(
+        'details.server-investigation-details',
+      );
+      expect(detailSections.length).toBeGreaterThan(0);
+      expect(
+        detailSections.every(
+          (details) => details.attributes('open') === undefined,
+        ),
+      ).toBe(true);
+    } finally {
+      wrapper.unmount();
+      restoreFetch();
+    }
+  });
+
+  it('usa a experiência compartilhada para logs Node sem estrutura Rails', async () => {
+    const nodeLog = [
+      'Starting',
+      'Compiling /dashboard',
+      'Compiled /dashboard in 3.2s',
+      'ERROR Module not found: ./missing',
+    ].join('\n');
+    const { wrapper, restoreFetch } = await mountPanel(nodeLog, 'node');
+
+    try {
+      expect(wrapper.find('.project-log-view-switch').exists()).toBe(false);
+      const modes = wrapper.findAll('.log-experience-mode-switch button');
+      expect(modes[0]?.text()).toContain('Fluxo');
+      expect(modes[1]?.text()).toContain('Diagnóstico');
+      expect(wrapper.text()).toContain('Module not found');
+    } finally {
+      wrapper.unmount();
+      restoreFetch();
+    }
+  });
+
+  it('limita a renderização do fluxo grande e permite carregar linhas antigas', async () => {
+    const manyRequests = Array.from({ length: 900 }, (_, index) => {
       const id = `aaaaaaaa-0000-4000-8000-${String(index).padStart(12, '0')}`;
       return [
         `[${id}] Started GET "/health/${index}" for 127.0.0.1 at 2026-07-31 16:00:00 -0300`,
@@ -183,10 +202,13 @@ describe('ProjectLogsPanel', () => {
     const { wrapper, restoreFetch } = await mountPanel(bigLog);
 
     try {
-      const items = wrapper.findAll('.rails-list-item');
-      expect(items.length).toBeLessThanOrEqual(151);
-      expect(wrapper.find('.rails-load-more').exists()).toBe(true);
+      const lines = wrapper.findAll('.project-log-flow .project-log-line');
+      expect(lines.length).toBeLessThanOrEqual(1500);
+      expect(wrapper.find('.project-log-flow .rails-load-more').exists()).toBe(
+        true,
+      );
     } finally {
+      wrapper.unmount();
       restoreFetch();
     }
   });

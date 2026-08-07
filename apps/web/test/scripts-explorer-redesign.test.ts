@@ -49,7 +49,7 @@ test('estrutura scripts como explorador direto de catálogo e execuções', asyn
   assert.match(component, /class="scripts-catalog-layout"/);
   assert.match(component, /class="scripts-detail-panel"/);
   assert.match(component, /class="scripts-executions-layout"/);
-  assert.match(component, /class="scripts-log-panel"/);
+  assert.match(component, /class="scripts-log-panel[ "]/);
 });
 
 test('mantém risco, confirmação e acompanhamento da execução no redesenho', async () => {

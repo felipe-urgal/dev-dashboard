@@ -1,0 +1,14 @@
+.server-diagnostic {
+  --term-panel: var(--surface-2);
+  --term-text: var(--text);
+  --term-text-dim: var(--text-muted);
+  --term-text-faint: var(--text-dim);
+  --term-text-strong: var(--text);
+  --term-border: var(--border);
+  --term-border-soft: var(--border);
+  --term-border-strong: var(--border-strong);
+  --term-hover: var(--surface-2);
+  --term-code-bg: var(--surface-2);
+  --term-purple-text: var(--accent);
+  --term-purple-surface: var(--accent-soft);
+}

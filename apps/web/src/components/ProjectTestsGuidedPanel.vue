@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  ArrowDownIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
   CheckCircleIcon,
@@ -20,12 +19,12 @@ import { useProjectTestsPanel } from '../composables/useProjectTestsPanel';
 import { exportLogSnapshot } from '../utils/log-export';
 import Card from './Card.vue';
 import ProjectCoveragePanel from './ProjectCoveragePanel.vue';
+import ProjectLogExperience from './ProjectLogExperience.vue';
 import ProjectTestFailureNavigator from './ProjectTestFailureNavigator.vue';
+import './ProjectTestsLogExperience.css';
 
 const props = defineProps<{ project: Project }>();
 const {
-  activeLogEmptyLabel,
-  activeLogTab,
   canExecuteSelection,
   caseLineInvalid,
   cleanLogContent,
@@ -35,7 +34,6 @@ const {
   currentStatusTone,
   currentTarget,
   duration,
-  errorLogLines,
   errorMessage,
   executionChoices,
   executionPreview,
@@ -60,7 +58,6 @@ const {
   relatedErrorMessage,
   relatedTests,
   runSummary,
-  scrollLogToEnd,
   selectedCaseLine,
   selectedChoice,
   selectedExecutionKey,
@@ -74,8 +71,6 @@ const {
   supportsNamePatternTarget,
   testFiles,
   totalTests,
-  visibleLogLines,
-  warningLogLines,
 } = useProjectTestsPanel(props);
 
 function statusIconForTone(

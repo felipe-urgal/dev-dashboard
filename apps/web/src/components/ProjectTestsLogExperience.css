@@ -1,0 +1,61 @@
+.tests-log-experience-shell {
+  margin-top: var(--space-4);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.tests-log-experience-actions {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.tests-log-experience-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tests-log-experience-actions > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.tests-log-experience-actions strong {
+  color: var(--text);
+  font-size: var(--font-xs);
+}
+
+.tests-log-experience-actions span {
+  color: var(--text-dim);
+  font-size: 9.5px;
+}
+
+.tests-log-experience-shell .log-experience {
+  border: 0;
+  border-radius: 0;
+}
+
+.tests-log-experience-shell .test-log-failure-navigator,
+.tests-log-experience-shell .test-failure-navigator {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .tests-log-experience-actions,
+  .tests-log-experience-actions > div:last-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tests-log-experience-actions > div:last-child {
+    width: 100%;
+  }
+}

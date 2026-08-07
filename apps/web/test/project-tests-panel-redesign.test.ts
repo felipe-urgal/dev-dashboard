@@ -123,17 +123,20 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
   assert.match(summary.text(), /232ms/);
   assert.match(summary.text(), /Vitest|Arquivo específico/);
 
-  const output = wrapper.find('.tests-log-output');
+  const output = wrapper.find('.log-experience-flow');
   assert.doesNotMatch(output.text(), /\u001b\[/);
-  assert.equal(wrapper.findAll('.tests-log-lines li').length, 9);
+  assert.equal(wrapper.findAll('.log-experience-line').length, 9);
 
-  const warningsTab = wrapper
-    .findAll('.tests-log-tabs button')
-    .find((button) => button.text() === 'Avisos (1)');
-  assert.ok(warningsTab);
-  await warningsTab.trigger('click');
-  assert.equal(wrapper.findAll('.tests-log-lines li').length, 1);
-  assert.match(wrapper.find('.tests-log-lines').text(), /warning From Yarn/);
+  const warningsFilter = wrapper
+    .findAll('.log-experience-filters button')
+    .find((button) => button.text() === 'Avisos');
+  assert.ok(warningsFilter);
+  await warningsFilter.trigger('click');
+  assert.equal(wrapper.findAll('.log-experience-line').length, 1);
+  assert.match(
+    wrapper.find('.log-experience-flow').text(),
+    /warning From Yarn/,
+  );
 });
 
 test('repete a execução atual preservando o arquivo alvo', async () => {

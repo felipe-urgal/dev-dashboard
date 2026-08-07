@@ -1,415 +1,477 @@
-  <Card padded class="project-detail-card tests-dashboard">
-    <template #header>
-      <div class="project-panel-heading tests-panel-heading">
-        <h3>Execução atual</h3>
-        <p>Configure e execute seus testes de forma guiada.</p>
-      </div>
-    </template>
-    <template #actions>
-      <button
-        type="button"
-        class="secondary-button tests-button-with-icon"
-        :disabled="loadingOverview"
-        @click="loadOverview(true)"
-      >
-        <ArrowPathIcon aria-hidden="true" />
-        {{ loadingOverview ? 'Atualizando...' : 'Atualizar opções' }}
-      </button>
-    </template>
-
-    <div v-if="errorMessage" class="project-error" role="alert">
-      {{ errorMessage }}
+<Card padded class="project-detail-card tests-dashboard">
+  <template #header>
+    <div class="project-panel-heading tests-panel-heading">
+      <h3>Execução atual</h3>
+      <p>Configure e execute seus testes de forma guiada.</p>
     </div>
+  </template>
+  <template #actions>
+    <button
+      type="button"
+      class="secondary-button tests-button-with-icon"
+      :disabled="loadingOverview"
+      @click="loadOverview(true)"
+    >
+      <ArrowPathIcon aria-hidden="true" />
+      {{ loadingOverview ? 'Atualizando...' : 'Atualizar opções' }}
+    </button>
+  </template>
 
-    <div v-if="overview && !overview.supported" class="git-empty-state">
-      <strong>Nenhum runner de testes reconhecido para este projeto.</strong>
-      <p>
-        Verificamos scripts do package.json, binários em node_modules,
-        Gemfile e configurações de pytest. Nada foi identificado.
-      </p>
-    </div>
+  <div v-if="errorMessage" class="project-error" role="alert">
+    {{ errorMessage }}
+  </div>
 
-    <template v-else-if="overview">
-      <section class="tests-execution-flow" aria-labelledby="tests-execution-config-title">
-        <ol class="tests-execution-steps" aria-label="Etapas da execução">
-          <li :class="{ active: !selectionConfigured, complete: Boolean(selectedChoice) }">
+  <div v-if="overview && !overview.supported" class="git-empty-state">
+    <strong>Nenhum runner de testes reconhecido para este projeto.</strong>
+    <p>
+      Verificamos scripts do package.json, binários em node_modules, Gemfile e
+      configurações de pytest. Nada foi identificado.
+    </p>
+  </div>
+
+  <template v-else-if="overview">
+    <section
+      class="tests-execution-flow"
+      aria-labelledby="tests-execution-config-title"
+    >
+      <ol class="tests-execution-steps" aria-label="Etapas da execução">
+        <li
+          :class="{
+            active: !selectionConfigured,
+            complete: Boolean(selectedChoice),
+          }"
+        >
+          <span>1</span>
+          <div>
+            <strong>Tipo de execução</strong><small>Escolha como executar</small>
+          </div>
+        </li>
+        <li
+          :class="{
+            active: Boolean(selectedChoice) && !selectionConfigured,
+            complete: selectionConfigured,
+          }"
+        >
+          <span>2</span>
+          <div>
+            <strong>Configuração</strong><small>Forneça os detalhes</small>
+          </div>
+        </li>
+        <li
+          :class="{
+            active: selectionConfigured && !managedProcess,
+            complete: Boolean(managedProcess),
+          }"
+        >
+          <span>3</span>
+          <div>
+            <strong>Confirmar e executar</strong><small>Revise e inicie</small>
+          </div>
+        </li>
+        <li :class="{ active: Boolean(managedProcess) }">
+          <span>4</span>
+          <div>
+            <strong>Resultado</strong><small>Acompanhe o progresso</small>
+          </div>
+        </li>
+      </ol>
+
+      <div class="tests-execution-config-grid">
+        <section class="tests-config-card">
+          <div class="tests-config-card-heading">
             <span>1</span>
-            <div><strong>Tipo de execução</strong><small>Escolha como executar</small></div>
-          </li>
-          <li :class="{ active: Boolean(selectedChoice) && !selectionConfigured, complete: selectionConfigured }">
-            <span>2</span>
-            <div><strong>Configuração</strong><small>Forneça os detalhes</small></div>
-          </li>
-          <li :class="{ active: selectionConfigured && !managedProcess, complete: Boolean(managedProcess) }">
-            <span>3</span>
-            <div><strong>Confirmar e executar</strong><small>Revise e inicie</small></div>
-          </li>
-          <li :class="{ active: Boolean(managedProcess) }">
-            <span>4</span>
-            <div><strong>Resultado</strong><small>Acompanhe o progresso</small></div>
-          </li>
-        </ol>
-
-        <div class="tests-execution-config-grid">
-          <section class="tests-config-card">
-            <div class="tests-config-card-heading">
-              <span>1</span>
-              <div>
-                <h4 id="tests-execution-config-title">Como deseja executar?</h4>
-                <p>Selecione o runner e o escopo da execução.</p>
-              </div>
+            <div>
+              <h4 id="tests-execution-config-title">Como deseja executar?</h4>
+              <p>Selecione o runner e o escopo da execução.</p>
             </div>
-            <label class="tests-field">
-              <span>Tipo de execução</span>
-              <select
-                v-model="selectedExecutionKey"
-                class="tests-execution-select"
-                :disabled="isRunning || loadingOverview"
-                @change="handleExecutionChoiceChange"
+          </div>
+          <label class="tests-field">
+            <span>Tipo de execução</span>
+            <select
+              v-model="selectedExecutionKey"
+              class="tests-execution-select"
+              :disabled="isRunning || loadingOverview"
+              @change="handleExecutionChoiceChange"
+            >
+              <option value="" disabled>Selecione uma opção</option>
+              <option
+                v-for="choice in executionChoices"
+                :key="choice.key"
+                :value="choice.key"
               >
-                <option value="" disabled>Selecione uma opção</option>
+                {{ choice.label }} · {{ choice.description }}
+              </option>
+            </select>
+          </label>
+        </section>
+
+        <section class="tests-config-card">
+          <div class="tests-config-card-heading">
+            <span>2</span>
+            <div>
+              <h4>Configure os detalhes</h4>
+              <p>Informe o alvo quando necessário.</p>
+            </div>
+          </div>
+
+          <template v-if="selectedChoice?.scope === 'file'">
+            <p v-if="fileErrorMessage" class="project-error" role="alert">
+              {{ fileErrorMessage }}
+            </p>
+            <p
+              v-else-if="loadingFilesCommandId === selectedChoice.commandId"
+              class="tests-config-loading"
+            >
+              Carregando arquivos de teste…
+            </p>
+            <label v-else class="tests-field">
+              <span>Arquivo de teste</span>
+              <select
+                v-model="selectedFilePath"
+                class="tests-file-select"
+                :disabled="isRunning || testFiles.length === 0"
+              >
+                <option value="" disabled>
+                  {{
+                    testFiles.length
+                      ? 'Selecione um arquivo'
+                      : 'Nenhum arquivo encontrado'
+                  }}
+                </option>
                 <option
-                  v-for="choice in executionChoices"
-                  :key="choice.key"
-                  :value="choice.key"
+                  v-for="file in testFiles"
+                  :key="file.path"
+                  :value="file.path"
                 >
-                  {{ choice.label }} · {{ choice.description }}
+                  {{ file.path }}
                 </option>
               </select>
             </label>
-          </section>
 
-          <section class="tests-config-card">
-            <div class="tests-config-card-heading">
-              <span>2</span>
-              <div>
-                <h4>Configure os detalhes</h4>
-                <p>Informe o alvo quando necessário.</p>
-              </div>
-            </div>
-
-            <template v-if="selectedChoice?.scope === 'file'">
-              <p v-if="fileErrorMessage" class="project-error" role="alert">{{ fileErrorMessage }}</p>
-              <p v-else-if="loadingFilesCommandId === selectedChoice.commandId" class="tests-config-loading">
-                Carregando arquivos de teste…
-              </p>
-              <label v-else class="tests-field">
-                <span>Arquivo de teste</span>
-                <select
-                  v-model="selectedFilePath"
-                  class="tests-file-select"
-                  :disabled="isRunning || testFiles.length === 0"
-                >
-                  <option value="" disabled>
-                    {{ testFiles.length ? 'Selecione um arquivo' : 'Nenhum arquivo encontrado' }}
-                  </option>
-                  <option v-for="file in testFiles" :key="file.path" :value="file.path">
-                    {{ file.path }}
-                  </option>
-                </select>
-              </label>
-
-              <label v-if="supportsCaseTarget" class="tests-field">
-                <span>Linha do caso/exemplo (opcional)</span>
-                <input
-                  v-model="selectedCaseLine"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  placeholder="ex.: 42"
-                  class="tests-case-line-input"
-                  :disabled="isRunning"
-                  :aria-invalid="caseLineInvalid"
-                />
-                <small v-if="caseLineInvalid" class="project-error" role="alert">
-                  Informe um número de linha válido, ou deixe em branco para rodar o arquivo inteiro.
-                </small>
-                <small v-else>
-                  Roda só o exemplo/grupo daquela linha do arquivo (RSpec resolve sozinho).
-                </small>
-              </label>
-
-              <label v-if="supportsNamePatternTarget" class="tests-field">
-                <span>Padrão de nome do caso/describe (opcional)</span>
-                <input
-                  v-model="selectedNamePattern"
-                  type="text"
-                  maxlength="200"
-                  placeholder="ex.: soma valores"
-                  class="tests-name-pattern-input"
-                  :disabled="isRunning"
-                />
-                <small>
-                  Roda só os casos cujo nome combina com o padrão (-t/--test-name-pattern), deixe em branco para rodar o arquivo inteiro.
-                </small>
-              </label>
-            </template>
-
-            <template v-else-if="selectedChoice?.scope === 'related'">
-              <p v-if="relatedErrorMessage" class="project-error" role="alert">{{ relatedErrorMessage }}</p>
-              <p v-else-if="loadingRelatedCommandId === selectedChoice.commandId" class="tests-config-loading">
-                Identificando alterações e testes relacionados…
-              </p>
-              <div v-else-if="relatedTests" class="tests-config-summary tests-related-summary">
-                <DocumentTextIcon aria-hidden="true" />
-                <div>
-                  <strong>Alterações da branch</strong>
-                  <p class="tests-related-branches">
-                    {{ relatedTests.baseBranch }} → {{ relatedTests.currentBranch }}
-                  </p>
-                  <p>
-                    {{ relatedTests.changedFiles.length }}
-                    {{ relatedTests.changedFiles.length === 1 ? 'arquivo modificado' : 'arquivos modificados' }}
-                    ·
-                    {{ relatedTests.testFiles.length }}
-                    {{ relatedTests.testFiles.length === 1 ? 'teste relacionado' : 'testes relacionados' }}
-                  </p>
-                  <ul v-if="relatedTests.testFiles.length" class="tests-related-files">
-                    <li v-for="file in relatedTests.testFiles" :key="file.path">
-                      <code>{{ file.path }}</code>
-                    </li>
-                  </ul>
-                  <p v-else class="tests-related-empty">
-                    Nenhum teste relacionado foi identificado. A suíte completa não será executada automaticamente.
-                  </p>
-                </div>
-              </div>
-            </template>
-
-            <div v-else class="tests-config-summary">
-              <DocumentTextIcon aria-hidden="true" />
-              <div>
-                <strong>Suíte completa</strong>
-                <p>Todos os testes disponíveis para o runner selecionado serão executados.</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="tests-config-card tests-config-review">
-            <div class="tests-config-card-heading">
-              <span>3</span>
-              <div>
-                <h4>Revise e execute</h4>
-                <p>Confira o comando antes de iniciar.</p>
-              </div>
-            </div>
-            <div class="tests-command-preview">
-              <span>Comando que será executado</span>
-              <code>{{ executionPreview }}</code>
-            </div>
-            <div class="tests-config-actions">
-              <button
-                v-if="!isRunning && currentTarget"
-                type="button"
-                class="secondary-button tests-button-with-icon"
-                :disabled="startingCommandId !== null"
-                @click="handleRepeat(currentTarget)"
-              >
-                <ArrowPathIcon aria-hidden="true" />
-                Repetir execução
-              </button>
-              <button
-                v-if="isRunning"
-                type="button"
-                class="secondary-button tests-button-with-icon"
-                :disabled="stopping"
-                @click="handleStop"
-              >
-                <StopIcon aria-hidden="true" />
-                {{ stopping ? 'Interrompendo...' : 'Interromper' }}
-              </button>
-              <button
-                type="button"
-                class="primary-button tests-button-with-icon tests-execute-button"
-                :disabled="!canExecuteSelection"
-                @click="handleExecuteSelection"
-              >
-                <PlayIcon aria-hidden="true" />
-                {{ startingCommandId ? 'Iniciando...' : 'Executar agora' }}
-              </button>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="managedProcess" class="tests-result" aria-labelledby="tests-result-title">
-        <div class="tests-run-status" :class="`tests-run-status-${currentStatusTone}`">
-          <component :is="statusIconForTone(currentStatusTone)" aria-hidden="true" />
-          <div>
-            <span>{{ isRunning ? 'Execução em andamento' : 'Resultado da execução' }}</span>
-            <strong id="tests-result-title">{{ statusLabel }}</strong>
-            <code>{{ currentCommandText }}</code>
-          </div>
-          <span class="tests-status-badge" :class="`tests-status-badge-${currentStatusTone}`">
-            {{ isRunning ? duration : currentStatusTone === 'success' ? 'Sucesso' : currentStatusTone === 'danger' ? 'Falha' : statusLabel }}
-          </span>
-        </div>
-
-        <dl class="tests-run-metadata">
-          <div><dt>Tipo</dt><dd>{{ selectedChoice?.label ?? runSummary.runner }}</dd></div>
-          <div class="tests-run-command"><dt>Comando</dt><dd><code>{{ currentCommandText }}</code></dd></div>
-          <div><dt>Início</dt><dd>{{ formatTimestamp(managedProcess.startedAt) }}</dd></div>
-          <div><dt>Término</dt><dd>{{ formatTimestamp(managedProcess.stoppedAt) }}</dd></div>
-          <div><dt>Duração</dt><dd>{{ duration }}</dd></div>
-          <div><dt>Ambiente</dt><dd>{{ runSummary.runner }}</dd></div>
-        </dl>
-
-        <div class="tests-summary" aria-label="Resumo da execução">
-          <div>
-            <span>Exemplos</span>
-            <strong>{{ totalTests ?? '—' }}</strong>
-            <small>Executados</small>
-          </div>
-          <div>
-            <span>Sucessos</span>
-            <strong class="tests-summary-success">{{ runSummary.passed ?? '—' }}</strong>
-            <small>Testes aprovados</small>
-          </div>
-          <div>
-            <span>Falhas</span>
-            <strong class="tests-summary-danger">{{ runSummary.failed ?? '—' }}</strong>
-            <small>Testes reprovados</small>
-          </div>
-          <div>
-            <span>Duração dos testes</span>
-            <strong>{{ runSummary.duration }}</strong>
-            <small>Tempo informado pelo runner</small>
-          </div>
-          <div>
-            <span>Arquivo alvo</span>
-            <strong>{{ runSummary.targetFile }}</strong>
-            <small>
-              {{ currentTarget?.scope === 'related' ? 'Testes relacionados' : currentTarget?.targetFile ? 'Arquivo específico' : 'Suíte completa' }}
-            </small>
-          </div>
-        </div>
-
-        <ProjectTestFailureNavigator
-          v-if="currentRunner && cleanLogContent"
-          :project="project"
-          :runner="currentRunner"
-          :log-content="cleanLogContent"
-          :running="isRunning"
-          @repeat-file="handleRepeatFile"
-        />
-
-        <div class="tests-log-shell">
-          <div class="tests-log-header">
-            <div class="tests-log-tabs" role="tablist" aria-label="Filtros do log">
-              <button
-                type="button"
-                role="tab"
-                :aria-selected="activeLogTab === 'log'"
-                :class="{ active: activeLogTab === 'log' }"
-                @click="activeLogTab = 'log'"
-              >
-                Log
-              </button>
-              <button
-                type="button"
-                role="tab"
-                :aria-selected="activeLogTab === 'errors'"
-                :class="{ active: activeLogTab === 'errors' }"
-                @click="activeLogTab = 'errors'"
-              >
-                Erros ({{ errorLogLines.length }})
-              </button>
-              <button
-                type="button"
-                role="tab"
-                :aria-selected="activeLogTab === 'warnings'"
-                :class="{ active: activeLogTab === 'warnings' }"
-                @click="activeLogTab = 'warnings'"
-              >
-                Avisos ({{ warningLogLines.length }})
-              </button>
-              <button
-                type="button"
-                role="tab"
-                :aria-selected="activeLogTab === 'details'"
-                :class="{ active: activeLogTab === 'details' }"
-                @click="activeLogTab = 'details'"
-              >
-                Detalhes
-              </button>
-            </div>
-            <div class="tests-log-actions">
-              <span v-if="copyMessage" role="status">{{ copyMessage }}</span>
-              <button
-                type="button"
-                class="secondary-button tests-button-with-icon"
-                :disabled="!cleanLogContent"
-                @click="handleCopyLogs"
-              >
-                <ClipboardDocumentIcon aria-hidden="true" />
-                Copiar log
-              </button>
-              <button
-                type="button"
-                class="secondary-button tests-button-with-icon"
-                :disabled="!logSnapshot?.content.trim()"
-                @click="handleExportLog"
-              >
-                <ArrowDownTrayIcon aria-hidden="true" />
-                Exportar log
-              </button>
-              <button
-                type="button"
-                class="secondary-button tests-button-with-icon"
+            <label v-if="supportsCaseTarget" class="tests-field">
+              <span>Linha do caso/exemplo (opcional)</span>
+              <input
+                v-model="selectedCaseLine"
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                placeholder="ex.: 42"
+                class="tests-case-line-input"
                 :disabled="isRunning"
-                @click="handleClearLogs"
-              >
-                <TrashIcon aria-hidden="true" />
-                Limpar logs
-              </button>
-            </div>
-          </div>
+                :aria-invalid="caseLineInvalid"
+              />
+              <small v-if="caseLineInvalid" class="project-error" role="alert">
+                Informe um número de linha válido, ou deixe em branco para rodar
+                o arquivo inteiro.
+              </small>
+              <small v-else>
+                Roda só o exemplo/grupo daquela linha do arquivo (RSpec resolve
+                sozinho).
+              </small>
+            </label>
 
-          <div ref="logViewport" class="tests-log-output" role="log" aria-live="polite">
-            <div v-if="logTruncated" class="tests-log-truncated">
-              O início do log foi truncado para manter a leitura responsiva.
-            </div>
-            <ol v-if="visibleLogLines.length" class="tests-log-lines">
-              <li
-                v-for="line in visibleLogLines"
-                :key="`${activeLogTab}-${line.number}`"
-                :class="`tests-log-line-${line.tone}`"
-              >
-                <span aria-hidden="true">{{ line.number }}</span>
-                <code>{{ line.text || ' ' }}</code>
-              </li>
-            </ol>
-            <div v-else class="tests-log-empty-state">
+            <label v-if="supportsNamePatternTarget" class="tests-field">
+              <span>Padrão de nome do caso/describe (opcional)</span>
+              <input
+                v-model="selectedNamePattern"
+                type="text"
+                maxlength="200"
+                placeholder="ex.: soma valores"
+                class="tests-name-pattern-input"
+                :disabled="isRunning"
+              />
+              <small>
+                Roda só os casos cujo nome combina com o padrão
+                (-t/--test-name-pattern), deixe em branco para rodar o arquivo
+                inteiro.
+              </small>
+            </label>
+          </template>
+
+          <template v-else-if="selectedChoice?.scope === 'related'">
+            <p v-if="relatedErrorMessage" class="project-error" role="alert">
+              {{ relatedErrorMessage }}
+            </p>
+            <p
+              v-else-if="loadingRelatedCommandId === selectedChoice.commandId"
+              class="tests-config-loading"
+            >
+              Identificando alterações e testes relacionados…
+            </p>
+            <div
+              v-else-if="relatedTests"
+              class="tests-config-summary tests-related-summary"
+            >
               <DocumentTextIcon aria-hidden="true" />
-              <strong>{{ activeLogEmptyLabel }}</strong>
-              <p v-if="activeLogTab === 'log'">A saída aparecerá aqui durante a execução.</p>
+              <div>
+                <strong>Alterações da branch</strong>
+                <p class="tests-related-branches">
+                  {{ relatedTests.baseBranch }} → {{ relatedTests.currentBranch }}
+                </p>
+                <p>
+                  {{ relatedTests.changedFiles.length }}
+                  {{
+                    relatedTests.changedFiles.length === 1
+                      ? 'arquivo modificado'
+                      : 'arquivos modificados'
+                  }}
+                  · {{ relatedTests.testFiles.length }}
+                  {{
+                    relatedTests.testFiles.length === 1
+                      ? 'teste relacionado'
+                      : 'testes relacionados'
+                  }}
+                </p>
+                <ul
+                  v-if="relatedTests.testFiles.length"
+                  class="tests-related-files"
+                >
+                  <li
+                    v-for="file in relatedTests.testFiles"
+                    :key="file.path"
+                  >
+                    <code>{{ file.path }}</code>
+                  </li>
+                </ul>
+                <p v-else class="tests-related-empty">
+                  Nenhum teste relacionado foi identificado. A suíte completa
+                  não será executada automaticamente.
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <div v-else class="tests-config-summary">
+            <DocumentTextIcon aria-hidden="true" />
+            <div>
+              <strong>Suíte completa</strong>
+              <p>
+                Todos os testes disponíveis para o runner selecionado serão
+                executados.
+              </p>
             </div>
           </div>
+        </section>
 
-          <div class="tests-log-footer">
-            <span>Exibindo {{ visibleLogLines.length }} {{ visibleLogLines.length === 1 ? 'linha' : 'linhas' }}</span>
+        <section class="tests-config-card tests-config-review">
+          <div class="tests-config-card-heading">
+            <span>3</span>
+            <div>
+              <h4>Revise e execute</h4>
+              <p>Confira o comando antes de iniciar.</p>
+            </div>
+          </div>
+          <div class="tests-command-preview">
+            <span>Comando que será executado</span>
+            <code>{{ executionPreview }}</code>
+          </div>
+          <div class="tests-config-actions">
+            <button
+              v-if="!isRunning && currentTarget"
+              type="button"
+              class="secondary-button tests-button-with-icon"
+              :disabled="startingCommandId !== null"
+              @click="handleRepeat(currentTarget)"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+              Repetir execução
+            </button>
+            <button
+              v-if="isRunning"
+              type="button"
+              class="secondary-button tests-button-with-icon"
+              :disabled="stopping"
+              @click="handleStop"
+            >
+              <StopIcon aria-hidden="true" />
+              {{ stopping ? 'Interrompendo...' : 'Interromper' }}
+            </button>
             <button
               type="button"
-              class="tests-log-tail"
-              :disabled="visibleLogLines.length === 0"
-              @click="scrollLogToEnd"
+              class="primary-button tests-button-with-icon tests-execute-button"
+              :disabled="!canExecuteSelection"
+              @click="handleExecuteSelection"
             >
-              Ir para o final
-              <ArrowDownIcon aria-hidden="true" />
+              <PlayIcon aria-hidden="true" />
+              {{ startingCommandId ? 'Iniciando...' : 'Executar agora' }}
             </button>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
+    </section>
 
-      <section v-else class="tests-ready-state" aria-label="Execução ainda não iniciada">
-        <DocumentTextIcon aria-hidden="true" />
+    <section
+      v-if="managedProcess"
+      class="tests-result"
+      aria-labelledby="tests-result-title"
+    >
+      <div
+        class="tests-run-status"
+        :class="`tests-run-status-${currentStatusTone}`"
+      >
+        <component :is="statusIconForTone(currentStatusTone)" aria-hidden="true" />
         <div>
-          <strong>Configure a execução acima para começar.</strong>
-          <p>Escolha o tipo de execução, revise o comando e clique em “Executar agora”.</p>
+          <span>
+            {{ isRunning ? 'Execução em andamento' : 'Resultado da execução' }}
+          </span>
+          <strong id="tests-result-title">{{ statusLabel }}</strong>
+          <code>{{ currentCommandText }}</code>
         </div>
-      </section>
-    </template>
-  </Card>
+        <span
+          class="tests-status-badge"
+          :class="`tests-status-badge-${currentStatusTone}`"
+        >
+          {{
+            isRunning
+              ? duration
+              : currentStatusTone === 'success'
+                ? 'Sucesso'
+                : currentStatusTone === 'danger'
+                  ? 'Falha'
+                  : statusLabel
+          }}
+        </span>
+      </div>
 
-  <ProjectCoveragePanel :project-id="project.id" :project-type="project.type" />
+      <dl class="tests-run-metadata">
+        <div>
+          <dt>Tipo</dt>
+          <dd>{{ selectedChoice?.label ?? runSummary.runner }}</dd>
+        </div>
+        <div class="tests-run-command">
+          <dt>Comando</dt>
+          <dd><code>{{ currentCommandText }}</code></dd>
+        </div>
+        <div>
+          <dt>Início</dt>
+          <dd>{{ formatTimestamp(managedProcess.startedAt) }}</dd>
+        </div>
+        <div>
+          <dt>Término</dt>
+          <dd>{{ formatTimestamp(managedProcess.stoppedAt) }}</dd>
+        </div>
+        <div><dt>Duração</dt><dd>{{ duration }}</dd></div>
+        <div><dt>Ambiente</dt><dd>{{ runSummary.runner }}</dd></div>
+      </dl>
+
+      <div class="tests-summary" aria-label="Resumo da execução">
+        <div>
+          <span>Exemplos</span>
+          <strong>{{ totalTests ?? '—' }}</strong>
+          <small>Executados</small>
+        </div>
+        <div>
+          <span>Sucessos</span>
+          <strong class="tests-summary-success">
+            {{ runSummary.passed ?? '—' }}
+          </strong>
+          <small>Testes aprovados</small>
+        </div>
+        <div>
+          <span>Falhas</span>
+          <strong class="tests-summary-danger">
+            {{ runSummary.failed ?? '—' }}
+          </strong>
+          <small>Testes reprovados</small>
+        </div>
+        <div>
+          <span>Duração dos testes</span>
+          <strong>{{ runSummary.duration }}</strong>
+          <small>Tempo informado pelo runner</small>
+        </div>
+        <div>
+          <span>Arquivo alvo</span>
+          <strong>{{ runSummary.targetFile }}</strong>
+          <small>
+            {{
+              currentTarget?.scope === 'related'
+                ? 'Testes relacionados'
+                : currentTarget?.targetFile
+                  ? 'Arquivo específico'
+                  : 'Suíte completa'
+            }}
+          </small>
+        </div>
+      </div>
+
+      <section class="tests-log-experience-shell">
+        <header class="tests-log-experience-actions">
+          <div>
+            <strong>Saída da execução</strong>
+            <span v-if="logTruncated">
+              O início foi truncado para manter a leitura responsiva.
+            </span>
+          </div>
+          <div>
+            <span v-if="copyMessage" role="status">{{ copyMessage }}</span>
+            <button
+              type="button"
+              class="secondary-button tests-button-with-icon"
+              :disabled="!cleanLogContent"
+              @click="handleCopyLogs"
+            >
+              <ClipboardDocumentIcon aria-hidden="true" />
+              Copiar log
+            </button>
+            <button
+              type="button"
+              class="secondary-button tests-button-with-icon"
+              :disabled="!logSnapshot?.content.trim()"
+              @click="handleExportLog"
+            >
+              <ArrowDownTrayIcon aria-hidden="true" />
+              Exportar log
+            </button>
+            <button
+              type="button"
+              class="secondary-button tests-button-with-icon"
+              :disabled="isRunning"
+              @click="handleClearLogs"
+            >
+              <TrashIcon aria-hidden="true" />
+              Limpar logs
+            </button>
+          </div>
+        </header>
+
+        <ProjectLogExperience
+          :content="cleanLogContent"
+          source="test"
+          flow-label="Execução"
+          :running="isRunning"
+          :masked-count="logSnapshot?.redactionCount ?? 0"
+          empty-label="A saída aparecerá aqui durante a execução."
+        >
+          <template #diagnostic-extra>
+            <ProjectTestFailureNavigator
+              v-if="currentRunner && cleanLogContent"
+              :project="project"
+              :runner="currentRunner"
+              :log-content="cleanLogContent"
+              :running="isRunning"
+              @repeat-file="handleRepeatFile"
+            />
+          </template>
+        </ProjectLogExperience>
+      </section>
+    </section>
+
+    <section
+      v-else
+      class="tests-ready-state"
+      aria-label="Execução ainda não iniciada"
+    >
+      <DocumentTextIcon aria-hidden="true" />
+      <div>
+        <strong>Configure a execução acima para começar.</strong>
+        <p>
+          Escolha o tipo de execução, revise o comando e clique em “Executar
+          agora”.
+        </p>
+      </div>
+    </section>
+  </template>
+</Card>
+
+<ProjectCoveragePanel :project-id="project.id" :project-type="project.type" />

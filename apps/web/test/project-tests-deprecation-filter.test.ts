@@ -54,7 +54,7 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
-async function flushMicrotasks(iterations = 20): Promise<void> {
+async function flushMicrotasks(iterations = 100): Promise<void> {
   for (let index = 0; index < iterations; index += 1) await Promise.resolve();
 }
 
