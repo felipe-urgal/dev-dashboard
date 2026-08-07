@@ -95,6 +95,38 @@
   flex: 0 0 auto;
 }
 
+.project-details-hero-compact {
+  min-height: 0;
+  padding: 10px 18px;
+}
+
+.project-details-hero-compact .project-title-row h2 {
+  font-size: 18px;
+}
+
+.project-details-chrome-toggle {
+  appearance: none;
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.project-details-chrome-toggle:hover {
+  color: var(--text);
+  background: var(--surface-3, var(--surface-2));
+}
+
 .project-details-tabs {
   display: flex;
   min-width: 0;

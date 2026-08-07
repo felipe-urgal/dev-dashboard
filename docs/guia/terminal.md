@@ -18,16 +18,25 @@ Terminal e o Console quebram esse princípio de propósito — é literalmente u
 foi uma escolha explícita e consciente, não um descuido. Por isso existem salvaguardas que as
 outras abas não precisam:
 
-- Antes de cada sessão (mesmo reabrindo a mesma aba), o dashboard exige uma **confirmação
-  explícita**: pedir um token de curta duração (1 minuto, uso único) e só então abrir o WebSocket.
-  Reconectar depois de uma queda de conexão passa pelo mesmo fluxo — sessões não sobrevivem a uma
-  desconexão.
-- A tela mostra um aviso de risco antes do primeiro clique em "Iniciar sessão": os comandos digitados
-  rodam com as mesmas permissões do seu usuário no sistema operacional, sem qualquer filtro.
+- Ao entrar na aba Terminal ou Console, o dashboard já solicita sozinho o token de confirmação de
+  curta duração (1 minuto, uso único) e abre o WebSocket automaticamente — não é preciso clicar em
+  "Iniciar sessão" a cada vez. Isso só acontece uma vez por visita à aba: fechar a sessão
+  manualmente ("Encerrar sessão") não a reabre sozinha, é preciso clicar em "Abrir nova sessão".
+  Reconectar depois de uma queda de conexão passa pelo mesmo fluxo de token — sessões não
+  sobrevivem a uma desconexão.
+- A tela mostra um aviso de risco assim que a aba é aberta: os comandos digitados rodam com as
+  mesmas permissões do seu usuário no sistema operacional, sem qualquer filtro.
 - Existe um limite de sessões simultâneas (por projeto e no total da instância) para evitar que uma
   aba esquecida aberta, ou um script comportando-se mal, crie processos sem limite.
 - Fechar a aba, recarregar a página ou clicar em "Encerrar sessão" mata o processo do shell —
   não existe sessão "em segundo plano" sobrevivendo sem um navegador conectado a ela.
+
+## Cabeçalho compacto
+
+Nas abas Terminal e Console, um botão no canto do cabeçalho do projeto ("Ocultar abas e compactar
+cabeçalho") esconde a barra de abas e reduz o cabeçalho do projeto a uma única linha com o nome,
+dando mais espaço vertical para a janela do terminal. O botão continua visível para reverter
+("Mostrar abas e cabeçalho") a qualquer momento; a preferência não é salva entre visitas.
 
 ## O que não existe (ainda)
 

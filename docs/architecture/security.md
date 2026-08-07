@@ -327,11 +327,13 @@ destrutivas" abaixo, e esta seção documenta como cada item daquela lista é at
   confirmação dedicado (32 bytes aleatórios, válido por um minuto, vinculado ao projeto e ao `kind`
   — `shell` ou `rails-console` —, consumido na primeira tentativa), obtido por
   `POST /api/projects/:id/terminal/:kind/confirmations` e enviado como query string na conexão do
-  WebSocket. Reconectar depois de qualquer desconexão passa pelo mesmo fluxo — não existe token de
-  sessão de longa duração nem reconexão automática silenciosa.
-- **Descrição da ação / visualização do comando**: a interface mostra um aviso de risco antes do
-  primeiro clique em "Iniciar sessão", explicando que os comandos rodam com as permissões do
-  usuário do sistema operacional sem filtro algum.
+  WebSocket. A interface web solicita esse token e abre o WebSocket automaticamente assim que a aba
+  Terminal ou Console é aberta (uma vez por visita à aba — encerrar a sessão manualmente não a
+  reabre sozinha). Reconectar depois de qualquer desconexão passa pelo mesmo fluxo — não existe
+  token de sessão de longa duração nem reconexão automática silenciosa.
+- **Descrição da ação / visualização do comando**: a interface mostra um aviso de risco assim que a
+  aba é aberta, explicando que os comandos rodam com as permissões do usuário do sistema
+  operacional sem filtro algum.
 - **Trilha de auditoria**: cada conexão, o comando resolvido (`shell` ou `bin/rails
   console`/`bundle exec rails console`) e cada encerramento de sessão são registrados nos logs
   estruturados da API (`request.log`), no mesmo padrão usado para falhas do gateway de Language
