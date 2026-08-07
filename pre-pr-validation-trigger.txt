@@ -1,1 +1,2 @@
 Disparo temporário da validação pré-PR.
+Diagnóstico de falhas.
