@@ -32,6 +32,7 @@ import type {
   ScriptExecutionContext,
 } from './script-execution/state.js';
 import {
+  clearExecutionHistory,
   executionHistory,
   getExecution,
   latestExecution,
@@ -185,6 +186,11 @@ export class ScriptExecutionService {
   ): Promise<ScriptExecutionHistory> {
     await this.ready;
     return executionHistory(this.context, projectId, page, pageSize);
+  }
+
+  public async clearHistory(projectId: string): Promise<number> {
+    await this.ready;
+    return clearExecutionHistory(this.context, projectId);
   }
 
   public async log(
