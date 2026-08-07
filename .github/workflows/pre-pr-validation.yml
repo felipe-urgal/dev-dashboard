@@ -44,7 +44,10 @@ jobs:
       - id: format
         name: Format check
         continue-on-error: true
-        run: npm run format:check
+        run: |
+          set +e
+          npm run format:check 2>&1 | tee pre-pr-format.log
+          exit ${PIPESTATUS[0]}
 
       - id: build
         name: Build
@@ -54,12 +57,18 @@ jobs:
       - id: docs
         name: Verifica docs/architecture/api-reference.md
         continue-on-error: true
-        run: npm run docs:api:check
+        run: |
+          set +e
+          npm run docs:api:check 2>&1 | tee pre-pr-docs.log
+          exit ${PIPESTATUS[0]}
 
       - id: test
         name: Test
         continue-on-error: true
-        run: npm test
+        run: |
+          set +e
+          npm test 2>&1 | tee pre-pr-test.log
+          exit ${PIPESTATUS[0]}
 
       - id: playwright_install
         name: Install Playwright browsers
@@ -100,9 +109,11 @@ jobs:
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pre-pr-validation-result.md
-          git commit -m "chore(ci): registra validação pré-PR"
-          git push origin HEAD:feature/ajustes-ux-historicos-e-push
+          git add pre-pr-validation-result.md pre-pr-format.log pre-pr-docs.log pre-pr-test.log
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ci): registra diagnóstico pré-PR"
+            git push origin HEAD:feature/ajustes-ux-historicos-e-push
+          fi
 
       - name: Falha se alguma validação falhou
         if: always()
