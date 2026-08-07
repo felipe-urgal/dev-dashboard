@@ -6,3 +6,4 @@ Validação final completa.
 Rodada final pós-correções.
 Validação final serializada.
 Rodada definitiva.
+Rodada definitiva sem auto-cancelamento.
