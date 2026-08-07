@@ -150,6 +150,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     workspaceRepository: context.workspaceRepository,
     projectFavoriteRepository: context.projectFavoriteRepository,
     projectDisabledRepository: context.projectDisabledRepository,
+    projectDismissedRepository: context.projectDismissedRepository,
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
@@ -160,6 +161,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     projectFavoriteRepository: context.projectFavoriteRepository,
     projectDisabledRepository: context.projectDisabledRepository,
+    projectDismissedRepository: context.projectDismissedRepository,
     gitService: context.gitService,
   });
 
