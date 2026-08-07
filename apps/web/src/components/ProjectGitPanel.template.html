@@ -92,7 +92,7 @@
         :push-branch="pendingPushBranch"
         :force-push-branch="amendedBranch"
         @submit="runCommit"
-        @push="runPublishBranch(pendingPushBranch!)"
+        @push="runPublishBranch"
         @force-push="runForcePushWithLease"
       />
 
