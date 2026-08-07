@@ -31,9 +31,11 @@ const {
   lastScannedPath,
   selectedWorkspaceId,
   favoriteUpdatingIds,
+  enabledUpdatingIds,
   scanSelectedWorkspace,
   handleDeleteWorkspace,
   toggleProjectFavorite,
+  toggleProjectEnabled,
 } = dashboardStore;
 
 useAutoDismiss(errorMessage, '');
@@ -85,8 +87,8 @@ const hasActiveProjectFilters = computed(
 );
 
 const projectsWithServer = computed(() =>
-  sortedProjects.value.filter((project) =>
-    project.capabilities.includes('server'),
+  sortedProjects.value.filter(
+    (project) => project.capabilities.includes('server') && project.enabled,
   ),
 );
 
@@ -363,7 +365,9 @@ const {
           :project="project"
           :recent="visibleRecentProjectIds.has(project.id)"
           :favorite-updating="favoriteUpdatingIds.includes(project.id)"
+          :enabled-updating="enabledUpdatingIds.includes(project.id)"
           @toggle-favorite="toggleProjectFavorite"
+          @toggle-enabled="toggleProjectEnabled"
         />
       </ul>
     </Card>

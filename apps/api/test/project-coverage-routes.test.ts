@@ -62,6 +62,7 @@ test('GET /projects/:projectId/coverage', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['tests'],
   };
   appContext.projectStore.saveWorkspaceScan({
@@ -133,6 +134,7 @@ test('GET /projects/:projectId/coverage', async (context) => {
           source: 'workspace',
           workspaceId: 'w2',
           favorite: false,
+          enabled: true,
           capabilities: ['tests'],
         };
         appContext.projectStore.saveWorkspaceScan({
@@ -199,6 +201,7 @@ test('GET /projects/:projectId/coverage', async (context) => {
           source: 'workspace',
           workspaceId: 'w3',
           favorite: false,
+          enabled: true,
           capabilities: ['tests'],
         };
         appContext.projectStore.saveWorkspaceScan({

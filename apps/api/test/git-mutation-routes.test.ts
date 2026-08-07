@@ -59,6 +59,7 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

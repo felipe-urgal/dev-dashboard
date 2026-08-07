@@ -28,6 +28,7 @@ async function fixture(context: test.TestContext) {
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

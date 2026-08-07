@@ -38,6 +38,7 @@ test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar ac
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   appContext.projectStore.saveWorkspaceScan({

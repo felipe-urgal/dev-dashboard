@@ -16,6 +16,7 @@ export interface DashboardApi {
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
   updateProjectFavorite: typeof dashboardApi.updateProjectFavorite;
+  updateProjectEnabled: typeof dashboardApi.updateProjectEnabled;
   updateWorkspaceRecursiveScan: typeof dashboardApi.updateWorkspaceRecursiveScan;
 }
 
@@ -29,6 +30,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     fetchWorkspaces,
     scanWorkspace,
     updateProjectFavorite,
+    updateProjectEnabled,
     updateWorkspaceRecursiveScan,
   } = api;
 
@@ -48,6 +50,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const creatingWorkspace = ref(false);
   const deletingWorkspace = ref(false);
   const favoriteUpdatingIds = ref<string[]>([]);
+  const enabledUpdatingIds = ref<string[]>([]);
   const recursiveScanUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
@@ -144,6 +147,60 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
           : 'Não foi possível atualizar o favorito.';
     } finally {
       favoriteUpdatingIds.value = favoriteUpdatingIds.value.filter(
+        (projectId) => projectId !== project.id,
+      );
+    }
+  }
+
+  function replaceProjectEnabled(projectId: string, enabled: boolean): void {
+    projects.value = projects.value.map((item) =>
+      item.id === projectId ? { ...item, enabled } : item,
+    );
+
+    const indexedProject = projectIndex.value[projectId];
+
+    if (indexedProject) {
+      projectIndex.value = {
+        ...projectIndex.value,
+        [projectId]: {
+          ...indexedProject,
+          enabled,
+        },
+      };
+    }
+
+    projectsByWorkspace.value = Object.fromEntries(
+      Object.entries(projectsByWorkspace.value).map(
+        ([workspaceId, workspaceProjects]) => [
+          workspaceId,
+          workspaceProjects.map((item) =>
+            item.id === projectId ? { ...item, enabled } : item,
+          ),
+        ],
+      ),
+    );
+  }
+
+  async function toggleProjectEnabled(project: Project): Promise<void> {
+    if (enabledUpdatingIds.value.includes(project.id)) {
+      return;
+    }
+
+    const enabled = !project.enabled;
+    enabledUpdatingIds.value = [...enabledUpdatingIds.value, project.id];
+    replaceProjectEnabled(project.id, enabled);
+
+    try {
+      const updatedProject = await updateProjectEnabled(project.id, enabled);
+      replaceProjectEnabled(updatedProject.id, updatedProject.enabled);
+    } catch (error) {
+      replaceProjectEnabled(project.id, project.enabled);
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível atualizar a ativação do projeto.';
+    } finally {
+      enabledUpdatingIds.value = enabledUpdatingIds.value.filter(
         (projectId) => projectId !== project.id,
       );
     }
@@ -531,6 +588,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
 
   return {
     projects,
+    projectIndex,
     projectsByWorkspace,
     workspaces,
     selectedWorkspaceId,
@@ -543,6 +601,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     creatingWorkspace,
     deletingWorkspace,
     favoriteUpdatingIds,
+    enabledUpdatingIds,
     recursiveScanUpdatingIds,
     errorMessage,
     successMessage,
@@ -558,6 +617,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     handleCreateWorkspace,
     handleDeleteWorkspace,
     toggleProjectFavorite,
+    toggleProjectEnabled,
     toggleWorkspaceRecursiveScan,
   };
 }

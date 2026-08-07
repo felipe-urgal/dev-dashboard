@@ -147,6 +147,7 @@ end
     type: 'rails',
     source: 'standalone',
     favorite: false,
+    enabled: true,
     capabilities: ['scripts'],
   } as Project;
   const service = new ScriptExecutionService(

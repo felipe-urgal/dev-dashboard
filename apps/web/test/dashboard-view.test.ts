@@ -11,6 +11,7 @@ const actions = vi.hoisted(() => ({
   iniciarProcesso: vi.fn(),
   pararProcesso: vi.fn(),
   favoritar: vi.fn(),
+  desativar: vi.fn(),
 }));
 
 vi.mock('../src/api', () => ({
@@ -34,6 +35,7 @@ vi.mock('../src/stores/dashboard', async () => {
       scanningWorkspace: ref(false),
       deletingWorkspace: ref(false),
       favoriteUpdatingIds: ref<string[]>([]),
+      enabledUpdatingIds: ref<string[]>([]),
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
@@ -51,6 +53,7 @@ vi.mock('../src/stores/dashboard', async () => {
       scanSelectedWorkspace: actions.escanear,
       handleDeleteWorkspace: actions.remover,
       toggleProjectFavorite: actions.favoritar,
+      toggleProjectEnabled: actions.desativar,
     },
   };
 });
@@ -66,6 +69,7 @@ const project: Project = {
   type: 'node',
   source: 'workspace',
   favorite: true,
+  enabled: true,
   capabilities: ['git'],
 };
 

@@ -19,6 +19,7 @@ async function fixture(scripts: Record<string, string>): Promise<Project> {
     type: 'node',
     source: 'standalone',
     favorite: false,
+    enabled: true,
     capabilities: ['scripts'],
   };
 }

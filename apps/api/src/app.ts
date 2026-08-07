@@ -149,6 +149,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     workspaceRepository: context.workspaceRepository,
     projectFavoriteRepository: context.projectFavoriteRepository,
+    projectDisabledRepository: context.projectDisabledRepository,
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
@@ -158,6 +159,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     projectFavoriteRepository: context.projectFavoriteRepository,
+    projectDisabledRepository: context.projectDisabledRepository,
     gitService: context.gitService,
   });
 

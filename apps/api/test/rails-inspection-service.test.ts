@@ -27,6 +27,7 @@ async function fixture(
     type,
     source: 'standalone',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
 }

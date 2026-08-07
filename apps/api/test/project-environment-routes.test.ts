@@ -60,6 +60,7 @@ test('lista variáveis de .env e revela valores sensíveis somente sob demanda',
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

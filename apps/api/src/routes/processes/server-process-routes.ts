@@ -17,6 +17,7 @@ import {
   processEnvelopeResponseSchema,
   processManagerApiError,
   projectParamsSchema,
+  requireEnabledProject,
   requireProject,
   serverSettingsApiError,
   type ProcessLogQuery,
@@ -184,7 +185,10 @@ export function registerServerProcessRoutes(
       },
     },
     async (request, reply) => {
-      const project = requireProject(projectStore, request.params.projectId);
+      const project = requireEnabledProject(
+        projectStore,
+        request.params.projectId,
+      );
 
       try {
         let settings = await serverSettingsRepository.find(project.id);

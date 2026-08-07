@@ -22,6 +22,11 @@ export {
 } from './project-favorite-repository.js';
 
 export {
+  ProjectDisabledRepository,
+  ProjectDisabledRepositoryError,
+} from './project-disabled-repository.js';
+
+export {
   ProjectRecentRepository,
   PROJECT_RECENT_LIMITS,
 } from './project-recent-repository.js';

@@ -73,6 +73,13 @@ export class ProjectStore {
     }));
   }
 
+  public setEnabled(projectId: string, enabled: boolean): Project | null {
+    return this.updateProject(projectId, (project) => ({
+      ...project,
+      enabled,
+    }));
+  }
+
   public async recordAccess(projectId: string): Promise<Project | null> {
     const project = this.findProject(projectId);
     if (!project?.workspaceId) return null;

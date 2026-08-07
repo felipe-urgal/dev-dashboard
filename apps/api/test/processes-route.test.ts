@@ -33,6 +33,7 @@ test('GET /api/processes lists managed server and test processes for known proje
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   const otherProject: Project = {
@@ -43,6 +44,7 @@ test('GET /api/processes lists managed server and test processes for known proje
     source: 'workspace',
     workspaceId: 'w2',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   context_.projectStore.saveWorkspaceScan({

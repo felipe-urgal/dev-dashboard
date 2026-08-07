@@ -293,6 +293,24 @@ A configuração é limitada, validada e persistida atomicamente em
 `0600`. A rota de alteração usa autenticação local e schema fechado; ela não
 aceita caminhos nem conteúdo livre para gravação.
 
+### Desativação de projetos
+
+Um projeto pode ser desativado a partir da lista de "Projetos detectados" (mesmo padrão de
+preferência local usado pelos favoritos, incluindo o toggle na UI). A lista de identificadores
+desativados é persistida atomicamente em `project-disabled.json`, dentro do diretório de
+configuração `0700`, com modo `0600`, e mesclada em `Project.enabled` a cada scan de workspace
+(`PUT /api/projects/:projectId/enabled`, mesmo formato de rota, autenticação e schema fechado da
+rota de favoritos).
+
+Com o projeto desativado, `POST /api/projects/:projectId/process/start` responde
+`409 PROJECT_DISABLED` — o servidor gerenciado desse projeto não pode ser iniciado enquanto ele
+estiver desativado. Um servidor já em execução continua podendo ser parado normalmente (a
+desativação não deve impedir encerrar um processo em execução). No frontend, a página de detalhes
+do projeto (`ProjectDetailsView`) mostra um aviso de "Projeto desativado" no lugar das abas e
+painéis de ação (servidor, git, testes, terminal etc.) enquanto o projeto estiver desativado, e a
+lista de projetos oculta esse projeto das ações em lote de "Iniciar/Parar servidores". Reativar o
+projeto (mesma rota, `enabled: true`) restaura o acesso normal.
+
 ### Terminal e console do projeto
 
 As abas Terminal (qualquer projeto) e Console (só Rails) são a **única exceção deliberada** ao

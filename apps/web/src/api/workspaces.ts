@@ -87,6 +87,24 @@ export async function updateProjectFavorite(
   return response.project;
 }
 
+export async function updateProjectEnabled(
+  projectId: string,
+  enabled: boolean,
+): Promise<Project> {
+  const response = await requestJson<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/enabled`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ enabled }),
+    },
+  );
+
+  return response.project;
+}
+
 export async function fetchWorkspaces(): Promise<Workspace[]> {
   const response = await requestJson<WorkspacesResponse>('/api/workspaces');
 

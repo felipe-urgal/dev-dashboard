@@ -73,6 +73,7 @@ test('histórico de mutações Git: desfazer (undo-commit/undo-file)', async (co
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

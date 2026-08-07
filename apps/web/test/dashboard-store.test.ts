@@ -33,6 +33,7 @@ const project: Project = {
   type: 'node',
   source: 'workspace',
   favorite: false,
+  enabled: true,
   capabilities: ['server'],
 };
 
@@ -62,6 +63,10 @@ function createApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
     updateProjectFavorite: async (_projectId, favorite) => ({
       ...project,
       favorite,
+    }),
+    updateProjectEnabled: async (_projectId, enabled) => ({
+      ...project,
+      enabled,
     }),
     updateWorkspaceRecursiveScan: async (workspaceId, recursiveScan) => ({
       ...workspace,
@@ -140,6 +145,7 @@ test('dashboard store ordena favoritos primeiro e persiste a alteração', async
     id: 'project-2',
     name: 'Alpha',
     favorite: true,
+    enabled: true,
   };
   const store = createDashboardStore(
     createApi({

@@ -82,6 +82,7 @@ test('histórico de mutações Git: publicar branch local (branch-publish)', asy
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

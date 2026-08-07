@@ -25,6 +25,7 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['scripts'],
     ...overrides,
   };

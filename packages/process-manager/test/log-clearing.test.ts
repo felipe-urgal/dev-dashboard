@@ -34,6 +34,7 @@ async function createFixture(): Promise<Fixture> {
       type: 'node',
       source: 'workspace',
       favorite: false,
+      enabled: true,
       capabilities: ['server'],
     },
     manager: new ProcessManager(path.join(root, 'state')),

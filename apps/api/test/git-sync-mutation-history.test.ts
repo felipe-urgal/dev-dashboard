@@ -89,6 +89,7 @@ test('histórico de mutações Git: sincronização (sync-integrate/sync-main)',
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

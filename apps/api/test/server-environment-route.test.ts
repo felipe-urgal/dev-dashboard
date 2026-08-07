@@ -52,6 +52,7 @@ test('configura e aplica o ambiente Node escolhido ao iniciar', async (context) 
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   appContext.projectStore.saveWorkspaceScan({

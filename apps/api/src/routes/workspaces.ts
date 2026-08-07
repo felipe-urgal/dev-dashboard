@@ -3,6 +3,7 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 import path from 'node:path';
 
 import {
+  type ProjectDisabledRepository,
   type ProjectFavoriteRepository,
   WorkspaceRepositoryError,
   type WorkspaceRepository,
@@ -28,6 +29,7 @@ import {
 interface WorkspaceRouteOptions extends FastifyPluginOptions {
   workspaceRepository: WorkspaceRepository;
   projectFavoriteRepository: ProjectFavoriteRepository;
+  projectDisabledRepository: ProjectDisabledRepository;
   processManager: ProcessManager;
   projectStore: ProjectStore;
   testDetectionService: TestDetectionService;
@@ -92,6 +94,7 @@ export const workspaceRoutes: FastifyPluginAsync<
   const {
     workspaceRepository,
     projectFavoriteRepository,
+    projectDisabledRepository,
     processManager,
     projectStore,
     testDetectionService,
@@ -321,11 +324,13 @@ export const workspaceRoutes: FastifyPluginAsync<
         });
 
         const favoriteProjectIds = projectFavoriteRepository.list();
+        const disabledProjectIds = projectDisabledRepository.list();
         const resultWithFavorites = {
           ...result,
           projects: result.projects.map((project) => ({
             ...project,
             favorite: favoriteProjectIds.has(project.id),
+            enabled: !disabledProjectIds.has(project.id),
           })),
         };
 

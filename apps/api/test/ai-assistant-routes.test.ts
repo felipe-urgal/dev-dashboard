@@ -36,6 +36,7 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

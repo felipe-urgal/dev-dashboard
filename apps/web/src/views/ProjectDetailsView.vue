@@ -29,6 +29,9 @@ import { projectTypeLabels } from '../utils/project-labels';
 
 const route = useRoute();
 
+const { toggleProjectEnabled, enabledUpdatingIds, projectIndex } =
+  dashboardStore;
+
 const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
@@ -125,6 +128,24 @@ watch(
     immediate: true,
   },
 );
+
+const isEnabledUpdating = computed(() =>
+  project.value ? enabledUpdatingIds.value.includes(project.value.id) : false,
+);
+
+async function handleToggleEnabled(): Promise<void> {
+  if (!project.value) return;
+
+  const requestedProjectId = project.value.id;
+  await toggleProjectEnabled(project.value);
+
+  if (project.value?.id !== requestedProjectId) return;
+
+  const updated = projectIndex.value[requestedProjectId];
+  if (updated) {
+    project.value = updated;
+  }
+}
 </script>
 
 <template>
@@ -186,15 +207,49 @@ watch(
         </div>
 
         <div class="project-details-actions">
-          <ProjectEditorLauncher :project-id="project.id" />
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="isEnabledUpdating"
+            @click="handleToggleEnabled"
+          >
+            {{
+              project.enabled
+                ? isEnabledUpdating
+                  ? 'Desativando...'
+                  : 'Desativar projeto'
+                : isEnabledUpdating
+                  ? 'Reativando...'
+                  : 'Reativar projeto'
+            }}
+          </button>
+          <ProjectEditorLauncher v-if="project.enabled" :project-id="project.id" />
           <ProjectPullRequestSummary
-            v-if="gitOverview"
+            v-if="project.enabled && gitOverview"
             :project-id="project.id"
             :overview="gitOverview"
           />
         </div>
       </header>
 
+      <div v-if="!project.enabled" class="empty-state page-empty-state">
+        <div class="empty-icon">⏻</div>
+        <h3>Projeto desativado</h3>
+        <p>
+          Reative o projeto para acessar servidor, logs, git, testes e as
+          demais ações.
+        </p>
+        <button
+          class="primary-button"
+          type="button"
+          :disabled="isEnabledUpdating"
+          @click="handleToggleEnabled"
+        >
+          {{ isEnabledUpdating ? 'Reativando...' : 'Reativar projeto' }}
+        </button>
+      </div>
+
+      <template v-else>
       <nav class="project-details-tabs" aria-label="Áreas do projeto">
         <RouterLink
           class="project-details-tab"
@@ -415,6 +470,7 @@ watch(
         :key="`environment-${project.id}`"
         :project="project"
       />
+      </template>
     </template>
   </section>
 </template>

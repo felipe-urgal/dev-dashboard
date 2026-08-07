@@ -33,6 +33,7 @@ const project: Project = {
   type: 'node',
   source: 'workspace',
   favorite: false,
+  enabled: true,
   capabilities: ['git', 'server'],
 };
 
@@ -88,6 +89,7 @@ describe('ProjectCard', () => {
       project: {
         ...project,
         favorite: true,
+        enabled: true,
       },
     });
     expect(button.attributes('aria-label')).toBe(

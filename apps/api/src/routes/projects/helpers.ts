@@ -1,5 +1,8 @@
 import type { FastifyPluginOptions } from 'fastify';
-import type { ProjectFavoriteRepository } from '@dev-dashboard/core';
+import type {
+  ProjectDisabledRepository,
+  ProjectFavoriteRepository,
+} from '@dev-dashboard/core';
 
 import type { GitDiffError, GitService } from '../../services/git-service.js';
 import type { ProjectStore } from '../../store/project-store.js';
@@ -11,6 +14,7 @@ export interface ProjectParams {
 export interface ProjectRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   projectFavoriteRepository: ProjectFavoriteRepository;
+  projectDisabledRepository: ProjectDisabledRepository;
   gitService: GitService;
 }
 

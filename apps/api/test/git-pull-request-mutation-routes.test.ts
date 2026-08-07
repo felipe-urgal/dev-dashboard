@@ -131,6 +131,7 @@ test('ações mutáveis de Pull Request via gh (criar, editar, fechar, mesclar)'
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

@@ -21,6 +21,7 @@ export const projectResponseSchema = {
     'type',
     'source',
     'favorite',
+    'enabled',
     'capabilities',
   ],
   properties: {
@@ -38,6 +39,7 @@ export const projectResponseSchema = {
     workspaceId: { type: 'string' },
     port: { type: 'integer' },
     favorite: { type: 'boolean' },
+    enabled: { type: 'boolean' },
     lastAccessedAt: { type: 'string' },
     capabilities: {
       type: 'array',
