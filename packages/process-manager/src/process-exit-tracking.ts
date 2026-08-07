@@ -15,6 +15,27 @@ export interface ObservedExit {
   exitCode?: number | null;
 }
 
+/**
+ * `observeChild`/`recordChildExit` só limpam a entrada de um projeto+kind
+ * quando o evento `exit`/`error` do processo filho realmente dispara. Se
+ * isso nunca acontecer (caso raro, mas possível — ex. um handle que nunca
+ * emite os eventos), a entrada ficaria presa nos mapas indefinidamente.
+ * Este teto é bem maior que qualquer timeout real de start/stop usado no
+ * dashboard — serve só de expurgo defensivo, não de comportamento normal.
+ */
+const STALE_ENTRY_TTL_MS = 10 * 60 * 1_000;
+
+interface ExitWaiterEntry {
+  pid: number;
+  promise: Promise<ObservedExit>;
+  createdAt: number;
+}
+
+interface ObservedExitEntry {
+  observation: ObservedExit;
+  createdAt: number;
+}
+
 export async function waitForProcessExit(
   pid: number,
   timeoutMs: number,
@@ -55,15 +76,23 @@ export interface ExitTracker {
   clearObservedExit(projectId: string, kind: ManagedKind, pid: number): void;
 }
 
-export function createExitTracker(context: ProcessStoreContext): ExitTracker {
-  const observedExits = new Map<string, ObservedExit>();
-  const exitWaiters = new Map<
-    string,
-    {
-      pid: number;
-      promise: Promise<ObservedExit>;
+export function createExitTracker(
+  context: ProcessStoreContext,
+  now: () => number = Date.now,
+): ExitTracker {
+  const observedExits = new Map<string, ObservedExitEntry>();
+  const exitWaiters = new Map<string, ExitWaiterEntry>();
+
+  function sweepStaleEntries(): void {
+    const cutoff = now() - STALE_ENTRY_TTL_MS;
+
+    for (const [key, entry] of observedExits) {
+      if (entry.createdAt < cutoff) observedExits.delete(key);
     }
-  >();
+    for (const [key, entry] of exitWaiters) {
+      if (entry.createdAt < cutoff) exitWaiters.delete(key);
+    }
+  }
 
   function clearObservedExit(
     projectId: string,
@@ -71,7 +100,7 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     pid: number,
   ): void {
     const key = `${projectId}:${kind}`;
-    if (observedExits.get(key)?.pid === pid) {
+    if (observedExits.get(key)?.observation.pid === pid) {
       observedExits.delete(key);
     }
 
@@ -130,6 +159,8 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     child: ReturnType<typeof spawn>,
     managedProcess: StoredProcess,
   ): void {
+    sweepStaleEntries();
+
     let recorded = false;
     let resolveExit!: (observation: ObservedExit) => void;
 
@@ -144,6 +175,7 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     exitWaiters.set(key, {
       pid,
       promise: exitPromise,
+      createdAt: now(),
     });
 
     const record = (exitCode?: number | null): void => {
@@ -158,7 +190,7 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
         ...(exitCode !== undefined ? { exitCode } : {}),
       };
 
-      observedExits.set(key, observation);
+      observedExits.set(key, { observation, createdAt: now() });
       resolveExit(observation);
 
       void recordChildExit(
@@ -186,8 +218,8 @@ export function createExitTracker(context: ProcessStoreContext): ExitTracker {
     const key = `${projectId}:${kind}`;
     const existing = observedExits.get(key);
 
-    if (existing?.pid === pid) {
-      return existing;
+    if (existing?.observation.pid === pid) {
+      return existing.observation;
     }
 
     const waiter = exitWaiters.get(key);
