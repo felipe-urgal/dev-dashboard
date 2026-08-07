@@ -15,6 +15,7 @@ import ProjectEmbeddedEditor from '../components/ProjectEmbeddedEditor.vue';
 import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
+import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
 import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
 import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
@@ -223,10 +224,10 @@ async function handleToggleEnabled(): Promise<void> {
                   : 'Reativar projeto'
             }}
           </button>
-          <ProjectEditorLauncher
-            v-if="project.enabled"
-            :project-id="project.id"
-          />
+          <div v-if="project.enabled" class="project-details-actions-row">
+            <ProjectProcessesMenu :project="project" />
+            <ProjectEditorLauncher :project-id="project.id" />
+          </div>
           <ProjectPullRequestSummary
             v-if="project.enabled && gitOverview"
             :project-id="project.id"
