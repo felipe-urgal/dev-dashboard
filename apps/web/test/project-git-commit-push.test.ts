@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mount } from '@vue/test-utils';
-import test from 'vitest';
+import { test } from 'vitest';
 
 import type { ProjectGitOverview } from '@dev-dashboard/contracts';
 
