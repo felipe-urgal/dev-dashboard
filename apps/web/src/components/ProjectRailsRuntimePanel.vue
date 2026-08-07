@@ -60,7 +60,11 @@ function formatDate(value?: string): string {
 
 <template>
   <div class="rails-runtime-panel">
-    <nav class="rails-runtime-tabs" role="tablist" aria-label="Processos Rails">
+    <nav
+      class="rails-runtime-tabs"
+      role="tablist"
+      aria-label="Processos Rails"
+    >
       <button
         v-for="worker in railsWorkers"
         :id="`rails-worker-tab-${worker.id}`"
@@ -73,7 +77,11 @@ function formatDate(value?: string): string {
         :aria-controls="`rails-worker-panel-${worker.id}`"
         @click="activeWorkerId = worker.id"
       >
-        <span class="rails-worker-tab-dot" :class="`is-${worker.id}`" aria-hidden="true"></span>
+        <span
+          class="rails-worker-tab-dot"
+          :class="`is-${worker.id}`"
+          aria-hidden="true"
+        ></span>
         <span>{{ worker.id === 'sidekiq' ? 'Sidekiq' : 'Webpack' }}</span>
       </button>
     </nav>
@@ -113,7 +121,8 @@ function formatDate(value?: string): string {
           v-if="worker.state.loading.value && !worker.state.detected.value"
           class="rails-worker-empty"
         >
-          Verificando se {{ workerLabels[worker.id] }} está disponível no projeto…
+          Verificando se {{ workerLabels[worker.id] }} está disponível no
+          projeto…
         </p>
 
         <div
@@ -128,25 +137,44 @@ function formatDate(value?: string): string {
         </div>
 
         <template v-else>
-          <section class="rails-worker-overview" aria-label="Estado do processo">
-            <dl>
-              <div>
-                <dt>Status</dt>
-                <dd>{{ worker.state.statusLabel.value }}</dd>
-              </div>
-              <div>
-                <dt>PID</dt>
-                <dd>{{ worker.state.managedProcess.value?.pid ?? '—' }}</dd>
-              </div>
-              <div>
-                <dt>Iniciado em</dt>
-                <dd>{{ formatDate(worker.state.managedProcess.value?.startedAt) }}</dd>
-              </div>
-              <div class="rails-worker-command">
-                <dt>Comando</dt>
-                <dd><code>{{ worker.state.managedProcess.value?.command ?? 'Ainda não iniciado pelo dashboard' }}</code></dd>
-              </div>
-            </dl>
+          <section
+            class="rails-worker-overview"
+            aria-label="Estado do processo"
+          >
+            <div class="rails-worker-overview-main">
+              <strong class="rails-worker-status-copy">
+                {{
+                  worker.state.canStop.value
+                    ? 'Processo ativo e respondendo.'
+                    : 'Processo parado.'
+                }}
+              </strong>
+              <dl>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{{ worker.state.statusLabel.value }}</dd>
+                </div>
+                <div>
+                  <dt>PID</dt>
+                  <dd>{{ worker.state.managedProcess.value?.pid ?? '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Iniciado em</dt>
+                  <dd>
+                    {{ formatDate(worker.state.managedProcess.value?.startedAt) }}
+                  </dd>
+                </div>
+                <div class="rails-worker-command">
+                  <dt>Comando</dt>
+                  <dd>
+                    <code>{{
+                      worker.state.managedProcess.value?.command ??
+                      'Ainda não iniciado pelo dashboard'
+                    }}</code>
+                  </dd>
+                </div>
+              </dl>
+            </div>
 
             <div class="rails-worker-actions">
               <button
@@ -184,7 +212,9 @@ function formatDate(value?: string): string {
                 class="rails-text-button rails-worker-log-toggle"
                 @click="worker.state.toggleLogs()"
               >
-                {{ worker.state.logsVisible.value ? 'Ocultar logs' : 'Ver logs' }}
+                {{
+                  worker.state.logsVisible.value ? 'Ocultar logs' : 'Ver logs'
+                }}
               </button>
             </div>
           </section>
@@ -198,14 +228,26 @@ function formatDate(value?: string): string {
               <div>
                 <h4>Logs do {{ workerLabels[worker.id] }}</h4>
                 <p>
-                  {{ worker.id === 'sidekiq' ? 'Fluxo de jobs e diagnóstico automático de falhas.' : 'Fluxo de compilação e diagnóstico automático do build.' }}
+                  {{
+                    worker.id === 'sidekiq'
+                      ? 'Fluxo de jobs e diagnóstico automático de falhas.'
+                      : 'Fluxo de compilação e diagnóstico automático do build.'
+                  }}
                 </p>
               </div>
               <div class="rails-worker-logs-toolbar">
-                <button type="button" class="rails-text-button" @click="worker.state.refreshLog()">
+                <button
+                  type="button"
+                  class="rails-text-button"
+                  @click="worker.state.refreshLog()"
+                >
                   Atualizar
                 </button>
-                <button type="button" class="rails-text-button" @click="worker.state.clearLog()">
+                <button
+                  type="button"
+                  class="rails-text-button"
+                  @click="worker.state.clearLog()"
+                >
                   Limpar
                 </button>
               </div>
@@ -217,7 +259,9 @@ function formatDate(value?: string): string {
                 :source="worker.id === 'sidekiq' ? 'sidekiq' : 'webpack'"
                 :running="worker.state.canStop.value"
                 :masked-count="worker.state.log.value?.redactionCount ?? 0"
-                :empty-label="worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.'"
+                :empty-label="
+                  worker.state.logLoading.value ? 'Carregando…' : 'Sem conteúdo.'
+                "
               />
             </div>
           </section>
@@ -287,6 +331,7 @@ function formatDate(value?: string): string {
 .rails-worker-panel,
 .rails-worker-card,
 .rails-worker-heading,
+.rails-worker-overview-main,
 .rails-worker-command,
 .rails-worker-log-content {
   min-width: 0;
@@ -348,10 +393,20 @@ function formatDate(value?: string): string {
   background: var(--surface-2);
 }
 
+.rails-worker-overview-main {
+  display: grid;
+  flex: 1;
+  gap: 9px;
+}
+
+.rails-worker-status-copy {
+  color: var(--text);
+  font-size: var(--font-xs);
+}
+
 .rails-worker-overview dl {
   display: grid;
   min-width: 0;
-  flex: 1;
   grid-template-columns: 100px 100px 190px minmax(220px, 1fr);
   gap: 12px;
   margin: 0;
