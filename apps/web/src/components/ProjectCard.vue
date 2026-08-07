@@ -228,4 +228,22 @@ const recentAccessTitle = computed(() => {
 .project-remove-button {
   left: 82px;
 }
+
+@media (max-width: 480px) {
+  .project-favorite-button {
+    left: 8px;
+  }
+
+  .project-disable-button {
+    left: 38px;
+  }
+
+  .project-remove-button {
+    left: 68px;
+  }
+
+  .project-row-link {
+    padding-left: 104px;
+  }
+}
 </style>
