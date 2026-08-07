@@ -97,25 +97,21 @@ test('expurga um observador travado (exit/error nunca disparou) depois do TTL de
   // dispara os eventos, deixando a entrada presa sem o expurgo defensivo.
 
   const shortTimeoutMs = 300;
-  const pendingBeforeSweep = tracker.waitForObservedExit(
+  const timerToleranceMs = 25;
+  const before = Date.now();
+  const beforeSweep = await tracker.waitForObservedExit(
     'project-stuck',
     'server',
     4_001,
     shortTimeoutMs,
   );
-  const stateBeforeSweep = await Promise.race([
-    pendingBeforeSweep.then(() => 'resolved' as const),
-    new Promise<'pending'>((resolve) => {
-      setTimeout(() => resolve('pending'), 50);
-    }),
-  ]);
+  const elapsedBeforeSweep = Date.now() - before;
 
-  assert.equal(
-    stateBeforeSweep,
-    'pending',
-    'sem o expurgo, a entrada travada deve continuar aguardando antes do timeout',
+  assert.equal(beforeSweep, undefined);
+  assert.ok(
+    elapsedBeforeSweep >= shortTimeoutMs - timerToleranceMs,
+    'sem o expurgo, esperava que a entrada travada segurasse aproximadamente até o timeout',
   );
-  assert.equal(await pendingBeforeSweep, undefined);
 
   // Avança o relógio além do TTL defensivo (10 minutos) e dispara o expurgo
   // via um novo observeChild — o expurgo roda a cada novo processo iniciado.
@@ -125,18 +121,18 @@ test('expurga um observador travado (exit/error nunca disparou) depois do TTL de
     fakeStoredProcess('project-other', 'server', 4_002),
   );
 
-  const stateAfterSweep = await Promise.race([
-    tracker
-      .waitForObservedExit('project-stuck', 'server', 4_001, shortTimeoutMs)
-      .then((observation) => ({ state: 'resolved' as const, observation })),
-    new Promise<{ state: 'pending' }>((resolve) => {
-      setTimeout(() => resolve({ state: 'pending' }), 50);
-    }),
-  ]);
+  const after = Date.now();
+  const afterSweep = await tracker.waitForObservedExit(
+    'project-stuck',
+    'server',
+    4_001,
+    shortTimeoutMs,
+  );
+  const elapsedAfterSweep = Date.now() - after;
 
-  assert.deepEqual(
-    stateAfterSweep,
-    { state: 'resolved', observation: undefined },
+  assert.equal(afterSweep, undefined);
+  assert.ok(
+    elapsedAfterSweep < shortTimeoutMs,
     'depois do expurgo, a entrada travada não deveria mais existir para esperar',
   );
 });
