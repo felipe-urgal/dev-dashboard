@@ -42,6 +42,7 @@ const project: Project = {
   type: 'rails',
   source: 'workspace',
   favorite: false,
+  enabled: true,
   capabilities: ['server'],
 };
 

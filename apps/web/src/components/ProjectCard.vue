@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { ArrowRightIcon, StarIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowRightIcon,
+  NoSymbolIcon,
+  PowerIcon,
+  StarIcon,
+} from '@heroicons/vue/24/outline';
 import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
 
 import type { Project } from '@dev-dashboard/contracts';
@@ -14,11 +19,13 @@ import { projectTypeLabels } from '../utils/project-labels';
 const props = defineProps<{
   project: Project;
   favoriteUpdating?: boolean;
+  enabledUpdating?: boolean;
   recent?: boolean;
 }>();
 
 const emit = defineEmits<{
   'toggle-favorite': [project: Project];
+  'toggle-enabled': [project: Project];
 }>();
 
 const { managedProcess, supportsServer, isRunning } = useProjectProcessStatus(
@@ -86,7 +93,7 @@ const recentAccessTitle = computed(() => {
 </script>
 
 <template>
-  <li class="project-row">
+  <li class="project-row" :class="{ 'project-row-disabled': !project.enabled }">
     <button
       type="button"
       class="project-favorite-button"
@@ -102,6 +109,23 @@ const recentAccessTitle = computed(() => {
     >
       <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
       <StarIcon v-else aria-hidden="true" />
+    </button>
+
+    <button
+      type="button"
+      class="project-disable-button"
+      :class="{ active: !project.enabled }"
+      :aria-label="
+        project.enabled
+          ? `Desativar ${project.name}`
+          : `Reativar ${project.name}`
+      "
+      :aria-pressed="!project.enabled"
+      :disabled="enabledUpdating"
+      @click="emit('toggle-enabled', project)"
+    >
+      <PowerIcon v-if="project.enabled" aria-hidden="true" />
+      <NoSymbolIcon v-else aria-hidden="true" />
     </button>
 
     <RouterLink
@@ -121,6 +145,14 @@ const recentAccessTitle = computed(() => {
           </div>
 
           <div class="project-row-badges">
+            <span
+              v-if="!project.enabled"
+              class="project-disabled-badge"
+              aria-label="Projeto desativado"
+            >
+              Desativado
+            </span>
+
             <span
               v-if="recent"
               class="project-recent-badge"

@@ -74,6 +74,7 @@ test('histórico de mutações Git: gravação por operação, paginação e aut
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

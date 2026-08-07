@@ -37,6 +37,7 @@ function project(root: string): Project {
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
 }

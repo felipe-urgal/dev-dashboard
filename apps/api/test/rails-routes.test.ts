@@ -138,6 +138,7 @@ end
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

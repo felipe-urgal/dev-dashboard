@@ -20,6 +20,7 @@ async function fixture(type: Project['type']): Promise<Project> {
     type,
     source: 'standalone',
     favorite: false,
+    enabled: true,
     capabilities: ['scripts'],
   };
 }

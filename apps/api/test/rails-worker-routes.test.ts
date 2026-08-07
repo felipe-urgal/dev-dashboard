@@ -122,6 +122,7 @@ test('rotas de workers (Sidekiq/webpack) e credentials Rails', async (context) =
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({
@@ -408,6 +409,7 @@ test('worker não detectado recusa start com catálogo fechado', async (context)
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

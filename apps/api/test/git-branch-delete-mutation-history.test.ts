@@ -71,6 +71,7 @@ test('histórico de mutações Git: excluir branch local (branch-delete)', async
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

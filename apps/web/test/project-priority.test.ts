@@ -21,6 +21,7 @@ function project(
     source: 'workspace',
     workspaceId: 'workspace-a',
     favorite: false,
+    enabled: true,
     capabilities: [],
     ...options,
   };
@@ -54,6 +55,7 @@ test('expõe no máximo cinco recentes não favoritos', () => {
   projects.push(
     project('favorite', 'Favorite', {
       favorite: true,
+      enabled: true,
       lastAccessedAt: '2026-08-04T23:00:00.000Z',
     }),
   );

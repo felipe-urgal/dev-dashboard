@@ -72,6 +72,7 @@ test('histórico de mutações Git: renomear branch (branch-rename)', async (con
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['git'],
   };
   appContext.projectStore.saveWorkspaceScan({

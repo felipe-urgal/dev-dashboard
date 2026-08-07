@@ -30,6 +30,7 @@ function buildProjects(): Project[] {
       source: 'workspace',
       workspaceId: 'w1',
       favorite: false,
+      enabled: true,
       capabilities: ['scripts'],
     },
     {
@@ -40,6 +41,7 @@ function buildProjects(): Project[] {
       source: 'workspace',
       workspaceId: 'w2',
       favorite: false,
+      enabled: true,
       capabilities: ['server'],
     },
   ];

@@ -82,6 +82,7 @@ function project(root: string, overrides: Partial<Project> = {}): Project {
     type: 'rails',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
     ...overrides,
   };

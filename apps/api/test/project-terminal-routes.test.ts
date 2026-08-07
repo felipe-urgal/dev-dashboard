@@ -40,6 +40,7 @@ test('rotas de terminal/console do projeto', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   const nodeProject: Project = {

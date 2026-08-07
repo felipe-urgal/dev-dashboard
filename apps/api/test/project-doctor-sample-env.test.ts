@@ -28,6 +28,7 @@ test('Project Doctor usa .env.sample quando .env.example não existe', async (co
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   const report = await new ProjectDoctorService({

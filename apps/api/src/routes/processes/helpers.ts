@@ -97,6 +97,23 @@ export function requireProject(projectStore: ProjectStore, projectId: string) {
   return project;
 }
 
+export function requireEnabledProject(
+  projectStore: ProjectStore,
+  projectId: string,
+) {
+  const project = requireProject(projectStore, projectId);
+
+  if (!project.enabled) {
+    throw new ApiError({
+      statusCode: 409,
+      code: 'PROJECT_DISABLED',
+      message: 'O projeto está desativado.',
+    });
+  }
+
+  return project;
+}
+
 export const projectParamsSchema = {
   type: 'object',
   additionalProperties: false,

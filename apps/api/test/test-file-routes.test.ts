@@ -72,6 +72,7 @@ test('rotas de arquivo específico de teste', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['tests'],
   };
   appContext.projectStore.saveWorkspaceScan({
@@ -301,6 +302,7 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['tests'],
   };
   const nodeProject: Project = {
@@ -311,6 +313,7 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['tests'],
   };
   appContext.projectStore.saveWorkspaceScan({
@@ -489,6 +492,7 @@ test('rotas de padrão de nome para runners Node (vitest/jest/node-test)', async
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['tests'],
   };
   appContext.projectStore.saveWorkspaceScan({

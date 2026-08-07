@@ -20,6 +20,7 @@ async function fixture(files: Record<string, string>): Promise<Project> {
     type: 'rails',
     source: 'standalone',
     favorite: false,
+    enabled: true,
     capabilities: ['database'],
   };
 }

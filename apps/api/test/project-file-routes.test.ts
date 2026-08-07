@@ -28,6 +28,7 @@ test('lista, lê, salva e busca arquivos do projeto autorizado', async (context)
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

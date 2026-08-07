@@ -15,6 +15,7 @@ function project(id: string, workspaceId: string): Project {
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
 }

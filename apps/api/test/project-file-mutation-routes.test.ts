@@ -37,6 +37,7 @@ test('cria, revisa, renomeia e exclui itens do projeto autorizado', async (conte
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

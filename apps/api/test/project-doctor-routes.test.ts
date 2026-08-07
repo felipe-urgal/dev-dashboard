@@ -72,6 +72,7 @@ test('rota do Project Doctor', async (context) => {
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
   appContext.projectStore.saveWorkspaceScan({

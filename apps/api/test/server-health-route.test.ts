@@ -28,6 +28,7 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: ['server'],
   };
 

@@ -27,6 +27,7 @@ test('consulta o catálogo e abre somente o editor autorizado para o projeto', a
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({

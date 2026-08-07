@@ -45,6 +45,7 @@ async function createFixture(
     type: 'node',
     source: 'workspace',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
 

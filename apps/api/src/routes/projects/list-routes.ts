@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { ProjectFavoriteRepositoryError } from '@dev-dashboard/core';
+import {
+  ProjectDisabledRepositoryError,
+  ProjectFavoriteRepositoryError,
+} from '@dev-dashboard/core';
 
 import { ApiError } from '../../http/api-error.js';
 import {
@@ -16,7 +19,8 @@ export function registerProjectListRoutes(
   app: FastifyInstance,
   options: ProjectRouteOptions,
 ): void {
-  const { projectFavoriteRepository, projectStore } = options;
+  const { projectFavoriteRepository, projectDisabledRepository, projectStore } =
+    options;
 
   app.get(
     '/projects',
@@ -187,6 +191,86 @@ export function registerProjectListRoutes(
       const updatedProject = projectStore.setFavorite(
         project.id,
         request.body.favorite,
+      );
+
+      if (!updatedProject) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      return {
+        project: updatedProject,
+      };
+    },
+  );
+
+  app.put<{
+    Params: ProjectParams;
+    Body: {
+      enabled: boolean;
+    };
+  }>(
+    '/projects/:projectId/enabled',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['enabled'],
+          properties: {
+            enabled: {
+              type: 'boolean',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['project'],
+            properties: {
+              project: projectResponseSchema,
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectStore.findProject(request.params.projectId);
+
+      if (!project) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Projeto não encontrado.',
+        });
+      }
+
+      try {
+        await projectDisabledRepository.set(project.id, !request.body.enabled);
+      } catch (error) {
+        if (
+          error instanceof ProjectDisabledRepositoryError &&
+          error.code === 'PROJECT_DISABLED_LIMIT_REACHED'
+        ) {
+          throw new ApiError({
+            statusCode: 409,
+            code: error.code,
+            message: error.message,
+          });
+        }
+
+        throw error;
+      }
+
+      const updatedProject = projectStore.setEnabled(
+        project.id,
+        request.body.enabled,
       );
 
       if (!updatedProject) {

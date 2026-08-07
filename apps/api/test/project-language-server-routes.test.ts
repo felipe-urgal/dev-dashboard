@@ -48,6 +48,7 @@ test('rotas do gateway de servidor de linguagem (status por kind e opt-in Rails 
     source: 'workspace',
     workspaceId: 'w1',
     favorite: false,
+    enabled: true,
     capabilities: [],
   };
   appContext.projectStore.saveWorkspaceScan({
