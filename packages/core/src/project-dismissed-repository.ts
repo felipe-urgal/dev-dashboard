@@ -20,8 +20,7 @@ const MAX_PROJECT_ID_LENGTH = 256;
 export class ProjectDismissedRepositoryError extends Error {
   public constructor(
     public readonly code:
-      | 'INVALID_PROJECT_ID'
-      | 'PROJECT_DISMISSED_LIMIT_REACHED',
+      'INVALID_PROJECT_ID' | 'PROJECT_DISMISSED_LIMIT_REACHED',
     message: string,
   ) {
     super(message);
