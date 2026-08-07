@@ -72,7 +72,7 @@ function installTerminalProcessFetch(process: ManagedProcess): void {
   }) as typeof fetch;
 }
 
-test('volta ao estado pronto automaticamente depois de uma execução bem-sucedida', async () => {
+test('mantém o resultado de sucesso até a limpeza manual', async () => {
   vi.useFakeTimers();
   installTerminalProcessFetch({
     id: 'node-script-test',
@@ -95,7 +95,16 @@ test('volta ao estado pronto automaticamente depois de uma execução bem-sucedi
   assert.match(wrapper.text(), /Concluído com sucesso/);
   assert.match(wrapper.text(), /Resultado da execução/);
 
-  await vi.advanceTimersByTimeAsync(1_600);
+  await vi.advanceTimersByTimeAsync(10_000);
+  await flushMicrotasks();
+
+  assert.match(wrapper.text(), /Resultado da execução/);
+
+  const clearButton = wrapper
+    .findAll('button')
+    .find((button) => /Limpar logs/.test(button.text()));
+  assert.ok(clearButton);
+  await clearButton.trigger('click');
   await flushMicrotasks();
 
   assert.doesNotMatch(wrapper.text(), /Resultado da execução/);

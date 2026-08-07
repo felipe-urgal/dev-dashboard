@@ -33,7 +33,15 @@ export interface TestExecutionTarget {
   targetNamePattern?: string;
 }
 
-const SUCCESS_RESULT_RESET_DELAY_MS = 1_500;
+function withoutRailsDeprecationWarnings(content: string): string {
+  if (!/DEPRECATION WARNING:/i.test(content)) return content;
+
+  return content
+    .replace(/\r/g, '')
+    .split(/\n{2,}/)
+    .filter((paragraph) => !/DEPRECATION WARNING:/i.test(paragraph))
+    .join('\n\n');
+}
 
 export function useProjectTestProcess(
   props: { project: Project },
@@ -57,7 +65,6 @@ export function useProjectTestProcess(
   let lastStartedCommandId: string | null = null;
   let generation = 0;
   let closeExecutionEvents: (() => void) | null = null;
-  let successResultResetTimer: ReturnType<typeof setTimeout> | null = null;
   const recoveryMessage =
     'A conexão em tempo real foi interrompida. Recuperando o estado atual…';
 
@@ -135,39 +142,8 @@ export function useProjectTestProcess(
 
   function applyLogSnapshot(log: ProcessLogSnapshot | null): void {
     logSnapshot.value = log;
-    logContent.value = log?.content ?? '';
+    logContent.value = withoutRailsDeprecationWarnings(log?.content ?? '');
     logTruncated.value = log?.truncated ?? false;
-  }
-
-  function cancelSuccessResultReset(): void {
-    if (successResultResetTimer === null) return;
-    clearTimeout(successResultResetTimer);
-    successResultResetTimer = null;
-  }
-
-  function resetSuccessfulResult(processId: string): void {
-    const process = managedProcess.value;
-    if (
-      !process ||
-      process.id !== processId ||
-      process.status !== 'stopped' ||
-      process.exitCode !== 0
-    )
-      return;
-
-    managedProcess.value = null;
-    applyLogSnapshot(null);
-    copyMessage.value = '';
-    activeLogTab.value = 'log';
-  }
-
-  function scheduleSuccessfulResultReset(process: ManagedProcess): void {
-    cancelSuccessResultReset();
-    const processId = process.id;
-    successResultResetTimer = setTimeout(() => {
-      successResultResetTimer = null;
-      resetSuccessfulResult(processId);
-    }, SUCCESS_RESULT_RESET_DELAY_MS);
   }
 
   function currentRequest(
@@ -248,7 +224,6 @@ export function useProjectTestProcess(
   async function startExecution(target: TestExecutionTarget): Promise<void> {
     const projectId = props.project.id;
     const requestGeneration = generation;
-    cancelSuccessResultReset();
     startingCommandId.value = target.commandId;
     lastStartedCommandId = target.commandId;
     errorMessage.value = '';
@@ -313,7 +288,11 @@ export function useProjectTestProcess(
       const log = await clearProjectTestLog(projectId);
       if (!currentRequest(projectId, requestGeneration)) return;
       applyLogSnapshot(log);
+      managedProcess.value = null;
+      copyMessage.value = '';
       activeLogTab.value = 'log';
+      hasObservedRunning = false;
+      lastStartedCommandId = null;
     } catch (error) {
       if (currentRequest(projectId, requestGeneration)) {
         errorMessage.value =
@@ -347,15 +326,8 @@ export function useProjectTestProcess(
       process.status === 'running' ||
       process.status === 'stopping'
     ) {
-      cancelSuccessResultReset();
       hasObservedRunning = true;
       return;
-    }
-
-    if (process.status === 'stopped' && process.exitCode === 0) {
-      scheduleSuccessfulResultReset(process);
-    } else {
-      cancelSuccessResultReset();
     }
 
     if (
@@ -389,7 +361,6 @@ export function useProjectTestProcess(
       generation += 1;
       closeExecutionEvents?.();
       closeExecutionEvents = null;
-      cancelSuccessResultReset();
       hasObservedRunning = false;
       lastStartedCommandId = null;
       managedProcess.value = null;
@@ -407,7 +378,6 @@ export function useProjectTestProcess(
   onBeforeUnmount(() => {
     closeExecutionEvents?.();
     closeExecutionEvents = null;
-    cancelSuccessResultReset();
   });
 
   return {

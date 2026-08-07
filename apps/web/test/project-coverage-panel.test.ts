@@ -25,7 +25,7 @@ beforeEach(() => {
   } satisfies ProjectCoverageHistory);
 });
 
-test('mostra estado vazio quando não há relatório de cobertura', async () => {
+test('não renderiza o painel quando não há relatório de cobertura', async () => {
   api.fetchProjectCoverage.mockResolvedValue({
     available: false,
   } satisfies ProjectCoverageSummary);
@@ -33,8 +33,9 @@ test('mostra estado vazio quando não há relatório de cobertura', async () => 
   const wrapper = mount(ProjectCoveragePanel, { props: { projectId: 'p1' } });
   await flushPromises();
 
-  assert.match(wrapper.text(), /Nenhum relatório encontrado/);
+  assert.equal(wrapper.find('.coverage-panel').exists(), false);
   assert.deepEqual(api.fetchProjectCoverage.mock.calls[0], ['p1']);
+  assert.equal(api.fetchProjectCoverageHistory.mock.calls.length, 0);
 });
 
 test('mostra os percentuais totais e a tabela por arquivo quando disponível', async () => {
@@ -61,6 +62,8 @@ test('mostra os percentuais totais e a tabela por arquivo quando disponível', a
   const wrapper = mount(ProjectCoveragePanel, { props: { projectId: 'p1' } });
   await flushPromises();
 
+  assert.equal(wrapper.find('.coverage-panel').exists(), true);
+  assert.equal(wrapper.find('.coverage-panel-heading svg').exists(), true);
   assert.match(wrapper.text(), /90%/);
   assert.match(wrapper.text(), /50%/);
   assert.match(wrapper.text(), /20%/);
@@ -68,7 +71,7 @@ test('mostra os percentuais totais e a tabela por arquivo quando disponível', a
   assert.equal(wrapper.findAll('.coverage-table tbody tr').length, 1);
 });
 
-test('mostra mensagem de erro quando a API falha', async () => {
+test('mantém o painel oculto quando a API de cobertura falha', async () => {
   api.fetchProjectCoverage.mockRejectedValue(
     new Error('Não foi possível carregar a cobertura de testes.'),
   );
@@ -76,10 +79,11 @@ test('mostra mensagem de erro quando a API falha', async () => {
   const wrapper = mount(ProjectCoveragePanel, { props: { projectId: 'p1' } });
   await flushPromises();
 
-  assert.match(wrapper.text(), /Não foi possível carregar a cobertura/);
+  assert.equal(wrapper.find('.coverage-panel').exists(), false);
+  assert.equal(api.fetchProjectCoverageHistory.mock.calls.length, 0);
 });
 
-test('mostra o caminho do SimpleCov quando o projeto é rails', async () => {
+test('também oculta o painel vazio em projetos Rails', async () => {
   api.fetchProjectCoverage.mockResolvedValue({
     available: false,
   } satisfies ProjectCoverageSummary);
@@ -89,8 +93,7 @@ test('mostra o caminho do SimpleCov quando o projeto é rails', async () => {
   });
   await flushPromises();
 
-  assert.match(wrapper.text(), /coverage\/\.resultset\.json/);
-  assert.match(wrapper.text(), /SimpleCov/);
+  assert.equal(wrapper.find('.coverage-panel').exists(), false);
 });
 
 test('mostra o histórico de execuções quando há snapshots registrados', async () => {
