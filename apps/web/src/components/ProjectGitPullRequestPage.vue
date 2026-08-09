@@ -3,22 +3,27 @@ import {
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
+  SparklesIcon,
   ShieldExclamationIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
+  GitPullRequestAiReview,
   GitOpenPullRequest,
   GitPullRequestMergeMethod,
+  ProjectAiStatus,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
 import {
   composeProjectGitPullRequest,
+  fetchProjectAiStatus,
   getProjectGitPullRequestStatus,
   prepareProjectGitPullRequestAction,
   runProjectGitPullRequestAction,
+  reviewProjectGitPullRequest,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -44,6 +49,12 @@ const existingPullRequest = ref<GitOpenPullRequest | null>(null);
 const lookupUnavailable = ref(false);
 const errorMessage = ref('');
 const generatedUrl = ref('');
+const aiStatus = ref<ProjectAiStatus | null>(null);
+const loadingAiStatus = ref(false);
+const reviewModel = ref('');
+const reviewing = ref(false);
+const aiReview = ref<GitPullRequestAiReview | null>(null);
+const aiReviewError = ref('');
 let lookupGeneration = 0;
 let lookupScheduled = false;
 
@@ -110,6 +121,16 @@ const canOpen = computed(
 );
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
+const availableReviewModels = computed(() => aiStatus.value?.models ?? []);
+const canReview = computed(
+  () =>
+    canLookup.value &&
+    !props.busy &&
+    !opening.value &&
+    !reviewing.value &&
+    !loadingAiStatus.value &&
+    Boolean(reviewModel.value),
+);
 const canForcePush = computed(
   () => Boolean(props.forcePushBranch) && !props.busy && !mutationBusy.value,
 );
@@ -165,6 +186,30 @@ function defaultDescription(): string {
     props.overview.latestCommit?.subject ??
     `Alterações da branch ${props.overview.branch ?? ''}`;
   return `## Resumo\n\n${subject}`;
+}
+
+function clearAiReview(): void {
+  aiReview.value = null;
+  aiReviewError.value = '';
+}
+
+async function loadAiStatus(): Promise<void> {
+  loadingAiStatus.value = true;
+  try {
+    const status = await fetchProjectAiStatus(props.projectId);
+    aiStatus.value = status;
+    if (!status.models.some((model) => model.name === reviewModel.value))
+      reviewModel.value = status.models[0]?.name ?? '';
+  } catch {
+    aiStatus.value = {
+      available: false,
+      models: [],
+      message: 'Não foi possível verificar o Ollama local para a revisão.',
+    };
+    reviewModel.value = '';
+  } finally {
+    loadingAiStatus.value = false;
+  }
 }
 
 function reserveExternalWindow(): Window | null {
@@ -264,6 +309,7 @@ watch(
     closeConfirmText.value = '';
     mergeConfirmText.value = '';
     mutationError.value = '';
+    clearAiReview();
     scheduleExistingLookup();
   },
   { immediate: true },
@@ -275,6 +321,7 @@ watch(targetRemote, () => {
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
+  clearAiReview();
   scheduleExistingLookup();
 });
 
@@ -283,8 +330,18 @@ watch(baseBranch, () => {
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
+  clearAiReview();
   scheduleExistingLookup();
 });
+
+watch(
+  () => props.projectId,
+  () => {
+    clearAiReview();
+    void loadAiStatus();
+  },
+  { immediate: true },
+);
 
 watch(
   () => props.forcePushBranch,
@@ -364,6 +421,26 @@ async function createPullRequestViaGh(): Promise<void> {
         : 'Não foi possível criar a Pull Request pelo gh.';
   } finally {
     mutationBusy.value = false;
+  }
+}
+
+async function reviewChangesWithAi(): Promise<void> {
+  if (!canReview.value) return;
+  reviewing.value = true;
+  aiReviewError.value = '';
+  try {
+    aiReview.value = await reviewProjectGitPullRequest(props.projectId, {
+      targetRemote: targetRemote.value,
+      baseBranch: baseBranch.value.trim(),
+      model: reviewModel.value,
+    });
+  } catch (error) {
+    aiReviewError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível revisar as mudanças com a IA.';
+  } finally {
+    reviewing.value = false;
   }
 }
 
@@ -650,6 +727,95 @@ async function mergePullRequest(): Promise<void> {
           :disabled="opening || busy"
         />
       </label>
+
+      <section class="git-pr-ai-review" aria-label="Revisão de código com IA">
+        <div class="git-pr-ai-review-heading">
+          <div>
+            <span>Revisão com IA</span>
+            <p>
+              Revise o diff desta branch contra {{ targetRemote }}/{{
+                baseBranch || 'main'
+              }}
+              antes de abrir a PR.
+            </p>
+          </div>
+          <SparklesIcon aria-hidden="true" />
+        </div>
+
+        <div class="git-pr-ai-review-actions">
+          <label v-if="availableReviewModels.length > 1">
+            <span>Modelo</span>
+            <select v-model="reviewModel" :disabled="reviewing">
+              <option
+                v-for="model in availableReviewModels"
+                :key="model.name"
+                :value="model.name"
+              >
+                {{ model.name }}
+              </option>
+            </select>
+          </label>
+          <p v-else class="git-pr-ai-review-model">
+            {{
+              loadingAiStatus
+                ? 'Verificando Ollama local…'
+                : (aiStatus?.message ?? 'Verificando Ollama local…')
+            }}
+          </p>
+          <button
+            type="button"
+            :disabled="!canReview"
+            @click="reviewChangesWithAi"
+          >
+            <SparklesIcon aria-hidden="true" />
+            {{ reviewing ? 'Revisando mudanças…' : 'Revisar mudanças com IA' }}
+          </button>
+        </div>
+
+        <p v-if="aiReviewError" class="project-error" role="alert">
+          {{ aiReviewError }}
+        </p>
+
+        <div v-if="aiReview" class="git-pr-ai-review-result" aria-live="polite">
+          <div class="git-pr-ai-review-summary">
+            <strong>Resultado da revisão</strong>
+            <span>{{ aiReview.summary }}</span>
+          </div>
+          <p
+            v-if="aiReview.findings.length === 0"
+            class="git-pr-ai-review-empty"
+          >
+            Nenhum ponto relevante foi encontrado. Ainda revise a PR
+            normalmente.
+          </p>
+          <ol v-else class="git-pr-ai-review-findings">
+            <li
+              v-for="finding in aiReview.findings"
+              :key="`${finding.path}:${finding.line ?? 0}:${finding.title}`"
+            >
+              <span
+                :class="['git-pr-ai-review-severity', `is-${finding.severity}`]"
+              >
+                {{ finding.severity }}
+              </span>
+              <strong>{{ finding.title }}</strong>
+              <code
+                >{{ finding.path
+                }}<template v-if="finding.line"
+                  >:{{ finding.line }}</template
+                ></code
+              >
+              <p>{{ finding.explanation }}</p>
+              <small>Recomendação: {{ finding.recommendation }}</small>
+            </li>
+          </ol>
+          <small class="git-pr-ai-review-note">
+            {{ aiReview.model }} ·
+            {{ aiReview.diffTruncated ? 'diff parcial' : 'diff completo' }} ·
+            revisão apenas consultiva
+          </small>
+        </div>
+      </section>
 
       <section
         v-if="forcePushBranch"

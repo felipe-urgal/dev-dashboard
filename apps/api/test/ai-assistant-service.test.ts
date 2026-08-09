@@ -152,6 +152,39 @@ test('chat() transmite deltas de mensagem e sinaliza o fim da resposta', async (
   assert.equal(events.at(-1)?.type, 'done');
 });
 
+test('review() envia contexto fechado ao Ollama sem ferramentas', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return ndjsonResponse([
+        {
+          message: {
+            role: 'assistant',
+            content: '{"summary":"Sem achados","findings":[]}',
+          },
+          done: true,
+        },
+      ]);
+    },
+  });
+
+  const response = await service.review(
+    'llama3.1',
+    [
+      { role: 'system', content: 'Revise somente o diff.' },
+      { role: 'user', content: 'DIFF: + const ok = true;' },
+    ],
+    new AbortController().signal,
+  );
+
+  assert.equal(response, '{"summary":"Sem achados","findings":[]}');
+  assert.ok(requestBody);
+  assert.equal('tools' in requestBody, false);
+});
+
 test('chat() executa read_project_file do catálogo fechado e devolve o resultado ao modelo', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-tool-'));
   await writeFile(path.join(root, 'README.md'), '# Painel\n', 'utf8');

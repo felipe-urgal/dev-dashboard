@@ -482,6 +482,63 @@ export class AiAssistantService {
   }
 
   /**
+   * Executa uma resposta única sem catálogo de ferramentas. É usada em fluxos
+   * que já carregam um contexto fechado pelo servidor (como a revisão de PR),
+   * evitando que o modelo leia ou proponha alterações fora daquele contexto.
+   */
+  public async review(
+    model: string,
+    messages: AiChatMessage[],
+    signal: AbortSignal,
+  ): Promise<string> {
+    const baseUrl = resolveOllamaBaseUrl();
+    if (!baseUrl)
+      throw new AiAssistantError(
+        'O assistente de IA está desabilitado neste ambiente.',
+      );
+    if (!model.trim())
+      throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
+    if (messages.length === 0 || messages.length > MAX_MESSAGES)
+      throw new AiAssistantError(
+        `A revisão deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
+      );
+    if (messages.some((message) => message.content.length > MAX_MESSAGE_CHARS))
+      throw new AiAssistantError(
+        `Cada mensagem deve ter no máximo ${MAX_MESSAGE_CHARS} caracteres.`,
+      );
+
+    let content = '';
+    try {
+      const toolCalls = await this.streamOneRound(
+        baseUrl,
+        model,
+        messages.map((message) => ({ ...message })),
+        {
+          signal,
+          send: (event) => {
+            if (event.type === 'message-delta') content += event.content;
+          },
+        },
+        false,
+      );
+      if (toolCalls.length > 0)
+        throw new AiAssistantError(
+          'O modelo tentou usar ferramentas durante a revisão, o que não é permitido.',
+        );
+      if (!content.trim())
+        throw new AiAssistantError('O modelo não devolveu uma revisão.');
+      return content;
+    } catch (error) {
+      if (error instanceof AiAssistantError) throw error;
+      if (isAbortError(error))
+        throw new AiAssistantError(
+          `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente.`,
+        );
+      throw error;
+    }
+  }
+
+  /**
    * Compleção inline curta (ghost text): uma chamada direta e sem
    * tool-calling a `/api/generate`, para manter a latência previsível
    * enquanto o usuário digita. `suffix` só é enviado quando presente,
@@ -574,6 +631,7 @@ export class AiAssistantService {
     model: string,
     conversation: InternalMessage[],
     handlers: AiChatHandlers,
+    includeTools = true,
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
     const timeout = setTimeout(
@@ -590,7 +648,7 @@ export class AiAssistantService {
         body: JSON.stringify({
           model,
           messages: conversation,
-          tools: TOOL_DEFINITIONS,
+          ...(includeTools ? { tools: TOOL_DEFINITIONS } : {}),
           stream: true,
         }),
         signal: timeoutController.signal,

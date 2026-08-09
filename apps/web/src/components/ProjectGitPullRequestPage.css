@@ -124,6 +124,151 @@
   color: var(--text-dim);
 }
 
+.git-pr-ai-review {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: var(--space-3);
+}
+
+.git-pr-ai-review-heading,
+.git-pr-ai-review-actions,
+.git-pr-ai-review-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.git-pr-ai-review-heading > div,
+.git-pr-ai-review-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.git-pr-ai-review-heading span,
+.git-pr-ai-review-actions label > span {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.git-pr-ai-review-heading p,
+.git-pr-ai-review-model,
+.git-pr-ai-review-empty,
+.git-pr-ai-review-findings p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.git-pr-ai-review-heading > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
+
+.git-pr-ai-review-actions {
+  justify-content: flex-end;
+}
+
+.git-pr-ai-review-actions label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.git-pr-ai-review-actions select {
+  min-width: 160px;
+}
+
+.git-pr-ai-review-actions button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--accent);
+  padding: 8px 13px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.git-pr-ai-review-actions button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.git-pr-ai-review-actions button:disabled {
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+.git-pr-ai-review-result {
+  display: grid;
+  gap: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.git-pr-ai-review-summary strong,
+.git-pr-ai-review-findings strong {
+  color: var(--text);
+}
+
+.git-pr-ai-review-summary span {
+  color: var(--text-muted);
+}
+
+.git-pr-ai-review-findings {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: 20px;
+}
+
+.git-pr-ai-review-findings li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 5px 8px;
+}
+
+.git-pr-ai-review-findings p,
+.git-pr-ai-review-findings small {
+  grid-column: 2 / -1;
+}
+
+.git-pr-ai-review-findings code,
+.git-pr-ai-review-note {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+}
+
+.git-pr-ai-review-severity {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 7px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.git-pr-ai-review-severity.is-critical {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+
+.git-pr-ai-review-severity.is-warning {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+}
+
 .git-pr-form,
 .git-pr-form label {
   display: grid;
@@ -324,6 +469,25 @@
 
   .git-pr-force-push button {
     grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .git-pr-ai-review-heading,
+  .git-pr-ai-review-actions,
+  .git-pr-ai-review-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .git-pr-ai-review-actions {
+    justify-content: stretch;
+  }
+
+  .git-pr-ai-review-actions label {
+    display: grid;
+  }
+
+  .git-pr-ai-review-actions button {
     width: 100%;
   }
 }
