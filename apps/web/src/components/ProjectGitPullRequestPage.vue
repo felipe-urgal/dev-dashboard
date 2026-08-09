@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowUpTrayIcon,
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
@@ -35,10 +36,12 @@ const props = defineProps<{
   overview: ProjectGitOverview;
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
-  forcePushBranch: string | null;
+  pushBranch?: string | null;
+  forcePushBranch?: string | null;
 }>();
 
 const emit = defineEmits<{
+  push: [branch: string];
   'force-push': [];
 }>();
 
@@ -126,6 +129,7 @@ const canOpen = computed(
     !checkingExisting.value &&
     !existingPullRequest.value &&
     canLookup.value &&
+    !props.pushBranch &&
     Boolean(title.value.trim()),
 );
 
@@ -938,6 +942,29 @@ async function mergePullRequest(): Promise<void> {
       </section>
 
       <section
+        v-if="pushBranch"
+        class="git-pr-pending-push"
+        aria-label="Novo commit aguardando envio"
+      >
+        <ArrowUpTrayIcon aria-hidden="true" />
+        <div>
+          <strong>Envie o novo commit antes de abrir a Pull Request</strong>
+          <p>
+            Envie os commits novos de <code>{{ pushBranch }}</code> para
+            <code>origin/{{ pushBranch }}</code
+            >. Assim, a Pull Request incluirá as alterações mais recentes.
+          </p>
+        </div>
+        <button
+          type="button"
+          :disabled="busy || mutationBusy"
+          @click="emit('push', pushBranch)"
+        >
+          Enviar para origin
+        </button>
+      </section>
+
+      <section
         v-if="forcePushBranch"
         class="git-pr-advanced"
         aria-label="Ações avançadas da branch"
@@ -977,44 +1004,46 @@ async function mergePullRequest(): Promise<void> {
           O dashboard não armazena credenciais do GitHub/GitLab; ele abre a tela
           oficial de criação já preenchida.
         </p>
-        <a
-          v-if="existingPullRequest"
-          class="git-pr-existing-action"
-          :href="existingPullRequest.url"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Ver PR #{{ existingPullRequest.number }}
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </a>
-        <a
-          v-else-if="generatedUrl"
-          class="git-pr-fallback-link"
-          :href="generatedUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Abrir página da Pull Request
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </a>
-        <button v-else type="submit" :disabled="!canOpen">
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          {{
-            checkingExisting
-              ? 'Verificando PR…'
-              : opening
-                ? 'Preparando…'
-                : 'Abrir Pull Request'
-          }}
-        </button>
-        <button
-          v-if="!existingPullRequest && !generatedUrl"
-          type="button"
-          :disabled="!canOpen || mutationBusy"
-          @click="showCreateConfirm = !showCreateConfirm"
-        >
-          Criar direto com gh
-        </button>
+        <div class="git-pr-footer-actions">
+          <a
+            v-if="existingPullRequest"
+            class="git-pr-existing-action"
+            :href="existingPullRequest.url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ver PR #{{ existingPullRequest.number }}
+            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+          </a>
+          <a
+            v-else-if="generatedUrl"
+            class="git-pr-fallback-link"
+            :href="generatedUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir página da Pull Request
+            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+          </a>
+          <button v-else type="submit" :disabled="!canOpen">
+            <ArrowTopRightOnSquareIcon aria-hidden="true" />
+            {{
+              checkingExisting
+                ? 'Verificando PR…'
+                : opening
+                  ? 'Preparando…'
+                  : 'Abrir Pull Request'
+            }}
+          </button>
+          <button
+            v-if="!existingPullRequest && !generatedUrl"
+            type="button"
+            :disabled="!canOpen || mutationBusy"
+            @click="showCreateConfirm = !showCreateConfirm"
+          >
+            Criar direto com gh
+          </button>
+        </div>
       </div>
 
       <div v-if="showCreateConfirm" class="git-pr-confirm">

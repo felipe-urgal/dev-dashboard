@@ -307,6 +307,18 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
   ]);
 });
 
+test('mantém as ações da Pull Request agrupadas no rodapé', async () => {
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: { projectId: 'p1', overview, workspace, busy: false },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  const actions = wrapper.find('.git-pr-footer-actions');
+  assert.ok(actions.exists());
+  assert.equal(actions.findAll('button').length, 2);
+});
+
 test('mantém o force push no origin, separado do destino da Pull Request', async () => {
   const wrapper = mount(ProjectGitPullRequestPage, {
     props: {
@@ -336,6 +348,39 @@ test('mantém o force push no origin, separado do destino da Pull Request', asyn
     .trigger('click');
 
   assert.deepEqual(wrapper.emitted('force-push'), [[]]);
+});
+
+test('solicita o push normal de um novo commit antes de abrir a Pull Request', async () => {
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      pushBranch: 'feature/pull-request',
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(
+    wrapper.text(),
+    /Envie o novo commit antes de abrir a Pull Request/,
+  );
+  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
+  assert.equal(
+    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+
+  const push = wrapper
+    .findAll('.git-pr-pending-push button')
+    .find((button) => button.text() === 'Enviar para origin');
+  assert.ok(push);
+  await push.trigger('click');
+  assert.deepEqual(wrapper.emitted('push'), [['feature/pull-request']]);
+  assert.equal(wrapper.text().includes('Forçar atualização no origin'), false);
 });
 
 test('reserva a aba no clique e navega sem falso erro nem botão duplicado', async () => {
