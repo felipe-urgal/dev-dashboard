@@ -3,7 +3,6 @@ import {
   ArrowUpTrayIcon,
   ArrowPathRoundedSquareIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
 import { computed } from 'vue';
 
@@ -17,7 +16,6 @@ const props = defineProps<{
   message: string;
   mode: CommitMode;
   pushBranch: string | null;
-  forcePushBranch: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -25,7 +23,6 @@ const emit = defineEmits<{
   'update:mode': [value: CommitMode];
   submit: [];
   push: [branch: string];
-  'force-push': [];
 }>();
 
 const trackedChanges = computed(() =>
@@ -104,25 +101,6 @@ function updateMessage(event: Event): void {
       </div>
       <button type="button" :disabled="busy" @click="emit('push', pushBranch)">
         Push
-      </button>
-    </section>
-
-    <section
-      v-if="forcePushBranch"
-      class="git-force-push-notice"
-      aria-label="Atualização da branch remota"
-    >
-      <ExclamationTriangleIcon aria-hidden="true" />
-      <div>
-        <strong>O último commit foi reescrito</strong>
-        <p>
-          Para atualizar <code>origin/{{ forcePushBranch }}</code
-          >, use o reenvio seguro. A operação será recusada se a branch remota
-          tiver mudado depois da confirmação.
-        </p>
-      </div>
-      <button type="button" :disabled="busy" @click="emit('force-push')">
-        Reenviar com lease
       </button>
     </section>
 
@@ -241,8 +219,7 @@ function updateMessage(event: Event): void {
   background: var(--border);
 }
 
-.git-push-notice,
-.git-force-push-notice {
+.git-push-notice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -257,13 +234,7 @@ function updateMessage(event: Event): void {
   background: var(--accent-soft);
 }
 
-.git-force-push-notice {
-  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
-  background: var(--warning-surface);
-}
-
-.git-push-notice > svg,
-.git-force-push-notice > svg {
+.git-push-notice > svg {
   width: 22px;
   height: 22px;
 }
@@ -272,18 +243,12 @@ function updateMessage(event: Event): void {
   color: var(--accent);
 }
 
-.git-force-push-notice > svg {
-  color: var(--warning-text);
-}
-
-.git-push-notice p,
-.git-force-push-notice p {
+.git-push-notice p {
   margin: 3px 0 0;
   color: var(--text-muted);
 }
 
-.git-push-notice button,
-.git-force-push-notice button {
+.git-push-notice button {
   min-height: 38px;
   padding: 0 14px;
   background: var(--surface-1);
@@ -294,11 +259,6 @@ function updateMessage(event: Event): void {
 .git-push-notice button {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.git-force-push-notice button {
-  border-color: var(--warning-text);
-  color: var(--warning-text);
 }
 
 .git-commit-context {
@@ -398,13 +358,11 @@ function updateMessage(event: Event): void {
     border-bottom: 0;
   }
 
-  .git-push-notice,
-  .git-force-push-notice {
+  .git-push-notice {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .git-push-notice button,
-  .git-force-push-notice button {
+  .git-push-notice button {
     grid-column: 1 / -1;
     width: 100%;
   }
