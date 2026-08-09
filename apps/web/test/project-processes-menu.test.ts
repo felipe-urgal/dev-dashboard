@@ -117,7 +117,15 @@ describe('ProjectProcessesMenu', () => {
     wrapper.unmount();
   });
 
-  it('não consulta workers que o projeto Rails não suporta', async () => {
+  it('não repete consulta para workers Rails não detectados', async () => {
+    fetchProjectRailsWorker.mockImplementation(
+      async (_projectId: string, workerId: RailsWorkerId) => ({
+        id: workerId,
+        detected: false,
+        process: null,
+      }),
+    );
+    vi.useFakeTimers();
     const wrapper = mount(ProjectProcessesMenu, {
       props: { project: railsProjectNoWorkers },
     });
@@ -125,10 +133,13 @@ describe('ProjectProcessesMenu', () => {
     await flushPromises();
 
     expect(fetchProjectProcess).toHaveBeenCalledWith('p3');
-    expect(fetchProjectRailsWorker).not.toHaveBeenCalled();
+    expect(fetchProjectRailsWorker).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchProjectRailsWorker).toHaveBeenCalledTimes(2);
     expect(wrapper.find('.processes-menu-trigger').exists()).toBe(true);
 
     wrapper.unmount();
+    vi.useRealTimers();
   });
 
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {

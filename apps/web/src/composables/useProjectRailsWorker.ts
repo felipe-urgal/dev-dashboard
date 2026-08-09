@@ -42,11 +42,7 @@ export function useProjectRailsWorker(
   const projectRequests = new RequestGeneration();
   const requestGate = new RequestGate();
 
-  const supportsWorker = computed(
-    () =>
-      getProject().type === 'rails' &&
-      getProject().capabilities.includes(workerId),
-  );
+  const supportsWorker = computed(() => getProject().type === 'rails');
 
   const status = computed<ManagedProcessStatus>(
     () => managedProcess.value?.status ?? 'stopped',
@@ -125,7 +121,7 @@ export function useProjectRailsWorker(
 
   function schedulePolling(): void {
     stopPolling();
-    if (!supportsWorker.value) return;
+    if (!supportsWorker.value || !detected.value) return;
 
     const generation = projectRequests.capture();
     const delay =
@@ -289,7 +285,7 @@ export function useProjectRailsWorker(
   }
 
   watch(
-    () => [getProject().id, ...getProject().capabilities],
+    () => getProject().id,
     () => {
       void initialize();
     },
