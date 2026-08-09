@@ -208,6 +208,67 @@
   color: var(--text-dim);
 }
 
+.git-pr-ai-recommendations {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.git-pr-ai-recommendations > div {
+  display: grid;
+  gap: 2px;
+}
+
+.git-pr-ai-recommendations strong {
+  color: var(--text);
+}
+
+.git-pr-ai-recommendations p,
+.git-pr-ai-recommendations small {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.git-pr-ai-recommendations ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.git-pr-ai-recommendations li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  padding: 8px 10px;
+}
+
+.git-pr-ai-recommendations li > span {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 7px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.git-pr-ai-recommendations li > div {
+  display: grid;
+  gap: 2px;
+}
+
+.git-pr-ai-recommendations code {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
 .git-pr-ai-review-result {
   display: grid;
   gap: var(--space-3);
@@ -489,5 +550,13 @@
 
   .git-pr-ai-review-actions button {
     width: 100%;
+  }
+
+  .git-pr-ai-recommendations li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .git-pr-ai-recommendations code {
+    grid-column: 1 / -1;
   }
 }

@@ -58,6 +58,24 @@ const aiReviewError = ref('');
 let lookupGeneration = 0;
 let lookupScheduled = false;
 
+const recommendedReviewModels = [
+  {
+    name: 'qwen2.5-coder:7b',
+    label: 'Leve',
+    description: 'Resposta rápida para revisões curtas.',
+  },
+  {
+    name: 'qwen2.5-coder:14b',
+    label: 'Recomendado',
+    description: 'Melhor equilíbrio para revisão de Pull Request.',
+  },
+  {
+    name: 'devstral:24b',
+    label: 'Avançado',
+    description: 'Mais profundo, indicado para máquina forte.',
+  },
+] as const;
+
 const showCreateConfirm = ref(false);
 const showCloseConfirm = ref(false);
 const showMergeConfirm = ref(false);
@@ -122,6 +140,9 @@ const canOpen = computed(
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
 const availableReviewModels = computed(() => aiStatus.value?.models ?? []);
+const showRecommendedReviewModels = computed(
+  () => !loadingAiStatus.value && availableReviewModels.value.length === 0,
+);
 const canReview = computed(
   () =>
     canLookup.value &&
@@ -770,6 +791,26 @@ async function mergePullRequest(): Promise<void> {
             <SparklesIcon aria-hidden="true" />
             {{ reviewing ? 'Revisando mudanças…' : 'Revisar mudanças com IA' }}
           </button>
+        </div>
+
+        <div
+          v-if="showRecommendedReviewModels"
+          class="git-pr-ai-recommendations"
+        >
+          <div>
+            <strong>Modelos locais recomendados</strong>
+            <p>Instale um deles e ele aparecerá aqui automaticamente.</p>
+          </div>
+          <ul>
+            <li v-for="model in recommendedReviewModels" :key="model.name">
+              <span>{{ model.label }}</span>
+              <div>
+                <strong>{{ model.name }}</strong>
+                <small>{{ model.description }}</small>
+              </div>
+              <code>ollama pull {{ model.name }}</code>
+            </li>
+          </ul>
         </div>
 
         <p v-if="aiReviewError" class="project-error" role="alert">

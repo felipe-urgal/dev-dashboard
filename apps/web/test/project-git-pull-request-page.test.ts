@@ -194,6 +194,30 @@ test('revisa o diff da base escolhida sem bloquear a abertura da PR', async () =
   );
 });
 
+test('sugere modelos locais quando o Ollama não possui nenhum instalado', async () => {
+  api.fetchProjectAiStatus.mockResolvedValue({
+    available: true,
+    message: 'Ollama local detectado, mas nenhum modelo está instalado.',
+    models: [],
+  });
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Modelos locais recomendados/);
+  assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
+  assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:14b/);
+  assert.match(wrapper.text(), /ollama pull devstral:24b/);
+});
+
 test('prefere upstream e preenche título e descrição a partir do commit', async () => {
   const wrapper = mount(ProjectGitPullRequestPage, {
     props: {
