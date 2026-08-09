@@ -4,9 +4,8 @@ const stub = { template: '<div />' };
 
 /**
  * Router mínimo para montar componentes que usam `useRoute()`/`useRouter()`
- * (ex. `ProjectEmbeddedEditor`, `ProjectTestFailureNavigator`) fora do
- * `<RouterView>` real — sem isso o Vue emite "injection ... not found" e
- * qualquer `router.push`/leitura de `route.query` falha silenciosamente.
+ * fora do `<RouterView>` real — sem isso o Vue emite "injection ... not found"
+ * e qualquer `router.push`/leitura de `route.query` falha silenciosamente.
  * Só as rotas com `name` referenciadas pelos componentes testados; adicione
  * conforme necessário.
  */
@@ -18,11 +17,6 @@ export function createTestRouter(): Router {
       {
         path: '/projects/:projectId',
         name: 'project-details',
-        component: stub,
-      },
-      {
-        path: '/projects/:projectId/editor',
-        name: 'project-editor',
         component: stub,
       },
       {

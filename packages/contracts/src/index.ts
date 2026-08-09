@@ -25,13 +25,6 @@ export type {
 } from './project-doctor.js';
 
 export type {
-  ProjectEditor,
-  ProjectEditorAvailability,
-  ProjectEditorId,
-  ProjectEditorLaunchResult,
-} from './editor.js';
-
-export type {
   ProjectBrowserOpenResult,
   ProjectBrowserTarget,
 } from './browser.js';

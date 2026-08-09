@@ -2,10 +2,8 @@
 import { computed } from 'vue';
 import {
   ArrowPathIcon,
-  CodeBracketIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/vue/24/outline';
-import { useRouter } from 'vue-router';
 
 import type {
   Project,
@@ -26,8 +24,6 @@ const emit = defineEmits<{
   'repeat-file': [path: string];
 }>();
 
-const router = useRouter();
-
 const failures = computed(() =>
   parseTestFailures(props.logContent, props.runner, {
     projectPath: props.project.path,
@@ -42,21 +38,6 @@ function locationLabel(failure: TestFailure): string {
     .filter((value) => value !== undefined)
     .join(':');
   return suffix ? `${location.path}:${suffix}` : location.path;
-}
-
-async function openFailure(failure: TestFailure): Promise<void> {
-  const location = failure.location;
-  if (!location) return;
-
-  await router.push({
-    name: 'project-editor',
-    params: { projectId: props.project.id },
-    query: {
-      file: location.path,
-      ...(location.line ? { line: String(location.line) } : {}),
-      ...(location.column ? { column: String(location.column) } : {}),
-    },
-  });
 }
 </script>
 
@@ -78,8 +59,8 @@ async function openFailure(failure: TestFailure): Promise<void> {
           }}
         </h4>
         <p>
-          Abra a origem no editor ou execute apenas o arquivo relacionado. O log
-          completo permanece disponível abaixo.
+          Execute apenas o arquivo relacionado. O local da falha e o log
+          completo permanecem disponíveis abaixo.
         </p>
       </div>
       <ExclamationTriangleIcon aria-hidden="true" />
@@ -125,15 +106,6 @@ async function openFailure(failure: TestFailure): Promise<void> {
         </details>
 
         <div class="tests-failure-actions">
-          <button
-            type="button"
-            class="secondary-button tests-button-with-icon"
-            :disabled="!failure.location"
-            @click="openFailure(failure)"
-          >
-            <CodeBracketIcon aria-hidden="true" />
-            Abrir no editor
-          </button>
           <button
             type="button"
             class="secondary-button tests-button-with-icon"
