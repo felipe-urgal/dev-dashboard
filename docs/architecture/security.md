@@ -273,9 +273,10 @@ Erros internos não devem expor stacks completas ao navegador em produção.
 ### Health checks de projetos
 
 O health check declarativo de um servidor gerenciado nunca aceita URL absoluta,
-host, porta, headers ou corpo do navegador. A API deriva a porta do processo ou
-da configuração persistida e fixa o destino em `127.0.0.1`, usando somente
-`GET` e um caminho relativo validado de até 128 caracteres.
+host, porta, headers ou corpo do navegador. A API só o executa quando há um
+caminho configurado; ela deriva a porta do processo ou da configuração persistida
+e fixa o destino em `127.0.0.1`, usando somente `GET` e um caminho relativo
+validado de até 128 caracteres.
 
 A requisição expira em dois segundos, não segue redirecionamentos e descarta o
 corpo assim que os headers chegam. A resposta pública contém somente caminho,

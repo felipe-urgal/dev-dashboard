@@ -45,12 +45,12 @@ tempo real e permite configurar porta, ambiente e verificação de saúde (healt
 
 ## Health check (verificação de saúde)
 
-O dashboard faz uma requisição HTTP simples para `127.0.0.1:<porta>`, com um limite de 2 segundos
-de espera. Se você não configurar um caminho específico, ele tenta, em ordem, `/up`, `/health`,
-`/healthz` e `/`, usando o primeiro que responder com sucesso. O resultado é classificado como
-**saudável** (resposta 2xx), **degradado** (redirecionamento 3xx) ou **indisponível** (erro,
-timeout, ou nenhuma resposta). Enquanto o servidor estiver rodando, essa verificação é repetida
-automaticamente a cada 15 segundos.
+O dashboard só faz uma requisição HTTP para `127.0.0.1:<porta>` quando você configura um caminho
+de health check existente no projeto. Com o campo vazio, a verificação fica desativada e nenhuma
+rota é tentada automaticamente. A requisição tem limite de 2 segundos; o resultado é classificado
+como **saudável** (resposta 2xx), **degradado** (redirecionamento 3xx) ou **indisponível** (erro,
+timeout, ou nenhuma resposta). Enquanto o servidor estiver rodando e houver um caminho configurado,
+essa verificação é repetida automaticamente a cada 15 segundos.
 
 ## Trocar de ambiente (Node)
 

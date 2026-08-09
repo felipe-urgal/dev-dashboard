@@ -6,8 +6,6 @@ import type {
   ServerHealthStatus,
 } from '@dev-dashboard/contracts';
 
-const HEALTH_CHECK_PATHS = ['/up', '/health', '/healthz', '/'] as const;
-
 const HEALTH_CHECK_TIMEOUT_MS = 2_000;
 
 interface HealthAttempt {
@@ -18,7 +16,7 @@ interface HealthAttempt {
 export interface CheckServerHealthInput {
   projectId: string;
   port: number;
-  healthCheckPath?: string;
+  healthCheckPath: string;
 }
 
 export type ServerHealthRequester = (
@@ -83,55 +81,29 @@ export class ServerHealthCheckService {
     input: CheckServerHealthInput,
   ): Promise<ProjectServerHealth> {
     const checkedAt = new Date().toISOString();
-    const paths = input.healthCheckPath
-      ? [input.healthCheckPath]
-      : [...HEALTH_CHECK_PATHS];
-    let fallback: (HealthAttempt & { path: string }) | undefined;
+    try {
+      const attempt = await this.requester(input.port, input.healthCheckPath);
 
-    for (const path of paths) {
-      try {
-        const attempt = await this.requester(input.port, path);
-        const candidate = { ...attempt, path };
-        const status = classifyStatus(attempt.httpStatus);
-
-        fallback ??= candidate;
-
-        if (
-          input.healthCheckPath ||
-          status === 'healthy' ||
-          status === 'degraded'
-        ) {
-          return {
-            projectId: input.projectId,
-            path,
-            pathSource: input.healthCheckPath ? 'configured' : 'detected',
-            status,
-            httpStatus: attempt.httpStatus,
-            latencyMs: attempt.latencyMs,
-            checkedAt,
-          };
-        }
-      } catch {
-        // A detecção tenta o próximo caminho conhecido. Nenhum detalhe
-        // de rede do projeto é devolvido ao navegador.
-      }
+      return {
+        projectId: input.projectId,
+        path: input.healthCheckPath,
+        pathSource: 'configured',
+        status: classifyStatus(attempt.httpStatus),
+        httpStatus: attempt.httpStatus,
+        latencyMs: attempt.latencyMs,
+        checkedAt,
+      };
+    } catch {
+      // Nenhum detalhe de rede do projeto é devolvido ao navegador.
     }
 
     return {
       projectId: input.projectId,
-      path: input.healthCheckPath ?? fallback?.path ?? '/',
-      pathSource: input.healthCheckPath ? 'configured' : 'detected',
+      path: input.healthCheckPath,
+      pathSource: 'configured',
       status: 'unavailable',
-      ...(fallback
-        ? {
-            httpStatus: fallback.httpStatus,
-            latencyMs: fallback.latencyMs,
-          }
-        : {}),
       checkedAt,
-      message: fallback
-        ? 'Nenhum endpoint respondeu como saudável.'
-        : 'O servidor local não respondeu ao health check.',
+      message: 'O servidor local não respondeu ao health check.',
     };
   }
 }

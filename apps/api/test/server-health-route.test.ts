@@ -113,6 +113,31 @@ test('GET /api/projects/:id/server-health usa somente a porta resolvida pela API
   );
   assert.equal(serviceCalls, 1);
 
+  await appContext.serverSettingsRepository.save(project.id, {
+    port: 3_210,
+  });
+  appContext.processManager.getServerProcess = async () => ({
+    id: 'server-health',
+    projectId: project.id,
+    kind: 'server',
+    status: 'running',
+    port: 3_210,
+  });
+
+  const unconfiguredResponse = await app.inject({
+    method: 'GET',
+    url: `/api/projects/${project.id}/server-health`,
+    headers: { 'x-dev-dashboard-token': TOKEN },
+  });
+
+  assert.equal(unconfiguredResponse.statusCode, 200);
+  assert.equal(unconfiguredResponse.json().health.status, 'unavailable');
+  assert.match(
+    unconfiguredResponse.json().health.message,
+    /configure um caminho/i,
+  );
+  assert.equal(serviceCalls, 1);
+
   const maliciousPathResponse = await app.inject({
     method: 'PUT',
     url: `/api/projects/${project.id}/server-settings`,

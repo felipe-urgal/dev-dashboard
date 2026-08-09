@@ -239,13 +239,25 @@ export function registerServerSettingsRoutes(
         };
       }
 
+      if (!settings.healthCheckPath) {
+        return {
+          health: {
+            projectId: project.id,
+            path: '/',
+            pathSource: 'detected' as const,
+            status: 'unavailable' as const,
+            checkedAt: new Date().toISOString(),
+            message:
+              'Configure um caminho de health check para verificar a saúde do servidor.',
+          },
+        };
+      }
+
       return {
         health: await serverHealthCheckService.check({
           projectId: project.id,
           port,
-          ...(settings.healthCheckPath
-            ? { healthCheckPath: settings.healthCheckPath }
-            : {}),
+          healthCheckPath: settings.healthCheckPath,
         }),
       };
     },
