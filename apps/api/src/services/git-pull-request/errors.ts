@@ -5,7 +5,8 @@ export type GitPullRequestErrorCode =
   | 'GIT_PULL_REQUEST_NOT_PUBLISHED'
   | 'GIT_PULL_REQUEST_BRANCH_IS_DEFAULT'
   | 'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED'
-  | 'GIT_PULL_REQUEST_BASE_NOT_FOUND';
+  | 'GIT_PULL_REQUEST_BASE_NOT_FOUND'
+  | 'GIT_PULL_REQUEST_FILE_NOT_FOUND';
 
 export class GitPullRequestError extends Error {
   public constructor(

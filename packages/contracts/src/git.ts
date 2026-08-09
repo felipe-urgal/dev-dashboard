@@ -246,10 +246,19 @@ export interface GitPullRequestReviewFinding {
   recommendation: string;
 }
 
+export interface GitPullRequestReviewFiles {
+  targetRemote: 'origin' | 'upstream';
+  baseBranch: string;
+  sourceBranch: string;
+  files: string[];
+}
+
 export interface GitPullRequestAiReview {
   targetRemote: 'origin' | 'upstream';
   baseBranch: string;
   sourceBranch: string;
+  /** Todos os arquivos incluídos na comparação da branch com a base. */
+  files: string[];
   model: string;
   reviewedAt: string;
   summary: string;

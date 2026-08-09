@@ -1,0 +1,229 @@
+.git-code-review {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 1120px;
+}
+
+.git-code-review-heading,
+.git-code-review-controls,
+.git-code-review-summary,
+.git-code-review-files header,
+.git-code-review-findings header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.git-code-review-heading > div,
+.git-code-review-summary > div {
+  display: grid;
+  gap: 4px;
+}
+.git-code-review-heading > span,
+.git-code-review-heading span {
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.git-code-review-heading h2 {
+  margin: 0;
+  font-size: var(--font-xl);
+  color: var(--text);
+}
+.git-code-review-heading p,
+.git-code-review-model,
+.git-code-review-files p,
+.git-code-review-findings > p,
+.git-code-review-findings li p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.git-code-review-heading > svg {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.git-code-review-controls,
+.git-code-review-results,
+.git-code-review-empty {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  padding: var(--space-3);
+}
+
+.git-code-review-controls {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.git-code-review-controls label {
+  display: grid;
+  gap: 5px;
+  min-width: 150px;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+.git-code-review-controls select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+.git-code-review-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  margin-left: auto;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 700;
+}
+.git-code-review-controls button:disabled {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+.git-code-review-controls button svg {
+  width: 16px;
+  height: 16px;
+}
+.git-code-review-empty {
+  color: var(--text-muted);
+}
+
+.git-code-review-results {
+  display: grid;
+  gap: var(--space-4);
+}
+.git-code-review-summary {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+}
+.git-code-review-summary strong,
+.git-code-review-files strong,
+.git-code-review-findings strong {
+  color: var(--text);
+}
+.git-code-review-summary span {
+  color: var(--text-muted);
+}
+.git-code-review-summary small {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.git-code-review-files,
+.git-code-review-findings {
+  display: grid;
+  gap: var(--space-2);
+}
+.git-code-review-files header span,
+.git-code-review-findings header span {
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+}
+.git-code-review-files ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.git-code-review-files li {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 7px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-code-review-files code,
+.git-code-review-findings code {
+  color: var(--text-dim);
+  font-size: var(--font-xs);
+}
+
+.git-code-review-findings ol {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.git-code-review-findings li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  padding: var(--space-3);
+}
+.git-code-review-findings li > div {
+  display: grid;
+  gap: 5px;
+}
+.git-code-review-findings small {
+  color: var(--text-dim);
+}
+.git-code-review-severity {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 7px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.git-code-review-severity.is-critical {
+  background: var(--danger-surface);
+  color: var(--danger-text);
+}
+.git-code-review-severity.is-warning {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+}
+
+.spinning {
+  animation: git-code-review-spin 1s linear infinite;
+}
+@keyframes git-code-review-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+@media (max-width: 700px) {
+  .git-code-review-heading,
+  .git-code-review-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .git-code-review-controls label {
+    width: 100%;
+  }
+  .git-code-review-controls button {
+    width: 100%;
+    margin-left: 0;
+  }
+}

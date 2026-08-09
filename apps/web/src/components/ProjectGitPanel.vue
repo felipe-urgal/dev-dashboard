@@ -6,6 +6,7 @@ import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 import ProjectGitBranchesPage from './ProjectGitBranchesPage.vue';
 import ProjectGitChangeImpactBanner from './ProjectGitChangeImpactBanner.vue';
 import ProjectGitCommitPage from './ProjectGitCommitPage.vue';
+import ProjectGitCodeReviewPage from './ProjectGitCodeReviewPage.vue';
 import ProjectGitDiffPage from './ProjectGitDiffPage.vue';
 import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
 import ProjectGitMutationHistoryPage from './ProjectGitMutationHistoryPage.vue';

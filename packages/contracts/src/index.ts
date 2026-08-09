@@ -140,6 +140,7 @@ export type {
   GitPullRequestLookup,
   GitPullRequestProvider,
   GitPullRequestReviewFinding,
+  GitPullRequestReviewFiles,
   GitPullRequestReviewSeverity,
   GitPullRequestUrl,
   GitRemote,

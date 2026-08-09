@@ -5,6 +5,7 @@ import type {
   GitPullRequestMutationActionId,
   GitPullRequestMutationConfirmation,
   GitPullRequestMutationResult,
+  GitPullRequestReviewFiles,
   GitPullRequestUrl,
 } from '@dev-dashboard/contracts';
 
@@ -56,6 +57,10 @@ interface PullRequestLookupResponse {
 
 interface PullRequestAiReviewResponse {
   review: GitPullRequestAiReview;
+}
+
+interface PullRequestReviewFilesResponse {
+  review: GitPullRequestReviewFiles;
 }
 
 export interface GitPullRequestMutationInput {
@@ -185,6 +190,7 @@ export async function reviewProjectGitPullRequest(
     targetRemote: GitPullRequestTargetRemote;
     baseBranch: string;
     model: string;
+    path?: string;
   },
 ): Promise<GitPullRequestAiReview> {
   const response = await requestJson<PullRequestAiReviewResponse>(
@@ -194,6 +200,19 @@ export async function reviewProjectGitPullRequest(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     },
+  );
+  return response.review;
+}
+
+export async function getProjectGitPullRequestReviewFiles(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+  },
+): Promise<GitPullRequestReviewFiles> {
+  const response = await requestJson<PullRequestReviewFilesResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-files?${pullRequestLookupQuery(input)}`,
   );
   return response.review;
 }

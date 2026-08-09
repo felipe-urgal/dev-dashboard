@@ -44,6 +44,7 @@ interface PullRequestAiReviewBody {
   targetRemote: GitPullRequestTargetRemote;
   baseBranch: string;
   model: string;
+  path?: string;
 }
 
 interface GitPullRequestRouteOptions extends FastifyPluginOptions {
@@ -93,6 +94,7 @@ const pullRequestAiReviewBodySchema = {
     targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
     baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
     model: { type: 'string', minLength: 1, maxLength: 200 },
+    path: { type: 'string', minLength: 1, maxLength: 1_000 },
   },
 } as const;
 
@@ -103,6 +105,7 @@ const pullRequestAiReviewSchema = {
     'targetRemote',
     'baseBranch',
     'sourceBranch',
+    'files',
     'model',
     'reviewedAt',
     'summary',
@@ -115,6 +118,7 @@ const pullRequestAiReviewSchema = {
     targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
     baseBranch: { type: 'string' },
     sourceBranch: { type: 'string' },
+    files: { type: 'array', items: { type: 'string' } },
     model: { type: 'string' },
     reviewedAt: { type: 'string' },
     summary: { type: 'string' },
@@ -146,6 +150,18 @@ const pullRequestAiReviewSchema = {
         },
       },
     },
+  },
+} as const;
+
+const pullRequestReviewFilesSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['targetRemote', 'baseBranch', 'sourceBranch', 'files'],
+  properties: {
+    targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
+    baseBranch: { type: 'string' },
+    sourceBranch: { type: 'string' },
+    files: { type: 'array', items: { type: 'string' } },
   },
 } as const;
 
@@ -203,6 +219,7 @@ function translatePullRequestError(error: unknown): never {
       GIT_PULL_REQUEST_BRANCH_IS_DEFAULT: 409,
       GIT_PULL_REQUEST_REMOTE_UNSUPPORTED: 422,
       GIT_PULL_REQUEST_BASE_NOT_FOUND: 404,
+      GIT_PULL_REQUEST_FILE_NOT_FOUND: 404,
     };
     const apiCodeByCode: Record<GitPullRequestError['code'], ApiErrorCode> = {
       GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
@@ -213,6 +230,7 @@ function translatePullRequestError(error: unknown): never {
       GIT_PULL_REQUEST_REMOTE_UNSUPPORTED:
         'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
       GIT_PULL_REQUEST_BASE_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
+      GIT_PULL_REQUEST_FILE_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
     };
     throw new ApiError({
       statusCode: statusByCode[error.code],
@@ -515,10 +533,19 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
     async (request) => {
       const project = projectFor(request.params.projectId);
       try {
-        const diff = await service.getReviewDiff(project.path, {
-          targetRemote: request.body.targetRemote,
-          baseBranch: request.body.baseBranch,
-        });
+        const diff = request.body.path
+          ? await service.getReviewFileDiff(
+              project.path,
+              {
+                targetRemote: request.body.targetRemote,
+                baseBranch: request.body.baseBranch,
+              },
+              request.body.path,
+            )
+          : await service.getReviewDiff(project.path, {
+              targetRemote: request.body.targetRemote,
+              baseBranch: request.body.baseBranch,
+            });
         const masked = maskSensitiveLogContent(diff.diff);
         const reviewDiff = masked.content.slice(0, AI_REVIEW_DIFF_LIMIT);
         const content = await options.aiAssistantService.review(
@@ -536,6 +563,7 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
           targetRemote: diff.targetRemote,
           baseBranch: diff.baseBranch,
           sourceBranch: diff.sourceBranch,
+          files: diff.files,
           model: request.body.model,
           reviewedAt: new Date().toISOString(),
           summary: parsed.summary,
@@ -553,6 +581,38 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
             message: error.message,
           });
         }
+        translatePullRequestError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: PullRequestLookupQuery;
+  }>(
+    '/projects/:projectId/git/pull-request/ai-review-files',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: pullRequestLookupQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['review'],
+            properties: { review: pullRequestReviewFilesSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          review: await service.getReviewFiles(project.path, request.query),
+        };
+      } catch (error) {
         translatePullRequestError(error);
       }
     },
