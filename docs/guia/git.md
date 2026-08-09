@@ -218,6 +218,30 @@ outro host), a ação é recusada com um erro explicando que a combinação não
 
 ---
 
+## Code review IA
+
+Esta sub-aba fica antes de **Histórico** e concentra a revisão da branch
+antes da Pull Request. Ela compara a branch publicada com a base escolhida
+(`origin/main`, por padrão), usando somente o Ollama local configurado na
+máquina.
+
+Os patches são enviados um arquivo por vez. Assim, um arquivo lento ou com
+falha não impede que os demais recebam comentários.
+
+Após concluir a revisão, a tela mostra:
+
+- todos os arquivos alterados na comparação;
+- o resumo da IA;
+- cada comentário em separado, com severidade, arquivo, linha, explicação e
+  recomendação.
+
+A revisão é consultiva: não altera arquivos, commits ou Pull Requests. Diffs
+com conteúdo sensível são mascarados antes de chegar ao modelo. Para arquivos
+muito extensos, a análise usa um recorte seguro; o diff completo continua na
+sub-aba **Diff**.
+
+---
+
 ## Histórico
 
 Sub-aba 100% de leitura, para navegar pelos commits.

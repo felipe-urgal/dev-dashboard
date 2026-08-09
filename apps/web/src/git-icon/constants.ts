@@ -5,6 +5,7 @@ import {
   ClockIcon,
   DocumentMagnifyingGlassIcon,
   ShareIcon,
+  SparklesIcon,
   Squares2X2Icon,
 } from '@heroicons/vue/24/outline';
 
@@ -14,5 +15,6 @@ export const iconByLabel: Record<string, Component> = {
   Sincronização: ArrowsRightLeftIcon,
   Commit: CheckCircleIcon,
   Diff: DocumentMagnifyingGlassIcon,
+  'Code review IA': SparklesIcon,
   Histórico: ClockIcon,
 };

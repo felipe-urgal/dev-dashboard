@@ -560,7 +560,7 @@ export class AiAssistantService {
       if (error instanceof AiAssistantError) throw error;
       if (isAbortError(error))
         throw new AiAssistantError(
-          `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente.`,
+          `O Ollama não respondeu em ${REVIEW_TIMEOUT_MS / 1_000} segundos. Tente novamente.`,
         );
       throw error;
     }

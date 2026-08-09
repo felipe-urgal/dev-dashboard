@@ -1,4 +1,5 @@
 # Próxima atividade
 
-Nenhuma entrega sequencial está aprovada no momento; `tasks/PENDENCIAS.md`
-está vazio.
+Validar a nova sub-aba **Code review IA** com uma branch real e um modelo
+local do Ollama, calibrando a concorrência de arquivos caso o ambiente tenha
+muitos patches grandes.

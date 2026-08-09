@@ -110,6 +110,7 @@ function translateError(error: unknown): never {
       GIT_PULL_REQUEST_BRANCH_IS_DEFAULT: 409,
       GIT_PULL_REQUEST_REMOTE_UNSUPPORTED: 422,
       GIT_PULL_REQUEST_BASE_NOT_FOUND: 404,
+      GIT_PULL_REQUEST_FILE_NOT_FOUND: 404,
     };
     const apiCodeByCode: Record<GitPullRequestError['code'], ApiErrorCode> = {
       GIT_NOT_REPOSITORY: 'GIT_NOT_REPOSITORY',
@@ -120,6 +121,7 @@ function translateError(error: unknown): never {
       GIT_PULL_REQUEST_REMOTE_UNSUPPORTED:
         'GIT_PULL_REQUEST_REMOTE_UNSUPPORTED',
       GIT_PULL_REQUEST_BASE_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
+      GIT_PULL_REQUEST_FILE_NOT_FOUND: 'GIT_BRANCH_NOT_FOUND',
     };
     throw new ApiError({
       statusCode: statusByCode[error.code],

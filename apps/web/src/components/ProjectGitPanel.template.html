@@ -1,124 +1,120 @@
-  <section class="git-modern-panel">
-    <div class="git-navigation-bar">
-      <nav class="git-subtabs" aria-label="Áreas do Git">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          type="button"
-          :data-icon="tab.icon"
-          :class="{ active: activeTab === tab.id }"
-          @click="openTab(tab.id)"
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
-    </div>
+<section class="git-modern-panel">
+  <div class="git-navigation-bar">
+    <nav class="git-subtabs" aria-label="Áreas do Git">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        type="button"
+        :data-icon="tab.icon"
+        :class="{ active: activeTab === tab.id }"
+        @click="openTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
+  </div>
 
-    <div v-if="errorMessage" class="project-error" role="alert">
-      {{ errorMessage }}
-    </div>
-    <div
-      v-if="workspaceErrorMessage"
-      class="project-error"
-      role="alert"
-    >
-      {{ workspaceErrorMessage }}
-    </div>
-    <p
-      v-if="mutationMessage"
-      class="git-mutation-success"
-      aria-live="polite"
-    >
-      {{ mutationMessage }}
-    </p>
-    <p v-if="mutationErrorMessage" class="project-error" role="alert">
-      {{ mutationErrorMessage }}
-    </p>
-    <ProjectGitChangeImpactBanner
-      v-if="changeImpact"
-      :project-id="project.id"
-      :impact="changeImpact"
+  <div v-if="errorMessage" class="project-error" role="alert">
+    {{ errorMessage }}
+  </div>
+  <div v-if="workspaceErrorMessage" class="project-error" role="alert">
+    {{ workspaceErrorMessage }}
+  </div>
+  <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">
+    {{ mutationMessage }}
+  </p>
+  <p v-if="mutationErrorMessage" class="project-error" role="alert">
+    {{ mutationErrorMessage }}
+  </p>
+  <ProjectGitChangeImpactBanner
+    v-if="changeImpact"
+    :project-id="project.id"
+    :impact="changeImpact"
+  />
+
+  <div v-if="loading && !overview" class="git-modern-empty">
+    Consultando o repositório…
+  </div>
+  <div v-else-if="overview && !overview.repository" class="git-modern-empty">
+    <strong>Este projeto não é um repositório Git.</strong>
+    <span>Nenhum diretório <code>.git</code> foi encontrado.</span>
+  </div>
+
+  <template v-else-if="overview">
+    <ProjectGitSyncPage
+      v-if="activeTab === 'sync'"
+      :overview="overview"
+      :workspace="workspace"
+      :busy="mutationRunning"
+      :checking="remoteRefreshRunning"
+      @update-current-branch="runUpdateCurrentBranch"
+      @synchronize="runMainSynchronization"
     />
 
-    <div v-if="loading && !overview" class="git-modern-empty">
-      Consultando o repositório…
-    </div>
-    <div
-      v-else-if="overview && !overview.repository"
-      class="git-modern-empty"
-    >
-      <strong>Este projeto não é um repositório Git.</strong>
-      <span>Nenhum diretório <code>.git</code> foi encontrado.</span>
-    </div>
+    <ProjectGitBranchesPage
+      v-else-if="activeTab === 'branches'"
+      :overview="overview"
+      :workspace="workspace"
+      :loading="loadingWorkspace"
+      :busy="mutationRunning || remoteRefreshRunning"
+      @create="(name) => runMutation('create-branch', name)"
+      @switch="(name) => runMutation('switch-branch', name)"
+      @rename="runRenameBranch"
+      @delete="runDeleteBranch"
+      @publish="runPublishBranch"
+      @refresh-remotes="runRefreshRemotes"
+      @track="runTrackRemoteBranch"
+      @delete-remote="runDeleteRemoteBranch"
+    />
 
-    <template v-else-if="overview">
-      <ProjectGitSyncPage
-        v-if="activeTab === 'sync'"
-        :overview="overview"
-        :workspace="workspace"
-        :busy="mutationRunning"
-        :checking="remoteRefreshRunning"
-        @update-current-branch="runUpdateCurrentBranch"
-        @synchronize="runMainSynchronization"
-      />
+    <ProjectGitDiffPage
+      v-else-if="activeTab === 'diff'"
+      :project-id="project.id"
+    />
 
-      <ProjectGitBranchesPage
-        v-else-if="activeTab === 'branches'"
-        :overview="overview"
-        :workspace="workspace"
-        :loading="loadingWorkspace"
-        :busy="mutationRunning || remoteRefreshRunning"
-        @create="(name) => runMutation('create-branch', name)"
-        @switch="(name) => runMutation('switch-branch', name)"
-        @rename="runRenameBranch"
-        @delete="runDeleteBranch"
-        @publish="runPublishBranch"
-        @refresh-remotes="runRefreshRemotes"
-        @track="runTrackRemoteBranch"
-        @delete-remote="runDeleteRemoteBranch"
-      />
+    <ProjectGitCommitPage
+      v-else-if="activeTab === 'commit'"
+      v-model:message="commitMessage"
+      v-model:mode="commitMode"
+      :overview="overview"
+      :busy="mutationRunning"
+      :push-branch="pendingPushBranch"
+      @submit="runCommit"
+      @push="runPublishBranch"
+    />
 
-      <ProjectGitDiffPage
-        v-else-if="activeTab === 'diff'"
-        :project-id="project.id"
-      />
+    <ProjectGitUndoPage
+      v-else-if="activeTab === 'undo'"
+      :project-id="project.id"
+      :overview="overview"
+      :busy="mutationRunning"
+      @changed="reloadGitData"
+    />
 
-      <ProjectGitCommitPage
-        v-else-if="activeTab === 'commit'"
-        v-model:message="commitMessage"
-        v-model:mode="commitMode"
-        :overview="overview"
-        :busy="mutationRunning"
-        :push-branch="pendingPushBranch"
-        @submit="runCommit"
-        @push="runPublishBranch"
-      />
+    <ProjectGitPullRequestPage
+      v-else-if="activeTab === 'pull-request'"
+      :project-id="project.id"
+      :overview="overview"
+      :workspace="workspace"
+      :busy="mutationRunning"
+      :push-branch="pendingPushBranch"
+      :force-push-branch="amendedBranch"
+      @push="runPublishBranch"
+      @force-push="runForcePushWithLease"
+    />
 
-      <ProjectGitUndoPage
-        v-else-if="activeTab === 'undo'"
-        :project-id="project.id"
-        :overview="overview"
-        :busy="mutationRunning"
-        @changed="reloadGitData"
-      />
+    <ProjectGitCodeReviewPage
+      v-else-if="activeTab === 'code-review'"
+      :project-id="project.id"
+      :overview="overview"
+      :workspace="workspace"
+    />
 
-      <ProjectGitPullRequestPage
-        v-else-if="activeTab === 'pull-request'"
-        :project-id="project.id"
-        :overview="overview"
-        :workspace="workspace"
-        :busy="mutationRunning"
-        :push-branch="pendingPushBranch"
-        :force-push-branch="amendedBranch"
-        @push="runPublishBranch"
-        @force-push="runForcePushWithLease"
-      />
+    <ProjectGitHistoryPage
+      v-else-if="activeTab === 'history'"
+      :project-id="project.id"
+    />
 
-      <ProjectGitHistoryPage
-        v-else-if="activeTab === 'history'"
-        :project-id="project.id"
-      />
-
-      <ProjectGitMutationHistoryPage v-else :project="project" />
-    </template>
-  </section>
+    <ProjectGitMutationHistoryPage v-else :project="project" />
+  </template>
+</section>

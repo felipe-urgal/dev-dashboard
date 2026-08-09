@@ -53,6 +53,7 @@ export interface GitPullRequestReviewDiff {
   targetRemote: GitPullRequestTargetRemote;
   baseBranch: string;
   sourceBranch: string;
+  files: string[];
   diff: string;
 }
 
@@ -147,8 +148,48 @@ export class GitPullRequestService {
     options: GitPullRequestLookupOptions,
   ): Promise<GitPullRequestReviewDiff> {
     const context = await this.resolveContext(projectPath, options);
+    const reviewFiles = await this.reviewFilesForContext(context);
+    const diff = await this.diffForContext(context);
+    return { ...reviewFiles, diff };
+  }
+
+  /** Lista os arquivos da comparação sem chamar o modelo nem carregar patches. */
+  public async getReviewFiles(
+    projectPath: string,
+    options: GitPullRequestLookupOptions,
+  ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {
+    return this.reviewFilesForContext(
+      await this.resolveContext(projectPath, options),
+    );
+  }
+
+  /**
+   * Obtém somente o patch de um arquivo que já pertence à comparação atual.
+   * O caminho vem do navegador, por isso ele é conferido contra a lista que o
+   * próprio Git devolveu antes de ser passado como argumento.
+   */
+  public async getReviewFileDiff(
+    projectPath: string,
+    options: GitPullRequestLookupOptions,
+    filePath: string,
+  ): Promise<GitPullRequestReviewDiff> {
+    const context = await this.resolveContext(projectPath, options);
+    const reviewFiles = await this.reviewFilesForContext(context);
+    if (!reviewFiles.files.includes(filePath)) {
+      throw new GitPullRequestError(
+        'GIT_PULL_REQUEST_FILE_NOT_FOUND',
+        'O arquivo selecionado não faz parte da comparação atual.',
+      );
+    }
+    const diff = await this.diffForContext(context, filePath);
+    return { ...reviewFiles, diff };
+  }
+
+  private async reviewFilesForContext(
+    context: ResolvedPullRequestContext,
+  ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {
     const remoteReference = `refs/remotes/${context.targetRemote}/${context.baseBranch}`;
-    const hasRemoteReference = await optionalGit(projectPath, [
+    const hasRemoteReference = await optionalGit(context.projectPath, [
       'rev-parse',
       '--verify',
       '--quiet',
@@ -160,19 +201,42 @@ export class GitPullRequestService {
     const baseReference = hasRemoteReference
       ? remoteReference
       : `refs/heads/${context.baseBranch}`;
-    const diff = await runGit(projectPath, [
+    const changedFiles = await runGit(context.projectPath, [
       'diff',
       '--no-ext-diff',
-      '--find-renames',
-      '--unified=3',
+      '--name-only',
       `${baseReference}...HEAD`,
     ]);
     return {
       targetRemote: context.targetRemote,
       baseBranch: context.baseBranch,
       sourceBranch: context.sourceBranch,
-      diff,
+      files: changedFiles.split('\n').filter(Boolean),
     };
+  }
+
+  private async diffForContext(
+    context: ResolvedPullRequestContext,
+    filePath?: string,
+  ): Promise<string> {
+    const remoteReference = `refs/remotes/${context.targetRemote}/${context.baseBranch}`;
+    const hasRemoteReference = await optionalGit(context.projectPath, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      remoteReference,
+    ]);
+    const baseReference = hasRemoteReference
+      ? remoteReference
+      : `refs/heads/${context.baseBranch}`;
+    return runGit(context.projectPath, [
+      'diff',
+      '--no-ext-diff',
+      '--find-renames',
+      '--unified=3',
+      `${baseReference}...HEAD`,
+      ...(filePath ? ['--', filePath] : []),
+    ]);
   }
 
   private async resolveContext(

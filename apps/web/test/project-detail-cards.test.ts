@@ -221,6 +221,7 @@ describe('cards dos painéis de detalhe', () => {
       'Commit',
       'Desfazer',
       'Pull Request',
+      'Code review IA',
       'Histórico',
       'Mutações',
     ]);

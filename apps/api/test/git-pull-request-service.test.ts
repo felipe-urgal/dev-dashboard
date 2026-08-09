@@ -99,7 +99,37 @@ test('obtém o diff de revisão usando a branch base escolhida', async () => {
     assert.equal(result.targetRemote, 'origin');
     assert.equal(result.baseBranch, 'main');
     assert.equal(result.sourceBranch, 'feature/pull-request');
+    assert.deepEqual(result.files, ['README.md']);
     assert.match(result.diff, /# Projeto revisado/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test('obtém somente o patch do arquivo escolhido para a revisão com IA', async () => {
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
+  const service = new GitPullRequestService();
+
+  try {
+    await writeFile(path.join(fixture.local, 'README.md'), '# Revisado\n');
+    await writeFile(
+      path.join(fixture.local, 'app.ts'),
+      'export const ok = true;\n',
+    );
+    await git(fixture.local, 'add', 'README.md', 'app.ts');
+    await git(fixture.local, 'commit', '-m', 'change files for review');
+
+    const result = await service.getReviewFileDiff(
+      fixture.local,
+      { targetRemote: 'origin', baseBranch: 'main' },
+      'app.ts',
+    );
+
+    assert.deepEqual(result.files, ['README.md', 'app.ts']);
+    assert.match(result.diff, /export const ok/);
+    assert.doesNotMatch(result.diff, /# Revisado/);
   } finally {
     await fixture.cleanup();
   }

@@ -3,30 +3,22 @@ import {
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
-  SparklesIcon,
   ShieldExclamationIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
-  AiRecommendedModelName,
-  GitPullRequestAiReview,
   GitOpenPullRequest,
   GitPullRequestMergeMethod,
-  ProjectAiStatus,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
-import { AI_RECOMMENDED_MODELS } from '@dev-dashboard/contracts';
 
 import {
   composeProjectGitPullRequest,
-  fetchProjectAiStatus,
   getProjectGitPullRequestStatus,
   prepareProjectGitPullRequestAction,
   runProjectGitPullRequestAction,
-  reviewProjectGitPullRequest,
-  streamProjectAiModelPull,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -52,21 +44,8 @@ const existingPullRequest = ref<GitOpenPullRequest | null>(null);
 const lookupUnavailable = ref(false);
 const errorMessage = ref('');
 const generatedUrl = ref('');
-const aiStatus = ref<ProjectAiStatus | null>(null);
-const loadingAiStatus = ref(false);
-const reviewModel = ref('');
-const reviewing = ref(false);
-const aiReview = ref<GitPullRequestAiReview | null>(null);
-const aiReviewError = ref('');
-const installingModel = ref<AiRecommendedModelName | null>(null);
-const installationStatus = ref('');
-const installationCompleted = ref<number | null>(null);
-const installationTotal = ref<number | null>(null);
-const installationError = ref('');
-const modelInstallerVisible = ref(false);
 let lookupGeneration = 0;
 let lookupScheduled = false;
-let modelPullClose: (() => void) | undefined;
 
 const showCreateConfirm = ref(false);
 const showCloseConfirm = ref(false);
@@ -131,36 +110,6 @@ const canOpen = computed(
 );
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
-const availableReviewModels = computed(() => aiStatus.value?.models ?? []);
-const installableRecommendedModels = computed(() =>
-  AI_RECOMMENDED_MODELS.filter(
-    (recommendedModel) =>
-      !availableReviewModels.value.some(
-        (availableModel) => availableModel.name === recommendedModel.name,
-      ),
-  ),
-);
-const canShowModelInstaller = computed(
-  () =>
-    !loadingAiStatus.value &&
-    Boolean(aiStatus.value?.available) &&
-    installableRecommendedModels.value.length > 0,
-);
-const showRecommendedReviewModels = computed(
-  () => modelInstallerVisible.value && canShowModelInstaller.value,
-);
-const canInstallRecommendedModel = computed(
-  () => Boolean(aiStatus.value?.available) && !installingModel.value,
-);
-const canReview = computed(
-  () =>
-    canLookup.value &&
-    !props.busy &&
-    !opening.value &&
-    !reviewing.value &&
-    !loadingAiStatus.value &&
-    Boolean(reviewModel.value),
-);
 const canForcePush = computed(
   () => Boolean(props.forcePushBranch) && !props.busy && !mutationBusy.value,
 );
@@ -216,71 +165,6 @@ function defaultDescription(): string {
     props.overview.latestCommit?.subject ??
     `Alterações da branch ${props.overview.branch ?? ''}`;
   return `## Resumo\n\n${subject}`;
-}
-
-function clearAiReview(): void {
-  aiReview.value = null;
-  aiReviewError.value = '';
-}
-
-function reviewStorageKey(): string {
-  return [
-    'dev-dashboard:pr-ai-review',
-    props.projectId,
-    props.overview.branch ?? '',
-    props.overview.latestCommit?.hash ?? '',
-    targetRemote.value,
-    baseBranch.value.trim(),
-    reviewModel.value,
-  ].join(':');
-}
-
-function restoreAiReview(): void {
-  if (typeof sessionStorage === 'undefined' || !reviewModel.value) return;
-  try {
-    const saved = sessionStorage.getItem(reviewStorageKey());
-    aiReview.value = saved
-      ? (JSON.parse(saved) as GitPullRequestAiReview)
-      : null;
-  } catch {
-    aiReview.value = null;
-  }
-}
-
-function installationLabel(model: AiRecommendedModelName): string {
-  if (installingModel.value !== model) return 'Instalar';
-  if (
-    installationCompleted.value !== null &&
-    installationTotal.value !== null &&
-    installationTotal.value > 0
-  ) {
-    const progress = Math.min(
-      100,
-      Math.round((installationCompleted.value / installationTotal.value) * 100),
-    );
-    return `${installationStatus.value} · ${progress}%`;
-  }
-  return installationStatus.value || 'Iniciando instalação…';
-}
-
-async function loadAiStatus(): Promise<void> {
-  loadingAiStatus.value = true;
-  try {
-    const status = await fetchProjectAiStatus(props.projectId);
-    aiStatus.value = status;
-    if (!status.models.some((model) => model.name === reviewModel.value))
-      reviewModel.value = status.models[0]?.name ?? '';
-    restoreAiReview();
-  } catch {
-    aiStatus.value = {
-      available: false,
-      models: [],
-      message: 'Não foi possível verificar o Ollama local para a revisão.',
-    };
-    reviewModel.value = '';
-  } finally {
-    loadingAiStatus.value = false;
-  }
 }
 
 function reserveExternalWindow(): Window | null {
@@ -380,7 +264,6 @@ watch(
     closeConfirmText.value = '';
     mergeConfirmText.value = '';
     mutationError.value = '';
-    clearAiReview();
     scheduleExistingLookup();
   },
   { immediate: true },
@@ -392,8 +275,6 @@ watch(targetRemote, () => {
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
-  clearAiReview();
-  restoreAiReview();
   scheduleExistingLookup();
 });
 
@@ -402,24 +283,8 @@ watch(baseBranch, () => {
   existingPullRequest.value = null;
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
-  clearAiReview();
-  restoreAiReview();
   scheduleExistingLookup();
 });
-
-watch(reviewModel, () => {
-  clearAiReview();
-  restoreAiReview();
-});
-
-watch(
-  () => props.projectId,
-  () => {
-    clearAiReview();
-    void loadAiStatus();
-  },
-  { immediate: true },
-);
 
 watch(
   () => props.forcePushBranch,
@@ -431,7 +296,6 @@ watch(
 
 onBeforeUnmount(() => {
   lookupGeneration += 1;
-  modelPullClose?.();
 });
 
 async function openPullRequest(): Promise<void> {
@@ -501,78 +365,6 @@ async function createPullRequestViaGh(): Promise<void> {
   } finally {
     mutationBusy.value = false;
   }
-}
-
-async function reviewChangesWithAi(): Promise<void> {
-  if (!canReview.value) return;
-  reviewing.value = true;
-  aiReviewError.value = '';
-  try {
-    aiReview.value = await reviewProjectGitPullRequest(props.projectId, {
-      targetRemote: targetRemote.value,
-      baseBranch: baseBranch.value.trim(),
-      model: reviewModel.value,
-    });
-    if (typeof sessionStorage !== 'undefined')
-      sessionStorage.setItem(
-        reviewStorageKey(),
-        JSON.stringify(aiReview.value),
-      );
-  } catch (error) {
-    aiReviewError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível revisar as mudanças com a IA.';
-  } finally {
-    reviewing.value = false;
-  }
-}
-
-async function installRecommendedModel(
-  model: AiRecommendedModelName,
-): Promise<void> {
-  if (!canInstallRecommendedModel.value) return;
-  installingModel.value = model;
-  installationStatus.value = 'Iniciando instalação…';
-  installationCompleted.value = null;
-  installationTotal.value = null;
-  installationError.value = '';
-  let installed = false;
-  const stream = streamProjectAiModelPull(props.projectId, model, (event) => {
-    if (event.type === 'progress') {
-      installationStatus.value = event.status;
-      installationCompleted.value = event.completed ?? null;
-      installationTotal.value = event.total ?? null;
-    }
-    if (event.type === 'done') installed = true;
-    if (event.type === 'error') installationError.value = event.message;
-  });
-  modelPullClose = stream.close;
-
-  try {
-    await stream.done;
-    if (installed) {
-      await loadAiStatus();
-      reviewModel.value = model;
-    }
-  } catch (error) {
-    installationError.value =
-      error instanceof Error
-        ? error.message
-        : 'Não foi possível instalar o modelo pelo Ollama local.';
-  } finally {
-    if (installingModel.value === model) installingModel.value = null;
-    modelPullClose = undefined;
-  }
-}
-
-function cancelModelInstallation(): void {
-  modelPullClose?.();
-  modelPullClose = undefined;
-  installingModel.value = null;
-  installationStatus.value = '';
-  installationCompleted.value = null;
-  installationTotal.value = null;
 }
 
 async function closePullRequest(): Promise<void> {
@@ -858,150 +650,6 @@ async function mergePullRequest(): Promise<void> {
           :disabled="opening || busy"
         />
       </label>
-
-      <section class="git-pr-ai-review" aria-label="Revisão de código com IA">
-        <div class="git-pr-ai-review-heading">
-          <div>
-            <span>Revisão com IA</span>
-            <p>
-              Revise o diff desta branch contra {{ targetRemote }}/{{
-                baseBranch || 'main'
-              }}
-              antes de abrir a PR.
-            </p>
-          </div>
-          <SparklesIcon aria-hidden="true" />
-        </div>
-
-        <div class="git-pr-ai-review-actions">
-          <label v-if="availableReviewModels.length > 1">
-            <span>Modelo</span>
-            <select v-model="reviewModel" :disabled="reviewing">
-              <option
-                v-for="model in availableReviewModels"
-                :key="model.name"
-                :value="model.name"
-              >
-                {{ model.name }}
-              </option>
-            </select>
-          </label>
-          <p v-else class="git-pr-ai-review-model">
-            {{
-              loadingAiStatus
-                ? 'Verificando Ollama local…'
-                : (aiStatus?.message ?? 'Verificando Ollama local…')
-            }}
-          </p>
-          <button
-            type="button"
-            :disabled="!canReview"
-            @click="reviewChangesWithAi"
-          >
-            <SparklesIcon aria-hidden="true" />
-            {{ reviewing ? 'Revisando mudanças…' : 'Revisar mudanças com IA' }}
-          </button>
-        </div>
-
-        <button
-          v-if="canShowModelInstaller"
-          type="button"
-          class="git-pr-ai-add-model"
-          :aria-expanded="modelInstallerVisible"
-          @click="modelInstallerVisible = !modelInstallerVisible"
-        >
-          {{
-            modelInstallerVisible
-              ? 'Ocultar modelos locais'
-              : 'Adicionar modelo local'
-          }}
-        </button>
-
-        <div
-          v-if="showRecommendedReviewModels"
-          class="git-pr-ai-recommendations"
-        >
-          <div>
-            <strong>Modelos locais recomendados</strong>
-            <p>Instale um deles e ele aparecerá aqui automaticamente.</p>
-          </div>
-          <ul>
-            <li v-for="model in installableRecommendedModels" :key="model.name">
-              <span>{{ model.label }}</span>
-              <div>
-                <strong>{{ model.name }}</strong>
-                <small>{{ model.description }}</small>
-              </div>
-              <code>ollama pull {{ model.name }}</code>
-              <button
-                type="button"
-                :disabled="
-                  !canInstallRecommendedModel && installingModel !== model.name
-                "
-                @click="installRecommendedModel(model.name)"
-              >
-                {{ installationLabel(model.name) }}
-              </button>
-            </li>
-          </ul>
-          <button
-            v-if="installingModel"
-            type="button"
-            class="git-pr-ai-install-cancel"
-            @click="cancelModelInstallation"
-          >
-            Cancelar instalação
-          </button>
-        </div>
-
-        <p v-if="installationError" class="project-error" role="alert">
-          {{ installationError }}
-        </p>
-
-        <p v-if="aiReviewError" class="project-error" role="alert">
-          {{ aiReviewError }}
-        </p>
-
-        <div v-if="aiReview" class="git-pr-ai-review-result" aria-live="polite">
-          <div class="git-pr-ai-review-summary">
-            <strong>Resultado da revisão</strong>
-            <span>{{ aiReview.summary }}</span>
-          </div>
-          <p
-            v-if="aiReview.findings.length === 0"
-            class="git-pr-ai-review-empty"
-          >
-            Nenhum ponto relevante foi encontrado. Ainda revise a PR
-            normalmente.
-          </p>
-          <ol v-else class="git-pr-ai-review-findings">
-            <li
-              v-for="finding in aiReview.findings"
-              :key="`${finding.path}:${finding.line ?? 0}:${finding.title}`"
-            >
-              <span
-                :class="['git-pr-ai-review-severity', `is-${finding.severity}`]"
-              >
-                {{ finding.severity }}
-              </span>
-              <strong>{{ finding.title }}</strong>
-              <code
-                >{{ finding.path
-                }}<template v-if="finding.line"
-                  >:{{ finding.line }}</template
-                ></code
-              >
-              <p>{{ finding.explanation }}</p>
-              <small>Recomendação: {{ finding.recommendation }}</small>
-            </li>
-          </ol>
-          <small class="git-pr-ai-review-note">
-            {{ aiReview.model }} ·
-            {{ aiReview.diffTruncated ? 'diff parcial' : 'diff completo' }} ·
-            revisão apenas consultiva
-          </small>
-        </div>
-      </section>
 
       <section
         v-if="forcePushBranch"

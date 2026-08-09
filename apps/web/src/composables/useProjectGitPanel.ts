@@ -46,6 +46,7 @@ export function useProjectGitPanel(
     | 'commit'
     | 'undo'
     | 'pull-request'
+    | 'code-review'
     | 'history'
     | 'mutation-history';
 
@@ -56,6 +57,7 @@ export function useProjectGitPanel(
     { id: 'commit', label: 'Commit', icon: '●' },
     { id: 'undo', label: 'Desfazer', icon: '↶' },
     { id: 'pull-request', label: 'Pull Request', icon: '↗' },
+    { id: 'code-review', label: 'Code review IA', icon: '✦' },
     { id: 'history', label: 'Histórico', icon: '◷' },
     { id: 'mutation-history', label: 'Mutações', icon: '☰' },
   ];
