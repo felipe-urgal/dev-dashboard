@@ -58,6 +58,12 @@ const isScriptsRoute = computed(() => route.name === 'project-scripts');
 const isRailsRuntimeRoute = computed(
   () => route.name === 'project-rails-runtime',
 );
+const hasRailsRuntime = computed(
+  () =>
+    project.value?.type === 'rails' &&
+    (project.value.capabilities.includes('sidekiq') ||
+      project.value.capabilities.includes('webpack')),
+);
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
@@ -352,7 +358,7 @@ async function handleToggleEnabled(): Promise<void> {
           </RouterLink>
 
           <RouterLink
-            v-if="project.type === 'rails'"
+            v-if="hasRailsRuntime"
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
             :to="{

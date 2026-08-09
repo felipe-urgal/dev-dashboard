@@ -84,7 +84,11 @@ const items = computed<ProcessItem[]>(() => {
     });
   }
 
-  if (isRailsProject.value && sidekiq.detected.value) {
+  if (
+    isRailsProject.value &&
+    sidekiq.supportsWorker.value &&
+    sidekiq.detected.value
+  ) {
     list.push({
       key: 'sidekiq',
       label: workerLabels.sidekiq,
@@ -96,7 +100,11 @@ const items = computed<ProcessItem[]>(() => {
     });
   }
 
-  if (isRailsProject.value && webpack.detected.value) {
+  if (
+    isRailsProject.value &&
+    webpack.supportsWorker.value &&
+    webpack.detected.value
+  ) {
     list.push({
       key: 'webpack',
       label: workerLabels.webpack,

@@ -43,7 +43,12 @@ const project: Project = {
   source: 'workspace',
   favorite: false,
   enabled: true,
-  capabilities: ['server'],
+  capabilities: ['server', 'sidekiq'],
+};
+
+const projectWithBothWorkers: Project = {
+  ...project,
+  capabilities: ['server', 'sidekiq', 'webpack'],
 };
 
 function overview(
@@ -74,7 +79,7 @@ describe('ProjectRailsRuntimePanel', () => {
     );
   });
 
-  it('separa Sidekiq e Webpack em abas e remove credentials da interface', async () => {
+  it('exibe apenas os workers suportados e remove credentials da interface', async () => {
     const wrapper = mount(ProjectRailsRuntimePanel, {
       props: { project },
     });
@@ -82,25 +87,16 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     const tabs = wrapper.findAll('[role="tab"]');
-    expect(tabs).toHaveLength(2);
+    expect(tabs).toHaveLength(1);
     expect(tabs[0]?.text()).toContain('Sidekiq');
     expect(tabs[0]?.attributes('aria-selected')).toBe('true');
-    expect(tabs[1]?.text()).toContain('Webpack');
 
     const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
-    const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
     expect(sidekiqPanel.isVisible()).toBe(true);
-    expect(webpackPanel.isVisible()).toBe(false);
     expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
-
-    await tabs[1]?.trigger('click');
-    await wrapper.vm.$nextTick();
-
-    expect(tabs[0]?.attributes('aria-selected')).toBe('false');
-    expect(tabs[1]?.attributes('aria-selected')).toBe('true');
-    expect(wrapper.find('[data-worker-id="webpack"]').text()).toContain(
-      'webpack-dev-server não foi detectado',
-    );
+    expect(wrapper.find('[data-worker-id="webpack"]').exists()).toBe(false);
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
+    expect(fetchProjectRailsWorker).not.toHaveBeenCalledWith('p1', 'webpack');
     expect(wrapper.find('.rails-credentials-card').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Credentials');
 
@@ -142,7 +138,7 @@ describe('ProjectRailsRuntimePanel', () => {
     );
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project },
+      props: { project: projectWithBothWorkers },
     });
 
     await flushPromises();

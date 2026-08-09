@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
@@ -45,10 +45,22 @@ const workerDescriptions: Record<RailsWorkerId, string> = {
     'Acompanhe compilação de assets e investigue warnings, builds lentos e erros de módulo.',
 };
 
-const railsWorkers = [
-  { id: 'sidekiq' as const, supportsRestart: true, state: sidekiq },
-  { id: 'webpack' as const, supportsRestart: false, state: webpack },
-];
+const railsWorkers = computed(() =>
+  [
+    { id: 'sidekiq' as const, supportsRestart: true, state: sidekiq },
+    { id: 'webpack' as const, supportsRestart: false, state: webpack },
+  ].filter((worker) => worker.state.supportsWorker.value),
+);
+
+watch(
+  railsWorkers,
+  (workers) => {
+    if (!workers.some((worker) => worker.id === activeWorkerId.value)) {
+      activeWorkerId.value = workers[0]?.id ?? 'sidekiq';
+    }
+  },
+  { immediate: true },
+);
 
 function formatDate(value?: string): string {
   if (!value) return '—';
@@ -60,7 +72,12 @@ function formatDate(value?: string): string {
 
 <template>
   <div class="rails-runtime-panel">
-    <nav class="rails-runtime-tabs" role="tablist" aria-label="Processos Rails">
+    <nav
+      v-if="railsWorkers.length > 0"
+      class="rails-runtime-tabs"
+      role="tablist"
+      aria-label="Processos Rails"
+    >
       <button
         v-for="worker in railsWorkers"
         :id="`rails-worker-tab-${worker.id}`"
@@ -268,6 +285,16 @@ function formatDate(value?: string): string {
         </template>
       </Card>
     </section>
+
+    <Card v-if="railsWorkers.length === 0" class="rails-worker-card">
+      <div class="rails-worker-empty-state">
+        <strong>Nenhum processo Rails adicional foi detectado.</strong>
+        <p>
+          Sidekiq e webpack-dev-server aparecerão aqui quando forem detectados
+          no projeto.
+        </p>
+      </div>
+    </Card>
   </div>
 </template>
 

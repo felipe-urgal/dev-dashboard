@@ -58,6 +58,13 @@ const nodeProjectNoServer: Project = {
   capabilities: ['git'],
 };
 
+const railsProjectNoWorkers: Project = {
+  ...railsProject,
+  id: 'p3',
+  name: 'rails-sem-workers',
+  capabilities: ['server'],
+};
+
 function serverProcess(status: ManagedProcess['status']): ManagedProcess {
   return {
     id: 'p1:server',
@@ -104,6 +111,24 @@ describe('ProjectProcessesMenu', () => {
     await flushPromises();
 
     expect(wrapper.find('.processes-menu-trigger').exists()).toBe(false);
+    expect(fetchProjectProcess).not.toHaveBeenCalled();
+    expect(fetchProjectRailsWorker).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('não consulta workers que o projeto Rails não suporta', async () => {
+    const wrapper = mount(ProjectProcessesMenu, {
+      props: { project: railsProjectNoWorkers },
+    });
+
+    await flushPromises();
+
+    expect(fetchProjectProcess).toHaveBeenCalledWith('p3');
+    expect(fetchProjectRailsWorker).not.toHaveBeenCalled();
+    expect(wrapper.find('.processes-menu-trigger').exists()).toBe(true);
+
+    wrapper.unmount();
   });
 
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {
