@@ -92,6 +92,8 @@ describe('ProjectRailsRuntimePanel', () => {
     expect(sidekiqPanel.isVisible()).toBe(true);
     expect(webpackPanel.isVisible()).toBe(false);
     expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
+    expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'webpack');
 
     await tabs[1]?.trigger('click');
     await wrapper.vm.$nextTick();

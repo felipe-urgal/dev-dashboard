@@ -58,6 +58,13 @@ const nodeProjectNoServer: Project = {
   capabilities: ['git'],
 };
 
+const railsProjectNoWorkers: Project = {
+  ...railsProject,
+  id: 'p3',
+  name: 'rails-sem-workers',
+  capabilities: ['server'],
+};
+
 function serverProcess(status: ManagedProcess['status']): ManagedProcess {
   return {
     id: 'p1:server',
@@ -104,6 +111,35 @@ describe('ProjectProcessesMenu', () => {
     await flushPromises();
 
     expect(wrapper.find('.processes-menu-trigger').exists()).toBe(false);
+    expect(fetchProjectProcess).not.toHaveBeenCalled();
+    expect(fetchProjectRailsWorker).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it('não repete consulta para workers Rails não detectados', async () => {
+    fetchProjectRailsWorker.mockImplementation(
+      async (_projectId: string, workerId: RailsWorkerId) => ({
+        id: workerId,
+        detected: false,
+        process: null,
+      }),
+    );
+    vi.useFakeTimers();
+    const wrapper = mount(ProjectProcessesMenu, {
+      props: { project: railsProjectNoWorkers },
+    });
+
+    await flushPromises();
+
+    expect(fetchProjectProcess).toHaveBeenCalledWith('p3');
+    expect(fetchProjectRailsWorker).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(fetchProjectRailsWorker).toHaveBeenCalledTimes(2);
+    expect(wrapper.find('.processes-menu-trigger').exists()).toBe(true);
+
+    wrapper.unmount();
+    vi.useRealTimers();
   });
 
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {

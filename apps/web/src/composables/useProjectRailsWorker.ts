@@ -42,6 +42,8 @@ export function useProjectRailsWorker(
   const projectRequests = new RequestGeneration();
   const requestGate = new RequestGate();
 
+  const supportsWorker = computed(() => getProject().type === 'rails');
+
   const status = computed<ManagedProcessStatus>(
     () => managedProcess.value?.status ?? 'stopped',
   );
@@ -55,6 +57,7 @@ export function useProjectRailsWorker(
   );
 
   const statusLabel = computed(() => {
+    if (!supportsWorker.value) return 'Não disponível';
     if (loading.value && !managedProcess.value) return 'Verificando';
     switch (status.value) {
       case 'starting':
@@ -77,6 +80,8 @@ export function useProjectRailsWorker(
   }
 
   async function refresh(): Promise<void> {
+    if (!supportsWorker.value) return;
+
     const requestToken = requestGate.begin(`rails-worker-${workerId}`);
     if (!requestToken) return;
 
@@ -116,6 +121,8 @@ export function useProjectRailsWorker(
 
   function schedulePolling(): void {
     stopPolling();
+    if (!supportsWorker.value || !detected.value) return;
+
     const generation = projectRequests.capture();
     const delay =
       status.value === 'starting' || status.value === 'stopping'
@@ -181,6 +188,8 @@ export function useProjectRailsWorker(
   }
 
   async function start(): Promise<void> {
+    if (!supportsWorker.value) return;
+
     const projectId = getProject().id;
     const generation = projectRequests.capture();
     currentAction.value = 'start';
@@ -205,6 +214,8 @@ export function useProjectRailsWorker(
   }
 
   async function stop(): Promise<void> {
+    if (!supportsWorker.value) return;
+
     const projectId = getProject().id;
     const generation = projectRequests.capture();
     currentAction.value = 'stop';
@@ -228,7 +239,7 @@ export function useProjectRailsWorker(
   }
 
   async function restart(): Promise<void> {
-    if (!supportsRestart) return;
+    if (!supportsRestart || !supportsWorker.value) return;
 
     const projectId = getProject().id;
     const generation = projectRequests.capture();
@@ -266,6 +277,8 @@ export function useProjectRailsWorker(
     logsVisible.value = false;
 
     const generation = projectRequests.capture();
+    if (!supportsWorker.value) return;
+
     await refresh();
     if (!projectRequests.isCurrent(generation)) return;
     schedulePolling();
@@ -286,6 +299,7 @@ export function useProjectRailsWorker(
 
   return {
     detected,
+    supportsWorker,
     managedProcess,
     loading,
     errorMessage,
