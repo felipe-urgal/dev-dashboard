@@ -665,8 +665,8 @@ async function mergePullRequest(): Promise<void> {
           <strong>Envie o novo commit antes de abrir a Pull Request</strong>
           <p>
             Envie os commits novos de <code>{{ pushBranch }}</code> para
-            <code>origin/{{ pushBranch }}</code>. Assim, a Pull Request incluirá
-            as alterações mais recentes.
+            <code>origin/{{ pushBranch }}</code
+            >. Assim, a Pull Request incluirá as alterações mais recentes.
           </p>
         </div>
         <button

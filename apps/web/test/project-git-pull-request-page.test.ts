@@ -210,7 +210,10 @@ test('solicita o push normal de um novo commit antes de abrir a Pull Request', a
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /Envie o novo commit antes de abrir a Pull Request/);
+  assert.match(
+    wrapper.text(),
+    /Envie o novo commit antes de abrir a Pull Request/,
+  );
   assert.match(wrapper.text(), /origin\/feature\/pull-request/);
   assert.equal(
     (wrapper.find('.git-pr-footer button').element as HTMLButtonElement)
