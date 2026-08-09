@@ -34,7 +34,6 @@ test('oferece push normal quando um novo commit aguarda envio', async () => {
       message: '',
       mode: 'create',
       pushBranch: 'feature/minha-branch',
-      forcePushBranch: null,
     },
   });
 
@@ -50,7 +49,7 @@ test('oferece push normal quando um novo commit aguarda envio', async () => {
   assert.deepEqual(wrapper.emitted('push'), [['feature/minha-branch']]);
 });
 
-test('mantém force push separado para alteração do último commit', () => {
+test('não oferece atualização forçada na aba de commit', () => {
   const wrapper = mount(ProjectGitCommitPage, {
     props: {
       overview,
@@ -58,14 +57,9 @@ test('mantém force push separado para alteração do último commit', () => {
       message: 'novo commit',
       mode: 'amend',
       pushBranch: null,
-      forcePushBranch: 'feature/minha-branch',
     },
   });
 
-  assert.match(wrapper.text(), /O último commit foi reescrito/);
-  assert.match(wrapper.text(), /Reenviar com lease/);
-  assert.equal(
-    wrapper.text().includes('Novo commit pronto para enviar'),
-    false,
-  );
+  assert.equal(wrapper.text().includes('Reenviar com lease'), false);
+  assert.equal(wrapper.text().includes('Forçar atualização'), false);
 });

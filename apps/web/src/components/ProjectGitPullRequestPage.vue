@@ -2,6 +2,8 @@
 import {
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
+  ExclamationTriangleIcon,
+  ShieldExclamationIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
@@ -25,6 +27,11 @@ const props = defineProps<{
   overview: ProjectGitOverview;
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
+  forcePushBranch: string | null;
+}>();
+
+const emit = defineEmits<{
+  'force-push': [];
 }>();
 
 const targetRemote = ref<GitPullRequestTargetRemote>('origin');
@@ -48,6 +55,7 @@ const mergeConfirmText = ref('');
 const mergeMethod = ref<GitPullRequestMergeMethod>('squash');
 const mutationBusy = ref(false);
 const mutationError = ref('');
+const showForcePush = ref(false);
 
 const availableTargets = computed(() => {
   const names = new Set(
@@ -102,6 +110,9 @@ const canOpen = computed(
 );
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
+const canForcePush = computed(
+  () => Boolean(props.forcePushBranch) && !props.busy && !mutationBusy.value,
+);
 
 const createCommandPreview = computed(() => {
   const parts = [
@@ -275,6 +286,14 @@ watch(baseBranch, () => {
   scheduleExistingLookup();
 });
 
+watch(
+  () => props.forcePushBranch,
+  (branch) => {
+    showForcePush.value = Boolean(branch);
+  },
+  { immediate: true },
+);
+
 onBeforeUnmount(() => {
   lookupGeneration += 1;
 });
@@ -417,10 +436,10 @@ async function mergePullRequest(): Promise<void> {
     <header class="git-pr-heading">
       <div>
         <span>Pull Request</span>
-        <h3>Abrir direto no repositório</h3>
+        <h3>Preparar Pull Request</h3>
         <p>
-          Escolha o destino e abra a página do provedor já com título, descrição
-          e branch base preenchidos.
+          Envie a sua branch para o origin e escolha se a Pull Request será
+          aberta no origin ou no upstream.
         </p>
       </div>
       <CodeBracketIcon aria-hidden="true" />
@@ -575,16 +594,16 @@ async function mergePullRequest(): Promise<void> {
     <form class="git-pr-form" @submit.prevent="openPullRequest">
       <div class="git-pr-grid">
         <label>
-          <span>Origem</span>
+          <span>Branch de origem</span>
           <input
-            :value="overview.upstream ?? overview.branch ?? 'HEAD'"
+            :value="`origin/${overview.branch ?? 'HEAD'}`"
             type="text"
             readonly
           />
         </label>
 
         <label>
-          <span>Destino</span>
+          <span>Destino do PR</span>
           <select v-model="targetRemote" :disabled="opening || busy">
             <option
               v-for="remote in availableTargets"
@@ -631,6 +650,41 @@ async function mergePullRequest(): Promise<void> {
           :disabled="opening || busy"
         />
       </label>
+
+      <section
+        v-if="forcePushBranch"
+        class="git-pr-advanced"
+        aria-label="Ações avançadas da branch"
+      >
+        <button
+          type="button"
+          class="git-pr-advanced-toggle"
+          :aria-expanded="showForcePush"
+          :disabled="busy || mutationBusy"
+          @click="showForcePush = !showForcePush"
+        >
+          <ShieldExclamationIcon aria-hidden="true" />
+          Ações avançadas
+        </button>
+
+        <div v-if="showForcePush" class="git-pr-force-push">
+          <ExclamationTriangleIcon aria-hidden="true" />
+          <div>
+            <strong>Substituir branch remota</strong>
+            <p>
+              Atualiza <code>origin/{{ forcePushBranch }}</code> com lease. Use
+              apenas após reescrever o histórico (amend, rebase ou squash).
+            </p>
+          </div>
+          <button
+            type="button"
+            :disabled="!canForcePush"
+            @click="emit('force-push')"
+          >
+            Forçar atualização no origin
+          </button>
+        </div>
+      </section>
 
       <div class="git-pr-footer">
         <p>

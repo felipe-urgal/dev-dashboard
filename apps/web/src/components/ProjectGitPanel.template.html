@@ -90,10 +90,8 @@
         :overview="overview"
         :busy="mutationRunning"
         :push-branch="pendingPushBranch"
-        :force-push-branch="amendedBranch"
         @submit="runCommit"
         @push="runPublishBranch"
-        @force-push="runForcePushWithLease"
       />
 
       <ProjectGitUndoPage
@@ -110,6 +108,8 @@
         :overview="overview"
         :workspace="workspace"
         :busy="mutationRunning"
+        :force-push-branch="amendedBranch"
+        @force-push="runForcePushWithLease"
       />
 
       <ProjectGitHistoryPage

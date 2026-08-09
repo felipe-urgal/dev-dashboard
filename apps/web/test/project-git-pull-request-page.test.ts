@@ -154,6 +154,37 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
   ]);
 });
 
+test('mantém o force push no origin, separado do destino da Pull Request', async () => {
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: 'feature/pull-request',
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Branch de origem/);
+  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
+  assert.match(wrapper.text(), /Destino do PR/);
+  assert.match(wrapper.text(), /Substituir branch remota/);
+  assert.match(wrapper.text(), /origin\/feature\/pull-request.*com lease/s);
+
+  const targetSelect = wrapper.findAll('select')[0]!;
+  await targetSelect.setValue('upstream');
+  await flushPromises();
+
+  await wrapper
+    .findAll('.git-pr-force-push button')
+    .find((button) => button.text().includes('Forçar atualização no origin'))!
+    .trigger('click');
+
+  assert.deepEqual(wrapper.emitted('force-push'), [[]]);
+});
+
 test('reserva a aba no clique e navega sem falso erro nem botão duplicado', async () => {
   const wrapper = mount(ProjectGitPullRequestPage, {
     props: {

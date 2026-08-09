@@ -864,7 +864,7 @@ test('altera o último commit pelo modo amend', async () => {
   assert.match(mounted.wrapper.text(), /Commit "2222222" alterado/);
 });
 
-test('oferece reenvio com lease depois de alterar commit em branch publicada', async () => {
+test('oferece reenvio com lease na Pull Request depois de alterar commit em branch publicada', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 
@@ -938,10 +938,15 @@ test('oferece reenvio com lease depois de alterar commit em branch publicada', a
   await flushPromises();
   await flushPromises();
 
-  assert.match(mounted.wrapper.text(), /Reenviar com lease/);
+  assert.equal(mounted.wrapper.text().includes('Reenviar com lease'), false);
+  await clickTab(mounted.wrapper, 'Pull Request');
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(mounted.wrapper.text(), /Substituir branch remota/);
   const forceButton = mounted.wrapper
-    .findAll('.git-force-push-notice button')
-    .find((button) => button.text().includes('Reenviar com lease'));
+    .findAll('.git-pr-force-push button')
+    .find((button) => button.text().includes('Forçar atualização no origin'));
   assert.ok(forceButton);
   await forceButton.trigger('click');
   await flushPromises();
@@ -964,7 +969,7 @@ test('oferece reenvio com lease depois de alterar commit em branch publicada', a
     mounted.wrapper.text(),
     /atualizada em origin\/feature\/git-ui com lease/,
   );
-  assert.equal(mounted.wrapper.find('.git-force-push-notice').exists(), false);
+  assert.equal(mounted.wrapper.find('.git-pr-force-push').exists(), false);
 });
 
 test('abre a aba Diff como o componente dedicado, sem app aninhado', async () => {
