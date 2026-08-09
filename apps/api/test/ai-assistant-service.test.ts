@@ -185,6 +185,41 @@ test('review() envia contexto fechado ao Ollama sem ferramentas', async () => {
   assert.equal('tools' in requestBody, false);
 });
 
+test('pullRecommendedModel() transmite o progresso de um modelo permitido', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  const events: Array<Record<string, unknown>> = [];
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return ndjsonResponse([
+        { status: 'pulling manifest' },
+        { status: 'downloading', total: 100, completed: 40 },
+        { status: 'success', total: 100, completed: 100 },
+      ]);
+    },
+  });
+
+  await service.pullRecommendedModel('qwen2.5-coder:7b', {
+    signal: new AbortController().signal,
+    send: (event) => events.push(event),
+  });
+
+  assert.deepEqual(requestBody, { name: 'qwen2.5-coder:7b', stream: true });
+  assert.deepEqual(events.at(-1), {
+    type: 'done',
+    model: 'qwen2.5-coder:7b',
+  });
+  assert.deepEqual(events[1], {
+    type: 'progress',
+    model: 'qwen2.5-coder:7b',
+    status: 'downloading',
+    total: 100,
+    completed: 40,
+  });
+});
+
 test('chat() executa read_project_file do catálogo fechado e devolve o resultado ao modelo', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'dev-dashboard-ai-tool-'));
   await writeFile(path.join(root, 'README.md'), '# Painel\n', 'utf8');

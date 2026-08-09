@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   prepareProjectGitPullRequestAction: vi.fn(),
   reviewProjectGitPullRequest: vi.fn(),
   runProjectGitPullRequestAction: vi.fn(),
+  streamProjectAiModelPull: vi.fn(),
 }));
 
 vi.mock('../src/api', () => api);
@@ -113,6 +114,7 @@ beforeEach(() => {
   api.prepareProjectGitPullRequestAction.mockReset();
   api.reviewProjectGitPullRequest.mockReset();
   api.runProjectGitPullRequestAction.mockReset();
+  api.streamProjectAiModelPull.mockReset();
   api.fetchProjectAiStatus.mockResolvedValue({
     available: true,
     message: '1 modelo instalado no Ollama local.',
@@ -216,6 +218,64 @@ test('sugere modelos locais quando o Ollama não possui nenhum instalado', async
   assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
   assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:14b/);
   assert.match(wrapper.text(), /ollama pull devstral:24b/);
+});
+
+test('instala um modelo recomendado e atualiza a lista de modelos', async () => {
+  api.fetchProjectAiStatus
+    .mockResolvedValueOnce({
+      available: true,
+      message: 'Ollama local detectado, mas nenhum modelo está instalado.',
+      models: [],
+    })
+    .mockResolvedValueOnce({
+      available: true,
+      message: '1 modelo instalado no Ollama local.',
+      models: [{ name: 'qwen2.5-coder:7b', capabilities: ['chat'] }],
+    });
+  api.streamProjectAiModelPull.mockImplementation(
+    (_projectId: string, model: string, onEvent: (event: unknown) => void) => {
+      onEvent({
+        type: 'progress',
+        model,
+        status: 'downloading',
+        completed: 50,
+        total: 100,
+      });
+      onEvent({ type: 'done', model });
+      return { close: vi.fn(), done: Promise.resolve() };
+    },
+  );
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Instalar')!
+    .trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(api.streamProjectAiModelPull.mock.calls.length, 1);
+  assert.equal(api.streamProjectAiModelPull.mock.calls[0]?.[0], 'p1');
+  assert.equal(
+    api.streamProjectAiModelPull.mock.calls[0]?.[1],
+    'qwen2.5-coder:7b',
+  );
+  assert.equal(
+    typeof api.streamProjectAiModelPull.mock.calls[0]?.[2],
+    'function',
+  );
+  assert.doesNotMatch(wrapper.text(), /Modelos locais recomendados/);
+  assert.match(wrapper.text(), /1 modelo instalado/);
 });
 
 test('prefere upstream e preenche título e descrição a partir do commit', async () => {

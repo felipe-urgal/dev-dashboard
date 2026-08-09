@@ -9,6 +9,7 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
+  AiRecommendedModelName,
   GitPullRequestAiReview,
   GitOpenPullRequest,
   GitPullRequestMergeMethod,
@@ -16,6 +17,7 @@ import type {
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
+import { AI_RECOMMENDED_MODELS } from '@dev-dashboard/contracts';
 
 import {
   composeProjectGitPullRequest,
@@ -24,6 +26,7 @@ import {
   prepareProjectGitPullRequestAction,
   runProjectGitPullRequestAction,
   reviewProjectGitPullRequest,
+  streamProjectAiModelPull,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -55,26 +58,14 @@ const reviewModel = ref('');
 const reviewing = ref(false);
 const aiReview = ref<GitPullRequestAiReview | null>(null);
 const aiReviewError = ref('');
+const installingModel = ref<AiRecommendedModelName | null>(null);
+const installationStatus = ref('');
+const installationCompleted = ref<number | null>(null);
+const installationTotal = ref<number | null>(null);
+const installationError = ref('');
 let lookupGeneration = 0;
 let lookupScheduled = false;
-
-const recommendedReviewModels = [
-  {
-    name: 'qwen2.5-coder:7b',
-    label: 'Leve',
-    description: 'Resposta rápida para revisões curtas.',
-  },
-  {
-    name: 'qwen2.5-coder:14b',
-    label: 'Recomendado',
-    description: 'Melhor equilíbrio para revisão de Pull Request.',
-  },
-  {
-    name: 'devstral:24b',
-    label: 'Avançado',
-    description: 'Mais profundo, indicado para máquina forte.',
-  },
-] as const;
+let modelPullClose: (() => void) | undefined;
 
 const showCreateConfirm = ref(false);
 const showCloseConfirm = ref(false);
@@ -142,6 +133,9 @@ const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
 const availableReviewModels = computed(() => aiStatus.value?.models ?? []);
 const showRecommendedReviewModels = computed(
   () => !loadingAiStatus.value && availableReviewModels.value.length === 0,
+);
+const canInstallRecommendedModel = computed(
+  () => Boolean(aiStatus.value?.available) && !installingModel.value,
 );
 const canReview = computed(
   () =>
@@ -212,6 +206,22 @@ function defaultDescription(): string {
 function clearAiReview(): void {
   aiReview.value = null;
   aiReviewError.value = '';
+}
+
+function installationLabel(model: AiRecommendedModelName): string {
+  if (installingModel.value !== model) return 'Instalar';
+  if (
+    installationCompleted.value !== null &&
+    installationTotal.value !== null &&
+    installationTotal.value > 0
+  ) {
+    const progress = Math.min(
+      100,
+      Math.round((installationCompleted.value / installationTotal.value) * 100),
+    );
+    return `${installationStatus.value} · ${progress}%`;
+  }
+  return installationStatus.value || 'Iniciando instalação…';
 }
 
 async function loadAiStatus(): Promise<void> {
@@ -374,6 +384,7 @@ watch(
 
 onBeforeUnmount(() => {
   lookupGeneration += 1;
+  modelPullClose?.();
 });
 
 async function openPullRequest(): Promise<void> {
@@ -463,6 +474,53 @@ async function reviewChangesWithAi(): Promise<void> {
   } finally {
     reviewing.value = false;
   }
+}
+
+async function installRecommendedModel(
+  model: AiRecommendedModelName,
+): Promise<void> {
+  if (!canInstallRecommendedModel.value) return;
+  installingModel.value = model;
+  installationStatus.value = 'Iniciando instalação…';
+  installationCompleted.value = null;
+  installationTotal.value = null;
+  installationError.value = '';
+  let installed = false;
+  const stream = streamProjectAiModelPull(props.projectId, model, (event) => {
+    if (event.type === 'progress') {
+      installationStatus.value = event.status;
+      installationCompleted.value = event.completed ?? null;
+      installationTotal.value = event.total ?? null;
+    }
+    if (event.type === 'done') installed = true;
+    if (event.type === 'error') installationError.value = event.message;
+  });
+  modelPullClose = stream.close;
+
+  try {
+    await stream.done;
+    if (installed) {
+      await loadAiStatus();
+      reviewModel.value = model;
+    }
+  } catch (error) {
+    installationError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível instalar o modelo pelo Ollama local.';
+  } finally {
+    if (installingModel.value === model) installingModel.value = null;
+    modelPullClose = undefined;
+  }
+}
+
+function cancelModelInstallation(): void {
+  modelPullClose?.();
+  modelPullClose = undefined;
+  installingModel.value = null;
+  installationStatus.value = '';
+  installationCompleted.value = null;
+  installationTotal.value = null;
 }
 
 async function closePullRequest(): Promise<void> {
@@ -802,16 +860,37 @@ async function mergePullRequest(): Promise<void> {
             <p>Instale um deles e ele aparecerá aqui automaticamente.</p>
           </div>
           <ul>
-            <li v-for="model in recommendedReviewModels" :key="model.name">
+            <li v-for="model in AI_RECOMMENDED_MODELS" :key="model.name">
               <span>{{ model.label }}</span>
               <div>
                 <strong>{{ model.name }}</strong>
                 <small>{{ model.description }}</small>
               </div>
               <code>ollama pull {{ model.name }}</code>
+              <button
+                type="button"
+                :disabled="
+                  !canInstallRecommendedModel && installingModel !== model.name
+                "
+                @click="installRecommendedModel(model.name)"
+              >
+                {{ installationLabel(model.name) }}
+              </button>
             </li>
           </ul>
+          <button
+            v-if="installingModel"
+            type="button"
+            class="git-pr-ai-install-cancel"
+            @click="cancelModelInstallation"
+          >
+            Cancelar instalação
+          </button>
         </div>
+
+        <p v-if="installationError" class="project-error" role="alert">
+          {{ installationError }}
+        </p>
 
         <p v-if="aiReviewError" class="project-error" role="alert">
           {{ aiReviewError }}

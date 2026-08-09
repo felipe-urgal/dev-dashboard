@@ -67,10 +67,13 @@ export type {
   AiChatStreamEvent,
   AiCompletionRequest,
   AiCompletionResult,
+  AiModelPullStreamEvent,
   AiModelInfo,
+  AiRecommendedModelName,
   AiTool,
   ProjectAiStatus,
 } from './ai-assistant.js';
+export { AI_RECOMMENDED_MODELS } from './ai-assistant.js';
 
 export type {
   ProjectLanguageServerKind,

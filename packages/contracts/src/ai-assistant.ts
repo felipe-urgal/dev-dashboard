@@ -14,6 +14,38 @@ export interface ProjectAiStatus {
   message: string;
 }
 
+export const AI_RECOMMENDED_MODELS = [
+  {
+    name: 'qwen2.5-coder:7b',
+    label: 'Leve',
+    description: 'Resposta rápida para revisões curtas.',
+  },
+  {
+    name: 'qwen2.5-coder:14b',
+    label: 'Recomendado',
+    description: 'Melhor equilíbrio para revisão de Pull Request.',
+  },
+  {
+    name: 'devstral:24b',
+    label: 'Avançado',
+    description: 'Mais profundo, indicado para máquina forte.',
+  },
+] as const;
+
+export type AiRecommendedModelName =
+  (typeof AI_RECOMMENDED_MODELS)[number]['name'];
+
+export type AiModelPullStreamEvent =
+  | {
+      type: 'progress';
+      model: AiRecommendedModelName;
+      status: string;
+      completed?: number;
+      total?: number;
+    }
+  | { type: 'done'; model: AiRecommendedModelName }
+  | { type: 'error'; message: string };
+
 export type AiTool =
   | 'read_project_file'
   | 'search_project_text'

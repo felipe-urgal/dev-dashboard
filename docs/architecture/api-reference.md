@@ -526,6 +526,48 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `POST /api/projects/:projectId/ai/models/pull`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "enum": [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b",
+        "devstral:24b"
+      ]
+    }
+  }
+}
+```
+
 ### `GET /api/projects/:projectId/ai/status`
 
 **Parâmetros de rota (`params`)**
