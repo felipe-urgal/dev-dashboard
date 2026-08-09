@@ -29,7 +29,7 @@ const props = defineProps<{
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
   pushBranch?: string | null;
-  forcePushBranch: string | null;
+  forcePushBranch?: string | null;
 }>();
 
 const emit = defineEmits<{
