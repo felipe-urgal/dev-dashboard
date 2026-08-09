@@ -196,7 +196,7 @@ test('revisa o diff da base escolhida sem bloquear a abertura da PR', async () =
   );
 });
 
-test('sugere modelos locais quando o Ollama não possui nenhum instalado', async () => {
+test('oferece modelos locais recomendados quando o instalador é aberto', async () => {
   api.fetchProjectAiStatus.mockResolvedValue({
     available: true,
     message: 'Ollama local detectado, mas nenhum modelo está instalado.',
@@ -214,10 +214,40 @@ test('sugere modelos locais quando o Ollama não possui nenhum instalado', async
   await flushPromises();
   await flushPromises();
 
+  assert.match(wrapper.text(), /Adicionar modelo local/);
+  assert.doesNotMatch(wrapper.text(), /Modelos locais recomendados/);
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Adicionar modelo local')!
+    .trigger('click');
+
   assert.match(wrapper.text(), /Modelos locais recomendados/);
   assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
   assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:14b/);
   assert.match(wrapper.text(), /ollama pull devstral:24b/);
+});
+
+test('mantém sugestões acessíveis e oculta o modelo que já está instalado', async () => {
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Adicionar modelo local')!
+    .trigger('click');
+
+  assert.match(wrapper.text(), /qwen2\.5-coder:14b/);
+  assert.match(wrapper.text(), /devstral:24b/);
+  assert.doesNotMatch(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
 });
 
 test('instala um modelo recomendado e atualiza a lista de modelos', async () => {
@@ -259,6 +289,10 @@ test('instala um modelo recomendado e atualiza a lista de modelos', async () => 
 
   await wrapper
     .findAll('button')
+    .find((button) => button.text() === 'Adicionar modelo local')!
+    .trigger('click');
+  await wrapper
+    .findAll('button')
     .find((button) => button.text() === 'Instalar')!
     .trigger('click');
   await flushPromises();
@@ -274,7 +308,9 @@ test('instala um modelo recomendado e atualiza a lista de modelos', async () => 
     typeof api.streamProjectAiModelPull.mock.calls[0]?.[2],
     'function',
   );
-  assert.doesNotMatch(wrapper.text(), /Modelos locais recomendados/);
+  assert.match(wrapper.text(), /Modelos locais recomendados/);
+  assert.doesNotMatch(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
+  assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:14b/);
   assert.match(wrapper.text(), /1 modelo instalado/);
 });
 
@@ -307,18 +343,6 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
   ]);
 });
 
-test('mantém as ações da Pull Request agrupadas no rodapé', async () => {
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: { projectId: 'p1', overview, workspace, busy: false },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  const actions = wrapper.find('.git-pr-footer-actions');
-  assert.ok(actions.exists());
-  assert.equal(actions.findAll('button').length, 2);
-});
-
 test('mantém o force push no origin, separado do destino da Pull Request', async () => {
   const wrapper = mount(ProjectGitPullRequestPage, {
     props: {
@@ -348,39 +372,6 @@ test('mantém o force push no origin, separado do destino da Pull Request', asyn
     .trigger('click');
 
   assert.deepEqual(wrapper.emitted('force-push'), [[]]);
-});
-
-test('solicita o push normal de um novo commit antes de abrir a Pull Request', async () => {
-  const wrapper = mount(ProjectGitPullRequestPage, {
-    props: {
-      projectId: 'p1',
-      overview,
-      workspace,
-      busy: false,
-      pushBranch: 'feature/pull-request',
-    },
-  });
-  await flushPromises();
-  await flushPromises();
-
-  assert.match(
-    wrapper.text(),
-    /Envie o novo commit antes de abrir a Pull Request/,
-  );
-  assert.match(wrapper.text(), /origin\/feature\/pull-request/);
-  assert.equal(
-    (wrapper.find('.git-pr-footer button').element as HTMLButtonElement)
-      .disabled,
-    true,
-  );
-
-  const push = wrapper
-    .findAll('.git-pr-pending-push button')
-    .find((button) => button.text() === 'Enviar para origin');
-  assert.ok(push);
-  await push.trigger('click');
-  assert.deepEqual(wrapper.emitted('push'), [['feature/pull-request']]);
-  assert.equal(wrapper.text().includes('Forçar atualização no origin'), false);
 });
 
 test('reserva a aba no clique e navega sem falso erro nem botão duplicado', async () => {

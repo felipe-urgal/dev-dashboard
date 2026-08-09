@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  ArrowUpTrayIcon,
   ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
@@ -36,12 +35,10 @@ const props = defineProps<{
   overview: ProjectGitOverview;
   workspace: ProjectGitWorkspace | null;
   busy: boolean;
-  pushBranch?: string | null;
-  forcePushBranch?: string | null;
+  forcePushBranch: string | null;
 }>();
 
 const emit = defineEmits<{
-  push: [branch: string];
   'force-push': [];
 }>();
 
@@ -66,6 +63,7 @@ const installationStatus = ref('');
 const installationCompleted = ref<number | null>(null);
 const installationTotal = ref<number | null>(null);
 const installationError = ref('');
+const modelInstallerVisible = ref(false);
 let lookupGeneration = 0;
 let lookupScheduled = false;
 let modelPullClose: (() => void) | undefined;
@@ -129,14 +127,27 @@ const canOpen = computed(
     !checkingExisting.value &&
     !existingPullRequest.value &&
     canLookup.value &&
-    !props.pushBranch &&
     Boolean(title.value.trim()),
 );
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
 const availableReviewModels = computed(() => aiStatus.value?.models ?? []);
+const installableRecommendedModels = computed(() =>
+  AI_RECOMMENDED_MODELS.filter(
+    (recommendedModel) =>
+      !availableReviewModels.value.some(
+        (availableModel) => availableModel.name === recommendedModel.name,
+      ),
+  ),
+);
+const canShowModelInstaller = computed(
+  () =>
+    !loadingAiStatus.value &&
+    Boolean(aiStatus.value?.available) &&
+    installableRecommendedModels.value.length > 0,
+);
 const showRecommendedReviewModels = computed(
-  () => !loadingAiStatus.value && availableReviewModels.value.length === 0,
+  () => modelInstallerVisible.value && canShowModelInstaller.value,
 );
 const canInstallRecommendedModel = computed(
   () => Boolean(aiStatus.value?.available) && !installingModel.value,
@@ -855,6 +866,20 @@ async function mergePullRequest(): Promise<void> {
           </button>
         </div>
 
+        <button
+          v-if="canShowModelInstaller"
+          type="button"
+          class="git-pr-ai-add-model"
+          :aria-expanded="modelInstallerVisible"
+          @click="modelInstallerVisible = !modelInstallerVisible"
+        >
+          {{
+            modelInstallerVisible
+              ? 'Ocultar modelos locais'
+              : 'Adicionar modelo local'
+          }}
+        </button>
+
         <div
           v-if="showRecommendedReviewModels"
           class="git-pr-ai-recommendations"
@@ -864,7 +889,7 @@ async function mergePullRequest(): Promise<void> {
             <p>Instale um deles e ele aparecerá aqui automaticamente.</p>
           </div>
           <ul>
-            <li v-for="model in AI_RECOMMENDED_MODELS" :key="model.name">
+            <li v-for="model in installableRecommendedModels" :key="model.name">
               <span>{{ model.label }}</span>
               <div>
                 <strong>{{ model.name }}</strong>
@@ -942,29 +967,6 @@ async function mergePullRequest(): Promise<void> {
       </section>
 
       <section
-        v-if="pushBranch"
-        class="git-pr-pending-push"
-        aria-label="Novo commit aguardando envio"
-      >
-        <ArrowUpTrayIcon aria-hidden="true" />
-        <div>
-          <strong>Envie o novo commit antes de abrir a Pull Request</strong>
-          <p>
-            Envie os commits novos de <code>{{ pushBranch }}</code> para
-            <code>origin/{{ pushBranch }}</code
-            >. Assim, a Pull Request incluirá as alterações mais recentes.
-          </p>
-        </div>
-        <button
-          type="button"
-          :disabled="busy || mutationBusy"
-          @click="emit('push', pushBranch)"
-        >
-          Enviar para origin
-        </button>
-      </section>
-
-      <section
         v-if="forcePushBranch"
         class="git-pr-advanced"
         aria-label="Ações avançadas da branch"
@@ -1004,46 +1006,44 @@ async function mergePullRequest(): Promise<void> {
           O dashboard não armazena credenciais do GitHub/GitLab; ele abre a tela
           oficial de criação já preenchida.
         </p>
-        <div class="git-pr-footer-actions">
-          <a
-            v-if="existingPullRequest"
-            class="git-pr-existing-action"
-            :href="existingPullRequest.url"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Ver PR #{{ existingPullRequest.number }}
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          </a>
-          <a
-            v-else-if="generatedUrl"
-            class="git-pr-fallback-link"
-            :href="generatedUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Abrir página da Pull Request
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          </a>
-          <button v-else type="submit" :disabled="!canOpen">
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-            {{
-              checkingExisting
-                ? 'Verificando PR…'
-                : opening
-                  ? 'Preparando…'
-                  : 'Abrir Pull Request'
-            }}
-          </button>
-          <button
-            v-if="!existingPullRequest && !generatedUrl"
-            type="button"
-            :disabled="!canOpen || mutationBusy"
-            @click="showCreateConfirm = !showCreateConfirm"
-          >
-            Criar direto com gh
-          </button>
-        </div>
+        <a
+          v-if="existingPullRequest"
+          class="git-pr-existing-action"
+          :href="existingPullRequest.url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Ver PR #{{ existingPullRequest.number }}
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+        </a>
+        <a
+          v-else-if="generatedUrl"
+          class="git-pr-fallback-link"
+          :href="generatedUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Abrir página da Pull Request
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+        </a>
+        <button v-else type="submit" :disabled="!canOpen">
+          <ArrowTopRightOnSquareIcon aria-hidden="true" />
+          {{
+            checkingExisting
+              ? 'Verificando PR…'
+              : opening
+                ? 'Preparando…'
+                : 'Abrir Pull Request'
+          }}
+        </button>
+        <button
+          v-if="!existingPullRequest && !generatedUrl"
+          type="button"
+          :disabled="!canOpen || mutationBusy"
+          @click="showCreateConfirm = !showCreateConfirm"
+        >
+          Criar direto com gh
+        </button>
       </div>
 
       <div v-if="showCreateConfirm" class="git-pr-confirm">
