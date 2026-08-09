@@ -120,6 +120,7 @@ beforeEach(() => {
     message: '1 modelo instalado no Ollama local.',
     models: [{ name: 'qwen2.5-coder:7b', capabilities: ['chat'] }],
   });
+  sessionStorage.clear();
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
   api.composeProjectGitPullRequest.mockResolvedValue({
     provider: 'github',
@@ -193,6 +194,40 @@ test('revisa o diff da base escolhida sem bloquear a abertura da PR', async () =
     wrapper
       .findAll('button')
       .some((button) => button.text().includes('Abrir Pull Request')),
+  );
+});
+
+test('recupera a última revisão válida ao voltar para a Pull Request', async () => {
+  sessionStorage.setItem(
+    `dev-dashboard:pr-ai-review:p1:feature/pull-request:${'a'.repeat(40)}:upstream:main:qwen2.5-coder:7b`,
+    JSON.stringify({
+      targetRemote: 'upstream',
+      baseBranch: 'main',
+      sourceBranch: 'feature/pull-request',
+      model: 'qwen2.5-coder:7b',
+      reviewedAt: '2026-08-09T12:00:00.000Z',
+      summary: 'Última revisão ainda corresponde ao diff atual.',
+      findings: [],
+      diffTruncated: false,
+      masked: false,
+      redactionCount: 0,
+    }),
+  );
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(
+    wrapper.text(),
+    /Última revisão ainda corresponde ao diff atual/,
   );
 });
 
