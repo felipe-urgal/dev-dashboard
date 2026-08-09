@@ -5,6 +5,7 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   ClipboardDocumentIcon,
+  EllipsisVerticalIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PauseIcon,
@@ -24,7 +25,6 @@ import { explainSql } from '../sql-explanation/describe';
 import { exportLogSnapshot } from '../utils/log-export';
 import type {
   RailsLogGroup,
-  RailsLogLine,
   RailsRequestLogGroup,
 } from '../utils/rails-log-parser';
 import {
@@ -50,7 +50,7 @@ interface ServerDiagnosticIssue {
   count?: number;
 }
 
-const RAW_LINE_PAGE_SIZE = 1500;
+const EVENT_PAGE_SIZE = 500;
 
 const props = defineProps<{ project: Project }>();
 
@@ -61,7 +61,6 @@ const {
   supportsServer,
   processStatus,
   hasManagedProcess,
-  statusLabel,
 } = useProjectProcessStatus(() => props.project);
 
 const logContainer = ref<HTMLElement | null>(null);
@@ -71,7 +70,7 @@ const viewMode = ref<ViewMode>('flow');
 const copiedRequestId = ref('');
 const selectedGroupKey = ref('');
 const selectedIssueId = ref('');
-const rawLineLimit = ref(RAW_LINE_PAGE_SIZE);
+const eventLimit = ref(EVENT_PAGE_SIZE);
 
 const {
   loadingLogs,
@@ -132,23 +131,6 @@ function groupMatchesCategory(group: RailsLogGroup): boolean {
   }
 }
 
-function lineMatchesCategory(line: RailsLogLine): boolean {
-  switch (categoryFilter.value) {
-    case 'requests':
-      return ['request', 'controller', 'parameters', 'completed'].includes(
-        line.kind,
-      );
-    case 'sql':
-      return line.kind === 'sql' || line.kind === 'source';
-    case 'render':
-      return line.kind === 'render';
-    case 'errors':
-      return line.kind === 'error' || line.kind === 'warning';
-    default:
-      return true;
-  }
-}
-
 const visibleGroups = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
   return orderedGroups.value.filter((group) => {
@@ -157,28 +139,20 @@ const visibleGroups = computed(() => {
   });
 });
 
-const flowRawLines = computed<RailsLogLine[]>(() => parsedLog.value.lines);
-const visibleRawLines = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  return flowRawLines.value.filter((line) => {
-    const matchesSearch = !query || line.text.toLowerCase().includes(query);
-    return matchesSearch && lineMatchesCategory(line);
-  });
-});
-const cappedRawLines = computed(() =>
-  visibleRawLines.value.slice(
-    Math.max(0, visibleRawLines.value.length - rawLineLimit.value),
+const flowGroups = computed(() => [...visibleGroups.value].reverse());
+const cappedFlowGroups = computed(() =>
+  flowGroups.value.slice(
+    Math.max(0, flowGroups.value.length - eventLimit.value),
   ),
 );
-const hiddenRawLinesCount = computed(() =>
-  Math.max(0, visibleRawLines.value.length - cappedRawLines.value.length),
+const hiddenFlowGroupCount = computed(() =>
+  Math.max(0, flowGroups.value.length - cappedFlowGroups.value.length),
 );
 
-const selectedGroup = computed<RailsLogGroup | undefined>(
-  () =>
-    visibleGroups.value.find(
-      (group) => groupSelectionKey(group) === selectedGroupKey.value,
-    ) ?? visibleGroups.value[0],
+const selectedGroup = computed<RailsLogGroup | undefined>(() =>
+  visibleGroups.value.find(
+    (group) => groupSelectionKey(group) === selectedGroupKey.value,
+  ),
 );
 const selectedRequestGroup = computed<RailsRequestLogGroup | undefined>(() =>
   selectedGroup.value?.kind === 'request' ? selectedGroup.value : undefined,
@@ -280,22 +254,24 @@ const diagnosticSummary = computed(() => ({
   ).length,
 }));
 
-const visibleLineCount = computed(() =>
+const visibleEventCount = computed(() =>
   viewMode.value === 'diagnostic'
-    ? visibleGroups.value.reduce(
-        (total, group) => total + group.lines.length,
-        0,
-      )
-    : visibleRawLines.value.length,
+    ? diagnosticIssues.value.length
+    : flowGroups.value.length,
 );
+const streamUpdateLabel = computed(() => {
+  if (loadingLogs.value) return 'Atualizando logs...';
+  if (streamPaused.value) return 'Atualização automática pausada';
+  return 'Acompanhando novas linhas a cada 2 segundos';
+});
 
 function selectIssue(issue: ServerDiagnosticIssue): void {
   selectedIssueId.value = issue.id;
   selectedGroupKey.value = issue.groupKey;
 }
 
-function loadMoreRawLines(): void {
-  rawLineLimit.value += RAW_LINE_PAGE_SIZE;
+function loadMoreEvents(): void {
+  eventLimit.value += EVENT_PAGE_SIZE;
 }
 
 function highlightedSql(text: string): string {
@@ -308,7 +284,7 @@ function resetFilters(): void {
   viewMode.value = 'flow';
   selectedGroupKey.value = '';
   selectedIssueId.value = '';
-  rawLineLimit.value = RAW_LINE_PAGE_SIZE;
+  eventLimit.value = EVENT_PAGE_SIZE;
 }
 
 function formatDuration(value: number | undefined): string {
@@ -331,27 +307,15 @@ function methodTone(method: string | undefined): string {
   }
 }
 
-function rawLineClass(line: RailsLogLine): string {
-  switch (line.kind) {
-    case 'request':
-    case 'completed':
-      return 'project-log-line-request';
-    case 'controller':
-    case 'parameters':
-      return 'project-log-line-controller';
-    case 'sql':
-      return 'project-log-line-sql';
-    case 'source':
-      return 'project-log-line-source';
-    case 'render':
-      return 'project-log-line-render';
-    case 'warning':
-      return 'project-log-line-warning';
-    case 'error':
-      return 'project-log-line-error';
-    default:
-      return 'project-log-line-neutral';
-  }
+function formatLogTime(value: string | undefined): string {
+  if (!value) return '—';
+  return value.match(/\b\d{2}:\d{2}:\d{2}\b/)?.[0] ?? value;
+}
+
+function toggleFlowGroup(group: RailsLogGroup): void {
+  if (group.kind !== 'request') return;
+  const key = groupSelectionKey(group);
+  selectedGroupKey.value = selectedGroupKey.value === key ? '' : key;
 }
 
 function issueLabel(kind: DiagnosticKind): string {
@@ -392,25 +356,36 @@ watch(viewMode, () => {
   if (viewMode.value === 'flow') {
     followLogs.value = true;
     void scrollLogsToLatest();
+    return;
+  }
+
+  if (selectedIssue.value) {
+    selectIssue(selectedIssue.value);
   }
 });
 
 watch(visibleGroups, (groups) => {
   if (
+    selectedGroupKey.value &&
     !groups.some((group) => groupSelectionKey(group) === selectedGroupKey.value)
   ) {
-    selectedGroupKey.value = groups[0] ? groupSelectionKey(groups[0]) : '';
+    selectedGroupKey.value = '';
   }
 });
 
 watch(diagnosticIssues, (issues) => {
-  if (!issues.some((issue) => issue.id === selectedIssueId.value)) {
+  if (
+    viewMode.value === 'diagnostic' &&
+    !issues.some((issue) => issue.id === selectedIssueId.value)
+  ) {
     selectedIssueId.value = issues[0]?.id ?? '';
   }
 });
 
 watch(selectedIssue, (issue) => {
-  if (issue) selectedGroupKey.value = issue.groupKey;
+  if (issue && viewMode.value === 'diagnostic') {
+    selectedGroupKey.value = issue.groupKey;
+  }
 });
 </script>
 

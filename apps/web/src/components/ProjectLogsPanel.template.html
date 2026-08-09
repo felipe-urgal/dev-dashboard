@@ -24,7 +24,10 @@
           @click="viewMode = 'diagnostic'"
         >
           Diagnóstico
-          <span v-if="diagnosticIssues.length" class="project-log-diagnostic-count">
+          <span
+            v-if="diagnosticIssues.length"
+            class="project-log-diagnostic-count"
+          >
             {{ diagnosticIssues.length }}
           </span>
         </button>
@@ -54,33 +57,6 @@
       <div class="project-log-toolbar-actions">
         <button
           type="button"
-          :disabled="loadingLogs || !hasManagedProcess"
-          title="Atualizar logs"
-          @click="refreshLogs"
-        >
-          <ArrowPathIcon aria-hidden="true" />
-          <span>Atualizar</span>
-        </button>
-        <button
-          type="button"
-          :disabled="!logSnapshot?.content.trim()"
-          title="Exportar log"
-          @click="handleExportLog"
-        >
-          <ArrowDownTrayIcon aria-hidden="true" />
-          <span>Exportar</span>
-        </button>
-        <button
-          type="button"
-          :disabled="loadingLogs || !hasManagedProcess"
-          title="Limpar logs"
-          @click="clearLogView"
-        >
-          <TrashIcon aria-hidden="true" />
-          <span>Limpar</span>
-        </button>
-        <button
-          type="button"
           class="stream-toggle-button"
           :disabled="!hasManagedProcess"
           @click="toggleStream"
@@ -89,6 +65,37 @@
           <PauseIcon v-else aria-hidden="true" />
           {{ streamPaused ? 'Retomar' : 'Pausar' }}
         </button>
+        <details class="project-log-overflow">
+          <summary aria-label="Mais ações para os logs" title="Mais ações">
+            <EllipsisVerticalIcon aria-hidden="true" />
+          </summary>
+          <div>
+            <button
+              type="button"
+              :disabled="loadingLogs || !hasManagedProcess"
+              @click="refreshLogs"
+            >
+              <ArrowPathIcon aria-hidden="true" />
+              Atualizar
+            </button>
+            <button
+              type="button"
+              :disabled="!logSnapshot?.content.trim()"
+              @click="handleExportLog"
+            >
+              <ArrowDownTrayIcon aria-hidden="true" />
+              Exportar
+            </button>
+            <button
+              type="button"
+              :disabled="loadingLogs || !hasManagedProcess"
+              @click="clearLogView"
+            >
+              <TrashIcon aria-hidden="true" />
+              Limpar
+            </button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -98,21 +105,23 @@
           class="project-log-stream-status"
           :class="{ 'project-log-stream-paused': streamPaused }"
         >
-          {{ streamPaused ? 'Pausado' : 'Streaming' }}
+          {{ streamPaused ? 'Pausado' : 'Servidor ativo' }}
         </span>
         <strong>
-          {{ managedProcess?.port ? `localhost:${managedProcess.port}` : 'Aguardando servidor' }}
+          {{ managedProcess?.port ? `localhost:${managedProcess.port}` :
+          'Aguardando servidor' }}
         </strong>
+        <span class="project-log-runtime-count">
+          {{ visibleEventCount }} {{ visibleEventCount === 1 ? 'evento' :
+          'eventos' }}
+        </span>
       </div>
-      <dl>
-        <div><dt>Status</dt><dd>{{ statusLabel }}</dd></div>
-        <div><dt>PID</dt><dd>{{ managedProcess?.pid ?? '—' }}</dd></div>
-        <div><dt>Linhas</dt><dd>{{ visibleLineCount }}</dd></div>
-        <div><dt>Saída</dt><dd>{{ managedProcess?.exitCode ?? '—' }}</dd></div>
-      </dl>
     </div>
 
-    <div v-if="loadingStatus && !hasManagedProcess" class="project-log-terminal-empty">
+    <div
+      v-if="loadingStatus && !hasManagedProcess"
+      class="project-log-terminal-empty"
+    >
       Verificando o processo do projeto...
     </div>
     <div v-else-if="!hasManagedProcess" class="project-log-terminal-empty">
@@ -142,39 +151,155 @@
 
         <div
           ref="logContainer"
-          class="project-log-raw-wrap project-log-flow"
+          class="project-log-events project-log-flow"
           tabindex="0"
           @scroll="handleLogScroll"
         >
           <button
-            v-if="hiddenRawLinesCount > 0"
+            v-if="hiddenFlowGroupCount > 0"
             type="button"
             class="rails-load-more"
-            @click="loadMoreRawLines"
+            @click="loadMoreEvents"
           >
-            Carregar linhas mais antigas ({{ hiddenRawLinesCount }} ocultas)
+            Carregar eventos mais antigos ({{ hiddenFlowGroupCount }} ocultos)
           </button>
 
-          <code class="project-log-raw-lines">
-            <span
-              v-for="line in cappedRawLines"
-              :key="line.id"
-              class="project-log-line"
-              :class="rawLineClass(line)"
-            >{{ line.text || ' ' }}</span>
-          </code>
+          <template v-for="group in cappedFlowGroups" :key="group.id">
+            <button
+              v-if="group.kind === 'request'"
+              type="button"
+              class="project-log-event"
+              :class="{
+                selected: selectedGroupKey === groupSelectionKey(group),
+                'is-slow': (group.durationMs ?? 0) >= 1000,
+                'is-error': (group.status ?? 0) >= 400 || group.errorLines.length,
+              }"
+              :aria-expanded="selectedGroupKey === groupSelectionKey(group)"
+              @click="toggleFlowGroup(group)"
+            >
+              <time>{{ formatLogTime(group.startedAt) }}</time>
+              <span class="rails-method" :class="methodTone(group.method)">
+                {{ group.method ?? 'REQ' }}
+              </span>
+              <strong>{{ group.path ?? 'Requisição Rails' }}</strong>
+              <span
+                class="rails-status"
+                :class="`rails-status-${railsRequestStatusTone(group.status)}`"
+              >
+                {{ group.status ?? '—' }}
+              </span>
+              <span class="project-log-event-duration">
+                {{ formatDuration(group.durationMs) }}
+              </span>
+            </button>
+
+            <article
+              v-if="selectedGroupKey === groupSelectionKey(group) && selectedRequestGroup"
+              class="project-log-event-detail"
+            >
+              <div class="project-log-event-summary">
+                <span v-if="selectedRequestGroup.controller">
+                  {{ selectedRequestGroup.controller }}#{{
+                  selectedRequestGroup.action }}
+                </span>
+                <span
+                  >{{ formatDuration(selectedRequestGroup.durationMs) }}</span
+                >
+                <span>{{ selectedRequestGroup.queryCount ?? 0 }} queries</span>
+                <button
+                  type="button"
+                  :title="copiedRequestId === selectedRequestGroup.requestId ? 'Copiado' : 'Copiar request ID'"
+                  @click.stop="copyRequestId(selectedRequestGroup.requestId)"
+                >
+                  <ClipboardDocumentIcon aria-hidden="true" />
+                  {{ copiedRequestId === selectedRequestGroup.requestId ?
+                  'Copiado' : 'Copiar ID' }}
+                </button>
+              </div>
+
+              <div
+                v-if="selectedRequestGroup.errorLines.length"
+                class="project-log-event-error"
+              >
+                {{ selectedRequestGroup.errorLines[0]?.text }}
+              </div>
+
+              <details
+                v-if="selectedSqlGroups.length"
+                class="project-log-event-disclosure"
+              >
+                <summary>
+                  <span>Consulta SQL</span>
+                  <strong
+                    >{{ selectedRequestGroup.sqlLines.length }}
+                    execuções</strong
+                  >
+                </summary>
+                <div class="sql-block">
+                  <div
+                    v-for="sqlGroup in selectedSqlGroups"
+                    :key="(sqlGroup.label ?? '') + sqlGroup.pattern"
+                    class="sql-row-wrap"
+                  >
+                    <div
+                      class="sql-row"
+                      :class="{ 'sql-row-hot': sqlGroup.n1Suspect }"
+                    >
+                      <span
+                        class="sql-count"
+                        :class="{ hot: sqlGroup.n1Suspect }"
+                        >×{{ sqlGroup.count }}</span
+                      >
+                      <span
+                        class="sql-text"
+                        v-html="highlightedSql(sqlGroup.pattern)"
+                      />
+                      <span
+                        class="sql-time"
+                        :class="{ hot: sqlGroup.n1Suspect }"
+                      >
+                        {{ formatDuration(sqlGroup.totalMs) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </details>
+
+              <details
+                v-if="selectedParams !== undefined || selectedRequestGroup.parameters"
+                class="project-log-event-disclosure"
+              >
+                <summary>
+                  <span>Parâmetros</span><strong>dados da request</strong>
+                </summary>
+                <RailsParamsTree
+                  v-if="selectedParams !== undefined"
+                  :value="selectedParams"
+                />
+                <pre v-else class="rails-detail-pre">
+{{ selectedRequestGroup.parameters }}</pre>
+              </details>
+
+              <details class="project-log-event-disclosure">
+                <summary>
+                  <span>Log completo</span
+                  ><strong
+                    >{{ selectedRequestGroup.lines.length }} linhas</strong
+                  >
+                </summary>
+                <pre class="rails-detail-pre">
+{{ selectedRequestGroup.lines.map((line) => line.text || ' ').join('\n') }}</pre>
+              </details>
+            </article>
+
+            <div v-else class="project-log-system-event">
+              {{ group.lines[0]?.text || 'Evento do servidor' }}
+            </div>
+          </template>
         </div>
 
         <footer class="project-log-terminal-footer">
-          <span>
-            {{
-              loadingLogs
-                ? 'Atualizando logs...'
-                : streamPaused
-                  ? 'Atualização automática pausada'
-                  : 'Acompanhando novas linhas a cada 2 segundos'
-            }}
-          </span>
+          <span>{{ streamUpdateLabel }}</span>
           <button
             v-if="!followLogs"
             type="button"
@@ -216,12 +341,18 @@
           <span>✓</span>
           <div>
             <strong>Nenhum problema evidente encontrado</strong>
-            <p>As requisições disponíveis não apresentam erro, lentidão ou repetição de SQL suficiente para gerar um alerta.</p>
+            <p>
+              As requisições disponíveis não apresentam erro, lentidão ou
+              repetição de SQL suficiente para gerar um alerta.
+            </p>
           </div>
         </div>
 
         <div v-else class="server-diagnostic-layout">
-          <aside class="server-diagnostic-list" aria-label="Problemas encontrados">
+          <aside
+            class="server-diagnostic-list"
+            aria-label="Problemas encontrados"
+          >
             <header>
               <strong>Problemas encontrados</strong>
               <span>{{ diagnosticIssues.length }}</span>
@@ -236,12 +367,17 @@
               ]"
               @click="selectIssue(issue)"
             >
-              <span class="server-diagnostic-kind">{{ issueLabel(issue.kind) }}</span>
+              <span class="server-diagnostic-kind"
+                >{{ issueLabel(issue.kind) }}</span
+              >
               <span>
                 <strong>{{ issue.title }}</strong>
                 <small>{{ issue.summary }}</small>
               </span>
-              <strong v-if="issue.durationMs" class="server-diagnostic-duration">
+              <strong
+                v-if="issue.durationMs"
+                class="server-diagnostic-duration"
+              >
                 {{ formatDuration(issue.durationMs) }}
               </strong>
             </button>
@@ -251,7 +387,10 @@
             <template v-if="selectedRequestGroup">
               <header class="rails-detail-header">
                 <div class="rails-detail-heading">
-                  <span class="rails-method" :class="methodTone(selectedRequestGroup.method)">
+                  <span
+                    class="rails-method"
+                    :class="methodTone(selectedRequestGroup.method)"
+                  >
                     {{ selectedRequestGroup.method ?? 'REQ' }}
                   </span>
                   <span
@@ -265,9 +404,12 @@
                 </div>
                 <div class="rails-detail-sub">
                   <span v-if="selectedRequestGroup.controller">
-                    {{ selectedRequestGroup.controller }}#{{ selectedRequestGroup.action }}
+                    {{ selectedRequestGroup.controller }}#{{
+                    selectedRequestGroup.action }}
                   </span>
-                  <span v-if="selectedRequestGroup.format">{{ selectedRequestGroup.format }}</span>
+                  <span v-if="selectedRequestGroup.format"
+                    >{{ selectedRequestGroup.format }}</span
+                  >
                   <button
                     type="button"
                     :title="copiedRequestId === selectedRequestGroup.requestId ? 'Copiado' : 'Copiar request ID'"
@@ -284,7 +426,10 @@
                 class="server-investigation-callout"
                 :class="`is-${selectedIssue.tone}`"
               >
-                <XCircleIcon v-if="selectedIssue.tone === 'danger'" aria-hidden="true" />
+                <XCircleIcon
+                  v-if="selectedIssue.tone === 'danger'"
+                  aria-hidden="true"
+                />
                 <ExclamationTriangleIcon v-else aria-hidden="true" />
                 <div>
                   <strong>O que chamou atenção</strong>
@@ -295,47 +440,75 @@
               <dl class="rails-detail-stats">
                 <div>
                   <dt>Tempo total</dt>
-                  <dd :class="{ 'stat-slow': (selectedRequestGroup.durationMs ?? 0) >= 1000 }">
+                  <dd
+                    :class="{ 'stat-slow': (selectedRequestGroup.durationMs ?? 0) >= 1000 }"
+                  >
                     {{ formatDuration(selectedRequestGroup.durationMs) }}
                   </dd>
                 </div>
                 <div>
                   <dt>SQL</dt>
-                  <dd>{{ formatDuration(selectedRequestGroup.activeRecordDurationMs) }}</dd>
+                  <dd>
+                    {{
+                    formatDuration(selectedRequestGroup.activeRecordDurationMs)
+                    }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Queries</dt>
-                  <dd :class="{ 'stat-warn': selectedN1Group }">{{ selectedRequestGroup.queryCount ?? 0 }}</dd>
+                  <dd :class="{ 'stat-warn': selectedN1Group }">
+                    {{ selectedRequestGroup.queryCount ?? 0 }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Views</dt>
-                  <dd>{{ formatDuration(selectedRequestGroup.viewDurationMs) }}</dd>
+                  <dd>
+                    {{ formatDuration(selectedRequestGroup.viewDurationMs) }}
+                  </dd>
                 </div>
                 <div>
                   <dt>GC</dt>
-                  <dd>{{ formatDuration(selectedRequestGroup.gcDurationMs) }}</dd>
+                  <dd>
+                    {{ formatDuration(selectedRequestGroup.gcDurationMs) }}
+                  </dd>
                 </div>
               </dl>
 
-              <div v-if="selectedN1Group" class="rails-n1-callout" role="status">
+              <div
+                v-if="selectedN1Group"
+                class="rails-n1-callout"
+                role="status"
+              >
                 <ExclamationTriangleIcon aria-hidden="true" />
                 <div>
                   <strong>N+1 provável.</strong>
-                  Essa consulta rodou <strong>{{ selectedN1Group.count }}×</strong>
-                  nesta requisição · {{ formatDuration(selectedN1Group.totalMs) }} no total.
-                  Considere eager loading (<code>includes</code>) na origem.
+                  Essa consulta rodou
+                  <strong>{{ selectedN1Group.count }}×</strong>
+                  nesta requisição · {{ formatDuration(selectedN1Group.totalMs)
+                  }} no total. Considere eager loading (<code>includes</code>)
+                  na origem.
                 </div>
               </div>
 
-              <div v-if="selectedRequestGroup.errorLines.length" class="rails-detail-section">
+              <div
+                v-if="selectedRequestGroup.errorLines.length"
+                class="rails-detail-section"
+              >
                 <span class="rails-detail-section-title">Erro detectado</span>
-                <pre class="rails-detail-pre rails-detail-error">{{ selectedRequestGroup.errorLines.map((line) => line.text).join('\n') }}</pre>
+                <pre class="rails-detail-pre rails-detail-error">
+{{ selectedRequestGroup.errorLines.map((line) => line.text).join('\n') }}</pre>
               </div>
 
-              <details v-if="selectedSqlGroups.length" class="server-investigation-details">
+              <details
+                v-if="selectedSqlGroups.length"
+                class="server-investigation-details"
+              >
                 <summary>
                   <span>SQL</span>
-                  <strong>{{ selectedRequestGroup.sqlLines.length }} execuções</strong>
+                  <strong
+                    >{{ selectedRequestGroup.sqlLines.length }}
+                    execuções</strong
+                  >
                 </summary>
                 <div class="sql-block">
                   <div
@@ -343,17 +516,33 @@
                     :key="(sqlGroup.label ?? '') + sqlGroup.pattern"
                     class="sql-row-wrap"
                   >
-                    <div class="sql-row" :class="{ 'sql-row-hot': sqlGroup.n1Suspect }">
-                      <span class="sql-count" :class="{ hot: sqlGroup.n1Suspect }">×{{ sqlGroup.count }}</span>
-                      <span class="sql-text" v-html="highlightedSql(sqlGroup.pattern)" />
-                      <span class="sql-time" :class="{ hot: sqlGroup.n1Suspect }">
-                        {{ formatDuration(sqlGroup.avgMs) }} cada · {{ formatDuration(sqlGroup.totalMs) }}
+                    <div
+                      class="sql-row"
+                      :class="{ 'sql-row-hot': sqlGroup.n1Suspect }"
+                    >
+                      <span
+                        class="sql-count"
+                        :class="{ hot: sqlGroup.n1Suspect }"
+                        >×{{ sqlGroup.count }}</span
+                      >
+                      <span
+                        class="sql-text"
+                        v-html="highlightedSql(sqlGroup.pattern)"
+                      />
+                      <span
+                        class="sql-time"
+                        :class="{ hot: sqlGroup.n1Suspect }"
+                      >
+                        {{ formatDuration(sqlGroup.avgMs) }} cada · {{
+                        formatDuration(sqlGroup.totalMs) }}
                       </span>
                     </div>
                     <details class="sql-explain">
                       <summary>
                         <span>Entender esta consulta</span>
-                        <span class="sql-explain-hint">explicação em português</span>
+                        <span class="sql-explain-hint"
+                          >explicação em português</span
+                        >
                       </summary>
                       <div class="sql-explain-body">
                         <p>{{ sqlGroup.explanation.description }}</p>
@@ -367,29 +556,46 @@
                 </div>
               </details>
 
-              <details v-if="selectedParams !== undefined || selectedRequestGroup.parameters" class="server-investigation-details">
+              <details
+                v-if="selectedParams !== undefined || selectedRequestGroup.parameters"
+                class="server-investigation-details"
+              >
                 <summary>
                   <span>Parâmetros</span>
                   <strong>dados da request</strong>
                 </summary>
-                <RailsParamsTree v-if="selectedParams !== undefined" :value="selectedParams" />
-                <pre v-else class="rails-detail-pre">{{ selectedRequestGroup.parameters }}</pre>
+                <RailsParamsTree
+                  v-if="selectedParams !== undefined"
+                  :value="selectedParams"
+                />
+                <pre v-else class="rails-detail-pre">
+{{ selectedRequestGroup.parameters }}</pre>
               </details>
 
-              <details v-if="selectedRequestGroup.renderLines.length" class="server-investigation-details">
+              <details
+                v-if="selectedRequestGroup.renderLines.length"
+                class="server-investigation-details"
+              >
                 <summary>
                   <span>Renderização</span>
-                  <strong>{{ selectedRequestGroup.renderLines.length }} etapas</strong>
+                  <strong
+                    >{{ selectedRequestGroup.renderLines.length }}
+                    etapas</strong
+                  >
                 </summary>
-                <pre class="rails-detail-pre">{{ selectedRequestGroup.renderLines.map((line) => line.text).join('\n') }}</pre>
+                <pre class="rails-detail-pre">
+{{ selectedRequestGroup.renderLines.map((line) => line.text).join('\n') }}</pre>
               </details>
 
               <details class="server-investigation-details">
                 <summary>
                   <span>Log completo da request</span>
-                  <strong>{{ selectedRequestGroup.lines.length }} linhas</strong>
+                  <strong
+                    >{{ selectedRequestGroup.lines.length }} linhas</strong
+                  >
                 </summary>
-                <pre class="rails-detail-pre">{{ selectedRequestGroup.lines.map((line) => line.text || ' ').join('\n') }}</pre>
+                <pre class="rails-detail-pre">
+{{ selectedRequestGroup.lines.map((line) => line.text || ' ').join('\n') }}</pre>
               </details>
             </template>
           </article>
@@ -403,8 +609,13 @@
     <div v-if="logErrorMessage" class="project-error" role="alert">
       {{ logErrorMessage }}
     </div>
-    <div v-if="logSnapshot?.masked" class="project-log-redaction-warning" role="status">
-      {{ logSnapshot.redactionCount }} ocorrência(s) sensível(is) foram mascarada(s) nesta visualização.
+    <div
+      v-if="logSnapshot?.masked"
+      class="project-log-redaction-warning"
+      role="status"
+    >
+      {{ logSnapshot.redactionCount }} ocorrência(s) sensível(is) foram
+      mascarada(s) nesta visualização.
     </div>
   </section>
 </div>

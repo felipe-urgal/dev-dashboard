@@ -9,21 +9,25 @@ A regra de produto é **conclusão antes de evidência**: o dashboard destaca pr
 
 ## Aplicação por ferramenta
 
-| Ferramenta | Visão normal | Diagnóstico |
-| --- | --- | --- |
-| Logs do servidor | Fluxo HTTP/Rails/Node | 5xx/exceptions, requests lentas, N+1 e SQL repetido |
-| Sidekiq | Fluxo de jobs | falhas, retries e jobs lentos |
-| Webpack | Fluxo de compilação | erros, warnings e builds lentos |
-| Testes | Execução | falhas, warnings e contexto do runner |
-| Scripts | Saída | erros, warnings e execução lenta |
-| Dependências/build | Saída | erros, warnings e build lento |
-| Operações Rails de banco | Saída | erros e warnings do comando pontual |
+| Ferramenta               | Visão normal          | Diagnóstico                                         |
+| ------------------------ | --------------------- | --------------------------------------------------- |
+| Logs do servidor         | Fluxo HTTP/Rails/Node | 5xx/exceptions, requests lentas, N+1 e SQL repetido |
+| Sidekiq                  | Fluxo de jobs         | falhas, retries e jobs lentos                       |
+| Webpack                  | Fluxo de compilação   | erros, warnings e builds lentos                     |
+| Testes                   | Execução              | falhas, warnings e contexto do runner               |
+| Scripts                  | Saída                 | erros, warnings e execução lenta                    |
+| Dependências/build       | Saída                 | erros, warnings e build lento                       |
+| Operações Rails de banco | Saída                 | erros e warnings do comando pontual                 |
 
 O suporte a Docker Compose não faz parte desta entrega porque essa integração não existe mais no produto atual.
 
 ## Fluxo normal
 
-- Uma linha por evento sempre que possível.
+- Uma linha por evento sempre que possível: para requests Rails, horário, método, rota, status e
+  duração bastam na leitura inicial.
+- Controller, quantidade de queries, SQL, parâmetros e o trecho completo do log aparecem somente
+  após selecionar o evento. SQL começa recolhida para não dominar o fluxo.
+- Pausar é a ação direta; atualizar, exportar e limpar ficam em um menu de mais ações.
 - Busca e filtros sem transformar cada linha em um card.
 - Auto-follow pelo final da saída, como em um terminal.
 - Rolagem manual pausa o acompanhamento; voltar ao final permite retomar.

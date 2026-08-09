@@ -7,18 +7,17 @@ rodado o comando manualmente), com filtros, busca e uma leitura especial para pr
 
 ## O que aparece na tela
 
-- Uma barra de status do servidor: porta, PID, código de saída (se já parou) e quantas linhas
-  estão visíveis.
-- Quando o dashboard reconhece o formato de log de requisições do Rails, um resumo é calculado
-  automaticamente: total de requisições, quantas tiveram sucesso, quantas deram erro, quantidade
-  de queries de banco, tempo médio e a requisição mais lenta.
+- Uma faixa curta de status: servidor ativo ou pausado, endereço local e quantidade de eventos
+  visíveis.
 - Duas formas de visualizar:
-  - **Requisições**: um inspetor estruturado, separado por requisição — duração, queries agrupadas
-    por padrão de SQL (com aviso quando detecta um possível problema de N+1 queries), parâmetros
-    formatados em árvore, seções de erro e de renderização.
-  - **Raw limpo**: as linhas cruas do log, coloridas por categoria.
+  - **Fluxo**: uma linha por evento ou requisição Rails, em ordem cronológica. Cada linha mostra
+    horário, método, rota, status e duração. Ao selecionar uma requisição, aparecem o controller,
+    o tempo, a quantidade de queries e detalhes recolhidos de SQL, parâmetros e log completo.
+  - **Diagnóstico**: erros, lentidão, possível N+1 e SQL repetida, com a investigação detalhada
+    disponível quando necessária.
 - Filtro por categoria (Tudo / Requisições / SQL / Renderização / Erros e avisos), busca textual,
-  botão "carregar mais antigas", e os botões Atualizar, Exportar, Limpar e Pausar/Retomar.
+  botão "carregar eventos mais antigos", Pausar/Retomar e um menu de mais ações para Atualizar,
+  Exportar e Limpar.
 - Um aviso informando que segredos são mascarados automaticamente.
 
 ## Como funciona por trás
@@ -36,10 +35,10 @@ rodado o comando manualmente), com filtros, busca e uma leitura especial para pr
   encontrado por `[CONTEUDO_MASCARADO]`. Isso acontece **na resposta enviada ao navegador**; o
   arquivo em disco continua com o conteúdo original. A interface mostra quantas ocorrências foram
   mascaradas.
-- A leitura estruturada de "Requisições" para logs Rails é feita inteiramente no navegador, sobre
+- A leitura estruturada do fluxo para logs Rails é feita inteiramente no navegador, sobre
   o texto já mascarado — o dashboard reconhece o padrão de linhas de uma requisição Rails
   (`Started GET ...`, `Processing by ...`, tempo de SQL, `Completed 200 ...`) e agrupa tudo isso em
-  um cartão por requisição.
+  um evento expansível por requisição.
 
 ## Retenção
 
