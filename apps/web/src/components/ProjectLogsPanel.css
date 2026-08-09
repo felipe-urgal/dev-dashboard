@@ -168,6 +168,83 @@
   background: var(--danger-surface);
 }
 
+.project-log-overflow {
+  position: relative;
+}
+
+.project-log-overflow > summary {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.project-log-overflow > summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-log-overflow > summary:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.project-log-overflow > summary svg {
+  width: 17px;
+  height: 17px;
+}
+
+.project-log-overflow > div {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 148px;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 28%);
+}
+
+.project-log-overflow > div button {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-log-overflow > div button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.project-log-overflow > div button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.project-log-overflow > div svg {
+  width: 14px;
+  height: 14px;
+}
+
 /*
  * The terminal panel keeps its own "code display" identity (like the Git
  * diff/history viewers do) instead of just inheriting the page chrome —
@@ -1128,5 +1205,4 @@
   .rails-detail-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
 }

@@ -106,7 +106,7 @@ describe('ProjectLogsPanel', () => {
     document.body.innerHTML = '';
   });
 
-  it('abre em Fluxo e mantém a ordem cronológica com o mais recente embaixo', async () => {
+  it('abre em Fluxo com uma linha por requisição e o mais recente embaixo', async () => {
     const { wrapper, restoreFetch } = await mountPanel();
 
     try {
@@ -115,18 +115,43 @@ describe('ProjectLogsPanel', () => {
       expect(modes[0]?.classes()).toContain('active');
       expect(modes[1]?.text()).toContain('Diagnóstico');
 
-      const lines = wrapper
-        .findAll('.project-log-flow .project-log-line')
-        .map((line) => line.text());
-      expect(lines.length).toBeGreaterThan(0);
+      const events = wrapper
+        .findAll('.project-log-flow .project-log-event')
+        .map((event) => event.text());
+      expect(events).toHaveLength(2);
 
-      const researchesIndex = lines.findIndex((text) =>
-        text.includes('"/platform/observatorio/indicators/researches"'),
+      const researchesIndex = events.findIndex((text) =>
+        text.includes('/platform/observatorio/indicators/researches'),
       );
-      const exportIndex = lines.findIndex((text) => text.includes('/export'));
+      const exportIndex = events.findIndex((text) => text.includes('/export'));
       expect(researchesIndex).toBeGreaterThanOrEqual(0);
       expect(exportIndex).toBeGreaterThan(researchesIndex);
       expect(wrapper.text()).toContain('mais recente embaixo');
+    } finally {
+      wrapper.unmount();
+      restoreFetch();
+    }
+  });
+
+  it('mantém os detalhes recolhidos até a pessoa selecionar uma requisição', async () => {
+    const { wrapper, restoreFetch } = await mountPanel();
+
+    try {
+      expect(wrapper.find('.project-log-event-detail').exists()).toBe(false);
+
+      const event = wrapper
+        .findAll('.project-log-event')
+        .find((item) => item.text().includes('/export'));
+      await event?.trigger('click');
+
+      const detail = wrapper.get('.project-log-event-detail');
+      expect(detail.text()).toContain('ExportsController#create');
+      expect(detail.text()).toContain('Consulta SQL');
+      expect(
+        detail
+          .findAll('.project-log-event-disclosure')
+          .every((section) => section.attributes('open') === undefined),
+      ).toBe(true);
     } finally {
       wrapper.unmount();
       restoreFetch();
@@ -189,7 +214,7 @@ describe('ProjectLogsPanel', () => {
     }
   });
 
-  it('limita a renderização do fluxo grande e permite carregar linhas antigas', async () => {
+  it('limita a renderização do fluxo grande e permite carregar eventos antigos', async () => {
     const manyRequests = Array.from({ length: 900 }, (_, index) => {
       const id = `aaaaaaaa-0000-4000-8000-${String(index).padStart(12, '0')}`;
       return [
@@ -202,8 +227,8 @@ describe('ProjectLogsPanel', () => {
     const { wrapper, restoreFetch } = await mountPanel(bigLog);
 
     try {
-      const lines = wrapper.findAll('.project-log-flow .project-log-line');
-      expect(lines.length).toBeLessThanOrEqual(1500);
+      const events = wrapper.findAll('.project-log-flow .project-log-event');
+      expect(events.length).toBeLessThanOrEqual(500);
       expect(wrapper.find('.project-log-flow .rails-load-more').exists()).toBe(
         true,
       );

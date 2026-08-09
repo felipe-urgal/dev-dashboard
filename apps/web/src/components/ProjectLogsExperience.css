@@ -22,6 +22,12 @@
   font-weight: 600;
 }
 
+.project-logs-card .project-log-runtime-count {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
 .project-logs-card .project-log-runtime-strip dl {
   display: flex;
   align-items: center;
@@ -100,44 +106,175 @@
   background: #0d1117;
 }
 
-.project-logs-card .project-log-flow .project-log-raw-lines {
-  display: grid;
+.project-logs-card .project-log-events {
+  overflow-y: auto;
+  padding: 8px 0;
 }
 
-.project-logs-card .project-log-flow .project-log-line {
-  min-height: 23px;
-  padding: 2px 12px 2px 14px;
+.project-logs-card .project-log-event {
+  display: grid;
+  width: 100%;
+  min-height: 42px;
+  grid-template-columns: 78px auto minmax(0, 1fr) 52px 68px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
   border-left: 2px solid transparent;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.project-logs-card .project-log-flow .project-log-line:hover {
+.project-logs-card .project-log-event:hover,
+.project-logs-card .project-log-event.selected {
+  background: var(--accent-soft);
+}
+
+.project-logs-card .project-log-event.selected {
+  border-left-color: var(--accent);
+}
+
+.project-logs-card .project-log-event.is-slow:not(.selected) {
+  border-left-color: var(--warning-text);
+}
+
+.project-logs-card .project-log-event.is-error:not(.selected) {
+  border-left-color: var(--danger-text);
+}
+
+.project-logs-card .project-log-event time,
+.project-logs-card .project-log-event-duration {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.project-logs-card .project-log-event-duration {
+  text-align: right;
+}
+
+.project-logs-card .project-log-event > strong {
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-logs-card .project-log-event-detail {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 12px 104px;
+  border-bottom: 1px solid var(--border);
+  background: rgb(1 4 9 / 22%);
+}
+
+.project-logs-card .project-log-event-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.project-logs-card .project-log-event-summary > span:first-child {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-logs-card .project-log-event-summary button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 0;
+  border: 0;
+  color: var(--text-dim);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.project-logs-card .project-log-event-summary button:hover {
+  color: var(--accent);
+}
+
+.project-logs-card .project-log-event-summary svg {
+  width: 13px;
+  height: 13px;
+}
+
+.project-logs-card .project-log-event-error {
+  padding: 8px 10px;
+  border-left: 2px solid var(--danger-text);
+  color: var(--danger-text);
+  background: var(--danger-surface);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.project-logs-card .project-log-event-disclosure {
+  border: 1px solid var(--border);
+  border-radius: 7px;
   background: var(--surface-2);
 }
 
-.project-logs-card .project-log-flow .project-log-line-error {
-  border-left-color: var(--danger-text);
-  color: var(--danger-text);
-  background: transparent;
-  box-shadow: inset 2px 0 0 rgb(248 81 73 / 18%);
+.project-logs-card .project-log-event-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  list-style: none;
 }
 
-.project-logs-card .project-log-flow .project-log-line-warning {
-  border-left-color: var(--warning-text);
-  color: var(--warning-text);
+.project-logs-card
+  .project-log-event-disclosure
+  > summary::-webkit-details-marker {
+  display: none;
 }
 
-.project-logs-card .project-log-flow .project-log-line-sql {
-  color: var(--success-text);
+.project-logs-card .project-log-event-disclosure > summary:hover {
+  color: var(--accent);
 }
 
-.project-logs-card .project-log-flow .project-log-line-request {
-  color: var(--info-text);
+.project-logs-card .project-log-event-disclosure > summary strong {
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+}
+
+.project-logs-card .project-log-event-disclosure > .rails-detail-pre {
+  margin: 0 10px 10px;
+}
+
+.project-logs-card .project-log-system-event {
+  min-height: 30px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .server-diagnostic {
@@ -462,6 +599,10 @@
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
+
+  .project-logs-card .project-log-event-detail {
+    padding-left: 14px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -474,5 +615,40 @@
   .project-logs-card .project-log-flow-header > div {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .project-logs-card .project-log-event {
+    min-height: 48px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px 8px;
+    padding: 6px 10px;
+  }
+
+  .project-logs-card .project-log-event time {
+    grid-column: 1;
+  }
+
+  .project-logs-card .project-log-event .rails-method {
+    grid-column: 1;
+  }
+
+  .project-logs-card .project-log-event > strong {
+    grid-column: 2 / 4;
+    grid-row: 1 / 3;
+  }
+
+  .project-logs-card .project-log-event .rails-status {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .project-logs-card .project-log-event-duration {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .project-logs-card .project-log-event-summary button {
+    width: 100%;
+    margin-left: 0;
   }
 }
