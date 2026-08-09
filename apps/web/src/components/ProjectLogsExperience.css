@@ -63,7 +63,7 @@
 
 .project-logs-card .project-log-flow-shell {
   min-width: 0;
-  background: var(--surface-1);
+  background: #0d1117;
 }
 
 .project-logs-card .project-log-flow-header {
@@ -97,7 +97,7 @@
   min-height: 420px;
   max-height: 680px;
   padding: 8px 0;
-  background: var(--surface-1);
+  background: #0d1117;
 }
 
 .project-logs-card .project-log-flow .project-log-raw-lines {
@@ -105,8 +105,8 @@
 }
 
 .project-logs-card .project-log-flow .project-log-line {
-  min-height: 27px;
-  padding: 4px 12px 4px 14px;
+  min-height: 23px;
+  padding: 2px 12px 2px 14px;
   border-left: 2px solid transparent;
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -123,7 +123,8 @@
 .project-logs-card .project-log-flow .project-log-line-error {
   border-left-color: var(--danger-text);
   color: var(--danger-text);
-  background: color-mix(in srgb, var(--danger-surface) 40%, transparent);
+  background: transparent;
+  box-shadow: inset 2px 0 0 rgb(248 81 73 / 18%);
 }
 
 .project-logs-card .project-log-flow .project-log-line-warning {

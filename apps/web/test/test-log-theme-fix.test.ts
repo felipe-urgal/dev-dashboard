@@ -8,16 +8,12 @@ function sourceFile(fileName: string): string {
   return resolve(process.cwd(), 'src', fileName);
 }
 
-test('aplica o tema do log e mantém o diagnóstico enxuto', async () => {
+test('mantém os logs no tema terminal e o diagnóstico enxuto', async () => {
   const css = await readFile(sourceFile('test-log-theme-fix.css'), 'utf8');
 
   assert.match(
     css,
-    /html\[data-theme='light'\][\s\S]*--test-log-background:\s*#ffffff/,
-  );
-  assert.match(
-    css,
-    /html\[data-theme='dark'\][\s\S]*--test-log-background:\s*#0d1117/,
+    /html\[data-theme\][\s\S]*--test-log-background:\s*#0d1117/,
   );
   assert.match(css, /background-color:\s*var\(--test-log-background\)/);
   assert.match(

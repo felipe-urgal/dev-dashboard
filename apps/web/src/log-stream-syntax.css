@@ -203,78 +203,78 @@
   background: rgb(151 99 19 / 8%);
 }
 
-[data-theme='light'] .project-log-raw-lines > .project-log-line::before {
+[data-theme='light'] .project-log-terminal[data-allow-light] .project-log-raw-lines > .project-log-line::before {
   color: #94a3b8;
 }
 
-[data-theme='light'] .log-token-method {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-method {
   color: #2456a6;
 }
 
-[data-theme='light'] .log-token-route,
-[data-theme='light'] .log-token-url {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-route,
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-url {
   color: #0369a1;
 }
 
-[data-theme='light'] .log-token-status,
-[data-theme='light'] .log-token-duration,
-[data-theme='light'] .log-token-marker {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-status,
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-duration,
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-marker {
   color: #15803d;
 }
 
-[data-theme='light'] .log-token-sql-keyword {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-sql-keyword {
   color: #075985;
 }
 
-[data-theme='light'] .log-token-controller,
-[data-theme='light'] .log-token-request-id {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-controller,
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-request-id {
   color: #7e22ce;
 }
 
-[data-theme='light'] .log-token-file {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-file {
   color: #475569;
   text-decoration-color: #cbd5e1;
 }
 
-[data-theme='light'] .log-token-env {
+[data-theme='light'] .project-log-terminal[data-allow-light] .log-token-env {
   color: #a16207;
 }
 
-[data-theme='light'] .enhanced-log-source-rails {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-source-rails {
   color: #166534;
   background: #dcfce7;
 }
 
-[data-theme='light'] .enhanced-log-source-node {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-source-node {
   color: #6d28d9;
   background: #ede9fe;
 }
 
-[data-theme='light'] .enhanced-log-kind-build {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-kind-build {
   color: #1d4ed8;
   background: #dbeafe;
 }
 
-[data-theme='light'] .enhanced-log-kind-warning {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-kind-warning {
   color: #92400e;
   background: #fef3c7;
 }
 
-[data-theme='light'] .project-log-raw-lines .enhanced-log-build-card {
+[data-theme='light'] .project-log-terminal[data-allow-light] .project-log-raw-lines .enhanced-log-build-card {
   border-color: #d8e2f1;
   background: #f8fafc;
 }
 
-[data-theme='light'] .enhanced-log-build-message {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-build-message {
   color: #334155;
 }
 
-[data-theme='light'] .enhanced-log-build-meta,
-[data-theme='light'] .enhanced-log-modules {
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-build-meta,
+[data-theme='light'] .project-log-terminal[data-allow-light] .enhanced-log-modules {
   color: #64748b;
 }
 
-[data-theme='light'] .project-log-raw-lines .enhanced-log-warning-card {
+[data-theme='light'] .project-log-terminal[data-allow-light] .project-log-raw-lines .enhanced-log-warning-card {
   border-color: #f1d49d;
   border-left-color: #d69b30;
   color: #854d0e !important;

@@ -1,4 +1,4 @@
-html[data-theme='dark'] body .tests-dashboard .tests-log-shell .tests-log-output {
+html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output {
   --test-log-background: #0d1117;
   --test-log-gutter: #161b22;
   --test-log-border: #30363d;
@@ -11,21 +11,6 @@ html[data-theme='dark'] body .tests-dashboard .tests-log-shell .tests-log-output
   --test-log-danger-surface: #2c1719;
   --test-log-scroll-thumb: #6e7681;
   color-scheme: dark;
-}
-
-html[data-theme='light'] body .tests-dashboard .tests-log-shell .tests-log-output {
-  --test-log-background: #ffffff;
-  --test-log-gutter: #f6f8fa;
-  --test-log-border: #d0d7de;
-  --test-log-text: #24292f;
-  --test-log-muted: #57606a;
-  --test-log-row-alt: #f8fafc;
-  --test-log-progress-surface: #ddf4ff;
-  --test-log-success-surface: #dafbe1;
-  --test-log-warning-surface: #fff8c5;
-  --test-log-danger-surface: #ffebe9;
-  --test-log-scroll-thumb: #8c959f;
-  color-scheme: light;
 }
 
 html[data-theme] body .tests-dashboard .tests-log-shell .tests-log-output {
