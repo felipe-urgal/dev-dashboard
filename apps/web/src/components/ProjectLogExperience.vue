@@ -436,11 +436,31 @@ watch(issues, (nextIssues) => {
 
 <style scoped>
 .log-experience {
+  /* All log sources remain terminal-dark, even when the app is light. */
+  --surface-1: #0d1117;
+  --surface-2: #161b22;
+  --surface-3: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #c9d1d9;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent-soft: rgb(56 139 253 / 16%);
+  --success-text: #7ee787;
+  --success-surface: rgb(46 160 67 / 18%);
+  --warning-text: #e3b341;
+  --warning-surface: rgb(187 128 9 / 18%);
+  --danger-text: #ff7b72;
+  --danger-surface: rgb(248 81 73 / 16%);
+  --info-text: #79c0ff;
+  --info-surface: rgb(56 139 253 / 16%);
+
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
+  color-scheme: dark;
 }
 
 .log-experience-toolbar {
@@ -600,11 +620,11 @@ watch(issues, (nextIssues) => {
 
 .log-experience-line {
   display: grid;
-  min-height: 28px;
+  min-height: 24px;
   grid-template-columns: 76px 72px minmax(0, 1fr) 72px;
   align-items: start;
   gap: 8px;
-  padding: 5px 12px;
+  padding: 3px 12px;
   border-left: 2px solid transparent;
   color: var(--text-muted);
   font-size: 11px;
