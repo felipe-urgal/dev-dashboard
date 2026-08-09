@@ -33,6 +33,7 @@ const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const STATUS_TIMEOUT_MS = 5_000;
 const CHAT_ROUND_TIMEOUT_MS = 120_000;
+const REVIEW_TIMEOUT_MS = 300_000;
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_CHARS = 8_000;
 const MAX_TOOL_RESULT_CHARS = 8_000;
@@ -541,6 +542,12 @@ export class AiAssistantService {
           },
         },
         false,
+        {
+          timeoutMs: REVIEW_TIMEOUT_MS,
+          format: 'json',
+          numPredict: 700,
+          temperature: 0.1,
+        },
       );
       if (toolCalls.length > 0)
         throw new AiAssistantError(
@@ -740,11 +747,17 @@ export class AiAssistantService {
     conversation: InternalMessage[],
     handlers: AiChatHandlers,
     includeTools = true,
+    options?: {
+      timeoutMs?: number;
+      format?: 'json';
+      numPredict?: number;
+      temperature?: number;
+    },
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
     const timeout = setTimeout(
       () => timeoutController.abort(),
-      CHAT_ROUND_TIMEOUT_MS,
+      options?.timeoutMs ?? CHAT_ROUND_TIMEOUT_MS,
     );
     const onAbort = (): void => timeoutController.abort();
     handlers.signal.addEventListener('abort', onAbort);
@@ -757,6 +770,19 @@ export class AiAssistantService {
           model,
           messages: conversation,
           ...(includeTools ? { tools: TOOL_DEFINITIONS } : {}),
+          ...(options?.format ? { format: options.format } : {}),
+          ...(options?.numPredict || options?.temperature !== undefined
+            ? {
+                options: {
+                  ...(options.numPredict
+                    ? { num_predict: options.numPredict }
+                    : {}),
+                  ...(options.temperature !== undefined
+                    ? { temperature: options.temperature }
+                    : {}),
+                },
+              }
+            : {}),
           stream: true,
         }),
         signal: timeoutController.signal,

@@ -223,6 +223,30 @@ function clearAiReview(): void {
   aiReviewError.value = '';
 }
 
+function reviewStorageKey(): string {
+  return [
+    'dev-dashboard:pr-ai-review',
+    props.projectId,
+    props.overview.branch ?? '',
+    props.overview.latestCommit?.hash ?? '',
+    targetRemote.value,
+    baseBranch.value.trim(),
+    reviewModel.value,
+  ].join(':');
+}
+
+function restoreAiReview(): void {
+  if (typeof sessionStorage === 'undefined' || !reviewModel.value) return;
+  try {
+    const saved = sessionStorage.getItem(reviewStorageKey());
+    aiReview.value = saved
+      ? (JSON.parse(saved) as GitPullRequestAiReview)
+      : null;
+  } catch {
+    aiReview.value = null;
+  }
+}
+
 function installationLabel(model: AiRecommendedModelName): string {
   if (installingModel.value !== model) return 'Instalar';
   if (
@@ -246,6 +270,7 @@ async function loadAiStatus(): Promise<void> {
     aiStatus.value = status;
     if (!status.models.some((model) => model.name === reviewModel.value))
       reviewModel.value = status.models[0]?.name ?? '';
+    restoreAiReview();
   } catch {
     aiStatus.value = {
       available: false,
@@ -368,6 +393,7 @@ watch(targetRemote, () => {
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
   clearAiReview();
+  restoreAiReview();
   scheduleExistingLookup();
 });
 
@@ -377,7 +403,13 @@ watch(baseBranch, () => {
   lookupUnavailable.value = false;
   showCreateConfirm.value = false;
   clearAiReview();
+  restoreAiReview();
   scheduleExistingLookup();
+});
+
+watch(reviewModel, () => {
+  clearAiReview();
+  restoreAiReview();
 });
 
 watch(
@@ -481,6 +513,11 @@ async function reviewChangesWithAi(): Promise<void> {
       baseBranch: baseBranch.value.trim(),
       model: reviewModel.value,
     });
+    if (typeof sessionStorage !== 'undefined')
+      sessionStorage.setItem(
+        reviewStorageKey(),
+        JSON.stringify(aiReview.value),
+      );
   } catch (error) {
     aiReviewError.value =
       error instanceof Error
