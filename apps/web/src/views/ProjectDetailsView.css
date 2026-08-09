@@ -38,16 +38,12 @@
   display: contents;
 }
 
-.project-details-actions :deep(.project-editor-launcher) {
+.project-details-actions :deep(.project-pr-summary) {
   order: 2;
 }
 
-.project-details-actions :deep(.project-pr-summary) {
-  order: 3;
-}
-
 .project-details-actions-row :deep(.processes-menu) {
-  order: 4;
+  order: 3;
 }
 
 .project-details-copy {
@@ -221,8 +217,6 @@
     flex-direction: column;
   }
 
-  .project-details-actions :deep(.project-editor-launcher),
-  .project-details-actions :deep(.project-editor-controls),
   .project-details-actions :deep(.project-pr-summary) {
     width: 100%;
   }

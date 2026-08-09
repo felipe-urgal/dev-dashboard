@@ -100,46 +100,6 @@ function safeLinkTarget(value: string): string | null {
   return target;
 }
 
-function resolveProjectPath(target: string): string | null {
-  const rawPath = target.split(/[?#]/, 1)[0] ?? '';
-  if (!rawPath) return null;
-
-  let decodedPath = rawPath;
-  try {
-    decodedPath = decodeURIComponent(rawPath);
-  } catch {
-    // Mantém o caminho original quando a codificação do link for inválida.
-  }
-
-  const normalizedPath = decodedPath.replace(/\\/g, '/');
-  const segments = normalizedPath.startsWith('/')
-    ? []
-    : selectedPath.value.split('/').slice(0, -1);
-
-  for (const segment of normalizedPath.replace(/^\/+/, '').split('/')) {
-    if (!segment || segment === '.') continue;
-    if (segment === '..') {
-      if (!segments.length) return null;
-      segments.pop();
-    } else {
-      segments.push(segment);
-    }
-  }
-
-  return segments.join('/') || null;
-}
-
-function linkHref(target: string): string {
-  if (/^(?:https?:\/\/|mailto:)/i.test(target) || target.startsWith('#')) {
-    return target;
-  }
-
-  const projectPath = resolveProjectPath(target);
-  if (!projectPath) return '#';
-
-  return `/projects/${encodeURIComponent(props.project.id)}/editor?file=${encodeURIComponent(projectPath)}`;
-}
-
 function renderInlineMarkdown(value: string): string {
   const pattern =
     /!\[([^\]]*)\]\(\s*(?:<[^>]+>|[^)]+)\s*\)|\[([^\]]+)\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+["'][^"']*["'])?\s*\)|`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
@@ -159,10 +119,9 @@ function renderInlineMarkdown(value: string): string {
         result += label;
       } else {
         const external = /^(?:https?:\/\/|mailto:)/i.test(target);
-        const attributes = external
-          ? ' target="_blank" rel="noreferrer noopener"'
-          : '';
-        result += `<a class="readme-inline-link" href="${escapeHtml(linkHref(target))}"${attributes}>${label}</a>`;
+        result += external
+          ? `<a class="readme-inline-link" href="${escapeHtml(target)}" target="_blank" rel="noreferrer noopener">${label}</a>`
+          : label;
       }
     } else if (match[4] !== undefined) {
       result += `<code class="readme-inline-code">${escapeHtml(match[4])}</code>`;

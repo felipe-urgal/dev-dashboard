@@ -11,8 +11,6 @@ import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
-import ProjectEmbeddedEditor from '../components/ProjectEmbeddedEditor.vue';
-import ProjectEditorLauncher from '../components/ProjectEditorLauncher.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
 import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
@@ -48,7 +46,6 @@ const projectId = computed(() => {
 
 const isReadmeRoute = computed(() => route.name === 'project-details');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
-const isEditorRoute = computed(() => route.name === 'project-editor');
 const isServerRoute = computed(() => route.name === 'project-server');
 const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
@@ -226,7 +223,6 @@ async function handleToggleEnabled(): Promise<void> {
           </button>
           <div v-if="project.enabled" class="project-details-actions-row">
             <ProjectProcessesMenu :project="project" />
-            <ProjectEditorLauncher :project-id="project.id" />
           </div>
           <ProjectPullRequestSummary
             v-if="project.enabled && gitOverview"
@@ -269,14 +265,6 @@ async function handleToggleEnabled(): Promise<void> {
             :to="{ name: 'project-doctor', params: { projectId: project.id } }"
           >
             Diagnóstico
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isEditorRoute }"
-            :to="{ name: 'project-editor', params: { projectId: project.id } }"
-          >
-            Editor
           </RouterLink>
 
           <RouterLink
@@ -396,12 +384,6 @@ async function handleToggleEnabled(): Promise<void> {
         <ProjectDoctorPanel
           v-else-if="isDoctorRoute"
           :key="`doctor-${project.id}`"
-          :project="project"
-        />
-
-        <ProjectEmbeddedEditor
-          v-else-if="isEditorRoute"
-          :key="`editor-${project.id}`"
           :project="project"
         />
 

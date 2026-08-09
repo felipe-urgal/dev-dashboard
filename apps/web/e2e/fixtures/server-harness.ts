@@ -12,12 +12,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type ChildProcess, spawn } from 'node:child_process';
 
-import {
-  type RunningOllamaDouble,
-  startOllamaDouble,
-  stopOllamaDouble,
-} from './ollama-double';
-
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT_DIRECTORY = path.resolve(HERE, '../../../..');
 export const API_PORT = 4399;
@@ -30,7 +24,6 @@ export interface RunningServer {
   configDirectory: string;
   workspaceDirectory: string;
   runtimeDirectory: string;
-  ollamaDouble: RunningOllamaDouble;
 }
 
 async function runGit(cwd: string, args: string[]): Promise<void> {
@@ -224,8 +217,6 @@ export async function startFixtureServer(): Promise<RunningServer> {
 
   const bootstrapToken = randomBytes(32).toString('hex');
   const webDist = path.join(ROOT_DIRECTORY, 'apps/web/dist');
-  const ollamaDouble = await startOllamaDouble();
-
   const child = spawn(
     process.execPath,
     [path.join(ROOT_DIRECTORY, 'apps/api/dist/server.js')],
@@ -239,7 +230,6 @@ export async function startFixtureServer(): Promise<RunningServer> {
         DEV_DASHBOARD_WEB_DIST: webDist,
         DEV_DASHBOARD_BROWSER_BOOTSTRAP: bootstrapToken,
         DEV_DASHBOARD_API_PORT: String(API_PORT),
-        DEV_DASHBOARD_OLLAMA_URL: ollamaDouble.baseUrl,
         LOG_LEVEL: 'silent',
       },
       stdio: 'inherit',
@@ -255,7 +245,6 @@ export async function startFixtureServer(): Promise<RunningServer> {
     configDirectory,
     workspaceDirectory,
     runtimeDirectory: runtimeRoot,
-    ollamaDouble,
   };
 }
 
@@ -265,7 +254,6 @@ export async function stopFixtureServer(server: RunningServer): Promise<void> {
     server.process.once('exit', () => resolve());
     setTimeout(resolve, 5_000).unref();
   });
-  await stopOllamaDouble(server.ollamaDouble);
   await rm(server.runtimeDirectory, { recursive: true, force: true });
 }
 

@@ -91,10 +91,8 @@ test('renderiza tabelas GFM, links seguros e código inline do README', async ()
   assert.equal(externalLink.attributes('target'), '_blank');
   assert.equal(externalLink.attributes('rel'), 'noreferrer noopener');
 
-  const projectFileLink = wrapper.get(
-    'a[href="/projects/project-1/editor?file=.tool-versions"]',
-  );
-  assert.equal(projectFileLink.text(), '.tool-versions');
+  assert.ok(wrapper.text().includes('.tool-versions'));
+  assert.equal(wrapper.findAll('a').length, 1);
   assert.equal(wrapper.find('a[href^="javascript:"]').exists(), false);
 
   wrapper.unmount();
