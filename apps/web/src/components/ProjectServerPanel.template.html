@@ -47,14 +47,14 @@
               </span>
               <span class="server-config-copy">
                 <strong>Health check</strong>
-                <small>Vazio detecta /up, /health, /healthz ou /.</small>
+                <small>Informe uma rota existente; vazio desativa a verificação.</small>
               </span>
               <input
                 v-model="selectedHealthCheckPath"
                 class="server-config-control server-health-path-input"
                 type="text"
                 maxlength="128"
-                placeholder="Detectar automaticamente"
+                placeholder="Ex.: /status"
                 :disabled="loadingSettings"
               />
             </label>

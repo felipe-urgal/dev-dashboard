@@ -5,12 +5,12 @@ import { test } from 'node:test';
 
 import { ServerHealthCheckService } from '../src/services/server-health-check-service.js';
 
-test('detecta o primeiro endpoint local saudável', async () => {
+test('consulta somente o endpoint configurado', async () => {
   const requestedPaths: string[] = [];
   const service = new ServerHealthCheckService(async (_port, path) => {
     requestedPaths.push(path);
 
-    return path === '/health'
+    return path === '/status'
       ? { httpStatus: 204, latencyMs: 8 }
       : { httpStatus: 404, latencyMs: 3 };
   });
@@ -18,11 +18,12 @@ test('detecta o primeiro endpoint local saudável', async () => {
   const health = await service.check({
     projectId: 'project-a',
     port: 3_000,
+    healthCheckPath: '/status',
   });
 
-  assert.deepEqual(requestedPaths, ['/up', '/health']);
-  assert.equal(health.path, '/health');
-  assert.equal(health.pathSource, 'detected');
+  assert.deepEqual(requestedPaths, ['/status']);
+  assert.equal(health.path, '/status');
+  assert.equal(health.pathSource, 'configured');
   assert.equal(health.status, 'healthy');
   assert.equal(health.httpStatus, 204);
   assert.equal(health.latencyMs, 8);
@@ -53,6 +54,7 @@ test('resume falhas de rede sem expor detalhes internos', async () => {
   const health = await service.check({
     projectId: 'project-a',
     port: 3_000,
+    healthCheckPath: '/status',
   });
 
   assert.equal(health.status, 'unavailable');
