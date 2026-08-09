@@ -183,6 +183,11 @@ test('review() envia contexto fechado ao Ollama sem ferramentas', async () => {
   assert.equal(response, '{"summary":"Sem achados","findings":[]}');
   assert.ok(requestBody);
   assert.equal('tools' in requestBody, false);
+  assert.equal(requestBody.format, 'json');
+  assert.deepEqual(requestBody.options, {
+    num_predict: 700,
+    temperature: 0.1,
+  });
 });
 
 test('pullRecommendedModel() transmite o progresso de um modelo permitido', async () => {
