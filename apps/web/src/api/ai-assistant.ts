@@ -2,6 +2,8 @@ import type {
   AiChatMessage,
   AiChatStreamEvent,
   AiCompletionResult,
+  AiModelPullStreamEvent,
+  AiRecommendedModelName,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
@@ -46,6 +48,22 @@ export function streamProjectAiChat(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, messages }),
+    },
+  );
+}
+
+export function streamProjectAiModelPull(
+  projectId: string,
+  model: AiRecommendedModelName,
+  onEvent: (event: AiModelPullStreamEvent) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream<AiModelPullStreamEvent>(
+    `/api/projects/${encodeURIComponent(projectId)}/ai/models/pull`,
+    onEvent,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model }),
     },
   );
 }

@@ -9,9 +9,12 @@ import type {
 
 const api = vi.hoisted(() => ({
   composeProjectGitPullRequest: vi.fn(),
+  fetchProjectAiStatus: vi.fn(),
   getProjectGitPullRequestStatus: vi.fn(),
   prepareProjectGitPullRequestAction: vi.fn(),
+  reviewProjectGitPullRequest: vi.fn(),
   runProjectGitPullRequestAction: vi.fn(),
+  streamProjectAiModelPull: vi.fn(),
 }));
 
 vi.mock('../src/api', () => api);
@@ -106,9 +109,17 @@ let popup: {
 beforeEach(() => {
   vi.restoreAllMocks();
   api.composeProjectGitPullRequest.mockReset();
+  api.fetchProjectAiStatus.mockReset();
   api.getProjectGitPullRequestStatus.mockReset();
   api.prepareProjectGitPullRequestAction.mockReset();
+  api.reviewProjectGitPullRequest.mockReset();
   api.runProjectGitPullRequestAction.mockReset();
+  api.streamProjectAiModelPull.mockReset();
+  api.fetchProjectAiStatus.mockResolvedValue({
+    available: true,
+    message: '1 modelo instalado no Ollama local.',
+    models: [{ name: 'qwen2.5-coder:7b', capabilities: ['chat'] }],
+  });
   api.getProjectGitPullRequestStatus.mockResolvedValue({ checked: true });
   api.composeProjectGitPullRequest.mockResolvedValue({
     provider: 'github',
@@ -123,6 +134,148 @@ beforeEach(() => {
     close: vi.fn(),
   };
   vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+});
+
+test('revisa o diff da base escolhida sem bloquear a abertura da PR', async () => {
+  api.reviewProjectGitPullRequest.mockResolvedValue({
+    targetRemote: 'upstream',
+    baseBranch: 'main',
+    sourceBranch: 'feature/pull-request',
+    model: 'qwen2.5-coder:7b',
+    reviewedAt: '2026-08-09T12:00:00.000Z',
+    summary: 'A mudança precisa validar a entrada antes de salvar.',
+    findings: [
+      {
+        severity: 'warning',
+        path: 'src/save.ts',
+        line: 18,
+        title: 'Entrada não validada',
+        explanation: 'O valor segue direto para persistência.',
+        recommendation: 'Valide o valor antes de salvar.',
+      },
+    ],
+    diffTruncated: false,
+    masked: false,
+    redactionCount: 0,
+  });
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  const reviewButton = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Revisar mudanças com IA'));
+  assert.ok(reviewButton);
+  await reviewButton!.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(api.reviewProjectGitPullRequest.mock.calls, [
+    [
+      'p1',
+      {
+        targetRemote: 'upstream',
+        baseBranch: 'main',
+        model: 'qwen2.5-coder:7b',
+      },
+    ],
+  ]);
+  assert.match(wrapper.text(), /Resultado da revisão/);
+  assert.match(wrapper.text(), /Entrada não validada/);
+  assert.ok(
+    wrapper
+      .findAll('button')
+      .some((button) => button.text().includes('Abrir Pull Request')),
+  );
+});
+
+test('sugere modelos locais quando o Ollama não possui nenhum instalado', async () => {
+  api.fetchProjectAiStatus.mockResolvedValue({
+    available: true,
+    message: 'Ollama local detectado, mas nenhum modelo está instalado.',
+    models: [],
+  });
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Modelos locais recomendados/);
+  assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:7b/);
+  assert.match(wrapper.text(), /ollama pull qwen2\.5-coder:14b/);
+  assert.match(wrapper.text(), /ollama pull devstral:24b/);
+});
+
+test('instala um modelo recomendado e atualiza a lista de modelos', async () => {
+  api.fetchProjectAiStatus
+    .mockResolvedValueOnce({
+      available: true,
+      message: 'Ollama local detectado, mas nenhum modelo está instalado.',
+      models: [],
+    })
+    .mockResolvedValueOnce({
+      available: true,
+      message: '1 modelo instalado no Ollama local.',
+      models: [{ name: 'qwen2.5-coder:7b', capabilities: ['chat'] }],
+    });
+  api.streamProjectAiModelPull.mockImplementation(
+    (_projectId: string, model: string, onEvent: (event: unknown) => void) => {
+      onEvent({
+        type: 'progress',
+        model,
+        status: 'downloading',
+        completed: 50,
+        total: 100,
+      });
+      onEvent({ type: 'done', model });
+      return { close: vi.fn(), done: Promise.resolve() };
+    },
+  );
+  const wrapper = mount(ProjectGitPullRequestPage, {
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  await wrapper
+    .findAll('button')
+    .find((button) => button.text() === 'Instalar')!
+    .trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(api.streamProjectAiModelPull.mock.calls.length, 1);
+  assert.equal(api.streamProjectAiModelPull.mock.calls[0]?.[0], 'p1');
+  assert.equal(
+    api.streamProjectAiModelPull.mock.calls[0]?.[1],
+    'qwen2.5-coder:7b',
+  );
+  assert.equal(
+    typeof api.streamProjectAiModelPull.mock.calls[0]?.[2],
+    'function',
+  );
+  assert.doesNotMatch(wrapper.text(), /Modelos locais recomendados/);
+  assert.match(wrapper.text(), /1 modelo instalado/);
 });
 
 test('prefere upstream e preenche título e descrição a partir do commit', async () => {

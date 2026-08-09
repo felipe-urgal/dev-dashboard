@@ -77,6 +77,34 @@ test('compõe a URL de comparação do GitHub para o remote SSH', async () => {
   }
 });
 
+test('obtém o diff de revisão usando a branch base escolhida', async () => {
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
+  const service = new GitPullRequestService();
+
+  try {
+    await writeFile(
+      path.join(fixture.local, 'README.md'),
+      '# Projeto revisado\n',
+    );
+    await git(fixture.local, 'add', 'README.md');
+    await git(fixture.local, 'commit', '-m', 'change for review');
+
+    const result = await service.getReviewDiff(fixture.local, {
+      targetRemote: 'origin',
+      baseBranch: 'main',
+    });
+
+    assert.equal(result.targetRemote, 'origin');
+    assert.equal(result.baseBranch, 'main');
+    assert.equal(result.sourceBranch, 'feature/pull-request');
+    assert.match(result.diff, /# Projeto revisado/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test('compõe a URL de merge request do GitLab e não vaza credenciais da URL https', async () => {
   const fixture = await createFixture(
     'https://user:s3cr3t@gitlab.com/felipe-urgal/dev-dashboard.git',

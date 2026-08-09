@@ -31,6 +31,7 @@ import {
   composeGithubUrl,
   composeGitlabUrl,
 } from './git-pull-request/url-compose.js';
+import { optionalGit, runGit } from './git-pull-request/run.js';
 
 export type { GitPullRequestTargetRemote } from './git-pull-request/context.js';
 export { GitPullRequestError } from './git-pull-request/errors.js';
@@ -46,6 +47,13 @@ export interface GitPullRequestComposeOptions {
 export interface GitPullRequestLookupOptions {
   targetRemote?: GitPullRequestTargetRemote;
   baseBranch?: string;
+}
+
+export interface GitPullRequestReviewDiff {
+  targetRemote: GitPullRequestTargetRemote;
+  baseBranch: string;
+  sourceBranch: string;
+  diff: string;
 }
 
 export interface GitPullRequestServiceOptions {
@@ -127,6 +135,44 @@ export class GitPullRequestService {
       result,
     });
     return result;
+  }
+
+  /**
+   * Retorna o patch que uma Pull Request efetivamente compararia: merge-base da
+   * branch base contra HEAD. A mesma validação de destino/base usada ao abrir a
+   * PR mantém a revisão coerente com a escolha feita na interface.
+   */
+  public async getReviewDiff(
+    projectPath: string,
+    options: GitPullRequestLookupOptions,
+  ): Promise<GitPullRequestReviewDiff> {
+    const context = await this.resolveContext(projectPath, options);
+    const remoteReference = `refs/remotes/${context.targetRemote}/${context.baseBranch}`;
+    const hasRemoteReference = await optionalGit(projectPath, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      remoteReference,
+    ]);
+    // O origin pode expor a base apenas como branch local em repositórios
+    // recém-criados. A validação anterior já garante que uma das referências
+    // existe; aqui escolhemos a remota quando ela estiver disponível.
+    const baseReference = hasRemoteReference
+      ? remoteReference
+      : `refs/heads/${context.baseBranch}`;
+    const diff = await runGit(projectPath, [
+      'diff',
+      '--no-ext-diff',
+      '--find-renames',
+      '--unified=3',
+      `${baseReference}...HEAD`,
+    ]);
+    return {
+      targetRemote: context.targetRemote,
+      baseBranch: context.baseBranch,
+      sourceBranch: context.sourceBranch,
+      diff,
+    };
   }
 
   private async resolveContext(

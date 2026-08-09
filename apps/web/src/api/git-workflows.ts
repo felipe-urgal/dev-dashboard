@@ -1,4 +1,5 @@
 import type {
+  GitPullRequestAiReview,
   GitPullRequestLookup,
   GitPullRequestMergeMethod,
   GitPullRequestMutationActionId,
@@ -51,6 +52,10 @@ interface PullRequestUrlResponse {
 
 interface PullRequestLookupResponse {
   lookup: GitPullRequestLookup;
+}
+
+interface PullRequestAiReviewResponse {
+  review: GitPullRequestAiReview;
 }
 
 export interface GitPullRequestMutationInput {
@@ -172,6 +177,25 @@ export async function composeProjectGitPullRequest(
     },
   );
   return response.pullRequest;
+}
+
+export async function reviewProjectGitPullRequest(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+    model: string;
+  },
+): Promise<GitPullRequestAiReview> {
+  const response = await requestJson<PullRequestAiReviewResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.review;
 }
 
 export async function prepareProjectGitPullRequestAction(

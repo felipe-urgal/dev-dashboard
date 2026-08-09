@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
-import type { AiChatStreamEvent } from '@dev-dashboard/contracts';
+import {
+  AI_RECOMMENDED_MODELS,
+  type AiChatStreamEvent,
+  type AiModelPullStreamEvent,
+} from '@dev-dashboard/contracts';
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
@@ -25,6 +29,10 @@ interface CompletionBody {
   model: string;
   prefix: string;
   suffix?: string;
+}
+
+interface ModelPullBody {
+  model: string;
 }
 
 const chatMessageSchema = {
@@ -97,6 +105,18 @@ const completionResultSchema = {
   additionalProperties: false,
   required: ['text'],
   properties: { text: { type: 'string' } },
+} as const;
+
+const modelPullBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['model'],
+  properties: {
+    model: {
+      type: 'string',
+      enum: AI_RECOMMENDED_MODELS.map((model) => model.name),
+    },
+  },
 } as const;
 
 function translateAiError(
@@ -242,6 +262,53 @@ export const aiAssistantRoutes: FastifyPluginAsync<
           projectId: project.id,
           model: request.body.model,
         });
+      }
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: ModelPullBody }>(
+    '/projects/:projectId/ai/models/pull',
+    { schema: { params: projectParamsSchema, body: modelPullBodySchema } },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      });
+
+      const controller = new AbortController();
+      reply.raw.once('close', () => controller.abort());
+      const write = (event: AiModelPullStreamEvent): void => {
+        if (reply.raw.writableEnded) return;
+        reply.raw.write(
+          `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+        );
+      };
+
+      try {
+        await options.aiAssistantService.pullRecommendedModel(
+          request.body.model,
+          { send: write, signal: controller.signal },
+        );
+      } catch (error) {
+        if (!(error instanceof AiAssistantError)) {
+          request.log.warn(
+            { err: error, projectId: project.id, model: request.body.model },
+            'AI model installation failed',
+          );
+        }
+        write({
+          type: 'error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível instalar o modelo pelo Ollama local.',
+        });
+      } finally {
+        if (!reply.raw.writableEnded) reply.raw.end();
       }
     },
   );

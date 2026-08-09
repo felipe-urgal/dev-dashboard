@@ -234,6 +234,31 @@ export interface GitPullRequestUrl {
   defaultBranch: string;
 }
 
+export type GitPullRequestReviewSeverity =
+  'critical' | 'warning' | 'suggestion';
+
+export interface GitPullRequestReviewFinding {
+  severity: GitPullRequestReviewSeverity;
+  path: string;
+  line?: number;
+  title: string;
+  explanation: string;
+  recommendation: string;
+}
+
+export interface GitPullRequestAiReview {
+  targetRemote: 'origin' | 'upstream';
+  baseBranch: string;
+  sourceBranch: string;
+  model: string;
+  reviewedAt: string;
+  summary: string;
+  findings: GitPullRequestReviewFinding[];
+  diffTruncated: boolean;
+  masked: boolean;
+  redactionCount: number;
+}
+
 export interface GitOpenPullRequest {
   provider: GitPullRequestProvider;
   number: number;

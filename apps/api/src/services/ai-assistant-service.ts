@@ -5,7 +5,9 @@ import type {
   AiChatMessage,
   AiChatStreamEvent,
   AiCompletionResult,
+  AiModelPullStreamEvent,
   AiModelInfo,
+  AiRecommendedModelName,
   AiTool,
   Project,
   ProjectAiStatus,
@@ -14,6 +16,7 @@ import type {
   ProjectWorkspaceFileEdit,
   ProjectWorkspaceTextEdit,
 } from '@dev-dashboard/contracts';
+import { AI_RECOMMENDED_MODELS } from '@dev-dashboard/contracts';
 
 import {
   ProjectFileError,
@@ -39,6 +42,7 @@ const COMPLETION_TIMEOUT_MS = 15_000;
 const MAX_COMPLETION_PREFIX_CHARS = 4_000;
 const MAX_COMPLETION_SUFFIX_CHARS = 1_000;
 const MAX_COMPLETION_RESPONSE_CHARS = 2_000;
+const MODEL_PULL_TIMEOUT_MS = 60 * 60 * 1_000;
 
 const TOOL_NAMES: readonly AiTool[] = [
   'read_project_file',
@@ -254,6 +258,14 @@ interface OllamaChatChunk {
   done?: boolean;
 }
 
+interface OllamaModelPullChunk {
+  status?: string;
+  digest?: string;
+  total?: number;
+  completed?: number;
+  error?: string;
+}
+
 interface InternalMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
@@ -270,6 +282,15 @@ export class AiAssistantError extends Error {
 export interface AiChatHandlers {
   send: (event: AiChatStreamEvent) => void;
   signal: AbortSignal;
+}
+
+export interface AiModelPullHandlers {
+  send: (event: AiModelPullStreamEvent) => void;
+  signal: AbortSignal;
+}
+
+function isRecommendedModel(value: string): value is AiRecommendedModelName {
+  return AI_RECOMMENDED_MODELS.some((model) => model.name === value);
 }
 
 export function resolveOllamaBaseUrl(): string | undefined {
@@ -482,6 +503,150 @@ export class AiAssistantService {
   }
 
   /**
+   * Executa uma resposta única sem catálogo de ferramentas. É usada em fluxos
+   * que já carregam um contexto fechado pelo servidor (como a revisão de PR),
+   * evitando que o modelo leia ou proponha alterações fora daquele contexto.
+   */
+  public async review(
+    model: string,
+    messages: AiChatMessage[],
+    signal: AbortSignal,
+  ): Promise<string> {
+    const baseUrl = resolveOllamaBaseUrl();
+    if (!baseUrl)
+      throw new AiAssistantError(
+        'O assistente de IA está desabilitado neste ambiente.',
+      );
+    if (!model.trim())
+      throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
+    if (messages.length === 0 || messages.length > MAX_MESSAGES)
+      throw new AiAssistantError(
+        `A revisão deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
+      );
+    if (messages.some((message) => message.content.length > MAX_MESSAGE_CHARS))
+      throw new AiAssistantError(
+        `Cada mensagem deve ter no máximo ${MAX_MESSAGE_CHARS} caracteres.`,
+      );
+
+    let content = '';
+    try {
+      const toolCalls = await this.streamOneRound(
+        baseUrl,
+        model,
+        messages.map((message) => ({ ...message })),
+        {
+          signal,
+          send: (event) => {
+            if (event.type === 'message-delta') content += event.content;
+          },
+        },
+        false,
+      );
+      if (toolCalls.length > 0)
+        throw new AiAssistantError(
+          'O modelo tentou usar ferramentas durante a revisão, o que não é permitido.',
+        );
+      if (!content.trim())
+        throw new AiAssistantError('O modelo não devolveu uma revisão.');
+      return content;
+    } catch (error) {
+      if (error instanceof AiAssistantError) throw error;
+      if (isAbortError(error))
+        throw new AiAssistantError(
+          `O Ollama não respondeu em ${CHAT_ROUND_TIMEOUT_MS / 1_000} segundos. Tente novamente.`,
+        );
+      throw error;
+    }
+  }
+
+  /** Baixa somente os modelos recomendados, sempre pelo Ollama loopback. */
+  public async pullRecommendedModel(
+    model: string,
+    handlers: AiModelPullHandlers,
+  ): Promise<void> {
+    const baseUrl = resolveOllamaBaseUrl();
+    if (!baseUrl)
+      throw new AiAssistantError(
+        'O Ollama local não está disponível para instalar modelos.',
+      );
+    if (!isRecommendedModel(model))
+      throw new AiAssistantError(
+        'Este modelo não está disponível para instalação.',
+      );
+
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(
+      () => timeoutController.abort(),
+      MODEL_PULL_TIMEOUT_MS,
+    );
+    const onAbort = (): void => timeoutController.abort();
+    handlers.signal.addEventListener('abort', onAbort);
+    try {
+      const response = await this.fetchImpl(`${baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: model, stream: true }),
+        signal: timeoutController.signal,
+      });
+      if (!response.ok || !response.body)
+        throw new AiAssistantError(
+          `O Ollama respondeu com status ${response.status} ao instalar o modelo.`,
+        );
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const handleLine = (rawLine: string): void => {
+        const line = rawLine.trim();
+        if (!line) return;
+        let chunk: OllamaModelPullChunk;
+        try {
+          chunk = JSON.parse(line) as OllamaModelPullChunk;
+        } catch {
+          throw new AiAssistantError(
+            'O Ollama enviou um progresso de instalação inválido.',
+          );
+        }
+        if (chunk.error) throw new AiAssistantError(chunk.error);
+        handlers.send({
+          type: 'progress',
+          model,
+          status: chunk.status ?? 'Baixando modelo…',
+          ...(typeof chunk.completed === 'number'
+            ? { completed: chunk.completed }
+            : {}),
+          ...(typeof chunk.total === 'number' ? { total: chunk.total } : {}),
+        });
+      };
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIndex = buffer.indexOf('\n');
+        while (newlineIndex >= 0) {
+          handleLine(buffer.slice(0, newlineIndex));
+          buffer = buffer.slice(newlineIndex + 1);
+          newlineIndex = buffer.indexOf('\n');
+        }
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) handleLine(buffer);
+      if (!handlers.signal.aborted) handlers.send({ type: 'done', model });
+    } catch (error) {
+      if (handlers.signal.aborted) return;
+      if (isAbortError(error))
+        throw new AiAssistantError(
+          'A instalação demorou demais para responder. Tente novamente.',
+        );
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      handlers.signal.removeEventListener('abort', onAbort);
+    }
+  }
+
+  /**
    * Compleção inline curta (ghost text): uma chamada direta e sem
    * tool-calling a `/api/generate`, para manter a latência previsível
    * enquanto o usuário digita. `suffix` só é enviado quando presente,
@@ -574,6 +739,7 @@ export class AiAssistantService {
     model: string,
     conversation: InternalMessage[],
     handlers: AiChatHandlers,
+    includeTools = true,
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
     const timeout = setTimeout(
@@ -590,7 +756,7 @@ export class AiAssistantService {
         body: JSON.stringify({
           model,
           messages: conversation,
-          tools: TOOL_DEFINITIONS,
+          ...(includeTools ? { tools: TOOL_DEFINITIONS } : {}),
           stream: true,
         }),
         signal: timeoutController.signal,

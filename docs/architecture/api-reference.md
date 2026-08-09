@@ -526,6 +526,48 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `POST /api/projects/:projectId/ai/models/pull`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "enum": [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b",
+        "devstral:24b"
+      ]
+    }
+  }
+}
+```
+
 ### `GET /api/projects/:projectId/ai/status`
 
 **Parâmetros de rota (`params`)**
@@ -4670,6 +4712,171 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "defaultBranch": {
             "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/git/pull-request/ai-review`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetRemote",
+    "baseBranch",
+    "model"
+  ],
+  "properties": {
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "review"
+    ],
+    "properties": {
+      "review": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targetRemote",
+          "baseBranch",
+          "sourceBranch",
+          "model",
+          "reviewedAt",
+          "summary",
+          "findings",
+          "diffTruncated",
+          "masked",
+          "redactionCount"
+        ],
+        "properties": {
+          "targetRemote": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "upstream"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "diffTruncated": {
+            "type": "boolean"
+          },
+          "masked": {
+            "type": "boolean"
+          },
+          "redactionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "severity",
+                "path",
+                "title",
+                "explanation",
+                "recommendation"
+              ],
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "critical",
+                    "warning",
+                    "suggestion"
+                  ]
+                },
+                "path": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "title": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "recommendation": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
