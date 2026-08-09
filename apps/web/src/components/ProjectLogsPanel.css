@@ -612,7 +612,7 @@
   padding: 10px 11px;
   border: 1px solid var(--term-border);
   border-radius: 8px;
-  color: var(--term-text-dim);
+  color: var(--term-text);
   background: var(--term-code-bg);
   font-family: var(--font-mono);
   font-size: 11px;
