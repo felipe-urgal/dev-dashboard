@@ -222,8 +222,10 @@ function handleDialogKeydown(event: KeyboardEvent): void {
 
 function completeActiveProject(): boolean {
   const item = orderedItems.value[activeIndex.value];
-  if (item?.kind !== 'navigation' || !item.projectId) return false;
-  const project = props.projects.find((entry) => entry.id === item.projectId);
+  const project =
+    (item?.kind === 'navigation' && item.projectId
+      ? props.projects.find((entry) => entry.id === item.projectId)
+      : undefined) ?? selectedProject.value;
   if (!project) return false;
   query.value = `@${project.name} > `;
   activeIndex.value = 0;
