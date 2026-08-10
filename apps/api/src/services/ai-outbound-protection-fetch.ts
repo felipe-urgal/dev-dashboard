@@ -47,6 +47,14 @@ function protectGenerateBody(body: JsonObject): boolean {
   return changed;
 }
 
+function endpointPath(input: Parameters<typeof fetch>[0]): string {
+  try {
+    return new URL(requestUrl(input)).pathname;
+  } catch {
+    return requestUrl(input);
+  }
+}
+
 function protectedBody(
   input: Parameters<typeof fetch>[0],
   init: Parameters<typeof fetch>[1],
@@ -63,24 +71,24 @@ function protectedBody(
   const body = asObject(parsed);
   if (!body) return null;
 
-  const url = requestUrl(input);
-  const changed = url.endsWith('/api/chat')
-    ? protectChatBody(body)
-    : url.endsWith('/api/generate')
-      ? protectGenerateBody(body)
-      : false;
+  const path = endpointPath(input);
+  const changed =
+    path.endsWith('/api/chat') || path.endsWith('/chat/completions')
+      ? protectChatBody(body)
+      : path.endsWith('/api/generate')
+        ? protectGenerateBody(body)
+        : false;
 
   return changed ? JSON.stringify(body) : null;
 }
 
 /**
- * Última barreira antes de enviar texto ao motor de IA. Hoje o runtime usa
- * somente Ollama local, mas manter a proteção na fronteira de rede evita que
- * chat, implementation, review ou completion ganhem caminhos diferentes de
- * sanitização quando providers externos forem adicionados.
+ * Última barreira antes de enviar texto ao motor de IA. A proteção vale para
+ * providers locais e cloud suportados para impedir que chat, implementation,
+ * review ou completion ganhem caminhos diferentes de sanitização.
  *
- * Apenas conteúdo textual é mascarado; nomes de modelo, catálogo de tools e
- * demais opções do protocolo permanecem intactos.
+ * Apenas conteúdo textual é mascarado; nomes de modelo, catálogo de tools,
+ * credenciais em headers e demais opções do protocolo permanecem intactos.
  */
 export function createAiOutboundProtectionFetch(
   fetchImpl: typeof fetch = fetch,
