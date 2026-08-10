@@ -19,10 +19,19 @@ const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 const STATUS_TIMEOUT_MS = 5_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const MAX_STATUS_MODELS = 20;
+const RUNTIME_UNAVAILABLE_TTL_MS = 60_000;
+const OPENAI_BILLING_MESSAGE =
+  'OpenAI sem créditos disponíveis. Adicione créditos na conta da API ou selecione o provider Local.';
 
 interface OpenAiProviderOptions {
   fetchImpl?: typeof fetch;
   apiKey?: string;
+}
+
+interface OpenAiApiError {
+  message?: string;
+  type?: string;
+  code?: string | null;
 }
 
 interface OpenAiFunctionToolCall {
@@ -44,12 +53,12 @@ interface OpenAiChatResponse {
   choices?: Array<{
     message?: OpenAiAssistantMessage;
   }>;
-  error?: { message?: string };
+  error?: OpenAiApiError;
 }
 
 interface OpenAiModelsResponse {
   data?: Array<{ id?: string }>;
-  error?: { message?: string };
+  error?: OpenAiApiError;
 }
 
 type OpenAiRequestMessage = Record<string, unknown>;
@@ -59,6 +68,11 @@ interface OpenAiSessionState {
   consumedMessages: number;
   pendingToolCalls: OpenAiFunctionToolCall[];
   assistantEcho: string | undefined;
+}
+
+interface RuntimeUnavailableState {
+  message: string;
+  expiresAt: number;
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -77,6 +91,45 @@ function resolveApiKey(explicit?: string): string | undefined {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function isBillingOrQuotaError(
+  status: number,
+  error: OpenAiApiError | undefined,
+): boolean {
+  const code = String(error?.code ?? '').toLowerCase();
+  const type = String(error?.type ?? '').toLowerCase();
+  const message = String(error?.message ?? '').toLowerCase();
+  return (
+    code === 'insufficient_quota' ||
+    type === 'insufficient_quota' ||
+    message.includes('no credits remaining') ||
+    message.includes('insufficient quota') ||
+    (status === 429 &&
+      (message.includes('billing') || message.includes('quota')))
+  );
+}
+
+function openAiResponseError(
+  status: number,
+  error: OpenAiApiError | undefined,
+): Error {
+  if (isBillingOrQuotaError(status, error)) {
+    return new Error(OPENAI_BILLING_MESSAGE);
+  }
+  if (status === 401) {
+    return new Error(
+      'A credencial da OpenAI é inválida ou não está autorizada.',
+    );
+  }
+  if (status === 429) {
+    return new Error(
+      'A OpenAI limitou temporariamente as requisições. Tente novamente em instantes.',
+    );
+  }
+  return new Error(
+    error?.message ?? `A OpenAI respondeu com status ${status}.`,
+  );
 }
 
 function isSupportedChatModel(model: string): boolean {
@@ -155,6 +208,7 @@ export class OpenAiProvider implements AiProvider {
     readonly AiProviderMessage[],
     OpenAiSessionState
   >();
+  private runtimeUnavailable: RuntimeUnavailableState | undefined;
 
   public constructor(options: OpenAiProviderOptions = {}) {
     this.fetchImpl = createAiOutboundProtectionFetch(
@@ -174,6 +228,16 @@ export class OpenAiProvider implements AiProvider {
       };
     }
 
+    const runtimeUnavailableMessage = this.runtimeUnavailableMessage();
+    if (runtimeUnavailableMessage) {
+      return {
+        available: false,
+        baseUrl: OPENAI_BASE_URL,
+        models: [],
+        message: runtimeUnavailableMessage,
+      };
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), STATUS_TIMEOUT_MS);
     try {
@@ -185,13 +249,13 @@ export class OpenAiProvider implements AiProvider {
         .json()
         .catch(() => ({}))) as OpenAiModelsResponse;
       if (!response.ok) {
+        const error = openAiResponseError(response.status, body.error);
+        this.rememberRuntimeUnavailable(error);
         return {
           available: false,
           baseUrl: OPENAI_BASE_URL,
           models: [],
-          message:
-            body.error?.message ??
-            `A OpenAI respondeu com status ${response.status}.`,
+          message: error.message,
         };
       }
 
@@ -263,10 +327,9 @@ export class OpenAiProvider implements AiProvider {
         .json()
         .catch(() => ({}))) as OpenAiChatResponse;
       if (!response.ok) {
-        throw new Error(
-          body.error?.message ??
-            `A OpenAI respondeu com status ${response.status}.`,
-        );
+        const error = openAiResponseError(response.status, body.error);
+        this.rememberRuntimeUnavailable(error);
+        throw error;
       }
 
       const message = body.choices?.[0]?.message;
@@ -286,6 +349,7 @@ export class OpenAiProvider implements AiProvider {
       state.pendingToolCalls = nativeToolCalls;
       state.assistantEcho = content || undefined;
       this.sessions.set(messages, state);
+      this.runtimeUnavailable = undefined;
 
       if (content) options.onTextDelta?.(content);
       return { content, toolCalls };
@@ -345,12 +409,12 @@ export class OpenAiProvider implements AiProvider {
         .json()
         .catch(() => ({}))) as OpenAiChatResponse;
       if (!response.ok) {
-        throw new Error(
-          body.error?.message ??
-            `A OpenAI respondeu com status ${response.status}.`,
-        );
+        const error = openAiResponseError(response.status, body.error);
+        this.rememberRuntimeUnavailable(error);
+        throw error;
       }
       const content = body.choices?.[0]?.message?.content;
+      this.runtimeUnavailable = undefined;
       return { text: typeof content === 'string' ? content : '' };
     } finally {
       clearTimeout(timeout);
@@ -412,6 +476,23 @@ export class OpenAiProvider implements AiProvider {
     existing.assistantEcho = undefined;
     existing.consumedMessages = messages.length;
     return existing;
+  }
+
+  private rememberRuntimeUnavailable(error: Error): void {
+    if (error.message !== OPENAI_BILLING_MESSAGE) return;
+    this.runtimeUnavailable = {
+      message: error.message,
+      expiresAt: Date.now() + RUNTIME_UNAVAILABLE_TTL_MS,
+    };
+  }
+
+  private runtimeUnavailableMessage(): string | undefined {
+    if (!this.runtimeUnavailable) return undefined;
+    if (this.runtimeUnavailable.expiresAt <= Date.now()) {
+      this.runtimeUnavailable = undefined;
+      return undefined;
+    }
+    return this.runtimeUnavailable.message;
   }
 
   private headers(): Record<string, string> {
