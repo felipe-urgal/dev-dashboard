@@ -8,6 +8,26 @@ export type AiProviderId = 'ollama' | 'openai';
 
 export type AiProviderKind = 'local' | 'cloud';
 
+/**
+ * Taxonomia pública e provider-neutral para falhas dos fluxos de IA.
+ *
+ * A mensagem continua sendo legível para a pessoa usuária; o código existe
+ * para frontend, testes e diagnóstico não dependerem de comparação de texto.
+ */
+export type AiErrorCode =
+  | 'AI_ASSISTANT_INVALID_REQUEST'
+  | 'AI_CLOUD_CONSENT_REQUIRED'
+  | 'AI_PROVIDER_UNAVAILABLE'
+  | 'AI_MODEL_UNAVAILABLE'
+  | 'AI_PROVIDER_AUTH_FAILED'
+  | 'AI_PROVIDER_QUOTA_EXCEEDED'
+  | 'AI_PROVIDER_RATE_LIMITED'
+  | 'AI_PROVIDER_TIMEOUT'
+  | 'AI_REQUEST_CANCELLED'
+  | 'AI_PROVIDER_INVALID_RESPONSE'
+  | 'AI_PROVIDER_OPERATION_UNSUPPORTED'
+  | 'AI_PROVIDER_REQUEST_FAILED';
+
 export interface AiModelInfo {
   name: string;
   capabilities: AiCapability[];
@@ -18,6 +38,7 @@ export interface ProjectAiStatus {
   baseUrl?: string;
   models: AiModelInfo[];
   message: string;
+  errorCode?: AiErrorCode;
 }
 
 export interface ProjectAiProviderStatus extends ProjectAiStatus {
@@ -64,7 +85,7 @@ export type AiModelPullStreamEvent =
       total?: number;
     }
   | { type: 'done'; model: AiRecommendedModelName }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; code?: AiErrorCode };
 
 export type AiTool =
   | 'read_project_file'
@@ -95,7 +116,7 @@ export type AiChatStreamEvent =
   | { type: 'tool-result'; tool: AiTool; ok: boolean; summary: string }
   | { type: 'workspace-edit-proposed'; preview: ProjectWorkspaceEditPreview }
   | { type: 'done' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string; code?: AiErrorCode };
 
 /**
  * Execução de uma solicitação de implementação iniciada pelo usuário.
@@ -115,6 +136,7 @@ export interface AiImplementationExecution {
   model: string;
   prompt: string;
   status: AiImplementationExecutionStatus;
+  errorCode?: AiErrorCode;
   createdAt: string;
   updatedAt: string;
   finishedAt?: string;
