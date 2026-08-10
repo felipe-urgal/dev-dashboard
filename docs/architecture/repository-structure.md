@@ -114,7 +114,7 @@ Cada plugin de rota recebe dependências explicitamente. Isso permite:
 - encerramento consistente de recursos;
 - leitura clara das capacidades usadas por cada endpoint.
 
-Os domínios incluem workspaces, projetos, processos, Git, testes, scripts, banco, Rails, ambiente, arquivos, editor, navegador, atividades, configurações e assistente de IA.
+Os domínios incluem workspaces, projetos, processos, Git, testes, scripts, banco, Rails, ambiente, arquivos, navegador, atividades, configurações e assistente de IA.
 
 ### Serviços
 
@@ -167,13 +167,14 @@ O router organiza:
 - configurações;
 - detalhes do projeto;
 - diagnóstico;
-- editor;
 - servidor e logs;
 - Git;
+- assistente de IA;
 - testes;
 - banco de dados;
 - dependências;
 - scripts;
+- terminal e console;
 - runtime Rails;
 - variáveis de ambiente.
 

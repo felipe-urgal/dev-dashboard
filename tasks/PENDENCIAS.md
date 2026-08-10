@@ -504,7 +504,7 @@ passa depois.
 
 | Arquivo | Linhas |
 |---|---|
-| `apps/web/src/components/ProjectEmbeddedEditor.vue` | 1814 |
+| ~~`apps/web/src/components/ProjectEmbeddedEditor.vue`~~ | ~~1814~~ |
 | `apps/web/src/components/EnvironmentProfilesPanel.vue` | 987 |
 | `apps/web/src/components/ProjectGitMutationHistoryPage.vue` | 754 |
 | `apps/web/src/components/ProjectReadmePanel.vue` | 720 |
@@ -516,18 +516,21 @@ passa depois.
 | `apps/web/src/components/ProjectScriptsPanel.vue` | 592 |
 | `apps/web/src/composables/useProjectGitHistoryPage.ts` | 587 |
 
-`ProjectEmbeddedEditor.vue` (quase 1800 linhas) é o maior candidato a
-decomposição — provavelmente mistura layout, integração Monaco,
-gerenciamento de abas, conflitos de edição e watchers de arquivo.
+`ProjectEmbeddedEditor.vue` — resolvido (2026-08-09): o arquivo não existe
+mais, removido junto com a IDE embutida no PR #262 ("remove embedded
+editor"). O maior candidato a decomposição hoje é
+`EnvironmentProfilesPanel.vue`.
 
-#### B.13 `apps/web/src/language-server/project-language-server-client.ts`
+#### B.13 `apps/web/src/language-server/project-language-server-client.ts` — resolvido (2026-08-09)
 
-Usa `as unknown as LspRange` em código de produção (linhas 429, 873, 1015,
+~~Usa `as unknown as LspRange` em código de produção (linhas 429, 873, 1015,
 1077, 1079, 1083) para converter ranges do Monaco para tipos LSP — diferente
 do resto do frontend, onde esse tipo de asserção só aparece em testes/mocks.
 Como os dois tipos usam convenções de índice diferentes (0-based vs
 1-based), um cast direto esconde a ausência de conversão real. Sugestão:
-função explícita `toLspRange`/`fromLspRange`.
+função explícita `toLspRange`/`fromLspRange`.~~ — todo o diretório
+`apps/web/src/language-server/` foi removido junto com a IDE embutida no PR
+#262 ("remove embedded editor"); o arquivo não existe mais.
 
 #### B.14 `packages/contracts` — resolvido (2026-08-07)
 

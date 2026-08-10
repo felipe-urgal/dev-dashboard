@@ -135,7 +135,9 @@ npx playwright test --config=e2e/playwright.config.ts caminho/do/arquivo.spec.ts
 npm workspaces, definidos no `package.json` raiz (`apps/*`, `packages/*`):
 
 - **`apps/api`** — Fastify + JSON Schema, escuta somente em `127.0.0.1`. Rotas em
-  `apps/api/src/routes/{health,workspaces,projects,processes}.ts`; cada rota declara `params`,
+  `apps/api/src/routes/*.ts`, um arquivo por domínio (`health`, `workspaces`, `projects`,
+  `processes`, `git-mutations`, `git-pull-request`, `ai-assistant`, `database`, `rails`, `scripts`,
+  entre outros); cada rota declara `params`,
   `body`, `querystring` e `response` explicitamente. Erros passam por `ApiError`/`ApiErrorCode` em
   `apps/api/src/http/api-error.ts` — um novo tipo de erro precisa entrar nessa união; schemas de
   resposta compartilhados em `apps/api/src/http/response-schemas.ts`; validação de token/CORS em

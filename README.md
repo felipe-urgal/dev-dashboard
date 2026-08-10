@@ -23,10 +23,10 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build)
 - Inspeção de configurações e disponibilidade de bancos locais, com snapshot e restore com confirmação
 - Perfis de ambiente reutilizáveis e leitura de variáveis por projeto, sem persistir valor de variáveis com nome de segredo
-- IDE embutida (Monaco), com LSP JavaScript/TypeScript e Ruby/Rails, e assistente de IA local via Ollama (opcional, isolado em painel próprio)
+- Assistente de IA local via Ollama (opcional, isolado em painel próprio), que propõe alterações com prévia e aprovação explícita
 - Project Doctor: diagnóstico somente leitura de estrutura, runtimes, dependências e configuração por projeto
 - Navegador estruturado de falhas de teste e assessor de impacto de mudanças após troca de branch/pull/sincronização
-- Inspetor somente leitura de portas TCP locais e abertura do editor local conhecido
+- Inspetor somente leitura de portas TCP locais
 - Painel global de atividade com resumo, busca e histórico; página global de processos com limpeza segura de finalizados
 - Command palette (`Cmd/Ctrl+K`) para busca e navegação
 - Notificações nativas opcionais e exportação segura de logs pelo navegador
@@ -392,6 +392,7 @@ precisam ser chamados à mão).
 | `npm run docs:api` | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify. |
 | `npm run docs:api:check` | Confere se a referência da API está atualizada, sem regravar (usado no CI). |
 | `npm run changelog` | Gera o changelog a partir do histórico de commits. |
+| `npm run release -- <patch\|minor\|major>` | Faz bump de versão, regenera o changelog e cria a tag de release. |
 | `npm run typecheck` | `tsc --build`/`vue-tsc` em todos os workspaces. |
 | `npm run build` | Builda `packages/*` e depois `apps/*`, nessa ordem. |
 | `npm test` | Roda a suíte de cada workspace (`node --test` ou Vitest, conforme o pacote). |
@@ -439,13 +440,11 @@ A interface web já permite:
 16. ajustar preferências de tema, densidade e retenção;
 17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
 18. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
-19. editar código na IDE embutida (Monaco) com LSP JavaScript/TypeScript e
-    Ruby/Rails, e usar o assistente de IA local (Ollama), opcional e isolado
-    em painel próprio;
+19. usar o assistente de IA local (Ollama), opcional e isolado em painel
+    próprio, para propor alterações com prévia e aprovação explícita;
 20. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
     runner e revisar o impacto de uma troca de branch/pull/sincronização;
-21. inspecionar portas TCP locais, abrir o editor local conhecido e gerir
-    serviços do Docker Compose;
+21. inspecionar portas TCP locais e gerir serviços do Docker Compose;
 22. exportar logs protegidos pelo navegador e receber notificações nativas
     opcionais de conclusões longas;
 23. continuar utilizando o CLI existente de forma independente.

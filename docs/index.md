@@ -46,8 +46,7 @@ Os objetivos principais são:
 - acompanhamento de estado, PID e health check;
 - leitura limitada e mascarada de logs;
 - gerenciamento de processos em segundo plano;
-- abertura de projeto no navegador e editor local;
-- editor de arquivos e integração com language server.
+- abertura de projeto no navegador do sistema.
 
 ### Git
 
@@ -58,6 +57,13 @@ Os objetivos principais são:
 - histórico de mutações;
 - operações destrutivas protegidas por confirmação;
 - integração com pull requests e desfazer de operações reconhecidas.
+
+### Assistente de IA local
+
+- implementação de mudanças descritas em linguagem natural, via modelo Ollama local;
+- catálogo fechado de ferramentas somente leitura sobre o projeto (arquivos, busca, diff, símbolos);
+- prévia de arquivos alterados com aprovação explícita antes de qualquer escrita;
+- execução em segundo plano, cancelável, sem persistência de prompts ou respostas.
 
 ### Qualidade e automação
 
@@ -105,7 +111,7 @@ Os objetivos principais são:
 ┌──────────────────────────────────────────────────────────────┐
 │ Sistema local                                                │
 ├──────────────────────────────────────────────────────────────┤
-│ filesystem │ processos │ Git │ Node │ Rails │ bancos │ editor│
+│ filesystem │ processos │ Git │ Node │ Rails │ bancos │ Ollama│
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -154,8 +160,9 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para usar o dashboard web, aba por aba
 
 - [Guia passo a passo do dashboard web](guia/README.md): o que cada aba do projeto mostra, o que
-  cada botão faz e qual comando roda por trás — README, Diagnóstico, Editor, Servidor, Logs, Git,
-  Testes, Dependências, Scripts e Variáveis de ambiente.
+  cada botão faz e qual comando roda por trás — README, Diagnóstico, Servidor, Logs, Git,
+  Assistente IA, Testes, Banco de dados, Dependências, Scripts, Terminal/Console e Variáveis de
+  ambiente.
 
 ### Para desenvolver
 

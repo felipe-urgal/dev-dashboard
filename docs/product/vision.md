@@ -133,11 +133,14 @@ Já entregue no dashboard web (ver [`../../tasks/PENDENCIAS.md`](../../tasks/PEN
 detalhamento por task): status e operações Git (leitura e mutações com
 confirmação), execução de testes, scripts Node, banco e tarefas Rails de
 baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,
-notificações locais, serviços Docker Compose (start/stop/logs/build) e uma
-IDE embutida (Monaco, LSP JavaScript/TypeScript e Ruby/Rails, escrita segura
-com preview/rollback) com um assistente de IA local via Ollama (chat com
-catálogo fechado de ferramentas — incluindo aplicação de edições propostas
-através do mesmo preview/confirmação seguro — e compleção inline).
+notificações locais, serviços Docker Compose (start/stop/logs/build) e um
+assistente de IA local via Ollama, isolado em painel próprio (chat com
+catálogo fechado de ferramentas somente leitura sobre o projeto e aplicação
+de edições propostas através de preview/confirmação explícita — ver
+[`../guia/assistente-ia.md`](../guia/assistente-ia.md)). Uma IDE embutida com
+Monaco e LSP chegou a ser construída (tasks 076–083) e foi depois removida
+(PR #262): "edição de código" e "substituição de IDE" seguem fora do escopo,
+como já listado abaixo.
 
 O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
 extensível com:
