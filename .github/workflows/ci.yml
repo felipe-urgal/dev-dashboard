@@ -13,9 +13,44 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  format-branch:
+    if: github.event_name == 'pull_request'
+    name: Format branch (temporary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply Prettier
+        run: npx prettier --write apps/api/src/services/ai-assistant-service.ts apps/api/src/services/ai-orchestrator.ts apps/api/src/services/ollama-provider.ts
+
+      - name: Commit formatting
+        run: |
+          if git diff --quiet -- apps/api/src/services/ai-assistant-service.ts apps/api/src/services/ai-orchestrator.ts apps/api/src/services/ollama-provider.ts; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/services/ai-assistant-service.ts apps/api/src/services/ai-orchestrator.ts apps/api/src/services/ollama-provider.ts
+          git commit -m "style: aplica prettier nos providers de IA"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   validate:
     name: Validate
     runs-on: ubuntu-latest
