@@ -21,6 +21,8 @@ A API key é enviada exclusivamente no header `Authorization: Bearer ...`. Ela n
 
 ChatGPT e API são produtos com cobrança separada. Ter uma assinatura do ChatGPT não garante créditos para a API. Quando a OpenAI informa falta de quota/créditos, o adapter transforma a falha em uma mensagem de produto e marca o provider temporariamente como indisponível para evitar repetição imediata da mesma chamada.
 
+Credencial ausente, inválida ou sem autorização é classificada como `AI_PROVIDER_AUTH_FAILED`; esse código descreve autenticação do **provider**, não a sessão local do dashboard.
+
 ## Endpoint e retenção
 
 O adapter usa a API oficial em `https://api.openai.com/v1`.
@@ -46,6 +48,8 @@ A validação não é aplicada ao fluxo de instalação de modelo local porque `
 O catálogo fechado do Dev Dashboard continua sendo a fonte de verdade. O adapter traduz `AiProviderToolDefinition` para function tools da OpenAI e converte os argumentos devolvidos para `Record<string, unknown>`.
 
 IDs nativos de tool calls ficam somente dentro do adapter. O contrato comum expõe apenas nome e argumentos da ferramenta.
+
+Argumentos de ferramenta que não sejam JSON objeto, respostas sem `choices/message` e outras estruturas incompatíveis são classificadas como `AI_PROVIDER_INVALID_RESPONSE`.
 
 ## Masking
 
@@ -95,15 +99,35 @@ No início da revisão:
 
 Trocar a seleção enquanto uma revisão está em andamento não altera aquela execution.
 
+Falhas de OpenAI durante revisão por arquivo ou síntese preservam o `AiErrorCode` no snapshot quando a categoria é conhecida.
+
+## Contrato de erros OpenAI
+
+O adapter transforma detalhes específicos da API em uma taxonomia provider-neutral compartilhada pelo dashboard:
+
+| Situação OpenAI | Código do dashboard |
+|---|---|
+| API key ausente, `401` ou `403` | `AI_PROVIDER_AUTH_FAILED` |
+| `insufficient_quota`, billing/créditos esgotados | `AI_PROVIDER_QUOTA_EXCEEDED` |
+| `429` temporário que não é billing/quota | `AI_PROVIDER_RATE_LIMITED` |
+| timeout do request | `AI_PROVIDER_TIMEOUT` |
+| cancelamento iniciado pelo caller | `AI_REQUEST_CANCELLED` |
+| resposta/tool call estruturalmente inválido | `AI_PROVIDER_INVALID_RESPONSE` |
+| outro HTTP/network/upstream | `AI_PROVIDER_REQUEST_FAILED` |
+
+`ProjectAiStatus.errorCode`, HTTP, SSE e executions reutilizam esses códigos quando aplicável. O texto continua sendo mostrado para diagnóstico, mas consumidores não precisam comparar strings para identificar a classe de falha.
+
+No HTTP, falha de autenticação OpenAI é tratada como falha upstream (`502`), não como `401` do dashboard. Quota/rate limit usam `429`, timeout usa `504` e indisponibilidade detectada pelo resolver usa `503`.
+
 ## Billing, quota e rate limit
 
 Falta de créditos/quota não é tratada como “provider disponível”. Quando a API devolve um erro conhecido de billing/quota, o dashboard apresenta:
 
 `OpenAI sem créditos disponíveis. Adicione créditos na conta da API ou selecione o provider Local.`
 
-O estado de indisponibilidade fica em memória por um período curto e é refletido nas consultas de status seguintes.
+O estado de indisponibilidade fica em memória por um período curto e é refletido nas consultas de status seguintes com `errorCode: AI_PROVIDER_QUOTA_EXCEEDED`.
 
-Rate limit temporário é diferente de falta de créditos e deve manter mensagem própria.
+Rate limit temporário é diferente de falta de créditos e usa `AI_PROVIDER_RATE_LIMITED` com mensagem própria.
 
 ## Interface
 
@@ -128,4 +152,4 @@ Continuam fora do escopo atual:
 - ferramentas hospedadas pelo fornecedor;
 - parâmetros específicos de OpenAI no contrato compartilhado sem necessidade real.
 
-O checklist de fechamento em [`../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md`](../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md) acompanha o hardening de erros, segurança, cancelamento e observabilidade ainda em andamento.
+O checklist de fechamento em [`../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md`](../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md) acompanha segurança, cancelamento e observabilidade ainda em andamento.
