@@ -1,0 +1,300 @@
+name: Apply AI multi-provider hardening
+
+on:
+  push:
+    branches:
+      - agent/ai-multi-provider-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ai-multi-provider-hardening
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply remaining hardening
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f'expected snippet not found in {path}: {old[:120]!r}')
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected one occurrence in {path}, found {text.count(old)}')
+              file.write_text(text.replace(old, new, 1))
+
+          # HTTP execution snapshot exposes the frozen provider/mode.
+          replace_once(
+              'apps/api/src/routes/ai-assistant.ts',
+              "    'projectId',\n    'model',\n    'prompt',",
+              "    'projectId',\n    'provider',\n    'mode',\n    'model',\n    'prompt',",
+          )
+          replace_once(
+              'apps/api/src/routes/ai-assistant.ts',
+              "    projectId: { type: 'string' },\n    model: { type: 'string' },",
+              "    projectId: { type: 'string' },\n    provider: { type: 'string', enum: ['ollama', 'openai'] },\n    mode: { type: 'string', enum: ['fast', 'complete'] },\n    model: { type: 'string' },",
+          )
+
+          # UI keeps the last persisted selection and only commits visual state after PUT succeeds.
+          replace_once(
+              'apps/web/src/components/ProjectAiAssistantPanel.vue',
+              "const providerId = ref<AiProviderId>('ollama');\nconst mode = ref<AiExecutionMode>('fast');\nconst fallbackMode = ref<AiFallbackMode>('offer');",
+              "const providerId = ref<AiProviderId>('ollama');\nconst mode = ref<AiExecutionMode>('fast');\nconst persistedProviderId = ref<AiProviderId>('ollama');\nconst persistedMode = ref<AiExecutionMode>('fast');\nconst fallbackMode = ref<AiFallbackMode>('offer');",
+          )
+          replace_once(
+              'apps/web/src/components/ProjectAiAssistantPanel.vue',
+              "  return resolveAiFallbackOffer(\n    fallbackMode.value,\n    execution.value,\n    providerId.value,\n    providers.value,\n  );",
+              "  return resolveAiFallbackOffer(\n    fallbackMode.value,\n    execution.value,\n    providers.value,\n  );",
+          )
+          replace_once(
+              'apps/web/src/components/ProjectAiAssistantPanel.vue',
+              "  providerId.value = status.selectedProvider;\n  mode.value = status.selectedMode;\n  const availableModels =",
+              "  providerId.value = status.selectedProvider;\n  mode.value = status.selectedMode;\n  persistedProviderId.value = status.selectedProvider;\n  persistedMode.value = status.selectedMode;\n  const availableModels =",
+          )
+          replace_once(
+              'apps/web/src/components/ProjectAiAssistantPanel.vue',
+              "async function saveSelection(): Promise<void> {\n  if (selectionSaving.value || isRunning.value) return;\n  selectionSaving.value = true;\n  errorMessage.value = '';\n  try {\n    const status = await updateProjectAiSelection(\n      props.projectId,\n      providerId.value,\n      mode.value,\n    );\n    applyProviderStatus(status);\n  } catch (error) {\n    errorMessage.value =\n      error instanceof Error\n        ? error.message\n        : 'Não foi possível salvar a seleção de IA.';\n  } finally {\n    selectionSaving.value = false;\n  }\n}\n\nasync function changeProvider(): Promise<void> {\n  model.value = preferredModel(selectedProvider.value);\n  await saveSelection();\n}",
+              "async function persistSelection(\n  nextProvider: AiProviderId,\n  nextMode: AiExecutionMode,\n): Promise<boolean> {\n  if (selectionSaving.value || isRunning.value) return false;\n  selectionSaving.value = true;\n  errorMessage.value = '';\n  try {\n    const status = await updateProjectAiSelection(\n      props.projectId,\n      nextProvider,\n      nextMode,\n    );\n    applyProviderStatus(status);\n    return true;\n  } catch (error) {\n    providerId.value = persistedProviderId.value;\n    mode.value = persistedMode.value;\n    model.value = preferredModel(selectedProvider.value);\n    errorMessage.value =\n      error instanceof Error\n        ? error.message\n        : 'Não foi possível salvar a seleção de IA.';\n    return false;\n  } finally {\n    selectionSaving.value = false;\n  }\n}\n\nasync function saveSelection(): Promise<void> {\n  await persistSelection(providerId.value, mode.value);\n}\n\nasync function changeProvider(): Promise<void> {\n  const saved = await persistSelection(providerId.value, mode.value);\n  if (!saved) return;\n  model.value = preferredModel(selectedProvider.value);\n  if (execution.value?.status === 'failed') {\n    dismissedFallbackExecutionId.value = execution.value.id;\n  }\n}",
+          )
+          replace_once(
+              'apps/web/src/components/ProjectAiAssistantPanel.vue',
+              "async function prepareFallback(): Promise<void> {\n  const offer = fallbackOffer.value;\n  const target = fallbackTarget.value;\n  if (!offer || !target || !execution.value || selectionSaving.value) return;\n\n  dismissedFallbackExecutionId.value = execution.value.id;\n  providerId.value = target.id;\n  model.value = preferredModel(target);\n  prompt.value = execution.value.prompt;\n  await saveSelection();\n}",
+              "async function prepareFallback(): Promise<void> {\n  const offer = fallbackOffer.value;\n  const target = fallbackTarget.value;\n  if (!offer || !target || !execution.value || selectionSaving.value) return;\n\n  const failedExecutionId = execution.value.id;\n  const originalPrompt = execution.value.prompt;\n  const saved = await persistSelection(target.id, mode.value);\n  if (!saved) return;\n\n  dismissedFallbackExecutionId.value = failedExecutionId;\n  model.value = preferredModel(selectedProvider.value);\n  prompt.value = originalPrompt;\n}",
+          )
+
+          # Existing UI execution fixtures now include the frozen provider/mode.
+          replace_once(
+              'apps/web/test/project-ai-assistant-panel.test.ts',
+              "    projectId: 'p1',\n    model: 'qwen2.5-coder:14b',",
+              "    projectId: 'p1',\n    provider: 'ollama',\n    mode: 'fast',\n    model: 'qwen2.5-coder:14b',",
+          )
+
+          panel_test = Path('apps/web/test/project-ai-assistant-panel.test.ts')
+          panel_text = panel_test.read_text()
+          extra_panel_tests = r'''
+
+test('mantém a oferta quando a seleção de fallback não é persistida', async () => {
+  const failedExecution = execution('failed');
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/ai/selection') && init?.method === 'PUT') {
+      return json({ message: 'Falha ao salvar seleção.' }, 500);
+    }
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(
+        providersStatus({
+          ollamaAvailable: false,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    if (url.pathname.endsWith('/ai/implementations')) {
+      return json({ execution: failedExecution });
+    }
+    return json({ execution: null });
+  };
+
+  const wrapper = mount(ProjectAiAssistantPanel, {
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
+  });
+  await flushPromises();
+
+  const useOpenAi = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Usar OpenAI'));
+  assert.ok(useOpenAi);
+  await useOpenAi.trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Local falhou · OpenAI disponível/);
+  assert.equal(
+    (wrapper.get('.ai-assistant-execution-options select').element as HTMLSelectElement)
+      .value,
+    'ollama',
+  );
+  assert.equal(
+    (wrapper.get('textarea').element as HTMLTextAreaElement).value,
+    '',
+  );
+  wrapper.unmount();
+});
+
+test('restaura provider persistido quando a troca manual falha', async () => {
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/ai/selection') && init?.method === 'PUT') {
+      return json({ message: 'Falha ao salvar seleção.' }, 500);
+    }
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(
+        providersStatus({
+          ollamaAvailable: true,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    return json({ execution: null });
+  };
+
+  const wrapper = mount(ProjectAiAssistantPanel, {
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
+  });
+  await flushPromises();
+
+  const providerSelect = wrapper.get('.ai-assistant-execution-options select');
+  await providerSelect.setValue('openai');
+  await flushPromises();
+
+  assert.equal((providerSelect.element as HTMLSelectElement).value, 'ollama');
+  wrapper.unmount();
+});
+'''
+          if 'mantém a oferta quando a seleção de fallback não é persistida' not in panel_text:
+              panel_test.write_text(panel_text.rstrip() + extra_panel_tests + '\n')
+
+          # Response helper accepts status for failure-path tests.
+          replace_once(
+              'apps/web/test/project-ai-assistant-panel.test.ts',
+              "function json(payload: unknown): Response {\n  return new Response(JSON.stringify(payload), {\n    headers: { 'content-type': 'application/json' },\n  });\n}",
+              "function json(payload: unknown, status = 200): Response {\n  return new Response(JSON.stringify(payload), {\n    status,\n    headers: { 'content-type': 'application/json' },\n  });\n}",
+          )
+
+          assistant_test = Path('apps/api/test/ai-assistant-service.test.ts')
+          assistant_text = assistant_test.read_text()
+          generic_message_test = r'''
+
+test('mensagem de modelo obrigatório não depende do provider', async () => {
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
+      throw new Error('não deveria chamar fetch');
+    },
+  });
+  const events = await collect(
+    service,
+    project('/tmp/inexistente'),
+    '',
+    [{ role: 'user', content: 'Teste' }],
+  );
+  const error = events.find((event) => event.type === 'error');
+  assert.ok(error?.type === 'error');
+  assert.match(error.message, /modelo de IA disponível/);
+  assert.doesNotMatch(error.message, /Ollama/);
+
+  await assert.rejects(
+    service.review(
+      '',
+      [{ role: 'user', content: 'Revise' }],
+      new AbortController().signal,
+    ),
+    /modelo de IA disponível/,
+  );
+  await assert.rejects(
+    service.complete('', 'const x = ', '', new AbortController().signal),
+    /modelo de IA disponível/,
+  );
+});
+'''
+          if 'mensagem de modelo obrigatório não depende do provider' not in assistant_text:
+              assistant_test.write_text(assistant_text.rstrip() + generic_message_test + '\n')
+
+          # Documentation reflects the implemented multi-provider state.
+          replace_once(
+              'docs/architecture/ai-multi-provider.md',
+              'O Assistente IA atual usa Ollama local diretamente dentro de `apps/api/src/services/ai-assistant-service.ts`.',
+              'O Assistente IA usa uma fachada `AiAssistantService` sobre `AiProvider`, com resolução por projeto entre Ollama local e OpenAI cloud. Provider e modo são escolhidos pelo `AiProviderResolver`, enquanto filesystem, Git, LSP, ferramentas e aprovação continuam fora dos adapters.',
+          )
+          replace_once(
+              'docs/architecture/ai-multi-provider.md',
+              '- o mascaramento de segredos já é usado no fluxo de Code review, mas precisa ser garantido em qualquer caminho que venha a enviar conteúdo para providers externos.',
+              '- o mascaramento de segredos é aplicado na fronteira de saída compartilhada antes de chat, completion, implementation ou review alcançarem um provider;\n- provider e modo selecionados são persistidos por projeto, enquanto consentimento cloud é persistido separadamente;\n- cada execução de implementation registra o provider e o modo congelados no início para preservar rastreabilidade e evitar troca por race de seleção;\n- o fallback inicial é `offer`: a UI pode oferecer outro provider após indisponibilidade, mas nunca inicia Local → Cloud automaticamente.',
+          )
+
+          # Close the eight-PR roadmap; hardening is tracked separately.
+          replace_once(
+              'tasks/AI-MULTI-PROVIDER.md',
+              '## PR 8 — Fallback `offer` — em andamento',
+              '## PR 8 — Fallback `offer` — concluído',
+          )
+          replace_once(
+              'tasks/AI-MULTI-PROVIDER.md',
+              '- [ ] CI obrigatório verde no commit final.',
+              '- [x] CI obrigatório verde no commit final.',
+          )
+          replace_once(
+              'tasks/AI-MULTI-PROVIDER.md',
+              '- a nova execução continua dependendo de ação em `Iniciar` e, para cloud, do consentimento explícito do projeto.\n\n---',
+              '- a nova execução continua dependendo de ação em `Iniciar` e, para cloud, do consentimento explícito do projeto.\n\nPR de referência: **#292**.\n\n---\n\n## Hardening pós-roadmap — em andamento\n\n- [x] Registrar `provider` e `mode` no snapshot de cada implementation.\n- [x] Congelar provider/modo antes da resolução assíncrona da execução.\n- [x] Fazer o fallback usar o provider realmente registrado na execução.\n- [x] Reverter a UI para a seleção persistida quando `PUT /ai/selection` falhar.\n- [x] Não esconder/preparar fallback quando a troca não for persistida.\n- [x] Remover mensagens de validação específicas do Ollama da fachada genérica.\n- [x] Atualizar arquitetura e roadmap para o estado implementado.\n- [ ] CI obrigatório verde no commit final do hardening.',
+          )
+          replace_once(
+              'tasks/AI-MULTI-PROVIDER.md',
+              '| 8 | Fallback `offer` | Em andamento |',
+              '| 8 | Fallback `offer` | Concluído (#292) |',
+          )
+          PY
+
+      - name: Format
+        run: npm run format
+
+      - name: Generate API reference
+        run: npm run docs:api
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      - name: API docs check
+        run: npm run docs:api:check
+
+      - name: Test
+        run: npm test
+
+      - name: Smoke E2E
+        run: npm run test:e2e
+
+      - name: Commit validated hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps packages docs tasks
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "fix: fecha hardening multi-provider"
+          git push origin HEAD:agent/ai-multi-provider-hardening
