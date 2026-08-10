@@ -311,6 +311,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     aiAssistantService: context.aiAssistantService,
+    aiProviderResolver: context.aiProviderResolver,
     aiImplementationExecutionService: context.aiImplementationExecutionService,
   });
 
