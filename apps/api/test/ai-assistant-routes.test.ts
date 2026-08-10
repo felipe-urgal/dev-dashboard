@@ -126,12 +126,14 @@ test('rotas do assistente de IA resolvem o provider do projeto', async (context)
     },
     pullRecommendedModel: async () => {
       cloudPullCalls += 1;
+      throw new Error(
+        'O provider de IA atual não permite instalar modelos pelo dashboard.',
+      );
     },
   } as unknown as AiAssistantServiceType;
 
   let selectedProvider: 'ollama' | 'openai' = 'ollama';
   let selectedMode: 'fast' | 'complete' = 'fast';
-  const resolvedProviders: Array<'ollama' | 'openai'> = [];
   const providerResolver = {
     getSelection: () => ({ provider: selectedProvider, mode: selectedMode }),
     status: async () => {
@@ -166,10 +168,8 @@ test('rotas do assistente de IA resolvem o provider do projeto', async (context)
       provider: selectedProvider,
       mode: selectedMode,
     }),
-    resolve: async (_projectId: string, provider: 'ollama' | 'openai') => {
-      resolvedProviders.push(provider);
-      return provider === 'openai' ? cloudAssistant : localAssistant;
-    },
+    resolve: async (_projectId: string, provider: 'ollama' | 'openai') =>
+      provider === 'openai' ? cloudAssistant : localAssistant,
     setSelection: async (
       _projectId: string,
       provider: 'ollama' | 'openai',
@@ -398,29 +398,35 @@ test('rotas do assistente de IA resolvem o provider do projeto', async (context)
   );
 
   await context.test(
-    'pull de modelo é uma operação explicitamente Ollama',
+    'pull de modelo respeita a capability do provider selecionado',
     async () => {
       selectedProvider = 'openai';
       selectedMode = 'complete';
-      const oldRoute = await app.inject({
+      const localPullCallsBefore = localPullCalls;
+      const cloudResponse = await app.inject({
         method: 'POST',
         url: '/api/projects/p1/ai/models/pull',
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { model: 'qwen2.5-coder:7b' },
       });
-      assert.equal(oldRoute.statusCode, 404);
+      assert.equal(cloudResponse.statusCode, 200);
+      assert.match(cloudResponse.body, /event: error/);
+      assert.match(cloudResponse.body, /não permite instalar modelos/i);
+      assert.equal(cloudPullCalls, 1);
+      assert.equal(localPullCalls, localPullCallsBefore);
 
-      const response = await app.inject({
+      selectedProvider = 'ollama';
+      selectedMode = 'fast';
+      const localResponse = await app.inject({
         method: 'POST',
-        url: '/api/projects/p1/ai/providers/ollama/models/pull',
+        url: '/api/projects/p1/ai/models/pull',
         headers: { ...headers, 'content-type': 'application/json' },
         payload: { model: 'qwen2.5-coder:7b' },
       });
-      assert.equal(response.statusCode, 200);
-      assert.match(response.body, /event: done/);
-      assert.equal(resolvedProviders.at(-1), 'ollama');
-      assert.equal(localPullCalls, 1);
-      assert.equal(cloudPullCalls, 0);
+      assert.equal(localResponse.statusCode, 200);
+      assert.match(localResponse.body, /event: done/);
+      assert.equal(localPullCalls, localPullCallsBefore + 1);
+      assert.equal(cloudPullCalls, 1);
     },
   );
 
