@@ -3,9 +3,10 @@ import test from 'node:test';
 
 import { LOG_MASK } from '@dev-dashboard/process-manager';
 
-import type {
-  AiProviderMessage,
-  AiProviderToolDefinition,
+import {
+  AiProviderError,
+  type AiProviderMessage,
+  type AiProviderToolDefinition,
 } from '../src/services/ai-provider.js';
 import { OpenAiProvider } from '../src/services/openai-provider.js';
 
@@ -21,13 +22,26 @@ const tools: readonly AiProviderToolDefinition[] = [
   },
 ];
 
-function roundOptions() {
+function roundOptions(timeoutMs = 1_000) {
   return {
     signal: new AbortController().signal,
     tools,
-    timeoutMs: 1_000,
+    timeoutMs,
     maxOutputTokens: 256,
   };
+}
+
+async function rejectsWithProviderCode(
+  promise: Promise<unknown>,
+  code: AiProviderError['code'],
+  message?: RegExp,
+): Promise<void> {
+  await assert.rejects(promise, (error: unknown) => {
+    assert.ok(error instanceof AiProviderError);
+    assert.equal(error.code, code);
+    if (message) assert.match(error.message, message);
+    return true;
+  });
 }
 
 test('status fica indisponível sem API key e não faz request', async () => {
@@ -44,6 +58,7 @@ test('status fica indisponível sem API key e não faz request', async () => {
 
   assert.equal(status.available, false);
   assert.equal(status.models.length, 0);
+  assert.equal(status.errorCode, 'AI_PROVIDER_AUTH_FAILED');
   assert.equal(calls, 0);
   assert.match(status.message, /API_KEY/);
 });
@@ -72,6 +87,7 @@ test('status lista somente modelos compatíveis e autentica por Bearer', async (
   const status = await provider.status();
 
   assert.equal(status.available, true);
+  assert.equal(status.errorCode, undefined);
   assert.equal(authorization, 'Bearer test-openai-key');
   assert.deepEqual(
     status.models.map((model) => model.name),
@@ -220,12 +236,13 @@ test('rejeita argumentos de tool call que não sejam JSON objeto', async () => {
       ),
   });
 
-  await assert.rejects(
+  await rejectsWithProviderCode(
     provider.chatRound(
       'gpt-5.4-mini',
       [{ role: 'user', content: 'Procure provider.' }],
       roundOptions(),
     ),
+    'AI_PROVIDER_INVALID_RESPONSE',
     /argumentos inválidos/,
   );
 });
@@ -284,18 +301,20 @@ test('normaliza falta de créditos e marca OpenAI indisponível temporariamente'
     },
   });
 
-  await assert.rejects(
+  await rejectsWithProviderCode(
     provider.chatRound(
       'gpt-5.4-mini',
       [{ role: 'user', content: 'Revise este código.' }],
       roundOptions(),
     ),
+    'AI_PROVIDER_QUOTA_EXCEEDED',
     /OpenAI sem créditos disponíveis.*provider Local/,
   );
 
   const status = await provider.status();
   assert.equal(status.available, false);
   assert.equal(status.models.length, 0);
+  assert.equal(status.errorCode, 'AI_PROVIDER_QUOTA_EXCEEDED');
   assert.match(status.message, /OpenAI sem créditos disponíveis/);
   assert.equal(calls, 1);
 });
@@ -315,12 +334,83 @@ test('completion também normaliza erro de billing da OpenAI', async () => {
       ),
   });
 
-  await assert.rejects(
+  await rejectsWithProviderCode(
     provider.complete('gpt-5.4-mini', 'const value = ', ';', {
       signal: new AbortController().signal,
       timeoutMs: 1_000,
       maxOutputTokens: 64,
     }),
+    'AI_PROVIDER_QUOTA_EXCEEDED',
     /OpenAI sem créditos disponíveis/,
+  );
+});
+
+test('diferencia autenticação, rate limit e resposta inválida', async () => {
+  const auth = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({ error: { message: 'Invalid API key.' } }),
+        { status: 401 },
+      ),
+  });
+  await rejectsWithProviderCode(
+    auth.chatRound(
+      'gpt-5.4-mini',
+      [{ role: 'user', content: 'Olá.' }],
+      roundOptions(),
+    ),
+    'AI_PROVIDER_AUTH_FAILED',
+  );
+
+  const rateLimited = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({ error: { message: 'Rate limit reached.' } }),
+        { status: 429 },
+      ),
+  });
+  await rejectsWithProviderCode(
+    rateLimited.chatRound(
+      'gpt-5.4-mini',
+      [{ role: 'user', content: 'Olá.' }],
+      roundOptions(),
+    ),
+    'AI_PROVIDER_RATE_LIMITED',
+  );
+
+  const invalidResponse = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async () => new Response(JSON.stringify({ choices: [] })),
+  });
+  await rejectsWithProviderCode(
+    invalidResponse.chatRound(
+      'gpt-5.4-mini',
+      [{ role: 'user', content: 'Olá.' }],
+      roundOptions(),
+    ),
+    'AI_PROVIDER_INVALID_RESPONSE',
+  );
+});
+
+test('classifica timeout do provider sem confundir com cancelamento do caller', async () => {
+  const provider = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      }),
+  });
+
+  await rejectsWithProviderCode(
+    provider.chatRound(
+      'gpt-5.4-mini',
+      [{ role: 'user', content: 'Olá.' }],
+      roundOptions(5),
+    ),
+    'AI_PROVIDER_TIMEOUT',
   );
 });
