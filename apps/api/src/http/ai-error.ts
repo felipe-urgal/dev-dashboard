@@ -4,6 +4,7 @@ import { AiAssistantError } from '../services/ai-assistant-service.js';
 import { AiProviderError } from '../services/ai-provider.js';
 import { AiProviderResolutionError } from '../services/ai-provider-resolver.js';
 import { ApiError } from './api-error.js';
+import { apiErrorResponseSchema } from './response-schemas/common.js';
 
 const STATUS_BY_AI_ERROR: Record<AiErrorCode, number> = {
   AI_ASSISTANT_INVALID_REQUEST: 400,
@@ -19,6 +20,14 @@ const STATUS_BY_AI_ERROR: Record<AiErrorCode, number> = {
   AI_PROVIDER_OPERATION_UNSUPPORTED: 422,
   AI_PROVIDER_REQUEST_FAILED: 502,
 };
+
+export const aiProviderErrorResponseSchemas = {
+  422: apiErrorResponseSchema,
+  429: apiErrorResponseSchema,
+  502: apiErrorResponseSchema,
+  503: apiErrorResponseSchema,
+  504: apiErrorResponseSchema,
+} as const;
 
 export function aiErrorCode(error: unknown): AiErrorCode | undefined {
   if (
