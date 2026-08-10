@@ -535,14 +535,15 @@ onUnmounted(stopRefreshing);
       >
         <span>
           <ClockIcon aria-hidden="true" />
-          Acompanhamento · {{ execution.fileExecutions.length }} arquivo(s)
+          Acompanhamento ·
+          {{ execution.fileExecutions?.length ?? 0 }} arquivo(s)
         </span>
         <ChevronUpIcon v-if="activityOpen" aria-hidden="true" />
         <ChevronDownIcon v-else aria-hidden="true" />
       </button>
       <ol v-if="activityOpen">
         <li
-          v-for="file in execution.fileExecutions"
+          v-for="file in execution.fileExecutions ?? []"
           :key="file.path"
           :class="`is-${file.status}`"
         >
