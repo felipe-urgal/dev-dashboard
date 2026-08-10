@@ -1,5 +1,6 @@
 import {
   EnvironmentProfileRepository,
+  ProjectAiConsentRepository,
   ProjectDisabledRepository,
   ProjectDismissedRepository,
   ProjectFavoriteRepository,
@@ -31,7 +32,9 @@ import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
+import { AiProviderResolver } from './services/ai-provider-resolver.js';
 import { OllamaProvider } from './services/ollama-provider.js';
+import { OpenAiProvider } from './services/openai-provider.js';
 import { GitAiCodeReviewService } from './services/git-ai-code-review-service.js';
 import { AiImplementationExecutionService } from './services/ai-implementation-execution-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
@@ -50,6 +53,7 @@ export interface AppContext {
   projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
   projectDismissedRepository: ProjectDismissedRepository;
+  projectAiConsentRepository: ProjectAiConsentRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -75,6 +79,7 @@ export interface AppContext {
   projectLanguageServerService: ProjectLanguageServerService;
   projectTerminalService: ProjectTerminalService;
   aiAssistantService: AiAssistantService;
+  aiProviderResolver: AiProviderResolver;
   gitAiCodeReviewService: GitAiCodeReviewService;
   aiImplementationExecutionService: AiImplementationExecutionService;
 }
@@ -87,6 +92,7 @@ export function createAppContext(
   options: CreateAppContextOptions = {},
 ): AppContext {
   const retentionSettingsRepository = new RetentionSettingsRepository();
+  const projectAiConsentRepository = new ProjectAiConsentRepository();
   const scriptDetectionService = new ScriptDetectionService();
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
@@ -107,14 +113,24 @@ export function createAppContext(
       : {}),
   });
   const projectTerminalService = new ProjectTerminalService();
-  const ollamaProvider = new OllamaProvider();
-  const aiAssistantService = new AiAssistantService({
-    provider: ollamaProvider,
-    projectFileService,
-    gitService,
-    workspaceEditService: projectWorkspaceEditService,
-    languageServerService: projectLanguageServerService,
+
+  const assistantFor = (provider: OllamaProvider | OpenAiProvider) =>
+    new AiAssistantService({
+      provider,
+      projectFileService,
+      gitService,
+      workspaceEditService: projectWorkspaceEditService,
+      languageServerService: projectLanguageServerService,
+    });
+
+  const aiAssistantService = assistantFor(new OllamaProvider());
+  const openAiAssistantService = assistantFor(new OpenAiProvider());
+  const aiProviderResolver = new AiProviderResolver({
+    ollama: aiAssistantService,
+    openai: openAiAssistantService,
+    consentRepository: projectAiConsentRepository,
   });
+
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -122,6 +138,7 @@ export function createAppContext(
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
     projectDismissedRepository: new ProjectDismissedRepository(),
+    projectAiConsentRepository,
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
@@ -156,6 +173,7 @@ export function createAppContext(
     projectLanguageServerService,
     projectTerminalService,
     aiAssistantService,
+    aiProviderResolver,
     gitAiCodeReviewService: new GitAiCodeReviewService(aiAssistantService),
     aiImplementationExecutionService: new AiImplementationExecutionService(
       aiAssistantService,
