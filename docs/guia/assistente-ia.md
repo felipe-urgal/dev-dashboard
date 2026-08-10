@@ -56,6 +56,7 @@ A execution registra:
 - modelo;
 - prompt;
 - status;
+- código de erro, quando a falha/cancelamento é classificada;
 - timestamps;
 - eventos.
 
@@ -146,6 +147,26 @@ Nem todo modelo local segue de forma confiável o mecanismo estruturado de tool-
 O adapter Ollama possui uma camada de compatibilidade para chamadas de ferramenta escritas como JSON textual, mas somente quando a ferramenta pertence ao catálogo autorizado enviado naquela solicitação. Ferramentas desconhecidas continuam recusadas.
 
 Esse comportamento é específico do adapter Ollama e não afeta o contrato multi-provider.
+
+## Erros e diagnóstico
+
+A interface continua mostrando uma mensagem clara para a pessoa usuária, mas os contratos também carregam um código estável quando a falha é conhecida. Isso evita que frontend, testes e diagnóstico dependam do texto exato da mensagem.
+
+Exemplos:
+
+- `AI_CLOUD_CONSENT_REQUIRED`: falta autorizar o uso de cloud para o projeto;
+- `AI_PROVIDER_UNAVAILABLE`: provider selecionado está indisponível;
+- `AI_MODEL_UNAVAILABLE`: modelo não pertence ao provider atual;
+- `AI_PROVIDER_AUTH_FAILED`: credencial do provider cloud foi recusada;
+- `AI_PROVIDER_QUOTA_EXCEEDED`: créditos/quota estão esgotados;
+- `AI_PROVIDER_RATE_LIMITED`: limite temporário de requisições;
+- `AI_PROVIDER_TIMEOUT`: provider demorou além do limite;
+- `AI_REQUEST_CANCELLED`: execução foi cancelada;
+- `AI_PROVIDER_INVALID_RESPONSE`: o modelo devolveu resposta/tool call incompatível com o contrato;
+- `AI_PROVIDER_OPERATION_UNSUPPORTED`: provider não oferece a operação solicitada;
+- `AI_PROVIDER_REQUEST_FAILED`: falha upstream não classificada em categoria mais específica.
+
+O código pode aparecer em `status`, evento SSE ou snapshot da execution, conforme o ponto onde a falha ocorreu. Ele é um dado de diagnóstico; a mensagem continua sendo a informação principal mostrada na interface.
 
 ## Fallback
 

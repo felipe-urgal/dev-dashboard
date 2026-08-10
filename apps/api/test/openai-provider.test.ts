@@ -349,10 +349,9 @@ test('diferencia autenticação, rate limit e resposta inválida', async () => {
   const auth = new OpenAiProvider({
     apiKey: 'test-openai-key',
     fetchImpl: async () =>
-      new Response(
-        JSON.stringify({ error: { message: 'Invalid API key.' } }),
-        { status: 401 },
-      ),
+      new Response(JSON.stringify({ error: { message: 'Invalid API key.' } }), {
+        status: 401,
+      }),
   });
   await rejectsWithProviderCode(
     auth.chatRound(

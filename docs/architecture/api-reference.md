@@ -524,7 +524,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **422** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **429** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **504** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `GET /api/projects/:projectId/ai/implementations`
 
@@ -611,6 +616,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                   "failed",
                   "cancelled"
                 ]
+              },
+              "errorCode": {
+                "type": "string"
               },
               "createdAt": {
                 "type": "string"
@@ -781,6 +789,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
                         }
                       }
                     }
@@ -913,6 +924,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "cancelled"
             ]
           },
+          "errorCode": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -1081,6 +1095,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                       "const": "error"
                     },
                     "message": {
+                      "type": "string"
+                    },
+                    "code": {
                       "type": "string"
                     }
                   }
@@ -1189,6 +1206,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "cancelled"
             ]
           },
+          "errorCode": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -1357,6 +1377,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                       "const": "error"
                     },
                     "message": {
+                      "type": "string"
+                    },
+                    "code": {
                       "type": "string"
                     }
                   }
@@ -1465,6 +1488,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "cancelled"
             ]
           },
+          "errorCode": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -1634,6 +1660,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     },
                     "message": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
                     }
                   }
                 }
@@ -1735,6 +1764,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "type": "string"
       },
       "message": {
+        "type": "string"
+      },
+      "errorCode": {
         "type": "string"
       },
       "models": {
@@ -6512,6 +6544,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "finishedAt": {
                   "type": "string"
                 },
+                "errorCode": {
+                  "type": "string"
+                },
                 "errorMessage": {
                   "type": "string"
                 }
@@ -6533,6 +6568,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 },
                 "message": {
                   "type": "string"
+                },
+                "code": {
+                  "type": "string"
                 }
               }
             }
@@ -6541,6 +6579,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "type": "string"
           },
           "finishedAt": {
+            "type": "string"
+          },
+          "errorCode": {
             "type": "string"
           },
           "errorMessage": {
@@ -6653,7 +6694,12 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **422** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **429** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **503** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **504** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `POST /api/projects/:projectId/git/pull-request/ai-review-executions/:executionId/cancel`
 
@@ -6807,6 +6853,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "finishedAt": {
                   "type": "string"
                 },
+                "errorCode": {
+                  "type": "string"
+                },
                 "errorMessage": {
                   "type": "string"
                 }
@@ -6828,6 +6877,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 },
                 "message": {
                   "type": "string"
+                },
+                "code": {
+                  "type": "string"
                 }
               }
             }
@@ -6836,6 +6888,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "type": "string"
           },
           "finishedAt": {
+            "type": "string"
+          },
+          "errorCode": {
             "type": "string"
           },
           "errorMessage": {
@@ -7126,6 +7181,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     "finishedAt": {
                       "type": "string"
                     },
+                    "errorCode": {
+                      "type": "string"
+                    },
                     "errorMessage": {
                       "type": "string"
                     }
@@ -7147,6 +7205,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                     },
                     "message": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
                     }
                   }
                 }
@@ -7155,6 +7216,9 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "type": "string"
               },
               "finishedAt": {
+                "type": "string"
+              },
+              "errorCode": {
                 "type": "string"
               },
               "errorMessage": {

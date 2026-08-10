@@ -53,18 +53,12 @@ const cases: Array<{
   {
     code: 'AI_PROVIDER_QUOTA_EXCEEDED',
     statusCode: 429,
-    error: new AiProviderError(
-      'AI_PROVIDER_QUOTA_EXCEEDED',
-      'Quota esgotada.',
-    ),
+    error: new AiProviderError('AI_PROVIDER_QUOTA_EXCEEDED', 'Quota esgotada.'),
   },
   {
     code: 'AI_PROVIDER_RATE_LIMITED',
     statusCode: 429,
-    error: new AiProviderError(
-      'AI_PROVIDER_RATE_LIMITED',
-      'Rate limit.',
-    ),
+    error: new AiProviderError('AI_PROVIDER_RATE_LIMITED', 'Rate limit.'),
   },
   {
     code: 'AI_PROVIDER_TIMEOUT',
@@ -95,10 +89,7 @@ const cases: Array<{
   {
     code: 'AI_PROVIDER_REQUEST_FAILED',
     statusCode: 502,
-    error: new AiProviderError(
-      'AI_PROVIDER_REQUEST_FAILED',
-      'Falha upstream.',
-    ),
+    error: new AiProviderError('AI_PROVIDER_REQUEST_FAILED', 'Falha upstream.'),
   },
 ];
 
