@@ -152,11 +152,11 @@ test('code review usa maxDiffChars da policy selecionada', async () => {
   const diff = `+${'x'.repeat(8_999)}`;
 
   async function reviewWithMode(mode: AiExecutionMode, projectId: string) {
-    let receivedPrompt = '';
+    const receivedPrompts: string[] = [];
     const service = new GitAiCodeReviewService(
       {
         review: async (_model, messages) => {
-          receivedPrompt = messages[1]?.content ?? '';
+          receivedPrompts.push(messages[1]?.content ?? '');
           return JSON.stringify({ summary: 'Sem achados.', findings: [] });
         },
       } as unknown as AiAssistantService,
@@ -185,12 +185,17 @@ test('code review usa maxDiffChars da policy selecionada', async () => {
       mode,
     });
     await waitForReview(service, projectId);
-    return { receivedPrompt, execution: service.latest(projectId) };
+    return {
+      receivedPrompt: receivedPrompts[0] ?? '',
+      receivedPrompts,
+      execution: service.latest(projectId),
+    };
   }
 
   const fast = await reviewWithMode('fast', 'fast-project');
   const complete = await reviewWithMode('complete', 'complete-project');
 
+  assert.equal(fast.receivedPrompts.length, 1);
   assert.equal(fast.receivedPrompt.includes(diff), false);
   assert.ok(
     fast.receivedPrompt.endsWith(
@@ -199,6 +204,7 @@ test('code review usa maxDiffChars da policy selecionada', async () => {
   );
   assert.equal(fast.execution?.review?.diffTruncated, true);
 
+  assert.equal(complete.receivedPrompts.length, 2);
   assert.ok(complete.receivedPrompt.endsWith(diff));
   assert.equal(complete.execution?.review?.diffTruncated, false);
 });
