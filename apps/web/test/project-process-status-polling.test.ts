@@ -97,4 +97,4 @@ describe('polling do status do processo do servidor', () => {
     expect(fetchProjectProcess).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
-}
+});
