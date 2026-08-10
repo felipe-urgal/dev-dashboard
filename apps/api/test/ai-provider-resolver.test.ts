@@ -160,3 +160,56 @@ test('revogar consentimento bloqueia a próxima resolução cloud', async () => 
     },
   );
 });
+
+test('OpenAI rejeita modelo disponível apenas no Ollama antes da inferência', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      await selectionRepository.set('project-1', {
+        provider: 'openai',
+        mode: 'complete',
+      });
+      await consentRepository.set('project-1', 'openai', true);
+      const resolver = new AiProviderResolver({
+        ollama: assistant(true, 'qwen2.5-coder:14b', 'Ollama disponível.'),
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      await assert.rejects(
+        resolver.resolveSelected('project-1', 'qwen2.5-coder:14b'),
+        (error: unknown) => {
+          assert.ok(error instanceof AiProviderResolutionError);
+          assert.equal(error.code, 'AI_MODEL_UNAVAILABLE');
+          assert.match(error.message, /qwen2\.5-coder:14b/);
+          assert.match(error.message, /OpenAI/);
+          return true;
+        },
+      );
+    },
+  );
+});
+
+test('Ollama rejeita modelo disponível apenas na OpenAI antes da inferência', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      const resolver = new AiProviderResolver({
+        ollama: assistant(true, 'qwen2.5-coder:14b', 'Ollama disponível.'),
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      await assert.rejects(
+        resolver.resolveSelected('project-1', 'gpt-5-mini'),
+        (error: unknown) => {
+          assert.ok(error instanceof AiProviderResolutionError);
+          assert.equal(error.code, 'AI_MODEL_UNAVAILABLE');
+          assert.match(error.message, /gpt-5-mini/);
+          assert.match(error.message, /Local/);
+          return true;
+        },
+      );
+    },
+  );
+});
