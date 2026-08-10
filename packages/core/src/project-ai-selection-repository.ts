@@ -57,7 +57,9 @@ function parseConfig(contents: string): Map<string, ProjectAiSelection> {
     typeof candidate.projects !== 'object' ||
     Array.isArray(candidate.projects)
   ) {
-    throw new Error('A versão da configuração de seleção de IA não é suportada.');
+    throw new Error(
+      'A versão da configuração de seleção de IA não é suportada.',
+    );
   }
 
   const selections = new Map<string, ProjectAiSelection>();
@@ -103,8 +105,12 @@ export class ProjectAiSelectionRepository {
     return selection ? { ...selection } : { ...DEFAULT_SELECTION };
   }
 
-  public async set(projectId: string, selection: ProjectAiSelection): Promise<void> {
-    if (!isProjectId(projectId)) throw new Error('O identificador do projeto é inválido.');
+  public async set(
+    projectId: string,
+    selection: ProjectAiSelection,
+  ): Promise<void> {
+    if (!isProjectId(projectId))
+      throw new Error('O identificador do projeto é inválido.');
     if (!isProvider(selection.provider) || !isMode(selection.mode)) {
       throw new Error('A seleção de execução de IA é inválida.');
     }
@@ -118,7 +124,9 @@ export class ProjectAiSelectionRepository {
 
       await fsPromises.mkdir(this.directory, { recursive: true, mode: 0o700 });
       const projects = Object.fromEntries(
-        [...next.entries()].sort(([left], [right]) => left.localeCompare(right)),
+        [...next.entries()].sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
       );
       const temporaryFile = `${this.file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
       await fsPromises.writeFile(
