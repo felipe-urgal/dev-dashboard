@@ -58,7 +58,10 @@ test('inicia uma implementação e mantém o aviso de execução em segundo plan
   };
 
   const wrapper = mount(ProjectAiAssistantPanel, {
-    props: { project: makeProject({ id: 'p1' }) },
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
   });
   await flushPromises();
 
