@@ -83,7 +83,8 @@ const TOOL_DEFINITIONS: readonly AiProviderToolDefinition[] = [
   },
   {
     name: 'get_git_diff',
-    description: 'Obtém o diff Git (não commitado) de um arquivo do projeto atual.',
+    description:
+      'Obtém o diff Git (não commitado) de um arquivo do projeto atual.',
     parameters: {
       type: 'object',
       required: ['path'],

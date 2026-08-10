@@ -130,7 +130,9 @@ export class OllamaProvider implements AiProvider {
   private readonly fetchImpl: typeof fetch;
 
   public constructor(options: OllamaProviderOptions = {}) {
-    this.fetchImpl = createAiOutboundProtectionFetch(options.fetchImpl ?? fetch);
+    this.fetchImpl = createAiOutboundProtectionFetch(
+      options.fetchImpl ?? fetch,
+    );
   }
 
   public async status(): Promise<ProjectAiStatus> {
@@ -365,7 +367,9 @@ export class OllamaProvider implements AiProvider {
   ): Promise<void> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      throw new Error('O Ollama local não está disponível para instalar modelos.');
+      throw new Error(
+        'O Ollama local não está disponível para instalar modelos.',
+      );
     }
     if (!isRecommendedModel(model)) {
       throw new Error('Este modelo não está disponível para instalação.');
@@ -471,7 +475,8 @@ export class OllamaProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await this.fetchImpl(url, { signal: controller.signal });
-      if (!response.ok) throw new Error(`Resposta ${response.status} do Ollama.`);
+      if (!response.ok)
+        throw new Error(`Resposta ${response.status} do Ollama.`);
       return (await response.json()) as T;
     } finally {
       clearTimeout(timeout);
@@ -492,7 +497,8 @@ export class OllamaProvider implements AiProvider {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      if (!response.ok) throw new Error(`Resposta ${response.status} do Ollama.`);
+      if (!response.ok)
+        throw new Error(`Resposta ${response.status} do Ollama.`);
       return (await response.json()) as T;
     } finally {
       clearTimeout(timeout);

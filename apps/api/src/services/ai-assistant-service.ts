@@ -7,10 +7,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import type { AiProvider } from './ai-provider.js';
-import {
-  AiOrchestrator,
-  type AiChatHandlers,
-} from './ai-orchestrator.js';
+import { AiOrchestrator, type AiChatHandlers } from './ai-orchestrator.js';
 import { OllamaProvider } from './ollama-provider.js';
 import { ProjectFileService } from './project-file-service.js';
 import { GitService } from './git-service.js';
@@ -57,7 +54,9 @@ function truncate(value: string, maxChars: number): string {
 
 function asAssistantError(error: unknown, fallback: string): AiAssistantError {
   if (error instanceof AiAssistantError) return error;
-  return new AiAssistantError(error instanceof Error ? error.message : fallback);
+  return new AiAssistantError(
+    error instanceof Error ? error.message : fallback,
+  );
 }
 
 /**
@@ -153,7 +152,9 @@ export class AiAssistantService {
         `A revisão deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
       );
     }
-    if (messages.some((message) => message.content.length > MAX_MESSAGE_CHARS)) {
+    if (
+      messages.some((message) => message.content.length > MAX_MESSAGE_CHARS)
+    ) {
       throw new AiAssistantError(
         `Cada mensagem deve ter no máximo ${MAX_MESSAGE_CHARS} caracteres.`,
       );
