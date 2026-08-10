@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   AiChatMessage,
   AiChatStreamEvent,
+  AiErrorCode,
   AiExecutionMode,
   AiImplementationExecution,
   AiImplementationExecutionStatus,
@@ -11,9 +12,16 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
-import type { AiAssistantService } from './ai-assistant-service.js';
+import {
+  AiAssistantError,
+  type AiAssistantService,
+} from './ai-assistant-service.js';
 import { DEFAULT_AI_EXECUTION_MODE } from './ai-execution-policy.js';
-import type { AiProviderResolver } from './ai-provider-resolver.js';
+import { AiProviderError } from './ai-provider.js';
+import {
+  AiProviderResolutionError,
+  type AiProviderResolver,
+} from './ai-provider-resolver.js';
 
 const MAX_EVENTS_PER_EXECUTION = 120;
 const MAX_EXECUTIONS = 40;
@@ -59,6 +67,17 @@ function copyExecution(
     ...execution,
     events: [...execution.events],
   };
+}
+
+function errorCodeFor(error: unknown): AiErrorCode {
+  if (
+    error instanceof AiProviderResolutionError ||
+    error instanceof AiProviderError ||
+    error instanceof AiAssistantError
+  ) {
+    return error.code;
+  }
+  return 'AI_PROVIDER_REQUEST_FAILED';
 }
 
 /**
@@ -139,6 +158,7 @@ export class AiImplementationExecutionService {
     if (!stored || stored.execution.projectId !== projectId) return null;
     if (stored.execution.status === 'running') {
       stored.controller.abort();
+      stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
       this.finish(stored.execution, 'cancelled');
     }
     return copyExecution(stored.execution);
@@ -148,6 +168,7 @@ export class AiImplementationExecutionService {
     for (const stored of this.executions.values()) {
       if (stored.execution.status === 'running') {
         stored.controller.abort();
+        stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
         this.finish(stored.execution, 'cancelled');
       }
     }
@@ -187,6 +208,7 @@ export class AiImplementationExecutionService {
       ) {
         this.recordEvent(stored, {
           type: 'error',
+          code: 'AI_PROVIDER_INVALID_RESPONSE',
           message: INSPECTION_REQUIRED_MESSAGE,
         });
       }
@@ -200,6 +222,7 @@ export class AiImplementationExecutionService {
       if (stored.execution.status !== 'running') return;
       this.recordEvent(stored, {
         type: 'error',
+        code: errorCodeFor(error),
         message:
           error instanceof Error
             ? error.message
@@ -218,7 +241,10 @@ export class AiImplementationExecutionService {
       event.tool === 'propose_workspace_edit' &&
       !stored.projectInspected
     ) {
-      throw new Error(EDIT_REQUIRES_INSPECTION_MESSAGE);
+      throw new AiProviderError(
+        'AI_PROVIDER_INVALID_RESPONSE',
+        EDIT_REQUIRES_INSPECTION_MESSAGE,
+      );
     }
 
     if (
@@ -236,6 +262,10 @@ export class AiImplementationExecutionService {
         event.type === 'workspace-edit-proposed')
     ) {
       return;
+    }
+
+    if (event.type === 'error' && event.code) {
+      execution.errorCode ??= event.code;
     }
 
     execution.events.push(event);
@@ -266,6 +296,7 @@ export class AiImplementationExecutionService {
       )
         continue;
       stored.controller.abort();
+      stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
       this.finish(stored.execution, 'cancelled');
       this.executions.delete(executionId);
     }
