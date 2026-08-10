@@ -84,7 +84,13 @@ function updateGitOverview(git: ProjectGitOverview): void {
 }
 
 function scheduleAiImplementationPolling(generation: number): void {
-  if (aiImplementation.value?.status !== 'running') return;
+  clearTimeout(aiExecutionTimer);
+  if (
+    generation !== aiExecutionGeneration ||
+    isAiAssistantRoute.value ||
+    aiImplementation.value?.status !== 'running'
+  )
+    return;
   aiExecutionTimer = setTimeout(
     () => void refreshAiImplementation(generation),
     1_500,
@@ -170,6 +176,13 @@ watch(
     immediate: true,
   },
 );
+
+watch(isAiAssistantRoute, (isActive) => {
+  clearTimeout(aiExecutionTimer);
+  if (!isActive && aiImplementation.value?.status === 'running') {
+    void refreshAiImplementation();
+  }
+});
 
 onUnmounted(() => {
   aiExecutionGeneration += 1;

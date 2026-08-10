@@ -89,6 +89,7 @@ function eventLabel(event: AiChatStreamEvent): string {
 
 function schedulePolling(currentGeneration: number): void {
   if (!isRunning.value || currentGeneration !== generation) return;
+  clearTimeout(pollTimer);
   pollTimer = setTimeout(() => void refresh(currentGeneration), 1_500);
 }
 
@@ -97,7 +98,6 @@ async function refresh(currentGeneration = generation): Promise<void> {
     const result = await fetchProjectAiImplementation(props.projectId);
     if (currentGeneration !== generation) return;
     execution.value = result.execution;
-    emit('execution-updated');
   } catch (error) {
     if (currentGeneration === generation) {
       errorMessage.value =
