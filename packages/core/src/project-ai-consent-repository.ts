@@ -47,26 +47,36 @@ function isCloudProvider(value: unknown): value is ProjectAiCloudProviderId {
   return value === 'openai';
 }
 
-function grantKey(projectId: string, provider: ProjectAiCloudProviderId): string {
+function grantKey(
+  projectId: string,
+  provider: ProjectAiCloudProviderId,
+): string {
   return `${projectId}\u0000${provider}`;
 }
 
 function parseConfig(contents: string): Set<string> {
   const parsed: unknown = JSON.parse(contents);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('A configuração de consentimento de IA possui formato inválido.');
+    throw new Error(
+      'A configuração de consentimento de IA possui formato inválido.',
+    );
   }
 
   const candidate = parsed as Record<string, unknown>;
   if (candidate.version !== 1 || !Array.isArray(candidate.grants)) {
-    throw new Error('A versão da configuração de consentimento de IA não é suportada.');
+    throw new Error(
+      'A versão da configuração de consentimento de IA não é suportada.',
+    );
   }
 
   const grants = new Set<string>();
   for (const value of candidate.grants.slice(0, MAX_GRANTS)) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
     const grant = value as Record<string, unknown>;
-    if (!isValidProjectId(grant.projectId) || !isCloudProvider(grant.provider)) {
+    if (
+      !isValidProjectId(grant.projectId) ||
+      !isCloudProvider(grant.provider)
+    ) {
       continue;
     }
     grants.add(grantKey(grant.projectId, grant.provider));
