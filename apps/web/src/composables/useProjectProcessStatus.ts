@@ -113,7 +113,10 @@ export function useProjectProcessStatus(getProject: () => Project) {
   function scheduleProcessPolling(): void {
     stopProcessPolling();
 
-    if (!supportsServer.value) {
+    if (
+      !supportsServer.value ||
+      !['starting', 'running', 'stopping'].includes(processStatus.value)
+    ) {
       return;
     }
 
