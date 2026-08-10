@@ -40,6 +40,8 @@ const prompt = ref('');
 const model = ref('');
 const providerId = ref<AiProviderId>('ollama');
 const mode = ref<AiExecutionMode>('fast');
+const persistedProviderId = ref<AiProviderId>('ollama');
+const persistedMode = ref<AiExecutionMode>('fast');
 const fallbackMode = ref<AiFallbackMode>('offer');
 const providers = ref<ProjectAiProviderStatus[]>([]);
 const loading = ref(true);
@@ -89,7 +91,6 @@ const fallbackOffer = computed(() => {
   return resolveAiFallbackOffer(
     fallbackMode.value,
     execution.value,
-    providerId.value,
     providers.value,
   );
 });
@@ -173,6 +174,8 @@ function applyProviderStatus(status: ProjectAiProvidersStatus): void {
   providers.value = status.providers;
   providerId.value = status.selectedProvider;
   mode.value = status.selectedMode;
+  persistedProviderId.value = status.selectedProvider;
+  persistedMode.value = status.selectedMode;
   const availableModels =
     status.providers.find((provider) => provider.id === providerId.value)
       ?.models ?? [];
@@ -240,30 +243,46 @@ async function initialize(): Promise<void> {
   }
 }
 
-async function saveSelection(): Promise<void> {
-  if (selectionSaving.value || isRunning.value) return;
+async function persistSelection(
+  nextProvider: AiProviderId,
+  nextMode: AiExecutionMode,
+): Promise<boolean> {
+  if (selectionSaving.value || isRunning.value) return false;
   selectionSaving.value = true;
   errorMessage.value = '';
   try {
     const status = await updateProjectAiSelection(
       props.projectId,
-      providerId.value,
-      mode.value,
+      nextProvider,
+      nextMode,
     );
     applyProviderStatus(status);
+    return true;
   } catch (error) {
+    providerId.value = persistedProviderId.value;
+    mode.value = persistedMode.value;
+    model.value = preferredModel(selectedProvider.value);
     errorMessage.value =
       error instanceof Error
         ? error.message
         : 'Não foi possível salvar a seleção de IA.';
+    return false;
   } finally {
     selectionSaving.value = false;
   }
 }
 
+async function saveSelection(): Promise<void> {
+  await persistSelection(providerId.value, mode.value);
+}
+
 async function changeProvider(): Promise<void> {
+  const saved = await persistSelection(providerId.value, mode.value);
+  if (!saved) return;
   model.value = preferredModel(selectedProvider.value);
-  await saveSelection();
+  if (execution.value?.status === 'failed') {
+    dismissedFallbackExecutionId.value = execution.value.id;
+  }
 }
 
 async function setConsent(granted: boolean): Promise<void> {
@@ -296,11 +315,14 @@ async function prepareFallback(): Promise<void> {
   const target = fallbackTarget.value;
   if (!offer || !target || !execution.value || selectionSaving.value) return;
 
-  dismissedFallbackExecutionId.value = execution.value.id;
-  providerId.value = target.id;
-  model.value = preferredModel(target);
-  prompt.value = execution.value.prompt;
-  await saveSelection();
+  const failedExecutionId = execution.value.id;
+  const originalPrompt = execution.value.prompt;
+  const saved = await persistSelection(target.id, mode.value);
+  if (!saved) return;
+
+  dismissedFallbackExecutionId.value = failedExecutionId;
+  model.value = preferredModel(selectedProvider.value);
+  prompt.value = originalPrompt;
 }
 
 async function start(): Promise<void> {
