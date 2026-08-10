@@ -182,6 +182,8 @@ export function createAppContext(
     gitAiCodeReviewService: new GitAiCodeReviewService(aiAssistantService),
     aiImplementationExecutionService: new AiImplementationExecutionService(
       aiAssistantService,
+      undefined,
+      aiProviderResolver,
     ),
   };
 }
