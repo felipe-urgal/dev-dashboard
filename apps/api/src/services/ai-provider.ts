@@ -1,8 +1,10 @@
 import type {
-  AiModelPullStreamEvent,
   AiCompletionResult,
+  AiModelPullStreamEvent,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
+
+export type AiProviderStatus = ProjectAiStatus;
 
 export interface AiProviderMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -54,7 +56,7 @@ export interface AiProviderModelInstallHandlers {
  * conhece projeto, filesystem, Git, LSP, workspace edit nem aprovação.
  */
 export interface AiProvider {
-  status(): Promise<ProjectAiStatus>;
+  status(): Promise<AiProviderStatus>;
 
   chatRound(
     model: string,
