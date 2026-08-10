@@ -15,10 +15,13 @@ import { DEFAULT_AI_EXECUTION_MODE } from './ai-execution-policy.js';
 const MAX_EVENTS_PER_EXECUTION = 120;
 const MAX_EXECUTIONS = 40;
 
+type ChatAssistant = Pick<AiAssistantService, 'chat'>;
+
 interface StoredExecution {
   execution: AiImplementationExecution;
   controller: AbortController;
   mode: AiExecutionMode;
+  aiAssistantService: ChatAssistant;
 }
 
 function copyExecution(
@@ -38,7 +41,7 @@ export class AiImplementationExecutionService {
   private readonly executions = new Map<string, StoredExecution>();
 
   public constructor(
-    private readonly aiAssistantService: Pick<AiAssistantService, 'chat'>,
+    private readonly aiAssistantService: ChatAssistant,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -47,6 +50,7 @@ export class AiImplementationExecutionService {
     model: string,
     prompt: string,
     mode: AiExecutionMode = DEFAULT_AI_EXECUTION_MODE,
+    aiAssistantService: ChatAssistant = this.aiAssistantService,
   ): AiImplementationExecution {
     this.cancelRunningForProject(project.id);
     this.discardOldExecutions();
@@ -63,7 +67,12 @@ export class AiImplementationExecutionService {
       updatedAt: timestamp,
       events: [],
     };
-    const stored = { execution, controller, mode };
+    const stored = {
+      execution,
+      controller,
+      mode,
+      aiAssistantService,
+    };
     this.executions.set(execution.id, stored);
     void this.run(project, stored);
     return copyExecution(execution);
@@ -119,7 +128,7 @@ export class AiImplementationExecutionService {
     ];
 
     try {
-      await this.aiAssistantService.chat(
+      await stored.aiAssistantService.chat(
         project,
         stored.execution.model,
         messages,
