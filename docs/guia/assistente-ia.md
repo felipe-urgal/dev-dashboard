@@ -60,13 +60,16 @@ retornada pela API em vez do formulário de solicitação.
 
 Nem todo modelo segue de forma confiável o mecanismo estruturado de tool-calling do Ollama —
 alguns (sobretudo os mais leves, como `qwen2.5-coder:7b`) às vezes escrevem a chamada de ferramenta
-como texto comum na resposta em vez de usá-la de verdade. Quando isso acontece, a execução termina
-como **Falhou**, com uma mensagem explicando que nenhuma ferramenta foi executada, em vez de
-aparecer como concluída sem nenhuma prévia ou resposta útil. Se isso ocorrer, tente novamente com
-um modelo mais robusto (ex.: `qwen2.5-coder:14b`).
+como JSON textual na resposta. O backend possui uma camada de compatibilidade que converte esse
+formato para `tool_calls` somente quando a ferramenta pertence ao catálogo autorizado enviado na
+própria solicitação; chamadas desconhecidas continuam recusadas.
 
 ## Limites e privacidade
 
+- Antes de enviar conteúdo textual ao motor de IA, a API aplica o mesmo mascaramento de padrões
+  sensíveis já usado em logs e Code review (tokens conhecidos, credenciais, Bearer tokens e
+  atribuições como `API_KEY=...`). A proteção cobre mensagens do chat, resultados de ferramentas e
+  contexto de compleção.
 - Nenhum prompt ou resposta do assistente é persistido em log ou arquivo — tudo vive só na memória
   da execução em andamento.
 - A IA nunca recebe permissão para rodar comandos de shell ou processos; seu único poder de escrita
