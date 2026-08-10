@@ -3,9 +3,13 @@ import test from 'node:test';
 
 import { LOG_MASK } from '@dev-dashboard/process-manager';
 
-import { createAiOutboundProtectionFetch } from '../src/services/ai-outbound-protection-fetch.js';
+import {
+  createAiOutboundProtectionFetch,
+} from '../src/services/ai-outbound-protection-fetch.js';
 
-function capturedFetch(calls: Array<{ url: string; body?: string }>): typeof fetch {
+function capturedFetch(
+  calls: Array<{ url: string; body?: string }>,
+): typeof fetch {
   return (async (input, init) => {
     calls.push({
       url: String(input),
