@@ -389,6 +389,7 @@ function applyExecution(candidate: GitPullRequestAiReviewExecution): void {
       candidate.errorMessage ??
       'Não foi possível concluir o code review com IA.';
     stopRefreshing();
+    void loadAiProviders();
   } else if (candidate.status === 'cancelled') {
     errorMessage.value = '';
     stopRefreshing();
