@@ -178,6 +178,63 @@ function decodeEntity(entity: string): string {
 }
 
 /**
+ * O highlight.js usa classes como `hljs-keyword` e combinações como
+ * `hljs-title function_`. O restante do dashboard, porém, usa uma paleta
+ * compartilhada com classes `git-syntax-*`. Normalizar aqui mantém o diff do
+ * componente Vue com o mesmo realce usado no Histórico, Resumo e patches.
+ */
+function syntaxClassForHighlightClasses(value: string): string {
+  const classes = new Set(value.split(/\s+/).filter(Boolean));
+
+  if (classes.has('hljs-comment') || classes.has('hljs-quote'))
+    return 'git-syntax-comment';
+  if (
+    classes.has('hljs-string') ||
+    classes.has('hljs-regexp') ||
+    classes.has('hljs-template-tag') ||
+    classes.has('hljs-template-variable')
+  )
+    return 'git-syntax-string';
+  if (classes.has('hljs-number')) return 'git-syntax-number';
+  if (classes.has('hljs-literal')) return 'git-syntax-literal';
+  if (
+    classes.has('hljs-keyword') ||
+    classes.has('hljs-doctag') ||
+    classes.has('hljs-meta')
+  )
+    return 'git-syntax-keyword';
+  if (classes.has('hljs-title') && classes.has('function_'))
+    return 'git-syntax-function';
+  if (classes.has('hljs-title') && classes.has('class_'))
+    return 'git-syntax-type';
+  if (classes.has('hljs-title')) return 'git-syntax-function';
+  if (classes.has('hljs-type') || classes.has('hljs-built_in'))
+    return 'git-syntax-type';
+  if (
+    classes.has('hljs-attr') ||
+    classes.has('hljs-attribute') ||
+    classes.has('hljs-property')
+  )
+    return 'git-syntax-property';
+  if (classes.has('hljs-variable') || classes.has('hljs-params'))
+    return 'git-syntax-variable';
+  if (classes.has('hljs-symbol') || classes.has('hljs-bullet'))
+    return 'git-syntax-symbol';
+  if (classes.has('hljs-operator')) return 'git-syntax-operator';
+  if (classes.has('hljs-tag') || classes.has('hljs-name'))
+    return 'git-syntax-tag';
+  if (
+    classes.has('hljs-selector-class') ||
+    classes.has('hljs-selector-id') ||
+    classes.has('hljs-selector-pseudo') ||
+    classes.has('hljs-selector-attr')
+  )
+    return 'git-syntax-selector';
+
+  return '';
+}
+
+/**
  * Converte a saída HTML do highlight.js em faixas sobre o texto puro.
  *
  * Trabalhar com faixas — em vez de injetar o HTML pronto — é o que permite
@@ -200,13 +257,14 @@ export function syntaxRangesFromHighlightedHtml(
     const [token, openClass, entity] = match;
 
     if (openClass !== undefined) {
-      stack.push(openClass);
+      const inherited = [...stack].reverse().find(Boolean) ?? '';
+      stack.push(syntaxClassForHighlightClasses(openClass) || inherited);
     } else if (token === '</span>') {
       stack.pop();
     } else {
       const text = entity !== undefined ? decodeEntity(entity) : token;
       plain += text;
-      const className = stack.at(-1);
+      const className = [...stack].reverse().find(Boolean);
       if (className) {
         const last = ranges.at(-1);
         if (last && last.end === cursor && last.className === className)
