@@ -1,4 +1,5 @@
 import type {
+  AiErrorCode,
   AiExecutionMode,
   AiProviderId,
   ProjectAiProviderStatus,
@@ -18,10 +19,7 @@ interface AiProviderEntry {
   assistantService: AiAssistantService;
 }
 
-export type AiProviderResolutionErrorCode =
-  | 'AI_PROVIDER_UNAVAILABLE'
-  | 'AI_CLOUD_CONSENT_REQUIRED'
-  | 'AI_MODEL_UNAVAILABLE';
+export type AiProviderResolutionErrorCode = AiErrorCode;
 
 export class AiProviderResolutionError extends Error {
   public constructor(
@@ -126,7 +124,7 @@ export class AiProviderResolver {
     const status = await entry.assistantService.status();
     if (!status.available) {
       throw new AiProviderResolutionError(
-        'AI_PROVIDER_UNAVAILABLE',
+        status.errorCode ?? 'AI_PROVIDER_UNAVAILABLE',
         status.message || 'O provider de IA selecionado não está disponível.',
       );
     }
