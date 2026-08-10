@@ -20,6 +20,10 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  type AiFallbackMode,
+  resolveAiFallbackOffer,
+} from '../ai-fallback';
+import {
   applyProjectWorkspaceEdit,
   cancelProjectAiImplementation,
   fetchProjectAiImplementation,
@@ -39,6 +43,7 @@ const prompt = ref('');
 const model = ref('');
 const providerId = ref<AiProviderId>('ollama');
 const mode = ref<AiExecutionMode>('fast');
+const fallbackMode = ref<AiFallbackMode>('offer');
 const providers = ref<ProjectAiProviderStatus[]>([]);
 const loading = ref(true);
 const starting = ref(false);
@@ -47,6 +52,7 @@ const selectionSaving = ref(false);
 const consentSaving = ref(false);
 const errorMessage = ref('');
 const execution = ref<AiImplementationExecution | null>(null);
+const dismissedFallbackExecutionId = ref<string | null>(null);
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let generation = 0;
 
@@ -75,6 +81,33 @@ const canStart = computed(
 );
 const providerKindLabel = computed(() =>
   selectedProvider.value?.kind === 'cloud' ? 'Cloud' : 'Local',
+);
+const fallbackOffer = computed(() => {
+  if (
+    execution.value &&
+    dismissedFallbackExecutionId.value === execution.value.id
+  ) {
+    return null;
+  }
+  return resolveAiFallbackOffer(
+    fallbackMode.value,
+    execution.value,
+    providerId.value,
+    providers.value,
+  );
+});
+const fallbackTarget = computed(() =>
+  fallbackOffer.value
+    ? (providers.value.find(
+        (provider) => provider.id === fallbackOffer.value?.toProvider,
+      ) ?? null)
+    : null,
+);
+const fallbackNeedsConsent = computed(
+  () =>
+    fallbackTarget.value?.kind === 'cloud' &&
+    fallbackTarget.value.consentRequired &&
+    !fallbackTarget.value.consentGranted,
 );
 const message = computed(
   () =>
@@ -132,6 +165,13 @@ function preferredModel(provider: ProjectAiProviderStatus | null): string {
   );
 }
 
+function providerLabel(provider: AiProviderId): string {
+  return (
+    providers.value.find((candidate) => candidate.id === provider)?.label ??
+    provider
+  );
+}
+
 function applyProviderStatus(status: ProjectAiProvidersStatus): void {
   providers.value = status.providers;
   providerId.value = status.selectedProvider;
@@ -155,6 +195,11 @@ async function refresh(currentGeneration = generation): Promise<void> {
     const result = await fetchProjectAiImplementation(props.projectId);
     if (currentGeneration !== generation) return;
     execution.value = result.execution;
+    if (result.execution?.status === 'failed') {
+      const providerStatus = await fetchProjectAiProviders(props.projectId);
+      if (currentGeneration !== generation) return;
+      applyProviderStatus(providerStatus);
+    }
   } catch (error) {
     if (currentGeneration === generation) {
       errorMessage.value =
@@ -245,10 +290,27 @@ async function setConsent(granted: boolean): Promise<void> {
   }
 }
 
+function dismissFallback(): void {
+  if (execution.value) dismissedFallbackExecutionId.value = execution.value.id;
+}
+
+async function prepareFallback(): Promise<void> {
+  const offer = fallbackOffer.value;
+  const target = fallbackTarget.value;
+  if (!offer || !target || !execution.value || selectionSaving.value) return;
+
+  dismissedFallbackExecutionId.value = execution.value.id;
+  providerId.value = target.id;
+  model.value = preferredModel(target);
+  prompt.value = execution.value.prompt;
+  await saveSelection();
+}
+
 async function start(): Promise<void> {
   if (!canStart.value) return;
   starting.value = true;
   errorMessage.value = '';
+  dismissedFallbackExecutionId.value = null;
   try {
     const result = await startProjectAiImplementation(
       props.projectId,
@@ -383,6 +445,44 @@ onUnmounted(() => {
       </div>
 
       <div
+        v-if="fallbackOffer && fallbackTarget"
+        class="ai-assistant-cloud-consent ai-assistant-fallback-offer"
+      >
+        <div>
+          <strong>
+            {{ providerLabel(fallbackOffer.fromProvider) }} falhou ·
+            {{ fallbackTarget.label }} disponível
+          </strong>
+          <p>
+            {{ fallbackOffer.reason }} A continuação reaproveita somente o
+            pedido original; histórico e resultados de ferramentas não são
+            enviados ao outro provider.
+            <template v-if="fallbackNeedsConsent">
+              Antes de enviar código à cloud, você ainda precisará autorizar
+              este projeto.
+            </template>
+          </p>
+        </div>
+        <span class="ai-assistant-fallback-actions">
+          <button
+            class="secondary-button"
+            type="button"
+            @click="dismissFallback"
+          >
+            Agora não
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            :disabled="selectionSaving"
+            @click="prepareFallback"
+          >
+            Usar {{ fallbackTarget.label }}
+          </button>
+        </span>
+      </div>
+
+      <div
         v-if="
           selectedProvider?.kind === 'cloud' &&
           selectedProvider.available &&
@@ -430,6 +530,13 @@ onUnmounted(() => {
               >
                 {{ candidate.name }}
               </option>
+            </select>
+          </label>
+          <label>
+            Fallback
+            <select v-model="fallbackMode" :disabled="loading || isRunning">
+              <option value="offer">Oferecer alternativa</option>
+              <option value="off">Desativado</option>
             </select>
           </label>
           <button
