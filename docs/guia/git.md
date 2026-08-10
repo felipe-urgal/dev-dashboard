@@ -225,8 +225,11 @@ antes da Pull Request. Ela compara a branch publicada com a base escolhida
 (`origin/main`, por padrão), usando somente o Ollama local configurado na
 máquina.
 
-Os patches são enviados um arquivo por vez. Assim, um arquivo lento ou com
-falha não impede que os demais recebam comentários.
+Os patches são revisados um arquivo por vez por uma tarefa local em segundo
+plano. Por isso, você pode sair da sub-aba e voltar depois: o progresso e o
+resultado são recuperados enquanto a API do dashboard continuar em execução.
+Não há limite fixo de tempo por arquivo; a revisão aguarda a resposta do
+Ollama. Um arquivo que falhar não impede que os demais recebam comentários.
 
 Após concluir a revisão, a tela mostra:
 

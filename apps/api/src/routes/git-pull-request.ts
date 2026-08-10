@@ -18,6 +18,7 @@ import {
   AiAssistantError,
   type AiAssistantService,
 } from '../services/ai-assistant-service.js';
+import { GitAiCodeReviewService } from '../services/git-ai-code-review-service.js';
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
@@ -50,6 +51,7 @@ interface PullRequestAiReviewBody {
 interface GitPullRequestRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   aiAssistantService: AiAssistantService;
+  gitAiCodeReviewService: GitAiCodeReviewService;
 }
 
 const AI_REVIEW_DIFF_LIMIT = 4_000;
@@ -95,6 +97,17 @@ const pullRequestAiReviewBodySchema = {
     baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
     model: { type: 'string', minLength: 1, maxLength: 200 },
     path: { type: 'string', minLength: 1, maxLength: 1_000 },
+  },
+} as const;
+
+const pullRequestAiReviewExecutionBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['targetRemote', 'baseBranch', 'model'],
+  properties: {
+    targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
+    baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
+    model: { type: 'string', minLength: 1, maxLength: 200 },
   },
 } as const;
 
@@ -150,6 +163,46 @@ const pullRequestAiReviewSchema = {
         },
       },
     },
+  },
+} as const;
+
+const pullRequestAiReviewExecutionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'targetRemote',
+    'baseBranch',
+    'sourceBranch',
+    'files',
+    'model',
+    'status',
+    'completedFileCount',
+    'failedFiles',
+    'startedAt',
+  ],
+  properties: {
+    id: { type: 'string' },
+    targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
+    baseBranch: { type: 'string' },
+    sourceBranch: { type: 'string' },
+    files: { type: 'array', items: { type: 'string' } },
+    model: { type: 'string' },
+    status: { type: 'string', enum: ['running', 'completed', 'failed'] },
+    completedFileCount: { type: 'integer', minimum: 0 },
+    failedFiles: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['path', 'message'],
+        properties: { path: { type: 'string' }, message: { type: 'string' } },
+      },
+    },
+    startedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    errorMessage: { type: 'string' },
+    review: pullRequestAiReviewSchema,
   },
 } as const;
 
@@ -507,6 +560,73 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
             description: request.body.description,
           }),
         };
+      } catch (error) {
+        translatePullRequestError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: PullRequestLookupQuery;
+  }>(
+    '/projects/:projectId/git/pull-request/ai-review-executions/latest',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: pullRequestLookupQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['execution'],
+            properties: {
+              execution: {
+                anyOf: [pullRequestAiReviewExecutionSchema, { type: 'null' }],
+              },
+            },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      return {
+        execution: options.gitAiCodeReviewService.latest(
+          request.params.projectId,
+        ),
+      };
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: PullRequestAiReviewBody }>(
+    '/projects/:projectId/git/pull-request/ai-review-executions',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: pullRequestAiReviewExecutionBodySchema,
+        response: {
+          202: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['execution'],
+            properties: { execution: pullRequestAiReviewExecutionSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        const execution = await options.gitAiCodeReviewService.start({
+          project,
+          targetRemote: request.body.targetRemote,
+          baseBranch: request.body.baseBranch,
+          model: request.body.model,
+        });
+        return reply.code(202).send({ execution });
       } catch (error) {
         translatePullRequestError(error);
       }

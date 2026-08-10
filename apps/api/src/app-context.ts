@@ -31,6 +31,7 @@ import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
+import { GitAiCodeReviewService } from './services/git-ai-code-review-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import {
   ProjectLanguageServerService,
@@ -72,6 +73,7 @@ export interface AppContext {
   projectLanguageServerService: ProjectLanguageServerService;
   projectTerminalService: ProjectTerminalService;
   aiAssistantService: AiAssistantService;
+  gitAiCodeReviewService: GitAiCodeReviewService;
 }
 
 export interface CreateAppContextOptions {
@@ -102,6 +104,12 @@ export function createAppContext(
       : {}),
   });
   const projectTerminalService = new ProjectTerminalService();
+  const aiAssistantService = new AiAssistantService({
+    projectFileService,
+    gitService,
+    workspaceEditService: projectWorkspaceEditService,
+    languageServerService: projectLanguageServerService,
+  });
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -142,11 +150,7 @@ export function createAppContext(
     projectWorkspaceEditService,
     projectLanguageServerService,
     projectTerminalService,
-    aiAssistantService: new AiAssistantService({
-      projectFileService,
-      gitService,
-      workspaceEditService: projectWorkspaceEditService,
-      languageServerService: projectLanguageServerService,
-    }),
+    aiAssistantService,
+    gitAiCodeReviewService: new GitAiCodeReviewService(aiAssistantService),
   };
 }

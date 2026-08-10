@@ -137,6 +137,8 @@ export type {
   GitOpenPullRequest,
   GitPullRequestCiStatus,
   GitPullRequestAiReview,
+  GitPullRequestAiReviewExecution,
+  GitPullRequestAiReviewExecutionStatus,
   GitPullRequestLookup,
   GitPullRequestProvider,
   GitPullRequestReviewFinding,

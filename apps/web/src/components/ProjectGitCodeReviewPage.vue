@@ -4,10 +4,11 @@ import {
   DocumentMagnifyingGlassIcon,
   SparklesIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 import type {
   GitPullRequestAiReview,
+  GitPullRequestAiReviewExecution,
   GitPullRequestReviewFiles,
   ProjectAiStatus,
   ProjectGitOverview,
@@ -16,8 +17,9 @@ import type {
 
 import {
   fetchProjectAiStatus,
+  getLatestProjectGitPullRequestAiReview,
   getProjectGitPullRequestReviewFiles,
-  reviewProjectGitPullRequest,
+  startProjectGitPullRequestAiReview,
   type GitPullRequestTargetRemote,
 } from '../api';
 
@@ -33,10 +35,12 @@ const aiStatus = ref<ProjectAiStatus | null>(null);
 const reviewModel = ref('');
 const reviewing = ref(false);
 const review = ref<GitPullRequestAiReview | null>(null);
+const execution = ref<GitPullRequestAiReviewExecution | null>(null);
 const reviewFiles = ref<GitPullRequestReviewFiles | null>(null);
 const loadingFiles = ref(false);
 const reviewedFileCount = ref(0);
 const errorMessage = ref('');
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 const availableTargets = computed(() => {
   const configured = new Set(
@@ -79,10 +83,15 @@ const baseBranches = computed(() =>
 const canReview = computed(
   () =>
     !reviewing.value &&
+    execution.value?.status !== 'running' &&
     Boolean(props.overview.branch) &&
     Boolean(baseBranch.value.trim()) &&
     Boolean(reviewModel.value) &&
     Boolean(reviewFiles.value?.files.length),
+);
+
+const reviewProgress = computed(
+  () => execution.value?.completedFileCount ?? reviewedFileCount.value,
 );
 
 function defaultBase(): string {
@@ -136,6 +145,63 @@ async function loadReviewFiles(): Promise<void> {
   }
 }
 
+function stopRefreshing(): void {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = undefined;
+}
+
+function isCurrentExecution(
+  candidate: GitPullRequestAiReviewExecution,
+): boolean {
+  return (
+    candidate.targetRemote === targetRemote.value &&
+    candidate.baseBranch === baseBranch.value.trim()
+  );
+}
+
+function applyExecution(candidate: GitPullRequestAiReviewExecution): void {
+  if (!isCurrentExecution(candidate)) return;
+  execution.value = candidate;
+  reviewedFileCount.value = candidate.completedFileCount;
+  review.value = candidate.review ?? null;
+  if (candidate.status === 'failed') {
+    errorMessage.value =
+      candidate.errorMessage ??
+      'Não foi possível concluir o code review com IA.';
+    stopRefreshing();
+  } else if (candidate.status === 'completed') {
+    if (candidate.failedFiles.length > 0)
+      errorMessage.value = `${candidate.failedFiles.length} arquivo(s) não puderam ser revisados: ${candidate.failedFiles
+        .map((failure) => failure.path)
+        .join(', ')}.`;
+    stopRefreshing();
+  }
+}
+
+async function refreshExecution(): Promise<void> {
+  try {
+    const candidate = await getLatestProjectGitPullRequestAiReview(
+      props.projectId,
+      {
+        targetRemote: targetRemote.value,
+        baseBranch: baseBranch.value.trim(),
+      },
+    );
+    if (candidate) {
+      applyExecution(candidate);
+      if (candidate.status === 'running' && !refreshTimer)
+        refreshWhileRunning();
+    }
+  } catch {
+    // Uma falha momentânea de consulta não encerra a execução no servidor.
+  }
+}
+
+function refreshWhileRunning(): void {
+  stopRefreshing();
+  refreshTimer = setInterval(() => void refreshExecution(), 1_500);
+}
+
 async function reviewChanges(): Promise<void> {
   if (!canReview.value || !reviewFiles.value) return;
   reviewing.value = true;
@@ -143,63 +209,18 @@ async function reviewChanges(): Promise<void> {
   errorMessage.value = '';
   review.value = null;
   try {
-    const reviews: GitPullRequestAiReview[] = [];
-    const failures: Array<{ path: string; message: string }> = [];
-    for (const path of reviewFiles.value.files) {
-      try {
-        reviews.push(
-          await reviewProjectGitPullRequest(props.projectId, {
-            targetRemote: targetRemote.value,
-            baseBranch: baseBranch.value.trim(),
-            model: reviewModel.value,
-            path,
-          }),
-        );
-      } catch (error) {
-        failures.push({
-          path,
-          message:
-            error instanceof Error
-              ? error.message
-              : 'A IA não respondeu para este arquivo.',
-        });
-      } finally {
-        reviewedFileCount.value += 1;
-      }
-    }
-    const firstReview = reviews[0];
-    if (!firstReview) {
-      const firstFailure = failures[0];
-      throw new Error(
-        firstFailure
-          ? `Não foi possível concluir a revisão: ${firstFailure.message}`
-          : 'A IA não conseguiu revisar os arquivos selecionados.',
-      );
-    }
-    review.value = {
-      ...firstReview,
-      files: reviewFiles.value.files,
-      summary:
-        failures.length === 0
-          ? `A IA revisou ${reviews.length} arquivo(s) separadamente.`
-          : `A IA revisou ${reviews.length} de ${reviewFiles.value.files.length} arquivo(s).`,
-      findings: reviews.flatMap((item) => item.findings),
-      diffTruncated: reviews.some((item) => item.diffTruncated),
-      masked: reviews.some((item) => item.masked),
-      redactionCount: reviews.reduce(
-        (total, item) => total + item.redactionCount,
-        0,
-      ),
-    };
-    if (failures.length > 0)
-      errorMessage.value = `${failures.length} arquivo(s) não puderam ser revisados: ${failures
-        .map((failure) => failure.path)
-        .join(', ')}.`;
+    const started = await startProjectGitPullRequestAiReview(props.projectId, {
+      targetRemote: targetRemote.value,
+      baseBranch: baseBranch.value.trim(),
+      model: reviewModel.value,
+    });
+    applyExecution(started);
+    if (started.status === 'running') refreshWhileRunning();
   } catch (error) {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'Não foi possível concluir o code review com IA.';
+        : 'Não foi possível iniciar o code review com IA.';
   } finally {
     reviewing.value = false;
   }
@@ -213,10 +234,12 @@ watch(
       : (availableTargets.value[0] ?? 'origin');
     baseBranch.value = defaultBase();
     review.value = null;
+    execution.value = null;
     reviewFiles.value = null;
     errorMessage.value = '';
     void loadAiStatus();
     void loadReviewFiles();
+    void refreshExecution();
   },
   { immediate: true },
 );
@@ -224,13 +247,19 @@ watch(
 watch(targetRemote, () => {
   baseBranch.value = defaultBase();
   review.value = null;
+  execution.value = null;
   void loadReviewFiles();
+  void refreshExecution();
 });
 
 watch(baseBranch, () => {
   review.value = null;
+  execution.value = null;
   void loadReviewFiles();
+  void refreshExecution();
 });
+
+onUnmounted(stopRefreshing);
 </script>
 
 <template>
@@ -290,11 +319,15 @@ watch(baseBranch, () => {
           {{ aiStatus?.message ?? 'Verificando Ollama local…' }}
         </p>
         <button type="button" :disabled="!canReview" @click="reviewChanges">
-          <ArrowPathIcon v-if="reviewing" class="spinning" aria-hidden="true" />
+          <ArrowPathIcon
+            v-if="reviewing || execution?.status === 'running'"
+            class="spinning"
+            aria-hidden="true"
+          />
           <SparklesIcon v-else aria-hidden="true" />
           {{
-            reviewing
-              ? `Revisando ${reviewedFileCount} de ${reviewFiles?.files.length ?? 0}…`
+            reviewing || execution?.status === 'running'
+              ? `Revisando ${reviewProgress} de ${execution?.files.length ?? reviewFiles?.files.length ?? 0}…`
               : 'Iniciar revisão'
           }}
         </button>

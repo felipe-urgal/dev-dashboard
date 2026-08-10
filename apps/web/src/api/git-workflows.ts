@@ -1,5 +1,6 @@
 import type {
   GitPullRequestAiReview,
+  GitPullRequestAiReviewExecution,
   GitPullRequestLookup,
   GitPullRequestMergeMethod,
   GitPullRequestMutationActionId,
@@ -61,6 +62,14 @@ interface PullRequestAiReviewResponse {
 
 interface PullRequestReviewFilesResponse {
   review: GitPullRequestReviewFiles;
+}
+
+interface PullRequestAiReviewExecutionResponse {
+  execution: GitPullRequestAiReviewExecution;
+}
+
+interface LatestPullRequestAiReviewExecutionResponse {
+  execution: GitPullRequestAiReviewExecution | null;
 }
 
 export interface GitPullRequestMutationInput {
@@ -202,6 +211,39 @@ export async function reviewProjectGitPullRequest(
     },
   );
   return response.review;
+}
+
+export async function startProjectGitPullRequestAiReview(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+    model: string;
+  },
+): Promise<GitPullRequestAiReviewExecution> {
+  const response = await requestJson<PullRequestAiReviewExecutionResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  return response.execution;
+}
+
+export async function getLatestProjectGitPullRequestAiReview(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+  },
+): Promise<GitPullRequestAiReviewExecution | null> {
+  const response =
+    await requestJson<LatestPullRequestAiReviewExecutionResponse>(
+      `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions/latest?${pullRequestLookupQuery(input)}`,
+    );
+  return response.execution;
 }
 
 export async function getProjectGitPullRequestReviewFiles(

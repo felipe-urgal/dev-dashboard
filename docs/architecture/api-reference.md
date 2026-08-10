@@ -4902,6 +4902,517 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `POST /api/projects/:projectId/git/pull-request/ai-review-executions`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetRemote",
+    "baseBranch",
+    "model"
+  ],
+  "properties": {
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **202**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "targetRemote",
+          "baseBranch",
+          "sourceBranch",
+          "files",
+          "model",
+          "status",
+          "completedFileCount",
+          "failedFiles",
+          "startedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "targetRemote": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "upstream"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ]
+          },
+          "completedFileCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failedFiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "targetRemote",
+              "baseBranch",
+              "sourceBranch",
+              "files",
+              "model",
+              "reviewedAt",
+              "summary",
+              "findings",
+              "diffTruncated",
+              "masked",
+              "redactionCount"
+            ],
+            "properties": {
+              "targetRemote": {
+                "type": "string",
+                "enum": [
+                  "origin",
+                  "upstream"
+                ]
+              },
+              "baseBranch": {
+                "type": "string"
+              },
+              "sourceBranch": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "model": {
+                "type": "string"
+              },
+              "reviewedAt": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "diffTruncated": {
+                "type": "boolean"
+              },
+              "masked": {
+                "type": "boolean"
+              },
+              "redactionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "severity",
+                    "path",
+                    "title",
+                    "explanation",
+                    "recommendation"
+                  ],
+                  "properties": {
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "warning",
+                        "suggestion"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "recommendation": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/git/pull-request/ai-review-executions/latest`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetRemote",
+    "baseBranch"
+  ],
+  "properties": {
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "targetRemote",
+              "baseBranch",
+              "sourceBranch",
+              "files",
+              "model",
+              "status",
+              "completedFileCount",
+              "failedFiles",
+              "startedAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "targetRemote": {
+                "type": "string",
+                "enum": [
+                  "origin",
+                  "upstream"
+                ]
+              },
+              "baseBranch": {
+                "type": "string"
+              },
+              "sourceBranch": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "model": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "completed",
+                  "failed"
+                ]
+              },
+              "completedFileCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failedFiles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "message"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "startedAt": {
+                "type": "string"
+              },
+              "finishedAt": {
+                "type": "string"
+              },
+              "errorMessage": {
+                "type": "string"
+              },
+              "review": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "targetRemote",
+                  "baseBranch",
+                  "sourceBranch",
+                  "files",
+                  "model",
+                  "reviewedAt",
+                  "summary",
+                  "findings",
+                  "diffTruncated",
+                  "masked",
+                  "redactionCount"
+                ],
+                "properties": {
+                  "targetRemote": {
+                    "type": "string",
+                    "enum": [
+                      "origin",
+                      "upstream"
+                    ]
+                  },
+                  "baseBranch": {
+                    "type": "string"
+                  },
+                  "sourceBranch": {
+                    "type": "string"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "reviewedAt": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "diffTruncated": {
+                    "type": "boolean"
+                  },
+                  "masked": {
+                    "type": "boolean"
+                  },
+                  "redactionCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "findings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "severity",
+                        "path",
+                        "title",
+                        "explanation",
+                        "recommendation"
+                      ],
+                      "properties": {
+                        "severity": {
+                          "type": "string",
+                          "enum": [
+                            "critical",
+                            "warning",
+                            "suggestion"
+                          ]
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "explanation": {
+                          "type": "string"
+                        },
+                        "recommendation": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `GET /api/projects/:projectId/git/pull-request/ai-review-files`
 
 **Parâmetros de rota (`params`)**
