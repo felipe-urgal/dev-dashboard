@@ -36,7 +36,12 @@ export const commonErrorResponseSchemas = {
   403: apiErrorResponseSchema,
   404: apiErrorResponseSchema,
   409: apiErrorResponseSchema,
+  422: apiErrorResponseSchema,
+  429: apiErrorResponseSchema,
   500: apiErrorResponseSchema,
+  502: apiErrorResponseSchema,
+  503: apiErrorResponseSchema,
+  504: apiErrorResponseSchema,
 } as const;
 
 export const emptyResponseSchema = {
