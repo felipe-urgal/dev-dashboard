@@ -34,6 +34,7 @@ Características atuais:
 - `/ai/status`, `/ai/chat` e `/ai/complete` resolvem o provider selecionado;
 - `/ai/models/pull` passa pelo provider selecionado e só funciona quando o adapter suporta instalação de modelo;
 - modelos incompatíveis são rejeitados no backend antes da inferência;
+- falhas de IA usam uma taxonomia compartilhada entre provider, resolver, HTTP, SSE e executions;
 - o catálogo de ferramentas continua fechado e controlado pela aplicação;
 - `propose_workspace_edit` cria apenas uma prévia; escrita exige aprovação explícita;
 - conteúdo textual passa pela barreira compartilhada de masking antes de sair para um provider;
@@ -73,6 +74,8 @@ Características atuais:
 
 Tool calling nativo é normalizado pelo adapter. IDs e detalhes específicos de fornecedor não vazam para o domínio compartilhado.
 
+Falhas conhecidas do adapter usam `AiProviderError` com um `AiErrorCode` provider-neutral. Isso impede que camadas superiores precisem interpretar texto para distinguir autenticação, quota, timeout ou resposta inválida.
+
 ## `AiProviderResolver`
 
 O resolver é a fonte de verdade para seleção de execução.
@@ -82,6 +85,7 @@ Responsabilidades:
 - ler provider e modo persistidos do projeto;
 - exigir consentimento antes de execução OpenAI;
 - consultar disponibilidade do provider;
+- preservar o código de indisponibilidade informado pelo status do adapter;
 - validar o modelo solicitado contra os modelos disponíveis do provider;
 - devolver provider, modo e `AiAssistantService` coerentes para a execução.
 
@@ -98,7 +102,8 @@ O comportamento específico do Ollama fica isolado no adapter:
 - serialização/deserialização de tool calling;
 - compatibilidade de tool call textual;
 - timeouts;
-- instalação dos modelos locais permitidos.
+- instalação dos modelos locais permitidos;
+- classificação de falhas de transporte/resposta sem vazar detalhe HTTP para a camada de produto.
 
 A compatibilidade de tool call textual é detalhe Ollama/modelo e não pertence ao orquestrador genérico.
 
@@ -114,7 +119,7 @@ Responsabilidades do adapter:
 - encapsulamento dos IDs nativos de tool calls;
 - `store: false` nas requests de inferência;
 - uso da barreira compartilhada de masking;
-- normalização de falhas conhecidas de billing/quota para mensagem de produto.
+- classificação de autenticação, billing/quota, rate limit, timeout, resposta inválida e falha upstream.
 
 Quando a API informa falta de créditos/quota, o provider é marcado temporariamente como indisponível para impedir repetição imediata da mesma chamada. A mensagem exibida orienta adicionar créditos da API ou selecionar o provider Local.
 
@@ -182,7 +187,10 @@ A execution registra e congela:
 - modo;
 - modelo;
 - arquivos;
-- estado e progresso.
+- estado e progresso;
+- `errorCode` quando a falha/cancelamento pertence ao domínio de IA.
+
+Falhas individuais também podem registrar `errorCode` por arquivo. Isso permite distinguir, por exemplo, quota, timeout e resposta inválida sem interpretar a mensagem textual.
 
 Alterar a seleção do projeto depois do start não muda a revisão em andamento.
 
@@ -267,10 +275,11 @@ Cada `AiImplementationExecution` registra:
 - modelo;
 - prompt;
 - status;
+- `errorCode`, quando houver falha/cancelamento classificado;
 - timestamps;
 - eventos.
 
-Provider e modo são congelados de forma síncrona no start. A resolução assíncrona valida o provider/modelo congelados em vez de reler a seleção atual.
+Eventos SSE de erro também podem carregar o mesmo `AiErrorCode`. Provider e modo são congelados de forma síncrona no start. A resolução assíncrona valida o provider/modelo congelados em vez de reler a seleção atual.
 
 ## Fallback
 
@@ -287,9 +296,34 @@ A nova execução não transporta histórico, tool results, diffs nem eventos da
 
 ## Erros e diagnóstico
 
-A finalização da arquitetura exige códigos previsíveis para consentimento, provider indisponível, modelo incompatível e falhas de provider. O checklist de fechamento é a fonte de verdade para o hardening ainda em andamento.
+A taxonomia pública fica em `AiErrorCode`, no pacote compartilhado `@dev-dashboard/contracts`. A mensagem continua sendo legível para a pessoa usuária; o código existe para UI, testes e diagnóstico não dependerem de comparação textual.
 
-Mensagens específicas de fornecedor devem ficar no adapter quando ajudam o diagnóstico; a fachada e as rotas não devem transformar indiscriminadamente todo erro em um único código genérico.
+| Código | Significado |
+|---|---|
+| `AI_ASSISTANT_INVALID_REQUEST` | Entrada/guardrail da aplicação recusou a operação. |
+| `AI_CLOUD_CONSENT_REQUIRED` | Conteúdo do projeto não pode seguir para cloud sem consentimento. |
+| `AI_PROVIDER_UNAVAILABLE` | Provider selecionado não está disponível. |
+| `AI_MODEL_UNAVAILABLE` | Modelo não pertence ao catálogo disponível do provider. |
+| `AI_PROVIDER_AUTH_FAILED` | Credencial/configuração do provider cloud foi recusada. |
+| `AI_PROVIDER_QUOTA_EXCEEDED` | Billing/quota/créditos do provider não permitem nova inferência. |
+| `AI_PROVIDER_RATE_LIMITED` | Provider limitou temporariamente a taxa de requests. |
+| `AI_PROVIDER_TIMEOUT` | Provider não respondeu dentro do limite. |
+| `AI_REQUEST_CANCELLED` | Operação foi cancelada antes de terminar. |
+| `AI_PROVIDER_INVALID_RESPONSE` | Resposta/tool call/payload devolvido pelo modelo não respeitou o contrato. |
+| `AI_PROVIDER_OPERATION_UNSUPPORTED` | Provider não possui a capability pedida, como instalação de modelo. |
+| `AI_PROVIDER_REQUEST_FAILED` | Falha upstream/rede não classificada em uma categoria mais específica. |
+
+A mesma taxonomia é preservada, quando aplicável, em:
+
+- `ProjectAiStatus.errorCode`;
+- erros HTTP das rotas de IA;
+- eventos SSE de erro;
+- `AiImplementationExecution.errorCode`;
+- `GitPullRequestAiReviewExecution.errorCode` e falhas por arquivo.
+
+O HTTP usa status distintos sem confundir autenticação do provider com autenticação do dashboard: por exemplo, `AI_PROVIDER_AUTH_FAILED` é uma falha upstream (`502`), enquanto quota/rate limit usam `429`, timeout usa `504`, provider indisponível usa `503` e modelo/operação não suportada usam `422`.
+
+Mensagens específicas de fornecedor permanecem no adapter quando ajudam o diagnóstico, mas a camada de produto não precisa fazer regex nelas para decidir o tipo de falha.
 
 ## Itens deliberadamente adiados
 
@@ -308,6 +342,7 @@ A arquitetura é considerada consistente quando:
 - todo fluxo genérico resolve provider explicitamente;
 - nenhum provider recebe acesso direto a Git/LSP/workspace;
 - modelos incompatíveis são recusados antes da inferência;
+- falhas de IA possuem código estável quando reconhecidas;
 - `fast` e `complete` têm policies determinísticas;
 - nenhuma alteração é aplicada sem preview e aprovação;
 - conteúdo sensível passa pela barreira de masking;
