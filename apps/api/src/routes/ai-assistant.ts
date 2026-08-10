@@ -355,14 +355,6 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     }
   }
 
-  async function localAssistant(request: FastifyRequest, projectId: string) {
-    try {
-      return await options.aiProviderResolver.resolve(projectId, 'ollama');
-    } catch (error) {
-      translateAiError(request, error, { projectId, provider: 'ollama' });
-    }
-  }
-
   app.get<{ Params: ProjectParams }>(
     '/projects/:projectId/ai/status',
     {
@@ -606,11 +598,11 @@ export const aiAssistantRoutes: FastifyPluginAsync<
   );
 
   app.post<{ Params: ProjectParams; Body: ModelPullBody }>(
-    '/projects/:projectId/ai/providers/ollama/models/pull',
+    '/projects/:projectId/ai/models/pull',
     { schema: { params: projectParamsSchema, body: modelPullBodySchema } },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
-      const assistantService = await localAssistant(request, project.id);
+      const resolved = await selectedAssistant(request, project.id);
       reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -629,17 +621,18 @@ export const aiAssistantRoutes: FastifyPluginAsync<
       };
 
       try {
-        await assistantService.pullRecommendedModel(request.body.model, {
-          send: write,
-          signal: controller.signal,
-        });
+        await resolved.assistantService.pullRecommendedModel(
+          request.body.model,
+          { send: write, signal: controller.signal },
+        );
       } catch (error) {
         if (!(error instanceof AiAssistantError)) {
           request.log.warn(
             {
               err: error,
               projectId: project.id,
-              provider: 'ollama',
+              provider: resolved.provider,
+              mode: resolved.mode,
               model: request.body.model,
             },
             'AI model installation failed',
@@ -650,7 +643,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<
           message:
             error instanceof Error
               ? error.message
-              : 'Não foi possível instalar o modelo pelo Ollama local.',
+              : 'O provider selecionado não permite instalar este modelo.',
         });
       } finally {
         if (!reply.raw.writableEnded) reply.raw.end();
