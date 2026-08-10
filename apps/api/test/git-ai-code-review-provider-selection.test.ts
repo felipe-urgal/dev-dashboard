@@ -5,6 +5,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import type { AiAssistantService } from '../src/services/ai-assistant-service.js';
 import { GitAiCodeReviewService } from '../src/services/git-ai-code-review-service.js';
+import { AiProviderResolutionError } from '../src/services/ai-provider-resolver.js';
 import type { GitPullRequestService } from '../src/services/git-pull-request-service.js';
 
 const project: Project = {
@@ -91,14 +92,68 @@ test('congela provider e modo resolvidos no início da Code Review', async () =>
 
   selectedProvider = 'ollama';
   const completed = await settles(service);
-  const tracked = started as typeof started & {
-    provider: 'ollama' | 'openai';
-    mode: 'fast' | 'complete';
-  };
 
-  assert.equal(tracked.provider, 'openai');
-  assert.equal(tracked.mode, 'complete');
+  assert.equal(started.provider, 'openai');
+  assert.equal(started.mode, 'complete');
+  assert.equal(completed?.provider, 'openai');
+  assert.equal(completed?.mode, 'complete');
   assert.equal(completed?.status, 'completed');
   assert.equal(localCalls, 0);
   assert.equal(cloudCalls, 3);
+});
+
+test('bloqueia a Code Review antes de ler o diff quando o resolver rejeita o provider', async () => {
+  const localAssistant = {
+    review: async () => JSON.stringify({ summary: 'Local', findings: [] }),
+  } as unknown as AiAssistantService;
+  let reviewFilesCalls = 0;
+
+  for (const error of [
+    new AiProviderResolutionError(
+      'AI_CLOUD_CONSENT_REQUIRED',
+      'Autorize o uso da OpenAI para este projeto antes de enviar código à cloud.',
+    ),
+    new AiProviderResolutionError(
+      'AI_PROVIDER_UNAVAILABLE',
+      'O provider selecionado não está disponível.',
+    ),
+  ]) {
+    const service = new GitAiCodeReviewService(
+      localAssistant,
+      {
+        getReviewFiles: async () => {
+          reviewFilesCalls += 1;
+          return {
+            targetRemote: 'origin',
+            baseBranch: 'main',
+            sourceBranch: 'feature/provider-review',
+            files: ['src/primeiro.ts'],
+          };
+        },
+        getReviewFileDiff: async () => {
+          throw new Error('não deve chegar ao diff');
+        },
+      } as unknown as Pick<
+        GitPullRequestService,
+        'getReviewFiles' | 'getReviewFileDiff'
+      >,
+      {
+        resolveSelected: async () => {
+          throw error;
+        },
+      },
+    );
+
+    await assert.rejects(
+      service.start({
+        project,
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        model: 'gpt-5-mini',
+      }),
+      (caught: unknown) => caught === error,
+    );
+  }
+
+  assert.equal(reviewFilesCalls, 0);
 });
