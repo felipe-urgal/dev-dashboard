@@ -106,6 +106,31 @@ test('obtém o diff de revisão usando a branch base escolhida', async () => {
   }
 });
 
+test('revisa uma branch local ainda não publicada', async () => {
+  const fixture = await createFixture(
+    'git@github.com:felipe-urgal/dev-dashboard.git',
+  );
+  const service = new GitPullRequestService();
+
+  try {
+    await git(fixture.local, 'switch', '--create', 'feature/local-review');
+    await writeFile(path.join(fixture.local, 'README.md'), '# Revisão local\n');
+    await git(fixture.local, 'add', 'README.md');
+    await git(fixture.local, 'commit', '-m', 'local change for review');
+
+    const result = await service.getReviewDiff(fixture.local, {
+      targetRemote: 'origin',
+      baseBranch: 'main',
+    });
+
+    assert.equal(result.sourceBranch, 'feature/local-review');
+    assert.deepEqual(result.files, ['README.md']);
+    assert.match(result.diff, /Revisão local/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test('obtém somente o patch do arquivo escolhido para a revisão com IA', async () => {
   const fixture = await createFixture(
     'git@github.com:felipe-urgal/dev-dashboard.git',
