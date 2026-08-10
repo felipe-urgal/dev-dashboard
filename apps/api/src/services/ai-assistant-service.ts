@@ -8,10 +8,7 @@ import type {
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
-import {
-  AiProviderError,
-  type AiProvider,
-} from './ai-provider.js';
+import { AiProviderError, type AiProvider } from './ai-provider.js';
 import { AiOrchestrator, type AiChatHandlers } from './ai-orchestrator.js';
 import { OllamaProvider } from './ollama-provider.js';
 import { ProjectFileService } from './project-file-service.js';

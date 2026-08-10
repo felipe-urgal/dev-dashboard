@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
+  AiErrorCode,
   AiExecutionMode,
   AiProviderId,
   GitPullRequestAiReview,
@@ -11,12 +12,16 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
-import type { AiAssistantService } from './ai-assistant-service.js';
+import {
+  AiAssistantError,
+  type AiAssistantService,
+} from './ai-assistant-service.js';
 import {
   aiExecutionPolicy,
   DEFAULT_AI_EXECUTION_MODE,
   type AiExecutionPolicy,
 } from './ai-execution-policy.js';
+import { AiProviderError } from './ai-provider.js';
 import type { AiProviderResolver } from './ai-provider-resolver.js';
 import {
   GitPullRequestService,
@@ -54,6 +59,17 @@ interface RunningReview {
   controller: AbortController;
   policy: AiExecutionPolicy;
   aiAssistantService: AiAssistantService;
+}
+
+function aiErrorCodeFor(error: unknown): AiErrorCode | undefined {
+  if (error instanceof AiProviderError || error instanceof AiAssistantError) {
+    return error.code;
+  }
+  return undefined;
+}
+
+function invalidProviderResponse(message: string): AiProviderError {
+  return new AiProviderError('AI_PROVIDER_INVALID_RESPONSE', message);
 }
 
 function shortText(value: unknown, fallback = ''): string {
@@ -181,21 +197,27 @@ function parseGlobalAiReview(content: string): {
   try {
     payload = JSON.parse(candidate);
   } catch {
-    throw new Error('A síntese global não devolveu JSON válido.');
+    throw invalidProviderResponse('A síntese global não devolveu JSON válido.');
   }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('A síntese global devolveu uma estrutura inválida.');
+    throw invalidProviderResponse(
+      'A síntese global devolveu uma estrutura inválida.',
+    );
   }
 
   const record = payload as Record<string, unknown>;
   const summary = shortText(record.summary);
   if (!summary || !Array.isArray(record.findings)) {
-    throw new Error('A síntese global não respeitou o schema esperado.');
+    throw invalidProviderResponse(
+      'A síntese global não respeitou o schema esperado.',
+    );
   }
 
   const findings = record.findings.map(parseReviewFinding);
   if (findings.some((finding) => !finding)) {
-    throw new Error('A síntese global contém um ou mais achados inválidos.');
+    throw invalidProviderResponse(
+      'A síntese global contém um ou mais achados inválidos.',
+    );
   }
 
   return {
@@ -346,12 +368,16 @@ export class GitAiCodeReviewService {
     const invalidPaths = selectedPaths.filter(
       (path) => !files.files.includes(path),
     );
-    if (invalidPaths.length > 0)
-      throw new Error(
+    if (invalidPaths.length > 0) {
+      throw new AiAssistantError(
         'Um ou mais arquivos selecionados não fazem parte do diff atual.',
       );
-    if (selectedPaths.length === 0)
-      throw new Error('Selecione pelo menos um arquivo para revisar.');
+    }
+    if (selectedPaths.length === 0) {
+      throw new AiAssistantError(
+        'Selecione pelo menos um arquivo para revisar.',
+      );
+    }
 
     const policy = aiExecutionPolicy(mode);
     const execution: TrackedReviewExecution = {
@@ -400,10 +426,12 @@ export class GitAiCodeReviewService {
 
     running.controller.abort();
     running.execution.status = 'cancelled';
+    running.execution.errorCode = 'AI_REQUEST_CANCELLED';
     running.execution.finishedAt = new Date().toISOString();
     for (const file of running.execution.fileExecutions) {
       if (file.status !== 'queued' && file.status !== 'running') continue;
       file.status = 'cancelled';
+      file.errorCode = 'AI_REQUEST_CANCELLED';
       file.finishedAt = running.execution.finishedAt;
     }
     return snapshot(running.execution);
@@ -443,6 +471,7 @@ export class GitAiCodeReviewService {
         return;
       }
       execution.status = 'failed';
+      execution.errorCode = aiErrorCodeFor(error);
       execution.errorMessage =
         error instanceof Error
           ? error.message
@@ -499,18 +528,27 @@ export class GitAiCodeReviewService {
       file.status = 'completed';
     } catch (error) {
       if (running.controller.signal.aborted) return;
+      const code = aiErrorCodeFor(error);
       const message =
         error instanceof Error
           ? error.message
           : 'A IA não respondeu para este arquivo.';
       file.status = 'failed';
+      file.errorCode = code;
       file.errorMessage = message;
-      execution.failedFiles.push({ path: file.path, message });
+      execution.failedFiles.push({
+        path: file.path,
+        message,
+        ...(code ? { code } : {}),
+      });
     } finally {
       execution.currentFilePaths = execution.currentFilePaths.filter(
         (path) => path !== file.path,
       );
-      if (running.controller.signal.aborted) file.status = 'cancelled';
+      if (running.controller.signal.aborted) {
+        file.status = 'cancelled';
+        file.errorCode = 'AI_REQUEST_CANCELLED';
+      }
       file.finishedAt = new Date().toISOString();
       if (file.status === 'completed' || file.status === 'failed')
         execution.completedFileCount += 1;
@@ -522,6 +560,7 @@ export class GitAiCodeReviewService {
     const firstReview = reviews[0];
     if (!firstReview) {
       execution.status = 'failed';
+      execution.errorCode = execution.failedFiles[0]?.code;
       execution.errorMessage = execution.failedFiles[0]
         ? `Não foi possível concluir a revisão: ${execution.failedFiles[0].message}`
         : 'A IA não conseguiu revisar os arquivos selecionados.';
@@ -541,6 +580,7 @@ export class GitAiCodeReviewService {
           return;
         }
         execution.status = 'failed';
+        execution.errorCode = aiErrorCodeFor(error);
         execution.errorMessage =
           error instanceof Error
             ? `Não foi possível concluir a síntese global: ${error.message}`
@@ -561,7 +601,7 @@ export class GitAiCodeReviewService {
     const { execution, policy } = running;
     const context = globalSynthesisContext(execution, running.reviews, policy);
     if (!context || context.length > policy.maxGlobalSynthesisChars) {
-      throw new Error(
+      throw new AiAssistantError(
         'O contexto da síntese global excedeu o budget permitido.',
       );
     }
@@ -577,7 +617,7 @@ export class GitAiCodeReviewService {
       (finding) => !execution.files.includes(finding.path),
     );
     if (invalidPath) {
-      throw new Error(
+      throw invalidProviderResponse(
         `A síntese global referenciou o arquivo inválido "${invalidPath.path}".`,
       );
     }
@@ -595,11 +635,13 @@ export class GitAiCodeReviewService {
     for (const file of execution.fileExecutions) {
       if (file.status === 'queued' || file.status === 'running') {
         file.status = 'cancelled';
+        file.errorCode = 'AI_REQUEST_CANCELLED';
         file.finishedAt = execution.finishedAt ?? new Date().toISOString();
       }
     }
     execution.currentFilePaths = [];
     execution.status = 'cancelled';
+    execution.errorCode = 'AI_REQUEST_CANCELLED';
     execution.finishedAt ??= new Date().toISOString();
     if (reviews.length > 0) execution.review = this.combineReviews(running);
   }
