@@ -83,7 +83,9 @@ export class AiAssistantService {
     const provider =
       options.provider ??
       new OllamaProvider(
-        options.fetchImpl ? { fetchImpl: options.fetchImpl } : {},
+        options.fetchImpl
+          ? { fetchImpl: options.fetchImpl, leakedToolCallMode: 'error' }
+          : {},
       );
 
     this.provider = provider;
