@@ -247,6 +247,35 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
+function localAiProvidersResponse(): Response {
+  return jsonResponse({
+    selectedProvider: 'ollama',
+    selectedMode: 'fast',
+    providers: [
+      {
+        id: 'ollama',
+        label: 'Local',
+        kind: 'local',
+        available: true,
+        message: 'Ollama disponível.',
+        models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
+        consentRequired: false,
+        consentGranted: true,
+      },
+      {
+        id: 'openai',
+        label: 'OpenAI',
+        kind: 'cloud',
+        available: false,
+        message: 'OpenAI não configurado.',
+        models: [],
+        consentRequired: true,
+        consentGranted: false,
+      },
+    ],
+  });
+}
+
 async function mountPanel(args: MountArgs = {}) {
   const originalFetch = globalThis.fetch;
   const requests: RequestRecord[] = [];
@@ -446,12 +475,8 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
 test('separa o code review da Pull Request e mostra os arquivos e comentários da IA', async () => {
   const mounted = await mountPanel({
     handler: (request) => {
-      if (request.path.endsWith('/ai/status')) {
-        return jsonResponse({
-          available: true,
-          message: 'Ollama disponível.',
-          models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
-        });
+      if (request.path.endsWith('/ai/providers')) {
+        return localAiProvidersResponse();
       }
       if (request.path.endsWith('/ai-review-executions/latest')) {
         return jsonResponse({ execution: null });
@@ -465,6 +490,8 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
             sourceBranch: 'feature/git-ui',
             files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
             model: 'qwen2.5-coder:14b',
+            provider: 'ollama',
+            mode: 'fast',
             status: 'completed',
             completedFileCount: 2,
             failedFiles: [],
@@ -502,32 +529,6 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
             baseBranch: 'main',
             sourceBranch: 'feature/git-ui',
             files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
-          },
-        });
-      }
-      if (request.path.endsWith('/pull-request/ai-review')) {
-        return jsonResponse({
-          review: {
-            targetRemote: 'origin',
-            baseBranch: 'main',
-            sourceBranch: 'feature/git-ui',
-            files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
-            model: 'qwen2.5-coder:14b',
-            reviewedAt: '2026-08-09T13:00:00.000Z',
-            summary: 'Há uma validação ausente no fluxo de criação.',
-            findings: [
-              {
-                severity: 'warning',
-                path: 'apps/api/src/app.ts',
-                line: 42,
-                title: 'Validar a entrada',
-                explanation: 'O valor chega ao serviço sem validação.',
-                recommendation: 'Valide antes de chamar o serviço.',
-              },
-            ],
-            diffTruncated: false,
-            masked: false,
-            redactionCount: 0,
           },
         });
       }
@@ -573,12 +574,8 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
       ),
     },
     handler: (request) => {
-      if (request.path.endsWith('/ai/status'))
-        return jsonResponse({
-          available: true,
-          message: 'Ollama disponível.',
-          models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
-        });
+      if (request.path.endsWith('/ai/providers'))
+        return localAiProvidersResponse();
       if (request.path.endsWith('/ai-review-executions/latest'))
         return jsonResponse({ execution: null });
       if (request.path.endsWith('/ai-review-executions'))
@@ -590,6 +587,8 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
             sourceBranch: 'feature/git-ui',
             files: ['apps/web/src/App.vue'],
             model: 'qwen2.5-coder:14b',
+            provider: 'ollama',
+            mode: 'fast',
             status: 'completed',
             completedFileCount: 1,
             failedFiles: [],
@@ -617,22 +616,6 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
             baseBranch: 'main',
             sourceBranch: 'feature/git-ui',
             files: ['apps/web/src/App.vue'],
-          },
-        });
-      if (request.path.endsWith('/pull-request/ai-review'))
-        return jsonResponse({
-          review: {
-            targetRemote: 'origin',
-            baseBranch: 'main',
-            sourceBranch: 'feature/git-ui',
-            files: ['apps/web/src/App.vue'],
-            model: 'qwen2.5-coder:14b',
-            reviewedAt: '2026-08-10T12:00:00.000Z',
-            summary: 'Sem achados.',
-            findings: [],
-            diffTruncated: false,
-            masked: false,
-            redactionCount: 0,
           },
         });
       return undefined;
