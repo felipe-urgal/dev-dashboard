@@ -6,14 +6,11 @@ import {
   type AiModelPullStreamEvent,
 } from '@dev-dashboard/contracts';
 
+import { aiApiError, aiErrorCode } from '../http/ai-error.js';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
-import { AiAssistantError } from '../services/ai-assistant-service.js';
 import type { AiImplementationExecutionService } from '../services/ai-implementation-execution-service.js';
-import {
-  AiProviderResolutionError,
-  type AiProviderResolver,
-} from '../services/ai-provider-resolver.js';
+import type { AiProviderResolver } from '../services/ai-provider-resolver.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
@@ -80,6 +77,7 @@ const statusSchema = {
     available: { type: 'boolean' },
     baseUrl: { type: 'string' },
     message: { type: 'string' },
+    errorCode: { type: 'string' },
     models: {
       type: 'array',
       items: {
@@ -244,7 +242,11 @@ const executionEventSchema = {
       type: 'object',
       additionalProperties: false,
       required: ['type', 'message'],
-      properties: { type: { const: 'error' }, message: { type: 'string' } },
+      properties: {
+        type: { const: 'error' },
+        message: { type: 'string' },
+        code: { type: 'string' },
+      },
     },
   ],
 } as const;
@@ -275,6 +277,7 @@ const executionSchema = {
       type: 'string',
       enum: ['running', 'succeeded', 'failed', 'cancelled'],
     },
+    errorCode: { type: 'string' },
     createdAt: { type: 'string' },
     updatedAt: { type: 'string' },
     finishedAt: { type: 'string' },
@@ -303,28 +306,14 @@ function translateAiError(
   error: unknown,
   context: Record<string, unknown>,
 ): never {
-  if (error instanceof AiProviderResolutionError) {
-    throw new ApiError({
-      statusCode: error.code === 'AI_CLOUD_CONSENT_REQUIRED' ? 409 : 400,
-      code: 'AI_ASSISTANT_INVALID_REQUEST',
-      message: error.message,
-    });
-  }
-  if (error instanceof AiAssistantError) {
-    throw new ApiError({
-      statusCode: 400,
-      code: 'AI_ASSISTANT_INVALID_REQUEST',
-      message: error.message,
-    });
-  }
+  const translated = aiApiError(error);
+  if (translated) throw translated;
+
   request.log.warn({ err: error, ...context }, 'AI assistant request failed');
   throw new ApiError({
     statusCode: 502,
-    code: 'AI_ASSISTANT_FAILED',
-    message:
-      error instanceof Error
-        ? error.message
-        : 'Falha ao conversar com o assistente de IA.',
+    code: 'AI_PROVIDER_REQUEST_FAILED',
+    message: 'Não foi possível concluir a operação com o provider de IA.',
   });
 }
 
@@ -393,6 +382,11 @@ export const aiAssistantRoutes: FastifyPluginAsync<
           ? selected.message
           : 'Autorize o uso da OpenAI para este projeto antes de enviar código à cloud.',
         models: selected.models,
+        ...(!consentGranted
+          ? { errorCode: 'AI_CLOUD_CONSENT_REQUIRED' as const }
+          : selected.errorCode
+            ? { errorCode: selected.errorCode }
+            : {}),
       };
     },
   );
@@ -537,20 +531,21 @@ export const aiAssistantRoutes: FastifyPluginAsync<
           resolved.mode,
         );
       } catch (error) {
-        if (!(error instanceof AiAssistantError)) {
-          request.log.warn(
-            {
-              err: error,
-              projectId: project.id,
-              provider: resolved.provider,
-              mode: resolved.mode,
-              model: request.body.model,
-            },
-            'AI assistant chat failed',
-          );
-        }
+        const code = aiErrorCode(error) ?? 'AI_PROVIDER_REQUEST_FAILED';
+        request.log.warn(
+          {
+            err: error,
+            projectId: project.id,
+            provider: resolved.provider,
+            mode: resolved.mode,
+            model: request.body.model,
+            code,
+          },
+          'AI assistant chat failed',
+        );
         write({
           type: 'error',
+          code,
           message:
             error instanceof Error
               ? error.message
@@ -637,20 +632,21 @@ export const aiAssistantRoutes: FastifyPluginAsync<
           { send: write, signal: controller.signal },
         );
       } catch (error) {
-        if (!(error instanceof AiAssistantError)) {
-          request.log.warn(
-            {
-              err: error,
-              projectId: project.id,
-              provider: resolved.provider,
-              mode: resolved.mode,
-              model: request.body.model,
-            },
-            'AI model installation failed',
-          );
-        }
+        const code = aiErrorCode(error) ?? 'AI_PROVIDER_REQUEST_FAILED';
+        request.log.warn(
+          {
+            err: error,
+            projectId: project.id,
+            provider: resolved.provider,
+            mode: resolved.mode,
+            model: request.body.model,
+            code,
+          },
+          'AI model installation failed',
+        );
         write({
           type: 'error',
+          code,
           message:
             error instanceof Error
               ? error.message
