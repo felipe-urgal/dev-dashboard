@@ -113,8 +113,9 @@ const selectedProvider = computed(() => {
   const status = aiProvidersStatus.value;
   if (!status) return null;
   return (
-    status.providers.find((provider) => provider.id === status.selectedProvider) ??
-    null
+    status.providers.find(
+      (provider) => provider.id === status.selectedProvider,
+    ) ?? null
   );
 });
 const selectedProviderReady = computed(
@@ -229,7 +230,9 @@ function fileStatusLabel(file: GitPullRequestAiReviewFileExecution): string {
   return labels[file.status];
 }
 
-function providerLabel(provider: GitPullRequestAiReviewExecution['provider']): string {
+function providerLabel(
+  provider: GitPullRequestAiReviewExecution['provider'],
+): string {
   return provider === 'openai' ? 'OpenAI' : 'Local';
 }
 
@@ -699,11 +702,7 @@ onUnmounted(stopRefreshing);
         <div>
           <dt>Paralelismo</dt>
           <dd>
-            {{
-              execution.concurrency === 2
-                ? '2 em paralelo'
-                : '1 por vez'
-            }}
+            {{ execution.concurrency === 2 ? '2 em paralelo' : '1 por vez' }}
           </dd>
         </div>
       </dl>

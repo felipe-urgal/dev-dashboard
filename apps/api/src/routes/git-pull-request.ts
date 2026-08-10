@@ -7,9 +7,7 @@ import {
   type GitPullRequestTargetRemote,
 } from '../services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from '../services/git-pull-request-status-service.js';
-import {
-  AiProviderResolutionError,
-} from '../services/ai-provider-resolver.js';
+import { AiProviderResolutionError } from '../services/ai-provider-resolver.js';
 import { GitAiCodeReviewService } from '../services/git-ai-code-review-service.js';
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import {
