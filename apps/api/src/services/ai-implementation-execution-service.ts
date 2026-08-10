@@ -45,8 +45,8 @@ export class AiImplementationExecutionService {
   public constructor(
     private readonly aiAssistantService: ChatAssistant,
     private readonly now: () => Date = () => new Date(),
-    private readonly providerResolver: ProjectProviderResolver | undefined =
-      undefined,
+    private readonly providerResolver:
+      ProjectProviderResolver | undefined = undefined,
   ) {}
 
   public start(
@@ -135,7 +135,9 @@ export class AiImplementationExecutionService {
       let assistantService = stored.aiAssistantService;
       let mode = stored.mode;
       if (!assistantService && this.providerResolver) {
-        const resolved = await this.providerResolver.resolveSelected(project.id);
+        const resolved = await this.providerResolver.resolveSelected(
+          project.id,
+        );
         assistantService = resolved.assistantService;
         mode ??= resolved.mode;
       }
