@@ -790,7 +790,9 @@ export class AiAssistantService {
                 },
               }
             : {}),
-          stream: true,
+          // Tool calling não-streaming é compatível também com versões do
+          // Ollama anteriores ao parser incremental de chamadas de ferramenta.
+          stream: includeTools ? false : true,
         }),
         signal: timeoutController.signal,
       });
