@@ -12,6 +12,8 @@ function failedExecution(): AiImplementationExecution {
   return {
     id: 'e852c4aa-e432-4fd8-a326-d30f366b9ad5',
     projectId: 'p1',
+    provider: 'ollama',
+    mode: 'fast',
     model: 'qwen2.5-coder:14b',
     prompt: 'Adicionar testes',
     status: 'failed',
@@ -50,14 +52,9 @@ function providers(
   ];
 }
 
-test('offer sugere outro provider quando o atual falhou e está indisponível', () => {
+test('offer sugere outro provider quando o usado falhou e está indisponível', () => {
   assert.deepEqual(
-    resolveAiFallbackOffer(
-      'offer',
-      failedExecution(),
-      'ollama',
-      providers(false, true),
-    ),
+    resolveAiFallbackOffer('offer', failedExecution(), providers(false, true)),
     {
       fromProvider: 'ollama',
       toProvider: 'openai',
@@ -68,36 +65,21 @@ test('offer sugere outro provider quando o atual falhou e está indisponível', 
 
 test('off encerra sem oferecer troca', () => {
   assert.equal(
-    resolveAiFallbackOffer(
-      'off',
-      failedExecution(),
-      'ollama',
-      providers(false, true),
-    ),
+    resolveAiFallbackOffer('off', failedExecution(), providers(false, true)),
     null,
   );
 });
 
 test('não oferece fallback para erro com provider ainda disponível', () => {
   assert.equal(
-    resolveAiFallbackOffer(
-      'offer',
-      failedExecution(),
-      'ollama',
-      providers(true, true),
-    ),
+    resolveAiFallbackOffer('offer', failedExecution(), providers(true, true)),
     null,
   );
 });
 
 test('não oferece provider alternativo indisponível', () => {
   assert.equal(
-    resolveAiFallbackOffer(
-      'offer',
-      failedExecution(),
-      'ollama',
-      providers(false, false),
-    ),
+    resolveAiFallbackOffer('offer', failedExecution(), providers(false, false)),
     null,
   );
 });
