@@ -57,6 +57,18 @@ export interface GitPullRequestReviewDiff {
   diff: string;
 }
 
+/**
+ * A revisão compara apenas a branch local com a branch base. Ao contrário de
+ * uma Pull Request, ela não depende da branch atual já ter sido publicada.
+ */
+interface ResolvedReviewContext {
+  projectPath: string;
+  branch: string;
+  targetRemote: GitPullRequestTargetRemote;
+  baseBranch: string;
+  sourceBranch: string;
+}
+
 export interface GitPullRequestServiceOptions {
   fetchImpl?: typeof fetch;
   lookupTimeoutMs?: number;
@@ -91,7 +103,7 @@ export class GitPullRequestService {
     projectPath: string,
     options: GitPullRequestComposeOptions = {},
   ): Promise<GitPullRequestUrl> {
-    const context = await this.resolveContext(projectPath, options);
+    const context = await this.resolveReviewContext(projectPath, options);
     const composeOptions = {
       target: context.target,
       source: context.source,
@@ -159,7 +171,7 @@ export class GitPullRequestService {
     options: GitPullRequestLookupOptions,
   ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {
     return this.reviewFilesForContext(
-      await this.resolveContext(projectPath, options),
+      await this.resolveReviewContext(projectPath, options),
     );
   }
 
@@ -186,7 +198,7 @@ export class GitPullRequestService {
   }
 
   private async reviewFilesForContext(
-    context: ResolvedPullRequestContext,
+    context: ResolvedReviewContext,
   ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {
     const remoteReference = `refs/remotes/${context.targetRemote}/${context.baseBranch}`;
     const hasRemoteReference = await optionalGit(context.projectPath, [
@@ -216,7 +228,7 @@ export class GitPullRequestService {
   }
 
   private async diffForContext(
-    context: ResolvedPullRequestContext,
+    context: ResolvedReviewContext,
     filePath?: string,
   ): Promise<string> {
     const remoteReference = `refs/remotes/${context.targetRemote}/${context.baseBranch}`;
@@ -237,6 +249,28 @@ export class GitPullRequestService {
       `${baseReference}...HEAD`,
       ...(filePath ? ['--', filePath] : []),
     ]);
+  }
+
+  private async resolveReviewContext(
+    projectPath: string,
+    options: GitPullRequestLookupOptions,
+  ): Promise<ResolvedReviewContext> {
+    await requireRepository(projectPath);
+    const branch = await currentBranch(projectPath);
+    const targetRemote = options.targetRemote ?? 'origin';
+    const baseBranch =
+      options.baseBranch?.trim() ||
+      (await defaultBranch(projectPath, targetRemote));
+    if (options.baseBranch?.trim())
+      await requireBaseBranch(projectPath, targetRemote, baseBranch);
+
+    return {
+      projectPath,
+      branch,
+      targetRemote,
+      baseBranch,
+      sourceBranch: branch,
+    };
   }
 
   private async resolveContext(
