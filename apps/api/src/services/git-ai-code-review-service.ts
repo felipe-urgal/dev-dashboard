@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   AiExecutionMode,
+  AiProviderId,
   GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
   GitPullRequestReviewFinding,
@@ -13,8 +14,10 @@ import type {
 import type { AiAssistantService } from './ai-assistant-service.js';
 import {
   aiExecutionPolicy,
+  DEFAULT_AI_EXECUTION_MODE,
   type AiExecutionPolicy,
 } from './ai-execution-policy.js';
+import type { AiProviderResolver } from './ai-provider-resolver.js';
 import {
   GitPullRequestService,
   type GitPullRequestTargetRemote,
@@ -38,12 +41,19 @@ interface ReviewFileService {
   getReviewFileDiff: GitPullRequestService['getReviewFileDiff'];
 }
 
+type ProjectProviderResolver = Pick<AiProviderResolver, 'resolveSelected'>;
+type TrackedReviewExecution = GitPullRequestAiReviewExecution & {
+  provider: AiProviderId;
+  mode: AiExecutionMode;
+};
+
 interface RunningReview {
   projectPath: string;
-  execution: GitPullRequestAiReviewExecution;
+  execution: TrackedReviewExecution;
   reviews: GitPullRequestAiReview[];
   controller: AbortController;
   policy: AiExecutionPolicy;
+  aiAssistantService: AiAssistantService;
 }
 
 function shortText(value: unknown, fallback = ''): string {
@@ -277,7 +287,7 @@ function globalSynthesisPrompt(
   ];
 }
 
-function snapshot(execution: GitPullRequestAiReviewExecution) {
+function snapshot(execution: TrackedReviewExecution): TrackedReviewExecution {
   return {
     ...execution,
     files: [...execution.files],
@@ -304,6 +314,8 @@ export class GitAiCodeReviewService {
   public constructor(
     private readonly aiAssistantService: AiAssistantService,
     private readonly gitService: ReviewFileService = new GitPullRequestService(),
+    private readonly providerResolver: ProjectProviderResolver | undefined =
+      undefined,
   ) {}
 
   public async start(
@@ -312,6 +324,13 @@ export class GitAiCodeReviewService {
     const current = this.executions.get(input.project.id);
     if (current?.execution.status === 'running')
       return snapshot(current.execution);
+
+    const resolved = this.providerResolver
+      ? await this.providerResolver.resolveSelected(input.project.id)
+      : undefined;
+    const aiAssistantService = resolved?.assistantService ?? this.aiAssistantService;
+    const provider = resolved?.provider ?? 'ollama';
+    const mode = input.mode ?? resolved?.mode ?? DEFAULT_AI_EXECUTION_MODE;
 
     const files = await this.gitService.getReviewFiles(input.project.path, {
       targetRemote: input.targetRemote,
@@ -330,13 +349,15 @@ export class GitAiCodeReviewService {
     if (selectedPaths.length === 0)
       throw new Error('Selecione pelo menos um arquivo para revisar.');
 
-    const policy = aiExecutionPolicy(input.mode);
-    const execution: GitPullRequestAiReviewExecution = {
+    const policy = aiExecutionPolicy(mode);
+    const execution: TrackedReviewExecution = {
       id: randomUUID(),
       targetRemote: files.targetRemote,
       baseBranch: files.baseBranch,
       sourceBranch: files.sourceBranch,
       files: selectedPaths,
+      provider,
+      mode,
       model: input.model,
       status: 'running',
       concurrency: input.concurrency === 2 ? 2 : 1,
@@ -352,6 +373,7 @@ export class GitAiCodeReviewService {
       reviews: [],
       controller: new AbortController(),
       policy,
+      aiAssistantService,
     };
     this.executions.set(input.project.id, running);
     void this.run(running);
@@ -444,7 +466,7 @@ export class GitAiCodeReviewService {
       );
       if (running.controller.signal.aborted) return;
       const masked = maskSensitiveLogContent(diff.diff);
-      const content = await this.aiAssistantService.review(
+      const content = await running.aiAssistantService.review(
         execution.model,
         reviewPrompt(
           diff.targetRemote,
@@ -540,7 +562,7 @@ export class GitAiCodeReviewService {
       );
     }
 
-    const content = await this.aiAssistantService.review(
+    const content = await running.aiAssistantService.review(
       execution.model,
       globalSynthesisPrompt(execution, context),
       running.controller.signal,
