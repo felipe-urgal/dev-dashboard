@@ -351,7 +351,10 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     try {
       return await options.aiProviderResolver.resolveSelected(projectId, model);
     } catch (error) {
-      translateAiError(request, error, { projectId, ...(model ? { model } : {}) });
+      translateAiError(request, error, {
+        projectId,
+        ...(model ? { model } : {}),
+      });
     }
   }
 

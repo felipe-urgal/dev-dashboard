@@ -35,6 +35,7 @@ test('congela provider e modo resolvidos no início da Code Review', async () =>
   let selectedProvider: 'ollama' | 'openai' = 'openai';
   let localCalls = 0;
   let cloudCalls = 0;
+  let resolvedModel = '';
 
   const localAssistant = {
     review: async () => {
@@ -52,12 +53,15 @@ test('congela provider e modo resolvidos no início da Code Review', async () =>
   } as unknown as AiAssistantService;
 
   const resolver = {
-    resolveSelected: async () => ({
-      assistantService:
-        selectedProvider === 'openai' ? cloudAssistant : localAssistant,
-      provider: selectedProvider,
-      mode: 'complete' as const,
-    }),
+    resolveSelected: async (_projectId: string, model?: string) => {
+      resolvedModel = model ?? '';
+      return {
+        assistantService:
+          selectedProvider === 'openai' ? cloudAssistant : localAssistant,
+        provider: selectedProvider,
+        mode: 'complete' as const,
+      };
+    },
   };
 
   const service = new GitAiCodeReviewService(
@@ -93,6 +97,7 @@ test('congela provider e modo resolvidos no início da Code Review', async () =>
   selectedProvider = 'ollama';
   const completed = await settles(service);
 
+  assert.equal(resolvedModel, 'gpt-5-mini');
   assert.equal(started.provider, 'openai');
   assert.equal(started.mode, 'complete');
   assert.equal(completed?.provider, 'openai');
@@ -102,7 +107,7 @@ test('congela provider e modo resolvidos no início da Code Review', async () =>
   assert.equal(cloudCalls, 3);
 });
 
-test('bloqueia a Code Review antes de ler o diff quando o resolver rejeita o provider', async () => {
+test('bloqueia a Code Review antes de ler o diff quando o resolver rejeita provider ou modelo', async () => {
   const localAssistant = {
     review: async () => JSON.stringify({ summary: 'Local', findings: [] }),
   } as unknown as AiAssistantService;
@@ -116,6 +121,10 @@ test('bloqueia a Code Review antes de ler o diff quando o resolver rejeita o pro
     new AiProviderResolutionError(
       'AI_PROVIDER_UNAVAILABLE',
       'O provider selecionado não está disponível.',
+    ),
+    new AiProviderResolutionError(
+      'AI_MODEL_UNAVAILABLE',
+      'O modelo selecionado não está disponível neste provider.',
     ),
   ]) {
     const service = new GitAiCodeReviewService(
