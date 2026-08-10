@@ -24,7 +24,10 @@ import {
   startProjectAiImplementation,
 } from '../api';
 
-const props = defineProps<{ project: Project }>();
+const props = defineProps<{
+  project: Project;
+  projectId: string;
+}>();
 const emit = defineEmits<{ 'execution-updated': [] }>();
 
 const prompt = ref('');
@@ -91,7 +94,7 @@ function schedulePolling(currentGeneration: number): void {
 
 async function refresh(currentGeneration = generation): Promise<void> {
   try {
-    const result = await fetchProjectAiImplementation(props.project.id);
+    const result = await fetchProjectAiImplementation(props.projectId);
     if (currentGeneration !== generation) return;
     execution.value = result.execution;
     emit('execution-updated');
@@ -117,8 +120,8 @@ async function initialize(): Promise<void> {
   clearTimeout(pollTimer);
   try {
     const [status, result] = await Promise.all([
-      fetchProjectAiStatus(props.project.id),
-      fetchProjectAiImplementation(props.project.id),
+      fetchProjectAiStatus(props.projectId),
+      fetchProjectAiImplementation(props.projectId),
     ]);
     if (currentGeneration !== generation) return;
     models.value = status.models;
@@ -151,7 +154,7 @@ async function start(): Promise<void> {
   errorMessage.value = '';
   try {
     const result = await startProjectAiImplementation(
-      props.project.id,
+      props.projectId,
       model.value,
       prompt.value.trim(),
     );
@@ -173,7 +176,7 @@ async function cancel(): Promise<void> {
   if (!execution.value || !isRunning.value) return;
   try {
     const result = await cancelProjectAiImplementation(
-      props.project.id,
+      props.projectId,
       execution.value.id,
     );
     execution.value = result.execution;
@@ -197,7 +200,7 @@ async function applyPreview(): Promise<void> {
   errorMessage.value = '';
   try {
     await applyProjectWorkspaceEdit(
-      props.project.id,
+      props.projectId,
       preview.value.confirmationToken,
     );
     emit('execution-updated');

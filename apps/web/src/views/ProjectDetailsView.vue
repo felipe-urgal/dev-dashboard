@@ -470,6 +470,7 @@ async function handleToggleEnabled(): Promise<void> {
           v-else-if="isAiAssistantRoute"
           :key="`ai-assistant-${project.id}`"
           :project="project"
+          :project-id="projectId"
           @execution-updated="refreshAiImplementation()"
         />
 
