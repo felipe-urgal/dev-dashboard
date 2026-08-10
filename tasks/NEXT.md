@@ -1,23 +1,37 @@
 # Próxima atividade
 
-Após o merge do **PR #292 — fallback `offer`**, concluir o **hardening pós-roadmap da arquitetura multi-provider**.
+Após o merge do **PR #293 — hardening da arquitetura multi-provider**, executar o plano de fechamento em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
 
-O objetivo é fechar os gaps encontrados na revisão final sem ampliar o escopo funcional dos oito PRs já entregues.
+## Atividade atual — Code Review IA multi-provider
 
-## Escopo obrigatório
+O primeiro bloqueador é fazer a **Code Review IA** usar a mesma seleção por projeto já usada pelo Assistente/implementation.
 
-1. Registrar `provider` e `mode` no snapshot de cada execution de implementation.
-2. Congelar provider/modo no início da execução para evitar race com mudanças posteriores de seleção.
-3. Fazer o fallback usar o provider realmente registrado na execução, não a seleção atual da UI.
-4. Tornar `PUT /ai/selection` transacional na interface: falha deve restaurar provider/modo persistidos.
-5. Não esconder nem preparar um fallback se a troca de provider não for persistida.
-6. Remover mensagens específicas do Ollama da fachada genérica `AiAssistantService`.
-7. Atualizar schema HTTP e referência de API para expor provider/modo da execução.
-8. Atualizar documentação arquitetural e marcar o PR 8 como concluído.
-9. Manter `fallback off/offer` como preferência apenas da sessão nesta fase; não ampliar o schema persistido sem necessidade.
-10. Manter fallback automático, novo provider e seleção multi-provider da Code review fora do escopo.
-11. Rodar typecheck, lint, format, build, docs API, testes e smoke E2E antes do merge.
+### Escopo
+
+1. Resolver o provider selecionado no início da Code Review.
+2. Revalidar disponibilidade e consentimento cloud antes de iniciar.
+3. Congelar a instância do provider e o modo durante toda a execution.
+4. Garantir que revisão por arquivo e síntese global usem o mesmo provider.
+5. Registrar `provider` e `mode` no contrato/snapshot HTTP da Code Review.
+6. Fazer o endpoint one-shot de AI review obedecer ao resolver ou removê-lo se estiver sem consumidor.
+7. Exibir provider/modo usados na UI sem duplicar configuração desnecessária.
+8. Cobrir Ollama, OpenAI autorizado, falta de consentimento, indisponibilidade e troca de seleção durante execução.
+9. Atualizar documentação e referência da API.
+
+## Gate obrigatório
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+npm run docs:api:check
+npm test
+npm run test:e2e
+```
+
+Quando schema/rota mudar, executar `npm run docs:api` antes de `npm run docs:api:check`.
 
 ## Critério de conclusão
 
-O hardening termina quando o snapshot identifica corretamente quem executou, falhas de persistência não deixam UI/backend divergentes, as mensagens genéricas não vazam detalhes do Ollama e toda a suíte obrigatória está verde.
+A atividade termina quando a Code Review usa o provider selecionado de forma consistente, a execution identifica provider/modo usados, mudanças de seleção posteriores não alteram uma revisão em andamento e toda a suíte obrigatória está verde.
