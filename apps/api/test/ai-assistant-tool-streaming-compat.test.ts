@@ -57,48 +57,48 @@ test('chat() usa resposta não-streaming quando envia ferramentas ao Ollama', as
   ]);
 });
 
-test(
-  'chat() converte tool call textual vazada pelo Ollama e continua o loop',
-  async () => {
-    const events: AiChatStreamEvent[] = [];
-    const leakedToolCall = JSON.stringify({
-      name: 'search_project_text',
-      arguments: { query: 'problema com o novo fluxo de ferramenta' },
-    });
-    let requestCount = 0;
-    const service = new AiAssistantService({
-      projectFileService: new ProjectFileService(),
-      gitService: new GitService(),
-      fetchImpl: async () => {
-        requestCount += 1;
-        return new Response(
-          JSON.stringify({
-            message: {
-              role: 'assistant',
-              content: requestCount === 1 ? leakedToolCall : 'Resposta final.',
-            },
-            done: true,
-          }),
-          { status: 200 },
-        );
-      },
-    });
+test('chat() converte tool call textual vazada pelo Ollama e continua o loop', async () => {
+  const events: AiChatStreamEvent[] = [];
+  const leakedToolCall = JSON.stringify({
+    name: 'search_project_text',
+    arguments: { query: 'problema com o novo fluxo de ferramenta' },
+  });
+  let requestCount = 0;
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () => {
+      requestCount += 1;
+      return new Response(
+        JSON.stringify({
+          message: {
+            role: 'assistant',
+            content: requestCount === 1 ? leakedToolCall : 'Resposta final.',
+          },
+          done: true,
+        }),
+        { status: 200 },
+      );
+    },
+  });
 
-    await service.chat(
-      project(),
-      'qwen2.5-coder:7b',
-      [{ role: 'user', content: 'Investigue o problema.' }],
-      {
-        signal: new AbortController().signal,
-        send: (event) => events.push(event),
-      },
-    );
+  await service.chat(
+    project(),
+    'qwen2.5-coder:7b',
+    [{ role: 'user', content: 'Investigue o problema.' }],
+    {
+      signal: new AbortController().signal,
+      send: (event) => events.push(event),
+    },
+  );
 
-    assert.equal(requestCount, 2);
-    assert.equal(events[0]?.type, 'tool-call');
-    assert.equal(events[1]?.type, 'tool-result');
-    assert.equal(events[2]?.type, 'message-delta');
-    assert.deepEqual(events[3], { type: 'done' });
-    assert.equal(events.some((event) => event.type === 'error'), false);
-  },
-);
+  assert.equal(requestCount, 2);
+  assert.equal(events[0]?.type, 'tool-call');
+  assert.equal(events[1]?.type, 'tool-result');
+  assert.equal(events[2]?.type, 'message-delta');
+  assert.deepEqual(events[3], { type: 'done' });
+  assert.equal(
+    events.some((event) => event.type === 'error'),
+    false,
+  );
+});
