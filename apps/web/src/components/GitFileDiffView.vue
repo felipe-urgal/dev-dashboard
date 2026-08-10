@@ -124,10 +124,7 @@ function selectViewMode(mode: 'unified' | 'split'): void {
 
 function toggleFiles(): void {
   filesCollapsed.value = !filesCollapsed.value;
-  reviewWorkspace?.classList.toggle(
-    'is-files-collapsed',
-    filesCollapsed.value,
-  );
+  reviewWorkspace?.classList.toggle('is-files-collapsed', filesCollapsed.value);
 }
 
 function toggleExpanded(): void {
