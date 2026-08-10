@@ -28,7 +28,7 @@
     "lint": "eslint \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
-    "format:check": "prettier --write apps/api/src/services/ai-assistant-service.ts apps/api/src/services/ai-orchestrator.ts apps/api/src/services/ollama-provider.ts && git diff -- apps/api/src/services/ai-assistant-service.ts apps/api/src/services/ai-orchestrator.ts apps/api/src/services/ollama-provider.ts && exit 1",
+    "format:check": "prettier --check \"apps/**/*.{ts,vue}\" \"packages/**/*.ts\" \"scripts/**/*.mjs\" \"eslint.config.js\"",
     "build:packages": "npm run build --workspace=@dev-dashboard/contracts && npm run build --workspace=@dev-dashboard/core && npm run build --workspace=@dev-dashboard/project-discovery && npm run build --workspace=@dev-dashboard/process-manager",
     "build:apps": "npm run build --workspace=@dev-dashboard/api && npm run build --workspace=@dev-dashboard/web",
     "predev": "npm run build:packages",
