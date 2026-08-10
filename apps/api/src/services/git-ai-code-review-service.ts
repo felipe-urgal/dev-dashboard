@@ -471,7 +471,8 @@ export class GitAiCodeReviewService {
         return;
       }
       execution.status = 'failed';
-      execution.errorCode = aiErrorCodeFor(error);
+      const code = aiErrorCodeFor(error);
+      if (code) execution.errorCode = code;
       execution.errorMessage =
         error instanceof Error
           ? error.message
@@ -534,7 +535,7 @@ export class GitAiCodeReviewService {
           ? error.message
           : 'A IA não respondeu para este arquivo.';
       file.status = 'failed';
-      file.errorCode = code;
+      if (code) file.errorCode = code;
       file.errorMessage = message;
       execution.failedFiles.push({
         path: file.path,
@@ -560,7 +561,8 @@ export class GitAiCodeReviewService {
     const firstReview = reviews[0];
     if (!firstReview) {
       execution.status = 'failed';
-      execution.errorCode = execution.failedFiles[0]?.code;
+      const code = execution.failedFiles[0]?.code;
+      if (code) execution.errorCode = code;
       execution.errorMessage = execution.failedFiles[0]
         ? `Não foi possível concluir a revisão: ${execution.failedFiles[0].message}`
         : 'A IA não conseguiu revisar os arquivos selecionados.';
@@ -580,7 +582,8 @@ export class GitAiCodeReviewService {
           return;
         }
         execution.status = 'failed';
-        execution.errorCode = aiErrorCodeFor(error);
+        const code = aiErrorCodeFor(error);
+        if (code) execution.errorCode = code;
         execution.errorMessage =
           error instanceof Error
             ? `Não foi possível concluir a síntese global: ${error.message}`
