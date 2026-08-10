@@ -1,8 +1,8 @@
 # Guia da aba Git
 
 > Parte do [Guia passo a passo do dashboard web](README.md). Esta página cobre a aba **Git**
-> de um projeto, com as suas oito sub-abas: Sincronização, Branches, Diff, Commit, Desfazer,
-> Pull Request, Histórico e Mutações.
+> de um projeto, com as suas nove sub-abas: Sincronização, Branches, Diff, Commit, Desfazer,
+> Pull Request, Code review IA, Histórico e Mutações.
 
 A aba Git nunca chama `git` diretamente a partir do navegador. Toda ação passa pela API
 (`http://127.0.0.1:4343`), que executa o binário `git` no diretório do projeto via
@@ -220,32 +220,57 @@ outro host), a ação é recusada com um erro explicando que a combinação não
 
 ## Code review IA
 
-Esta sub-aba fica antes de **Histórico** e concentra a revisão da branch
-antes da Pull Request. Ela compara a branch publicada com a base escolhida
-(`origin/main`, por padrão), usando somente o Ollama local configurado na
-máquina.
+Esta sub-aba fica antes de **Histórico** e concentra a revisão da branch antes da Pull Request.
+Ela compara a branch atual com a base escolhida (`origin/main`, por padrão) e usa a **mesma seleção
+de IA do projeto**: Local/Ollama ou OpenAI, com modo Rápido ou Completo.
 
-Os patches são revisados um arquivo por vez por uma tarefa local em segundo
-plano. Por isso, você pode sair da sub-aba e voltar depois: o progresso e o
-resultado são recuperados enquanto a API do dashboard continuar em execução.
-Não há limite fixo de tempo por arquivo; a revisão aguarda a resposta do
-Ollama. Um arquivo que falhar não impede que os demais recebam comentários.
+A tela não mantém um segundo seletor independente. Ela lê a seleção persistida do projeto, mostra
+o provider/modo atuais e registra no snapshot da revisão qual provider, modo e modelo foram usados.
+
+Antes de iniciar a revisão, a API:
+
+1. resolve o provider selecionado;
+2. revalida disponibilidade;
+3. exige consentimento quando o provider é OpenAI;
+4. valida o modelo escolhido contra o catálogo do provider;
+5. só depois lê a lista de arquivos/diffs da comparação.
+
+Provider e modo ficam **congelados no início da execution**. Trocar a seleção do projeto enquanto
+uma revisão está rodando não muda aquela execução.
+
+Os patches são revisados por arquivo por uma tarefa em segundo plano. Por isso, você pode sair da
+sub-aba e voltar depois: o progresso e o resultado são recuperados enquanto a API do dashboard
+continuar em execução. Um arquivo que falhar não impede que os demais recebam comentários.
+
+### Modo Rápido
+
+- revisa os arquivos individualmente;
+- usa budget menor de diff;
+- não executa síntese global.
+
+### Modo Completo
+
+- revisa os arquivos individualmente com budget maior;
+- executa uma síntese global no final;
+- usa a mesma instância do provider para revisão por arquivo e síntese;
+- cruza achados entre arquivos e deduplica problemas equivalentes.
 
 Após concluir a revisão, a tela mostra:
 
-- um resumo com a quantidade de apontamentos pendentes;
-- os arquivos que possuem comentários, com a contagem ainda pendente em cada
-  um;
-- os comentários do arquivo selecionado ao lado do seu diff, sempre na mesma
-  comparação da revisão;
-- ações locais de triagem para selecionar, marcar como resolvido ou ignorar
-  apontamentos. Elas organizam a sessão atual e não alteram arquivos, commits
-  ou Pull Requests.
+- provider e modo usados pela execution;
+- resumo e quantidade de apontamentos pendentes;
+- arquivos com comentários e contagem pendente;
+- comentários do arquivo selecionado ao lado do diff;
+- ações locais de triagem para selecionar, marcar como resolvido ou ignorar apontamentos.
 
-A revisão é consultiva: não altera arquivos, commits ou Pull Requests. Diffs
-com conteúdo sensível são mascarados antes de chegar ao modelo. Para arquivos
-muito extensos, a análise usa um recorte seguro; o painel ao lado busca o
-diff completo do arquivo diretamente na comparação selecionada.
+A revisão é consultiva: não altera arquivos, commits nem Pull Requests.
+
+Diffs com conteúdo sensível são mascarados antes de chegar ao modelo, inclusive quando o provider
+é cloud. Para arquivos muito extensos, a análise usa um recorte limitado pela policy; o painel ao
+lado busca o diff do arquivo diretamente na comparação selecionada.
+
+Se OpenAI estiver sem consentimento, indisponível ou sem créditos/quota, a revisão é bloqueada ou
+falha com a mensagem correspondente; não existe fallback silencioso para Ollama.
 
 ---
 
