@@ -6,15 +6,19 @@ A ordem pode ser ajustada conforme aprendizados de implementação, mas mudança
 
 ## Regras para todas as fases
 
-Antes de concluir qualquer PR desta iniciativa:
+Antes de concluir qualquer PR desta iniciativa, executar o mesmo conjunto obrigatório do CI:
 
 ```bash
-npm run lint
-npm run format
 npm run typecheck
+npm run lint
+npm run format:check
 npm run build
+npm run docs:api:check
 npm test
+npm run test:e2e
 ```
+
+Quando houver falha de formatação, executar `npm run format` e repetir `npm run format:check` antes de seguir.
 
 Além disso:
 
@@ -49,121 +53,97 @@ PR de referência: **#286**.
 
 ---
 
-## PR 2 — Caracterização e segurança — em conclusão
+## PR 2 — Caracterização e segurança — concluído
 
 **Objetivo:** congelar o comportamento observável atual e preparar uma fronteira segura para futuros providers externos.
 
-### Fora do escopo
+### Entregue
 
-- provider novo;
-- mudança visual;
-- seleção de provider;
-- fallback;
-- modos `fast`/`complete`;
-- síntese global da Code review.
-
-### Caracterização
-
-A revisão dos testes existentes confirmou cobertura prévia de status/listagem, chat simples, tool calling autorizado, preview de workspace edit, `review()` sem tools e compatibilidade de tool call textual do Ollama. Este PR acrescenta os gaps de limite/cancelamento.
-
-- [x] Revisar os testes atuais de `AiAssistantService` e rotas de IA.
-- [x] Confirmar cobertura de status/listagem de modelos Ollama.
-- [x] Confirmar cobertura de chat sem ferramentas.
-- [x] Confirmar cobertura de chat com tool calling válido.
-- [x] Preservar teste de tool call textual convertido para ferramenta autorizada.
-- [x] Cobrir limite atual de quatro rodadas de ferramentas.
-- [x] Cobrir cancelamento/abort durante uma rodada em andamento.
-- [x] Confirmar cobertura de `review()` sem ferramentas.
-- [x] Confirmar cobertura do fluxo de implementation/preview.
-
-### Segurança e masking
-
-Pontos de saída mapeados:
-
-1. `/api/chat`: mensagens do usuário/sistema e resultados de ferramentas acumulados na conversa;
-2. `/api/generate`: `prompt`/`suffix` da compleção;
-3. Code review: diff montado por `GitAiCodeReviewService` e enviado via `review()`.
-
-A Code review já mascarava o diff antes de montar o prompt para manter metadados de redação. O PR adiciona uma segunda barreira compartilhada na fronteira de rede usada pela composição de produção, cobrindo chat, implementation, review e completion.
-
+- [x] Revisar cobertura de status/listagem, chat, tool calling, review e implementation.
+- [x] Cobrir limite atual de rodadas e cancelamento.
 - [x] Mapear pontos que podem enviar conteúdo ao motor de IA.
-- [x] Confirmar `maskSensitiveLogContent` no Code review atual.
-- [x] Criar `createAiOutboundProtectionFetch` como fronteira compartilhada.
-- [x] Mascarar conteúdo textual de mensagens de `/api/chat`.
-- [x] Mascarar resultados de ferramentas antes da rodada seguinte.
-- [x] Mascarar `prompt` e `suffix` de `/api/generate`.
-- [x] Garantir que implementation use a mesma fronteira do chat.
-- [x] Preservar masking e `redactionCount` da Code review.
-- [x] Compor proteção com `createOllamaToolCallCompatFetch` sem quebrar tool calling textual.
-- [x] Adicionar testes de não vazamento em chat, implementation, review e completion.
-- [x] Manter prompts/respostas apenas em memória; nenhuma persistência nova foi adicionada.
-- [x] Atualizar o guia do Assistente IA com o comportamento de masking e tool calling atual.
+- [x] Criar `createAiOutboundProtectionFetch` como barreira compartilhada.
+- [x] Mascarar chat, resultados de ferramentas, completion e review.
+- [x] Preservar `masked` e `redactionCount` da Code review.
+- [x] Adicionar testes de não vazamento.
+- [x] Atualizar guia do Assistente IA.
+- [x] CI obrigatório verde.
 
-### Critério de aceite
-
-- [x] nenhum provider cloud foi adicionado;
-- [x] nenhuma UI foi alterada;
-- [x] existe uma única barreira de proteção na composição de produção antes do fetch do motor;
-- [x] os fluxos relevantes têm testes de caracterização/segurança;
-- [ ] CI obrigatório verde.
-
-Após CI verde e merge, seguir para **PR 3 — `AiProvider` + `OllamaProvider`**.
+PR de referência: **#287**.
 
 ---
 
-## PR 3 — `AiProvider` + `OllamaProvider`
+## PR 3 — `AiProvider` + `OllamaProvider` — concluído
 
 **Objetivo:** desacoplar detalhes do Ollama do fluxo de negócio sem alterar UI ou comportamento observável.
 
-### Tarefas
+### Entregue
 
-- [ ] Criar contrato mínimo `AiProvider`.
-- [ ] Definir `ProviderStatus` e capacidades compartilhadas necessárias.
-- [ ] Criar `OllamaProvider`.
-- [ ] Mover HTTP específico do Ollama para `OllamaProvider`.
-- [ ] Mover listagem/inspeção de modelos para `OllamaProvider`.
-- [ ] Mover serialização/deserialização de tool calls para `OllamaProvider`.
-- [ ] Mover compatibilidade de tool call textual para `OllamaProvider`.
-- [ ] Mover `createAiOutboundProtectionFetch` para a fronteira adequada do provider sem perder cobertura.
-- [ ] Manter catálogo de ferramentas fora do provider.
-- [ ] Transformar o loop interativo atual no `AiOrchestrator` mínimo.
-- [ ] Manter `GitAiCodeReviewService` separado do `AiOrchestrator`.
-- [ ] Evitar `ProviderRegistry`, `ContextBuilder` e `ToolExecutor` independentes nesta fase.
-- [ ] Fazer os testes de caracterização do PR 2 passarem sem mudança de expectativa.
+- [x] Criar contrato mínimo `AiProvider`.
+- [x] Definir `AiProviderStatus` compartilhado.
+- [x] Criar `OllamaProvider`.
+- [x] Mover HTTP, status, modelos e payloads específicos do Ollama para o provider.
+- [x] Mover serialização/deserialização de tool calls para o provider.
+- [x] Mover compatibilidade de tool call textual para o provider.
+- [x] Manter `createAiOutboundProtectionFetch` na fronteira do provider.
+- [x] Manter catálogo de ferramentas fora do provider.
+- [x] Criar `AiOrchestrator` mínimo para loop e ferramentas.
+- [x] Manter `GitAiCodeReviewService` separado do orquestrador.
+- [x] Evitar `ProviderRegistry`, `ContextBuilder` e `ToolExecutor` prematuros.
+- [x] Preservar testes de caracterização sem mudar expectativa.
+- [x] CI obrigatório verde.
 
-### Critério de aceite
-
-- nenhum HTTP específico do Ollama permanece no `AiOrchestrator`;
-- o provider não conhece `ProjectFileService`, Git, LSP ou workspace edit;
-- o orquestrador não conhece payloads nativos do Ollama;
-- masking e compatibilidade de tool calling permanecem protegidos por testes;
-- nenhuma mudança visual;
-- comportamento atual permanece equivalente.
+PR de referência: **#288**.
 
 ---
 
-## PR 4 — Modos de execução `fast` / `complete`
+## PR 4 — Modos de execução `fast` / `complete` — em conclusão
 
 **Objetivo:** tornar profundidade de execução uma policy explícita, mensurável e testável.
 
+### Policy inicial
+
+| Campo | `fast` | `complete` |
+|---|---:|---:|
+| `maxToolRounds` | 4 | 10 |
+| `maxToolResultChars` | 8.000 | 12.000 |
+| `maxAccumulatedToolResultChars` | 32.000 | 96.000 |
+| `maxIdenticalToolCalls` | 2 | 2 |
+| `maxDiffChars` | 4.000 | 12.000 |
+| `maxContextFiles` | 4 | 12 |
+| `runGlobalSynthesis` | `false` | `true` |
+
+Os valores são a primeira calibração e devem ser revistos depois de validação com projetos reais.
+
 ### Tarefas
 
-- [ ] Criar `AiExecutionMode` e `AiExecutionPolicy`.
-- [ ] Definir `maxToolRounds` por modo.
-- [ ] Definir `maxDiffChars` por modo.
-- [ ] Definir `maxContextFiles` quando aplicável.
-- [ ] Definir `runGlobalSynthesis` por modo.
-- [ ] Centralizar números em uma policy, sem `if` espalhados.
-- [ ] Implementar proteção contra chamadas repetidas sem progresso.
-- [ ] Considerar budget de contexto acumulado além de rounds.
-- [ ] Cobrir policies com testes.
-- [ ] Calibrar valores com projeto real antes de congelá-los.
+- [x] Criar `AiExecutionMode` e `AiExecutionPolicy`.
+- [x] Definir `maxToolRounds` por modo.
+- [x] Definir `maxDiffChars` por modo.
+- [x] Definir `maxContextFiles` para uso nas fases seguintes.
+- [x] Definir `runGlobalSynthesis` para o PR 5.
+- [x] Centralizar budgets em uma única policy.
+- [x] Manter `fast` como default compatível.
+- [x] Dar ao `complete` budget maior de rodadas, resultado de ferramentas e diff.
+- [x] Implementar proteção contra chamadas idênticas repetidas sem progresso.
+- [x] Implementar budget acumulado de resultados de ferramentas.
+- [x] Fazer Code review usar `maxDiffChars` da policy.
+- [x] Propagar o modo programaticamente para o Assistente/implementation.
+- [x] Cobrir policies, round limit, loop guard e limite de diff com testes.
+- [ ] Validar os valores com Ollama real antes de considerá-los definitivos.
+- [ ] CI obrigatório verde no commit final.
 
 ### Critério de aceite
 
-- `fast` e `complete` têm comportamento determinístico;
-- modo Completo possui budget maior sem loop indefinido;
-- nenhum detalhe específico de provider entra na policy comum.
+- [x] `fast` preserva 4 rounds e 4k de diff como comportamento padrão;
+- [x] `complete` possui budget maior, mas limitado;
+- [x] loop de tool call idêntica é interrompido;
+- [x] contexto acumulado possui teto explícito;
+- [x] nenhum detalhe específico de provider entra na policy comum;
+- [x] nenhuma mudança visual foi introduzida;
+- [ ] CI obrigatório verde.
+
+Após merge, seguir para **PR 5 — síntese global da Code review**.
 
 ---
 
@@ -260,10 +240,10 @@ Após CI verde e merge, seguir para **PR 3 — `AiProvider` + `OllamaProvider`**
 | PR | Entrega | Estado |
 |---|---|---|
 | 1 | Documentação e roadmap | Concluído (#286) |
-| 2 | Caracterização + segurança | Em conclusão |
-| 3 | `AiProvider` + `OllamaProvider` | Próximo |
-| 4 | `fast` / `complete` | Pendente |
-| 5 | Síntese global da Code review | Pendente |
+| 2 | Caracterização + segurança | Concluído (#287) |
+| 3 | `AiProvider` + `OllamaProvider` | Concluído (#288) |
+| 4 | `fast` / `complete` | Em conclusão |
+| 5 | Síntese global da Code review | Próximo após PR 4 |
 | 6 | Primeiro provider cloud | Pendente |
 | 7 | Seleção de provider na UI | Pendente |
 | 8 | Fallback `offer` | Pendente |
