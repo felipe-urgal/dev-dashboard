@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { LOG_MASK } from '@dev-dashboard/process-manager';
+
 import type { AiProviderToolDefinition } from '../src/services/ai-provider.js';
 import { OllamaProvider } from '../src/services/ollama-provider.js';
 
@@ -21,6 +23,31 @@ function options() {
     timeoutMs: 1_000,
   };
 }
+
+test('mascara conteúdo antes de enviar request ao Ollama', async () => {
+  const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
+  let requestBody = '';
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    requestBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        message: { role: 'assistant', content: 'Concluído.' },
+        done: true,
+      }),
+      { status: 200 },
+    );
+  };
+
+  const provider = new OllamaProvider({ fetchImpl });
+  await provider.chatRound(
+    'qwen2.5-coder:7b',
+    [{ role: 'user', content: `API_KEY=${secret}` }],
+    options(),
+  );
+
+  assert.equal(requestBody.includes(secret), false);
+  assert.ok(requestBody.includes(LOG_MASK));
+});
 
 test('converte tool call textual do Ollama em chamada estruturada', async () => {
   const fetchImpl: typeof fetch = async () =>
