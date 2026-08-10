@@ -117,36 +117,66 @@ test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do cha
 });
 
 test('implementation usa a mesma barreira de masking do chat', async () => {
-  const requestBodies: string[] = [];
-  const secret = 'sk-abcdefghijklmnopqrstuvwxyz654321';
-  const rawFetch: typeof fetch = async (_input, init) => {
-    requestBodies.push(String(init?.body ?? ''));
-    return new Response(
-      JSON.stringify({
-        message: { role: 'assistant', content: 'Concluído.' },
-        done: true,
-      }),
-    );
-  };
-  const assistant = new AiAssistantService({
-    projectFileService: new ProjectFileService(),
-    gitService: new GitService(),
-    fetchImpl: createAiOutboundProtectionFetch(rawFetch),
-  });
-  const implementation = new AiImplementationExecutionService(assistant);
-  const proj = project('/tmp/inexistente');
-
-  const started = implementation.start(
-    proj,
-    'qwen2.5-coder:14b',
-    `Atualize a integração. API_KEY=${secret}`,
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-mask-implementation-'),
   );
-  await waitForImplementation(implementation, proj.id, started.id);
+  const secret = 'sk-abcdefghijklmnopqrstuvwxyz654321';
+  await writeFile(path.join(root, 'app.ts'), 'export const value = 1;\n', 'utf8');
 
-  assert.equal(implementation.find(proj.id, started.id)?.status, 'succeeded');
-  assert.equal(requestBodies.length, 1);
-  assert.equal((requestBodies[0] ?? '').includes(secret), false);
-  assert.ok((requestBodies[0] ?? '').includes(LOG_MASK));
+  try {
+    const requestBodies: string[] = [];
+    let round = 0;
+    const rawFetch: typeof fetch = async (_input, init) => {
+      requestBodies.push(String(init?.body ?? ''));
+      round += 1;
+      if (round === 1) {
+        return new Response(
+          JSON.stringify({
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                {
+                  function: {
+                    name: 'read_project_file',
+                    arguments: { path: 'app.ts' },
+                  },
+                },
+              ],
+            },
+            done: true,
+          }),
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          message: { role: 'assistant', content: 'Concluído.' },
+          done: true,
+        }),
+      );
+    };
+    const assistant = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: createAiOutboundProtectionFetch(rawFetch),
+    });
+    const implementation = new AiImplementationExecutionService(assistant);
+    const proj = project(root);
+
+    const started = implementation.start(
+      proj,
+      'qwen2.5-coder:14b',
+      `Atualize a integração. API_KEY=${secret}`,
+    );
+    await waitForImplementation(implementation, proj.id, started.id);
+
+    assert.equal(implementation.find(proj.id, started.id)?.status, 'succeeded');
+    assert.equal(requestBodies.length, 2);
+    assert.equal(requestBodies.some((body) => body.includes(secret)), false);
+    assert.ok(requestBodies.some((body) => body.includes(LOG_MASK)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('code review preserva masking e metadados de redação antes de chamar o modelo', async () => {
