@@ -58,7 +58,7 @@ interface OpenAiSessionState {
   history: OpenAiRequestMessage[];
   consumedMessages: number;
   pendingToolCalls: OpenAiFunctionToolCall[];
-  assistantEcho?: string;
+  assistantEcho: string | undefined;
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -150,7 +150,7 @@ function parseToolCall(call: OpenAiFunctionToolCall): AiProviderToolCall {
  */
 export class OpenAiProvider implements AiProvider {
   private readonly fetchImpl: typeof fetch;
-  private readonly apiKey?: string;
+  private readonly apiKey: string | undefined;
   private readonly sessions = new WeakMap<
     readonly AiProviderMessage[],
     OpenAiSessionState
@@ -353,6 +353,7 @@ export class OpenAiProvider implements AiProvider {
         history: messages.map(plainMessage),
         consumedMessages: messages.length,
         pendingToolCalls: [],
+        assistantEcho: undefined,
       };
     }
 
