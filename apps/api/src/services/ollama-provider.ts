@@ -25,6 +25,8 @@ const STATUS_TIMEOUT_MS = 5_000;
 const MAX_MODELS_INSPECTED = 20;
 const MODEL_PULL_TIMEOUT_MS = 60 * 60 * 1_000;
 
+type LeakedToolCallMode = 'convert' | 'error';
+
 interface OllamaToolCall {
   function: { name: string; arguments: Record<string, unknown> };
 }
@@ -44,6 +46,7 @@ interface OllamaModelPullChunk {
 
 interface OllamaProviderOptions {
   fetchImpl?: typeof fetch;
+  leakedToolCallMode?: LeakedToolCallMode;
 }
 
 function isRecommendedModel(value: string): value is AiRecommendedModelName {
@@ -128,11 +131,13 @@ export function resolveOllamaBaseUrl(): string | undefined {
  */
 export class OllamaProvider implements AiProvider {
   private readonly fetchImpl: typeof fetch;
+  private readonly leakedToolCallMode: LeakedToolCallMode;
 
   public constructor(options: OllamaProviderOptions = {}) {
     this.fetchImpl = createAiOutboundProtectionFetch(
       options.fetchImpl ?? fetch,
     );
+    this.leakedToolCallMode = options.leakedToolCallMode ?? 'convert';
   }
 
   public async status(): Promise<ProjectAiStatus> {
@@ -240,6 +245,14 @@ export class OllamaProvider implements AiProvider {
       let buffer = '';
       let assistantContent = '';
 
+      const leakedToolCallError = (name: string): Error =>
+        new Error(
+          `O modelo "${model}" tentou usar a ferramenta "${name}", mas escreveu a ` +
+            'chamada como texto em vez de utilizar o mecanismo de tool-calling do Ollama, ' +
+            'então nada foi executado. Tente novamente com um modelo com suporte mais ' +
+            'confiável a ferramentas (ex.: qwen2.5-coder:14b).',
+        );
+
       const handleLine = (rawLine: string): void => {
         const line = rawLine.trim();
         if (!line) return;
@@ -269,16 +282,18 @@ export class OllamaProvider implements AiProvider {
         if (structuredCalls.length === 0 && allowedToolNames.size > 0) {
           const leaked = parseLeakedToolCall(content, allowedToolNames);
           if (leaked?.call) {
-            toolCalls.push(leaked.call);
-            return;
+            if (this.leakedToolCallMode === 'convert') {
+              toolCalls.push(leaked.call);
+              return;
+            }
+            assistantContent += content;
+            options.onTextDelta?.(content);
+            throw leakedToolCallError(leaked.call.name);
           }
           if (leaked?.invalidName) {
-            throw new Error(
-              `O modelo "${model}" tentou usar a ferramenta "${leaked.invalidName}", mas escreveu a ` +
-                'chamada como texto em vez de utilizar corretamente o mecanismo de tool-calling do Ollama. ' +
-                'Tente novamente com um modelo com suporte mais confiável a ferramentas ' +
-                '(ex.: qwen2.5-coder:14b).',
-            );
+            assistantContent += content;
+            options.onTextDelta?.(content);
+            throw leakedToolCallError(leaked.invalidName);
           }
         }
 
