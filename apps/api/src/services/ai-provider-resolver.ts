@@ -19,8 +19,7 @@ interface AiProviderEntry {
 }
 
 export type AiProviderResolutionErrorCode =
-  | 'AI_PROVIDER_UNAVAILABLE'
-  | 'AI_CLOUD_CONSENT_REQUIRED';
+  'AI_PROVIDER_UNAVAILABLE' | 'AI_CLOUD_CONSENT_REQUIRED';
 
 export class AiProviderResolutionError extends Error {
   public constructor(
@@ -96,7 +95,10 @@ export class AiProviderResolver {
     providerId: AiProviderId,
   ): Promise<AiAssistantService> {
     const entry = this.providers[providerId];
-    if (entry.kind === 'cloud' && !this.hasCloudConsent(projectId, providerId)) {
+    if (
+      entry.kind === 'cloud' &&
+      !this.hasCloudConsent(projectId, providerId)
+    ) {
       throw new AiProviderResolutionError(
         'AI_CLOUD_CONSENT_REQUIRED',
         'Autorize o uso da OpenAI para este projeto antes de enviar código à cloud.',
@@ -153,7 +155,10 @@ export class AiProviderResolver {
     };
   }
 
-  private hasCloudConsent(projectId: string, providerId: AiProviderId): boolean {
+  private hasCloudConsent(
+    projectId: string,
+    providerId: AiProviderId,
+  ): boolean {
     return (
       providerId === 'openai' &&
       this.options.consentRepository.has(projectId, providerId)
