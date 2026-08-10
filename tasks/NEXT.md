@@ -9,39 +9,36 @@ Concluídos e validados no PR #295:
 1. Code Review IA usando `AiProviderResolver`, com provider/modo congelados na execution.
 2. APIs genéricas `/ai/status`, `/ai/chat`, `/ai/complete` e `/ai/models/pull` sem bypass silencioso para Ollama.
 3. Validação server-side de modelo antes da inferência.
+4. Contratos de erro estáveis compartilhados entre provider, resolver, HTTP, SSE e executions.
 
-O gate completo ficou verde após o P0 #3.
+O **CI #1640** ficou completamente verde após o P0 #4: typecheck, lint, format, build, referência da API, testes e Smoke E2E.
 
-## Atividade atual — P0 #4: contratos de erro estáveis
+## Atividade atual — P0 #5: segurança de saída cloud
 
-O próximo bloqueador é deixar falhas de IA previsíveis para backend, frontend, testes e diagnóstico.
+O próximo bloqueador é provar por teste e documentação que conteúdo do projeto só chega a um provider cloud depois das barreiras de consentimento e masking.
 
 ### Escopo
 
-1. Definir códigos estáveis para:
-   - consentimento cloud ausente;
-   - provider indisponível;
-   - modelo incompatível/indisponível;
-   - autenticação cloud;
-   - quota/billing;
-   - rate limit;
-   - timeout;
-   - cancelamento;
-   - resposta/payload inválido;
-   - falha upstream não classificada.
-2. Evitar converter tudo em `AI_ASSISTANT_INVALID_REQUEST` ou `AI_ASSISTANT_FAILED`.
-3. Preservar detalhes úteis do adapter sem vazar credenciais, prompt, diff ou tool results.
-4. Manter mensagens da camada genérica provider-neutral quando o detalhe do fornecedor não for necessário.
-5. Cobrir o mapeamento com regressivos.
-6. Atualizar arquitetura, guias, checklist e referência HTTP quando o contrato mudar.
+1. Testar masking com OpenAI selecionada em:
+   - chat;
+   - implementation;
+   - Code Review por arquivo;
+   - síntese global da Code Review;
+   - completion.
+2. Testar masking de resultados de ferramentas reapresentados ao modelo.
+3. Confirmar que API key/headers nunca entram em prompts, eventos ou logs de conteúdo.
+4. Garantir que consentimento seja verificado antes do primeiro request que contenha conteúdo do projeto.
+5. Testar revogação de consentimento entre duas executions.
+6. Testar que status/listagem de modelos não envia conteúdo do projeto.
+7. Corrigir `docs/architecture/security.md` e demais `.md` que ainda descrevam a IA como somente local ou afirmem que nenhum conteúdo pode sair do computador.
+8. Revisar logs de erro para não persistir prompt, diff, tool result nem credenciais.
 
-## Próximos P0 após erros
+## Próximos P0 após segurança
 
-Depois do P0 #4:
+Depois do P0 #5:
 
-1. segurança de saída cloud;
-2. cancelamento e concorrência;
-3. auditoria final de persistência, UI, docs e suíte obrigatória.
+1. cancelamento e concorrência;
+2. auditoria final de persistência, UI, docs, código órfão e suíte obrigatória.
 
 ## Gate obrigatório
 
@@ -64,4 +61,4 @@ npm run docs:api:check
 
 ## Critério de conclusão da atividade atual
 
-P0 #4 termina somente quando cada classe principal de falha possui comportamento/código previsível, os testes cobrem os mapeamentos e toda a suíte obrigatória fica verde no head correspondente.
+P0 #5 termina somente quando os caminhos cloud relevantes possuem regressivos de consentimento/masking, credenciais não aparecem em conteúdo/logs, a documentação de segurança reflete o comportamento real e toda a suíte obrigatória fica verde no head correspondente.
