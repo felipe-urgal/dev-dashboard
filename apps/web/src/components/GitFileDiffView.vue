@@ -155,7 +155,9 @@ function focusReviewLine(lineNumber: number): void {
     for (const row of root.value?.querySelectorAll<HTMLElement>(
       '.git-diff-unified-row',
     ) ?? []) {
-      const numbers = row.querySelectorAll<HTMLElement>('.git-diff-line-number');
+      const numbers = row.querySelectorAll<HTMLElement>(
+        '.git-diff-line-number',
+      );
       if (numbers[1]?.textContent?.trim() === expected) {
         target = row;
         break;
@@ -204,7 +206,9 @@ function handleReviewAction(event: Event): void {
   const line = lineLabel?.match(/\b(\d+)\b/)?.[1];
   if (!line) return;
 
-  window.setTimeout(() => focusReviewLine(Number(line)), 0);
+  event.preventDefault();
+  event.stopPropagation();
+  focusReviewLine(Number(line));
 }
 
 onMounted(() => {
@@ -215,10 +219,14 @@ onMounted(() => {
 
   isReviewContext.value = true;
   selectedViewMode.value = 'unified';
-  reviewWorkspace = diffPanel.closest<HTMLElement>('.git-code-review-workspace');
-  reviewContainer = diffPanel.closest<HTMLElement>('.git-code-review-file-review');
+  reviewWorkspace = diffPanel.closest<HTMLElement>(
+    '.git-code-review-workspace',
+  );
+  reviewContainer = diffPanel.closest<HTMLElement>(
+    '.git-code-review-file-review',
+  );
   reviewWorkspace?.classList.add('is-diff-enhanced');
-  reviewContainer?.addEventListener('click', handleReviewAction);
+  reviewContainer?.addEventListener('click', handleReviewAction, true);
 
   mediaQuery = window.matchMedia('(max-width: 760px)');
   updateNarrowMode();
@@ -227,7 +235,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearFocusedLine();
-  reviewContainer?.removeEventListener('click', handleReviewAction);
+  reviewContainer?.removeEventListener('click', handleReviewAction, true);
   mediaQuery?.removeEventListener('change', updateNarrowMode);
   reviewWorkspace?.classList.remove(
     'is-diff-enhanced',
@@ -268,7 +276,11 @@ onBeforeUnmount(() => {
         >
           {{ filesCollapsed ? 'Mostrar arquivos' : 'Ocultar arquivos' }}
         </button>
-        <button type="button" :aria-pressed="isExpanded" @click="toggleExpanded">
+        <button
+          type="button"
+          :aria-pressed="isExpanded"
+          @click="toggleExpanded"
+        >
           {{ isExpanded ? 'Restaurar' : 'Expandir diff' }}
         </button>
       </div>
@@ -442,6 +454,10 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(300px, 0.34fr) minmax(0, 0.66fr);
 }
 
+.git-code-review-workspace.is-diff-enhanced .git-code-review-diff-mode {
+  display: none;
+}
+
 .git-code-review-workspace.is-diff-enhanced.is-files-collapsed,
 .git-code-review-workspace.is-diff-enhanced.is-diff-expanded {
   grid-template-columns: minmax(0, 1fr);
@@ -490,7 +506,8 @@ onBeforeUnmount(() => {
 .git-code-review-diff-panel .is-review-focus {
   position: relative;
   z-index: 1;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 76%, transparent);
+  box-shadow: inset 0 0 0 2px
+    color-mix(in srgb, var(--accent) 76%, transparent);
 }
 
 @media (max-width: 760px) {
