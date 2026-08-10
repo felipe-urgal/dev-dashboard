@@ -782,7 +782,9 @@ onUnmounted(stopRefreshing);
           <header>
             <div>
               <span>Arquivo selecionado</span>
-              <strong>{{ activeReviewFile ?? 'Selecione um arquivo' }}</strong>
+              <strong :title="activeReviewFile ?? undefined">{{
+                activeReviewFile ?? 'Selecione um arquivo'
+              }}</strong>
             </div>
             <span class="git-code-review-diff-mode">Lado a lado</span>
           </header>
