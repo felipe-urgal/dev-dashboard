@@ -175,7 +175,11 @@ export function createAppContext(
     projectTerminalService,
     aiAssistantService,
     aiProviderResolver,
-    gitAiCodeReviewService: new GitAiCodeReviewService(aiAssistantService),
+    gitAiCodeReviewService: new GitAiCodeReviewService(
+      aiAssistantService,
+      undefined,
+      aiProviderResolver,
+    ),
     aiImplementationExecutionService: new AiImplementationExecutionService(
       aiAssistantService,
       undefined,
