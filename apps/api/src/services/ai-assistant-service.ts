@@ -1,13 +1,17 @@
 import type {
   AiChatMessage,
   AiCompletionResult,
+  AiErrorCode,
   AiExecutionMode,
   AiModelPullStreamEvent,
   Project,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
-import type { AiProvider } from './ai-provider.js';
+import {
+  AiProviderError,
+  type AiProvider,
+} from './ai-provider.js';
 import { AiOrchestrator, type AiChatHandlers } from './ai-orchestrator.js';
 import { OllamaProvider } from './ollama-provider.js';
 import { ProjectFileService } from './project-file-service.js';
@@ -29,7 +33,10 @@ export { resolveOllamaBaseUrl } from './ollama-provider.js';
 export type { AiChatHandlers } from './ai-orchestrator.js';
 
 export class AiAssistantError extends Error {
-  public constructor(message: string) {
+  public constructor(
+    message: string,
+    public readonly code: AiErrorCode = 'AI_ASSISTANT_INVALID_REQUEST',
+  ) {
     super(message);
     this.name = 'AiAssistantError';
   }
@@ -54,11 +61,13 @@ function truncate(value: string, maxChars: number): string {
   return value.length <= maxChars ? value : value.slice(0, maxChars);
 }
 
-function asAssistantError(error: unknown, fallback: string): AiAssistantError {
-  if (error instanceof AiAssistantError) return error;
-  return new AiAssistantError(
-    error instanceof Error ? error.message : fallback,
-  );
+function asAiError(error: unknown, fallback: string): Error {
+  if (error instanceof AiAssistantError || error instanceof AiProviderError) {
+    return error;
+  }
+  return new AiProviderError('AI_PROVIDER_REQUEST_FAILED', fallback, {
+    cause: error,
+  });
 }
 
 /**
@@ -114,12 +123,17 @@ export class AiAssistantService {
     mode?: AiExecutionMode,
   ): Promise<void> {
     if (!model.trim()) {
-      handlers.send({ type: 'error', message: MODEL_REQUIRED_MESSAGE });
+      handlers.send({
+        type: 'error',
+        code: 'AI_ASSISTANT_INVALID_REQUEST',
+        message: MODEL_REQUIRED_MESSAGE,
+      });
       return;
     }
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
       handlers.send({
         type: 'error',
+        code: 'AI_ASSISTANT_INVALID_REQUEST',
         message: `A conversa deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
       });
       return;
@@ -128,6 +142,7 @@ export class AiAssistantService {
       if (message.content.length > MAX_MESSAGE_CHARS) {
         handlers.send({
           type: 'error',
+          code: 'AI_ASSISTANT_INVALID_REQUEST',
           message: `Cada mensagem deve ter no máximo ${MAX_MESSAGE_CHARS} caracteres.`,
         });
         return;
@@ -176,19 +191,26 @@ export class AiAssistantService {
         },
       );
       if (result.toolCalls.length > 0) {
-        throw new AiAssistantError(
+        throw new AiProviderError(
+          'AI_PROVIDER_INVALID_RESPONSE',
           'O modelo tentou usar ferramentas durante a revisão, o que não é permitido.',
         );
       }
       if (!result.content.trim()) {
-        throw new AiAssistantError('O modelo não devolveu uma revisão.');
+        throw new AiProviderError(
+          'AI_PROVIDER_INVALID_RESPONSE',
+          'O modelo não devolveu uma revisão.',
+        );
       }
       return result.content;
     } catch (error) {
       if (signal.aborted) {
-        throw new AiAssistantError('A revisão foi cancelada pelo usuário.');
+        throw new AiProviderError(
+          'AI_REQUEST_CANCELLED',
+          'A revisão foi cancelada pelo usuário.',
+        );
       }
-      throw asAssistantError(error, 'Falha ao executar a revisão de IA.');
+      throw asAiError(error, 'Falha ao executar a revisão de IA.');
     }
   }
 
@@ -197,14 +219,15 @@ export class AiAssistantService {
     handlers: AiModelPullHandlers,
   ): Promise<void> {
     if (!this.provider.installModel) {
-      throw new AiAssistantError(
+      throw new AiProviderError(
+        'AI_PROVIDER_OPERATION_UNSUPPORTED',
         'O provider de IA atual não permite instalar modelos pelo dashboard.',
       );
     }
     try {
       await this.provider.installModel(model, handlers);
     } catch (error) {
-      throw asAssistantError(error, 'Falha ao instalar o modelo de IA.');
+      throw asAiError(error, 'Falha ao instalar o modelo de IA.');
     }
   }
 
@@ -237,7 +260,13 @@ export class AiAssistantService {
         text: truncate(result.text, MAX_COMPLETION_RESPONSE_CHARS),
       };
     } catch (error) {
-      throw asAssistantError(error, 'Falha ao completar código com IA.');
+      if (signal.aborted) {
+        throw new AiProviderError(
+          'AI_REQUEST_CANCELLED',
+          'A compleção foi cancelada pelo usuário.',
+        );
+      }
+      throw asAiError(error, 'Falha ao completar código com IA.');
     }
   }
 }
