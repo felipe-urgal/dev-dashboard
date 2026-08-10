@@ -269,7 +269,19 @@ export interface GitPullRequestAiReview {
 }
 
 export type GitPullRequestAiReviewExecutionStatus =
-  'running' | 'completed' | 'failed';
+  'running' | 'completed' | 'failed' | 'cancelled';
+
+export type GitPullRequestAiReviewFileStatus =
+  'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+/** Andamento individual de um arquivo dentro da revisão em segundo plano. */
+export interface GitPullRequestAiReviewFileExecution {
+  path: string;
+  status: GitPullRequestAiReviewFileStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  errorMessage?: string;
+}
 
 /** Estado de uma revisão executada em segundo plano pela API local. */
 export interface GitPullRequestAiReviewExecution {
@@ -280,7 +292,11 @@ export interface GitPullRequestAiReviewExecution {
   files: string[];
   model: string;
   status: GitPullRequestAiReviewExecutionStatus;
+  /** Limite de arquivos processados ao mesmo tempo. */
+  concurrency: 1 | 2;
   completedFileCount: number;
+  currentFilePaths: string[];
+  fileExecutions: GitPullRequestAiReviewFileExecution[];
   failedFiles: Array<{ path: string; message: string }>;
   startedAt: string;
   finishedAt?: string;

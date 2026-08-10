@@ -23,6 +23,8 @@ interface ReviewInput {
   targetRemote: GitPullRequestTargetRemote;
   baseBranch: string;
   model: string;
+  paths?: string[];
+  concurrency?: 1 | 2;
 }
 
 interface ReviewFileService {
@@ -34,6 +36,7 @@ interface RunningReview {
   projectPath: string;
   execution: GitPullRequestAiReviewExecution;
   reviews: GitPullRequestAiReview[];
+  controller: AbortController;
 }
 
 function shortText(value: unknown, fallback = ''): string {
@@ -149,6 +152,8 @@ function snapshot(execution: GitPullRequestAiReviewExecution) {
   return {
     ...execution,
     files: [...execution.files],
+    currentFilePaths: [...execution.currentFilePaths],
+    fileExecutions: execution.fileExecutions.map((file) => ({ ...file })),
     failedFiles: execution.failedFiles.map((failure) => ({ ...failure })),
     ...(execution.review
       ? {
@@ -183,15 +188,31 @@ export class GitAiCodeReviewService {
       targetRemote: input.targetRemote,
       baseBranch: input.baseBranch,
     });
+    const selectedPaths = Array.from(
+      new Set(input.paths?.length ? input.paths : files.files),
+    );
+    const invalidPaths = selectedPaths.filter(
+      (path) => !files.files.includes(path),
+    );
+    if (invalidPaths.length > 0)
+      throw new Error(
+        'Um ou mais arquivos selecionados não fazem parte do diff atual.',
+      );
+    if (selectedPaths.length === 0)
+      throw new Error('Selecione pelo menos um arquivo para revisar.');
+
     const execution: GitPullRequestAiReviewExecution = {
       id: randomUUID(),
       targetRemote: files.targetRemote,
       baseBranch: files.baseBranch,
       sourceBranch: files.sourceBranch,
-      files: files.files,
+      files: selectedPaths,
       model: input.model,
       status: 'running',
+      concurrency: input.concurrency === 2 ? 2 : 1,
       completedFileCount: 0,
+      currentFilePaths: [],
+      fileExecutions: selectedPaths.map((path) => ({ path, status: 'queued' })),
       failedFiles: [],
       startedAt: new Date().toISOString(),
     };
@@ -199,6 +220,7 @@ export class GitAiCodeReviewService {
       projectPath: input.project.path,
       execution,
       reviews: [],
+      controller: new AbortController(),
     };
     this.executions.set(input.project.id, running);
     void this.run(running);
@@ -210,55 +232,49 @@ export class GitAiCodeReviewService {
     return execution ? snapshot(execution) : null;
   }
 
+  public cancel(
+    projectId: string,
+    executionId: string,
+  ): GitPullRequestAiReviewExecution | null {
+    const running = this.executions.get(projectId);
+    if (!running || running.execution.id !== executionId) return null;
+    if (running.execution.status !== 'running')
+      return snapshot(running.execution);
+
+    running.controller.abort();
+    running.execution.status = 'cancelled';
+    running.execution.finishedAt = new Date().toISOString();
+    for (const file of running.execution.fileExecutions) {
+      if (file.status !== 'queued' && file.status !== 'running') continue;
+      file.status = 'cancelled';
+      file.finishedAt = running.execution.finishedAt;
+    }
+    return snapshot(running.execution);
+  }
+
   private async run(running: RunningReview): Promise<void> {
     const { execution } = running;
     try {
-      for (const path of execution.files) {
-        try {
-          const diff = await this.gitService.getReviewFileDiff(
-            running.projectPath,
-            {
-              targetRemote: execution.targetRemote,
-              baseBranch: execution.baseBranch,
-            },
-            path,
-          );
-          const masked = maskSensitiveLogContent(diff.diff);
-          const content = await this.aiAssistantService.review(
-            execution.model,
-            reviewPrompt(
-              diff.targetRemote,
-              diff.baseBranch,
-              diff.sourceBranch,
-              masked.content.slice(0, AI_REVIEW_DIFF_LIMIT),
-            ),
-            new AbortController().signal,
-          );
-          const parsed = parseAiReview(content);
-          running.reviews.push({
-            targetRemote: diff.targetRemote,
-            baseBranch: diff.baseBranch,
-            sourceBranch: diff.sourceBranch,
-            files: diff.files,
-            model: execution.model,
-            reviewedAt: new Date().toISOString(),
-            summary: parsed.summary,
-            findings: parsed.findings,
-            diffTruncated: masked.content.length > AI_REVIEW_DIFF_LIMIT,
-            masked: masked.masked,
-            redactionCount: masked.redactionCount,
-          });
-        } catch (error) {
-          execution.failedFiles.push({
-            path,
-            message:
-              error instanceof Error
-                ? error.message
-                : 'A IA não respondeu para este arquivo.',
-          });
-        } finally {
-          execution.completedFileCount += 1;
+      let nextIndex = 0;
+      const reviewNext = async (): Promise<void> => {
+        while (!running.controller.signal.aborted) {
+          const file = execution.fileExecutions[nextIndex++];
+          if (!file) return;
+          await this.reviewFile(running, file);
         }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(execution.concurrency, execution.files.length) },
+          () => reviewNext(),
+        ),
+      );
+      if (
+        running.controller.signal.aborted ||
+        execution.status === 'cancelled'
+      ) {
+        this.finishCancelled(running);
+        return;
       }
       this.finish(running);
     } catch (error) {
@@ -268,6 +284,71 @@ export class GitAiCodeReviewService {
           ? error.message
           : 'Não foi possível concluir o code review com IA.';
       execution.finishedAt = new Date().toISOString();
+    }
+  }
+
+  private async reviewFile(
+    running: RunningReview,
+    file: GitPullRequestAiReviewExecution['fileExecutions'][number],
+  ): Promise<void> {
+    const { execution } = running;
+    file.status = 'running';
+    file.startedAt = new Date().toISOString();
+    execution.currentFilePaths.push(file.path);
+    try {
+      const diff = await this.gitService.getReviewFileDiff(
+        running.projectPath,
+        {
+          targetRemote: execution.targetRemote,
+          baseBranch: execution.baseBranch,
+        },
+        file.path,
+      );
+      if (running.controller.signal.aborted) return;
+      const masked = maskSensitiveLogContent(diff.diff);
+      const content = await this.aiAssistantService.review(
+        execution.model,
+        reviewPrompt(
+          diff.targetRemote,
+          diff.baseBranch,
+          diff.sourceBranch,
+          masked.content.slice(0, AI_REVIEW_DIFF_LIMIT),
+        ),
+        running.controller.signal,
+      );
+      if (running.controller.signal.aborted) return;
+      const parsed = parseAiReview(content);
+      running.reviews.push({
+        targetRemote: diff.targetRemote,
+        baseBranch: diff.baseBranch,
+        sourceBranch: diff.sourceBranch,
+        files: diff.files,
+        model: execution.model,
+        reviewedAt: new Date().toISOString(),
+        summary: parsed.summary,
+        findings: parsed.findings,
+        diffTruncated: masked.content.length > AI_REVIEW_DIFF_LIMIT,
+        masked: masked.masked,
+        redactionCount: masked.redactionCount,
+      });
+      file.status = 'completed';
+    } catch (error) {
+      if (running.controller.signal.aborted) return;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'A IA não respondeu para este arquivo.';
+      file.status = 'failed';
+      file.errorMessage = message;
+      execution.failedFiles.push({ path: file.path, message });
+    } finally {
+      execution.currentFilePaths = execution.currentFilePaths.filter(
+        (path) => path !== file.path,
+      );
+      if (running.controller.signal.aborted) file.status = 'cancelled';
+      file.finishedAt = new Date().toISOString();
+      if (file.status === 'completed' || file.status === 'failed')
+        execution.completedFileCount += 1;
     }
   }
 
@@ -299,5 +380,39 @@ export class GitAiCodeReviewService {
     };
     execution.status = 'completed';
     execution.finishedAt = new Date().toISOString();
+  }
+
+  private finishCancelled(running: RunningReview): void {
+    const { execution, reviews } = running;
+    for (const file of execution.fileExecutions) {
+      if (file.status === 'queued' || file.status === 'running') {
+        file.status = 'cancelled';
+        file.finishedAt = execution.finishedAt ?? new Date().toISOString();
+      }
+    }
+    execution.currentFilePaths = [];
+    execution.status = 'cancelled';
+    execution.finishedAt ??= new Date().toISOString();
+    if (reviews.length > 0) execution.review = this.combineReviews(running);
+  }
+
+  private combineReviews(running: RunningReview): GitPullRequestAiReview {
+    const { execution, reviews } = running;
+    const firstReview = reviews[0]!;
+    return {
+      ...firstReview,
+      files: execution.files,
+      summary:
+        execution.failedFiles.length === 0
+          ? `A IA revisou ${reviews.length} arquivo(s) separadamente.`
+          : `A IA revisou ${reviews.length} de ${execution.files.length} arquivo(s).`,
+      findings: reviews.flatMap((review) => review.findings),
+      diffTruncated: reviews.some((review) => review.diffTruncated),
+      masked: reviews.some((review) => review.masked),
+      redactionCount: reviews.reduce(
+        (total, review) => total + review.redactionCount,
+        0,
+      ),
+    };
   }
 }

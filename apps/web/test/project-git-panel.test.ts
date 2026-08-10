@@ -543,6 +543,11 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
     .trigger('click');
   await flushPromises();
 
+  await mounted.wrapper
+    .find('.git-code-review-scope > header button')
+    .trigger('click');
+  await flushPromises();
+
   assert.match(mounted.wrapper.text(), /apps\/web\/src\/App\.vue/);
   assert.match(mounted.wrapper.text(), /Validar a entrada/);
   assert.ok(

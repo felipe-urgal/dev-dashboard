@@ -142,6 +142,8 @@ export type {
   GitPullRequestCiStatus,
   GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
+  GitPullRequestAiReviewFileExecution,
+  GitPullRequestAiReviewFileStatus,
   GitPullRequestAiReviewExecutionStatus,
   GitPullRequestLookup,
   GitPullRequestProvider,

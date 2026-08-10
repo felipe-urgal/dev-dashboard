@@ -559,8 +559,12 @@ export class AiAssistantService {
       return content;
     } catch (error) {
       if (error instanceof AiAssistantError) throw error;
+      if (signal.aborted)
+        throw new AiAssistantError('A revisão foi cancelada pelo usuário.');
       if (isAbortError(error))
-        throw new AiAssistantError('A revisão foi interrompida.');
+        throw new AiAssistantError(
+          'A conexão com o Ollama foi encerrada antes de concluir a revisão.',
+        );
       throw error;
     }
   }

@@ -6012,6 +6012,23 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "type": "string",
       "minLength": 1,
       "maxLength": 200
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "concurrency": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
     }
   }
 }
@@ -6040,7 +6057,10 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "files",
           "model",
           "status",
+          "concurrency",
           "completedFileCount",
+          "currentFilePaths",
+          "fileExecutions",
           "failedFiles",
           "startedAt"
         ],
@@ -6075,12 +6095,340 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "enum": [
               "running",
               "completed",
-              "failed"
+              "failed",
+              "cancelled"
+            ]
+          },
+          "concurrency": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
             ]
           },
           "completedFileCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "currentFilePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fileExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "status"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                },
+                "errorMessage": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "failedFiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "targetRemote",
+              "baseBranch",
+              "sourceBranch",
+              "files",
+              "model",
+              "reviewedAt",
+              "summary",
+              "findings",
+              "diffTruncated",
+              "masked",
+              "redactionCount"
+            ],
+            "properties": {
+              "targetRemote": {
+                "type": "string",
+                "enum": [
+                  "origin",
+                  "upstream"
+                ]
+              },
+              "baseBranch": {
+                "type": "string"
+              },
+              "sourceBranch": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "model": {
+                "type": "string"
+              },
+              "reviewedAt": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "diffTruncated": {
+                "type": "boolean"
+              },
+              "masked": {
+                "type": "boolean"
+              },
+              "redactionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "severity",
+                    "path",
+                    "title",
+                    "explanation",
+                    "recommendation"
+                  ],
+                  "properties": {
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "warning",
+                        "suggestion"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "recommendation": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/git/pull-request/ai-review-executions/:executionId/cancel`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "executionId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "targetRemote",
+          "baseBranch",
+          "sourceBranch",
+          "files",
+          "model",
+          "status",
+          "concurrency",
+          "completedFileCount",
+          "currentFilePaths",
+          "fileExecutions",
+          "failedFiles",
+          "startedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "targetRemote": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "upstream"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "concurrency": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "completedFileCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currentFilePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fileExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "status"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                },
+                "errorMessage": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "failedFiles": {
             "type": "array",
@@ -6291,7 +6639,10 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "files",
               "model",
               "status",
+              "concurrency",
               "completedFileCount",
+              "currentFilePaths",
+              "fileExecutions",
               "failedFiles",
               "startedAt"
             ],
@@ -6326,12 +6677,61 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "enum": [
                   "running",
                   "completed",
-                  "failed"
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "concurrency": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
                 ]
               },
               "completedFileCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "currentFilePaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fileExecutions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "status"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "errorMessage": {
+                      "type": "string"
+                    }
+                  }
+                }
               },
               "failedFiles": {
                 "type": "array",

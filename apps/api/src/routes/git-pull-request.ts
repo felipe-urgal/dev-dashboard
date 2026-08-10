@@ -48,6 +48,18 @@ interface PullRequestAiReviewBody {
   path?: string;
 }
 
+interface PullRequestAiReviewExecutionBody {
+  targetRemote: GitPullRequestTargetRemote;
+  baseBranch: string;
+  model: string;
+  paths?: string[];
+  concurrency?: 1 | 2;
+}
+
+interface PullRequestAiReviewExecutionParams extends ProjectParams {
+  executionId: string;
+}
+
 interface GitPullRequestRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   aiAssistantService: AiAssistantService;
@@ -108,6 +120,23 @@ const pullRequestAiReviewExecutionBodySchema = {
     targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
     baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
     model: { type: 'string', minLength: 1, maxLength: 200 },
+    paths: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 500,
+      items: { type: 'string', minLength: 1, maxLength: 1_000 },
+    },
+    concurrency: { type: 'integer', enum: [1, 2] },
+  },
+} as const;
+
+const pullRequestAiReviewExecutionParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'executionId'],
+  properties: {
+    projectId: { type: 'string', minLength: 1 },
+    executionId: { type: 'string', minLength: 1 },
   },
 } as const;
 
@@ -177,7 +206,10 @@ const pullRequestAiReviewExecutionSchema = {
     'files',
     'model',
     'status',
+    'concurrency',
     'completedFileCount',
+    'currentFilePaths',
+    'fileExecutions',
     'failedFiles',
     'startedAt',
   ],
@@ -188,8 +220,31 @@ const pullRequestAiReviewExecutionSchema = {
     sourceBranch: { type: 'string' },
     files: { type: 'array', items: { type: 'string' } },
     model: { type: 'string' },
-    status: { type: 'string', enum: ['running', 'completed', 'failed'] },
+    status: {
+      type: 'string',
+      enum: ['running', 'completed', 'failed', 'cancelled'],
+    },
+    concurrency: { type: 'integer', enum: [1, 2] },
     completedFileCount: { type: 'integer', minimum: 0 },
+    currentFilePaths: { type: 'array', items: { type: 'string' } },
+    fileExecutions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['path', 'status'],
+        properties: {
+          path: { type: 'string' },
+          status: {
+            type: 'string',
+            enum: ['queued', 'running', 'completed', 'failed', 'cancelled'],
+          },
+          startedAt: { type: 'string' },
+          finishedAt: { type: 'string' },
+          errorMessage: { type: 'string' },
+        },
+      },
+    },
     failedFiles: {
       type: 'array',
       items: {
@@ -600,7 +655,10 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
     },
   );
 
-  app.post<{ Params: ProjectParams; Body: PullRequestAiReviewBody }>(
+  app.post<{
+    Params: ProjectParams;
+    Body: PullRequestAiReviewExecutionBody;
+  }>(
     '/projects/:projectId/git/pull-request/ai-review-executions',
     {
       schema: {
@@ -625,11 +683,48 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
           targetRemote: request.body.targetRemote,
           baseBranch: request.body.baseBranch,
           model: request.body.model,
+          ...(request.body.paths ? { paths: request.body.paths } : {}),
+          ...(request.body.concurrency
+            ? { concurrency: request.body.concurrency }
+            : {}),
         });
         return reply.code(202).send({ execution });
       } catch (error) {
         translatePullRequestError(error);
       }
+    },
+  );
+
+  app.post<{ Params: PullRequestAiReviewExecutionParams }>(
+    '/projects/:projectId/git/pull-request/ai-review-executions/:executionId/cancel',
+    {
+      schema: {
+        params: pullRequestAiReviewExecutionParamsSchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['execution'],
+            properties: { execution: pullRequestAiReviewExecutionSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      const execution = options.gitAiCodeReviewService.cancel(
+        request.params.projectId,
+        request.params.executionId,
+      );
+      if (!execution) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Revisão em andamento não encontrada.',
+        });
+      }
+      return { execution };
     },
   );
 

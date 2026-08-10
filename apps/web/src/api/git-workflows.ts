@@ -219,6 +219,8 @@ export async function startProjectGitPullRequestAiReview(
     targetRemote: GitPullRequestTargetRemote;
     baseBranch: string;
     model: string;
+    paths: string[];
+    concurrency: 1 | 2;
   },
 ): Promise<GitPullRequestAiReviewExecution> {
   const response = await requestJson<PullRequestAiReviewExecutionResponse>(
@@ -228,6 +230,17 @@ export async function startProjectGitPullRequestAiReview(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     },
+  );
+  return response.execution;
+}
+
+export async function cancelProjectGitPullRequestAiReview(
+  projectId: string,
+  executionId: string,
+): Promise<GitPullRequestAiReviewExecution> {
+  const response = await requestJson<PullRequestAiReviewExecutionResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions/${encodeURIComponent(executionId)}/cancel`,
+    { method: 'POST' },
   );
   return response.execution;
 }
