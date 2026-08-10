@@ -40,18 +40,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Prettier diagnostic
-        run: |
-          npx prettier --write \
-            apps/api/test/ai-fetch-composition.test.ts \
-            apps/api/test/ai-outbound-protection-fetch.test.ts \
-            apps/api/test/ai-security-paths.test.ts
-          git diff -- \
-            apps/api/test/ai-fetch-composition.test.ts \
-            apps/api/test/ai-outbound-protection-fetch.test.ts \
-            apps/api/test/ai-security-paths.test.ts
-          exit 1
-
       - name: Format check
         run: npm run format:check
 
