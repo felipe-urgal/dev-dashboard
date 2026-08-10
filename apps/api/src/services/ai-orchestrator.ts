@@ -16,10 +16,11 @@ import {
   aiExecutionPolicy,
   DEFAULT_AI_EXECUTION_MODE,
 } from './ai-execution-policy.js';
-import type {
-  AiProvider,
-  AiProviderMessage,
-  AiProviderToolDefinition,
+import {
+  AiProviderError,
+  type AiProvider,
+  type AiProviderMessage,
+  type AiProviderToolDefinition,
 } from './ai-provider.js';
 import {
   ProjectFileError,
@@ -307,6 +308,7 @@ export class AiOrchestrator {
           if (!isToolName(call.name)) {
             handlers.send({
               type: 'error',
+              code: 'AI_PROVIDER_INVALID_RESPONSE',
               message: `O modelo tentou chamar "${call.name}", que não faz parte do catálogo autorizado.`,
             });
             return;
@@ -318,6 +320,7 @@ export class AiOrchestrator {
           if (callCount > policy.maxIdenticalToolCalls) {
             handlers.send({
               type: 'error',
+              code: 'AI_PROVIDER_INVALID_RESPONSE',
               message:
                 `O assistente repetiu a ferramenta "${call.name}" com os mesmos argumentos sem progresso. ` +
                 'Tente reformular a solicitação.',
@@ -339,6 +342,7 @@ export class AiOrchestrator {
           ) {
             handlers.send({
               type: 'error',
+              code: 'AI_ASSISTANT_INVALID_REQUEST',
               message:
                 'O contexto acumulado das ferramentas excedeu o limite deste modo de execução. ' +
                 'Tente reduzir o escopo ou usar o modo Completo.',
@@ -355,6 +359,7 @@ export class AiOrchestrator {
 
       handlers.send({
         type: 'error',
+        code: 'AI_ASSISTANT_INVALID_REQUEST',
         message:
           'O assistente encadeou ferramentas demais para esta solicitação. Tente reformular a pergunta.',
       });
@@ -362,6 +367,10 @@ export class AiOrchestrator {
       if (handlers.signal.aborted) return;
       handlers.send({
         type: 'error',
+        code:
+          error instanceof AiProviderError
+            ? error.code
+            : 'AI_PROVIDER_REQUEST_FAILED',
         message:
           error instanceof Error
             ? error.message
