@@ -160,6 +160,16 @@ A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100%
 - [x] modelo OpenAI não pode ser usado com Ollama.
 - [x] Code Review valida provider/modelo antes de ler diff.
 
+### Contratos de erro estáveis
+
+- [x] `AiErrorCode` compartilhado entre contracts, adapters, resolver, HTTP, SSE e executions.
+- [x] consentimento, provider, modelo, auth, quota, rate limit, timeout, cancelamento, resposta inválida e falha upstream possuem códigos próprios.
+- [x] OpenAI e Ollama classificam falhas sem obrigar consumidores a interpretar mensagens.
+- [x] implementation e Code Review registram `errorCode` quando aplicável.
+- [x] referência HTTP documenta os status específicos das rotas de IA.
+- [x] regressivos cobrem taxonomia e mapeamento HTTP.
+- [x] CI #1640 ficou completamente verde após o P0 #4.
+
 ### UX e robustez já incorporados
 
 - [x] falta de créditos/quota OpenAI vira mensagem amigável;
@@ -169,7 +179,6 @@ A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100%
 
 ## Em andamento no #295
 
-- [ ] contratos de erro estáveis;
 - [ ] hardening final de segurança cloud;
 - [ ] cancelamento e concorrência;
 - [ ] auditoria final de persistência/UX/docs/código órfão;
