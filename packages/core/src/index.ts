@@ -32,6 +32,12 @@ export {
 } from './project-dismissed-repository.js';
 
 export {
+  ProjectAiConsentRepository,
+  ProjectAiConsentRepositoryError,
+} from './project-ai-consent-repository.js';
+export type { ProjectAiCloudProviderId } from './project-ai-consent-repository.js';
+
+export {
   ProjectRecentRepository,
   PROJECT_RECENT_LIMITS,
 } from './project-recent-repository.js';
