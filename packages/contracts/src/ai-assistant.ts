@@ -4,6 +4,10 @@ export type AiCapability = 'chat' | 'tools' | 'fill-in-the-middle';
 
 export type AiExecutionMode = 'fast' | 'complete';
 
+export type AiProviderId = 'ollama' | 'openai';
+
+export type AiProviderKind = 'local' | 'cloud';
+
 export interface AiModelInfo {
   name: string;
   capabilities: AiCapability[];
@@ -14,6 +18,20 @@ export interface ProjectAiStatus {
   baseUrl?: string;
   models: AiModelInfo[];
   message: string;
+}
+
+export interface ProjectAiProviderStatus extends ProjectAiStatus {
+  id: AiProviderId;
+  label: string;
+  kind: AiProviderKind;
+  consentRequired: boolean;
+  consentGranted: boolean;
+}
+
+export interface ProjectAiProvidersStatus {
+  selectedProvider: AiProviderId;
+  selectedMode: AiExecutionMode;
+  providers: ProjectAiProviderStatus[];
 }
 
 export const AI_RECOMMENDED_MODELS = [
@@ -67,6 +85,8 @@ export interface AiChatMessage {
 export interface AiChatRequest {
   model: string;
   messages: AiChatMessage[];
+  provider?: AiProviderId;
+  mode?: AiExecutionMode;
 }
 
 export type AiChatStreamEvent =
@@ -81,8 +101,8 @@ export type AiChatStreamEvent =
  * Execução de uma solicitação de implementação iniciada pelo usuário.
  *
  * A execução é mantida pela API para que a navegação entre abas não interrompa
- * a conversa com o Ollama. Ela é efêmera: reiniciar a API encerra execuções em
- * andamento e descarta o histórico em memória.
+ * a conversa com o provider selecionado. Ela é efêmera: reiniciar a API encerra
+ * execuções em andamento e descarta o histórico em memória.
  */
 export type AiImplementationExecutionStatus =
   'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -102,6 +122,8 @@ export interface AiImplementationExecution {
 export interface AiImplementationExecutionRequest {
   model: string;
   prompt: string;
+  provider?: AiProviderId;
+  mode?: AiExecutionMode;
 }
 
 export interface AiImplementationExecutionList {
@@ -112,6 +134,7 @@ export interface AiCompletionRequest {
   model: string;
   prefix: string;
   suffix?: string;
+  provider?: AiProviderId;
 }
 
 export interface AiCompletionResult {

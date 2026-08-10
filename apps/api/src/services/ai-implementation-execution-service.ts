@@ -11,14 +11,19 @@ import type {
 
 import type { AiAssistantService } from './ai-assistant-service.js';
 import { DEFAULT_AI_EXECUTION_MODE } from './ai-execution-policy.js';
+import type { AiProviderResolver } from './ai-provider-resolver.js';
 
 const MAX_EVENTS_PER_EXECUTION = 120;
 const MAX_EXECUTIONS = 40;
 
+type ChatAssistant = Pick<AiAssistantService, 'chat'>;
+type ProjectProviderResolver = Pick<AiProviderResolver, 'resolveSelected'>;
+
 interface StoredExecution {
   execution: AiImplementationExecution;
   controller: AbortController;
-  mode: AiExecutionMode;
+  mode: AiExecutionMode | undefined;
+  aiAssistantService: ChatAssistant | undefined;
 }
 
 function copyExecution(
@@ -38,15 +43,18 @@ export class AiImplementationExecutionService {
   private readonly executions = new Map<string, StoredExecution>();
 
   public constructor(
-    private readonly aiAssistantService: Pick<AiAssistantService, 'chat'>,
+    private readonly aiAssistantService: ChatAssistant,
     private readonly now: () => Date = () => new Date(),
+    private readonly providerResolver:
+      ProjectProviderResolver | undefined = undefined,
   ) {}
 
   public start(
     project: Project,
     model: string,
     prompt: string,
-    mode: AiExecutionMode = DEFAULT_AI_EXECUTION_MODE,
+    mode?: AiExecutionMode,
+    aiAssistantService?: ChatAssistant,
   ): AiImplementationExecution {
     this.cancelRunningForProject(project.id);
     this.discardOldExecutions();
@@ -63,7 +71,12 @@ export class AiImplementationExecutionService {
       updatedAt: timestamp,
       events: [],
     };
-    const stored = { execution, controller, mode };
+    const stored: StoredExecution = {
+      execution,
+      controller,
+      mode,
+      aiAssistantService,
+    };
     this.executions.set(execution.id, stored);
     void this.run(project, stored);
     return copyExecution(execution);
@@ -119,7 +132,19 @@ export class AiImplementationExecutionService {
     ];
 
     try {
-      await this.aiAssistantService.chat(
+      let assistantService = stored.aiAssistantService;
+      let mode = stored.mode;
+      if (!assistantService && this.providerResolver) {
+        const resolved = await this.providerResolver.resolveSelected(
+          project.id,
+        );
+        assistantService = resolved.assistantService;
+        mode ??= resolved.mode;
+      }
+      assistantService ??= this.aiAssistantService;
+      mode ??= DEFAULT_AI_EXECUTION_MODE;
+
+      await assistantService.chat(
         project,
         stored.execution.model,
         messages,
@@ -127,7 +152,7 @@ export class AiImplementationExecutionService {
           signal: stored.controller.signal,
           send: (event) => this.recordEvent(stored.execution, event),
         },
-        stored.mode,
+        mode,
       );
       if (stored.execution.status === 'running') {
         this.finish(

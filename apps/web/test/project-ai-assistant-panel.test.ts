@@ -3,7 +3,10 @@ import { afterEach, test, vi } from 'vitest';
 
 import { flushPromises, mount } from '@vue/test-utils';
 
-import type { AiImplementationExecution } from '@dev-dashboard/contracts';
+import type {
+  AiImplementationExecution,
+  ProjectAiProvidersStatus,
+} from '@dev-dashboard/contracts';
 
 import ProjectAiAssistantPanel from '../src/components/ProjectAiAssistantPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
@@ -19,6 +22,37 @@ function json(payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function providersStatus(): ProjectAiProvidersStatus {
+  return {
+    selectedProvider: 'ollama',
+    selectedMode: 'fast',
+    providers: [
+      {
+        id: 'ollama',
+        label: 'Local',
+        kind: 'local',
+        available: true,
+        models: [
+          { name: 'qwen2.5-coder:14b', capabilities: ['chat', 'tools'] },
+        ],
+        message: '1 modelo instalado no Ollama local.',
+        consentRequired: false,
+        consentGranted: true,
+      },
+      {
+        id: 'openai',
+        label: 'OpenAI',
+        kind: 'cloud',
+        available: false,
+        models: [],
+        message: 'OpenAI não configurada.',
+        consentRequired: true,
+        consentGranted: false,
+      },
+    ],
+  };
 }
 
 test('inicia uma implementação e mantém o aviso de execução em segundo plano', async () => {
@@ -40,14 +74,8 @@ test('inicia uma implementação e mantém o aviso de execução em segundo plan
       method: init?.method ?? 'GET',
       ...(init?.body ? { body: JSON.parse(String(init.body)) } : {}),
     });
-    if (url.pathname.endsWith('/ai/status')) {
-      return json({
-        available: true,
-        models: [
-          { name: 'qwen2.5-coder:14b', capabilities: ['chat', 'tools'] },
-        ],
-        message: '1 modelo instalado no Ollama local.',
-      });
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(providersStatus());
     }
     if (
       url.pathname.endsWith('/ai/implementations') &&
@@ -67,7 +95,6 @@ test('inicia uma implementação e mantém o aviso de execução em segundo plan
   await flushPromises();
 
   await wrapper.get('textarea').setValue('Adicionar testes');
-  await wrapper.get('select').setValue('qwen2.5-coder:14b');
   await wrapper.get('.ai-assistant-start').trigger('click');
   await flushPromises();
 
@@ -100,14 +127,8 @@ test('mantém o polling local sem propagar atualização para o pai a cada ciclo
 
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input), 'http://localhost');
-    if (url.pathname.endsWith('/ai/status')) {
-      return json({
-        available: true,
-        models: [
-          { name: 'qwen2.5-coder:14b', capabilities: ['chat', 'tools'] },
-        ],
-        message: '1 modelo instalado no Ollama local.',
-      });
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(providersStatus());
     }
     if (
       url.pathname.endsWith('/ai/implementations') &&
@@ -131,7 +152,6 @@ test('mantém o polling local sem propagar atualização para o pai a cada ciclo
   await flushPromises();
 
   await wrapper.get('textarea').setValue('Adicionar testes');
-  await wrapper.get('select').setValue('qwen2.5-coder:14b');
   await wrapper.get('.ai-assistant-start').trigger('click');
   await flushPromises();
 

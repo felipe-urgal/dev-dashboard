@@ -2,11 +2,11 @@
 
 Este documento registra a primeira integração cloud do contrato `AiProvider`.
 
-## Estado desta fase
+## Estado atual
 
-O `OpenAiProvider` é um adapter backend implementado e testável, mas **não é selecionável pelo produto nesta fase**. O `AppContext` continua usando `OllamaProvider` como provider ativo.
+O `OpenAiProvider` pode ser selecionado no **Assistente IA** quando houver credencial válida. `OllamaProvider` permanece como default local e privado.
 
-Isso é deliberado: um provider não conhece `Project`, filesystem, Git, LSP, workspace edit nem consentimento. O caminho ativo para cloud só será criado junto do resolver/seleção e da confirmação por projeto.
+A seleção não altera a fronteira arquitetural: o provider não conhece `Project`, filesystem, Git, LSP, workspace edit nem consentimento. Essas decisões pertencem ao Dev Dashboard e são aplicadas antes de o adapter ser chamado.
 
 ## Autenticação
 
@@ -33,21 +33,41 @@ IDs nativos de tool calls são mantidos somente dentro do adapter. O contrato co
 
 `createAiOutboundProtectionFetch` permanece como a última barreira antes da rede. A proteção cobre o endpoint de chat do Ollama e também `/v1/chat/completions`, mascarando conteúdo textual de mensagens antes do `fetch` efetivo.
 
-## Consentimento
+## Seleção e consentimento
 
-Não existe caminho de produção para o `OpenAiProvider` nesta fase. Antes de ele ser selecionável, o próximo PR deve implementar:
+O backend mantém duas configurações locais independentes por projeto:
 
-- resolução explícita de provider;
-- consentimento por projeto antes do primeiro envio cloud;
-- persistência local desse consentimento;
-- indicação clara de Local vs Cloud;
-- nenhuma troca Local → Cloud silenciosa.
+- `project-ai-selection.json`: provider (`ollama`/`openai`) e modo (`fast`/`complete`);
+- `project-ai-consent.json`: autorização explícita para uso da OpenAI naquele projeto.
 
-## Fora desta fase
+Os arquivos ficam no diretório de configuração local com permissão pretendida `0600`. Eles não armazenam API key, prompt, diff, resposta do modelo ou conteúdo do workspace.
 
-- seleção de provider na UI;
-- fallback;
+Selecionar `openai` não concede consentimento automaticamente. Antes de cada nova execução cloud, `AiProviderResolver` revalida:
+
+1. provider selecionado;
+2. consentimento do projeto;
+3. disponibilidade/autenticação do provider.
+
+Se o consentimento for revogado, novas execuções OpenAI são bloqueadas. Nenhuma troca Local → Cloud acontece silenciosamente.
+
+A consulta de status/modelos do provider pode ocorrer sem consentimento porque não inclui conteúdo do projeto; o envio de código/contexto exige a autorização persistida.
+
+## Interface
+
+A tela principal expõe somente:
+
+- `Executar com`: Local ou OpenAI, com indicação Local/Cloud;
+- `Modo`: Rápido ou Completo;
+- `Opções avançadas`: seleção de modelo e revogação de acesso cloud.
+
+Providers indisponíveis aparecem desabilitados com a mensagem de status correspondente.
+
+## Ainda fora desta fase
+
+- fallback `offer`;
+- troca automática de provider;
 - provider adicional;
 - `ProviderRegistry` dinâmico;
 - acesso do provider ao workspace;
-- ferramentas hospedadas pelo fornecedor.
+- ferramentas hospedadas pelo fornecedor;
+- seleção de provider no fluxo de Code review.

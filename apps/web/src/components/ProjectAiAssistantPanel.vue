@@ -10,9 +10,12 @@ import {
 
 import type {
   AiChatStreamEvent,
+  AiExecutionMode,
   AiImplementationExecution,
-  AiModelInfo,
+  AiProviderId,
   Project,
+  ProjectAiProviderStatus,
+  ProjectAiProvidersStatus,
   ProjectWorkspaceEditPreview,
 } from '@dev-dashboard/contracts';
 
@@ -20,8 +23,10 @@ import {
   applyProjectWorkspaceEdit,
   cancelProjectAiImplementation,
   fetchProjectAiImplementation,
-  fetchProjectAiStatus,
+  fetchProjectAiProviders,
   startProjectAiImplementation,
+  updateProjectAiProviderConsent,
+  updateProjectAiSelection,
 } from '../api';
 
 const props = defineProps<{
@@ -32,16 +37,45 @@ const emit = defineEmits<{ 'execution-updated': [] }>();
 
 const prompt = ref('');
 const model = ref('');
+const providerId = ref<AiProviderId>('ollama');
+const mode = ref<AiExecutionMode>('fast');
+const providers = ref<ProjectAiProviderStatus[]>([]);
 const loading = ref(true);
 const starting = ref(false);
 const applying = ref(false);
+const selectionSaving = ref(false);
+const consentSaving = ref(false);
 const errorMessage = ref('');
 const execution = ref<AiImplementationExecution | null>(null);
-const models = ref<AiModelInfo[]>([]);
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let generation = 0;
 
+const selectedProvider = computed(
+  () =>
+    providers.value.find((provider) => provider.id === providerId.value) ??
+    null,
+);
+const models = computed(() => selectedProvider.value?.models ?? []);
 const isRunning = computed(() => execution.value?.status === 'running');
+const providerReady = computed(
+  () =>
+    Boolean(selectedProvider.value?.available) &&
+    (!selectedProvider.value?.consentRequired ||
+      Boolean(selectedProvider.value?.consentGranted)),
+);
+const canStart = computed(
+  () =>
+    !loading.value &&
+    !isRunning.value &&
+    !starting.value &&
+    !selectionSaving.value &&
+    providerReady.value &&
+    Boolean(prompt.value.trim()) &&
+    Boolean(model.value),
+);
+const providerKindLabel = computed(() =>
+  selectedProvider.value?.kind === 'cloud' ? 'Cloud' : 'Local',
+);
 const message = computed(
   () =>
     execution.value?.events
@@ -87,6 +121,29 @@ function eventLabel(event: AiChatStreamEvent): string {
   return '';
 }
 
+function preferredModel(provider: ProjectAiProviderStatus | null): string {
+  if (!provider) return '';
+  return (
+    provider.models.find((candidate) =>
+      candidate.capabilities.includes('tools'),
+    )?.name ??
+    provider.models[0]?.name ??
+    ''
+  );
+}
+
+function applyProviderStatus(status: ProjectAiProvidersStatus): void {
+  providers.value = status.providers;
+  providerId.value = status.selectedProvider;
+  mode.value = status.selectedMode;
+  const availableModels =
+    status.providers.find((provider) => provider.id === providerId.value)
+      ?.models ?? [];
+  if (!availableModels.some((candidate) => candidate.name === model.value)) {
+    model.value = preferredModel(selectedProvider.value);
+  }
+}
+
 function schedulePolling(currentGeneration: number): void {
   if (!isRunning.value || currentGeneration !== generation) return;
   clearTimeout(pollTimer);
@@ -119,20 +176,13 @@ async function initialize(): Promise<void> {
   errorMessage.value = '';
   clearTimeout(pollTimer);
   try {
-    const [status, result] = await Promise.all([
-      fetchProjectAiStatus(props.projectId),
+    const [providerStatus, result] = await Promise.all([
+      fetchProjectAiProviders(props.projectId),
       fetchProjectAiImplementation(props.projectId),
     ]);
     if (currentGeneration !== generation) return;
-    models.value = status.models;
-    model.value =
-      status.models.find((candidate) =>
-        candidate.capabilities.includes('tools'),
-      )?.name ??
-      status.models[0]?.name ??
-      '';
+    applyProviderStatus(providerStatus);
     execution.value = result.execution;
-    if (!status.available) errorMessage.value = status.message;
   } catch (error) {
     if (currentGeneration === generation) {
       errorMessage.value =
@@ -148,8 +198,55 @@ async function initialize(): Promise<void> {
   }
 }
 
+async function saveSelection(): Promise<void> {
+  if (selectionSaving.value || isRunning.value) return;
+  selectionSaving.value = true;
+  errorMessage.value = '';
+  try {
+    const status = await updateProjectAiSelection(
+      props.projectId,
+      providerId.value,
+      mode.value,
+    );
+    applyProviderStatus(status);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível salvar a seleção de IA.';
+  } finally {
+    selectionSaving.value = false;
+  }
+}
+
+async function changeProvider(): Promise<void> {
+  model.value = preferredModel(selectedProvider.value);
+  await saveSelection();
+}
+
+async function setConsent(granted: boolean): Promise<void> {
+  if (consentSaving.value || providerId.value !== 'openai') return;
+  consentSaving.value = true;
+  errorMessage.value = '';
+  try {
+    const status = await updateProjectAiProviderConsent(
+      props.projectId,
+      providerId.value,
+      granted,
+    );
+    applyProviderStatus(status);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível atualizar o consentimento cloud.';
+  } finally {
+    consentSaving.value = false;
+  }
+}
+
 async function start(): Promise<void> {
-  if (!prompt.value.trim() || !model.value || starting.value) return;
+  if (!canStart.value) return;
   starting.value = true;
   errorMessage.value = '';
   try {
@@ -236,6 +333,80 @@ onUnmounted(() => {
     </header>
 
     <div class="ai-assistant-composer">
+      <div class="ai-assistant-execution-options">
+        <label>
+          Executar com
+          <select
+            v-model="providerId"
+            :disabled="loading || isRunning || selectionSaving"
+            @change="changeProvider"
+          >
+            <option
+              v-for="candidate in providers"
+              :key="candidate.id"
+              :value="candidate.id"
+              :disabled="!candidate.available"
+            >
+              {{ candidate.label }} ·
+              {{ candidate.kind === 'cloud' ? 'Cloud' : 'Local' }}
+              {{ candidate.available ? '' : '· indisponível' }}
+            </option>
+          </select>
+        </label>
+
+        <fieldset class="ai-assistant-mode" :disabled="loading || isRunning">
+          <legend>Modo</legend>
+          <label>
+            <input
+              v-model="mode"
+              type="radio"
+              value="fast"
+              @change="saveSelection"
+            />
+            Rápido
+          </label>
+          <label>
+            <input
+              v-model="mode"
+              type="radio"
+              value="complete"
+              @change="saveSelection"
+            />
+            Completo
+          </label>
+        </fieldset>
+      </div>
+
+      <div v-if="selectedProvider" class="ai-assistant-provider-summary">
+        <strong>{{ selectedProvider.label }} · {{ providerKindLabel }}</strong>
+        <span>{{ selectedProvider.message }}</span>
+      </div>
+
+      <div
+        v-if="
+          selectedProvider?.kind === 'cloud' &&
+          selectedProvider.available &&
+          !selectedProvider.consentGranted
+        "
+        class="ai-assistant-cloud-consent"
+      >
+        <div>
+          <strong>Autorizar envio de código à OpenAI?</strong>
+          <p>
+            O consentimento vale somente para este projeto e pode ser revogado.
+            Segredos continuam mascarados antes de sair da máquina.
+          </p>
+        </div>
+        <button
+          class="secondary-button"
+          type="button"
+          :disabled="consentSaving"
+          @click="setConsent(true)"
+        >
+          {{ consentSaving ? 'Salvando...' : 'Autorizar neste projeto' }}
+        </button>
+      </div>
+
       <label for="ai-implementation-prompt">O que você quer implementar?</label>
       <textarea
         id="ai-implementation-prompt"
@@ -244,33 +415,52 @@ onUnmounted(() => {
         maxlength="8000"
         placeholder="Ex.: adicionar autenticação por token na API e cobrir o fluxo com testes."
       />
+
+      <details class="ai-assistant-advanced">
+        <summary>Opções avançadas</summary>
+        <div>
+          <label>
+            Modelo
+            <select v-model="model" :disabled="loading || isRunning">
+              <option value="" disabled>Selecione um modelo</option>
+              <option
+                v-for="candidate in models"
+                :key="candidate.name"
+                :value="candidate.name"
+              >
+                {{ candidate.name }}
+              </option>
+            </select>
+          </label>
+          <button
+            v-if="
+              selectedProvider?.kind === 'cloud' &&
+              selectedProvider.consentGranted
+            "
+            class="ai-assistant-revoke"
+            type="button"
+            :disabled="consentSaving || isRunning"
+            @click="setConsent(false)"
+          >
+            Revogar acesso cloud deste projeto
+          </button>
+        </div>
+      </details>
+
       <div class="ai-assistant-composer-actions">
-        <label>
-          Modelo
-          <select v-model="model" :disabled="loading || isRunning">
-            <option value="" disabled>Selecione um modelo</option>
-            <option
-              v-for="candidate in models"
-              :key="candidate.name"
-              :value="candidate.name"
-            >
-              {{ candidate.name }}
-            </option>
-          </select>
-        </label>
+        <p class="ai-assistant-background-note">
+          Você pode sair desta aba; a execução continuará em segundo plano.
+        </p>
         <button
           class="primary-button ai-assistant-start"
           type="button"
-          :disabled="loading || isRunning || !prompt.trim() || !model"
+          :disabled="!canStart"
           @click="start"
         >
           <SparklesIcon aria-hidden="true" />
           {{ starting ? 'Iniciando...' : 'Iniciar' }}
         </button>
       </div>
-      <p class="ai-assistant-background-note">
-        Você pode sair desta aba; a execução continuará em segundo plano.
-      </p>
     </div>
 
     <p v-if="errorMessage" class="ai-assistant-error">{{ errorMessage }}</p>

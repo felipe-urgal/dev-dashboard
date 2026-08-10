@@ -1710,6 +1710,470 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+## Ai Providers
+
+### `GET /api/projects/:projectId/ai/providers`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "selectedProvider",
+      "selectedMode",
+      "providers"
+    ],
+    "properties": {
+      "selectedProvider": {
+        "type": "string",
+        "enum": [
+          "ollama",
+          "openai"
+        ]
+      },
+      "selectedMode": {
+        "type": "string",
+        "enum": [
+          "fast",
+          "complete"
+        ]
+      },
+      "providers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label",
+            "kind",
+            "available",
+            "models",
+            "message",
+            "consentRequired",
+            "consentGranted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "ollama",
+                "openai"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "local",
+                "cloud"
+              ]
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "consentRequired": {
+              "type": "boolean"
+            },
+            "consentGranted": {
+              "type": "boolean"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "capabilities"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "chat",
+                        "tools",
+                        "fill-in-the-middle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `PUT /api/projects/:projectId/ai/providers/:providerId/consent`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "providerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "providerId": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "openai"
+      ]
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "granted"
+  ],
+  "properties": {
+    "granted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "selectedProvider",
+      "selectedMode",
+      "providers"
+    ],
+    "properties": {
+      "selectedProvider": {
+        "type": "string",
+        "enum": [
+          "ollama",
+          "openai"
+        ]
+      },
+      "selectedMode": {
+        "type": "string",
+        "enum": [
+          "fast",
+          "complete"
+        ]
+      },
+      "providers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label",
+            "kind",
+            "available",
+            "models",
+            "message",
+            "consentRequired",
+            "consentGranted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "ollama",
+                "openai"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "local",
+                "cloud"
+              ]
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "consentRequired": {
+              "type": "boolean"
+            },
+            "consentGranted": {
+              "type": "boolean"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "capabilities"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "chat",
+                        "tools",
+                        "fill-in-the-middle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `PUT /api/projects/:projectId/ai/selection`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "mode"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "ollama",
+        "openai"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "fast",
+        "complete"
+      ]
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "selectedProvider",
+      "selectedMode",
+      "providers"
+    ],
+    "properties": {
+      "selectedProvider": {
+        "type": "string",
+        "enum": [
+          "ollama",
+          "openai"
+        ]
+      },
+      "selectedMode": {
+        "type": "string",
+        "enum": [
+          "fast",
+          "complete"
+        ]
+      },
+      "providers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "label",
+            "kind",
+            "available",
+            "models",
+            "message",
+            "consentRequired",
+            "consentGranted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "enum": [
+                "ollama",
+                "openai"
+              ]
+            },
+            "label": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "local",
+                "cloud"
+              ]
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "consentRequired": {
+              "type": "boolean"
+            },
+            "consentGranted": {
+              "type": "boolean"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "capabilities"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "chat",
+                        "tools",
+                        "fill-in-the-middle"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ## Bundler
 
 ### `GET /api/projects/:projectId/bundler`

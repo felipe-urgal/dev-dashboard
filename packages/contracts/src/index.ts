@@ -66,6 +66,8 @@ export type {
   AiChatRole,
   AiChatStreamEvent,
   AiExecutionMode,
+  AiProviderId,
+  AiProviderKind,
   AiImplementationExecution,
   AiImplementationExecutionList,
   AiImplementationExecutionRequest,
@@ -76,6 +78,8 @@ export type {
   AiModelInfo,
   AiRecommendedModelName,
   AiTool,
+  ProjectAiProviderStatus,
+  ProjectAiProvidersStatus,
   ProjectAiStatus,
 } from './ai-assistant.js';
 export { AI_RECOMMENDED_MODELS } from './ai-assistant.js';

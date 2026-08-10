@@ -23,7 +23,7 @@ Quando houver falha de formatação, executar `npm run format` e repetir `npm ru
 Além disso:
 
 - não misturar refatoração não relacionada;
-- manter a API em `127.0.0.1` enquanto não existir provider cloud explícito;
+- manter a API em `127.0.0.1`;
 - preservar catálogo fechado de ferramentas;
 - preservar preview + aprovação antes de escrita;
 - não introduzir shell arbitrário;
@@ -97,114 +97,112 @@ PR de referência: **#288**.
 
 ---
 
-## PR 4 — Modos de execução `fast` / `complete` — em conclusão
+## PR 4 — Modos de execução `fast` / `complete` — concluído
 
 **Objetivo:** tornar profundidade de execução uma policy explícita, mensurável e testável.
 
-### Policy inicial
+### Policy atual
 
 | Campo | `fast` | `complete` |
 |---|---:|---:|
 | `maxToolRounds` | 4 | 10 |
 | `maxToolResultChars` | 8.000 | 12.000 |
 | `maxAccumulatedToolResultChars` | 32.000 | 96.000 |
-| `maxIdenticalToolCalls` | 2 | 2 |
+| `maxIdenticalToolCalls` | 4 | 2 |
 | `maxDiffChars` | 4.000 | 12.000 |
 | `maxContextFiles` | 4 | 12 |
+| `maxGlobalSynthesisChars` | 0 | 48.000 |
 | `runGlobalSynthesis` | `false` | `true` |
 
-Os valores são a primeira calibração e devem ser revistos depois de validação com projetos reais.
+Os valores seguem como calibração inicial e podem ser revisados após validação com projetos reais.
 
-### Tarefas
+### Entregue
 
 - [x] Criar `AiExecutionMode` e `AiExecutionPolicy`.
-- [x] Definir `maxToolRounds` por modo.
-- [x] Definir `maxDiffChars` por modo.
-- [x] Definir `maxContextFiles` para uso nas fases seguintes.
-- [x] Definir `runGlobalSynthesis` para o PR 5.
 - [x] Centralizar budgets em uma única policy.
 - [x] Manter `fast` como default compatível.
-- [x] Dar ao `complete` budget maior de rodadas, resultado de ferramentas e diff.
+- [x] Dar ao `complete` budget maior, mas limitado.
 - [x] Implementar proteção contra chamadas idênticas repetidas sem progresso.
 - [x] Implementar budget acumulado de resultados de ferramentas.
 - [x] Fazer Code review usar `maxDiffChars` da policy.
-- [x] Propagar o modo programaticamente para o Assistente/implementation.
+- [x] Propagar o modo programaticamente para Assistente/implementation.
 - [x] Cobrir policies, round limit, loop guard e limite de diff com testes.
-- [ ] Validar os valores com Ollama real antes de considerá-los definitivos.
-- [ ] CI obrigatório verde no commit final.
+- [x] CI obrigatório verde.
 
-### Critério de aceite
-
-- [x] `fast` preserva 4 rounds e 4k de diff como comportamento padrão;
-- [x] `complete` possui budget maior, mas limitado;
-- [x] loop de tool call idêntica é interrompido;
-- [x] contexto acumulado possui teto explícito;
-- [x] nenhum detalhe específico de provider entra na policy comum;
-- [x] nenhuma mudança visual foi introduzida;
-- [ ] CI obrigatório verde.
-
-Após merge, seguir para **PR 5 — síntese global da Code review**.
+PR de referência: **#289**.
 
 ---
 
-## PR 5 — Síntese global da Code review
+## PR 5 — Síntese global da Code review — absorvido pelo #289
 
 **Objetivo:** detectar problemas entre arquivos sem reescrever o paralelismo existente.
 
-### Tarefas
+A implementação foi concluída dentro do PR #289 porque a policy de `complete` e a etapa global evoluíram juntas sem exigir uma fronteira útil de PR separada.
 
-- [ ] Preservar review individual por arquivo e concorrência atual.
-- [ ] Agregar summaries/findings para uma etapa final.
-- [ ] Criar prompt de síntese global.
-- [ ] Deduplicar findings sobre o mesmo problema.
-- [ ] Detectar contratos quebrados entre arquivos.
-- [ ] Detectar testes ausentes/impactados no conjunto da PR.
-- [ ] Validar structured output da síntese global.
-- [ ] Tratar saída inválida como falha/degradação explícita.
-- [ ] `fast`: pular síntese global.
-- [ ] `complete`: executar síntese global.
-- [ ] Ajustar limite/chunking conforme policy.
-- [ ] Cobrir PR com múltiplos arquivos em testes.
+### Entregue
+
+- [x] Preservar review individual por arquivo e concorrência atual.
+- [x] Agregar summaries/findings para uma etapa final.
+- [x] Criar prompt de síntese global sem ferramentas.
+- [x] Deduplicar findings equivalentes.
+- [x] Procurar contratos quebrados entre arquivos e testes impactados.
+- [x] Validar structured output da síntese global.
+- [x] Tratar saída inválida como falha explícita preservando revisão local.
+- [x] `fast`: pular síntese global.
+- [x] `complete`: executar síntese global.
+- [x] Respeitar budget de contexto da policy.
+- [x] Cobrir PR multi-arquivo, falha e cancelamento em testes.
 
 ---
 
-## PR 6 — Primeiro provider cloud
+## PR 6 — Primeiro provider cloud — concluído
 
 **Objetivo:** validar a abstração multi-provider com apenas um provider externo real.
 
-### Decisão antes de implementar
+### Decisão
 
-- [ ] Revalidar documentação oficial vigente dos candidatos.
-- [ ] Escolher **um** provider para a primeira integração.
-- [ ] Registrar autenticação, quotas, política de dados e limitações reais.
+O primeiro provider cloud é **OpenAI API**, autenticado por API key e isolado atrás do contrato `AiProvider`.
 
-### Tarefas
+### Entregue
 
-- [ ] Implementar adaptador e autenticação pelo caminho oficialmente suportado.
-- [ ] Expor status/modelos/capacidades.
-- [ ] Traduzir tool calling para o catálogo interno.
-- [ ] Validar opções específicas dentro do adaptador.
-- [ ] Preservar masking antes de cada envio externo.
-- [ ] Criar consentimento por projeto antes do primeiro envio cloud.
-- [ ] Persistir consentimento apenas em configuração local apropriada.
-- [ ] Atualizar `docs/architecture/security.md` e documentação de rede.
-- [ ] Adicionar testes do provider e da fronteira de segurança.
+- [x] Revalidar caminho oficial de autenticação e API.
+- [x] Implementar `OpenAiProvider`.
+- [x] Expor status/modelos/capacidades do adapter.
+- [x] Traduzir function calling para o catálogo interno.
+- [x] Manter IDs nativos de tool calls encapsulados no adapter.
+- [x] Preservar masking antes de requests cloud.
+- [x] Enviar `store: false` nas requests de inferência.
+- [x] Manter OpenAI desligada do fluxo de produto até existir consentimento por projeto.
+- [x] Registrar fronteira e limitações em `docs/architecture/openai-provider.md`.
+- [x] Adicionar testes do provider e da fronteira de segurança.
+- [x] CI obrigatório verde.
+
+PR de referência: **#290**.
 
 ---
 
-## PR 7 — Seleção de provider na UI
+## PR 7 — Seleção de provider + consentimento — em andamento
 
-**Objetivo:** permitir escolha de execução sem transformar a tela em painel técnico.
+**Objetivo:** permitir escolha de execução sem transformar a tela em painel técnico e sem envio cloud sem autorização explícita.
 
 ### Tarefas
 
-- [ ] Resolver provider ativo no backend.
-- [ ] Expor apenas providers realmente disponíveis.
-- [ ] Adicionar seletor `Executar com`.
-- [ ] Adicionar seleção independente `Rápido` / `Completo`.
-- [ ] Manter modelo/opções específicas em área avançada.
-- [ ] Exibir claramente Local vs Cloud.
-- [ ] Cobrir estados indisponível/não autenticado.
+- [x] Criar resolver central de provider no backend.
+- [x] Manter `Ollama + fast` como default.
+- [x] Persistir provider e modo por projeto em configuração local.
+- [x] Persistir consentimento OpenAI separadamente por projeto.
+- [x] Revalidar consentimento e disponibilidade antes de uma nova execução cloud.
+- [x] Expor status dos providers, modelos, seleção e consentimento para a UI.
+- [x] Adicionar seletor `Executar com` com indicação Local/Cloud.
+- [x] Adicionar seleção independente `Rápido` / `Completo`.
+- [x] Manter modelo em `Opções avançadas`.
+- [x] Permitir conceder e revogar consentimento cloud por projeto.
+- [x] Cobrir default, indisponibilidade, consentimento, persistência e revogação com testes do resolver.
+- [ ] CI obrigatório verde no commit final.
+
+### Escopo deliberadamente limitado
+
+Neste PR, a seleção é aplicada primeiro ao **Assistente IA / implementation**. A Code review mantém o fluxo atual; isso evita misturar a mudança de UI/resolução com uma segunda migração de orquestração batch no mesmo PR.
 
 ---
 
@@ -234,6 +232,7 @@ Após merge, seguir para **PR 5 — síntese global da Code review**.
 - [ ] fallback automático.
 - [ ] múltiplos providers cloud na primeira validação.
 - [ ] parâmetros específicos de fornecedor no contrato global.
+- [ ] seleção multi-provider na Code review até a UI/resolução do Assistente estabilizar.
 
 ## Sequência resumida
 
@@ -242,8 +241,8 @@ Após merge, seguir para **PR 5 — síntese global da Code review**.
 | 1 | Documentação e roadmap | Concluído (#286) |
 | 2 | Caracterização + segurança | Concluído (#287) |
 | 3 | `AiProvider` + `OllamaProvider` | Concluído (#288) |
-| 4 | `fast` / `complete` | Em conclusão |
-| 5 | Síntese global da Code review | Próximo após PR 4 |
-| 6 | Primeiro provider cloud | Pendente |
-| 7 | Seleção de provider na UI | Pendente |
+| 4 | `fast` / `complete` | Concluído (#289) |
+| 5 | Síntese global da Code review | Absorvido pelo #289 |
+| 6 | Primeiro provider cloud | Concluído (#290) |
+| 7 | Seleção + consentimento | Em andamento |
 | 8 | Fallback `offer` | Pendente |

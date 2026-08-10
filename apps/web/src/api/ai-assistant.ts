@@ -2,18 +2,61 @@ import type {
   AiChatMessage,
   AiChatStreamEvent,
   AiCompletionResult,
+  AiExecutionMode,
   AiModelPullStreamEvent,
+  AiProviderId,
   AiRecommendedModelName,
+  ProjectAiProvidersStatus,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
 import { followEventStream, requestJson } from './core';
 
+function projectAiPath(projectId: string): string {
+  return `/api/projects/${encodeURIComponent(projectId)}/ai`;
+}
+
 export function fetchProjectAiStatus(
   projectId: string,
 ): Promise<ProjectAiStatus> {
-  return requestJson<ProjectAiStatus>(
-    `/api/projects/${encodeURIComponent(projectId)}/ai/status`,
+  return requestJson<ProjectAiStatus>(`${projectAiPath(projectId)}/status`);
+}
+
+export function fetchProjectAiProviders(
+  projectId: string,
+): Promise<ProjectAiProvidersStatus> {
+  return requestJson<ProjectAiProvidersStatus>(
+    `${projectAiPath(projectId)}/providers`,
+  );
+}
+
+export function updateProjectAiSelection(
+  projectId: string,
+  provider: AiProviderId,
+  mode: AiExecutionMode,
+): Promise<ProjectAiProvidersStatus> {
+  return requestJson<ProjectAiProvidersStatus>(
+    `${projectAiPath(projectId)}/selection`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, mode }),
+    },
+  );
+}
+
+export function updateProjectAiProviderConsent(
+  projectId: string,
+  provider: AiProviderId,
+  granted: boolean,
+): Promise<ProjectAiProvidersStatus> {
+  return requestJson<ProjectAiProvidersStatus>(
+    `${projectAiPath(projectId)}/providers/${encodeURIComponent(provider)}/consent`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ granted }),
+    },
   );
 }
 
@@ -25,7 +68,7 @@ export function completeProjectAi(
   signal: AbortSignal,
 ): Promise<AiCompletionResult> {
   return requestJson<AiCompletionResult>(
-    `/api/projects/${encodeURIComponent(projectId)}/ai/complete`,
+    `${projectAiPath(projectId)}/complete`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -42,7 +85,7 @@ export function streamProjectAiChat(
   onEvent: (event: AiChatStreamEvent) => void,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream<AiChatStreamEvent>(
-    `/api/projects/${encodeURIComponent(projectId)}/ai/chat`,
+    `${projectAiPath(projectId)}/chat`,
     onEvent,
     {
       method: 'POST',
@@ -58,7 +101,7 @@ export function streamProjectAiModelPull(
   onEvent: (event: AiModelPullStreamEvent) => void,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream<AiModelPullStreamEvent>(
-    `/api/projects/${encodeURIComponent(projectId)}/ai/models/pull`,
+    `${projectAiPath(projectId)}/models/pull`,
     onEvent,
     {
       method: 'POST',

@@ -42,6 +42,7 @@ import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
 import { aiAssistantRoutes } from './routes/ai-assistant.js';
+import { aiProviderRoutes } from './routes/ai-providers.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -299,6 +300,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     processManager: context.processManager,
     projectBrowserService: context.projectBrowserService,
+  });
+
+  app.register(aiProviderRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    aiProviderResolver: context.aiProviderResolver,
   });
 
   app.register(aiAssistantRoutes, {
