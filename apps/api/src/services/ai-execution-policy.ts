@@ -7,6 +7,7 @@ export interface AiExecutionPolicy {
   readonly maxIdenticalToolCalls: number;
   readonly maxDiffChars: number;
   readonly maxContextFiles: number;
+  readonly maxGlobalSynthesisChars: number;
   readonly runGlobalSynthesis: boolean;
 }
 
@@ -20,6 +21,7 @@ export const AI_EXECUTION_POLICIES = {
     maxIdenticalToolCalls: 2,
     maxDiffChars: 4_000,
     maxContextFiles: 4,
+    maxGlobalSynthesisChars: 0,
     runGlobalSynthesis: false,
   },
   complete: {
@@ -29,6 +31,7 @@ export const AI_EXECUTION_POLICIES = {
     maxIdenticalToolCalls: 2,
     maxDiffChars: 12_000,
     maxContextFiles: 12,
+    maxGlobalSynthesisChars: 48_000,
     runGlobalSynthesis: true,
   },
 } as const satisfies Record<AiExecutionMode, AiExecutionPolicy>;
