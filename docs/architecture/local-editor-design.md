@@ -1,5 +1,13 @@
 # Abertura do editor local
 
+> **Removida.** Tanto a abertura do editor local externo descrita abaixo
+> quanto a IDE embutida ([`embedded-ide-ai-design.md`](./embedded-ide-ai-design.md))
+> foram retiradas do dashboard no PR #262 ("remove embedded editor"). Não há
+> mais rota `/api/projects/:projectId/editors`, botão de abrir editor externo
+> no cabeçalho do projeto, nem variável `DEV_EDITOR`. Este documento fica
+> mantido como registro histórico da decisão de arquitetura; não descreve o
+> estado atual do produto.
+
 ## Objetivo
 
 Permitir que o dashboard abra o projeto atual em um editor gráfico já

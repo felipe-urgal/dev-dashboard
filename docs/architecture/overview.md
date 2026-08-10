@@ -473,7 +473,9 @@ Ainda faltam:
 - adaptador para navegador local;
 - jobs/histórico de ações unificado entre Git, Rails e processos.
 
-`git-pr` foi concluído na task 043 e o adaptador de editor local na task 064.
+`git-pr` foi concluído na task 043 e o adaptador de editor local na task 064 — esse adaptador
+(abertura de editor externo) e a IDE embutida que veio depois dele foram removidos no PR #262; ver
+nota em [`local-editor-design.md`](local-editor-design.md).
 
 `dev-kill-port` do CLI foi avaliado e adiado (task 042): encerra qualquer
 PID dono de uma porta sem validar sua identidade, o que conflita com a

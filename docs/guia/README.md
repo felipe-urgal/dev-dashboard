@@ -12,15 +12,21 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) tem as seguintes abas
 |---|---|---|
 | README | Mostra a documentação Markdown que já existe no projeto. | [readme.md](readme.md) |
 | Diagnóstico | Checa a saúde do ambiente local do projeto (runtimes, dependências, variáveis esperadas). | [diagnostico.md](diagnostico.md) |
-| Editor | Edita arquivos do projeto direto no navegador, com autocompletar via Language Server. | [editor.md](editor.md) |
 | Servidor | Liga, desliga e monitora o servidor de desenvolvimento do projeto. | [servidor.md](servidor.md) |
 | Logs | Acompanha a saída do servidor em tempo quase real, com leitura estruturada para Rails. | [logs.md](logs.md) |
 | Git | Sincronização, branches, diff, commit, desfazer, pull request, histórico e mutações. | [git.md](git.md) |
+| Assistente IA | Pede alterações em linguagem natural a um modelo local (Ollama), mostra prévia e aplica só com confirmação. | [assistente-ia.md](assistente-ia.md) |
 | Testes | Executa a suíte de testes, um arquivo específico, ou só os testes relacionados às mudanças atuais. | [testes.md](testes.md) |
+| Banco de dados | Detecta bancos/serviços do projeto, inicia serviços reconhecidos e cria/restaura snapshots (só quando o projeto tem suporte a banco). | [banco-de-dados.md](banco-de-dados.md) |
 | Dependências | Instala/atualiza dependências Ruby e Node com um clique. | [dependencias.md](dependencias.md) |
 | Scripts | Catálogo completo de comandos seguros do projeto (scripts, tarefas Rake, executáveis de `bin/`). | [scripts.md](scripts.md) |
 | Terminal / Console | Shell interativo e (para projetos Rails) `rails console` direto no navegador. | [terminal.md](terminal.md) |
+| Sidekiq/webpack | Acompanha e controla os processos de Sidekiq e webpack watcher de projetos Rails. | — |
 | Variáveis de ambiente | Mostra (sem editar) as variáveis de ambiente configuradas, ocultando valores sensíveis. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |
+
+As abas **Banco de dados** (projetos sem suporte a banco detectado), **Dependências** (só Rails/Node),
+**Console** e **Sidekiq/webpack** (só projetos Rails) aparecem condicionalmente, conforme o tipo e as
+capacidades do projeto aberto.
 
 ## Um princípio comum a quase todas as abas
 

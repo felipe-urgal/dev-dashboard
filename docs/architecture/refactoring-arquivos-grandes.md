@@ -1308,6 +1308,14 @@ objeto de estado explícito passado entre módulos.
 
 ## Achados pós-Fase 7 (tasks 076–083, levantamento em 04/08/2026)
 
+> Nota de histórico (09/08/2026): toda a IDE embutida (Monaco, LSP, assistente de IA acoplado ao
+> editor) foi removida no PR #262 ("remove embedded editor"). Os três arquivos citados nesta seção
+> — `ProjectEmbeddedEditor.vue`, `project-language-server-service.ts` e
+> `project-language-server-client.ts` — não existem mais no repositório, então os achados abaixo
+> são só histórico e não descrevem candidatos a refatoração vigentes. A duplicação de path safety
+> entre serviços da API (terceiro item) pode continuar existindo entre os serviços que sobraram —
+> vale reconferir separadamente antes de agir sobre ela.
+
 A Fase 7 fechou todos os componentes Vue e deixou só `git-service.ts`/
 `script-execution-service.ts` como classes de serviço acima de 400 linhas
 (ver nota acima; a Fase 8 depois dividiu as duas por domínio, ver seção

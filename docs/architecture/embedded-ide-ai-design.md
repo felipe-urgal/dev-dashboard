@@ -2,6 +2,19 @@
 
 ## Status
 
+> **Removida.** A IDE embutida (Monaco, explorador de arquivos, LSP
+> JavaScript/TypeScript e Ruby/Rails, aba **Editor**) foi retirada do
+> dashboard no PR #262 ("remove embedded editor"). O código descrito abaixo
+> (`ProjectEmbeddedEditor.vue`, `apps/web/src/language-server/`,
+> `apps/api/src/routes/project-editor.ts`, a rota `/projects/:projectId/editor`
+> e o contrato `packages/contracts/src/editor.ts`) não existe mais no
+> repositório. O assistente de IA local via Ollama descrito aqui **continua
+> existindo**, mas como painel próprio e independente — ver aba **Assistente
+> IA** em [`docs/guia/assistente-ia.md`](../guia/assistente-ia.md) — sem
+> depender de Monaco, arquivos abertos ou LSP. Este documento fica mantido
+> como registro histórico da decisão de arquitetura; não descreve o estado
+> atual do produto.
+
 Implementada nas tasks 076–083: fundação Monaco somente leitura (076),
 escrita segura com preview/rollback (077), LSP JavaScript/TypeScript (078),
 LSP Ruby/Rails (079), assistente de IA local via Ollama com catálogo fechado
@@ -9,9 +22,9 @@ de quatro ferramentas somente leitura (080), compleção inline/ghost text
 (081), smoke E2E do assistente com um double do Ollama em CI (082) e uma
 quinta ferramenta, `propose_workspace_edit`, aplicando edições propostas
 pela IA através do mesmo preview/confirmação/rollback da task 077, sem rota
-nova para aplicar (083). As decisões abaixo continuam sendo a referência de
-arquitetura para essa área; onde o texto e o código divergirem, o código
-prevalece.
+nova para aplicar (083). As decisões abaixo eram a referência de arquitetura
+para essa área enquanto a IDE embutida existiu; hoje têm valor apenas
+histórico (ver nota acima).
 
 ## Objetivo
 

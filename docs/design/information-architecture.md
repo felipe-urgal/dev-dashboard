@@ -120,7 +120,6 @@ Cada job deve possuir:
 Gerenciamento de:
 
 - workspaces;
-- editor padrão;
 - navegador;
 - portas;
 - caminhos de configuração;
@@ -211,7 +210,6 @@ Ações rápidas:
 - parar;
 - reiniciar;
 - abrir aplicação;
-- abrir editor;
 - visualizar logs;
 - favoritar;
 - abrir detalhes.
@@ -222,19 +220,26 @@ Estrutura atual (`apps/web/src/router/index.ts`):
 
 ```text
 README
-Editor
+Diagnóstico
 Servidor
 Logs
 Git
+Assistente IA
 Testes
 Banco de dados
 Dependências
 Scripts
+Terminal
+Console
+Sidekiq/webpack
+Variáveis de ambiente
 ```
 
-As abas disponíveis dependem das capacidades detectadas. **Editor** (task
-076 em diante) é a IDE embutida com Monaco, LSP e o assistente de IA local;
-**Dependências** (task 072) reúne Bundler/lockfile Node e build.
+As abas disponíveis dependem das capacidades detectadas: **Banco de dados** só quando o projeto
+tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockfile Node e build),
+**Console** e **Sidekiq/webpack** só para projetos Rails/Node conforme o tipo. Uma IDE embutida com
+Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262;
+**Assistente IA** é o painel de IA local via Ollama que restou, independente de editor/LSP.
 
 ### Visão geral
 
@@ -407,7 +412,6 @@ A command palette deve permitir:
 - iniciar servidor;
 - parar servidor;
 - abrir aplicação;
-- abrir editor;
 - executar testes;
 - navegar para uma área.
 

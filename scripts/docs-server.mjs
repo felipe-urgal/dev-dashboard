@@ -25,14 +25,16 @@ const CORE_PRIORITY = new Map([
   ['docs/guia/README.md', 0],
   ['docs/guia/readme.md', 10],
   ['docs/guia/diagnostico.md', 20],
-  ['docs/guia/editor.md', 30],
-  ['docs/guia/servidor.md', 40],
-  ['docs/guia/logs.md', 50],
-  ['docs/guia/git.md', 60],
+  ['docs/guia/servidor.md', 30],
+  ['docs/guia/logs.md', 40],
+  ['docs/guia/git.md', 50],
+  ['docs/guia/assistente-ia.md', 60],
   ['docs/guia/testes.md', 70],
-  ['docs/guia/dependencias.md', 80],
-  ['docs/guia/scripts.md', 90],
-  ['docs/guia/variaveis-de-ambiente.md', 100],
+  ['docs/guia/banco-de-dados.md', 80],
+  ['docs/guia/dependencias.md', 90],
+  ['docs/guia/scripts.md', 100],
+  ['docs/guia/terminal.md', 110],
+  ['docs/guia/variaveis-de-ambiente.md', 120],
 ]);
 
 const GROUP_PRIORITY = new Map([
