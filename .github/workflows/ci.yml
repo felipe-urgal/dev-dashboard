@@ -34,12 +34,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prettier diagnostic
-        run: |
-          npx prettier --write apps/web/src/components/GitFileDiffView.vue
-          git diff -- apps/web/src/components/GitFileDiffView.vue
-          exit 1
-
       - name: Typecheck
         run: npm run typecheck
 
