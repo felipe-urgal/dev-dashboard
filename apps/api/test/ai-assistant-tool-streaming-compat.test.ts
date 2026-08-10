@@ -57,23 +57,29 @@ test('chat() usa resposta não-streaming quando envia ferramentas ao Ollama', as
   ]);
 });
 
-test('chat() reporta falha quando o modelo vaza a tool call como texto', async () => {
+test('chat() converte tool call textual vazada pelo Ollama e continua o loop', async () => {
   const events: AiChatStreamEvent[] = [];
   const leakedToolCall = JSON.stringify({
     name: 'search_project_text',
     arguments: { query: 'problema com o novo fluxo de ferramenta' },
   });
+  let requestCount = 0;
   const service = new AiAssistantService({
     projectFileService: new ProjectFileService(),
     gitService: new GitService(),
-    fetchImpl: async () =>
-      new Response(
+    fetchImpl: async () => {
+      requestCount += 1;
+      return new Response(
         JSON.stringify({
-          message: { role: 'assistant', content: leakedToolCall },
+          message: {
+            role: 'assistant',
+            content: requestCount === 1 ? leakedToolCall : 'Resposta final.',
+          },
           done: true,
         }),
         { status: 200 },
-      ),
+      );
+    },
   });
 
   await service.chat(
@@ -86,12 +92,10 @@ test('chat() reporta falha quando o modelo vaza a tool call como texto', async (
     },
   );
 
-  assert.equal(events.length, 2);
-  assert.equal(events[0]?.type, 'message-delta');
-  const errorEvent = events.find((event) => event.type === 'error');
-  assert.ok(errorEvent);
-  assert.match(
-    (errorEvent as Extract<AiChatStreamEvent, { type: 'error' }>).message,
-    /search_project_text/,
-  );
+  assert.equal(requestCount, 2);
+  assert.equal(events[0]?.type, 'tool-call');
+  assert.equal(events[1]?.type, 'tool-result');
+  assert.equal(events[2]?.type, 'message-delta');
+  assert.deepEqual(events[3], { type: 'done' });
+  assert.equal(events.some((event) => event.type === 'error'), false);
 });
