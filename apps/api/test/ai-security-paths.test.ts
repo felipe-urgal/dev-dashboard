@@ -33,20 +33,24 @@ async function waitForImplementation(
   projectId: string,
   executionId: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
     if (service.find(projectId, executionId)?.status !== 'running') return;
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
+  throw new Error('A execução de implementação não terminou dentro do limite.');
 }
 
 async function waitForReview(
   service: GitAiCodeReviewService,
   projectId: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
     if (service.latest(projectId)?.status !== 'running') return;
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
+  throw new Error('A execução de code review não terminou dentro do limite.');
 }
 
 test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do chat', async () => {
