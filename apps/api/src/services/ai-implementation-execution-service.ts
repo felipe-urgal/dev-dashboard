@@ -45,7 +45,8 @@ export class AiImplementationExecutionService {
   public constructor(
     private readonly aiAssistantService: ChatAssistant,
     private readonly now: () => Date = () => new Date(),
-    private readonly providerResolver?: ProjectProviderResolver,
+    private readonly providerResolver: ProjectProviderResolver | undefined =
+      undefined,
   ) {}
 
   public start(
