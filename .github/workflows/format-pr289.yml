@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - agent/ai-execution-modes
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   format:
+    if: github.event_name == 'push' || github.head_ref == 'agent/ai-execution-modes'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
