@@ -167,6 +167,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
+- [Arquitetura multi-provider de IA](architecture/ai-multi-provider.md): decisões, limites de segurança e evolução planejada do Assistente IA e da Code review IA.
 - [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
 - [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
 - [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.
@@ -179,6 +180,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 ### Planejamento
 
+- [Plano da evolução multi-provider de IA](../tasks/AI-MULTI-PROVIDER.md): sequência de PRs, tarefas e critérios de aceite.
 - [Pendências](../tasks/PENDENCIAS.md): inventário consolidado do que falta implementar.
 - [Próxima tarefa](../tasks/NEXT.md): próximo trabalho priorizado.
 
