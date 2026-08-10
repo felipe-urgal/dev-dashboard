@@ -758,7 +758,10 @@ export class AiAssistantService {
     },
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
-    const timeoutMs = options?.timeoutMs ?? CHAT_ROUND_TIMEOUT_MS;
+    const timeoutMs =
+      options?.timeoutMs === undefined
+        ? CHAT_ROUND_TIMEOUT_MS
+        : options.timeoutMs;
     const timeout =
       timeoutMs === null
         ? undefined

@@ -1,7 +1,8 @@
 .git-code-review {
   display: grid;
+  width: 100%;
+  min-width: 0;
   gap: var(--space-4);
-  max-width: 1120px;
 }
 
 .git-code-review-heading,

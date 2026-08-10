@@ -190,6 +190,42 @@ test('review() envia contexto fechado ao Ollama sem ferramentas', async () => {
   });
 });
 
+test('review() não agenda timeout automático', async () => {
+  const scheduledTimeouts: number[] = [];
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
+    scheduledTimeouts.push(Number(args[1]));
+    return 0 as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+
+  try {
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () =>
+        ndjsonResponse([
+          {
+            message: {
+              role: 'assistant',
+              content: '{"summary":"Sem achados","findings":[]}',
+            },
+            done: true,
+          },
+        ]),
+    });
+
+    await service.review(
+      'qwen2.5-coder:7b',
+      [{ role: 'user', content: 'Revise este diff.' }],
+      new AbortController().signal,
+    );
+
+    assert.deepEqual(scheduledTimeouts, []);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
 test('pullRecommendedModel() transmite o progresso de um modelo permitido', async () => {
   let requestBody: Record<string, unknown> | null = null;
   const events: Array<Record<string, unknown>> = [];
