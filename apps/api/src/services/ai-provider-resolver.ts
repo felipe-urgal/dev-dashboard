@@ -1,13 +1,15 @@
 import type {
+  AiExecutionMode,
   AiProviderId,
   ProjectAiProviderStatus,
   ProjectAiProvidersStatus,
 } from '@dev-dashboard/contracts';
-import type { ProjectAiConsentRepository } from '@dev-dashboard/core';
+import type {
+  ProjectAiConsentRepository,
+  ProjectAiSelectionRepository,
+} from '@dev-dashboard/core';
 
 import type { AiAssistantService } from './ai-assistant-service.js';
-
-const DEFAULT_AI_PROVIDER: AiProviderId = 'ollama';
 
 interface AiProviderEntry {
   id: AiProviderId;
@@ -34,6 +36,13 @@ export interface AiProviderResolverOptions {
   ollama: AiAssistantService;
   openai: AiAssistantService;
   consentRepository: ProjectAiConsentRepository;
+  selectionRepository: ProjectAiSelectionRepository;
+}
+
+export interface ResolvedProjectAiExecution {
+  assistantService: AiAssistantService;
+  provider: AiProviderId;
+  mode: AiExecutionMode;
 }
 
 export class AiProviderResolver {
@@ -57,17 +66,34 @@ export class AiProviderResolver {
   }
 
   public async status(projectId: string): Promise<ProjectAiProvidersStatus> {
+    const selection = this.options.selectionRepository.get(projectId);
     const providers = await Promise.all(
       (Object.keys(this.providers) as AiProviderId[]).map((providerId) =>
         this.providerStatus(projectId, providerId),
       ),
     );
-    return { defaultProvider: DEFAULT_AI_PROVIDER, providers };
+    return {
+      selectedProvider: selection.provider,
+      selectedMode: selection.mode,
+      providers,
+    };
+  }
+
+  public async resolveSelected(
+    projectId: string,
+  ): Promise<ResolvedProjectAiExecution> {
+    const selection = this.options.selectionRepository.get(projectId);
+    const assistantService = await this.resolve(projectId, selection.provider);
+    return {
+      assistantService,
+      provider: selection.provider,
+      mode: selection.mode,
+    };
   }
 
   public async resolve(
     projectId: string,
-    providerId: AiProviderId = DEFAULT_AI_PROVIDER,
+    providerId: AiProviderId,
   ): Promise<AiAssistantService> {
     const entry = this.providers[providerId];
     if (entry.kind === 'cloud' && !this.hasCloudConsent(projectId, providerId)) {
@@ -85,6 +111,14 @@ export class AiProviderResolver {
       );
     }
     return entry.assistantService;
+  }
+
+  public async setSelection(
+    projectId: string,
+    provider: AiProviderId,
+    mode: AiExecutionMode,
+  ): Promise<void> {
+    await this.options.selectionRepository.set(projectId, { provider, mode });
   }
 
   public async setCloudConsent(
