@@ -328,6 +328,35 @@ function isToolName(value: string): value is AiTool {
   return (TOOL_NAMES as readonly string[]).includes(value);
 }
 
+/**
+ * Alguns modelos, mesmo relatando suporte a `tools` no Ollama, "vazam" a
+ * chamada de ferramenta como texto no `content` da mensagem em vez de usar o
+ * campo estruturado `tool_calls` — o resultado é um JSON de
+ * `{ name, arguments }` sozinho na resposta, sem nenhuma ferramenta de fato
+ * executada. Detectar esse formato evita reportar a execução como concluída
+ * com sucesso quando nada aconteceu.
+ */
+function detectLeakedToolCall(
+  content: string,
+): { name: AiTool; arguments: unknown } | null {
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(unfenced);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const name = (parsed as Record<string, unknown>).name;
+  if (typeof name !== 'string' || !isToolName(name)) return null;
+  return { name, arguments: (parsed as Record<string, unknown>).arguments };
+}
+
 export interface AiAssistantServiceOptions {
   projectFileService?: ProjectFileService;
   gitService?: GitService;
@@ -460,6 +489,22 @@ export class AiAssistantService {
           handlers,
         );
         if (toolCalls.length === 0) {
+          const lastMessage = conversation[conversation.length - 1];
+          const leaked =
+            lastMessage?.role === 'assistant'
+              ? detectLeakedToolCall(lastMessage.content)
+              : null;
+          if (leaked) {
+            handlers.send({
+              type: 'error',
+              message:
+                `O modelo "${model}" tentou usar a ferramenta "${leaked.name}", mas escreveu a ` +
+                'chamada como texto em vez de utilizar o mecanismo de tool-calling do Ollama, ' +
+                'então nada foi executado. Tente novamente com um modelo com suporte mais ' +
+                'confiável a ferramentas (ex.: qwen2.5-coder:14b).',
+            });
+            return;
+          }
           handlers.send({ type: 'done' });
           return;
         }

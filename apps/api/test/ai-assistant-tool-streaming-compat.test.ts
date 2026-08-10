@@ -56,3 +56,42 @@ test('chat() usa resposta não-streaming quando envia ferramentas ao Ollama', as
     { type: 'done' },
   ]);
 });
+
+test('chat() reporta falha quando o modelo vaza a tool call como texto', async () => {
+  const events: AiChatStreamEvent[] = [];
+  const leakedToolCall = JSON.stringify({
+    name: 'search_project_text',
+    arguments: { query: 'problema com o novo fluxo de ferramenta' },
+  });
+  const service = new AiAssistantService({
+    projectFileService: new ProjectFileService(),
+    gitService: new GitService(),
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          message: { role: 'assistant', content: leakedToolCall },
+          done: true,
+        }),
+        { status: 200 },
+      ),
+  });
+
+  await service.chat(
+    project(),
+    'qwen2.5-coder:7b',
+    [{ role: 'user', content: 'Investigue o problema.' }],
+    {
+      signal: new AbortController().signal,
+      send: (event) => events.push(event),
+    },
+  );
+
+  assert.equal(events.length, 2);
+  assert.equal(events[0]?.type, 'message-delta');
+  const errorEvent = events.find((event) => event.type === 'error');
+  assert.ok(errorEvent);
+  assert.match(
+    (errorEvent as Extract<AiChatStreamEvent, { type: 'error' }>).message,
+    /search_project_text/,
+  );
+});
