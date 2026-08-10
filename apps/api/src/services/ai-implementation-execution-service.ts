@@ -165,6 +165,7 @@ export class AiImplementationExecutionService {
         assistantService = await this.providerResolver.resolve(
           project.id,
           stored.execution.provider,
+          stored.execution.model,
         );
       }
       assistantService ??= this.aiAssistantService;
