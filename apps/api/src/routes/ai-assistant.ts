@@ -13,12 +13,17 @@ import {
   type AiAssistantService,
 } from '../services/ai-assistant-service.js';
 import type { AiImplementationExecutionService } from '../services/ai-implementation-execution-service.js';
+import {
+  AiProviderResolutionError,
+  type AiProviderResolver,
+} from '../services/ai-provider-resolver.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface AiAssistantRouteOptions {
   projectStore: ProjectStore;
   aiAssistantService: AiAssistantService;
+  aiProviderResolver: AiProviderResolver;
   aiImplementationExecutionService: AiImplementationExecutionService;
 }
 
@@ -302,6 +307,13 @@ function translateAiError(
   error: unknown,
   context: Record<string, unknown>,
 ): never {
+  if (error instanceof AiProviderResolutionError) {
+    throw new ApiError({
+      statusCode: error.code === 'AI_CLOUD_CONSENT_REQUIRED' ? 409 : 400,
+      code: 'AI_ASSISTANT_INVALID_REQUEST',
+      message: error.message,
+    });
+  }
   if (error instanceof AiAssistantError) {
     throw new ApiError({
       statusCode: 400,
@@ -335,6 +347,22 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     return project;
   }
 
+  async function selectedAssistant(request: FastifyRequest, projectId: string) {
+    try {
+      return await options.aiProviderResolver.resolveSelected(projectId);
+    } catch (error) {
+      translateAiError(request, error, { projectId });
+    }
+  }
+
+  async function localAssistant(request: FastifyRequest, projectId: string) {
+    try {
+      return await options.aiProviderResolver.resolve(projectId, 'ollama');
+    } catch (error) {
+      translateAiError(request, error, { projectId, provider: 'ollama' });
+    }
+  }
+
   app.get<{ Params: ProjectParams }>(
     '/projects/:projectId/ai/status',
     {
@@ -348,7 +376,29 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     },
     async (request) => {
       projectFor(request.params.projectId);
-      return options.aiAssistantService.status();
+      const status = await options.aiProviderResolver.status(
+        request.params.projectId,
+      );
+      const selected = status.providers.find(
+        (provider) => provider.id === status.selectedProvider,
+      );
+      if (!selected) {
+        throw new ApiError({
+          statusCode: 500,
+          code: 'AI_ASSISTANT_FAILED',
+          message: 'O provider de IA selecionado não foi encontrado.',
+        });
+      }
+      const consentGranted =
+        !selected.consentRequired || selected.consentGranted;
+      return {
+        available: selected.available && consentGranted,
+        ...(selected.baseUrl ? { baseUrl: selected.baseUrl } : {}),
+        message: consentGranted
+          ? selected.message
+          : 'Autorize o uso da OpenAI para este projeto antes de enviar código à cloud.',
+        models: selected.models,
+      };
     },
   );
 
@@ -457,9 +507,10 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     { schema: { params: projectParamsSchema, body: chatBodySchema } },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
+      const resolved = await selectedAssistant(request, project.id);
 
-      // Autenticação, origem e limites já foram validados pelos hooks
-      // globais antes de assumirmos a resposta como um stream contínuo.
+      // Autenticação, origem, provider, consentimento e limites já foram
+      // validados antes de assumirmos a resposta como um stream contínuo.
       reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -479,16 +530,23 @@ export const aiAssistantRoutes: FastifyPluginAsync<
       };
 
       try {
-        await options.aiAssistantService.chat(
+        await resolved.assistantService.chat(
           project,
           request.body.model,
           request.body.messages,
           { send: write, signal: controller.signal },
+          resolved.mode,
         );
       } catch (error) {
         if (!(error instanceof AiAssistantError)) {
           request.log.warn(
-            { err: error, projectId: project.id, model: request.body.model },
+            {
+              err: error,
+              projectId: project.id,
+              provider: resolved.provider,
+              mode: resolved.mode,
+              model: request.body.model,
+            },
             'AI assistant chat failed',
           );
         }
@@ -519,10 +577,11 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
+      const resolved = await selectedAssistant(request, project.id);
       const controller = new AbortController();
       request.raw.once('close', () => controller.abort());
       try {
-        return await options.aiAssistantService.complete(
+        return await resolved.assistantService.complete(
           request.body.model,
           request.body.prefix,
           request.body.suffix ?? '',
@@ -538,6 +597,8 @@ export const aiAssistantRoutes: FastifyPluginAsync<
         }
         translateAiError(request, error, {
           projectId: project.id,
+          provider: resolved.provider,
+          mode: resolved.mode,
           model: request.body.model,
         });
       }
@@ -545,10 +606,11 @@ export const aiAssistantRoutes: FastifyPluginAsync<
   );
 
   app.post<{ Params: ProjectParams; Body: ModelPullBody }>(
-    '/projects/:projectId/ai/models/pull',
+    '/projects/:projectId/ai/providers/ollama/models/pull',
     { schema: { params: projectParamsSchema, body: modelPullBodySchema } },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
+      const assistantService = await localAssistant(request, project.id);
       reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -567,14 +629,19 @@ export const aiAssistantRoutes: FastifyPluginAsync<
       };
 
       try {
-        await options.aiAssistantService.pullRecommendedModel(
-          request.body.model,
-          { send: write, signal: controller.signal },
-        );
+        await assistantService.pullRecommendedModel(request.body.model, {
+          send: write,
+          signal: controller.signal,
+        });
       } catch (error) {
         if (!(error instanceof AiAssistantError)) {
           request.log.warn(
-            { err: error, projectId: project.id, model: request.body.model },
+            {
+              err: error,
+              projectId: project.id,
+              provider: 'ollama',
+              model: request.body.model,
+            },
             'AI model installation failed',
           );
         }
