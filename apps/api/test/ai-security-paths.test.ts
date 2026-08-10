@@ -121,7 +121,11 @@ test('implementation usa a mesma barreira de masking do chat', async () => {
     path.join(os.tmpdir(), 'dev-dashboard-ai-mask-implementation-'),
   );
   const secret = 'sk-abcdefghijklmnopqrstuvwxyz654321';
-  await writeFile(path.join(root, 'app.ts'), 'export const value = 1;\n', 'utf8');
+  await writeFile(
+    path.join(root, 'app.ts'),
+    'export const value = 1;\n',
+    'utf8',
+  );
 
   try {
     const requestBodies: string[] = [];
@@ -172,7 +176,10 @@ test('implementation usa a mesma barreira de masking do chat', async () => {
 
     assert.equal(implementation.find(proj.id, started.id)?.status, 'succeeded');
     assert.equal(requestBodies.length, 2);
-    assert.equal(requestBodies.some((body) => body.includes(secret)), false);
+    assert.equal(
+      requestBodies.some((body) => body.includes(secret)),
+      false,
+    );
     assert.ok(requestBodies.some((body) => body.includes(LOG_MASK)));
   } finally {
     await rm(root, { recursive: true, force: true });
