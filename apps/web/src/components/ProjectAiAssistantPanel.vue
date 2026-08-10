@@ -19,10 +19,7 @@ import type {
   ProjectWorkspaceEditPreview,
 } from '@dev-dashboard/contracts';
 
-import {
-  type AiFallbackMode,
-  resolveAiFallbackOffer,
-} from '../ai-fallback';
+import { type AiFallbackMode, resolveAiFallbackOffer } from '../ai-fallback';
 import {
   applyProjectWorkspaceEdit,
   cancelProjectAiImplementation,

@@ -52,7 +52,12 @@ function providers(
 
 test('offer sugere outro provider quando o atual falhou e está indisponível', () => {
   assert.deepEqual(
-    resolveAiFallbackOffer('offer', failedExecution(), 'ollama', providers(false, true)),
+    resolveAiFallbackOffer(
+      'offer',
+      failedExecution(),
+      'ollama',
+      providers(false, true),
+    ),
     {
       fromProvider: 'ollama',
       toProvider: 'openai',
@@ -63,21 +68,36 @@ test('offer sugere outro provider quando o atual falhou e está indisponível', 
 
 test('off encerra sem oferecer troca', () => {
   assert.equal(
-    resolveAiFallbackOffer('off', failedExecution(), 'ollama', providers(false, true)),
+    resolveAiFallbackOffer(
+      'off',
+      failedExecution(),
+      'ollama',
+      providers(false, true),
+    ),
     null,
   );
 });
 
 test('não oferece fallback para erro com provider ainda disponível', () => {
   assert.equal(
-    resolveAiFallbackOffer('offer', failedExecution(), 'ollama', providers(true, true)),
+    resolveAiFallbackOffer(
+      'offer',
+      failedExecution(),
+      'ollama',
+      providers(true, true),
+    ),
     null,
   );
 });
 
 test('não oferece provider alternativo indisponível', () => {
   assert.equal(
-    resolveAiFallbackOffer('offer', failedExecution(), 'ollama', providers(false, false)),
+    resolveAiFallbackOffer(
+      'offer',
+      failedExecution(),
+      'ollama',
+      providers(false, false),
+    ),
     null,
   );
 });

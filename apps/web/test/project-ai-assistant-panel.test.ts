@@ -25,12 +25,14 @@ function json(payload: unknown): Response {
   });
 }
 
-function providersStatus(options: {
-  selectedProvider?: AiProviderId;
-  ollamaAvailable?: boolean;
-  openaiAvailable?: boolean;
-  openaiConsent?: boolean;
-} = {}): ProjectAiProvidersStatus {
+function providersStatus(
+  options: {
+    selectedProvider?: AiProviderId;
+    ollamaAvailable?: boolean;
+    openaiAvailable?: boolean;
+    openaiConsent?: boolean;
+  } = {},
+): ProjectAiProvidersStatus {
   const {
     selectedProvider = 'ollama',
     ollamaAvailable = true,
@@ -89,9 +91,7 @@ function execution(
     status,
     createdAt: '2026-08-10T12:00:00.000Z',
     updatedAt: '2026-08-10T12:00:00.000Z',
-    ...(status === 'failed'
-      ? { finishedAt: '2026-08-10T12:00:10.000Z' }
-      : {}),
+    ...(status === 'failed' ? { finishedAt: '2026-08-10T12:00:10.000Z' } : {}),
     events:
       status === 'failed'
         ? [{ type: 'error', message: 'Ollama ficou indisponível.' }]
