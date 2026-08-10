@@ -1,6 +1,9 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import { aiApiError } from '../http/ai-error.js';
+import {
+  aiApiError,
+  aiProviderErrorResponseSchemas,
+} from '../http/ai-error.js';
 import { ApiError, type ApiErrorCode } from '../http/api-error.js';
 import {
   commonErrorResponseSchemas,
@@ -566,6 +569,7 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
             properties: { execution: pullRequestAiReviewExecutionSchema },
           },
           ...commonErrorResponseSchemas,
+          ...aiProviderErrorResponseSchemas,
         },
       },
     },
