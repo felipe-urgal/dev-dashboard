@@ -250,7 +250,10 @@ function globalSynthesisContext(
       summary: review.summary.slice(0, 500),
       findings: review.findings.map(compactFinding),
     };
-    const candidate = JSON.stringify({ files: selectedFiles, reviews: [...entries, entry] });
+    const candidate = JSON.stringify({
+      files: selectedFiles,
+      reviews: [...entries, entry],
+    });
     if (candidate.length > policy.maxGlobalSynthesisChars) break;
     entries.push(entry);
   }
@@ -533,7 +536,9 @@ export class GitAiCodeReviewService {
     const { execution, policy } = running;
     const context = globalSynthesisContext(execution, running.reviews, policy);
     if (!context || context.length > policy.maxGlobalSynthesisChars) {
-      throw new Error('O contexto da síntese global excedeu o budget permitido.');
+      throw new Error(
+        'O contexto da síntese global excedeu o budget permitido.',
+      );
     }
 
     const content = await this.aiAssistantService.review(
