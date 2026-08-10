@@ -2,6 +2,8 @@ import type { ProjectWorkspaceEditPreview } from './project-files.js';
 
 export type AiCapability = 'chat' | 'tools' | 'fill-in-the-middle';
 
+export type AiExecutionMode = 'fast' | 'complete';
+
 export interface AiModelInfo {
   name: string;
   capabilities: AiCapability[];

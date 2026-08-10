@@ -1,6 +1,7 @@
 import type {
   AiChatMessage,
   AiCompletionResult,
+  AiExecutionMode,
   AiModelPullStreamEvent,
   Project,
   ProjectAiStatus,
@@ -109,6 +110,7 @@ export class AiAssistantService {
     model: string,
     messages: AiChatMessage[],
     handlers: AiChatHandlers,
+    mode?: AiExecutionMode,
   ): Promise<void> {
     if (!model.trim()) {
       handlers.send({
@@ -134,7 +136,7 @@ export class AiAssistantService {
       }
     }
 
-    await this.orchestrator.chat(project, model, messages, handlers);
+    await this.orchestrator.chat(project, model, messages, handlers, mode);
   }
 
   /**
@@ -145,6 +147,7 @@ export class AiAssistantService {
     model: string,
     messages: AiChatMessage[],
     signal: AbortSignal,
+    maxMessageChars: number = MAX_MESSAGE_CHARS,
   ): Promise<string> {
     if (!model.trim()) {
       throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
@@ -154,11 +157,9 @@ export class AiAssistantService {
         `A revisão deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
       );
     }
-    if (
-      messages.some((message) => message.content.length > MAX_MESSAGE_CHARS)
-    ) {
+    if (messages.some((message) => message.content.length > maxMessageChars)) {
       throw new AiAssistantError(
-        `Cada mensagem deve ter no máximo ${MAX_MESSAGE_CHARS} caracteres.`,
+        `Cada mensagem deve ter no máximo ${maxMessageChars} caracteres.`,
       );
     }
 

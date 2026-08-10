@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto';
 import type {
   AiChatMessage,
   AiChatStreamEvent,
+  AiExecutionMode,
   AiImplementationExecution,
   AiImplementationExecutionStatus,
   Project,
 } from '@dev-dashboard/contracts';
 
 import type { AiAssistantService } from './ai-assistant-service.js';
+import { DEFAULT_AI_EXECUTION_MODE } from './ai-execution-policy.js';
 
 const MAX_EVENTS_PER_EXECUTION = 120;
 const MAX_EXECUTIONS = 40;
@@ -16,6 +18,7 @@ const MAX_EXECUTIONS = 40;
 interface StoredExecution {
   execution: AiImplementationExecution;
   controller: AbortController;
+  mode: AiExecutionMode;
 }
 
 function copyExecution(
@@ -43,6 +46,7 @@ export class AiImplementationExecutionService {
     project: Project,
     model: string,
     prompt: string,
+    mode: AiExecutionMode = DEFAULT_AI_EXECUTION_MODE,
   ): AiImplementationExecution {
     this.cancelRunningForProject(project.id);
     this.discardOldExecutions();
@@ -59,7 +63,7 @@ export class AiImplementationExecutionService {
       updatedAt: timestamp,
       events: [],
     };
-    const stored = { execution, controller };
+    const stored = { execution, controller, mode };
     this.executions.set(execution.id, stored);
     void this.run(project, stored);
     return copyExecution(execution);
@@ -123,6 +127,7 @@ export class AiImplementationExecutionService {
           signal: stored.controller.signal,
           send: (event) => this.recordEvent(stored.execution, event),
         },
+        stored.mode,
       );
       if (stored.execution.status === 'running') {
         this.finish(

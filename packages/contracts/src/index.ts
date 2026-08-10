@@ -65,6 +65,7 @@ export type {
   AiChatRequest,
   AiChatRole,
   AiChatStreamEvent,
+  AiExecutionMode,
   AiImplementationExecution,
   AiImplementationExecutionList,
   AiImplementationExecutionRequest,

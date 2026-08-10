@@ -1,55 +1,80 @@
 # Próxima atividade
 
-Após o merge do PR de **Caracterização e segurança**, iniciar o **PR 3 — `AiProvider` + `OllamaProvider`** do plano em [`AI-MULTI-PROVIDER.md`](AI-MULTI-PROVIDER.md).
+Após o merge do **PR #289 — modos de execução `fast` / `complete`**, iniciar o **PR 5 — síntese global da Code review** do plano em [`AI-MULTI-PROVIDER.md`](AI-MULTI-PROVIDER.md).
 
-O objetivo é **separar detalhes do Ollama do fluxo de negócio sem mudar a UI nem o comportamento observável do Assistente IA e da Code review IA**.
+O objetivo é **preservar a revisão atual por arquivo e acrescentar uma segunda etapa opcional que raciocina sobre a Pull Request como um conjunto**, usando a policy de execução criada no PR anterior.
 
 ## Escopo obrigatório
 
-1. Criar o contrato mínimo `AiProvider`.
-2. Criar `OllamaProvider`.
-3. Mover chamadas HTTP, status/modelos e payloads específicos do Ollama para o provider.
-4. Mover a compatibilidade de tool call textual para o `OllamaProvider`.
-5. Preservar a barreira de masking introduzida no PR anterior.
-6. Transformar o loop interativo atual em um `AiOrchestrator` mínimo.
-7. Manter o catálogo de ferramentas, Git, LSP, workspace edit e aprovação fora do provider.
-8. Manter `GitAiCodeReviewService` separado do `AiOrchestrator`, consumindo apenas a abstração necessária de inferência.
-9. Fazer todos os testes de caracterização e segurança continuarem passando sem alterar expectativas.
+1. Preservar o processamento individual por arquivo e a concorrência atual.
+2. Manter o comportamento atual no modo `fast`.
+3. Executar síntese global somente quando `runGlobalSynthesis` da policy estiver ativo (`complete`).
+4. Reunir summaries e findings locais em contexto compacto para a etapa global.
+5. Criar prompt específico para cruzar alterações entre arquivos sem permitir ferramentas.
+6. Deduplicar findings que descrevam o mesmo problema.
+7. Procurar incompatibilidades de contratos entre arquivos, regressões sistêmicas e testes ausentes/impactados.
+8. Validar a saída estruturada da síntese global antes de aceitá-la.
+9. Tratar JSON/estrutura inválida como falha ou degradação explícita, nunca como sucesso silencioso.
+10. Preservar masking e metadados de redação em todo o pipeline.
+11. Cobrir PRs multi-arquivo, deduplicação, falha da síntese e diferença entre `fast`/`complete` com testes.
+
+## Fluxo esperado
+
+```text
+arquivos da PR
+    │
+    ├── review arquivo A ─┐
+    ├── review arquivo B  ├── concorrência atual
+    └── review arquivo C ─┘
+              │
+              ▼
+       summaries/findings
+              │
+       fast ───┴─── complete
+        │               │
+        ▼               ▼
+  agregação atual   síntese global
+                        │
+                        ▼
+                  review final
+```
+
+### `fast`
+
+- não faz nova chamada de síntese;
+- mantém a revisão separada por arquivo;
+- preserva latência/custo atuais.
+
+### `complete`
+
+- executa uma chamada final de síntese após as revisões locais;
+- cruza alterações entre arquivos;
+- deduplica achados;
+- produz resumo final da PR.
 
 ## Fora do escopo
 
 Não fazer nesse PR:
 
 - provider cloud;
-- `ProviderRegistry` dinâmico;
-- seleção de provider na UI;
-- modos `fast` / `complete`;
-- síntese global da Code review;
+- seleção de provider/modo na UI;
 - fallback;
-- `ContextBuilder` ou `ToolExecutor` como serviços independentes;
+- `ProviderRegistry` dinâmico;
+- `ContextBuilder` como serviço independente;
 - cache de contexto/símbolos;
+- reescrever o paralelismo atual da Code review;
 - mudanças visuais.
 
 ## Critério de conclusão
 
 O PR termina quando:
 
-- nenhum HTTP específico do Ollama permanece no orquestrador;
-- o `OllamaProvider` não conhece filesystem, Git, LSP ou workspace edit;
-- o `AiOrchestrator` não conhece payloads nativos do Ollama;
-- masking, cancelamento, limite de rounds e compatibilidade de tool calling continuam protegidos pelos testes do PR anterior;
-- o comportamento atual permanece equivalente;
+- `fast` continua equivalente ao fluxo atual;
+- `complete` executa uma síntese global após os reviews individuais;
+- achados duplicados são consolidados de forma determinística;
+- problemas entre arquivos podem aparecer no resultado final;
+- saída estruturada inválida não vira sucesso silencioso;
+- masking continua preservado;
+- cancelamento durante a etapa global é tratado corretamente;
 - a suíte obrigatória do projeto está verde;
-- `tasks/AI-MULTI-PROVIDER.md` e este `NEXT.md` avançam para o PR de modos de execução.
-
-## Validação manual ainda pendente
-
-A validação com Ollama real continua importante para calibrar as próximas fases:
-
-- implementação pequena em múltiplos arquivos;
-- preview, expiração de token e revalidação antes de aplicar;
-- respostas lentas e cancelamento;
-- Code review com múltiplos arquivos e troca de sub-aba;
-- comportamento de modelos diferentes com tool calling.
-
-A calibração dos budgets de `fast`/`complete` continua reservada ao PR 4.
+- `tasks/AI-MULTI-PROVIDER.md` e este `NEXT.md` avançam para o **PR 6 — primeiro provider cloud**.
