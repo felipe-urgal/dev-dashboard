@@ -6,7 +6,11 @@ import {
   type AiModelPullStreamEvent,
 } from '@dev-dashboard/contracts';
 
-import { aiApiError, aiErrorCode } from '../http/ai-error.js';
+import {
+  aiApiError,
+  aiErrorCode,
+  aiProviderErrorResponseSchemas,
+} from '../http/ai-error.js';
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
 import type { AiImplementationExecutionService } from '../services/ai-implementation-execution-service.js';
@@ -566,6 +570,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<
         response: {
           200: completionResultSchema,
           ...commonErrorResponseSchemas,
+          ...aiProviderErrorResponseSchemas,
         },
       },
     },
