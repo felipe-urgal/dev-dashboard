@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 109026)
+Total output lines: 19809
+
 # Referência da API HTTP local
 
 > Documento gerado automaticamente por `scripts/generate-api-docs.mjs` a partir dos JSON
@@ -6012,6 +6015,23 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
       "type": "string",
       "minLength": 1,
       "maxLength": 200
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "concurrency": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
     }
   }
 }
@@ -6040,7 +6060,10 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           "files",
           "model",
           "status",
+          "concurrency",
           "completedFileCount",
+          "currentFilePaths",
+          "fileExecutions",
           "failedFiles",
           "startedAt"
         ],
@@ -6075,12 +6098,340 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "enum": [
               "running",
               "completed",
-              "failed"
+              "failed",
+              "cancelled"
+            ]
+          },
+          "concurrency": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
             ]
           },
           "completedFileCount": {
             "type": "integer",
             "minimum": 0
+          },
+          "currentFilePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fileExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "status"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                },
+                "errorMessage": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "failedFiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "targetRemote",
+              "baseBranch",
+              "sourceBranch",
+              "files",
+              "model",
+              "reviewedAt",
+              "summary",
+              "findings",
+              "diffTruncated",
+              "masked",
+              "redactionCount"
+            ],
+            "properties": {
+              "targetRemote": {
+                "type": "string",
+                "enum": [
+                  "origin",
+                  "upstream"
+                ]
+              },
+              "baseBranch": {
+                "type": "string"
+              },
+              "sourceBranch": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "model": {
+                "type": "string"
+              },
+              "reviewedAt": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "diffTruncated": {
+                "type": "boolean"
+              },
+              "masked": {
+                "type": "boolean"
+              },
+              "redactionCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "severity",
+                    "path",
+                    "title",
+                    "explanation",
+                    "recommendation"
+                  ],
+                  "properties": {
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "warning",
+                        "suggestion"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "recommendation": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/git/pull-request/ai-review-executions/:executionId/cancel`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "executionId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "targetRemote",
+          "baseBranch",
+          "sourceBranch",
+          "files",
+          "model",
+          "status",
+          "concurrency",
+          "completedFileCount",
+          "currentFilePaths",
+          "fileExecutions",
+          "failedFiles",
+          "startedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "targetRemote": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "upstream"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "concurrency": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "completedFileCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currentFilePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fileExecutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "status"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "finishedAt": {
+                  "type": "string"
+                },
+                "errorMessage": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "failedFiles": {
             "type": "array",
@@ -6291,7 +6642,10 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               "files",
               "model",
               "status",
+              "concurrency",
               "completedFileCount",
+              "currentFilePaths",
+              "fileExecutions",
               "failedFiles",
               "startedAt"
             ],
@@ -6326,12 +6680,61 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                 "enum": [
                   "running",
                   "completed",
-                  "failed"
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "concurrency": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
                 ]
               },
               "completedFileCount": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "currentFilePaths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fileExecutions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "status"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "completed",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "errorMessage": {
+                      "type": "string"
+                    }
+                  }
+                }
               },
               "failedFiles": {
                 "type": "array",
@@ -8535,1594 +8938,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                       "enum": [
                         "dependencies",
                         "database",
-                        "environment",
-                        "server",
-                        "tests"
-                      ]
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "routeName": {
-                      "type": "string"
-                    },
-                    "matchedPaths": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `POST /api/projects/:projectId/git/branches/track/confirmations`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "remoteBranch"
-  ],
-  "properties": {
-    "remoteBranch": {
-      "type": "string",
-      "minLength": 3,
-      "maxLength": 300
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **201**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "confirmation"
-    ],
-    "properties": {
-      "confirmation": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "token",
-          "operation",
-          "target",
-          "expiresAt"
-        ],
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "operation": {
-            "type": "string",
-            "enum": [
-              "track-branch",
-              "delete-remote-branch"
-            ]
-          },
-          "target": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `POST /api/projects/:projectId/git/remotes/:remote/fetch`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId",
-    "remote"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    },
-    "remote": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 100,
-      "pattern": "^[A-Za-z0-9._-]+$"
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "remote"
-    ],
-    "properties": {
-      "remote": {
-        "type": "string"
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **502** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/projects/:projectId/git/workspace`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "workspace"
-    ],
-    "properties": {
-      "workspace": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "branches",
-          "remotes"
-        ],
-        "properties": {
-          "branches": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "name",
-                "shortName",
-                "kind",
-                "current",
-                "ahead",
-                "behind"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "shortName": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string",
-                  "enum": [
-                    "local",
-                    "remote"
-                  ]
-                },
-                "current": {
-                  "type": "boolean"
-                },
-                "remote": {
-                  "type": "string"
-                },
-                "upstream": {
-                  "type": "string"
-                },
-                "ahead": {
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "behind": {
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "latestCommit": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "hash",
-                    "shortHash",
-                    "subject",
-                    "authorName",
-                    "authorEmail",
-                    "authoredAt"
-                  ],
-                  "properties": {
-                    "hash": {
-                      "type": "string"
-                    },
-                    "shortHash": {
-                      "type": "string"
-                    },
-                    "subject": {
-                      "type": "string"
-                    },
-                    "authorName": {
-                      "type": "string"
-                    },
-                    "authorEmail": {
-                      "type": "string"
-                    },
-                    "authoredAt": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "remotes": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "name",
-                "fetchUrl",
-                "pushUrl",
-                "role"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "fetchUrl": {
-                  "type": "string"
-                },
-                "pushUrl": {
-                  "type": "string"
-                },
-                "role": {
-                  "type": "string",
-                  "enum": [
-                    "origin",
-                    "upstream",
-                    "other"
-                  ]
-                }
-              }
-            }
-          },
-          "originComparison": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "reference",
-              "ahead",
-              "behind"
-            ],
-            "properties": {
-              "reference": {
-                "type": "string"
-              },
-              "ahead": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "behind": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
-          },
-          "upstreamComparison": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "reference",
-              "ahead",
-              "behind"
-            ],
-            "properties": {
-              "reference": {
-                "type": "string"
-              },
-              "ahead": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "behind": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-## Health
-
-### `GET /api/health`
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "status",
-      "service",
-      "timestamp"
-    ],
-    "properties": {
-      "status": {
-        "type": "string"
-      },
-      "service": {
-        "type": "string"
-      },
-      "timestamp": {
-        "type": "string"
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-## Processes
-
-### `GET /api/ports`
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "inspection"
-    ],
-    "properties": {
-      "inspection": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "status",
-          "platform",
-          "inspectedAt",
-          "entries",
-          "truncated"
-        ],
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "ready",
-              "unsupported",
-              "unavailable"
-            ]
-          },
-          "platform": {
-            "type": "string",
-            "enum": [
-              "linux",
-              "unsupported"
-            ]
-          },
-          "inspectedAt": {
-            "type": "string"
-          },
-          "entries": {
-            "type": "array",
-            "maxItems": 100,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "port",
-                "address",
-                "scope",
-                "state",
-                "conflict",
-                "expected"
-              ],
-              "properties": {
-                "port": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 65535
-                },
-                "address": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
-                },
-                "scope": {
-                  "type": "string",
-                  "enum": [
-                    "loopback",
-                    "all-interfaces"
-                  ]
-                },
-                "state": {
-                  "type": "string",
-                  "enum": [
-                    "available",
-                    "occupied"
-                  ]
-                },
-                "conflict": {
-                  "type": "boolean"
-                },
-                "expected": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": [
-                      "projectId",
-                      "projectName",
-                      "service"
-                    ],
-                    "properties": {
-                      "projectId": {
-                        "type": "string"
-                      },
-                      "projectName": {
-                        "type": "string"
-                      },
-                      "service": {
-                        "type": "string",
-                        "enum": [
-                          "server"
-                        ]
-                      }
-                    }
-                  }
-                },
-                "managedProcess": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "id",
-                    "projectId",
-                    "projectName",
-                    "kind",
-                    "status"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    },
-                    "projectName": {
-                      "type": "string"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "server",
-                        "webpack",
-                        "worker",
-                        "test",
-                        "script",
-                        "compose-build"
-                      ]
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "starting",
-                        "running",
-                        "stopping",
-                        "stopped",
-                        "failed"
-                      ]
-                    }
-                  }
-                },
-                "externalProcess": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "pid",
-                    "name"
-                  ],
-                  "properties": {
-                    "pid": {
-                      "type": "integer",
-                      "minimum": 1
-                    },
-                    "name": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 64
-                    }
-                  }
-                },
-                "suggestedPort": {
-                  "type": "integer",
-                  "minimum": 1024,
-                  "maximum": 65535
-                }
-              }
-            }
-          },
-          "truncated": {
-            "type": "boolean"
-          },
-          "warning": {
-            "type": "string",
-            "maxLength": 240
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/processes`
-
-**Query string (`querystring`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "workspaceId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200
-    },
-    "projectId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200
-    },
-    "kind": {
-      "type": "string",
-      "enum": [
-        "server",
-        "test"
-      ]
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "processes"
-    ],
-    "properties": {
-      "processes": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "id",
-            "projectId",
-            "kind",
-            "status"
-          ],
-          "properties": {
-            "id": {
-              "type": "string"
-            },
-            "projectId": {
-              "type": "string"
-            },
-            "workspaceId": {
-              "type": "string"
-            },
-            "kind": {
-              "type": "string",
-              "enum": [
-                "server",
-                "webpack",
-                "worker",
-                "test",
-                "script"
-              ]
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "starting",
-                "running",
-                "stopping",
-                "stopped",
-                "failed"
-              ]
-            },
-            "pid": {
-              "type": "integer"
-            },
-            "port": {
-              "type": "integer"
-            },
-            "url": {
-              "type": "string"
-            },
-            "urls": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "command": {
-              "type": "string"
-            },
-            "args": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "startedAt": {
-              "type": "string"
-            },
-            "stoppedAt": {
-              "type": "string"
-            },
-            "exitCode": {
-              "type": "integer"
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `POST /api/processes/cleanup`
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "removed",
-      "removedCount"
-    ],
-    "properties": {
-      "removed": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "projectId": {
-              "type": "string"
-            },
-            "logFile": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "removedCount": {
-        "type": "integer",
-        "minimum": 0
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/projects/:projectId/process`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "process"
-    ],
-    "properties": {
-      "process": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "projectId",
-          "kind",
-          "status"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "projectId": {
-            "type": "string"
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "server",
-              "webpack",
-              "worker",
-              "test",
-              "script"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "starting",
-              "running",
-              "stopping",
-              "stopped",
-              "failed"
-            ]
-          },
-          "pid": {
-            "type": "integer"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "url": {
-            "type": "string"
-          },
-          "urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "command": {
-            "type": "string"
-          },
-          "args": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "startedAt": {
-            "type": "string"
-          },
-          "stoppedAt": {
-            "type": "string"
-          },
-          "exitCode": {
-            "type": "integer"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `DELETE /api/projects/:projectId/process/logs`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "log"
-    ],
-    "properties": {
-      "log": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "projectId",
-          "processId",
-          "content",
-          "sizeBytes",
-          "truncated",
-          "masked",
-          "redactionCount",
-          "readAt"
-        ],
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "processId": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "integer"
-          },
-          "truncated": {
-            "type": "boolean"
-          },
-          "masked": {
-            "type": "boolean"
-          },
-          "redactionCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "readAt": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/projects/:projectId/process/logs`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Query string (`querystring`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "maxBytes": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 262144
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "log"
-    ],
-    "properties": {
-      "log": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "projectId",
-          "processId",
-          "content",
-          "sizeBytes",
-          "truncated",
-          "masked",
-          "redactionCount",
-          "readAt"
-        ],
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "processId": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "integer"
-          },
-          "truncated": {
-            "type": "boolean"
-          },
-          "masked": {
-            "type": "boolean"
-          },
-          "redactionCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "readAt": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `POST /api/projects/:projectId/process/start`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "port": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 1024,
-          "maximum": 65535
-        },
-        {
-          "type": "null"
-        }
-      ]
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **201**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "process"
-    ],
-    "properties": {
-      "process": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "projectId",
-          "kind",
-          "status"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "projectId": {
-            "type": "string"
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "server",
-              "webpack",
-              "worker",
-              "test",
-              "script"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "starting",
-              "running",
-              "stopping",
-              "stopped",
-              "failed"
-            ]
-          },
-          "pid": {
-            "type": "integer"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "url": {
-            "type": "string"
-          },
-          "urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "command": {
-            "type": "string"
-          },
-          "args": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "startedAt": {
-            "type": "string"
-          },
-          "stoppedAt": {
-            "type": "string"
-          },
-          "exitCode": {
-            "type": "integer"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `POST /api/projects/:projectId/process/stop`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "process"
-    ],
-    "properties": {
-      "process": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "projectId",
-          "kind",
-          "status"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "projectId": {
-            "type": "string"
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "server",
-              "webpack",
-              "worker",
-              "test",
-              "script"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "starting",
-              "running",
-              "stopping",
-              "stopped",
-              "failed"
-            ]
-          },
-          "pid": {
-            "type": "integer"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "url": {
-            "type": "string"
-          },
-          "urls": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "command": {
-            "type": "string"
-          },
-          "args": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "startedAt": {
-            "type": "string"
-          },
-          "stoppedAt": {
-            "type": "string"
-          },
-          "exitCode": {
-            "type": "integer"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/projects/:projectId/server-health`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "health"
-    ],
-    "properties": {
-      "health": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "projectId",
-          "path",
-          "pathSource",
-          "status",
-          "checkedAt"
-        ],
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "pathSource": {
-            "type": "string",
-            "enum": [
-              "configured",
-              "detected"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "unavailable"
-            ]
-          },
-          "httpStatus": {
-            "type": "integer"
-          },
-          "latencyMs": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "checkedAt": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `GET /api/projects/:projectId/server-settings`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "settings",
-      "environments"
-    ],
-    "properties": {
-      "settings": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "projectId"
-        ],
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "healthCheckPath": {
-            "type": "string"
-          },
-          "environment": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "updatedAt": {
-            "type": "string"
-          }
-        }
-      },
-      "environments": {
-        "type": "array",
-        "maxItems": 50,
-        "items": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `PUT /api/projects/:projectId/server-settings`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "port": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "minimum": 1024,
-          "maximum": 65535
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "healthCheckPath": {
-      "anyOf": [
-        {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "environment": {
-      "anyOf": [
-        {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
-        },
-        {
-          "type": "null"
+                        "envi…9026 tokens truncated…          "type": "null"
         }
       ]
     }
