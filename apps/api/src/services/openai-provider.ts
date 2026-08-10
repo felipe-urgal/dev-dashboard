@@ -157,7 +157,9 @@ export class OpenAiProvider implements AiProvider {
   >();
 
   public constructor(options: OpenAiProviderOptions = {}) {
-    this.fetchImpl = createAiOutboundProtectionFetch(options.fetchImpl ?? fetch);
+    this.fetchImpl = createAiOutboundProtectionFetch(
+      options.fetchImpl ?? fetch,
+    );
     this.apiKey = resolveApiKey(options.apiKey);
   }
 
@@ -179,7 +181,9 @@ export class OpenAiProvider implements AiProvider {
         headers: this.headers(),
         signal: controller.signal,
       });
-      const body = (await response.json().catch(() => ({}))) as OpenAiModelsResponse;
+      const body = (await response
+        .json()
+        .catch(() => ({}))) as OpenAiModelsResponse;
       if (!response.ok) {
         return {
           available: false,
@@ -234,25 +238,30 @@ export class OpenAiProvider implements AiProvider {
     options.signal.addEventListener('abort', onAbort);
 
     try {
-      const response = await this.fetchImpl(`${OPENAI_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: this.headers(),
-        body: JSON.stringify({
-          model,
-          messages: state.history,
-          store: false,
-          stream: false,
-          max_completion_tokens: options.maxOutputTokens,
-          ...(tools.length > 0
-            ? { tools: openAiTools(tools), tool_choice: 'auto' }
-            : {}),
-          ...(options.format === 'json'
-            ? { response_format: { type: 'json_object' } }
-            : {}),
-        }),
-        signal: controller.signal,
-      });
-      const body = (await response.json().catch(() => ({}))) as OpenAiChatResponse;
+      const response = await this.fetchImpl(
+        `${OPENAI_BASE_URL}/chat/completions`,
+        {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify({
+            model,
+            messages: state.history,
+            store: false,
+            stream: false,
+            max_completion_tokens: options.maxOutputTokens,
+            ...(tools.length > 0
+              ? { tools: openAiTools(tools), tool_choice: 'auto' }
+              : {}),
+            ...(options.format === 'json'
+              ? { response_format: { type: 'json_object' } }
+              : {}),
+          }),
+          signal: controller.signal,
+        },
+      );
+      const body = (await response
+        .json()
+        .catch(() => ({}))) as OpenAiChatResponse;
       if (!response.ok) {
         throw new Error(
           body.error?.message ??
@@ -261,17 +270,17 @@ export class OpenAiProvider implements AiProvider {
       }
 
       const message = body.choices?.[0]?.message;
-      if (!message) throw new Error('A OpenAI não devolveu uma resposta válida.');
-      const content = typeof message.content === 'string' ? message.content : '';
+      if (!message)
+        throw new Error('A OpenAI não devolveu uma resposta válida.');
+      const content =
+        typeof message.content === 'string' ? message.content : '';
       const nativeToolCalls = message.tool_calls ?? [];
       const toolCalls = nativeToolCalls.map(parseToolCall);
 
       state.history.push({
         role: 'assistant',
         content: content || null,
-        ...(nativeToolCalls.length > 0
-          ? { tool_calls: nativeToolCalls }
-          : {}),
+        ...(nativeToolCalls.length > 0 ? { tool_calls: nativeToolCalls } : {}),
       });
       state.consumedMessages = messages.length;
       state.pendingToolCalls = nativeToolCalls;
@@ -307,29 +316,34 @@ export class OpenAiProvider implements AiProvider {
     options.signal.addEventListener('abort', onAbort);
 
     try {
-      const response = await this.fetchImpl(`${OPENAI_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: this.headers(),
-        body: JSON.stringify({
-          model,
-          store: false,
-          stream: false,
-          max_completion_tokens: options.maxOutputTokens,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Complete o código entre PREFIX e SUFFIX. Responda somente com o texto que deve ser inserido, sem Markdown nem explicações.',
-            },
-            {
-              role: 'user',
-              content: `PREFIX:\n${prefix}\n\nSUFFIX:\n${suffix}`,
-            },
-          ],
-        }),
-        signal: controller.signal,
-      });
-      const body = (await response.json().catch(() => ({}))) as OpenAiChatResponse;
+      const response = await this.fetchImpl(
+        `${OPENAI_BASE_URL}/chat/completions`,
+        {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify({
+            model,
+            store: false,
+            stream: false,
+            max_completion_tokens: options.maxOutputTokens,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Complete o código entre PREFIX e SUFFIX. Responda somente com o texto que deve ser inserido, sem Markdown nem explicações.',
+              },
+              {
+                role: 'user',
+                content: `PREFIX:\n${prefix}\n\nSUFFIX:\n${suffix}`,
+              },
+            ],
+          }),
+          signal: controller.signal,
+        },
+      );
+      const body = (await response
+        .json()
+        .catch(() => ({}))) as OpenAiChatResponse;
       if (!response.ok) {
         throw new Error(
           body.error?.message ??

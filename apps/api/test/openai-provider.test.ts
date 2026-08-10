@@ -239,7 +239,9 @@ test('completion usa a mesma barreira de masking', async () => {
       requestBody = String(init?.body ?? '');
       return new Response(
         JSON.stringify({
-          choices: [{ message: { role: 'assistant', content: 'return value;' } }],
+          choices: [
+            { message: { role: 'assistant', content: 'return value;' } },
+          ],
         }),
         { status: 200 },
       );
