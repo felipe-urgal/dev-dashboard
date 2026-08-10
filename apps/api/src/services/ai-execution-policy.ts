@@ -18,7 +18,7 @@ export const AI_EXECUTION_POLICIES = {
     maxToolRounds: 4,
     maxToolResultChars: 8_000,
     maxAccumulatedToolResultChars: 32_000,
-    maxIdenticalToolCalls: 2,
+    maxIdenticalToolCalls: 4,
     maxDiffChars: 4_000,
     maxContextFiles: 4,
     maxGlobalSynthesisChars: 0,
