@@ -1,23 +1,20 @@
 name: Generate API reference
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/ai-provider-selection
+      - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   generate:
-    if: github.event.head_commit.message != 'docs: atualiza api reference'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: agent/ai-provider-selection
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -31,13 +28,9 @@ jobs:
       - name: Generate API reference
         run: npm run docs:api
 
-      - name: Commit generated reference
-        run: |
-          if git diff --quiet -- docs/architecture/api-reference.md; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/architecture/api-reference.md
-          git commit -m "docs: atualiza api reference"
-          git push origin HEAD:agent/ai-provider-selection
+      - name: Upload generated reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-api-reference
+          path: docs/architecture/api-reference.md
+          retention-days: 1
