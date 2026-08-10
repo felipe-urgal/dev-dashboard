@@ -55,15 +55,27 @@ test('não adivinha linguagem a partir de texto sem sinal', () => {
   assert.equal(detectLanguage('notas', '   '), null);
 });
 
-test('converte a saída do highlight.js em faixas sobre o texto puro', () => {
+test('converte a saída do highlight.js para a paleta compartilhada do Git', () => {
   const ranges = syntaxRangesFromHighlightedHtml(
     '<span class="hljs-keyword">const</span> valor = <span class="hljs-number">1</span>;',
     'const valor = 1;',
   );
 
   assert.deepEqual(ranges, [
-    { start: 0, end: 5, className: 'hljs-keyword' },
-    { start: 14, end: 15, className: 'hljs-number' },
+    { start: 0, end: 5, className: 'git-syntax-keyword' },
+    { start: 14, end: 15, className: 'git-syntax-number' },
+  ]);
+});
+
+test('normaliza classes compostas do highlight.js', () => {
+  const ranges = syntaxRangesFromHighlightedHtml(
+    '<span class="hljs-keyword">function</span> <span class="hljs-title function_">render</span>()',
+    'function render()',
+  );
+
+  assert.deepEqual(ranges, [
+    { start: 0, end: 8, className: 'git-syntax-keyword' },
+    { start: 9, end: 15, className: 'git-syntax-function' },
   ]);
 });
 
@@ -88,8 +100,11 @@ test('mantém o alinhamento das faixas em linhas com caracteres escapados', () =
       'faixa dentro do texto',
     );
   }
-  const keyword = ranges.find((range) => range.className === 'hljs-keyword');
+  const keyword = ranges.find(
+    (range) => range.className === 'git-syntax-keyword',
+  );
   assert.equal(text.slice(keyword!.start, keyword!.end), 'const');
+  assert.ok(ranges.every((range) => range.className.startsWith('git-syntax-')));
 });
 
 test('não realça quando a linguagem é desconhecida', () => {
@@ -105,11 +120,11 @@ test('combina realce de sintaxe, trecho alterado e busca na mesma linha', () => 
     query: 'valor',
   });
 
-  assert.match(html, /class="hljs-keyword"/);
+  assert.match(html, /class="git-syntax-keyword"/);
   assert.match(html, /<mark>valor<\/mark>/);
   assert.match(html, /git-diff-word/);
   assert.ok(
-    !html.includes('<span class="hljs-number">2</span><span'),
+    !html.includes('<span class="git-syntax-number">2</span><span'),
     'sem faixas duplicadas',
   );
 });
