@@ -113,8 +113,7 @@ const consentBodySchema = {
 function translateProviderError(error: unknown): never {
   if (error instanceof AiProviderResolutionError) {
     throw new ApiError({
-      statusCode:
-        error.code === 'AI_CLOUD_CONSENT_REQUIRED' ? 409 : 400,
+      statusCode: error.code === 'AI_CLOUD_CONSENT_REQUIRED' ? 409 : 400,
       code: 'AI_ASSISTANT_INVALID_REQUEST',
       message: error.message,
     });
@@ -122,10 +121,9 @@ function translateProviderError(error: unknown): never {
   throw error;
 }
 
-export const aiProviderRoutes: FastifyPluginAsync<AiProviderRouteOptions> = async (
-  app,
-  options,
-) => {
+export const aiProviderRoutes: FastifyPluginAsync<
+  AiProviderRouteOptions
+> = async (app, options) => {
   function projectFor(projectId: string) {
     const project = options.projectStore.findProject(projectId);
     if (!project) {
