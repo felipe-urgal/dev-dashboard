@@ -23,6 +23,7 @@ const MAX_COMPLETION_SUFFIX_CHARS = 1_000;
 const MAX_COMPLETION_RESPONSE_CHARS = 2_000;
 const COMPLETION_MAX_OUTPUT_TOKENS = 128;
 const REVIEW_MAX_OUTPUT_TOKENS = 700;
+const MODEL_REQUIRED_MESSAGE = 'Selecione um modelo de IA disponível.';
 
 export { resolveOllamaBaseUrl } from './ollama-provider.js';
 export type { AiChatHandlers } from './ai-orchestrator.js';
@@ -65,7 +66,7 @@ function asAssistantError(error: unknown, fallback: string): AiAssistantError {
  *
  * Inferência é delegada ao AiProvider; o loop interativo e as ferramentas são
  * responsabilidade do AiOrchestrator. Isso preserva a API existente enquanto
- * remove detalhes do Ollama do fluxo de negócio.
+ * remove detalhes do provider do fluxo de negócio.
  */
 export class AiAssistantService {
   private readonly provider: AiProvider;
@@ -113,10 +114,7 @@ export class AiAssistantService {
     mode?: AiExecutionMode,
   ): Promise<void> {
     if (!model.trim()) {
-      handlers.send({
-        type: 'error',
-        message: 'Selecione um modelo instalado no Ollama.',
-      });
+      handlers.send({ type: 'error', message: MODEL_REQUIRED_MESSAGE });
       return;
     }
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
@@ -150,7 +148,7 @@ export class AiAssistantService {
     maxMessageChars: number = MAX_MESSAGE_CHARS,
   ): Promise<string> {
     if (!model.trim()) {
-      throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
+      throw new AiAssistantError(MODEL_REQUIRED_MESSAGE);
     }
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
       throw new AiAssistantError(
@@ -217,7 +215,7 @@ export class AiAssistantService {
     signal: AbortSignal,
   ): Promise<AiCompletionResult> {
     if (!model.trim()) {
-      throw new AiAssistantError('Selecione um modelo instalado no Ollama.');
+      throw new AiAssistantError(MODEL_REQUIRED_MESSAGE);
     }
     if (
       prefix.length > MAX_COMPLETION_PREFIX_CHARS ||

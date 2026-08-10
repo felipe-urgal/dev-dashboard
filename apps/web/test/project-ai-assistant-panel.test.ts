@@ -19,8 +19,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function json(payload: unknown): Response {
+function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
+    status,
     headers: { 'content-type': 'application/json' },
   });
 }
@@ -86,6 +87,8 @@ function execution(
   return {
     id: 'e852c4aa-e432-4fd8-a326-d30f366b9ad5',
     projectId: 'p1',
+    provider: 'ollama',
+    mode: 'fast',
     model: 'qwen2.5-coder:14b',
     prompt: 'Adicionar testes',
     status,
@@ -291,5 +294,90 @@ test('permite recusar a oferta de fallback sem trocar provider', async () => {
 
   assert.doesNotMatch(wrapper.text(), /Local falhou · OpenAI disponível/);
   assert.equal(selectionWrites, 0);
+  wrapper.unmount();
+});
+
+test('mantém a oferta quando a seleção de fallback não é persistida', async () => {
+  const failedExecution = execution('failed');
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/ai/selection') && init?.method === 'PUT') {
+      return json({ message: 'Falha ao salvar seleção.' }, 500);
+    }
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(
+        providersStatus({
+          ollamaAvailable: false,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    if (url.pathname.endsWith('/ai/implementations')) {
+      return json({ execution: failedExecution });
+    }
+    return json({ execution: null });
+  };
+
+  const wrapper = mount(ProjectAiAssistantPanel, {
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
+  });
+  await flushPromises();
+
+  const useOpenAi = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Usar OpenAI'));
+  assert.ok(useOpenAi);
+  await useOpenAi.trigger('click');
+  await flushPromises();
+
+  assert.match(wrapper.text(), /Local falhou · OpenAI disponível/);
+  assert.equal(
+    (
+      wrapper.get('.ai-assistant-execution-options select')
+        .element as HTMLSelectElement
+    ).value,
+    'ollama',
+  );
+  assert.equal(
+    (wrapper.get('textarea').element as HTMLTextAreaElement).value,
+    '',
+  );
+  wrapper.unmount();
+});
+
+test('restaura provider persistido quando a troca manual falha', async () => {
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (url.pathname.endsWith('/ai/selection') && init?.method === 'PUT') {
+      return json({ message: 'Falha ao salvar seleção.' }, 500);
+    }
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(
+        providersStatus({
+          ollamaAvailable: true,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    return json({ execution: null });
+  };
+
+  const wrapper = mount(ProjectAiAssistantPanel, {
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
+  });
+  await flushPromises();
+
+  const providerSelect = wrapper.get('.ai-assistant-execution-options select');
+  await providerSelect.setValue('openai');
+  await flushPromises();
+
+  assert.equal((providerSelect.element as HTMLSelectElement).value, 'ollama');
   wrapper.unmount();
 });

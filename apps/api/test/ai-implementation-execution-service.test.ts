@@ -7,6 +7,7 @@ import type {
   Project,
 } from '@dev-dashboard/contracts';
 
+import type { AiAssistantService } from '../src/services/ai-assistant-service.js';
 import { AiImplementationExecutionService } from '../src/services/ai-implementation-execution-service.js';
 
 const project: Project = {
@@ -61,6 +62,8 @@ test('mantém a execução ativa fora da conexão da interface', async () => {
 
   const started = service.start(project, 'qwen2.5-coder:14b', 'Criar testes');
   assert.equal(started.status, 'running');
+  assert.equal(started.provider, 'ollama');
+  assert.equal(started.mode, 'fast');
   assert.equal(receivedMessages.at(-1)?.content, 'Criar testes');
 
   // A leitura posterior simula voltar à aba depois de navegar pelo projeto.
@@ -74,6 +77,54 @@ test('mantém a execução ativa fora da conexão da interface', async () => {
   const finished = service.find(project.id, started.id);
   assert.equal(finished?.status, 'succeeded');
   assert.ok(sent);
+});
+
+test('congela provider e modo antes da resolução assíncrona', async () => {
+  let selectedProvider: 'ollama' | 'openai' = 'openai';
+  const resolvedProviders: string[] = [];
+  let receivedMode = '';
+  const openAiAssistant = {
+    async chat(
+      _project: Project,
+      _model: string,
+      _messages: AiChatMessage[],
+      handlers: {
+        signal: AbortSignal;
+        send: (event: AiChatStreamEvent) => void;
+      },
+      mode?: 'fast' | 'complete',
+    ): Promise<void> {
+      receivedMode = mode ?? '';
+      handlers.send({ type: 'done' });
+    },
+  };
+  const resolver = {
+    getSelection: () => ({
+      provider: selectedProvider,
+      mode: 'complete' as const,
+    }),
+    resolve: async (_projectId: string, provider: 'ollama' | 'openai') => {
+      resolvedProviders.push(provider);
+      return openAiAssistant as unknown as AiAssistantService;
+    },
+  };
+  const service = new AiImplementationExecutionService(
+    { chat: async () => undefined },
+    undefined,
+    resolver,
+  );
+
+  const started = service.start(project, 'gpt-5-mini', 'Criar testes');
+  selectedProvider = 'ollama';
+
+  assert.equal(started.provider, 'openai');
+  assert.equal(started.mode, 'complete');
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(resolvedProviders, ['openai']);
+  assert.equal(receivedMode, 'complete');
+  assert.equal(service.find(project.id, started.id)?.status, 'succeeded');
 });
 
 test('cancelamento é explícito e interrompe a execução em memória', async () => {

@@ -208,30 +208,50 @@ PR de referência: **#291**.
 
 ---
 
-## PR 8 — Fallback `offer` — em andamento
+## PR 8 — Fallback `offer` — concluído
 
 **Objetivo:** recuperar falhas sem trocar Local → Cloud silenciosamente.
 
-### Tarefas
+### Entregue
 
 - [x] Implementar `off` e `offer`.
 - [x] Não implementar `automatic` nesta fase.
-- [x] Classificar como elegível apenas falha em que o provider selecionado está indisponível no status atual.
+- [x] Classificar como elegível apenas falha em que o provider usado está indisponível no status atual.
 - [x] Preservar somente o pedido original ao preparar a troca de provider.
 - [x] Exigir ação explícita antes de Local → Cloud.
 - [x] Respeitar consentimento do projeto pelo fluxo existente.
 - [x] Exibir provider que falhou e provider oferecido.
 - [x] Cobrir aceite e recusa da oferta com testes.
-- [ ] CI obrigatório verde no commit final.
+- [x] CI obrigatório verde no commit final.
 
 ### Decisões desta fase
 
-- `offer` é o default; `off` desativa a oferta.
+- `offer` é o default; `off` desativa a oferta durante a sessão atual;
 - o fallback é uma oferta de UX, não roteamento automático no backend;
 - erro de ferramenta/modelo com provider ainda disponível não oferece troca;
 - a continuação não transporta histórico, tool results, diffs ou eventos;
 - aceitar a oferta seleciona explicitamente o provider alternativo e restaura o prompt original;
 - a nova execução continua dependendo de ação em `Iniciar` e, para cloud, do consentimento explícito do projeto.
+
+PR de referência: **#292**.
+
+---
+
+## Hardening pós-roadmap — em andamento
+
+A revisão de fechamento após o PR #292 identificou gaps de rastreabilidade e consistência que não alteram o escopo funcional dos oito PRs.
+
+### Tarefas
+
+- [x] Registrar `provider` e `mode` no snapshot de cada implementation.
+- [x] Congelar provider/modo antes da resolução assíncrona da execução.
+- [x] Fazer o fallback usar o provider realmente registrado na execução.
+- [x] Reverter a UI para a seleção persistida quando `PUT /ai/selection` falhar.
+- [x] Não esconder/preparar fallback quando a troca não for persistida.
+- [x] Remover mensagens de validação específicas do Ollama da fachada genérica.
+- [x] Manter `off/offer` como preferência de sessão, sem ampliar o schema persistido neste hardening.
+- [x] Atualizar schema HTTP, arquitetura, roadmap e `tasks/NEXT.md`.
+- [ ] CI obrigatório verde no commit final do hardening.
 
 ---
 
@@ -257,4 +277,5 @@ PR de referência: **#291**.
 | 5 | Síntese global da Code review | Absorvido pelo #289 |
 | 6 | Primeiro provider cloud | Concluído (#290) |
 | 7 | Seleção + consentimento | Concluído (#291) |
-| 8 | Fallback `offer` | Em andamento |
+| 8 | Fallback `offer` | Concluído (#292) |
+| — | Hardening pós-roadmap | Em andamento |

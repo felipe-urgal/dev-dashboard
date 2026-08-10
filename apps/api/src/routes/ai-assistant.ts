@@ -254,6 +254,8 @@ const executionSchema = {
   required: [
     'id',
     'projectId',
+    'provider',
+    'mode',
     'model',
     'prompt',
     'status',
@@ -264,6 +266,8 @@ const executionSchema = {
   properties: {
     id: { type: 'string', format: 'uuid' },
     projectId: { type: 'string' },
+    provider: { type: 'string', enum: ['ollama', 'openai'] },
+    mode: { type: 'string', enum: ['fast', 'complete'] },
     model: { type: 'string' },
     prompt: { type: 'string' },
     status: {

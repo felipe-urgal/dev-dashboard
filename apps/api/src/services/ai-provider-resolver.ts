@@ -44,6 +44,11 @@ export interface ResolvedProjectAiExecution {
   mode: AiExecutionMode;
 }
 
+export interface ProjectAiExecutionSelection {
+  provider: AiProviderId;
+  mode: AiExecutionMode;
+}
+
 export class AiProviderResolver {
   private readonly providers: Record<AiProviderId, AiProviderEntry>;
 
@@ -64,8 +69,13 @@ export class AiProviderResolver {
     };
   }
 
-  public async status(projectId: string): Promise<ProjectAiProvidersStatus> {
+  public getSelection(projectId: string): ProjectAiExecutionSelection {
     const selection = this.options.selectionRepository.get(projectId);
+    return { provider: selection.provider, mode: selection.mode };
+  }
+
+  public async status(projectId: string): Promise<ProjectAiProvidersStatus> {
+    const selection = this.getSelection(projectId);
     const providers = await Promise.all(
       (Object.keys(this.providers) as AiProviderId[]).map((providerId) =>
         this.providerStatus(projectId, providerId),
@@ -81,7 +91,7 @@ export class AiProviderResolver {
   public async resolveSelected(
     projectId: string,
   ): Promise<ResolvedProjectAiExecution> {
-    const selection = this.options.selectionRepository.get(projectId);
+    const selection = this.getSelection(projectId);
     const assistantService = await this.resolve(projectId, selection.provider);
     return {
       assistantService,
