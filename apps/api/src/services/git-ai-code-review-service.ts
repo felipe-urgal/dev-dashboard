@@ -314,8 +314,8 @@ export class GitAiCodeReviewService {
   public constructor(
     private readonly aiAssistantService: AiAssistantService,
     private readonly gitService: ReviewFileService = new GitPullRequestService(),
-    private readonly providerResolver: ProjectProviderResolver | undefined =
-      undefined,
+    private readonly providerResolver:
+      ProjectProviderResolver | undefined = undefined,
   ) {}
 
   public async start(
@@ -328,7 +328,8 @@ export class GitAiCodeReviewService {
     const resolved = this.providerResolver
       ? await this.providerResolver.resolveSelected(input.project.id)
       : undefined;
-    const aiAssistantService = resolved?.assistantService ?? this.aiAssistantService;
+    const aiAssistantService =
+      resolved?.assistantService ?? this.aiAssistantService;
     const provider = resolved?.provider ?? 'ollama';
     const mode = input.mode ?? resolved?.mode ?? DEFAULT_AI_EXECUTION_MODE;
 
