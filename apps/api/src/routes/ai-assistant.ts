@@ -8,10 +8,7 @@ import {
 
 import { ApiError } from '../http/api-error.js';
 import { commonErrorResponseSchemas } from '../http/response-schemas.js';
-import {
-  AiAssistantError,
-  type AiAssistantService,
-} from '../services/ai-assistant-service.js';
+import { AiAssistantError } from '../services/ai-assistant-service.js';
 import type { AiImplementationExecutionService } from '../services/ai-implementation-execution-service.js';
 import {
   AiProviderResolutionError,
@@ -22,7 +19,6 @@ import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface AiAssistantRouteOptions {
   projectStore: ProjectStore;
-  aiAssistantService: AiAssistantService;
   aiProviderResolver: AiProviderResolver;
   aiImplementationExecutionService: AiImplementationExecutionService;
 }
