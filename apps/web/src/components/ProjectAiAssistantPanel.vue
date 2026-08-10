@@ -51,7 +51,9 @@ let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let generation = 0;
 
 const selectedProvider = computed(
-  () => providers.value.find((provider) => provider.id === providerId.value) ?? null,
+  () =>
+    providers.value.find((provider) => provider.id === providerId.value) ??
+    null,
 );
 const models = computed(() => selectedProvider.value?.models ?? []);
 const isRunning = computed(() => execution.value?.status === 'running');
@@ -122,8 +124,9 @@ function eventLabel(event: AiChatStreamEvent): string {
 function preferredModel(provider: ProjectAiProviderStatus | null): string {
   if (!provider) return '';
   return (
-    provider.models.find((candidate) => candidate.capabilities.includes('tools'))
-      ?.name ??
+    provider.models.find((candidate) =>
+      candidate.capabilities.includes('tools'),
+    )?.name ??
     provider.models[0]?.name ??
     ''
   );
@@ -134,7 +137,8 @@ function applyProviderStatus(status: ProjectAiProvidersStatus): void {
   providerId.value = status.selectedProvider;
   mode.value = status.selectedMode;
   const availableModels =
-    status.providers.find((provider) => provider.id === providerId.value)?.models ?? [];
+    status.providers.find((provider) => provider.id === providerId.value)
+      ?.models ?? [];
   if (!availableModels.some((candidate) => candidate.name === model.value)) {
     model.value = preferredModel(selectedProvider.value);
   }
