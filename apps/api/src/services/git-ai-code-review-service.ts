@@ -234,9 +234,8 @@ function globalSynthesisContext(
   const reviewByPath = new Map(
     reviews
       .map((review) => [review.files[0], review] as const)
-      .filter(
-        (entry): entry is readonly [string, GitPullRequestAiReview] =>
-          Boolean(entry[0]),
+      .filter((entry): entry is readonly [string, GitPullRequestAiReview] =>
+        Boolean(entry[0]),
       ),
   );
   const entries: Array<Record<string, unknown>> = [];
