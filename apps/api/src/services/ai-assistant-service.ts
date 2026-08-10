@@ -82,7 +82,10 @@ export class AiAssistantService {
       options.languageServerService ??
       new ProjectLanguageServerService({ projectFileService });
     const provider =
-      options.provider ?? new OllamaProvider({ fetchImpl: options.fetchImpl });
+      options.provider ??
+      new OllamaProvider(
+        options.fetchImpl ? { fetchImpl: options.fetchImpl } : {},
+      );
 
     this.provider = provider;
     this.orchestrator =
