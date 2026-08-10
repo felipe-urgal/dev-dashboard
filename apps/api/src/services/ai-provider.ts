@@ -11,7 +11,6 @@ export type AiProviderErrorCode = Exclude<
   AiErrorCode,
   | 'AI_ASSISTANT_INVALID_REQUEST'
   | 'AI_CLOUD_CONSENT_REQUIRED'
-  | 'AI_PROVIDER_UNAVAILABLE'
   | 'AI_MODEL_UNAVAILABLE'
 >;
 
