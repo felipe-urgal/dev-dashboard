@@ -233,15 +233,19 @@ Ollama. Um arquivo que falhar não impede que os demais recebam comentários.
 
 Após concluir a revisão, a tela mostra:
 
-- todos os arquivos alterados na comparação;
-- o resumo da IA;
-- cada comentário em separado, com severidade, arquivo, linha, explicação e
-  recomendação.
+- um resumo com a quantidade de apontamentos pendentes;
+- os arquivos que possuem comentários, com a contagem ainda pendente em cada
+  um;
+- os comentários do arquivo selecionado ao lado do seu diff, sempre na mesma
+  comparação da revisão;
+- ações locais de triagem para selecionar, marcar como resolvido ou ignorar
+  apontamentos. Elas organizam a sessão atual e não alteram arquivos, commits
+  ou Pull Requests.
 
 A revisão é consultiva: não altera arquivos, commits ou Pull Requests. Diffs
 com conteúdo sensível são mascarados antes de chegar ao modelo. Para arquivos
-muito extensos, a análise usa um recorte seguro; o diff completo continua na
-sub-aba **Diff**.
+muito extensos, a análise usa um recorte seguro; o painel ao lado busca o
+diff completo do arquivo diretamente na comparação selecionada.
 
 ---
 

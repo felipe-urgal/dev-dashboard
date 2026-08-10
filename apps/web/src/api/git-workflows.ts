@@ -6,6 +6,7 @@ import type {
   GitPullRequestMutationActionId,
   GitPullRequestMutationConfirmation,
   GitPullRequestMutationResult,
+  GitPullRequestReviewFileDiff,
   GitPullRequestReviewFiles,
   GitPullRequestUrl,
 } from '@dev-dashboard/contracts';
@@ -62,6 +63,10 @@ interface PullRequestAiReviewResponse {
 
 interface PullRequestReviewFilesResponse {
   review: GitPullRequestReviewFiles;
+}
+
+interface PullRequestReviewFileDiffResponse {
+  review: GitPullRequestReviewFileDiff;
 }
 
 interface PullRequestAiReviewExecutionResponse {
@@ -268,6 +273,25 @@ export async function getProjectGitPullRequestReviewFiles(
 ): Promise<GitPullRequestReviewFiles> {
   const response = await requestJson<PullRequestReviewFilesResponse>(
     `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-files?${pullRequestLookupQuery(input)}`,
+  );
+  return response.review;
+}
+
+export async function getProjectGitPullRequestReviewFileDiff(
+  projectId: string,
+  input: {
+    targetRemote: GitPullRequestTargetRemote;
+    baseBranch: string;
+    path: string;
+  },
+): Promise<GitPullRequestReviewFileDiff> {
+  const query = new URLSearchParams({
+    targetRemote: input.targetRemote,
+    baseBranch: input.baseBranch,
+    path: input.path,
+  });
+  const response = await requestJson<PullRequestReviewFileDiffResponse>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-file-diff?${query}`,
   );
   return response.review;
 }

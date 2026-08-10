@@ -41,6 +41,10 @@ interface PullRequestLookupQuery {
   baseBranch: string;
 }
 
+interface PullRequestReviewFileDiffQuery extends PullRequestLookupQuery {
+  path: string;
+}
+
 interface PullRequestAiReviewBody {
   targetRemote: GitPullRequestTargetRemote;
   baseBranch: string;
@@ -97,6 +101,16 @@ const pullRequestLookupQuerySchema = {
   properties: {
     targetRemote: { type: 'string', enum: ['origin', 'upstream'] },
     baseBranch: { type: 'string', minLength: 1, maxLength: 200 },
+  },
+} as const;
+
+const pullRequestReviewFileDiffQuerySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['targetRemote', 'baseBranch', 'path'],
+  properties: {
+    ...pullRequestLookupQuerySchema.properties,
+    path: { type: 'string', minLength: 1, maxLength: 1_000 },
   },
 } as const;
 
@@ -270,6 +284,15 @@ const pullRequestReviewFilesSchema = {
     baseBranch: { type: 'string' },
     sourceBranch: { type: 'string' },
     files: { type: 'array', items: { type: 'string' } },
+  },
+} as const;
+
+const pullRequestReviewFileDiffSchema = {
+  ...pullRequestReviewFilesSchema,
+  required: [...pullRequestReviewFilesSchema.required, 'diff'],
+  properties: {
+    ...pullRequestReviewFilesSchema.properties,
+    diff: { type: 'string' },
   },
 } as const;
 
@@ -826,6 +849,42 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       try {
         return {
           review: await service.getReviewFiles(project.path, request.query),
+        };
+      } catch (error) {
+        translatePullRequestError(error);
+      }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: PullRequestReviewFileDiffQuery;
+  }>(
+    '/projects/:projectId/git/pull-request/ai-review-file-diff',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: pullRequestReviewFileDiffQuerySchema,
+        response: {
+          200: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['review'],
+            properties: { review: pullRequestReviewFileDiffSchema },
+          },
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      const project = projectFor(request.params.projectId);
+      try {
+        return {
+          review: await service.getReviewFileDiff(
+            project.path,
+            request.query,
+            request.query.path,
+          ),
         };
       } catch (error) {
         translatePullRequestError(error);

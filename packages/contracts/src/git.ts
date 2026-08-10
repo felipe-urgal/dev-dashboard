@@ -253,6 +253,11 @@ export interface GitPullRequestReviewFiles {
   files: string[];
 }
 
+/** Diff de um arquivo exatamente na comparação usada pela revisão de código. */
+export interface GitPullRequestReviewFileDiff extends GitPullRequestReviewFiles {
+  diff: string;
+}
+
 export interface GitPullRequestAiReview {
   targetRemote: 'origin' | 'upstream';
   baseBranch: string;

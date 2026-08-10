@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import {
   ArrowPathIcon,
+  CheckIcon,
   CheckCircleIcon,
+  CodeBracketIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ClockIcon,
   DocumentMagnifyingGlassIcon,
   ExclamationCircleIcon,
+  EyeIcon,
+  FunnelIcon,
+  MinusCircleIcon,
   SparklesIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
@@ -16,6 +21,8 @@ import type {
   GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
   GitPullRequestAiReviewFileExecution,
+  GitPullRequestReviewFileDiff,
+  GitPullRequestReviewFinding,
   GitPullRequestReviewFiles,
   ProjectAiStatus,
   ProjectGitOverview,
@@ -26,10 +33,12 @@ import {
   cancelProjectGitPullRequestAiReview,
   fetchProjectAiStatus,
   getLatestProjectGitPullRequestAiReview,
+  getProjectGitPullRequestReviewFileDiff,
   getProjectGitPullRequestReviewFiles,
   startProjectGitPullRequestAiReview,
   type GitPullRequestTargetRemote,
 } from '../api';
+import GitFileDiffView from './GitFileDiffView.vue';
 
 const props = defineProps<{
   projectId: string;
@@ -52,6 +61,14 @@ const execution = ref<GitPullRequestAiReviewExecution | null>(null);
 const reviewFiles = ref<GitPullRequestReviewFiles | null>(null);
 const loadingFiles = ref(false);
 const errorMessage = ref('');
+const activeReviewFile = ref<string | null>(null);
+const reviewFileDiff = ref<GitPullRequestReviewFileDiff | null>(null);
+const loadingReviewFileDiff = ref(false);
+const reviewFileDiffError = ref('');
+const selectedFindingKeys = ref<string[]>([]);
+const resolvedFindingKeys = ref<string[]>([]);
+const ignoredFindingKeys = ref<string[]>([]);
+let reviewFileDiffGeneration = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 const availableTargets = computed(() => {
@@ -117,6 +134,34 @@ const currentFiles = computed(() => execution.value?.currentFilePaths ?? []);
 const failedFilePaths = computed(
   () => execution.value?.failedFiles.map((failure) => failure.path) ?? [],
 );
+const reviewFindings = computed(
+  () =>
+    review.value?.findings.filter(
+      (finding) => !ignoredFindingKeys.value.includes(findingKey(finding)),
+    ) ?? [],
+);
+const pendingFindingCount = computed(
+  () =>
+    reviewFindings.value.filter(
+      (finding) => !resolvedFindingKeys.value.includes(findingKey(finding)),
+    ).length,
+);
+const groupedReviewFindings = computed(() => {
+  const groups = new Map<string, GitPullRequestReviewFinding[]>();
+  for (const finding of reviewFindings.value) {
+    const current = groups.get(finding.path) ?? [];
+    current.push(finding);
+    groups.set(finding.path, current);
+  }
+  return [...groups.entries()].map(([path, findings]) => ({ path, findings }));
+});
+const activeFindings = computed(() =>
+  activeReviewFile.value
+    ? (groupedReviewFindings.value.find(
+        (group) => group.path === activeReviewFile.value,
+      )?.findings ?? [])
+    : [],
+);
 
 function defaultBase(): string {
   return (
@@ -153,6 +198,87 @@ function fileStatusLabel(file: GitPullRequestAiReviewFileExecution): string {
     cancelled: 'Cancelado',
   } as const;
   return labels[file.status];
+}
+
+function findingKey(finding: GitPullRequestReviewFinding): string {
+  return `${finding.path}:${finding.line ?? 0}:${finding.title}`;
+}
+
+function severityLabel(finding: GitPullRequestReviewFinding): string {
+  return {
+    critical: 'Crítico',
+    warning: 'Atenção',
+    suggestion: 'Sugestão',
+  }[finding.severity];
+}
+
+function isFindingResolved(finding: GitPullRequestReviewFinding): boolean {
+  return resolvedFindingKeys.value.includes(findingKey(finding));
+}
+
+function isFindingSelected(finding: GitPullRequestReviewFinding): boolean {
+  return selectedFindingKeys.value.includes(findingKey(finding));
+}
+
+function toggleFindingSelection(finding: GitPullRequestReviewFinding): void {
+  const key = findingKey(finding);
+  selectedFindingKeys.value = isFindingSelected(finding)
+    ? selectedFindingKeys.value.filter((candidate) => candidate !== key)
+    : [...selectedFindingKeys.value, key];
+}
+
+function markFindingResolved(finding: GitPullRequestReviewFinding): void {
+  const key = findingKey(finding);
+  if (!resolvedFindingKeys.value.includes(key))
+    resolvedFindingKeys.value = [...resolvedFindingKeys.value, key];
+  selectedFindingKeys.value = selectedFindingKeys.value.filter(
+    (candidate) => candidate !== key,
+  );
+}
+
+function ignoreFinding(finding: GitPullRequestReviewFinding): void {
+  const key = findingKey(finding);
+  ignoredFindingKeys.value = [...ignoredFindingKeys.value, key];
+  selectedFindingKeys.value = selectedFindingKeys.value.filter(
+    (candidate) => candidate !== key,
+  );
+}
+
+function markSelectedFindingsResolved(): void {
+  resolvedFindingKeys.value = Array.from(
+    new Set([...resolvedFindingKeys.value, ...selectedFindingKeys.value]),
+  );
+  selectedFindingKeys.value = [];
+}
+
+async function openReviewFile(path: string): Promise<void> {
+  if (!review.value) return;
+  activeReviewFile.value = path;
+  reviewFileDiff.value = null;
+  reviewFileDiffError.value = '';
+  const generation = ++reviewFileDiffGeneration;
+  loadingReviewFileDiff.value = true;
+  try {
+    const fileDiff = await getProjectGitPullRequestReviewFileDiff(
+      props.projectId,
+      {
+        targetRemote: review.value.targetRemote,
+        baseBranch: review.value.baseBranch,
+        path,
+      },
+    );
+    if (generation === reviewFileDiffGeneration)
+      reviewFileDiff.value = fileDiff;
+  } catch (error) {
+    if (generation !== reviewFileDiffGeneration) return;
+    reviewFileDiffError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar o diff deste arquivo.';
+  } finally {
+    if (generation === reviewFileDiffGeneration)
+      loadingReviewFileDiff.value = false;
+  }
 }
 
 async function loadAiStatus(): Promise<void> {
@@ -217,6 +343,9 @@ function applyExecution(candidate: GitPullRequestAiReviewExecution): void {
   if (!isCurrentExecution(candidate)) return;
   execution.value = candidate;
   review.value = candidate.review ?? null;
+  const firstPath = candidate.review?.findings[0]?.path ?? null;
+  if (firstPath && firstPath !== activeReviewFile.value)
+    void openReviewFile(firstPath);
   if (candidate.status === 'failed') {
     errorMessage.value =
       candidate.errorMessage ??
@@ -331,6 +460,11 @@ watch(
       : (availableTargets.value[0] ?? 'origin');
     baseBranch.value = defaultBase();
     review.value = null;
+    activeReviewFile.value = null;
+    reviewFileDiff.value = null;
+    selectedFindingKeys.value = [];
+    resolvedFindingKeys.value = [];
+    ignoredFindingKeys.value = [];
     execution.value = null;
     reviewFiles.value = null;
     selectedFiles.value = [];
@@ -346,6 +480,8 @@ watch(targetRemote, () => {
   if (isRunning.value) return;
   baseBranch.value = defaultBase();
   review.value = null;
+  activeReviewFile.value = null;
+  reviewFileDiff.value = null;
   execution.value = null;
   selectedFiles.value = [];
   void loadReviewFiles();
@@ -355,6 +491,8 @@ watch(targetRemote, () => {
 watch(baseBranch, () => {
   if (isRunning.value) return;
   review.value = null;
+  activeReviewFile.value = null;
+  reviewFileDiff.value = null;
   execution.value = null;
   selectedFiles.value = [];
   void loadReviewFiles();
@@ -576,12 +714,14 @@ onUnmounted(stopRefreshing);
     <div v-if="review" class="git-code-review-results" aria-live="polite">
       <div class="git-code-review-summary">
         <div>
-          <strong>{{
-            execution?.status === 'cancelled'
-              ? 'Resultado parcial'
-              : 'Revisão concluída'
-          }}</strong>
-          <span>{{ review.summary }}</span>
+          <span
+            >Resultado
+            {{
+              execution?.status === 'cancelled' ? 'parcial' : 'da revisão'
+            }}</span
+          >
+          <strong>{{ pendingFindingCount }} apontamento(s) pendente(s)</strong>
+          <p>{{ review.summary }}</p>
         </div>
         <small
           >{{ review.model }} ·
@@ -591,42 +731,167 @@ onUnmounted(stopRefreshing);
         >
       </div>
 
-      <section class="git-code-review-findings" aria-label="Comentários da IA">
-        <header>
-          <strong>Comentários ponto a ponto</strong>
-          <span>{{ review.findings.length }} encontrado(s)</span>
-        </header>
-        <p v-if="review.findings.length === 0">
-          Nenhum ponto relevante foi encontrado. Ainda vale revisar o diff antes
-          de abrir a PR.
-        </p>
-        <ol v-else>
-          <li
-            v-for="finding in review.findings"
-            :key="`${finding.path}:${finding.line ?? 0}:${finding.title}`"
-          >
-            <span
-              :class="['git-code-review-severity', `is-${finding.severity}`]"
-              >{{ finding.severity }}</span
-            >
+      <p
+        v-if="review.findings.length === 0"
+        class="git-code-review-empty-results"
+      >
+        Nenhum ponto relevante foi encontrado. Ainda vale revisar o diff antes
+        de abrir a PR.
+      </p>
+
+      <div v-else class="git-code-review-workspace">
+        <aside class="git-code-review-files" aria-label="Arquivos revisados">
+          <header>
             <div>
-              <strong>{{ finding.title }}</strong>
-              <code
-                >{{ finding.path
-                }}<template v-if="finding.line"
-                  >:{{ finding.line }}</template
-                ></code
-              >
-              <p>{{ finding.explanation }}</p>
-              <small>Recomendação: {{ finding.recommendation }}</small>
+              <span>Comentários por arquivo</span>
+              <strong>{{ groupedReviewFindings.length }} arquivo(s)</strong>
             </div>
-          </li>
-        </ol>
-        <p v-if="review.diffTruncated">
-          Um arquivo muito extenso foi reduzido para a análise. O diff completo
-          continua disponível na aba Diff.
-        </p>
-      </section>
+            <FunnelIcon aria-hidden="true" />
+          </header>
+
+          <div class="git-code-review-file-list">
+            <button
+              v-for="group in groupedReviewFindings"
+              :key="group.path"
+              type="button"
+              :class="{ active: activeReviewFile === group.path }"
+              @click="openReviewFile(group.path)"
+            >
+              <CodeBracketIcon aria-hidden="true" />
+              <span>
+                <strong>{{ group.path }}</strong>
+                <small>{{ group.findings.length }} apontamento(s)</small>
+              </span>
+              <b>{{
+                group.findings.filter((finding) => !isFindingResolved(finding))
+                  .length
+              }}</b>
+            </button>
+          </div>
+
+          <p v-if="review.diffTruncated" class="git-code-review-file-notice">
+            Um diff extenso foi resumido para a análise da IA; a visualização
+            abaixo continua completa.
+          </p>
+        </aside>
+
+        <section
+          class="git-code-review-file-review"
+          aria-label="Arquivo e diff selecionados"
+        >
+          <header>
+            <div>
+              <span>Arquivo selecionado</span>
+              <strong>{{ activeReviewFile ?? 'Selecione um arquivo' }}</strong>
+            </div>
+            <span class="git-code-review-diff-mode">Lado a lado</span>
+          </header>
+
+          <div class="git-code-review-file-body">
+            <div class="git-code-review-finding-list">
+              <article
+                v-for="finding in activeFindings"
+                :key="findingKey(finding)"
+                :class="[
+                  'git-code-review-finding',
+                  `is-${finding.severity}`,
+                  { 'is-resolved': isFindingResolved(finding) },
+                ]"
+              >
+                <label :aria-label="`Selecionar ${finding.title}`">
+                  <input
+                    type="checkbox"
+                    :checked="isFindingSelected(finding)"
+                    :disabled="isFindingResolved(finding)"
+                    @change="toggleFindingSelection(finding)"
+                  />
+                </label>
+                <div class="git-code-review-finding-copy">
+                  <span
+                    :class="[
+                      'git-code-review-severity',
+                      `is-${finding.severity}`,
+                    ]"
+                  >
+                    {{ severityLabel(finding) }}
+                  </span>
+                  <strong>{{ finding.title }}</strong>
+                  <small>Linha {{ finding.line ?? 'não identificada' }}</small>
+                  <p>{{ finding.explanation }}</p>
+                  <p class="git-code-review-recommendation">
+                    {{ finding.recommendation }}
+                  </p>
+                </div>
+                <div class="git-code-review-finding-actions">
+                  <button type="button" @click="openReviewFile(finding.path)">
+                    <EyeIcon aria-hidden="true" />
+                    Ver no diff
+                  </button>
+                  <button
+                    v-if="!isFindingResolved(finding)"
+                    type="button"
+                    @click="markFindingResolved(finding)"
+                  >
+                    <CheckIcon aria-hidden="true" />
+                    Resolver
+                  </button>
+                  <span v-else class="git-code-review-resolved">
+                    <CheckCircleIcon aria-hidden="true" /> Resolvido
+                  </span>
+                  <button
+                    v-if="!isFindingResolved(finding)"
+                    type="button"
+                    @click="ignoreFinding(finding)"
+                  >
+                    <MinusCircleIcon aria-hidden="true" />
+                    Ignorar
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <div class="git-code-review-diff-panel">
+              <div
+                v-if="loadingReviewFileDiff"
+                class="git-code-review-diff-empty"
+              >
+                <ArrowPathIcon class="spinning" aria-hidden="true" />
+                Carregando diff da comparação…
+              </div>
+              <p
+                v-else-if="reviewFileDiffError"
+                class="project-error"
+                role="alert"
+              >
+                {{ reviewFileDiffError }}
+              </p>
+              <GitFileDiffView
+                v-else-if="reviewFileDiff && activeReviewFile"
+                :content="reviewFileDiff.diff"
+                :path="activeReviewFile"
+                view-mode="split"
+              />
+              <div v-else class="git-code-review-diff-empty">
+                Escolha um arquivo para abrir o diff correspondente à revisão.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer
+        v-if="selectedFindingKeys.length"
+        class="git-code-review-selection-bar"
+      >
+        <span>{{ selectedFindingKeys.length }} selecionado(s)</span>
+        <button type="button" @click="selectedFindingKeys = []">
+          Limpar seleção
+        </button>
+        <button type="button" @click="markSelectedFindingsResolved">
+          <CheckIcon aria-hidden="true" />
+          Resolver selecionados
+        </button>
+      </footer>
     </div>
 
     <section
