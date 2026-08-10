@@ -1,0 +1,152 @@
+name: Update AI architecture state
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-doc:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ai-multi-provider-hardening
+
+      - name: Update architecture document
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/architecture/ai-multi-provider.md')
+          text = path.read_text()
+
+          old_state = '''O Assistente IA atual usa Ollama local diretamente dentro de `apps/api/src/services/ai-assistant-service.ts`.
+
+Características relevantes do comportamento existente:
+
+- `DEV_DASHBOARD_OLLAMA_URL` aceita somente HTTP em loopback;
+- o chat interativo possui catálogo fechado de ferramentas;
+- o modelo pode ler arquivos, buscar texto, consultar diff e símbolos;
+- `propose_workspace_edit` apenas cria uma proposta de edição;
+- a escrita só acontece depois de aprovação explícita;
+- o loop de chat possui limite de rodadas de ferramentas;
+- existe tratamento específico para modelos Ollama que retornam tool call como JSON textual;
+- a Code review IA processa os arquivos do diff separadamente e agrega os achados ao final;
+- o diff enviado por arquivo possui limite fixo;
+- o mascaramento de segredos já é usado no fluxo de Code review, mas precisa ser garantido em qualquer caminho que venha a enviar conteúdo para providers externos.'''
+          new_state = '''O Assistente IA usa `AiAssistantService` como fachada sobre `AiProvider`. O `AiProviderResolver` resolve por projeto entre Ollama local e OpenAI cloud, enquanto filesystem, Git, LSP, ferramentas e aprovação permanecem fora dos adapters.
+
+Características relevantes do comportamento existente:
+
+- `DEV_DASHBOARD_OLLAMA_URL` aceita somente HTTP em loopback;
+- Ollama continua sendo o provider local padrão; OpenAI é o primeiro provider cloud;
+- provider e modo (`fast`/`complete`) são persistidos por projeto, com consentimento cloud persistido separadamente;
+- cada execution de implementation registra e congela `provider` e `mode` no início da execução;
+- o chat interativo possui catálogo fechado de ferramentas;
+- o modelo pode ler arquivos, buscar texto, consultar diff e símbolos;
+- `propose_workspace_edit` apenas cria uma proposta de edição;
+- a escrita só acontece depois de aprovação explícita;
+- o loop de chat possui budgets por modo e proteção contra ausência de progresso;
+- compatibilidades específicas de tool calling permanecem dentro de cada provider;
+- a Code review IA mantém orquestração separada, com revisão por arquivo e síntese global no modo `complete`;
+- o mascaramento de segredos é aplicado na fronteira compartilhada de saída antes que conteúdo textual alcance um provider;
+- o fallback inicial é `offer`: a UI pode oferecer outro provider quando o usado ficou indisponível, mas Local → Cloud nunca inicia automaticamente e continua sujeito ao consentimento do projeto.'''
+          if old_state not in text:
+              raise SystemExit('estado atual esperado não encontrado')
+          text = text.replace(old_state, new_state, 1)
+
+          old_diagram = '''## Arquitetura alvo
+
+A arquitetura deve evoluir de forma incremental. O desenho alvo é:
+
+```text
+                       AiProvider
+                           │
+                ┌──────────┴──────────┐
+                │                     │
+                ▼                     ▼
+          AiOrchestrator      GitAiCodeReviewService
+           Assistente              Code Review
+                │                     │
+                └──────────┬──────────┘
+                           │
+                    ProviderResolver
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+           Ollama        Codex        Gemini
+```
+
+O desenho é alvo, não obrigação para a primeira implementação. `ProviderResolver`, seleção em UI e múltiplos providers só entram quando existir pelo menos um segundo provider real.'''
+          new_diagram = '''## Arquitetura atual
+
+A implementação consolidada após o roadmap é:
+
+```text
+                     AiProvider
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+              ▼                     ▼
+        AiOrchestrator      GitAiCodeReviewService
+         Assistente              Code Review
+              │
+              ▼
+       AiProviderResolver
+              │
+        ┌─────┴─────┐
+        ▼           ▼
+ OllamaProvider  OpenAiProvider
+```
+
+O resolver e a seleção em UI já existem para o Assistente IA. A Code review mantém sua orquestração e provider atual separados por decisão de escopo; novos providers e seleção multi-provider nesse fluxo continuam adiados até existir necessidade concreta.'''
+          if old_diagram not in text:
+              raise SystemExit('diagrama esperado não encontrado')
+          text = text.replace(old_diagram, new_diagram, 1)
+
+          text = text.replace(
+              '## `OllamaProvider`\n\nO primeiro provider será uma extração do comportamento Ollama existente, sem mudança observável de produto.\n\nDevem migrar para o `OllamaProvider`:',
+              '## `OllamaProvider`\n\nO comportamento Ollama foi extraído para `OllamaProvider` sem mover regras de negócio para o adapter.\n\nFicam no `OllamaProvider`:',
+              1,
+          )
+          text = text.replace(
+              '## Modos de execução\n\nA UI deverá expor inicialmente dois modos:',
+              '## Modos de execução\n\nA UI expõe dois modos:',
+              1,
+          )
+          text = text.replace(
+              '## Code review em duas etapas\n\nA Code review atual por arquivo será preservada e receberá uma segunda etapa opcional de síntese global.',
+              '## Code review em duas etapas\n\nA Code review por arquivo é preservada e, no modo `complete`, executa uma segunda etapa de síntese global.',
+              1,
+          )
+          text = text.replace(
+              'A UI de seleção não entra na primeira extração do `AiProvider`. Ela só deve ser adicionada quando existir um segundo provider utilizável.',
+              'A seleção foi adicionada após a introdução da OpenAI: provider e modo são persistidos por projeto, enquanto modelo permanece em opções avançadas.',
+              1,
+          )
+          text = text.replace(
+              'A primeira implementação multi-provider deve usar **`offer`**.\n\nNão implementar fallback automático na primeira versão. Em especial, Local → Cloud nunca acontece sem ação explícita do usuário.',
+              'A implementação multi-provider usa **`offer`** como padrão da sessão, com opção `off`. O fallback automático permanece fora do escopo. Local → Cloud nunca acontece sem ação explícita do usuário e consentimento do projeto.',
+              1,
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Commit document
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/architecture/ai-multi-provider.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "docs: atualiza estado da arquitetura multi-provider"
+          git push origin HEAD:agent/ai-multi-provider-hardening
