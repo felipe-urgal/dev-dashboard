@@ -37,6 +37,13 @@ export {
 } from './project-ai-consent-repository.js';
 export type { ProjectAiCloudProviderId } from './project-ai-consent-repository.js';
 
+export { ProjectAiSelectionRepository } from './project-ai-selection-repository.js';
+export type {
+  ProjectAiModeSelection,
+  ProjectAiProviderSelection,
+  ProjectAiSelection,
+} from './project-ai-selection-repository.js';
+
 export {
   ProjectRecentRepository,
   PROJECT_RECENT_LIMITS,
