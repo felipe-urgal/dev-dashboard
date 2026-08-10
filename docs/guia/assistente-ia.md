@@ -58,6 +58,13 @@ dashboard, com progresso via stream:
 Se o Ollama não estiver disponível na máquina local, a aba mostra a mensagem de indisponibilidade
 retornada pela API em vez do formulário de solicitação.
 
+Nem todo modelo segue de forma confiável o mecanismo estruturado de tool-calling do Ollama —
+alguns (sobretudo os mais leves, como `qwen2.5-coder:7b`) às vezes escrevem a chamada de ferramenta
+como texto comum na resposta em vez de usá-la de verdade. Quando isso acontece, a execução termina
+como **Falhou**, com uma mensagem explicando que nenhuma ferramenta foi executada, em vez de
+aparecer como concluída sem nenhuma prévia ou resposta útil. Se isso ocorrer, tente novamente com
+um modelo mais robusto (ex.: `qwen2.5-coder:14b`).
+
 ## Limites e privacidade
 
 - Nenhum prompt ou resposta do assistente é persistido em log ou arquivo — tudo vive só na memória
