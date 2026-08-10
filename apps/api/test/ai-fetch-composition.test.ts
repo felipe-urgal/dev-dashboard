@@ -3,10 +3,9 @@ import test from 'node:test';
 
 import { LOG_MASK } from '@dev-dashboard/process-manager';
 
-import { createAiOutboundProtectionFetch } from '../src/services/ai-outbound-protection-fetch.js';
-import { createOllamaToolCallCompatFetch } from '../src/services/ollama-tool-call-compat-fetch.js';
+import { OllamaProvider } from '../src/services/ollama-provider.js';
 
-test('proteção de saída preserva a conversão de tool call textual do Ollama', async () => {
+test('OllamaProvider compõe proteção de saída e compatibilidade de tool call textual', async () => {
   let outboundBody = '';
   const rawFetch: typeof fetch = async (_input, init) => {
     outboundBody = String(init?.body ?? '');
@@ -24,53 +23,39 @@ test('proteção de saída preserva a conversão de tool call textual do Ollama'
       { status: 200 },
     );
   };
-  const fetchImpl = createOllamaToolCallCompatFetch(
-    createAiOutboundProtectionFetch(rawFetch),
-  );
+  const provider = new OllamaProvider({ fetchImpl: rawFetch });
 
-  const response = await fetchImpl('http://127.0.0.1:11434/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({
-      model: 'qwen2.5-coder:7b',
-      messages: [
-        {
-          role: 'user',
-          content: 'API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456',
-        },
-      ],
+  const result = await provider.chatRound(
+    'qwen2.5-coder:7b',
+    [
+      {
+        role: 'user',
+        content: 'API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456',
+      },
+    ],
+    {
+      signal: new AbortController().signal,
+      timeoutMs: 1_000,
       tools: [
         {
-          type: 'function',
-          function: {
-            name: 'search_project_text',
-            parameters: { type: 'object' },
-          },
+          name: 'search_project_text',
+          description: 'Busca texto no projeto.',
+          parameters: { type: 'object' },
         },
       ],
-      stream: false,
-    }),
-  });
-  const payload = (await response.json()) as {
-    message: {
-      content: string;
-      tool_calls: Array<{
-        function: { name: string; arguments: Record<string, unknown> };
-      }>;
-    };
-  };
+    },
+  );
 
   assert.ok(outboundBody.includes(LOG_MASK));
   assert.equal(
     outboundBody.includes('abcdefghijklmnopqrstuvwxyz123456'),
     false,
   );
-  assert.equal(payload.message.content, '');
-  assert.deepEqual(payload.message.tool_calls, [
+  assert.equal(result.content, '');
+  assert.deepEqual(result.toolCalls, [
     {
-      function: {
-        name: 'search_project_text',
-        arguments: { query: 'configuração' },
-      },
+      name: 'search_project_text',
+      arguments: { query: 'configuração' },
     },
   ]);
 });
