@@ -21,6 +21,12 @@ npm run build
 npm test
 ```
 
+## Validação manual do Assistente IA local
+
+- Validar a task 232 com uma instalação real do Ollama e modelo com suporte a
+  ferramentas. A suíte automatizada cobre o ciclo de vida da execução em
+  memória, mas não substitui a qualidade das respostas do modelo escolhido.
+
 ---
 
 ## Varredura de melhorias e refatoração (2026-08-06)

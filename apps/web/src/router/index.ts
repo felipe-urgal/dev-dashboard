@@ -89,6 +89,15 @@ export const router = createRouter({
       },
     },
     {
+      path: '/projects/:projectId/ai-assistant',
+      name: 'project-ai-assistant',
+      component: ProjectDetailsView,
+      meta: {
+        eyebrow: 'Projeto local',
+        title: 'Assistente IA do projeto',
+      },
+    },
+    {
       path: '/projects/:projectId/tests',
       name: 'project-tests',
       component: ProjectDetailsView,

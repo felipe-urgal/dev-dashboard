@@ -111,6 +111,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectTerminalService =
     options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
+    context.aiImplementationExecutionService.close();
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
@@ -304,6 +305,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     aiAssistantService: context.aiAssistantService,
+    aiImplementationExecutionService: context.aiImplementationExecutionService,
   });
 
   app.register(processRoutes, {
