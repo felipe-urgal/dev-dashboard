@@ -7,6 +7,7 @@ import type {
   AiImplementationExecution,
   AiImplementationExecutionStatus,
   AiProviderId,
+  AiTool,
   Project,
 } from '@dev-dashboard/contracts';
 
@@ -16,6 +17,27 @@ import type { AiProviderResolver } from './ai-provider-resolver.js';
 
 const MAX_EVENTS_PER_EXECUTION = 120;
 const MAX_EXECUTIONS = 40;
+const PROJECT_INSPECTION_TOOLS = new Set<AiTool>([
+  'read_project_file',
+  'search_project_text',
+  'list_project_files',
+  'get_git_diff',
+  'get_symbol_definition',
+  'get_symbol_references',
+]);
+const IMPLEMENTATION_SYSTEM_PROMPT = [
+  'Você é o assistente de implementação do Dev Dashboard.',
+  'Antes de responder sobre código existente, inspecione o projeto com as ferramentas disponíveis.',
+  'Se o usuário mencionar uma tela, funcionalidade, componente ou diretório sem informar o arquivo exato, use search_project_text e list_project_files para localizar o código relevante.',
+  'Nunca invente nomes ou caminhos de arquivos. Se uma leitura falhar com arquivo não encontrado, volte a buscar ou listar o projeto em vez de repetir o mesmo caminho.',
+  'Leia pelo menos um arquivo relevante com read_project_file antes de concluir uma resposta sobre uma alteração concreta.',
+  'Nunca aplique arquivos diretamente e nunca chame propose_workspace_edit antes de uma inspeção bem-sucedida do projeto.',
+  'Quando tiver contexto suficiente, prefira a menor alteração concreta e explique a proposta de forma objetiva.',
+].join(' ');
+const INSPECTION_REQUIRED_MESSAGE =
+  'O assistente não inspecionou o projeto antes de responder. Tente novamente; a implementação deve localizar e ler o código relevante antes de sugerir mudanças.';
+const EDIT_REQUIRES_INSPECTION_MESSAGE =
+  'Antes de propor alterações, localize e leia o código relevante com as ferramentas de inspeção do projeto.';
 
 type ChatAssistant = Pick<AiAssistantService, 'chat'>;
 type ProjectProviderResolver = Pick<
@@ -27,6 +49,7 @@ interface StoredExecution {
   execution: AiImplementationExecution;
   controller: AbortController;
   aiAssistantService: ChatAssistant | undefined;
+  projectInspected: boolean;
 }
 
 function copyExecution(
@@ -84,6 +107,7 @@ export class AiImplementationExecutionService {
       execution,
       controller,
       aiAssistantService,
+      projectInspected: false,
     };
     this.executions.set(execution.id, stored);
     void this.run(project, stored);
@@ -131,11 +155,7 @@ export class AiImplementationExecutionService {
 
   private async run(project: Project, stored: StoredExecution): Promise<void> {
     const messages: AiChatMessage[] = [
-      {
-        role: 'system',
-        content:
-          'Você é o assistente de implementação do Dev Dashboard. Analise o projeto antes de propor mudanças. Nunca aplique arquivos diretamente: use propose_workspace_edit somente quando tiver uma alteração concreta e explique a proposta de forma objetiva.',
-      },
+      { role: 'system', content: IMPLEMENTATION_SYSTEM_PROMPT },
       { role: 'user', content: stored.execution.prompt },
     ];
 
@@ -155,10 +175,20 @@ export class AiImplementationExecutionService {
         messages,
         {
           signal: stored.controller.signal,
-          send: (event) => this.recordEvent(stored.execution, event),
+          send: (event) => this.recordEvent(stored, event),
         },
         stored.execution.mode,
       );
+      if (
+        stored.execution.status === 'running' &&
+        !stored.projectInspected &&
+        !this.hasError(stored.execution)
+      ) {
+        this.recordEvent(stored, {
+          type: 'error',
+          message: INSPECTION_REQUIRED_MESSAGE,
+        });
+      }
       if (stored.execution.status === 'running') {
         this.finish(
           stored.execution,
@@ -167,7 +197,7 @@ export class AiImplementationExecutionService {
       }
     } catch (error) {
       if (stored.execution.status !== 'running') return;
-      this.recordEvent(stored.execution, {
+      this.recordEvent(stored, {
         type: 'error',
         message:
           error instanceof Error
@@ -178,11 +208,35 @@ export class AiImplementationExecutionService {
     }
   }
 
-  private recordEvent(
-    execution: AiImplementationExecution,
-    event: AiChatStreamEvent,
-  ): void {
+  private recordEvent(stored: StoredExecution, event: AiChatStreamEvent): void {
+    const { execution } = stored;
     if (execution.status !== 'running') return;
+
+    if (
+      event.type === 'tool-call' &&
+      event.tool === 'propose_workspace_edit' &&
+      !stored.projectInspected
+    ) {
+      throw new Error(EDIT_REQUIRES_INSPECTION_MESSAGE);
+    }
+
+    if (
+      event.type === 'tool-result' &&
+      event.ok &&
+      PROJECT_INSPECTION_TOOLS.has(event.tool)
+    ) {
+      stored.projectInspected = true;
+    }
+
+    if (
+      !stored.projectInspected &&
+      (event.type === 'message-delta' ||
+        event.type === 'done' ||
+        event.type === 'workspace-edit-proposed')
+    ) {
+      return;
+    }
+
     execution.events.push(event);
     if (execution.events.length > MAX_EVENTS_PER_EXECUTION)
       execution.events.shift();
