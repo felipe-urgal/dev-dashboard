@@ -54,7 +54,11 @@ test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do cha
     path.join(os.tmpdir(), 'dev-dashboard-ai-mask-tool-'),
   );
   const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
-  await writeFile(path.join(root, '.env'), `API_KEY=${secret}\n`, 'utf8');
+  await writeFile(
+    path.join(root, 'config.ts'),
+    `export const API_KEY = '${secret}';\n`,
+    'utf8',
+  );
 
   try {
     const requestBodies: string[] = [];
@@ -72,7 +76,7 @@ test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do cha
                 {
                   function: {
                     name: 'read_project_file',
-                    arguments: { path: '.env' },
+                    arguments: { path: 'config.ts' },
                   },
                 },
               ],
@@ -97,7 +101,7 @@ test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do cha
     await service.chat(
       project(root),
       'qwen2.5-coder:14b',
-      [{ role: 'user', content: 'Leia o arquivo .env.' }],
+      [{ role: 'user', content: 'Leia o arquivo config.ts.' }],
       {
         signal: new AbortController().signal,
         send: () => undefined,
