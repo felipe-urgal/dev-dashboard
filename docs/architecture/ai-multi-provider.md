@@ -1,8 +1,8 @@
 # Arquitetura multi-provider e modos de execução de IA
 
-Este documento registra a arquitetura implementada para o Assistente IA e a Code review IA do Dev Dashboard, incluindo providers, modos de execução, segurança, seleção por projeto e fallback.
+Este documento registra a arquitetura atual de IA do Dev Dashboard: providers, modos de execução, seleção por projeto, Code Review, segurança, masking e fallback.
 
-A fonte operacional do roadmap permanece em [`../../tasks/AI-MULTI-PROVIDER.md`](../../tasks/AI-MULTI-PROVIDER.md).
+O roadmap histórico está em [`../../tasks/AI-MULTI-PROVIDER.md`](../../tasks/AI-MULTI-PROVIDER.md). O checklist operacional de fechamento está em [`../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md`](../../tasks/AI-MULTI-PROVIDER-FINALIZATION.md).
 
 ## Objetivo
 
@@ -11,82 +11,100 @@ Separar duas decisões:
 1. **qual provider/modelo executa a inferência**;
 2. **como a tarefa deve ser executada**, por meio dos modos `fast` e `complete`.
 
-Git, filesystem, LSP, ferramentas, segurança, preview e aprovação continuam sob responsabilidade do Dev Dashboard e não dos providers.
+Git, filesystem, LSP, ferramentas, masking, preview e aprovação continuam sob responsabilidade do Dev Dashboard. Providers conhecem apenas transporte, autenticação, payload nativo e capacidades de inferência.
 
 ## Estado atual
 
-O Assistente IA usa `AiAssistantService` como fachada sobre `AiProvider`. O `AiProviderResolver` resolve por projeto entre Ollama local e OpenAI cloud.
+A aplicação suporta dois providers:
 
-Características relevantes:
+- `ollama`: provider local e padrão;
+- `openai`: provider cloud, sujeito a credencial e consentimento explícito por projeto.
+
+Provider e modo são persistidos por projeto. Consentimento OpenAI é persistido separadamente.
+
+Os fluxos genéricos de IA e a Code Review usam `AiProviderResolver`; nenhum fluxo genérico deve escolher Ollama silenciosamente.
+
+Características atuais:
 
 - `DEV_DASHBOARD_OLLAMA_URL` aceita somente HTTP em loopback;
-- Ollama é o provider local padrão;
-- OpenAI é o primeiro provider cloud;
-- provider e modo são persistidos por projeto;
-- consentimento OpenAI é persistido separadamente por projeto;
-- cada execution de implementation registra e congela `provider` e `mode` no início;
-- o chat interativo usa catálogo fechado de ferramentas;
-- providers não recebem acesso direto a filesystem, Git, LSP ou workspace edit;
-- `propose_workspace_edit` cria apenas uma prévia e a escrita exige aprovação explícita;
-- `fast` e `complete` usam budgets determinísticos;
-- a Code review mantém orquestração separada do Assistente;
-- o modo `complete` executa síntese global da Code review;
-- segredos são mascarados na fronteira compartilhada de saída antes de conteúdo textual alcançar um provider;
-- o fallback inicial é `offer`, com opção `off` durante a sessão;
-- Local → Cloud nunca inicia automaticamente e continua sujeito ao consentimento do projeto.
+- `Ollama + fast` permanece o default;
+- Assistente/implementation e Code Review obedecem à seleção do projeto;
+- cada execution registra provider, modo e modelo usados;
+- Code Review congela provider/modo no início e usa a mesma instância nas revisões por arquivo e na síntese global;
+- `/ai/status`, `/ai/chat` e `/ai/complete` resolvem o provider selecionado;
+- `/ai/models/pull` passa pelo provider selecionado e só funciona quando o adapter suporta instalação de modelo;
+- modelos incompatíveis são rejeitados no backend antes da inferência;
+- o catálogo de ferramentas continua fechado e controlado pela aplicação;
+- `propose_workspace_edit` cria apenas uma prévia; escrita exige aprovação explícita;
+- conteúdo textual passa pela barreira compartilhada de masking antes de sair para um provider;
+- Local → Cloud nunca acontece automaticamente;
+- fallback automático continua fora do escopo.
 
-## Arquitetura atual
+## Arquitetura
 
 ```text
-                     AiProvider
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-              ▼                     ▼
-        AiOrchestrator      GitAiCodeReviewService
-         Assistente              Code Review
-              │
-              ▼
-       AiProviderResolver
-              │
-        ┌─────┴─────┐
-        ▼           ▼
- OllamaProvider  OpenAiProvider
+                         AiProviderResolver
+                         seleção por projeto
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                 ▼                           ▼
+          AiOrchestrator             GitAiCodeReviewService
+       Assistente / implementation          Code Review
+                 │                           │
+                 └─────────────┬─────────────┘
+                               ▼
+                          AiProvider
+                     ┌─────────┴─────────┐
+                     ▼                   ▼
+              OllamaProvider       OpenAiProvider
 ```
 
-O resolver e a seleção em UI são usados pelo Assistente IA. A Code review mantém seu fluxo atual separado; seleção multi-provider nesse fluxo continua deliberadamente adiada.
+`AiAssistantService` continua sendo a fachada usada pelos fluxos de produto. O resolver escolhe a fachada ligada ao provider correto para o projeto e revalida consentimento/disponibilidade antes de conteúdo do projeto seguir para cloud.
 
 ## `AiProvider`
 
-`AiProvider` é a fronteira mínima de inferência. O provider conhece transporte, autenticação, payload nativo e capacidades de inferência, mas não conhece projeto, Git, filesystem, LSP ou aprovação.
-
-O contrato interno oferece operações equivalentes a:
+`AiProvider` é a fronteira mínima de inferência. O contrato interno oferece operações equivalentes a:
 
 - consultar status e modelos;
 - executar uma rodada de chat;
 - executar completion;
-- opcionalmente instalar modelo quando o provider suporta essa operação.
+- opcionalmente instalar modelo quando o adapter possui essa capability.
 
-Tool calling nativo é normalizado pelo adapter para o protocolo interno do Dev Dashboard.
+Tool calling nativo é normalizado pelo adapter. IDs e detalhes específicos de fornecedor não vazam para o domínio compartilhado.
 
-Parâmetros específicos de fornecedor não devem crescer o contrato compartilhado sem necessidade real.
+## `AiProviderResolver`
+
+O resolver é a fonte de verdade para seleção de execução.
+
+Responsabilidades:
+
+- ler provider e modo persistidos do projeto;
+- exigir consentimento antes de execução OpenAI;
+- consultar disponibilidade do provider;
+- validar o modelo solicitado contra os modelos disponíveis do provider;
+- devolver provider, modo e `AiAssistantService` coerentes para a execução.
+
+A validação de modelo é server-side. A UI filtra modelos para melhorar a experiência, mas requests manuais não podem usar um modelo Ollama com OpenAI nem um modelo OpenAI com Ollama.
+
+`models/pull` é a exceção deliberada à validação de “modelo já disponível”: essa operação existe justamente para instalar um modelo local ainda ausente. O adapter cloud não cai silenciosamente no Ollama.
 
 ## `OllamaProvider`
 
-O comportamento específico do Ollama fica isolado em `OllamaProvider`:
+O comportamento específico do Ollama fica isolado no adapter:
 
-- HTTP e URL local;
+- URL local e validação de loopback;
 - descoberta de modelos e capacidades;
 - serialização/deserialização de tool calling;
-- compatibilidade com tool calls vazados como JSON textual;
-- opções e timeouts específicos;
-- instalação de modelos suportados pelo dashboard.
+- compatibilidade de tool call textual;
+- timeouts;
+- instalação dos modelos locais permitidos.
 
-O tratamento de tool call textual é uma compatibilidade Ollama/modelo e não pertence ao orquestrador genérico.
+A compatibilidade de tool call textual é detalhe Ollama/modelo e não pertence ao orquestrador genérico.
 
 ## `OpenAiProvider`
 
-A OpenAI é o primeiro provider cloud real.
+A OpenAI é o provider cloud atual.
 
 Responsabilidades do adapter:
 
@@ -94,32 +112,31 @@ Responsabilidades do adapter:
 - status e descoberta de modelos compatíveis;
 - tradução do catálogo interno para function calling;
 - encapsulamento dos IDs nativos de tool calls;
-- envio de `store: false` nas requests de inferência;
-- uso da barreira compartilhada de masking antes do request sair da aplicação.
+- `store: false` nas requests de inferência;
+- uso da barreira compartilhada de masking;
+- normalização de falhas conhecidas de billing/quota para mensagem de produto.
 
-Consentimento por projeto não pertence ao adapter; essa decisão fica no `AiProviderResolver` e nos repositories de configuração local.
+Quando a API informa falta de créditos/quota, o provider é marcado temporariamente como indisponível para impedir repetição imediata da mesma chamada. A mensagem exibida orienta adicionar créditos da API ou selecionar o provider Local.
 
-Detalhes adicionais estão em [`openai-provider.md`](openai-provider.md).
+Consentimento por projeto não pertence ao adapter; essa decisão fica no resolver.
+
+Detalhes adicionais: [`openai-provider.md`](openai-provider.md).
 
 ## `AiOrchestrator`
 
-O `AiOrchestrator` gerencia o fluxo interativo do Assistente IA:
+O orquestrador gerencia o fluxo interativo do Assistente:
 
 - conversa da execução;
 - rodadas de ferramentas;
 - catálogo autorizado;
-- execução das ferramentas locais;
+- execução local das ferramentas;
 - budgets por modo;
-- proteção contra chamadas repetidas sem progresso;
+- proteção contra chamadas idênticas sem progresso;
 - limite acumulado de resultados de ferramentas;
 - preview de alterações;
 - cancelamento.
 
-`ContextBuilder` e `ToolExecutor` continuam sem classes próprias porque ainda não existe um caso concreto que justifique essas abstrações.
-
-## Protocolo interno de ferramentas
-
-O catálogo fechado continua pertencendo ao Dev Dashboard:
+O catálogo atual é:
 
 - `read_project_file`;
 - `search_project_text`;
@@ -129,7 +146,7 @@ O catálogo fechado continua pertencendo ao Dev Dashboard:
 - `get_symbol_definition`;
 - `get_symbol_references`.
 
-O modelo solicita uma ferramenta, a aplicação valida os argumentos e executa a operação local. Nenhum provider recebe shell irrestrito.
+O Assistente de implementação também exige investigação real do projeto antes de concluir uma alteração concreta: uma resposta final ou proposta de workspace edit sem inspeção bem-sucedida é recusada.
 
 ## Modos de execução
 
@@ -138,7 +155,7 @@ A UI expõe dois modos independentes do provider:
 - **Rápido (`fast`)**: menor custo/latência e análise pontual;
 - **Completo (`complete`)**: mais contexto e análise cruzada.
 
-A policy atual é centralizada em `ai-execution-policy.ts`:
+A policy é centralizada em `ai-execution-policy.ts`:
 
 | Campo | `fast` | `complete` |
 |---|---:|---:|
@@ -151,36 +168,44 @@ A policy atual é centralizada em `ai-execution-policy.ts`:
 | `maxGlobalSynthesisChars` | 0 | 48.000 |
 | `runGlobalSynthesis` | `false` | `true` |
 
-Os valores são budgets explícitos e testados, não descrições em prosa espalhadas pelos serviços.
+Os valores são budgets explícitos e testados.
 
-## Code review permanece separado
+## Code Review IA
 
-`GitAiCodeReviewService` não faz parte do `AiOrchestrator`.
+`GitAiCodeReviewService` continua separado do `AiOrchestrator` porque o fluxo é batch: revisa arquivos do diff, agrega resultados e, no modo completo, executa síntese global.
 
-O Assistente é interativo e usa múltiplas rodadas com ferramentas. A Code review é batch, revisa arquivos do diff e agrega resultados.
+A separação de orquestração não significa separação de provider. Antes de ler o diff, a Code Review resolve e valida provider/modelo pelo `AiProviderResolver`.
 
-### Modo `fast`
+A execution registra e congela:
 
-- revisa arquivos individualmente;
-- usa budget menor de diff;
-- não executa síntese global.
+- provider;
+- modo;
+- modelo;
+- arquivos;
+- estado e progresso.
 
-### Modo `complete`
+Alterar a seleção do projeto depois do start não muda a revisão em andamento.
 
-- revisa arquivos individualmente;
-- usa budget maior;
-- executa síntese global;
-- cruza contratos entre arquivos;
-- deduplica findings equivalentes;
-- falha explicitamente se a síntese estruturada for inválida.
+### `fast`
 
-A Code review continua usando o provider atual do serviço dedicado. Seleção multi-provider nesse fluxo não faz parte do roadmap já concluído.
+- revisão individual por arquivo;
+- budget menor de diff;
+- sem síntese global.
 
-## Segurança e providers cloud
+### `complete`
 
-### Masking obrigatório
+- revisão individual por arquivo;
+- budget maior;
+- síntese global com a mesma instância do provider;
+- análise cruzada entre arquivos;
+- deduplicação de findings;
+- falha explícita se a síntese estruturada for inválida.
 
-`createAiOutboundProtectionFetch` é a última barreira compartilhada antes de conteúdo textual alcançar um motor de IA.
+## Segurança e cloud
+
+### Masking
+
+`createAiOutboundProtectionFetch` é a última barreira compartilhada antes da rede.
 
 A proteção cobre os caminhos suportados de:
 
@@ -188,9 +213,8 @@ A proteção cobre os caminhos suportados de:
 - implementation;
 - resultados textuais de ferramentas;
 - completion;
-- Code review.
-
-O objetivo é impedir que um adapter cloud precise lembrar individualmente de aplicar masking.
+- revisão por arquivo;
+- síntese global da Code Review.
 
 ### Consentimento
 
@@ -198,23 +222,25 @@ OpenAI exige consentimento explícito por projeto.
 
 O consentimento:
 
-- é armazenado em configuração local separada da seleção;
+- é armazenado separadamente da seleção;
 - pode ser concedido e revogado;
-- é revalidado antes de nova execução cloud;
+- é revalidado antes de cada nova execução cloud;
 - nunca é inferido apenas porque OpenAI foi selecionada;
-- continua obrigatório também quando OpenAI é oferecida como fallback.
+- continua obrigatório ao aceitar uma oferta de fallback.
+
+Status e descoberta de modelos podem ocorrer sem consentimento porque não enviam conteúdo do projeto.
 
 ### Credenciais e retenção
 
 - credenciais não entram no repositório;
 - a API key é lida do ambiente;
 - requests OpenAI de inferência usam `store: false`;
-- logs não devem persistir prompts/diffs sensíveis por padrão;
-- políticas de fornecedores devem ser revalidadas quando novos providers forem implementados.
+- logs não devem persistir prompts, diffs, tool results ou credenciais;
+- novos providers devem reutilizar a mesma fronteira de segurança.
 
 ## Seleção por projeto
 
-O Assistente IA expõe:
+A interface trabalha com:
 
 ```text
 Executar com
@@ -227,11 +253,9 @@ Opções avançadas
 [ Modelo ] [ Fallback ]
 ```
 
-Provider e modo são persistidos por projeto. Consentimento cloud é persistido separadamente.
+Provider e modo são persistidos por projeto. Modelo permanece escolha da execução/UI e não é persistido como seleção global.
 
-Modelo continua sendo uma escolha da execução/UI e não foi adicionado ao repository de seleção por projeto.
-
-O hardening pós-roadmap mantém o estado visual consistente com o backend: se `PUT /ai/selection` falhar, provider, modo e modelo retornam ao último estado persistido.
+A Code Review não duplica configuração: ela reflete a seleção do projeto e mostra provider/modo usados pela execução.
 
 ## Snapshot de implementation
 
@@ -244,35 +268,28 @@ Cada `AiImplementationExecution` registra:
 - prompt;
 - status;
 - timestamps;
-- eventos da execução.
+- eventos.
 
-Provider e modo são congelados de forma síncrona em `start()`. A resolução assíncrona valida o provider congelado, em vez de reler a seleção atual do projeto.
-
-Isso evita uma race em que o usuário altera a seleção entre o POST e a resolução do provider e também permite que o fallback identifique corretamente qual provider falhou.
+Provider e modo são congelados de forma síncrona no start. A resolução assíncrona valida o provider/modelo congelados em vez de reler a seleção atual.
 
 ## Fallback
 
-As policies implementadas nesta fase são:
+Policies atuais:
 
 - `off`: encerra sem oferecer alternativa;
 - `offer`: após falha elegível, oferece outro provider disponível.
 
 `automatic` permanece fora do escopo.
 
-A classificação atual é deliberadamente conservadora: a oferta só aparece quando a execution falhou e o provider registrado nela está indisponível no status atual. Erro de ferramenta/modelo com provider ainda disponível não gera fallback.
+A oferta nunca inicia execução automaticamente e Local → Cloud continua sujeito a ação explícita e consentimento.
 
-Ao aceitar a oferta:
+A nova execução não transporta histórico, tool results, diffs nem eventos da execução anterior.
 
-1. a nova seleção é persistida;
-2. somente após sucesso da persistência a UI confirma a troca;
-3. o prompt original é restaurado;
-4. histórico, tool results, diffs e eventos da execução anterior não são transportados;
-5. para Local → OpenAI, consentimento continua obrigatório;
-6. o usuário ainda precisa clicar em `Iniciar`.
+## Erros e diagnóstico
 
-Se a persistência da seleção falhar, a oferta permanece visível e a UI volta à seleção persistida.
+A finalização da arquitetura exige códigos previsíveis para consentimento, provider indisponível, modelo incompatível e falhas de provider. O checklist de fechamento é a fonte de verdade para o hardening ainda em andamento.
 
-`off/offer` continua sendo preferência de sessão neste hardening; não foi adicionado ao schema persistido apenas para essa opção.
+Mensagens específicas de fornecedor devem ficar no adapter quando ajudam o diagnóstico; a fachada e as rotas não devem transformar indiscriminadamente todo erro em um único código genérico.
 
 ## Itens deliberadamente adiados
 
@@ -281,35 +298,34 @@ Se a persistência da seleção falhar, a oferta permanece visível e a UI volta
 - `ToolExecutor` como serviço próprio;
 - cache de árvore de símbolos/contexto;
 - fallback automático;
-- múltiplos providers cloud adicionais;
-- parâmetros específicos de fornecedor no contrato global;
-- seleção multi-provider na Code review.
+- terceiro provider;
+- parâmetros específicos de fornecedor no contrato global.
 
-## Critérios de sucesso
+## Critérios de consistência
 
 A arquitetura é considerada consistente quando:
 
-- um provider pode ser implementado sem ganhar acesso direto a Git/LSP/workspace;
-- opções específicas de provider não vazam para o domínio compartilhado;
-- tool calling específico é normalizado no adapter;
-- `fast` e `complete` têm policies determinísticas e testes;
+- todo fluxo genérico resolve provider explicitamente;
+- nenhum provider recebe acesso direto a Git/LSP/workspace;
+- modelos incompatíveis são recusados antes da inferência;
+- `fast` e `complete` têm policies determinísticas;
 - nenhuma alteração é aplicada sem preview e aprovação;
 - conteúdo sensível passa pela barreira de masking;
 - cloud depende de consentimento explícito;
-- cada execution identifica provider e modo usados;
-- uma falha de persistência não deixa UI e backend em estados divergentes;
+- executions identificam provider, modo e modelo;
+- falhas de persistência não deixam UI/backend divergentes;
 - Local nunca migra para Cloud silenciosamente.
 
-## Histórico de implementação
+## Histórico
 
-O roadmap foi entregue de forma incremental:
+A implementação evoluiu incrementalmente:
 
 1. documentação e roadmap — #286;
 2. caracterização e segurança — #287;
 3. `AiProvider` + `OllamaProvider` — #288;
-4. modos `fast`/`complete` — #289;
-5. síntese global da Code review — absorvida pelo #289;
-6. primeiro provider cloud — #290;
-7. seleção de provider + consentimento — #291;
-8. fallback `offer` — #292;
-9. hardening de rastreabilidade e consistência — etapa pós-roadmap.
+4. modos `fast`/`complete` + síntese global — #289;
+5. primeiro provider cloud — #290;
+6. seleção de provider + consentimento — #291;
+7. fallback `offer` — #292;
+8. hardening de rastreabilidade — #293;
+9. fechamento dos gaps restantes — PR #295.
