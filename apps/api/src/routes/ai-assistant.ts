@@ -343,11 +343,15 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     return project;
   }
 
-  async function selectedAssistant(request: FastifyRequest, projectId: string) {
+  async function selectedAssistant(
+    request: FastifyRequest,
+    projectId: string,
+    model?: string,
+  ) {
     try {
-      return await options.aiProviderResolver.resolveSelected(projectId);
+      return await options.aiProviderResolver.resolveSelected(projectId, model);
     } catch (error) {
-      translateAiError(request, error, { projectId });
+      translateAiError(request, error, { projectId, ...(model ? { model } : {}) });
     }
   }
 
@@ -495,10 +499,14 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     { schema: { params: projectParamsSchema, body: chatBodySchema } },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
-      const resolved = await selectedAssistant(request, project.id);
+      const resolved = await selectedAssistant(
+        request,
+        project.id,
+        request.body.model,
+      );
 
-      // Autenticação, origem, provider, consentimento e limites já foram
-      // validados antes de assumirmos a resposta como um stream contínuo.
+      // Autenticação, origem, provider, consentimento, modelo e limites já
+      // foram validados antes de assumirmos a resposta como um stream contínuo.
       reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
@@ -565,7 +573,11 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     },
     async (request, reply) => {
       const project = projectFor(request.params.projectId);
-      const resolved = await selectedAssistant(request, project.id);
+      const resolved = await selectedAssistant(
+        request,
+        project.id,
+        request.body.model,
+      );
       const controller = new AbortController();
       request.raw.once('close', () => controller.abort());
       try {
