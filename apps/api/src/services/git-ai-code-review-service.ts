@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
+  AiExecutionMode,
   GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
   GitPullRequestReviewFinding,
@@ -11,11 +12,14 @@ import type {
 
 import type { AiAssistantService } from './ai-assistant-service.js';
 import {
+  aiExecutionPolicy,
+  type AiExecutionPolicy,
+} from './ai-execution-policy.js';
+import {
   GitPullRequestService,
   type GitPullRequestTargetRemote,
 } from './git-pull-request-service.js';
 
-const AI_REVIEW_DIFF_LIMIT = 4_000;
 const AI_REVIEW_MAX_FINDINGS = 6;
 
 interface ReviewInput {
@@ -25,6 +29,7 @@ interface ReviewInput {
   model: string;
   paths?: string[];
   concurrency?: 1 | 2;
+  mode?: AiExecutionMode;
 }
 
 interface ReviewFileService {
@@ -37,6 +42,7 @@ interface RunningReview {
   execution: GitPullRequestAiReviewExecution;
   reviews: GitPullRequestAiReview[];
   controller: AbortController;
+  policy: AiExecutionPolicy;
 }
 
 function shortText(value: unknown, fallback = ''): string {
@@ -201,6 +207,7 @@ export class GitAiCodeReviewService {
     if (selectedPaths.length === 0)
       throw new Error('Selecione pelo menos um arquivo para revisar.');
 
+    const policy = aiExecutionPolicy(input.mode);
     const execution: GitPullRequestAiReviewExecution = {
       id: randomUUID(),
       targetRemote: files.targetRemote,
@@ -221,6 +228,7 @@ export class GitAiCodeReviewService {
       execution,
       reviews: [],
       controller: new AbortController(),
+      policy,
     };
     this.executions.set(input.project.id, running);
     void this.run(running);
@@ -312,7 +320,7 @@ export class GitAiCodeReviewService {
           diff.targetRemote,
           diff.baseBranch,
           diff.sourceBranch,
-          masked.content.slice(0, AI_REVIEW_DIFF_LIMIT),
+          masked.content.slice(0, running.policy.maxDiffChars),
         ),
         running.controller.signal,
       );
@@ -327,7 +335,7 @@ export class GitAiCodeReviewService {
         reviewedAt: new Date().toISOString(),
         summary: parsed.summary,
         findings: parsed.findings,
-        diffTruncated: masked.content.length > AI_REVIEW_DIFF_LIMIT,
+        diffTruncated: masked.content.length > running.policy.maxDiffChars,
         masked: masked.masked,
         redactionCount: masked.redactionCount,
       });
