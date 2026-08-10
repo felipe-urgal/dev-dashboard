@@ -226,7 +226,7 @@ test('aplica realce de sintaxe pela extensão do arquivo', async () => {
   const card = wrapper.findAll('.git-diff-file-card')[1]!;
   assert.ok(card.text().includes('terms.ts'));
   assert.ok(
-    card.html().includes('hljs-keyword'),
+    card.html().includes('git-syntax-keyword'),
     'esperava tokens de sintaxe no diff',
   );
 });
