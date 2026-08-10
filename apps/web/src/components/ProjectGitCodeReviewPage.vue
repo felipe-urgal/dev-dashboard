@@ -80,7 +80,6 @@ const canReview = computed(
   () =>
     !reviewing.value &&
     Boolean(props.overview.branch) &&
-    Boolean(props.overview.upstream) &&
     Boolean(baseBranch.value.trim()) &&
     Boolean(reviewModel.value) &&
     Boolean(reviewFiles.value?.files.length),
@@ -113,7 +112,7 @@ async function loadAiStatus(): Promise<void> {
 }
 
 async function loadReviewFiles(): Promise<void> {
-  if (!props.overview.upstream || !baseBranch.value.trim()) {
+  if (!baseBranch.value.trim()) {
     reviewFiles.value = null;
     return;
   }
@@ -145,7 +144,7 @@ async function reviewChanges(): Promise<void> {
   review.value = null;
   try {
     const reviews: GitPullRequestAiReview[] = [];
-    const failures: string[] = [];
+    const failures: Array<{ path: string; message: string }> = [];
     for (const path of reviewFiles.value.files) {
       try {
         reviews.push(
@@ -156,15 +155,27 @@ async function reviewChanges(): Promise<void> {
             path,
           }),
         );
-      } catch {
-        failures.push(path);
+      } catch (error) {
+        failures.push({
+          path,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'A IA não respondeu para este arquivo.',
+        });
       } finally {
         reviewedFileCount.value += 1;
       }
     }
     const firstReview = reviews[0];
-    if (!firstReview)
-      throw new Error('A IA não conseguiu revisar os arquivos selecionados.');
+    if (!firstReview) {
+      const firstFailure = failures[0];
+      throw new Error(
+        firstFailure
+          ? `Não foi possível concluir a revisão: ${firstFailure.message}`
+          : 'A IA não conseguiu revisar os arquivos selecionados.',
+      );
+    }
     review.value = {
       ...firstReview,
       files: reviewFiles.value.files,
@@ -181,7 +192,9 @@ async function reviewChanges(): Promise<void> {
       ),
     };
     if (failures.length > 0)
-      errorMessage.value = `A IA não respondeu para ${failures.length} arquivo(s). Você pode tentar novamente.`;
+      errorMessage.value = `${failures.length} arquivo(s) não puderam ser revisados: ${failures
+        .map((failure) => failure.path)
+        .join(', ')}.`;
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -234,11 +247,7 @@ watch(baseBranch, () => {
       <DocumentMagnifyingGlassIcon aria-hidden="true" />
     </header>
 
-    <div v-if="!overview.upstream" class="git-code-review-empty">
-      Publique a branch atual no origin antes de iniciar o code review.
-    </div>
-
-    <template v-else>
+    <template>
       <div class="git-code-review-controls">
         <label>
           <span>Comparar com</span>

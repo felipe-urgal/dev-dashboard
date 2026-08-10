@@ -544,7 +544,6 @@ export class AiAssistantService {
         false,
         {
           timeoutMs: REVIEW_TIMEOUT_MS,
-          format: 'json',
           numPredict: 700,
           temperature: 0.1,
         },

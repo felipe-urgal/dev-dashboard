@@ -510,6 +510,72 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
   );
 });
 
+test('permite revisar alterações em uma branch local ainda não publicada', async () => {
+  const { upstream: _overviewUpstream, ...unpublishedOverview } = baseOverview;
+  const mounted = await mountPanel({
+    overview: unpublishedOverview,
+    workspace: {
+      ...baseWorkspace,
+      branches: baseWorkspace.branches.map((branch) =>
+        branch.shortName === 'feature/git-ui' && branch.kind === 'local'
+          ? (() => {
+              const { upstream: _branchUpstream, ...localBranch } = branch;
+              return localBranch;
+            })()
+          : branch,
+      ),
+    },
+    handler: (request) => {
+      if (request.path.endsWith('/ai/status'))
+        return jsonResponse({
+          available: true,
+          message: 'Ollama disponível.',
+          models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
+        });
+      if (request.path.endsWith('/pull-request/ai-review-files'))
+        return jsonResponse({
+          review: {
+            targetRemote: 'origin',
+            baseBranch: 'main',
+            sourceBranch: 'feature/git-ui',
+            files: ['apps/web/src/App.vue'],
+          },
+        });
+      if (request.path.endsWith('/pull-request/ai-review'))
+        return jsonResponse({
+          review: {
+            targetRemote: 'origin',
+            baseBranch: 'main',
+            sourceBranch: 'feature/git-ui',
+            files: ['apps/web/src/App.vue'],
+            model: 'qwen2.5-coder:14b',
+            reviewedAt: '2026-08-10T12:00:00.000Z',
+            summary: 'Sem achados.',
+            findings: [],
+            diffTruncated: false,
+            masked: false,
+            redactionCount: 0,
+          },
+        });
+      return undefined;
+    },
+  });
+  cleanup = mounted.restore;
+
+  await clickTab(mounted.wrapper, 'Code review IA');
+  await mounted.wrapper
+    .find('.git-code-review-controls button')
+    .trigger('click');
+  await flushPromises();
+
+  assert.match(mounted.wrapper.text(), /A IA revisou 1 arquivo/);
+  assert.ok(
+    mounted.requests.some((request) =>
+      request.path.endsWith('/pull-request/ai-review'),
+    ),
+  );
+});
+
 test('lista branches locais e origin sem expor ações de sincronização', async () => {
   const mounted = await mountPanel({
     workspace: {
