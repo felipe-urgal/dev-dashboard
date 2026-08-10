@@ -103,8 +103,8 @@ test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do cha
     );
 
     assert.equal(requestBodies.length, 2);
-    assert.doesNotMatch(requestBodies[1] ?? '', new RegExp(secret));
-    assert.match(requestBodies[1] ?? '', new RegExp(LOG_MASK));
+    assert.equal((requestBodies[1] ?? '').includes(secret), false);
+    assert.ok((requestBodies[1] ?? '').includes(LOG_MASK));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -139,8 +139,8 @@ test('implementation usa a mesma barreira de masking do chat', async () => {
 
   assert.equal(implementation.find(proj.id, started.id)?.status, 'succeeded');
   assert.equal(requestBodies.length, 1);
-  assert.doesNotMatch(requestBodies[0] ?? '', new RegExp(secret));
-  assert.match(requestBodies[0] ?? '', new RegExp(LOG_MASK));
+  assert.equal((requestBodies[0] ?? '').includes(secret), false);
+  assert.ok((requestBodies[0] ?? '').includes(LOG_MASK));
 });
 
 test('code review preserva masking e metadados de redação antes de chamar o modelo', async () => {
@@ -183,8 +183,8 @@ test('code review preserva masking e metadados de redação antes de chamar o mo
 
   const completed = service.latest('project-1');
   assert.equal(completed?.status, 'completed');
-  assert.doesNotMatch(receivedPrompt, new RegExp(secret));
-  assert.match(receivedPrompt, new RegExp(LOG_MASK));
+  assert.equal(receivedPrompt.includes(secret), false);
+  assert.ok(receivedPrompt.includes(LOG_MASK));
   assert.equal(completed?.review?.masked, true);
   assert.ok((completed?.review?.redactionCount ?? 0) > 0);
 });
