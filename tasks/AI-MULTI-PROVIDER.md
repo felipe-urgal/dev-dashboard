@@ -181,11 +181,11 @@ PR de referência: **#290**.
 
 ---
 
-## PR 7 — Seleção de provider + consentimento — em andamento
+## PR 7 — Seleção de provider + consentimento — concluído
 
 **Objetivo:** permitir escolha de execução sem transformar a tela em painel técnico e sem envio cloud sem autorização explícita.
 
-### Tarefas
+### Entregue
 
 - [x] Criar resolver central de provider no backend.
 - [x] Manter `Ollama + fast` como default.
@@ -198,28 +198,40 @@ PR de referência: **#290**.
 - [x] Manter modelo em `Opções avançadas`.
 - [x] Permitir conceder e revogar consentimento cloud por projeto.
 - [x] Cobrir default, indisponibilidade, consentimento, persistência e revogação com testes do resolver.
-- [ ] CI obrigatório verde no commit final.
+- [x] CI obrigatório verde no commit final.
 
 ### Escopo deliberadamente limitado
 
-Neste PR, a seleção é aplicada primeiro ao **Assistente IA / implementation**. A Code review mantém o fluxo atual; isso evita misturar a mudança de UI/resolução com uma segunda migração de orquestração batch no mesmo PR.
+A seleção foi aplicada primeiro ao **Assistente IA / implementation**. A Code review mantém o fluxo atual; isso evita misturar a mudança de UI/resolução com uma segunda migração de orquestração batch no mesmo PR.
+
+PR de referência: **#291**.
 
 ---
 
-## PR 8 — Fallback `offer`
+## PR 8 — Fallback `offer` — em andamento
 
 **Objetivo:** recuperar falhas sem trocar Local → Cloud silenciosamente.
 
 ### Tarefas
 
-- [ ] Implementar `off` e `offer`.
-- [ ] Não implementar `automatic` nesta fase.
-- [ ] Classificar falhas elegíveis para continuação.
-- [ ] Preservar somente contexto seguro ao trocar provider.
-- [ ] Exigir ação explícita antes de Local → Cloud.
-- [ ] Respeitar consentimento do projeto.
-- [ ] Exibir provider que falhou e provider oferecido.
-- [ ] Cobrir troca e cancelamento em testes.
+- [x] Implementar `off` e `offer`.
+- [x] Não implementar `automatic` nesta fase.
+- [x] Classificar como elegível apenas falha em que o provider selecionado está indisponível no status atual.
+- [x] Preservar somente o pedido original ao preparar a troca de provider.
+- [x] Exigir ação explícita antes de Local → Cloud.
+- [x] Respeitar consentimento do projeto pelo fluxo existente.
+- [x] Exibir provider que falhou e provider oferecido.
+- [x] Cobrir aceite e recusa da oferta com testes.
+- [ ] CI obrigatório verde no commit final.
+
+### Decisões desta fase
+
+- `offer` é o default; `off` desativa a oferta.
+- o fallback é uma oferta de UX, não roteamento automático no backend;
+- erro de ferramenta/modelo com provider ainda disponível não oferece troca;
+- a continuação não transporta histórico, tool results, diffs ou eventos;
+- aceitar a oferta seleciona explicitamente o provider alternativo e restaura o prompt original;
+- a nova execução continua dependendo de ação em `Iniciar` e, para cloud, do consentimento explícito do projeto.
 
 ---
 
@@ -244,5 +256,5 @@ Neste PR, a seleção é aplicada primeiro ao **Assistente IA / implementation**
 | 4 | `fast` / `complete` | Concluído (#289) |
 | 5 | Síntese global da Code review | Absorvido pelo #289 |
 | 6 | Primeiro provider cloud | Concluído (#290) |
-| 7 | Seleção + consentimento | Em andamento |
-| 8 | Fallback `offer` | Pendente |
+| 7 | Seleção + consentimento | Concluído (#291) |
+| 8 | Fallback `offer` | Em andamento |
