@@ -3,6 +3,7 @@ import { extname } from 'node:path';
 import type {
   AiChatMessage,
   AiChatStreamEvent,
+  AiExecutionMode,
   AiTool,
   Project,
   ProjectTextPosition,
@@ -11,6 +12,10 @@ import type {
   ProjectWorkspaceTextEdit,
 } from '@dev-dashboard/contracts';
 
+import {
+  aiExecutionPolicy,
+  DEFAULT_AI_EXECUTION_MODE,
+} from './ai-execution-policy.js';
 import type {
   AiProvider,
   AiProviderMessage,
@@ -25,8 +30,6 @@ import { ProjectWorkspaceEditService } from './project-workspace-edit-service.js
 import { ProjectLanguageServerService } from './project-language-server-service.js';
 
 const CHAT_ROUND_TIMEOUT_MS = 120_000;
-const MAX_TOOL_RESULT_CHARS = 8_000;
-const MAX_TOOL_ROUNDS = 4;
 
 const TOOL_NAMES: readonly AiTool[] = [
   'read_project_file',
@@ -231,6 +234,23 @@ function isToolName(value: string): value is AiTool {
   return (TOOL_NAMES as readonly string[]).includes(value);
 }
 
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, stableValue(item)]),
+  );
+}
+
+function toolCallFingerprint(
+  name: AiTool,
+  args: Record<string, unknown>,
+): string {
+  return `${name}:${JSON.stringify(stableValue(args))}`;
+}
+
 export class AiOrchestrator {
   private readonly provider: AiProvider;
   private readonly projectFileService: ProjectFileService;
@@ -251,14 +271,18 @@ export class AiOrchestrator {
     model: string,
     messages: AiChatMessage[],
     handlers: AiChatHandlers,
+    mode: AiExecutionMode = DEFAULT_AI_EXECUTION_MODE,
   ): Promise<void> {
+    const policy = aiExecutionPolicy(mode);
     const conversation: AiProviderMessage[] = messages.map((message) => ({
       role: message.role,
       content: message.content,
     }));
+    const toolCallCounts = new Map<string, number>();
+    let accumulatedToolResultChars = 0;
 
     try {
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      for (let round = 0; round < policy.maxToolRounds; round += 1) {
         if (handlers.signal.aborted) return;
 
         const result = await this.provider.chatRound(model, conversation, {
@@ -288,16 +312,43 @@ export class AiOrchestrator {
             return;
           }
 
+          const fingerprint = toolCallFingerprint(call.name, call.arguments);
+          const callCount = (toolCallCounts.get(fingerprint) ?? 0) + 1;
+          toolCallCounts.set(fingerprint, callCount);
+          if (callCount > policy.maxIdenticalToolCalls) {
+            handlers.send({
+              type: 'error',
+              message:
+                `O assistente repetiu a ferramenta "${call.name}" com os mesmos argumentos sem progresso. ` +
+                'Tente reformular a solicitação.',
+            });
+            return;
+          }
+
           const toolResult = await this.runTool(
             project,
             call.name,
             call.arguments,
             handlers,
+            policy.maxToolResultChars,
           );
+          const serializedResult = JSON.stringify(toolResult);
+          accumulatedToolResultChars += serializedResult.length;
+          if (
+            accumulatedToolResultChars > policy.maxAccumulatedToolResultChars
+          ) {
+            handlers.send({
+              type: 'error',
+              message:
+                'O contexto acumulado das ferramentas excedeu o limite deste modo de execução. ' +
+                'Tente reduzir o escopo ou usar o modo Completo.',
+            });
+            return;
+          }
           conversation.push({
             role: 'tool',
             toolName: call.name,
-            content: JSON.stringify(toolResult),
+            content: serializedResult,
           });
         }
       }
@@ -324,11 +375,18 @@ export class AiOrchestrator {
     name: AiTool,
     args: Record<string, unknown>,
     handlers: AiChatHandlers,
+    maxToolResultChars: number,
   ): Promise<Record<string, unknown>> {
     handlers.send({ type: 'tool-call', tool: name, arguments: args });
 
     try {
-      const result = await this.executeTool(project, name, args, handlers);
+      const result = await this.executeTool(
+        project,
+        name,
+        args,
+        handlers,
+        maxToolResultChars,
+      );
       handlers.send({
         type: 'tool-result',
         tool: name,
@@ -351,6 +409,7 @@ export class AiOrchestrator {
     tool: AiTool,
     args: Record<string, unknown>,
     handlers: AiChatHandlers,
+    maxToolResultChars: number,
   ): Promise<Record<string, unknown>> {
     try {
       switch (tool) {
@@ -362,7 +421,7 @@ export class AiOrchestrator {
           );
           const { text, truncated } = truncate(
             file.content,
-            MAX_TOOL_RESULT_CHARS,
+            maxToolResultChars,
           );
           return { path: file.path, content: text, truncated };
         }
@@ -407,7 +466,7 @@ export class AiOrchestrator {
           );
           const { text, truncated } = truncate(
             diff.content,
-            MAX_TOOL_RESULT_CHARS,
+            maxToolResultChars,
           );
           return {
             path: diff.path,
