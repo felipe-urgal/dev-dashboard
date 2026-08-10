@@ -1,6 +1,7 @@
 import {
   EnvironmentProfileRepository,
   ProjectAiConsentRepository,
+  ProjectAiSelectionRepository,
   ProjectDisabledRepository,
   ProjectDismissedRepository,
   ProjectFavoriteRepository,
@@ -54,6 +55,7 @@ export interface AppContext {
   projectDisabledRepository: ProjectDisabledRepository;
   projectDismissedRepository: ProjectDismissedRepository;
   projectAiConsentRepository: ProjectAiConsentRepository;
+  projectAiSelectionRepository: ProjectAiSelectionRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -93,6 +95,7 @@ export function createAppContext(
 ): AppContext {
   const retentionSettingsRepository = new RetentionSettingsRepository();
   const projectAiConsentRepository = new ProjectAiConsentRepository();
+  const projectAiSelectionRepository = new ProjectAiSelectionRepository();
   const scriptDetectionService = new ScriptDetectionService();
   const processManager = new ProcessManager();
   const projectStore = new ProjectStore();
@@ -129,6 +132,7 @@ export function createAppContext(
     ollama: aiAssistantService,
     openai: openAiAssistantService,
     consentRepository: projectAiConsentRepository,
+    selectionRepository: projectAiSelectionRepository,
   });
 
   return {
@@ -139,6 +143,7 @@ export function createAppContext(
     projectDisabledRepository: new ProjectDisabledRepository(),
     projectDismissedRepository: new ProjectDismissedRepository(),
     projectAiConsentRepository,
+    projectAiSelectionRepository,
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
