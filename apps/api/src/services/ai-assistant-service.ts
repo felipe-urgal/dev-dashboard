@@ -1,6 +1,7 @@
 import type {
   AiChatMessage,
   AiCompletionResult,
+  AiExecutionMode,
   AiModelPullStreamEvent,
   Project,
   ProjectAiStatus,
@@ -109,6 +110,7 @@ export class AiAssistantService {
     model: string,
     messages: AiChatMessage[],
     handlers: AiChatHandlers,
+    mode?: AiExecutionMode,
   ): Promise<void> {
     if (!model.trim()) {
       handlers.send({
@@ -134,7 +136,7 @@ export class AiAssistantService {
       }
     }
 
-    await this.orchestrator.chat(project, model, messages, handlers);
+    await this.orchestrator.chat(project, model, messages, handlers, mode);
   }
 
   /**
