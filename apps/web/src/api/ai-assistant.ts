@@ -101,7 +101,7 @@ export function streamProjectAiModelPull(
   onEvent: (event: AiModelPullStreamEvent) => void,
 ): { close: () => void; done: Promise<void> } {
   return followEventStream<AiModelPullStreamEvent>(
-    `${projectAiPath(projectId)}/models/pull`,
+    `${projectAiPath(projectId)}/providers/ollama/models/pull`,
     onEvent,
     {
       method: 'POST',
