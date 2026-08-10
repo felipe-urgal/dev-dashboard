@@ -110,6 +110,8 @@ export type AiImplementationExecutionStatus =
 export interface AiImplementationExecution {
   id: string;
   projectId: string;
+  provider: AiProviderId;
+  mode: AiExecutionMode;
   model: string;
   prompt: string;
   status: AiImplementationExecutionStatus;
