@@ -1,22 +1,47 @@
 # Próxima atividade
 
-Após o merge do **PR #293 — hardening da arquitetura multi-provider**, executar o plano de fechamento em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
+O fechamento da IA multi-provider continua no **PR #295**, seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
 
-## Atividade atual — Code Review IA multi-provider
+## Estado do fechamento
 
-O primeiro bloqueador é fazer a **Code Review IA** usar a mesma seleção por projeto já usada pelo Assistente/implementation.
+Concluídos e validados no PR #295:
+
+1. Code Review IA usando `AiProviderResolver`, com provider/modo congelados na execution.
+2. APIs genéricas `/ai/status`, `/ai/chat`, `/ai/complete` e `/ai/models/pull` sem bypass silencioso para Ollama.
+3. Validação server-side de modelo antes da inferência.
+
+O gate completo ficou verde após o P0 #3.
+
+## Atividade atual — P0 #4: contratos de erro estáveis
+
+O próximo bloqueador é deixar falhas de IA previsíveis para backend, frontend, testes e diagnóstico.
 
 ### Escopo
 
-1. Resolver o provider selecionado no início da Code Review.
-2. Revalidar disponibilidade e consentimento cloud antes de iniciar.
-3. Congelar a instância do provider e o modo durante toda a execution.
-4. Garantir que revisão por arquivo e síntese global usem o mesmo provider.
-5. Registrar `provider` e `mode` no contrato/snapshot HTTP da Code Review.
-6. Fazer o endpoint one-shot de AI review obedecer ao resolver ou removê-lo se estiver sem consumidor.
-7. Exibir provider/modo usados na UI sem duplicar configuração desnecessária.
-8. Cobrir Ollama, OpenAI autorizado, falta de consentimento, indisponibilidade e troca de seleção durante execução.
-9. Atualizar documentação e referência da API.
+1. Definir códigos estáveis para:
+   - consentimento cloud ausente;
+   - provider indisponível;
+   - modelo incompatível/indisponível;
+   - autenticação cloud;
+   - quota/billing;
+   - rate limit;
+   - timeout;
+   - cancelamento;
+   - resposta/payload inválido;
+   - falha upstream não classificada.
+2. Evitar converter tudo em `AI_ASSISTANT_INVALID_REQUEST` ou `AI_ASSISTANT_FAILED`.
+3. Preservar detalhes úteis do adapter sem vazar credenciais, prompt, diff ou tool results.
+4. Manter mensagens da camada genérica provider-neutral quando o detalhe do fornecedor não for necessário.
+5. Cobrir o mapeamento com regressivos.
+6. Atualizar arquitetura, guias, checklist e referência HTTP quando o contrato mudar.
+
+## Próximos P0 após erros
+
+Depois do P0 #4:
+
+1. segurança de saída cloud;
+2. cancelamento e concorrência;
+3. auditoria final de persistência, UI, docs e suíte obrigatória.
 
 ## Gate obrigatório
 
@@ -30,8 +55,13 @@ npm test
 npm run test:e2e
 ```
 
-Quando schema/rota mudar, executar `npm run docs:api` antes de `npm run docs:api:check`.
+Quando schema/rota mudar:
 
-## Critério de conclusão
+```bash
+npm run docs:api
+npm run docs:api:check
+```
 
-A atividade termina quando a Code Review usa o provider selecionado de forma consistente, a execution identifica provider/modo usados, mudanças de seleção posteriores não alteram uma revisão em andamento e toda a suíte obrigatória está verde.
+## Critério de conclusão da atividade atual
+
+P0 #4 termina somente quando cada classe principal de falha possui comportamento/código previsível, os testes cobrem os mapeamentos e toda a suíte obrigatória fica verde no head correspondente.
