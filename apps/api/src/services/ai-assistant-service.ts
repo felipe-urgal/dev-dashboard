@@ -33,7 +33,6 @@ const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const STATUS_TIMEOUT_MS = 5_000;
 const CHAT_ROUND_TIMEOUT_MS = 120_000;
-const REVIEW_TIMEOUT_MS = 300_000;
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_CHARS = 8_000;
 const MAX_TOOL_RESULT_CHARS = 8_000;
@@ -543,7 +542,10 @@ export class AiAssistantService {
         },
         false,
         {
-          timeoutMs: REVIEW_TIMEOUT_MS,
+          // A revisão pode processar arquivos grandes em modelos locais sem
+          // GPU. Diferente do chat interativo, ela é uma tarefa em segundo
+          // plano e aguarda a resposta do Ollama sem encerrar por tempo.
+          timeoutMs: null,
           numPredict: 700,
           temperature: 0.1,
         },
@@ -558,9 +560,7 @@ export class AiAssistantService {
     } catch (error) {
       if (error instanceof AiAssistantError) throw error;
       if (isAbortError(error))
-        throw new AiAssistantError(
-          `O Ollama não respondeu em ${REVIEW_TIMEOUT_MS / 1_000} segundos. Tente novamente.`,
-        );
+        throw new AiAssistantError('A revisão foi interrompida.');
       throw error;
     }
   }
@@ -747,17 +747,18 @@ export class AiAssistantService {
     handlers: AiChatHandlers,
     includeTools = true,
     options?: {
-      timeoutMs?: number;
+      timeoutMs?: number | null;
       format?: 'json';
       numPredict?: number;
       temperature?: number;
     },
   ): Promise<OllamaToolCall[]> {
     const timeoutController = new AbortController();
-    const timeout = setTimeout(
-      () => timeoutController.abort(),
-      options?.timeoutMs ?? CHAT_ROUND_TIMEOUT_MS,
-    );
+    const timeoutMs = options?.timeoutMs ?? CHAT_ROUND_TIMEOUT_MS;
+    const timeout =
+      timeoutMs === null
+        ? undefined
+        : setTimeout(() => timeoutController.abort(), timeoutMs);
     const onAbort = (): void => timeoutController.abort();
     handlers.signal.addEventListener('abort', onAbort);
 
@@ -834,7 +835,7 @@ export class AiAssistantService {
         conversation.push({ role: 'assistant', content: assistantContent });
       return toolCalls;
     } finally {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       handlers.signal.removeEventListener('abort', onAbort);
     }
   }

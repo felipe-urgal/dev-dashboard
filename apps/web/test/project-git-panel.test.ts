@@ -453,6 +453,48 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
           models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
         });
       }
+      if (request.path.endsWith('/ai-review-executions/latest')) {
+        return jsonResponse({ execution: null });
+      }
+      if (request.path.endsWith('/ai-review-executions')) {
+        return jsonResponse({
+          execution: {
+            id: 'review-1',
+            targetRemote: 'origin',
+            baseBranch: 'main',
+            sourceBranch: 'feature/git-ui',
+            files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
+            model: 'qwen2.5-coder:14b',
+            status: 'completed',
+            completedFileCount: 2,
+            failedFiles: [],
+            startedAt: '2026-08-09T13:00:00.000Z',
+            finishedAt: '2026-08-09T13:00:01.000Z',
+            review: {
+              targetRemote: 'origin',
+              baseBranch: 'main',
+              sourceBranch: 'feature/git-ui',
+              files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
+              model: 'qwen2.5-coder:14b',
+              reviewedAt: '2026-08-09T13:00:00.000Z',
+              summary: 'Há uma validação ausente no fluxo de criação.',
+              findings: [
+                {
+                  severity: 'warning',
+                  path: 'apps/api/src/app.ts',
+                  line: 42,
+                  title: 'Validar a entrada',
+                  explanation: 'O valor chega ao serviço sem validação.',
+                  recommendation: 'Valide antes de chamar o serviço.',
+                },
+              ],
+              diffTruncated: false,
+              masked: false,
+              redactionCount: 0,
+            },
+          },
+        });
+      }
       if (request.path.endsWith('/pull-request/ai-review-files')) {
         return jsonResponse({
           review: {
@@ -505,7 +547,7 @@ test('separa o code review da Pull Request e mostra os arquivos e comentários d
   assert.match(mounted.wrapper.text(), /Validar a entrada/);
   assert.ok(
     mounted.requests.some((request) =>
-      request.path.endsWith('/pull-request/ai-review'),
+      request.path.endsWith('/pull-request/ai-review-executions'),
     ),
   );
 });
@@ -531,6 +573,37 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
           available: true,
           message: 'Ollama disponível.',
           models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
+        });
+      if (request.path.endsWith('/ai-review-executions/latest'))
+        return jsonResponse({ execution: null });
+      if (request.path.endsWith('/ai-review-executions'))
+        return jsonResponse({
+          execution: {
+            id: 'review-local',
+            targetRemote: 'origin',
+            baseBranch: 'main',
+            sourceBranch: 'feature/git-ui',
+            files: ['apps/web/src/App.vue'],
+            model: 'qwen2.5-coder:14b',
+            status: 'completed',
+            completedFileCount: 1,
+            failedFiles: [],
+            startedAt: '2026-08-10T12:00:00.000Z',
+            finishedAt: '2026-08-10T12:00:01.000Z',
+            review: {
+              targetRemote: 'origin',
+              baseBranch: 'main',
+              sourceBranch: 'feature/git-ui',
+              files: ['apps/web/src/App.vue'],
+              model: 'qwen2.5-coder:14b',
+              reviewedAt: '2026-08-10T12:00:00.000Z',
+              summary: 'A IA revisou 1 arquivo(s) separadamente.',
+              findings: [],
+              diffTruncated: false,
+              masked: false,
+              redactionCount: 0,
+            },
+          },
         });
       if (request.path.endsWith('/pull-request/ai-review-files'))
         return jsonResponse({
@@ -571,7 +644,7 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
   assert.match(mounted.wrapper.text(), /A IA revisou 1 arquivo/);
   assert.ok(
     mounted.requests.some((request) =>
-      request.path.endsWith('/pull-request/ai-review'),
+      request.path.endsWith('/pull-request/ai-review-executions'),
     ),
   );
 });

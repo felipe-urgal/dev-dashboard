@@ -208,6 +208,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     aiAssistantService: context.aiAssistantService,
+    gitAiCodeReviewService: context.gitAiCodeReviewService,
   });
 
   app.register(gitPullRequestMutationRoutes, {

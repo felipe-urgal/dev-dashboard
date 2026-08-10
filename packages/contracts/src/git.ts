@@ -268,6 +268,26 @@ export interface GitPullRequestAiReview {
   redactionCount: number;
 }
 
+export type GitPullRequestAiReviewExecutionStatus =
+  'running' | 'completed' | 'failed';
+
+/** Estado de uma revisão executada em segundo plano pela API local. */
+export interface GitPullRequestAiReviewExecution {
+  id: string;
+  targetRemote: 'origin' | 'upstream';
+  baseBranch: string;
+  sourceBranch: string;
+  files: string[];
+  model: string;
+  status: GitPullRequestAiReviewExecutionStatus;
+  completedFileCount: number;
+  failedFiles: Array<{ path: string; message: string }>;
+  startedAt: string;
+  finishedAt?: string;
+  errorMessage?: string;
+  review?: GitPullRequestAiReview;
+}
+
 export interface GitOpenPullRequest {
   provider: GitPullRequestProvider;
   number: number;

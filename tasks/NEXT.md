@@ -1,5 +1,6 @@
 # Próxima atividade
 
-Validar a nova sub-aba **Code review IA** com uma branch real e um modelo
-local do Ollama, calibrando a concorrência de arquivos caso o ambiente tenha
-muitos patches grandes.
+Validar a retomada da **Code review IA** com uma branch real e um modelo local
+do Ollama: trocar de sub-aba durante a execução, retornar após alguns arquivos
+e confirmar a recuperação do progresso e dos comentários. Avaliar uma futura
+persistência em disco para sobreviver ao reinício da API.
