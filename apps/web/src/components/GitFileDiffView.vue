@@ -507,7 +507,7 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   box-shadow: inset 0 0 0 2px
-    color-mix(in srgb, var(--accent) 76%, transparent);
+  color-mix(in srgb, var(--accent) 76%, transparent);
 }
 
 @media (max-width: 760px) {
