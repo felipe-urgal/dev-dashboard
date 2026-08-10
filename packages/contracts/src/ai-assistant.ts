@@ -29,7 +29,8 @@ export interface ProjectAiProviderStatus extends ProjectAiStatus {
 }
 
 export interface ProjectAiProvidersStatus {
-  defaultProvider: AiProviderId;
+  selectedProvider: AiProviderId;
+  selectedMode: AiExecutionMode;
   providers: ProjectAiProviderStatus[];
 }
 
