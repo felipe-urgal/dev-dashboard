@@ -1,55 +1,68 @@
 # Próxima atividade
 
-Após o merge do PR de **Caracterização e segurança**, iniciar o **PR 3 — `AiProvider` + `OllamaProvider`** do plano em [`AI-MULTI-PROVIDER.md`](AI-MULTI-PROVIDER.md).
+Após o merge do PR **#288 — `AiProvider` + `OllamaProvider`**, iniciar o **PR 4 — modos de execução `fast` / `complete`** do plano em [`AI-MULTI-PROVIDER.md`](AI-MULTI-PROVIDER.md).
 
-O objetivo é **separar detalhes do Ollama do fluxo de negócio sem mudar a UI nem o comportamento observável do Assistente IA e da Code review IA**.
+O objetivo é **tirar budgets de execução de constantes espalhadas e transformá-los em uma policy explícita, determinística e testável**, sem adicionar provider cloud nem alterar a UI.
 
 ## Escopo obrigatório
 
-1. Criar o contrato mínimo `AiProvider`.
-2. Criar `OllamaProvider`.
-3. Mover chamadas HTTP, status/modelos e payloads específicos do Ollama para o provider.
-4. Mover a compatibilidade de tool call textual para o `OllamaProvider`.
-5. Preservar a barreira de masking introduzida no PR anterior.
-6. Transformar o loop interativo atual em um `AiOrchestrator` mínimo.
-7. Manter o catálogo de ferramentas, Git, LSP, workspace edit e aprovação fora do provider.
-8. Manter `GitAiCodeReviewService` separado do `AiOrchestrator`, consumindo apenas a abstração necessária de inferência.
-9. Fazer todos os testes de caracterização e segurança continuarem passando sem alterar expectativas.
+1. Criar `AiExecutionMode = 'fast' | 'complete'`.
+2. Criar uma única `AiExecutionPolicy` para concentrar budgets.
+3. Manter `fast` como default compatível com o comportamento atual.
+4. Manter no `fast` o limite atual de 4 rodadas e 4.000 caracteres de diff por arquivo.
+5. Dar ao `complete` budget maior de rodadas, resultados de ferramentas e diff.
+6. Contabilizar o tamanho acumulado de resultados de ferramentas, não apenas o número de rounds.
+7. Bloquear tool calls idênticas repetidas sem progresso antes de formar loop.
+8. Fazer o `GitAiCodeReviewService` usar `maxDiffChars` da mesma policy.
+9. Registrar `maxContextFiles` e `runGlobalSynthesis` na policy para as fases seguintes, sem antecipar `ContextBuilder` ou síntese global neste PR.
+10. Cobrir `fast`, `complete`, loop guard e limite de diff com testes.
+
+## Policy inicial para validação
+
+| Campo | `fast` | `complete` |
+|---|---:|---:|
+| `maxToolRounds` | 4 | 10 |
+| `maxToolResultChars` | 8.000 | 12.000 |
+| `maxAccumulatedToolResultChars` | 32.000 | 96.000 |
+| `maxIdenticalToolCalls` | 2 | 2 |
+| `maxDiffChars` | 4.000 | 12.000 |
+| `maxContextFiles` | 4 | 12 |
+| `runGlobalSynthesis` | `false` | `true` |
+
+Esses valores são a primeira calibração e podem ser ajustados depois de validação com projetos reais. O importante neste PR é tornar a policy centralizada e testável.
 
 ## Fora do escopo
 
 Não fazer nesse PR:
 
 - provider cloud;
-- `ProviderRegistry` dinâmico;
 - seleção de provider na UI;
-- modos `fast` / `complete`;
 - síntese global da Code review;
 - fallback;
+- `ProviderRegistry` dinâmico;
 - `ContextBuilder` ou `ToolExecutor` como serviços independentes;
 - cache de contexto/símbolos;
-- mudanças visuais.
+- mudança visual.
 
 ## Critério de conclusão
 
 O PR termina quando:
 
-- nenhum HTTP específico do Ollama permanece no orquestrador;
-- o `OllamaProvider` não conhece filesystem, Git, LSP ou workspace edit;
-- o `AiOrchestrator` não conhece payloads nativos do Ollama;
-- masking, cancelamento, limite de rounds e compatibilidade de tool calling continuam protegidos pelos testes do PR anterior;
-- o comportamento atual permanece equivalente;
+- `fast` preserva o comportamento atual nos fluxos existentes;
+- `complete` possui budget maior, mas continua limitado;
+- a repetição de tool call idêntica é interrompida com erro explicativo;
+- o crescimento acumulado dos resultados de ferramentas possui teto explícito;
+- a Code review deixa de depender de limite de diff hardcoded fora da policy;
+- nenhum detalhe específico de provider entra na policy comum;
 - a suíte obrigatória do projeto está verde;
-- `tasks/AI-MULTI-PROVIDER.md` e este `NEXT.md` avançam para o PR de modos de execução.
+- `tasks/AI-MULTI-PROVIDER.md` e este `NEXT.md` avançam para o **PR 5 — síntese global da Code review**.
 
 ## Validação manual ainda pendente
 
-A validação com Ollama real continua importante para calibrar as próximas fases:
+Após o CI, validar com Ollama real:
 
-- implementação pequena em múltiplos arquivos;
-- preview, expiração de token e revalidação antes de aplicar;
-- respostas lentas e cancelamento;
-- Code review com múltiplos arquivos e troca de sub-aba;
-- comportamento de modelos diferentes com tool calling.
-
-A calibração dos budgets de `fast`/`complete` continua reservada ao PR 4.
+- uma implementação curta no modo `fast`;
+- uma implementação multi-arquivo no modo `complete` via chamada programática enquanto a UI ainda não expõe o seletor;
+- comportamento quando o modelo repete a mesma ferramenta;
+- resposta ao atingir budget de contexto;
+- Code review com diff entre 4k e 12k para comparar o contexto enviado.
