@@ -1,19 +1,19 @@
 import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
-import type { ProjectStore } from '../store/project-store.js';
+import { aiApiError } from '../http/ai-error.js';
+import { ApiError, type ApiErrorCode } from '../http/api-error.js';
+import {
+  commonErrorResponseSchemas,
+  gitPullRequestUrlResponseSchema,
+} from '../http/response-schemas.js';
+import { GitAiCodeReviewService } from '../services/git-ai-code-review-service.js';
 import {
   GitPullRequestError,
   GitPullRequestService,
   type GitPullRequestTargetRemote,
 } from '../services/git-pull-request-service.js';
 import { GitPullRequestStatusService } from '../services/git-pull-request-status-service.js';
-import { AiProviderResolutionError } from '../services/ai-provider-resolver.js';
-import { GitAiCodeReviewService } from '../services/git-ai-code-review-service.js';
-import { ApiError, type ApiErrorCode } from '../http/api-error.js';
-import {
-  commonErrorResponseSchemas,
-  gitPullRequestUrlResponseSchema,
-} from '../http/response-schemas.js';
+import type { ProjectStore } from '../store/project-store.js';
 
 interface ProjectParams {
   projectId: string;
@@ -226,6 +226,7 @@ const pullRequestAiReviewExecutionSchema = {
           },
           startedAt: { type: 'string' },
           finishedAt: { type: 'string' },
+          errorCode: { type: 'string' },
           errorMessage: { type: 'string' },
         },
       },
@@ -236,11 +237,16 @@ const pullRequestAiReviewExecutionSchema = {
         type: 'object',
         additionalProperties: false,
         required: ['path', 'message'],
-        properties: { path: { type: 'string' }, message: { type: 'string' } },
+        properties: {
+          path: { type: 'string' },
+          message: { type: 'string' },
+          code: { type: 'string' },
+        },
       },
     },
     startedAt: { type: 'string' },
     finishedAt: { type: 'string' },
+    errorCode: { type: 'string' },
     errorMessage: { type: 'string' },
     review: pullRequestAiReviewSchema,
   },
@@ -312,13 +318,9 @@ const pullRequestLookupResponseSchema = {
 } as const;
 
 function translatePullRequestError(error: unknown): never {
-  if (error instanceof AiProviderResolutionError) {
-    throw new ApiError({
-      statusCode: 409,
-      code: 'AI_ASSISTANT_INVALID_REQUEST',
-      message: error.message,
-    });
-  }
+  const translatedAiError = aiApiError(error);
+  if (translatedAiError) throw translatedAiError;
+
   if (error instanceof GitPullRequestError) {
     const statusByCode: Record<GitPullRequestError['code'], number> = {
       GIT_NOT_REPOSITORY: 400,
