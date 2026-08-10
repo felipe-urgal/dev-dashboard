@@ -19,7 +19,9 @@ interface AiProviderEntry {
 }
 
 export type AiProviderResolutionErrorCode =
-  'AI_PROVIDER_UNAVAILABLE' | 'AI_CLOUD_CONSENT_REQUIRED';
+  | 'AI_PROVIDER_UNAVAILABLE'
+  | 'AI_CLOUD_CONSENT_REQUIRED'
+  | 'AI_MODEL_UNAVAILABLE';
 
 export class AiProviderResolutionError extends Error {
   public constructor(
@@ -90,9 +92,14 @@ export class AiProviderResolver {
 
   public async resolveSelected(
     projectId: string,
+    model?: string,
   ): Promise<ResolvedProjectAiExecution> {
     const selection = this.getSelection(projectId);
-    const assistantService = await this.resolve(projectId, selection.provider);
+    const assistantService = await this.resolve(
+      projectId,
+      selection.provider,
+      model,
+    );
     return {
       assistantService,
       provider: selection.provider,
@@ -103,6 +110,7 @@ export class AiProviderResolver {
   public async resolve(
     projectId: string,
     providerId: AiProviderId,
+    model?: string,
   ): Promise<AiAssistantService> {
     const entry = this.providers[providerId];
     if (
@@ -122,6 +130,22 @@ export class AiProviderResolver {
         status.message || 'O provider de IA selecionado não está disponível.',
       );
     }
+
+    if (model !== undefined) {
+      const requestedModel = model.trim();
+      const modelAvailable =
+        requestedModel.length > 0 &&
+        status.models.some((candidate) => candidate.name === requestedModel);
+      if (!modelAvailable) {
+        throw new AiProviderResolutionError(
+          'AI_MODEL_UNAVAILABLE',
+          requestedModel
+            ? `O modelo "${requestedModel}" não está disponível no provider ${entry.label}. Selecione um modelo listado para este provider.`
+            : 'Selecione um modelo de IA disponível para o provider escolhido.',
+        );
+      }
+    }
+
     return entry.assistantService;
   }
 
