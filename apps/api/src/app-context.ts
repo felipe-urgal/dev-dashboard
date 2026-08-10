@@ -54,8 +54,6 @@ export interface AppContext {
   projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
   projectDismissedRepository: ProjectDismissedRepository;
-  projectAiConsentRepository: ProjectAiConsentRepository;
-  projectAiSelectionRepository: ProjectAiSelectionRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -142,8 +140,6 @@ export function createAppContext(
     projectFavoriteRepository: new ProjectFavoriteRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
     projectDismissedRepository: new ProjectDismissedRepository(),
-    projectAiConsentRepository,
-    projectAiSelectionRepository,
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
