@@ -1,13 +1,13 @@
 import type { AiExecutionMode } from '@dev-dashboard/contracts';
 
 export interface AiExecutionPolicy {
-  maxToolRounds: number;
-  maxToolResultChars: number;
-  maxAccumulatedToolResultChars: number;
-  maxIdenticalToolCalls: number;
-  maxDiffChars: number;
-  maxContextFiles: number;
-  runGlobalSynthesis: boolean;
+  readonly maxToolRounds: number;
+  readonly maxToolResultChars: number;
+  readonly maxAccumulatedToolResultChars: number;
+  readonly maxIdenticalToolCalls: number;
+  readonly maxDiffChars: number;
+  readonly maxContextFiles: number;
+  readonly runGlobalSynthesis: boolean;
 }
 
 export const DEFAULT_AI_EXECUTION_MODE: AiExecutionMode = 'fast';
