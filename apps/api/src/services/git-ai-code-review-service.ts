@@ -326,7 +326,10 @@ export class GitAiCodeReviewService {
       return snapshot(current.execution);
 
     const resolved = this.providerResolver
-      ? await this.providerResolver.resolveSelected(input.project.id)
+      ? await this.providerResolver.resolveSelected(
+          input.project.id,
+          input.model,
+        )
       : undefined;
     const aiAssistantService =
       resolved?.assistantService ?? this.aiAssistantService;
