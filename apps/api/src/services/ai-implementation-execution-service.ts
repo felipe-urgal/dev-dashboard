@@ -65,8 +65,7 @@ export class AiImplementationExecutionService {
 
     const selection = this.providerResolver?.getSelection(project.id);
     const executionProvider = provider ?? selection?.provider ?? 'ollama';
-    const executionMode =
-      mode ?? selection?.mode ?? DEFAULT_AI_EXECUTION_MODE;
+    const executionMode = mode ?? selection?.mode ?? DEFAULT_AI_EXECUTION_MODE;
     const timestamp = this.now().toISOString();
     const controller = new AbortController();
     const execution: AiImplementationExecution = {

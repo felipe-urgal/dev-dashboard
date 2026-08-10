@@ -28,15 +28,10 @@ test('mensagem de modelo obrigatório não depende do provider', async () => {
   });
   const events: AiChatStreamEvent[] = [];
 
-  await service.chat(
-    project,
-    '',
-    [{ role: 'user', content: 'Teste' }],
-    {
-      signal: new AbortController().signal,
-      send: (event) => events.push(event),
-    },
-  );
+  await service.chat(project, '', [{ role: 'user', content: 'Teste' }], {
+    signal: new AbortController().signal,
+    send: (event) => events.push(event),
+  });
 
   const error = events.find((event) => event.type === 'error');
   assert.ok(error?.type === 'error');

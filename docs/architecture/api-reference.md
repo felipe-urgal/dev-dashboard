@@ -566,6 +566,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
             "required": [
               "id",
               "projectId",
+              "provider",
+              "mode",
               "model",
               "prompt",
               "status",
@@ -580,6 +582,20 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
               },
               "projectId": {
                 "type": "string"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai"
+                ]
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "fast",
+                  "complete"
+                ]
               },
               "model": {
                 "type": "string"
@@ -851,6 +867,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "required": [
           "id",
           "projectId",
+          "provider",
+          "mode",
           "model",
           "prompt",
           "status",
@@ -865,6 +883,20 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "projectId": {
             "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "complete"
+            ]
           },
           "model": {
             "type": "string"
@@ -1111,6 +1143,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "required": [
           "id",
           "projectId",
+          "provider",
+          "mode",
           "model",
           "prompt",
           "status",
@@ -1125,6 +1159,20 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "projectId": {
             "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "complete"
+            ]
           },
           "model": {
             "type": "string"
@@ -1371,6 +1419,8 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
         "required": [
           "id",
           "projectId",
+          "provider",
+          "mode",
           "model",
           "prompt",
           "status",
@@ -1385,6 +1435,20 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
           },
           "projectId": {
             "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "complete"
+            ]
           },
           "model": {
             "type": "string"

@@ -99,7 +99,10 @@ test('congela provider e modo antes da resolução assíncrona', async () => {
     },
   };
   const resolver = {
-    getSelection: () => ({ provider: selectedProvider, mode: 'complete' as const }),
+    getSelection: () => ({
+      provider: selectedProvider,
+      mode: 'complete' as const,
+    }),
     resolve: async (_projectId: string, provider: 'ollama' | 'openai') => {
       resolvedProviders.push(provider);
       return openAiAssistant as unknown as AiAssistantService;
