@@ -263,3 +263,64 @@ test('completion usa a mesma barreira de masking', async () => {
   assert.equal(requestBody.includes(secret), false);
   assert.ok(requestBody.includes(LOG_MASK));
 });
+
+test('normaliza falta de créditos e marca OpenAI indisponível temporariamente', async () => {
+  let calls = 0;
+  const provider = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({
+          error: {
+            message:
+              'You have no credits remaining. Add credits to continue using the API.',
+            type: 'insufficient_quota',
+            code: 'insufficient_quota',
+          },
+        }),
+        { status: 429 },
+      );
+    },
+  });
+
+  await assert.rejects(
+    provider.chatRound(
+      'gpt-5.4-mini',
+      [{ role: 'user', content: 'Revise este código.' }],
+      roundOptions(),
+    ),
+    /OpenAI sem créditos disponíveis.*provider Local/,
+  );
+
+  const status = await provider.status();
+  assert.equal(status.available, false);
+  assert.equal(status.models.length, 0);
+  assert.match(status.message, /OpenAI sem créditos disponíveis/);
+  assert.equal(calls, 1);
+});
+
+test('completion também normaliza erro de billing da OpenAI', async () => {
+  const provider = new OpenAiProvider({
+    apiKey: 'test-openai-key',
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message: 'Your account has insufficient quota. Check billing.',
+            type: 'insufficient_quota',
+          },
+        }),
+        { status: 429 },
+      ),
+  });
+
+  await assert.rejects(
+    provider.complete('gpt-5.4-mini', 'const value = ', ';', {
+      signal: new AbortController().signal,
+      timeoutMs: 1_000,
+      maxOutputTokens: 64,
+    }),
+    /OpenAI sem créditos disponíveis/,
+  );
+});
