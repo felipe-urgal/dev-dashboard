@@ -34,23 +34,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Build
-        run: npm run build
-
-      - name: Verifica docs/architecture/api-reference.md
-        run: npm run docs:api:check
-
-      - name: Test
-        run: npm test
+      - name: Format diagnostic
+        run: |
+          npx prettier --write \
+            apps/api/src/routes/ai-providers.ts \
+            apps/api/src/services/ai-implementation-execution-service.ts \
+            apps/api/src/services/ai-provider-resolver.ts \
+            apps/api/test/ai-provider-resolver.test.ts \
+            apps/web/src/components/ProjectAiAssistantPanel.vue \
+            packages/core/src/project-ai-consent-repository.ts \
+            packages/core/src/project-ai-selection-repository.ts
+          git diff -- \
+            apps/api/src/routes/ai-providers.ts \
+            apps/api/src/services/ai-implementation-execution-service.ts \
+            apps/api/src/services/ai-provider-resolver.ts \
+            apps/api/test/ai-provider-resolver.test.ts \
+            apps/web/src/components/ProjectAiAssistantPanel.vue \
+            packages/core/src/project-ai-consent-repository.ts \
+            packages/core/src/project-ai-selection-repository.ts
+          exit 1
 
   e2e:
     name: Smoke E2E
