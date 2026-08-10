@@ -17,4 +17,7 @@ Para o Assistente IA:
 
 Para a Code review IA, trocar de sub-aba durante a execução, retornar após
 alguns arquivos e confirmar a recuperação do progresso e dos comentários.
-Avaliar uma futura persistência em disco para sobreviver ao reinício da API.
+Ao concluir, abrir comentários de arquivos diferentes, conferir se cada diff
+lado a lado usa a mesma comparação da revisão e testar a seleção, resolução e
+ignorado de apontamentos. Avaliar uma futura persistência em disco para
+sobreviver ao reinício da API.

@@ -6875,6 +6875,116 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `GET /api/projects/:projectId/git/pull-request/ai-review-file-diff`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetRemote",
+    "baseBranch",
+    "path"
+  ],
+  "properties": {
+    "targetRemote": {
+      "type": "string",
+      "enum": [
+        "origin",
+        "upstream"
+      ]
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "review"
+    ],
+    "properties": {
+      "review": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targetRemote",
+          "baseBranch",
+          "sourceBranch",
+          "files",
+          "diff"
+        ],
+        "properties": {
+          "targetRemote": {
+            "type": "string",
+            "enum": [
+              "origin",
+              "upstream"
+            ]
+          },
+          "baseBranch": {
+            "type": "string"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diff": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `GET /api/projects/:projectId/git/pull-request/ai-review-files`
 
 **Parâmetros de rota (`params`)**
