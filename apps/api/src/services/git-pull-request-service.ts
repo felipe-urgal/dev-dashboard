@@ -103,7 +103,7 @@ export class GitPullRequestService {
     projectPath: string,
     options: GitPullRequestComposeOptions = {},
   ): Promise<GitPullRequestUrl> {
-    const context = await this.resolveReviewContext(projectPath, options);
+    const context = await this.resolveContext(projectPath, options);
     const composeOptions = {
       target: context.target,
       source: context.source,
@@ -159,7 +159,7 @@ export class GitPullRequestService {
     projectPath: string,
     options: GitPullRequestLookupOptions,
   ): Promise<GitPullRequestReviewDiff> {
-    const context = await this.resolveContext(projectPath, options);
+    const context = await this.resolveReviewContext(projectPath, options);
     const reviewFiles = await this.reviewFilesForContext(context);
     const diff = await this.diffForContext(context);
     return { ...reviewFiles, diff };
@@ -185,7 +185,7 @@ export class GitPullRequestService {
     options: GitPullRequestLookupOptions,
     filePath: string,
   ): Promise<GitPullRequestReviewDiff> {
-    const context = await this.resolveContext(projectPath, options);
+    const context = await this.resolveReviewContext(projectPath, options);
     const reviewFiles = await this.reviewFilesForContext(context);
     if (!reviewFiles.files.includes(filePath)) {
       throw new GitPullRequestError(
