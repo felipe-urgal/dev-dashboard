@@ -276,136 +276,134 @@ onUnmounted(stopRefreshing);
       <DocumentMagnifyingGlassIcon aria-hidden="true" />
     </header>
 
-    <template>
-      <div class="git-code-review-controls">
-        <label>
-          <span>Comparar com</span>
-          <select v-model="targetRemote" :disabled="reviewing">
-            <option
-              v-for="remote in availableTargets"
-              :key="remote"
-              :value="remote"
-            >
-              {{ remote }}
-            </option>
-          </select>
-        </label>
-        <label>
-          <span>Branch base</span>
-          <select v-model="baseBranch" :disabled="reviewing">
-            <option
-              v-for="branch in baseBranches"
-              :key="branch"
-              :value="branch"
-            >
-              {{ branch }}
-            </option>
-            <option v-if="baseBranches.length === 0" value="main">main</option>
-          </select>
-        </label>
-        <label v-if="aiStatus?.models.length">
-          <span>Modelo</span>
-          <select v-model="reviewModel" :disabled="reviewing">
-            <option
-              v-for="model in aiStatus.models"
-              :key="model.name"
-              :value="model.name"
-            >
-              {{ model.name }}
-            </option>
-          </select>
-        </label>
-        <p v-else class="git-code-review-model">
-          {{ aiStatus?.message ?? 'Verificando Ollama local…' }}
-        </p>
-        <button type="button" :disabled="!canReview" @click="reviewChanges">
-          <ArrowPathIcon
-            v-if="reviewing || execution?.status === 'running'"
-            class="spinning"
-            aria-hidden="true"
-          />
-          <SparklesIcon v-else aria-hidden="true" />
-          {{
-            reviewing || execution?.status === 'running'
-              ? `Revisando ${reviewProgress} de ${execution?.files.length ?? reviewFiles?.files.length ?? 0}…`
-              : 'Iniciar revisão'
-          }}
-        </button>
-      </div>
-
-      <p v-if="errorMessage" class="project-error" role="alert">
-        {{ errorMessage }}
+    <div class="git-code-review-controls">
+      <label>
+        <span>Comparar com</span>
+        <select v-model="targetRemote" :disabled="reviewing">
+          <option
+            v-for="remote in availableTargets"
+            :key="remote"
+            :value="remote"
+          >
+            {{ remote }}
+          </option>
+        </select>
+      </label>
+      <label>
+        <span>Branch base</span>
+        <select v-model="baseBranch" :disabled="reviewing">
+          <option
+            v-for="branch in baseBranches"
+            :key="branch"
+            :value="branch"
+          >
+            {{ branch }}
+          </option>
+          <option v-if="baseBranches.length === 0" value="main">main</option>
+        </select>
+      </label>
+      <label v-if="aiStatus?.models.length">
+        <span>Modelo</span>
+        <select v-model="reviewModel" :disabled="reviewing">
+          <option
+            v-for="model in aiStatus.models"
+            :key="model.name"
+            :value="model.name"
+          >
+            {{ model.name }}
+          </option>
+        </select>
+      </label>
+      <p v-else class="git-code-review-model">
+        {{ aiStatus?.message ?? 'Verificando Ollama local…' }}
       </p>
+      <button type="button" :disabled="!canReview" @click="reviewChanges">
+        <ArrowPathIcon
+          v-if="reviewing || execution?.status === 'running'"
+          class="spinning"
+          aria-hidden="true"
+        />
+        <SparklesIcon v-else aria-hidden="true" />
+        {{
+          reviewing || execution?.status === 'running'
+            ? `Revisando ${reviewProgress} de ${execution?.files.length ?? reviewFiles?.files.length ?? 0}…`
+            : 'Iniciar revisão'
+        }}
+      </button>
+    </div>
+
+    <p v-if="errorMessage" class="project-error" role="alert">
+      {{ errorMessage }}
+    </p>
+
+    <section
+      v-if="reviewFiles"
+      class="git-code-review-files"
+      aria-label="Arquivos alterados"
+    >
+      <header>
+        <strong>Alterações analisadas</strong>
+        <span>{{ reviewFiles.files.length }} arquivo(s)</span>
+      </header>
+      <ul>
+        <li v-for="file in reviewFiles.files" :key="file">
+          <code>{{ file }}</code>
+        </li>
+      </ul>
+    </section>
+    <p v-else-if="loadingFiles" class="git-code-review-model">
+      Carregando arquivos alterados…
+    </p>
+
+    <div v-if="review" class="git-code-review-results" aria-live="polite">
+      <div class="git-code-review-summary">
+        <div>
+          <strong>Resumo</strong>
+          <span>{{ review.summary }}</span>
+        </div>
+        <small>{{ review.model }} · revisão consultiva</small>
+      </div>
 
       <section
-        v-if="reviewFiles"
-        class="git-code-review-files"
-        aria-label="Arquivos alterados"
+        class="git-code-review-findings"
+        aria-label="Comentários da IA"
       >
         <header>
-          <strong>Alterações analisadas</strong>
-          <span>{{ reviewFiles.files.length }} arquivo(s)</span>
+          <strong>Comentários ponto a ponto</strong>
+          <span>{{ review.findings.length }} encontrado(s)</span>
         </header>
-        <ul>
-          <li v-for="file in reviewFiles.files" :key="file">
-            <code>{{ file }}</code>
-          </li>
-        </ul>
-      </section>
-      <p v-else-if="loadingFiles" class="git-code-review-model">
-        Carregando arquivos alterados…
-      </p>
-
-      <div v-if="review" class="git-code-review-results" aria-live="polite">
-        <div class="git-code-review-summary">
-          <div>
-            <strong>Resumo</strong>
-            <span>{{ review.summary }}</span>
-          </div>
-          <small>{{ review.model }} · revisão consultiva</small>
-        </div>
-
-        <section
-          class="git-code-review-findings"
-          aria-label="Comentários da IA"
-        >
-          <header>
-            <strong>Comentários ponto a ponto</strong>
-            <span>{{ review.findings.length }} encontrado(s)</span>
-          </header>
-          <p v-if="review.findings.length === 0">
-            Nenhum ponto relevante foi encontrado. Ainda vale revisar o diff
-            antes de abrir a PR.
-          </p>
-          <ol v-else>
-            <li
-              v-for="finding in review.findings"
-              :key="`${finding.path}:${finding.line ?? 0}:${finding.title}`"
+        <p v-if="review.findings.length === 0">
+          Nenhum ponto relevante foi encontrado. Ainda vale revisar o diff
+          antes de abrir a PR.
+        </p>
+        <ol v-else>
+          <li
+            v-for="finding in review.findings"
+            :key="`${finding.path}:${finding.line ?? 0}:${finding.title}`"
+          >
+            <span
+              :class="['git-code-review-severity', `is-${finding.severity}`]"
+              >{{ finding.severity }}</span
             >
-              <span
-                :class="['git-code-review-severity', `is-${finding.severity}`]"
-                >{{ finding.severity }}</span
+            <div>
+              <strong>{{ finding.title }}</strong>
+              <code
+                >{{ finding.path
+                }}<template v-if="finding.line"
+                  >:{{ finding.line }}</template
+                ></code
               >
-              <div>
-                <strong>{{ finding.title }}</strong>
-                <code
-                  >{{ finding.path
-                  }}<template v-if="finding.line"
-                    >:{{ finding.line }}</template
-                  ></code
-                >
-                <p>{{ finding.explanation }}</p>
-                <small>Recomendação: {{ finding.recommendation }}</small>
-              </div>
-            </li>
-          </ol>
-          <p v-if="review.diffTruncated">
-            Um arquivo muito extenso foi reduzido para a análise. O diff
-            completo continua disponível na aba Diff.
-          </p>
-        </section>
-      </div>
-    </template>
+              <p>{{ finding.explanation }}</p>
+              <small>Recomendação: {{ finding.recommendation }}</small>
+            </div>
+          </li>
+        </ol>
+        <p v-if="review.diffTruncated">
+          Um arquivo muito extenso foi reduzido para a análise. O diff
+          completo continua disponível na aba Diff.
+        </p>
+      </section>
+    </div>
   </section>
 </template>
 
