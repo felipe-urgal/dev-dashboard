@@ -8,12 +8,8 @@ import type { Project } from '@dev-dashboard/contracts';
 import { LOG_MASK } from '@dev-dashboard/process-manager';
 
 import { AiAssistantService } from '../src/services/ai-assistant-service.js';
-import {
-  AiImplementationExecutionService,
-} from '../src/services/ai-implementation-execution-service.js';
-import {
-  createAiOutboundProtectionFetch,
-} from '../src/services/ai-outbound-protection-fetch.js';
+import { AiImplementationExecutionService } from '../src/services/ai-implementation-execution-service.js';
+import { createAiOutboundProtectionFetch } from '../src/services/ai-outbound-protection-fetch.js';
 import { GitAiCodeReviewService } from '../src/services/git-ai-code-review-service.js';
 import { GitService } from '../src/services/git-service.js';
 import { ProjectFileService } from '../src/services/project-file-service.js';
@@ -53,71 +49,68 @@ async function waitForReview(
   }
 }
 
-test(
-  'conteúdo lido por ferramenta é mascarado antes da rodada seguinte do chat',
-  async () => {
-    const root = await mkdtemp(
-      path.join(os.tmpdir(), 'dev-dashboard-ai-mask-tool-'),
-    );
-    const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
-    await writeFile(path.join(root, '.env'), `API_KEY=${secret}\n`, 'utf8');
+test('conteúdo lido por ferramenta é mascarado antes da rodada seguinte do chat', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-mask-tool-'),
+  );
+  const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
+  await writeFile(path.join(root, '.env'), `API_KEY=${secret}\n`, 'utf8');
 
-    try {
-      const requestBodies: string[] = [];
-      let round = 0;
-      const rawFetch: typeof fetch = async (_input, init) => {
-        requestBodies.push(String(init?.body ?? ''));
-        round += 1;
-        if (round === 1) {
-          return new Response(
-            JSON.stringify({
-              message: {
-                role: 'assistant',
-                content: '',
-                tool_calls: [
-                  {
-                    function: {
-                      name: 'read_project_file',
-                      arguments: { path: '.env' },
-                    },
-                  },
-                ],
-              },
-              done: true,
-            }),
-          );
-        }
+  try {
+    const requestBodies: string[] = [];
+    let round = 0;
+    const rawFetch: typeof fetch = async (_input, init) => {
+      requestBodies.push(String(init?.body ?? ''));
+      round += 1;
+      if (round === 1) {
         return new Response(
           JSON.stringify({
-            message: { role: 'assistant', content: 'Arquivo analisado.' },
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                {
+                  function: {
+                    name: 'read_project_file',
+                    arguments: { path: '.env' },
+                  },
+                },
+              ],
+            },
             done: true,
           }),
         );
-      };
-      const service = new AiAssistantService({
-        projectFileService: new ProjectFileService(),
-        gitService: new GitService(),
-        fetchImpl: createAiOutboundProtectionFetch(rawFetch),
-      });
-
-      await service.chat(
-        project(root),
-        'qwen2.5-coder:14b',
-        [{ role: 'user', content: 'Leia o arquivo .env.' }],
-        {
-          signal: new AbortController().signal,
-          send: () => undefined,
-        },
+      }
+      return new Response(
+        JSON.stringify({
+          message: { role: 'assistant', content: 'Arquivo analisado.' },
+          done: true,
+        }),
       );
+    };
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: createAiOutboundProtectionFetch(rawFetch),
+    });
 
-      assert.equal(requestBodies.length, 2);
-      assert.equal((requestBodies[1] ?? '').includes(secret), false);
-      assert.ok((requestBodies[1] ?? '').includes(LOG_MASK));
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  },
-);
+    await service.chat(
+      project(root),
+      'qwen2.5-coder:14b',
+      [{ role: 'user', content: 'Leia o arquivo .env.' }],
+      {
+        signal: new AbortController().signal,
+        send: () => undefined,
+      },
+    );
+
+    assert.equal(requestBodies.length, 2);
+    assert.equal((requestBodies[1] ?? '').includes(secret), false);
+    assert.ok((requestBodies[1] ?? '').includes(LOG_MASK));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('implementation usa a mesma barreira de masking do chat', async () => {
   const requestBodies: string[] = [];
@@ -152,51 +145,48 @@ test('implementation usa a mesma barreira de masking do chat', async () => {
   assert.ok((requestBodies[0] ?? '').includes(LOG_MASK));
 });
 
-test(
-  'code review preserva masking e metadados de redação antes de chamar o modelo',
-  async () => {
-    const secret = 'sk-abcdefghijklmnopqrstuvwxyz999999';
-    let receivedPrompt = '';
-    const service = new GitAiCodeReviewService(
-      {
-        review: async (_model, messages) => {
-          receivedPrompt = messages[1]?.content ?? '';
-          return JSON.stringify({ summary: 'Sem achados.', findings: [] });
-        },
-      } as unknown as AiAssistantService,
-      {
-        getReviewFiles: async () => ({
-          targetRemote: 'origin',
-          baseBranch: 'main',
-          sourceBranch: 'feature/masking',
-          files: ['src/config.ts'],
-        }),
-        getReviewFileDiff: async () => ({
-          targetRemote: 'origin',
-          baseBranch: 'main',
-          sourceBranch: 'feature/masking',
-          files: ['src/config.ts'],
-          diff: `+ const API_KEY = '${secret}';`,
-        }),
-      } as unknown as Pick<
-        GitPullRequestService,
-        'getReviewFiles' | 'getReviewFileDiff'
-      >,
-    );
+test('code review preserva masking e metadados de redação antes de chamar o modelo', async () => {
+  const secret = 'sk-abcdefghijklmnopqrstuvwxyz999999';
+  let receivedPrompt = '';
+  const service = new GitAiCodeReviewService(
+    {
+      review: async (_model, messages) => {
+        receivedPrompt = messages[1]?.content ?? '';
+        return JSON.stringify({ summary: 'Sem achados.', findings: [] });
+      },
+    } as unknown as AiAssistantService,
+    {
+      getReviewFiles: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/masking',
+        files: ['src/config.ts'],
+      }),
+      getReviewFileDiff: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/masking',
+        files: ['src/config.ts'],
+        diff: `+ const API_KEY = '${secret}';`,
+      }),
+    } as unknown as Pick<
+      GitPullRequestService,
+      'getReviewFiles' | 'getReviewFileDiff'
+    >,
+  );
 
-    await service.start({
-      project: project('/tmp/projeto'),
-      targetRemote: 'origin',
-      baseBranch: 'main',
-      model: 'qwen2.5-coder:14b',
-    });
-    await waitForReview(service, 'project-1');
+  await service.start({
+    project: project('/tmp/projeto'),
+    targetRemote: 'origin',
+    baseBranch: 'main',
+    model: 'qwen2.5-coder:14b',
+  });
+  await waitForReview(service, 'project-1');
 
-    const completed = service.latest('project-1');
-    assert.equal(completed?.status, 'completed');
-    assert.equal(receivedPrompt.includes(secret), false);
-    assert.ok(receivedPrompt.includes(LOG_MASK));
-    assert.equal(completed?.review?.masked, true);
-    assert.ok((completed?.review?.redactionCount ?? 0) > 0);
-  },
-);
+  const completed = service.latest('project-1');
+  assert.equal(completed?.status, 'completed');
+  assert.equal(receivedPrompt.includes(secret), false);
+  assert.ok(receivedPrompt.includes(LOG_MASK));
+  assert.equal(completed?.review?.masked, true);
+  assert.ok((completed?.review?.redactionCount ?? 0) > 0);
+});
