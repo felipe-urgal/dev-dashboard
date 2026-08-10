@@ -31,6 +31,7 @@ import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
+import { createOllamaToolCallCompatFetch } from './services/ollama-tool-call-compat-fetch.js';
 import { GitAiCodeReviewService } from './services/git-ai-code-review-service.js';
 import { AiImplementationExecutionService } from './services/ai-implementation-execution-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
@@ -109,6 +110,7 @@ export function createAppContext(
   const aiAssistantService = new AiAssistantService({
     projectFileService,
     gitService,
+    fetchImpl: createOllamaToolCallCompatFetch(),
     workspaceEditService: projectWorkspaceEditService,
     languageServerService: projectLanguageServerService,
   });
