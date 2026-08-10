@@ -47,10 +47,10 @@ test('mascara conteúdo textual de mensagens antes de /api/chat', async () => {
   assert.equal(body.model, 'qwen2.5-coder:14b');
   assert.equal(body.tools.length, 1);
   assert.equal(body.messages[0]?.content, 'Analise o projeto.');
-  assert.match(body.messages[1]?.content ?? '', new RegExp(LOG_MASK));
-  assert.match(body.messages[2]?.content ?? '', new RegExp(LOG_MASK));
-  assert.doesNotMatch(calls[0]?.body ?? '', new RegExp(secret));
-  assert.doesNotMatch(calls[0]?.body ?? '', /segredo-local/);
+  assert.ok(body.messages[1]?.content.includes(LOG_MASK));
+  assert.ok(body.messages[2]?.content.includes(LOG_MASK));
+  assert.equal((calls[0]?.body ?? '').includes(secret), false);
+  assert.equal((calls[0]?.body ?? '').includes('segredo-local'), false);
 });
 
 test('mascara prefix e suffix antes de /api/generate', async () => {
@@ -71,10 +71,10 @@ test('mascara prefix e suffix antes de /api/generate', async () => {
     prompt: string;
     suffix: string;
   };
-  assert.match(body.prompt, new RegExp(LOG_MASK));
-  assert.match(body.suffix, new RegExp(LOG_MASK));
-  assert.doesNotMatch(body.prompt, /valor-ultrassecreto/);
-  assert.doesNotMatch(body.suffix, /abcdefghijklmnopqrstuvwxyz/);
+  assert.ok(body.prompt.includes(LOG_MASK));
+  assert.ok(body.suffix.includes(LOG_MASK));
+  assert.equal(body.prompt.includes('valor-ultrassecreto'), false);
+  assert.equal(body.suffix.includes('abcdefghijklmnopqrstuvwxyz'), false);
 });
 
 test('preserva requests que não carregam contexto textual do modelo', async () => {
