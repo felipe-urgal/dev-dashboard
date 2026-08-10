@@ -414,6 +414,27 @@ O conteúdo interno de raciocínio de modelos que o forneçam não é armazenado
 exibido como requisito do produto. O dashboard usa somente resposta final,
 chamadas de ferramentas validadas e métricas operacionais seguras.
 
+### Assistente de implementação em segundo plano
+
+A aba principal **Assistente IA** recebe uma solicitação de implementação e
+cria uma execução de propriedade da API. Diferente do chat SSE do editor, essa
+execução não pertence à conexão HTTP que a iniciou: trocar de aba, navegar por
+outras ferramentas do projeto ou voltar ao painel não a cancela. A interface
+consulta o snapshot estruturado enquanto o estado for `running` e apresenta um
+atalho flutuante para retornar ao trabalho ativo.
+
+O estado é deliberadamente **efêmero**: fica somente na memória da API e é
+cancelado no encerramento dela. Não há histórico persistido, telemetria nem
+registro do prompt ou da resposta em logs. Há uma execução ativa por projeto;
+iniciar outra cancela a anterior. O cancelamento manual também continua
+disponível no painel.
+
+As ferramentas que o modelo pode usar permanecem no catálogo fechado do
+`AiAssistantService`. Mesmo quando ele prepara um `WorkspaceEdit`, a execução
+só devolve a prévia e o token de confirmação ao usuário autenticado; a escrita
+segue sendo uma ação separada, explícita e validada pelas versões atuais dos
+arquivos.
+
 ### Aplicação de mudanças
 
 A IA nunca grava um arquivo diretamente.
@@ -444,8 +465,9 @@ limite fechado; patches/hunks entram somente após parser e testes robustos.
 
 Padrão inicial:
 
-- conversas não são persistidas pela API;
-- reload ou fechamento da aba encerra a sessão da conversa;
+- conversas e execuções concluídas não são persistidas pela API;
+- a execução iniciada no Assistente IA continua durante a navegação, mas é
+  descartada ao reiniciar a API;
 - prompts e respostas não entram em logs de aplicação;
 - somente métricas não sensíveis podem ser registradas: duração, modelo,
   resultado, cancelamento e contagem aproximada de contexto;

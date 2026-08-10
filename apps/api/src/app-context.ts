@@ -32,6 +32,7 @@ import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
 import { GitAiCodeReviewService } from './services/git-ai-code-review-service.js';
+import { AiImplementationExecutionService } from './services/ai-implementation-execution-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import {
   ProjectLanguageServerService,
@@ -74,6 +75,7 @@ export interface AppContext {
   projectTerminalService: ProjectTerminalService;
   aiAssistantService: AiAssistantService;
   gitAiCodeReviewService: GitAiCodeReviewService;
+  aiImplementationExecutionService: AiImplementationExecutionService;
 }
 
 export interface CreateAppContextOptions {
@@ -152,5 +154,8 @@ export function createAppContext(
     projectTerminalService,
     aiAssistantService,
     gitAiCodeReviewService: new GitAiCodeReviewService(aiAssistantService),
+    aiImplementationExecutionService: new AiImplementationExecutionService(
+      aiAssistantService,
+    ),
   };
 }

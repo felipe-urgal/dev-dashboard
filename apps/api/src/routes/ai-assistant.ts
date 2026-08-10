@@ -12,12 +12,14 @@ import {
   AiAssistantError,
   type AiAssistantService,
 } from '../services/ai-assistant-service.js';
+import type { AiImplementationExecutionService } from '../services/ai-implementation-execution-service.js';
 import type { ProjectStore } from '../store/project-store.js';
 import { projectParamsSchema, type ProjectParams } from './projects/helpers.js';
 
 interface AiAssistantRouteOptions {
   projectStore: ProjectStore;
   aiAssistantService: AiAssistantService;
+  aiImplementationExecutionService: AiImplementationExecutionService;
 }
 
 interface ChatBody {
@@ -33,6 +35,15 @@ interface CompletionBody {
 
 interface ModelPullBody {
   model: string;
+}
+
+interface ImplementationBody {
+  model: string;
+  prompt: string;
+}
+
+interface ExecutionParams extends ProjectParams {
+  executionId: string;
 }
 
 const chatMessageSchema = {
@@ -119,6 +130,169 @@ const modelPullBodySchema = {
   },
 } as const;
 
+const implementationBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['model', 'prompt'],
+  properties: {
+    model: { type: 'string', minLength: 1, maxLength: 200 },
+    prompt: { type: 'string', minLength: 3, maxLength: 8_000 },
+  },
+} as const;
+
+const executionParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['projectId', 'executionId'],
+  properties: {
+    projectId: projectParamsSchema.properties.projectId,
+    executionId: { type: 'string', format: 'uuid' },
+  },
+} as const;
+
+const workspacePreviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['confirmationToken', 'files', 'expiresAt'],
+  properties: {
+    confirmationToken: { type: 'string' },
+    expiresAt: { type: 'string' },
+    files: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'path',
+          'language',
+          'beforeVersion',
+          'beforeContent',
+          'afterContent',
+        ],
+        properties: {
+          path: { type: 'string' },
+          language: { type: 'string' },
+          beforeVersion: { type: 'string' },
+          beforeContent: { type: 'string' },
+          afterContent: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
+
+const executionEventSchema = {
+  anyOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'content'],
+      properties: {
+        type: { const: 'message-delta' },
+        content: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'tool', 'arguments'],
+      properties: {
+        type: { const: 'tool-call' },
+        tool: {
+          type: 'string',
+          enum: [
+            'read_project_file',
+            'search_project_text',
+            'list_project_files',
+            'get_git_diff',
+            'propose_workspace_edit',
+            'get_symbol_definition',
+            'get_symbol_references',
+          ],
+        },
+        arguments: { type: 'object', additionalProperties: true },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'tool', 'ok', 'summary'],
+      properties: {
+        type: { const: 'tool-result' },
+        tool: { type: 'string' },
+        ok: { type: 'boolean' },
+        summary: { type: 'string' },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'preview'],
+      properties: {
+        type: { const: 'workspace-edit-proposed' },
+        preview: workspacePreviewSchema,
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type'],
+      properties: { type: { const: 'done' } },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'message'],
+      properties: { type: { const: 'error' }, message: { type: 'string' } },
+    },
+  ],
+} as const;
+
+const executionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'id',
+    'projectId',
+    'model',
+    'prompt',
+    'status',
+    'createdAt',
+    'updatedAt',
+    'events',
+  ],
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    projectId: { type: 'string' },
+    model: { type: 'string' },
+    prompt: { type: 'string' },
+    status: {
+      type: 'string',
+      enum: ['running', 'succeeded', 'failed', 'cancelled'],
+    },
+    createdAt: { type: 'string' },
+    updatedAt: { type: 'string' },
+    finishedAt: { type: 'string' },
+    events: { type: 'array', items: executionEventSchema },
+  },
+} as const;
+
+const implementationResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['execution'],
+  properties: { execution: executionSchema },
+} as const;
+
+const implementationListSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['execution'],
+  properties: {
+    execution: { anyOf: [executionSchema, { type: 'null' }] },
+  },
+} as const;
+
 function translateAiError(
   request: FastifyRequest,
   error: unknown,
@@ -171,6 +345,106 @@ export const aiAssistantRoutes: FastifyPluginAsync<
     async (request) => {
       projectFor(request.params.projectId);
       return options.aiAssistantService.status();
+    },
+  );
+
+  app.post<{ Params: ProjectParams; Body: ImplementationBody }>(
+    '/projects/:projectId/ai/implementations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        body: implementationBodySchema,
+        response: {
+          201: implementationResultSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = projectFor(request.params.projectId);
+      const execution = options.aiImplementationExecutionService.start(
+        project,
+        request.body.model,
+        request.body.prompt,
+      );
+      return reply.status(201).send({ execution });
+    },
+  );
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/ai/implementations',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: implementationListSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      return {
+        execution: options.aiImplementationExecutionService.latestForProject(
+          request.params.projectId,
+        ),
+      };
+    },
+  );
+
+  app.get<{ Params: ExecutionParams }>(
+    '/projects/:projectId/ai/implementations/:executionId',
+    {
+      schema: {
+        params: executionParamsSchema,
+        response: {
+          200: implementationResultSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      const execution = options.aiImplementationExecutionService.find(
+        request.params.projectId,
+        request.params.executionId,
+      );
+      if (!execution) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'AI_IMPLEMENTATION_NOT_FOUND',
+          message: 'Execução de implementação não encontrada.',
+        });
+      }
+      return { execution };
+    },
+  );
+
+  app.post<{ Params: ExecutionParams }>(
+    '/projects/:projectId/ai/implementations/:executionId/cancel',
+    {
+      schema: {
+        params: executionParamsSchema,
+        response: {
+          200: implementationResultSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      const execution = options.aiImplementationExecutionService.cancel(
+        request.params.projectId,
+        request.params.executionId,
+      );
+      if (!execution) {
+        throw new ApiError({
+          statusCode: 404,
+          code: 'AI_IMPLEMENTATION_NOT_FOUND',
+          message: 'Execução de implementação não encontrada.',
+        });
+      }
+      return { execution };
     },
   );
 

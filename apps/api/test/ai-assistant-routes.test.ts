@@ -23,6 +23,8 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
   const { createAppContext } = await import('../src/app-context.js');
   const { AiAssistantService } =
     await import('../src/services/ai-assistant-service.js');
+  const { AiImplementationExecutionService } =
+    await import('../src/services/ai-implementation-execution-service.js');
   const { ProjectFileService } =
     await import('../src/services/project-file-service.js');
   const { GitService } = await import('../src/services/git-service.js');
@@ -78,6 +80,8 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
       throw new Error(`chamada inesperada: ${url}`);
     },
   });
+  appContext.aiImplementationExecutionService =
+    new AiImplementationExecutionService(appContext.aiAssistantService);
 
   const app = await buildApp({ localToken: TOKEN, context: appContext });
   context.after(async () => {
@@ -137,6 +141,45 @@ test('rotas do assistente de IA (status e chat em streaming)', async (context) =
     });
     assert.equal(response.statusCode, 400);
   });
+
+  await context.test(
+    'implementação continua disponível para consulta depois de iniciada',
+    async () => {
+      const started = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/ai/implementations',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { model: 'llama3.1', prompt: 'Adicionar um teste simples' },
+      });
+      assert.equal(started.statusCode, 201);
+      const execution = started.json<{ execution: { id: string } }>().execution;
+      assert.ok(execution.id);
+
+      const listed = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/ai/implementations',
+        headers,
+      });
+      assert.equal(listed.statusCode, 200);
+      assert.equal(
+        listed.json<{ execution: { id: string } | null }>().execution?.id,
+        execution.id,
+      );
+    },
+  );
+
+  await context.test(
+    'implementação valida prompt antes de iniciar',
+    async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/ai/implementations',
+        headers: { ...headers, 'content-type': 'application/json' },
+        payload: { model: 'llama3.1', prompt: 'x' },
+      });
+      assert.equal(response.statusCode, 400);
+    },
+  );
 
   await context.test(
     'complete retorna o texto sugerido pelo modelo',

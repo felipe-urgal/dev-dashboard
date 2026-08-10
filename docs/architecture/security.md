@@ -257,6 +257,21 @@ Isso significa que segredos presentes no ambiente da API também podem ficar dis
 
 Antes de suportar cenários multiusuário ou remotos, será necessário adotar uma política explícita de variáveis permitidas.
 
+### Execuções do Assistente IA
+
+Uma solicitação de implementação do Assistente IA é mantida em memória pela
+API para sobreviver à navegação entre abas. O navegador envia somente o ID do
+projeto, o modelo escolhido e um prompt limitado; caminhos, comandos e escrita
+direta não fazem parte desse endpoint. A execução usa o mesmo catálogo fechado
+do `AiAssistantService`, pode ser cancelada explicitamente e é cancelada no
+shutdown da API.
+
+O snapshot temporário contém eventos estruturados e a prévia de `WorkspaceEdit`
+quando houver, sob a mesma autenticação local das demais rotas privadas. Ele não
+é salvo em disco nem enviado a serviços externos pelo dashboard. A aplicação de
+arquivos exige o token de confirmação já emitido pelo serviço de preview e
+continua revalidando versões e escopo antes de gravar.
+
 ### Validação HTTP
 
 Rotas devem usar schemas para validar:

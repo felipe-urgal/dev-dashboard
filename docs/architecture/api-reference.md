@@ -526,6 +526,1068 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `GET /api/projects/:projectId/ai/implementations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "projectId",
+              "model",
+              "prompt",
+              "status",
+              "createdAt",
+              "updatedAt",
+              "events"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "projectId": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "prompt": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "finishedAt": {
+                "type": "string"
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type",
+                        "content"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "message-delta"
+                        },
+                        "content": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type",
+                        "tool",
+                        "arguments"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "tool-call"
+                        },
+                        "tool": {
+                          "type": "string",
+                          "enum": [
+                            "read_project_file",
+                            "search_project_text",
+                            "list_project_files",
+                            "get_git_diff",
+                            "propose_workspace_edit",
+                            "get_symbol_definition",
+                            "get_symbol_references"
+                          ]
+                        },
+                        "arguments": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type",
+                        "tool",
+                        "ok",
+                        "summary"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "tool-result"
+                        },
+                        "tool": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "summary": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type",
+                        "preview"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "workspace-edit-proposed"
+                        },
+                        "preview": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "confirmationToken",
+                            "files",
+                            "expiresAt"
+                          ],
+                          "properties": {
+                            "confirmationToken": {
+                              "type": "string"
+                            },
+                            "expiresAt": {
+                              "type": "string"
+                            },
+                            "files": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "path",
+                                  "language",
+                                  "beforeVersion",
+                                  "beforeContent",
+                                  "afterContent"
+                                ],
+                                "properties": {
+                                  "path": {
+                                    "type": "string"
+                                  },
+                                  "language": {
+                                    "type": "string"
+                                  },
+                                  "beforeVersion": {
+                                    "type": "string"
+                                  },
+                                  "beforeContent": {
+                                    "type": "string"
+                                  },
+                                  "afterContent": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "done"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type",
+                        "message"
+                      ],
+                      "properties": {
+                        "type": {
+                          "const": "error"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/ai/implementations`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "prompt"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 8000
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "model",
+          "prompt",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "events"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "content"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "message-delta"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "arguments"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-call"
+                    },
+                    "tool": {
+                      "type": "string",
+                      "enum": [
+                        "read_project_file",
+                        "search_project_text",
+                        "list_project_files",
+                        "get_git_diff",
+                        "propose_workspace_edit",
+                        "get_symbol_definition",
+                        "get_symbol_references"
+                      ]
+                    },
+                    "arguments": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "ok",
+                    "summary"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-result"
+                    },
+                    "tool": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "summary": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "preview"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "workspace-edit-proposed"
+                    },
+                    "preview": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "confirmationToken",
+                        "files",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "confirmationToken": {
+                          "type": "string"
+                        },
+                        "expiresAt": {
+                          "type": "string"
+                        },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "path",
+                              "language",
+                              "beforeVersion",
+                              "beforeContent",
+                              "afterContent"
+                            ],
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "language": {
+                                "type": "string"
+                              },
+                              "beforeVersion": {
+                                "type": "string"
+                              },
+                              "beforeContent": {
+                                "type": "string"
+                              },
+                              "afterContent": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "done"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "message"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/ai/implementations/:executionId`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "executionId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "model",
+          "prompt",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "events"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "content"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "message-delta"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "arguments"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-call"
+                    },
+                    "tool": {
+                      "type": "string",
+                      "enum": [
+                        "read_project_file",
+                        "search_project_text",
+                        "list_project_files",
+                        "get_git_diff",
+                        "propose_workspace_edit",
+                        "get_symbol_definition",
+                        "get_symbol_references"
+                      ]
+                    },
+                    "arguments": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "ok",
+                    "summary"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-result"
+                    },
+                    "tool": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "summary": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "preview"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "workspace-edit-proposed"
+                    },
+                    "preview": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "confirmationToken",
+                        "files",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "confirmationToken": {
+                          "type": "string"
+                        },
+                        "expiresAt": {
+                          "type": "string"
+                        },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "path",
+                              "language",
+                              "beforeVersion",
+                              "beforeContent",
+                              "afterContent"
+                            ],
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "language": {
+                                "type": "string"
+                              },
+                              "beforeVersion": {
+                                "type": "string"
+                              },
+                              "beforeContent": {
+                                "type": "string"
+                              },
+                              "afterContent": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "done"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "message"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/ai/implementations/:executionId/cancel`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "executionId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionId": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "execution"
+    ],
+    "properties": {
+      "execution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "model",
+          "prompt",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "events"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "content"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "message-delta"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "arguments"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-call"
+                    },
+                    "tool": {
+                      "type": "string",
+                      "enum": [
+                        "read_project_file",
+                        "search_project_text",
+                        "list_project_files",
+                        "get_git_diff",
+                        "propose_workspace_edit",
+                        "get_symbol_definition",
+                        "get_symbol_references"
+                      ]
+                    },
+                    "arguments": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "tool",
+                    "ok",
+                    "summary"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "tool-result"
+                    },
+                    "tool": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "summary": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "preview"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "workspace-edit-proposed"
+                    },
+                    "preview": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "confirmationToken",
+                        "files",
+                        "expiresAt"
+                      ],
+                      "properties": {
+                        "confirmationToken": {
+                          "type": "string"
+                        },
+                        "expiresAt": {
+                          "type": "string"
+                        },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "path",
+                              "language",
+                              "beforeVersion",
+                              "beforeContent",
+                              "afterContent"
+                            ],
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "language": {
+                                "type": "string"
+                              },
+                              "beforeVersion": {
+                                "type": "string"
+                              },
+                              "beforeContent": {
+                                "type": "string"
+                              },
+                              "afterContent": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "done"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "message"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
 ### `POST /api/projects/:projectId/ai/models/pull`
 
 **Parâmetros de rota (`params`)**

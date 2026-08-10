@@ -75,6 +75,37 @@ export type AiChatStreamEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
+/**
+ * Execução de uma solicitação de implementação iniciada pelo usuário.
+ *
+ * A execução é mantida pela API para que a navegação entre abas não interrompa
+ * a conversa com o Ollama. Ela é efêmera: reiniciar a API encerra execuções em
+ * andamento e descarta o histórico em memória.
+ */
+export type AiImplementationExecutionStatus =
+  'running' | 'succeeded' | 'failed' | 'cancelled';
+
+export interface AiImplementationExecution {
+  id: string;
+  projectId: string;
+  model: string;
+  prompt: string;
+  status: AiImplementationExecutionStatus;
+  createdAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+  events: AiChatStreamEvent[];
+}
+
+export interface AiImplementationExecutionRequest {
+  model: string;
+  prompt: string;
+}
+
+export interface AiImplementationExecutionList {
+  execution: AiImplementationExecution | null;
+}
+
 export interface AiCompletionRequest {
   model: string;
   prefix: string;

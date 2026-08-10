@@ -15,4 +15,5 @@ export * from './api/project-coverage';
 export * from './api/project-files';
 export * from './api/project-readme';
 export * from './api/ai-assistant';
+export * from './api/ai-implementation';
 export * from './api/terminal';
