@@ -1,3 +1,4 @@
+import type { AiExecutionMode, AiProviderId } from './ai-assistant.js';
 import type { ProjectChangeImpact } from './project-change-impact.js';
 
 export type GitFileStatus =
@@ -295,6 +296,8 @@ export interface GitPullRequestAiReviewExecution {
   baseBranch: string;
   sourceBranch: string;
   files: string[];
+  provider: AiProviderId;
+  mode: AiExecutionMode;
   model: string;
   status: GitPullRequestAiReviewExecutionStatus;
   /** Limite de arquivos processados ao mesmo tempo. */
