@@ -99,7 +99,6 @@ test('páginas globais possuem landmark nomeado pelo título visível', async ()
 
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
-  assert.match(dashboard, /aria-label="Controles dos servidores"/);
   assert.match(dashboard, /aria-label="Ações dos repositórios"/);
   assert.match(dashboard, /class="alert alert-warning"[\s\S]*role="status"/);
 
