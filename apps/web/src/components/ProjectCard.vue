@@ -62,38 +62,36 @@ const statusLabel = computed(() =>
 
 <template>
   <li class="project-row" :class="{ 'project-row-disabled': !project.enabled }">
-    <div class="project-row-controls" aria-label="Ações do projeto">
+    <span
+      v-if="supportsServer"
+      class="project-status project-row-status"
+      :aria-label="statusLabel"
+      :title="statusLabel"
+    >
       <span
-        v-if="supportsServer"
-        class="project-status project-row-status"
-        :aria-label="statusLabel"
-        :title="statusLabel"
-      >
-        <span
-          class="project-status-dot"
-          :class="statusDotClass"
-          aria-hidden="true"
-        />
-      </span>
+        class="project-status-dot"
+        :class="statusDotClass"
+        aria-hidden="true"
+      />
+    </span>
 
-      <div class="project-row-actions">
-        <button
-          type="button"
-          class="project-disable-button"
-          :class="{ active: !project.enabled }"
-          :aria-label="
-            project.enabled
-              ? `Desativar ${project.name}`
-              : `Reativar ${project.name}`
-          "
-          :aria-pressed="!project.enabled"
-          :disabled="enabledUpdating"
-          @click="emit('toggle-enabled', project)"
-        >
-          <PowerIcon v-if="project.enabled" aria-hidden="true" />
-          <NoSymbolIcon v-else aria-hidden="true" />
-        </button>
-      </div>
+    <div class="project-row-actions" aria-label="Ações do projeto">
+      <button
+        type="button"
+        class="project-disable-button"
+        :class="{ active: !project.enabled }"
+        :aria-label="
+          project.enabled
+            ? `Desativar ${project.name}`
+            : `Reativar ${project.name}`
+        "
+        :aria-pressed="!project.enabled"
+        :disabled="enabledUpdating"
+        @click="emit('toggle-enabled', project)"
+      >
+        <PowerIcon v-if="project.enabled" aria-hidden="true" />
+        <NoSymbolIcon v-else aria-hidden="true" />
+      </button>
     </div>
 
     <RouterLink
@@ -151,19 +149,11 @@ const statusLabel = computed(() =>
   padding-right: 0;
 }
 
-.project-row-controls {
+.project-row-status {
   position: absolute;
   z-index: 3;
-  top: 12px;
+  top: 14px;
   right: 10px;
-  display: flex;
-  width: 32px;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.project-row-status {
   display: flex;
   width: 32px;
   min-width: 0;
@@ -173,6 +163,10 @@ const statusLabel = computed(() =>
 }
 
 .project-row-actions {
+  position: absolute;
+  z-index: 3;
+  right: 10px;
+  bottom: 10px;
   display: flex;
   width: 32px;
   align-items: center;
@@ -182,6 +176,14 @@ const statusLabel = computed(() =>
 .project-row-actions .project-disable-button {
   position: static;
   inset: auto;
+  transform: none;
+}
+
+.project-row-disabled .project-row-link:hover {
+  border-color: var(--border);
+  background: var(--surface-1);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 2%);
+  transform: none;
 }
 
 @media (max-width: 480px) {
@@ -190,9 +192,14 @@ const statusLabel = computed(() =>
     padding-right: 58px;
   }
 
-  .project-row-controls {
-    top: 10px;
+  .project-row-status {
+    top: 12px;
     right: 6px;
+  }
+
+  .project-row-actions {
+    right: 6px;
+    bottom: 8px;
   }
 }
 </style>
