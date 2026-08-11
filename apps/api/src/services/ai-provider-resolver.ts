@@ -75,12 +75,12 @@ export class AiProviderResolver {
   }
 
   public async status(projectId: string): Promise<ProjectAiProvidersStatus> {
-    const selection = this.getSelection(projectId);
     const providers = await Promise.all(
       (Object.keys(this.providers) as AiProviderId[]).map((providerId) =>
         this.providerStatus(projectId, providerId),
       ),
     );
+    const selection = this.getSelection(projectId);
     return {
       selectedProvider: selection.provider,
       selectedMode: selection.mode,
