@@ -1,0 +1,43 @@
+.git-full-file-view {
+  width: 100%;
+  min-width: 0;
+}
+
+.git-full-file-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  min-height: 24px;
+  border-bottom: 1px solid var(--git-diff-row-border, var(--border));
+  background: var(--git-diff-context-bg, var(--surface-1));
+}
+
+.git-full-file-row.is-changed {
+  background: var(--git-diff-addition-bg);
+  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+}
+
+.git-full-file-line-number {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-right: 1px solid var(--git-diff-row-border, var(--border));
+  padding: 0 8px;
+  color: var(--text-dim);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.git-full-file-row.is-changed .git-full-file-line-number {
+  background: var(--git-diff-addition-gutter);
+  color: var(--git-diff-addition-accent);
+}
+
+.git-full-file-row code {
+  min-width: 0;
+  padding: 0 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}

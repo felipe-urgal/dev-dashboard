@@ -10,6 +10,7 @@ import {
 
 import type { GitPullRequestReviewFinding } from '@dev-dashboard/contracts';
 
+import './git-code-review-inline-comments.css';
 import './GitFileDiffView.css';
 import type { GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {

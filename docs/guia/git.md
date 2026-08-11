@@ -260,9 +260,19 @@ Após concluir a revisão, a tela mostra:
 - provider e modo usados pela execution;
 - resumo e quantidade de apontamentos pendentes;
 - arquivos com comentários e contagem pendente;
-- comentários do arquivo selecionado inline, logo abaixo da linha correspondente no diff (estilo
-  GitHub); apontamentos sem linha identificada ficam numa lista geral acima do diff;
+- comentários do arquivo selecionado inline, logo abaixo da linha correspondente (estilo GitHub);
+  apontamentos sem linha identificada ficam numa lista geral acima do arquivo;
 - ações locais de triagem para selecionar, marcar como resolvido ou ignorar apontamentos.
+
+Cada arquivo pode ser visto em dois modos, alternados por um botão **Diff / Arquivo completo** no
+cabeçalho:
+
+- **Diff** (padrão): o patch unificado, igual ao usado na análise da IA.
+- **Arquivo completo**: o conteúdo atual do arquivo (lido via `GET /projects/:id/files/content`),
+  com as linhas adicionadas/modificadas nesse diff destacadas e os mesmos comentários inline na
+  linha certa — sem o ruído de contexto/remoções do formato de diff. Linhas removidas não aparecem,
+  já que o arquivo exibido é a versão final. Se o arquivo não puder ser lido (por exemplo, foi
+  removido nessa comparação), a tela mostra o erro com um atalho para voltar ao Diff.
 
 A revisão é consultiva: não altera arquivos, commits nem Pull Requests.
 

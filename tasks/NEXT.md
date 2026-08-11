@@ -39,6 +39,25 @@ achado — só os campos allowlistados.
 Suíte completa de `apps/api` (692 testes) e gate local (`typecheck`, `lint`, `format:check`)
 verdes.
 
+## Também nesta atividade — alternância Diff / Arquivo completo na Code Review
+
+Fora do checklist de fechamento multi-provider (pedido direto do usuário): a Code Review agora tem
+um toggle **Diff / Arquivo completo** por arquivo.
+
+- **Arquivo completo** busca o conteúdo atual do arquivo via
+  `GET /projects/:id/files/content` (rota já existente, reaproveitada) e destaca as linhas
+  adicionadas/modificadas nesse diff — sem mostrar remoções nem contexto, já que é a versão final
+  do arquivo.
+- Novo `GitFileFullView.vue` (+ `GitFileFullView.css`), com os mesmos comentários inline usados no
+  modo diff (`GitCodeReviewFindingCard`, extraído para `git-code-review-inline-comments.css`
+  compartilhado entre os dois modos).
+- Fallback: se o arquivo não puder ser lido (ex.: removido nessa comparação), mostra o erro com um
+  atalho para voltar ao Diff.
+- Novos testes: `apps/web/test/git-file-full-view.test.ts` (destaque de linha, comentário inline,
+  eventos) e `apps/web/test/project-git-code-review-full-file.test.ts` (fluxo completo do toggle
+  dentro da página de Code Review, incluindo o caminho de erro).
+- `docs/guia/git.md` atualizado descrevendo os dois modos.
+
 ## Próximos follow-ups não bloqueantes (ordem sugerida)
 
 Nenhum deles bloqueia uso do multi-provider atual; escolher pela próxima sessão:
