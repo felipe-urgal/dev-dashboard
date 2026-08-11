@@ -92,6 +92,7 @@ describe('ProjectCard', () => {
     expect(button.attributes('aria-label')).toBe(
       'Desativar Projeto sem avatar',
     );
+    expect(button.attributes('title')).toBe('Desativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('false');
 
     await button.trigger('click');
@@ -105,6 +106,7 @@ describe('ProjectCard', () => {
       },
     });
     expect(button.attributes('aria-label')).toBe('Reativar Projeto sem avatar');
+    expect(button.attributes('title')).toBe('Reativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('true');
   });
 });
