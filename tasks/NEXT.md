@@ -2,10 +2,16 @@
 
 Desenho novo em aberto: [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md)
 propõe migrar testes/migrations/build do transporte SSE (`script-execution/*`) para o mesmo
-PTY+WebSocket já usado pelo Terminal/Console (`project-terminal-service.ts`), mantendo processos de
-fundo (server/sidekiq/webpack) no modelo atual de log em arquivo + polling. Ainda é só desenho —
-nenhuma linha de código foi alterada; a primeira atividade sugerida é a prova de conceito com
-testes (item 1 do checklist).
+PTY+WebSocket já usado pelo Terminal/Console (`project-terminal-service.ts`) — mas isso exige uma
+peça de arquitetura nova (sessão destacável, para não regredir a capacidade de fechar a aba e
+continuar rodando) e deve ser tratado como aposta escalonada, com checkpoint de decisão após o PoC
+de testes. Ainda é só desenho, nenhuma linha de código foi alterada.
+
+Item separado e bem mais barato, dentro do mesmo documento (seção "Fica como está — mas o
+transporte troca de polling para push"): trocar o polling de log de server/sidekiq/webpack por
+push via SSE, reaproveitando o padrão que Testes já usa hoje — sem PTY, sem sessão destacável, sem
+mudança de arquitetura. Resolve a reclamação de "fica piscando" no painel de Logs sem o custo do
+item acima; pode ser feito primeiro e de forma independente.
 
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há

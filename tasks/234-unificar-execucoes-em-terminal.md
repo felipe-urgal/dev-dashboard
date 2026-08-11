@@ -103,16 +103,58 @@ A ordem de implementação (checklist abaixo) deliberadamente começa pelo caso 
 confirmar que o custo compensa — se não compensar, ficam no SSE atual e isso deve ser registrado
 aqui como decisão, não como pendência esquecida.
 
-### Fica como está (justificativa)
+### Fica como está — mas o transporte troca de polling para push (fase 0, mais barata que tudo acima)
 
-**Server, Sidekiq, Webpack (processos de fundo)** continuam no modelo de log em arquivo + polling.
-Motivo: são daemons que existem independente de qualquer navegador conectado, precisam sobreviver a
-reload/reconexão e suportar múltiplos observadores simultâneos lendo o mesmo processo. O modelo PTY
-atual é 1 PTY por sessão de cliente — encaixar processos de fundo nesse modelo exigiria um
-mecanismo novo de fan-out (múltiplo socket lendo o mesmo PTY, ring buffer para quem entra depois)
-que hoje não existe e que o log em arquivo já resolve de graça. Também amplia a superfície de risco
-sem necessidade: um PTY aceita stdin — não faz sentido permitir injeção de entrada arbitrária num
-servidor rodando só para ver o log.
+**Server, Sidekiq, Webpack (processos de fundo)** continuam no modelo de **log em arquivo**, não
+viram terminal/PTY. Motivo inalterado: são daemons que existem independente de qualquer navegador
+conectado, precisam sobreviver a reload/reconexão e suportar múltiplos observadores simultâneos —
+o modelo PTY atual é 1 PTY por sessão de cliente, e encaixar processos de fundo nele exigiria um
+fan-out que hoje não existe, além de ampliar a superfície de risco à toa (PTY aceita stdin; não faz
+sentido permitir injeção de entrada num servidor rodando só para ver o log).
+
+O que muda: hoje o navegador **pergunta** por atualização (`useProjectLogsPolling.ts` faz
+`setTimeout` + `fetchProjectProcessLog`; `useProjectRailsWorker.ts` nem re-consulta sozinho depois
+de abrir "Ver logs" uma vez). Isso pode virar **push**: o servidor empurra a atualização assim que
+o arquivo muda, em vez do navegador reconsultar em intervalo fixo — resolve o "fica piscando" sem
+nenhuma peça de arquitetura nova (sem PTY, sem sessão destacável, sem expor caminho de arquivo pro
+navegador). É literalmente o mesmo padrão SSE que Testes já usa hoje (`tests/events-route.ts`),
+só aplicado a `readManagedLog`/`readWorkerLog` em vez de `script-execution/*`.
+
+Desenho técnico já verificado no código, pronto para implementar quando o usuário confirmar:
+
+- **Helper compartilhado novo**: `apps/api/src/http/log-event-stream.ts` — uma função
+  `streamLogSnapshots(reply, initial, readNext)` que assume a resposta (`reply.hijack()`), escreve
+  os headers de SSE (mesmo padrão de `tests/events-route.ts`: `text/event-stream`,
+  `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`), manda o snapshot inicial, e
+  então faz o **próprio servidor** chamar `readNext()` a cada 1s comparando `updatedAt`/`sizeBytes`
+  com o último enviado — só emite frame novo quando o arquivo realmente mudou. Heartbeat a cada 15s
+  igual ao padrão existente. `readNext` continua sendo a mesma leitura por arquivo de sempre
+  (`processManager.readServerLog`/`railsRuntimeService.readWorkerLog`) — não muda como o log é lido,
+  só quem decide quando reenviar.
+- **Rotas novas** (mesmo formato de querystring/params das rotas de leitura existentes, sem
+  `response` schema porque a resposta vira stream, igual `tests/events-route.ts`):
+  - `GET /projects/:projectId/process/logs/events` em `server-process-routes.ts` (servidor);
+  - `GET /projects/:projectId/rails/workers/:workerId/logs/events` em `worker-routes.ts`
+    (sidekiq/webpack, mesmo `workerId` enum `'sidekiq'|'webpack'` que a rota de leitura já usa).
+- **Frontend**: já existe o helper genérico `followEventStream` (`apps/web/src/api/core.ts`),
+  usado hoje por `followTestExecutionEvents` (`apps/web/src/api/tests.ts:216-224`) — só adicionar
+  `followProjectProcessLogEvents`/`followProjectRailsWorkerLogEvents` no mesmo estilo em
+  `api/processes.ts`/`api/rails.ts`.
+- **Composables**: `useProjectLogsPolling.ts` troca o `setTimeout`+`fetchProjectProcessLog` por uma
+  assinatura de stream (fecha/reabre ao trocar de projeto, igual ao padrão `generation` já usado);
+  `useProjectRailsWorker.ts` ganha atualização contínua enquanto `logsVisible` for `true` (hoje só
+  busca uma vez ao abrir). A superfície pública dos dois composables (refs expostas) não muda — só
+  a origem do dado internamente — então os componentes (`ProjectLogsPanel.vue` e o painel de
+  sidekiq/webpack da captura de tela) não precisam mudar.
+- **Documentação a atualizar junto** (regra do `CLAUDE.md`, mesma entrega): `docs/guia/logs.md`
+  (se existir descrição do polling), `docs/design/log-experience.md` (nota de "Implementação"),
+  `docs/architecture/overview.md`, e `npm run docs:api`/`docs:api:check` pelas duas rotas novas.
+- **Testes**: cobertura em `apps/api/test/` para `streamLogSnapshots` (snapshot inicial, só reemite
+  quando muda, heartbeat, encerra ao desconectar) e para as duas rotas; `apps/web/test/` para os
+  composables migrados.
+
+Esse item **não depende** do item 0 (sessão destacável) do restante do plano — é independente e bem
+mais barato, pode ser feito primeiro.
 
 ### Fora de escopo agora — decisão de produto pendente
 
