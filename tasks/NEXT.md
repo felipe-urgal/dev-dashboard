@@ -1,46 +1,24 @@
 # Próxima atividade
 
-O fechamento da IA multi-provider continua no **PR #295**, seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
+O fechamento técnico da IA multi-provider está consolidado no **PR #295**, seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
 
-## Estado do fechamento
+## Estado atual
 
-Concluídos e validados no PR #295:
+Os P0 do fechamento estão implementados:
 
-1. Code Review IA usando `AiProviderResolver`, com provider/modo congelados na execution.
-2. APIs genéricas `/ai/status`, `/ai/chat`, `/ai/complete` e `/ai/models/pull` sem bypass silencioso para Ollama.
-3. Validação server-side de modelo antes da inferência.
-4. Contratos de erro estáveis compartilhados entre provider, resolver, HTTP, SSE e executions.
+1. Code Review IA usa `AiProviderResolver`, com provider/modo congelados na execution.
+2. APIs genéricas não fazem bypass silencioso para Ollama.
+3. Modelo é validado server-side antes da inferência.
+4. Erros possuem taxonomia estável em provider/resolver/HTTP/SSE/executions.
+5. Saída cloud possui consentimento prévio, masking compartilhado e logs allowlistados.
+6. Cancelamento/concorrência preservam estados terminais, propagam abort aos providers e fecham executions no shutdown.
+7. P1 foi revisado e classificado entre validado e follow-up não bloqueante.
 
-O **CI #1640** ficou completamente verde após o P0 #4: typecheck, lint, format, build, referência da API, testes e Smoke E2E.
+## Atividade atual — gate final de merge do PR #295
 
-## Atividade atual — P0 #5: segurança de saída cloud
+Não há outro bloco funcional obrigatório a implementar antes do merge. Falta somente validar o **head final**, que contém código, testes e documentação reconciliada.
 
-O próximo bloqueador é provar por teste e documentação que conteúdo do projeto só chega a um provider cloud depois das barreiras de consentimento e masking.
-
-### Escopo
-
-1. Testar masking com OpenAI selecionada em:
-   - chat;
-   - implementation;
-   - Code Review por arquivo;
-   - síntese global da Code Review;
-   - completion.
-2. Testar masking de resultados de ferramentas reapresentados ao modelo.
-3. Confirmar que API key/headers nunca entram em prompts, eventos ou logs de conteúdo.
-4. Garantir que consentimento seja verificado antes do primeiro request que contenha conteúdo do projeto.
-5. Testar revogação de consentimento entre duas executions.
-6. Testar que status/listagem de modelos não envia conteúdo do projeto.
-7. Corrigir `docs/architecture/security.md` e demais `.md` que ainda descrevam a IA como somente local ou afirmem que nenhum conteúdo pode sair do computador.
-8. Revisar logs de erro para não persistir prompt, diff, tool result nem credenciais.
-
-## Próximos P0 após segurança
-
-Depois do P0 #5:
-
-1. cancelamento e concorrência;
-2. auditoria final de persistência, UI, docs, código órfão e suíte obrigatória.
-
-## Gate obrigatório
+Gate obrigatório:
 
 ```bash
 npm run typecheck
@@ -52,13 +30,17 @@ npm test
 npm run test:e2e
 ```
 
-Quando schema/rota mudar:
+Se esse gate ficar completamente verde, o PR #295 pode ser mergeado.
 
-```bash
-npm run docs:api
-npm run docs:api:check
-```
+## Depois do merge
 
-## Critério de conclusão da atividade atual
+Os itens classificados como follow-up no checklist são hardening incremental e não representam bloqueadores conhecidos do multi-provider atual. Entre eles estão:
 
-P0 #5 termina somente quando os caminhos cloud relevantes possuem regressivos de consentimento/masking, credenciais não aparecem em conteúdo/logs, a documentação de segurança reflete o comportamento real e toda a suíte obrigatória fica verde no head correspondente.
+- métricas estruturadas de duração/estado terminal das executions;
+- ampliação da matriz de regressão do Ollama;
+- fault injection específico da persistência atômica;
+- stress tests para budgets/tool results grandes;
+- eventual UX de fallback `offer` na Code Review;
+- evolução da descoberta de modelos da OpenAI quando a API exigir.
+
+P2 continua deliberadamente adiado: terceiro provider, `ProviderRegistry` dinâmico, fallback automático e abstrações adicionais sem necessidade concreta.
