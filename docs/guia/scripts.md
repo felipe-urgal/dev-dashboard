@@ -4,8 +4,9 @@
 
 O catálogo completo de comandos que o dashboard reconhece e sabe executar com segurança para
 aquele projeto — scripts do `package.json`, tarefas Rake do Rails, e os executáveis que o próprio
-projeto disponibiliza em `bin/`. É a versão completa do motor que a aba [Dependências](dependencias.md)
-usa de forma recortada.
+projeto disponibiliza em `bin/`. As ações de instalar/atualizar dependências e rodar o build não
+aparecem aqui — ficam reservadas para a aba [Dependências](dependencias.md), que as executa num
+terminal PTY à parte.
 
 ## O que aparece na tela
 

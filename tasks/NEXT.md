@@ -27,13 +27,21 @@ PR #301:
    pela máscara de segredos que o resto do dashboard usa — corrigido uma vez em
    `DetachableExecutionService`, cobrindo Testes e Migration automaticamente. Também corrigido: a
    UI de Testes não tinha como cancelar uma execução travada depois de um erro no meio do caminho.
+5. Item 3 (Dependências/Build) — `ProjectDependenciesPtyService` +
+   `apps/api/src/routes/dependencies-pty-routes.ts`, terceiro consumidor do mesmo
+   `DetachableExecutionService`/`usePtyTerminalSocket.ts`. Mapeamento prévio corrigiu a suposição
+   da task original (`useProjectDatabaseOverview.ts` não tem relação — a UI real é
+   `ProjectDependenciesPanel.vue`) e mostrou que este era o candidato de maior ganho líquido dos
+   três (saída de build potencialmente longa/colorida, custo de infraestrutura já pago). **Mesma
+   decisão de Migration: fluxo antigo removido por completo**, incluindo o histórico de execuções
+   recentes e o Diagnóstico especializado do painel, que não têm equivalente no modelo PTY.
 
-Suíte completa verde: `apps/api` 728/728, `apps/web` 392/392. Gate local (`typecheck`, `lint`,
+Suíte completa verde: `apps/api` 741/741, `apps/web` 393/393. Gate local (`typecheck`, `lint`,
 `format:check`, `build`, `docs:api:check`) verde.
 
-Próximos passos possíveis, nenhum obrigatório: item 3 (Build — mais simples que Testes, sem
-targeting múltiplo); repor file/related/Diagnóstico de Testes sobre o modelo novo; ou item 4
-(consolidação, remover SSE de `script-execution/*`) quando/se os itens anteriores todos migrarem.
+Próximos passos possíveis, nenhum obrigatório: repor file/related/Diagnóstico de Testes sobre o
+modelo novo; ou item 4 (consolidação, remover SSE de `script-execution/*` para os fluxos que já
+migraram — Scripts genérico continua nele) quando/se fizer sentido.
 Também em aberto (não é bug novo, é um padrão pré-existente em todo o app, registrado em
 `tasks/PENDENCIAS.md`): o polling de status de Server/Sidekiq/Webpack continua no mesmo intervalo
 fixo mesmo com o processo parado, em vez de desacelerar. O usuário pausou os follow-ups da IA

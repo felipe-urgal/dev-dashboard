@@ -355,13 +355,15 @@ Processos gerenciados são iniciados com:
 ### Execuções destacáveis (PTY)
 
 `DetachableExecutionService` (`apps/api/src/services/detachable-execution-service.ts`), usado pela
-suíte completa de testes via terminal (`docs/guia/testes.md`) e pelas operações de Migration Rails
-(`RailsMigrationPtyService`, aba Banco de dados → Operações), roda um comando num PTY que **não é
-morto ao desconectar** — diferente do Terminal/Console (`docs/guia/terminal.md`), que mata a sessão
-de propósito por ser um shell de acesso total. Isso não amplia a superfície de risco porque:
+suíte completa de testes via terminal (`docs/guia/testes.md`), pelas operações de Migration Rails
+(`RailsMigrationPtyService`, aba Banco de dados → Operações) e pelas ações de Dependências/Build
+(`ProjectDependenciesPtyService`, aba Dependências), roda um comando num PTY que **não é morto ao
+desconectar** — diferente do Terminal/Console (`docs/guia/terminal.md`), que mata a sessão de
+propósito por ser um shell de acesso total. Isso não amplia a superfície de risco porque:
 
 - o comando continua vindo do catálogo fechado do resolver correspondente (`resolveCommand` do
-  detector de testes, `resolveRailsCommand` para Migration) — nunca uma string do navegador;
+  detector de testes, `resolveRailsCommand` para Migration, `script-execution/command-resolution.ts`
+  para Dependências/Build) — nunca uma string do navegador;
 - a conexão WebSocket é **somente leitura** — não existe canal de `input`, então não há stdin
   arbitrário como no Terminal/Console; por isso as operações de Migration não usam mais o token de
   confirmação de uso único que o fluxo antigo (`execFile` bloqueante) exigia — não há stdin livre

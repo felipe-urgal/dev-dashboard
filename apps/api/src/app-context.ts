@@ -48,6 +48,7 @@ import { ProjectTerminalService } from './services/project-terminal-service.js';
 import { DetachableExecutionService } from './services/detachable-execution-service.js';
 import { ProjectTestPtyService } from './services/project-test-pty-service.js';
 import { RailsMigrationPtyService } from './services/rails-migration-pty-service.js';
+import { ProjectDependenciesPtyService } from './services/project-dependencies-pty-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
 import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 
@@ -77,6 +78,7 @@ export interface AppContext {
   projectEnvironmentService: ProjectEnvironmentService;
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
+  projectDependenciesPtyService: ProjectDependenciesPtyService;
   activityService: ActivityService;
   projectBrowserService: ProjectBrowserService;
   projectFileService: ProjectFileService;
@@ -130,6 +132,10 @@ export function createAppContext(
   const railsMigrationPtyService = new RailsMigrationPtyService(
     detachableExecutionService,
   );
+  const projectDependenciesPtyService = new ProjectDependenciesPtyService(
+    detachableExecutionService,
+    scriptDetectionService,
+  );
 
   const assistantFor = (provider: OllamaProvider | OpenAiProvider) =>
     new AiAssistantService({
@@ -180,6 +186,7 @@ export function createAppContext(
     projectEnvironmentService: new ProjectEnvironmentService(),
     scriptDetectionService,
     scriptExecutionService,
+    projectDependenciesPtyService,
     activityService: new ActivityService(
       projectStore,
       processManager,
