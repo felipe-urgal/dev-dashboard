@@ -113,6 +113,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
     context.aiImplementationExecutionService.close();
+    context.gitAiCodeReviewService.close();
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
