@@ -305,6 +305,10 @@ const implementationListSchema = {
   },
 } as const;
 
+function safeErrorName(error: unknown): string {
+  return error instanceof Error ? error.name : 'UnknownError';
+}
+
 function translateAiError(
   request: FastifyRequest,
   error: unknown,
@@ -313,7 +317,10 @@ function translateAiError(
   const translated = aiApiError(error);
   if (translated) throw translated;
 
-  request.log.warn({ err: error, ...context }, 'AI assistant request failed');
+  request.log.warn(
+    { errorName: safeErrorName(error), ...context },
+    'AI assistant request failed',
+  );
   throw new ApiError({
     statusCode: 502,
     code: 'AI_PROVIDER_REQUEST_FAILED',
@@ -538,7 +545,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<
         const code = aiErrorCode(error) ?? 'AI_PROVIDER_REQUEST_FAILED';
         request.log.warn(
           {
-            err: error,
+            errorName: safeErrorName(error),
             projectId: project.id,
             provider: resolved.provider,
             mode: resolved.mode,
@@ -640,7 +647,7 @@ export const aiAssistantRoutes: FastifyPluginAsync<
         const code = aiErrorCode(error) ?? 'AI_PROVIDER_REQUEST_FAILED';
         request.log.warn(
           {
-            err: error,
+            errorName: safeErrorName(error),
             projectId: project.id,
             provider: resolved.provider,
             mode: resolved.mode,
