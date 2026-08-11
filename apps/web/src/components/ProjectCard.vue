@@ -111,16 +111,6 @@ const statusLabel = computed(() =>
           <div class="project-row-title">
             <h3>{{ project.name }}</h3>
           </div>
-
-          <div class="project-row-badges">
-            <span
-              v-if="!project.enabled"
-              class="project-disabled-badge"
-              aria-label="Projeto desativado"
-            >
-              Desativado
-            </span>
-          </div>
         </div>
 
         <code class="project-path">{{ project.path }}</code>
@@ -165,8 +155,11 @@ const statusLabel = computed(() =>
   position: absolute;
   z-index: 2;
   top: 12px;
-  right: 18px;
+  right: 10px;
+  display: flex;
+  width: 32px;
   min-width: 0;
+  justify-content: center;
   gap: 0;
 }
 
@@ -175,6 +168,10 @@ const statusLabel = computed(() =>
   z-index: 3;
   top: 34px;
   right: 10px;
+  display: flex;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
 }
 
 .project-row-actions .project-disable-button {
@@ -190,7 +187,7 @@ const statusLabel = computed(() =>
 
   .project-row-status {
     top: 10px;
-    right: 14px;
+    right: 6px;
   }
 
   .project-row-actions {
