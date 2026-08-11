@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import '@xterm/xterm/css/xterm.css';
-
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import type { Project, ProjectTestOverview } from '@dev-dashboard/contracts';
 
@@ -15,43 +11,38 @@ import {
   startProjectTestPty,
   type ProjectTestPtyStatusSnapshot,
 } from '../api';
+import { usePtyTerminalSocket } from '../composables/usePtyTerminalSocket';
 import Card from './Card.vue';
 
 const props = defineProps<{ project: Project }>();
-
-interface ReadyFrame {
-  type: 'ready';
-  snapshot: ProjectTestPtyStatusSnapshot & { buffer: string };
-}
-interface OutputFrame {
-  type: 'output';
-  data: string;
-}
-interface ExitFrame {
-  type: 'exit';
-  exitCode: number | null;
-  exitSignal: number | null;
-}
-interface ErrorFrame {
-  type: 'error';
-  message: string;
-}
-type ServerFrame = ReadyFrame | OutputFrame | ExitFrame | ErrorFrame;
 
 const overview = ref<ProjectTestOverview | null>(null);
 const loadingOverview = ref(false);
 const selectedCommandId = ref('');
 const snapshot = ref<ProjectTestPtyStatusSnapshot | null>(null);
-const connecting = ref(false);
 const starting = ref(false);
 const cancelling = ref(false);
 const errorMessage = ref('');
 
-const terminalContainer = ref<HTMLDivElement | null>(null);
-let terminal: Terminal | undefined;
-let fitAddon: FitAddon | undefined;
-let resizeObserver: ResizeObserver | undefined;
-let socket: WebSocket | undefined;
+const { terminalContainer, connecting, connect, disconnect, disposeTerminal } =
+  usePtyTerminalSocket<ProjectTestPtyStatusSnapshot & { buffer: string }>({
+    onReady: (readySnapshot) => {
+      snapshot.value = readySnapshot;
+    },
+    onExit: (exitCode, exitSignal) => {
+      if (snapshot.value) {
+        snapshot.value = {
+          ...snapshot.value,
+          status: 'exited',
+          exitCode,
+          exitSignal,
+        };
+      }
+    },
+    onError: (message) => {
+      errorMessage.value = message;
+    },
+  });
 
 const isRunning = computed(() => snapshot.value?.status === 'running');
 const selectedCommand = computed(() =>
@@ -84,98 +75,10 @@ async function loadOverview(): Promise<void> {
   }
 }
 
-function mountTerminal(): void {
-  if (!terminalContainer.value || terminal) return;
-  terminal = new Terminal({
-    convertEol: true,
-    disableStdin: true,
-    fontSize: 13,
-    fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
-    theme: { background: '#10131c', foreground: '#dbe0f2' },
-  });
-  fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  terminal.open(terminalContainer.value);
-  fitAddon.fit();
-  resizeObserver = new ResizeObserver(() => fitAddon?.fit());
-  resizeObserver.observe(terminalContainer.value);
-}
-
-function disposeTerminal(): void {
-  resizeObserver?.disconnect();
-  resizeObserver = undefined;
-  terminal?.dispose();
-  terminal = undefined;
-  fitAddon = undefined;
-}
-
-function disconnect(): void {
-  socket?.close(1000, 'Painel fechado');
-  socket = undefined;
-}
-
-function connect(): void {
-  if (socket) return;
-  connecting.value = true;
-  const newSocket = new WebSocket(projectTestPtyWebSocketUrl(props.project.id));
-  socket = newSocket;
-
-  newSocket.addEventListener('open', () => {
-    if (socket !== newSocket) return;
-    connecting.value = false;
-  });
-
-  newSocket.addEventListener('message', (event) => {
-    if (socket !== newSocket || typeof event.data !== 'string') return;
-    let message: ServerFrame;
-    try {
-      message = JSON.parse(event.data) as ServerFrame;
-    } catch {
-      return;
-    }
-
-    if (message.type === 'ready') {
-      snapshot.value = message.snapshot;
-      requestAnimationFrame(() => {
-        mountTerminal();
-        if (message.snapshot.buffer) terminal?.write(message.snapshot.buffer);
-      });
-    } else if (message.type === 'output') {
-      mountTerminal();
-      terminal?.write(message.data);
-    } else if (message.type === 'exit') {
-      if (snapshot.value) {
-        snapshot.value = {
-          ...snapshot.value,
-          status: 'exited',
-          exitCode: message.exitCode,
-          exitSignal: message.exitSignal,
-        };
-      }
-      terminal?.write(
-        `\r\n\x1b[90m[execução encerrada, código ${message.exitCode ?? '—'}]\x1b[0m\r\n`,
-      );
-    } else if (message.type === 'error') {
-      errorMessage.value = message.message;
-    }
-  });
-
-  newSocket.addEventListener('close', () => {
-    if (socket !== newSocket) return;
-    socket = undefined;
-    connecting.value = false;
-  });
-
-  newSocket.addEventListener('error', () => {
-    if (socket !== newSocket) return;
-    errorMessage.value = 'A conexão com a execução de testes falhou.';
-  });
-}
-
 async function loadStatusAndReconnect(): Promise<void> {
   try {
     snapshot.value = await fetchProjectTestPtyStatus(props.project.id);
-    if (snapshot.value) connect();
+    if (snapshot.value) connect(projectTestPtyWebSocketUrl(props.project.id));
   } catch {
     // best-effort: se a consulta inicial falhar, o botão "Executar" ainda funciona.
   }
@@ -191,7 +94,7 @@ async function start(): Promise<void> {
       props.project.id,
       selectedCommandId.value,
     );
-    connect();
+    connect(projectTestPtyWebSocketUrl(props.project.id));
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -230,11 +133,6 @@ watch(
   },
   { immediate: true },
 );
-
-onBeforeUnmount(() => {
-  disconnect();
-  disposeTerminal();
-});
 </script>
 
 <template>

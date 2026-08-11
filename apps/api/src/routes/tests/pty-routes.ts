@@ -43,13 +43,18 @@ const nullableSnapshotSchema = {
   ],
 } as const;
 
+const PTY_ERROR_RESPONSE: Record<
+  ProjectTestPtyError['code'],
+  { statusCode: number; code: ApiErrorCode }
+> = {
+  TEST_COMMAND_NOT_FOUND: { statusCode: 404, code: 'TEST_COMMAND_NOT_FOUND' },
+  ALREADY_RUNNING: { statusCode: 409, code: 'TEST_PTY_ALREADY_RUNNING' },
+  START_FAILED: { statusCode: 500, code: 'TEST_PTY_START_FAILED' },
+};
+
 function ptyApiError(error: ProjectTestPtyError): ApiError {
-  const statusCode = error.code === 'TEST_COMMAND_NOT_FOUND' ? 404 : 409;
-  return new ApiError({
-    statusCode,
-    code: error.code as ApiErrorCode,
-    message: error.message,
-  });
+  const { statusCode, code } = PTY_ERROR_RESPONSE[error.code];
+  return new ApiError({ statusCode, code, message: error.message });
 }
 
 export function registerTestPtyRoutes(
