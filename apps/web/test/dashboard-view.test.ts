@@ -103,12 +103,12 @@ describe('dashboard principal', () => {
     expect(wrapper.find('.project-filter-menu').exists()).toBe(false);
     expect(wrapper.find('.section-count').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Projetos detectados');
-    expect(
-      wrapper.find('[aria-label="Iniciar servidores"]').exists(),
-    ).toBe(false);
-    expect(
-      wrapper.find('[aria-label="Parar servidores"]').exists(),
-    ).toBe(false);
+    expect(wrapper.find('[aria-label="Iniciar servidores"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[aria-label="Parar servidores"]').exists()).toBe(
+      false,
+    );
     expect(
       wrapper.find('[aria-label="Controles dos servidores"]').exists(),
     ).toBe(false);
