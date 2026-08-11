@@ -1,5 +1,12 @@
 # Próxima atividade
 
+Desenho novo em aberto: [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md)
+propõe migrar testes/migrations/build do transporte SSE (`script-execution/*`) para o mesmo
+PTY+WebSocket já usado pelo Terminal/Console (`project-terminal-service.ts`), mantendo processos de
+fundo (server/sidekiq/webpack) no modelo atual de log em arquivo + polling. Ainda é só desenho —
+nenhuma linha de código foi alterada; a primeira atividade sugerida é a prova de conceito com
+testes (item 1 do checklist).
+
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há
 bloqueador conhecido pendente para os dois providers atuais (Ollama + OpenAI).
