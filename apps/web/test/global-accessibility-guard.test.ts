@@ -63,11 +63,7 @@ function cssToken(block: string, token: string): string {
 }
 
 test('páginas globais possuem landmark nomeado', async () => {
-  const pages = [
-    {
-      path: 'apps/web/src/views/DashboardView.vue',
-      headingId: 'overview-title',
-    },
+  const pagesWithVisibleHeading = [
     {
       path: 'apps/web/src/views/ProcessesView.vue',
       headingId: 'processes-title',
@@ -78,7 +74,7 @@ test('páginas globais possuem landmark nomeado', async () => {
     },
   ];
 
-  for (const page of pages) {
+  for (const page of pagesWithVisibleHeading) {
     const content = await source(page.path);
     assert.match(
       content,
@@ -91,6 +87,9 @@ test('páginas globais possuem landmark nomeado', async () => {
       `${page.path} deve conter o título referenciado.`,
     );
   }
+
+  const dashboard = await source('apps/web/src/views/DashboardView.vue');
+  assert.match(dashboard, /aria-label="Visão geral"/);
 
   const activity = await source(
     'apps/web/src/views/ActivityView.template.html',
