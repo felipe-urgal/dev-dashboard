@@ -78,6 +78,60 @@ test('status inicia em Ollama + fast e explicita OpenAI não autenticada', async
   );
 });
 
+test('status usa a seleção mais recente quando ela muda durante requests em voo', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      let releaseStatus: (() => void) | undefined;
+      let markStarted: (() => void) | undefined;
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const slowAssistant = {
+        status: async () =>
+          new Promise<{
+            available: true;
+            models: Array<{
+              name: string;
+              capabilities: readonly ['chat', 'tools'];
+            }>;
+            message: string;
+          }>((resolve) => {
+            markStarted?.();
+            releaseStatus = () =>
+              resolve({
+                available: true,
+                models: [
+                  {
+                    name: 'qwen2.5-coder:14b',
+                    capabilities: ['chat', 'tools'] as const,
+                  },
+                ],
+                message: 'Ollama disponível.',
+              });
+          }),
+      } as unknown as AiAssistantService;
+      const resolver = new AiProviderResolver({
+        ollama: slowAssistant,
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      const pendingStatus = resolver.status('project-1');
+      await started;
+      await selectionRepository.set('project-1', {
+        provider: 'openai',
+        mode: 'complete',
+      });
+      releaseStatus?.();
+
+      const status = await pendingStatus;
+      assert.equal(status.selectedProvider, 'openai');
+      assert.equal(status.selectedMode, 'complete');
+    },
+  );
+});
+
 test('OpenAI selecionada continua bloqueada sem consentimento do projeto', async () => {
   await withRepositories(
     async (_directory, consentRepository, selectionRepository) => {
