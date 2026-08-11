@@ -21,7 +21,9 @@ const diff = [
 ].join('\n');
 
 function finding(
-  overrides: Partial<GitPullRequestReviewFinding> = {},
+  overrides: Partial<Omit<GitPullRequestReviewFinding, 'line'>> & {
+    line?: number;
+  } = {},
 ): GitPullRequestReviewFinding {
   return {
     severity: 'warning',
@@ -32,6 +34,11 @@ function finding(
     recommendation: 'Remova a variável.',
     ...overrides,
   };
+}
+
+function findingWithoutLine(): GitPullRequestReviewFinding {
+  const { line: _line, ...rest } = finding();
+  return rest;
 }
 
 test('mostra o comentário inline na linha correspondente do diff', () => {
@@ -48,7 +55,9 @@ test('mostra o comentário inline na linha correspondente do diff', () => {
 
   const comments = wrapper.findAll('.git-diff-inline-comments');
   assert.equal(comments.length, 1);
-  assert.match(comments[0].text(), /Variável redundante/);
+  const [comment] = comments;
+  assert.ok(comment);
+  assert.match(comment.text(), /Variável redundante/);
 
   const rows = wrapper.findAll('.git-diff-unified-row');
   const targetRowIndex = rows.findIndex((row) =>
@@ -86,7 +95,7 @@ test('apontamentos sem linha identificada não aparecem inline', () => {
       content: diff,
       path: 'src/app.ts',
       viewMode: 'unified',
-      findings: [finding({ line: undefined })],
+      findings: [findingWithoutLine()],
     },
   });
 
