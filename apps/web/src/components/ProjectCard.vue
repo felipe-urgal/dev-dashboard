@@ -15,8 +15,6 @@ import type { Project } from '@dev-dashboard/contracts';
 import { fetchProjectGit } from '../api';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
-import { projectTypeLabels } from '../utils/project-labels';
-
 const props = defineProps<{
   project: Project;
   favoriteUpdating?: boolean;
@@ -81,17 +79,6 @@ const statusLabel = computed(() => {
   }
 
   return isRunning.value ? 'Em execução' : 'Parado';
-});
-
-const recentAccessTitle = computed(() => {
-  if (!props.project.lastAccessedAt) return '';
-  const date = new Date(props.project.lastAccessedAt);
-  return Number.isNaN(date.getTime())
-    ? 'Acessado recentemente'
-    : `Último acesso: ${new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(date)}`;
 });
 </script>
 
@@ -167,15 +154,6 @@ const recentAccessTitle = computed(() => {
               Desativado
             </span>
 
-            <span
-              v-if="recent"
-              class="project-recent-badge"
-              :title="recentAccessTitle"
-              aria-label="Acessado recentemente"
-            >
-              Recente
-            </span>
-
             <span class="project-status">
               <span
                 class="project-status-dot"
@@ -183,10 +161,6 @@ const recentAccessTitle = computed(() => {
                 aria-hidden="true"
               />
               {{ statusLabel }}
-            </span>
-
-            <span class="type-badge" :class="`type-badge-${project.type}`">
-              {{ projectTypeLabels[project.type] }}
             </span>
           </div>
         </div>
