@@ -38,9 +38,9 @@ const project: Project = {
 };
 
 describe('ProjectCard', () => {
-  it('renderiza a branch atual e a porta nos metadados', async () => {
+  it('renderiza a branch e porta sem tipo nem marcador recente', async () => {
     const wrapper = mount(ProjectCard, {
-      props: { project },
+      props: { project, recent: true },
       global: {
         stubs: {
           RouterLink: {
@@ -54,6 +54,8 @@ describe('ProjectCard', () => {
     expect(wrapper.get('.project-row-identity').text()).toContain(
       'Projeto sem avatar',
     );
+    expect(wrapper.find('.project-recent-badge').exists()).toBe(false);
+    expect(wrapper.find('.type-badge').exists()).toBe(false);
     await vi.waitFor(() => {
       expect(wrapper.get('.project-branch-badge').text()).toContain(
         'feature/listar-branch',
