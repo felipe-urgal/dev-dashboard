@@ -10,9 +10,6 @@ import type {
   RailsGeneratorKind,
   RailsGeneratorResult,
   RailsMigrationDetail,
-  RailsMigrationMutationConfirmation,
-  RailsMigrationMutationOperation,
-  RailsMigrationMutationResult,
   RailsMigrationsOverview,
   RailsModelsOverview,
   RailsRoutesOverview,
@@ -27,8 +24,6 @@ import {
 import {
   GENERATOR_CONFIRMATION_TTL_MS,
   MIGRATION_SOURCE_LIMIT,
-  MUTATION_ARGS,
-  MUTATION_CONFIRMATION_TTL_MS,
   MUTATION_OUTPUT_LIMIT,
 } from './rails-inspection/constants.js';
 import { listDatabases } from './rails-inspection/databases.js';
@@ -49,18 +44,7 @@ import { parseSchema } from './rails-inspection/schema-parsing.js';
 export { RailsMutationError } from './rails-inspection/errors.js';
 export type { RailsMutationErrorCode } from './rails-inspection/errors.js';
 
-interface StoredMutationConfirmation {
-  token: string;
-  projectId: string;
-  operation: RailsMigrationMutationOperation;
-  expiresAt: number;
-}
-
 export class RailsInspectionService {
-  private readonly mutationConfirmations = new Map<
-    string,
-    StoredMutationConfirmation
-  >();
   private readonly generatorConfirmations = new Map<
     string,
     StoredGeneratorConfirmation
@@ -209,114 +193,6 @@ export class RailsInspectionService {
       return { supported: true, routes: parseRoutes(stdout) };
     } catch {
       return { supported: false, routes: [] };
-    }
-  }
-
-  public async prepareMutationConfirmation(
-    project: Project,
-    operation: RailsMigrationMutationOperation,
-  ): Promise<RailsMigrationMutationConfirmation> {
-    if (!(await resolveRailsCommand(project))) {
-      throw new RailsMutationError(
-        'RAILS_MUTATION_UNSUPPORTED',
-        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
-      );
-    }
-    this.pruneExpiredConfirmations();
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + MUTATION_CONFIRMATION_TTL_MS;
-    this.mutationConfirmations.set(token, {
-      token,
-      projectId: project.id,
-      operation,
-      expiresAt,
-    });
-    return { token, operation, expiresAt: new Date(expiresAt).toISOString() };
-  }
-
-  public async runMutation(
-    project: Project,
-    operation: RailsMigrationMutationOperation,
-    confirmationToken: string | undefined,
-  ): Promise<RailsMigrationMutationResult> {
-    this.consumeMutationConfirmation(project.id, operation, confirmationToken);
-
-    const railsCommand = await resolveRailsCommand(project);
-    if (!railsCommand) {
-      throw new RailsMutationError(
-        'RAILS_MUTATION_UNSUPPORTED',
-        'Não encontramos Rails neste projeto (bin/rails ou Gemfile com Rails).',
-      );
-    }
-
-    let succeeded = true;
-    let rawOutput = '';
-    try {
-      const { stdout, stderr } = await this.runCommand(
-        railsCommand.command,
-        [...railsCommand.args, ...MUTATION_ARGS[operation]],
-        { cwd: project.path },
-      );
-      rawOutput = [stdout, stderr].filter(Boolean).join('\n');
-    } catch (error) {
-      succeeded = false;
-      const failure = error as {
-        stdout?: unknown;
-        stderr?: unknown;
-        message?: unknown;
-      };
-      rawOutput =
-        [failure.stdout, failure.stderr]
-          .filter(
-            (value): value is string =>
-              typeof value === 'string' && value.length > 0,
-          )
-          .join('\n') ||
-        (typeof failure.message === 'string'
-          ? failure.message
-          : 'Falha ao executar o comando.');
-    }
-
-    const truncated = rawOutput.length > MUTATION_OUTPUT_LIMIT;
-    const trimmed = truncated
-      ? rawOutput.slice(0, MUTATION_OUTPUT_LIMIT)
-      : rawOutput;
-    const masked = maskSensitiveLogContent(trimmed);
-
-    return {
-      operation,
-      succeeded,
-      output: masked.content,
-      truncated,
-      masked: masked.masked,
-      redactionCount: masked.redactionCount,
-    };
-  }
-
-  private consumeMutationConfirmation(
-    projectId: string,
-    operation: RailsMigrationMutationOperation,
-    token: string | undefined,
-  ): void {
-    this.pruneExpiredConfirmations();
-    const record = token ? this.mutationConfirmations.get(token) : undefined;
-    if (
-      !record ||
-      record.projectId !== projectId ||
-      record.operation !== operation
-    ) {
-      throw new RailsMutationError(
-        'RAILS_MUTATION_CONFIRMATION_REQUIRED',
-        'Confirmação obrigatória para esta operação.',
-      );
-    }
-    this.mutationConfirmations.delete(token!);
-  }
-
-  private pruneExpiredConfirmations(): void {
-    const now = Date.now();
-    for (const [token, record] of this.mutationConfirmations) {
-      if (record.expiresAt <= now) this.mutationConfirmations.delete(token);
     }
   }
 

@@ -9,12 +9,16 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import {
+  cancelProjectRailsMigrationPty,
+  fetchProjectRailsMigrationPtyStatus,
   fetchProjectRailsMigrations,
-  prepareProjectRailsMutation,
-  runProjectRailsMutation,
+  projectRailsMigrationPtyWebSocketUrl,
+  startProjectRailsMigrationPty,
+  type RailsMigrationPtyStatusSnapshot,
 } from '../api';
 import { fetchProjectRailsMigrationDetail } from '../rails-explorer-api';
 import { confirmDialog } from '../stores/app-dialog';
+import { usePtyTerminalSocket } from './usePtyTerminalSocket';
 
 const mutationLabels: Record<RailsMigrationMutationOperation, string> = {
   migrate: 'Rodar migrations pendentes (db:migrate)',
@@ -55,10 +59,39 @@ export function useRailsMigrations(
   const selectedMigrationVersion = ref('');
   const selectedDatabase = ref('primary');
 
-  const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
-  const mutationMessage = ref('');
+  const mutationSnapshot = ref<RailsMigrationPtyStatusSnapshot | null>(null);
   const mutationErrorMessage = ref('');
-  const mutationOutput = ref('');
+  const mutationCancelling = ref(false);
+
+  const {
+    terminalContainer: mutationTerminalContainer,
+    connecting: mutationConnecting,
+    connect: connectMutation,
+    disconnect: disconnectMutation,
+    disposeTerminal: disposeMutationTerminal,
+  } = usePtyTerminalSocket<
+    RailsMigrationPtyStatusSnapshot & { buffer: string }
+  >({
+    onReady: (snapshot) => {
+      mutationSnapshot.value = snapshot;
+    },
+    onExit: (exitCode, exitSignal) => {
+      if (mutationSnapshot.value) {
+        mutationSnapshot.value = {
+          ...mutationSnapshot.value,
+          status: 'exited',
+          exitCode,
+          exitSignal,
+        };
+      }
+      void loadMigrations();
+    },
+    onError: (message) => {
+      mutationErrorMessage.value = message;
+    },
+  });
+
+  const mutationRunning = ref<RailsMigrationMutationOperation | ''>('');
 
   let generation = 0;
 
@@ -139,6 +172,19 @@ export function useRailsMigrations(
     void loadMigrations();
   }
 
+  async function loadMutationStatusAndReconnect(): Promise<void> {
+    try {
+      const snapshot = await fetchProjectRailsMigrationPtyStatus(
+        getProject().id,
+      );
+      mutationSnapshot.value = snapshot;
+      if (snapshot)
+        connectMutation(projectRailsMigrationPtyWebSocketUrl(getProject().id));
+    } catch {
+      // best-effort: se a consulta inicial falhar, os botões de operação ainda funcionam.
+    }
+  }
+
   async function runMigrationMutation(
     operation: RailsMigrationMutationOperation,
   ): Promise<void> {
@@ -152,32 +198,36 @@ export function useRailsMigrations(
     if (!confirmed) return;
 
     mutationRunning.value = operation;
-    mutationMessage.value = '';
     mutationErrorMessage.value = '';
-    mutationOutput.value = '';
+    disposeMutationTerminal();
     try {
-      const confirmation = await prepareProjectRailsMutation(
+      mutationSnapshot.value = await startProjectRailsMigrationPty(
         getProject().id,
         operation,
       );
-      const result = await runProjectRailsMutation(
-        getProject().id,
-        operation,
-        confirmation.token,
-      );
-      mutationOutput.value = result.output;
-      if (result.succeeded)
-        mutationMessage.value = `${mutationLabels[operation]} concluído.`;
-      else
-        mutationErrorMessage.value = `${mutationLabels[operation]} falhou. Veja a saída abaixo.`;
-      await loadMigrations();
+      connectMutation(projectRailsMigrationPtyWebSocketUrl(getProject().id));
     } catch (error) {
       mutationErrorMessage.value =
         error instanceof Error
           ? error.message
-          : 'Não foi possível concluir a operação.';
+          : 'Não foi possível iniciar a operação.';
+      await loadMutationStatusAndReconnect();
     } finally {
       mutationRunning.value = '';
+    }
+  }
+
+  async function cancelMigrationMutation(): Promise<void> {
+    mutationCancelling.value = true;
+    try {
+      await cancelProjectRailsMigrationPty(getProject().id);
+    } catch (error) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível cancelar a operação.';
+    } finally {
+      mutationCancelling.value = false;
     }
   }
 
@@ -190,10 +240,12 @@ export function useRailsMigrations(
       selectedMigrationVersion.value = '';
       selectedDatabase.value = 'primary';
       mutationRunning.value = '';
-      mutationMessage.value = '';
       mutationErrorMessage.value = '';
-      mutationOutput.value = '';
+      mutationSnapshot.value = null;
+      disconnectMutation();
+      disposeMutationTerminal();
       void loadMigrations();
+      void loadMutationStatusAndReconnect();
     },
     { immediate: true },
   );
@@ -208,13 +260,16 @@ export function useRailsMigrations(
     selectedMigrationVersion,
     selectedDatabase,
     mutationRunning,
-    mutationMessage,
+    mutationSnapshot,
     mutationErrorMessage,
-    mutationOutput,
+    mutationConnecting,
+    mutationCancelling,
+    mutationTerminalContainer,
     mutationLabels,
     loadMigrations,
     selectMigration,
     selectDatabase,
     runMigrationMutation,
+    cancelMigrationMutation,
   };
 }

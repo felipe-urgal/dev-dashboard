@@ -38,6 +38,7 @@ import { bundlerRoutes } from './routes/bundler.js';
 import { projectEnvironmentRoutes } from './routes/project-environment.js';
 import { scriptRoutes } from './routes/scripts.js';
 import { scriptHistoryRoutes } from './routes/script-history.js';
+import { dependenciesPtyRoutes } from './routes/dependencies-pty-routes.js';
 import { activityRoutes } from './routes/activities.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
@@ -357,6 +358,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
     railsRuntimeService: context.railsRuntimeService,
+    railsMigrationPtyService: context.railsMigrationPtyService,
   });
 
   app.register(bundlerRoutes, {
@@ -382,6 +384,12 @@ export async function buildApp(options: BuildAppOptions = {}) {
     prefix: '/api',
     projectStore: context.projectStore,
     scriptExecutionService: context.scriptExecutionService,
+  });
+
+  app.register(dependenciesPtyRoutes, {
+    prefix: '/api',
+    projectStore: context.projectStore,
+    projectDependenciesPtyService: context.projectDependenciesPtyService,
   });
 
   app.register(activityRoutes, {

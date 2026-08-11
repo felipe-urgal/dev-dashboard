@@ -9,7 +9,7 @@ import {
 import type { TestDetectionService } from './test-detection-service.js';
 
 export type ProjectTestPtyErrorCode =
-  'TEST_COMMAND_NOT_FOUND' | 'ALREADY_RUNNING';
+  'TEST_COMMAND_NOT_FOUND' | 'ALREADY_RUNNING' | 'START_FAILED';
 
 export class ProjectTestPtyError extends Error {
   public constructor(
@@ -19,6 +19,10 @@ export class ProjectTestPtyError extends Error {
     super(message);
     this.name = 'ProjectTestPtyError';
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'erro desconhecido';
 }
 
 function sendJson(socket: WebSocket, message: unknown): void {
@@ -52,10 +56,18 @@ export class ProjectTestPtyService {
     project: Project,
     commandId: string,
   ): Promise<DetachableExecutionSnapshot> {
-    const resolved = await this.testDetectionService.resolveCommand(
-      project,
-      commandId,
-    );
+    let resolved;
+    try {
+      resolved = await this.testDetectionService.resolveCommand(
+        project,
+        commandId,
+      );
+    } catch (error) {
+      throw new ProjectTestPtyError(
+        'START_FAILED',
+        `Não foi possível resolver o comando de teste: ${errorMessage(error)}`,
+      );
+    }
     if (!resolved) {
       throw new ProjectTestPtyError(
         'TEST_COMMAND_NOT_FOUND',
@@ -76,7 +88,13 @@ export class ProjectTestPtyService {
       ) {
         throw new ProjectTestPtyError('ALREADY_RUNNING', error.message);
       }
-      throw error;
+      // Falha de spawn (comando não encontrado no PATH do processo da API,
+      // permissão negada, etc.) — melhor devolver a causa real do que deixar
+      // cair no 500 genérico do handler global.
+      throw new ProjectTestPtyError(
+        'START_FAILED',
+        `Não foi possível iniciar "${resolved.command} ${resolved.args.join(' ')}": ${errorMessage(error)}`,
+      );
     }
   }
 

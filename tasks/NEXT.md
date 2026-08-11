@@ -1,6 +1,8 @@
 # Próxima atividade
 
-**Concluído nesta sessão (PR #299)**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
+**Concluído em sessões recentes**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
+
+PR #299:
 
 1. Logs de servidor e workers Rails (Sidekiq/webpack) trocaram de polling para push via SSE.
 2. Item 0 (pré-requisito do resto do desenho): `DetachableExecutionService`
@@ -14,14 +16,36 @@
    relacionados, histórico e Diagnóstico especializado **saíram do ar temporariamente** (código
    antigo preservado como referência, não deletado — ver `docs/guia/testes.md`).
 
-Suíte completa verde: `apps/api` 726/726, `apps/web` 392/392. Gate local (`typecheck`, `lint`,
+PR #301:
+
+4. Item 2 (Migration Rails) — `RailsMigrationPtyService` +
+   `apps/api/src/routes/rails/migration-pty-routes.ts`, reaproveitando o padrão do item 1 (mesmo
+   `DetachableExecutionService`, agora com um composable compartilhado `usePtyTerminalSocket.ts`
+   extraído da lógica de WS+xterm que estava duplicada). **Diferente de Testes: o fluxo antigo
+   (confirmação por token + `execFile` bloqueante) foi removido por completo, não preservado como
+   referência** — decisão explícita do usuário. Corrigido no caminho: a saída do PTY não passava
+   pela máscara de segredos que o resto do dashboard usa — corrigido uma vez em
+   `DetachableExecutionService`, cobrindo Testes e Migration automaticamente. Também corrigido: a
+   UI de Testes não tinha como cancelar uma execução travada depois de um erro no meio do caminho.
+5. Item 3 (Dependências/Build) — `ProjectDependenciesPtyService` +
+   `apps/api/src/routes/dependencies-pty-routes.ts`, terceiro consumidor do mesmo
+   `DetachableExecutionService`/`usePtyTerminalSocket.ts`. Mapeamento prévio corrigiu a suposição
+   da task original (`useProjectDatabaseOverview.ts` não tem relação — a UI real é
+   `ProjectDependenciesPanel.vue`) e mostrou que este era o candidato de maior ganho líquido dos
+   três (saída de build potencialmente longa/colorida, custo de infraestrutura já pago). **Mesma
+   decisão de Migration: fluxo antigo removido por completo**, incluindo o histórico de execuções
+   recentes e o Diagnóstico especializado do painel, que não têm equivalente no modelo PTY.
+
+Suíte completa verde: `apps/api` 741/741, `apps/web` 393/393. Gate local (`typecheck`, `lint`,
 `format:check`, `build`, `docs:api:check`) verde.
 
-Próximos passos possíveis, nenhum obrigatório: itens 2-3 (Migration/Build — mais simples que
-Testes, sem targeting múltiplo, tendem a ser mais baratos); repor file/related/Diagnóstico sobre o
-modelo novo; ou item 4 (consolidação, remover SSE de `script-execution/*`) quando/se os itens
-anteriores todos migrarem. O usuário pausou os follow-ups da IA multi-provider pra focar nessa
-frente — retomar quando quiser (seção abaixo).
+Próximos passos possíveis, nenhum obrigatório: repor file/related/Diagnóstico de Testes sobre o
+modelo novo; ou item 4 (consolidação, remover SSE de `script-execution/*` para os fluxos que já
+migraram — Scripts genérico continua nele) quando/se fizer sentido.
+Também em aberto (não é bug novo, é um padrão pré-existente em todo o app, registrado em
+`tasks/PENDENCIAS.md`): o polling de status de Server/Sidekiq/Webpack continua no mesmo intervalo
+fixo mesmo com o processo parado, em vez de desacelerar. O usuário pausou os follow-ups da IA
+multi-provider pra focar nessa frente — retomar quando quiser (seção abaixo).
 
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há

@@ -83,6 +83,15 @@
   opacity: 0.55;
 }
 
+.database-mutation-terminal {
+  height: 360px;
+  background: #10131c;
+  border: 1px solid #262c40;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  overflow: hidden;
+}
+
 .database-model-detail {
   display: grid;
   align-content: start;

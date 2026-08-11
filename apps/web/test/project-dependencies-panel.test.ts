@@ -7,31 +7,92 @@ import type { ProjectScriptCatalog } from '@dev-dashboard/contracts';
 import ProjectDependenciesPanel from '../src/components/ProjectDependenciesPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 
+class FakeWebSocket {
+  public static instances: FakeWebSocket[] = [];
+  public readonly url: string;
+  public readyState = 0;
+  private readonly listeners = new Map<
+    string,
+    Array<(event: unknown) => void>
+  >();
+
+  public constructor(url: string) {
+    this.url = url;
+    FakeWebSocket.instances.push(this);
+  }
+
+  public addEventListener(
+    type: string,
+    handler: (event: unknown) => void,
+  ): void {
+    const list = this.listeners.get(type) ?? [];
+    list.push(handler);
+    this.listeners.set(type, list);
+  }
+
+  public close(): void {
+    this.readyState = 3;
+    this.emit('close', {});
+  }
+
+  public emit(type: string, event: unknown): void {
+    for (const handler of this.listeners.get(type) ?? []) handler(event);
+  }
+
+  public emitMessage(payload: unknown): void {
+    this.emit('message', { data: JSON.stringify(payload) });
+  }
+}
+
+// @ts-expect-error substitui o WebSocket global só para este arquivo de teste
+globalThis.WebSocket = FakeWebSocket;
+
 let restoreFetch: (() => void) | undefined;
 
 afterEach(() => {
   restoreFetch?.();
   restoreFetch = undefined;
+  FakeWebSocket.instances = [];
 });
 
-function jsonResponse(body: unknown): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { 'content-type': 'application/json' },
   });
 }
 
-function installFetch(catalog: ProjectScriptCatalog): void {
+function installFetch(
+  catalog: ProjectScriptCatalog,
+  options: { onStartCall?: (body: unknown) => void } = {},
+): void {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input), 'http://localhost').pathname;
-    if (path.endsWith('/scripts/executions/latest')) {
-      return jsonResponse({ execution: null });
+    if (path.endsWith('/dependencies/pty/status')) {
+      return jsonResponse({ snapshot: null });
     }
-    if (path.endsWith('/scripts/executions')) {
-      return jsonResponse({
-        history: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 },
-      });
+    if (path.endsWith('/dependencies/pty/start')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      options.onStartCall?.(body);
+      const action = catalog.items.find((item) => item.id === body.actionId);
+      return jsonResponse(
+        {
+          snapshot: {
+            actionId: body.actionId,
+            actionName: action?.name ?? body.actionId,
+            status: 'running',
+            exitCode: null,
+            exitSignal: null,
+            startedAt: new Date().toISOString(),
+            endedAt: null,
+          },
+        },
+        201,
+      );
+    }
+    if (path.endsWith('/dependencies/pty/cancel')) {
+      return jsonResponse({ ok: true });
     }
     if (path.endsWith('/scripts')) return jsonResponse({ catalog });
     return new Response('not found', { status: 404 });
@@ -166,4 +227,74 @@ test('projeto Rails com frontend mostra Bundler e Node juntos', async () => {
   assert.match(wrapper.text(), /npm run build/);
   assert.equal(wrapper.findAll('.dependencies-table tbody tr').length, 5);
   wrapper.unmount();
+});
+
+test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
+  const calls: unknown[] = [];
+  installFetch(
+    {
+      items: [
+        {
+          id: 'package-manager:install',
+          name: 'Instalar dependências',
+          description: 'Instala as dependências usando o lockfile do npm.',
+          command: 'npm install',
+          origin: 'package-manager',
+          risk: 'mutable',
+          enabled: true,
+        },
+      ],
+      page: 1,
+      pageSize: 100,
+      total: 1,
+      totalPages: 1,
+    },
+    { onStartCall: (body) => calls.push(body) },
+  );
+
+  const wrapper = mount(ProjectDependenciesPanel, {
+    props: {
+      project: makeProject({ type: 'node', capabilities: ['scripts'] }),
+    },
+  });
+  await flushPromises();
+  await flushPromises();
+
+  const runButton = wrapper
+    .findAll('.dependencies-table tbody button')
+    .find((button) => button.text().includes('Executar'));
+  assert.ok(runButton);
+  await runButton!.trigger('click');
+  await flushPromises();
+  await flushPromises();
+
+  assert.deepEqual(calls, [{ actionId: 'package-manager:install' }]);
+  assert.equal(FakeWebSocket.instances.length, 1);
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({
+    type: 'ready',
+    snapshot: {
+      actionId: 'package-manager:install',
+      actionName: 'Instalar dependências',
+      status: 'running',
+      exitCode: null,
+      exitSignal: null,
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      buffer: '',
+    },
+  });
+  await flushPromises();
+  assert.match(wrapper.text(), /Executando/);
+
+  socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
+  await flushPromises();
+
+  socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
+  await flushPromises();
+  await flushPromises();
+
+  assert.match(wrapper.text(), /concluído/);
 });
