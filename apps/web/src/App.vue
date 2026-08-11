@@ -6,7 +6,6 @@ import {
   ChevronRightIcon,
   Cog6ToothIcon,
   HomeIcon,
-  MagnifyingGlassIcon,
   PlayCircleIcon,
   PlusIcon,
   QueueListIcon,
@@ -20,8 +19,6 @@ import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import AppDialog from './components/AppDialog.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
-import CommandPalette from './components/CommandPalette.vue';
-import NoticeCenter from './components/NoticeCenter.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import {
   readSidebarCollapsed,
@@ -36,7 +33,6 @@ import {
  */
 const DOCS_SITE_URL = 'http://127.0.0.1:4545/';
 
-const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 const workspaceManagerOpen = ref(false);
 const sidebarOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
@@ -276,30 +272,10 @@ onMounted(() => {
           <span class="eyebrow">{{ pageEyebrow }}</span>
           <h1>{{ pageTitle }}</h1>
         </div>
-
-        <div class="topbar-actions">
-          <NoticeCenter />
-
-          <button
-            class="command-button"
-            type="button"
-            @click="commandPalette?.show()"
-          >
-            <MagnifyingGlassIcon aria-hidden="true" />
-            <span>Navegação rápida</span>
-            <kbd>⌘ K</kbd>
-          </button>
-        </div>
       </header>
 
       <RouterView />
     </main>
-
-    <CommandPalette
-      ref="commandPalette"
-      :projects="dashboardStore.knownProjects.value"
-      :workspaces="dashboardStore.workspaces.value"
-    />
 
     <WorkspaceManagerModal
       :open="workspaceManagerOpen"
