@@ -5,13 +5,20 @@ de polling para push via SSE — ver [`234-unificar-execucoes-em-terminal.md`](2
 para o resultado completo (arquivos, testes, documentação atualizada). Suíte verde: `apps/api`
 704/704, `apps/web` 389/389.
 
-Desenho em aberto no mesmo documento, ainda não implementado: migrar testes/migrations/build do
-transporte SSE (`script-execution/*`, que já é push, não polling) para o PTY+WebSocket do
-Terminal/Console (`project-terminal-service.ts`). Isso exige uma peça de arquitetura nova (sessão
-destacável, pra não regredir a capacidade de fechar a aba e continuar rodando) e o ganho é só
-fidelidade visual (cores/aparência de terminal nativo) — não resolve nenhuma lacuna funcional, já
-que testes/scripts/build já são ao vivo hoje. Tratar como aposta de baixa prioridade, avaliada só
-se o usuário sentir falta desse acabamento visual no uso real.
+**Também concluído nesta sessão:** o item 0 do mesmo documento (pré-requisito de todo o resto do
+desenho) — `DetachableExecutionService` (`apps/api/src/services/detachable-execution-service.ts`),
+a peça de "sessão destacável" que permite rodar um comando num PTY sem matar o processo ao
+desconectar, com buffer de saída e reanexação. 10 testes cobrindo o cenário completo (spawn →
+desconecta → processo continua → reconecta → recebe buffer + exit code preservado). Suíte
+`apps/api` em 714/714. Ainda não está pendurado em nenhuma rota — é só a infraestrutura.
+
+Desenho em aberto no mesmo documento, ainda não implementado: usar essa sessão destacável para
+migrar testes/migrations/build do transporte SSE (`script-execution/*`, que já é push, não
+polling) para PTY via WebSocket (itens 1-3 do checklist, começando pelo PoC de Testes). O ganho é
+só fidelidade visual (cores/aparência de terminal nativo) — não resolve nenhuma lacuna funcional,
+já que testes/scripts/build já são ao vivo hoje via SSE. O usuário pausou os follow-ups da IA
+multi-provider pra focar nessa frente; próximo passo natural é o item 1 (PoC com o painel de
+Testes), conectando `DetachableExecutionService` a uma rota real.
 
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há

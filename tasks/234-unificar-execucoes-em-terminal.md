@@ -197,14 +197,15 @@ registrado aqui como pergunta em aberto, não como atividade.
   (`packages/contracts/src/terminal.ts`), ex. `ProjectExecutionKind = 'test-run' | 'migration' |
   'build'`, em vez de misturar com `shell`/`rails-console` — a semântica de ciclo de vida diverge
   o suficiente (destacável vs. morre com o socket) para não forçar os dois no mesmo union.
-- **API — sessão destacável (o item novo, não é reaproveitamento direto):** o processo/PTY nasce
-  atrelado ao projeto+execução, não ao socket. Precisa de: (a) um registro em memória (ou
-  equivalente ao `record`/`observedExits` de `process-exit-tracking.ts`) que sobrevive à queda do
-  WebSocket; (b) um ring buffer de saída por execução (teto de tamanho, mesmo espírito do limite de
-  262144 bytes já aplicado a leitura de log) para reconexões tardias; (c) `connect` reanexa a uma
-  execução em andamento existente em vez de sempre spawnar; (d) captura de exit code via
-  `pty.onExit` mantida no registro após o processo terminar, para quem reconectar depois do fim
-  ainda ver o resultado.
+- **API — sessão destacável — implementada** em `DetachableExecutionService`
+  (`apps/api/src/services/detachable-execution-service.ts`): o processo/PTY nasce atrelado a uma
+  chave (`projectId:kind`), não a um socket — (a) registro em memória (`Map<chave, execução>`) que
+  sobrevive à queda de qualquer conexão; (b) ring buffer de saída por execução (teto configurável,
+  262144 bytes por padrão) para reconexões tardias; (c) `attach()` reanexa a uma execução em
+  andamento (ou já terminada) em vez de sempre spawnar — `start()` só cria processo novo quando não
+  há um rodando naquela chave; (d) exit code/sinal capturados via `pty.onExit` e mantidos no registro
+  depois do processo terminar, disponíveis para quem reanexar depois do fim. Falta só conectar isso
+  a uma rota HTTP/WebSocket real (itens 1-3 abaixo).
 - **API — execução em si**: reaproveitar `project-terminal-service.ts` como referência de spawn via
   `node-pty`, mas cada execução de teste/migration/build nasce já com o comando fixo resolvido por
   `script-execution/command-resolution.ts` (nunca uma string vinda do navegador) e sem aceitar
@@ -227,12 +228,20 @@ registrado aqui como pergunta em aberto, não como atividade.
 Ordem sugerida, cada bloco como PR próprio (não misturar com refatoração não relacionada, regra já
 usada no roadmap da IA multi-provider):
 
-0. **Sessão destacável (pré-requisito, bloqueia os itens 1-3)**: implementar o registro em memória
-   + ring buffer + reanexação descritos em "Desenho técnico" acima, validado com um teste
-   isolado (spawn → desconecta o socket → processo continua → reconecta → recebe buffer + eventos
-   novos → exit code preservado mesmo sem ninguém conectado no momento em que o processo termina).
-   Sem isso pronto e testado, não iniciar os itens 1-3 — é o item que justifica (ou não) o resto do
-   plano.
+0. **Sessão destacável (pré-requisito, bloqueia os itens 1-3) — implementado.** Entregue como
+   `apps/api/src/services/detachable-execution-service.ts` (`DetachableExecutionService`):
+   registro em memória por chave (`projectId:kind`), ring buffer de saída com teto configurável
+   (padrão 262144 bytes, mesmo espírito do limite de leitura de log), `attach()`/`detach()` que
+   nunca mata o processo — só `cancel()` explícito faz isso, com escalonamento TERM → 1s → KILL
+   (mesmo padrão do `dev-stop` do CLI bash). `start()` rejeita uma segunda execução concorrente na
+   mesma chave (`ALREADY_RUNNING`); `attach()` numa chave desconhecida lança `NOT_FOUND`. Ainda não
+   está pendurado em nenhuma rota HTTP/WebSocket — é só a peça de infraestrutura, testada
+   isoladamente. Testes em `apps/api/test/detachable-execution-service.test.ts` (10 casos) cobrem
+   exatamente o cenário do checklist: spawn → desconecta → processo continua rodando → saída
+   acumulada enquanto ninguém está conectado → reconecta → recebe o buffer completo + o que vier
+   depois → exit code/sinal preservados mesmo para quem reanexa só depois do processo terminar.
+   Gate completo verde (`typecheck`, `lint`, `format:check`, `build`, `docs:api:check` — sem rota
+   nova, referência de API inalterada — e `test`: `apps/api` 714/714).
 1. **Prova de conceito com testes** (menor risco, já tem painel dedicado):
    - estender o contrato com um `ProjectExecutionKind` de teste;
    - adaptar o serviço para spawnar o comando de teste já resolvido por
