@@ -25,14 +25,10 @@ const {
   warningCount,
   lastScannedPath,
   selectedWorkspaceId,
-  favoriteUpdatingIds,
   enabledUpdatingIds,
-  dismissingProjectIds,
   rescanSelectedWorkspace,
   handleDeleteWorkspace,
-  toggleProjectFavorite,
   toggleProjectEnabled,
-  removeProject,
 } = dashboardStore;
 
 useAutoDismiss(errorMessage, '');
@@ -250,12 +246,8 @@ const {
           v-for="project in sortedProjects"
           :key="project.id"
           :project="project"
-          :favorite-updating="favoriteUpdatingIds.includes(project.id)"
           :enabled-updating="enabledUpdatingIds.includes(project.id)"
-          :removing="dismissingProjectIds.includes(project.id)"
-          @toggle-favorite="toggleProjectFavorite"
           @toggle-enabled="toggleProjectEnabled"
-          @remove="removeProject"
         />
       </ul>
     </Card>
