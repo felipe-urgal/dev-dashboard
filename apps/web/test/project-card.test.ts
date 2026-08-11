@@ -38,7 +38,7 @@ const project: Project = {
 };
 
 describe('ProjectCard', () => {
-  it('renderiza metadados e mantém ações no canto direito', async () => {
+  it('renderiza metadados e mantém só desativar no canto direito', async () => {
     const wrapper = mount(ProjectCard, {
       props: { project },
       global: {
@@ -57,11 +57,13 @@ describe('ProjectCard', () => {
     expect(wrapper.find('.project-recent-badge').exists()).toBe(false);
     expect(wrapper.find('.type-badge').exists()).toBe(false);
     expect(wrapper.find('.project-row-action').exists()).toBe(false);
+    expect(wrapper.find('.project-favorite-button').exists()).toBe(false);
+    expect(wrapper.find('.project-remove-button').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Abrir');
     expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
       'Em execução',
     );
-    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(3);
+    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(1);
 
     await vi.waitFor(() => {
       expect(wrapper.get('.project-branch-badge').text()).toContain(
@@ -72,7 +74,7 @@ describe('ProjectCard', () => {
     expect(wrapper.text()).not.toContain('Git');
   });
 
-  it('expõe uma ação acessível para alternar o favorito', async () => {
+  it('expõe uma ação acessível para desativar e reativar', async () => {
     const wrapper = mount(ProjectCard, {
       props: { project },
       global: {
@@ -83,27 +85,22 @@ describe('ProjectCard', () => {
         },
       },
     });
-    const button = wrapper.get('.project-favorite-button');
+    const button = wrapper.get('.project-disable-button');
 
-    expect(button.attributes('aria-label')).toBe(
-      'Adicionar Projeto sem avatar aos favoritos',
-    );
+    expect(button.attributes('aria-label')).toBe('Desativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('false');
 
     await button.trigger('click');
 
-    expect(wrapper.emitted('toggle-favorite')).toEqual([[project]]);
+    expect(wrapper.emitted('toggle-enabled')).toEqual([[project]]);
 
     await wrapper.setProps({
       project: {
         ...project,
-        favorite: true,
-        enabled: true,
+        enabled: false,
       },
     });
-    expect(button.attributes('aria-label')).toBe(
-      'Remover Projeto sem avatar dos favoritos',
-    );
+    expect(button.attributes('aria-label')).toBe('Reativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('true');
   });
 });
