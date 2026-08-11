@@ -154,15 +154,13 @@ const statusLabel = computed(() =>
 .project-row-controls {
   position: absolute;
   z-index: 3;
-  top: 50%;
+  top: 12px;
   right: 10px;
   display: flex;
   width: 32px;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transform: translateY(-50%);
+  gap: 8px;
 }
 
 .project-row-status {
@@ -193,6 +191,7 @@ const statusLabel = computed(() =>
   }
 
   .project-row-controls {
+    top: 10px;
     right: 6px;
   }
 }
