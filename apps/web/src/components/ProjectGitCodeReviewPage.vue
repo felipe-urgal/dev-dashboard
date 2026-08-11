@@ -9,9 +9,7 @@ import {
   ClockIcon,
   DocumentMagnifyingGlassIcon,
   ExclamationCircleIcon,
-  EyeIcon,
   FunnelIcon,
-  MinusCircleIcon,
   SparklesIcon,
   StopIcon,
 } from '@heroicons/vue/24/outline';
@@ -38,6 +36,8 @@ import {
   startProjectGitPullRequestAiReview,
   type GitPullRequestTargetRemote,
 } from '../api';
+import { findingKey } from '../utils/git-review-findings';
+import GitCodeReviewFindingCard from './GitCodeReviewFindingCard.vue';
 import GitFileDiffView from './GitFileDiffView.vue';
 
 const props = defineProps<{
@@ -192,6 +192,21 @@ const activeFindings = computed(() =>
       )?.findings ?? [])
     : [],
 );
+/**
+ * Enquanto o diff do arquivo não estiver disponível (carregando ou com erro),
+ * todos os apontamentos aparecem na lista geral — só migram para o corpo do
+ * diff, inline por linha, depois que ele carrega com sucesso.
+ */
+const positionedFindings = computed(() =>
+  reviewFileDiff.value
+    ? activeFindings.value.filter((finding) => finding.line != null)
+    : [],
+);
+const generalFindings = computed(() =>
+  reviewFileDiff.value
+    ? activeFindings.value.filter((finding) => finding.line == null)
+    : activeFindings.value,
+);
 
 function defaultBase(): string {
   return (
@@ -240,18 +255,6 @@ function executionModeLabel(
   mode: GitPullRequestAiReviewExecution['mode'],
 ): string {
   return mode === 'complete' ? 'Completo' : 'Rápido';
-}
-
-function findingKey(finding: GitPullRequestReviewFinding): string {
-  return `${finding.path}:${finding.line ?? 0}:${finding.title}`;
-}
-
-function severityLabel(finding: GitPullRequestReviewFinding): string {
-  return {
-    critical: 'Crítico',
-    warning: 'Atenção',
-    suggestion: 'Sugestão',
-  }[finding.severity];
 }
 
 function isFindingResolved(finding: GitPullRequestReviewFinding): boolean {
@@ -839,66 +842,20 @@ onUnmounted(stopRefreshing);
           </header>
 
           <div class="git-code-review-file-body">
-            <div class="git-code-review-finding-list">
-              <article
-                v-for="finding in activeFindings"
+            <div
+              v-if="generalFindings.length"
+              class="git-code-review-finding-list"
+            >
+              <GitCodeReviewFindingCard
+                v-for="finding in generalFindings"
                 :key="findingKey(finding)"
-                :class="[
-                  'git-code-review-finding',
-                  `is-${finding.severity}`,
-                  { 'is-resolved': isFindingResolved(finding) },
-                ]"
-              >
-                <label :aria-label="`Selecionar ${finding.title}`">
-                  <input
-                    type="checkbox"
-                    :checked="isFindingSelected(finding)"
-                    :disabled="isFindingResolved(finding)"
-                    @change="toggleFindingSelection(finding)"
-                  />
-                </label>
-                <div class="git-code-review-finding-copy">
-                  <span
-                    :class="[
-                      'git-code-review-severity',
-                      `is-${finding.severity}`,
-                    ]"
-                  >
-                    {{ severityLabel(finding) }}
-                  </span>
-                  <strong>{{ finding.title }}</strong>
-                  <small>Linha {{ finding.line ?? 'não identificada' }}</small>
-                  <p>{{ finding.explanation }}</p>
-                  <p class="git-code-review-recommendation">
-                    {{ finding.recommendation }}
-                  </p>
-                </div>
-                <div class="git-code-review-finding-actions">
-                  <button type="button" @click="openReviewFile(finding.path)">
-                    <EyeIcon aria-hidden="true" />
-                    Ver no diff
-                  </button>
-                  <button
-                    v-if="!isFindingResolved(finding)"
-                    type="button"
-                    @click="markFindingResolved(finding)"
-                  >
-                    <CheckIcon aria-hidden="true" />
-                    Resolver
-                  </button>
-                  <span v-else class="git-code-review-resolved">
-                    <CheckCircleIcon aria-hidden="true" /> Resolvido
-                  </span>
-                  <button
-                    v-if="!isFindingResolved(finding)"
-                    type="button"
-                    @click="ignoreFinding(finding)"
-                  >
-                    <MinusCircleIcon aria-hidden="true" />
-                    Ignorar
-                  </button>
-                </div>
-              </article>
+                :finding="finding"
+                :resolved="isFindingResolved(finding)"
+                :selected="isFindingSelected(finding)"
+                @toggle-selection="toggleFindingSelection(finding)"
+                @resolve="markFindingResolved(finding)"
+                @ignore="ignoreFinding(finding)"
+              />
             </div>
 
             <div class="git-code-review-diff-panel">
@@ -921,6 +878,12 @@ onUnmounted(stopRefreshing);
                 :content="reviewFileDiff.diff"
                 :path="activeReviewFile"
                 view-mode="split"
+                :findings="positionedFindings"
+                :resolved-keys="resolvedFindingKeys"
+                :selected-keys="selectedFindingKeys"
+                @toggle-finding-selection="toggleFindingSelection"
+                @resolve-finding="markFindingResolved"
+                @ignore-finding="ignoreFinding"
               />
               <div v-else class="git-code-review-diff-empty">
                 Escolha um arquivo para abrir o diff correspondente à revisão.

@@ -8,6 +8,8 @@ import {
   watch,
 } from 'vue';
 
+import type { GitPullRequestReviewFinding } from '@dev-dashboard/contracts';
+
 import './GitFileDiffView.css';
 import type { GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {
@@ -17,12 +19,30 @@ import {
   renderGitDiffLineHtml,
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
+import { findingKey } from '../utils/git-review-findings';
+import GitCodeReviewFindingCard from './GitCodeReviewFindingCard.vue';
 
-const props = defineProps<{
-  content: string;
-  path: string;
-  viewMode: 'unified' | 'split';
-  query?: string;
+const props = withDefaults(
+  defineProps<{
+    content: string;
+    path: string;
+    viewMode: 'unified' | 'split';
+    query?: string;
+    findings?: GitPullRequestReviewFinding[];
+    resolvedKeys?: string[];
+    selectedKeys?: string[];
+  }>(),
+  {
+    findings: () => [],
+    resolvedKeys: () => [],
+    selectedKeys: () => [],
+  },
+);
+
+const emit = defineEmits<{
+  'toggle-finding-selection': [finding: GitPullRequestReviewFinding];
+  'resolve-finding': [finding: GitPullRequestReviewFinding];
+  'ignore-finding': [finding: GitPullRequestReviewFinding];
 }>();
 
 type SyntaxModule = typeof import('../utils/git-diff-syntax');
@@ -42,9 +62,7 @@ const isNarrow = ref(false);
 const isExpanded = ref(false);
 const filesCollapsed = ref(false);
 let reviewWorkspace: HTMLElement | null = null;
-let reviewContainer: HTMLElement | null = null;
 let mediaQuery: MediaQueryList | null = null;
-let focusedLineTimer: ReturnType<typeof setTimeout> | undefined;
 
 const effectiveViewMode = computed<'unified' | 'split'>(() =>
   isReviewContext.value && isNarrow.value ? 'unified' : selectedViewMode.value,
@@ -136,77 +154,30 @@ function updateNarrowMode(event?: MediaQueryListEvent): void {
   isNarrow.value = event?.matches ?? mediaQuery?.matches ?? false;
 }
 
-function clearFocusedLine(): void {
-  if (focusedLineTimer) clearTimeout(focusedLineTimer);
-  focusedLineTimer = undefined;
-  root.value
-    ?.querySelectorAll('.is-review-focus')
-    .forEach((element) => element.classList.remove('is-review-focus'));
-}
-
-function focusReviewLine(lineNumber: number): void {
-  clearFocusedLine();
-  const expected = String(lineNumber);
-  let target: HTMLElement | null = null;
-
-  if (effectiveViewMode.value === 'unified') {
-    for (const row of root.value?.querySelectorAll<HTMLElement>(
-      '.git-diff-unified-row',
-    ) ?? []) {
-      const numbers = row.querySelectorAll<HTMLElement>(
-        '.git-diff-line-number',
-      );
-      if (numbers[1]?.textContent?.trim() === expected) {
-        target = row;
-        break;
-      }
-    }
-  } else {
-    for (const row of root.value?.querySelectorAll<HTMLElement>(
-      '.git-diff-split-row',
-    ) ?? []) {
-      const number = row.querySelector<HTMLElement>(
-        '.git-diff-side-cell:nth-child(2) .git-diff-line-number',
-      );
-      if (number?.textContent?.trim() === expected) {
-        target = row;
-        break;
-      }
-    }
+const findingsByLine = computed(() => {
+  const map = new Map<number, GitPullRequestReviewFinding[]>();
+  for (const finding of props.findings) {
+    if (finding.line == null) continue;
+    const forLine = map.get(finding.line) ?? [];
+    forLine.push(finding);
+    map.set(finding.line, forLine);
   }
+  return map;
+});
 
-  if (!target) return;
-  target.classList.add('is-review-focus');
-  target.scrollIntoView({
-    block: 'center',
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? 'auto'
-      : 'smooth',
-  });
-  focusedLineTimer = setTimeout(
-    () => target?.classList.remove('is-review-focus'),
-    1_800,
-  );
+function findingsFor(
+  line: number | null | undefined,
+): GitPullRequestReviewFinding[] {
+  if (line == null) return [];
+  return findingsByLine.value.get(line) ?? [];
 }
 
-function handleReviewAction(event: Event): void {
-  const source = event.target;
-  if (!(source instanceof Element)) return;
-  const button = source.closest<HTMLButtonElement>(
-    '.git-code-review-finding-actions button',
-  );
-  if (!button || !button.textContent?.includes('Ver no diff')) return;
+function isFindingResolved(finding: GitPullRequestReviewFinding): boolean {
+  return props.resolvedKeys.includes(findingKey(finding));
+}
 
-  const finding = button.closest<HTMLElement>('.git-code-review-finding');
-  const lineLabel = finding?.querySelector<HTMLElement>(
-    '.git-code-review-finding-copy > small',
-  )?.textContent;
-  const line = lineLabel?.match(/\b(\d+)\b/)?.[1];
-  if (!line) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-  focusReviewLine(Number(line));
+function isFindingSelected(finding: GitPullRequestReviewFinding): boolean {
+  return props.selectedKeys.includes(findingKey(finding));
 }
 
 onMounted(() => {
@@ -220,11 +191,7 @@ onMounted(() => {
   reviewWorkspace = diffPanel.closest<HTMLElement>(
     '.git-code-review-workspace',
   );
-  reviewContainer = diffPanel.closest<HTMLElement>(
-    '.git-code-review-file-review',
-  );
   reviewWorkspace?.classList.add('is-diff-enhanced');
-  reviewContainer?.addEventListener('click', handleReviewAction, true);
 
   mediaQuery = window.matchMedia('(max-width: 760px)');
   updateNarrowMode();
@@ -232,8 +199,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearFocusedLine();
-  reviewContainer?.removeEventListener('click', handleReviewAction, true);
   mediaQuery?.removeEventListener('change', updateNarrowMode);
   reviewWorkspace?.classList.remove(
     'is-diff-enhanced',
@@ -312,24 +277,41 @@ onBeforeUnmount(() => {
         </div>
 
         <template v-if="effectiveViewMode === 'unified'">
-          <div
+          <template
             v-for="(line, lineIndex) in hunk.lines"
             :key="`u-${hunkIndex}-${lineIndex}`"
-            class="git-diff-unified-row"
-            :class="`is-${line.kind}`"
-            role="row"
           >
-            <span class="git-diff-line-number" role="cell">{{
-              line.oldLine ?? ''
-            }}</span>
-            <span class="git-diff-line-number" role="cell">{{
-              line.newLine ?? ''
-            }}</span>
-            <span class="git-diff-line-prefix" role="cell">{{
-              linePrefix(line.kind)
-            }}</span>
-            <code role="cell" v-html="highlighted(line)"></code>
-          </div>
+            <div
+              class="git-diff-unified-row"
+              :class="`is-${line.kind}`"
+              role="row"
+            >
+              <span class="git-diff-line-number" role="cell">{{
+                line.oldLine ?? ''
+              }}</span>
+              <span class="git-diff-line-number" role="cell">{{
+                line.newLine ?? ''
+              }}</span>
+              <span class="git-diff-line-prefix" role="cell">{{
+                linePrefix(line.kind)
+              }}</span>
+              <code role="cell" v-html="highlighted(line)"></code>
+            </div>
+            <div
+              v-for="finding in findingsFor(line.newLine)"
+              :key="findingKey(finding)"
+              class="git-diff-inline-comments"
+            >
+              <GitCodeReviewFindingCard
+                :finding="finding"
+                :resolved="isFindingResolved(finding)"
+                :selected="isFindingSelected(finding)"
+                @toggle-selection="emit('toggle-finding-selection', finding)"
+                @resolve="emit('resolve-finding', finding)"
+                @ignore="emit('ignore-finding', finding)"
+              />
+            </div>
+          </template>
         </template>
 
         <template v-else>
@@ -348,42 +330,58 @@ onBeforeUnmount(() => {
               ></code>
             </div>
 
-            <div v-else class="git-diff-split-row" role="row">
-              <div
-                class="git-diff-side-cell"
-                :class="row.left ? `is-${row.left.kind}` : 'is-empty'"
-              >
-                <span class="git-diff-line-number" role="cell">{{
-                  row.left?.oldLine ?? ''
-                }}</span>
-                <span class="git-diff-line-prefix" role="cell">{{
-                  row.left ? linePrefix(row.left.kind) : ''
-                }}</span>
-                <code
-                  v-if="row.left"
-                  role="cell"
-                  v-html="highlighted(row.left)"
-                ></code>
-                <code v-else role="cell"></code>
+            <template v-else>
+              <div class="git-diff-split-row" role="row">
+                <div
+                  class="git-diff-side-cell"
+                  :class="row.left ? `is-${row.left.kind}` : 'is-empty'"
+                >
+                  <span class="git-diff-line-number" role="cell">{{
+                    row.left?.oldLine ?? ''
+                  }}</span>
+                  <span class="git-diff-line-prefix" role="cell">{{
+                    row.left ? linePrefix(row.left.kind) : ''
+                  }}</span>
+                  <code
+                    v-if="row.left"
+                    role="cell"
+                    v-html="highlighted(row.left)"
+                  ></code>
+                  <code v-else role="cell"></code>
+                </div>
+                <div
+                  class="git-diff-side-cell"
+                  :class="row.right ? `is-${row.right.kind}` : 'is-empty'"
+                >
+                  <span class="git-diff-line-number" role="cell">{{
+                    row.right?.newLine ?? ''
+                  }}</span>
+                  <span class="git-diff-line-prefix" role="cell">{{
+                    row.right ? linePrefix(row.right.kind) : ''
+                  }}</span>
+                  <code
+                    v-if="row.right"
+                    role="cell"
+                    v-html="highlighted(row.right)"
+                  ></code>
+                  <code v-else role="cell"></code>
+                </div>
               </div>
               <div
-                class="git-diff-side-cell"
-                :class="row.right ? `is-${row.right.kind}` : 'is-empty'"
+                v-for="finding in findingsFor(row.right?.newLine)"
+                :key="findingKey(finding)"
+                class="git-diff-inline-comments"
               >
-                <span class="git-diff-line-number" role="cell">{{
-                  row.right?.newLine ?? ''
-                }}</span>
-                <span class="git-diff-line-prefix" role="cell">{{
-                  row.right ? linePrefix(row.right.kind) : ''
-                }}</span>
-                <code
-                  v-if="row.right"
-                  role="cell"
-                  v-html="highlighted(row.right)"
-                ></code>
-                <code v-else role="cell"></code>
+                <GitCodeReviewFindingCard
+                  :finding="finding"
+                  :resolved="isFindingResolved(finding)"
+                  :selected="isFindingSelected(finding)"
+                  @toggle-selection="emit('toggle-finding-selection', finding)"
+                  @resolve="emit('resolve-finding', finding)"
+                  @ignore="emit('ignore-finding', finding)"
+                />
               </div>
-            </div>
+            </template>
           </template>
         </template>
       </template>

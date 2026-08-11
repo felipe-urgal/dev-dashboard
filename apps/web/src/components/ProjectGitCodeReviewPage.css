@@ -523,8 +523,9 @@
 }
 
 .git-code-review-file-body {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.42fr) minmax(0, 0.58fr);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: 0;
 }
 
@@ -532,87 +533,14 @@
   display: grid;
   align-content: start;
   gap: var(--space-2);
+  max-height: 260px;
   overflow: auto;
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-2);
 }
 
-.git-code-review-finding {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-2);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  padding: var(--space-3);
-}
-
-.git-code-review-finding.is-critical {
-  border-left-color: var(--danger-text);
-}
-
-.git-code-review-finding.is-warning {
-  border-left-color: var(--warning-text);
-}
-
-.git-code-review-finding.is-suggestion {
-  border-left-color: var(--accent);
-}
-
-.git-code-review-finding > label {
-  padding-top: 3px;
-}
-
-.git-code-review-finding input {
-  accent-color: var(--accent);
-}
-
-.git-code-review-finding-copy {
-  display: grid;
-  gap: 6px;
-}
-
-.git-code-review-finding-copy > strong {
-  color: var(--text);
-  font-size: var(--font-sm);
-  line-height: 1.35;
-}
-
-.git-code-review-finding-copy > small {
-  color: var(--text-dim);
-  font-size: var(--font-xs);
-}
-
-.git-code-review-finding-copy p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  line-height: 1.5;
-}
-
-.git-code-review-finding .git-code-review-recommendation {
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  padding: 7px 9px;
-}
-
-.git-code-review-finding.is-resolved {
-  opacity: 0.58;
-}
-
-.git-code-review-finding-actions {
-  grid-column: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.git-code-review-finding-actions button,
 .git-code-review-selection-bar button {
   display: inline-flex;
   height: 26px;
@@ -628,29 +556,9 @@
   font-weight: 700;
 }
 
-.git-code-review-finding-actions button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.git-code-review-finding-actions svg,
-.git-code-review-selection-bar svg,
-.git-code-review-resolved svg {
+.git-code-review-selection-bar svg {
   width: 14px;
   height: 14px;
-}
-
-.git-code-review-resolved {
-  display: inline-flex;
-  height: 26px;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0 8px;
-  color: var(--success-text);
-  font-size: var(--font-xs);
-  font-weight: 700;
 }
 
 .git-code-review-diff-panel {
@@ -697,26 +605,6 @@
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
-}
-
-.git-code-review-severity {
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  padding: 2px 7px;
-  font-size: var(--font-xs);
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.git-code-review-severity.is-critical {
-  background: var(--danger-surface);
-  color: var(--danger-text);
-}
-
-.git-code-review-severity.is-warning {
-  background: var(--warning-surface);
-  color: var(--warning-text);
 }
 
 .git-code-review-failures {

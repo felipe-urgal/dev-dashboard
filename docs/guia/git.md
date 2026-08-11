@@ -260,7 +260,8 @@ Após concluir a revisão, a tela mostra:
 - provider e modo usados pela execution;
 - resumo e quantidade de apontamentos pendentes;
 - arquivos com comentários e contagem pendente;
-- comentários do arquivo selecionado ao lado do diff;
+- comentários do arquivo selecionado inline, logo abaixo da linha correspondente no diff (estilo
+  GitHub); apontamentos sem linha identificada ficam numa lista geral acima do diff;
 - ações locais de triagem para selecionar, marcar como resolvido ou ignorar apontamentos.
 
 A revisão é consultiva: não altera arquivos, commits nem Pull Requests.
