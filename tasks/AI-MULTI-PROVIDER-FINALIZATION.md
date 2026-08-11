@@ -112,28 +112,39 @@ Um modelo incompatível falha antes da inferência e antes de leitura de conteú
 
 CI #1601 verde no head que fechou o P0 #3.
 
-## 4. Contratos de erro estáveis — atividade atual
+## 4. Contratos de erro estáveis — concluído
 
-### Entregar
+### Entregue
 
-- [ ] Definir códigos específicos para consentimento, provider indisponível, modelo inválido, autenticação cloud, quota/billing, rate limit, timeout/cancelamento e resposta inválida.
-- [ ] Evitar converter todos os problemas de provider em `AI_ASSISTANT_INVALID_REQUEST` ou `AI_ASSISTANT_FAILED` genérico.
-- [ ] Garantir mensagens provider-neutral na fachada/orquestração quando o detalhe do fornecedor não for necessário.
-- [ ] Manter detalhes específicos dentro do adapter quando apropriado.
-- [ ] Não vazar credenciais, prompt, diff ou resultados sensíveis em logs de erro.
-- [ ] Cobrir o mapeamento com regressivos.
-- [ ] Atualizar referência HTTP/documentação quando os códigos públicos mudarem.
+- [x] Definir códigos específicos para consentimento, provider indisponível, modelo inválido, autenticação cloud, quota/billing, rate limit, timeout/cancelamento, resposta inválida, operação sem suporte e falha upstream.
+- [x] Evitar converter todos os problemas de provider em `AI_ASSISTANT_INVALID_REQUEST` ou `AI_ASSISTANT_FAILED` genérico.
+- [x] Compartilhar `AiErrorCode` entre contracts, adapters, resolver, HTTP, SSE e executions.
+- [x] Preservar detalhes específicos dentro do adapter quando apropriado sem obrigar consumidores a interpretar mensagens.
+- [x] Registrar `errorCode` em implementation e Code Review quando aplicável.
+- [x] Não logar prompt, diff, tool result ou credencial como contexto estruturado dos erros de provider.
+- [x] Cobrir taxonomia e mapeamento HTTP com regressivos.
+- [x] Atualizar referência HTTP, arquitetura, provider OpenAI e guia do Assistente.
 
-## 5. Segurança de saída cloud
+### Critério de aceite
+
+Frontend, testes e diagnóstico conseguem distinguir a classe de falha por código estável; mensagem textual continua voltada à pessoa usuária e ao troubleshooting.
+
+### Evidência
+
+**CI #1640 completamente verde**: typecheck, lint, format, build, `docs:api:check`, `npm test` e Smoke E2E.
+
+## 5. Segurança de saída cloud — atividade atual
 
 ### Entregar
 
 - [ ] Testar masking de chat, implementation, Code Review por arquivo, síntese global e completion com OpenAI selecionada.
 - [ ] Testar masking também de resultados de ferramentas reapresentados ao modelo.
-- [ ] Confirmar que headers/credenciais nunca entram no conteúdo mascarado/logado.
+- [ ] Confirmar que headers/credenciais nunca entram no conteúdo mascarado, eventos ou logs.
 - [ ] Garantir que consentimento seja verificado antes do primeiro request que contenha conteúdo do projeto.
 - [ ] Testar revogação de consentimento entre duas executions.
 - [ ] Testar que status/listagem de modelos não envia conteúdo do projeto.
+- [ ] Revisar logs de erro para não persistir prompt, diff ou tool results.
+- [ ] Corrigir documentação de segurança que ainda descreva a IA como somente local ou afirme que nenhum conteúdo sai do computador.
 
 ## 6. Cancelamento e concorrência
 
@@ -173,7 +184,7 @@ CI #1601 verde no head que fechou o P0 #3.
 ## 9. Observabilidade e diagnóstico
 
 - [ ] Logar `executionId`, `projectId`, `provider`, `mode` e operação sem logar conteúdo sensível.
-- [ ] Diferenciar falha de rede, autenticação, rate limit, timeout, cancelamento e payload inválido.
+- [x] Diferenciar falha de rede, autenticação, rate limit, timeout, cancelamento e payload inválido.
 - [ ] Registrar duração e estado terminal das executions.
 - [ ] Garantir que erros de provider tenham contexto suficiente para troubleshooting local.
 - [ ] Não logar API key nem bodies completos de requests cloud.
@@ -181,8 +192,8 @@ CI #1601 verde no head que fechou o P0 #3.
 ## 10. Provider OpenAI
 
 - [ ] Revisar descoberta/filtro de modelos para evitar aceitar modelo incompatível ou rejeitar modelo suportado sem motivo.
-- [ ] Testar resposta vazia, `choices` ausente, tool call malformada, argumentos inválidos e erro HTTP.
-- [ ] Testar abort/timeout e propagação de cancelamento.
+- [x] Testar resposta vazia, `choices` ausente, argumentos inválidos e erro HTTP classificado.
+- [x] Testar timeout e propagação de cancelamento na taxonomia.
 - [x] Manter `store: false` nas requests de inferência.
 - [x] Confirmar que IDs nativos de tool calls continuam encapsulados no adapter.
 - [x] Documentar claramente limitações atuais do adapter.
@@ -195,7 +206,7 @@ CI #1601 verde no head que fechou o P0 #3.
 - [ ] Testar Ollama offline, sem modelos, modelo removido durante uso e resposta NDJSON incompleta.
 - [x] Manter compatibilidade de tool call textual isolada no adapter.
 - [ ] Garantir que instalação de modelo continue exclusivamente local e cancelável.
-- [ ] Não deixar mensagens específicas do Ollama vazarem pela camada genérica quando a mensagem não for necessária para diagnóstico.
+- [x] Classificar timeout, resposta inválida, indisponibilidade e falha upstream sem depender de mensagens.
 
 ## 12. Persistência local
 
@@ -259,7 +270,7 @@ Continua fora do escopo. Local → Cloud automático permanece proibido sem uma 
 1. ~~Code Review multi-provider + snapshot provider/mode.~~
 2. ~~Resolver endpoints genéricos presos ao Ollama.~~
 3. ~~Validação server-side de modelo.~~
-4. **Contratos de erro estáveis.**
+4. ~~Contratos de erro estáveis.~~
 5. **Hardening de segurança cloud.**
 6. **Cancelamento e concorrência.**
 7. **Auditoria final de persistência, UX, docs, código órfão e CI.**
