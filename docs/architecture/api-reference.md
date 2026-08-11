@@ -15708,7 +15708,82 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
-### `POST /api/projects/:projectId/rails/migrations/confirmations`
+### `POST /api/projects/:projectId/rails/migrations/pty/cancel`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "ok"
+    ],
+    "properties": {
+      "ok": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/rails/migrations/pty/connect`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+### `POST /api/projects/:projectId/rails/migrations/pty/start`
 
 **Parâmetros de rota (`params`)**
 
@@ -15760,21 +15835,21 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "confirmation"
+      "snapshot"
     ],
     "properties": {
-      "confirmation": {
+      "snapshot": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "token",
           "operation",
-          "expiresAt"
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
         ],
         "properties": {
-          "token": {
-            "type": "string"
-          },
           "operation": {
             "type": "string",
             "enum": [
@@ -15784,8 +15859,33 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
               "prepare"
             ]
           },
-          "expiresAt": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
             "type": "string"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -15799,7 +15899,7 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
-### `POST /api/projects/:projectId/rails/migrations/mutations`
+### `GET /api/projects/:projectId/rails/migrations/pty/status`
 
 **Parâmetros de rota (`params`)**
 
@@ -15819,35 +15919,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "operation",
-    "confirmationToken"
-  ],
-  "properties": {
-    "operation": {
-      "type": "string",
-      "enum": [
-        "migrate",
-        "rollback",
-        "seed",
-        "prepare"
-      ]
-    },
-    "confirmationToken": {
-      "type": "string",
-      "minLength": 64,
-      "maxLength": 64
-    }
-  }
-}
-```
-
 **Resposta**
 
 - **200**:
@@ -15857,19 +15928,22 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     "type": "object",
     "additionalProperties": false,
     "required": [
-      "result"
+      "snapshot"
     ],
     "properties": {
-      "result": {
-        "type": "object",
+      "snapshot": {
+        "type": [
+          "object",
+          "null"
+        ],
         "additionalProperties": false,
         "required": [
           "operation",
-          "succeeded",
-          "output",
-          "truncated",
-          "masked",
-          "redactionCount"
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
         ],
         "properties": {
           "operation": {
@@ -15881,21 +15955,33 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
               "prepare"
             ]
           },
-          "succeeded": {
-            "type": "boolean"
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
           },
-          "output": {
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
             "type": "string"
           },
-          "truncated": {
-            "type": "boolean"
-          },
-          "masked": {
-            "type": "boolean"
-          },
-          "redactionCount": {
-            "type": "integer",
-            "minimum": 0
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -20167,52 +20253,48 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     ],
     "properties": {
       "snapshot": {
-        "anyOf": [
-          {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "status",
-              "exitCode",
-              "exitSignal",
-              "startedAt",
-              "endedAt"
-            ],
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": [
-                  "running",
-                  "exited"
-                ]
-              },
-              "exitCode": {
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "exitSignal": {
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "startedAt": {
-                "type": "string"
-              },
-              "endedAt": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            }
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
           },
-          {
-            "type": "null"
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
-        ]
+        }
       }
     }
   }
@@ -20257,52 +20339,48 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
     ],
     "properties": {
       "snapshot": {
-        "anyOf": [
-          {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "status",
-              "exitCode",
-              "exitSignal",
-              "startedAt",
-              "endedAt"
-            ],
-            "properties": {
-              "status": {
-                "type": "string",
-                "enum": [
-                  "running",
-                  "exited"
-                ]
-              },
-              "exitCode": {
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "exitSignal": {
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "startedAt": {
-                "type": "string"
-              },
-              "endedAt": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              }
-            }
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
           },
-          {
-            "type": "null"
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
-        ]
+        }
       }
     }
   }

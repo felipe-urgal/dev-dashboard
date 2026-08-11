@@ -52,6 +52,28 @@ function createService(fakePty: FakePty) {
   });
 }
 
+test('a saída passa pela mesma máscara de segredos usada em toda leitura de log', () => {
+  const fakePty = new FakePty();
+  const service = createService(fakePty);
+
+  service.start('projeto-1:test', { file: 'npm', args: ['test'], cwd: '/tmp' });
+
+  const received: string[] = [];
+  service.attach(
+    'projeto-1:test',
+    (chunk) => received.push(chunk),
+    () => undefined,
+  );
+
+  fakePty.emitData('DATABASE_URL=postgres://user:s3cr3t@host/db\n');
+
+  assert.equal(received.length, 1);
+  assert.doesNotMatch(received[0]!, /s3cr3t/);
+
+  const snapshot = service.snapshotOf('projeto-1:test');
+  assert.doesNotMatch(snapshot?.buffer ?? '', /s3cr3t/);
+});
+
 test('start() spawna o processo e attach() recebe dados ao vivo', () => {
   const fakePty = new FakePty();
   const service = createService(fakePty);

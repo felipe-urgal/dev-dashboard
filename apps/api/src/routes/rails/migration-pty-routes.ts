@@ -1,35 +1,43 @@
 import type { FastifyInstance } from 'fastify';
 
-import { ApiError, type ApiErrorCode } from '../../http/api-error.js';
 import { commonErrorResponseSchemas } from '../../http/response-schemas.js';
 import { withWebSocketMessageRateLimit } from '../../security/rate-limited-websocket.js';
-import { ProjectTestPtyError } from '../../services/project-test-pty-service.js';
 import {
   emptyBodySchema,
-  projectParamsSchema,
+  mutationOperationEnum,
+  paramsSchema,
   requireProject,
-  type ProjectParams,
-  type TestRouteOptions,
+  translateMutationError,
+  type Params,
+  type RailsRouteOptions,
 } from './helpers.js';
 
 interface StartBody {
-  commandId: string;
+  operation: (typeof mutationOperationEnum)[number];
 }
 
 const startBodySchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['commandId'],
+  required: ['operation'],
   properties: {
-    commandId: { type: 'string', minLength: 1, maxLength: 200 },
+    operation: { type: 'string', enum: mutationOperationEnum },
   },
 } as const;
 
 const snapshotSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'exitCode', 'exitSignal', 'startedAt', 'endedAt'],
+  required: [
+    'operation',
+    'status',
+    'exitCode',
+    'exitSignal',
+    'startedAt',
+    'endedAt',
+  ],
   properties: {
+    operation: { type: 'string', enum: mutationOperationEnum },
     status: { type: 'string', enum: ['running', 'exited'] },
     exitCode: { type: ['integer', 'null'] },
     exitSignal: { type: ['integer', 'null'] },
@@ -40,39 +48,23 @@ const snapshotSchema = {
 
 // Mesmo padrão de nullableManagedProcessResponseSchema
 // (apps/api/src/http/response-schemas/processes.ts): `type: [...]` numa
-// única definição, não `anyOf` com dois sub-schemas — fast-json-stringify
-// (serializador de resposta do Fastify) não lida bem com anyOf misturando
-// objeto e null.
+// única definição, não `anyOf`.
 const nullableSnapshotSchema = {
   ...snapshotSchema,
   type: ['object', 'null'],
 } as const;
 
-const PTY_ERROR_RESPONSE: Record<
-  ProjectTestPtyError['code'],
-  { statusCode: number; code: ApiErrorCode }
-> = {
-  TEST_COMMAND_NOT_FOUND: { statusCode: 404, code: 'TEST_COMMAND_NOT_FOUND' },
-  ALREADY_RUNNING: { statusCode: 409, code: 'TEST_PTY_ALREADY_RUNNING' },
-  START_FAILED: { statusCode: 500, code: 'TEST_PTY_START_FAILED' },
-};
-
-function ptyApiError(error: ProjectTestPtyError): ApiError {
-  const { statusCode, code } = PTY_ERROR_RESPONSE[error.code];
-  return new ApiError({ statusCode, code, message: error.message });
-}
-
-export function registerTestPtyRoutes(
+export function registerRailsMigrationPtyRoutes(
   app: FastifyInstance,
-  options: TestRouteOptions,
+  options: RailsRouteOptions,
 ): void {
-  const { projectStore, projectTestPtyService } = options;
+  const { projectStore, railsMigrationPtyService } = options;
 
-  app.get<{ Params: ProjectParams }>(
-    '/projects/:projectId/tests/pty/status',
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/rails/migrations/pty/status',
     {
       schema: {
-        params: projectParamsSchema,
+        params: paramsSchema,
         response: {
           200: {
             type: 'object',
@@ -86,22 +78,22 @@ export function registerTestPtyRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      return { snapshot: projectTestPtyService.snapshot(project) ?? null };
+      return { snapshot: railsMigrationPtyService.snapshot(project) ?? null };
     },
   );
 
-  app.post<{ Params: ProjectParams; Body: StartBody }>(
-    '/projects/:projectId/tests/pty/start',
+  app.post<{ Params: Params; Body: StartBody }>(
+    '/projects/:projectId/rails/migrations/pty/start',
     {
       schema: {
-        params: projectParamsSchema,
+        params: paramsSchema,
         body: startBodySchema,
         response: {
           201: {
             type: 'object',
             additionalProperties: false,
             required: ['snapshot'],
-            properties: { snapshot: nullableSnapshotSchema },
+            properties: { snapshot: snapshotSchema },
           },
           ...commonErrorResponseSchemas,
         },
@@ -110,25 +102,22 @@ export function registerTestPtyRoutes(
     async (request, reply) => {
       const project = requireProject(projectStore, request.params.projectId);
       try {
-        const snapshot = await projectTestPtyService.start(
+        const snapshot = await railsMigrationPtyService.start(
           project,
-          request.body.commandId,
+          request.body.operation,
         );
         return reply.code(201).send({ snapshot });
       } catch (error) {
-        if (error instanceof ProjectTestPtyError) {
-          throw ptyApiError(error);
-        }
-        throw error;
+        translateMutationError(error);
       }
     },
   );
 
-  app.post<{ Params: ProjectParams }>(
-    '/projects/:projectId/tests/pty/cancel',
+  app.post<{ Params: Params }>(
+    '/projects/:projectId/rails/migrations/pty/cancel',
     {
       schema: {
-        params: projectParamsSchema,
+        params: paramsSchema,
         body: emptyBodySchema,
         response: {
           200: {
@@ -143,16 +132,16 @@ export function registerTestPtyRoutes(
     },
     async (request) => {
       const project = requireProject(projectStore, request.params.projectId);
-      projectTestPtyService.cancel(project);
+      railsMigrationPtyService.cancel(project);
       return { ok: true };
     },
   );
 
-  app.get<{ Params: ProjectParams }>(
-    '/projects/:projectId/tests/pty/connect',
+  app.get<{ Params: Params }>(
+    '/projects/:projectId/rails/migrations/pty/connect',
     {
       websocket: true,
-      schema: { params: projectParamsSchema },
+      schema: { params: paramsSchema },
     },
     (socket, request) => {
       const project = projectStore.findProject(request.params.projectId);
@@ -162,7 +151,7 @@ export function registerTestPtyRoutes(
       }
 
       const limitedSocket = withWebSocketMessageRateLimit(socket);
-      projectTestPtyService.attach(project, limitedSocket);
+      railsMigrationPtyService.attach(project, limitedSocket);
     },
   );
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -54,11 +54,13 @@ interface RoutesResponse {
     }>;
   };
 }
-interface ConfirmationResponse {
-  confirmation: { token: string; operation: string; expiresAt: string };
-}
-interface MutationResultResponse {
-  result: { operation: string; succeeded: boolean; output: string };
+interface MigrationPtySnapshotResponse {
+  snapshot: {
+    operation: string;
+    status: string;
+    exitCode: number | null;
+    exitSignal: number | null;
+  };
 }
 interface GeneratorConfirmationResponse {
   confirmation: { token: string; command: string; expiresAt: string };
@@ -78,7 +80,11 @@ test('rotas de inspeção Rails (migrations, models e routes)', async (context) 
   await mkdir(path.join(projectPath, 'bin'), { recursive: true });
   await mkdir(path.join(projectPath, 'db', 'migrate'), { recursive: true });
   await writeFile(path.join(projectPath, 'Gemfile'), 'gem "rails"\n');
-  await writeFile(path.join(projectPath, 'bin', 'rails'), '#!/bin/sh\n');
+  await writeFile(
+    path.join(projectPath, 'bin', 'rails'),
+    '#!/bin/sh\nsleep 1\n',
+  );
+  await chmod(path.join(projectPath, 'bin', 'rails'), 0o755);
   await writeFile(
     path.join(projectPath, 'db', 'migrate', '20200101010101_create_users.rb'),
     'class CreateUsers < ActiveRecord::Migration[7.1]\n  def change\n    create_table :users do |t|\n      t.string :name, null: false\n    end\n  end\nend\n',
@@ -265,48 +271,54 @@ end
 
   const jsonHeaders = { ...headers, 'content-type': 'application/json' };
 
-  await context.test('prepara confirmação e executa migrate', async () => {
-    const confirmationResponse = await app.inject({
-      method: 'POST',
-      url: '/api/projects/p1/rails/migrations/confirmations',
-      headers: jsonHeaders,
-      payload: JSON.stringify({ operation: 'migrate' }),
-    });
-    assert.equal(confirmationResponse.statusCode, 201);
-    const { confirmation } = confirmationResponse.json<ConfirmationResponse>();
-    assert.equal(confirmation.operation, 'migrate');
+  await context.test(
+    'PTY: sem execução em andamento, status retorna null',
+    async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/projects/p1/rails/migrations/pty/status',
+        headers,
+      });
+      assert.equal(response.statusCode, 200);
+      assert.deepEqual(response.json<{ snapshot: null }>(), { snapshot: null });
+    },
+  );
 
-    const mutationResponse = await app.inject({
-      method: 'POST',
-      url: '/api/projects/p1/rails/migrations/mutations',
-      headers: jsonHeaders,
-      payload: JSON.stringify({
-        operation: 'migrate',
-        confirmationToken: confirmation.token,
-      }),
-    });
-    assert.equal(mutationResponse.statusCode, 200);
-    const { result } = mutationResponse.json<MutationResultResponse>();
-    assert.equal(result.succeeded, true);
-    assert.match(result.output, /db:migrate/);
-  });
+  await context.test(
+    'PTY: inicia migrate, reporta running e recusa uma segunda execução simultânea',
+    async () => {
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/rails/migrations/pty/start',
+        headers: jsonHeaders,
+        payload: JSON.stringify({ operation: 'migrate' }),
+      });
+      assert.equal(startResponse.statusCode, 201);
+      const { snapshot } = startResponse.json<MigrationPtySnapshotResponse>();
+      assert.equal(snapshot.operation, 'migrate');
+      assert.equal(snapshot.status, 'running');
 
-  await context.test('rejeita mutação sem confirmação prévia', async () => {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/projects/p1/rails/migrations/mutations',
-      headers: jsonHeaders,
-      payload: JSON.stringify({
-        operation: 'seed',
-        confirmationToken: 's'.repeat(64),
-      }),
-    });
-    assert.equal(response.statusCode, 409);
-    assert.equal(
-      response.json<ErrorResponse>().error,
-      'RAILS_MUTATION_CONFIRMATION_REQUIRED',
-    );
-  });
+      const secondStart = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/rails/migrations/pty/start',
+        headers: jsonHeaders,
+        payload: JSON.stringify({ operation: 'seed' }),
+      });
+      assert.equal(secondStart.statusCode, 409);
+      assert.equal(
+        secondStart.json<ErrorResponse>().error,
+        'RAILS_MUTATION_ALREADY_RUNNING',
+      );
+
+      const cancelResponse = await app.inject({
+        method: 'POST',
+        url: '/api/projects/p1/rails/migrations/pty/cancel',
+        headers: jsonHeaders,
+        payload: '{}',
+      });
+      assert.equal(cancelResponse.statusCode, 200);
+    },
+  );
 
   await context.test('prepara confirmação e gera um model', async () => {
     const confirmationResponse = await app.inject({

@@ -357,6 +357,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     railsInspectionService: context.railsInspectionService,
     railsRuntimeService: context.railsRuntimeService,
+    railsMigrationPtyService: context.railsMigrationPtyService,
   });
 
   app.register(bundlerRoutes, {

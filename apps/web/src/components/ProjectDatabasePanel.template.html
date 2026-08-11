@@ -791,47 +791,56 @@
       <div class="database-mutation-actions">
         <button
           type="button"
-          :disabled="mutationRunning !== ''"
+          :disabled="mutationRunning !== '' || mutationIsRunning"
           @click="runMigrationMutation('migrate')"
         >
           {{ mutationRunning === 'migrate' ? 'Rodando migrate…' : 'Rodar migrate' }}
         </button>
         <button
           type="button"
-          :disabled="mutationRunning !== ''"
+          :disabled="mutationRunning !== '' || mutationIsRunning"
           @click="runMigrationMutation('rollback')"
         >
           {{ mutationRunning === 'rollback' ? 'Desfazendo…' : 'Rollback (1 passo)' }}
         </button>
         <button
           type="button"
-          :disabled="mutationRunning !== ''"
+          :disabled="mutationRunning !== '' || mutationIsRunning"
           @click="runMigrationMutation('seed')"
         >
           {{ mutationRunning === 'seed' ? 'Rodando seed…' : 'Rodar seed' }}
         </button>
         <button
           type="button"
-          :disabled="mutationRunning !== ''"
+          :disabled="mutationRunning !== '' || mutationIsRunning"
           @click="runMigrationMutation('prepare')"
         >
           {{ mutationRunning === 'prepare' ? 'Preparando…' : 'db:prepare' }}
+        </button>
+        <button
+          v-if="mutationIsRunning"
+          type="button"
+          class="secondary-button"
+          :disabled="mutationCancelling"
+          @click="cancelMigrationMutation"
+        >
+          {{ mutationCancelling ? 'Cancelando…' : 'Cancelar' }}
         </button>
       </div>
       <p v-if="mutationErrorMessage" class="database-explorer-alert" role="alert">
         {{ mutationErrorMessage }}
       </p>
-      <p v-else-if="mutationMessage" class="database-success-message">
-        {{ mutationMessage }}
+      <p v-else-if="mutationConnecting" class="database-success-message">
+        Conectando…
       </p>
-      <ProjectLogExperience
-        v-if="mutationOutput"
-        :content="mutationOutput"
-        source="script"
-        flow-label="Saída"
-        :running="mutationRunning !== ''"
-        compact
-      />
+      <p v-else-if="mutationStatusLabel" class="database-success-message">
+        {{ mutationStatusLabel }}
+      </p>
+      <div
+        v-if="mutationSnapshot"
+        ref="mutationTerminalContainer"
+        class="database-mutation-terminal"
+      ></div>
     </section>
 
     <div class="database-generator-grid">

@@ -1,9 +1,10 @@
 # Task 234 — Unificar testes/migration/build no terminal PTY
 
-**Status:** em andamento. Itens concluídos nesta entrega (PR #299): item 0 (sessão destacável),
-"Fica como está — push via SSE" (logs de server/sidekiq/webpack) e item 1 (PoC de testes, escopo
-reduzido para suíte completa). Itens 2-4 (migration, build, consolidação) ainda não implementados.
-Ver `tasks/NEXT.md` para o estado de prioridade atual.
+**Status:** em andamento. Itens concluídos: item 0 (sessão destacável), "Fica como está — push via
+SSE" (logs de server/sidekiq/webpack) e item 1 (PoC de testes, escopo reduzido para suíte completa)
+— entregues no PR #299; item 2 (Migration Rails, com remoção completa do fluxo antigo de
+confirmação) — entregue no PR #301. Itens 3-4 (build, consolidação) ainda não implementados. Ver
+`tasks/NEXT.md` para o estado de prioridade atual.
 
 ## Origem
 
@@ -277,9 +278,40 @@ usada no roadmap da IA multi-provider):
      item ser abandonado. Migration/Build (itens 2-3) devem reavaliar esse mesmo risco antes de
      começar — são mais simples que Testes (sem targeting múltiplo), então tendem a ser mais
      baratos, não mais caros.
-2. **Migration** (só se o checkpoint do item 1 for favorável): repetir o padrão para o fluxo de
-   migrations Rails (`useRailsMigrations.ts` e rota correspondente). Candidato mais fraco (ver
-   tabela em "Decisão de escopo") — reavaliar antes de implementar, pode ficar no SSE atual.
+2. **Migration — implementada, com remoção completa do fluxo antigo (decisão explícita do
+   usuário: sem manter o código velho como referência, diferente do que foi feito com Testes).**
+   Entregue:
+   - Backend: `RailsMigrationPtyService` (`apps/api/src/services/rails-migration-pty-service.ts`)
+     resolve o comando via `resolveRailsCommand` (`rails-inspection/command-resolution.ts`,
+     mesmo helper do fluxo de inspeção) e monta os args por operação
+     (`migrate`→`db:migrate`, `rollback`→`db:rollback STEP=1`, `seed`→`db:seed`,
+     `prepare`→`db:prepare`), delegando ao `DetachableExecutionService` (mesma instância
+     compartilhada com `ProjectTestPtyService`, chaves diferem pelo sufixo `:migration-pty` vs.
+     `:test-pty`). Rotas em `apps/api/src/routes/rails/migration-pty-routes.ts`:
+     `GET .../rails/migrations/pty/status`, `POST .../start` (body `{operation}`),
+     `POST .../cancel`, `GET .../connect` (WebSocket, somente leitura, mesmo padrão de Testes:
+     sem canal de `input`, catálogo fechado, sem token de confirmação porque não há stdin livre).
+     O fluxo antigo (`RailsInspectionService.runMutation`/`prepareMutationConfirmation`, rotas
+     `POST .../migrations/confirmations` e `POST .../migrations/mutations`, os tipos de contrato
+     `RailsMigrationMutationConfirmation`/`RailsMigrationMutationResult`) foi **removido por
+     completo**, não preservado como referência.
+   - Frontend: `useRailsMigrations.ts` reescrito para usar o novo composable compartilhado
+     `usePtyTerminalSocket.ts` (extraído nesta mesma entrega a partir da lógica que estava
+     duplicada em `ProjectTestsPtyPanel.vue` — WebSocket + `@xterm/xterm`, protocolo de frames
+     `ready`/`output`/`exit`/`error`). `ProjectDatabasePanel.vue`/`.template.html` passam a
+     renderizar um terminal (`.database-mutation-terminal`) em vez do `ProjectLogExperience`
+     antigo; o diálogo de confirmação do lado do cliente (`confirmDialog`) foi mantido como
+     camada de segurança adicional, mesmo com o token de confirmação do backend removido.
+   - **Correção de segurança encontrada e corrigida na mesma entrega**: a máscara de segredos
+     (`maskSensitiveLogContent`, aplicada em toda leitura de log do dashboard) estava ausente na
+     saída bruta do PTY — corrigida uma única vez em `DetachableExecutionService` (no handler
+     `proc.onData`), o que cobre automaticamente Testes e Migration (e qualquer uso futuro do
+     mesmo serviço).
+   - Testes: `rails-migration-pty-service.test.ts` (7 casos novos), 8 testes obsoletos removidos
+     de `rails-inspection-service.test.ts`, `rails-routes.test.ts` migrado para o fluxo PTY, teste
+     de máscara de segredos adicionado em `detachable-execution-service.test.ts`,
+     `project-database-panel.test.ts` atualizado para o novo fluxo (mock de `WebSocket`, mesmo
+     padrão de `project-tests-pty-panel.test.ts`).
 3. **Build** (só se o checkpoint do item 1 for favorável): repetir o padrão para dependências/build
    (`useProjectDatabaseOverview.ts`/scripts de build — mapear o fluxo exato antes de iniciar, pode
    já estar coberto por `script-execution/*` genérico).

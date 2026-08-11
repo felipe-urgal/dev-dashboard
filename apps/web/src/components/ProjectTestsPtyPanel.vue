@@ -100,6 +100,11 @@ async function start(): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível iniciar os testes.';
+    // Já existe uma execução em andamento (ex. de uma tentativa anterior
+    // que falhou no meio do caminho) — reconecta pra mostrar o estado
+    // real e liberar o botão "Cancelar", em vez de deixar a tela travada
+    // sem nenhuma ação possível.
+    await loadStatusAndReconnect();
   } finally {
     starting.value = false;
   }
