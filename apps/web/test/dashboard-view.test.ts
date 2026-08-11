@@ -176,9 +176,9 @@ describe('dashboard principal', () => {
     expect(actions.favoritar).toHaveBeenCalledWith(project);
   });
 
-  it('filtra projetos por busca e tecnologia e permite limpar os filtros', async () => {
+  it('mantém a visão geral sem busca nem filtro de tipo e move start/stop para o resumo', () => {
     dashboardStore.projects.value = [
-      project,
+      { ...project, capabilities: ['git', 'server'] },
       {
         ...project,
         id: 'p2',
@@ -189,24 +189,25 @@ describe('dashboard principal', () => {
     ];
     const wrapper = mountView();
 
-    await wrapper.get('.project-search input').setValue('painel');
-    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
-    expect(wrapper.get('.project-stub').text()).toBe('Painel Rails');
-
-    await wrapper
-      .get('.project-filter-popover button:nth-child(2)')
-      .trigger('click');
-    expect(wrapper.findAll('.project-stub')).toHaveLength(1);
-
-    await wrapper
-      .get('.project-filter-popover button:nth-child(3)')
-      .trigger('click');
-    expect(wrapper.text()).toContain('Nenhum projeto encontrado');
-
-    await wrapper
-      .get('.empty-state-filtered .secondary-button')
-      .trigger('click');
+    expect(wrapper.find('.project-search').exists()).toBe(false);
+    expect(wrapper.find('.project-filter-menu').exists()).toBe(false);
     expect(wrapper.findAll('.project-stub')).toHaveLength(2);
+
+    const summary = wrapper.get('.repository-title-row');
+    expect(summary.find('[aria-label="Iniciar servidores"]').exists()).toBe(
+      true,
+    );
+    expect(summary.find('[aria-label="Parar servidores"]').exists()).toBe(
+      true,
+    );
+
+    const headerActions = wrapper.get('.compact-actions');
+    expect(
+      headerActions.find('[aria-label="Iniciar servidores"]').exists(),
+    ).toBe(false);
+    expect(
+      headerActions.find('[aria-label="Parar servidores"]').exists(),
+    ).toBe(false);
   });
 
   it('inicia todos os servidores parados e ignora os que já estão ativos', async () => {
