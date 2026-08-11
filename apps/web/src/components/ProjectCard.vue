@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import {
-  NoSymbolIcon,
-  PowerIcon,
-  StarIcon,
-  TrashIcon,
-} from '@heroicons/vue/24/outline';
-import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
+import { NoSymbolIcon, PowerIcon } from '@heroicons/vue/24/outline';
 
 import type { Project } from '@dev-dashboard/contracts';
 
@@ -16,15 +10,11 @@ import { useProjectProcessStatus } from '../composables/useProjectProcessStatus'
 
 const props = defineProps<{
   project: Project;
-  favoriteUpdating?: boolean;
   enabledUpdating?: boolean;
-  removing?: boolean;
 }>();
 
 const emit = defineEmits<{
-  'toggle-favorite': [project: Project];
   'toggle-enabled': [project: Project];
-  remove: [project: Project];
 }>();
 
 const { managedProcess, supportsServer, isRunning } = useProjectProcessStatus(
@@ -90,23 +80,6 @@ const statusLabel = computed(() =>
     <div class="project-row-actions" aria-label="Ações do projeto">
       <button
         type="button"
-        class="project-favorite-button"
-        :class="{ active: project.favorite }"
-        :aria-label="
-          project.favorite
-            ? `Remover ${project.name} dos favoritos`
-            : `Adicionar ${project.name} aos favoritos`
-        "
-        :aria-pressed="project.favorite"
-        :disabled="favoriteUpdating"
-        @click="emit('toggle-favorite', project)"
-      >
-        <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
-        <StarIcon v-else aria-hidden="true" />
-      </button>
-
-      <button
-        type="button"
         class="project-disable-button"
         :class="{ active: !project.enabled }"
         :aria-label="
@@ -120,17 +93,6 @@ const statusLabel = computed(() =>
       >
         <PowerIcon v-if="project.enabled" aria-hidden="true" />
         <NoSymbolIcon v-else aria-hidden="true" />
-      </button>
-
-      <button
-        type="button"
-        class="project-disable-button project-remove-button"
-        :aria-label="`Remover ${project.name} do dashboard`"
-        :title="`Remover ${project.name} do dashboard`"
-        :disabled="removing"
-        @click="emit('remove', project)"
-      >
-        <TrashIcon aria-hidden="true" />
       </button>
     </div>
 
@@ -192,7 +154,7 @@ const statusLabel = computed(() =>
 
 .project-row-link {
   padding-left: 20px;
-  padding-right: 132px;
+  padding-right: 64px;
 }
 
 .project-row-heading {
@@ -213,14 +175,9 @@ const statusLabel = computed(() =>
   z-index: 3;
   top: 34px;
   right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
-.project-row-actions .project-favorite-button,
-.project-row-actions .project-disable-button,
-.project-row-actions .project-remove-button {
+.project-row-actions .project-disable-button {
   position: static;
   inset: auto;
 }
@@ -228,7 +185,7 @@ const statusLabel = computed(() =>
 @media (max-width: 480px) {
   .project-row-link {
     padding-left: 16px;
-    padding-right: 112px;
+    padding-right: 58px;
   }
 
   .project-row-status {
@@ -239,7 +196,6 @@ const statusLabel = computed(() =>
   .project-row-actions {
     top: 31px;
     right: 6px;
-    gap: 2px;
   }
 }
 </style>
