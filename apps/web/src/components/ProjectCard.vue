@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
-  ArrowRightIcon,
   NoSymbolIcon,
   PowerIcon,
   StarIcon,
@@ -20,7 +19,6 @@ const props = defineProps<{
   favoriteUpdating?: boolean;
   enabledUpdating?: boolean;
   removing?: boolean;
-  recent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -63,23 +61,15 @@ watch(
   { immediate: true },
 );
 
-const statusDotClass = computed(() => {
-  if (!supportsServer.value) {
-    return 'project-status-dot-neutral';
-  }
-
-  return isRunning.value
+const statusDotClass = computed(() =>
+  isRunning.value
     ? 'project-status-dot-running'
-    : 'project-status-dot-stopped';
-});
+    : 'project-status-dot-stopped',
+);
 
-const statusLabel = computed(() => {
-  if (!supportsServer.value) {
-    return 'Sem servidor';
-  }
-
-  return isRunning.value ? 'Em execução' : 'Parado';
-});
+const statusLabel = computed(() =>
+  isRunning.value ? 'Em execução' : 'Parado',
+);
 </script>
 
 <template>
@@ -139,6 +129,19 @@ const statusLabel = computed(() => {
         },
       }"
     >
+      <span
+        v-if="supportsServer"
+        class="project-status project-row-status"
+        :aria-label="statusLabel"
+        :title="statusLabel"
+      >
+        <span
+          class="project-status-dot"
+          :class="statusDotClass"
+          aria-hidden="true"
+        />
+      </span>
+
       <div class="project-row-identity">
         <div class="project-row-heading">
           <div class="project-row-title">
@@ -152,15 +155,6 @@ const statusLabel = computed(() => {
               aria-label="Projeto desativado"
             >
               Desativado
-            </span>
-
-            <span class="project-status">
-              <span
-                class="project-status-dot"
-                :class="statusDotClass"
-                aria-hidden="true"
-              />
-              {{ statusLabel }}
             </span>
           </div>
         </div>
@@ -185,18 +179,27 @@ const statusLabel = computed(() => {
           </span>
         </div>
       </div>
-
-      <span class="project-row-action" aria-hidden="true">
-        <span>Abrir</span>
-        <ArrowRightIcon />
-      </span>
     </RouterLink>
   </li>
 </template>
 
 <style scoped>
 .project-row-link {
+  position: relative;
   padding-left: 122px;
+  padding-right: 34px;
+}
+
+.project-row-heading {
+  padding-right: 22px;
+}
+
+.project-row-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 0;
+  gap: 0;
 }
 
 .project-remove-button {
@@ -218,6 +221,12 @@ const statusLabel = computed(() => {
 
   .project-row-link {
     padding-left: 104px;
+    padding-right: 30px;
+  }
+
+  .project-row-status {
+    top: 10px;
+    right: 10px;
   }
 }
 </style>
