@@ -194,20 +194,18 @@ describe('dashboard principal', () => {
     expect(wrapper.findAll('.project-stub')).toHaveLength(2);
 
     const summary = wrapper.get('.repository-title-row');
-    expect(
-      summary.find('[aria-label="Iniciar servidores"]').exists(),
-    ).toBe(true);
-    expect(summary.find('[aria-label="Parar servidores"]').exists()).toBe(
+    expect(summary.find('[aria-label="Iniciar servidores"]').exists()).toBe(
       true,
     );
+    expect(summary.find('[aria-label="Parar servidores"]').exists()).toBe(true);
 
     const headerActions = wrapper.get('.compact-actions');
     expect(
       headerActions.find('[aria-label="Iniciar servidores"]').exists(),
     ).toBe(false);
-    expect(
-      headerActions.find('[aria-label="Parar servidores"]').exists(),
-    ).toBe(false);
+    expect(headerActions.find('[aria-label="Parar servidores"]').exists()).toBe(
+      false,
+    );
   });
 
   it('inicia todos os servidores parados e ignora os que já estão ativos', async () => {
