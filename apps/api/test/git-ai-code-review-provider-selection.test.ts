@@ -20,6 +20,17 @@ const project: Project = {
   capabilities: [],
 };
 
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 async function settles(
   service: GitAiCodeReviewService,
 ): Promise<ReturnType<GitAiCodeReviewService['latest']>> {
@@ -165,4 +176,124 @@ test('bloqueia a Code Review antes de ler o diff quando o resolver rejeita provi
   }
 
   assert.equal(reviewFilesCalls, 0);
+});
+
+test('close cancela Code Review em andamento e aborta o request do provider', async () => {
+  const reviewStarted = deferred<void>();
+  let aborted = false;
+  const assistant = {
+    review: async (
+      _model: string,
+      _messages: unknown,
+      signal?: AbortSignal,
+    ) => {
+      reviewStarted.resolve();
+      return new Promise<string>((resolve) => {
+        signal?.addEventListener('abort', () => {
+          aborted = true;
+          resolve(JSON.stringify({ summary: 'Tardio', findings: [] }));
+        });
+      });
+    },
+  } as unknown as AiAssistantService;
+  const service = new GitAiCodeReviewService(
+    assistant,
+    {
+      getReviewFiles: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/provider-review',
+        files: ['src/primeiro.ts'],
+      }),
+      getReviewFileDiff: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/provider-review',
+        files: ['src/primeiro.ts'],
+        diff: 'diff --git a/src/primeiro.ts b/src/primeiro.ts',
+      }),
+    } as unknown as Pick<
+      GitPullRequestService,
+      'getReviewFiles' | 'getReviewFileDiff'
+    >,
+  );
+
+  const started = await service.start({
+    project,
+    targetRemote: 'origin',
+    baseBranch: 'main',
+    model: 'qwen2.5-coder:14b',
+  });
+  await reviewStarted.promise;
+
+  service.close();
+
+  const cancelled = service.latest(project.id);
+  assert.equal(cancelled?.id, started.id);
+  assert.equal(cancelled?.status, 'cancelled');
+  assert.equal(cancelled?.errorCode, 'AI_REQUEST_CANCELLED');
+  assert.equal(aborted, true);
+});
+
+test('síntese tardia não sobrescreve uma Code Review cancelada', async () => {
+  const synthesisStarted = deferred<void>();
+  const synthesisResult = deferred<string>();
+  let calls = 0;
+  const assistant = {
+    review: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return JSON.stringify({ summary: 'Arquivo revisado.', findings: [] });
+      }
+      synthesisStarted.resolve();
+      return synthesisResult.promise;
+    },
+  } as unknown as AiAssistantService;
+  const service = new GitAiCodeReviewService(
+    assistant,
+    {
+      getReviewFiles: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/provider-review',
+        files: ['src/primeiro.ts'],
+      }),
+      getReviewFileDiff: async () => ({
+        targetRemote: 'origin',
+        baseBranch: 'main',
+        sourceBranch: 'feature/provider-review',
+        files: ['src/primeiro.ts'],
+        diff: 'diff --git a/src/primeiro.ts b/src/primeiro.ts',
+      }),
+    } as unknown as Pick<
+      GitPullRequestService,
+      'getReviewFiles' | 'getReviewFileDiff'
+    >,
+    {
+      resolveSelected: async () => ({
+        assistantService: assistant,
+        provider: 'openai' as const,
+        mode: 'complete' as const,
+      }),
+    },
+  );
+
+  const started = await service.start({
+    project,
+    targetRemote: 'origin',
+    baseBranch: 'main',
+    model: 'gpt-5-mini',
+  });
+  await synthesisStarted.promise;
+
+  const cancelled = service.cancel(project.id, started.id);
+  assert.equal(cancelled?.status, 'cancelled');
+  synthesisResult.resolve(
+    JSON.stringify({ summary: 'Síntese tardia.', findings: [] }),
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const afterLateResponse = service.latest(project.id);
+  assert.equal(afterLateResponse?.status, 'cancelled');
+  assert.equal(afterLateResponse?.errorCode, 'AI_REQUEST_CANCELLED');
 });
