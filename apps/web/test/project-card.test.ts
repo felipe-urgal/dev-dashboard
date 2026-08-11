@@ -38,9 +38,9 @@ const project: Project = {
 };
 
 describe('ProjectCard', () => {
-  it('renderiza a branch e porta sem tipo nem marcador recente', async () => {
+  it('renderiza metadados e mantém ações no canto direito', async () => {
     const wrapper = mount(ProjectCard, {
-      props: { project, recent: true },
+      props: { project },
       global: {
         stubs: {
           RouterLink: {
@@ -56,6 +56,13 @@ describe('ProjectCard', () => {
     );
     expect(wrapper.find('.project-recent-badge').exists()).toBe(false);
     expect(wrapper.find('.type-badge').exists()).toBe(false);
+    expect(wrapper.find('.project-row-action').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Abrir');
+    expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
+      'Em execução',
+    );
+    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(3);
+
     await vi.waitFor(() => {
       expect(wrapper.get('.project-branch-badge').text()).toContain(
         'feature/listar-branch',
