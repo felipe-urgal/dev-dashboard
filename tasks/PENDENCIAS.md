@@ -21,6 +21,15 @@ npm run build
 npm test
 ```
 
+## Polling de status nunca desacelera quando parado
+
+`useProjectProcessStatus.ts` (servidor) e `useProjectRailsWorker.ts` (Sidekiq/webpack) consultam o
+status do processo gerenciado a cada 5s indefinidamente, mesmo com o processo parado há horas —
+sem desacelerar nem parar. Padrão consistente nos dois lugares (não é bug isolado do Sidekiq,
+achado ao investigar o painel), provavelmente proposital (detectar se algo iniciar o processo por
+fora do dashboard). Vale reavaliar como uma frente própria — mudar só um painel criaria
+inconsistência com o outro; mudar os dois é escopo maior que uma correção pontual.
+
 ## Validação manual do Assistente IA local
 
 - Validar a task 232 com uma instalação real do Ollama e modelo com suporte a

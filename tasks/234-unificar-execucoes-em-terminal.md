@@ -1,9 +1,10 @@
 # Task 234 — Unificar testes/migration/build no terminal PTY
 
-**Status:** em andamento. Itens concluídos nesta entrega (PR #299): item 0 (sessão destacável),
-"Fica como está — push via SSE" (logs de server/sidekiq/webpack) e item 1 (PoC de testes, escopo
-reduzido para suíte completa). Itens 2-4 (migration, build, consolidação) ainda não implementados.
-Ver `tasks/NEXT.md` para o estado de prioridade atual.
+**Status:** em andamento. Itens concluídos: item 0 (sessão destacável), "Fica como está — push via
+SSE" (logs de server/sidekiq/webpack) e item 1 (PoC de testes, escopo reduzido para suíte completa)
+— entregues no PR #299; item 2 (Migration Rails, com remoção completa do fluxo antigo de
+confirmação) e item 3 (Dependências/Build, mesma remoção completa) — entregues no PR #301. Item 4
+(consolidação) ainda não implementado. Ver `tasks/NEXT.md` para o estado de prioridade atual.
 
 ## Origem
 
@@ -277,12 +278,74 @@ usada no roadmap da IA multi-provider):
      item ser abandonado. Migration/Build (itens 2-3) devem reavaliar esse mesmo risco antes de
      começar — são mais simples que Testes (sem targeting múltiplo), então tendem a ser mais
      baratos, não mais caros.
-2. **Migration** (só se o checkpoint do item 1 for favorável): repetir o padrão para o fluxo de
-   migrations Rails (`useRailsMigrations.ts` e rota correspondente). Candidato mais fraco (ver
-   tabela em "Decisão de escopo") — reavaliar antes de implementar, pode ficar no SSE atual.
-3. **Build** (só se o checkpoint do item 1 for favorável): repetir o padrão para dependências/build
-   (`useProjectDatabaseOverview.ts`/scripts de build — mapear o fluxo exato antes de iniciar, pode
-   já estar coberto por `script-execution/*` genérico).
+2. **Migration — implementada, com remoção completa do fluxo antigo (decisão explícita do
+   usuário: sem manter o código velho como referência, diferente do que foi feito com Testes).**
+   Entregue:
+   - Backend: `RailsMigrationPtyService` (`apps/api/src/services/rails-migration-pty-service.ts`)
+     resolve o comando via `resolveRailsCommand` (`rails-inspection/command-resolution.ts`,
+     mesmo helper do fluxo de inspeção) e monta os args por operação
+     (`migrate`→`db:migrate`, `rollback`→`db:rollback STEP=1`, `seed`→`db:seed`,
+     `prepare`→`db:prepare`), delegando ao `DetachableExecutionService` (mesma instância
+     compartilhada com `ProjectTestPtyService`, chaves diferem pelo sufixo `:migration-pty` vs.
+     `:test-pty`). Rotas em `apps/api/src/routes/rails/migration-pty-routes.ts`:
+     `GET .../rails/migrations/pty/status`, `POST .../start` (body `{operation}`),
+     `POST .../cancel`, `GET .../connect` (WebSocket, somente leitura, mesmo padrão de Testes:
+     sem canal de `input`, catálogo fechado, sem token de confirmação porque não há stdin livre).
+     O fluxo antigo (`RailsInspectionService.runMutation`/`prepareMutationConfirmation`, rotas
+     `POST .../migrations/confirmations` e `POST .../migrations/mutations`, os tipos de contrato
+     `RailsMigrationMutationConfirmation`/`RailsMigrationMutationResult`) foi **removido por
+     completo**, não preservado como referência.
+   - Frontend: `useRailsMigrations.ts` reescrito para usar o novo composable compartilhado
+     `usePtyTerminalSocket.ts` (extraído nesta mesma entrega a partir da lógica que estava
+     duplicada em `ProjectTestsPtyPanel.vue` — WebSocket + `@xterm/xterm`, protocolo de frames
+     `ready`/`output`/`exit`/`error`). `ProjectDatabasePanel.vue`/`.template.html` passam a
+     renderizar um terminal (`.database-mutation-terminal`) em vez do `ProjectLogExperience`
+     antigo; o diálogo de confirmação do lado do cliente (`confirmDialog`) foi mantido como
+     camada de segurança adicional, mesmo com o token de confirmação do backend removido.
+   - **Correção de segurança encontrada e corrigida na mesma entrega**: a máscara de segredos
+     (`maskSensitiveLogContent`, aplicada em toda leitura de log do dashboard) estava ausente na
+     saída bruta do PTY — corrigida uma única vez em `DetachableExecutionService` (no handler
+     `proc.onData`), o que cobre automaticamente Testes e Migration (e qualquer uso futuro do
+     mesmo serviço).
+   - Testes: `rails-migration-pty-service.test.ts` (7 casos novos), 8 testes obsoletos removidos
+     de `rails-inspection-service.test.ts`, `rails-routes.test.ts` migrado para o fluxo PTY, teste
+     de máscara de segredos adicionado em `detachable-execution-service.test.ts`,
+     `project-database-panel.test.ts` atualizado para o novo fluxo (mock de `WebSocket`, mesmo
+     padrão de `project-tests-pty-panel.test.ts`).
+3. **Build/Dependências — implementado, com remoção completa do fluxo antigo (mesma decisão
+   tomada para Migration).** Mapeamento prévio corrigiu uma suposição errada da task: o fluxo real
+   não fica em `useProjectDatabaseOverview.ts` (isso é gestão de serviços de banco de dados, sem
+   relação) — a UI dedicada é `ProjectDependenciesPanel.vue`, que já roteava suas ações
+   (`bundler:*`, `package-manager:install`, `package-script:build`) para fora do catálogo genérico
+   de Scripts via `project-script-visibility.ts`, mas reusava o mesmo `ScriptExecutionService`/SSE
+   de Scripts por trás. Esse foi o **candidato de maior ganho líquido dos três**: saída
+   potencialmente longa e colorida (build de assets), comando já fechado
+   (`script-execution/command-resolution.ts`), sem stdin livre, e o custo caro
+   (`DetachableExecutionService`) já pago por Testes/Migration.
+
+   Entregue:
+   - Backend: `ProjectDependenciesPtyService`
+     (`apps/api/src/services/project-dependencies-pty-service.ts`) resolve a ação via
+     `ScriptDetectionService.findAction` (mesmo catálogo fechado de Scripts) e o comando via
+     `script-execution/command-resolution.ts::resolveCommand`, restringindo à mesma fronteira
+     semântica de `projectScriptDestination` (bundler, package-manager, ou o script `build`).
+     Rotas em `apps/api/src/routes/dependencies-pty-routes.ts`: `GET .../dependencies/pty/status`,
+     `POST .../start` (body `{actionId}`), `POST .../cancel`, `GET .../connect` (WebSocket,
+     somente leitura, sem token de confirmação — mesmo raciocínio de Testes/Migration).
+   - Frontend: `useProjectDependenciesPty.ts` (novo composable) usa `usePtyTerminalSocket.ts`
+     (terceiro consumidor do composable compartilhado). `ProjectDependenciesPanel.vue` passa a
+     renderizar um terminal (`.dependencies-terminal`) em vez do `ProjectLogExperience` +
+     histórico de execuções recentes antigo. O diálogo de confirmação do lado do cliente
+     (`confirmDialog`) foi mantido para ações não somente-leitura, mesmo padrão de Migration.
+   - **Escopo reduzido conscientemente, decisão do usuário**: o histórico de execuções recentes
+     (últimas 5, com re-execução a partir do histórico) e o Diagnóstico especializado
+     (`source="dependency"`) não têm equivalente no modelo PTY (que só guarda a execução
+     corrente) — foram removidos, não preservados como referência, mesmo tratamento dado ao fluxo
+     antigo de Migration.
+   - Testes: `project-dependencies-pty-service.test.ts` (7 casos), `dependencies-pty-routes.test.ts`
+     (6 casos, incluindo autenticação e ação fora do catálogo), `project-dependencies-panel.test.ts`
+     atualizado para o novo fluxo (mock de `WebSocket`, mesmo padrão de
+     `project-tests-pty-panel.test.ts`/`project-database-panel.test.ts`).
 4. **Consolidação**: só se 1-3 migrarem de fato, avaliar remover o transporte SSE de
    `script-execution/*` por completo (rota `events-route.ts`) e deixar um único transporte
    (PTY/WS) para qualquer comando de execução única. Se algum candidato ficou no SSE por decisão

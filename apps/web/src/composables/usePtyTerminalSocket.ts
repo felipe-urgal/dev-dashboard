@@ -1,0 +1,138 @@
+import '@xterm/xterm/css/xterm.css';
+
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import { onBeforeUnmount, ref } from 'vue';
+
+/**
+ * Conexão WebSocket + terminal (xterm.js) compartilhada pelos painéis que
+ * rodam um comando de execução única num PTY destacável (Testes, Migrations
+ * Rails). O protocolo de frames é o mesmo em todos: `ready` (snapshot com
+ * buffer acumulado), `output` (bytes novos), `exit` (encerramento) e `error`.
+ * `onReady`/`onExit`/`onError` cuidam só do estado específico de cada painel
+ * (ex. qual operação está rodando); a montagem do terminal e a escrita da
+ * saída são genéricas e ficam aqui.
+ */
+export function usePtyTerminalSocket<
+  TSnapshot extends { buffer: string },
+>(handlers: {
+  onReady: (snapshot: TSnapshot) => void;
+  onExit: (exitCode: number | null, exitSignal: number | null) => void;
+  onError: (message: string) => void;
+}) {
+  const terminalContainer = ref<HTMLDivElement | null>(null);
+  const connecting = ref(false);
+
+  let terminal: Terminal | undefined;
+  let fitAddon: FitAddon | undefined;
+  let resizeObserver: ResizeObserver | undefined;
+  let socket: WebSocket | undefined;
+
+  function mountTerminal(): void {
+    if (!terminalContainer.value || terminal) return;
+    terminal = new Terminal({
+      convertEol: true,
+      disableStdin: true,
+      fontSize: 13,
+      fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+      theme: { background: '#10131c', foreground: '#dbe0f2' },
+    });
+    fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalContainer.value);
+    fitAddon.fit();
+    resizeObserver = new ResizeObserver(() => fitAddon?.fit());
+    resizeObserver.observe(terminalContainer.value);
+  }
+
+  function disposeTerminal(): void {
+    resizeObserver?.disconnect();
+    resizeObserver = undefined;
+    terminal?.dispose();
+    terminal = undefined;
+    fitAddon = undefined;
+  }
+
+  function disconnect(): void {
+    socket?.close(1000, 'Painel fechado');
+    socket = undefined;
+  }
+
+  function connect(url: string): void {
+    if (socket) return;
+    connecting.value = true;
+    const newSocket = new WebSocket(url);
+    socket = newSocket;
+
+    newSocket.addEventListener('open', () => {
+      if (socket !== newSocket) return;
+      connecting.value = false;
+    });
+
+    newSocket.addEventListener('message', (event) => {
+      if (socket !== newSocket || typeof event.data !== 'string') return;
+      let message: {
+        type?: string;
+        data?: string;
+        snapshot?: TSnapshot;
+        exitCode?: number | null;
+        exitSignal?: number | null;
+        message?: string;
+      };
+      try {
+        message = JSON.parse(event.data) as typeof message;
+      } catch {
+        return;
+      }
+
+      if (message.type === 'ready' && message.snapshot) {
+        const snapshot = message.snapshot;
+        handlers.onReady(snapshot);
+        requestAnimationFrame(() => {
+          mountTerminal();
+          if (snapshot.buffer) terminal?.write(snapshot.buffer);
+        });
+      } else if (
+        message.type === 'output' &&
+        typeof message.data === 'string'
+      ) {
+        mountTerminal();
+        terminal?.write(message.data);
+      } else if (message.type === 'exit') {
+        handlers.onExit(message.exitCode ?? null, message.exitSignal ?? null);
+        terminal?.write(
+          `\r\n\x1b[90m[execução encerrada, código ${message.exitCode ?? '—'}]\x1b[0m\r\n`,
+        );
+      } else if (
+        message.type === 'error' &&
+        typeof message.message === 'string'
+      ) {
+        handlers.onError(message.message);
+      }
+    });
+
+    newSocket.addEventListener('close', () => {
+      if (socket !== newSocket) return;
+      socket = undefined;
+      connecting.value = false;
+    });
+
+    newSocket.addEventListener('error', () => {
+      if (socket !== newSocket) return;
+      handlers.onError('A conexão com a execução falhou.');
+    });
+  }
+
+  onBeforeUnmount(() => {
+    disconnect();
+    disposeTerminal();
+  });
+
+  return {
+    terminalContainer,
+    connecting,
+    connect,
+    disconnect,
+    disposeTerminal,
+  };
+}

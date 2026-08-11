@@ -1,6 +1,8 @@
 import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
 
+import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
+
 const DEFAULT_BUFFER_LIMIT_BYTES = 262_144; // mesmo teto já usado em toda leitura de log do dashboard
 const KILL_ESCALATION_MS = 1_000; // TERM → espera → KILL, mesmo padrão do `dev-stop` do CLI bash
 const DEFAULT_COLS = 80;
@@ -149,8 +151,13 @@ export class DetachableExecutionService {
     this.executions.set(key, record);
 
     proc.onData((data) => {
-      this.appendToBuffer(record, data);
-      for (const listener of record.dataListeners) listener(data);
+      // Mesma máscara de segredos aplicada a toda leitura de log do
+      // dashboard (docs/architecture/security.md) — aplicada uma vez aqui,
+      // tanto o buffer armazenado quanto quem está ao vivo recebem a
+      // versão já mascarada.
+      const masked = maskSensitiveLogContent(data).content;
+      this.appendToBuffer(record, masked);
+      for (const listener of record.dataListeners) listener(masked);
     });
 
     proc.onExit(({ exitCode, signal }) => {

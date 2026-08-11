@@ -79,21 +79,6 @@ export interface RailsModelsOverview {
 export type RailsMigrationMutationOperation =
   'migrate' | 'rollback' | 'seed' | 'prepare';
 
-export interface RailsMigrationMutationConfirmation {
-  token: string;
-  operation: RailsMigrationMutationOperation;
-  expiresAt: string;
-}
-
-export interface RailsMigrationMutationResult {
-  operation: RailsMigrationMutationOperation;
-  succeeded: boolean;
-  output: string;
-  truncated: boolean;
-  masked: boolean;
-  redactionCount: number;
-}
-
 export type RailsGeneratorKind = 'model' | 'migration';
 
 export type RailsGeneratorFieldType =

@@ -1,12 +1,12 @@
 import type {
   RailsGeneratorField,
   RailsGeneratorKind,
-  RailsMigrationMutationOperation,
   RailsWorkerId,
 } from '@dev-dashboard/contracts';
 import { ProcessManagerError } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
+import type { RailsMigrationPtyService } from '../../services/rails-migration-pty-service.js';
 import {
   RailsMutationError,
   type RailsInspectionService,
@@ -21,6 +21,7 @@ export interface RailsRouteOptions {
   projectStore: ProjectStore;
   railsInspectionService: RailsInspectionService;
   railsRuntimeService: RailsRuntimeService;
+  railsMigrationPtyService: RailsMigrationPtyService;
 }
 
 export interface Params {
@@ -33,15 +34,6 @@ export interface MigrationParams extends Params {
 
 export interface DatabaseQuery {
   database?: string;
-}
-
-export interface MutationConfirmationBody {
-  operation: RailsMigrationMutationOperation;
-}
-
-export interface MutationBody {
-  operation: RailsMigrationMutationOperation;
-  confirmationToken: string;
 }
 
 export interface GeneratorConfirmationBody {
@@ -62,6 +54,12 @@ export const paramsSchema = {
   properties: { projectId: { type: 'string', minLength: 1 } },
 } as const;
 
+export const emptyBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {},
+} as const;
+
 export const migrationParamsSchema = {
   type: 'object',
   additionalProperties: false,
@@ -80,29 +78,12 @@ export const databaseQuerySchema = {
   },
 } as const;
 
-const mutationOperationEnum = [
+export const mutationOperationEnum = [
   'migrate',
   'rollback',
   'seed',
   'prepare',
 ] as const;
-
-export const mutationConfirmationBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['operation'],
-  properties: { operation: { type: 'string', enum: mutationOperationEnum } },
-} as const;
-
-export const mutationBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['operation', 'confirmationToken'],
-  properties: {
-    operation: { type: 'string', enum: mutationOperationEnum },
-    confirmationToken: { type: 'string', minLength: 64, maxLength: 64 },
-  },
-} as const;
 
 export const railsMigrationDetailResponseSchema = {
   type: 'object',
@@ -342,7 +323,8 @@ export function translateMutationError(error: unknown): never {
   if (error instanceof RailsMutationError) {
     const statuses: Record<string, number> = {
       RAILS_MUTATION_UNSUPPORTED: 409,
-      RAILS_MUTATION_CONFIRMATION_REQUIRED: 409,
+      RAILS_MUTATION_ALREADY_RUNNING: 409,
+      RAILS_MUTATION_FAILED: 500,
       RAILS_GENERATOR_UNSUPPORTED: 409,
       RAILS_GENERATOR_CONFIRMATION_REQUIRED: 409,
       RAILS_GENERATOR_INVALID_INPUT: 400,

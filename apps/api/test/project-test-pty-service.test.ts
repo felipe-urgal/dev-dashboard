@@ -113,6 +113,45 @@ test('start() lança TEST_COMMAND_NOT_FOUND quando o comando não existe', async
   );
 });
 
+test('start() traduz falha de spawn (ex. comando não encontrado) em START_FAILED com a causa real', async () => {
+  const detachable = new DetachableExecutionService({
+    spawnPty: () => {
+      throw new Error('spawn npm ENOENT');
+    },
+  });
+  const service = new ProjectTestPtyService(
+    detachable,
+    stubDetection({ command: 'npm', args: ['test'] }),
+  );
+
+  await assert.rejects(
+    () => service.start(project(), 'full-suite'),
+    (error: unknown) =>
+      error instanceof ProjectTestPtyError &&
+      error.code === 'START_FAILED' &&
+      error.message.includes('spawn npm ENOENT') &&
+      error.message.includes('npm test'),
+  );
+});
+
+test('start() traduz falha na resolução do comando em START_FAILED', async () => {
+  const detachable = new DetachableExecutionService();
+  const failingDetection = {
+    resolveCommand: async () => {
+      throw new Error('EACCES: permission denied');
+    },
+  } as never;
+  const service = new ProjectTestPtyService(detachable, failingDetection);
+
+  await assert.rejects(
+    () => service.start(project(), 'full-suite'),
+    (error: unknown) =>
+      error instanceof ProjectTestPtyError &&
+      error.code === 'START_FAILED' &&
+      error.message.includes('EACCES'),
+  );
+});
+
 test('start() lança ALREADY_RUNNING numa segunda chamada enquanto a primeira roda', async () => {
   const fakePty = new FakePty();
   const detachable = new DetachableExecutionService({

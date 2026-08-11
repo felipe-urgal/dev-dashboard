@@ -2,33 +2,19 @@
 import { computed, ref, watch } from 'vue';
 import {
   ArrowPathIcon,
-  CheckCircleIcon,
   ClockIcon,
   CommandLineIcon,
   CubeIcon,
   ExclamationTriangleIcon,
   PlayIcon,
   StopCircleIcon,
-  TrashIcon,
-  XCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-import type {
-  Project,
-  ProjectScript,
-  ProjectScriptCatalog,
-  ScriptExecutionStatus,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectScriptCatalog } from '@dev-dashboard/contracts';
 
 import { fetchProjectScripts } from '../api';
-import {
-  formatScriptExecutionDate,
-  scriptExecutionDuration,
-  scriptExecutionStatusLabels,
-} from '../composables/useProjectScriptsPanel';
-import { useScriptExecution } from '../composables/useScriptExecution';
+import { useProjectDependenciesPty } from '../composables/useProjectDependenciesPty';
 import { projectScriptDestination } from '../utils/project-script-visibility';
-import ProjectLogExperience from './ProjectLogExperience.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -36,28 +22,21 @@ const props = defineProps<{ project: Project }>();
 const catalog = ref<ProjectScriptCatalog | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
-const activeSection = ref<'actions' | 'execution'>('actions');
-const selectedActionId = ref('');
 let generation = 0;
 
+const isSupportedProject = computed(() => Boolean(props.project.type));
+
 const {
-  execution,
-  history,
-  executionLog,
-  maskedLogEntries,
-  startingActionId,
-  clearingHistory,
+  snapshot,
+  errorMessage: mutationErrorMessage,
+  starting,
+  cancelling,
+  connecting,
+  isRunning,
+  terminalContainer,
   run,
-  selectHistory,
   cancel,
-  clearHistory,
-} = useScriptExecution(
-  () => props.project,
-  activeSection,
-  selectedActionId,
-  'execution',
-  errorMessage,
-);
+} = useProjectDependenciesPty(() => props.project, isSupportedProject);
 
 const actions = computed(() =>
   (catalog.value?.items ?? []).filter(
@@ -77,24 +56,6 @@ const nodeActions = computed(() =>
   ),
 );
 
-const actionIds = computed(() => new Set(actions.value.map((item) => item.id)));
-const currentExecution = computed(() =>
-  execution.value && actionIds.value.has(execution.value.actionId)
-    ? execution.value
-    : null,
-);
-const relevantHistory = computed(() =>
-  (history.value?.items ?? []).filter((item) =>
-    actionIds.value.has(item.actionId),
-  ),
-);
-const currentAction = computed(
-  () =>
-    actions.value.find(
-      (item) => item.id === currentExecution.value?.actionId,
-    ) ?? null,
-);
-
 const nodeManager = computed(() => {
   const command = nodeActions.value[0]?.command
     .trim()
@@ -107,29 +68,22 @@ const nodeManager = computed(() => {
   return 'Node';
 });
 
-function managerName(item: ProjectScript): string {
-  return item.origin === 'bundler' ? 'Bundler' : nodeManager.value;
+function managerName(origin: string): string {
+  return origin === 'bundler' ? 'Bundler' : nodeManager.value;
 }
 
-function managerClass(item: ProjectScript): string {
-  return item.origin === 'bundler' ? 'is-ruby' : 'is-node';
+function managerClass(origin: string): string {
+  return origin === 'bundler' ? 'is-ruby' : 'is-node';
 }
 
-function executionTone(
-  status: ScriptExecutionStatus,
-): 'info' | 'success' | 'danger' | 'warning' {
-  if (status === 'running') return 'info';
-  if (status === 'succeeded') return 'success';
-  if (status === 'failed') return 'danger';
-  return 'warning';
-}
-
-function executionIcon(status: ScriptExecutionStatus) {
-  if (status === 'running') return ArrowPathIcon;
-  if (status === 'succeeded') return CheckCircleIcon;
-  if (status === 'failed') return XCircleIcon;
-  return StopCircleIcon;
-}
+const statusLabel = computed(() => {
+  if (connecting.value) return 'Conectando…';
+  if (isRunning.value) return 'Executando…';
+  if (!snapshot.value || snapshot.value.status !== 'exited') return '';
+  return snapshot.value.exitCode === 0
+    ? `${snapshot.value.actionName} concluído.`
+    : `${snapshot.value.actionName} falhou (código ${snapshot.value.exitCode ?? '—'}).`;
+});
 
 async function load(): Promise<void> {
   const current = ++generation;
@@ -140,9 +94,6 @@ async function load(): Promise<void> {
     const result = await fetchProjectScripts(props.project.id, query);
     if (current !== generation) return;
     catalog.value = result;
-    if (!result.items.some((item) => item.id === selectedActionId.value)) {
-      selectedActionId.value = result.items[0]?.id ?? '';
-    }
   } catch (error) {
     if (current === generation) {
       errorMessage.value =
@@ -155,21 +106,10 @@ async function load(): Promise<void> {
   }
 }
 
-function execute(item: ProjectScript): void {
-  selectedActionId.value = item.id;
-  void run(item);
-}
-
-function rerun(): void {
-  if (currentAction.value) void run(currentAction.value);
-}
-
 watch(
   () => props.project.id,
   () => {
     catalog.value = null;
-    selectedActionId.value = '';
-    activeSection.value = 'actions';
     void load();
   },
   { immediate: true },
@@ -265,10 +205,10 @@ watch(
               <td data-label="Gerenciador">
                 <span
                   class="dependencies-manager-name"
-                  :class="managerClass(item)"
+                  :class="managerClass(item.origin)"
                 >
                   <i aria-hidden="true"></i>
-                  {{ managerName(item) }}
+                  {{ managerName(item.origin) }}
                 </span>
               </td>
               <td data-label="Ação">
@@ -288,15 +228,11 @@ watch(
               <td class="dependencies-row-action">
                 <button
                   type="button"
-                  :disabled="
-                    !item.enabled ||
-                    startingActionId !== null ||
-                    execution?.status === 'running'
-                  "
-                  @click="execute(item)"
+                  :disabled="!item.enabled || starting !== null || isRunning"
+                  @click="run(item)"
                 >
                   <PlayIcon aria-hidden="true" />
-                  {{ startingActionId === item.id ? 'Iniciando…' : 'Executar' }}
+                  {{ starting === item.id ? 'Iniciando…' : 'Executar' }}
                 </button>
               </td>
             </tr>
@@ -313,109 +249,50 @@ watch(
       </div>
 
       <section class="dependencies-console" aria-label="Detalhes da execução">
-        <template v-if="currentExecution">
+        <template v-if="snapshot">
           <header class="dependencies-console-header">
             <div class="dependencies-console-title">
-              <span :class="`is-${currentExecution.status}`">
+              <span :class="`is-${snapshot.status}`">
                 <component
-                  :is="executionIcon(currentExecution.status)"
+                  :is="isRunning ? ArrowPathIcon : StopCircleIcon"
                   aria-hidden="true"
                 />
               </span>
-              <strong>{{ currentExecution.actionName }}</strong>
-              <small>{{
-                formatScriptExecutionDate(currentExecution.startedAt)
-              }}</small>
-              <small>{{ scriptExecutionDuration(currentExecution) }}</small>
-              <small>exit {{ currentExecution.exitCode ?? '—' }}</small>
+              <strong>{{ snapshot.actionName }}</strong>
+              <small>exit {{ snapshot.exitCode ?? '—' }}</small>
             </div>
             <div class="dependencies-console-actions">
-              <StatusBadge :tone="executionTone(currentExecution.status)">
-                {{ scriptExecutionStatusLabels[currentExecution.status] }}
-              </StatusBadge>
               <button
-                v-if="currentExecution.status === 'running'"
+                v-if="isRunning"
                 type="button"
                 class="is-danger"
+                :disabled="cancelling"
                 @click="cancel"
               >
                 <StopCircleIcon aria-hidden="true" />
-                Cancelar
-              </button>
-              <button v-else-if="currentAction" type="button" @click="rerun">
-                <PlayIcon aria-hidden="true" />
-                Executar novamente
+                {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
               </button>
             </div>
           </header>
 
-          <div
-            class="dependencies-console-body dependencies-console-body--diagnostic"
+          <p
+            v-if="mutationErrorMessage"
+            class="dependencies-alert"
+            role="alert"
           >
-            <ProjectLogExperience
-              :content="`$ ${currentAction?.command ?? currentExecution.actionName}\n${executionLog || ''}`"
-              source="dependency"
-              flow-label="Saída"
-              :running="currentExecution.status === 'running'"
-              :masked-count="maskedLogEntries"
-              empty-label="A execução ainda não produziu saída."
-              compact
-            />
+            {{ mutationErrorMessage }}
+          </p>
+          <p v-else-if="statusLabel" class="dependencies-status">
+            {{ statusLabel }}
+          </p>
 
-            <aside class="dependencies-history" aria-label="Execuções recentes">
-              <header>
-                <div>
-                  <strong>Execuções recentes</strong>
-                  <small v-if="maskedLogEntries"
-                    >{{ maskedLogEntries }} item(ns) mascarado(s)</small
-                  >
-                </div>
-                <button
-                  v-if="relevantHistory.length > 0"
-                  type="button"
-                  class="dependencies-history-clear"
-                  :disabled="clearingHistory"
-                  @click="clearHistory"
-                >
-                  <TrashIcon aria-hidden="true" />
-                  {{ clearingHistory ? 'Limpando…' : 'Limpar' }}
-                </button>
-              </header>
-              <button
-                v-for="item in relevantHistory.slice(0, 5)"
-                :key="item.id"
-                type="button"
-                @click="selectHistory(item)"
-              >
-                <component
-                  :is="executionIcon(item.status)"
-                  aria-hidden="true"
-                />
-                <span>
-                  <strong>{{ item.actionName }}</strong>
-                  <small
-                    >{{ formatScriptExecutionDate(item.startedAt) }} ·
-                    {{ scriptExecutionDuration(item) }}</small
-                  >
-                </span>
-                <StatusBadge :tone="executionTone(item.status)">{{
-                  scriptExecutionStatusLabels[item.status]
-                }}</StatusBadge>
-              </button>
-              <span
-                v-if="relevantHistory.length === 0"
-                class="dependencies-history-empty"
-              >
-                Nenhuma execução recente.
-              </span>
-            </aside>
-          </div>
+          <div ref="terminalContainer" class="dependencies-terminal"></div>
         </template>
 
         <div v-else class="dependencies-empty dependencies-console-empty">
           <ClockIcon aria-hidden="true" />
           <strong>Nenhuma execução selecionada</strong>
-          <span>Execute uma ação para acompanhar status, duração e saída.</span>
+          <span>Execute uma ação para acompanhar status e saída.</span>
         </div>
       </section>
     </template>

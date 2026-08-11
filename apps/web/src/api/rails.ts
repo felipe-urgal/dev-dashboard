@@ -14,9 +14,7 @@ import type {
   RailsGeneratorField,
   RailsGeneratorKind,
   RailsGeneratorResult,
-  RailsMigrationMutationConfirmation,
   RailsMigrationMutationOperation,
-  RailsMigrationMutationResult,
   RailsMigrationsOverview,
   RailsWorkerId,
   RailsWorkerOverview,
@@ -164,42 +162,61 @@ export async function fetchProjectRailsMigrations(
   return response.migrations;
 }
 
-interface RailsMutationConfirmationResponse {
-  confirmation: RailsMigrationMutationConfirmation;
-}
-interface RailsMutationResultResponse {
-  result: RailsMigrationMutationResult;
+export interface RailsMigrationPtyStatusSnapshot {
+  operation: RailsMigrationMutationOperation;
+  status: 'running' | 'exited';
+  exitCode: number | null;
+  exitSignal: number | null;
+  startedAt: string;
+  endedAt: string | null;
 }
 
-export async function prepareProjectRailsMutation(
+export async function fetchProjectRailsMigrationPtyStatus(
+  projectId: string,
+): Promise<RailsMigrationPtyStatusSnapshot | null> {
+  const response = await requestJson<{
+    snapshot: RailsMigrationPtyStatusSnapshot | null;
+  }>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/pty/status`,
+  );
+  return response.snapshot;
+}
+
+export async function startProjectRailsMigrationPty(
   projectId: string,
   operation: RailsMigrationMutationOperation,
-): Promise<RailsMigrationMutationConfirmation> {
-  const response = await requestJson<RailsMutationConfirmationResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/confirmations`,
+): Promise<RailsMigrationPtyStatusSnapshot> {
+  const response = await requestJson<{
+    snapshot: RailsMigrationPtyStatusSnapshot;
+  }>(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/pty/start`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ operation }),
     },
   );
-  return response.confirmation;
+  return response.snapshot;
 }
 
-export async function runProjectRailsMutation(
+export async function cancelProjectRailsMigrationPty(
   projectId: string,
-  operation: RailsMigrationMutationOperation,
-  confirmationToken: string,
-): Promise<RailsMigrationMutationResult> {
-  const response = await requestJson<RailsMutationResultResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/mutations`,
+): Promise<void> {
+  await requestJson(
+    `/api/projects/${encodeURIComponent(projectId)}/rails/migrations/pty/cancel`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operation, confirmationToken }),
+      body: '{}',
     },
   );
-  return response.result;
+}
+
+export function projectRailsMigrationPtyWebSocketUrl(
+  projectId: string,
+): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/api/projects/${encodeURIComponent(projectId)}/rails/migrations/pty/connect`;
 }
 
 interface RailsGeneratorConfirmationResponse {

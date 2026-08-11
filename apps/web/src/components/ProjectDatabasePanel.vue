@@ -42,7 +42,6 @@ import {
   dbReachabilityToneFor,
   railsMigrationToneFor,
 } from '../utils/status-tones';
-import ProjectLogExperience from './ProjectLogExperience.vue';
 import RailsGeneratorForm from './RailsGeneratorForm.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -83,15 +82,30 @@ const {
   selectedMigrationVersion,
   selectedDatabase: selectedMigrationsDatabase,
   mutationRunning,
-  mutationMessage,
+  mutationSnapshot,
   mutationErrorMessage,
-  mutationOutput,
+  mutationConnecting,
+  mutationCancelling,
+  mutationTerminalContainer,
   mutationLabels,
   loadMigrations,
   selectMigration,
   selectDatabase: selectMigrationsDatabase,
   runMigrationMutation,
+  cancelMigrationMutation,
 } = useRailsMigrations(() => props.project, isRailsProject);
+
+const mutationIsRunning = computed(
+  () => mutationSnapshot.value?.status === 'running',
+);
+const mutationStatusLabel = computed(() => {
+  const snapshot = mutationSnapshot.value;
+  if (!snapshot) return '';
+  if (snapshot.status === 'running') return 'Executando…';
+  return snapshot.exitCode === 0
+    ? `${mutationLabels[snapshot.operation]} concluído.`
+    : `${mutationLabels[snapshot.operation]} falhou (código ${snapshot.exitCode ?? '—'}).`;
+});
 
 const {
   models,
@@ -134,7 +148,6 @@ useAutoDismiss(errorMessage, '');
 useAutoDismiss(migrationsErrorMessage, '');
 useAutoDismiss(migrationDetailErrorMessage, '');
 useAutoDismiss(modelsErrorMessage, '');
-useAutoDismiss(mutationMessage, '');
 useAutoDismiss(mutationErrorMessage, '');
 useAutoDismiss(snapshotsErrorMessage, '');
 useAutoDismiss(snapshotsMessage, '');

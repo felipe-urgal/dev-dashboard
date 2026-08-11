@@ -50,9 +50,50 @@ const modelsOverview: RailsModelsOverview = {
   ],
 };
 
+class FakeWebSocket {
+  public static instances: FakeWebSocket[] = [];
+  public readonly url: string;
+  public readyState = 0;
+  private readonly listeners = new Map<
+    string,
+    Array<(event: unknown) => void>
+  >();
+
+  public constructor(url: string) {
+    this.url = url;
+    FakeWebSocket.instances.push(this);
+  }
+
+  public addEventListener(
+    type: string,
+    handler: (event: unknown) => void,
+  ): void {
+    const list = this.listeners.get(type) ?? [];
+    list.push(handler);
+    this.listeners.set(type, list);
+  }
+
+  public close(): void {
+    this.readyState = 3;
+    this.emit('close', {});
+  }
+
+  public emit(type: string, event: unknown): void {
+    for (const handler of this.listeners.get(type) ?? []) handler(event);
+  }
+
+  public emitMessage(payload: unknown): void {
+    this.emit('message', { data: JSON.stringify(payload) });
+  }
+}
+
+// @ts-expect-error substitui o WebSocket global só para este arquivo de teste
+globalThis.WebSocket = FakeWebSocket;
+
 let cleanup: (() => void) | undefined;
 beforeEach(() => {
   cleanup = undefined;
+  FakeWebSocket.instances = [];
 });
 afterEach(() => {
   cleanup?.();
@@ -156,40 +197,32 @@ function mockFetchFor(
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
     }
-    if (url.pathname.endsWith('/rails/migrations/confirmations')) {
-      options.onMutationCall?.(
-        url.pathname,
-        init?.body ? JSON.parse(String(init.body)) : undefined,
-      );
+    if (url.pathname.endsWith('/rails/migrations/pty/status')) {
+      return new Response(JSON.stringify({ snapshot: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.pathname.endsWith('/rails/migrations/pty/start')) {
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      options.onMutationCall?.(url.pathname, body);
       return new Response(
         JSON.stringify({
-          confirmation: {
-            token: 't'.repeat(64),
-            operation: 'migrate',
-            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          snapshot: {
+            operation: body.operation,
+            status: 'running',
+            exitCode: null,
+            exitSignal: null,
+            startedAt: new Date().toISOString(),
+            endedAt: null,
           },
         }),
         { status: 201, headers: { 'content-type': 'application/json' } },
       );
     }
-    if (url.pathname.endsWith('/rails/migrations/mutations')) {
-      options.onMutationCall?.(
-        url.pathname,
-        init?.body ? JSON.parse(String(init.body)) : undefined,
-      );
-      return new Response(
-        JSON.stringify({
-          result: {
-            operation: 'migrate',
-            succeeded: true,
-            output: '== migrating ==',
-            truncated: false,
-            masked: false,
-            redactionCount: 0,
-          },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
+    if (url.pathname.endsWith('/rails/migrations/pty/cancel')) {
+      options.onMutationCall?.(url.pathname, undefined);
+      return new Response(null, { status: 200 });
     }
     if (url.pathname.endsWith('/rails/generate/confirmations')) {
       const body = init?.body
@@ -269,13 +302,11 @@ test('projeto Rails mostra migrations pendentes na visão geral', async () => {
   assert.match(wrapper.text(), /Create users/);
 });
 
-test('roda migrate após confirmação e recarrega o status', async () => {
+test('roda migrate via PTY, mostra o terminal e conclui', async () => {
   const calls: Array<{ pathname: string; body: unknown }> = [];
   const originalFetch = mockFetchFor('rails', {
     onMutationCall: (pathname, body) => calls.push({ pathname, body }),
   });
-  const originalConfirm = globalThis.window?.confirm;
-  if (globalThis.window) globalThis.window.confirm = () => true;
 
   const wrapper = mount(ProjectDatabasePanel, {
     props: {
@@ -285,8 +316,6 @@ test('roda migrate após confirmação e recarrega o status', async () => {
   cleanup = () => {
     wrapper.unmount();
     globalThis.fetch = originalFetch;
-    if (globalThis.window && originalConfirm)
-      globalThis.window.confirm = originalConfirm;
   };
   await flushPromises();
   await flushPromises();
@@ -302,18 +331,37 @@ test('roda migrate após confirmação e recarrega o status', async () => {
 
   assert.deepEqual(
     calls.map((call) => call.pathname),
-    [
-      '/api/projects/p1/rails/migrations/confirmations',
-      '/api/projects/p1/rails/migrations/mutations',
-    ],
+    ['/api/projects/p1/rails/migrations/pty/start'],
   );
   assert.equal((calls[0]!.body as { operation: string }).operation, 'migrate');
-  assert.equal(
-    (calls[1]!.body as { confirmationToken: string }).confirmationToken,
-    't'.repeat(64),
-  );
+
+  assert.equal(FakeWebSocket.instances.length, 1);
+  const socket = FakeWebSocket.instances[0]!;
+  socket.readyState = 1;
+  socket.emit('open', {});
+  socket.emitMessage({
+    type: 'ready',
+    snapshot: {
+      operation: 'migrate',
+      status: 'running',
+      exitCode: null,
+      exitSignal: null,
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      buffer: '',
+    },
+  });
+  await flushPromises();
+  assert.match(wrapper.text(), /Executando/);
+
+  socket.emitMessage({ type: 'output', data: '== migrating ==\n' });
+  await flushPromises();
+
+  socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
+  await flushPromises();
+  await flushPromises();
+
   assert.match(wrapper.text(), /concluído/);
-  assert.match(wrapper.text(), /migrating/);
 });
 
 test('abre os detalhes da migration em um modal com o código destacado', async () => {

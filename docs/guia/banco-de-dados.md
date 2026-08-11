@@ -43,8 +43,13 @@ A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 - Lista todas as migrations do projeto com status `up` (aplicada) ou `down` (pendente), com filtro
   por nome/versão e por status.
 - Abrir uma migration mostra o código-fonte do arquivo em um modal, com destaque de sintaxe.
-- A sub-seção Operações permite rodar as mutações conhecidas de migration (ex.: `db:migrate`,
-  `db:rollback`) pelo catálogo fechado de comandos do projeto — nunca uma string de shell livre.
+- A sub-seção Operações permite rodar as mutações conhecidas de migration (`db:migrate`,
+  `db:rollback` — 1 passo —, `db:seed`, `db:prepare`) pelo catálogo fechado de comandos do projeto
+  — nunca uma string de shell livre. A saída é exibida ao vivo num terminal (mesmo mecanismo de
+  execução destacável da suíte de testes, ver `docs/guia/testes.md`): pedir a operação abre um
+  diálogo de confirmação, e a execução continua no servidor mesmo que a aba seja fechada — reabrir
+  a aba de Operações reconecta e mostra a saída acumulada. Só uma operação por vez; um botão
+  **Cancelar** aparece enquanto ela está rodando.
 
 ## Modelos (Rails)
 
@@ -55,5 +60,8 @@ A aba é dividida em sub-seções, navegáveis por `?section=` na URL:
 
 Como as demais abas mutáveis do dashboard, toda ação que altera algo (iniciar/pausar/reiniciar um
 serviço, restaurar um snapshot, rodar uma migration) usa o catálogo fechado de comandos conhecidos
-pela API — nunca um comando arbitrário vindo do navegador — e as operações destrutivas exigem o
-token de confirmação de uso único descrito acima.
+pela API — nunca um comando arbitrário vindo do navegador. Restaurar snapshot exige o token de
+confirmação de uso único descrito acima; as operações de migration pedem confirmação no próprio
+navegador antes de iniciar e, por rodarem num canal WebSocket somente leitura (sem stdin livre),
+não usam token de confirmação do servidor — ver `docs/architecture/security.md` para o detalhe do
+modelo de ameaça.
