@@ -4,34 +4,32 @@
 
 ## Objetivo
 
-Reduzir a densidade da Visão geral e separar melhor ações de manutenção do
-workspace das ações globais de servidor.
+Reduzir a densidade da Visão geral e deixar a landing focada na identificação
+e no acesso aos projetos.
 
 ## Resultado
 
 - removida a busca textual da lista de projetos na Visão geral;
-- removido o filtro por tipo (Todos/Rails/Node) da Visão geral;
-- a lista volta a exibir diretamente todos os projetos detectados, preservando
-  a ordenação por prioridade;
-- os controles globais de iniciar e parar servidores foram movidos para junto
-  do título e da contagem de projetos;
-- escanear novamente e remover workspace continuam no grupo de ações do
-  cabeçalho, separados das ações de execução;
-- o teste da Visão geral foi atualizado para cobrir a ausência dos filtros e a
-  nova posição dos controles de servidor;
-- a arquitetura da informação foi reconciliada com o comportamento atual.
-
-## Limitações
-
-A mudança não altera o comportamento das ações globais de iniciar/parar nem os
-controles individuais de cada projeto; apenas simplifica a composição da
-landing.
+- removido o filtro por tipo (Todos/Rails/Node);
+- removidos o título **Projetos detectados** e a contagem de projetos;
+- removidos os badges de tipo e recência da listagem;
+- removidas as ações individuais de favorito, exclusão e o rótulo **Abrir**;
+- cada projeto mantém apenas o indicador de estado do servidor e a ação de
+  desativar/reativar;
+- a ação de desativar/reativar possui nome acessível e `title` no hover;
+- projetos desativados não recebem o efeito de hover do card e usam cursor
+  padrão;
+- removidas da Visão geral as ações globais de iniciar todos e parar todos os
+  servidores;
+- escanear novamente e remover workspace permanecem no cabeçalho de
+  Repositórios;
+- testes unitários e E2E foram atualizados para refletir a interface atual.
 
 ## Validação
 
-A suíte não foi executada pelo conector do GitHub. O teste automatizado
-`apps/web/test/dashboard-view.test.ts` foi atualizado para a regressão desta
-entrega e deve ser validado pelo CI do pull request.
+A validação completa fica a cargo do CI do pull request. Os testes de regressão
+da Visão geral e de navegação foram reconciliados com a remoção dos elementos
+anteriores.
 
-`tasks/PENDENCIAS.md` não possui item aberto específico para esses filtros ou
-para a posição dos controles, portanto não houve item a remover do backlog.
+`tasks/PENDENCIAS.md` não possui item aberto específico para essas simplificações,
+portanto não houve item a remover do backlog.
