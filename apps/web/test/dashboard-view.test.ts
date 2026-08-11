@@ -176,7 +176,7 @@ describe('dashboard principal', () => {
     expect(actions.favoritar).toHaveBeenCalledWith(project);
   });
 
-  it('mantém a visão geral sem busca nem filtro de tipo e move start/stop para o resumo', () => {
+  it('remove busca/filtro e move start/stop para o resumo', () => {
     dashboardStore.projects.value = [
       { ...project, capabilities: ['git', 'server'] },
       {
