@@ -201,10 +201,12 @@ Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento 
 - [x] Configuração inválida ou versão desconhecida é colocada em quarentena e não concede cloud por acidente.
 - [x] Seleção só altera o estado em memória depois da persistência bem-sucedida.
 - [x] A UI restaura a seleção persistida quando `PUT /ai/selection` falha.
+- [x] Fault injection cobre queda do processo entre `writeFile` e `rename` para consentimento e seleção: o arquivo real permanece com o último estado válido, o estado em memória não avança, o `.tmp` órfão não interfere em leituras futuras, e a próxima escrita bem-sucedida recupera o fluxo normalmente (`packages/core/test/project-ai-repositories.test.ts`).
+- [x] Teste visual dedicado cobre falha de persistência do consentimento: `PUT /providers/openai/consent` retornando erro mantém `consentGranted` anterior, exibe a mensagem de erro e não libera o botão de revogar acesso (`apps/web/test/project-ai-assistant-panel.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Adicionar fault injection específico para queda do processo entre `writeFile` e `rename` e um teste visual dedicado à falha de persistência do consentimento.
+Nenhum pendente neste item.
 
 ## 13. Execução `fast` / `complete`
 

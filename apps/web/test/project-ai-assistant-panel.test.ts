@@ -349,6 +349,70 @@ test('mantém a oferta quando a seleção de fallback não é persistida', async
   wrapper.unmount();
 });
 
+test('mantém consentimento anterior e mostra erro quando a persistência falha', async () => {
+  const consentRequests: unknown[] = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    if (
+      url.pathname.endsWith('/providers/openai/consent') &&
+      init?.method === 'PUT'
+    ) {
+      consentRequests.push(JSON.parse(String(init.body)));
+      return json({ message: 'Falha ao salvar consentimento.' }, 500);
+    }
+    if (url.pathname.endsWith('/ai/selection') && init?.method === 'PUT') {
+      return json(
+        providersStatus({
+          selectedProvider: 'openai',
+          ollamaAvailable: true,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    if (url.pathname.endsWith('/ai/providers')) {
+      return json(
+        providersStatus({
+          ollamaAvailable: true,
+          openaiAvailable: true,
+        }),
+      );
+    }
+    return json({ execution: null });
+  };
+
+  const wrapper = mount(ProjectAiAssistantPanel, {
+    props: {
+      project: makeProject({ id: '' }),
+      projectId: 'p1',
+    },
+  });
+  await flushPromises();
+
+  await wrapper
+    .get('.ai-assistant-execution-options select')
+    .setValue('openai');
+  await flushPromises();
+
+  const authorize = wrapper
+    .findAll('button')
+    .find((button) => button.text().includes('Autorizar neste projeto'));
+  assert.ok(authorize);
+  await authorize.trigger('click');
+  await flushPromises();
+
+  assert.deepEqual(consentRequests, [{ granted: true }]);
+  assert.match(wrapper.text(), /Falha ao salvar consentimento\./);
+  assert.match(wrapper.text(), /Autorizar envio de código à OpenAI\?/);
+  assert.equal(
+    wrapper
+      .findAll('button')
+      .some((button) => button.text().includes('Revogar acesso cloud')),
+    false,
+  );
+  wrapper.unmount();
+});
+
 test('restaura provider persistido quando a troca manual falha', async () => {
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input), 'http://localhost');

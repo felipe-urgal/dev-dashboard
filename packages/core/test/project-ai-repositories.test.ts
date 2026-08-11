@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { promises as fsPromises } from 'node:fs';
+import { mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -118,6 +119,101 @@ test('recusa seleção de IA inválida', async () => {
     }),
     /seleção de execução de IA é inválida/i,
   );
+});
+
+test('consentimento mantém o estado anterior íntegro quando o processo cai entre writeFile e rename', async (t) => {
+  const directory = await tempDirectory('project-ai-consent-crash-');
+  const repository = new ProjectAiConsentRepository(directory);
+  await repository.set('project-a', 'openai', true);
+
+  const renameMock = t.mock.method(fsPromises, 'rename', async () => {
+    throw new Error('falha simulada de disco entre writeFile e rename');
+  });
+  await assert.rejects(repository.set('project-b', 'openai', true));
+  renameMock.mock.restore();
+
+  assert.equal(repository.has('project-a', 'openai'), true);
+  assert.equal(repository.has('project-b', 'openai'), false);
+  assert.deepEqual(JSON.parse(await readFile(repository.filePath, 'utf8')), {
+    version: 1,
+    grants: [{ projectId: 'project-a', provider: 'openai' }],
+  });
+
+  const leftovers = (await readdir(directory)).filter((name) =>
+    name.endsWith('.tmp'),
+  );
+  assert.equal(leftovers.length, 1);
+
+  const reloaded = new ProjectAiConsentRepository(directory);
+  assert.equal(reloaded.has('project-a', 'openai'), true);
+  assert.equal(reloaded.has('project-b', 'openai'), false);
+
+  await repository.set('project-b', 'openai', true);
+  assert.equal(repository.has('project-b', 'openai'), true);
+});
+
+test('consentimento mantém o estado anterior íntegro quando writeFile falha antes do rename', async (t) => {
+  const directory = await tempDirectory('project-ai-consent-write-crash-');
+  const repository = new ProjectAiConsentRepository(directory);
+  await repository.set('project-a', 'openai', true);
+
+  const writeMock = t.mock.method(fsPromises, 'writeFile', async () => {
+    throw new Error('ENOSPC simulado');
+  });
+  await assert.rejects(repository.set('project-b', 'openai', true));
+  writeMock.mock.restore();
+
+  assert.equal(repository.has('project-a', 'openai'), true);
+  assert.equal(repository.has('project-b', 'openai'), false);
+  assert.deepEqual(JSON.parse(await readFile(repository.filePath, 'utf8')), {
+    version: 1,
+    grants: [{ projectId: 'project-a', provider: 'openai' }],
+  });
+});
+
+test('seleção de IA mantém o estado anterior íntegro quando o processo cai entre writeFile e rename', async (t) => {
+  const directory = await tempDirectory('project-ai-selection-crash-');
+  const file = path.join(directory, 'project-ai-selection.json');
+  const repository = new ProjectAiSelectionRepository(directory);
+  await repository.set('project-a', { provider: 'openai', mode: 'fast' });
+
+  const renameMock = t.mock.method(fsPromises, 'rename', async () => {
+    throw new Error('falha simulada de disco entre writeFile e rename');
+  });
+  await assert.rejects(
+    repository.set('project-b', { provider: 'ollama', mode: 'complete' }),
+  );
+  renameMock.mock.restore();
+
+  assert.deepEqual(repository.get('project-a'), {
+    provider: 'openai',
+    mode: 'fast',
+  });
+  assert.deepEqual(repository.get('project-b'), {
+    provider: 'ollama',
+    mode: 'fast',
+  });
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), {
+    version: 1,
+    projects: { 'project-a': { provider: 'openai', mode: 'fast' } },
+  });
+
+  const leftovers = (await readdir(directory)).filter((name) =>
+    name.endsWith('.tmp'),
+  );
+  assert.equal(leftovers.length, 1);
+
+  const reloaded = new ProjectAiSelectionRepository(directory);
+  assert.deepEqual(reloaded.get('project-a'), {
+    provider: 'openai',
+    mode: 'fast',
+  });
+
+  await repository.set('project-b', { provider: 'ollama', mode: 'complete' });
+  assert.deepEqual(repository.get('project-b'), {
+    provider: 'ollama',
+    mode: 'complete',
+  });
 });
 
 test('arquivos de IA corrompidos são ignorados e o estado volta ao default seguro', async () => {
