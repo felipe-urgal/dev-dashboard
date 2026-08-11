@@ -122,3 +122,5 @@ function locationLabel(failure: TestFailure): string {
     </ol>
   </section>
 </template>
+
+<style scoped src="../project-tests/failure-navigator.css"></style>
