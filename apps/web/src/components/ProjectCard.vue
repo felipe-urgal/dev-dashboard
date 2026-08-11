@@ -179,6 +179,10 @@ const statusLabel = computed(() =>
   transform: none;
 }
 
+.project-row-disabled .project-row-link {
+  cursor: default;
+}
+
 .project-row-disabled .project-row-link:hover {
   border-color: var(--border);
   background: var(--surface-1);
