@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import {
-  ArrowPathIcon,
-  PlayIcon,
-  StopIcon,
-  TrashIcon,
-} from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, TrashIcon } from '@heroicons/vue/24/outline';
 
 import Card from '../components/Card.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import ProjectCard from '../components/ProjectCard.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { useDashboardServerActions } from '../composables/useDashboardServerActions';
 import { dashboardStore } from '../stores/dashboard';
 import { sortProjectsByPriority } from '../utils/project-priority';
 
@@ -24,7 +18,6 @@ const {
   successMessage,
   warningCount,
   lastScannedPath,
-  selectedWorkspaceId,
   enabledUpdatingIds,
   rescanSelectedWorkspace,
   handleDeleteWorkspace,
@@ -36,33 +29,6 @@ useAutoDismiss(successMessage, '');
 useAutoDismiss(warningCount, 0);
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
-
-const projectsWithServer = computed(() =>
-  sortedProjects.value.filter(
-    (project) => project.capabilities.includes('server') && project.enabled,
-  ),
-);
-
-const {
-  loadingServerStatuses,
-  serverStatusesLoaded,
-  startingAllServers,
-  serversBeingStarted,
-  stoppingAllServers,
-  serversBeingStopped,
-  startableServerProjects,
-  stoppableServerProjects,
-  serverActionInProgress,
-  serverStartActionTitle,
-  serverStopActionTitle,
-  handleStartAllServers,
-  handleStopAllServers,
-} = useDashboardServerActions({
-  projectsWithServer,
-  selectedWorkspaceId,
-  errorMessage,
-  successMessage,
-});
 </script>
 
 <template>
@@ -126,56 +92,7 @@ const {
 
     <Card id="repositories" class="repositories-section">
       <template #header>
-        <div class="repository-heading">
-          <span class="section-kicker">Repositórios</span>
-
-          <div
-            v-if="projectsWithServer.length > 0"
-            class="repository-server-actions"
-            role="group"
-            aria-label="Controles dos servidores"
-          >
-            <button
-              type="button"
-              class="compact-action-button compact-action-button-primary"
-              :disabled="
-                loadingServerStatuses ||
-                !serverStatusesLoaded ||
-                serverActionInProgress ||
-                startableServerProjects.length === 0
-              "
-              :aria-label="
-                startingAllServers
-                  ? `Iniciando ${serversBeingStarted} servidores`
-                  : 'Iniciar servidores'
-              "
-              :title="serverStartActionTitle"
-              @click="handleStartAllServers"
-            >
-              <PlayIcon aria-hidden="true" />
-            </button>
-
-            <button
-              type="button"
-              class="compact-action-button compact-action-button-danger"
-              :disabled="
-                loadingServerStatuses ||
-                !serverStatusesLoaded ||
-                serverActionInProgress ||
-                stoppableServerProjects.length === 0
-              "
-              :aria-label="
-                stoppingAllServers
-                  ? `Parando ${serversBeingStopped} servidores`
-                  : 'Parar servidores'
-              "
-              :title="serverStopActionTitle"
-              @click="handleStopAllServers"
-            >
-              <StopIcon aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <span class="section-kicker">Repositórios</span>
       </template>
 
       <template #actions>
@@ -248,23 +165,11 @@ const {
 </template>
 
 <style scoped>
-.repository-heading {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.repository-server-actions,
 .compact-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
-}
-
-.compact-actions {
   justify-content: flex-end;
+  gap: 7px;
 }
 
 .compact-action-button {
@@ -307,12 +212,6 @@ const {
 .compact-action-button svg {
   width: 16px;
   height: 16px;
-}
-
-.compact-action-button-primary {
-  border-color: var(--accent);
-  color: var(--info-text);
-  background: var(--accent-soft);
 }
 
 .compact-action-button-danger {
