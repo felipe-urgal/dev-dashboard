@@ -157,9 +157,9 @@ export class AiImplementationExecutionService {
     const stored = this.executions.get(executionId);
     if (!stored || stored.execution.projectId !== projectId) return null;
     if (stored.execution.status === 'running') {
-      stored.controller.abort();
       stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
       this.finish(stored.execution, 'cancelled');
+      stored.controller.abort();
     }
     return copyExecution(stored.execution);
   }
@@ -167,9 +167,9 @@ export class AiImplementationExecutionService {
   public close(): void {
     for (const stored of this.executions.values()) {
       if (stored.execution.status === 'running') {
-        stored.controller.abort();
         stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
         this.finish(stored.execution, 'cancelled');
+        stored.controller.abort();
       }
     }
   }
@@ -295,9 +295,9 @@ export class AiImplementationExecutionService {
         stored.execution.status !== 'running'
       )
         continue;
-      stored.controller.abort();
       stored.execution.errorCode = 'AI_REQUEST_CANCELLED';
       this.finish(stored.execution, 'cancelled');
+      stored.controller.abort();
       this.executions.delete(executionId);
     }
   }
