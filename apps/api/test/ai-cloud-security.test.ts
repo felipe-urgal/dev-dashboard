@@ -96,7 +96,9 @@ function openAiHarness(
       return new Response(JSON.stringify(response), { status: 200 });
     }
 
-    throw new Error(`Request OpenAI inesperado: ${request.method} ${request.url}`);
+    throw new Error(
+      `Request OpenAI inesperado: ${request.method} ${request.url}`,
+    );
   };
 
   return { requests, fetchImpl };
@@ -151,7 +153,9 @@ async function waitForImplementation(
     if (service.find(projectId, executionId)?.status !== 'running') return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error('A execução de implementation não terminou dentro do limite.');
+  throw new Error(
+    'A execução de implementation não terminou dentro do limite.',
+  );
 }
 
 async function waitForReview(
@@ -189,7 +193,9 @@ test('status OpenAI consulta modelos sem enviar identidade ou conteúdo do proje
     await selection.set(projectId, { provider: 'openai', mode: 'complete' });
 
     const status = await resolver.status(projectId);
-    const openai = status.providers.find((provider) => provider.id === 'openai');
+    const openai = status.providers.find(
+      (provider) => provider.id === 'openai',
+    );
 
     assert.equal(openai?.available, true);
     assert.equal(openai?.consentGranted, false);
@@ -250,7 +256,9 @@ test('chat OpenAI mascara conteúdo antes do request e não expõe credencial em
   const secret = 'sk-chat-abcdefghijklmnopqrstuvwxyz123456';
   const harness = openAiHarness([
     {
-      choices: [{ message: { role: 'assistant', content: 'Resposta segura.' } }],
+      choices: [
+        { message: { role: 'assistant', content: 'Resposta segura.' } },
+      ],
     },
   ]);
   const cloud = cloudAssistant(harness);
@@ -319,7 +327,9 @@ test('implementation OpenAI mascara prompt e resultado de ferramenta antes da ro
       },
       {
         choices: [
-          { message: { role: 'assistant', content: 'Concluído com segurança.' } },
+          {
+            message: { role: 'assistant', content: 'Concluído com segurança.' },
+          },
         ],
       },
     ]);
@@ -347,13 +357,25 @@ test('implementation OpenAI mascara prompt e resultado de ferramenta antes da ro
       assert.equal(completed?.status, 'succeeded');
       assert.equal(completed?.provider, 'openai');
       assert.equal(bodies.length, 2);
-      assert.equal(bodies.some((body) => body.includes(promptSecret)), false);
-      assert.equal(bodies.some((body) => body.includes(fileSecret)), false);
+      assert.equal(
+        bodies.some((body) => body.includes(promptSecret)),
+        false,
+      );
+      assert.equal(
+        bodies.some((body) => body.includes(fileSecret)),
+        false,
+      );
       assert.ok(bodies[0]?.includes(LOG_MASK));
       assert.ok(bodies[1]?.includes(LOG_MASK));
       assertCredentialOutsideContent(harness);
-      assert.equal(JSON.stringify(completed?.events).includes(OPENAI_KEY), false);
-      assert.equal(JSON.stringify(completed?.events).includes(fileSecret), false);
+      assert.equal(
+        JSON.stringify(completed?.events).includes(OPENAI_KEY),
+        false,
+      );
+      assert.equal(
+        JSON.stringify(completed?.events).includes(fileSecret),
+        false,
+      );
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -370,7 +392,10 @@ test('completion OpenAI mascara prefixo e sufixo antes da rede', async () => {
   const cloud = cloudAssistant(harness);
 
   await withResolver(cloud, async ({ consent, selection, resolver }) => {
-    const proj = project('/tmp/project-cloud-complete', 'project-cloud-complete');
+    const proj = project(
+      '/tmp/project-cloud-complete',
+      'project-cloud-complete',
+    );
     await selection.set(proj.id, { provider: 'openai', mode: 'fast' });
     await consent.set(proj.id, 'openai', true);
     const resolved = await resolver.resolveSelected(proj.id, MODEL);
