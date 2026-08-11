@@ -63,6 +63,15 @@ nenhum do dashboard web (o guia do Terminal documenta a ausência disso como lim
 Isso é peça de arquitetura nova, não é só trocar SSE por WebSocket, e é o principal fator de custo
 da unificação — o resto (contrato, rota, painel) é reaproveitamento direto do que já existe.
 
+**Confirmação adicional (revisão do painel de Dependências/Build):** Testes, Scripts e Build já
+passam por `script-execution/*`, que **já usa SSE** hoje (`apps/api/src/routes/scripts.ts`,
+`apps/api/src/routes/tests/events-route.ts`) — não é polling, já é push, igual ao que acabamos de
+implementar para server/sidekiq/webpack. Ou seja, o item caro (PTY) não resolve nenhuma lacuna de
+"ficar ao vivo" nesses três — essa lacuna só existia em server/sidekiq/webpack e já foi fechada.
+O único ganho restante de migrar testes/migration/build para PTY é fidelidade visual (cores/aparência
+de terminal nativo), não funcionalidade — o que reforça tratar isso como aposta de baixa prioridade,
+avaliada só depois que o usuário sentir falta desse acabamento visual no uso real.
+
 ## Decisão de escopo
 
 ### Critério para decidir, caso a caso
@@ -103,7 +112,24 @@ A ordem de implementação (checklist abaixo) deliberadamente começa pelo caso 
 confirmar que o custo compensa — se não compensar, ficam no SSE atual e isso deve ser registrado
 aqui como decisão, não como pendência esquecida.
 
-### Fica como está — mas o transporte troca de polling para push (fase 0, mais barata que tudo acima)
+### Fica como está — mas o transporte troca de polling para push — **implementado**
+
+**Status:** concluído nesta mesma entrega (PR #299). Server, Sidekiq e Webpack continuam no modelo
+de log em arquivo — só o transporte mudou de polling para push (SSE), exatamente como desenhado
+abaixo. Arquivos entregues: `apps/api/src/http/log-event-stream.ts` (novo, com
+`apps/api/test/log-event-stream.test.ts` cobrindo snapshot inicial, reemissão só quando muda,
+encerramento ao falhar/desconectar), rotas `GET .../process/logs/events` e
+`GET .../rails/workers/:workerId/logs/events` (com testes de tradução de erro/404 em
+`apps/api/test/server-process-log-events-route.test.ts` e
+`apps/api/test/rails-worker-log-events-route.test.ts`), `followProjectProcessLogEvents`/
+`followProjectRailsWorkerLogEvents` no frontend, e `useProjectLogsPolling.ts`/
+`useProjectRailsWorker.ts` migrados para consumir o stream (a ação manual "Atualizar" continua
+fazendo busca avulsa). Documentação atualizada: `docs/guia/logs.md`,
+`docs/design/log-experience.md`, `docs/architecture/overview.md`,
+`docs/architecture/api-reference.md` (via `npm run docs:api`). Gate completo verde: `typecheck`,
+`lint`, `format:check`, `build`, `docs:api:check`, `test` (`apps/api` 704/704, `apps/web` 389/389).
+
+Descrição original do desenho, mantida como referência:
 
 **Server, Sidekiq, Webpack (processos de fundo)** continuam no modelo de **log em arquivo**, não
 viram terminal/PTY. Motivo inalterado: são daemons que existem independente de qualquer navegador
@@ -120,7 +146,7 @@ nenhuma peça de arquitetura nova (sem PTY, sem sessão destacável, sem expor c
 navegador). É literalmente o mesmo padrão SSE que Testes já usa hoje (`tests/events-route.ts`),
 só aplicado a `readManagedLog`/`readWorkerLog` em vez de `script-execution/*`.
 
-Desenho técnico já verificado no código, pronto para implementar quando o usuário confirmar:
+Desenho técnico (implementado como descrito):
 
 - **Helper compartilhado novo**: `apps/api/src/http/log-event-stream.ts` — uma função
   `streamLogSnapshots(reply, initial, readNext)` que assume a resposta (`reply.hijack()`), escreve

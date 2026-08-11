@@ -6,7 +6,7 @@ import type {
   ProjectServerSettings,
 } from '@dev-dashboard/contracts';
 
-import { requestJson } from './core';
+import { followEventStream, requestJson } from './core';
 
 interface ProcessResponse {
   process: ManagedProcess | null;
@@ -136,6 +136,16 @@ export async function fetchProjectProcessLog(
   );
 
   return response.log;
+}
+
+export function followProjectProcessLogEvents(
+  projectId: string,
+  onEvent: (log: ProcessLogSnapshot) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream(
+    `/api/projects/${encodeURIComponent(projectId)}/process/logs/events`,
+    onEvent,
+  );
 }
 
 export async function clearProjectProcessLog(

@@ -24,8 +24,11 @@ rodado o comando manualmente), com filtros, busca e uma leitura especial para pr
 
 - O dashboard lê apenas o **final** do arquivo de log (por padrão, os últimos 64 KB; no máximo
   256 KB por requisição) — ele nunca carrega o arquivo inteiro de uma vez.
-- A tela se atualiza sozinha a cada **2 segundos** enquanto não estiver pausada; não é um
-  streaming contínuo, é uma releitura periódica.
+- A tela acompanha o log por push (Server-Sent Events), não por releitura periódica: o servidor
+  reconsulta o arquivo por trás e só envia uma atualização ao navegador quando o conteúdo muda —
+  novas linhas aparecem assim que são escritas, sem esperar um intervalo fixo. Pausar fecha essa
+  conexão; Retomar abre uma nova. A ação "Atualizar" do menu continua fazendo uma busca avulsa,
+  independente do acompanhamento contínuo.
 - **Limpar** apaga o conteúdo do arquivo de log (não afeta o processo em execução, só o histórico
   de saída acumulado).
 - **Mascaramento de segredos**: antes de qualquer linha de log chegar ao navegador, o dashboard

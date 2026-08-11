@@ -12,6 +12,7 @@ import {
   clearProjectRailsWorkerLog,
   fetchProjectRailsWorker,
   fetchProjectRailsWorkerLog,
+  followProjectRailsWorkerLogEvents,
   restartProjectRailsWorker,
   startProjectRailsWorker,
   stopProjectRailsWorker,
@@ -39,6 +40,7 @@ export function useProjectRailsWorker(
   const logsVisible = ref(false);
 
   let pollingTimer: ReturnType<typeof setTimeout> | undefined;
+  let logStream: { close: () => void; done: Promise<void> } | undefined;
   const projectRequests = new RequestGeneration();
   const requestGate = new RequestGate();
 
@@ -137,6 +139,8 @@ export function useProjectRailsWorker(
     }, delay);
   }
 
+  // Busca avulsa (ação "Atualizar") — a leitura contínua vem do stream SSE
+  // aberto enquanto `logsVisible` estiver true (ver startLogStream).
   async function refreshLog(): Promise<void> {
     const projectId = getProject().id;
     const generation = projectRequests.capture();
@@ -161,10 +165,48 @@ export function useProjectRailsWorker(
     }
   }
 
+  function stopLogStream(): void {
+    if (logStream) {
+      logStream.close();
+      logStream = undefined;
+    }
+  }
+
+  function startLogStream(): void {
+    stopLogStream();
+
+    const projectId = getProject().id;
+    const generation = projectRequests.capture();
+    logLoading.value = true;
+
+    logStream = followProjectRailsWorkerLogEvents(
+      projectId,
+      workerId,
+      (snapshot) => {
+        if (!isCurrentProject(projectId, generation)) return;
+
+        logLoading.value = false;
+        log.value = snapshot;
+      },
+    );
+
+    logStream.done.catch((error: unknown) => {
+      if (isCurrentProject(projectId, generation)) {
+        logLoading.value = false;
+        errorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível acompanhar o log.';
+      }
+    });
+  }
+
   function toggleLogs(): void {
     logsVisible.value = !logsVisible.value;
     if (logsVisible.value) {
-      void refreshLog();
+      startLogStream();
+    } else {
+      stopLogStream();
     }
   }
 
@@ -266,6 +308,7 @@ export function useProjectRailsWorker(
 
   async function initialize(): Promise<void> {
     stopPolling();
+    stopLogStream();
     projectRequests.invalidate();
     requestGate.invalidate();
     detected.value = false;
@@ -274,6 +317,7 @@ export function useProjectRailsWorker(
     errorMessage.value = '';
     currentAction.value = null;
     log.value = null;
+    logLoading.value = false;
     logsVisible.value = false;
 
     const generation = projectRequests.capture();
@@ -295,6 +339,7 @@ export function useProjectRailsWorker(
   onBeforeUnmount(() => {
     projectRequests.invalidate();
     stopPolling();
+    stopLogStream();
   });
 
   return {

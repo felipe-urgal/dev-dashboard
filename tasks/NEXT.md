@@ -1,17 +1,17 @@
 # Próxima atividade
 
-Desenho novo em aberto: [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md)
-propõe migrar testes/migrations/build do transporte SSE (`script-execution/*`) para o mesmo
-PTY+WebSocket já usado pelo Terminal/Console (`project-terminal-service.ts`) — mas isso exige uma
-peça de arquitetura nova (sessão destacável, para não regredir a capacidade de fechar a aba e
-continuar rodando) e deve ser tratado como aposta escalonada, com checkpoint de decisão após o PoC
-de testes. Ainda é só desenho, nenhuma linha de código foi alterada.
+**Concluído nesta sessão (PR #299):** logs de servidor e workers Rails (Sidekiq/webpack) trocaram
+de polling para push via SSE — ver [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md#fica-como-está--mas-o-transporte-troca-de-polling-para-push--implementado)
+para o resultado completo (arquivos, testes, documentação atualizada). Suíte verde: `apps/api`
+704/704, `apps/web` 389/389.
 
-Item separado e bem mais barato, dentro do mesmo documento (seção "Fica como está — mas o
-transporte troca de polling para push"): trocar o polling de log de server/sidekiq/webpack por
-push via SSE, reaproveitando o padrão que Testes já usa hoje — sem PTY, sem sessão destacável, sem
-mudança de arquitetura. Resolve a reclamação de "fica piscando" no painel de Logs sem o custo do
-item acima; pode ser feito primeiro e de forma independente.
+Desenho em aberto no mesmo documento, ainda não implementado: migrar testes/migrations/build do
+transporte SSE (`script-execution/*`, que já é push, não polling) para o PTY+WebSocket do
+Terminal/Console (`project-terminal-service.ts`). Isso exige uma peça de arquitetura nova (sessão
+destacável, pra não regredir a capacidade de fechar a aba e continuar rodando) e o ganho é só
+fidelidade visual (cores/aparência de terminal nativo) — não resolve nenhuma lacuna funcional, já
+que testes/scripts/build já são ao vivo hoje. Tratar como aposta de baixa prioridade, avaliada só
+se o usuário sentir falta desse acabamento visual no uso real.
 
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há

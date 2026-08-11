@@ -10613,6 +10613,42 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
+### `GET /api/projects/:projectId/process/logs/events`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 262144
+    }
+  }
+}
+```
+
 ### `POST /api/projects/:projectId/process/start`
 
 **Parâmetros de rota (`params`)**
@@ -16497,6 +16533,50 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/rails/workers/:workerId/logs/events`
+
+**Parâmetros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId",
+    "workerId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workerId": {
+      "type": "string",
+      "enum": [
+        "sidekiq",
+        "webpack"
+      ]
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 262144
+    }
+  }
+}
+```
 
 ### `POST /api/projects/:projectId/rails/workers/:workerId/restart`
 

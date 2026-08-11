@@ -22,7 +22,7 @@ import type {
   RailsWorkerOverview,
 } from '@dev-dashboard/contracts';
 
-import { requestJson } from './core';
+import { followEventStream, requestJson } from './core';
 
 interface ProjectDatabaseResponse {
   database: ProjectDatabaseOverview;
@@ -327,6 +327,17 @@ export async function fetchProjectRailsWorkerLog(
     `${workerPath(projectId, workerId)}/logs`,
   );
   return response.log;
+}
+
+export function followProjectRailsWorkerLogEvents(
+  projectId: string,
+  workerId: RailsWorkerId,
+  onEvent: (log: ProcessLogSnapshot) => void,
+): { close: () => void; done: Promise<void> } {
+  return followEventStream(
+    `${workerPath(projectId, workerId)}/logs/events`,
+    onEvent,
+  );
 }
 
 export async function clearProjectRailsWorkerLog(

@@ -72,3 +72,15 @@ Como a saída pode pertencer a ferramentas arbitrárias, o diagnóstico é propo
 `ProjectLogExperience.vue` fornece a composição compartilhada e `utils/log-experience.ts` concentra a classificação genérica. Ferramentas com estrutura própria podem manter um diagnóstico especializado, como o inspetor Rails dos logs do servidor, sem duplicar a linguagem visual e o comportamento do fluxo.
 
 A implementação deve continuar respeitando os limites de renderização, cancelamento/streaming existentes e os contratos de segurança de cada ferramenta.
+
+### Transporte: push via SSE, não polling
+
+Logs do servidor e dos workers Rails (Sidekiq/webpack) chegam por push (Server-Sent Events), não
+por polling do navegador — `apps/api/src/http/log-event-stream.ts` (`streamLogSnapshots`) reaproveita
+a mesma leitura de arquivo já usada pelas rotas de leitura avulsa (`readManagedLog`/`readWorkerLog`),
+só que o próprio servidor reconsulta a cada 1s e só emite um evento novo quando o conteúdo muda —
+mesmo padrão que Testes/Scripts já usam (`apps/api/src/routes/scripts.ts`,
+`apps/api/src/routes/tests/events-route.ts`). No frontend, `useProjectLogsPolling.ts` (servidor) e
+`useProjectRailsWorker.ts` (Sidekiq/webpack) assinam esse stream via `followEventStream` em vez de
+reconsultar em intervalo fixo; a ação manual "Atualizar" continua fazendo uma busca avulsa
+(`fetchProjectProcessLog`/`fetchProjectRailsWorkerLog`), independente do stream.

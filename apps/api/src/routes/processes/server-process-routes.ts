@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
+import type { ProcessLogSnapshot } from '@dev-dashboard/contracts';
 import {
   prepareNodeServerEnvironment,
   ProcessManagerError,
@@ -7,6 +8,7 @@ import {
 } from '@dev-dashboard/process-manager';
 
 import { ApiError } from '../../http/api-error.js';
+import { streamLogSnapshots } from '../../http/log-event-stream.js';
 import {
   commonErrorResponseSchemas,
   managedProcessResponseSchema,
@@ -112,6 +114,52 @@ export function registerServerProcessRoutes(
 
         throw error;
       }
+    },
+  );
+
+  app.get<{
+    Params: ProjectParams;
+    Querystring: ProcessLogQuery;
+  }>(
+    '/projects/:projectId/process/logs/events',
+    {
+      schema: {
+        params: projectParamsSchema,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            maxBytes: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 262_144,
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(projectStore, request.params.projectId);
+      const readOptions = {
+        ...(request.query.maxBytes !== undefined
+          ? { maxBytes: request.query.maxBytes }
+          : {}),
+      };
+      const readLog = () =>
+        processManager.readServerLog(project.id, readOptions);
+
+      let initial: ProcessLogSnapshot;
+      try {
+        initial = await readLog();
+      } catch (error) {
+        if (error instanceof ProcessManagerError) {
+          throw processManagerApiError(error);
+        }
+
+        throw error;
+      }
+
+      streamLogSnapshots(reply, initial, readLog);
     },
   );
 

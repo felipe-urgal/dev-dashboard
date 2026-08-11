@@ -102,7 +102,8 @@ Responsabilidades:
 - acompanhar processos;
 - exibir logs;
 - descartar respostas assíncronas obsoletas ao trocar de projeto;
-- impedir sobreposição das consultas periódicas de processo e logs.
+- impedir sobreposição das consultas periódicas de status de processo; acompanhar logs de
+  servidor/workers por push (SSE) em vez de reconsultar em intervalo fixo.
 
 O frontend não deve executar comandos locais nem acessar diretamente o filesystem.
 

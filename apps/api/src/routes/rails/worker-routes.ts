@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 
+import type { ProcessLogSnapshot } from '@dev-dashboard/contracts';
+
+import { streamLogSnapshots } from '../../http/log-event-stream.js';
 import {
   commonErrorResponseSchemas,
   managedProcessResponseSchema,
@@ -79,6 +82,42 @@ export function registerRailsWorkerRoutes(
       } catch (error) {
         translateWorkerError(error);
       }
+    },
+  );
+
+  app.get<{ Params: WorkerParams; Querystring: WorkerLogQuery }>(
+    '/projects/:projectId/rails/workers/:workerId/logs/events',
+    {
+      schema: {
+        params: workerParamsSchema,
+        querystring: workerLogQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const project = requireProject(
+        options.projectStore,
+        request.params.projectId,
+      );
+      const readOptions = {
+        ...(request.query.maxBytes !== undefined
+          ? { maxBytes: request.query.maxBytes }
+          : {}),
+      };
+      const readLog = () =>
+        options.railsRuntimeService.readWorkerLog(
+          project.id,
+          request.params.workerId,
+          readOptions,
+        );
+
+      let initial: ProcessLogSnapshot;
+      try {
+        initial = await readLog();
+      } catch (error) {
+        translateWorkerError(error);
+      }
+
+      streamLogSnapshots(reply, initial, readLog);
     },
   );
 
