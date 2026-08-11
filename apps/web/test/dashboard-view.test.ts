@@ -176,7 +176,7 @@ describe('dashboard principal', () => {
     expect(actions.favoritar).toHaveBeenCalledWith(project);
   });
 
-  it('mantém a visão geral sem busca nem filtro de tipo e move start/stop para o resumo', () => {
+  it('remove busca/filtro e move start/stop para o resumo', () => {
     dashboardStore.projects.value = [
       { ...project, capabilities: ['git', 'server'] },
       {
@@ -197,9 +197,9 @@ describe('dashboard principal', () => {
     expect(
       summary.find('[aria-label="Iniciar servidores"]').exists(),
     ).toBe(true);
-    expect(
-      summary.find('[aria-label="Parar servidores"]').exists(),
-    ).toBe(true);
+    expect(summary.find('[aria-label="Parar servidores"]').exists()).toBe(
+      true,
+    );
 
     const headerActions = wrapper.get('.compact-actions');
     expect(
