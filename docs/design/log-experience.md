@@ -61,7 +61,7 @@ Compilação, conclusão, warnings e errors recebem classificação sem alterar 
 
 ### Testes
 
-O modo normal acompanha a execução. O modo Diagnóstico combina a classificação compartilhada com o navegador especializado de falhas já existente, mantendo expected/actual, arquivo, linha e contexto do runner quando disponíveis.
+**Descrição histórica, hoje não exposta pela aba Testes** (ver `docs/guia/testes.md`): o modo normal acompanha a execução. O modo Diagnóstico combina a classificação compartilhada com o navegador especializado de falhas já existente, mantendo expected/actual, arquivo, linha e contexto do runner quando disponíveis. Desde o PoC de terminal PTY (task 234, item 1) a aba Testes roda a suíte completa como saída de terminal cru (`xterm.js`), sem essa classificação — reconstruí-la sobre o novo modelo é trabalho futuro.
 
 ### Scripts, dependências e comandos pontuais
 

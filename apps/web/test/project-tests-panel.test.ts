@@ -5,7 +5,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 
 import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -86,7 +86,7 @@ test('apresenta o fluxo guiado e remove comandos detectados e histórico', async
   const originalFetch = globalThis.fetch;
   globalThis.fetch = emptyPanelFetch as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -141,7 +141,7 @@ test('executa a suíte selecionada pelo novo seletor', async () => {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -205,7 +205,7 @@ test('exibe o campo de linha para runners com suporte a caso específico (RSpec)
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -249,7 +249,7 @@ test('não mostra o campo de linha para runners sem suporte a caso específico',
   const originalFetch = globalThis.fetch;
   globalThis.fetch = emptyPanelFetch as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -304,7 +304,7 @@ test('exibe o campo de padrão de nome para vitest/jest/node-test e envia o padr
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -366,7 +366,7 @@ test('não mostra o campo de padrão de nome para runners sem suporte (RSpec)', 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -416,7 +416,7 @@ test('carrega arquivos e executa o arquivo escolhido pelo fluxo guiado', async (
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -473,7 +473,7 @@ test('mostra erro específico quando a listagem de arquivos falha', async () => 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -553,7 +553,7 @@ test('acompanha a execução em andamento via SSE e atualiza estado e log em tem
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -609,7 +609,7 @@ test('publica aviso ao receber estado terminal após passar por running', async 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -687,7 +687,7 @@ test('não publica aviso duplicado ao reconectar com o mesmo estado terminal', a
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -763,7 +763,7 @@ test('não publica aviso quando processo já chega parado na primeira renderiza�
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });

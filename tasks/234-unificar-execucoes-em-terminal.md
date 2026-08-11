@@ -1,8 +1,9 @@
-# Task 234 — Unificar testes/migration/build no terminal PTY (desenho)
+# Task 234 — Unificar testes/migration/build no terminal PTY
 
-**Status:** planejamento. Nenhum código foi alterado nesta entrega — este documento é o desenho
-técnico e o checklist de atividades acordado em conversa com o usuário, para orientar as próximas
-sessões. Ver `tasks/NEXT.md` para o estado de prioridade atual.
+**Status:** em andamento. Itens concluídos nesta entrega (PR #299): item 0 (sessão destacável),
+"Fica como está — push via SSE" (logs de server/sidekiq/webpack) e item 1 (PoC de testes, escopo
+reduzido para suíte completa). Itens 2-4 (migration, build, consolidação) ainda não implementados.
+Ver `tasks/NEXT.md` para o estado de prioridade atual.
 
 ## Origem
 
@@ -242,18 +243,40 @@ usada no roadmap da IA multi-provider):
    depois → exit code/sinal preservados mesmo para quem reanexa só depois do processo terminar.
    Gate completo verde (`typecheck`, `lint`, `format:check`, `build`, `docs:api:check` — sem rota
    nova, referência de API inalterada — e `test`: `apps/api` 714/714).
-1. **Prova de conceito com testes** (menor risco, já tem painel dedicado):
-   - estender o contrato com um `ProjectExecutionKind` de teste;
-   - adaptar o serviço para spawnar o comando de teste já resolvido por
-     `script-execution/command-resolution.ts` via PTY destacável, capturando exit code;
-   - nova rota (ou extensão da rota de terminal) para o kind de teste;
-   - `ProjectTestsPanel.vue` migra de SSE para o transporte WS/PTY, reaproveitando (ou extraindo)
-     a lógica de `ProjectTerminalPanel.vue`;
-   - validar que `log-experience.ts` classifica corretamente a saída (ANSI strip);
-   - manter o caminho SSE antigo funcionando até a migração ser validada em uso real, remover só
-     depois;
-   - **checkpoint de decisão**: medir se o ganho percebido (fidelidade da saída) compensou o custo
-     da sessão destacável; se não compensar, registrar aqui e não prosseguir para os itens 2-3.
+1. **Prova de conceito com testes — implementada, escopo reduzido para "suíte completa"
+   apenas.** Decisão tomada em conversa: em vez de portar as três formas de disparo de teste
+   (suíte/arquivo+caso+padrão/relacionados-à-branch — cada uma com resolução própria no backend e
+   fortemente acopladas ao formato de `id`/`args` do `ManagedProcess`), o PoC cobre só a suíte
+   completa. Arquivo específico, testes relacionados, histórico e o Diagnóstico especializado
+   **saíram do ar temporariamente** — o código antigo (`ProjectTestsGuidedPanel.vue`,
+   `useProjectTestsPanel.ts`, `useProjectTestProcess.ts`) continua no repositório como referência,
+   só não é mais o componente renderizado pela aba Testes. Ver `docs/guia/testes.md` para o que
+   está e o que não está disponível hoje.
+
+   Entregue:
+   - Backend: `ProjectTestPtyService` (`apps/api/src/services/project-test-pty-service.ts`)
+     resolve o comando via `testDetectionService.resolveCommand` (não
+     `script-execution/command-resolution.ts` como o desenho original assumia — Testes usa
+     `processManager` kind `'test'` + `testDetectionService`, é `script-execution/*` que cobre
+     Scripts/Build) e delega ao `DetachableExecutionService`. Rotas em
+     `apps/api/src/routes/tests/pty-routes.ts`: `GET .../tests/pty/status`,
+     `POST .../start`, `POST .../cancel`, `GET .../tests/pty/connect` (WebSocket, somente
+     leitura — sem canal de `input`, catálogo fechado, sem token de confirmação porque não há
+     stdin livre para proteger). 12 testes novos.
+   - Frontend: `ProjectTestsPtyPanel.vue` (novo) substitui `ProjectTestsGuidedPanel.vue` como
+     conteúdo de `ProjectTestsPanel.vue`; usa `@xterm/xterm` igual ao Terminal/Console. 3 testes
+     novos, mais stubs de `getContext`/`matchMedia`/`ResizeObserver` em `test/setup.ts`
+     (primeira vez que a suíte monta um componente que importa `@xterm/xterm`).
+   - Os 20 testes antigos de `ProjectTestsGuidedPanel` (file/case/pattern/related/Diagnóstico)
+     foram repontados para montar o componente diretamente em vez de via `ProjectTestsPanel`,
+     preservando a cobertura do código de referência sem quebrar a suíte.
+   - **checkpoint de decisão**: o ganho de fidelidade visual (cores/formatação nativas do
+     terminal) é real e o custo de infraestrutura acabou sendo menor que o previsto, já que
+     `DetachableExecutionService` (item 0) já resolvia a parte cara. O maior custo real foi outro:
+     a complexidade do modelo de targeting existente, por isso o escopo foi reduzido em vez do
+     item ser abandonado. Migration/Build (itens 2-3) devem reavaliar esse mesmo risco antes de
+     começar — são mais simples que Testes (sem targeting múltiplo), então tendem a ser mais
+     baratos, não mais caros.
 2. **Migration** (só se o checkpoint do item 1 for favorável): repetir o padrão para o fluxo de
    migrations Rails (`useRailsMigrations.ts` e rota correspondente). Candidato mais fraco (ver
    tabela em "Decisão de escopo") — reavaliar antes de implementar, pode ficar no SSE atual.

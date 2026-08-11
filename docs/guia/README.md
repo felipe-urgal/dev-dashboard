@@ -16,7 +16,7 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) tem as seguintes abas
 | Logs | Acompanha a saída do servidor em tempo quase real, com leitura estruturada para Rails. | [logs.md](logs.md) |
 | Git | Sincronização, branches, diff, commit, desfazer, pull request, Code review IA, histórico e mutações. | [git.md](git.md) |
 | Assistente IA | Implementa mudanças com IA usando o provider selecionado do projeto (Local/Ollama ou OpenAI), com modos Rápido/Completo, prévia e confirmação antes de escrever. | [assistente-ia.md](assistente-ia.md) |
-| Testes | Executa a suíte de testes, um arquivo específico, ou só os testes relacionados às mudanças atuais. | [testes.md](testes.md) |
+| Testes | Roda a suíte completa via terminal PTY destacável (PoC — arquivo específico, testes relacionados e histórico temporariamente fora do ar). | [testes.md](testes.md) |
 | Banco de dados | Detecta bancos/serviços do projeto, inicia serviços reconhecidos e cria/restaura snapshots (só quando o projeto tem suporte a banco). | [banco-de-dados.md](banco-de-dados.md) |
 | Dependências | Instala/atualiza dependências Ruby e Node com um clique. | [dependencias.md](dependencias.md) |
 | Scripts | Catálogo completo de comandos seguros do projeto (scripts, tarefas Rake, executáveis de `bin/`). | [scripts.md](scripts.md) |
