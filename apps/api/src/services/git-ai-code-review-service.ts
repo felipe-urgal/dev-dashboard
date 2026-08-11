@@ -583,7 +583,10 @@ export class GitAiCodeReviewService {
 
     if (running.policy.runGlobalSynthesis) {
       try {
-        const synthesized = await this.synthesizeGlobalReview(running, combined);
+        const synthesized = await this.synthesizeGlobalReview(
+          running,
+          combined,
+        );
         if (
           running.controller.signal.aborted ||
           execution.status === 'cancelled'

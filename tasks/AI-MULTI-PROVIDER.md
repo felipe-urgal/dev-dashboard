@@ -130,11 +130,11 @@ Entregou:
 
 ---
 
-# PR #295 — fechamento pós-roadmap — em andamento
+# PR #295 — fechamento pós-roadmap — fechamento técnico concluído
 
-A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100% multi-provider.
+A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100% multi-provider. O #295 concentra o fechamento desses gaps para os providers atuais: Ollama e OpenAI.
 
-## Concluído no #295
+## Entregue no #295
 
 ### Code Review multi-provider
 
@@ -164,25 +164,38 @@ A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100%
 
 - [x] `AiErrorCode` compartilhado entre contracts, adapters, resolver, HTTP, SSE e executions.
 - [x] consentimento, provider, modelo, auth, quota, rate limit, timeout, cancelamento, resposta inválida e falha upstream possuem códigos próprios.
-- [x] OpenAI e Ollama classificam falhas sem obrigar consumidores a interpretar mensagens.
 - [x] implementation e Code Review registram `errorCode` quando aplicável.
 - [x] referência HTTP documenta os status específicos das rotas de IA.
-- [x] regressivos cobrem taxonomia e mapeamento HTTP.
-- [x] CI #1640 ficou completamente verde após o P0 #4.
 
-### UX e robustez já incorporados
+### Segurança cloud
 
-- [x] falta de créditos/quota OpenAI vira mensagem amigável;
-- [x] provider OpenAI fica temporariamente indisponível após falha conhecida de billing/quota;
-- [x] Assistente de implementação exige investigação real do projeto antes de concluir alteração concreta;
+- [x] masking é provado com OpenAI em chat, implementation, tool result, completion, Code Review e síntese global.
+- [x] consentimento é revalidado antes de conteúdo do projeto chegar à cloud.
+- [x] revogação bloqueia a próxima execution.
+- [x] status/listagem de modelos não envia conteúdo do projeto.
+- [x] credenciais ficam fora de prompt/eventos/bodies de conteúdo.
+- [x] logs estruturados de IA usam contexto allowlistado e não serializam `Error.message/cause` bruto.
+
+### Cancelamento e concorrência
+
+- [x] abort externo chega aos requests de OpenAI e Ollama.
+- [x] implementation e Code Review terminalizam antes do abort.
+- [x] resposta tardia da síntese global não altera uma execution cancelada.
+- [x] status relê provider/modo depois de requests lentos para não devolver seleção stale.
+- [x] shutdown da API encerra implementation e Code Review.
+
+### Assistente de implementação
+
+- [x] exige investigação real do projeto antes de concluir alteração concreta.
+- [x] não inventa caminho como fluxo aceitável; deve buscar/listar/ler o código relevante.
 - [x] `propose_workspace_edit` é recusado antes de inspeção bem-sucedida.
+- [x] falta de créditos/quota OpenAI vira mensagem amigável e provider temporariamente indisponível.
 
-## Em andamento no #295
+## Auditoria final
 
-- [ ] hardening final de segurança cloud;
-- [ ] cancelamento e concorrência;
-- [ ] auditoria final de persistência/UX/docs/código órfão;
-- [ ] CI obrigatório verde no commit final.
+Os P1 foram revisados em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). O que protege comportamento essencial está validado; melhorias incrementais foram classificadas como follow-up não bloqueante.
+
+O único requisito restante antes do merge é o **gate obrigatório verde no head final** que contém código, testes e documentação reconciliada.
 
 ---
 
@@ -210,4 +223,4 @@ A seleção multi-provider da Code Review **não está mais adiada**: foi incorp
 | #291 | Seleção + consentimento | Concluído |
 | #292 | Fallback `offer` | Concluído |
 | #293 | Hardening de rastreabilidade | Concluído |
-| #295 | Fechamento dos gaps restantes | Em andamento |
+| #295 | Fechamento dos gaps restantes | Aguardando gate final |

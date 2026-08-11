@@ -196,27 +196,24 @@ test('close cancela Code Review em andamento e aborta o request do provider', as
       });
     },
   } as unknown as AiAssistantService;
-  const service = new GitAiCodeReviewService(
-    assistant,
-    {
-      getReviewFiles: async () => ({
-        targetRemote: 'origin',
-        baseBranch: 'main',
-        sourceBranch: 'feature/provider-review',
-        files: ['src/primeiro.ts'],
-      }),
-      getReviewFileDiff: async () => ({
-        targetRemote: 'origin',
-        baseBranch: 'main',
-        sourceBranch: 'feature/provider-review',
-        files: ['src/primeiro.ts'],
-        diff: 'diff --git a/src/primeiro.ts b/src/primeiro.ts',
-      }),
-    } as unknown as Pick<
-      GitPullRequestService,
-      'getReviewFiles' | 'getReviewFileDiff'
-    >,
-  );
+  const service = new GitAiCodeReviewService(assistant, {
+    getReviewFiles: async () => ({
+      targetRemote: 'origin',
+      baseBranch: 'main',
+      sourceBranch: 'feature/provider-review',
+      files: ['src/primeiro.ts'],
+    }),
+    getReviewFileDiff: async () => ({
+      targetRemote: 'origin',
+      baseBranch: 'main',
+      sourceBranch: 'feature/provider-review',
+      files: ['src/primeiro.ts'],
+      diff: 'diff --git a/src/primeiro.ts b/src/primeiro.ts',
+    }),
+  } as unknown as Pick<
+    GitPullRequestService,
+    'getReviewFiles' | 'getReviewFileDiff'
+  >);
 
   const started = await service.start({
     project,
