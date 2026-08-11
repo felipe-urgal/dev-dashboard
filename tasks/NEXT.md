@@ -1,6 +1,18 @@
 # Próxima atividade
 
-**Concluído nesta sessão (PR #299)**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
+**Concluído nesta sessão:** simplificação da Visão geral registrada em
+[`235-visao-geral-enxuta.md`](235-visao-geral-enxuta.md):
+
+1. busca textual e filtro por tipo foram removidos da landing;
+2. iniciar/parar todos os servidores foi movido para junto do título e da
+   contagem de projetos;
+3. escanear/remover workspace permaneceu no grupo de ações do cabeçalho;
+4. o teste da Visão geral e a arquitetura da informação foram reconciliados.
+
+A validação automatizada desta entrega fica a cargo do CI do pull request.
+Nenhum item correspondente existia em `tasks/PENDENCIAS.md`.
+
+**Entrega anterior (PR #299)**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
 
 1. Logs de servidor e workers Rails (Sidekiq/webpack) trocaram de polling para push via SSE.
 2. Item 0 (pré-requisito do resto do desenho): `DetachableExecutionService`
