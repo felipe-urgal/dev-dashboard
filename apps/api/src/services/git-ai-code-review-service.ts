@@ -424,7 +424,6 @@ export class GitAiCodeReviewService {
     if (running.execution.status !== 'running')
       return snapshot(running.execution);
 
-    running.controller.abort();
     running.execution.status = 'cancelled';
     running.execution.errorCode = 'AI_REQUEST_CANCELLED';
     running.execution.finishedAt = new Date().toISOString();
@@ -434,7 +433,15 @@ export class GitAiCodeReviewService {
       file.errorCode = 'AI_REQUEST_CANCELLED';
       file.finishedAt = running.execution.finishedAt;
     }
+    running.controller.abort();
     return snapshot(running.execution);
+  }
+
+  public close(): void {
+    for (const running of this.executions.values()) {
+      if (running.execution.status !== 'running') continue;
+      this.cancel(running.execution.projectId ?? '', running.execution.id);
+    }
   }
 
   private async run(running: RunningReview): Promise<void> {
@@ -575,9 +582,20 @@ export class GitAiCodeReviewService {
 
     if (running.policy.runGlobalSynthesis) {
       try {
-        execution.review = await this.synthesizeGlobalReview(running, combined);
+        const synthesized = await this.synthesizeGlobalReview(running, combined);
+        if (
+          running.controller.signal.aborted ||
+          execution.status === 'cancelled'
+        ) {
+          this.finishCancelled(running);
+          return;
+        }
+        execution.review = synthesized;
       } catch (error) {
-        if (running.controller.signal.aborted) {
+        if (
+          running.controller.signal.aborted ||
+          execution.status === 'cancelled'
+        ) {
           this.finishCancelled(running);
           return;
         }
@@ -593,6 +611,10 @@ export class GitAiCodeReviewService {
       }
     }
 
+    if (running.controller.signal.aborted || execution.status === 'cancelled') {
+      this.finishCancelled(running);
+      return;
+    }
     execution.status = 'completed';
     execution.finishedAt = new Date().toISOString();
   }
