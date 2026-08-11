@@ -102,7 +102,8 @@ Responsabilidades:
 - acompanhar processos;
 - exibir logs;
 - descartar respostas assíncronas obsoletas ao trocar de projeto;
-- impedir sobreposição das consultas periódicas de processo e logs.
+- impedir sobreposição das consultas periódicas de status de processo; acompanhar logs de
+  servidor/workers por push (SSE) em vez de reconsultar em intervalo fixo.
 
 O frontend não deve executar comandos locais nem acessar diretamente o filesystem.
 
@@ -130,6 +131,7 @@ Responsabilidades:
 - iniciar e parar processos;
 - fornecer logs;
 - abrir sessões de terminal/console via WebSocket (`apps/api/src/services/project-terminal-service.ts`, ver `docs/architecture/security.md`);
+- rodar comandos de execução única (hoje só a suíte completa de testes) num PTY destacável que sobrevive à desconexão (`apps/api/src/services/detachable-execution-service.ts`, `project-test-pty-service.ts` — PoC da task 234, ver `docs/guia/testes.md`);
 - traduzir erros internos em respostas HTTP;
 - persistir preferências de retenção sem aceitar caminhos;
 - manter a API limitada a `127.0.0.1`.

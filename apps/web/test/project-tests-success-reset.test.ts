@@ -7,7 +7,7 @@ import type {
   ProjectTestOverview,
 } from '@dev-dashboard/contracts';
 
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -86,7 +86,7 @@ test('mantém o resultado de sucesso até a limpeza manual', async () => {
     exitCode: 0,
   });
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -126,7 +126,7 @@ test('mantém o resultado visível quando a execução falha', async () => {
     exitCode: 1,
   });
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });

@@ -352,6 +352,20 @@ Processos gerenciados são iniciados com:
 - grupos de processo quando necessário;
 - cleanup em stop/restart.
 
+### Execuções destacáveis (PTY)
+
+`DetachableExecutionService` (`apps/api/src/services/detachable-execution-service.ts`), usado pela
+PoC de testes via terminal (`docs/guia/testes.md`), roda um comando num PTY que **não é morto ao
+desconectar** — diferente do Terminal/Console (`docs/guia/terminal.md`), que mata a sessão de
+propósito por ser um shell de acesso total. Isso não amplia a superfície de risco porque:
+
+- o comando continua vindo do catálogo fechado do detector correspondente (nunca uma string do
+  navegador);
+- a conexão WebSocket é **somente leitura** — não existe canal de `input`, então não há stdin
+  arbitrário como no Terminal/Console;
+- o buffer de saída tem teto de tamanho (mesmo espírito do limite de leitura de log);
+- só uma execução por chave (`projectId:kind`) de cada vez.
+
 ## Logs e masking
 
 Logs de processo podem conter:

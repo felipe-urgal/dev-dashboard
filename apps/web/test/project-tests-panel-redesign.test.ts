@@ -5,7 +5,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 
 import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -106,7 +106,7 @@ test('estrutura o log, remove ANSI e extrai o resumo da execução', async () =>
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -201,7 +201,7 @@ test('repete a execução atual preservando o arquivo alvo', async () => {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });

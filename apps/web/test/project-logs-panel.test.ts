@@ -80,6 +80,14 @@ async function mountPanel(
       );
     }
 
+    if (url.pathname === '/api/projects/p1/process/logs/events') {
+      const frame = `data: ${JSON.stringify(processLogSnapshot(logContent))}\n\n`;
+      return new Response(frame, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream; charset=utf-8' },
+      });
+    }
+
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 

@@ -9,7 +9,11 @@ import {
 
 import type { ProcessLogSnapshot, Project } from '@dev-dashboard/contracts';
 
-import { clearProjectProcessLog, fetchProjectProcessLog } from '../api';
+import {
+  clearProjectProcessLog,
+  fetchProjectProcessLog,
+  followProjectProcessLogEvents,
+} from '../api';
 import { RequestGate, RequestGeneration } from '../utils/request-generation';
 
 export function useProjectLogsPolling(
@@ -27,7 +31,7 @@ export function useProjectLogsPolling(
   const projectRequests = new RequestGeneration();
   const logRequests = new RequestGeneration();
   const logRequestGate = new RequestGate();
-  let logPollingTimer: ReturnType<typeof setTimeout> | undefined;
+  let logStream: { close: () => void; done: Promise<void> } | undefined;
   let clearingLog = false;
 
   function isCurrentProject(projectId: string, generation: number): boolean {
@@ -48,6 +52,7 @@ export function useProjectLogsPolling(
     }
   }
 
+  // Busca avulsa (ação "Atualizar" do menu) — a leitura contínua vem do stream SSE.
   async function refreshLogs(): Promise<void> {
     if (!hasManagedProcess.value || clearingLog) return;
 
@@ -89,15 +94,15 @@ export function useProjectLogsPolling(
     }
   }
 
-  function stopLogPolling(): void {
-    if (logPollingTimer) {
-      clearTimeout(logPollingTimer);
-      logPollingTimer = undefined;
+  function stopLogStream(): void {
+    if (logStream) {
+      logStream.close();
+      logStream = undefined;
     }
   }
 
-  function scheduleLogPolling(): void {
-    stopLogPolling();
+  function startLogStream(): void {
+    stopLogStream();
 
     if (
       streamPaused.value ||
@@ -107,18 +112,37 @@ export function useProjectLogsPolling(
       return;
     }
 
+    const projectId = getProject().id;
     const generation = projectRequests.capture();
-    logPollingTimer = setTimeout(async () => {
-      await refreshLogs();
+    const logGeneration = logRequests.capture();
+    loadingLogs.value = true;
 
+    logStream = followProjectProcessLogEvents(projectId, (snapshot) => {
       if (
-        projectRequests.isCurrent(generation) &&
-        !streamPaused.value &&
-        hasManagedProcess.value
+        !isCurrentProject(projectId, generation) ||
+        !logRequests.isCurrent(logGeneration)
       ) {
-        scheduleLogPolling();
+        return;
       }
-    }, 2_000);
+
+      logErrorMessage.value = '';
+      loadingLogs.value = false;
+      logSnapshot.value = snapshot;
+      void scrollLogsToLatest();
+    });
+
+    logStream.done.catch((error: unknown) => {
+      if (
+        isCurrentProject(projectId, generation) &&
+        logRequests.isCurrent(logGeneration)
+      ) {
+        loadingLogs.value = false;
+        logErrorMessage.value =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível acompanhar os logs.';
+      }
+    });
   }
 
   function handleLogScroll(): void {
@@ -139,7 +163,7 @@ export function useProjectLogsPolling(
     clearingLog = true;
     loadingLogs.value = true;
     logErrorMessage.value = '';
-    stopLogPolling();
+    stopLogStream();
 
     try {
       const snapshot = await clearProjectProcessLog(projectId);
@@ -163,7 +187,7 @@ export function useProjectLogsPolling(
       if (isCurrentProject(projectId, generation)) {
         clearingLog = false;
         loadingLogs.value = false;
-        scheduleLogPolling();
+        startLogStream();
       }
     }
   }
@@ -172,9 +196,9 @@ export function useProjectLogsPolling(
     streamPaused.value = !streamPaused.value;
 
     if (streamPaused.value) {
-      stopLogPolling();
+      stopLogStream();
     } else {
-      void refreshLogs().then(scheduleLogPolling);
+      startLogStream();
     }
   }
 
@@ -182,7 +206,7 @@ export function useProjectLogsPolling(
     projectRequests.invalidate();
     logRequests.invalidate();
     logRequestGate.invalidate();
-    stopLogPolling();
+    stopLogStream();
     clearingLog = false;
     loadingLogs.value = false;
     logSnapshot.value = null;
@@ -203,11 +227,11 @@ export function useProjectLogsPolling(
     hasManagedProcess,
     (available) => {
       if (!available) {
-        stopLogPolling();
+        stopLogStream();
         return;
       }
 
-      void refreshLogs().then(scheduleLogPolling);
+      startLogStream();
     },
     { immediate: true },
   );
@@ -216,7 +240,7 @@ export function useProjectLogsPolling(
     projectRequests.invalidate();
     logRequests.invalidate();
     logRequestGate.invalidate();
-    stopLogPolling();
+    stopLogStream();
   });
 
   return {

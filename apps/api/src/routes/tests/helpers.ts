@@ -6,6 +6,7 @@ import type { TestExecutionEvent } from '@dev-dashboard/contracts';
 
 import { ApiError } from '../../http/api-error.js';
 import type { ProjectStore } from '../../store/project-store.js';
+import type { ProjectTestPtyService } from '../../services/project-test-pty-service.js';
 import {
   TestFileError,
   type TestDetectionService,
@@ -47,6 +48,7 @@ export interface TestRouteOptions {
   projectStore: ProjectStore;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
+  projectTestPtyService: ProjectTestPtyService;
 }
 
 export const projectParamsSchema = {

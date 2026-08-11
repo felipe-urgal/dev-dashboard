@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 
 import type { ProjectTestOverview } from '@dev-dashboard/contracts';
 
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -62,7 +62,7 @@ test('mostra alterações da branch e os testes relacionados encontrados', async
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });
@@ -122,7 +122,7 @@ test('não habilita a suíte completa quando não há teste relacionado', async 
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject() },
     global: { plugins: [createTestRouter()] },
   });

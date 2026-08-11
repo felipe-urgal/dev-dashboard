@@ -7,7 +7,7 @@ import type {
   ProjectTestOverview,
 } from '@dev-dashboard/contracts';
 
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -90,7 +90,7 @@ test('oculta blocos de DEPRECATION WARNING do log exibido do RSpec', async () =>
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject({ type: 'rails' }) },
     global: { plugins: [createTestRouter()] },
   });

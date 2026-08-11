@@ -13,6 +13,7 @@ const {
   stopProjectRailsWorker,
   restartProjectRailsWorker,
   fetchProjectRailsWorkerLog,
+  followProjectRailsWorkerLogEvents,
   clearProjectRailsWorkerLog,
 } = vi.hoisted(() => ({
   fetchProjectRailsWorker: vi.fn(),
@@ -20,6 +21,25 @@ const {
   stopProjectRailsWorker: vi.fn(),
   restartProjectRailsWorker: vi.fn(),
   fetchProjectRailsWorkerLog: vi.fn(),
+  followProjectRailsWorkerLogEvents: vi.fn(
+    (
+      _projectId: string,
+      workerId: RailsWorkerId,
+      onEvent: (log: unknown) => void,
+    ) => {
+      onEvent({
+        projectId: 'p1',
+        processId: `p1:${workerId}`,
+        content: `${workerId} log de exemplo`,
+        sizeBytes: 20,
+        truncated: false,
+        masked: false,
+        redactionCount: 0,
+        readAt: '2026-08-05T12:00:00.000Z',
+      });
+      return { close: vi.fn(), done: new Promise<void>(() => undefined) };
+    },
+  ),
   clearProjectRailsWorkerLog: vi.fn(),
 }));
 
@@ -29,6 +49,7 @@ vi.mock('../src/api', () => ({
   stopProjectRailsWorker,
   restartProjectRailsWorker,
   fetchProjectRailsWorkerLog,
+  followProjectRailsWorkerLogEvents,
   clearProjectRailsWorkerLog,
 }));
 
@@ -153,7 +174,11 @@ describe('ProjectRailsRuntimePanel', () => {
     await sidekiqPanel.find('.rails-worker-log-toggle').trigger('click');
     await flushPromises();
 
-    expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'sidekiq');
+    expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
+      'p1',
+      'sidekiq',
+      expect.any(Function),
+    );
     expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain(
       'sidekiq log de exemplo',
     );
@@ -163,7 +188,11 @@ describe('ProjectRailsRuntimePanel', () => {
     await webpackPanel.find('.rails-worker-log-toggle').trigger('click');
     await flushPromises();
 
-    expect(fetchProjectRailsWorkerLog).toHaveBeenCalledWith('p1', 'webpack');
+    expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
+      'p1',
+      'webpack',
+      expect.any(Function),
+    );
     expect(webpackPanel.find('.rails-worker-log-content').text()).toContain(
       'webpack log de exemplo',
     );

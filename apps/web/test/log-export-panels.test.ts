@@ -72,7 +72,7 @@ vi.mock('../src/composables/useProjectLogsPolling', async () => {
 
 import ProjectLogsPanel from '../src/components/ProjectLogsPanel.vue';
 import ProjectScriptsPanel from '../src/components/ProjectScriptsPanel.vue';
-import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
+import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
 import { createTestRouter } from './support/test-router';
 
@@ -208,7 +208,7 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
     return new Response('not found', { status: 404 });
   }) as typeof fetch;
 
-  const wrapper = mount(ProjectTestsPanel, {
+  const wrapper = mount(ProjectTestsGuidedPanel, {
     props: { project: makeProject({ id: 'p1', capabilities: ['tests'] }) },
     global: { plugins: [createTestRouter()] },
   });

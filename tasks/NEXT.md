@@ -1,5 +1,28 @@
 # Próxima atividade
 
+**Concluído nesta sessão (PR #299)**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
+
+1. Logs de servidor e workers Rails (Sidekiq/webpack) trocaram de polling para push via SSE.
+2. Item 0 (pré-requisito do resto do desenho): `DetachableExecutionService`
+   (`apps/api/src/services/detachable-execution-service.ts`) — roda um comando num PTY sem matar o
+   processo ao desconectar, com buffer de saída e reanexação.
+3. Item 1 (PoC de testes), **escopo reduzido para "suíte completa" apenas** — decisão tomada
+   depois de investigar o modelo real de execução de testes (mais complexo do que o desenho
+   original assumia: três formas de disparo, cada uma com resolução própria e acoplada ao formato
+   de `ManagedProcess`). `ProjectTestsPanel.vue` agora roda a suíte completa num terminal PTY
+   destacável (`ProjectTestsPtyPanel.vue` + `ProjectTestPtyService`); arquivo específico, testes
+   relacionados, histórico e Diagnóstico especializado **saíram do ar temporariamente** (código
+   antigo preservado como referência, não deletado — ver `docs/guia/testes.md`).
+
+Suíte completa verde: `apps/api` 726/726, `apps/web` 392/392. Gate local (`typecheck`, `lint`,
+`format:check`, `build`, `docs:api:check`) verde.
+
+Próximos passos possíveis, nenhum obrigatório: itens 2-3 (Migration/Build — mais simples que
+Testes, sem targeting múltiplo, tendem a ser mais baratos); repor file/related/Diagnóstico sobre o
+modelo novo; ou item 4 (consolidação, remover SSE de `script-execution/*`) quando/se os itens
+anteriores todos migrarem. O usuário pausou os follow-ups da IA multi-provider pra focar nessa
+frente — retomar quando quiser (seção abaixo).
+
 O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
 seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há
 bloqueador conhecido pendente para os dois providers atuais (Ollama + OpenAI).

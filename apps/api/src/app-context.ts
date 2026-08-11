@@ -45,6 +45,8 @@ import {
   type LanguageServerLogger,
 } from './services/project-language-server-service.js';
 import { ProjectTerminalService } from './services/project-terminal-service.js';
+import { DetachableExecutionService } from './services/detachable-execution-service.js';
+import { ProjectTestPtyService } from './services/project-test-pty-service.js';
 import { ProjectCoverageService } from './services/project-coverage-service.js';
 import { ProjectCoverageHistoryService } from './services/project-coverage-history-service.js';
 
@@ -62,6 +64,7 @@ export interface AppContext {
   gitMutationHistoryService: GitMutationHistoryService;
   testDetectionService: TestDetectionService;
   testExecutionHistoryService: TestExecutionHistoryService;
+  projectTestPtyService: ProjectTestPtyService;
   projectCoverageService: ProjectCoverageService;
   projectCoverageHistoryService: ProjectCoverageHistoryService;
   databaseDetectionService: DatabaseDetectionService;
@@ -116,6 +119,12 @@ export function createAppContext(
       : {}),
   });
   const projectTerminalService = new ProjectTerminalService();
+  const testDetectionService = new TestDetectionService();
+  const detachableExecutionService = new DetachableExecutionService();
+  const projectTestPtyService = new ProjectTestPtyService(
+    detachableExecutionService,
+    testDetectionService,
+  );
 
   const assistantFor = (provider: OllamaProvider | OpenAiProvider) =>
     new AiAssistantService({
@@ -147,10 +156,11 @@ export function createAppContext(
     projectStore,
     gitService,
     gitMutationHistoryService,
-    testDetectionService: new TestDetectionService(),
+    testDetectionService,
     testExecutionHistoryService: new TestExecutionHistoryService(
       processManager,
     ),
+    projectTestPtyService,
     projectCoverageService: new ProjectCoverageService(),
     projectCoverageHistoryService: new ProjectCoverageHistoryService(),
     databaseDetectionService,

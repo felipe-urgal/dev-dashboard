@@ -334,6 +334,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
     testExecutionHistoryService: context.testExecutionHistoryService,
+    projectTestPtyService: context.projectTestPtyService,
   });
 
   app.register(testRelatedRoutes, {
