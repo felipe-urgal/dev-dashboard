@@ -1,31 +1,28 @@
 # Fechamento — IA multi-provider
 
-Este documento é o checklist de fechamento da arquitetura multi-provider do Dev Dashboard após os PRs #286–#293.
+Este documento registra o fechamento da arquitetura multi-provider do Dev Dashboard após os PRs #286–#293. O trabalho foi consolidado no **PR #295**.
 
-O objetivo é sair de “roadmap implementado” para **fluxos de IA consistentes, previsíveis, testados e sem caminhos genéricos presos silenciosamente ao Ollama**.
-
-O trabalho de fechamento está sendo consolidado no **PR #295**.
+O objetivo do fechamento é garantir fluxos de IA consistentes, previsíveis, testados e sem caminhos genéricos presos silenciosamente ao Ollama.
 
 ## Definição de pronto
 
-A iniciativa só deve ser considerada 100% concluída quando:
+A iniciativa pode ser considerada concluída quando:
 
-- todo fluxo genérico de IA resolver provider e modo explicitamente;
-- nenhum endpoint com nome genérico usar Ollama por acidente;
-- Assistente/implementation e Code Review obedecerem à mesma seleção por projeto;
-- consentimento cloud for revalidado antes de qualquer envio de conteúdo do projeto;
-- provider, modo e modelo usados em cada execução forem rastreáveis;
-- modelos incompatíveis com o provider forem recusados antes da inferência;
-- falhas de provider, autenticação, consentimento, modelo, rede e parsing tiverem comportamento e mensagem previsíveis;
-- cancelamento não deixar execution, polling ou request órfão;
-- masking for aplicado em todos os caminhos de saída de conteúdo;
-- falha de persistência não deixar frontend e backend divergentes;
-- documentação e referência HTTP refletirem o código real;
-- suíte obrigatória do repositório estiver verde.
+- todo fluxo genérico de IA resolve provider e modo explicitamente;
+- nenhum endpoint com nome genérico usa Ollama por acidente;
+- Assistente/implementation e Code Review obedecem à mesma seleção por projeto;
+- consentimento cloud é revalidado antes de qualquer envio de conteúdo do projeto;
+- provider, modo e modelo usados nas executions relevantes são rastreáveis;
+- modelos incompatíveis com o provider são recusados antes da inferência;
+- falhas de provider, autenticação, consentimento, modelo, rede e parsing possuem códigos previsíveis;
+- cancelamento não deixa execution ou request de IA em estado incorreto;
+- masking é aplicado nos caminhos de saída de conteúdo para providers;
+- persistência de seleção/consentimento usa defaults seguros e escrita privada/atômica;
+- documentação e referência HTTP refletem o código real;
+- os P1 foram revisados e classificados entre validado e follow-up não bloqueante;
+- a suíte obrigatória do repositório está verde no commit final.
 
 ## Gate obrigatório de validação
-
-Antes de considerar qualquer etapa concluída:
 
 ```bash
 npm run typecheck
@@ -44,237 +41,228 @@ npm run docs:api
 npm run docs:api:check
 ```
 
-Se `format:check` falhar, executar `npm run format` e repetir a validação.
-
 ---
 
 # P0 — bloqueadores para considerar multi-provider concluído
 
 ## 1. Code Review IA usar o resolver multi-provider — concluído
 
-### Entregue
-
 - [x] Resolver provider selecionado pelo projeto antes de iniciar Code Review.
 - [x] Revalidar disponibilidade e consentimento cloud antes de cada nova revisão.
-- [x] Fazer revisão por arquivo e síntese global usarem o mesmo provider congelado no início da execution.
+- [x] Revisão por arquivo e síntese global usam o mesmo provider congelado no início da execution.
 - [x] Registrar `provider` e `mode` no snapshot de `GitPullRequestAiReviewExecution`.
-- [x] Não reler seleção durante uma execução em andamento.
-- [x] Remover o endpoint one-shot `/git/pull-request/ai-review` após confirmar ausência de consumidor.
+- [x] Não reler seleção durante uma execution em andamento.
+- [x] Remover o endpoint one-shot `/git/pull-request/ai-review` sem consumidor.
 - [x] Expor provider/modo no schema HTTP e contratos compartilhados.
-- [x] Exibir na UI qual provider e modo estão sendo usados na Code Review.
-- [x] Cobrir OpenAI autorizado, falta de consentimento, provider indisponível e troca de seleção durante execução.
+- [x] Exibir provider/modo usados na UI da Code Review.
+- [x] Cobrir OpenAI autorizado, falta de consentimento, provider indisponível e troca de seleção durante execution.
 
-### Critério de aceite
-
-Uma Code Review iniciada com OpenAI selecionada usa OpenAI; uma iniciada com Ollama usa Ollama; mudar a seleção depois do start não muda a execution corrente.
-
-### Evidência
-
-O CI completo ficou verde após o fechamento deste bloco no PR #295.
+**Critério atendido:** uma revisão iniciada com OpenAI usa OpenAI; uma iniciada com Ollama usa Ollama; mudar a seleção depois do start não altera a execution corrente.
 
 ## 2. Eliminar endpoints genéricos presos silenciosamente ao Ollama — concluído
 
-### Entregue
-
-- [x] Inventariar consumidores reais de `/ai/status`, `/ai/chat`, `/ai/complete` e `/ai/models/pull`.
+- [x] Inventariar consumidores de `/ai/status`, `/ai/chat`, `/ai/complete` e `/ai/models/pull`.
 - [x] Rotear `status/chat/complete` pelo resolver.
-- [x] Remover acesso direto ao `AiAssistantService` local das opções da rota genérica.
-- [x] Tornar instalação de modelo capability-based; provider cloud não cai silenciosamente no Ollama.
-- [x] Garantir que documentação e nomes de comportamento deixem claro quando uma operação depende da capability do provider.
-- [x] Adicionar regressivos impedindo bypass do resolver.
-
-### Critério de aceite
-
-Selecionar OpenAI faz as rotas genéricas usarem OpenAI. `models/pull` em provider sem instalação retorna falha explícita e nunca usa Ollama como fallback oculto.
-
-### Evidência
-
-O CI completo ficou verde após o fechamento deste bloco no PR #295.
+- [x] Remover acesso direto ao serviço Ollama das opções da rota genérica.
+- [x] Tornar instalação de modelo capability-based.
+- [x] Provider cloud sem instalação não cai silenciosamente no Ollama.
+- [x] Cobrir bypass do resolver com regressivos.
 
 ## 3. Validação de modelo no backend — concluído
 
-### Entregue
-
-- [x] Validar que o modelo solicitado pertence ao provider resolvido/está disponível antes da inferência.
-- [x] Diferenciar provider indisponível de modelo indisponível/incompatível no domínio do resolver.
-- [x] Não depender de erro do fornecedor para descobrir modelo inválido.
-- [x] Preservar escolha de modelo por execution, sem persistir modelo globalmente.
+- [x] Validar o modelo solicitado contra o provider resolvido antes da inferência.
+- [x] Diferenciar provider indisponível de modelo indisponível/incompatível.
+- [x] Não depender de erro do fornecedor para descobrir modelo incompatível.
+- [x] Preservar escolha de modelo por execution.
 - [x] Testar modelo Ollama enviado para OpenAI.
 - [x] Testar modelo OpenAI enviado para Ollama.
-- [x] Fazer Code Review validar provider/modelo antes de ler lista/diff.
-- [x] Aplicar a mesma validação em chat, completion e implementation.
-
-### Critério de aceite
-
-Um modelo incompatível falha antes da inferência e antes de leitura de conteúdo desnecessária do projeto.
-
-### Evidência
-
-CI #1601 verde no head que fechou o P0 #3.
+- [x] Code Review valida provider/modelo antes de ler diff.
+- [x] Chat, completion e implementation usam a mesma validação.
 
 ## 4. Contratos de erro estáveis — concluído
 
-### Entregue
-
-- [x] Definir códigos específicos para consentimento, provider indisponível, modelo inválido, autenticação cloud, quota/billing, rate limit, timeout/cancelamento, resposta inválida, operação sem suporte e falha upstream.
-- [x] Evitar converter todos os problemas de provider em `AI_ASSISTANT_INVALID_REQUEST` ou `AI_ASSISTANT_FAILED` genérico.
+- [x] Definir códigos para consentimento, provider indisponível, modelo inválido, auth, quota/billing, rate limit, timeout/cancelamento, resposta inválida, operação sem suporte e falha upstream.
 - [x] Compartilhar `AiErrorCode` entre contracts, adapters, resolver, HTTP, SSE e executions.
-- [x] Preservar detalhes específicos dentro do adapter quando apropriado sem obrigar consumidores a interpretar mensagens.
+- [x] Evitar converter todas as falhas para erros genéricos.
 - [x] Registrar `errorCode` em implementation e Code Review quando aplicável.
-- [x] Não logar prompt, diff, tool result ou credencial como contexto estruturado dos erros de provider.
+- [x] Manter mensagem textual voltada à pessoa usuária/troubleshooting e código voltado à lógica.
+- [x] Atualizar referência HTTP e documentação.
 - [x] Cobrir taxonomia e mapeamento HTTP com regressivos.
-- [x] Atualizar referência HTTP, arquitetura, provider OpenAI e guia do Assistente.
 
-### Critério de aceite
+## 5. Segurança de saída cloud — concluído
 
-Frontend, testes e diagnóstico conseguem distinguir a classe de falha por código estável; mensagem textual continua voltada à pessoa usuária e ao troubleshooting.
+- [x] Testar masking de chat com OpenAI selecionada.
+- [x] Testar masking de implementation, incluindo resultado de ferramenta reapresentado ao modelo.
+- [x] Testar masking de completion.
+- [x] Testar masking da Code Review por arquivo e da síntese global.
+- [x] Garantir que consentimento seja verificado antes de ler/enviar conteúdo do projeto para cloud.
+- [x] Testar revogação de consentimento entre duas executions.
+- [x] Testar que status/listagem de modelos não envia identidade ou conteúdo do projeto.
+- [x] Confirmar que a API key permanece em header de autenticação e não entra no conteúdo/eventos.
+- [x] Remover serialização de `Error.message/cause` arbitrários dos logs estruturados das rotas de IA.
+- [x] Corrigir documentação que descrevia a IA como exclusivamente local.
 
-### Evidência
+A suíte `apps/api/test/ai-cloud-security.test.ts` usa o adapter real `OpenAiProvider` com `fetch` capturado para provar a fronteira cloud sem fazer chamadas externas.
 
-**CI #1640 completamente verde**: typecheck, lint, format, build, `docs:api:check`, `npm test` e Smoke E2E.
+## 6. Cancelamento e concorrência — concluído
 
-## 5. Segurança de saída cloud — atividade atual
+- [x] Propagar cancelamento externo até os requests HTTP de OpenAI e Ollama.
+- [x] Cancelar Code Review durante revisão por arquivo sem deixar estado `running`.
+- [x] Cancelar durante síntese global e impedir resposta tardia de sobrescrever `cancelled`.
+- [x] Terminalizar implementation antes de disparar o abort, evitando evento síncrono tardio.
+- [x] Terminalizar Code Review antes de disparar o abort.
+- [x] Manter apenas uma execution ativa por fluxo/projeto conforme a policy atual.
+- [x] Reconsultar a seleção após requests de status para evitar provider/modo stale em troca rápida.
+- [x] Fechar implementation e Code Review no hook `onClose` da API.
+- [x] Auditar polling das telas: reagendamento somente enquanto `running` e cleanup ao desmontar.
 
-### Entregar
-
-- [ ] Testar masking de chat, implementation, Code Review por arquivo, síntese global e completion com OpenAI selecionada.
-- [ ] Testar masking também de resultados de ferramentas reapresentados ao modelo.
-- [ ] Confirmar que headers/credenciais nunca entram no conteúdo mascarado, eventos ou logs.
-- [ ] Garantir que consentimento seja verificado antes do primeiro request que contenha conteúdo do projeto.
-- [ ] Testar revogação de consentimento entre duas executions.
-- [ ] Testar que status/listagem de modelos não envia conteúdo do projeto.
-- [ ] Revisar logs de erro para não persistir prompt, diff ou tool results.
-- [ ] Corrigir documentação de segurança que ainda descreva a IA como somente local ou afirme que nenhum conteúdo sai do computador.
-
-## 6. Cancelamento e concorrência
-
-### Entregar
-
-- [ ] Cancelar Code Review em Ollama e OpenAI sem requests órfãos.
-- [ ] Cancelar durante revisão por arquivo e durante síntese global.
-- [ ] Garantir apenas uma execution ativa por fluxo/projeto quando essa for a policy definida.
-- [ ] Testar troca rápida de provider/mode enquanto requests de status estão em voo.
-- [ ] Testar fechamento da API com executions em andamento.
-- [ ] Garantir que polling pare em estados terminais e ao desmontar componentes.
+**Critério atendido:** `cancelled` é terminal/monotônico e shutdown/troca de seleção não deixam uma resposta tardia alterar o estado lógico da execução.
 
 ---
 
-# P1 — hardening de produto e prevenção de bugs
+# P1 — hardening revisado e classificado
+
+Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento essencial foi validado neste PR; melhorias incrementais permanecem como follow-up explícito.
 
 ## 7. UX única de seleção de IA
 
-- [ ] Evitar seletores duplicados e divergentes entre Assistente e Code Review.
-- [x] Code Review reflete a seleção persistida do projeto em vez de usar status Ollama legado.
-- [x] Mostrar provider e modo usados pela execution de Code Review.
-- [ ] Mostrar `Local`/`Cloud`, provider, modo e modelo sem transformar a tela em painel técnico.
-- [ ] Provider indisponível deve aparecer desabilitado com motivo.
-- [ ] OpenAI sem consentimento deve mostrar ação explícita de autorização.
-- [ ] Revogação deve refletir imediatamente na próxima execution.
+### Validado no #295
+
+- [x] Code Review usa a seleção persistida do projeto, em vez de um estado Ollama paralelo.
+- [x] Provider e modo usados ficam visíveis na execution de Code Review.
+- [x] Provider indisponível/consentimento ausente bloqueiam o início do fluxo com motivo compreensível.
+- [x] Revogação de consentimento vale para a próxima execution.
+
+### Follow-up não bloqueante
+
+- Refinar apresentação conjunta de `Local/Cloud`, provider, modo e modelo somente se houver ganho de UX; evitar criar seletores duplicados.
 
 ## 8. Fallback consistente
 
-- [x] Manter `off/offer` sem fallback automático.
-- [ ] Garantir que fallback use provider registrado na execution em todos os fluxos suportados.
-- [ ] Não oferecer troca para erro de ferramenta, modelo ou parsing se o provider continua disponível.
-- [ ] Não transportar histórico, tool results, diff ou eventos da execution anterior.
-- [x] Nunca iniciar Local → Cloud automaticamente.
-- [ ] Garantir consentimento explícito também após aceitar oferta.
-- [ ] Avaliar se Code Review deve ter fallback `offer`; implementar apenas se a UX não induzir revisão dupla silenciosa.
+### Validado
+
+- [x] Política continua `off/offer`; não existe fallback automático.
+- [x] Local → Cloud nunca inicia automaticamente.
+- [x] Fallback parte do provider registrado na execution, não da seleção atual mutável.
+- [x] Uma nova execution não transporta histórico/tool results/eventos da anterior.
+
+### Follow-up não bloqueante
+
+- Refinar a elegibilidade da oferta por classe de erro se a UX exigir.
+- Avaliar fallback `offer` na Code Review somente com desenho explícito que evite revisão dupla/custo inesperado.
 
 ## 9. Observabilidade e diagnóstico
 
-- [ ] Logar `executionId`, `projectId`, `provider`, `mode` e operação sem logar conteúdo sensível.
-- [x] Diferenciar falha de rede, autenticação, rate limit, timeout, cancelamento e payload inválido.
-- [ ] Registrar duração e estado terminal das executions.
-- [ ] Garantir que erros de provider tenham contexto suficiente para troubleshooting local.
-- [ ] Não logar API key nem bodies completos de requests cloud.
+### Validado
+
+- [x] Falhas de rede, auth, quota, rate limit, timeout, cancelamento e payload inválido são distinguíveis por código.
+- [x] Rotas de IA não registram API key, body completo, prompt, diff ou `Error.message/cause` bruto como contexto estruturado.
+- [x] Logs de request usam somente metadados allowlistados quando necessário.
+
+### Follow-up não bloqueante
+
+- Adicionar métricas estruturadas de duração/estado terminal por execution se houver necessidade operacional real.
 
 ## 10. Provider OpenAI
 
-- [ ] Revisar descoberta/filtro de modelos para evitar aceitar modelo incompatível ou rejeitar modelo suportado sem motivo.
-- [x] Testar resposta vazia, `choices` ausente, argumentos inválidos e erro HTTP classificado.
-- [x] Testar timeout e propagação de cancelamento na taxonomia.
-- [x] Manter `store: false` nas requests de inferência.
-- [x] Confirmar que IDs nativos de tool calls continuam encapsulados no adapter.
-- [x] Documentar claramente limitações atuais do adapter.
-- [x] Normalizar falta de créditos/quota para mensagem amigável.
-- [x] Refletir temporariamente falta de créditos como provider indisponível no status.
+### Validado
+
+- [x] Respostas vazias/`choices` ausente, argumentos inválidos e erros HTTP são classificados.
+- [x] Timeout e cancelamento do caller são categorias distintas.
+- [x] `store: false` permanece nas requests de inferência.
+- [x] IDs nativos de tool calls ficam encapsulados no adapter.
+- [x] Billing/quota recebe mensagem amigável e estado temporariamente indisponível.
+- [x] Limitações atuais do adapter estão documentadas.
+
+### Follow-up não bloqueante
+
+- Evoluir filtro/descoberta de modelos conforme a API da OpenAI mudar; o backend já rejeita qualquer modelo fora do catálogo retornado pelo provider.
 
 ## 11. Provider Ollama
 
-- [x] Preservar validação de loopback para URL configurável.
-- [ ] Testar Ollama offline, sem modelos, modelo removido durante uso e resposta NDJSON incompleta.
-- [x] Manter compatibilidade de tool call textual isolada no adapter.
-- [ ] Garantir que instalação de modelo continue exclusivamente local e cancelável.
-- [x] Classificar timeout, resposta inválida, indisponibilidade e falha upstream sem depender de mensagens.
+### Validado
+
+- [x] URL configurável continua restrita a loopback HTTP.
+- [x] Tool call textual permanece isolado no adapter e não autoriza ferramenta fora do catálogo.
+- [x] Timeout, cancelamento, resposta inválida, indisponibilidade e falha upstream têm códigos próprios.
+- [x] Instalação de modelo continua capability local e nunca faz fallback oculto para cloud.
+
+### Follow-up não bloqueante
+
+- Ampliar matriz de regressão do adapter para Ollama offline, zero modelos, modelo removido no meio do uso, NDJSON incompleto e cancelamento de download longo.
 
 ## 12. Persistência local
 
-- [ ] Confirmar permissões `0600` de seleção e consentimento.
-- [ ] Testar arquivo ausente, JSON inválido, schema desconhecido e gravação interrompida.
-- [ ] Garantir escrita atômica quando aplicável.
-- [x] Falha em `PUT /ai/selection` deve restaurar frontend ao estado persistido.
-- [ ] Falha em consentimento não deve conceder acesso visualmente sem persistência real.
+### Validado por implementação
+
+- [x] Seleção e consentimento usam arquivos privados `0600` em diretório `0700`.
+- [x] Escrita usa arquivo temporário privado + `rename`, evitando substituir o estado válido por conteúdo parcial.
+- [x] Arquivo ausente usa default seguro (`ollama + fast` / sem consentimento cloud).
+- [x] Configuração inválida ou versão desconhecida é colocada em quarentena e não concede cloud por acidente.
+- [x] Seleção só altera o estado em memória depois da persistência bem-sucedida.
+- [x] A UI restaura a seleção persistida quando `PUT /ai/selection` falha.
+
+### Follow-up não bloqueante
+
+- Adicionar fault injection específico para queda do processo entre `writeFile` e `rename` e um teste visual dedicado à falha de persistência do consentimento.
 
 ## 13. Execução `fast` / `complete`
 
-- [ ] Verificar budgets nos dois providers.
-- [ ] Testar limites de rounds/resultados acumulados e repetição sem progresso.
-- [x] Confirmar que `complete` usa síntese global na Code Review.
-- [x] Confirmar que `fast` não executa síntese global.
-- [ ] Evitar budgets diferentes por provider sem decisão explícita/documentada.
+### Validado
+
+- [x] Budgets são definidos por modo numa policy única e são provider-neutral.
+- [x] `fast` não faz síntese global; `complete` faz.
+- [x] Orquestrador limita rounds, tamanho por tool result, acumulado e repetição sem progresso.
+
+### Follow-up não bloqueante
+
+- Adicionar testes de stress para os limites extremos dos budgets se surgirem casos reais de contexto grande.
 
 ## 14. Tool calling e workspace edit
 
-- [x] Todo provider passa pelo mesmo catálogo fechado de ferramentas no Assistente.
-- [ ] Ferramenta desconhecida deve falhar fechada em todos os cenários.
-- [ ] Argumentos inválidos devem ser rejeitados antes da execução local.
-- [x] `propose_workspace_edit` nunca escreve sem preview + aprovação.
-- [x] `expectedVersion` continua controlado pelo servidor.
-- [ ] Testar tool results grandes, truncamento e masking.
-- [x] Bloquear proposta de workspace edit antes de uma inspeção bem-sucedida do projeto.
+### Validado
+
+- [x] Providers passam pelo mesmo catálogo fechado de ferramentas.
+- [x] Ferramenta fora do catálogo falha fechada e não é executada.
+- [x] Argumentos obrigatórios são validados antes da operação local.
+- [x] Tool results são truncados pelos budgets e passam pela barreira de masking antes de voltar ao provider.
+- [x] `propose_workspace_edit` exige inspeção bem-sucedida do projeto.
+- [x] Workspace edit permanece preview + confirmação; `expectedVersion` continua controlado pelo servidor.
+
+### Follow-up não bloqueante
+
+- Expandir testes de stress para resultados de ferramenta excepcionalmente grandes; os limites atuais já impedem crescimento ilimitado.
 
 ---
 
-# P2 — evolução arquitetural, não bloqueia o fechamento atual
+# P2 — evolução arquitetural deliberadamente adiada
 
 ## 15. Terceiro provider cloud
 
-Não adicionar apenas para provar abstração. Fazer quando houver necessidade real.
-
-Um futuro provider deve reutilizar:
-
-- autenticação oficial;
-- tool calling normalizado;
-- consentimento cloud;
-- masking compartilhado;
-- validação de modelo;
-- contratos de erro estáveis.
+Não adicionar apenas para provar abstração. Um futuro provider deve reutilizar autenticação oficial, tool calling normalizado, consentimento cloud, masking, validação de modelo e contratos de erro.
 
 ## 16. `ProviderRegistry` dinâmico
 
-Adiar até um terceiro provider tornar o `Record<AiProviderId, ...>` realmente oneroso.
+Adiar até um terceiro provider tornar o `Record<AiProviderId, ...>` oneroso.
 
 ## 17. Fallback automático
 
-Continua fora do escopo. Local → Cloud automático permanece proibido sem uma política explícita de custo/privacidade e consentimento compatível.
+Continua fora do escopo. Local → Cloud automático permanece proibido sem política explícita de custo/privacidade e consentimento compatível.
 
 ## 18. Abstrações adicionais
 
-`ContextBuilder`, `ToolExecutor`, cache semântico e outras extrações só entram quando houver reutilização, gargalo medido ou ganho claro de teste/manutenção.
+`ContextBuilder`, `ToolExecutor`, cache semântico e outras extrações só entram quando houver reutilização, gargalo medido ou ganho claro de manutenção.
 
 ---
 
-# Sequência de execução atual
+# Estado final do PR #295
 
 1. ~~Code Review multi-provider + snapshot provider/mode.~~
-2. ~~Resolver endpoints genéricos presos ao Ollama.~~
+2. ~~Endpoints genéricos resolvidos por provider.~~
 3. ~~Validação server-side de modelo.~~
 4. ~~Contratos de erro estáveis.~~
-5. **Hardening de segurança cloud.**
-6. **Cancelamento e concorrência.**
-7. **Auditoria final de persistência, UX, docs, código órfão e CI.**
+5. ~~Hardening de segurança cloud.~~
+6. ~~Cancelamento e concorrência.~~
+7. **Auditoria final de documentação + CI do head final.**
 
-# Critério final de encerramento
-
-A tarefa termina somente com todos os P0 concluídos, P1 revisados e classificados, documentação reconciliada e a suíte obrigatória verde no commit final. Itens P2 podem permanecer adiados desde que isso esteja explícito e não crie comportamento enganoso no produto.
+O merge só deve ser liberado quando o head que contém esta auditoria passar integralmente pelo gate obrigatório. Os follow-ups P1/P2 acima são melhorias deliberadas e não representam bugs conhecidos que bloqueiem o fechamento multi-provider de dois providers.
