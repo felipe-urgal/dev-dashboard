@@ -440,7 +440,8 @@ export class GitAiCodeReviewService {
   public close(): void {
     for (const running of this.executions.values()) {
       if (running.execution.status !== 'running') continue;
-      this.cancel(running.execution.projectId ?? '', running.execution.id);
+      this.finishCancelled(running);
+      running.controller.abort();
     }
   }
 
