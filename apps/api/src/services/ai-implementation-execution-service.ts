@@ -16,6 +16,10 @@ import {
   AiAssistantError,
   type AiAssistantService,
 } from './ai-assistant-service.js';
+import {
+  logAiExecutionTerminal,
+  type AiExecutionMetricsLogger,
+} from './ai-execution-metrics.js';
 import { DEFAULT_AI_EXECUTION_MODE } from './ai-execution-policy.js';
 import { AiProviderError } from './ai-provider.js';
 import {
@@ -92,6 +96,8 @@ export class AiImplementationExecutionService {
     private readonly now: () => Date = () => new Date(),
     private readonly providerResolver:
       ProjectProviderResolver | undefined = undefined,
+    private readonly metricsLogger:
+      AiExecutionMetricsLogger | undefined = undefined,
   ) {}
 
   public start(
@@ -282,6 +288,17 @@ export class AiImplementationExecutionService {
     execution.status = status;
     execution.updatedAt = timestamp;
     execution.finishedAt = timestamp;
+    logAiExecutionTerminal(this.metricsLogger, {
+      executionKind: 'implementation',
+      executionId: execution.id,
+      projectId: execution.projectId,
+      provider: execution.provider,
+      mode: execution.mode,
+      status: execution.status,
+      startedAt: execution.createdAt,
+      finishedAt: timestamp,
+      ...(execution.errorCode ? { errorCode: execution.errorCode } : {}),
+    });
   }
 
   private hasError(execution: AiImplementationExecution): boolean {

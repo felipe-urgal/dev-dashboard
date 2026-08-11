@@ -1080,3 +1080,215 @@ test('chat() recusa get_symbol_definition para extensão sem servidor de linguag
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('chat() trunca um resultado de ferramenta que excede o budget de caracteres do modo', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-stress-truncate-'),
+  );
+  try {
+    const hugeContent = 'x'.repeat(9_000);
+    await writeFile(path.join(root, 'huge.txt'), hugeContent, 'utf8');
+    let round = 0;
+    const requestBodies: string[] = [];
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async (_input, init) => {
+        requestBodies.push(String(init?.body ?? ''));
+        round += 1;
+        if (round === 1) {
+          return ndjsonResponse([
+            {
+              message: {
+                role: 'assistant',
+                content: '',
+                tool_calls: [
+                  {
+                    function: {
+                      name: 'read_project_file',
+                      arguments: { path: 'huge.txt' },
+                    },
+                  },
+                ],
+              },
+              done: true,
+            },
+          ]);
+        }
+        return ndjsonResponse([
+          {
+            message: { role: 'assistant', content: 'Arquivo lido.' },
+            done: true,
+          },
+        ]);
+      },
+    });
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Leia o arquivo huge.txt' },
+    ]);
+    assert.equal(events.at(-1)?.type, 'done');
+
+    const secondRequest = JSON.parse(requestBodies[1] ?? '{}') as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const toolMessage = secondRequest.messages.at(-1);
+    assert.equal(toolMessage?.role, 'tool');
+    const toolPayload = JSON.parse(toolMessage?.content ?? '{}') as {
+      content: string;
+      truncated: boolean;
+    };
+    assert.equal(toolPayload.truncated, true);
+    assert.equal(toolPayload.content.length, 8_000);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() interrompe quando o contexto acumulado das ferramentas excede o budget do modo', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-stress-accumulated-'),
+  );
+  try {
+    const paths = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt'];
+    for (const name of paths) {
+      await writeFile(path.join(root, name), 'y'.repeat(8_000), 'utf8');
+    }
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () =>
+        ndjsonResponse([
+          {
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: paths.map((name) => ({
+                function: {
+                  name: 'read_project_file',
+                  arguments: { path: name },
+                },
+              })),
+            },
+            done: true,
+          },
+        ]),
+    });
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Leia todos os arquivos.' },
+    ]);
+
+    const toolCalls = events.filter((event) => event.type === 'tool-call');
+    // Cada resultado (~8.000 caracteres truncados) ultrapassa o acumulado de
+    // 32.000 do modo fast antes do quinto arquivo ser processado.
+    assert.ok(toolCalls.length < paths.length);
+    const error = events.find((event) => event.type === 'error');
+    assert.ok(error && error.type === 'error');
+    if (error?.type === 'error') {
+      assert.equal(error.code, 'AI_ASSISTANT_INVALID_REQUEST');
+      assert.match(error.message, /contexto acumulado/);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() recusa a mesma chamada de ferramenta repetida além do limite do modo', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-stress-identical-'),
+  );
+  try {
+    await writeFile(path.join(root, 'README.md'), '# Painel\n', 'utf8');
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      fetchImpl: async () =>
+        ndjsonResponse([
+          {
+            message: {
+              role: 'assistant',
+              content: '',
+              // maxIdenticalToolCalls do modo fast é 4; a 5ª chamada idêntica
+              // deve ser recusada antes de qualquer nova leitura.
+              tool_calls: Array.from({ length: 5 }, () => ({
+                function: {
+                  name: 'read_project_file',
+                  arguments: { path: 'README.md' },
+                },
+              })),
+            },
+            done: true,
+          },
+        ]),
+    });
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Leia o README repetidamente.' },
+    ]);
+
+    const toolCalls = events.filter((event) => event.type === 'tool-call');
+    assert.equal(toolCalls.length, 4);
+    const error = events.at(-1);
+    assert.ok(error && error.type === 'error');
+    if (error?.type === 'error') {
+      assert.equal(error.code, 'AI_PROVIDER_INVALID_RESPONSE');
+      assert.match(error.message, /repetiu a ferramenta/);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('chat() encerra com erro claro quando o modelo encadeia ferramentas além do budget de rounds', async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), 'dev-dashboard-ai-stress-rounds-'),
+  );
+  try {
+    const fileNames = ['r0.txt', 'r1.txt', 'r2.txt', 'r3.txt'];
+    for (const name of fileNames) {
+      await writeFile(path.join(root, name), 'conteúdo pequeno', 'utf8');
+    }
+    let round = 0;
+    const service = new AiAssistantService({
+      projectFileService: new ProjectFileService(),
+      gitService: new GitService(),
+      // O modo fast permite 4 rounds; o modelo nunca converge (sempre chama
+      // uma ferramenta nova) e o orquestrador precisa desistir de forma
+      // previsível em vez de entrar em loop indefinido.
+      fetchImpl: async () => {
+        const name = fileNames[round] ?? fileNames.at(-1)!;
+        round += 1;
+        return ndjsonResponse([
+          {
+            message: {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                {
+                  function: {
+                    name: 'read_project_file',
+                    arguments: { path: name },
+                  },
+                },
+              ],
+            },
+            done: true,
+          },
+        ]);
+      },
+    });
+    const events = await collect(service, project(root), 'llama3.1', [
+      { role: 'user', content: 'Investigue o projeto inteiro.' },
+    ]);
+
+    assert.equal(round, fileNames.length);
+    const toolCalls = events.filter((event) => event.type === 'tool-call');
+    assert.equal(toolCalls.length, fileNames.length);
+    const error = events.at(-1);
+    assert.ok(error && error.type === 'error');
+    if (error?.type === 'error') {
+      assert.equal(error.code, 'AI_ASSISTANT_INVALID_REQUEST');
+      assert.match(error.message, /encadeou ferramentas demais/);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

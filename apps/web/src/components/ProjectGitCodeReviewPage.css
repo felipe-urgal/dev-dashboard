@@ -522,6 +522,34 @@
   font-weight: 700;
 }
 
+.git-code-review-file-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.git-code-review-file-mode-toggle button {
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: 0 8px;
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 700;
+}
+
+.git-code-review-file-mode-toggle button:hover,
+.git-code-review-file-mode-toggle button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.git-code-review-file-mode-toggle button.active {
+  background: var(--accent-soft);
+}
+
 .git-code-review-file-body {
   display: flex;
   flex-direction: column;
@@ -581,6 +609,10 @@
   color: var(--text-muted);
   font-size: var(--font-sm);
   text-align: center;
+}
+
+.git-code-review-diff-empty:has(button) {
+  flex-direction: column;
 }
 
 .git-code-review-selection-bar {

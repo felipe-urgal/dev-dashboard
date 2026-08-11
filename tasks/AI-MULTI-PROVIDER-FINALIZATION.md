@@ -158,10 +158,14 @@ Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento 
 - [x] Falhas de rede, auth, quota, rate limit, timeout, cancelamento e payload inválido são distinguíveis por código.
 - [x] Rotas de IA não registram API key, body completo, prompt, diff ou `Error.message/cause` bruto como contexto estruturado.
 - [x] Logs de request usam somente metadados allowlistados quando necessário.
+- [x] Métricas estruturadas de duração/estado terminal por execution: `ai-execution-metrics.ts`
+  registra `executionKind`, `executionId`, `projectId`, `provider`, `mode`, `status`, `durationMs`
+  e `errorCode` (quando houver) exatamente uma vez, no momento em que a execution de
+  implementation ou Code Review chega a um estado terminal — nunca prompt, diff, resumo ou achado.
 
 ### Follow-up não bloqueante
 
-- Adicionar métricas estruturadas de duração/estado terminal por execution se houver necessidade operacional real.
+Nenhum pendente neste item.
 
 ## 10. Provider OpenAI
 
@@ -186,10 +190,15 @@ Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento 
 - [x] Tool call textual permanece isolado no adapter e não autoriza ferramenta fora do catálogo.
 - [x] Timeout, cancelamento, resposta inválida, indisponibilidade e falha upstream têm códigos próprios.
 - [x] Instalação de modelo continua capability local e nunca faz fallback oculto para cloud.
+- [x] Matriz de regressão do adapter ampliada: Ollama offline (`status`/`chatRound` com fetch
+  falhando), zero modelos instalados, modelo removido no meio do uso (`chatRound` contra um modelo
+  inexistente retorna HTTP 404 tratado), NDJSON incompleto (linha truncada sem fechar o JSON) e
+  cancelamento de um download de modelo em andamento sem lançar erro
+  (`apps/api/test/ollama-provider.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Ampliar matriz de regressão do adapter para Ollama offline, zero modelos, modelo removido no meio do uso, NDJSON incompleto e cancelamento de download longo.
+Nenhum pendente neste item.
 
 ## 12. Persistência local
 
@@ -215,10 +224,15 @@ Nenhum pendente neste item.
 - [x] Budgets são definidos por modo numa policy única e são provider-neutral.
 - [x] `fast` não faz síntese global; `complete` faz.
 - [x] Orquestrador limita rounds, tamanho por tool result, acumulado e repetição sem progresso.
+- [x] Testes de stress cobrem os quatro limites do modo `fast`: truncamento de um resultado de
+  ferramenta acima de `maxToolResultChars`, corte do fluxo ao ultrapassar
+  `maxAccumulatedToolResultChars`, recusa da mesma chamada repetida além de `maxIdenticalToolCalls`,
+  e encerramento previsível ao esgotar `maxToolRounds` sem convergência
+  (`apps/api/test/ai-assistant-service.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Adicionar testes de stress para os limites extremos dos budgets se surgirem casos reais de contexto grande.
+Nenhum pendente neste item.
 
 ## 14. Tool calling e workspace edit
 
@@ -230,10 +244,13 @@ Nenhum pendente neste item.
 - [x] Tool results são truncados pelos budgets e passam pela barreira de masking antes de voltar ao provider.
 - [x] `propose_workspace_edit` exige inspeção bem-sucedida do projeto.
 - [x] Workspace edit permanece preview + confirmação; `expectedVersion` continua controlado pelo servidor.
+- [x] Teste de stress cobre um resultado de ferramenta excepcionalmente grande (9.000 caracteres
+  contra o limite de 8.000 do modo fast): o conteúdo devolvido ao provider é truncado exatamente no
+  limite e marcado `truncated: true` (`apps/api/test/ai-assistant-service.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Expandir testes de stress para resultados de ferramenta excepcionalmente grandes; os limites atuais já impedem crescimento ilimitado.
+Nenhum pendente neste item.
 
 ---
 

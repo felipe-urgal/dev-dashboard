@@ -285,6 +285,8 @@ Eventos SSE expõem mensagens, chamadas/resumos de ferramenta e códigos de erro
 
 Erros conhecidos usam `AiErrorCode`, permitindo diagnóstico sem depender de serializar request/response bodies.
 
+Ao final de cada execution de implementation ou Code Review (`completed`/`succeeded`, `failed` ou `cancelled`), o backend registra uma métrica estruturada com `executionKind`, `executionId`, `projectId`, `provider`, `mode`, `status`, `durationMs` e `errorCode` quando houver — nunca prompt, diff, resumo ou achado (`ai-execution-metrics.ts`).
+
 ## Code Review IA
 
 A Code Review usa a mesma seleção e consentimento por projeto do Assistente.

@@ -23,6 +23,7 @@ import type {
   GitPullRequestReviewFinding,
   GitPullRequestReviewFiles,
   ProjectAiProvidersStatus,
+  ProjectFileContent,
   ProjectGitOverview,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
@@ -30,6 +31,7 @@ import type {
 import {
   cancelProjectGitPullRequestAiReview,
   fetchProjectAiProviders,
+  fetchProjectFileContent,
   getLatestProjectGitPullRequestAiReview,
   getProjectGitPullRequestReviewFileDiff,
   getProjectGitPullRequestReviewFiles,
@@ -39,6 +41,7 @@ import {
 import { findingKey } from '../utils/git-review-findings';
 import GitCodeReviewFindingCard from './GitCodeReviewFindingCard.vue';
 import GitFileDiffView from './GitFileDiffView.vue';
+import GitFileFullView from './GitFileFullView.vue';
 
 const props = defineProps<{
   projectId: string;
@@ -65,10 +68,15 @@ const activeReviewFile = ref<string | null>(null);
 const reviewFileDiff = ref<GitPullRequestReviewFileDiff | null>(null);
 const loadingReviewFileDiff = ref(false);
 const reviewFileDiffError = ref('');
+const fileViewMode = ref<'diff' | 'full'>('diff');
+const fullFileContent = ref<ProjectFileContent | null>(null);
+const loadingFullFile = ref(false);
+const fullFileError = ref('');
 const selectedFindingKeys = ref<string[]>([]);
 const resolvedFindingKeys = ref<string[]>([]);
 const ignoredFindingKeys = ref<string[]>([]);
 let reviewFileDiffGeneration = 0;
+let fullFileGeneration = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 const availableTargets = computed(() => {
@@ -301,6 +309,10 @@ async function openReviewFile(path: string): Promise<void> {
   activeReviewFile.value = path;
   reviewFileDiff.value = null;
   reviewFileDiffError.value = '';
+  fileViewMode.value = 'diff';
+  fullFileContent.value = null;
+  fullFileError.value = '';
+  ++fullFileGeneration;
   const generation = ++reviewFileDiffGeneration;
   loadingReviewFileDiff.value = true;
   try {
@@ -323,6 +335,34 @@ async function openReviewFile(path: string): Promise<void> {
   } finally {
     if (generation === reviewFileDiffGeneration)
       loadingReviewFileDiff.value = false;
+  }
+}
+
+async function loadFullFile(path: string): Promise<void> {
+  fullFileContent.value = null;
+  fullFileError.value = '';
+  const generation = ++fullFileGeneration;
+  loadingFullFile.value = true;
+  try {
+    const content = await fetchProjectFileContent(props.projectId, path);
+    if (generation === fullFileGeneration) fullFileContent.value = content;
+  } catch (error) {
+    if (generation !== fullFileGeneration) return;
+    fullFileError.value =
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível carregar o arquivo completo.';
+  } finally {
+    if (generation === fullFileGeneration) loadingFullFile.value = false;
+  }
+}
+
+function setFileViewMode(mode: 'diff' | 'full'): void {
+  if (fileViewMode.value === mode) return;
+  fileViewMode.value = mode;
+  if (mode === 'full' && !fullFileContent.value && !loadingFullFile.value) {
+    const path = activeReviewFile.value;
+    if (path) void loadFullFile(path);
   }
 }
 
@@ -508,6 +548,9 @@ watch(
     review.value = null;
     activeReviewFile.value = null;
     reviewFileDiff.value = null;
+    fileViewMode.value = 'diff';
+    fullFileContent.value = null;
+    fullFileError.value = '';
     selectedFindingKeys.value = [];
     resolvedFindingKeys.value = [];
     ignoredFindingKeys.value = [];
@@ -528,6 +571,9 @@ watch(targetRemote, () => {
   review.value = null;
   activeReviewFile.value = null;
   reviewFileDiff.value = null;
+  fileViewMode.value = 'diff';
+  fullFileContent.value = null;
+  fullFileError.value = '';
   execution.value = null;
   selectedFiles.value = [];
   void loadReviewFiles();
@@ -539,6 +585,9 @@ watch(baseBranch, () => {
   review.value = null;
   activeReviewFile.value = null;
   reviewFileDiff.value = null;
+  fileViewMode.value = 'diff';
+  fullFileContent.value = null;
+  fullFileError.value = '';
   execution.value = null;
   selectedFiles.value = [];
   void loadReviewFiles();
@@ -838,7 +887,28 @@ onUnmounted(stopRefreshing);
                 activeReviewFile ?? 'Selecione um arquivo'
               }}</strong>
             </div>
-            <span class="git-code-review-diff-mode">Lado a lado</span>
+            <div
+              v-if="activeReviewFile"
+              class="git-code-review-file-mode-toggle"
+              aria-label="Modo de exibição do arquivo"
+            >
+              <button
+                type="button"
+                :class="{ active: fileViewMode === 'diff' }"
+                :aria-pressed="fileViewMode === 'diff'"
+                @click="setFileViewMode('diff')"
+              >
+                Diff
+              </button>
+              <button
+                type="button"
+                :class="{ active: fileViewMode === 'full' }"
+                :aria-pressed="fileViewMode === 'full'"
+                @click="setFileViewMode('full')"
+              >
+                Arquivo completo
+              </button>
+            </div>
           </header>
 
           <div class="git-code-review-file-body">
@@ -859,35 +929,67 @@ onUnmounted(stopRefreshing);
             </div>
 
             <div class="git-code-review-diff-panel">
-              <div
-                v-if="loadingReviewFileDiff"
-                class="git-code-review-diff-empty"
-              >
-                <ArrowPathIcon class="spinning" aria-hidden="true" />
-                Carregando diff da comparação…
-              </div>
-              <p
-                v-else-if="reviewFileDiffError"
-                class="project-error"
-                role="alert"
-              >
-                {{ reviewFileDiffError }}
-              </p>
-              <GitFileDiffView
-                v-else-if="reviewFileDiff && activeReviewFile"
-                :content="reviewFileDiff.diff"
-                :path="activeReviewFile"
-                view-mode="split"
-                :findings="positionedFindings"
-                :resolved-keys="resolvedFindingKeys"
-                :selected-keys="selectedFindingKeys"
-                @toggle-finding-selection="toggleFindingSelection"
-                @resolve-finding="markFindingResolved"
-                @ignore-finding="ignoreFinding"
-              />
-              <div v-else class="git-code-review-diff-empty">
-                Escolha um arquivo para abrir o diff correspondente à revisão.
-              </div>
+              <template v-if="fileViewMode === 'full'">
+                <div v-if="loadingFullFile" class="git-code-review-diff-empty">
+                  <ArrowPathIcon class="spinning" aria-hidden="true" />
+                  Carregando arquivo completo…
+                </div>
+                <div
+                  v-else-if="fullFileError"
+                  class="git-code-review-diff-empty"
+                >
+                  <p class="project-error" role="alert">{{ fullFileError }}</p>
+                  <button type="button" @click="setFileViewMode('diff')">
+                    Ver diff
+                  </button>
+                </div>
+                <GitFileFullView
+                  v-else-if="fullFileContent && activeReviewFile"
+                  :content="fullFileContent.content"
+                  :diff="reviewFileDiff?.diff ?? ''"
+                  :path="activeReviewFile"
+                  :findings="positionedFindings"
+                  :resolved-keys="resolvedFindingKeys"
+                  :selected-keys="selectedFindingKeys"
+                  @toggle-finding-selection="toggleFindingSelection"
+                  @resolve-finding="markFindingResolved"
+                  @ignore-finding="ignoreFinding"
+                />
+                <div v-else class="git-code-review-diff-empty">
+                  Escolha um arquivo para abrir o arquivo completo.
+                </div>
+              </template>
+              <template v-else>
+                <div
+                  v-if="loadingReviewFileDiff"
+                  class="git-code-review-diff-empty"
+                >
+                  <ArrowPathIcon class="spinning" aria-hidden="true" />
+                  Carregando diff da comparação…
+                </div>
+                <p
+                  v-else-if="reviewFileDiffError"
+                  class="project-error"
+                  role="alert"
+                >
+                  {{ reviewFileDiffError }}
+                </p>
+                <GitFileDiffView
+                  v-else-if="reviewFileDiff && activeReviewFile"
+                  :content="reviewFileDiff.diff"
+                  :path="activeReviewFile"
+                  view-mode="split"
+                  :findings="positionedFindings"
+                  :resolved-keys="resolvedFindingKeys"
+                  :selected-keys="selectedFindingKeys"
+                  @toggle-finding-selection="toggleFindingSelection"
+                  @resolve-finding="markFindingResolved"
+                  @ignore-finding="ignoreFinding"
+                />
+                <div v-else class="git-code-review-diff-empty">
+                  Escolha um arquivo para abrir o diff correspondente à revisão.
+                </div>
+              </template>
             </div>
           </div>
         </section>
