@@ -96,7 +96,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
   });
 
   const context =
-    options.context ?? createAppContext({ languageServerLogger: app.log });
+    options.context ??
+    createAppContext({
+      languageServerLogger: app.log,
+      aiExecutionMetricsLogger: app.log,
+    });
   const projectDoctorService =
     options.projectDoctorService ??
     new ProjectDoctorService(options.now ? { now: options.now } : {});

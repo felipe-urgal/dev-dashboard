@@ -17,6 +17,10 @@ import {
   type AiAssistantService,
 } from './ai-assistant-service.js';
 import {
+  logAiExecutionTerminal,
+  type AiExecutionMetricsLogger,
+} from './ai-execution-metrics.js';
+import {
   aiExecutionPolicy,
   DEFAULT_AI_EXECUTION_MODE,
   type AiExecutionPolicy,
@@ -53,6 +57,7 @@ type TrackedReviewExecution = GitPullRequestAiReviewExecution & {
 };
 
 interface RunningReview {
+  projectId: string;
   projectPath: string;
   execution: TrackedReviewExecution;
   reviews: GitPullRequestAiReview[];
@@ -338,6 +343,8 @@ export class GitAiCodeReviewService {
     private readonly gitService: ReviewFileService = new GitPullRequestService(),
     private readonly providerResolver:
       ProjectProviderResolver | undefined = undefined,
+    private readonly metricsLogger:
+      AiExecutionMetricsLogger | undefined = undefined,
   ) {}
 
   public async start(
@@ -398,6 +405,7 @@ export class GitAiCodeReviewService {
       startedAt: new Date().toISOString(),
     };
     const running: RunningReview = {
+      projectId: input.project.id,
       projectPath: input.project.path,
       execution,
       reviews: [],
@@ -486,7 +494,24 @@ export class GitAiCodeReviewService {
           ? error.message
           : 'Não foi possível concluir o code review com IA.';
       execution.finishedAt = new Date().toISOString();
+      this.logTerminal(running);
     }
+  }
+
+  private logTerminal(running: RunningReview): void {
+    const { execution } = running;
+    if (!execution.finishedAt) return;
+    logAiExecutionTerminal(this.metricsLogger, {
+      executionKind: 'code-review',
+      executionId: execution.id,
+      projectId: running.projectId,
+      provider: execution.provider,
+      mode: execution.mode,
+      status: execution.status,
+      startedAt: execution.startedAt,
+      finishedAt: execution.finishedAt,
+      ...(execution.errorCode ? { errorCode: execution.errorCode } : {}),
+    });
   }
 
   private async reviewFile(
@@ -575,6 +600,7 @@ export class GitAiCodeReviewService {
         ? `Não foi possível concluir a revisão: ${execution.failedFiles[0].message}`
         : 'A IA não conseguiu revisar os arquivos selecionados.';
       execution.finishedAt = new Date().toISOString();
+      this.logTerminal(running);
       return;
     }
 
@@ -611,6 +637,7 @@ export class GitAiCodeReviewService {
             ? `Não foi possível concluir a síntese global: ${error.message}`
             : 'Não foi possível concluir a síntese global da revisão.';
         execution.finishedAt = new Date().toISOString();
+        this.logTerminal(running);
         return;
       }
     }
@@ -621,6 +648,7 @@ export class GitAiCodeReviewService {
     }
     execution.status = 'completed';
     execution.finishedAt = new Date().toISOString();
+    this.logTerminal(running);
   }
 
   private async synthesizeGlobalReview(
@@ -673,6 +701,7 @@ export class GitAiCodeReviewService {
     execution.errorCode = 'AI_REQUEST_CANCELLED';
     execution.finishedAt ??= new Date().toISOString();
     if (reviews.length > 0) execution.review = this.combineReviews(running);
+    this.logTerminal(running);
   }
 
   private combineReviews(running: RunningReview): GitPullRequestAiReview {

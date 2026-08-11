@@ -158,10 +158,14 @@ Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento 
 - [x] Falhas de rede, auth, quota, rate limit, timeout, cancelamento e payload inválido são distinguíveis por código.
 - [x] Rotas de IA não registram API key, body completo, prompt, diff ou `Error.message/cause` bruto como contexto estruturado.
 - [x] Logs de request usam somente metadados allowlistados quando necessário.
+- [x] Métricas estruturadas de duração/estado terminal por execution: `ai-execution-metrics.ts`
+  registra `executionKind`, `executionId`, `projectId`, `provider`, `mode`, `status`, `durationMs`
+  e `errorCode` (quando houver) exatamente uma vez, no momento em que a execution de
+  implementation ou Code Review chega a um estado terminal — nunca prompt, diff, resumo ou achado.
 
 ### Follow-up não bloqueante
 
-- Adicionar métricas estruturadas de duração/estado terminal por execution se houver necessidade operacional real.
+Nenhum pendente neste item.
 
 ## 10. Provider OpenAI
 

@@ -33,6 +33,7 @@ import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
 import { AiAssistantService } from './services/ai-assistant-service.js';
+import type { AiExecutionMetricsLogger } from './services/ai-execution-metrics.js';
 import { AiProviderResolver } from './services/ai-provider-resolver.js';
 import { OllamaProvider } from './services/ollama-provider.js';
 import { OpenAiProvider } from './services/openai-provider.js';
@@ -86,6 +87,7 @@ export interface AppContext {
 
 export interface CreateAppContextOptions {
   languageServerLogger?: LanguageServerLogger;
+  aiExecutionMetricsLogger?: AiExecutionMetricsLogger;
 }
 
 export function createAppContext(
@@ -179,11 +181,13 @@ export function createAppContext(
       aiAssistantService,
       undefined,
       aiProviderResolver,
+      options.aiExecutionMetricsLogger,
     ),
     aiImplementationExecutionService: new AiImplementationExecutionService(
       aiAssistantService,
       undefined,
       aiProviderResolver,
+      options.aiExecutionMetricsLogger,
     ),
   };
 }
