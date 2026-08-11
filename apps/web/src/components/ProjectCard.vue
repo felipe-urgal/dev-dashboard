@@ -74,50 +74,65 @@ const statusLabel = computed(() =>
 
 <template>
   <li class="project-row" :class="{ 'project-row-disabled': !project.enabled }">
-    <button
-      type="button"
-      class="project-favorite-button"
-      :class="{ active: project.favorite }"
-      :aria-label="
-        project.favorite
-          ? `Remover ${project.name} dos favoritos`
-          : `Adicionar ${project.name} aos favoritos`
-      "
-      :aria-pressed="project.favorite"
-      :disabled="favoriteUpdating"
-      @click="emit('toggle-favorite', project)"
+    <span
+      v-if="supportsServer"
+      class="project-status project-row-status"
+      :aria-label="statusLabel"
+      :title="statusLabel"
     >
-      <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
-      <StarIcon v-else aria-hidden="true" />
-    </button>
+      <span
+        class="project-status-dot"
+        :class="statusDotClass"
+        aria-hidden="true"
+      />
+    </span>
 
-    <button
-      type="button"
-      class="project-disable-button"
-      :class="{ active: !project.enabled }"
-      :aria-label="
-        project.enabled
-          ? `Desativar ${project.name}`
-          : `Reativar ${project.name}`
-      "
-      :aria-pressed="!project.enabled"
-      :disabled="enabledUpdating"
-      @click="emit('toggle-enabled', project)"
-    >
-      <PowerIcon v-if="project.enabled" aria-hidden="true" />
-      <NoSymbolIcon v-else aria-hidden="true" />
-    </button>
+    <div class="project-row-actions" aria-label="Ações do projeto">
+      <button
+        type="button"
+        class="project-favorite-button"
+        :class="{ active: project.favorite }"
+        :aria-label="
+          project.favorite
+            ? `Remover ${project.name} dos favoritos`
+            : `Adicionar ${project.name} aos favoritos`
+        "
+        :aria-pressed="project.favorite"
+        :disabled="favoriteUpdating"
+        @click="emit('toggle-favorite', project)"
+      >
+        <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
+        <StarIcon v-else aria-hidden="true" />
+      </button>
 
-    <button
-      type="button"
-      class="project-disable-button project-remove-button"
-      :aria-label="`Remover ${project.name} do dashboard`"
-      :title="`Remover ${project.name} do dashboard`"
-      :disabled="removing"
-      @click="emit('remove', project)"
-    >
-      <TrashIcon aria-hidden="true" />
-    </button>
+      <button
+        type="button"
+        class="project-disable-button"
+        :class="{ active: !project.enabled }"
+        :aria-label="
+          project.enabled
+            ? `Desativar ${project.name}`
+            : `Reativar ${project.name}`
+        "
+        :aria-pressed="!project.enabled"
+        :disabled="enabledUpdating"
+        @click="emit('toggle-enabled', project)"
+      >
+        <PowerIcon v-if="project.enabled" aria-hidden="true" />
+        <NoSymbolIcon v-else aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        class="project-disable-button project-remove-button"
+        :aria-label="`Remover ${project.name} do dashboard`"
+        :title="`Remover ${project.name} do dashboard`"
+        :disabled="removing"
+        @click="emit('remove', project)"
+      >
+        <TrashIcon aria-hidden="true" />
+      </button>
+    </div>
 
     <RouterLink
       class="project-row-link"
@@ -129,19 +144,6 @@ const statusLabel = computed(() =>
         },
       }"
     >
-      <span
-        v-if="supportsServer"
-        class="project-status project-row-status"
-        :aria-label="statusLabel"
-        :title="statusLabel"
-      >
-        <span
-          class="project-status-dot"
-          :class="statusDotClass"
-          aria-hidden="true"
-        />
-      </span>
-
       <div class="project-row-identity">
         <div class="project-row-heading">
           <div class="project-row-title">
@@ -184,49 +186,60 @@ const statusLabel = computed(() =>
 </template>
 
 <style scoped>
-.project-row-link {
+.project-row {
   position: relative;
-  padding-left: 122px;
-  padding-right: 34px;
+}
+
+.project-row-link {
+  padding-left: 20px;
+  padding-right: 132px;
 }
 
 .project-row-heading {
-  padding-right: 22px;
+  padding-right: 0;
 }
 
 .project-row-status {
   position: absolute;
+  z-index: 2;
   top: 12px;
-  right: 12px;
+  right: 18px;
   min-width: 0;
   gap: 0;
 }
 
-.project-remove-button {
-  left: 82px;
+.project-row-actions {
+  position: absolute;
+  z-index: 3;
+  top: 34px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-row-actions .project-favorite-button,
+.project-row-actions .project-disable-button,
+.project-row-actions .project-remove-button {
+  position: static;
+  inset: auto;
 }
 
 @media (max-width: 480px) {
-  .project-favorite-button {
-    left: 8px;
-  }
-
-  .project-disable-button {
-    left: 38px;
-  }
-
-  .project-remove-button {
-    left: 68px;
-  }
-
   .project-row-link {
-    padding-left: 104px;
-    padding-right: 30px;
+    padding-left: 16px;
+    padding-right: 112px;
   }
 
   .project-row-status {
     top: 10px;
-    right: 10px;
+    right: 14px;
+  }
+
+  .project-row-actions {
+    top: 31px;
+    right: 6px;
+    gap: 2px;
   }
 }
 </style>
