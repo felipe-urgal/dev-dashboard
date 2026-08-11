@@ -62,15 +62,11 @@ function cssToken(block: string, token: string): string {
   return match[1];
 }
 
-test('páginas globais possuem landmark nomeado pelo título visível', async () => {
+test('páginas globais possuem landmark nomeado', async () => {
   const pages = [
     {
       path: 'apps/web/src/views/DashboardView.vue',
       headingId: 'overview-title',
-    },
-    {
-      path: 'apps/web/src/views/ActivityView.template.html',
-      headingId: 'activity-title',
     },
     {
       path: 'apps/web/src/views/ProcessesView.vue',
@@ -95,6 +91,12 @@ test('páginas globais possuem landmark nomeado pelo título visível', async ()
       `${page.path} deve conter o título referenciado.`,
     );
   }
+
+  const activity = await source(
+    'apps/web/src/views/ActivityView.template.html',
+  );
+  assert.match(activity, /aria-label="Atividade"/);
+  assert.doesNotMatch(activity, /Painel de atividade/);
 });
 
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
@@ -124,12 +126,8 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
   assert.match(processes, /class="activity-empty"\s+role="status"/);
 
   const settings = await source('apps/web/src/views/SettingsView.vue');
-  assert.match(
-    settings,
-    /aria-label="Configurações de notificações e retenção"/,
-  );
+  assert.match(settings, /aria-label="Configurações de retenção"/);
   for (const input of [
-    'native-notifications',
     'retention-days',
     'script-history-limit',
     'test-history-limit',
@@ -142,9 +140,9 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
     assert.match(
       settings,
       new RegExp(
-        `aria-describedby="${input}-description ${input}-(?:status|limits)"`,
+        `aria-describedby="${input}-description ${input}-limits"`,
       ),
-      `${input} deve possuir descrição e limites/estado associados.`,
+      `${input} deve possuir descrição e limites associados.`,
     );
   }
 });
