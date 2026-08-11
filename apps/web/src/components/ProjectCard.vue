@@ -58,6 +58,12 @@ const statusDotClass = computed(() =>
 const statusLabel = computed(() =>
   isRunning.value ? 'Em execução' : 'Parado',
 );
+
+const toggleEnabledLabel = computed(() =>
+  props.project.enabled
+    ? `Desativar ${props.project.name}`
+    : `Reativar ${props.project.name}`,
+);
 </script>
 
 <template>
@@ -80,11 +86,8 @@ const statusLabel = computed(() =>
         type="button"
         class="project-disable-button"
         :class="{ active: !project.enabled }"
-        :aria-label="
-          project.enabled
-            ? `Desativar ${project.name}`
-            : `Reativar ${project.name}`
-        "
+        :aria-label="toggleEnabledLabel"
+        :title="toggleEnabledLabel"
         :aria-pressed="!project.enabled"
         :disabled="enabledUpdating"
         @click="emit('toggle-enabled', project)"
