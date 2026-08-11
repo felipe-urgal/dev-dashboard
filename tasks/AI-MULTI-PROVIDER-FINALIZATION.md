@@ -186,10 +186,15 @@ Os itens abaixo **não bloqueiam o merge do #295**. O que protege comportamento 
 - [x] Tool call textual permanece isolado no adapter e não autoriza ferramenta fora do catálogo.
 - [x] Timeout, cancelamento, resposta inválida, indisponibilidade e falha upstream têm códigos próprios.
 - [x] Instalação de modelo continua capability local e nunca faz fallback oculto para cloud.
+- [x] Matriz de regressão do adapter ampliada: Ollama offline (`status`/`chatRound` com fetch
+  falhando), zero modelos instalados, modelo removido no meio do uso (`chatRound` contra um modelo
+  inexistente retorna HTTP 404 tratado), NDJSON incompleto (linha truncada sem fechar o JSON) e
+  cancelamento de um download de modelo em andamento sem lançar erro
+  (`apps/api/test/ollama-provider.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Ampliar matriz de regressão do adapter para Ollama offline, zero modelos, modelo removido no meio do uso, NDJSON incompleto e cancelamento de download longo.
+Nenhum pendente neste item.
 
 ## 12. Persistência local
 
