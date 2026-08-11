@@ -78,6 +78,60 @@ test('status inicia em Ollama + fast e explicita OpenAI não autenticada', async
   );
 });
 
+test('status usa a seleção mais recente quando ela muda durante requests em voo', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      let releaseStatus: (() => void) | undefined;
+      let markStarted: (() => void) | undefined;
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const slowAssistant = {
+        status: async () =>
+          new Promise<{
+            available: true;
+            models: Array<{
+              name: string;
+              capabilities: readonly ['chat', 'tools'];
+            }>;
+            message: string;
+          }>((resolve) => {
+            markStarted?.();
+            releaseStatus = () =>
+              resolve({
+                available: true,
+                models: [
+                  {
+                    name: 'qwen2.5-coder:14b',
+                    capabilities: ['chat', 'tools'] as const,
+                  },
+                ],
+                message: 'Ollama disponível.',
+              });
+          }),
+      } as unknown as AiAssistantService;
+      const resolver = new AiProviderResolver({
+        ollama: slowAssistant,
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      const pendingStatus = resolver.status('project-1');
+      await started;
+      await selectionRepository.set('project-1', {
+        provider: 'openai',
+        mode: 'complete',
+      });
+      releaseStatus?.();
+
+      const status = await pendingStatus;
+      assert.equal(status.selectedProvider, 'openai');
+      assert.equal(status.selectedMode, 'complete');
+    },
+  );
+});
+
 test('OpenAI selecionada continua bloqueada sem consentimento do projeto', async () => {
   await withRepositories(
     async (_directory, consentRepository, selectionRepository) => {
@@ -156,6 +210,59 @@ test('revogar consentimento bloqueia a próxima resolução cloud', async () => 
         (error: unknown) =>
           error instanceof AiProviderResolutionError &&
           error.code === 'AI_CLOUD_CONSENT_REQUIRED',
+      );
+    },
+  );
+});
+
+test('OpenAI rejeita modelo disponível apenas no Ollama antes da inferência', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      await selectionRepository.set('project-1', {
+        provider: 'openai',
+        mode: 'complete',
+      });
+      await consentRepository.set('project-1', 'openai', true);
+      const resolver = new AiProviderResolver({
+        ollama: assistant(true, 'qwen2.5-coder:14b', 'Ollama disponível.'),
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      await assert.rejects(
+        resolver.resolveSelected('project-1', 'qwen2.5-coder:14b'),
+        (error: unknown) => {
+          assert.ok(error instanceof AiProviderResolutionError);
+          assert.equal(error.code, 'AI_MODEL_UNAVAILABLE');
+          assert.match(error.message, /qwen2\.5-coder:14b/);
+          assert.match(error.message, /OpenAI/);
+          return true;
+        },
+      );
+    },
+  );
+});
+
+test('Ollama rejeita modelo disponível apenas na OpenAI antes da inferência', async () => {
+  await withRepositories(
+    async (_directory, consentRepository, selectionRepository) => {
+      const resolver = new AiProviderResolver({
+        ollama: assistant(true, 'qwen2.5-coder:14b', 'Ollama disponível.'),
+        openai: assistant(true, 'gpt-5-mini', 'OpenAI disponível.'),
+        consentRepository,
+        selectionRepository,
+      });
+
+      await assert.rejects(
+        resolver.resolveSelected('project-1', 'gpt-5-mini'),
+        (error: unknown) => {
+          assert.ok(error instanceof AiProviderResolutionError);
+          assert.equal(error.code, 'AI_MODEL_UNAVAILABLE');
+          assert.match(error.message, /gpt-5-mini/);
+          assert.match(error.message, /Local/);
+          return true;
+        },
       );
     },
   );

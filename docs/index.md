@@ -24,7 +24,7 @@ Os objetivos principais são:
 - oferecer uma interface rápida e consistente para tarefas recorrentes;
 - acompanhar processos e logs sem depender de várias janelas de terminal;
 - executar operações mutáveis com validação e confirmação explícita;
-- manter a aplicação restrita ao computador local;
+- manter a aplicação restrita ao computador local por padrão;
 - compartilhar regras entre API, frontend, pacotes TypeScript e CLI legado;
 - preservar rastreabilidade por testes, contratos e documentação versionada.
 
@@ -56,14 +56,20 @@ Os objetivos principais são:
 - pull, push e commit;
 - histórico de mutações;
 - operações destrutivas protegidas por confirmação;
-- integração com pull requests e desfazer de operações reconhecidas.
+- integração com pull requests e desfazer de operações reconhecidas;
+- Code Review IA com provider/mode rastreáveis por execution.
 
-### Assistente de IA local
+### Assistente de IA multi-provider
 
-- implementação de mudanças descritas em linguagem natural, via modelo Ollama local;
-- catálogo fechado de ferramentas somente leitura sobre o projeto (arquivos, busca, diff, símbolos);
+- implementação de mudanças descritas em linguagem natural usando Local/Ollama ou OpenAI cloud;
+- seleção persistida de provider e modo (`fast`/`complete`) por projeto;
+- consentimento explícito antes de enviar conteúdo do projeto para OpenAI;
+- catálogo fechado de ferramentas sobre arquivos, busca, diff e símbolos;
+- investigação obrigatória do projeto antes de concluir alterações concretas;
 - prévia de arquivos alterados com aprovação explícita antes de qualquer escrita;
-- execução em segundo plano, cancelável, sem persistência de prompts ou respostas.
+- validação server-side de modelo antes da inferência;
+- masking compartilhado antes de conteúdo textual alcançar um provider;
+- execução em segundo plano, cancelável, com provider/modo/modelo registrados no snapshot.
 
 ### Qualidade e automação
 
@@ -109,9 +115,10 @@ Os objetivos principais são:
                                 │
                                 ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ Sistema local                                                │
+│ Sistema local e integrações explícitas                       │
 ├──────────────────────────────────────────────────────────────┤
 │ filesystem │ processos │ Git │ Node │ Rails │ bancos │ Ollama│
+│ OpenAI API somente quando selecionada e autorizada           │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,7 +126,7 @@ A API é a fronteira de segurança. O navegador trabalha com identificadores e c
 
 ## Princípios arquiteturais
 
-1. **Local por padrão.** Todos os serviços de desenvolvimento escutam em `127.0.0.1`.
+1. **Local por padrão.** Serviços de desenvolvimento escutam em `127.0.0.1`; uso de IA cloud exige seleção e consentimento explícitos.
 2. **Catálogo fechado.** Comandos e argumentos são escolhidos pela aplicação, não pelo navegador.
 3. **Sem shell arbitrário.** Processos usam programa e argumentos separados, preferencialmente com `shell: false`.
 4. **Identificadores em vez de caminhos.** Depois do scan, a maioria das operações recebe `workspaceId`, `projectId` ou outro identificador controlado.
@@ -167,7 +174,8 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
-- [Arquitetura multi-provider de IA](architecture/ai-multi-provider.md): decisões, limites de segurança e evolução planejada do Assistente IA e da Code review IA.
+- [Arquitetura multi-provider de IA](architecture/ai-multi-provider.md): providers Local/OpenAI, modos, segurança, seleção por projeto e Code Review IA.
+- [Provider OpenAI](architecture/openai-provider.md): autenticação, modelos, masking, consentimento e limitações do adapter cloud.
 - [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
 - [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
 - [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.
@@ -180,7 +188,8 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 ### Planejamento
 
-- [Plano da evolução multi-provider de IA](../tasks/AI-MULTI-PROVIDER.md): sequência de PRs, tarefas e critérios de aceite.
+- [Roadmap histórico da IA multi-provider](../tasks/AI-MULTI-PROVIDER.md): sequência de PRs que criou a arquitetura.
+- [Checklist de fechamento da IA multi-provider](../tasks/AI-MULTI-PROVIDER-FINALIZATION.md): P0/P1/P2 e estado atual do hardening.
 - [Pendências](../tasks/PENDENCIAS.md): inventário consolidado do que falta implementar.
 - [Próxima tarefa](../tasks/NEXT.md): próximo trabalho priorizado.
 
@@ -198,6 +207,7 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 | Contrato | Tipo e formato de dados compartilhado entre camadas. |
 | Snapshot | Cópia controlada de banco armazenada no diretório privado de estado. |
 | SSE | Canal de eventos do servidor usado para acompanhar execuções em tempo real. |
+| Provider de IA | Adapter de inferência selecionável, atualmente Ollama local ou OpenAI cloud. |
 
 ## Critério de documentação completa
 

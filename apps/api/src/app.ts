@@ -113,6 +113,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
     options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
     context.aiImplementationExecutionService.close();
+    context.gitAiCodeReviewService.close();
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
@@ -209,7 +210,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitPullRequestRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    aiAssistantService: context.aiAssistantService,
     gitAiCodeReviewService: context.gitAiCodeReviewService,
   });
 
@@ -311,7 +311,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(aiAssistantRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    aiAssistantService: context.aiAssistantService,
+    aiProviderResolver: context.aiProviderResolver,
     aiImplementationExecutionService: context.aiImplementationExecutionService,
   });
 

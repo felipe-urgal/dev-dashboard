@@ -1,5 +1,4 @@
 import type {
-  GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
   GitPullRequestLookup,
   GitPullRequestMergeMethod,
@@ -55,10 +54,6 @@ interface PullRequestUrlResponse {
 
 interface PullRequestLookupResponse {
   lookup: GitPullRequestLookup;
-}
-
-interface PullRequestAiReviewResponse {
-  review: GitPullRequestAiReview;
 }
 
 interface PullRequestReviewFilesResponse {
@@ -196,26 +191,6 @@ export async function composeProjectGitPullRequest(
     },
   );
   return response.pullRequest;
-}
-
-export async function reviewProjectGitPullRequest(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-    model: string;
-    path?: string;
-  },
-): Promise<GitPullRequestAiReview> {
-  const response = await requestJson<PullRequestAiReviewResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
-  return response.review;
 }
 
 export async function startProjectGitPullRequestAiReview(

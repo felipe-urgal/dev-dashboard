@@ -1,3 +1,8 @@
+import type {
+  AiErrorCode,
+  AiExecutionMode,
+  AiProviderId,
+} from './ai-assistant.js';
 import type { ProjectChangeImpact } from './project-change-impact.js';
 
 export type GitFileStatus =
@@ -285,6 +290,7 @@ export interface GitPullRequestAiReviewFileExecution {
   status: GitPullRequestAiReviewFileStatus;
   startedAt?: string;
   finishedAt?: string;
+  errorCode?: AiErrorCode;
   errorMessage?: string;
 }
 
@@ -295,6 +301,8 @@ export interface GitPullRequestAiReviewExecution {
   baseBranch: string;
   sourceBranch: string;
   files: string[];
+  provider: AiProviderId;
+  mode: AiExecutionMode;
   model: string;
   status: GitPullRequestAiReviewExecutionStatus;
   /** Limite de arquivos processados ao mesmo tempo. */
@@ -302,9 +310,10 @@ export interface GitPullRequestAiReviewExecution {
   completedFileCount: number;
   currentFilePaths: string[];
   fileExecutions: GitPullRequestAiReviewFileExecution[];
-  failedFiles: Array<{ path: string; message: string }>;
+  failedFiles: Array<{ path: string; message: string; code?: AiErrorCode }>;
   startedAt: string;
   finishedAt?: string;
+  errorCode?: AiErrorCode;
   errorMessage?: string;
   review?: GitPullRequestAiReview;
 }

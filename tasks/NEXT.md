@@ -1,24 +1,24 @@
 # Próxima atividade
 
-Após o merge do **PR #293 — hardening da arquitetura multi-provider**, executar o plano de fechamento em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
+O fechamento técnico da IA multi-provider está consolidado no **PR #295**, seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
 
-## Atividade atual — Code Review IA multi-provider
+## Estado atual
 
-O primeiro bloqueador é fazer a **Code Review IA** usar a mesma seleção por projeto já usada pelo Assistente/implementation.
+Os P0 do fechamento estão implementados:
 
-### Escopo
+1. Code Review IA usa `AiProviderResolver`, com provider/modo congelados na execution.
+2. APIs genéricas não fazem bypass silencioso para Ollama.
+3. Modelo é validado server-side antes da inferência.
+4. Erros possuem taxonomia estável em provider/resolver/HTTP/SSE/executions.
+5. Saída cloud possui consentimento prévio, masking compartilhado e logs allowlistados.
+6. Cancelamento/concorrência preservam estados terminais, propagam abort aos providers e fecham executions no shutdown.
+7. P1 foi revisado e classificado entre validado e follow-up não bloqueante.
 
-1. Resolver o provider selecionado no início da Code Review.
-2. Revalidar disponibilidade e consentimento cloud antes de iniciar.
-3. Congelar a instância do provider e o modo durante toda a execution.
-4. Garantir que revisão por arquivo e síntese global usem o mesmo provider.
-5. Registrar `provider` e `mode` no contrato/snapshot HTTP da Code Review.
-6. Fazer o endpoint one-shot de AI review obedecer ao resolver ou removê-lo se estiver sem consumidor.
-7. Exibir provider/modo usados na UI sem duplicar configuração desnecessária.
-8. Cobrir Ollama, OpenAI autorizado, falta de consentimento, indisponibilidade e troca de seleção durante execução.
-9. Atualizar documentação e referência da API.
+## Atividade atual — gate final de merge do PR #295
 
-## Gate obrigatório
+Não há outro bloco funcional obrigatório a implementar antes do merge. Falta somente validar o **head final**, que contém código, testes e documentação reconciliada.
+
+Gate obrigatório:
 
 ```bash
 npm run typecheck
@@ -30,8 +30,17 @@ npm test
 npm run test:e2e
 ```
 
-Quando schema/rota mudar, executar `npm run docs:api` antes de `npm run docs:api:check`.
+Se esse gate ficar completamente verde, o PR #295 pode ser mergeado.
 
-## Critério de conclusão
+## Depois do merge
 
-A atividade termina quando a Code Review usa o provider selecionado de forma consistente, a execution identifica provider/modo usados, mudanças de seleção posteriores não alteram uma revisão em andamento e toda a suíte obrigatória está verde.
+Os itens classificados como follow-up no checklist são hardening incremental e não representam bloqueadores conhecidos do multi-provider atual. Entre eles estão:
+
+- métricas estruturadas de duração/estado terminal das executions;
+- ampliação da matriz de regressão do Ollama;
+- fault injection específico da persistência atômica;
+- stress tests para budgets/tool results grandes;
+- eventual UX de fallback `offer` na Code Review;
+- evolução da descoberta de modelos da OpenAI quando a API exigir.
+
+P2 continua deliberadamente adiado: terceiro provider, `ProviderRegistry` dinâmico, fallback automático e abstrações adicionais sem necessidade concreta.

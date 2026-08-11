@@ -8,15 +8,16 @@ import type {
 import { AI_RECOMMENDED_MODELS } from '@dev-dashboard/contracts';
 
 import { createAiOutboundProtectionFetch } from './ai-outbound-protection-fetch.js';
-import type {
-  AiProvider,
-  AiProviderChatRoundOptions,
-  AiProviderChatRoundResult,
-  AiProviderCompletionOptions,
-  AiProviderMessage,
-  AiProviderModelInstallHandlers,
-  AiProviderToolCall,
-  AiProviderToolDefinition,
+import {
+  AiProviderError,
+  type AiProvider,
+  type AiProviderChatRoundOptions,
+  type AiProviderChatRoundResult,
+  type AiProviderCompletionOptions,
+  type AiProviderMessage,
+  type AiProviderModelInstallHandlers,
+  type AiProviderToolCall,
+  type AiProviderToolDefinition,
 } from './ai-provider.js';
 
 const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
@@ -61,6 +62,14 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function providerRequestFailed(message: string): AiProviderError {
+  return new AiProviderError('AI_PROVIDER_REQUEST_FAILED', message);
+}
+
+function invalidResponse(message: string): AiProviderError {
+  return new AiProviderError('AI_PROVIDER_INVALID_RESPONSE', message);
 }
 
 function parseLeakedToolCall(
@@ -146,6 +155,7 @@ export class OllamaProvider implements AiProvider {
       return {
         available: false,
         models: [],
+        errorCode: 'AI_PROVIDER_UNAVAILABLE',
         message:
           'DEV_DASHBOARD_OLLAMA_URL não aponta para um endereço HTTP local (loopback); o assistente de IA está desabilitado.',
       };
@@ -154,12 +164,21 @@ export class OllamaProvider implements AiProvider {
     let tags: { models?: Array<{ name: string; model?: string }> };
     try {
       tags = await this.getJson(`${baseUrl}/api/tags`, STATUS_TIMEOUT_MS);
-    } catch {
+    } catch (error) {
       return {
         available: false,
         baseUrl,
         models: [],
-        message: `Ollama local não foi detectado em ${baseUrl}. Instale e inicie o Ollama manualmente para habilitar o assistente de IA.`,
+        errorCode:
+          error instanceof AiProviderError &&
+          error.code === 'AI_PROVIDER_TIMEOUT'
+            ? 'AI_PROVIDER_TIMEOUT'
+            : 'AI_PROVIDER_UNAVAILABLE',
+        message:
+          error instanceof AiProviderError &&
+          error.code === 'AI_PROVIDER_TIMEOUT'
+            ? 'O Ollama demorou demais para responder ao status.'
+            : `Ollama local não foi detectado em ${baseUrl}. Instale e inicie o Ollama manualmente para habilitar o assistente de IA.`,
       };
     }
 
@@ -196,7 +215,10 @@ export class OllamaProvider implements AiProvider {
   ): Promise<AiProviderChatRoundResult> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      throw new Error('O assistente de IA está desabilitado neste ambiente.');
+      throw new AiProviderError(
+        'AI_PROVIDER_UNAVAILABLE',
+        'O assistente de IA local está desabilitado neste ambiente.',
+      );
     }
 
     const timeoutController = new AbortController();
@@ -235,7 +257,9 @@ export class OllamaProvider implements AiProvider {
         signal: timeoutController.signal,
       });
       if (!response.ok || !response.body) {
-        throw new Error(`O Ollama respondeu com status ${response.status}.`);
+        throw providerRequestFailed(
+          `O Ollama respondeu com status ${response.status}.`,
+        );
       }
 
       const reader = response.body.getReader();
@@ -245,8 +269,8 @@ export class OllamaProvider implements AiProvider {
       let buffer = '';
       let assistantContent = '';
 
-      const leakedToolCallError = (name: string): Error =>
-        new Error(
+      const leakedToolCallError = (name: string): AiProviderError =>
+        invalidResponse(
           `O modelo "${model}" tentou usar a ferramenta "${name}", mas escreveu a ` +
             'chamada como texto em vez de utilizar o mecanismo de tool-calling do Ollama, ' +
             'então nada foi executado. Tente novamente com um modelo com suporte mais ' +
@@ -261,7 +285,7 @@ export class OllamaProvider implements AiProvider {
         try {
           chunk = JSON.parse(line) as OllamaChatChunk;
         } catch {
-          throw new Error(
+          throw invalidResponse(
             'O Ollama enviou um trecho de resposta que não pôde ser interpretado.',
           );
         }
@@ -317,17 +341,28 @@ export class OllamaProvider implements AiProvider {
 
       return { content: assistantContent, toolCalls };
     } catch (error) {
+      if (options.signal.aborted) {
+        throw new AiProviderError(
+          'AI_REQUEST_CANCELLED',
+          'A solicitação ao provider local foi cancelada.',
+        );
+      }
       if (
-        !options.signal.aborted &&
         isAbortError(error) &&
         timeoutMs !== null &&
         timeoutMs !== undefined
       ) {
-        throw new Error(
-          `O Ollama não respondeu em ${timeoutMs / 1_000} segundos. Tente novamente ou reformule a pergunta em partes menores.`,
+        throw new AiProviderError(
+          'AI_PROVIDER_TIMEOUT',
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos. Tente novamente ou reformule a pergunta em partes menores.`,
         );
       }
-      throw error;
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError(
+        'AI_PROVIDER_REQUEST_FAILED',
+        'Não foi possível concluir a requisição ao provider local.',
+        { cause: error },
+      );
     } finally {
       if (timeout) clearTimeout(timeout);
       options.signal.removeEventListener('abort', onAbort);
@@ -342,7 +377,10 @@ export class OllamaProvider implements AiProvider {
   ): Promise<AiCompletionResult> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      throw new Error('O assistente de IA está desabilitado neste ambiente.');
+      throw new AiProviderError(
+        'AI_PROVIDER_UNAVAILABLE',
+        'O assistente de IA local está desabilitado neste ambiente.',
+      );
     }
 
     const timeoutController = new AbortController();
@@ -366,10 +404,43 @@ export class OllamaProvider implements AiProvider {
         signal: timeoutController.signal,
       });
       if (!response.ok) {
-        throw new Error(`O Ollama respondeu com status ${response.status}.`);
+        throw providerRequestFailed(
+          `O Ollama respondeu com status ${response.status}.`,
+        );
       }
-      const body = (await response.json()) as { response?: string };
-      return { text: body.response ?? '' };
+      let body: { response?: string };
+      try {
+        body = (await response.json()) as { response?: string };
+      } catch {
+        throw invalidResponse(
+          'O Ollama devolveu uma resposta de compleção inválida.',
+        );
+      }
+      if (typeof body.response !== 'string') {
+        throw invalidResponse(
+          'O Ollama devolveu uma resposta de compleção inválida.',
+        );
+      }
+      return { text: body.response };
+    } catch (error) {
+      if (options.signal.aborted) {
+        throw new AiProviderError(
+          'AI_REQUEST_CANCELLED',
+          'A solicitação ao provider local foi cancelada.',
+        );
+      }
+      if (isAbortError(error)) {
+        throw new AiProviderError(
+          'AI_PROVIDER_TIMEOUT',
+          `O provider local não respondeu em ${options.timeoutMs / 1_000} segundos.`,
+        );
+      }
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError(
+        'AI_PROVIDER_REQUEST_FAILED',
+        'Não foi possível concluir a requisição ao provider local.',
+        { cause: error },
+      );
     } finally {
       clearTimeout(timeout);
       options.signal.removeEventListener('abort', onAbort);
@@ -382,12 +453,16 @@ export class OllamaProvider implements AiProvider {
   ): Promise<void> {
     const baseUrl = resolveOllamaBaseUrl();
     if (!baseUrl) {
-      throw new Error(
-        'O Ollama local não está disponível para instalar modelos.',
+      throw new AiProviderError(
+        'AI_PROVIDER_UNAVAILABLE',
+        'O provider local não está disponível para instalar modelos.',
       );
     }
     if (!isRecommendedModel(model)) {
-      throw new Error('Este modelo não está disponível para instalação.');
+      throw new AiProviderError(
+        'AI_PROVIDER_OPERATION_UNSUPPORTED',
+        'Este modelo não está disponível para instalação.',
+      );
     }
 
     const timeoutController = new AbortController();
@@ -405,7 +480,7 @@ export class OllamaProvider implements AiProvider {
         signal: timeoutController.signal,
       });
       if (!response.ok || !response.body) {
-        throw new Error(
+        throw providerRequestFailed(
           `O Ollama respondeu com status ${response.status} ao instalar o modelo.`,
         );
       }
@@ -420,11 +495,11 @@ export class OllamaProvider implements AiProvider {
         try {
           chunk = JSON.parse(line) as OllamaModelPullChunk;
         } catch {
-          throw new Error(
+          throw invalidResponse(
             'O Ollama enviou um progresso de instalação inválido.',
           );
         }
-        if (chunk.error) throw new Error(chunk.error);
+        if (chunk.error) throw providerRequestFailed(chunk.error);
         handlers.send({
           type: 'progress',
           model,
@@ -453,11 +528,17 @@ export class OllamaProvider implements AiProvider {
     } catch (error) {
       if (handlers.signal.aborted) return;
       if (isAbortError(error)) {
-        throw new Error(
+        throw new AiProviderError(
+          'AI_PROVIDER_TIMEOUT',
           'A instalação demorou demais para responder. Tente novamente.',
         );
       }
-      throw error;
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError(
+        'AI_PROVIDER_REQUEST_FAILED',
+        'Não foi possível instalar o modelo no provider local.',
+        { cause: error },
+      );
     } finally {
       clearTimeout(timeout);
       handlers.signal.removeEventListener('abort', onAbort);
@@ -490,9 +571,27 @@ export class OllamaProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await this.fetchImpl(url, { signal: controller.signal });
-      if (!response.ok)
-        throw new Error(`Resposta ${response.status} do Ollama.`);
-      return (await response.json()) as T;
+      if (!response.ok) {
+        throw providerRequestFailed(`Resposta ${response.status} do Ollama.`);
+      }
+      try {
+        return (await response.json()) as T;
+      } catch {
+        throw invalidResponse('O Ollama devolveu uma resposta inválida.');
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new AiProviderError(
+          'AI_PROVIDER_TIMEOUT',
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos.`,
+        );
+      }
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError(
+        'AI_PROVIDER_REQUEST_FAILED',
+        'Não foi possível consultar o provider local.',
+        { cause: error },
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -512,9 +611,27 @@ export class OllamaProvider implements AiProvider {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      if (!response.ok)
-        throw new Error(`Resposta ${response.status} do Ollama.`);
-      return (await response.json()) as T;
+      if (!response.ok) {
+        throw providerRequestFailed(`Resposta ${response.status} do Ollama.`);
+      }
+      try {
+        return (await response.json()) as T;
+      } catch {
+        throw invalidResponse('O Ollama devolveu uma resposta inválida.');
+      }
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new AiProviderError(
+          'AI_PROVIDER_TIMEOUT',
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos.`,
+        );
+      }
+      if (error instanceof AiProviderError) throw error;
+      throw new AiProviderError(
+        'AI_PROVIDER_REQUEST_FAILED',
+        'Não foi possível consultar o provider local.',
+        { cause: error },
+      );
     } finally {
       clearTimeout(timeout);
     }

@@ -1,4 +1,5 @@
 import type {
+  AiErrorCode,
   AiExecutionMode,
   AiProviderId,
   ProjectAiProviderStatus,
@@ -18,8 +19,7 @@ interface AiProviderEntry {
   assistantService: AiAssistantService;
 }
 
-export type AiProviderResolutionErrorCode =
-  'AI_PROVIDER_UNAVAILABLE' | 'AI_CLOUD_CONSENT_REQUIRED';
+export type AiProviderResolutionErrorCode = AiErrorCode;
 
 export class AiProviderResolutionError extends Error {
   public constructor(
@@ -75,12 +75,12 @@ export class AiProviderResolver {
   }
 
   public async status(projectId: string): Promise<ProjectAiProvidersStatus> {
-    const selection = this.getSelection(projectId);
     const providers = await Promise.all(
       (Object.keys(this.providers) as AiProviderId[]).map((providerId) =>
         this.providerStatus(projectId, providerId),
       ),
     );
+    const selection = this.getSelection(projectId);
     return {
       selectedProvider: selection.provider,
       selectedMode: selection.mode,
@@ -90,9 +90,14 @@ export class AiProviderResolver {
 
   public async resolveSelected(
     projectId: string,
+    model?: string,
   ): Promise<ResolvedProjectAiExecution> {
     const selection = this.getSelection(projectId);
-    const assistantService = await this.resolve(projectId, selection.provider);
+    const assistantService = await this.resolve(
+      projectId,
+      selection.provider,
+      model,
+    );
     return {
       assistantService,
       provider: selection.provider,
@@ -103,6 +108,7 @@ export class AiProviderResolver {
   public async resolve(
     projectId: string,
     providerId: AiProviderId,
+    model?: string,
   ): Promise<AiAssistantService> {
     const entry = this.providers[providerId];
     if (
@@ -118,10 +124,26 @@ export class AiProviderResolver {
     const status = await entry.assistantService.status();
     if (!status.available) {
       throw new AiProviderResolutionError(
-        'AI_PROVIDER_UNAVAILABLE',
+        status.errorCode ?? 'AI_PROVIDER_UNAVAILABLE',
         status.message || 'O provider de IA selecionado não está disponível.',
       );
     }
+
+    if (model !== undefined) {
+      const requestedModel = model.trim();
+      const modelAvailable =
+        requestedModel.length > 0 &&
+        status.models.some((candidate) => candidate.name === requestedModel);
+      if (!modelAvailable) {
+        throw new AiProviderResolutionError(
+          'AI_MODEL_UNAVAILABLE',
+          requestedModel
+            ? `O modelo "${requestedModel}" não está disponível no provider ${entry.label}. Selecione um modelo listado para este provider.`
+            : 'Selecione um modelo de IA disponível para o provider escolhido.',
+        );
+      }
+    }
+
     return entry.assistantService;
   }
 

@@ -1,10 +1,29 @@
 import type {
   AiCompletionResult,
+  AiErrorCode,
   AiModelPullStreamEvent,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
 export type AiProviderStatus = ProjectAiStatus;
+
+export type AiProviderErrorCode = Exclude<
+  AiErrorCode,
+  | 'AI_ASSISTANT_INVALID_REQUEST'
+  | 'AI_CLOUD_CONSENT_REQUIRED'
+  | 'AI_MODEL_UNAVAILABLE'
+>;
+
+export class AiProviderError extends Error {
+  public constructor(
+    public readonly code: AiProviderErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = 'AiProviderError';
+  }
+}
 
 export interface AiProviderMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';

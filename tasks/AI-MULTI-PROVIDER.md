@@ -1,12 +1,12 @@
 # Plano de execução — IA multi-provider
 
-Este arquivo transforma a arquitetura descrita em [`docs/architecture/ai-multi-provider.md`](../docs/architecture/ai-multi-provider.md) em uma sequência operacional de PRs pequenos e verificáveis.
+Este arquivo registra o roadmap histórico que criou a arquitetura multi-provider descrita em [`docs/architecture/ai-multi-provider.md`](../docs/architecture/ai-multi-provider.md).
 
-A ordem pode ser ajustada conforme aprendizados de implementação, mas mudanças relevantes de direção devem atualizar tanto este arquivo quanto o documento de arquitetura.
+O checklist atual de fechamento está em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).
 
-## Regras para todas as fases
+## Regras da iniciativa
 
-Antes de concluir qualquer PR desta iniciativa, executar o mesmo conjunto obrigatório do CI:
+Antes de concluir qualquer etapa:
 
 ```bash
 npm run typecheck
@@ -18,90 +18,58 @@ npm test
 npm run test:e2e
 ```
 
-Quando houver falha de formatação, executar `npm run format` e repetir `npm run format:check` antes de seguir.
+Quando houver alteração de schema/rota:
 
-Além disso:
+```bash
+npm run docs:api
+npm run docs:api:check
+```
+
+Regras permanentes:
 
 - não misturar refatoração não relacionada;
 - manter a API em `127.0.0.1`;
 - preservar catálogo fechado de ferramentas;
 - preservar preview + aprovação antes de escrita;
-- não introduzir shell arbitrário;
-- atualizar documentação correspondente quando comportamento mudar;
-- atualizar `tasks/NEXT.md` quando uma fase terminar ou a prioridade mudar.
+- não introduzir shell arbitrário no fluxo de IA;
+- atualizar documentação quando o comportamento mudar;
+- atualizar `tasks/NEXT.md` quando a prioridade mudar.
 
 ---
 
-## PR 1 — Documentação e roadmap — concluído
+## PR #286 — documentação e roadmap — concluído
 
-**Objetivo:** registrar arquitetura, decisões consolidadas e ordem de implementação antes de alterar código.
+Entregou:
 
-### Entregue
+- arquitetura multi-provider documentada;
+- responsabilidades de provider/orquestrador/Code Review;
+- modos `fast`/`complete`;
+- requisitos de masking e consentimento;
+- fallback inicial `offer`;
+- abstrações adiadas para evitar overengineering.
 
-- [x] Criar `docs/architecture/ai-multi-provider.md`.
-- [x] Registrar responsabilidades de `AiProvider`, `AiOrchestrator` e `GitAiCodeReviewService`.
-- [x] Registrar modos `fast`/`complete` como policies testáveis.
-- [x] Registrar síntese global da Code review.
-- [x] Registrar requisitos de masking e consentimento antes de cloud.
-- [x] Registrar fallback inicial `offer`.
-- [x] Registrar abstrações adiadas para evitar overengineering.
-- [x] Criar este checklist de execução.
-- [x] Atualizar `docs/index.md` com o novo documento.
-- [x] Atualizar `tasks/NEXT.md` para apontar o PR seguinte.
+## PR #287 — caracterização e segurança — concluído
 
-PR de referência: **#286**.
+Entregou:
 
----
+- cobertura dos fluxos existentes;
+- barreira compartilhada `createAiOutboundProtectionFetch`;
+- masking de chat, ferramentas, completion e review;
+- regressivos de não vazamento.
 
-## PR 2 — Caracterização e segurança — concluído
+## PR #288 — `AiProvider` + `OllamaProvider` — concluído
 
-**Objetivo:** congelar o comportamento observável atual e preparar uma fronteira segura para futuros providers externos.
+Entregou:
 
-### Entregue
+- contrato `AiProvider`;
+- `OllamaProvider` isolando HTTP/status/modelos/tool calling;
+- `AiOrchestrator` para o loop de ferramentas;
+- Code Review mantida como orquestração batch separada;
+- sem `ProviderRegistry`, `ContextBuilder` ou `ToolExecutor` prematuros.
 
-- [x] Revisar cobertura de status/listagem, chat, tool calling, review e implementation.
-- [x] Cobrir limite atual de rodadas e cancelamento.
-- [x] Mapear pontos que podem enviar conteúdo ao motor de IA.
-- [x] Criar `createAiOutboundProtectionFetch` como barreira compartilhada.
-- [x] Mascarar chat, resultados de ferramentas, completion e review.
-- [x] Preservar `masked` e `redactionCount` da Code review.
-- [x] Adicionar testes de não vazamento.
-- [x] Atualizar guia do Assistente IA.
-- [x] CI obrigatório verde.
+## PR #289 — modos `fast` / `complete` + síntese global — concluído
 
-PR de referência: **#287**.
-
----
-
-## PR 3 — `AiProvider` + `OllamaProvider` — concluído
-
-**Objetivo:** desacoplar detalhes do Ollama do fluxo de negócio sem alterar UI ou comportamento observável.
-
-### Entregue
-
-- [x] Criar contrato mínimo `AiProvider`.
-- [x] Definir `AiProviderStatus` compartilhado.
-- [x] Criar `OllamaProvider`.
-- [x] Mover HTTP, status, modelos e payloads específicos do Ollama para o provider.
-- [x] Mover serialização/deserialização de tool calls para o provider.
-- [x] Mover compatibilidade de tool call textual para o provider.
-- [x] Manter `createAiOutboundProtectionFetch` na fronteira do provider.
-- [x] Manter catálogo de ferramentas fora do provider.
-- [x] Criar `AiOrchestrator` mínimo para loop e ferramentas.
-- [x] Manter `GitAiCodeReviewService` separado do orquestrador.
-- [x] Evitar `ProviderRegistry`, `ContextBuilder` e `ToolExecutor` prematuros.
-- [x] Preservar testes de caracterização sem mudar expectativa.
-- [x] CI obrigatório verde.
-
-PR de referência: **#288**.
-
----
-
-## PR 4 — Modos de execução `fast` / `complete` — concluído
-
-**Objetivo:** tornar profundidade de execução uma policy explícita, mensurável e testável.
-
-### Policy atual
+Policy atual:
 
 | Campo | `fast` | `complete` |
 |---|---:|---:|
@@ -114,168 +82,145 @@ PR de referência: **#288**.
 | `maxGlobalSynthesisChars` | 0 | 48.000 |
 | `runGlobalSynthesis` | `false` | `true` |
 
-Os valores seguem como calibração inicial e podem ser revisados após validação com projetos reais.
+Também entregou a síntese global da Code Review no modo completo.
 
-### Entregue
+## PR #290 — primeiro provider cloud — concluído
 
-- [x] Criar `AiExecutionMode` e `AiExecutionPolicy`.
-- [x] Centralizar budgets em uma única policy.
-- [x] Manter `fast` como default compatível.
-- [x] Dar ao `complete` budget maior, mas limitado.
-- [x] Implementar proteção contra chamadas idênticas repetidas sem progresso.
-- [x] Implementar budget acumulado de resultados de ferramentas.
-- [x] Fazer Code review usar `maxDiffChars` da policy.
-- [x] Propagar o modo programaticamente para Assistente/implementation.
-- [x] Cobrir policies, round limit, loop guard e limite de diff com testes.
-- [x] CI obrigatório verde.
+Entregou:
 
-PR de referência: **#289**.
+- `OpenAiProvider`;
+- autenticação por API key;
+- descoberta de modelos compatíveis;
+- function calling normalizado;
+- `store: false` em inferência;
+- masking antes de requests cloud;
+- documentação específica do adapter.
 
----
+## PR #291 — seleção de provider + consentimento — concluído
 
-## PR 5 — Síntese global da Code review — absorvido pelo #289
+Entregou:
 
-**Objetivo:** detectar problemas entre arquivos sem reescrever o paralelismo existente.
+- `AiProviderResolver`;
+- `Ollama + fast` como default;
+- provider/modo persistidos por projeto;
+- consentimento OpenAI persistido separadamente;
+- seleção Local/OpenAI e Rápido/Completo na UI;
+- revalidação de consentimento antes de nova execução cloud.
 
-A implementação foi concluída dentro do PR #289 porque a policy de `complete` e a etapa global evoluíram juntas sem exigir uma fronteira útil de PR separada.
+Nesta etapa a seleção foi aplicada primeiro ao Assistente/implementation. A Code Review foi migrada depois no fechamento pós-roadmap.
 
-### Entregue
+## PR #292 — fallback `offer` — concluído
 
-- [x] Preservar review individual por arquivo e concorrência atual.
-- [x] Agregar summaries/findings para uma etapa final.
-- [x] Criar prompt de síntese global sem ferramentas.
-- [x] Deduplicar findings equivalentes.
-- [x] Procurar contratos quebrados entre arquivos e testes impactados.
-- [x] Validar structured output da síntese global.
-- [x] Tratar saída inválida como falha explícita preservando revisão local.
-- [x] `fast`: pular síntese global.
-- [x] `complete`: executar síntese global.
-- [x] Respeitar budget de contexto da policy.
-- [x] Cobrir PR multi-arquivo, falha e cancelamento em testes.
+Entregou:
 
----
+- `off` e `offer`;
+- nenhuma troca automática de provider;
+- Local → Cloud somente com ação explícita e consentimento;
+- nova execution sem transportar histórico/tool results/eventos anteriores.
 
-## PR 6 — Primeiro provider cloud — concluído
+## PR #293 — hardening de rastreabilidade — concluído
 
-**Objetivo:** validar a abstração multi-provider com apenas um provider externo real.
+Entregou:
 
-### Decisão
-
-O primeiro provider cloud é **OpenAI API**, autenticado por API key e isolado atrás do contrato `AiProvider`.
-
-### Entregue
-
-- [x] Revalidar caminho oficial de autenticação e API.
-- [x] Implementar `OpenAiProvider`.
-- [x] Expor status/modelos/capacidades do adapter.
-- [x] Traduzir function calling para o catálogo interno.
-- [x] Manter IDs nativos de tool calls encapsulados no adapter.
-- [x] Preservar masking antes de requests cloud.
-- [x] Enviar `store: false` nas requests de inferência.
-- [x] Manter OpenAI desligada do fluxo de produto até existir consentimento por projeto.
-- [x] Registrar fronteira e limitações em `docs/architecture/openai-provider.md`.
-- [x] Adicionar testes do provider e da fronteira de segurança.
-- [x] CI obrigatório verde.
-
-PR de referência: **#290**.
+- provider/modo registrados no snapshot de implementation;
+- provider/modo congelados antes da resolução assíncrona;
+- fallback baseado no provider realmente usado pela execution;
+- rollback visual quando persistência de seleção falha;
+- mensagens genéricas sem acoplamento desnecessário ao Ollama.
 
 ---
 
-## PR 7 — Seleção de provider + consentimento — concluído
+# PR #295 — fechamento pós-roadmap — fechamento técnico concluído
 
-**Objetivo:** permitir escolha de execução sem transformar a tela em painel técnico e sem envio cloud sem autorização explícita.
+A auditoria após #293 encontrou gaps que impediam considerar a arquitetura 100% multi-provider. O #295 concentra o fechamento desses gaps para os providers atuais: Ollama e OpenAI.
 
-### Entregue
+## Entregue no #295
 
-- [x] Criar resolver central de provider no backend.
-- [x] Manter `Ollama + fast` como default.
-- [x] Persistir provider e modo por projeto em configuração local.
-- [x] Persistir consentimento OpenAI separadamente por projeto.
-- [x] Revalidar consentimento e disponibilidade antes de uma nova execução cloud.
-- [x] Expor status dos providers, modelos, seleção e consentimento para a UI.
-- [x] Adicionar seletor `Executar com` com indicação Local/Cloud.
-- [x] Adicionar seleção independente `Rápido` / `Completo`.
-- [x] Manter modelo em `Opções avançadas`.
-- [x] Permitir conceder e revogar consentimento cloud por projeto.
-- [x] Cobrir default, indisponibilidade, consentimento, persistência e revogação com testes do resolver.
-- [x] CI obrigatório verde no commit final.
+### Code Review multi-provider
 
-### Escopo deliberadamente limitado
+- [x] Code Review usa `AiProviderResolver`.
+- [x] provider/modo ficam congelados durante toda a execution.
+- [x] revisão por arquivo e síntese global usam a mesma instância do provider.
+- [x] `provider` e `mode` fazem parte do snapshot/contrato HTTP.
+- [x] UI mostra provider/modo usados.
+- [x] endpoint one-shot sem consumidor foi removido.
 
-A seleção foi aplicada primeiro ao **Assistente IA / implementation**. A Code review mantém o fluxo atual; isso evita misturar a mudança de UI/resolução com uma segunda migração de orquestração batch no mesmo PR.
+### APIs genéricas
 
-PR de referência: **#291**.
+- [x] `/ai/status` reflete o provider selecionado.
+- [x] `/ai/chat` resolve provider/modo antes do stream.
+- [x] `/ai/complete` resolve o provider selecionado.
+- [x] rota genérica não recebe mais diretamente o serviço local/Ollama.
+- [x] `/ai/models/pull` respeita a capability do provider e não faz fallback oculto.
 
----
+### Validação de modelo
 
-## PR 8 — Fallback `offer` — concluído
+- [x] modelo é validado no backend antes da inferência.
+- [x] modelo Ollama não pode ser usado com OpenAI.
+- [x] modelo OpenAI não pode ser usado com Ollama.
+- [x] Code Review valida provider/modelo antes de ler diff.
 
-**Objetivo:** recuperar falhas sem trocar Local → Cloud silenciosamente.
+### Contratos de erro estáveis
 
-### Entregue
+- [x] `AiErrorCode` compartilhado entre contracts, adapters, resolver, HTTP, SSE e executions.
+- [x] consentimento, provider, modelo, auth, quota, rate limit, timeout, cancelamento, resposta inválida e falha upstream possuem códigos próprios.
+- [x] implementation e Code Review registram `errorCode` quando aplicável.
+- [x] referência HTTP documenta os status específicos das rotas de IA.
 
-- [x] Implementar `off` e `offer`.
-- [x] Não implementar `automatic` nesta fase.
-- [x] Classificar como elegível apenas falha em que o provider usado está indisponível no status atual.
-- [x] Preservar somente o pedido original ao preparar a troca de provider.
-- [x] Exigir ação explícita antes de Local → Cloud.
-- [x] Respeitar consentimento do projeto pelo fluxo existente.
-- [x] Exibir provider que falhou e provider oferecido.
-- [x] Cobrir aceite e recusa da oferta com testes.
-- [x] CI obrigatório verde no commit final.
+### Segurança cloud
 
-### Decisões desta fase
+- [x] masking é provado com OpenAI em chat, implementation, tool result, completion, Code Review e síntese global.
+- [x] consentimento é revalidado antes de conteúdo do projeto chegar à cloud.
+- [x] revogação bloqueia a próxima execution.
+- [x] status/listagem de modelos não envia conteúdo do projeto.
+- [x] credenciais ficam fora de prompt/eventos/bodies de conteúdo.
+- [x] logs estruturados de IA usam contexto allowlistado e não serializam `Error.message/cause` bruto.
 
-- `offer` é o default; `off` desativa a oferta durante a sessão atual;
-- o fallback é uma oferta de UX, não roteamento automático no backend;
-- erro de ferramenta/modelo com provider ainda disponível não oferece troca;
-- a continuação não transporta histórico, tool results, diffs ou eventos;
-- aceitar a oferta seleciona explicitamente o provider alternativo e restaura o prompt original;
-- a nova execução continua dependendo de ação em `Iniciar` e, para cloud, do consentimento explícito do projeto.
+### Cancelamento e concorrência
 
-PR de referência: **#292**.
+- [x] abort externo chega aos requests de OpenAI e Ollama.
+- [x] implementation e Code Review terminalizam antes do abort.
+- [x] resposta tardia da síntese global não altera uma execution cancelada.
+- [x] status relê provider/modo depois de requests lentos para não devolver seleção stale.
+- [x] shutdown da API encerra implementation e Code Review.
 
----
+### Assistente de implementação
 
-## Hardening pós-roadmap — em andamento
+- [x] exige investigação real do projeto antes de concluir alteração concreta.
+- [x] não inventa caminho como fluxo aceitável; deve buscar/listar/ler o código relevante.
+- [x] `propose_workspace_edit` é recusado antes de inspeção bem-sucedida.
+- [x] falta de créditos/quota OpenAI vira mensagem amigável e provider temporariamente indisponível.
 
-A revisão de fechamento após o PR #292 identificou gaps de rastreabilidade e consistência que não alteram o escopo funcional dos oito PRs.
+## Auditoria final
 
-### Tarefas
+Os P1 foram revisados em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). O que protege comportamento essencial está validado; melhorias incrementais foram classificadas como follow-up não bloqueante.
 
-- [x] Registrar `provider` e `mode` no snapshot de cada implementation.
-- [x] Congelar provider/modo antes da resolução assíncrona da execução.
-- [x] Fazer o fallback usar o provider realmente registrado na execução.
-- [x] Reverter a UI para a seleção persistida quando `PUT /ai/selection` falhar.
-- [x] Não esconder/preparar fallback quando a troca não for persistida.
-- [x] Remover mensagens de validação específicas do Ollama da fachada genérica.
-- [x] Manter `off/offer` como preferência de sessão, sem ampliar o schema persistido neste hardening.
-- [x] Atualizar schema HTTP, arquitetura, roadmap e `tasks/NEXT.md`.
-- [ ] CI obrigatório verde no commit final do hardening.
+O único requisito restante antes do merge é o **gate obrigatório verde no head final** que contém código, testes e documentação reconciliada.
 
 ---
 
 ## Itens deliberadamente adiados
 
-- [ ] `ProviderRegistry` dinâmico antes de existir necessidade real.
-- [ ] `ContextBuilder` como serviço próprio sem caso concreto de reutilização.
-- [ ] `ToolExecutor` como serviço próprio sem benefício de teste/manutenção.
-- [ ] cache de símbolos/contexto antes de medir gargalo.
-- [ ] fallback automático.
-- [ ] múltiplos providers cloud na primeira validação.
-- [ ] parâmetros específicos de fornecedor no contrato global.
-- [ ] seleção multi-provider na Code review até a UI/resolução do Assistente estabilizar.
+- `ProviderRegistry` dinâmico antes de existir terceiro provider;
+- `ContextBuilder` como serviço próprio sem reutilização concreta;
+- `ToolExecutor` como serviço próprio sem ganho claro;
+- cache de símbolos/contexto antes de medir gargalo;
+- fallback automático;
+- terceiro provider cloud;
+- parâmetros específicos de fornecedor no contrato global sem necessidade real.
 
-## Sequência resumida
+A seleção multi-provider da Code Review **não está mais adiada**: foi incorporada ao PR #295.
 
-| PR | Entrega | Estado |
+## Resumo
+
+| Etapa | Entrega | Estado |
 |---|---|---|
-| 1 | Documentação e roadmap | Concluído (#286) |
-| 2 | Caracterização + segurança | Concluído (#287) |
-| 3 | `AiProvider` + `OllamaProvider` | Concluído (#288) |
-| 4 | `fast` / `complete` | Concluído (#289) |
-| 5 | Síntese global da Code review | Absorvido pelo #289 |
-| 6 | Primeiro provider cloud | Concluído (#290) |
-| 7 | Seleção + consentimento | Concluído (#291) |
-| 8 | Fallback `offer` | Concluído (#292) |
-| — | Hardening pós-roadmap | Em andamento |
+| #286 | Documentação e roadmap | Concluído |
+| #287 | Caracterização + segurança | Concluído |
+| #288 | `AiProvider` + `OllamaProvider` | Concluído |
+| #289 | `fast` / `complete` + síntese global | Concluído |
+| #290 | Primeiro provider cloud | Concluído |
+| #291 | Seleção + consentimento | Concluído |
+| #292 | Fallback `offer` | Concluído |
+| #293 | Hardening de rastreabilidade | Concluído |
+| #295 | Fechamento dos gaps restantes | Aguardando gate final |

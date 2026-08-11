@@ -54,6 +54,12 @@ test('mantém a execução ativa fora da conexão da interface', async () => {
         tool: 'list_project_files',
         arguments: {},
       });
+      handlers.send({
+        type: 'tool-result',
+        tool: 'list_project_files',
+        ok: true,
+        summary: 'Diretório listado.',
+      });
       await gate.promise;
       handlers.send({ type: 'done' });
     },
@@ -65,6 +71,13 @@ test('mantém a execução ativa fora da conexão da interface', async () => {
   assert.equal(started.provider, 'ollama');
   assert.equal(started.mode, 'fast');
   assert.equal(receivedMessages.at(-1)?.content, 'Criar testes');
+
+  const systemPrompt = receivedMessages[0]?.content ?? '';
+  assert.match(systemPrompt, /inspecione o projeto/i);
+  assert.match(systemPrompt, /search_project_text/);
+  assert.match(systemPrompt, /list_project_files/);
+  assert.match(systemPrompt, /read_project_file/);
+  assert.match(systemPrompt, /Nunca invente nomes ou caminhos de arquivos/);
 
   // A leitura posterior simula voltar à aba depois de navegar pelo projeto.
   const whileAway = service.find(project.id, started.id);
@@ -95,6 +108,17 @@ test('congela provider e modo antes da resolução assíncrona', async () => {
       mode?: 'fast' | 'complete',
     ): Promise<void> {
       receivedMode = mode ?? '';
+      handlers.send({
+        type: 'tool-call',
+        tool: 'list_project_files',
+        arguments: {},
+      });
+      handlers.send({
+        type: 'tool-result',
+        tool: 'list_project_files',
+        ok: true,
+        summary: 'Diretório listado.',
+      });
       handlers.send({ type: 'done' });
     },
   };
@@ -125,6 +149,85 @@ test('congela provider e modo antes da resolução assíncrona', async () => {
   assert.deepEqual(resolvedProviders, ['openai']);
   assert.equal(receivedMode, 'complete');
   assert.equal(service.find(project.id, started.id)?.status, 'succeeded');
+});
+
+test('falha se o modelo responder sem inspecionar o projeto', async () => {
+  const assistant = {
+    async chat(
+      _project: Project,
+      _model: string,
+      _messages: AiChatMessage[],
+      handlers: {
+        signal: AbortSignal;
+        send: (event: AiChatStreamEvent) => void;
+      },
+    ): Promise<void> {
+      handlers.send({
+        type: 'message-delta',
+        content: 'Troque a classe para três colunas.',
+      });
+      handlers.send({ type: 'done' });
+    },
+  };
+  const service = new AiImplementationExecutionService(assistant);
+
+  const started = service.start(
+    project,
+    'qwen2.5-coder:7b',
+    'como que eu faço para a listagem de ferramentas ficar com 3 colunas?',
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const finished = service.find(project.id, started.id);
+  assert.equal(finished?.status, 'failed');
+  assert.equal(
+    finished?.events.some((event) => event.type === 'message-delta'),
+    false,
+  );
+  const error = finished?.events.find((event) => event.type === 'error');
+  assert.equal(error?.type, 'error');
+  if (error?.type === 'error') assert.match(error.message, /não inspecionou/i);
+});
+
+test('bloqueia propose_workspace_edit antes de inspeção bem-sucedida', async () => {
+  const assistant = {
+    async chat(
+      _project: Project,
+      _model: string,
+      _messages: AiChatMessage[],
+      handlers: {
+        signal: AbortSignal;
+        send: (event: AiChatStreamEvent) => void;
+      },
+    ): Promise<void> {
+      handlers.send({
+        type: 'tool-call',
+        tool: 'propose_workspace_edit',
+        arguments: { files: [] },
+      });
+    },
+  };
+  const service = new AiImplementationExecutionService(assistant);
+
+  const started = service.start(
+    project,
+    'qwen2.5-coder:7b',
+    'Ajustar a listagem de ferramentas.',
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const finished = service.find(project.id, started.id);
+  assert.equal(finished?.status, 'failed');
+  assert.equal(
+    finished?.events.some(
+      (event) =>
+        event.type === 'tool-call' && event.tool === 'propose_workspace_edit',
+    ),
+    false,
+  );
+  const error = finished?.events.find((event) => event.type === 'error');
+  assert.equal(error?.type, 'error');
+  if (error?.type === 'error') assert.match(error.message, /Antes de propor/);
 });
 
 test('cancelamento é explícito e interrompe a execução em memória', async () => {

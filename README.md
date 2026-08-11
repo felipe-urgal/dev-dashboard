@@ -23,7 +23,7 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build)
 - Inspeção de configurações e disponibilidade de bancos locais, com snapshot e restore com confirmação
 - Perfis de ambiente reutilizáveis e leitura de variáveis por projeto, sem persistir valor de variáveis com nome de segredo
-- Assistente de IA local via Ollama (opcional, isolado em painel próprio), que propõe alterações com prévia e aprovação explícita
+- Assistente de IA multi-provider com Ollama local e OpenAI cloud opcional, com seleção por projeto, consentimento explícito para cloud, masking e alterações via prévia/aprovação
 - Project Doctor: diagnóstico somente leitura de estrutura, runtimes, dependências e configuração por projeto
 - Navegador estruturado de falhas de teste e assessor de impacto de mudanças após troca de branch/pull/sincronização
 - Inspetor somente leitura de portas TCP locais
@@ -440,8 +440,8 @@ A interface web já permite:
 16. ajustar preferências de tema, densidade e retenção;
 17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
 18. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
-19. usar o assistente de IA local (Ollama), opcional e isolado em painel
-    próprio, para propor alterações com prévia e aprovação explícita;
+19. usar o assistente de IA multi-provider com Ollama local ou OpenAI cloud
+    autorizada por projeto, preservando masking, prévia e aprovação explícita;
 20. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
     runner e revisar o impacto de uma troca de branch/pull/sincronização;
 21. inspecionar portas TCP locais e gerir serviços do Docker Compose;
