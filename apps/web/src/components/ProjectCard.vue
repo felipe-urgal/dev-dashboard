@@ -52,9 +52,7 @@ watch(
 );
 
 const statusDotClass = computed(() =>
-  isRunning.value
-    ? 'project-status-dot-running'
-    : 'project-status-dot-stopped',
+  isRunning.value ? 'project-status-dot-running' : 'project-status-dot-stopped',
 );
 
 const statusLabel = computed(() =>

@@ -70,7 +70,7 @@ const {
     id="overview"
     class="content"
     :aria-busy="loadingProjects"
-    aria-labelledby="overview-title"
+    aria-label="Visão geral"
   >
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <div class="alert-body">
@@ -128,59 +128,52 @@ const {
       <template #header>
         <div class="repository-heading">
           <span class="section-kicker">Repositórios</span>
-          <div class="repository-title-row">
-            <h2 id="overview-title">Projetos detectados</h2>
-            <span v-if="!loadingProjects" class="section-count">
-              {{ projects.length }}
-              {{ projects.length === 1 ? 'projeto' : 'projetos' }}
-            </span>
 
-            <div
-              v-if="projectsWithServer.length > 0"
-              class="repository-server-actions"
-              role="group"
-              aria-label="Controles dos servidores"
+          <div
+            v-if="projectsWithServer.length > 0"
+            class="repository-server-actions"
+            role="group"
+            aria-label="Controles dos servidores"
+          >
+            <button
+              type="button"
+              class="compact-action-button compact-action-button-primary"
+              :disabled="
+                loadingServerStatuses ||
+                !serverStatusesLoaded ||
+                serverActionInProgress ||
+                startableServerProjects.length === 0
+              "
+              :aria-label="
+                startingAllServers
+                  ? `Iniciando ${serversBeingStarted} servidores`
+                  : 'Iniciar servidores'
+              "
+              :title="serverStartActionTitle"
+              @click="handleStartAllServers"
             >
-              <button
-                type="button"
-                class="compact-action-button compact-action-button-primary"
-                :disabled="
-                  loadingServerStatuses ||
-                  !serverStatusesLoaded ||
-                  serverActionInProgress ||
-                  startableServerProjects.length === 0
-                "
-                :aria-label="
-                  startingAllServers
-                    ? `Iniciando ${serversBeingStarted} servidores`
-                    : 'Iniciar servidores'
-                "
-                :title="serverStartActionTitle"
-                @click="handleStartAllServers"
-              >
-                <PlayIcon aria-hidden="true" />
-              </button>
+              <PlayIcon aria-hidden="true" />
+            </button>
 
-              <button
-                type="button"
-                class="compact-action-button compact-action-button-danger"
-                :disabled="
-                  loadingServerStatuses ||
-                  !serverStatusesLoaded ||
-                  serverActionInProgress ||
-                  stoppableServerProjects.length === 0
-                "
-                :aria-label="
-                  stoppingAllServers
-                    ? `Parando ${serversBeingStopped} servidores`
-                    : 'Parar servidores'
-                "
-                :title="serverStopActionTitle"
-                @click="handleStopAllServers"
-              >
-                <StopIcon aria-hidden="true" />
-              </button>
-            </div>
+            <button
+              type="button"
+              class="compact-action-button compact-action-button-danger"
+              :disabled="
+                loadingServerStatuses ||
+                !serverStatusesLoaded ||
+                serverActionInProgress ||
+                stoppableServerProjects.length === 0
+              "
+              :aria-label="
+                stoppingAllServers
+                  ? `Parando ${serversBeingStopped} servidores`
+                  : 'Parar servidores'
+              "
+              :title="serverStopActionTitle"
+              @click="handleStopAllServers"
+            >
+              <StopIcon aria-hidden="true" />
+            </button>
           </div>
         </div>
       </template>
@@ -228,7 +221,7 @@ const {
 
       <LoadingSkeleton
         v-if="loadingProjects"
-        label="Carregando projetos detectados…"
+        label="Carregando projetos…"
         :rows="3"
       />
 
@@ -256,18 +249,11 @@ const {
 
 <style scoped>
 .repository-heading {
-  min-width: 0;
-}
-
-.repository-title-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-}
-
-.repository-title-row h2 {
-  margin-right: 2px;
 }
 
 .repository-server-actions,
@@ -275,10 +261,6 @@ const {
   display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.repository-server-actions {
-  margin-left: 3px;
 }
 
 .compact-actions {

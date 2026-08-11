@@ -63,7 +63,9 @@ describe('ProjectCard', () => {
     expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
       'Em execução',
     );
-    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(1);
+    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(
+      1,
+    );
 
     await vi.waitFor(() => {
       expect(wrapper.get('.project-branch-badge').text()).toContain(
@@ -87,7 +89,9 @@ describe('ProjectCard', () => {
     });
     const button = wrapper.get('.project-disable-button');
 
-    expect(button.attributes('aria-label')).toBe('Desativar Projeto sem avatar');
+    expect(button.attributes('aria-label')).toBe(
+      'Desativar Projeto sem avatar',
+    );
     expect(button.attributes('aria-pressed')).toBe('false');
 
     await button.trigger('click');
