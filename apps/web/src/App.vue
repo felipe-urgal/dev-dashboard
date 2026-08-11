@@ -289,18 +289,6 @@ onMounted(() => {
             <span>Navegação rápida</span>
             <kbd>⌘ K</kbd>
           </button>
-
-          <span class="topbar-divider" aria-hidden="true" />
-
-          <div
-            class="api-status"
-            :class="{
-              'api-status-online': apiConnected,
-            }"
-          >
-            <span />
-            {{ apiConnected ? 'Online' : 'Offline' }}
-          </div>
         </div>
       </header>
 
