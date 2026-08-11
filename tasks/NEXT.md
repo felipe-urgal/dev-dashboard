@@ -6,14 +6,16 @@ bloqueador conhecido pendente para os dois providers atuais (Ollama + OpenAI).
 
 ## Estado atual
 
-Todos os P0 do checklist estão concluídos e mergeados. Dos follow-ups P1 não bloqueantes, três já
+Todos os P0 do checklist estão concluídos e mergeados. Dos follow-ups P1 não bloqueantes, quatro já
 foram fechados:
 
 - item 12 (persistência local) — fault injection de `writeFile`/`rename` e teste visual de falha
   de consentimento (PR #296);
 - item 11 (provider Ollama) — matriz de regressão ampliada (PR #297);
-- item 9 (observabilidade) — métricas estruturadas de duração/estado terminal por execution nesta
-  atividade (ver abaixo, mesmo PR #297).
+- item 9 (observabilidade) — métricas estruturadas de duração/estado terminal por execution
+  (PR #297);
+- itens 13/14 (budgets fast/complete e tool calling) — stress tests dos quatro limites do modo
+  fast nesta atividade (ver abaixo, mesmo PR #297).
 
 Também no PR #296: os comentários da Code Review IA passaram a aparecer inline no diff (estilo
 GitHub), em vez de numa lista separada ao lado.
@@ -58,16 +60,32 @@ um toggle **Diff / Arquivo completo** por arquivo.
   dentro da página de Code Review, incluindo o caminho de erro).
 - `docs/guia/git.md` atualizado descrevendo os dois modos.
 
+## Concluído nesta atividade — stress tests de budgets (itens 13 e 14)
+
+`apps/api/test/ai-assistant-service.test.ts` ganhou 4 casos novos exercitando os limites extremos
+do modo `fast` do orquestrador (`ai-execution-policy.ts`/`ai-orchestrator.ts`):
+
+- um resultado de ferramenta de 9.000 caracteres é truncado exatamente nos 8.000 do
+  `maxToolResultChars` e marcado `truncated: true` antes de voltar ao provider;
+- 5 leituras de arquivos de 8.000 caracteres cada no mesmo round ultrapassam o
+  `maxAccumulatedToolResultChars` (32.000) antes da 5ª, encerrando com erro claro;
+- a mesma chamada de ferramenta repetida 5 vezes é recusada na 5ª tentativa
+  (`maxIdenticalToolCalls` = 4 no modo fast);
+- um modelo que nunca converge (chama uma ferramenta nova a cada round) esgota os 4
+  `maxToolRounds` e recebe o erro "encadeou ferramentas demais" em vez de um loop indefinido.
+
+696/696 testes de `apps/api` passando; gate local (`typecheck`, `lint`, `format:check`) verde.
+
 ## Próximos follow-ups não bloqueantes (ordem sugerida)
 
 Nenhum deles bloqueia uso do multi-provider atual; escolher pela próxima sessão:
 
-1. **Stress tests de budgets/tool results grandes** (itens 13 e 14) — só se surgirem casos reais de
-   contexto grande.
-2. **UX de fallback `offer` na Code Review** (item 8) — requer desenho explícito que evite revisão
+1. **UX de fallback `offer` na Code Review** (item 8) — requer desenho explícito que evite revisão
    dupla/custo inesperado.
-3. **Evolução da descoberta de modelos da OpenAI** (item 10) quando a API mudar; hoje o backend já
+2. **Evolução da descoberta de modelos da OpenAI** (item 10) quando a API mudar; hoje o backend já
    rejeita qualquer modelo fora do catálogo retornado pelo provider.
+
+Todos os demais itens P1 do checklist (`tasks/AI-MULTI-PROVIDER-FINALIZATION.md`) estão fechados.
 
 P2 continua deliberadamente adiado: terceiro provider, `ProviderRegistry` dinâmico, fallback
 automático e abstrações adicionais sem necessidade concreta.

@@ -224,10 +224,15 @@ Nenhum pendente neste item.
 - [x] Budgets são definidos por modo numa policy única e são provider-neutral.
 - [x] `fast` não faz síntese global; `complete` faz.
 - [x] Orquestrador limita rounds, tamanho por tool result, acumulado e repetição sem progresso.
+- [x] Testes de stress cobrem os quatro limites do modo `fast`: truncamento de um resultado de
+  ferramenta acima de `maxToolResultChars`, corte do fluxo ao ultrapassar
+  `maxAccumulatedToolResultChars`, recusa da mesma chamada repetida além de `maxIdenticalToolCalls`,
+  e encerramento previsível ao esgotar `maxToolRounds` sem convergência
+  (`apps/api/test/ai-assistant-service.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Adicionar testes de stress para os limites extremos dos budgets se surgirem casos reais de contexto grande.
+Nenhum pendente neste item.
 
 ## 14. Tool calling e workspace edit
 
@@ -239,10 +244,13 @@ Nenhum pendente neste item.
 - [x] Tool results são truncados pelos budgets e passam pela barreira de masking antes de voltar ao provider.
 - [x] `propose_workspace_edit` exige inspeção bem-sucedida do projeto.
 - [x] Workspace edit permanece preview + confirmação; `expectedVersion` continua controlado pelo servidor.
+- [x] Teste de stress cobre um resultado de ferramenta excepcionalmente grande (9.000 caracteres
+  contra o limite de 8.000 do modo fast): o conteúdo devolvido ao provider é truncado exatamente no
+  limite e marcado `truncated: true` (`apps/api/test/ai-assistant-service.test.ts`).
 
 ### Follow-up não bloqueante
 
-- Expandir testes de stress para resultados de ferramenta excepcionalmente grandes; os limites atuais já impedem crescimento ilimitado.
+Nenhum pendente neste item.
 
 ---
 
