@@ -247,8 +247,7 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <template>
-        <nav class="project-details-tabs" aria-label="Áreas do projeto">
+      <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isReadmeRoute }"
@@ -469,7 +468,6 @@ onUnmounted(() => {
           :project-id="project.id"
           :execution="aiImplementation"
         />
-      </template>
     </template>
   </section>
 </template>
