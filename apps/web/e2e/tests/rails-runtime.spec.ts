@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
 
-test.describe('Sidekiq/webpack do projeto Rails', () => {
+test.describe('Sidekiq e Webpack do projeto Rails', () => {
   test('gerencia o Sidekiq e mantém o Webpack em uma aba separada', async ({
     page,
   }) => {
@@ -18,11 +18,8 @@ test.describe('Sidekiq/webpack do projeto Rails', () => {
       page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
     ).toBeVisible();
 
-    await page.getByRole('link', { name: 'Sidekiq/webpack' }).click();
+    await page.getByRole('link', { name: 'Sidekiq', exact: true }).click();
 
-    const sidekiqTab = page.getByRole('tab', { name: 'Sidekiq' });
-    const webpackTab = page.getByRole('tab', { name: 'Webpack' });
-    await expect(sidekiqTab).toHaveAttribute('aria-selected', 'true');
     await expect(
       page.getByRole('heading', { level: 3, name: 'Sidekiq' }),
     ).toBeVisible();
@@ -45,8 +42,7 @@ test.describe('Sidekiq/webpack do projeto Rails', () => {
       sidekiqPanel.getByText('Parado', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    await webpackTab.click();
-    await expect(webpackTab).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('link', { name: 'Webpack', exact: true }).click();
     await expect(
       page.getByRole('heading', { level: 3, name: 'webpack-dev-server' }),
     ).toBeVisible();
