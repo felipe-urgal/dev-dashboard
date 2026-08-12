@@ -227,7 +227,10 @@ async function undoFile(filePath: string): Promise<void> {
 <style scoped>
 .git-undo-card {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: var(--space-4);
+  min-height: 0;
   width: 100%;
   border: 1px solid var(--border);
   background: var(--surface-1);
