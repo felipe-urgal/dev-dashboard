@@ -16,6 +16,17 @@ export default defineConfig({
       // Keep the unit coverage gate focused on components and composables that
       // are exercised by Vitest without duplicating the full router contract.
       exclude: [
+        // Application shells and browser installers are covered by E2E.
+        'src/App.vue',
+        'src/api.ts',
+        'src/main.ts',
+        'src/router/**',
+        'src/**/*-enhancer.ts',
+        'src/**/*-fix.ts',
+        'src/git-*/**',
+        'src/log-detail/**',
+        'src/log-visual/**',
+        'src/test-log-inspector/**',
         'src/views/ProjectDetailsView.vue',
         'src/views/NotFoundView.vue',
       ],
