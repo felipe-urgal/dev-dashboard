@@ -240,3 +240,31 @@
     padding: 0 11px;
   }
 }
+
+/* Com os painéis encostados, cada seção deve desenhar uma única borda. */
+:deep(.project-details-page .server-dashboard-grid) {
+  border: 1px solid var(--border);
+}
+
+:deep(.project-details-page .server-card) {
+  border: 0;
+}
+
+:deep(.project-details-page .server-card + .server-card) {
+  border-left: 1px solid var(--border);
+}
+
+:deep(.project-details-page .project-logs-card),
+:deep(.project-details-page .project-logs-topbar),
+:deep(.project-details-page .project-log-summary-card),
+:deep(.project-details-page .project-log-quick-actions) {
+  box-shadow: none;
+}
+
+:deep(.project-details-page .project-doctor-card),
+:deep(.project-details-page .readme-panel),
+:deep(.project-details-page .git-navigation-bar),
+:deep(.project-details-page .dependencies-manager-card),
+:deep(.project-details-page .dependencies-console) {
+  box-shadow: none;
+}
