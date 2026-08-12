@@ -208,6 +208,7 @@
 }
 
 .processes-refresh-button {
+  min-width: 122px;
   gap: 7px;
   letter-spacing: normal;
   text-transform: none;
