@@ -37,6 +37,9 @@ export function usePtyTerminalSocket<
       fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
       lineHeight: 1.35,
       theme: { background: '#10131c', foreground: '#dbe0f2' },
+      // Saídas de teste/build longas (milhares de specs) estouram o padrão
+      // de 1000 linhas rapidinho, descartando o início do buffer.
+      scrollback: 50_000,
     });
     fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
