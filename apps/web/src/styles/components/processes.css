@@ -1,6 +1,8 @@
 /* Processos gerenciados */
 .processes-page {
-  display: grid;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -222,9 +224,16 @@
 }
 
 .processes-table-shell {
-  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
   border: 1px solid var(--border);
   background: var(--surface-1);
+}
+
+.processes-page > .activity-empty {
+  min-height: 0;
+  flex: 1;
 }
 
 .processes-table {
