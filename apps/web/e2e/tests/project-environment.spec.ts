@@ -15,7 +15,7 @@ test.describe('Variáveis de ambiente do projeto', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-node-app' })
       .click();
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Detalhes do projeto' }),
+      page.getByRole('heading', { level: 2, name: 'sample-node-app' }),
     ).toBeVisible();
 
     await page.getByRole('link', { name: 'Variáveis de ambiente' }).click();

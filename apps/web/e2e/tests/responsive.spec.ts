@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { gotoBootstrapped } from '../fixtures/navigate';
 
-const SIDEBAR_DRAWER_MAX_WIDTH = 900;
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'dev-dashboard:primary-sidebar-collapsed';
 
 const VIEWPORTS = [
@@ -38,45 +37,18 @@ for (const viewport of VIEWPORTS) {
 
       await gotoBootstrapped(page, '/');
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Visão geral' }),
+        page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
       ).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
-      const menuButton = page.getByRole('button', { name: 'Abrir navegação' });
+      await expect(page.getByRole('link', { name: 'Processos' })).toBeVisible();
 
-      if (viewport.width > SIDEBAR_DRAWER_MAX_WIDTH) {
-        await expect(menuButton).toBeHidden();
-        await expect(
-          page.getByRole('link', { name: 'Processos' }),
-        ).toBeVisible();
-      } else {
-        await expect(menuButton).toBeVisible();
-        await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+      await page.getByRole('link', { name: 'Processos' }).click();
 
-        await menuButton.click();
-
-        await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-        await expect(
-          page.getByRole('combobox', { name: 'Trocar workspace ativo' }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole('link', { name: 'Visão geral' }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole('link', { name: 'Processos' }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole('button', { name: /^(Expandir|Recolher) navegação$/ }),
-        ).toBeHidden();
-
-        await page.getByRole('link', { name: 'Processos' }).click();
-
-        await expect(
-          page.getByRole('heading', { level: 1, name: 'Processos' }),
-        ).toBeVisible();
-        await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
-        await expectNoHorizontalOverflow(page);
-      }
+      await expect(page.getByRole('link', { name: 'Processos' })).toHaveClass(
+        /navigation-item-active/,
+      );
+      await expectNoHorizontalOverflow(page);
 
       await expect(page.getByRole('group', { name: 'Tema' })).toBeVisible();
     });

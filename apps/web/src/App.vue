@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import {
-  Bars3Icon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   HomeIcon,
   PlayCircleIcon,
   PlusIcon,
-  XMarkIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
@@ -23,7 +19,6 @@ import {
 } from './utils/sidebar-preferences';
 
 const workspaceManagerOpen = ref(false);
-const sidebarOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
 
 const route = useRoute();
@@ -49,23 +44,6 @@ watch(sidebarCollapsed, (collapsed) => {
   storeSidebarCollapsed(collapsed);
 });
 
-watch(
-  () => route.fullPath,
-  () => {
-    sidebarOpen.value = false;
-  },
-);
-
-const pageTitle = computed(() =>
-  typeof route.meta.title === 'string' ? route.meta.title : 'Dev Dashboard',
-);
-
-const pageEyebrow = computed(() =>
-  typeof route.meta.eyebrow === 'string'
-    ? route.meta.eyebrow
-    : 'Ambiente local',
-);
-
 onMounted(() => {
   void dashboardStore.ensureDashboardLoaded();
 });
@@ -76,47 +54,13 @@ onMounted(() => {
     class="app-shell"
     :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
   >
-    <button
-      v-if="sidebarOpen"
-      class="sidebar-backdrop"
-      type="button"
-      aria-label="Fechar navegação"
-      @click="sidebarOpen = false"
-    />
-
     <aside
       id="primary-sidebar"
       class="sidebar"
-      :class="{
-        'sidebar-open': sidebarOpen,
-        'sidebar-collapsed': sidebarCollapsed,
-      }"
+      :class="{ 'sidebar-collapsed': sidebarCollapsed }"
     >
-      <RouterLink
-        class="brand brand-link"
-        to="/"
-        :aria-label="sidebarCollapsed ? 'Dev Dashboard' : undefined"
-        :title="sidebarCollapsed ? 'Dev Dashboard' : undefined"
-      >
-        <div class="brand-mark">DD</div>
-
-        <div class="brand-copy">
-          <strong>Dev Dashboard</strong>
-          <span>Local workspace</span>
-        </div>
-      </RouterLink>
-
       <button
-        class="sidebar-close-button"
-        type="button"
-        aria-label="Fechar navegação"
-        @click="sidebarOpen = false"
-      >
-        <XMarkIcon aria-hidden="true" />
-      </button>
-
-      <button
-        class="sidebar-collapse-button"
+        class="brand brand-toggle"
         type="button"
         aria-controls="primary-sidebar"
         :aria-expanded="!sidebarCollapsed"
@@ -126,8 +70,12 @@ onMounted(() => {
         :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
         @click="toggleSidebarCollapsed"
       >
-        <ChevronRightIcon v-if="sidebarCollapsed" aria-hidden="true" />
-        <ChevronLeftIcon v-else aria-hidden="true" />
+        <div class="brand-mark">DD</div>
+
+        <div class="brand-copy">
+          <strong>Dev Dashboard</strong>
+          <span>Local workspace</span>
+        </div>
       </button>
 
       <div class="sidebar-section">
@@ -205,24 +153,6 @@ onMounted(() => {
     </aside>
 
     <main class="main-content">
-      <header class="topbar">
-        <button
-          class="topbar-menu-button"
-          type="button"
-          aria-label="Abrir navegação"
-          aria-controls="primary-sidebar"
-          :aria-expanded="sidebarOpen"
-          @click="sidebarOpen = true"
-        >
-          <Bars3Icon aria-hidden="true" />
-        </button>
-
-        <div class="topbar-heading">
-          <span class="eyebrow">{{ pageEyebrow }}</span>
-          <h1>{{ pageTitle }}</h1>
-        </div>
-      </header>
-
       <RouterView />
     </main>
 
