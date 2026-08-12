@@ -247,7 +247,6 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-
 async function mountPanel(args: MountArgs = {}) {
   const originalFetch = globalThis.fetch;
   const requests: RequestRecord[] = [];
