@@ -247,34 +247,6 @@ function jsonResponse(payload: unknown, status = 200): Response {
   });
 }
 
-function localAiProvidersResponse(): Response {
-  return jsonResponse({
-    selectedProvider: 'ollama',
-    selectedMode: 'fast',
-    providers: [
-      {
-        id: 'ollama',
-        label: 'Local',
-        kind: 'local',
-        available: true,
-        message: 'Ollama disponível.',
-        models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
-        consentRequired: false,
-        consentGranted: true,
-      },
-      {
-        id: 'openai',
-        label: 'OpenAI',
-        kind: 'cloud',
-        available: false,
-        message: 'OpenAI não configurado.',
-        models: [],
-        consentRequired: true,
-        consentGranted: false,
-      },
-    ],
-  });
-}
 
 async function mountPanel(args: MountArgs = {}) {
   const originalFetch = globalThis.fetch;
