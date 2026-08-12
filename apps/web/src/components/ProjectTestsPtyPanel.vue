@@ -261,7 +261,8 @@ watch(
   flex: 1 1 0;
   min-height: 0;
   height: 0;
-  margin: 0;
+  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+  width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
   border: 1px solid #262c40;
   border-radius: var(--radius-sm);
