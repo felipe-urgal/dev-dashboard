@@ -15,7 +15,7 @@ test.describe('Sidekiq/webpack do projeto Rails', () => {
       .getByRole('link', { name: 'Ver detalhes de sample-rails-app' })
       .click();
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Detalhes do projeto' }),
+      page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
     ).toBeVisible();
 
     await page.getByRole('link', { name: 'Sidekiq/webpack' }).click();

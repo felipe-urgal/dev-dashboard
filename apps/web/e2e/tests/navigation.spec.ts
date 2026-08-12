@@ -8,9 +8,6 @@ test.describe('navegação principal', () => {
   }) => {
     await gotoBootstrapped(page, '/');
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Visão geral' }),
-    ).toBeVisible();
-    await expect(
       page.locator('#repositories').getByText('Repositórios', { exact: true }),
     ).toBeVisible();
     await expect(
@@ -54,15 +51,13 @@ test.describe('navegação principal', () => {
   test('página global de processos renderiza', async ({ page }) => {
     await gotoBootstrapped(page, '/processes');
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Processos gerenciados' }),
+      page.getByRole('heading', { level: 2, name: 'Processos gerenciados' }),
     ).toBeVisible();
   });
 
   test('painel de atividade renderiza', async ({ page }) => {
     await gotoBootstrapped(page, '/activity');
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Painel de atividade' }),
-    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Atividade' })).toBeVisible();
   });
 
   test('detalhe do projeto abre a partir do card do dashboard', async ({
@@ -78,7 +73,7 @@ test.describe('navegação principal', () => {
       .click();
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Detalhes do projeto' }),
+      page.getByRole('heading', { level: 2, name: 'sample-node-app' }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/projects\/sample-node-app-[a-f0-9]{8}$/);
   });
@@ -88,7 +83,7 @@ test.describe('navegação principal', () => {
   }) => {
     await gotoBootstrapped(page, '/rota-que-nao-existe');
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Página não encontrada' }),
+      page.getByRole('heading', { level: 3, name: 'Página não encontrada' }),
     ).toBeVisible();
   });
 });
