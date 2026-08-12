@@ -1,6 +1,8 @@
 .git-modern-panel {
   display: grid;
   gap: var(--space-4);
+  grid-template-rows: max-content minmax(0, 1fr);
+  align-content: stretch;
   min-width: 0;
 }
 
