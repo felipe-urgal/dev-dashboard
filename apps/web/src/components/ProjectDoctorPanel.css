@@ -10,9 +10,7 @@
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
 }
 
 .project-doctor-header {
@@ -39,7 +37,6 @@
   align-items: center;
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
-  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -91,7 +88,6 @@
   justify-content: center;
   gap: var(--space-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 0 var(--space-3);
@@ -130,7 +126,6 @@
   gap: var(--space-4);
   margin: 16px 18px 0;
   border: 1px solid color-mix(in srgb, var(--danger-text) 45%, var(--border));
-  border-radius: var(--radius-md);
   background: var(--danger-surface);
   color: var(--danger-text);
   padding: 12px 14px;
@@ -247,7 +242,6 @@
 .project-doctor-category {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
@@ -314,7 +308,6 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 
@@ -424,7 +417,6 @@
   gap: var(--space-3);
   margin: 0 18px 18px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: 13px 14px;
 }

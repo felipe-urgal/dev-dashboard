@@ -625,7 +625,6 @@ watch(
   overflow-x: auto;
   margin: 18px 0 24px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
 }
 
 .readme-table {

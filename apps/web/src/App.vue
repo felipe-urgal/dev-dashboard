@@ -24,8 +24,7 @@ nativeNotificationStore.setNavigator((target) => {
   void router.push(target);
 });
 
-const { apiConnected, workspaces, selectedWorkspaceId, switchWorkspace } =
-  dashboardStore;
+const { workspaces, selectedWorkspaceId, switchWorkspace } = dashboardStore;
 
 function handleWorkspaceSwitch(event: Event): void {
   const target = event.target as HTMLSelectElement;
@@ -134,17 +133,6 @@ onMounted(() => {
 
       <div class="sidebar-tools">
         <VisualPreferences />
-      </div>
-
-      <div class="sidebar-footer">
-        <span
-          class="connection-dot"
-          :class="{ 'connection-dot-online': apiConnected }"
-        />
-        <span>
-          <strong>API {{ apiConnected ? 'conectada' : 'desconectada' }}</strong>
-          <small>Ambiente local</small>
-        </span>
       </div>
     </aside>
 

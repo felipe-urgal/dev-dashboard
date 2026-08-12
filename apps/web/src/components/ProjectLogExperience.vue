@@ -458,7 +458,6 @@ watch(issues, (nextIssues) => {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color-scheme: dark;
 }

@@ -3,10 +3,8 @@
   gap: var(--space-4);
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
   padding: 20px;
-  box-shadow: var(--shadow-1);
 }
 
 .git-pr-heading,
@@ -87,7 +85,6 @@
   align-items: center;
   gap: var(--space-3);
   border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
-  border-radius: var(--radius-md);
   background: var(--warning-surface);
   padding: 12px 14px;
 }
@@ -110,7 +107,6 @@
 .git-pr-force-push button {
   min-height: 38px;
   border: 1px solid var(--warning-text);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--warning-text);
   padding: 0 14px;
@@ -128,7 +124,6 @@
   display: grid;
   gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-3);
 }
@@ -190,7 +185,6 @@
   justify-content: center;
   gap: 7px;
   border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--accent);
   padding: 8px 13px;
@@ -388,7 +382,6 @@
 .git-pr-form textarea {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 10px 12px;
@@ -422,7 +415,6 @@
   justify-content: center;
   gap: 7px;
   border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
   background: var(--accent);
   color: #fff;
   padding: 9px 14px;
@@ -448,7 +440,6 @@
 .git-pr-checking,
 .git-pr-lookup-note,
 .git-pr-existing {
-  border-radius: var(--radius-md);
   padding: var(--space-3);
 }
 
@@ -485,7 +476,6 @@
 .git-pr-gh-actions button {
   min-height: 36px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 6px 12px;
@@ -497,7 +487,6 @@
   display: grid;
   gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-3);
 }
@@ -526,7 +515,6 @@
 .git-pr-confirm-actions button {
   min-height: 38px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 8px 14px;

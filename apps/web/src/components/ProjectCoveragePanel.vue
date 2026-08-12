@@ -194,10 +194,8 @@ defineExpose({ load });
   gap: var(--space-3);
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
   padding: 20px;
-  box-shadow: var(--shadow-1);
 }
 
 .coverage-panel-heading {
@@ -243,7 +241,6 @@ defineExpose({ load });
   display: grid;
   gap: 2px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   padding: 10px 12px;
 }
 
@@ -290,7 +287,6 @@ defineExpose({ load });
   max-height: 320px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
 }
 
 .coverage-table {

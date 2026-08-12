@@ -163,10 +163,8 @@ function updateMessage(event: Event): void {
   width: 100%;
   margin: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
   padding: 20px;
-  box-shadow: var(--shadow-1);
 }
 
 .git-commit-mode {
@@ -174,7 +172,6 @@ function updateMessage(event: Event): void {
   grid-template-columns: 1fr 1.25fr;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
 }
 
 .git-commit-mode button {
@@ -226,7 +223,6 @@ function updateMessage(event: Event): void {
   gap: var(--space-3);
   margin-bottom: 20px;
   padding: 12px 14px;
-  border-radius: var(--radius-md);
 }
 
 .git-push-notice {
@@ -293,7 +289,6 @@ function updateMessage(event: Event): void {
   min-height: 112px;
   resize: vertical;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 14px 16px;

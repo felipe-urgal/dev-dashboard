@@ -3,7 +3,6 @@
   --git-inline-addition-bg: color-mix(in srgb, var(--success-surface) 82%, var(--surface-1));
   --git-inline-deletion-bg: color-mix(in srgb, var(--danger-surface) 82%, var(--surface-1));
   --git-inline-hunk-bg: color-mix(in srgb, var(--info-surface) 84%, var(--surface-1));
-  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
 }
 

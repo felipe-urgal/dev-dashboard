@@ -3,16 +3,16 @@ export type AiCapability = 'chat' | 'tools' | 'fill-in-the-middle';
 export type AiExecutionMode = 'fast' | 'complete';
 
 /**
- * Único provider suportado desde a remoção do Assistente IA e da seleção
+ * Ãnico provider suportado desde a remoÃ§Ã£o do Assistente IA e da seleÃ§Ã£o
  * multi-provider: a Code review sempre usa o Ollama local.
  */
 export type AiProviderId = 'ollama';
 
 /**
- * Taxonomia pública e provider-neutral para falhas dos fluxos de IA.
+ * Taxonomia pÃºblica e provider-neutral para falhas dos fluxos de IA.
  *
- * A mensagem continua sendo legível para a pessoa usuária; o código existe
- * para frontend, testes e diagnóstico não dependerem de comparação de texto.
+ * A mensagem continua sendo legÃ­vel para a pessoa usuÃ¡ria; o cÃ³digo existe
+ * para frontend, testes e diagnÃ³stico nÃ£o dependerem de comparaÃ§Ã£o de texto.
  */
 export type AiErrorCode =
   | 'AI_ASSISTANT_INVALID_REQUEST'

@@ -252,7 +252,6 @@
 ) {
   overflow: auto;
   border: 1px solid var(--git-diff-row-border);
-  border-radius: var(--radius-md);
   background: var(--git-diff-context-bg);
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

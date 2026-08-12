@@ -15,16 +15,16 @@ function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status });
 }
 
-test('status() informa indisponibilidade sem instalar nada quando o Ollama não responde', async () => {
+test('status() informa indisponibilidade sem instalar nada quando o Ollama nÃ£o responde', async () => {
   const service = new AiAssistantService({
     fetchImpl: async () => {
-      throw new Error('conexão recusada');
+      throw new Error('conexÃ£o recusada');
     },
   });
   const status = await service.status();
   assert.equal(status.available, false);
   assert.deepEqual(status.models, []);
-  assert.match(status.message, /não foi detectado/);
+  assert.match(status.message, /nÃ£o foi detectado/);
 });
 
 test('status() lista modelos instalados e capacidades sem baixar nada', async () => {
@@ -112,7 +112,7 @@ test('review() envia contexto fechado ao Ollama sem ferramentas', async () => {
   });
 });
 
-test('review() não agenda timeout automático', async () => {
+test('review() nÃ£o agenda timeout automÃ¡tico', async () => {
   const scheduledTimeouts: number[] = [];
   const originalSetTimeout = globalThis.setTimeout;
   globalThis.setTimeout = ((...args: Parameters<typeof setTimeout>) => {
@@ -149,7 +149,7 @@ test('review() não agenda timeout automático', async () => {
 test('review() recusa modelo vazio sem chamar o Ollama', async () => {
   const service = new AiAssistantService({
     fetchImpl: async () => {
-      throw new Error('não deveria chamar o Ollama');
+      throw new Error('nÃ£o deveria chamar o Ollama');
     },
   });
   await assert.rejects(
@@ -207,7 +207,7 @@ test('resolveOllamaBaseUrl() aceita loopback IPv4/IPv6 e recusa hosts remotos', 
     process.env.DEV_DASHBOARD_OLLAMA_URL = 'https://127.0.0.1:11434';
     assert.equal(resolveOllamaBaseUrl(), undefined);
 
-    process.env.DEV_DASHBOARD_OLLAMA_URL = 'não é uma url';
+    process.env.DEV_DASHBOARD_OLLAMA_URL = 'nÃ£o Ã© uma url';
     assert.equal(resolveOllamaBaseUrl(), undefined);
   } finally {
     if (previous === undefined) delete process.env.DEV_DASHBOARD_OLLAMA_URL;

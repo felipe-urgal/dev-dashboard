@@ -1,0 +1,1051 @@
+     "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedAt": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/tests/process/events`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+### `DELETE /api/projects/:projectId/tests/process/logs`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "log"
+    ],
+    "properties": {
+      "log": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "processId",
+          "content",
+          "sizeBytes",
+          "truncated",
+          "masked",
+          "redactionCount",
+          "readAt"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "processId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "masked": {
+            "type": "boolean"
+          },
+          "redactionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/tests/process/logs`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "maxBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 262144
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "log"
+    ],
+    "properties": {
+      "log": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "processId",
+          "content",
+          "sizeBytes",
+          "truncated",
+          "masked",
+          "redactionCount",
+          "readAt"
+        ],
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "processId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "masked": {
+            "type": "boolean"
+          },
+          "redactionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/tests/process/stop`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Query string (`querystring`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "process"
+    ],
+    "properties": {
+      "process": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "server",
+              "webpack",
+              "worker",
+              "test",
+              "script"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "running",
+              "stopping",
+              "stopped",
+              "failed"
+            ]
+          },
+          "pid": {
+            "type": "integer"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "stoppedAt": {
+            "type": "string"
+          },
+          "exitCode": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/projects/:projectId/tests/pty/cancel`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "ok"
+    ],
+    "properties": {
+      "ok": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/tests/pty/connect`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+### `POST /api/projects/:projectId/tests/pty/start`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "commandId"
+  ],
+  "properties": {
+    "commandId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "snapshot"
+    ],
+    "properties": {
+      "snapshot": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `GET /api/projects/:projectId/tests/pty/status`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projectId"
+  ],
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "snapshot"
+    ],
+    "properties": {
+      "snapshot": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "exitCode",
+          "exitSignal",
+          "startedAt",
+          "endedAt"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "exited"
+            ]
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "exitSignal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+## Workspaces
+
+### `GET /api/workspaces`
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workspaces"
+    ],
+    "properties": {
+      "workspaces": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "path",
+            "enabled",
+            "recursiveScan"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "recursiveScan": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/workspaces`
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "path"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recursiveScan": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **201**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "name",
+      "path",
+      "enabled",
+      "recursiveScan"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "recursiveScan": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `DELETE /api/workspaces/:workspaceId`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **204**:
+
+  ```json
+  {
+    "type": "null"
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `PATCH /api/workspaces/:workspaceId`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Corpo (`body`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recursiveScan"
+  ],
+  "properties": {
+    "recursiveScan": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "name",
+      "path",
+      "enabled",
+      "recursiveScan"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "recursiveScan": {
+        "type": "boolean"
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+
+### `POST /api/workspaces/:workspaceId/scan`
+
+**ParÃ¢metros de rota (`params`)**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspaceId"
+  ],
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**Resposta**
+
+- **200**:
+
+  ```json
+  {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workspaceId",
+      "workspacePath",
+      "projects",
+      "warnings",
+      "scannedAt"
+    ],
+    "properties": {
+      "workspaceId": {
+        "type": "string"
+      },
+      "workspacePath": {
+        "type": "string"
+      },
+      "projects": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "path",
+            "type",
+            "source",
+            "enabled",
+            "capabilities"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "rails",
+                "node",
+                "unknown"
+              ]
+            },
+            "source": {
+              "type": "string",
+              "enum": [
+                "workspace",
+                "standalone"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "lastAccessedAt": {
+              "type": "string"
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "server",
+                  "git",
+                  "tests",
+                  "database",
+                  "scripts",
+                  "webpack",
+                  "sidekiq",
+                  "rake",
+                  "bundler",
+                  "docker"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "code",
+            "message"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNREADABLE_DIRECTORY",
+                "PROJECT_DETECTION_FAILED",
+                "SCAN_DEPTH_LIMIT_REACHED",
+                "SCAN_PROJECT_LIMIT_REACHED",
+                "SCAN_TIMEOUT"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "scannedAt": {
+        "type": "string"
+      }
+    }
+  }
+  ```
+- **400** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **401** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **403** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **404** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **409** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).
+- **500** â erro padrÃ£o da API (ver [Erros comuns](#erros-comuns)).

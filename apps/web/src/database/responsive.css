@@ -34,10 +34,6 @@
 }
 
 @media (max-width: 720px) {
-  .database-explorer {
-    border-radius: var(--radius-md);
-  }
-
   .database-explorer-header {
     padding: 17px 15px 14px;
   }

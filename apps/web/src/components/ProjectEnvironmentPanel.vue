@@ -17,15 +17,6 @@ const environment = useProjectEnvironmentVariables(() => props.project);
     class="project-environment-panel"
     :aria-busy="environment.loading.value"
   >
-    <p class="project-environment-notice">
-      Somente leitura: lido diretamente dos arquivos
-      <code>.env</code> reconhecidos do projeto (<code>.env</code>,
-      <code>.env.local</code>, <code>.env.development</code>,
-      <code>.env.test</code>, <code>.env.production</code>). Valores com nome de
-      segredo permanecem ocultos por padrão e só são carregados quando você
-      clicar em <strong>Exibir</strong>.
-    </p>
-
     <p
       v-if="environment.errorMessage.value"
       class="alert alert-error"

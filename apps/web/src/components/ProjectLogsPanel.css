@@ -8,9 +8,7 @@
 .project-log-summary-card,
 .project-log-quick-actions {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: 0 14px 34px rgb(0 0 0 / 4%);
 }
 
 .project-logs-card {
@@ -275,7 +273,6 @@
   margin: 14px;
   overflow: hidden;
   border: 1px solid var(--term-border);
-  border-radius: var(--radius-md);
   color: var(--term-text);
   background: var(--term-bg);
   box-shadow: var(--term-inset-shadow);

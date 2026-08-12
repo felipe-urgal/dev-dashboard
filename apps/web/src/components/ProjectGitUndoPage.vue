@@ -230,10 +230,8 @@ async function undoFile(filePath: string): Promise<void> {
   gap: var(--space-4);
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
   padding: 20px;
-  box-shadow: var(--shadow-1);
 }
 
 .git-undo-heading,
@@ -288,7 +286,6 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-file-button {
   min-height: 38px;
   border: 1px solid var(--danger-border, var(--border));
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--danger-text, var(--text));
   padding: 8px 12px;
@@ -319,7 +316,6 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-files article {
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   padding: 10px 12px;
 }
 
@@ -346,7 +342,6 @@ async function undoFile(filePath: string): Promise<void> {
 }
 
 .git-undo-empty {
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-muted);
   padding: var(--space-3);
@@ -354,7 +349,6 @@ async function undoFile(filePath: string): Promise<void> {
 
 .git-undo-success {
   margin: 0;
-  border-radius: var(--radius-md);
   background: var(--success-surface);
   color: var(--success-text);
   padding: var(--space-3);

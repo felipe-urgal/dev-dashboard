@@ -44,7 +44,6 @@
 .dependencies-history button {
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   color: var(--text);
   display: inline-flex;
   gap: var(--space-2);
@@ -81,7 +80,6 @@
 .dependencies-alert,
 .dependencies-empty {
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
 }
 
@@ -112,7 +110,6 @@
   align-items: center;
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   display: flex;
   flex: 1 1 260px;
   gap: var(--space-3);
@@ -139,7 +136,6 @@
   align-items: center;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   display: inline-flex;
   flex: 0 0 auto;
   height: 38px;
@@ -162,7 +158,6 @@
 .dependencies-table-wrap {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -263,7 +258,6 @@
 .dependencies-console {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 

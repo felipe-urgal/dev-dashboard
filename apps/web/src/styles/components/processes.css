@@ -1,14 +1,16 @@
 /* Processos gerenciados */
 .processes-page {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
 }
 
 .processes-heading {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 24px;
+  padding: 8px;
 }
 
 .processes-heading h2 {
@@ -45,7 +47,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
   color: var(--text);
   background: var(--surface-1);
   font: inherit;
@@ -96,18 +97,16 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 
 .processes-summary > div {
   display: grid;
-  min-height: 82px;
+  min-height: 30px;
   place-items: center;
   align-content: center;
-  gap: 6px;
-  padding: 14px 18px;
+  padding: 12px 12px;
   border-right: 1px solid var(--border);
 }
 
@@ -180,8 +179,7 @@
   align-items: end;
   gap: 12px;
   padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 
@@ -224,10 +222,16 @@
 }
 
 .processes-table-shell {
-  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
+}
+
+.processes-page > .activity-empty {
+  min-height: 0;
+  flex: 1;
 }
 
 .processes-table {
@@ -443,7 +447,6 @@
   .processes-table tbody tr {
     padding: 10px 14px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
     background: var(--surface-1);
   }
 

@@ -65,7 +65,6 @@
 .git-code-review-failures,
 .git-code-review-notice {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
 }
 
@@ -101,7 +100,6 @@
   justify-content: center;
   gap: 7px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
   padding: 8px 12px;
@@ -211,7 +209,6 @@
   align-items: center;
   gap: 7px;
   border: 1px solid var(--danger-text);
-  border-radius: var(--radius-md);
   background: transparent;
   color: var(--danger-text);
   padding: 8px 12px;
@@ -392,7 +389,6 @@
   grid-template-columns: minmax(220px, 0.3fr) minmax(0, 1fr);
   min-height: 520px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -564,7 +560,6 @@
   max-height: 260px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-2);
 }
@@ -621,7 +616,6 @@
   justify-content: flex-end;
   gap: var(--space-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-2) var(--space-3);
 }

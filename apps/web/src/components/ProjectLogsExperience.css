@@ -348,7 +348,6 @@
   grid-template-columns: minmax(285px, 34%) minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 

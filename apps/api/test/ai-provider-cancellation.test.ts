@@ -33,14 +33,14 @@ async function expectCallerCancellation(
   });
 }
 
-test('Ollama propaga cancelamento do caller até o request HTTP', async () => {
+test('Ollama propaga cancelamento do caller atÃ© o request HTTP', async () => {
   const started = deferred();
   const controller = new AbortController();
   const provider = new OllamaProvider({ fetchImpl: abortableFetch(started) });
 
   const operation = provider.chatRound(
     'qwen2.5-coder:14b',
-    [{ role: 'user', content: 'Revise este código.' }],
+    [{ role: 'user', content: 'Revise este cÃ³digo.' }],
     {
       signal: controller.signal,
       tools: [],

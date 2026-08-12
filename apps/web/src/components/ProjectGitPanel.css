@@ -10,10 +10,8 @@
   justify-content: space-between;
   gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
   padding: 6px;
-  box-shadow: var(--shadow-1);
 }
 
 .git-subtabs {
@@ -29,7 +27,6 @@
   gap: 8px;
   flex: 0 0 auto;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
   padding: 9px 12px;
@@ -78,7 +75,6 @@
 .git-table-card,
 .git-history-list article {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
 }
 
@@ -125,7 +121,6 @@ select,
 textarea {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
   padding: 10px 12px;
@@ -146,7 +141,6 @@ textarea {
 .git-preview-grid header button,
 .git-table-row button {
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   padding: 8px 11px;
@@ -202,7 +196,6 @@ textarea {
 .remote-comparison {
   display: grid;
   gap: 4px;
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   padding: var(--space-3);
 }
@@ -271,7 +264,6 @@ textarea {
 }
 
 .git-modern-empty {
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-muted);
   padding: var(--space-3);
@@ -341,7 +333,6 @@ textarea {
 }
 
 .git-mutation-success {
-  border-radius: var(--radius-md);
   background: var(--success-surface);
   color: var(--success-text);
   padding: var(--space-3);

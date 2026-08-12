@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'vitest';
 
-import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 
 import type {
   ProjectDatabaseEnvironment,
@@ -98,14 +98,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup?.();
 });
-
-function tab(wrapper: VueWrapper, label: string) {
-  const button = wrapper
-    .findAll('.database-explorer-tabs button')
-    .find((candidate) => candidate.text() === label);
-  assert.ok(button, `aba ${label} não encontrada`);
-  return button;
-}
 
 function mockFetchFor(
   project: 'rails' | 'node',
@@ -345,8 +337,6 @@ test('pausa e reinicia um banco local acessível', async () => {
   await flushPromises();
   await flushPromises();
 
-  await tab(wrapper, 'Ambientes').trigger('click');
-  await flushPromises();
 
   const pauseButton = wrapper
     .findAll('button')
@@ -398,8 +388,6 @@ test('inicia um banco local indisponível', async () => {
   await flushPromises();
   await flushPromises();
 
-  await tab(wrapper, 'Ambientes').trigger('click');
-  await flushPromises();
 
   const startButton = wrapper
     .findAll('button')
@@ -449,8 +437,6 @@ test('avisa quando dois ambientes compartilham o mesmo serviço local', async ()
   await flushPromises();
   await flushPromises();
 
-  await tab(wrapper, 'Ambientes').trigger('click');
-  await flushPromises();
 
   assert.match(wrapper.text(), /também é usado por: test/);
 });

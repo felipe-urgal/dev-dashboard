@@ -350,7 +350,6 @@ onBeforeUnmount(() => {
 
 .terminal-empty-state {
   border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
   padding: var(--space-5);
 }
 
@@ -414,7 +413,6 @@ onBeforeUnmount(() => {
   max-height: none;
   background: #10131c;
   border: 1px solid #262c40;
-  border-radius: var(--radius-md);
   box-shadow: var(--shadow-1);
   overflow: hidden;
   resize: both;

@@ -346,7 +346,6 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
   min-height: 36px;
   padding: 7px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text-muted);
   font-family: inherit;
@@ -394,7 +393,6 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
   min-height: 72px;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 
@@ -452,7 +450,6 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
@@ -671,7 +668,6 @@ const pageWindow = computed<Array<number | 'gap'>>(() => {
   gap: 6px;
   padding: var(--space-6);
   border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text-muted);
   font-size: var(--font-sm);

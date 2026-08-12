@@ -85,7 +85,7 @@ test('páginas globais possuem landmark nomeado', async () => {
   }
 
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
-  assert.match(dashboard, /aria-label="Visão geral"/);
+  assert.match(dashboard, /aria-labelledby="overview-title"/);
 });
 
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
