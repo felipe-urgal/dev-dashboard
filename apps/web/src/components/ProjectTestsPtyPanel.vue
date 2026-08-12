@@ -268,4 +268,8 @@ watch(
   padding: 16px 18px;
   overflow: hidden;
 }
+
+.tests-pty-terminal :global(.xterm) {
+  padding-inline: 10px;
+}
 </style>
