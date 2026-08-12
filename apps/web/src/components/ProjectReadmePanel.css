@@ -73,14 +73,19 @@
 
 .readme-file-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
+  scrollbar-width: thin;
 }
 
 .readme-file-item {
+  flex: 0 0 auto;
   overflow: hidden;
   max-width: 260px;
   padding: 5px 10px;
