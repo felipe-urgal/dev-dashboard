@@ -266,7 +266,7 @@ watch(
   background: #10131c;
   border: 1px solid #262c40;
   border-inline: 0;
-  padding: var(--space-3);
+  padding: 16px 18px;
   overflow: hidden;
 }
 </style>
