@@ -22,7 +22,7 @@ async function readDatabaseLayoutCss(): Promise<string> {
   return [arquivoPrincipal, ...importados].join('\n');
 }
 
-test('oferece a navegação completa do explorador de banco', async () => {
+test('oferece somente a área de ambientes do explorador de banco', async () => {
   const component = (
     await Promise.all(
       [
@@ -31,35 +31,13 @@ test('oferece a navegação completa do explorador de banco', async () => {
       ].map((file) => readFile(sourceFile(file), 'utf8')),
     )
   ).join('\n');
-  const railsMigrationsComposable = await readFile(
-    sourceFile('composables/useRailsMigrations.ts'),
-    'utf8',
-  );
-  const railsModelsComposable = await readFile(
-    sourceFile('composables/useRailsModels.ts'),
-    'utf8',
-  );
 
-  for (const label of [
-    'Visão geral',
-    'Ambientes',
-    'Snapshots',
-    'Migrations',
-    'Modelos',
-  ]) {
-    assert.match(component, new RegExp(label));
-  }
-
-  assert.match(railsMigrationsComposable, /fetchProjectRailsMigrationDetail/);
-  assert.match(railsModelsComposable, /fetchProjectRailsModels/);
-  assert.match(component, /Código da migration/);
-  assert.match(
-    component,
-    /Colunas \(\{\{ selectedTable\.columns\.length \}\}\)/,
-  );
-  assert.match(component, /Relacionamentos/);
+  assert.match(component, /Ambientes/);
+  assert.doesNotMatch(component, /Visão geral/);
+  assert.doesNotMatch(component, /Migrations/);
+  assert.doesNotMatch(component, /Modelos/);
+  assert.doesNotMatch(component, /Snapshots/);
 });
-
 test('mantém o layout restrito ao painel de banco e baseado nos tokens de tema', async () => {
   const css = await readDatabaseLayoutCss();
 
