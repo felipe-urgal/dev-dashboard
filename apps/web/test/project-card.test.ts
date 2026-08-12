@@ -60,14 +60,14 @@ describe('ProjectCard', () => {
     expect(wrapper.find('.project-favorite-button').exists()).toBe(false);
     expect(wrapper.find('.project-remove-button').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Abrir');
-    expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
-      'Em execução',
-    );
     expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(
       1,
     );
 
     await vi.waitFor(() => {
+      expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
+        'Em execução',
+      );
       expect(wrapper.get('.project-branch-badge').text()).toContain(
         'feature/listar-branch',
       );
