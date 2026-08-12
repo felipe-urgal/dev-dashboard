@@ -94,39 +94,30 @@ describe('ProjectRailsRuntimePanel', () => {
     );
   });
 
-  it('separa Sidekiq e Webpack em abas e remove credentials da interface', async () => {
-    const wrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project },
+  it('renderiza o worker informado por prop e remove credentials da interface', async () => {
+    const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'sidekiq' },
     });
-
     await flushPromises();
 
-    const tabs = wrapper.findAll('[role="tab"]');
-    expect(tabs).toHaveLength(2);
-    expect(tabs[0]?.text()).toContain('Sidekiq');
-    expect(tabs[0]?.attributes('aria-selected')).toBe('true');
-    expect(tabs[1]?.text()).toContain('Webpack');
-
-    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
-    const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
-    expect(sidekiqPanel.isVisible()).toBe(true);
-    expect(webpackPanel.isVisible()).toBe(false);
+    const sidekiqPanel = sidekiqWrapper.find('[data-worker-id="sidekiq"]');
+    expect(sidekiqPanel.exists()).toBe(true);
     expect(sidekiqPanel.find('button.primary-button').exists()).toBe(true);
     expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
-    expect(fetchProjectRailsWorker).toHaveBeenCalledWith('p1', 'webpack');
+    sidekiqWrapper.unmount();
 
-    await tabs[1]?.trigger('click');
-    await wrapper.vm.$nextTick();
+    const webpackWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'webpack' },
+    });
+    await flushPromises();
 
-    expect(tabs[0]?.attributes('aria-selected')).toBe('false');
-    expect(tabs[1]?.attributes('aria-selected')).toBe('true');
-    expect(wrapper.find('[data-worker-id="webpack"]').text()).toContain(
+    expect(webpackWrapper.text()).toContain(
       'webpack-dev-server não foi detectado',
     );
-    expect(wrapper.find('.rails-credentials-card').exists()).toBe(false);
-    expect(wrapper.text()).not.toContain('Credentials');
+    expect(webpackWrapper.find('.rails-credentials-card').exists()).toBe(false);
+    expect(webpackWrapper.text()).not.toContain('Credentials');
 
-    wrapper.unmount();
+    webpackWrapper.unmount();
   });
 
   it('inicia o Sidekiq pela aba dedicada', async () => {
@@ -141,18 +132,17 @@ describe('ProjectRailsRuntimePanel', () => {
     });
 
     const wrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project },
+      props: { project, workerId: 'sidekiq' },
     });
 
     await flushPromises();
 
-    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
-    await sidekiqPanel.find('button.primary-button').trigger('click');
+    await wrapper.find('button.primary-button').trigger('click');
     await flushPromises();
 
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
-    expect(sidekiqPanel.text()).toContain('4242');
-    expect(sidekiqPanel.text()).toContain('Processo ativo e respondendo');
+    expect(wrapper.text()).toContain('4242');
+    expect(wrapper.text()).toContain('Processo ativo e respondendo');
 
     wrapper.unmount();
   });
@@ -163,14 +153,12 @@ describe('ProjectRailsRuntimePanel', () => {
         overview(workerId, true),
     );
 
-    const wrapper = mount(ProjectRailsRuntimePanel, {
-      props: { project },
+    const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'sidekiq' },
     });
-
     await flushPromises();
 
-    const sidekiqPanel = wrapper.find('[data-worker-id="sidekiq"]');
-    await sidekiqPanel.find('.rails-worker-log-toggle').trigger('click');
+    await sidekiqWrapper.find('.rails-worker-log-toggle').trigger('click');
     await flushPromises();
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
@@ -178,13 +166,16 @@ describe('ProjectRailsRuntimePanel', () => {
       'sidekiq',
       expect.any(Function),
     );
-    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain(
+    expect(sidekiqWrapper.find('.rails-worker-log-content').text()).toContain(
       'sidekiq log de exemplo',
     );
 
-    await wrapper.findAll('[role="tab"]')[1]?.trigger('click');
-    const webpackPanel = wrapper.find('[data-worker-id="webpack"]');
-    await webpackPanel.find('.rails-worker-log-toggle').trigger('click');
+    const webpackWrapper = mount(ProjectRailsRuntimePanel, {
+      props: { project, workerId: 'webpack' },
+    });
+    await flushPromises();
+
+    await webpackWrapper.find('.rails-worker-log-toggle').trigger('click');
     await flushPromises();
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
@@ -192,13 +183,14 @@ describe('ProjectRailsRuntimePanel', () => {
       'webpack',
       expect.any(Function),
     );
-    expect(webpackPanel.find('.rails-worker-log-content').text()).toContain(
+    expect(webpackWrapper.find('.rails-worker-log-content').text()).toContain(
       'webpack log de exemplo',
     );
-    expect(sidekiqPanel.find('.rails-worker-log-content').text()).toContain(
+    expect(sidekiqWrapper.find('.rails-worker-log-content').text()).toContain(
       'sidekiq log de exemplo',
     );
 
-    wrapper.unmount();
+    sidekiqWrapper.unmount();
+    webpackWrapper.unmount();
   });
 });

@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import {
   ArrowPathIcon,
-  ChevronDownIcon,
   CircleStackIcon,
   ClipboardDocumentIcon,
   EyeIcon,
@@ -37,7 +36,6 @@ const {
 } = useProjectDatabaseOverview(() => props.project);
 
 const copiedKey = ref('');
-const actionsOpen = ref(true);
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
 const pages = computed(() =>
@@ -97,7 +95,6 @@ const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
 function handleDatabaseExplorerKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     copiedKey.value = '';
-    actionsOpen.value = false;
   }
 }
 

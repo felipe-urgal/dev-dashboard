@@ -59,8 +59,13 @@ export const router = createRouter({
       component: ProjectDetailsView,
     },
     {
-      path: '/projects/:projectId/rails-runtime',
-      name: 'project-rails-runtime',
+      path: '/projects/:projectId/sidekiq',
+      name: 'project-rails-sidekiq',
+      component: ProjectDetailsView,
+    },
+    {
+      path: '/projects/:projectId/webpack',
+      name: 'project-rails-webpack',
       component: ProjectDetailsView,
     },
     {

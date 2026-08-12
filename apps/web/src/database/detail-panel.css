@@ -321,18 +321,18 @@
 }
 
 .database-actions-menu {
-  position: relative;
-  display: grid !important;
+  display: flex !important;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px !important;
 }
 
-.database-actions-trigger {
+.database-actions-menu > button {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 7px;
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -342,58 +342,30 @@
   font-weight: 650;
 }
 
-.database-actions-trigger:hover,
-.database-actions-trigger[aria-expanded='true'] {
+.database-actions-menu > button:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-.database-actions-trigger svg {
+.database-actions-menu > button svg {
   width: 14px;
   height: 14px;
 }
 
-.database-actions-popover {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 4px);
-  right: 0;
-  display: grid;
-  min-width: 190px;
-  gap: 5px;
-  padding: 7px;
-  border: 1px solid var(--border);
-  box-shadow: 0 12px 24px color-mix(in srgb, var(--text) 12%, transparent);
-  background: var(--surface-1);
+.database-actions-menu > .database-action-primary {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  color: var(--accent);
 }
 
-.database-actions-popover > button {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  color: var(--text);
-  background: transparent;
-  font-size: 9px;
-  font-weight: 650;
-  text-align: left;
-}
-
-.database-actions-popover > button:hover:not(:disabled) {
-  border-color: var(--border);
-  background: var(--accent-soft);
-}
-
-.database-actions-popover > button svg {
-  width: 14px;
-  height: 14px;
-}
-
-.database-actions-popover > .database-action-danger {
+.database-actions-menu > .database-action-danger {
   color: var(--danger-text);
+}
+
+.database-actions-menu > .database-action-danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger-text) 52%, var(--border));
+  color: var(--danger-text);
+  background: var(--danger-surface);
 }
 
 .database-connection-summary,

@@ -21,7 +21,7 @@
           :key="item.id"
           type="button"
           :class="{ active: selectedEnvironment?.id === item.id }"
-          @click="selectedEnvironmentId = item.id; actionsOpen = true"
+          @click="selectedEnvironmentId = item.id"
         >
           <span class="database-sidebar-item-icon"><ServerStackIcon aria-hidden="true" /></span>
           <span>
@@ -60,51 +60,40 @@
         </div>
 
         <div class="database-actions-menu">
-          <button
-            class="database-actions-trigger"
-            type="button"
-            :aria-expanded="actionsOpen"
-            @click="actionsOpen = !actionsOpen"
-          >
-            Ações
-            <ChevronDownIcon aria-hidden="true" />
-          </button>
-          <div v-if="actionsOpen" class="database-actions-popover">
-            <template v-if="selectedEnvironment.serviceAvailable">
+          <template v-if="selectedEnvironment.serviceAvailable">
+            <button
+              v-if="selectedEnvironment.reachability === 'unreachable'"
+              class="database-action-primary"
+              type="button"
+              :disabled="pendingAction[selectedEnvironment.id] !== undefined"
+              @click="runAction(selectedEnvironment.id, 'start')"
+            >
+              <PlayIcon aria-hidden="true" />
+              {{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : 'Iniciar banco local' }}
+            </button>
+            <template v-else>
               <button
-                v-if="selectedEnvironment.reachability === 'unreachable'"
-                class="database-action-primary"
                 type="button"
                 :disabled="pendingAction[selectedEnvironment.id] !== undefined"
-                @click="runAction(selectedEnvironment.id, 'start')"
+                @click="runAction(selectedEnvironment.id, 'restart')"
               >
-                <PlayIcon aria-hidden="true" />
-                {{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : 'Iniciar banco local' }}
+                <ArrowPathIcon aria-hidden="true" />
+                {{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco' }}
               </button>
-              <template v-else>
-                <button
-                  type="button"
-                  :disabled="pendingAction[selectedEnvironment.id] !== undefined"
-                  @click="runAction(selectedEnvironment.id, 'restart')"
-                >
-                  <ArrowPathIcon aria-hidden="true" />
-                  {{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco' }}
-                </button>
-                <button
-                  class="database-action-danger"
-                  type="button"
-                  :disabled="pendingAction[selectedEnvironment.id] !== undefined"
-                  @click="runAction(selectedEnvironment.id, 'stop')"
-                >
-                  <PauseIcon aria-hidden="true" />
-                  {{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Pausar banco' }}
-                </button>
-              </template>
+              <button
+                class="database-action-danger"
+                type="button"
+                :disabled="pendingAction[selectedEnvironment.id] !== undefined"
+                @click="runAction(selectedEnvironment.id, 'stop')"
+              >
+                <PauseIcon aria-hidden="true" />
+                {{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Pausar banco' }}
+              </button>
             </template>
-            <span v-else class="database-service-unavailable-hint">
-              Ações de serviço não estão disponíveis para este ambiente.
-            </span>
-          </div>
+          </template>
+          <span v-else class="database-service-unavailable-hint">
+            Ações de serviço não estão disponíveis para este ambiente.
+          </span>
         </div>
       </header>
 

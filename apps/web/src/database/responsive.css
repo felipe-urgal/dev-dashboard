@@ -151,8 +151,13 @@
     width: 100%;
   }
 
-  .database-actions-popover {
-    right: 0;
+  .database-actions-menu {
+    width: 100%;
+  }
+
+  .database-actions-menu > button {
+    flex: 1;
+    justify-content: center;
   }
 
   .database-summary-list {

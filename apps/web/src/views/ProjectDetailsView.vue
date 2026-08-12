@@ -49,8 +49,11 @@ const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
-const isRailsRuntimeRoute = computed(
-  () => route.name === 'project-rails-runtime',
+const isRailsSidekiqRoute = computed(
+  () => route.name === 'project-rails-sidekiq',
+);
+const isRailsWebpackRoute = computed(
+  () => route.name === 'project-rails-webpack',
 );
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
@@ -281,13 +284,25 @@ watch(
         <RouterLink
           v-if="project.type === 'rails'"
           class="project-details-tab"
-          :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
+          :class="{ 'project-details-tab-active': isRailsSidekiqRoute }"
           :to="{
-            name: 'project-rails-runtime',
+            name: 'project-rails-sidekiq',
             params: { projectId: project.id },
           }"
         >
-          Sidekiq/webpack
+          Sidekiq
+        </RouterLink>
+
+        <RouterLink
+          v-if="project.type === 'rails'"
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isRailsWebpackRoute }"
+          :to="{
+            name: 'project-rails-webpack',
+            params: { projectId: project.id },
+          }"
+        >
+          Webpack
         </RouterLink>
 
         <RouterLink
@@ -372,9 +387,17 @@ watch(
       />
 
       <ProjectRailsRuntimePanel
-        v-else-if="isRailsRuntimeRoute"
-        :key="`rails-runtime-${project.id}`"
+        v-else-if="isRailsSidekiqRoute"
+        :key="`rails-sidekiq-${project.id}`"
         :project="project"
+        worker-id="sidekiq"
+      />
+
+      <ProjectRailsRuntimePanel
+        v-else-if="isRailsWebpackRoute"
+        :key="`rails-webpack-${project.id}`"
+        :project="project"
+        worker-id="webpack"
       />
 
       <ProjectEnvironmentPanel
