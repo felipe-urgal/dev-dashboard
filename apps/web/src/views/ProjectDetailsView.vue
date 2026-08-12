@@ -28,7 +28,6 @@ import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.v
 import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
 import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
-import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import ProjectTerminalPanel from '../components/ProjectTerminalPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
@@ -70,7 +69,6 @@ const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
-const isScriptsRoute = computed(() => route.name === 'project-scripts');
 const isRailsRuntimeRoute = computed(
   () => route.name === 'project-rails-runtime',
 );
@@ -398,14 +396,6 @@ async function handleToggleEnabled(): Promise<void> {
 
           <RouterLink
             class="project-details-tab"
-            :class="{ 'project-details-tab-active': isScriptsRoute }"
-            :to="{ name: 'project-scripts', params: { projectId: project.id } }"
-          >
-            Scripts
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
             :class="{ 'project-details-tab-active': isTerminalRoute }"
             :to="{
               name: 'project-terminal',
@@ -502,12 +492,6 @@ async function handleToggleEnabled(): Promise<void> {
         <ProjectDependenciesPanel
           v-else-if="isDependenciesRoute"
           :key="`dependencies-${project.id}`"
-          :project="project"
-        />
-
-        <ProjectScriptsPanel
-          v-else-if="isScriptsRoute"
-          :key="`scripts-${project.id}`"
           :project="project"
         />
 
