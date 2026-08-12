@@ -19,6 +19,21 @@
   align-self: stretch;
 }
 
+/* Os painéis com layout próprio também precisam esticar seus containers internos. */
+:deep(.project-doctor-panel),
+:deep(.project-doctor-card),
+:deep(.server-dashboard),
+:deep(.server-dashboard-grid),
+:deep(.project-logs-layout),
+:deep(.git-modern-panel),
+:deep(.dependencies-panel),
+:deep(.project-environment-panel),
+:deep(.rails-runtime-panel),
+:deep(.terminal-panel) {
+  min-height: 0;
+  height: 100%;
+}
+
 .project-details-hero {
   display: flex;
   min-height: unset;
