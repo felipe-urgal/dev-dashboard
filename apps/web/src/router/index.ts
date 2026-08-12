@@ -76,11 +76,6 @@ export const router = createRouter({
       component: ProjectDetailsView,
     },
     {
-      path: '/projects/:projectId/scripts',
-      name: 'project-scripts',
-      component: ProjectDetailsView,
-    },
-    {
       path: '/projects/:projectId/rails-runtime',
       name: 'project-rails-runtime',
       component: ProjectDetailsView,
