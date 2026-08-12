@@ -6,7 +6,6 @@ import {
 } from '@heroicons/vue/24/outline';
 
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
-import LocalPortsPanel from '../components/LocalPortsPanel.vue';
 import StatusBadge from '../components/StatusBadge.vue';
 import { useProcessesView } from '../composables/useProcessesView';
 import {
@@ -59,9 +58,9 @@ const {
         <span class="section-kicker">Ambiente local</span>
         <h2 id="processes-title">Processos gerenciados</h2>
         <p class="section-description">
-          Acompanhe servidores e testes iniciados pelo dashboard, além de
-          identificar quem ocupa as portas locais. Limpar finalizados remove
-          estados parados ou com falha e preserva o que ainda está em execução.
+          Acompanhe servidores e testes iniciados pelo dashboard. Limpar
+          finalizados remove estados parados ou com falha e preserva o que ainda
+          está em execução.
         </p>
       </div>
 
@@ -313,7 +312,5 @@ const {
         </tbody>
       </table>
     </div>
-
-    <LocalPortsPanel />
   </section>
 </template>

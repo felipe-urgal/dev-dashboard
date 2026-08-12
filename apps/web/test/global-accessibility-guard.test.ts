@@ -62,16 +62,8 @@ function cssToken(block: string, token: string): string {
   return match[1];
 }
 
-test('páginas globais possuem landmark nomeado pelo título visível', async () => {
-  const pages = [
-    {
-      path: 'apps/web/src/views/DashboardView.vue',
-      headingId: 'overview-title',
-    },
-    {
-      path: 'apps/web/src/views/ActivityView.template.html',
-      headingId: 'activity-title',
-    },
+test('páginas globais possuem landmark nomeado', async () => {
+  const pagesWithVisibleHeading = [
     {
       path: 'apps/web/src/views/ProcessesView.vue',
       headingId: 'processes-title',
@@ -82,7 +74,7 @@ test('páginas globais possuem landmark nomeado pelo título visível', async ()
     },
   ];
 
-  for (const page of pages) {
+  for (const page of pagesWithVisibleHeading) {
     const content = await source(page.path);
     assert.match(
       content,
@@ -95,6 +87,15 @@ test('páginas globais possuem landmark nomeado pelo título visível', async ()
       `${page.path} deve conter o título referenciado.`,
     );
   }
+
+  const dashboard = await source('apps/web/src/views/DashboardView.vue');
+  assert.match(dashboard, /aria-label="Visão geral"/);
+
+  const activity = await source(
+    'apps/web/src/views/ActivityView.template.html',
+  );
+  assert.match(activity, /aria-label="Atividade"/);
+  assert.doesNotMatch(activity, /Painel de atividade/);
 });
 
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
@@ -124,12 +125,8 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
   assert.match(processes, /class="activity-empty"\s+role="status"/);
 
   const settings = await source('apps/web/src/views/SettingsView.vue');
-  assert.match(
-    settings,
-    /aria-label="Configurações de notificações e retenção"/,
-  );
+  assert.match(settings, /aria-label="Configurações de retenção"/);
   for (const input of [
-    'native-notifications',
     'retention-days',
     'script-history-limit',
     'test-history-limit',
@@ -142,9 +139,9 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
     assert.match(
       settings,
       new RegExp(
-        `aria-describedby="${input}-description ${input}-(?:status|limits)"`,
+        `aria-describedby="${input}-description ${input}-limits"`,
       ),
-      `${input} deve possuir descrição e limites/estado associados.`,
+      `${input} deve possuir descrição e limites associados.`,
     );
   }
 });
