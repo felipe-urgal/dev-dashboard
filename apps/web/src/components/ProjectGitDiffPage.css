@@ -2,7 +2,10 @@
   --git-diff-toolbar-height: 52px;
 
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: var(--space-4);
+  min-height: 0;
   color: var(--text);
   font-family: var(--font-family);
 }
