@@ -36,8 +36,6 @@ import { recordProjectVisit } from '../stores/project-recents';
 
 const route = useRoute();
 
-
-
 const project = ref<Project | null>(null);
 const loading = ref(true);
 const errorMessage = ref('');
@@ -184,7 +182,6 @@ onUnmounted(() => {
   aiExecutionGeneration += 1;
   clearTimeout(aiExecutionTimer);
 });
-
 </script>
 
 <template>
@@ -226,13 +223,16 @@ onUnmounted(() => {
           <div class="project-details-copy">
             <div class="project-title-row">
               <h2>{{ project.name }}</h2>
-              <div v-if="gitBranch" class="project-details-branch" aria-label="Branch atual">
+              <div
+                v-if="gitBranch"
+                class="project-details-branch"
+                aria-label="Branch atual"
+              >
                 <ShareIcon aria-hidden="true" />
                 <span>{{ gitBranch }}</span>
               </div>
             </div>
           </div>
-
         </div>
 
         <div class="project-details-actions">
