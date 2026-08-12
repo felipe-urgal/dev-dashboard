@@ -124,6 +124,13 @@ async function cancel(): Promise<void> {
   }
 }
 
+function closeTerminal(): void {
+  disconnect();
+  disposeTerminal();
+  snapshot.value = null;
+  errorMessage.value = '';
+}
+
 watch(
   () => props.project.id,
   () => {
@@ -143,6 +150,23 @@ watch(
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
     <div class="tests-pty-controls">
+      <select
+        v-model="selectedCommandId"
+        :disabled="
+          loadingOverview || isRunning || (overview?.commands.length ?? 0) <= 1
+        "
+        aria-label="Comando de teste"
+      >
+        <option v-if="loadingOverview" value="">Carregando…</option>
+        <option
+          v-for="command in overview?.commands ?? []"
+          :key="command.id"
+          :value="command.id"
+        >
+          {{ command.label }}
+        </option>
+      </select>
+
       <button
         type="button"
         class="primary-button"
@@ -160,6 +184,15 @@ watch(
         @click="cancel"
       >
         {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+      </button>
+
+      <button
+        v-if="snapshot && !isRunning"
+        type="button"
+        class="secondary-button"
+        @click="closeTerminal"
+      >
+        Fechar terminal
       </button>
     </div>
 
@@ -201,6 +234,12 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+.tests-pty-controls select {
+  min-height: 38px;
+  min-width: 160px;
+  max-width: 280px;
 }
 
 .tests-pty-status {
