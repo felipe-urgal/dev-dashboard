@@ -54,6 +54,7 @@ const {
     aria-labelledby="processes-title"
   >
     <div class="processes-heading">
+      <h2 id="processes-title" class="sr-only">Processos gerenciados</h2>
       <button
         type="button"
         class="processes-cleanup-button"
