@@ -131,35 +131,6 @@ test('revisa uma branch local ainda não publicada', async () => {
   }
 });
 
-test('obtém somente o patch do arquivo escolhido para a revisão com IA', async () => {
-  const fixture = await createFixture(
-    'git@github.com:felipe-urgal/dev-dashboard.git',
-  );
-  const service = new GitPullRequestService();
-
-  try {
-    await writeFile(path.join(fixture.local, 'README.md'), '# Revisado\n');
-    await writeFile(
-      path.join(fixture.local, 'app.ts'),
-      'export const ok = true;\n',
-    );
-    await git(fixture.local, 'add', 'README.md', 'app.ts');
-    await git(fixture.local, 'commit', '-m', 'change files for review');
-
-    const result = await service.getReviewFileDiff(
-      fixture.local,
-      { targetRemote: 'origin', baseBranch: 'main' },
-      'app.ts',
-    );
-
-    assert.deepEqual(result.files, ['README.md', 'app.ts']);
-    assert.match(result.diff, /export const ok/);
-    assert.doesNotMatch(result.diff, /# Revisado/);
-  } finally {
-    await fixture.cleanup();
-  }
-});
-
 test('compõe a URL de merge request do GitLab e não vaza credenciais da URL https', async () => {
   const fixture = await createFixture(
     'https://user:s3cr3t@gitlab.com/felipe-urgal/dev-dashboard.git',

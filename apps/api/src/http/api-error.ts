@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
 
-import type { AiErrorCode } from '@dev-dashboard/contracts';
 import type { WorkspaceRepositoryErrorCode } from '@dev-dashboard/core';
 
 import type {
@@ -153,8 +152,6 @@ export type ApiErrorCode =
   | 'DEPENDENCIES_PTY_START_FAILED'
   | 'LANGUAGE_SERVER_CONFIRMATION_INVALID'
   | 'LANGUAGE_SERVER_FAILED'
-  | 'AI_ASSISTANT_FAILED'
-  | 'AI_IMPLEMENTATION_NOT_FOUND'
   | 'ENVIRONMENT_PROFILE_INVALID'
   | 'ENVIRONMENT_PROFILE_LIMIT_REACHED'
   | 'ENVIRONMENT_PROFILE_NOT_FOUND'
@@ -165,7 +162,6 @@ export type ApiErrorCode =
   | 'ORIGIN_REQUIRED'
   | 'SESSION_EXPIRED'
   | 'INVALID_LOCAL_TOKEN'
-  | AiErrorCode
   | WorkspaceRepositoryErrorCode
   | ProcessManagerErrorCode
   | ProjectServerSettingsErrorCode;

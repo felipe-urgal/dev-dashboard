@@ -1,16 +1,6 @@
 <script setup lang="ts">
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from 'vue';
+import { computed, ref, shallowRef, watch } from 'vue';
 
-import type { GitPullRequestReviewFinding } from '@dev-dashboard/contracts';
-
-import './git-code-review-inline-comments.css';
 import './GitFileDiffView.css';
 import type { GitUnifiedDiffLine } from '../utils/git-diff-view';
 import {
@@ -20,30 +10,12 @@ import {
   renderGitDiffLineHtml,
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
-import { findingKey } from '../utils/git-review-findings';
-import GitCodeReviewFindingCard from './GitCodeReviewFindingCard.vue';
 
-const props = withDefaults(
-  defineProps<{
-    content: string;
-    path: string;
-    viewMode: 'unified' | 'split';
-    query?: string;
-    findings?: GitPullRequestReviewFinding[];
-    resolvedKeys?: string[];
-    selectedKeys?: string[];
-  }>(),
-  {
-    findings: () => [],
-    resolvedKeys: () => [],
-    selectedKeys: () => [],
-  },
-);
-
-const emit = defineEmits<{
-  'toggle-finding-selection': [finding: GitPullRequestReviewFinding];
-  'resolve-finding': [finding: GitPullRequestReviewFinding];
-  'ignore-finding': [finding: GitPullRequestReviewFinding];
+const props = defineProps<{
+  content: string;
+  path: string;
+  viewMode: 'unified' | 'split';
+  query?: string;
 }>();
 
 type SyntaxModule = typeof import('../utils/git-diff-syntax');
@@ -55,19 +27,8 @@ function loadSyntaxModule(): Promise<SyntaxModule | null> {
   return syntaxModule;
 }
 
-const root = ref<HTMLElement | null>(null);
 const lines = shallowRef<GitUnifiedDiffLine[]>([]);
 const selectedViewMode = ref<'unified' | 'split'>(props.viewMode);
-const isReviewContext = ref(false);
-const isNarrow = ref(false);
-const isExpanded = ref(false);
-const filesCollapsed = ref(false);
-let reviewWorkspace: HTMLElement | null = null;
-let mediaQuery: MediaQueryList | null = null;
-
-const effectiveViewMode = computed<'unified' | 'split'>(() =>
-  isReviewContext.value && isNarrow.value ? 'unified' : selectedViewMode.value,
-);
 
 function detectionSample(parsed: readonly GitUnifiedDiffLine[]): string {
   return parsed
@@ -111,7 +72,7 @@ watch(
 watch(
   () => props.viewMode,
   (mode) => {
-    if (!isReviewContext.value) selectedViewMode.value = mode;
+    selectedViewMode.value = mode;
   },
 );
 
@@ -135,124 +96,13 @@ function highlighted(line: GitUnifiedDiffLine): string {
 function splitRows(hunkLines: readonly GitUnifiedDiffLine[]) {
   return buildSplitGitDiffRows(hunkLines);
 }
-
-function selectViewMode(mode: 'unified' | 'split'): void {
-  if (mode === 'split' && isNarrow.value) return;
-  selectedViewMode.value = mode;
-}
-
-function toggleFiles(): void {
-  filesCollapsed.value = !filesCollapsed.value;
-  reviewWorkspace?.classList.toggle('is-files-collapsed', filesCollapsed.value);
-}
-
-function toggleExpanded(): void {
-  isExpanded.value = !isExpanded.value;
-  reviewWorkspace?.classList.toggle('is-diff-expanded', isExpanded.value);
-}
-
-function updateNarrowMode(event?: MediaQueryListEvent): void {
-  isNarrow.value = event?.matches ?? mediaQuery?.matches ?? false;
-}
-
-const findingsByLine = computed(() => {
-  const map = new Map<number, GitPullRequestReviewFinding[]>();
-  for (const finding of props.findings) {
-    if (finding.line == null) continue;
-    const forLine = map.get(finding.line) ?? [];
-    forLine.push(finding);
-    map.set(finding.line, forLine);
-  }
-  return map;
-});
-
-function findingsFor(
-  line: number | null | undefined,
-): GitPullRequestReviewFinding[] {
-  if (line == null) return [];
-  return findingsByLine.value.get(line) ?? [];
-}
-
-function isFindingResolved(finding: GitPullRequestReviewFinding): boolean {
-  return props.resolvedKeys.includes(findingKey(finding));
-}
-
-function isFindingSelected(finding: GitPullRequestReviewFinding): boolean {
-  return props.selectedKeys.includes(findingKey(finding));
-}
-
-onMounted(() => {
-  const diffPanel = root.value?.closest<HTMLElement>(
-    '.git-code-review-diff-panel',
-  );
-  if (!diffPanel) return;
-
-  isReviewContext.value = true;
-  selectedViewMode.value = 'unified';
-  reviewWorkspace = diffPanel.closest<HTMLElement>(
-    '.git-code-review-workspace',
-  );
-  reviewWorkspace?.classList.add('is-diff-enhanced');
-
-  mediaQuery = window.matchMedia('(max-width: 760px)');
-  updateNarrowMode();
-  mediaQuery.addEventListener('change', updateNarrowMode);
-});
-
-onBeforeUnmount(() => {
-  mediaQuery?.removeEventListener('change', updateNarrowMode);
-  reviewWorkspace?.classList.remove(
-    'is-diff-enhanced',
-    'is-files-collapsed',
-    'is-diff-expanded',
-  );
-});
 </script>
 
 <template>
-  <div ref="root" class="git-file-diff-view">
-    <div v-if="isReviewContext" class="git-file-diff-toolbar">
-      <div class="git-file-diff-view-modes" aria-label="Modo de visualização">
-        <button
-          type="button"
-          :class="{ active: effectiveViewMode === 'unified' }"
-          :aria-pressed="effectiveViewMode === 'unified'"
-          @click="selectViewMode('unified')"
-        >
-          Unificado
-        </button>
-        <button
-          type="button"
-          :class="{ active: effectiveViewMode === 'split' }"
-          :aria-pressed="effectiveViewMode === 'split'"
-          :disabled="isNarrow"
-          :title="isNarrow ? 'Lado a lado requer mais largura' : undefined"
-          @click="selectViewMode('split')"
-        >
-          Lado a lado
-        </button>
-      </div>
-      <div class="git-file-diff-layout-actions">
-        <button
-          type="button"
-          :aria-pressed="filesCollapsed"
-          @click="toggleFiles"
-        >
-          {{ filesCollapsed ? 'Mostrar arquivos' : 'Ocultar arquivos' }}
-        </button>
-        <button
-          type="button"
-          :aria-pressed="isExpanded"
-          @click="toggleExpanded"
-        >
-          {{ isExpanded ? 'Restaurar' : 'Expandir diff' }}
-        </button>
-      </div>
-    </div>
-
+  <div class="git-file-diff-view">
     <div
       :class="
-        effectiveViewMode === 'split' ? 'git-diff-split' : 'git-diff-unified'
+        selectedViewMode === 'split' ? 'git-diff-split' : 'git-diff-unified'
       "
       role="table"
       :aria-label="`Diff de ${path}`"
@@ -277,7 +127,7 @@ onBeforeUnmount(() => {
           <code role="cell">{{ hunk.header.text }}</code>
         </div>
 
-        <template v-if="effectiveViewMode === 'unified'">
+        <template v-if="selectedViewMode === 'unified'">
           <template
             v-for="(line, lineIndex) in hunk.lines"
             :key="`u-${hunkIndex}-${lineIndex}`"
@@ -297,20 +147,6 @@ onBeforeUnmount(() => {
                 linePrefix(line.kind)
               }}</span>
               <code role="cell" v-html="highlighted(line)"></code>
-            </div>
-            <div
-              v-for="finding in findingsFor(line.newLine)"
-              :key="findingKey(finding)"
-              class="git-diff-inline-comments"
-            >
-              <GitCodeReviewFindingCard
-                :finding="finding"
-                :resolved="isFindingResolved(finding)"
-                :selected="isFindingSelected(finding)"
-                @toggle-selection="emit('toggle-finding-selection', finding)"
-                @resolve="emit('resolve-finding', finding)"
-                @ignore="emit('ignore-finding', finding)"
-              />
             </div>
           </template>
         </template>
@@ -367,20 +203,6 @@ onBeforeUnmount(() => {
                   ></code>
                   <code v-else role="cell"></code>
                 </div>
-              </div>
-              <div
-                v-for="finding in findingsFor(row.right?.newLine)"
-                :key="findingKey(finding)"
-                class="git-diff-inline-comments"
-              >
-                <GitCodeReviewFindingCard
-                  :finding="finding"
-                  :resolved="isFindingResolved(finding)"
-                  :selected="isFindingSelected(finding)"
-                  @toggle-selection="emit('toggle-finding-selection', finding)"
-                  @resolve="emit('resolve-finding', finding)"
-                  @ignore="emit('ignore-finding', finding)"
-                />
               </div>
             </template>
           </template>

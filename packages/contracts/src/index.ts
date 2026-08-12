@@ -60,17 +60,6 @@ export type {
 } from './project-files.js';
 
 export type {
-  AiCapability,
-  AiChatMessage,
-  AiChatRole,
-  AiErrorCode,
-  AiExecutionMode,
-  AiModelInfo,
-  AiProviderId,
-  ProjectAiStatus,
-} from './ai-assistant.js';
-
-export type {
   ProjectLanguageServerKind,
   ProjectLanguageServerState,
   ProjectLanguageServerStatus,
@@ -131,17 +120,8 @@ export type {
   GitMutationOperation,
   GitOpenPullRequest,
   GitPullRequestCiStatus,
-  GitPullRequestAiReview,
-  GitPullRequestAiReviewExecution,
-  GitPullRequestAiReviewFileExecution,
-  GitPullRequestAiReviewFileStatus,
-  GitPullRequestAiReviewExecutionStatus,
   GitPullRequestLookup,
   GitPullRequestProvider,
-  GitPullRequestReviewFinding,
-  GitPullRequestReviewFileDiff,
-  GitPullRequestReviewFiles,
-  GitPullRequestReviewSeverity,
   GitPullRequestUrl,
   GitRemote,
   GitRemoteRole,

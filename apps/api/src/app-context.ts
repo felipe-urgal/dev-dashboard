@@ -27,10 +27,6 @@ import { ScriptExecutionService } from './services/script-execution-service.js';
 import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
-import { AiAssistantService } from './services/ai-assistant-service.js';
-import type { AiExecutionMetricsLogger } from './services/ai-execution-metrics.js';
-import { OllamaProvider } from './services/ollama-provider.js';
-import { GitAiCodeReviewService } from './services/git-ai-code-review-service.js';
 import { ProjectWorkspaceEditService } from './services/project-workspace-edit-service.js';
 import {
   ProjectLanguageServerService,
@@ -75,13 +71,10 @@ export interface AppContext {
   projectWorkspaceEditService: ProjectWorkspaceEditService;
   projectLanguageServerService: ProjectLanguageServerService;
   projectTerminalService: ProjectTerminalService;
-  aiAssistantService: AiAssistantService;
-  gitAiCodeReviewService: GitAiCodeReviewService;
 }
 
 export interface CreateAppContextOptions {
   languageServerLogger?: LanguageServerLogger;
-  aiExecutionMetricsLogger?: AiExecutionMetricsLogger;
 }
 
 export function createAppContext(
@@ -122,10 +115,6 @@ export function createAppContext(
     scriptDetectionService,
   );
 
-  const aiAssistantService = new AiAssistantService({
-    provider: new OllamaProvider(),
-  });
-
   return {
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
@@ -162,11 +151,5 @@ export function createAppContext(
     projectWorkspaceEditService,
     projectLanguageServerService,
     projectTerminalService,
-    aiAssistantService,
-    gitAiCodeReviewService: new GitAiCodeReviewService(
-      aiAssistantService,
-      undefined,
-      options.aiExecutionMetricsLogger,
-    ),
   };
 }

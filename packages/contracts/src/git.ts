@@ -1,8 +1,3 @@
-import type {
-  AiErrorCode,
-  AiExecutionMode,
-  AiProviderId,
-} from './ai-assistant.js';
 import type { ProjectChangeImpact } from './project-change-impact.js';
 
 export type GitFileStatus =
@@ -237,85 +232,6 @@ export interface GitPullRequestUrl {
   url: string;
   branch: string;
   defaultBranch: string;
-}
-
-export type GitPullRequestReviewSeverity =
-  'critical' | 'warning' | 'suggestion';
-
-export interface GitPullRequestReviewFinding {
-  severity: GitPullRequestReviewSeverity;
-  path: string;
-  line?: number;
-  title: string;
-  explanation: string;
-  recommendation: string;
-}
-
-export interface GitPullRequestReviewFiles {
-  targetRemote: 'origin' | 'upstream';
-  baseBranch: string;
-  sourceBranch: string;
-  files: string[];
-}
-
-/** Diff de um arquivo exatamente na comparação usada pela revisão de código. */
-export interface GitPullRequestReviewFileDiff extends GitPullRequestReviewFiles {
-  diff: string;
-}
-
-export interface GitPullRequestAiReview {
-  targetRemote: 'origin' | 'upstream';
-  baseBranch: string;
-  sourceBranch: string;
-  /** Todos os arquivos incluídos na comparação da branch com a base. */
-  files: string[];
-  model: string;
-  reviewedAt: string;
-  summary: string;
-  findings: GitPullRequestReviewFinding[];
-  diffTruncated: boolean;
-  masked: boolean;
-  redactionCount: number;
-}
-
-export type GitPullRequestAiReviewExecutionStatus =
-  'running' | 'completed' | 'failed' | 'cancelled';
-
-export type GitPullRequestAiReviewFileStatus =
-  'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-
-/** Andamento individual de um arquivo dentro da revisão em segundo plano. */
-export interface GitPullRequestAiReviewFileExecution {
-  path: string;
-  status: GitPullRequestAiReviewFileStatus;
-  startedAt?: string;
-  finishedAt?: string;
-  errorCode?: AiErrorCode;
-  errorMessage?: string;
-}
-
-/** Estado de uma revisão executada em segundo plano pela API local. */
-export interface GitPullRequestAiReviewExecution {
-  id: string;
-  targetRemote: 'origin' | 'upstream';
-  baseBranch: string;
-  sourceBranch: string;
-  files: string[];
-  provider: AiProviderId;
-  mode: AiExecutionMode;
-  model: string;
-  status: GitPullRequestAiReviewExecutionStatus;
-  /** Limite de arquivos processados ao mesmo tempo. */
-  concurrency: 1 | 2;
-  completedFileCount: number;
-  currentFilePaths: string[];
-  fileExecutions: GitPullRequestAiReviewFileExecution[];
-  failedFiles: Array<{ path: string; message: string; code?: AiErrorCode }>;
-  startedAt: string;
-  finishedAt?: string;
-  errorCode?: AiErrorCode;
-  errorMessage?: string;
-  review?: GitPullRequestAiReview;
 }
 
 export interface GitOpenPullRequest {

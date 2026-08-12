@@ -97,7 +97,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     options.context ??
     createAppContext({
       languageServerLogger: app.log,
-      aiExecutionMetricsLogger: app.log,
     });
   const projectDoctorService =
     options.projectDoctorService ??
@@ -114,7 +113,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectTerminalService =
     options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
-    context.gitAiCodeReviewService.close();
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
@@ -207,8 +205,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitPullRequestRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    gitAiCodeReviewService: context.gitAiCodeReviewService,
-    aiAssistantService: context.aiAssistantService,
   });
 
   app.register(gitPullRequestMutationRoutes, {

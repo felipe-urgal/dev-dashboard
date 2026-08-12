@@ -1,14 +1,10 @@
 import type {
-  GitPullRequestAiReviewExecution,
   GitPullRequestLookup,
   GitPullRequestMergeMethod,
   GitPullRequestMutationActionId,
   GitPullRequestMutationConfirmation,
   GitPullRequestMutationResult,
-  GitPullRequestReviewFileDiff,
-  GitPullRequestReviewFiles,
   GitPullRequestUrl,
-  ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -55,22 +51,6 @@ interface PullRequestUrlResponse {
 
 interface PullRequestLookupResponse {
   lookup: GitPullRequestLookup;
-}
-
-interface PullRequestReviewFilesResponse {
-  review: GitPullRequestReviewFiles;
-}
-
-interface PullRequestReviewFileDiffResponse {
-  review: GitPullRequestReviewFileDiff;
-}
-
-interface PullRequestAiReviewExecutionResponse {
-  execution: GitPullRequestAiReviewExecution;
-}
-
-interface LatestPullRequestAiReviewExecutionResponse {
-  execution: GitPullRequestAiReviewExecution | null;
 }
 
 export interface GitPullRequestMutationInput {
@@ -192,97 +172,6 @@ export async function composeProjectGitPullRequest(
     },
   );
   return response.pullRequest;
-}
-
-/**
- * Status mínimo do provider local (Ollama) usado só pela Code review para
- * habilitar o botão "Iniciar revisão" e alimentar o seletor de modelo — não
- * há mais seleção de provider nem consentimento cloud.
- */
-export async function getProjectGitPullRequestAiStatus(
-  projectId: string,
-): Promise<ProjectAiStatus> {
-  return requestJson<ProjectAiStatus>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-status`,
-  );
-}
-
-export async function startProjectGitPullRequestAiReview(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-    model: string;
-    paths: string[];
-    concurrency: 1 | 2;
-  },
-): Promise<GitPullRequestAiReviewExecution> {
-  const response = await requestJson<PullRequestAiReviewExecutionResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
-  return response.execution;
-}
-
-export async function cancelProjectGitPullRequestAiReview(
-  projectId: string,
-  executionId: string,
-): Promise<GitPullRequestAiReviewExecution> {
-  const response = await requestJson<PullRequestAiReviewExecutionResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions/${encodeURIComponent(executionId)}/cancel`,
-    { method: 'POST' },
-  );
-  return response.execution;
-}
-
-export async function getLatestProjectGitPullRequestAiReview(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-  },
-): Promise<GitPullRequestAiReviewExecution | null> {
-  const response =
-    await requestJson<LatestPullRequestAiReviewExecutionResponse>(
-      `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-executions/latest?${pullRequestLookupQuery(input)}`,
-    );
-  return response.execution;
-}
-
-export async function getProjectGitPullRequestReviewFiles(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-  },
-): Promise<GitPullRequestReviewFiles> {
-  const response = await requestJson<PullRequestReviewFilesResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-files?${pullRequestLookupQuery(input)}`,
-  );
-  return response.review;
-}
-
-export async function getProjectGitPullRequestReviewFileDiff(
-  projectId: string,
-  input: {
-    targetRemote: GitPullRequestTargetRemote;
-    baseBranch: string;
-    path: string;
-  },
-): Promise<GitPullRequestReviewFileDiff> {
-  const query = new URLSearchParams({
-    targetRemote: input.targetRemote,
-    baseBranch: input.baseBranch,
-    path: input.path,
-  });
-  const response = await requestJson<PullRequestReviewFileDiffResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-review-file-diff?${query}`,
-  );
-  return response.review;
 }
 
 export async function prepareProjectGitPullRequestAction(
