@@ -7,7 +7,6 @@ import {
   ClipboardDocumentIcon,
   DocumentTextIcon,
   FunnelIcon,
-  MagnifyingGlassIcon,
   ViewColumnsIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
@@ -32,7 +31,6 @@ import {
   annotateGitDiffWordChanges,
   buildGitDiffContextLines,
   buildSplitGitDiffRows,
-  countGitDiffMatches,
   parseUnifiedGitDiff,
   renderGitDiffLineHtml,
   splitGitDiffHunks,
@@ -56,8 +54,6 @@ const {
   snapshot,
   overview,
   entries,
-  fileSearch,
-  diffSearch,
   statusFilter,
   viewMode,
   loadingSnapshot,
@@ -81,7 +77,6 @@ const {
   viewedCount,
   viewedPercent,
   allCollapsed,
-  diffMatchCount,
   fileName,
   directoryName,
   linePrefix,
