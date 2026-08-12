@@ -73,7 +73,6 @@ test('histórico de mutações Git: gravação por operação, paginação e aut
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

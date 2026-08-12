@@ -95,18 +95,8 @@ async function mountPalette(
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       {
-        path: '/activity',
-        name: 'activity',
-        component: { template: '<div />' },
-      },
-      {
         path: '/processes',
         name: 'processes',
-        component: { template: '<div />' },
-      },
-      {
-        path: '/settings',
-        name: 'settings',
         component: { template: '<div />' },
       },
       {
@@ -245,7 +235,7 @@ describe('paleta de navegação', () => {
     );
     await flushPromises();
 
-    expect(router.currentRoute.value.name).toBe('activity');
+    expect(router.currentRoute.value.name).toBe('processes');
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 

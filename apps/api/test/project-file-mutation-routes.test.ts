@@ -36,7 +36,6 @@ test('cria, revisa, renomeia e exclui itens do projeto autorizado', async (conte
     path: projectPath,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

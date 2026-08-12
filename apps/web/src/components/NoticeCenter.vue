@@ -119,11 +119,6 @@ function dismissNotice(notice: Notice): void {
   dismiss(notice.id);
 }
 
-function openActivity(): void {
-  close();
-  void router.push({ name: 'activity' });
-}
-
 function handleDocumentClick(event: MouseEvent): void {
   if (!open.value) return;
   const target = event.target as Node;
@@ -268,13 +263,6 @@ onBeforeUnmount(() => {
       </section>
 
       <footer class="notice-panel-footer">
-        <button
-          type="button"
-          class="notice-activity-link"
-          @click="openActivity"
-        >
-          Abrir atividade
-        </button>
         <button
           type="button"
           class="secondary-button notice-clear-button"

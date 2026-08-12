@@ -55,11 +55,6 @@ test.describe('navegação principal', () => {
     ).toBeVisible();
   });
 
-  test('painel de atividade renderiza', async ({ page }) => {
-    await gotoBootstrapped(page, '/activity');
-    await expect(page.getByRole('region', { name: 'Atividade' })).toBeVisible();
-  });
-
   test('detalhe do projeto abre a partir do card do dashboard', async ({
     page,
   }) => {

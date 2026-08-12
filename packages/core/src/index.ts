@@ -17,19 +17,9 @@ export {
 } from './retention-settings-repository.js';
 
 export {
-  ProjectFavoriteRepository,
-  ProjectFavoriteRepositoryError,
-} from './project-favorite-repository.js';
-
-export {
   ProjectDisabledRepository,
   ProjectDisabledRepositoryError,
 } from './project-disabled-repository.js';
-
-export {
-  ProjectDismissedRepository,
-  ProjectDismissedRepositoryError,
-} from './project-dismissed-repository.js';
 
 export {
   ProjectRecentRepository,

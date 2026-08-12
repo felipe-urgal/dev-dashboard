@@ -19,7 +19,6 @@ async function fixture(type: Project['type']): Promise<Project> {
     path: directory,
     type,
     source: 'standalone',
-    favorite: false,
     enabled: true,
     capabilities: ['scripts'],
   };

@@ -1,7 +1,7 @@
 # Próxima atividade
 
 **Concluído nesta sessão**, detalhado em
-[`236-remover-assistente-ia.md`](236-remover-assistente-ia.md):
+[`238-remover-assistente-ia.md`](238-remover-assistente-ia.md):
 
 Remoção completa da aba **Assistente IA** (chat, compleção inline,
 implementação via prompt, catálogo de ferramentas, instalação de modelo) e de

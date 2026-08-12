@@ -37,7 +37,6 @@ test('GET /api/ports combina porta esperada e processo gerenciado sem aceitar ac
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };

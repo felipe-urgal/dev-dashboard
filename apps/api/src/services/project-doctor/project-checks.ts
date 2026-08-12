@@ -27,7 +27,6 @@ export async function checkProjectDirectory(
       ? {
           recommendation:
             'Revise o workspace configurado e as permissões do diretório.',
-          action: { label: 'Abrir configurações', target: 'settings' as const },
         }
       : {}),
   });
@@ -62,7 +61,6 @@ export async function checkExpectedManifest(
       ? {
           recommendation:
             'Revise a raiz selecionada ou a estrutura do projeto.',
-          action: { label: 'Abrir configurações', target: 'settings' as const },
         }
       : {}),
   });
@@ -130,6 +128,6 @@ export async function checkEnvironmentVariables(
     summary: `${missingNames.length} nome(s) esperado(s) não foram encontrados em .env: ${formatVariableNames(missingNames)}.`,
     recommendation:
       'Adicione apenas os valores necessários ao ambiente local. O diagnóstico nunca retorna esses valores.',
-    action: { label: 'Abrir configurações', target: 'settings' },
+    action: { label: 'Abrir variáveis de ambiente', target: 'environment' },
   });
 }

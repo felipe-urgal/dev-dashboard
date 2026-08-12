@@ -18,7 +18,6 @@ const project: Project = {
   path: '/projetos/sample',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['git'],
 };

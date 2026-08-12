@@ -8,7 +8,7 @@ export type ProjectDiagnosticCategory =
   'project' | 'runtime' | 'dependencies' | 'configuration';
 
 export type ProjectDiagnosticActionTarget =
-  'dependencies' | 'server' | 'database' | 'settings';
+  'dependencies' | 'server' | 'database' | 'environment';
 
 export interface ProjectDiagnosticAction {
   label: string;

@@ -127,7 +127,12 @@ function completedChecks(checks: ProjectDiagnosticCheck[]): number {
 function actionDestination(
   target: ProjectDiagnosticActionTarget,
 ): RouteLocationRaw {
-  if (target === 'settings') return { name: 'settings' };
+  if (target === 'environment') {
+    return {
+      name: 'project-environment',
+      params: { projectId: props.project.id },
+    };
+  }
   if (target === 'server') {
     return {
       name: 'project-server',

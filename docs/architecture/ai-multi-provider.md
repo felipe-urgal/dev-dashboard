@@ -5,7 +5,7 @@
 > um Assistente IA completo (chat, compleção inline, catálogo de ferramentas,
 > edição de workspace). Toda essa camada — Assistente IA, `AiProviderResolver`,
 > `OpenAiProvider`, seleção de provider/modo por projeto e consentimento cloud
-> — foi removida (ver `tasks/236-remover-assistente-ia.md`). O que resta é
+> — foi removida (ver `tasks/238-remover-assistente-ia.md`). O que resta é
 > descrito abaixo.
 
 ## Estado atual

@@ -52,7 +52,6 @@ async function createFixture(
     path: projectPath,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

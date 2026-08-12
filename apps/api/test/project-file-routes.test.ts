@@ -27,7 +27,6 @@ test('lista, lê, salva e busca arquivos do projeto autorizado', async (context)
     path: projectPath,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

@@ -46,7 +46,6 @@ const project: Project = {
   path: '/projetos/projeto-node',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['git', 'server'],
 };

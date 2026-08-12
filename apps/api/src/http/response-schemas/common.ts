@@ -43,46 +43,6 @@ export const emptyResponseSchema = {
   type: 'null',
 } as const;
 
-const retentionValueLimitSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['minimum', 'maximum', 'default'],
-  properties: {
-    minimum: { type: 'integer' },
-    maximum: { type: 'integer' },
-    default: { type: 'integer' },
-  },
-} as const;
-
-export const retentionSettingsSnapshotResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['values', 'limits', 'appliesAfterRestart'],
-  properties: {
-    values: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['retentionDays', 'scriptHistoryLimit', 'testHistoryLimit'],
-      properties: {
-        retentionDays: { type: 'integer' },
-        scriptHistoryLimit: { type: 'integer' },
-        testHistoryLimit: { type: 'integer' },
-      },
-    },
-    limits: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['retentionDays', 'scriptHistoryLimit', 'testHistoryLimit'],
-      properties: {
-        retentionDays: retentionValueLimitSchema,
-        scriptHistoryLimit: retentionValueLimitSchema,
-        testHistoryLimit: retentionValueLimitSchema,
-      },
-    },
-    appliesAfterRestart: { type: 'boolean' },
-  },
-} as const;
-
 const environmentProfileVariableResponseSchema = {
   type: 'object',
   additionalProperties: false,

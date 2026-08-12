@@ -1,8 +1,6 @@
 import {
   EnvironmentProfileRepository,
   ProjectDisabledRepository,
-  ProjectDismissedRepository,
-  ProjectFavoriteRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
 } from '@dev-dashboard/core';
@@ -26,7 +24,6 @@ import { BundlerInspectionService } from './services/bundler-inspection-service.
 import { ProjectEnvironmentService } from './services/project-environment-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
-import { ActivityService } from './services/activity-service.js';
 import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
@@ -51,9 +48,7 @@ export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
   environmentProfileRepository: EnvironmentProfileRepository;
-  projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
-  projectDismissedRepository: ProjectDismissedRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -74,7 +69,6 @@ export interface AppContext {
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   projectDependenciesPtyService: ProjectDependenciesPtyService;
-  activityService: ActivityService;
   projectBrowserService: ProjectBrowserService;
   projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
@@ -136,9 +130,7 @@ export function createAppContext(
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
     environmentProfileRepository: new EnvironmentProfileRepository(),
-    projectFavoriteRepository: new ProjectFavoriteRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
-    projectDismissedRepository: new ProjectDismissedRepository(),
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,
@@ -164,11 +156,6 @@ export function createAppContext(
     scriptDetectionService,
     scriptExecutionService,
     projectDependenciesPtyService,
-    activityService: new ActivityService(
-      projectStore,
-      processManager,
-      scriptExecutionService,
-    ),
     projectBrowserService: new ProjectBrowserService(),
     projectFileService,
     serverHealthCheckService: new ServerHealthCheckService(),

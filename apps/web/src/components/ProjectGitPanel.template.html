@@ -103,18 +103,13 @@
       @force-push="runForcePushWithLease"
     />
 
-    <ProjectGitCodeReviewPage
-      v-else-if="activeTab === 'code-review'"
-      :project-id="project.id"
-      :overview="overview"
-      :workspace="workspace"
-    />
+
 
     <ProjectGitHistoryPage
       v-else-if="activeTab === 'history'"
       :project-id="project.id"
     />
 
-    <ProjectGitMutationHistoryPage v-else :project="project" />
+
   </template>
 </section>

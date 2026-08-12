@@ -18,18 +18,13 @@ import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.v
 import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
 import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
 import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
-import ProjectScriptsPanel from '../components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../components/ProjectServerPanel.vue';
 import ProjectTerminalPanel from '../components/ProjectTerminalPanel.vue';
 import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
 import { dashboardStore } from '../stores/dashboard';
 import { recordProjectVisit } from '../stores/project-recents';
-import { projectTypeLabels } from '../utils/project-labels';
 
 const route = useRoute();
-
-const { toggleProjectEnabled, enabledUpdatingIds, projectIndex } =
-  dashboardStore;
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
@@ -54,7 +49,6 @@ const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
-const isScriptsRoute = computed(() => route.name === 'project-scripts');
 const isRailsRuntimeRoute = computed(
   () => route.name === 'project-rails-runtime',
 );
@@ -127,23 +121,6 @@ watch(
   },
 );
 
-const isEnabledUpdating = computed(() =>
-  project.value ? enabledUpdatingIds.value.includes(project.value.id) : false,
-);
-
-async function handleToggleEnabled(): Promise<void> {
-  if (!project.value) return;
-
-  const requestedProjectId = project.value.id;
-  await toggleProjectEnabled(project.value);
-
-  if (project.value?.id !== requestedProjectId) return;
-
-  const updated = projectIndex.value[requestedProjectId];
-  if (updated) {
-    project.value = updated;
-  }
-}
 </script>
 
 <template>
@@ -185,42 +162,19 @@ async function handleToggleEnabled(): Promise<void> {
           <div class="project-details-copy">
             <div class="project-title-row">
               <h2>{{ project.name }}</h2>
-              <span class="type-badge" :class="`type-badge-${project.type}`">
-                {{ projectTypeLabels[project.type] }}
-              </span>
+              <div
+                v-if="gitBranch"
+                class="project-details-branch"
+                aria-label="Branch atual"
+              >
+                <ShareIcon aria-hidden="true" />
+                <span>{{ gitBranch }}</span>
+              </div>
             </div>
-            <code>{{ project.path }}</code>
-          </div>
-
-          <div
-            v-if="gitBranch"
-            class="project-details-branch"
-            aria-label="Branch atual"
-          >
-            <span>
-              <ShareIcon aria-hidden="true" />
-              {{ gitBranch }}
-            </span>
           </div>
         </div>
 
         <div class="project-details-actions">
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="isEnabledUpdating"
-            @click="handleToggleEnabled"
-          >
-            {{
-              project.enabled
-                ? isEnabledUpdating
-                  ? 'Desativando...'
-                  : 'Desativar projeto'
-                : isEnabledUpdating
-                  ? 'Reativando...'
-                  : 'Reativar projeto'
-            }}
-          </button>
           <div v-if="project.enabled" class="project-details-actions-row">
             <ProjectProcessesMenu :project="project" />
           </div>
@@ -232,24 +186,7 @@ async function handleToggleEnabled(): Promise<void> {
         </div>
       </header>
 
-      <div v-if="!project.enabled" class="empty-state page-empty-state">
-        <div class="empty-icon">⏻</div>
-        <h3>Projeto desativado</h3>
-        <p>
-          Reative o projeto para acessar servidor, logs, git, testes e as demais
-          ações.
-        </p>
-        <button
-          class="primary-button"
-          type="button"
-          :disabled="isEnabledUpdating"
-          @click="handleToggleEnabled"
-        >
-          {{ isEnabledUpdating ? 'Reativando...' : 'Reativar projeto' }}
-        </button>
-      </div>
-
-      <template v-else>
+      <template>
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
@@ -321,14 +258,6 @@ async function handleToggleEnabled(): Promise<void> {
             }"
           >
             Dependências
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isScriptsRoute }"
-            :to="{ name: 'project-scripts', params: { projectId: project.id } }"
-          >
-            Scripts
           </RouterLink>
 
           <RouterLink
@@ -421,12 +350,6 @@ async function handleToggleEnabled(): Promise<void> {
         <ProjectDependenciesPanel
           v-else-if="isDependenciesRoute"
           :key="`dependencies-${project.id}`"
-          :project="project"
-        />
-
-        <ProjectScriptsPanel
-          v-else-if="isScriptsRoute"
-          :key="`scripts-${project.id}`"
           :project="project"
         />
 

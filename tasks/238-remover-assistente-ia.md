@@ -1,4 +1,4 @@
-# Task 236 — Remover Assistente IA e infraestrutura multi-provider
+# Task 238 — Remover Assistente IA e infraestrutura multi-provider
 
 **Status:** concluída em 2026-08-12.
 

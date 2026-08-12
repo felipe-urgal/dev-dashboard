@@ -33,7 +33,6 @@ async function createFixture(): Promise<Fixture> {
       path: projectPath,
       type: 'node',
       source: 'workspace',
-      favorite: false,
       enabled: true,
       capabilities: ['server'],
     },

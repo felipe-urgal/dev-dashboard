@@ -9,7 +9,6 @@ export * from './api/test-pty';
 export * from './api/dependencies-pty';
 export * from './api/rails';
 export * from './api/project-environment';
-export * from './api/activities';
 export * from './api/settings';
 export * from './api/browser';
 export * from './api/project-doctor';

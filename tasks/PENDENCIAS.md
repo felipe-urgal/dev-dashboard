@@ -35,7 +35,7 @@ inconsistência com o outro; mudar os dois é escopo maior que uma correção po
 > **2026-08-12:** a aba **Assistente IA** (task 232) e toda a infraestrutura de
 > seleção de provider/consentimento cloud (multi-provider Ollama/OpenAI) foram
 > removidas — decisão explícita do usuário, ver
-> [`236-remover-assistente-ia.md`](236-remover-assistente-ia.md). O item de
+> [`238-remover-assistente-ia.md`](238-remover-assistente-ia.md). O item de
 > validação manual do Assistente IA abaixo não se aplica mais; a Code review
 > segue existindo, agora fixa no Ollama local.
 
@@ -374,12 +374,12 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.6 `packages/core` — concorrência inconsistente entre repositórios
 
-- `ProjectFavoriteRepository`/`ProjectRecentRepository` usam cache em
+- `ProjectDisabledRepository`/`ProjectRecentRepository` usam cache em
   memória + `mutationQueue` para serializar escritas.
 - ~~`WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
   esse mecanismo~~ — **resolvido (2026-08-07)**: `create`/`setRecursiveScan`/
   `remove` agora passam pelo mesmo `mutationQueue`/`enqueue<T>` usado em
-  `ProjectFavoriteRepository`/`EnvironmentProfileRepository`, serializando o
+  `ProjectDisabledRepository`/`EnvironmentProfileRepository`, serializando o
   ler-modificar-escrever. Teste de regressão em
   `workspace-repository.test.ts` dispara 8 `create()` concorrentes na mesma
   instância e confirma que nenhum é perdido (falhava com `ENOENT` no

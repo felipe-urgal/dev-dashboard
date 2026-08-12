@@ -6,7 +6,7 @@ export const projectDiagnosticActionResponseSchema = {
     label: { type: 'string' },
     target: {
       type: 'string',
-      enum: ['dependencies', 'server', 'database', 'settings'],
+      enum: ['dependencies', 'server', 'database', 'environment'],
     },
   },
 } as const;

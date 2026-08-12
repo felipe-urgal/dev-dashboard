@@ -17,7 +17,6 @@ function project(id = 'project-1'): Project {
     path: '/tmp/inexistente',
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

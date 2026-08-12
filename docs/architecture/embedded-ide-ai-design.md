@@ -12,7 +12,7 @@
 > compleção inline, catálogo de ferramentas, `propose_workspace_edit`) também
 > foi removido — junto com a aba própria **Assistente IA** e toda a
 > infraestrutura de seleção de provider/consentimento cloud — na remoção do
-> Assistente IA (ver `tasks/236-remover-assistente-ia.md`). A única
+> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A única
 > capacidade de IA que resta no produto é a Code review dentro da aba **Git**,
 > que usa um `AiAssistantService` simplificado, fixo no Ollama local, sem
 > seleção de provider, sem consentimento cloud e sem o catálogo de ferramentas

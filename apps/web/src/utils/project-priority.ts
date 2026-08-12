@@ -4,13 +4,6 @@ export function sortProjectsByPriority(
   projects: readonly Project[],
 ): Project[] {
   return [...projects].sort((left, right) => {
-    const favoriteOrder = Number(right.favorite) - Number(left.favorite);
-    if (favoriteOrder !== 0) return favoriteOrder;
-
-    if (left.favorite && right.favorite) {
-      return left.name.localeCompare(right.name);
-    }
-
     const leftRecent = left.lastAccessedAt ?? '';
     const rightRecent = right.lastAccessedAt ?? '';
     if (leftRecent || rightRecent) {
@@ -28,7 +21,7 @@ export function recentProjectIds(
 ): Set<string> {
   return new Set(
     sortProjectsByPriority(projects)
-      .filter((project) => !project.favorite && project.lastAccessedAt)
+      .filter((project) => project.lastAccessedAt)
       .slice(0, limit)
       .map((project) => project.id),
   );

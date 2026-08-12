@@ -27,10 +27,10 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Project Doctor: diagnóstico somente leitura de estrutura, runtimes, dependências e configuração por projeto
 - Navegador estruturado de falhas de teste e assessor de impacto de mudanças após troca de branch/pull/sincronização
 - Inspetor somente leitura de portas TCP locais
-- Painel global de atividade com resumo, busca e histórico; página global de processos com limpeza segura de finalizados
+- Página global de processos com limpeza segura de finalizados
 - Command palette (`Cmd/Ctrl+K`) para busca e navegação
 - Notificações nativas opcionais e exportação segura de logs pelo navegador
-- Preferências de tema, densidade e retenção configuráveis pela interface
+- Preferência de tema (claro/escuro) na barra lateral
 - Interface de terminal existente
 - API local em Fastify
 - Dashboard web em Vue 3
@@ -435,19 +435,18 @@ A interface web já permite:
 12. acompanhar execuções do catálogo e de testes em tempo real por SSE;
 13. consultar migrations e routes do Rails, executar migrate/rollback/seed/prepare
     com confirmação e diagnosticar Bundler somente leitura;
-14. acompanhar um painel global de atividade e uma página global de processos;
+14. acompanhar uma página global de processos;
 15. navegar por uma command palette (`Cmd/Ctrl+K`);
-16. ajustar preferências de tema, densidade e retenção;
-17. marcar projetos favoritos persistentes, mantidos no topo da visão geral;
-18. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
-19. usar o assistente de IA multi-provider com Ollama local ou OpenAI cloud
+16. ajustar a preferência de tema (claro/escuro);
+17. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
+18. usar o assistente de IA multi-provider com Ollama local ou OpenAI cloud
     autorizada por projeto, preservando masking, prévia e aprovação explícita;
-20. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
+19. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
     runner e revisar o impacto de uma troca de branch/pull/sincronização;
-21. inspecionar portas TCP locais e gerir serviços do Docker Compose;
-22. exportar logs protegidos pelo navegador e receber notificações nativas
+20. inspecionar portas TCP locais e gerir serviços do Docker Compose;
+21. exportar logs protegidos pelo navegador e receber notificações nativas
     opcionais de conclusões longas;
-23. continuar utilizando o CLI existente de forma independente.
+22. continuar utilizando o CLI existente de forma independente.
 
 A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
 smoke E2E de workspace → projeto → execução → log.

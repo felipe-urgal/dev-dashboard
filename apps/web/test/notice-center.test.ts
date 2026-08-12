@@ -57,11 +57,6 @@ async function mountNoticeCenter(): Promise<{
     routes: [
       { path: '/', name: 'dashboard', component: { template: '<div />' } },
       {
-        path: '/activity',
-        name: 'activity',
-        component: { template: '<div />' },
-      },
-      {
         path: '/projects/:projectId/tests',
         name: 'project-tests',
         component: { template: '<div />' },
@@ -143,18 +138,6 @@ describe('central de notificações', () => {
     await wrapper.find('.notice-header-action').trigger('click');
 
     expect(actions.markAllRead).toHaveBeenCalledOnce();
-  });
-
-  it('abre o painel global de atividade pelo rodapé', async () => {
-    noticeCenterStore.notices.value = [makeNotice()];
-    const { wrapper, router } = await mountNoticeCenter();
-    await wrapper.find('.notice-bell-button').trigger('click');
-
-    await wrapper.find('.notice-activity-link').trigger('click');
-    await flushPromises();
-
-    expect(router.currentRoute.value.name).toBe('activity');
-    expect(wrapper.find('.notice-panel').exists()).toBe(false);
   });
 
   it('botão limpar tudo chama clearAll e fica desabilitado quando a lista está vazia', async () => {

@@ -23,7 +23,6 @@ function project(): Project {
     path: '/tmp/project-a',
     type: 'node',
     source: 'standalone',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };

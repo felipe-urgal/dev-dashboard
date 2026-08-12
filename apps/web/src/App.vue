@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  Cog6ToothIcon,
-  HomeIcon,
-  PlayCircleIcon,
-  PlusIcon,
-  QueueListIcon,
-} from '@heroicons/vue/24/outline';
+import { HomeIcon, PlayCircleIcon, PlusIcon } from '@heroicons/vue/24/outline';
 import { onMounted, ref, watch } from 'vue';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -135,28 +129,6 @@ onMounted(() => {
         >
           <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
           <span class="navigation-text">Processos</span>
-        </RouterLink>
-
-        <RouterLink
-          class="navigation-item"
-          :class="{ 'navigation-item-active': route.name === 'activity' }"
-          :to="{ name: 'activity' }"
-          :aria-label="sidebarCollapsed ? 'Atividade' : undefined"
-          :title="sidebarCollapsed ? 'Atividade' : undefined"
-        >
-          <QueueListIcon class="navigation-icon" aria-hidden="true" />
-          <span class="navigation-text">Atividade</span>
-        </RouterLink>
-
-        <RouterLink
-          class="navigation-item"
-          :class="{ 'navigation-item-active': route.name === 'settings' }"
-          :to="{ name: 'settings' }"
-          :aria-label="sidebarCollapsed ? 'Configurações' : undefined"
-          :title="sidebarCollapsed ? 'Configurações' : undefined"
-        >
-          <Cog6ToothIcon class="navigation-icon" aria-hidden="true" />
-          <span class="navigation-text">Configurações</span>
         </RouterLink>
       </nav>
 

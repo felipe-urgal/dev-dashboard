@@ -19,7 +19,6 @@ async function fixture(files: Record<string, string>): Promise<Project> {
     path: root,
     type: 'rails',
     source: 'standalone',
-    favorite: false,
     enabled: true,
     capabilities: ['database'],
   };

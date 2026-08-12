@@ -77,7 +77,6 @@ test('rotas de snapshot e restore do banco', async (context) => {
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

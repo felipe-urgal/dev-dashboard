@@ -15,23 +15,25 @@ A organização deve priorizar descoberta, estado e ação.
 
 ## Navegação principal
 
-A navegação planejada possui cinco áreas:
+A navegação planejada possui quatro áreas:
 
 ```text
 Visão geral
 Repositórios
 Processos
 Jobs e logs
-Configurações
 ```
 
-> Status atualizado: **Repositórios**, detalhe do projeto, **Atividade**
-> (`/activity`) e **Processos** (`/processes`) estão implementados. **Visão
-> geral** existe como landing, mas sem os widgets consolidados descritos
-> abaixo. **Configurações** (`/settings`) e **command palette** já estão
-> implementados. Só **Jobs e logs** segue aspiracional — não existe uma
-> página dedicada; `ActivityView` cobre terreno adjacente (histórico de
-> execuções), mas não é a mesma coisa — mapeado em
+> Status atualizado: **Repositórios**, detalhe do projeto e **Processos**
+> (`/processes`) estão implementados. **Visão geral** existe como landing,
+> mas sem os widgets consolidados descritos abaixo. **command palette** já
+> está implementado. As páginas globais **Atividade** (`/activity`) e
+> **Configurações** (`/settings`) chegaram a ser implementadas e foram
+> removidas (task 236) por não justificarem uma área própria na navegação
+> principal — a retenção de logs/histórico continua configurável por
+> variável de ambiente (ver `docs/architecture/security.md`), e perfis de
+> ambiente seguem editáveis por projeto. **Jobs e logs** segue aspiracional
+> — não existe uma página dedicada, mapeado em
 > [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md).
 >
 > A reforma do vocabulário visual (cores, tipografia, densidade,
@@ -121,16 +123,13 @@ Cada job deve possuir:
 
 ### Configurações
 
-Gerenciamento de:
-
-- workspaces;
-- navegador;
-- portas;
-- caminhos de configuração;
-- retenção de logs;
-- preferências visuais;
-- segurança local;
-- diagnósticos do ambiente.
+Removida (task 236) — chegou a existir como página dedicada (`/settings`)
+reunindo retenção de logs/histórico e perfis de ambiente, mas foi retirada da
+navegação principal por não justificar uma área própria. Perfis de ambiente
+continuam editáveis por projeto (`ProjectEnvironmentPanel`); retenção de
+logs/histórico segue configurável apenas por variável de ambiente. Gerenciamento
+de workspaces, portas e diagnósticos do ambiente vivem em **Repositórios** e no
+Project Doctor, não numa área de configurações dedicada.
 
 ## Estrutura do app shell
 
@@ -145,7 +144,6 @@ Gerenciamento de:
 │ Repositórios  │                             │                │
 │ Processos     │                             │                │
 │ Jobs e logs   │                             │                │
-│ Configurações │                             │                │
 └───────────────┴─────────────────────────────┴────────────────┘
 ```
 
@@ -243,7 +241,7 @@ tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockf
 **Console** e **Sidekiq/webpack** só para projetos Rails/Node conforme o tipo. Uma IDE embutida com
 Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262. A
 aba própria **Assistente IA** (chat/implementação via IA local) existiu depois disso como painel
-independente de editor/LSP e foi removida na task 236; a única capacidade de IA que resta no
+independente de editor/LSP e foi removida na task 238; a única capacidade de IA que resta no
 produto é a Code review dentro da aba **Git**, fixa no Ollama local.
 
 ### Visão geral

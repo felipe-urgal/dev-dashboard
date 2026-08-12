@@ -14,7 +14,6 @@ function project(id: string, workspaceId: string): Project {
     path: `/tmp/${id}`,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };
@@ -57,7 +56,7 @@ test('replaces the latest scan for the same workspace', () => {
   assert.equal(store.findProject('new-project')?.id, 'new-project');
 });
 
-test('updates every occurrence of a favorite shared by workspace scans', () => {
+test('updates every occurrence of a project shared by workspace scans', () => {
   const store = new ProjectStore();
 
   store.saveWorkspaceScan({
@@ -73,64 +72,26 @@ test('updates every occurrence of a favorite shared by workspace scans', () => {
     warnings: [],
   });
 
-  const updatedProject = store.setFavorite('shared-project', true);
+  const updatedProject = store.setEnabled('shared-project', false);
 
-  assert.equal(updatedProject?.favorite, true);
+  assert.equal(updatedProject?.enabled, false);
   assert.deepEqual(
     store.listWorkspaceScans().map((scan) => ({
       workspaceId: scan.workspaceId,
       projectWorkspaceId: scan.projects[0]?.workspaceId,
-      favorite: scan.projects[0]?.favorite,
+      enabled: scan.projects[0]?.enabled,
     })),
     [
       {
         workspaceId: 'workspace-a',
         projectWorkspaceId: 'workspace-a',
-        favorite: true,
+        enabled: false,
       },
       {
         workspaceId: 'workspace-b',
         projectWorkspaceId: 'workspace-b',
-        favorite: true,
+        enabled: false,
       },
-    ],
-  );
-});
-
-test('removes every occurrence of a project without deleting workspace scans', () => {
-  const store = new ProjectStore();
-
-  store.saveWorkspaceScan({
-    workspaceId: 'workspace-a',
-    workspacePath: '/tmp/workspace-a',
-    projects: [
-      project('shared-project', 'workspace-a'),
-      project('kept-project-a', 'workspace-a'),
-    ],
-    warnings: [],
-  });
-  store.saveWorkspaceScan({
-    workspaceId: 'workspace-b',
-    workspacePath: '/tmp/workspace-b',
-    projects: [
-      project('shared-project', 'workspace-b'),
-      project('kept-project-b', 'workspace-b'),
-    ],
-    warnings: [],
-  });
-
-  const removedProject = store.removeProject('shared-project');
-
-  assert.equal(removedProject?.id, 'shared-project');
-  assert.equal(store.findProject('shared-project'), null);
-  assert.deepEqual(
-    store.listWorkspaceScans().map((scan) => ({
-      workspaceId: scan.workspaceId,
-      projectIds: scan.projects.map((item) => item.id),
-    })),
-    [
-      { workspaceId: 'workspace-a', projectIds: ['kept-project-a'] },
-      { workspaceId: 'workspace-b', projectIds: ['kept-project-b'] },
     ],
   );
 });
@@ -154,7 +115,7 @@ test('forgets a project once a rescan of its workspace no longer lists it', () =
   });
 
   assert.equal(store.findProject('dropped-project'), null);
-  assert.equal(store.setFavorite('dropped-project', true), null);
+  assert.equal(store.setEnabled('dropped-project', false), null);
 });
 
 test('forgets every occurrence of a project once its workspace scan is deleted', () => {
@@ -180,7 +141,7 @@ test('forgets every occurrence of a project once its workspace scan is deleted',
   store.deleteWorkspaceScan('workspace-b');
 
   assert.equal(store.findProject('shared-project'), null);
-  assert.equal(store.setFavorite('shared-project', true), null);
+  assert.equal(store.setEnabled('shared-project', false), null);
 });
 
 test('keeps tracking a project that disappears and reappears across rescans', () => {
@@ -209,5 +170,5 @@ test('keeps tracking a project that disappears and reappears across rescans', ()
   });
 
   assert.equal(store.findProject('flaky-project')?.id, 'flaky-project');
-  assert.equal(store.setFavorite('flaky-project', true)?.favorite, true);
+  assert.equal(store.setEnabled('flaky-project', false)?.enabled, false);
 });

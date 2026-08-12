@@ -58,7 +58,6 @@ test('rotas de mutação Git: confirmação, criação e troca de branch', async
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

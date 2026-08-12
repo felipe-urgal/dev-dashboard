@@ -3,7 +3,7 @@
 > **2026-08-12:** toda a arquitetura multi-provider descrita neste documento
 > (seleção Ollama/OpenAI, consentimento cloud, `AiProviderResolver`) foi
 > removida — decisão explícita do usuário, ver
-> [`236-remover-assistente-ia.md`](236-remover-assistente-ia.md). Documento
+> [`238-remover-assistente-ia.md`](238-remover-assistente-ia.md). Documento
 > mantido como registro histórico do fechamento original; não descreve o
 > estado atual do produto.
 

@@ -407,11 +407,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 480px;
-  min-width: 340px;
-  min-height: 220px;
+  height: calc(100dvh - 250px);
+  min-width: 0;
+  min-height: 320px;
   max-width: 100%;
-  max-height: 82vh;
+  max-height: none;
   background: #10131c;
   border: 1px solid #262c40;
   border-radius: var(--radius-md);
@@ -438,11 +438,15 @@ onBeforeUnmount(() => {
 
 .terminal-window-maximized {
   position: fixed;
-  inset: 4vh;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--app-sidebar-width, 232px);
   width: auto;
   height: auto;
   max-width: none;
   max-height: none;
+  border-radius: 0;
   resize: none;
   z-index: 50;
   box-shadow: var(--shadow-2);
@@ -541,8 +545,22 @@ onBeforeUnmount(() => {
 
 .terminal-window-body {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   padding: var(--space-3) var(--space-4);
-  overflow: auto;
+  overflow: hidden;
+}
+
+.terminal-window-body :deep(.xterm) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.terminal-window-body :deep(.xterm-viewport) {
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto;
 }
 
 .terminal-window-error {

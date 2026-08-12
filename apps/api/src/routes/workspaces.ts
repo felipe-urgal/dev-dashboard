@@ -2,8 +2,6 @@ import type { FastifyPluginAsync, FastifyPluginOptions } from 'fastify';
 
 import {
   type ProjectDisabledRepository,
-  type ProjectDismissedRepository,
-  type ProjectFavoriteRepository,
   WorkspaceRepositoryError,
   type WorkspaceRepository,
 } from '@dev-dashboard/core';
@@ -29,9 +27,7 @@ import {
 
 interface WorkspaceRouteOptions extends FastifyPluginOptions {
   workspaceRepository: WorkspaceRepository;
-  projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
-  projectDismissedRepository: ProjectDismissedRepository;
   processManager: ProcessManager;
   projectStore: ProjectStore;
   testDetectionService: TestDetectionService;
@@ -50,10 +46,6 @@ interface UpdateWorkspaceBody {
 
 interface WorkspaceParams {
   workspaceId: string;
-}
-
-interface WorkspaceScanQuery {
-  restoreDismissed?: boolean;
 }
 
 function workspaceRepositoryApiError(
@@ -88,9 +80,7 @@ export const workspaceRoutes: FastifyPluginAsync<
 > = async (app, options) => {
   const {
     workspaceRepository,
-    projectFavoriteRepository,
     projectDisabledRepository,
-    projectDismissedRepository,
     processManager,
     projectStore,
     testDetectionService,
@@ -249,7 +239,6 @@ export const workspaceRoutes: FastifyPluginAsync<
 
   app.post<{
     Params: WorkspaceParams;
-    Querystring: WorkspaceScanQuery;
   }>(
     '/workspaces/:workspaceId/scan',
     {
@@ -262,15 +251,6 @@ export const workspaceRoutes: FastifyPluginAsync<
             workspaceId: {
               type: 'string',
               minLength: 1,
-            },
-          },
-        },
-        querystring: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            restoreDismissed: {
-              type: 'boolean',
             },
           },
         },
@@ -329,28 +309,14 @@ export const workspaceRoutes: FastifyPluginAsync<
           recursive: workspace.recursiveScan,
         });
 
-        const favoriteProjectIds = projectFavoriteRepository.list();
         const disabledProjectIds = projectDisabledRepository.list();
-        const dismissedProjectIds = projectDismissedRepository.list();
 
-        if (request.query.restoreDismissed) {
-          for (const project of result.projects) {
-            if (dismissedProjectIds.has(project.id)) {
-              await projectDismissedRepository.set(project.id, false);
-            }
-          }
-        }
-
-        const activeDismissedProjectIds = projectDismissedRepository.list();
         const resultWithPreferences = {
           ...result,
-          projects: result.projects
-            .filter((project) => !activeDismissedProjectIds.has(project.id))
-            .map((project) => ({
-              ...project,
-              favorite: favoriteProjectIds.has(project.id),
-              enabled: !disabledProjectIds.has(project.id),
-            })),
+          projects: result.projects.map((project) => ({
+            ...project,
+            enabled: !disabledProjectIds.has(project.id),
+          })),
         };
 
         testDetectionService.invalidate();

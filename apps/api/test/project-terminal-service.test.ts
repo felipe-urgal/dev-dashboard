@@ -81,7 +81,6 @@ function project(root: string, overrides: Partial<Project> = {}): Project {
     path: root,
     type: 'rails',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
     ...overrides,
