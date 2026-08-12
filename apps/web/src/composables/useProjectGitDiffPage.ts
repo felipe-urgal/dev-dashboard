@@ -20,7 +20,6 @@ import {
   annotateGitDiffWordChanges,
   buildGitDiffContextLines,
   buildSplitGitDiffRows,
-  countGitDiffMatches,
   parseUnifiedGitDiff,
   renderGitDiffLineHtml,
   splitGitDiffHunks,
@@ -75,8 +74,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   const snapshot = ref<GitDiffSnapshot | null>(null);
   const overview = ref<ProjectGitOverview | null>(null);
   const entries = ref<FileEntry[]>([]);
-  const fileSearch = ref('');
-  const diffSearch = ref('');
   const statusFilter = ref<DiffStatusFilter>('all');
   const viewMode = ref<DiffViewMode>(readStoredViewMode());
   const loadingSnapshot = ref(false);
@@ -138,19 +135,13 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   });
 
   const visibleEntries = computed(() => {
-    const query = fileSearch.value.trim().toLocaleLowerCase('pt-BR');
     return entries.value.filter((entry) => {
       if (
         statusFilter.value !== 'all' &&
         entry.file.status !== statusFilter.value
       )
         return false;
-      if (!query) return true;
-      return [
-        entry.file.path,
-        entry.file.previousPath ?? '',
-        statusLabels[entry.file.status],
-      ].some((value) => value.toLocaleLowerCase('pt-BR').includes(query));
+      return true;
     });
   });
 
@@ -179,15 +170,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     () =>
       entries.value.length > 0 &&
       entries.value.every((entry) => entry.collapsed),
-  );
-
-  const diffMatchCount = computed(() =>
-    entries.value.reduce(
-      (total, entry) =>
-        total +
-        countGitDiffMatches(entry.diff?.content ?? '', diffSearch.value),
-      0,
-    ),
   );
 
   function fileName(filePath: string): string {
@@ -227,7 +209,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     return renderGitDiffLineHtml(line.text, {
       ...(line.words ? { words: line.words } : {}),
       ...(line.syntax ? { syntax: line.syntax } : {}),
-      query: diffSearch.value,
     });
   }
 
@@ -562,8 +543,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   watch(
     () => props.projectId,
     () => {
-      diffSearch.value = '';
-      fileSearch.value = '';
       void refresh();
     },
     { immediate: true },
@@ -586,8 +565,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     snapshot,
     overview,
     entries,
-    fileSearch,
-    diffSearch,
     statusFilter,
     viewMode,
     loadingSnapshot,
@@ -611,7 +588,6 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
     viewedCount,
     viewedPercent,
     allCollapsed,
-    diffMatchCount,
     fileName,
     directoryName,
     linePrefix,
