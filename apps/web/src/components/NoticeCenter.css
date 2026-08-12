@@ -99,8 +99,7 @@
   font-weight: 700;
 }
 
-.notice-header-action,
-.notice-activity-link {
+.notice-header-action {
   padding: 0;
   border: none;
   background: transparent;
@@ -111,8 +110,7 @@
   cursor: pointer;
 }
 
-.notice-header-action:hover:not(:disabled),
-.notice-activity-link:hover {
+.notice-header-action:hover:not(:disabled) {
   color: var(--accent-strong);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -300,7 +298,7 @@
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3);
   background: var(--surface-2);
 }

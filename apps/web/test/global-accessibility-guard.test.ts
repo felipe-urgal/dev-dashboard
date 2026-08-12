@@ -68,10 +68,6 @@ test('páginas globais possuem landmark nomeado', async () => {
       path: 'apps/web/src/views/ProcessesView.vue',
       headingId: 'processes-title',
     },
-    {
-      path: 'apps/web/src/views/SettingsView.vue',
-      headingId: 'settings-title',
-    },
   ];
 
   for (const page of pagesWithVisibleHeading) {
@@ -90,28 +86,12 @@ test('páginas globais possuem landmark nomeado', async () => {
 
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /aria-label="Visão geral"/);
-
-  const activity = await source(
-    'apps/web/src/views/ActivityView.template.html',
-  );
-  assert.match(activity, /aria-label="Atividade"/);
-  assert.doesNotMatch(activity, /Painel de atividade/);
 });
 
 test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', async () => {
   const dashboard = await source('apps/web/src/views/DashboardView.vue');
   assert.match(dashboard, /aria-label="Ações dos repositórios"/);
   assert.match(dashboard, /class="alert alert-warning"[\s\S]*role="status"/);
-
-  const activity = await source(
-    'apps/web/src/views/ActivityView.template.html',
-  );
-  assert.match(activity, /loading && hasItems[\s\S]*Atualizando atividades/);
-  assert.match(activity, /class="activity-empty"\s+role="status"/);
-  assert.match(
-    activity,
-    /<caption class="sr-only">[\s\S]*Histórico de atividades/,
-  );
 
   const processes = await source('apps/web/src/views/ProcessesView.vue');
   assert.match(
@@ -123,27 +103,6 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
     /<caption class="sr-only">[\s\S]*Processos gerenciados/,
   );
   assert.match(processes, /class="activity-empty"\s+role="status"/);
-
-  const settings = await source('apps/web/src/views/SettingsView.vue');
-  assert.match(settings, /aria-label="Configurações de retenção"/);
-  for (const input of [
-    'retention-days',
-    'script-history-limit',
-    'test-history-limit',
-  ]) {
-    assert.match(
-      settings,
-      new RegExp(`aria-labelledby="${input}-label"`),
-      `${input} deve possuir nome acessível explícito.`,
-    );
-    assert.match(
-      settings,
-      new RegExp(
-        `aria-describedby="${input}-description ${input}-limits"`,
-      ),
-      `${input} deve possuir descrição e limites associados.`,
-    );
-  }
 });
 
 test('tokens de texto do tema claro mantêm contraste AA nas superfícies', async () => {

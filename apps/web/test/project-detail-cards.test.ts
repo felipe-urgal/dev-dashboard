@@ -28,14 +28,6 @@ const fetchProjectServerHealth = vi.fn().mockResolvedValue({
 
 vi.mock('../src/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/api')>()),
-  fetchActivities: vi.fn().mockResolvedValue({
-    items: [],
-    page: 1,
-    pageSize: 4,
-    total: 0,
-    totalPages: 0,
-    summary: { running: 0, succeeded: 0, failed: 0, total: 0 },
-  }),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
   fetchProjectServerHealth: (...args: unknown[]) =>
     fetchProjectServerHealth(...args),

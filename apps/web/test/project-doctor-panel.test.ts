@@ -53,8 +53,8 @@ const report: ProjectDiagnosticReport = {
       summary: '1 nome esperado não foi encontrado: PUBLIC_URL.',
       recommendation: 'Adicione apenas o valor necessário ao ambiente local.',
       action: {
-        label: 'Abrir configurações',
-        target: 'settings',
+        label: 'Abrir variáveis de ambiente',
+        target: 'environment',
       },
     },
     {
@@ -98,7 +98,7 @@ describe('ProjectDoctorPanel', () => {
     expect(fetchProjectDoctor).toHaveBeenCalledWith('p1', false);
     expect(wrapper.text()).toContain('O projeto precisa de atenção');
     expect(wrapper.text()).toContain('PUBLIC_URL');
-    expect(wrapper.text()).toContain('Abrir configurações');
+    expect(wrapper.text()).toContain('Abrir variáveis de ambiente');
     expect(wrapper.findAll('.project-doctor-check')).toHaveLength(4);
     expect(wrapper.html()).not.toContain('super-secret');
   });

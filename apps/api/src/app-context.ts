@@ -26,7 +26,6 @@ import { BundlerInspectionService } from './services/bundler-inspection-service.
 import { ProjectEnvironmentService } from './services/project-environment-service.js';
 import { ScriptDetectionService } from './services/script-detection-service.js';
 import { ScriptExecutionService } from './services/script-execution-service.js';
-import { ActivityService } from './services/activity-service.js';
 import { ProjectBrowserService } from './services/project-browser-service.js';
 import { ProjectFileService } from './services/project-file-service.js';
 import { ServerHealthCheckService } from './services/server-health-check-service.js';
@@ -75,7 +74,6 @@ export interface AppContext {
   scriptDetectionService: ScriptDetectionService;
   scriptExecutionService: ScriptExecutionService;
   projectDependenciesPtyService: ProjectDependenciesPtyService;
-  activityService: ActivityService;
   projectBrowserService: ProjectBrowserService;
   projectFileService: ProjectFileService;
   serverHealthCheckService: ServerHealthCheckService;
@@ -181,11 +179,6 @@ export function createAppContext(
     scriptDetectionService,
     scriptExecutionService,
     projectDependenciesPtyService,
-    activityService: new ActivityService(
-      projectStore,
-      processManager,
-      scriptExecutionService,
-    ),
     projectBrowserService: new ProjectBrowserService(),
     projectFileService,
     serverHealthCheckService: new ServerHealthCheckService(),

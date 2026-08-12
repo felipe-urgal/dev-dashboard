@@ -1,5 +1,4 @@
 import type {
-  ActivityStatus,
   DatabaseReachability,
   GitFileStatus,
   ManagedProcessStatus,
@@ -8,21 +7,6 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import type { StatusBadgeTone } from '../components/status-badge-types';
-
-export function activityToneFor(status: ActivityStatus): StatusBadgeTone {
-  switch (status) {
-    case 'running':
-      return 'info';
-    case 'succeeded':
-      return 'success';
-    case 'failed':
-      return 'danger';
-    case 'cancelled':
-      return 'warning';
-    default:
-      return 'neutral';
-  }
-}
 
 export function processToneFor(status: ManagedProcessStatus): StatusBadgeTone {
   switch (status) {
