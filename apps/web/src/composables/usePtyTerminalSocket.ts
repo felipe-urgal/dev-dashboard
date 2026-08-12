@@ -35,6 +35,7 @@ export function usePtyTerminalSocket<
       disableStdin: true,
       fontSize: 13,
       fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+      lineHeight: 1.35,
       theme: { background: '#10131c', foreground: '#dbe0f2' },
     });
     fitAddon = new FitAddon();
