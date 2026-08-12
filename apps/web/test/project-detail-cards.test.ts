@@ -5,7 +5,6 @@ import type { ManagedProcess, Project } from '@dev-dashboard/contracts';
 
 import ProjectDatabasePanel from '../src/components/ProjectDatabasePanel.vue';
 import ProjectGitPanel from '../src/components/ProjectGitPanel.vue';
-import ProjectScriptsPanel from '../src/components/ProjectScriptsPanel.vue';
 import ProjectServerPanel from '../src/components/ProjectServerPanel.vue';
 import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { createTestRouter } from './support/test-router';
@@ -237,26 +236,13 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('renderiza scripts como explorador com navegação própria', async () => {
-    const wrapper = mount(ProjectScriptsPanel, { props: { project } });
-    await flushPromises();
-
-    expect(wrapper.find('.scripts-explorer').exists()).toBe(true);
-    expect(wrapper.find('.scripts-explorer-header').exists()).toBe(true);
-    expect(wrapper.find('.scripts-explorer-tabs').exists()).toBe(true);
-    expect(wrapper.findAll('.scripts-explorer-tabs button')).toHaveLength(2);
-
-    wrapper.unmount();
-  });
-
-  it('renderiza banco de dados como explorador com navegação própria', async () => {
+  it('renderiza banco de dados somente com ambientes', async () => {
     const wrapper = mount(ProjectDatabasePanel, { props: { project } });
     await flushPromises();
 
     expect(wrapper.find('.database-explorer').exists()).toBe(true);
-    expect(wrapper.find('.database-explorer-header').exists()).toBe(true);
-    expect(wrapper.find('.database-explorer-tabs').exists()).toBe(true);
-    expect(wrapper.findAll('.database-explorer-tabs button')).toHaveLength(3);
+    expect(wrapper.find('.database-environments-layout').exists()).toBe(true);
+    expect(wrapper.find('.database-explorer-tabs').exists()).toBe(false);
 
     wrapper.unmount();
   });
