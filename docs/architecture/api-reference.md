@@ -55,334 +55,6 @@ sempre o mesmo:
 
 Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de repetir o schema.
 
-## Activities
-
-### `GET /api/activities`
-
-**Query string (`querystring`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "workspaceId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200
-    },
-    "projectId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200
-    },
-    "origin": {
-      "type": "string",
-      "enum": [
-        "script",
-        "test",
-        "server"
-      ]
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled",
-        "unknown"
-      ]
-    },
-    "search": {
-      "type": "string",
-      "maxLength": 200
-    },
-    "page": {
-      "type": "integer",
-      "minimum": 1,
-      "default": 1
-    },
-    "pageSize": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 100,
-      "default": 20
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "activities"
-    ],
-    "properties": {
-      "activities": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "items",
-          "page",
-          "pageSize",
-          "total",
-          "totalPages",
-          "summary"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "id",
-                    "projectId",
-                    "label",
-                    "origin",
-                    "status",
-                    "startedAt",
-                    "reference"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    },
-                    "workspaceId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "origin": {
-                      "type": "string",
-                      "enum": [
-                        "script"
-                      ]
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "running",
-                        "succeeded",
-                        "failed",
-                        "cancelled",
-                        "unknown"
-                      ]
-                    },
-                    "startedAt": {
-                      "type": "string"
-                    },
-                    "finishedAt": {
-                      "type": "string"
-                    },
-                    "reference": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "executionId",
-                        "actionId"
-                      ],
-                      "properties": {
-                        "executionId": {
-                          "type": "string"
-                        },
-                        "actionId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "id",
-                    "projectId",
-                    "label",
-                    "origin",
-                    "status",
-                    "startedAt",
-                    "reference"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    },
-                    "workspaceId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "origin": {
-                      "type": "string",
-                      "enum": [
-                        "test"
-                      ]
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "running",
-                        "succeeded",
-                        "failed",
-                        "cancelled",
-                        "unknown"
-                      ]
-                    },
-                    "startedAt": {
-                      "type": "string"
-                    },
-                    "finishedAt": {
-                      "type": "string"
-                    },
-                    "reference": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "processId"
-                      ],
-                      "properties": {
-                        "processId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "id",
-                    "projectId",
-                    "label",
-                    "origin",
-                    "status",
-                    "startedAt",
-                    "reference"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": "string"
-                    },
-                    "workspaceId": {
-                      "type": "string"
-                    },
-                    "label": {
-                      "type": "string"
-                    },
-                    "origin": {
-                      "type": "string",
-                      "enum": [
-                        "server"
-                      ]
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "running",
-                        "succeeded",
-                        "failed",
-                        "cancelled",
-                        "unknown"
-                      ]
-                    },
-                    "startedAt": {
-                      "type": "string"
-                    },
-                    "finishedAt": {
-                      "type": "string"
-                    },
-                    "reference": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "processId"
-                      ],
-                      "properties": {
-                        "processId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          "page": {
-            "type": "integer"
-          },
-          "pageSize": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          },
-          "totalPages": {
-            "type": "integer"
-          },
-          "summary": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "running",
-              "succeeded",
-              "failed",
-              "total"
-            ],
-            "properties": {
-              "running": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "succeeded": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "failed": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "total": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
 ## Bundler
 
 ### `GET /api/projects/:projectId/bundler`
@@ -10407,7 +10079,7 @@ Abaixo, cada rota referencia este formato como "erro padrão da API" em vez de r
                         "dependencies",
                         "server",
                         "database",
-                        "settings"
+                        "environment"
                       ]
                     }
                   }
@@ -12379,7 +12051,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "path",
             "type",
             "source",
-            "favorite",
             "enabled",
             "capabilities"
           ],
@@ -12414,9 +12085,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "port": {
               "type": "integer"
             },
-            "favorite": {
-              "type": "boolean"
-            },
             "enabled": {
               "type": "boolean"
             },
@@ -12445,42 +12113,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
         }
       }
     }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `DELETE /api/projects/:projectId`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **204**:
-
-  ```json
-  {
-    "type": "null"
   }
   ```
 - **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
@@ -12531,7 +12163,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -12565,9 +12196,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -12656,7 +12284,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -12690,9 +12317,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -12788,7 +12412,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -12822,9 +12445,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -12881,138 +12501,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
   }
 }
 ```
-
-### `PUT /api/projects/:projectId/favorite`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "favorite"
-  ],
-  "properties": {
-    "favorite": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "project"
-    ],
-    "properties": {
-      "project": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "name",
-          "path",
-          "type",
-          "source",
-          "favorite",
-          "enabled",
-          "capabilities"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "rails",
-              "node",
-              "unknown"
-            ]
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "workspace",
-              "standalone"
-            ]
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "lastAccessedAt": {
-            "type": "string"
-          },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "server",
-                "git",
-                "tests",
-                "database",
-                "scripts",
-                "webpack",
-                "sidekiq",
-                "rake",
-                "bundler",
-                "docker"
-              ]
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `GET /api/projects/:projectId/git`
 
@@ -16900,277 +16388,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 - **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 - **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
-### `GET /api/settings/retention`
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "values",
-      "limits",
-      "appliesAfterRestart"
-    ],
-    "properties": {
-      "values": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "retentionDays",
-          "scriptHistoryLimit",
-          "testHistoryLimit"
-        ],
-        "properties": {
-          "retentionDays": {
-            "type": "integer"
-          },
-          "scriptHistoryLimit": {
-            "type": "integer"
-          },
-          "testHistoryLimit": {
-            "type": "integer"
-          }
-        }
-      },
-      "limits": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "retentionDays",
-          "scriptHistoryLimit",
-          "testHistoryLimit"
-        ],
-        "properties": {
-          "retentionDays": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          },
-          "scriptHistoryLimit": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          },
-          "testHistoryLimit": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          }
-        }
-      },
-      "appliesAfterRestart": {
-        "type": "boolean"
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `PUT /api/settings/retention`
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "retentionDays",
-    "scriptHistoryLimit",
-    "testHistoryLimit"
-  ],
-  "properties": {
-    "retentionDays": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 365
-    },
-    "scriptHistoryLimit": {
-      "type": "integer",
-      "minimum": 10,
-      "maximum": 1000
-    },
-    "testHistoryLimit": {
-      "type": "integer",
-      "minimum": 10,
-      "maximum": 500
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "values",
-      "limits",
-      "appliesAfterRestart"
-    ],
-    "properties": {
-      "values": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "retentionDays",
-          "scriptHistoryLimit",
-          "testHistoryLimit"
-        ],
-        "properties": {
-          "retentionDays": {
-            "type": "integer"
-          },
-          "scriptHistoryLimit": {
-            "type": "integer"
-          },
-          "testHistoryLimit": {
-            "type": "integer"
-          }
-        }
-      },
-      "limits": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "retentionDays",
-          "scriptHistoryLimit",
-          "testHistoryLimit"
-        ],
-        "properties": {
-          "retentionDays": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          },
-          "scriptHistoryLimit": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          },
-          "testHistoryLimit": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "minimum",
-              "maximum",
-              "default"
-            ],
-            "properties": {
-              "minimum": {
-                "type": "integer"
-              },
-              "maximum": {
-                "type": "integer"
-              },
-              "default": {
-                "type": "integer"
-              }
-            }
-          }
-        }
-      },
-      "appliesAfterRestart": {
-        "type": "boolean"
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
 ## Test Related
 
 ### `GET /api/projects/:projectId/tests/:commandId/related`
@@ -19135,20 +18352,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
-**Query string (`querystring`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "restoreDismissed": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
 **Resposta**
 
 - **200**:
@@ -19182,7 +18385,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "path",
             "type",
             "source",
-            "favorite",
             "enabled",
             "capabilities"
           ],
@@ -19216,9 +18418,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             },
             "port": {
               "type": "integer"
-            },
-            "favorite": {
-              "type": "boolean"
             },
             "enabled": {
               "type": "boolean"
