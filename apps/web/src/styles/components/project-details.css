@@ -55,8 +55,6 @@ a.secondary-button {
   display: grid;
   gap: 24px;
   padding: 28px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
   background:
     linear-gradient(135deg, rgb(82 88 255 / 13%), transparent 48%),
     var(--surface-1);
