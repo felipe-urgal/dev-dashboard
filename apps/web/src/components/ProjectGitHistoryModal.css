@@ -6,15 +6,15 @@
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: var(--space-5);
+  padding: 16px;
   background: rgb(0 0 0 / 55%);
 }
 
 .git-history-modal {
   display: flex;
   flex-direction: column;
-  width: min(1320px, 100%);
-  height: min(90vh, 960px);
+  width: min(96vw, 1800px);
+  height: min(94vh, 1200px);
   border: 1px solid var(--border);
   background: var(--surface-1);
   overflow: hidden;
