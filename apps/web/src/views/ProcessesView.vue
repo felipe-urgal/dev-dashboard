@@ -42,6 +42,7 @@ const {
   projectNameById,
   workspaceNameFor,
   loadProcesses,
+  clearFilters,
   runCleanup,
 } = useProcessesView();
 </script>
@@ -174,18 +175,28 @@ const {
 
       <div class="processes-refresh-control">
         <span>Atualização</span>
-        <button
-          type="button"
-          class="processes-refresh-button"
-          :disabled="loading"
-          @click="loadProcesses"
-        >
-          <ArrowPathIcon
-            aria-hidden="true"
-            :class="{ 'processes-refresh-icon-active': loading }"
-          />
-          {{ loading ? 'Atualizando…' : 'Atualizar' }}
-        </button>
+        <div class="processes-refresh-actions">
+          <button
+            type="button"
+            class="processes-refresh-button"
+            :disabled="loading"
+            @click="loadProcesses"
+          >
+            <ArrowPathIcon
+              aria-hidden="true"
+              :class="{ 'processes-refresh-icon-active': loading }"
+            />
+            {{ loading ? 'Atualizando…' : 'Atualizar' }}
+          </button>
+          <button
+            type="button"
+            class="processes-clear-button"
+            :disabled="loading"
+            @click="clearFilters"
+          >
+            Limpar
+          </button>
+        </div>
       </div>
     </div>
 
