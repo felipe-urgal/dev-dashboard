@@ -14,7 +14,9 @@ test.describe('Banco de dados do projeto', () => {
 
     await page.getByRole('link', { name: 'Banco de dados' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Ambientes' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Ambientes' }),
+    ).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Snapshots' })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Migrations' })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Modelos' })).toHaveCount(0);

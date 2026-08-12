@@ -337,7 +337,6 @@ test('pausa e reinicia um banco local acessível', async () => {
   await flushPromises();
   await flushPromises();
 
-
   const pauseButton = wrapper
     .findAll('button')
     .find((button) => button.text() === 'Pausar banco');
@@ -388,7 +387,6 @@ test('inicia um banco local indisponível', async () => {
   await flushPromises();
   await flushPromises();
 
-
   const startButton = wrapper
     .findAll('button')
     .find((button) => button.text() === 'Iniciar banco local');
@@ -436,7 +434,6 @@ test('avisa quando dois ambientes compartilham o mesmo serviço local', async ()
   };
   await flushPromises();
   await flushPromises();
-
 
   assert.match(wrapper.text(), /também é usado por: test/);
 });
