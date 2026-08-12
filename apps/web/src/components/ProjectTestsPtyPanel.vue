@@ -142,6 +142,17 @@ watch(
 
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
+    <template #header>
+      <h3>Testes</h3>
+    </template>
+
+    <p class="tests-pty-note">
+      Prova de conceito: roda a suíte completa num terminal de verdade — cores e
+      formatação idênticas ao que você veria rodando o comando localmente.
+      Execução por arquivo/caso específico e testes relacionados à branch ainda
+      não migraram para cá.
+    </p>
+
     <div class="tests-pty-controls">
       <select
         v-model="selectedCommandId"
@@ -200,6 +211,8 @@ watch(
   display: grid;
   align-content: start;
   grid-auto-rows: max-content;
+  grid-template-rows: max-content max-content max-content max-content minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
   gap: var(--space-3);
 }
@@ -233,9 +246,13 @@ watch(
 }
 
 .tests-pty-terminal {
-  height: 420px;
+  min-height: 0;
+  height: auto;
+  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+  width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
   border: 1px solid #262c40;
+  border-inline: 0;
   padding: var(--space-3);
   overflow: hidden;
 }
