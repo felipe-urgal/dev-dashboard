@@ -149,52 +149,58 @@ watch(
 
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
-    <div class="tests-pty-controls">
-      <select
-        v-model="selectedCommandId"
-        :disabled="
-          loadingOverview || isRunning || (overview?.commands.length ?? 0) <= 1
-        "
-        aria-label="Comando de teste"
-      >
-        <option v-if="loadingOverview" value="">Carregando…</option>
-        <option
-          v-for="command in overview?.commands ?? []"
-          :key="command.id"
-          :value="command.id"
+    <template #header>
+      <div class="tests-pty-controls">
+        <select
+          v-model="selectedCommandId"
+          :disabled="
+            loadingOverview ||
+            isRunning ||
+            (overview?.commands.length ?? 0) <= 1
+          "
+          aria-label="Comando de teste"
         >
-          {{ command.label }}
-        </option>
-      </select>
+          <option v-if="loadingOverview" value="">Carregando…</option>
+          <option
+            v-for="command in overview?.commands ?? []"
+            :key="command.id"
+            :value="command.id"
+          >
+            {{ command.label }}
+          </option>
+        </select>
 
-      <button
-        type="button"
-        class="primary-button"
-        :disabled="loadingOverview || !selectedCommand || isRunning || starting"
-        @click="start"
-      >
-        {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
-      </button>
+        <button
+          type="button"
+          class="primary-button"
+          :disabled="
+            loadingOverview || !selectedCommand || isRunning || starting
+          "
+          @click="start"
+        >
+          {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
+        </button>
 
-      <button
-        v-if="isRunning"
-        type="button"
-        class="secondary-button"
-        :disabled="cancelling"
-        @click="cancel"
-      >
-        {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-      </button>
+        <button
+          v-if="isRunning"
+          type="button"
+          class="secondary-button"
+          :disabled="cancelling"
+          @click="cancel"
+        >
+          {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+        </button>
 
-      <button
-        v-if="snapshot && !isRunning"
-        type="button"
-        class="secondary-button"
-        @click="closeTerminal"
-      >
-        Fechar terminal
-      </button>
-    </div>
+        <button
+          v-if="snapshot && !isRunning"
+          type="button"
+          class="secondary-button"
+          @click="closeTerminal"
+        >
+          Fechar terminal
+        </button>
+      </div>
+    </template>
 
     <p v-if="connecting" class="tests-pty-status">Conectando…</p>
     <p v-else-if="isRunning" class="tests-pty-status">Executando…</p>
@@ -236,8 +242,14 @@ watch(
   gap: var(--space-3);
 }
 
+.tests-pty-controls select,
+.tests-pty-controls .primary-button,
+.tests-pty-controls .secondary-button {
+  height: 38px;
+  box-sizing: border-box;
+}
+
 .tests-pty-controls select {
-  min-height: 38px;
   min-width: 160px;
   max-width: 280px;
 }
@@ -265,7 +277,7 @@ watch(
   width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
   border: 1px solid #262c40;
-  padding: 16px 18px;
+  padding: 16px 18px 20px;
   overflow: hidden;
 }
 
@@ -274,6 +286,7 @@ watch(
 }
 
 .tests-pty-terminal :global(.xterm-viewport) {
+  background-color: #10131c !important;
   scrollbar-width: none;
 }
 
