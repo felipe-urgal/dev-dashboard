@@ -167,15 +167,13 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para usar o dashboard web, aba por aba
 
 - [Guia passo a passo do dashboard web](guia/README.md): o que cada aba do projeto mostra, o que
-  cada botão faz e qual comando roda por trás — README, Diagnóstico, Servidor, Logs, Git,
-  Assistente IA, Testes, Banco de dados, Dependências, Scripts, Terminal/Console e Variáveis de
-  ambiente.
+  cada botão faz e qual comando roda por trás — README, Diagnóstico, Servidor, Logs, Git, Testes,
+  Banco de dados, Dependências, Scripts, Terminal/Console e Variáveis de ambiente.
 
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
-- [Arquitetura multi-provider de IA](architecture/ai-multi-provider.md): providers Local/OpenAI, modos, segurança, seleção por projeto e Code Review IA.
-- [Provider OpenAI](architecture/openai-provider.md): autenticação, modelos, masking, consentimento e limitações do adapter cloud.
+- [IA no Dev Dashboard](architecture/ai-multi-provider.md): Code review com Ollama local fixo, sem seleção de provider nem consentimento cloud.
 - [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
 - [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
 - [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.

@@ -248,7 +248,11 @@ watch(
         >
       </div>
 
-      <section class="dependencies-console" aria-label="Detalhes da execução">
+      <section
+        class="dependencies-console"
+        :class="{ 'dependencies-console-active': snapshot }"
+        aria-label="Detalhes da execução"
+      >
         <template v-if="snapshot">
           <header class="dependencies-console-header">
             <div class="dependencies-console-title">

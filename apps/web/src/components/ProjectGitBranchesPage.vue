@@ -36,7 +36,6 @@ const emit = defineEmits<{
   'delete-remote': [remoteBranch: string];
 }>();
 
-type BranchFilter = 'all' | 'local' | 'remote';
 type BranchModal = 'create' | 'rename' | 'delete' | 'delete-remote' | null;
 
 interface BranchRow {
@@ -59,7 +58,6 @@ const prefixes: BranchPrefix[] = [
   { value: 'test/', label: 'Testes' },
 ];
 
-const filter = ref<BranchFilter>('all');
 const openMenu = ref('');
 const modal = ref<BranchModal>(null);
 const selectedBranch = ref('');
@@ -87,14 +85,6 @@ const rows = computed<BranchRow[]>(() => {
     return left.name.localeCompare(right.name, 'pt-BR');
   });
 });
-
-const filteredRows = computed(() =>
-  rows.value.filter((row) => {
-    if (filter.value === 'local') return Boolean(row.local);
-    if (filter.value === 'remote') return Boolean(row.origin);
-    return true;
-  }),
-);
 
 const fullBranchName = computed(() => {
   const suffix = branchSuffix.value.trim().replace(/^\/+/, '');

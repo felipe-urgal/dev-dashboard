@@ -165,38 +165,6 @@ export class GitPullRequestService {
     return { ...reviewFiles, diff };
   }
 
-  /** Lista os arquivos da comparação sem chamar o modelo nem carregar patches. */
-  public async getReviewFiles(
-    projectPath: string,
-    options: GitPullRequestLookupOptions,
-  ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {
-    return this.reviewFilesForContext(
-      await this.resolveReviewContext(projectPath, options),
-    );
-  }
-
-  /**
-   * Obtém somente o patch de um arquivo que já pertence à comparação atual.
-   * O caminho vem do navegador, por isso ele é conferido contra a lista que o
-   * próprio Git devolveu antes de ser passado como argumento.
-   */
-  public async getReviewFileDiff(
-    projectPath: string,
-    options: GitPullRequestLookupOptions,
-    filePath: string,
-  ): Promise<GitPullRequestReviewDiff> {
-    const context = await this.resolveReviewContext(projectPath, options);
-    const reviewFiles = await this.reviewFilesForContext(context);
-    if (!reviewFiles.files.includes(filePath)) {
-      throw new GitPullRequestError(
-        'GIT_PULL_REQUEST_FILE_NOT_FOUND',
-        'O arquivo selecionado não faz parte da comparação atual.',
-      );
-    }
-    const diff = await this.diffForContext(context, filePath);
-    return { ...reviewFiles, diff };
-  }
-
   private async reviewFilesForContext(
     context: ResolvedReviewContext,
   ): Promise<Omit<GitPullRequestReviewDiff, 'diff'>> {

@@ -1,8 +1,7 @@
 .readme-panel {
   overflow: hidden;
-  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
-  box-shadow: 0 18px 45px rgb(0 0 0 / 4%);
 }
 
 .readme-panel-header {
@@ -74,14 +73,19 @@
 
 .readme-file-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
+  scrollbar-width: thin;
 }
 
 .readme-file-item {
+  flex: 0 0 auto;
   overflow: hidden;
   max-width: 260px;
   padding: 5px 10px;
@@ -159,14 +163,14 @@
 .readme-document {
   max-width: 920px;
   min-height: 520px;
-  padding: clamp(28px, 4vw, 52px);
+  padding: clamp(20px, 2.2vw, 32px);
   color: var(--text-muted);
   font-size: var(--font-sm);
   line-height: 1.75;
 }
 
 .readme-document .readme-heading {
-  margin: 1.55em 0 0.55em;
+  margin: 1.15em 0 0.4em;
   color: var(--text);
   line-height: 1.25;
   letter-spacing: -0.02em;
@@ -195,19 +199,19 @@
 }
 
 .readme-document p {
-  margin: 0 0 1em;
+  margin: 0 0 0.75em;
 }
 
 .readme-document ul,
 .readme-document ol {
   display: grid;
   gap: 6px;
-  margin: 0 0 1.25em;
+  margin: 0 0 0.9em;
   padding-left: 24px;
 }
 
 .readme-document blockquote {
-  margin: 1.25em 0;
+  margin: 0.9em 0;
   padding: 10px 16px;
   border-left: 3px solid var(--accent);
   color: var(--text-muted);
@@ -215,7 +219,7 @@
 }
 
 .readme-document hr {
-  margin: 30px 0;
+  margin: 20px 0;
   border: 0;
   border-top: 1px solid var(--border);
 }

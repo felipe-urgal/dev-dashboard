@@ -35,12 +35,21 @@ export function usePtyTerminalSocket<
       disableStdin: true,
       fontSize: 13,
       fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+      lineHeight: 1.35,
       theme: { background: '#10131c', foreground: '#dbe0f2' },
+      // Saídas de teste/build longas (milhares de specs) estouram o padrão
+      // de 1000 linhas rapidinho, descartando o início do buffer.
+      scrollback: 50_000,
     });
     fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(terminalContainer.value);
     fitAddon.fit();
+    // No primeiro paint o container às vezes ainda não assumiu a largura
+    // final (troca de aba, layout do Card ainda assentando) e o fit()
+    // acima mede menos colunas do que caberiam — reaplica no próximo frame,
+    // quando o layout já estabilizou.
+    requestAnimationFrame(() => fitAddon?.fit());
     resizeObserver = new ResizeObserver(() => fitAddon?.fit());
     resizeObserver.observe(terminalContainer.value);
   }

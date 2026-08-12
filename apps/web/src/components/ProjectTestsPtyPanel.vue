@@ -124,6 +124,13 @@ async function cancel(): Promise<void> {
   }
 }
 
+function closeTerminal(): void {
+  disconnect();
+  disposeTerminal();
+  snapshot.value = null;
+  errorMessage.value = '';
+}
+
 watch(
   () => props.project.id,
   () => {
@@ -143,52 +150,57 @@ watch(
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
     <template #header>
-      <h3>Testes</h3>
-    </template>
-
-    <p class="tests-pty-note">
-      Prova de conceito: roda a suíte completa num terminal de verdade — cores e
-      formatação idênticas ao que você veria rodando o comando localmente.
-      Execução por arquivo/caso específico e testes relacionados à branch ainda
-      não migraram para cá.
-    </p>
-
-    <div class="tests-pty-controls">
-      <select
-        v-model="selectedCommandId"
-        :disabled="
-          loadingOverview || isRunning || (overview?.commands.length ?? 0) <= 1
-        "
-      >
-        <option v-if="loadingOverview" value="">Carregando…</option>
-        <option
-          v-for="command in overview?.commands ?? []"
-          :key="command.id"
-          :value="command.id"
+      <div class="tests-pty-controls">
+        <select
+          v-model="selectedCommandId"
+          :disabled="
+            loadingOverview ||
+            isRunning ||
+            (overview?.commands.length ?? 0) <= 1
+          "
+          aria-label="Comando de teste"
         >
-          {{ command.label }}
-        </option>
-      </select>
+          <option v-if="loadingOverview" value="">Carregando…</option>
+          <option
+            v-for="command in overview?.commands ?? []"
+            :key="command.id"
+            :value="command.id"
+          >
+            {{ command.label }}
+          </option>
+        </select>
 
-      <button
-        type="button"
-        class="primary-button"
-        :disabled="!selectedCommand || isRunning || starting"
-        @click="start"
-      >
-        {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
-      </button>
+        <button
+          type="button"
+          class="primary-button"
+          :disabled="
+            loadingOverview || !selectedCommand || isRunning || starting
+          "
+          @click="start"
+        >
+          {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
+        </button>
 
-      <button
-        v-if="isRunning"
-        type="button"
-        class="secondary-button"
-        :disabled="cancelling"
-        @click="cancel"
-      >
-        {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-      </button>
-    </div>
+        <button
+          v-if="isRunning"
+          type="button"
+          class="secondary-button"
+          :disabled="cancelling"
+          @click="cancel"
+        >
+          {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+        </button>
+
+        <button
+          v-if="snapshot && !isRunning"
+          type="button"
+          class="secondary-button"
+          @click="closeTerminal"
+        >
+          Fechar terminal
+        </button>
+      </div>
+    </template>
 
     <p v-if="connecting" class="tests-pty-status">Conectando…</p>
     <p v-else-if="isRunning" class="tests-pty-status">Executando…</p>
@@ -207,15 +219,20 @@ watch(
 </template>
 
 <style scoped>
-.tests-pty-panel {
-  display: grid;
-  gap: var(--space-3);
+:global(.dd-card.project-detail-card.tests-pty-panel) {
+  display: flex;
+  flex-direction: column;
+  align-content: normal;
+  grid-template-rows: none;
+  min-height: 0;
 }
 
-.tests-pty-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
+.tests-pty-panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  gap: var(--space-3);
 }
 
 .tests-pty-controls {
@@ -223,6 +240,18 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+.tests-pty-controls select,
+.tests-pty-controls .primary-button,
+.tests-pty-controls .secondary-button {
+  height: 38px;
+  box-sizing: border-box;
+}
+
+.tests-pty-controls select {
+  min-width: 160px;
+  max-width: 280px;
 }
 
 .tests-pty-status {
@@ -241,10 +270,27 @@ watch(
 }
 
 .tests-pty-terminal {
-  height: 420px;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+  width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
-  border: 1px solid #262c40;
-  padding: var(--space-3);
+  border-top: 1px solid #262c40;
+  padding: 16px 18px 20px;
   overflow: hidden;
+}
+
+.tests-pty-terminal :global(.xterm) {
+  padding-inline: 10px;
+}
+
+.tests-pty-terminal :global(.xterm-viewport) {
+  background-color: #10131c !important;
+  scrollbar-width: none;
+}
+
+.tests-pty-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
 }
 </style>

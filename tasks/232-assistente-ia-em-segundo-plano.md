@@ -1,6 +1,10 @@
 # Task 232 — Assistente IA em segundo plano
 
-**Status:** concluída em 2026-08-10.
+**Status:** concluída em 2026-08-10. **Removida em 2026-08-12** — a aba
+Assistente IA e a infraestrutura de seleção de provider/consentimento cloud
+foram removidas por decisão explícita do usuário; ver
+[`238-remover-assistente-ia.md`](238-remover-assistente-ia.md). Documento
+mantido como registro histórico da entrega original.
 
 ## Objetivo
 

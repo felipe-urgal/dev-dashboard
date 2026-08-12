@@ -30,11 +30,15 @@ achado ao investigar o painel), provavelmente proposital (detectar se algo inici
 fora do dashboard). Vale reavaliar como uma frente própria — mudar só um painel criaria
 inconsistência com o outro; mudar os dois é escopo maior que uma correção pontual.
 
-## Validação manual do Assistente IA local
+## Validação manual da Code review com IA local
 
-- Validar a task 232 com uma instalação real do Ollama e modelo com suporte a
-  ferramentas. A suíte automatizada cobre o ciclo de vida da execução em
-  memória, mas não substitui a qualidade das respostas do modelo escolhido.
+> **2026-08-12:** a aba **Assistente IA** (task 232) e toda a infraestrutura de
+> seleção de provider/consentimento cloud (multi-provider Ollama/OpenAI) foram
+> removidas — decisão explícita do usuário, ver
+> [`238-remover-assistente-ia.md`](238-remover-assistente-ia.md). O item de
+> validação manual do Assistente IA abaixo não se aplica mais; a Code review
+> segue existindo, agora fixa no Ollama local.
+
 - Validar a task 233 em uma revisão com comentários distribuídos por mais de
   um arquivo, conferindo o diff lado a lado e as ações de triagem.
 

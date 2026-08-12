@@ -229,4 +229,3 @@ test('testes exportam o snapshot atual sem nova leitura', async () => {
     snapshot,
   });
 });
-

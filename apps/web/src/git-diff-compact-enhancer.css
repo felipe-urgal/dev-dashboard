@@ -1,7 +1,3 @@
-.git-diff-page {
-  gap: var(--space-3) !important;
-}
-
 .git-diff-page-heading {
   align-items: flex-end !important;
 }

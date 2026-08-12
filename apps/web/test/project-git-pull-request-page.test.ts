@@ -133,6 +133,7 @@ test('prefere upstream e preenche título e descrição a partir do commit', asy
       overview,
       workspace,
       busy: false,
+      forcePushBranch: null,
     },
   });
   await flushPromises();
@@ -193,6 +194,7 @@ test('reserva a aba no clique e navega sem falso erro nem botão duplicado', asy
       overview,
       workspace,
       busy: false,
+      forcePushBranch: null,
     },
   });
   await flushPromises();
@@ -242,6 +244,7 @@ test('troca a ação principal pelo link de continuação quando o popup é bloq
       overview,
       workspace,
       busy: false,
+      forcePushBranch: null,
     },
   });
   await flushPromises();
@@ -274,6 +277,7 @@ test('detecta PR aberta e substitui a criação por acesso ao PR existente', asy
       overview,
       workspace,
       busy: false,
+      forcePushBranch: null,
     },
   });
   await flushPromises();
@@ -324,6 +328,7 @@ test('refaz a verificação ao trocar o destino e libera criação quando não h
       overview,
       workspace,
       busy: false,
+      forcePushBranch: null,
     },
   });
   await flushPromises();
@@ -362,7 +367,13 @@ test('cria a Pull Request via gh após confirmar o comando exibido', async () =>
   });
 
   const wrapper = mount(ProjectGitPullRequestPage, {
-    props: { projectId: 'p1', overview, workspace, busy: false },
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
   });
   await flushPromises();
   await flushPromises();
@@ -416,7 +427,13 @@ test('fecha uma PR existente somente após digitar o número correto', async () 
   });
 
   const wrapper = mount(ProjectGitPullRequestPage, {
-    props: { projectId: 'p1', overview, workspace, busy: false },
+    props: {
+      projectId: 'p1',
+      overview,
+      workspace,
+      busy: false,
+      forcePushBranch: null,
+    },
   });
   await flushPromises();
   await flushPromises();

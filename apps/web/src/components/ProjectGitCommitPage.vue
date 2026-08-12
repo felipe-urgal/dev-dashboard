@@ -162,7 +162,6 @@ function updateMessage(event: Event): void {
 .git-commit-card {
   width: 100%;
   margin: 0;
-  border: 1px solid var(--border);
   background: var(--surface-1);
   padding: 20px;
 }

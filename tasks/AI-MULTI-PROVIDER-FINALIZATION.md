@@ -1,5 +1,12 @@
 # Fechamento — IA multi-provider
 
+> **2026-08-12:** toda a arquitetura multi-provider descrita neste documento
+> (seleção Ollama/OpenAI, consentimento cloud, `AiProviderResolver`) foi
+> removida — decisão explícita do usuário, ver
+> [`238-remover-assistente-ia.md`](238-remover-assistente-ia.md). Documento
+> mantido como registro histórico do fechamento original; não descreve o
+> estado atual do produto.
+
 Este documento registra o fechamento da arquitetura multi-provider do Dev Dashboard após os PRs #286–#293. O trabalho foi consolidado no **PR #295**.
 
 O objetivo do fechamento é garantir fluxos de IA consistentes, previsíveis, testados e sem caminhos genéricos presos silenciosamente ao Ollama.

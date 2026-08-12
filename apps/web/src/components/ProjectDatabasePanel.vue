@@ -93,7 +93,9 @@ const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
 });
 
 function handleDatabaseExplorerKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && copiedKey.value) copiedKey.value = '';
+  if (event.key === 'Escape') {
+    copiedKey.value = '';
+  }
 }
 
 async function copy(value: string, key: string): Promise<void> {

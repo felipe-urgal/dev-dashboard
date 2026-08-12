@@ -1,23 +1,17 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { ShareIcon } from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute } from 'vue-router';
 
-import type {
-  AiImplementationExecution,
-  Project,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import {
-  fetchProjectAiImplementation,
   fetchProjectDatabase,
   fetchProjectGit,
+  fetchProjectRailsWorker,
 } from '../api';
-import ProjectAiAssistantPanel from '../components/ProjectAiAssistantPanel.vue';
-import ProjectAiExecutionPill from '../components/ProjectAiExecutionPill.vue';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
@@ -43,9 +37,9 @@ const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
 /** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
 const databaseSupported = ref(true);
-const aiImplementation = ref<AiImplementationExecution | null>(null);
-let aiExecutionTimer: ReturnType<typeof setTimeout> | undefined;
-let aiExecutionGeneration = 0;
+/** Otimista, mesmo motivo do banco: evita a aba do worker piscar antes da detecção confirmar. */
+const sidekiqDetected = ref(true);
+const webpackDetected = ref(true);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -57,16 +51,16 @@ const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isServerRoute = computed(() => route.name === 'project-server');
 const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
-const isAiAssistantRoute = computed(
-  () => route.name === 'project-ai-assistant',
-);
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
   () => route.name === 'project-dependencies',
 );
-const isRailsRuntimeRoute = computed(
-  () => route.name === 'project-rails-runtime',
+const isRailsSidekiqRoute = computed(
+  () => route.name === 'project-rails-sidekiq',
+);
+const isRailsWebpackRoute = computed(
+  () => route.name === 'project-rails-webpack',
 );
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
@@ -77,36 +71,6 @@ function updateGitOverview(git: ProjectGitOverview): void {
   gitOverview.value = git;
 }
 
-function scheduleAiImplementationPolling(generation: number): void {
-  clearTimeout(aiExecutionTimer);
-  if (
-    generation !== aiExecutionGeneration ||
-    isAiAssistantRoute.value ||
-    aiImplementation.value?.status !== 'running'
-  )
-    return;
-  aiExecutionTimer = setTimeout(
-    () => void refreshAiImplementation(generation),
-    1_500,
-  );
-}
-
-async function refreshAiImplementation(
-  generation = aiExecutionGeneration,
-): Promise<void> {
-  try {
-    const result = await fetchProjectAiImplementation(projectId.value);
-    if (generation !== aiExecutionGeneration) return;
-    aiImplementation.value = result.execution;
-  } catch {
-    // A aba do assistente apresenta o erro detalhado quando estiver aberta.
-  } finally {
-    if (generation === aiExecutionGeneration) {
-      scheduleAiImplementationPolling(generation);
-    }
-  }
-}
-
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
@@ -115,9 +79,8 @@ async function loadProject(): Promise<void> {
   gitBranch.value = '';
   gitOverview.value = null;
   databaseSupported.value = true;
-  aiImplementation.value = null;
-  const currentAiExecutionGeneration = ++aiExecutionGeneration;
-  clearTimeout(aiExecutionTimer);
+  sidekiqDetected.value = true;
+  webpackDetected.value = true;
 
   try {
     const loadedProject =
@@ -126,7 +89,6 @@ async function loadProject(): Promise<void> {
 
     project.value = loadedProject;
     void recordProjectVisit(loadedProject.id);
-    void refreshAiImplementation(currentAiExecutionGeneration);
 
     if (loadedProject.capabilities.includes('git')) {
       try {
@@ -146,6 +108,30 @@ async function loadProject(): Promise<void> {
         databaseSupported.value = database.supported;
     } catch {
       // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+    }
+
+    if (loadedProject.type === 'rails') {
+      try {
+        const sidekiq = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'sidekiq',
+        );
+        if (projectId.value === requestedProjectId)
+          sidekiqDetected.value = sidekiq.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
+
+      try {
+        const webpack = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'webpack',
+        );
+        if (projectId.value === requestedProjectId)
+          webpackDetected.value = webpack.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
     }
   } catch (error) {
     if (projectId.value === requestedProjectId) {
@@ -170,22 +156,14 @@ watch(
     immediate: true,
   },
 );
-
-watch(isAiAssistantRoute, (isActive) => {
-  clearTimeout(aiExecutionTimer);
-  if (!isActive && aiImplementation.value?.status === 'running') {
-    void refreshAiImplementation();
-  }
-});
-
-onUnmounted(() => {
-  aiExecutionGeneration += 1;
-  clearTimeout(aiExecutionTimer);
-});
 </script>
 
 <template>
   <section class="content project-details-page">
+    <RouterLink class="details-back-link" to="/">
+      ← Voltar aos projetos
+    </RouterLink>
+
     <div v-if="loading" class="empty-state page-empty-state">
       <div class="empty-icon">•••</div>
       <h3>Carregando projeto</h3>
@@ -286,17 +264,6 @@ onUnmounted(() => {
 
         <RouterLink
           class="project-details-tab"
-          :class="{ 'project-details-tab-active': isAiAssistantRoute }"
-          :to="{
-            name: 'project-ai-assistant',
-            params: { projectId: project.id },
-          }"
-        >
-          Assistente IA
-        </RouterLink>
-
-        <RouterLink
-          class="project-details-tab"
           :class="{ 'project-details-tab-active': isTestsRoute }"
           :to="{ name: 'project-tests', params: { projectId: project.id } }"
         >
@@ -348,15 +315,27 @@ onUnmounted(() => {
         </RouterLink>
 
         <RouterLink
-          v-if="project.type === 'rails'"
+          v-if="project.type === 'rails' && sidekiqDetected"
           class="project-details-tab"
-          :class="{ 'project-details-tab-active': isRailsRuntimeRoute }"
+          :class="{ 'project-details-tab-active': isRailsSidekiqRoute }"
           :to="{
-            name: 'project-rails-runtime',
+            name: 'project-rails-sidekiq',
             params: { projectId: project.id },
           }"
         >
-          Sidekiq/webpack
+          Sidekiq
+        </RouterLink>
+
+        <RouterLink
+          v-if="project.type === 'rails' && webpackDetected"
+          class="project-details-tab"
+          :class="{ 'project-details-tab-active': isRailsWebpackRoute }"
+          :to="{
+            name: 'project-rails-webpack',
+            params: { projectId: project.id },
+          }"
+        >
+          Webpack
         </RouterLink>
 
         <RouterLink
@@ -402,14 +381,6 @@ onUnmounted(() => {
         @git-updated="updateGitOverview"
       />
 
-      <ProjectAiAssistantPanel
-        v-else-if="isAiAssistantRoute"
-        :key="`ai-assistant-${project.id}`"
-        :project="project"
-        :project-id="projectId"
-        @execution-updated="refreshAiImplementation()"
-      />
-
       <ProjectTestsPanel
         v-else-if="isTestsRoute"
         :key="`tests-${project.id}`"
@@ -449,20 +420,23 @@ onUnmounted(() => {
       />
 
       <ProjectRailsRuntimePanel
-        v-else-if="isRailsRuntimeRoute"
-        :key="`rails-runtime-${project.id}`"
+        v-else-if="isRailsSidekiqRoute"
+        :key="`rails-sidekiq-${project.id}`"
         :project="project"
+        worker-id="sidekiq"
+      />
+
+      <ProjectRailsRuntimePanel
+        v-else-if="isRailsWebpackRoute"
+        :key="`rails-webpack-${project.id}`"
+        :project="project"
+        worker-id="webpack"
       />
 
       <ProjectEnvironmentPanel
         v-else-if="isEnvironmentRoute"
         :key="`environment-${project.id}`"
         :project="project"
-      />
-
-      <ProjectAiExecutionPill
-        :project-id="project.id"
-        :execution="aiImplementation"
       />
     </template>
   </section>

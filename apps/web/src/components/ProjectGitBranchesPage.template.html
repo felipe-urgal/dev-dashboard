@@ -1,35 +1,6 @@
   <section class="git-branches-page">
     <div class="branch-table-card">
       <header class="branch-table-toolbar">
-        <div class="branch-filter-tabs" aria-label="Filtrar branches">
-          <button
-            type="button"
-            :class="{ active: filter === 'all' }"
-            @click="filter = 'all'"
-          >
-            Todas
-          </button>
-          <button
-            type="button"
-            :class="{ active: filter === 'local' }"
-            @click="filter = 'local'"
-          >
-            Locais
-          </button>
-          <button
-            type="button"
-            :class="{ active: filter === 'remote' }"
-            @click="filter = 'remote'"
-          >
-            Remotas
-          </button>
-        </div>
-
-        <span class="branch-result-count">
-          {{ filteredRows.length }}
-          {{ filteredRows.length === 1 ? 'branch' : 'branches' }}
-        </span>
-
         <button
           type="button"
           class="primary-button branch-create-button"
@@ -60,7 +31,7 @@
         </div>
 
         <div
-          v-for="row in filteredRows"
+          v-for="row in rows"
           :key="row.name"
           class="branch-table-row"
           :class="{ 'is-current': row.local?.current }"
@@ -179,7 +150,7 @@
         <div v-if="loading" class="branch-table-empty">
           Atualizando branches…
         </div>
-        <div v-else-if="filteredRows.length === 0" class="branch-table-empty">
+        <div v-else-if="rows.length === 0" class="branch-table-empty">
           Nenhuma branch disponível neste filtro.
         </div>
       </div>

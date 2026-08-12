@@ -243,11 +243,6 @@ function statusIcon(tone: string) {
           {{ busy ? 'Atualizando…' : 'Atualizar local' }}
         </button>
       </div>
-
-      <p class="git-sync-note">
-        Traz os commits do upstream configurado usando somente fast-forward. Não
-        cria merge nem rebase automaticamente.
-      </p>
     </div>
 
     <div class="git-sync-card git-sync-main-card">
@@ -282,10 +277,6 @@ function statusIcon(tone: string) {
           {{ buttonLabel }}
         </button>
       </div>
-
-      <p class="git-sync-note">
-        A sincronização atualiza a main e publica no origin.
-      </p>
     </div>
   </section>
 </template>
@@ -293,27 +284,24 @@ function statusIcon(tone: string) {
 <style scoped>
 .git-sync-page {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   min-width: 0;
-  gap: var(--space-4);
 }
 
 .git-sync-card {
   overflow: hidden;
-  border: 1px solid var(--border);
   background: var(--surface-1);
-}
-
-.git-sync-current-card {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-bottom: 1px solid var(--border);
 }
 
 .git-sync-main-row {
   display: flex;
-  min-height: 180px;
+  min-height: 132px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .git-sync-relationship {

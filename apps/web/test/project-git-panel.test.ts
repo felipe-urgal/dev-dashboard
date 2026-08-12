@@ -467,13 +467,6 @@ test('lista branches locais e origin sem expor ações de sincronização', asyn
   assert.match(mounted.wrapper.text(), /release\/2.0/);
   assert.doesNotMatch(mounted.wrapper.text(), /upstream\/release\/2.0/);
 
-  const remoteFilter = mounted.wrapper
-    .findAll('.branch-filter-tabs button')
-    .find((button) => button.text() === 'Remotas');
-  assert.ok(remoteFilter);
-  await remoteFilter.trigger('click');
-  await flushPromises();
-
   const rows = mounted.wrapper.findAll('.branch-table-row');
   assert.equal(rows.length, 3);
   const release = rows.find((row) => row.text().includes('release/2.0'));
@@ -1004,10 +997,6 @@ test('renderiza a sincronização em uma única ação entre main e origin/main'
   assert.ok(syncCard.exists());
   assert.match(syncCard.text(), /main\s*→\s*origin\/main/);
   assert.match(syncCard.text(), /Tudo sincronizado/);
-  assert.match(
-    syncCard.text(),
-    /A sincronização atualiza a main e publica no origin/,
-  );
   assert.equal(syncCard.findAll('.git-sync-button').length, 1);
   assert.ok(
     syncCard.find('.git-sync-button').attributes('disabled') !== undefined,

@@ -1,8 +1,42 @@
 .project-details-page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   gap: 14px;
+  min-height: 100vh;
   width: 100%;
-  padding: 0 0 80px;
+  padding: 0;
+}
+
+/* Todas as abas compartilham a mesma área vertical disponível do README. */
+.project-details-page > :last-child {
+  min-height: 0;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: calc(100vh - 116px);
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+}
+
+/* Os painéis com layout próprio também precisam esticar seus containers internos. */
+:deep(.project-doctor-panel),
+:deep(.project-doctor-card),
+:deep(.server-dashboard),
+:deep(.server-dashboard-grid),
+:deep(.project-logs-layout),
+:deep(.git-modern-panel),
+:deep(.dependencies-panel),
+:deep(.project-environment-panel),
+:deep(.rails-runtime-panel),
+:deep(.terminal-panel) {
+  min-height: 0;
+  height: 100%;
+}
+
+:deep(.project-doctor-panel),
+:deep(.project-doctor-card) {
+  min-height: calc(100vh - 116px);
 }
 
 .project-details-hero {
@@ -13,10 +47,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: 0;
   background: var(--surface-1);
-  box-shadow: 0 14px 36px rgb(0 0 0 / 3.5%);
 }
 
 .project-details-main {
@@ -110,7 +141,6 @@
   gap: 4px;
   overflow-x: auto;
   padding: 0 4px;
-  border-bottom: 1px solid var(--border);
   scrollbar-width: thin;
 }
 
@@ -155,6 +185,7 @@
 }
 
 :deep(.readme-panel) {
+  height: 100%;
   width: 100%;
   min-width: 0;
 }
@@ -204,4 +235,32 @@
   .project-details-tab {
     padding: 0 11px;
   }
+}
+
+/* Com os painéis encostados, cada seção deve desenhar uma única borda. */
+:deep(.project-details-page .server-dashboard-grid) {
+  border: 1px solid var(--border);
+}
+
+:deep(.project-details-page .server-card) {
+  border: 0;
+}
+
+:deep(.project-details-page .server-card + .server-card) {
+  border-left: 1px solid var(--border);
+}
+
+:deep(.project-details-page .project-logs-card),
+:deep(.project-details-page .project-logs-topbar),
+:deep(.project-details-page .project-log-summary-card),
+:deep(.project-details-page .project-log-quick-actions) {
+  box-shadow: none;
+}
+
+:deep(.project-details-page .project-doctor-card),
+:deep(.project-details-page .readme-panel),
+:deep(.project-details-page .git-navigation-bar),
+:deep(.project-details-page .dependencies-manager-card),
+:deep(.project-details-page .dependencies-console) {
+  box-shadow: none;
 }

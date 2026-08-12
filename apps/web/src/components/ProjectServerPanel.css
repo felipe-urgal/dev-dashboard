@@ -5,12 +5,12 @@
 .server-dashboard-grid {
   display: grid;
   grid-template-columns: minmax(360px, 0.9fr) minmax(460px, 1.1fr);
-  align-items: start;
+  align-items: stretch;
 }
 
 .server-card {
   overflow: hidden;
-  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 

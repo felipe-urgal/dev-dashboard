@@ -289,6 +289,187 @@
   line-height: 1.5;
 }
 
+/* Composição do explorador: resumo compacto em cima, contexto operacional embaixo. */
+.database-detail-title {
+  align-items: flex-start;
+  margin: -16px -16px 18px;
+  padding: 16px 18px;
+}
+
+.database-detail-title .database-detail-heading {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.database-detail-title .database-detail-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.database-detail-title .database-detail-heading > .database-detail-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.database-detail-meta span + span {
+  padding-left: 7px;
+  border-left: 1px solid var(--border);
+}
+
+.database-actions-menu {
+  display: flex !important;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px !important;
+}
+
+.database-actions-menu > button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--surface-1);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.database-actions-menu > button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.database-actions-menu > button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.database-actions-menu > .database-action-primary {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  color: var(--accent);
+}
+
+.database-actions-menu > .database-action-danger {
+  color: var(--danger-text);
+}
+
+.database-actions-menu > .database-action-danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger-text) 52%, var(--border));
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+.database-connection-summary,
+.database-environment-context-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 14px;
+}
+
+.database-connection-summary > section,
+.database-environment-context-grid > section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-0);
+}
+
+.database-connection-summary h5,
+.database-environment-context-grid h5 {
+  margin: 0 0 12px;
+  font-size: 10px;
+}
+
+.database-summary-list {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.database-summary-list > div {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  padding: 8px 0;
+  border-bottom: 0;
+}
+
+.database-summary-url {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.database-summary-url-empty {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.database-summary-url-empty h5 {
+  margin: 0;
+}
+
+.database-copy-url {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--surface-1);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.database-copy-url:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.database-copy-url svg {
+  width: 14px;
+  height: 14px;
+}
+
+.database-environment-context-grid {
+  margin-top: 14px;
+}
+
+.database-usage-panel {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.database-usage-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.database-service-state {
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: var(--success-text);
+  background: var(--success-surface);
+  font-size: 8px;
+  font-weight: 700;
+}
+
 .database-toolbar {
   display: flex;
   min-width: 0;
@@ -348,5 +529,4 @@
   font-size: 9px;
   font-weight: 650;
 }
-
 

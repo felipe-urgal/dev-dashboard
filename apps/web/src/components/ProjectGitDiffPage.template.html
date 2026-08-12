@@ -33,16 +33,6 @@
     </div>
 
     <div class="git-diff-toolbar">
-      <label class="git-diff-file-search">
-        <MagnifyingGlassIcon aria-hidden="true" />
-        <input
-          v-model="fileSearch"
-          type="search"
-          placeholder="Buscar arquivo ou caminho…"
-          aria-label="Buscar arquivos alterados"
-        />
-      </label>
-
       <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
         <FunnelIcon aria-hidden="true" />
         <select v-model="statusFilter" aria-label="Filtrar arquivos por status">
@@ -50,17 +40,6 @@
             {{ option.label }}
           </option>
         </select>
-      </label>
-
-      <label class="git-diff-content-search">
-        <MagnifyingGlassIcon aria-hidden="true" />
-        <input
-          v-model="diffSearch"
-          type="search"
-          placeholder="Buscar no conteúdo…"
-          aria-label="Buscar dentro dos diffs carregados"
-        />
-        <span v-if="diffSearch.trim()">{{ diffMatchCount }} ocorrência(s)</span>
       </label>
 
       <div class="git-diff-view-switch" aria-label="Modo de visualização">

@@ -51,7 +51,10 @@ test.describe('navegação principal', () => {
   test('página global de processos renderiza', async ({ page }) => {
     await gotoBootstrapped(page, '/processes');
     await expect(
-      page.getByRole('heading', { level: 2, name: 'Processos gerenciados' }),
+      page.getByRole('region', { name: 'Processos gerenciados' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Filtros de processos gerenciados' }),
     ).toBeVisible();
   });
 

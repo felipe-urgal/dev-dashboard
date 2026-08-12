@@ -1,6 +1,12 @@
 .dependencies-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  background: var(--surface-1);
 }
 
 .dependencies-header {
@@ -8,24 +14,47 @@
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-soft) 32%, transparent),
+      transparent 48%
+    ),
+    var(--surface-1);
 }
 
 .dependencies-header > div {
   display: grid;
-  gap: 2px;
+  gap: 5px;
+  min-width: 0;
 }
 
 .dependencies-header span {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+  color: var(--text-dim);
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.dependencies-header h3 {
+  font-size: clamp(20px, 2.1vw, 27px);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
 }
 
 .dependencies-header h3,
 .dependencies-header p {
   margin: 0;
+}
+
+.dependencies-header p {
+  max-width: 72ch;
+  font-size: var(--font-sm);
+  line-height: 1.55;
 }
 
 .dependencies-header p,
@@ -75,6 +104,18 @@
 .dependencies-history svg {
   height: 18px;
   width: 18px;
+}
+
+.dependencies-panel > .dependencies-alert,
+.dependencies-panel > .dependencies-empty,
+.dependencies-manager-bar,
+.dependencies-table-wrap,
+.dependencies-console {
+  margin: 0 24px;
+}
+
+.dependencies-console:last-child {
+  margin-bottom: 24px;
 }
 
 .dependencies-alert,
@@ -258,7 +299,15 @@
 .dependencies-console {
   background: var(--surface-1);
   border: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
+}
+
+.dependencies-console-active {
+  flex: 1 1 0;
 }
 
 .dependencies-console-header {
@@ -312,15 +361,32 @@
 
 .dependencies-terminal {
   background: #10131c;
-  border-top: 1px solid var(--border);
-  height: 360px;
+  border: 1px solid #262c40;
+  flex: 1 1 0;
+  height: 0;
+  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+  min-height: 0;
+  width: calc(100% + (var(--space-5) * 2));
   overflow: hidden;
-  padding: var(--space-3);
+  padding: 16px 18px;
+}
+
+.dependencies-terminal :global(.xterm) {
+  padding-inline: 10px;
+}
+
+.dependencies-terminal :global(.xterm-viewport) {
+  scrollbar-width: none;
+}
+
+.dependencies-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
 }
 
 .dependencies-console-empty {
   border: 0;
   border-radius: 0;
+  min-height: 132px;
 }
 
 .dependencies-console-empty > svg {

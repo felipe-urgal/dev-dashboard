@@ -41,8 +41,6 @@ import { scriptHistoryRoutes } from './routes/script-history.js';
 import { dependenciesPtyRoutes } from './routes/dependencies-pty-routes.js';
 import { settingsRoutes } from './routes/settings.js';
 import { projectBrowserRoutes } from './routes/project-browser.js';
-import { aiAssistantRoutes } from './routes/ai-assistant.js';
-import { aiProviderRoutes } from './routes/ai-providers.js';
 
 import { workspaceRoutes } from './routes/workspaces.js';
 
@@ -99,7 +97,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     options.context ??
     createAppContext({
       languageServerLogger: app.log,
-      aiExecutionMetricsLogger: app.log,
     });
   const projectDoctorService =
     options.projectDoctorService ??
@@ -116,8 +113,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const projectTerminalService =
     options.projectTerminalService ?? context.projectTerminalService;
   app.addHook('onClose', async () => {
-    context.aiImplementationExecutionService.close();
-    context.gitAiCodeReviewService.close();
     context.scriptExecutionService.close();
     context.testExecutionHistoryService.close();
     projectLanguageServerService.close();
@@ -210,7 +205,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(gitPullRequestRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    gitAiCodeReviewService: context.gitAiCodeReviewService,
   });
 
   app.register(gitPullRequestMutationRoutes, {
@@ -300,19 +294,6 @@ export async function buildApp(options: BuildAppOptions = {}) {
     projectStore: context.projectStore,
     processManager: context.processManager,
     projectBrowserService: context.projectBrowserService,
-  });
-
-  app.register(aiProviderRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    aiProviderResolver: context.aiProviderResolver,
-  });
-
-  app.register(aiAssistantRoutes, {
-    prefix: '/api',
-    projectStore: context.projectStore,
-    aiProviderResolver: context.aiProviderResolver,
-    aiImplementationExecutionService: context.aiImplementationExecutionService,
   });
 
   app.register(processRoutes, {

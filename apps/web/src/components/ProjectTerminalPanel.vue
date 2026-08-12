@@ -338,8 +338,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .terminal-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
+  width: 100%;
+  height: calc(100vh - 116px);
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  max-height: calc(100vh - 116px);
+  overflow-x: hidden;
 }
 
 .terminal-empty,
@@ -405,11 +413,14 @@ onBeforeUnmount(() => {
 .terminal-window {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 100%;
-  height: calc(100dvh - 250px);
+  height: auto;
+  flex: 1 1 auto;
   min-width: 0;
-  min-height: 320px;
-  max-width: 100%;
+  min-height: 0;
+  max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
+  max-height: 100%;
   max-height: none;
   background: #10131c;
   border: 1px solid #262c40;
