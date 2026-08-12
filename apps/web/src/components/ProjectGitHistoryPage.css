@@ -1,6 +1,9 @@
 .git-history-page {
   display: grid;
   /* Sem isto a tabela empurra a largura do painel inteiro. */
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-height: 0;
   min-width: 0;
   gap: var(--space-4);
   color: var(--text);
