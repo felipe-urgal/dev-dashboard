@@ -14183,7 +14183,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "path",
             "type",
             "source",
-            "favorite",
             "enabled",
             "capabilities"
           ],
@@ -14218,9 +14217,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "port": {
               "type": "integer"
             },
-            "favorite": {
-              "type": "boolean"
-            },
             "enabled": {
               "type": "boolean"
             },
@@ -14249,42 +14245,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
         }
       }
     }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-
-### `DELETE /api/projects/:projectId`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **204**:
-
-  ```json
-  {
-    "type": "null"
   }
   ```
 - **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
@@ -14335,7 +14295,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -14369,9 +14328,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -14460,7 +14416,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -14494,9 +14449,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -14592,7 +14544,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           "path",
           "type",
           "source",
-          "favorite",
           "enabled",
           "capabilities"
         ],
@@ -14626,9 +14577,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
           },
           "port": {
             "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -14685,138 +14633,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
   }
 }
 ```
-
-### `PUT /api/projects/:projectId/favorite`
-
-**Parâmetros de rota (`params`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "projectId"
-  ],
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1
-    }
-  }
-}
-```
-
-**Corpo (`body`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "favorite"
-  ],
-  "properties": {
-    "favorite": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
-**Resposta**
-
-- **200**:
-
-  ```json
-  {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "project"
-    ],
-    "properties": {
-      "project": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "name",
-          "path",
-          "type",
-          "source",
-          "favorite",
-          "enabled",
-          "capabilities"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "rails",
-              "node",
-              "unknown"
-            ]
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "workspace",
-              "standalone"
-            ]
-          },
-          "workspaceId": {
-            "type": "string"
-          },
-          "port": {
-            "type": "integer"
-          },
-          "favorite": {
-            "type": "boolean"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "lastAccessedAt": {
-            "type": "string"
-          },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "server",
-                "git",
-                "tests",
-                "database",
-                "scripts",
-                "webpack",
-                "sidekiq",
-                "rake",
-                "bundler",
-                "docker"
-              ]
-            }
-          }
-        }
-      }
-    }
-  }
-  ```
-- **400** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **401** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **403** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **404** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **409** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
-- **500** — erro padrão da API (ver [Erros comuns](#erros-comuns)).
 
 ### `GET /api/projects/:projectId/git`
 
@@ -20939,20 +20755,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
 }
 ```
 
-**Query string (`querystring`)**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "restoreDismissed": {
-      "type": "boolean"
-    }
-  }
-}
-```
-
 **Resposta**
 
 - **200**:
@@ -20986,7 +20788,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             "path",
             "type",
             "source",
-            "favorite",
             "enabled",
             "capabilities"
           ],
@@ -21020,9 +20821,6 @@ _Rota sem schema declarado (ex. upgrade de WebSocket)._
             },
             "port": {
               "type": "integer"
-            },
-            "favorite": {
-              "type": "boolean"
             },
             "enabled": {
               "type": "boolean"

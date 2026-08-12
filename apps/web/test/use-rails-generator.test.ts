@@ -22,7 +22,6 @@ function project(id: string): Project {
     path: `/tmp/${id}`,
     type: 'rails',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

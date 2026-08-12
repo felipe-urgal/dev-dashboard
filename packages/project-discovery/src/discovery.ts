@@ -319,7 +319,6 @@ export async function detectProject(
     path: resolvedPath,
     type,
     source,
-    favorite: false,
     enabled: true,
     capabilities: await detectCapabilities(
       resolvedPath,

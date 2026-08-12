@@ -1,9 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import {
-  ProjectDisabledRepositoryError,
-  ProjectDismissedRepositoryError,
-  ProjectFavoriteRepositoryError,
-} from '@dev-dashboard/core';
+import { ProjectDisabledRepositoryError } from '@dev-dashboard/core';
 
 import { ApiError } from '../../http/api-error.js';
 import {
@@ -20,12 +16,7 @@ export function registerProjectListRoutes(
   app: FastifyInstance,
   options: ProjectRouteOptions,
 ): void {
-  const {
-    projectFavoriteRepository,
-    projectDisabledRepository,
-    projectDismissedRepository,
-    projectStore,
-  } = options;
+  const { projectDisabledRepository, projectStore } = options;
 
   app.get(
     '/projects',
@@ -135,86 +126,6 @@ export function registerProjectListRoutes(
   app.put<{
     Params: ProjectParams;
     Body: {
-      favorite: boolean;
-    };
-  }>(
-    '/projects/:projectId/favorite',
-    {
-      schema: {
-        params: projectParamsSchema,
-        body: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['favorite'],
-          properties: {
-            favorite: {
-              type: 'boolean',
-            },
-          },
-        },
-        response: {
-          200: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['project'],
-            properties: {
-              project: projectResponseSchema,
-            },
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request) => {
-      const project = projectStore.findProject(request.params.projectId);
-
-      if (!project) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
-
-      try {
-        await projectFavoriteRepository.set(project.id, request.body.favorite);
-      } catch (error) {
-        if (
-          error instanceof ProjectFavoriteRepositoryError &&
-          error.code === 'PROJECT_FAVORITES_LIMIT_REACHED'
-        ) {
-          throw new ApiError({
-            statusCode: 409,
-            code: error.code,
-            message: error.message,
-          });
-        }
-
-        throw error;
-      }
-
-      const updatedProject = projectStore.setFavorite(
-        project.id,
-        request.body.favorite,
-      );
-
-      if (!updatedProject) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
-
-      return {
-        project: updatedProject,
-      };
-    },
-  );
-
-  app.put<{
-    Params: ProjectParams;
-    Body: {
       enabled: boolean;
     };
   }>(
@@ -289,55 +200,6 @@ export function registerProjectListRoutes(
       return {
         project: updatedProject,
       };
-    },
-  );
-
-  app.delete<{
-    Params: ProjectParams;
-  }>(
-    '/projects/:projectId',
-    {
-      schema: {
-        params: projectParamsSchema,
-        response: {
-          204: {
-            type: 'null',
-          },
-          ...commonErrorResponseSchemas,
-        },
-      },
-    },
-    async (request, reply) => {
-      const project = projectStore.findProject(request.params.projectId);
-
-      if (!project) {
-        throw new ApiError({
-          statusCode: 404,
-          code: 'PROJECT_NOT_FOUND',
-          message: 'Projeto não encontrado.',
-        });
-      }
-
-      try {
-        await projectDismissedRepository.set(project.id, true);
-      } catch (error) {
-        if (
-          error instanceof ProjectDismissedRepositoryError &&
-          error.code === 'PROJECT_DISMISSED_LIMIT_REACHED'
-        ) {
-          throw new ApiError({
-            statusCode: 409,
-            code: 'CONFLICT',
-            message: error.message,
-          });
-        }
-
-        throw error;
-      }
-
-      projectStore.removeProject(project.id);
-
-      return reply.code(204).send();
     },
   );
 }

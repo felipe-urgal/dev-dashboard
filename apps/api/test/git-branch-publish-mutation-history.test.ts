@@ -81,7 +81,6 @@ test('histórico de mutações Git: publicar branch local (branch-publish)', asy
     path: repoPath,
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

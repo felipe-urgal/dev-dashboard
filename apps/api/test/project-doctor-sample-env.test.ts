@@ -27,7 +27,6 @@ test('Project Doctor usa .env.sample quando .env.example não existe', async (co
     path: root,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };

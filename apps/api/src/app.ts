@@ -157,9 +157,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(workspaceRoutes, {
     prefix: '/api',
     workspaceRepository: context.workspaceRepository,
-    projectFavoriteRepository: context.projectFavoriteRepository,
     projectDisabledRepository: context.projectDisabledRepository,
-    projectDismissedRepository: context.projectDismissedRepository,
     processManager: context.processManager,
     projectStore: context.projectStore,
     testDetectionService: context.testDetectionService,
@@ -168,9 +166,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   app.register(projectRoutes, {
     prefix: '/api',
     projectStore: context.projectStore,
-    projectFavoriteRepository: context.projectFavoriteRepository,
     projectDisabledRepository: context.projectDisabledRepository,
-    projectDismissedRepository: context.projectDismissedRepository,
     gitService: context.gitService,
   });
 

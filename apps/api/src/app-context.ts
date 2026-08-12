@@ -3,8 +3,6 @@ import {
   ProjectAiConsentRepository,
   ProjectAiSelectionRepository,
   ProjectDisabledRepository,
-  ProjectDismissedRepository,
-  ProjectFavoriteRepository,
   RetentionSettingsRepository,
   WorkspaceRepository,
 } from '@dev-dashboard/core';
@@ -56,9 +54,7 @@ export interface AppContext {
   workspaceRepository: WorkspaceRepository;
   retentionSettingsRepository: RetentionSettingsRepository;
   environmentProfileRepository: EnvironmentProfileRepository;
-  projectFavoriteRepository: ProjectFavoriteRepository;
   projectDisabledRepository: ProjectDisabledRepository;
-  projectDismissedRepository: ProjectDismissedRepository;
   processManager: ProcessManager;
   serverSettingsRepository: ProjectServerSettingsRepository;
   projectStore: ProjectStore;
@@ -159,9 +155,7 @@ export function createAppContext(
     workspaceRepository: new WorkspaceRepository(),
     retentionSettingsRepository,
     environmentProfileRepository: new EnvironmentProfileRepository(),
-    projectFavoriteRepository: new ProjectFavoriteRepository(),
     projectDisabledRepository: new ProjectDisabledRepository(),
-    projectDismissedRepository: new ProjectDismissedRepository(),
     processManager,
     serverSettingsRepository: new ProjectServerSettingsRepository(),
     projectStore,

@@ -40,7 +40,6 @@ test('rotas do assistente de IA resolvem o provider do projeto', async (context)
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

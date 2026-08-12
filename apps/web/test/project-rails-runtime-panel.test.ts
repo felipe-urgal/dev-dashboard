@@ -62,7 +62,6 @@ const project: Project = {
   path: '/projetos/api-rails',
   type: 'rails',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['server'],
 };

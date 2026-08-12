@@ -47,7 +47,6 @@ test('rotas do gateway de servidor de linguagem (status por kind e opt-in Rails 
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

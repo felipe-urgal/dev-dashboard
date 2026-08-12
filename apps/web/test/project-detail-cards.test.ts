@@ -111,7 +111,6 @@ const project: Project = {
   path: '/tmp/projeto-card',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['server', 'tests', 'scripts'],
 };

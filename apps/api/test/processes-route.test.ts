@@ -32,7 +32,6 @@ test('GET /api/processes lists managed server and test processes for known proje
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };
@@ -43,7 +42,6 @@ test('GET /api/processes lists managed server and test processes for known proje
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w2',
-    favorite: false,
     enabled: true,
     capabilities: ['server'],
   };

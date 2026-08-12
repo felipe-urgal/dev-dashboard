@@ -83,7 +83,6 @@ O host da documentação é fixo em `127.0.0.1`.
 ~/.config/dev-dashboard/
 ├── config.json
 ├── api-token
-├── project-favorites.json
 ├── retention-settings.json
 └── outros arquivos versionados de preferência
 ```

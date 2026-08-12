@@ -26,7 +26,6 @@ async function fixture(
     path: root,
     type,
     source: 'standalone',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

@@ -59,7 +59,6 @@ test('lista variáveis de .env e revela valores sensíveis somente sob demanda',
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

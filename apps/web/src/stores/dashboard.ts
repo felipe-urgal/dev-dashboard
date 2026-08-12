@@ -10,13 +10,11 @@ import { confirmDialog } from './app-dialog';
 export interface DashboardApi {
   createWorkspace: typeof dashboardApi.createWorkspace;
   deleteWorkspace: typeof dashboardApi.deleteWorkspace;
-  dismissProject: typeof dashboardApi.dismissProject;
   fetchHealth: typeof dashboardApi.fetchHealth;
   fetchProject: typeof dashboardApi.fetchProject;
   fetchProjects: typeof dashboardApi.fetchProjects;
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
-  updateProjectFavorite: typeof dashboardApi.updateProjectFavorite;
   updateProjectEnabled: typeof dashboardApi.updateProjectEnabled;
   updateWorkspaceRecursiveScan: typeof dashboardApi.updateWorkspaceRecursiveScan;
 }
@@ -25,13 +23,11 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const {
     createWorkspace,
     deleteWorkspace,
-    dismissProject,
     fetchHealth,
     fetchProject,
     fetchProjects,
     fetchWorkspaces,
     scanWorkspace,
-    updateProjectFavorite,
     updateProjectEnabled,
     updateWorkspaceRecursiveScan,
   } = api;
@@ -51,9 +47,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const scanningWorkspace = ref(false);
   const creatingWorkspace = ref(false);
   const deletingWorkspace = ref(false);
-  const favoriteUpdatingIds = ref<string[]>([]);
   const enabledUpdatingIds = ref<string[]>([]);
-  const dismissingProjectIds = ref<string[]>([]);
   const recursiveScanUpdatingIds = ref<string[]>([]);
 
   const errorMessage = ref('');
@@ -71,10 +65,8 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   );
 
   const sortedProjects = computed(() =>
-    [...projects.value].sort(
-      (left, right) =>
-        Number(right.favorite) - Number(left.favorite) ||
-        left.name.localeCompare(right.name),
+    [...projects.value].sort((left, right) =>
+      left.name.localeCompare(right.name),
     ),
   );
 
@@ -99,81 +91,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
 
     projectIndex.value = nextIndex;
-  }
-
-  function forgetProject(projectId: string): void {
-    projects.value = projects.value.filter(
-      (project) => project.id !== projectId,
-    );
-
-    const nextIndex = {
-      ...projectIndex.value,
-    };
-    delete nextIndex[projectId];
-    projectIndex.value = nextIndex;
-
-    projectsByWorkspace.value = Object.fromEntries(
-      Object.entries(projectsByWorkspace.value).map(
-        ([workspaceId, workspaceProjects]) => [
-          workspaceId,
-          workspaceProjects.filter((project) => project.id !== projectId),
-        ],
-      ),
-    );
-  }
-
-  function replaceProjectFavorite(projectId: string, favorite: boolean): void {
-    projects.value = projects.value.map((item) =>
-      item.id === projectId ? { ...item, favorite } : item,
-    );
-
-    const indexedProject = projectIndex.value[projectId];
-
-    if (indexedProject) {
-      projectIndex.value = {
-        ...projectIndex.value,
-        [projectId]: {
-          ...indexedProject,
-          favorite,
-        },
-      };
-    }
-
-    projectsByWorkspace.value = Object.fromEntries(
-      Object.entries(projectsByWorkspace.value).map(
-        ([workspaceId, workspaceProjects]) => [
-          workspaceId,
-          workspaceProjects.map((item) =>
-            item.id === projectId ? { ...item, favorite } : item,
-          ),
-        ],
-      ),
-    );
-  }
-
-  async function toggleProjectFavorite(project: Project): Promise<void> {
-    if (favoriteUpdatingIds.value.includes(project.id)) {
-      return;
-    }
-
-    const favorite = !project.favorite;
-    favoriteUpdatingIds.value = [...favoriteUpdatingIds.value, project.id];
-    replaceProjectFavorite(project.id, favorite);
-
-    try {
-      const updatedProject = await updateProjectFavorite(project.id, favorite);
-      replaceProjectFavorite(updatedProject.id, updatedProject.favorite);
-    } catch (error) {
-      replaceProjectFavorite(project.id, project.favorite);
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível atualizar o favorito.';
-    } finally {
-      favoriteUpdatingIds.value = favoriteUpdatingIds.value.filter(
-        (projectId) => projectId !== project.id,
-      );
-    }
   }
 
   function replaceProjectEnabled(projectId: string, enabled: boolean): void {
@@ -225,43 +142,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
           : 'Não foi possível atualizar a ativação do projeto.';
     } finally {
       enabledUpdatingIds.value = enabledUpdatingIds.value.filter(
-        (projectId) => projectId !== project.id,
-      );
-    }
-  }
-
-  async function removeProject(project: Project): Promise<void> {
-    if (dismissingProjectIds.value.includes(project.id)) {
-      return;
-    }
-
-    const confirmed = await confirmDialog({
-      title: 'Remover projeto?',
-      message:
-        `O projeto "${project.name}" será removido do dashboard. ` +
-        'Os arquivos locais não serão apagados. Ele voltará a aparecer quando você escanear o workspace novamente.',
-      confirmLabel: 'Remover projeto',
-      tone: 'danger',
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    dismissingProjectIds.value = [...dismissingProjectIds.value, project.id];
-    clearMessages();
-
-    try {
-      await dismissProject(project.id);
-      forgetProject(project.id);
-      successMessage.value = `Projeto "${project.name}" removido do dashboard.`;
-    } catch (error) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível remover o projeto do dashboard.';
-    } finally {
-      dismissingProjectIds.value = dismissingProjectIds.value.filter(
         (projectId) => projectId !== project.id,
       );
     }
@@ -357,7 +237,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     options: {
       activate?: boolean;
       showMessages?: boolean;
-      restoreDismissed?: boolean;
     } = {},
   ): Promise<WorkspaceScanResponse> {
     const shouldActivate = options.activate ?? false;
@@ -374,9 +253,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     }
 
     try {
-      const result = await scanWorkspace(workspaceId, {
-        restoreDismissed: options.restoreDismissed,
-      });
+      const result = await scanWorkspace(workspaceId);
 
       replaceWorkspaceProjects(workspaceId, result.projects);
       scannedWorkspaceIds.add(workspaceId);
@@ -437,7 +314,6 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       await scanWorkspaceById(workspace.id, {
         activate: true,
         showMessages: true,
-        restoreDismissed: true,
       });
     } catch (error) {
       errorMessage.value =
@@ -687,9 +563,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     scanningWorkspace,
     creatingWorkspace,
     deletingWorkspace,
-    favoriteUpdatingIds,
     enabledUpdatingIds,
-    dismissingProjectIds,
     recursiveScanUpdatingIds,
     errorMessage,
     successMessage,
@@ -705,9 +579,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     switchWorkspace,
     handleCreateWorkspace,
     handleDeleteWorkspace,
-    toggleProjectFavorite,
     toggleProjectEnabled,
-    removeProject,
     toggleWorkspaceRecursiveScan,
   };
 }

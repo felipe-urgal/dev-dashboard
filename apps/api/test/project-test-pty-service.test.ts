@@ -65,7 +65,6 @@ function project(overrides: Partial<Project> = {}): Project {
     path: '/tmp/projeto-1',
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
     ...overrides,

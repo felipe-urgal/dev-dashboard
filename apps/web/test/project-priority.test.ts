@@ -20,20 +20,18 @@ function project(
     type: 'node',
     source: 'workspace',
     workspaceId: 'workspace-a',
-    favorite: false,
     enabled: true,
     capabilities: [],
     ...options,
   };
 }
 
-test('mantém favoritos acima dos recentes e ordena os demais alfabeticamente', () => {
+test('ordena por recência e depois alfabeticamente', () => {
   const sorted = sortProjectsByPriority([
     project('z', 'Zulu'),
     project('recent-old', 'Beta', {
       lastAccessedAt: '2026-08-04T20:00:00.000Z',
     }),
-    project('favorite', 'Álpha', { favorite: true }),
     project('recent-new', 'Gamma', {
       lastAccessedAt: '2026-08-04T21:00:00.000Z',
     }),
@@ -42,27 +40,19 @@ test('mantém favoritos acima dos recentes e ordena os demais alfabeticamente', 
 
   assert.deepEqual(
     sorted.map((item) => item.id),
-    ['favorite', 'recent-new', 'recent-old', 'a', 'z'],
+    ['recent-new', 'recent-old', 'a', 'z'],
   );
 });
 
-test('expõe no máximo cinco recentes não favoritos', () => {
+test('expõe no máximo cinco recentes', () => {
   const projects = Array.from({ length: 7 }, (_, index) =>
     project(`project-${index}`, `Project ${index}`, {
       lastAccessedAt: `2026-08-04T20:0${index}:00.000Z`,
     }),
   );
-  projects.push(
-    project('favorite', 'Favorite', {
-      favorite: true,
-      enabled: true,
-      lastAccessedAt: '2026-08-04T23:00:00.000Z',
-    }),
-  );
 
   const ids = recentProjectIds(projects);
   assert.equal(ids.size, 5);
-  assert.equal(ids.has('favorite'), false);
   assert.equal(ids.has('project-6'), true);
   assert.equal(ids.has('project-0'), false);
 });

@@ -370,12 +370,12 @@ funcional, mas frágil de manter. Vale considerar particionar por domínio
 
 #### B.6 `packages/core` — concorrência inconsistente entre repositórios
 
-- `ProjectFavoriteRepository`/`ProjectRecentRepository` usam cache em
+- `ProjectDisabledRepository`/`ProjectRecentRepository` usam cache em
   memória + `mutationQueue` para serializar escritas.
 - ~~`WorkspaceRepository` (`workspace-repository.ts:139-266`) **não tem**
   esse mecanismo~~ — **resolvido (2026-08-07)**: `create`/`setRecursiveScan`/
   `remove` agora passam pelo mesmo `mutationQueue`/`enqueue<T>` usado em
-  `ProjectFavoriteRepository`/`EnvironmentProfileRepository`, serializando o
+  `ProjectDisabledRepository`/`EnvironmentProfileRepository`, serializando o
   ler-modificar-escrever. Teste de regressão em
   `workspace-repository.test.ts` dispara 8 `create()` concorrentes na mesma
   instância e confirma que nenhum é perdido (falhava com `ENOENT` no

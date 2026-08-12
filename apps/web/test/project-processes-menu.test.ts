@@ -41,7 +41,6 @@ const railsProject: Project = {
   path: '/projetos/fi-editor',
   type: 'rails',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['server', 'sidekiq', 'webpack'],
 };
@@ -53,7 +52,6 @@ const nodeProjectNoServer: Project = {
   path: '/projetos/sem-servidor',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['git'],
 };

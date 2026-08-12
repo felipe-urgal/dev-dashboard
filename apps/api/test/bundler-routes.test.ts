@@ -60,7 +60,6 @@ test('rota de diagnóstico Bundler', async (context) => {
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };
