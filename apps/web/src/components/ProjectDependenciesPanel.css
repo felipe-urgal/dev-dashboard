@@ -325,7 +325,9 @@
   border: 1px solid #262c40;
   flex: 1 1 0;
   height: 0;
+  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
   min-height: 0;
+  width: calc(100% + (var(--space-5) * 2));
   overflow: hidden;
   border-radius: var(--radius-sm);
   padding: 16px 18px;
