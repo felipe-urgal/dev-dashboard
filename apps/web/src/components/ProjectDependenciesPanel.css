@@ -331,6 +331,10 @@
   padding: 16px 18px;
 }
 
+.dependencies-terminal :global(.xterm) {
+  padding-inline: 10px;
+}
+
 .dependencies-console-empty {
   border: 0;
   border-radius: 0;
