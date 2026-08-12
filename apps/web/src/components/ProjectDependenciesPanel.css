@@ -261,10 +261,14 @@
   background: var(--surface-1);
   border: 1px solid var(--border);
   display: flex;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+.dependencies-console-active {
+  flex: 1 1 0;
 }
 
 .dependencies-console-header {
@@ -329,7 +333,7 @@
 .dependencies-console-empty {
   border: 0;
   border-radius: 0;
-  flex: 1 1 auto;
+  min-height: 132px;
 }
 
 .dependencies-console-empty > svg {
