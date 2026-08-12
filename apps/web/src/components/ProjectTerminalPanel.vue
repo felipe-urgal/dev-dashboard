@@ -338,13 +338,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .terminal-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 116px);
   min-height: 0;
   min-width: 0;
   max-width: 100%;
+  max-height: calc(100vh - 116px);
   overflow-x: hidden;
 }
 
@@ -413,7 +415,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
+  height: auto;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
