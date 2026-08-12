@@ -1,4 +1,7 @@
 .tests-dashboard {
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -127,4 +130,3 @@
   color: var(--info-text);
   background: var(--accent-soft);
 }
-

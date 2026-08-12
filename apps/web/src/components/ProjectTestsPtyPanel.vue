@@ -142,17 +142,6 @@ watch(
 
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
-    <template #header>
-      <h3>Testes</h3>
-    </template>
-
-    <p class="tests-pty-note">
-      Prova de conceito: roda a suíte completa num terminal de verdade — cores e
-      formatação idênticas ao que você veria rodando o comando localmente.
-      Execução por arquivo/caso específico e testes relacionados à branch ainda
-      não migraram para cá.
-    </p>
-
     <div class="tests-pty-controls">
       <select
         v-model="selectedCommandId"
