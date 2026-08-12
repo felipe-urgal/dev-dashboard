@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import {
   ArrowPathIcon,
-  ArrowUturnLeftIcon,
   CircleStackIcon,
   ClipboardDocumentIcon,
   EyeIcon,
@@ -27,7 +26,6 @@ const props = defineProps<{ project: Project }>();
 const {
   overview,
   loading,
-  errorMessage,
   revealed,
   page,
   pendingAction,
