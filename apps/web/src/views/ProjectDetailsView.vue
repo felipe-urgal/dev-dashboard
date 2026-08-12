@@ -247,7 +247,7 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <template v-else>
+      <template>
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
