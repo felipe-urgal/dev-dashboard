@@ -42,6 +42,11 @@ export function usePtyTerminalSocket<
     terminal.loadAddon(fitAddon);
     terminal.open(terminalContainer.value);
     fitAddon.fit();
+    // No primeiro paint o container às vezes ainda não assumiu a largura
+    // final (troca de aba, layout do Card ainda assentando) e o fit()
+    // acima mede menos colunas do que caberiam — reaplica no próximo frame,
+    // quando o layout já estabilizou.
+    requestAnimationFrame(() => fitAddon?.fit());
     resizeObserver = new ResizeObserver(() => fitAddon?.fit());
     resizeObserver.observe(terminalContainer.value);
   }
