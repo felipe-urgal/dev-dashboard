@@ -327,7 +327,7 @@
   height: 0;
   min-height: 0;
   overflow: hidden;
-  padding: var(--space-3);
+  padding: 16px 18px;
 }
 
 .dependencies-console-empty {
