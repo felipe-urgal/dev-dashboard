@@ -17,6 +17,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  padding: var(--space-4) var(--space-4) 0;
 }
 
 .git-diff-page-heading > div:first-child {
