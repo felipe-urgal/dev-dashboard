@@ -1,34 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import {
-  ArrowRightIcon,
-  NoSymbolIcon,
-  PowerIcon,
-  StarIcon,
-  TrashIcon,
-} from '@heroicons/vue/24/outline';
-import { StarIcon as SolidStarIcon } from '@heroicons/vue/24/solid';
+import { NoSymbolIcon, PowerIcon } from '@heroicons/vue/24/outline';
 
 import type { Project } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 
-import { projectTypeLabels } from '../utils/project-labels';
-
 const props = defineProps<{
   project: Project;
-  favoriteUpdating?: boolean;
   enabledUpdating?: boolean;
-  removing?: boolean;
-  recent?: boolean;
 }>();
 
 const emit = defineEmits<{
-  'toggle-favorite': [project: Project];
   'toggle-enabled': [project: Project];
-  remove: [project: Project];
 }>();
 
 const { managedProcess, supportsServer, isRunning } = useProjectProcessStatus(
@@ -65,82 +51,51 @@ watch(
   { immediate: true },
 );
 
-const statusDotClass = computed(() => {
-  if (!supportsServer.value) {
-    return 'project-status-dot-neutral';
-  }
+const statusDotClass = computed(() =>
+  isRunning.value ? 'project-status-dot-running' : 'project-status-dot-stopped',
+);
 
-  return isRunning.value
-    ? 'project-status-dot-running'
-    : 'project-status-dot-stopped';
-});
+const statusLabel = computed(() =>
+  isRunning.value ? 'Em execução' : 'Parado',
+);
 
-const statusLabel = computed(() => {
-  if (!supportsServer.value) {
-    return 'Sem servidor';
-  }
-
-  return isRunning.value ? 'Em execução' : 'Parado';
-});
-
-const recentAccessTitle = computed(() => {
-  if (!props.project.lastAccessedAt) return '';
-  const date = new Date(props.project.lastAccessedAt);
-  return Number.isNaN(date.getTime())
-    ? 'Acessado recentemente'
-    : `Último acesso: ${new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(date)}`;
-});
+const toggleEnabledLabel = computed(() =>
+  props.project.enabled
+    ? `Desativar ${props.project.name}`
+    : `Reativar ${props.project.name}`,
+);
 </script>
 
 <template>
   <li class="project-row" :class="{ 'project-row-disabled': !project.enabled }">
-    <button
-      type="button"
-      class="project-favorite-button"
-      :class="{ active: project.favorite }"
-      :aria-label="
-        project.favorite
-          ? `Remover ${project.name} dos favoritos`
-          : `Adicionar ${project.name} aos favoritos`
-      "
-      :aria-pressed="project.favorite"
-      :disabled="favoriteUpdating"
-      @click="emit('toggle-favorite', project)"
+    <span
+      v-if="supportsServer"
+      class="project-status project-row-status"
+      :aria-label="statusLabel"
+      :title="statusLabel"
     >
-      <SolidStarIcon v-if="project.favorite" aria-hidden="true" />
-      <StarIcon v-else aria-hidden="true" />
-    </button>
+      <span
+        class="project-status-dot"
+        :class="statusDotClass"
+        aria-hidden="true"
+      />
+    </span>
 
-    <button
-      type="button"
-      class="project-disable-button"
-      :class="{ active: !project.enabled }"
-      :aria-label="
-        project.enabled
-          ? `Desativar ${project.name}`
-          : `Reativar ${project.name}`
-      "
-      :aria-pressed="!project.enabled"
-      :disabled="enabledUpdating"
-      @click="emit('toggle-enabled', project)"
-    >
-      <PowerIcon v-if="project.enabled" aria-hidden="true" />
-      <NoSymbolIcon v-else aria-hidden="true" />
-    </button>
-
-    <button
-      type="button"
-      class="project-disable-button project-remove-button"
-      :aria-label="`Remover ${project.name} do dashboard`"
-      :title="`Remover ${project.name} do dashboard`"
-      :disabled="removing"
-      @click="emit('remove', project)"
-    >
-      <TrashIcon aria-hidden="true" />
-    </button>
+    <div class="project-row-actions" aria-label="Ações do projeto">
+      <button
+        type="button"
+        class="project-disable-button"
+        :class="{ active: !project.enabled }"
+        :aria-label="toggleEnabledLabel"
+        :title="toggleEnabledLabel"
+        :aria-pressed="!project.enabled"
+        :disabled="enabledUpdating"
+        @click="emit('toggle-enabled', project)"
+      >
+        <PowerIcon v-if="project.enabled" aria-hidden="true" />
+        <NoSymbolIcon v-else aria-hidden="true" />
+      </button>
+    </div>
 
     <RouterLink
       class="project-row-link"
@@ -156,38 +111,6 @@ const recentAccessTitle = computed(() => {
         <div class="project-row-heading">
           <div class="project-row-title">
             <h3>{{ project.name }}</h3>
-          </div>
-
-          <div class="project-row-badges">
-            <span
-              v-if="!project.enabled"
-              class="project-disabled-badge"
-              aria-label="Projeto desativado"
-            >
-              Desativado
-            </span>
-
-            <span
-              v-if="recent"
-              class="project-recent-badge"
-              :title="recentAccessTitle"
-              aria-label="Acessado recentemente"
-            >
-              Recente
-            </span>
-
-            <span class="project-status">
-              <span
-                class="project-status-dot"
-                :class="statusDotClass"
-                aria-hidden="true"
-              />
-              {{ statusLabel }}
-            </span>
-
-            <span class="type-badge" :class="`type-badge-${project.type}`">
-              {{ projectTypeLabels[project.type] }}
-            </span>
           </div>
         </div>
 
@@ -211,39 +134,79 @@ const recentAccessTitle = computed(() => {
           </span>
         </div>
       </div>
-
-      <span class="project-row-action" aria-hidden="true">
-        <span>Abrir</span>
-        <ArrowRightIcon />
-      </span>
     </RouterLink>
   </li>
 </template>
 
 <style scoped>
-.project-row-link {
-  padding-left: 122px;
+.project-row {
+  position: relative;
 }
 
-.project-remove-button {
-  left: 82px;
+.project-row-link {
+  padding-left: 20px;
+  padding-right: 64px;
+}
+
+.project-row-heading {
+  padding-right: 0;
+}
+
+.project-row-status {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 10px;
+  display: flex;
+  width: 32px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.project-row-actions {
+  position: absolute;
+  z-index: 3;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-row-actions .project-disable-button {
+  position: static;
+  inset: auto;
+  transform: none;
+}
+
+.project-row-disabled .project-row-link {
+  cursor: default;
+}
+
+.project-row-disabled .project-row-link:hover {
+  border-color: var(--border);
+  background: var(--surface-1);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 2%);
+  transform: none;
 }
 
 @media (max-width: 480px) {
-  .project-favorite-button {
-    left: 8px;
-  }
-
-  .project-disable-button {
-    left: 38px;
-  }
-
-  .project-remove-button {
-    left: 68px;
-  }
-
   .project-row-link {
-    padding-left: 104px;
+    padding-left: 16px;
+    padding-right: 58px;
+  }
+
+  .project-row-status {
+    top: 12px;
+    right: 6px;
+  }
+
+  .project-row-actions {
+    right: 6px;
+    bottom: 8px;
   }
 }
 </style>

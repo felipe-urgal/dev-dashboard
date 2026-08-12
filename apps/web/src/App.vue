@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import {
   Bars3Icon,
-  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   Cog6ToothIcon,
   HomeIcon,
-  MagnifyingGlassIcon,
   PlayCircleIcon,
   PlusIcon,
   QueueListIcon,
@@ -20,23 +18,12 @@ import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import AppDialog from './components/AppDialog.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
-import CommandPalette from './components/CommandPalette.vue';
-import NoticeCenter from './components/NoticeCenter.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import {
   readSidebarCollapsed,
   storeSidebarCollapsed,
 } from './utils/sidebar-preferences';
 
-/**
- * Central de documentação (`scripts/docs-server.mjs`) — só roda junto com
- * `npm run dev` (não faz parte da distribuição `dev-web`), na porta padrão
- * de `DEV_DASHBOARD_DOCS_PORT`. O link é uma conveniência de desenvolvimento;
- * se o servidor não estiver rodando, o navegador só falha ao abrir a aba.
- */
-const DOCS_SITE_URL = 'http://127.0.0.1:4545/';
-
-const commandPalette = ref<InstanceType<typeof CommandPalette>>();
 const workspaceManagerOpen = ref(false);
 const sidebarOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
@@ -226,24 +213,6 @@ onMounted(() => {
       </nav>
 
       <div class="sidebar-tools">
-        <span class="sidebar-label sidebar-tools-label">Preferências</span>
-
-        <a
-          class="navigation-item sidebar-docs-link"
-          :href="DOCS_SITE_URL"
-          target="_blank"
-          rel="noopener"
-          :aria-label="sidebarCollapsed ? 'Documentação' : undefined"
-          :title="
-            sidebarCollapsed
-              ? 'Documentação'
-              : 'Abrir a documentação do projeto'
-          "
-        >
-          <BookOpenIcon class="navigation-icon" aria-hidden="true" />
-          <span class="navigation-text">Documentação</span>
-        </a>
-
         <VisualPreferences />
       </div>
 
@@ -276,42 +245,10 @@ onMounted(() => {
           <span class="eyebrow">{{ pageEyebrow }}</span>
           <h1>{{ pageTitle }}</h1>
         </div>
-
-        <div class="topbar-actions">
-          <NoticeCenter />
-
-          <button
-            class="command-button"
-            type="button"
-            @click="commandPalette?.show()"
-          >
-            <MagnifyingGlassIcon aria-hidden="true" />
-            <span>Navegação rápida</span>
-            <kbd>⌘ K</kbd>
-          </button>
-
-          <span class="topbar-divider" aria-hidden="true" />
-
-          <div
-            class="api-status"
-            :class="{
-              'api-status-online': apiConnected,
-            }"
-          >
-            <span />
-            {{ apiConnected ? 'Online' : 'Offline' }}
-          </div>
-        </div>
       </header>
 
       <RouterView />
     </main>
-
-    <CommandPalette
-      ref="commandPalette"
-      :projects="dashboardStore.knownProjects.value"
-      :workspaces="dashboardStore.workspaces.value"
-    />
 
     <WorkspaceManagerModal
       :open="workspaceManagerOpen"

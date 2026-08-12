@@ -2,7 +2,6 @@
 import {
   ArrowPathIcon,
   BeakerIcon,
-  BellAlertIcon,
   ClockIcon,
   CodeBracketIcon,
   DocumentTextIcon,
@@ -14,10 +13,8 @@ import type {
   RetentionSettingsSnapshot,
 } from '@dev-dashboard/contracts';
 import { fetchRetentionSettings, updateRetentionSettings } from '../api';
-import EnvironmentProfilesPanel from '../components/EnvironmentProfilesPanel.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { nativeNotificationStore } from '../stores/native-notifications';
 
 const snapshot = ref<RetentionSettingsSnapshot>();
 const form = reactive<RetentionSettings>({
@@ -29,9 +26,6 @@ const loading = ref(true);
 const saving = ref(false);
 const error = ref('');
 const feedback = ref('');
-const notificationFeedback = ref('');
-const nativeNotificationsEnabled = nativeNotificationStore.enabled;
-const nativeNotificationStatus = nativeNotificationStore.status;
 
 function fill(values: RetentionSettings): void {
   Object.assign(form, values);
@@ -49,32 +43,6 @@ const hasChanges = computed(() => {
 
 useAutoDismiss(error, '');
 useAutoDismiss(feedback, '');
-useAutoDismiss(notificationFeedback, '');
-
-async function updateNativeNotifications(event: Event): Promise<void> {
-  const checked = (event.target as HTMLInputElement).checked;
-  notificationFeedback.value = '';
-
-  if (!checked) {
-    nativeNotificationStore.disable();
-    notificationFeedback.value = 'Notificações nativas desativadas.';
-    return;
-  }
-
-  const result = await nativeNotificationStore.enable();
-  if (result === 'enabled') {
-    notificationFeedback.value = 'Notificações nativas ativadas.';
-  } else if (result === 'denied') {
-    notificationFeedback.value =
-      'A permissão foi negada. Libere as notificações nas configurações do navegador.';
-  } else if (result === 'unsupported') {
-    notificationFeedback.value =
-      'Este navegador não oferece notificações nativas.';
-  } else {
-    notificationFeedback.value =
-      'Não foi possível ativar as notificações nativas.';
-  }
-}
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -125,8 +93,7 @@ onMounted(() => void load());
         <span class="section-kicker">Ambiente local</span>
         <h2 id="settings-title">Configurações</h2>
         <p class="section-description">
-          Ajuste notificações do navegador e defina por quanto tempo estados e
-          logs terminais permanecem locais.
+          Defina por quanto tempo estados e logs terminais permanecem locais.
         </p>
       </div>
 
@@ -157,71 +124,9 @@ onMounted(() => void load());
       v-else-if="snapshot"
       id="retention-settings"
       class="settings-form"
-      aria-label="Configurações de notificações e retenção"
+      aria-label="Configurações de retenção"
       @submit.prevent="save"
     >
-      <section
-        class="settings-panel"
-        aria-labelledby="native-notifications-title"
-      >
-        <header class="settings-section-heading">
-          <BellAlertIcon aria-hidden="true" />
-          <div>
-            <h3 id="native-notifications-title">Notificações do navegador</h3>
-            <p>
-              Receba um aviso fora da aba quando uma execução demorada terminar.
-            </p>
-          </div>
-        </header>
-
-        <label class="settings-row">
-          <span class="settings-row-copy">
-            <strong id="native-notifications-label"
-              >Notificações nativas</strong
-            >
-            <span id="native-notifications-description"
-              >Testes, scripts e builds com pelo menos 30 segundos, somente
-              enquanto esta aba estiver oculta.</span
-            >
-            <small
-              v-if="nativeNotificationStatus === 'denied'"
-              id="native-notifications-status"
-              >Permissão bloqueada nas configurações do navegador.</small
-            >
-            <small
-              v-else-if="nativeNotificationStatus === 'unsupported'"
-              id="native-notifications-status"
-              >Recurso indisponível neste navegador.</small
-            >
-            <small v-else id="native-notifications-status"
-              >A preferência fica salva somente neste navegador.</small
-            >
-          </span>
-          <span class="settings-switch-control">
-            <input
-              :checked="nativeNotificationsEnabled"
-              :disabled="nativeNotificationStatus === 'unsupported'"
-              type="checkbox"
-              role="switch"
-              aria-labelledby="native-notifications-label"
-              aria-describedby="native-notifications-description native-notifications-status"
-              @change="updateNativeNotifications"
-            />
-            <span>{{
-              nativeNotificationsEnabled ? 'Ativadas' : 'Desativadas'
-            }}</span>
-          </span>
-        </label>
-
-        <p
-          v-if="notificationFeedback"
-          class="settings-inline-feedback"
-          role="status"
-        >
-          {{ notificationFeedback }}
-        </p>
-      </section>
-
       <section class="settings-panel" aria-labelledby="local-files-title">
         <header class="settings-section-heading">
           <DocumentTextIcon aria-hidden="true" />
@@ -392,7 +297,5 @@ onMounted(() => void load());
         {{ feedback }}
       </p>
     </form>
-
-    <EnvironmentProfilesPanel />
   </section>
 </template>

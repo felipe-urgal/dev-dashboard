@@ -45,17 +45,21 @@ Configurações
 
 Resumo operacional do ambiente.
 
-Conteúdo esperado:
+No estado atual, a landing prioriza uma leitura direta dos projetos detectados:
 
-- workspace ativo;
 - quantidade de projetos;
-- projetos Rails e Node;
-- servidores ativos;
-- processos com falha;
-- alterações Git;
-- jobs em execução;
-- projetos usados recentemente;
-- ações rápidas.
+- lista ordenada por prioridade, com tipo, estado, branch e recência;
+- ações globais de iniciar e parar servidores junto do título e da contagem de
+  projetos;
+- ações de escanear novamente e remover workspace separadas no cabeçalho.
+
+A Visão geral não expõe busca textual nem filtro por tipo. Esses controles
+pertencem à área de **Repositórios** quando houver necessidade de exploração da
+lista completa, evitando duplicar navegação e filtros na landing.
+
+Widgets operacionais consolidados — servidores ativos, processos com falha,
+alterações Git e jobs em execução — continuam como evolução possível da Visão
+geral sem alterar esse princípio de manter a entrada enxuta.
 
 ### Repositórios
 

@@ -395,41 +395,10 @@
   flex: 0 0 auto;
 }
 
-.topbar-divider {
-  width: 1px;
-  height: 24px;
-  margin: 0 2px;
-  background: var(--border);
-}
-
-.api-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--danger-text);
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .topbar-menu-button,
 .sidebar-close-button,
 .sidebar-backdrop {
   display: none;
-}
-
-.api-status span {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--danger-text);
-}
-
-.api-status-online {
-  color: var(--success-text);
-}
-
-.api-status-online span {
-  background: var(--success-text);
 }
 
 .content {
@@ -556,9 +525,7 @@
   }
 
   .command-button,
-  .docs-link-button,
-  .topbar-divider,
-  .api-status {
+  .docs-link-button {
     display: none;
   }
 
