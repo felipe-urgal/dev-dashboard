@@ -232,7 +232,6 @@ async function undoFile(filePath: string): Promise<void> {
   gap: var(--space-4);
   min-height: 0;
   width: 100%;
-  border: 1px solid var(--border);
   background: var(--surface-1);
   padding: 20px;
 }

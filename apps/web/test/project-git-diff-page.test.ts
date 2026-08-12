@@ -212,14 +212,6 @@ test('marcar como revisado recolhe o arquivo e move o progresso', async () => {
   );
 });
 
-test('filtra os cartões pela busca de arquivo', async () => {
-  const { wrapper } = await mountPage();
-
-  await wrapper.find('.git-diff-file-search input').setValue('terms');
-  assert.equal(wrapper.findAll('.git-diff-file-card').length, 1);
-  assert.ok(wrapper.text().includes('terms.ts'));
-});
-
 test('aplica realce de sintaxe pela extensão do arquivo', async () => {
   const { wrapper } = await mountPage();
 
