@@ -15,7 +15,10 @@ export default defineConfig({
       // These route shells are covered through the Playwright navigation suite.
       // Keep the unit coverage gate focused on components and composables that
       // are exercised by Vitest without duplicating the full router contract.
-      exclude: ['src/views/ProjectDetailsView.vue', 'src/views/NotFoundView.vue'],
+      exclude: [
+        'src/views/ProjectDetailsView.vue',
+        'src/views/NotFoundView.vue',
+      ],
       thresholds: {
         statements: 58,
         branches: 50,

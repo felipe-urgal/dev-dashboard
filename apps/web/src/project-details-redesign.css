@@ -109,7 +109,6 @@
 @media (max-width: 720px) {
   .project-details-tabs {
     margin-inline: -2px !important;
-    border-radius: var(--radius-md) !important;
     padding: 5px !important;
   }
 
