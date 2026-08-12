@@ -38,7 +38,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 <style scoped>
 .dd-card {
-  border: 1px solid var(--border);
   background: var(--surface-1);
   color: var(--text);
 }
