@@ -261,10 +261,14 @@
   background: var(--surface-1);
   border: 1px solid var(--border);
   display: flex;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+.dependencies-console-active {
+  flex: 1 1 0;
 }
 
 .dependencies-console-header {
@@ -318,18 +322,23 @@
 
 .dependencies-terminal {
   background: #10131c;
-  border-top: 1px solid var(--border);
+  border: 1px solid #262c40;
   flex: 1 1 0;
   height: 0;
   min-height: 0;
   overflow: hidden;
-  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+}
+
+.dependencies-terminal :global(.xterm) {
+  padding-inline: 10px;
 }
 
 .dependencies-console-empty {
   border: 0;
   border-radius: 0;
-  flex: 1 1 auto;
+  min-height: 132px;
 }
 
 .dependencies-console-empty > svg {
