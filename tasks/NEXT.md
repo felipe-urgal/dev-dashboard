@@ -21,40 +21,61 @@ trabalho da IA multi-provider — os follow-ups P1 registrados nas sessões
 anteriores (fallback `offer` na Code Review, evolução da descoberta de
 modelos OpenAI) não se aplicam mais: não há mais segundo provider.
 
-Suíte: `apps/api` 100% verde. `apps/web` tem 9 falhas em arquivos de teste que
-esta sessão não tocou (`project-card`, `project-detail-cards`,
-`project-scripts-panel`, `scripts-explorer-redesign`,
-`global-accessibility-guard`, `log-export-panels`) e cuja causa raiz (ENOENT
-para um componente já removido em #304) não tem relação com IA — ver
-"Regressão pré-existente" abaixo. Todas as falhas que esta remoção de fato
-introduziu (nos testes de `ProjectGitCodeReviewPage`/`project-git-panel`, pela
-troca de `/ai/providers` por `/git/pull-request/ai-status`) foram corrigidas.
-Gate local (`typecheck`, `lint`, `format`, `build`, `docs:api:check`) verde.
+Depois desta sessão, a branch foi mesclada com `origin/main`, que avançou em
+paralelo com uma limpeza grande e não relacionada (remoção de Atividade,
+Configurações e favoritos/exclusão de projeto órfãos — `tasks/236-remove-favoritos-exclusao-orfaos.md`,
+`tasks/237-remove-atividade-configuracoes.md`). Conflitos reais (não os
+milhares de linhas que o merge resolveu sozinho) ficaram só em cinco arquivos
+— `packages/core/src/index.ts`, `apps/api/test/ai-assistant-service.test.ts`,
+`apps/web/src/views/ProjectDetailsView.vue`,
+`apps/web/test/global-accessibility-guard.test.ts` e
+`docs/architecture/api-reference.md` (regenerado) — todos resolvidos mantendo
+a intenção dos dois lados (ex.: `ProjectDetailsView.vue` perdeu tanto o
+polling do Assistente IA quanto o toggle ativar/desativar projeto, que main
+já havia tornado morto em outro trecho do mesmo arquivo). Renomeei
+`tasks/236-remover-assistente-ia.md` para `tasks/238-remover-assistente-ia.md`
+para não colidir com os dois números que main já tinha reivindicado.
 
-## Regressão pré-existente descoberta durante esta sessão (não corrigida aqui)
+Suíte: `apps/api` 100% verde (650 testes). `apps/web` tem 23 falhas — **todas
+já presentes na ponta de `origin/main` antes deste merge**, confirmado
+rodando a suíte web num worktree limpo de `origin/main` isolado desta branch:
+os mesmos 23 casos falham lá, nenhum a mais nem a menos. Ou seja, este merge
+não introduziu nenhuma regressão nova — só herdou o estado (vermelho) que
+`origin/main` já tinha em `apps/web` antes de qualquer trabalho desta sessão.
+Ver "Regressão pré-existente" abaixo. Gate local (`typecheck`, `lint`,
+`format`, `build`, `docs:api:check`) verde.
 
-`npm test --workspace=@dev-dashboard/web` tem 9 testes falhando, todos
-relacionados ao catálogo de scripts e a um teste de `ProjectCard`,
-**nenhum relacionado a IA**:
+## Regressão pré-existente em `apps/web`, já presente em `origin/main` (não corrigida aqui)
 
-- `test/scripts-explorer-redesign.test.ts` (2 casos) e parte de
-  `test/project-scripts-panel.test.ts`/`test/project-detail-cards.test.ts`
-  falham com `ENOENT` procurando
-  `apps/web/src/components/ProjectScriptCatalogCard.vue` — arquivo removido
-  pelo PR #304 ("Remove Catálogo de scripts"), mas os testes que o referenciam
-  não foram atualizados/removidos junto.
-- `test/project-card.test.ts` espera status "Em execução" e recebe "Parado" —
-  parece descolado de uma mudança recente no componente ou na fixture, sem
-  relação com scripts.
+`npm test --workspace=@dev-dashboard/web` tem 23 testes falhando, nenhum
+relacionado a IA (confirmado: os mesmos 23 falham num checkout limpo de
+`origin/main`, sem nenhuma mudança desta sessão):
+
+- `test/scripts-explorer-redesign.test.ts`, `test/project-scripts-panel.test.ts`
+  e parte de `test/project-detail-cards.test.ts` falham com `ENOENT`
+  procurando `apps/web/src/components/ProjectScriptCatalogCard.vue` — arquivo
+  removido pelo PR #304 ("Remove Catálogo de scripts"), mas os testes que o
+  referenciam não foram atualizados/removidos junto.
+- `test/project-git-panel.test.ts` (3 casos) e parte de
+  `test/project-detail-cards.test.ts` esperam uma sub-aba/painel "Code review
+  IA"/Git que não bate mais com a estrutura atual do componente — a
+  investigar se é o mesmo tipo de drift do item acima ou algo específico do
+  Git panel.
+- `test/project-database-panel.test.ts` (3 casos),
+  `test/project-database-snapshots.test.ts` (5 casos),
+  `test/database-layout-polish.test.ts` e parte de `project-detail-cards`
+  esperam o texto "Visão geral" em `ProjectDatabasePanel.vue`/`.template.html`
+  que não aparece mais no componente atual.
+- `test/project-card.test.ts` espera status "Em execução" e recebe "Parado".
 - `test/log-export-panels.test.ts` e `test/global-accessibility-guard.test.ts`
-  têm falhas na mesma leva, a investigar se são a mesma causa raiz do catálogo
-  de scripts ou independentes.
+  têm falhas na mesma leva.
 
-Fora de escopo desta entrega (é uma regressão de #304, não desta remoção de
-IA) — mas é o candidato natural para a próxima sessão: investigar #304,
-decidir se o teste deve ser deletado (o componente foi removido de propósito)
-ou se o catálogo de scripts deveria continuar existindo e a remoção foi
-incompleta.
+Fora de escopo desta entrega (é estado pré-existente de `origin/main`, não
+desta remoção de IA nem deste merge) — mas é o candidato natural para a
+próxima sessão: uma varredura dedicada de `apps/web` para reconciliar esses
+testes com o estado atual dos componentes (scripts, database panel, git
+panel), decidindo caso a caso se o teste está desatualizado ou se revela uma
+regressão real de UI.
 
 ## Também em aberto (não é bug novo)
 
