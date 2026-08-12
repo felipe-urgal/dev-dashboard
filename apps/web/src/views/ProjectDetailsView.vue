@@ -233,16 +233,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div
-            v-if="gitBranch"
-            class="project-details-branch"
-            aria-label="Branch atual"
-          >
-            <span>
-              <ShareIcon aria-hidden="true" />
-              {{ gitBranch }}
-            </span>
-          </div>
         </div>
 
         <div class="project-details-actions">
@@ -257,7 +247,7 @@ onUnmounted(() => {
         </div>
       </header>
 
-      <template>
+      <template v-else>
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
