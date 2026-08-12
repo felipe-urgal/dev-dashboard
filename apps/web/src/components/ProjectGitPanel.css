@@ -3,6 +3,7 @@
   grid-template-rows: max-content minmax(0, 1fr);
   align-content: stretch;
   min-width: 0;
+  background: var(--surface-1);
 }
 
 .git-navigation-bar {
