@@ -341,6 +341,8 @@ onBeforeUnmount(() => {
   display: grid;
   gap: var(--space-4);
   width: 100%;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
@@ -411,10 +413,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   box-sizing: border-box;
   width: 100%;
-  height: calc(100dvh - 250px);
+  height: 100%;
   min-width: 0;
-  min-height: 320px;
+  min-height: 0;
   max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
+  max-height: 100%;
   max-height: none;
   background: #10131c;
   border: 1px solid #262c40;
