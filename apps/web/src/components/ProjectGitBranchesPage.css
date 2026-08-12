@@ -50,9 +50,17 @@
 
 .branch-create-button {
   display: inline-flex;
+  min-height: 36px;
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+.branch-refresh-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
 }
 
 .branch-create-button svg {
