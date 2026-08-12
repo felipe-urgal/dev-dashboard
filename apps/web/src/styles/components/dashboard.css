@@ -98,7 +98,16 @@
 }
 
 .repositories-section {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
   margin-top: var(--space-4);
+}
+
+.repositories-section > .projects-list {
+  flex: 1;
+  align-content: start;
 }
 
 .repositories-section .dd-card-header {
