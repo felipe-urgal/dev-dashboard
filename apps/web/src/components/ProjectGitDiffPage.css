@@ -124,9 +124,7 @@
   background: var(--surface-1);
 }
 
-.git-diff-file-search,
-.git-diff-status-filter,
-.git-diff-content-search {
+.git-diff-status-filter {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -138,39 +136,10 @@
   font-size: var(--font-sm);
 }
 
-.git-diff-file-search {
-  flex: 1 1 200px;
-  min-width: 160px;
-}
-
-.git-diff-content-search {
-  flex: 1 1 180px;
-  min-width: 160px;
-}
-
-.git-diff-file-search svg,
-.git-diff-status-filter svg,
-.git-diff-content-search svg {
+.git-diff-status-filter svg {
   width: 14px;
   height: 14px;
   flex: none;
-}
-
-.git-diff-file-search input,
-.git-diff-content-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  outline: none;
-}
-
-.git-diff-content-search span {
-  flex: none;
-  color: var(--text-dim);
-  white-space: nowrap;
 }
 
 .git-diff-status-filter select {
