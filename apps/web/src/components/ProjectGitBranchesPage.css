@@ -16,34 +16,7 @@
   padding: 12px 14px;
 }
 
-.branch-filter-tabs {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.branch-filter-tabs button {
-  min-height: 36px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text-muted);
-  padding: 7px 14px;
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: var(--font-weight-strong);
-}
-
-.branch-filter-tabs button:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.branch-filter-tabs button.active {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.branch-result-count {
+ .branch-result-count {
   color: var(--text-muted);
   font-size: var(--font-sm);
 }
@@ -61,6 +34,15 @@
   min-height: 36px;
   align-items: center;
   justify-content: center;
+}
+
+ .branch-refresh-button {
+  display: inline-flex;
+  height: 42px;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
 }
 
 .branch-create-button svg {
@@ -483,10 +465,6 @@
   .branch-table-toolbar {
     align-items: stretch;
     flex-wrap: wrap;
-  }
-
-  .branch-filter-tabs {
-    overflow-x: auto;
   }
 
   .branch-result-count {
