@@ -1,6 +1,8 @@
 .dependencies-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
+  min-height: 0;
 }
 
 .dependencies-header {
@@ -258,6 +260,10 @@
 .dependencies-console {
   background: var(--surface-1);
   border: 1px solid var(--border);
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -313,7 +319,9 @@
 .dependencies-terminal {
   background: #10131c;
   border-top: 1px solid var(--border);
-  height: 360px;
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
   overflow: hidden;
   padding: var(--space-3);
 }
@@ -321,6 +329,7 @@
 .dependencies-console-empty {
   border: 0;
   border-radius: 0;
+  flex: 1 1 auto;
 }
 
 .dependencies-console-empty > svg {
