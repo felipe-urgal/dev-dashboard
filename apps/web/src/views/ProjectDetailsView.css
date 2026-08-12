@@ -1,12 +1,14 @@
 .project-details-page {
   display: grid;
   gap: 14px;
+  width: 100%;
+  padding: 0 0 80px;
 }
 
  .project-details-hero {
   display: flex;
-  min-height: 0;
-  height: 60px;
+  min-height: unset;
+  height: auto;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -178,7 +180,8 @@
 
 @media (max-width: 720px) {
   .project-details-hero {
-    height: 52px;
+    min-height: unset;
+    height: auto;
     padding: 6px 10px;
   }
 
