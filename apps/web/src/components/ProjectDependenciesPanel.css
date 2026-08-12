@@ -329,12 +329,19 @@
   min-height: 0;
   width: calc(100% + (var(--space-5) * 2));
   overflow: hidden;
-  border-radius: var(--radius-sm);
   padding: 16px 18px;
 }
 
 .dependencies-terminal :global(.xterm) {
   padding-inline: 10px;
+}
+
+.dependencies-terminal :global(.xterm-viewport) {
+  scrollbar-width: none;
+}
+
+.dependencies-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
 }
 
 .dependencies-console-empty {
