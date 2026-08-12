@@ -28,7 +28,6 @@ async function readScriptsExplorerCss(): Promise<string> {
 async function readScriptsExplorerSources(): Promise<string> {
   const files = [
     'components/ProjectScriptsPanel.vue',
-    'components/ProjectScriptCatalogSidebar.vue',
     'components/ProjectScriptExecutionStrip.vue',
     'composables/useProjectScriptsPanel.ts',
   ];
@@ -40,13 +39,8 @@ async function readScriptsExplorerSources(): Promise<string> {
 test('estrutura scripts como explorador direto de catálogo e execuções', async () => {
   const component = await readScriptsExplorerSources();
 
-  assert.match(component, /type ScriptSection = 'catalog' \| 'executions'/);
-  assert.match(component, /ref<ScriptSection>\('catalog'\)/);
-  assert.doesNotMatch(component, /label: 'Visão geral'/);
-  assert.match(component, /label: 'Catálogo'/);
-  assert.match(component, /label: 'Execuções'/);
-  assert.match(component, /class="scripts-catalog-layout"/);
-  assert.match(component, /class="scripts-detail-panel"/);
+  assert.match(component, /Projeto \/ Scripts/);
+  assert.match(component, />Execuções</);
   assert.match(component, /class="scripts-executions-layout"/);
   assert.match(component, /class="scripts-log-panel[ "]/);
 });
@@ -63,7 +57,7 @@ test('mantém risco, confirmação e acompanhamento da execução no redesenho',
   assert.match(executionComposable, /followScriptExecutionEvents/);
   assert.match(executionComposable, /cancelScriptExecution/);
   assert.match(component, /maskedLogEntries/);
-  assert.match(component, /class="script-card"/);
+  assert.match(component, /class="scripts-execution-detail"/);
 });
 
 test('aplica layout responsivo usando os tokens dos temas claro e escuro', async () => {
