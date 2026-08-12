@@ -10,7 +10,7 @@
 
 .server-card {
   overflow: hidden;
-  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 
