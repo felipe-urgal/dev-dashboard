@@ -5,7 +5,7 @@
 .server-dashboard-grid {
   display: grid;
   grid-template-columns: minmax(360px, 0.9fr) minmax(460px, 1.1fr);
-  align-items: start;
+  align-items: stretch;
 }
 
 .server-card {
