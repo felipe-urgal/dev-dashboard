@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { gotoBootstrapped } from '../fixtures/navigate';
 
 test.describe('Sidekiq e Webpack do projeto Rails', () => {
-  test('gerencia o Sidekiq e mantém o Webpack em uma aba separada', async ({
+  test('gerencia o Sidekiq e esconde a aba de um worker não detectado', async ({
     page,
   }) => {
     await gotoBootstrapped(page, '/');
@@ -19,10 +19,6 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
     ).toBeVisible();
 
     await page.getByRole('link', { name: 'Sidekiq', exact: true }).click();
-
-    await expect(
-      page.getByRole('heading', { level: 3, name: 'Sidekiq' }),
-    ).toBeVisible();
 
     const sidekiqPanel = page.locator('[data-worker-id="sidekiq"]');
     await expect(
@@ -42,13 +38,11 @@ test.describe('Sidekiq e Webpack do projeto Rails', () => {
       sidekiqPanel.getByText('Parado', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('link', { name: 'Webpack', exact: true }).click();
+    // webpack-dev-server não é detectado neste projeto de exemplo — a aba
+    // não deve aparecer no navegador do projeto.
     await expect(
-      page.getByRole('heading', { level: 3, name: 'webpack-dev-server' }),
-    ).toBeVisible();
-    await expect(
-      page.getByText('webpack-dev-server não foi detectado.'),
-    ).toBeVisible();
+      page.getByRole('link', { name: 'Webpack', exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByText('Credentials', { exact: true })).toHaveCount(0);
   });
 });

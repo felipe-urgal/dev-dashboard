@@ -7,7 +7,11 @@ import { RouterLink, useRoute } from 'vue-router';
 
 import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
-import { fetchProjectDatabase, fetchProjectGit } from '../api';
+import {
+  fetchProjectDatabase,
+  fetchProjectGit,
+  fetchProjectRailsWorker,
+} from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
@@ -33,6 +37,9 @@ const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
 /** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
 const databaseSupported = ref(true);
+/** Otimista, mesmo motivo do banco: evita a aba do worker piscar antes da detecção confirmar. */
+const sidekiqDetected = ref(true);
+const webpackDetected = ref(true);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -72,6 +79,8 @@ async function loadProject(): Promise<void> {
   gitBranch.value = '';
   gitOverview.value = null;
   databaseSupported.value = true;
+  sidekiqDetected.value = true;
+  webpackDetected.value = true;
 
   try {
     const loadedProject =
@@ -99,6 +108,30 @@ async function loadProject(): Promise<void> {
         databaseSupported.value = database.supported;
     } catch {
       // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+    }
+
+    if (loadedProject.type === 'rails') {
+      try {
+        const sidekiq = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'sidekiq',
+        );
+        if (projectId.value === requestedProjectId)
+          sidekiqDetected.value = sidekiq.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
+
+      try {
+        const webpack = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'webpack',
+        );
+        if (projectId.value === requestedProjectId)
+          webpackDetected.value = webpack.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
     }
   } catch (error) {
     if (projectId.value === requestedProjectId) {
@@ -282,7 +315,7 @@ watch(
         </RouterLink>
 
         <RouterLink
-          v-if="project.type === 'rails'"
+          v-if="project.type === 'rails' && sidekiqDetected"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isRailsSidekiqRoute }"
           :to="{
@@ -294,7 +327,7 @@ watch(
         </RouterLink>
 
         <RouterLink
-          v-if="project.type === 'rails'"
+          v-if="project.type === 'rails' && webpackDetected"
           class="project-details-tab"
           :class="{ 'project-details-tab-active': isRailsWebpackRoute }"
           :to="{

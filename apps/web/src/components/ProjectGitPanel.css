@@ -1,9 +1,21 @@
 .git-modern-panel {
   display: grid;
-  grid-template-rows: max-content minmax(0, 1fr);
+  /* Três linhas semânticas fixas — nav, mensagens (banners de erro/sucesso/
+     impacto, colapsa a 0 quando vazia) e o conteúdo da aba ativa, que deve
+     ocupar o espaço restante. Contar com apenas 2 linhas aqui quebra sempre
+     que mais de um banner aparece: o segundo item da lista "herda" a linha
+     flexível e estica, empurrando o conteúdo real pra baixo com um vão
+     vazio no meio. */
+  grid-template-rows: max-content max-content minmax(0, 1fr);
   align-content: stretch;
+  gap: var(--space-3);
   min-width: 0;
   background: var(--surface-1);
+}
+
+.git-modern-messages {
+  display: grid;
+  gap: var(--space-3);
 }
 
 .git-navigation-bar {

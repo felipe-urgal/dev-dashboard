@@ -14,23 +14,25 @@
     </nav>
   </div>
 
-  <div v-if="errorMessage" class="project-error" role="alert">
-    {{ errorMessage }}
+  <div class="git-modern-messages">
+    <div v-if="errorMessage" class="project-error" role="alert">
+      {{ errorMessage }}
+    </div>
+    <div v-if="workspaceErrorMessage" class="project-error" role="alert">
+      {{ workspaceErrorMessage }}
+    </div>
+    <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">
+      {{ mutationMessage }}
+    </p>
+    <p v-if="mutationErrorMessage" class="project-error" role="alert">
+      {{ mutationErrorMessage }}
+    </p>
+    <ProjectGitChangeImpactBanner
+      v-if="changeImpact"
+      :project-id="project.id"
+      :impact="changeImpact"
+    />
   </div>
-  <div v-if="workspaceErrorMessage" class="project-error" role="alert">
-    {{ workspaceErrorMessage }}
-  </div>
-  <p v-if="mutationMessage" class="git-mutation-success" aria-live="polite">
-    {{ mutationMessage }}
-  </p>
-  <p v-if="mutationErrorMessage" class="project-error" role="alert">
-    {{ mutationErrorMessage }}
-  </p>
-  <ProjectGitChangeImpactBanner
-    v-if="changeImpact"
-    :project-id="project.id"
-    :impact="changeImpact"
-  />
 
   <div v-if="loading && !overview" class="git-modern-empty">
     Consultando o repositório…

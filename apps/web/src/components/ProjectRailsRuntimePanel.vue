@@ -25,13 +25,6 @@ const workerLabels: Record<RailsWorkerId, string> = {
   webpack: 'webpack-dev-server',
 };
 
-const workerDescriptions: Record<RailsWorkerId, string> = {
-  sidekiq:
-    'Acompanhe jobs em tempo real e investigue falhas, retries e execuções lentas.',
-  webpack:
-    'Acompanhe compilação de assets e investigue warnings, builds lentos e erros de módulo.',
-};
-
 const supportsRestart = props.workerId === 'sidekiq';
 
 function formatDate(value?: string): string {
@@ -50,16 +43,10 @@ function formatDate(value?: string): string {
       aria-label="Estado do processo"
     >
       <Card class="rails-worker-card">
-        <template #header>
-          <div class="rails-worker-heading">
-            <div>
-              <h3>{{ workerLabels[workerId] }}</h3>
-              <p>{{ workerDescriptions[workerId] }}</p>
-            </div>
-            <StatusBadge :tone="processToneFor(worker.status.value)">
-              {{ worker.statusLabel.value }}
-            </StatusBadge>
-          </div>
+        <template #actions>
+          <StatusBadge :tone="processToneFor(worker.status.value)">
+            {{ worker.statusLabel.value }}
+          </StatusBadge>
         </template>
 
         <p
@@ -224,35 +211,32 @@ function formatDate(value?: string): string {
 
 <style scoped>
 .rails-runtime-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   gap: var(--space-4);
+}
+
+.rails-worker-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rails-worker-panel,
 .rails-worker-card,
-.rails-worker-heading,
 .rails-worker-overview-main,
 .rails-worker-command,
 .rails-worker-log-content {
   min-width: 0;
 }
 
-.rails-worker-heading {
+:global(.dd-card.rails-worker-card) {
   display: flex;
-  width: 100%;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.rails-worker-heading h3 {
-  margin: 0;
-}
-
-.rails-worker-heading p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rails-worker-error {

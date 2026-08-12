@@ -146,7 +146,7 @@
 
       <p v-if="sharedServiceEnvironments.length" class="database-shared-service-hint">
         <strong>Impacto ao pausar ou reiniciar</strong>
-        Este serviço também é usado por {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}.
+        Este serviço também é usado por: {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}.
         Qualquer ação afeta esses ambientes também.
       </p>
 
