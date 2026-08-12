@@ -44,9 +44,7 @@
   margin: 0 18px 18px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
 }
 
 .git-inline-file-diff[hidden] {
@@ -81,7 +79,6 @@
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -132,7 +129,6 @@
   align-items: center;
   gap: 2px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   padding: 3px;
 }
@@ -143,7 +139,6 @@
   gap: 6px;
   min-height: 30px;
   border: 0;
-  border-radius: calc(var(--radius-md) - 3px);
   background: transparent;
   color: var(--text-muted);
   padding: 5px 9px;
@@ -180,7 +175,6 @@
   width: 32px;
   height: 32px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text-muted);
 }

@@ -330,7 +330,6 @@ async function toggleItem(item: ProcessItem): Promise<void> {
   width: 260px;
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   box-shadow: 0 16px 34px rgb(0 0 0 / 18%);
 }

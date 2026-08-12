@@ -389,7 +389,6 @@ function formatDate(value?: string): string {
   margin-bottom: var(--space-4);
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 

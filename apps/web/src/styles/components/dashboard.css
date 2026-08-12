@@ -35,7 +35,6 @@
 .scan-result {
   margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
   font-size: var(--font-sm);
 }
 
@@ -284,7 +283,6 @@
   min-height: 82px;
   padding: 14px 14px 14px 88px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   color: inherit;
   background: var(--surface-1);
   text-decoration: none;
@@ -376,7 +374,6 @@
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   color: var(--info-text);
   background: var(--accent-soft);
   font-size: 11px;

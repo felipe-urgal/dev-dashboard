@@ -244,7 +244,6 @@ watch(
   height: 420px;
   background: #10131c;
   border: 1px solid #262c40;
-  border-radius: var(--radius-md);
   padding: var(--space-3);
   overflow: hidden;
 }

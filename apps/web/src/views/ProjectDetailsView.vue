@@ -186,10 +186,6 @@ onUnmounted(() => {
 
 <template>
   <section class="content project-details-page">
-    <RouterLink class="details-back-link" to="/">
-      ← Voltar aos projetos
-    </RouterLink>
-
     <div v-if="loading" class="empty-state page-empty-state">
       <div class="empty-icon">•••</div>
       <h3>Carregando projeto</h3>

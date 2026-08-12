@@ -3,9 +3,6 @@
  * Estas regras removem estilos legados globais que ainda tratavam as abas
  * como botões e mantinham o link de retorno acima do cabeçalho do projeto.
  */
-.project-details-page {
-  margin-top: 12px;
-}
 
 .project-details-page > .details-back-link {
   display: none !important;
@@ -17,12 +14,9 @@
   align-items: center !important;
   gap: 4px !important;
   overflow-x: auto;
-  margin: var(--space-3) 0 18px !important;
   padding: 6px !important;
   border: 1px solid var(--border) !important;
-  border-radius: var(--radius-lg) !important;
   background: color-mix(in srgb, var(--surface-1) 96%, transparent) !important;
-  box-shadow: var(--shadow-1);
   scrollbar-width: none;
   scroll-snap-type: x proximity;
 }
@@ -129,10 +123,5 @@
 @media (min-width: 721px) {
   .project-details-page {
     gap: 0 !important;
-    margin-top: 20px;
-  }
-
-  .project-details-hero {
-    min-height: 142px !important;
   }
 }

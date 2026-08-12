@@ -33,7 +33,6 @@
   height: 38px;
   place-items: center;
   border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
   color: var(--info-text);
   background: var(--accent-soft);
   font-size: var(--font-sm);
@@ -258,7 +257,6 @@
 .content {
   width: min(2440px, 100%);
   margin: 0 auto;
-  padding: 14px 32px 80px;
 }
 
 .content > *:first-child {
@@ -283,10 +281,6 @@
 
   .sidebar-theme-toggle button {
     font-size: var(--font-xs);
-  }
-
-  .content {
-    padding: 24px 18px 60px;
   }
 }
 

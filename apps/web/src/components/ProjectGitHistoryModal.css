@@ -16,9 +16,7 @@
   width: min(1320px, 100%);
   height: min(90vh, 960px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: var(--shadow-2);
   overflow: hidden;
 }
 
@@ -135,7 +133,6 @@
   margin-left: auto;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-2);
 }
 
@@ -229,7 +226,6 @@
   min-height: 0;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   overflow-y: auto;
 }
@@ -291,7 +287,6 @@
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
   overflow: hidden;
 }

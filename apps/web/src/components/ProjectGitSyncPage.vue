@@ -300,9 +300,7 @@ function statusIcon(tone: string) {
 .git-sync-card {
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
 }
 
 .git-sync-current-card {

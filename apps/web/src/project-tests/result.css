@@ -9,7 +9,6 @@
   gap: var(--space-3);
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
@@ -175,7 +174,6 @@
   align-content: start;
   padding: 13px 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 

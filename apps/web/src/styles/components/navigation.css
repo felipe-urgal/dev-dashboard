@@ -94,7 +94,6 @@
 .settings-panel {
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
 }
 
@@ -129,7 +128,6 @@
 .settings-row,
 .settings-row-group {
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-0);
 }
 
@@ -282,7 +280,6 @@
   margin: 16px 0 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-0);
 }
 
