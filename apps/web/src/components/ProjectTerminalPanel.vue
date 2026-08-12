@@ -340,6 +340,10 @@ onBeforeUnmount(() => {
 .terminal-panel {
   display: grid;
   gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .terminal-empty,
@@ -405,11 +409,12 @@ onBeforeUnmount(() => {
 .terminal-window {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   width: 100%;
   height: calc(100dvh - 250px);
   min-width: 0;
   min-height: 320px;
-  max-width: 100%;
+  max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
   max-height: none;
   background: #10131c;
   border: 1px solid #262c40;
