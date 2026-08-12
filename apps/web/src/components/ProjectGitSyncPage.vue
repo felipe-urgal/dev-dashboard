@@ -293,6 +293,8 @@ function statusIcon(tone: string) {
 <style scoped>
 .git-sync-page {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   min-width: 0;
   gap: var(--space-4);
 }
@@ -309,11 +311,11 @@ function statusIcon(tone: string) {
 
 .git-sync-main-row {
   display: flex;
-  min-height: 180px;
+  min-height: 132px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .git-sync-relationship {
