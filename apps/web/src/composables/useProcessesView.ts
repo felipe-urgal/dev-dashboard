@@ -267,12 +267,15 @@ export function useProcessesView() {
       );
       if (!stillEligible) projectFilter.value = '';
     }
-    void loadProcesses();
   });
 
-  watch([projectFilter, kindFilter], () => {
-    void loadProcesses();
-  });
+  watch(
+    [workspaceFilter, projectFilter, kindFilter],
+    () => {
+      void loadProcesses();
+    },
+    { flush: 'post' },
+  );
 
   onMounted(async () => {
     await loadReferenceData();
