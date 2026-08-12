@@ -17,16 +17,6 @@ const environment = useProjectEnvironmentVariables(() => props.project);
     class="project-environment-panel"
     :aria-busy="environment.loading.value"
   >
-    <header class="project-environment-header">
-      <span class="project-environment-breadcrumb">Projeto / Ambiente</span>
-      <h2>Variáveis de ambiente</h2>
-      <p>
-        Consulte as variáveis detectadas nos arquivos <code>.env</code> do
-        projeto. Valores marcados como segredo ficam ocultos até você optar por
-        exibi-los.
-      </p>
-    </header>
-
     <p
       v-if="environment.errorMessage.value"
       class="alert alert-error"
@@ -140,7 +130,7 @@ const environment = useProjectEnvironmentVariables(() => props.project);
 .project-environment-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 .project-environment-header {
