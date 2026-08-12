@@ -60,7 +60,7 @@ describe('ProjectCard', () => {
     expect(wrapper.find('.project-remove-button').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Abrir');
     expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
-      'Em execução',
+      'Parado',
     );
     expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(
       1,
