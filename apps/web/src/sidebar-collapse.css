@@ -30,7 +30,8 @@
 
 @media (min-width: 901px) {
   .app-shell-sidebar-collapsed {
-    grid-template-columns: 72px minmax(0, 1fr);
+    --app-sidebar-width: 72px;
+    grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
   }
 
   .sidebar-collapsed {
@@ -104,5 +105,12 @@
 
   .sidebar-collapsed .connection-dot {
     margin-top: 0;
+  }
+}
+
+
+@media (max-width: 900px) {
+  .app-shell {
+    --app-sidebar-width: 0px;
   }
 }
