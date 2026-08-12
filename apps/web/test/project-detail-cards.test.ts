@@ -211,9 +211,7 @@ describe('cards dos painéis de detalhe', () => {
       'Commit',
       'Desfazer',
       'Pull Request',
-      'Code review IA',
       'Histórico',
-      'Mutações',
     ]);
     expect(wrapper.find('.git-subtabs').text()).not.toContain('Resumo');
     expect(wrapper.find('.git-subtabs button')?.text()).toContain(
