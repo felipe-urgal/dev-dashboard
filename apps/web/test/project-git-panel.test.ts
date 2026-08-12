@@ -470,8 +470,6 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
   );
 });
 
-
-
 test('lista branches locais e origin sem expor ações de sincronização', async () => {
   const mounted = await mountPanel({
     workspace: {

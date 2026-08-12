@@ -134,7 +134,6 @@ onMounted(() => {
       <div class="sidebar-tools">
         <VisualPreferences />
       </div>
-
     </aside>
 
     <main class="main-content">
