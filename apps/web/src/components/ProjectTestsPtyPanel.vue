@@ -265,12 +265,19 @@ watch(
   width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
   border: 1px solid #262c40;
-  border-radius: var(--radius-sm);
   padding: 16px 18px;
   overflow: hidden;
 }
 
 .tests-pty-terminal :global(.xterm) {
   padding-inline: 10px;
+}
+
+.tests-pty-terminal :global(.xterm-viewport) {
+  scrollbar-width: none;
+}
+
+.tests-pty-terminal :global(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
 }
 </style>
