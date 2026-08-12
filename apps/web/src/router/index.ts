@@ -56,11 +56,6 @@ export const router = createRouter({
       component: ProjectDetailsView,
     },
     {
-      path: '/projects/:projectId/ai-assistant',
-      name: 'project-ai-assistant',
-      component: ProjectDetailsView,
-    },
-    {
       path: '/projects/:projectId/tests',
       name: 'project-tests',
       component: ProjectDetailsView,

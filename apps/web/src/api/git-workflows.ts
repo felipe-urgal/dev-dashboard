@@ -8,6 +8,7 @@ import type {
   GitPullRequestReviewFileDiff,
   GitPullRequestReviewFiles,
   GitPullRequestUrl,
+  ProjectAiStatus,
 } from '@dev-dashboard/contracts';
 
 import { requestJson } from './core';
@@ -191,6 +192,19 @@ export async function composeProjectGitPullRequest(
     },
   );
   return response.pullRequest;
+}
+
+/**
+ * Status mínimo do provider local (Ollama) usado só pela Code review para
+ * habilitar o botão "Iniciar revisão" e alimentar o seletor de modelo — não
+ * há mais seleção de provider nem consentimento cloud.
+ */
+export async function getProjectGitPullRequestAiStatus(
+  projectId: string,
+): Promise<ProjectAiStatus> {
+  return requestJson<ProjectAiStatus>(
+    `/api/projects/${encodeURIComponent(projectId)}/git/pull-request/ai-status`,
+  );
 }
 
 export async function startProjectGitPullRequestAiReview(

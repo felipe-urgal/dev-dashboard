@@ -228,7 +228,6 @@ Diagnóstico
 Servidor
 Logs
 Git
-Assistente IA
 Testes
 Banco de dados
 Dependências
@@ -242,8 +241,10 @@ Variáveis de ambiente
 As abas disponíveis dependem das capacidades detectadas: **Banco de dados** só quando o projeto
 tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockfile Node e build),
 **Console** e **Sidekiq/webpack** só para projetos Rails/Node conforme o tipo. Uma IDE embutida com
-Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262;
-**Assistente IA** é o painel de IA local via Ollama que restou, independente de editor/LSP.
+Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262. A
+aba própria **Assistente IA** (chat/implementação via IA local) existiu depois disso como painel
+independente de editor/LSP e foi removida na task 236; a única capacidade de IA que resta no
+produto é a Code review dentro da aba **Git**, fixa no Ollama local.
 
 ### Visão geral
 

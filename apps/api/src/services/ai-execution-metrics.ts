@@ -14,7 +14,7 @@ export interface AiExecutionMetricsLogger {
 }
 
 export interface AiExecutionTerminalMetrics {
-  executionKind: 'implementation' | 'code-review';
+  executionKind: 'code-review';
   executionId: string;
   projectId: string;
   provider: AiProviderId;

@@ -1,5 +1,9 @@
 # Plano de execução — IA multi-provider
 
+> **2026-08-12:** a arquitetura multi-provider criada por este roadmap foi
+> removida — ver [`236-remover-assistente-ia.md`](236-remover-assistente-ia.md).
+> Documento mantido como registro histórico.
+
 Este arquivo registra o roadmap histórico que criou a arquitetura multi-provider descrita em [`docs/architecture/ai-multi-provider.md`](../docs/architecture/ai-multi-provider.md).
 
 O checklist atual de fechamento está em [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md).

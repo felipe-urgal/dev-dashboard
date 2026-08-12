@@ -8,12 +8,20 @@
 > (`ProjectEmbeddedEditor.vue`, `apps/web/src/language-server/`,
 > `apps/api/src/routes/project-editor.ts`, a rota `/projects/:projectId/editor`
 > e o contrato `packages/contracts/src/editor.ts`) não existe mais no
-> repositório. O assistente de IA local via Ollama descrito aqui **continua
-> existindo**, mas como painel próprio e independente — ver aba **Assistente
-> IA** em [`docs/guia/assistente-ia.md`](../guia/assistente-ia.md) — sem
-> depender de Monaco, arquivos abertos ou LSP. Este documento fica mantido
-> como registro histórico da decisão de arquitetura; não descreve o estado
-> atual do produto.
+> repositório. O assistente de IA local via Ollama descrito aqui (chat,
+> compleção inline, catálogo de ferramentas, `propose_workspace_edit`) também
+> foi removido — junto com a aba própria **Assistente IA** e toda a
+> infraestrutura de seleção de provider/consentimento cloud — na remoção do
+> Assistente IA (ver `tasks/236-remover-assistente-ia.md`). A única
+> capacidade de IA que resta no produto é a Code review dentro da aba **Git**,
+> que usa um `AiAssistantService` simplificado, fixo no Ollama local, sem
+> seleção de provider, sem consentimento cloud e sem o catálogo de ferramentas
+> descrito abaixo (`AiOrchestrator`, tools de leitura/busca/diff/workspace
+> edit não existem mais). `ProjectWorkspaceEditService` e
+> `ProjectLanguageServerService` continuam existindo, mas hoje servem outras
+> rotas (`project-workspace-edits.ts`, `project-language-server.ts`), não a
+> IA. Este documento fica mantido como registro histórico da decisão de
+> arquitetura; não descreve o estado atual do produto.
 
 Implementada nas tasks 076–083: fundação Monaco somente leitura (076),
 escrita segura com preview/rollback (077), LSP JavaScript/TypeScript (078),

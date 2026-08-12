@@ -1,92 +1,66 @@
 # Próxima atividade
 
-**Concluído em sessões recentes**, tudo em [`234-unificar-execucoes-em-terminal.md`](234-unificar-execucoes-em-terminal.md):
+**Concluído nesta sessão**, detalhado em
+[`236-remover-assistente-ia.md`](236-remover-assistente-ia.md):
 
-PR #299:
+Remoção completa da aba **Assistente IA** (chat, compleção inline,
+implementação via prompt, catálogo de ferramentas, instalação de modelo) e de
+toda a infraestrutura de seleção multi-provider/consentimento cloud
+(`AiProviderResolver`, `OpenAiProvider`, `ProjectAiConsentRepository`,
+`ProjectAiSelectionRepository`, rotas `/ai/*` e `/ai/providers/*`) — decisão
+explícita do usuário entre três opções apresentadas. A **Code review** dentro
+da aba **Git** foi mantida, simplificada para usar sempre um provider Ollama
+local fixo, sem seleção de provider, sem modo configurável pelo usuário e sem
+consentimento cloud; ganhou um endpoint próprio e mínimo,
+`GET /projects/:id/git/pull-request/ai-status`, só para popular o seletor de
+modelo e o gate do botão "Iniciar revisão".
 
-1. Logs de servidor e workers Rails (Sidekiq/webpack) trocaram de polling para push via SSE.
-2. Item 0 (pré-requisito do resto do desenho): `DetachableExecutionService`
-   (`apps/api/src/services/detachable-execution-service.ts`) — roda um comando num PTY sem matar o
-   processo ao desconectar, com buffer de saída e reanexação.
-3. Item 1 (PoC de testes), **escopo reduzido para "suíte completa" apenas** — decisão tomada
-   depois de investigar o modelo real de execução de testes (mais complexo do que o desenho
-   original assumia: três formas de disparo, cada uma com resolução própria e acoplada ao formato
-   de `ManagedProcess`). `ProjectTestsPanel.vue` agora roda a suíte completa num terminal PTY
-   destacável (`ProjectTestsPtyPanel.vue` + `ProjectTestPtyService`); arquivo específico, testes
-   relacionados, histórico e Diagnóstico especializado **saíram do ar temporariamente** (código
-   antigo preservado como referência, não deletado — ver `docs/guia/testes.md`).
+Isso fecha, por decisão explícita do usuário (não pelo roadmap P1/P2 que
+`AI-MULTI-PROVIDER-FINALIZATION.md` deixava em aberto), toda a linha de
+trabalho da IA multi-provider — os follow-ups P1 registrados nas sessões
+anteriores (fallback `offer` na Code Review, evolução da descoberta de
+modelos OpenAI) não se aplicam mais: não há mais segundo provider.
 
-PR #301:
+Suíte: `apps/api` 100% verde. `apps/web` tem 9 falhas em arquivos de teste que
+esta sessão não tocou (`project-card`, `project-detail-cards`,
+`project-scripts-panel`, `scripts-explorer-redesign`,
+`global-accessibility-guard`, `log-export-panels`) e cuja causa raiz (ENOENT
+para um componente já removido em #304) não tem relação com IA — ver
+"Regressão pré-existente" abaixo. Todas as falhas que esta remoção de fato
+introduziu (nos testes de `ProjectGitCodeReviewPage`/`project-git-panel`, pela
+troca de `/ai/providers` por `/git/pull-request/ai-status`) foram corrigidas.
+Gate local (`typecheck`, `lint`, `format`, `build`, `docs:api:check`) verde.
 
-4. Item 2 (Migration Rails) — `RailsMigrationPtyService` +
-   `apps/api/src/routes/rails/migration-pty-routes.ts`, reaproveitando o padrão do item 1 (mesmo
-   `DetachableExecutionService`, agora com um composable compartilhado `usePtyTerminalSocket.ts`
-   extraído da lógica de WS+xterm que estava duplicada). **Diferente de Testes: o fluxo antigo
-   (confirmação por token + `execFile` bloqueante) foi removido por completo, não preservado como
-   referência** — decisão explícita do usuário. Corrigido no caminho: a saída do PTY não passava
-   pela máscara de segredos que o resto do dashboard usa — corrigido uma vez em
-   `DetachableExecutionService`, cobrindo Testes e Migration automaticamente. Também corrigido: a
-   UI de Testes não tinha como cancelar uma execução travada depois de um erro no meio do caminho.
-5. Item 3 (Dependências/Build) — `ProjectDependenciesPtyService` +
-   `apps/api/src/routes/dependencies-pty-routes.ts`, terceiro consumidor do mesmo
-   `DetachableExecutionService`/`usePtyTerminalSocket.ts`. Mapeamento prévio corrigiu a suposição
-   da task original (`useProjectDatabaseOverview.ts` não tem relação — a UI real é
-   `ProjectDependenciesPanel.vue`) e mostrou que este era o candidato de maior ganho líquido dos
-   três (saída de build potencialmente longa/colorida, custo de infraestrutura já pago). **Mesma
-   decisão de Migration: fluxo antigo removido por completo**, incluindo o histórico de execuções
-   recentes e o Diagnóstico especializado do painel, que não têm equivalente no modelo PTY.
+## Regressão pré-existente descoberta durante esta sessão (não corrigida aqui)
 
-Suíte completa verde: `apps/api` 741/741, `apps/web` 393/393. Gate local (`typecheck`, `lint`,
-`format:check`, `build`, `docs:api:check`) verde.
+`npm test --workspace=@dev-dashboard/web` tem 9 testes falhando, todos
+relacionados ao catálogo de scripts e a um teste de `ProjectCard`,
+**nenhum relacionado a IA**:
 
-Próximos passos possíveis, nenhum obrigatório: repor file/related/Diagnóstico de Testes sobre o
-modelo novo; ou item 4 (consolidação, remover SSE de `script-execution/*` para os fluxos que já
-migraram — Scripts genérico continua nele) quando/se fizer sentido.
-Também em aberto (não é bug novo, é um padrão pré-existente em todo o app, registrado em
-`tasks/PENDENCIAS.md`): o polling de status de Server/Sidekiq/Webpack continua no mesmo intervalo
-fixo mesmo com o processo parado, em vez de desacelerar. O usuário pausou os follow-ups da IA
-multi-provider pra focar nessa frente — retomar quando quiser (seção abaixo).
+- `test/scripts-explorer-redesign.test.ts` (2 casos) e parte de
+  `test/project-scripts-panel.test.ts`/`test/project-detail-cards.test.ts`
+  falham com `ENOENT` procurando
+  `apps/web/src/components/ProjectScriptCatalogCard.vue` — arquivo removido
+  pelo PR #304 ("Remove Catálogo de scripts"), mas os testes que o referenciam
+  não foram atualizados/removidos junto.
+- `test/project-card.test.ts` espera status "Em execução" e recebe "Parado" —
+  parece descolado de uma mudança recente no componente ou na fixture, sem
+  relação com scripts.
+- `test/log-export-panels.test.ts` e `test/global-accessibility-guard.test.ts`
+  têm falhas na mesma leva, a investigar se são a mesma causa raiz do catálogo
+  de scripts ou independentes.
 
-O fechamento técnico da IA multi-provider (P0) está consolidado em `main` desde o **PR #295**,
-seguindo [`AI-MULTI-PROVIDER-FINALIZATION.md`](AI-MULTI-PROVIDER-FINALIZATION.md). Não há
-bloqueador conhecido pendente para os dois providers atuais (Ollama + OpenAI).
+Fora de escopo desta entrega (é uma regressão de #304, não desta remoção de
+IA) — mas é o candidato natural para a próxima sessão: investigar #304,
+decidir se o teste deve ser deletado (o componente foi removido de propósito)
+ou se o catálogo de scripts deveria continuar existindo e a remoção foi
+incompleta.
 
-## Estado atual
+## Também em aberto (não é bug novo)
 
-Todos os P0 do checklist estão concluídos e mergeados. Dos follow-ups P1 não bloqueantes, seis dos
-oito já foram fechados — só restam os itens 8 e 10 (ver "Próximos follow-ups" abaixo):
-
-- **item 12** (persistência local) — fault injection de `writeFile`/`rename` e teste visual de
-  falha de consentimento (PR #296).
-- **item 11** (provider Ollama) — matriz de regressão ampliada: offline, zero modelos, modelo
-  removido em uso, NDJSON incompleto, cancelamento de download (PR #297).
-- **item 9** (observabilidade) — novo `apps/api/src/services/ai-execution-metrics.ts`: uma métrica
-  estruturada (`executionKind`, `executionId`, `projectId`, `provider`, `mode`, `status`,
-  `durationMs`, `errorCode` quando houver) é registrada exatamente uma vez, quando uma execution de
-  implementation ou Code Review chega a um estado terminal — nunca prompt, diff, resumo ou achado
-  (PR #297).
-- **itens 13/14** (budgets fast/complete e tool calling) — stress tests dos quatro limites do modo
-  `fast` do orquestrador: truncamento de tool result grande, corte por contexto acumulado, recusa
-  de chamada repetida além do limite, e encerramento previsível ao esgotar os rounds sem
-  convergência (PR #297).
-
-Também no PR #296/#297, fora do checklist de fechamento multi-provider (pedido direto do usuário):
-a Code Review IA ganhou comentários inline no diff (estilo GitHub) e um toggle **Diff / Arquivo
-completo** por arquivo — este último busca o conteúdo atual via `GET /projects/:id/files/content`
-(rota já existente) e destaca as linhas alteradas, com fallback para o Diff quando o arquivo não
-pode ser lido.
-
-Suíte completa verde no PR #297: `apps/api` 696/696, `apps/web` 389/389. Gate local (`typecheck`,
-`lint`, `format:check`, `build`, `docs:api:check`) verde.
-
-## Próximos follow-ups não bloqueantes (ordem sugerida)
-
-Nenhum deles bloqueia uso do multi-provider atual; escolher pela próxima sessão:
-
-1. **UX de fallback `offer` na Code Review** (item 8) — requer desenho explícito que evite revisão
-   dupla/custo inesperado.
-2. **Evolução da descoberta de modelos da OpenAI** (item 10) quando a API mudar; hoje o backend já
-   rejeita qualquer modelo fora do catálogo retornado pelo provider.
-
-P2 continua deliberadamente adiado: terceiro provider, `ProviderRegistry` dinâmico, fallback
-automático e abstrações adicionais sem necessidade concreta.
+Registrado em `tasks/PENDENCIAS.md`: `useProjectProcessStatus.ts` (servidor) e
+`useProjectRailsWorker.ts` (Sidekiq/webpack) fazem polling a cada 5s
+indefinidamente, mesmo com o processo parado há horas, sem desacelerar.
+Padrão consistente nos dois lugares — mudar só um painel criaria
+inconsistência com o outro; mudar os dois é escopo maior que uma correção
+pontual. Retomar quando fizer sentido.

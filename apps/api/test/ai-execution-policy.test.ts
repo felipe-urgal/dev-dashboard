@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type {
-  AiChatStreamEvent,
-  AiExecutionMode,
-  Project,
-} from '@dev-dashboard/contracts';
+import type { AiExecutionMode, Project } from '@dev-dashboard/contracts';
 
-import { AiAssistantService } from '../src/services/ai-assistant-service.js';
+import type { AiAssistantService } from '../src/services/ai-assistant-service.js';
 import {
   AI_EXECUTION_POLICIES,
   DEFAULT_AI_EXECUTION_MODE,
 } from '../src/services/ai-execution-policy.js';
-import type { AiProvider } from '../src/services/ai-provider.js';
 import { GitAiCodeReviewService } from '../src/services/git-ai-code-review-service.js';
 
 function project(id = 'project-1'): Project {
@@ -26,56 +21,6 @@ function project(id = 'project-1'): Project {
     enabled: true,
     capabilities: [],
   };
-}
-
-function toolLoopProvider(repeated = false): {
-  provider: AiProvider;
-  rounds: () => number;
-} {
-  let roundCount = 0;
-  return {
-    rounds: () => roundCount,
-    provider: {
-      status: async () => ({ available: true, models: [], message: 'ok' }),
-      chatRound: async () => {
-        roundCount += 1;
-        return {
-          content: '',
-          toolCalls: [
-            {
-              name: 'read_project_file',
-              arguments: {
-                path: repeated ? 'missing.ts' : `missing-${roundCount}.ts`,
-              },
-            },
-          ],
-        };
-      },
-      complete: async () => ({ text: '' }),
-    },
-  };
-}
-
-async function runToolLoop(
-  mode?: AiExecutionMode,
-  repeated = false,
-): Promise<{ rounds: number; events: AiChatStreamEvent[] }> {
-  const fake = toolLoopProvider(repeated);
-  const service = new AiAssistantService({ provider: fake.provider });
-  const events: AiChatStreamEvent[] = [];
-
-  await service.chat(
-    project(),
-    'modelo-teste',
-    [{ role: 'user', content: 'Analise o projeto.' }],
-    {
-      signal: new AbortController().signal,
-      send: (event) => events.push(event),
-    },
-    mode,
-  );
-
-  return { rounds: fake.rounds(), events };
 }
 
 async function waitForReview(
@@ -115,37 +60,6 @@ test('fast preserva os budgets atuais e complete aumenta a profundidade', () => 
       AI_EXECUTION_POLICIES.fast.maxContextFiles,
   );
   assert.equal(AI_EXECUTION_POLICIES.complete.runGlobalSynthesis, true);
-});
-
-test('fast mantém limite de quatro rodadas do assistente', async () => {
-  const result = await runToolLoop();
-
-  assert.equal(result.rounds, 4);
-  const error = result.events.find((event) => event.type === 'error');
-  assert.ok(error);
-  assert.match(error.message, /encadeou ferramentas demais/);
-});
-
-test('complete permite mais rodadas sem remover o limite', async () => {
-  const result = await runToolLoop('complete');
-
-  assert.equal(result.rounds, 10);
-  const error = result.events.find((event) => event.type === 'error');
-  assert.ok(error);
-  assert.match(error.message, /encadeou ferramentas demais/);
-});
-
-test('tool call idêntica repetida é interrompida antes de formar loop', async () => {
-  const result = await runToolLoop('complete', true);
-
-  assert.equal(result.rounds, 3);
-  assert.equal(
-    result.events.filter((event) => event.type === 'tool-call').length,
-    2,
-  );
-  const error = result.events.find((event) => event.type === 'error');
-  assert.ok(error);
-  assert.match(error.message, /mesmos argumentos sem progresso/);
 });
 
 test('code review usa maxDiffChars da policy selecionada', async () => {

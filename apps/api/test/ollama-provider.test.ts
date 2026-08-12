@@ -3,8 +3,6 @@ import test from 'node:test';
 
 import { LOG_MASK } from '@dev-dashboard/process-manager';
 
-import type { AiModelPullStreamEvent } from '@dev-dashboard/contracts';
-
 import type { AiProviderToolDefinition } from '../src/services/ai-provider.js';
 import { OllamaProvider } from '../src/services/ollama-provider.js';
 
@@ -261,38 +259,4 @@ test('chatRound rejeita quando o NDJSON do Ollama chega incompleto', async () =>
     provider.chatRound('qwen2.5-coder:7b', messages, options()),
     /não pôde ser interpretad[oa]/,
   );
-});
-
-test('cancela a instalação de um modelo em download longo sem lançar erro', async () => {
-  const events: AiModelPullStreamEvent[] = [];
-  const fetchImpl: typeof fetch = async (_input, init) => {
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(
-          encoder.encode(
-            `${JSON.stringify({ status: 'baixando modelo', completed: 1, total: 100 })}\n`,
-          ),
-        );
-        init?.signal?.addEventListener('abort', () => {
-          controller.error(new DOMException('Aborted', 'AbortError'));
-        });
-      },
-    });
-    return new Response(stream, { status: 200 });
-  };
-
-  const provider = new OllamaProvider({ fetchImpl });
-  const controller = new AbortController();
-
-  const install = provider.installModel('qwen2.5-coder:7b', {
-    send: (event) => events.push(event),
-    signal: controller.signal,
-  });
-
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  controller.abort();
-
-  await assert.doesNotReject(install);
-  assert.ok(events.some((event) => event.type === 'progress'));
-  assert.ok(!events.some((event) => event.type === 'done'));
 });

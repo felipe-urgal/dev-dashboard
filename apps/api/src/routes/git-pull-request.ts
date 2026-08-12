@@ -9,6 +9,7 @@ import {
   commonErrorResponseSchemas,
   gitPullRequestUrlResponseSchema,
 } from '../http/response-schemas.js';
+import type { AiAssistantService } from '../services/ai-assistant-service.js';
 import { GitAiCodeReviewService } from '../services/git-ai-code-review-service.js';
 import {
   GitPullRequestError,
@@ -53,6 +54,7 @@ interface PullRequestAiReviewExecutionParams extends ProjectParams {
 interface GitPullRequestRouteOptions extends FastifyPluginOptions {
   projectStore: ProjectStore;
   gitAiCodeReviewService: GitAiCodeReviewService;
+  aiAssistantService: AiAssistantService;
 }
 
 const projectParamsSchema = {
@@ -111,6 +113,41 @@ const pullRequestAiReviewExecutionBodySchema = {
       items: { type: 'string', minLength: 1, maxLength: 1_000 },
     },
     concurrency: { type: 'integer', enum: [1, 2] },
+  },
+} as const;
+
+/**
+ * Status mínimo do provider local (Ollama) usado só para a Code review
+ * escolher um modelo e habilitar o botão "Iniciar revisão" — não existe mais
+ * seleção de provider nem consentimento cloud (removidos com o Assistente IA).
+ */
+const pullRequestAiStatusSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['available', 'models', 'message'],
+  properties: {
+    available: { type: 'boolean' },
+    baseUrl: { type: 'string' },
+    message: { type: 'string' },
+    errorCode: { type: 'string' },
+    models: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'capabilities'],
+        properties: {
+          name: { type: 'string' },
+          capabilities: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['chat', 'tools', 'fill-in-the-middle'],
+            },
+          },
+        },
+      },
+    },
   },
 } as const;
 
@@ -397,6 +434,23 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       existing: await statusService.enrich(project.path, lookup.existing),
     };
   }
+
+  app.get<{ Params: ProjectParams }>(
+    '/projects/:projectId/git/pull-request/ai-status',
+    {
+      schema: {
+        params: projectParamsSchema,
+        response: {
+          200: pullRequestAiStatusSchema,
+          ...commonErrorResponseSchemas,
+        },
+      },
+    },
+    async (request) => {
+      projectFor(request.params.projectId);
+      return options.aiAssistantService.status();
+    },
+  );
 
   app.get<{ Params: ProjectParams }>(
     '/projects/:projectId/git/pull-request-url',

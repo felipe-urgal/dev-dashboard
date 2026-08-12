@@ -1,17 +1,10 @@
-import type {
-  AiCompletionResult,
-  AiErrorCode,
-  AiModelPullStreamEvent,
-  ProjectAiStatus,
-} from '@dev-dashboard/contracts';
+import type { AiErrorCode, ProjectAiStatus } from '@dev-dashboard/contracts';
 
 export type AiProviderStatus = ProjectAiStatus;
 
 export type AiProviderErrorCode = Exclude<
   AiErrorCode,
-  | 'AI_ASSISTANT_INVALID_REQUEST'
-  | 'AI_CLOUD_CONSENT_REQUIRED'
-  | 'AI_MODEL_UNAVAILABLE'
+  'AI_ASSISTANT_INVALID_REQUEST'
 >;
 
 export class AiProviderError extends Error {
@@ -57,22 +50,14 @@ export interface AiProviderChatRoundResult {
   toolCalls: AiProviderToolCall[];
 }
 
-export interface AiProviderCompletionOptions {
-  signal: AbortSignal;
-  timeoutMs: number;
-  maxOutputTokens: number;
-}
-
-export interface AiProviderModelInstallHandlers {
-  send: (event: AiModelPullStreamEvent) => void;
-  signal: AbortSignal;
-}
-
 /**
  * Boundary mínimo entre o domínio do dev-dashboard e um motor de IA.
  *
  * O provider conhece autenticação/transporte/payload do fornecedor. Ele não
- * conhece projeto, filesystem, Git, LSP, workspace edit nem aprovação.
+ * conhece projeto, filesystem, Git, LSP, workspace edit nem aprovação. Desde
+ * a remoção do Assistente IA só a Code review usa este boundary — apenas
+ * `status`/`chatRound` seguem em uso; compleção inline e instalação de
+ * modelo eram exclusivas do Assistente IA e foram removidas.
  */
 export interface AiProvider {
   status(): Promise<AiProviderStatus>;
@@ -82,16 +67,4 @@ export interface AiProvider {
     messages: readonly AiProviderMessage[],
     options: AiProviderChatRoundOptions,
   ): Promise<AiProviderChatRoundResult>;
-
-  complete(
-    model: string,
-    prefix: string,
-    suffix: string,
-    options: AiProviderCompletionOptions,
-  ): Promise<AiCompletionResult>;
-
-  installModel?(
-    model: string,
-    handlers: AiProviderModelInstallHandlers,
-  ): Promise<void>;
 }

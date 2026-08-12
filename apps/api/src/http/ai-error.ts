@@ -2,15 +2,12 @@ import type { AiErrorCode } from '@dev-dashboard/contracts';
 
 import { AiAssistantError } from '../services/ai-assistant-service.js';
 import { AiProviderError } from '../services/ai-provider.js';
-import { AiProviderResolutionError } from '../services/ai-provider-resolver.js';
 import { ApiError } from './api-error.js';
 import { apiErrorResponseSchema } from './response-schemas/common.js';
 
 const STATUS_BY_AI_ERROR: Record<AiErrorCode, number> = {
   AI_ASSISTANT_INVALID_REQUEST: 400,
-  AI_CLOUD_CONSENT_REQUIRED: 409,
   AI_PROVIDER_UNAVAILABLE: 503,
-  AI_MODEL_UNAVAILABLE: 422,
   AI_PROVIDER_AUTH_FAILED: 502,
   AI_PROVIDER_QUOTA_EXCEEDED: 429,
   AI_PROVIDER_RATE_LIMITED: 429,
@@ -30,11 +27,7 @@ export const aiProviderErrorResponseSchemas = {
 } as const;
 
 export function aiErrorCode(error: unknown): AiErrorCode | undefined {
-  if (
-    error instanceof AiProviderResolutionError ||
-    error instanceof AiProviderError ||
-    error instanceof AiAssistantError
-  ) {
+  if (error instanceof AiProviderError || error instanceof AiAssistantError) {
     return error.code;
   }
   return undefined;

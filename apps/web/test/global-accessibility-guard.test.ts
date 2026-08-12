@@ -138,9 +138,7 @@ test('resultados, refresh e tabelas mantêm anúncios e nomes acessíveis', asyn
     );
     assert.match(
       settings,
-      new RegExp(
-        `aria-describedby="${input}-description ${input}-limits"`,
-      ),
+      new RegExp(`aria-describedby="${input}-description ${input}-limits"`),
       `${input} deve possuir descrição e limites associados.`,
     );
   }

@@ -4,14 +4,10 @@ import test from 'node:test';
 import { buildApp } from '../src/app.js';
 import { createAppContext } from '../src/app-context.js';
 
-test('shutdown da API fecha implementation e Code Review de IA', async () => {
+test('shutdown da API fecha o Code Review de IA', async () => {
   const context = createAppContext();
-  let implementationCloseCalls = 0;
   let codeReviewCloseCalls = 0;
 
-  context.aiImplementationExecutionService.close = () => {
-    implementationCloseCalls += 1;
-  };
   context.gitAiCodeReviewService.close = () => {
     codeReviewCloseCalls += 1;
   };
@@ -24,6 +20,5 @@ test('shutdown da API fecha implementation e Code Review de IA', async () => {
   await app.ready();
   await app.close();
 
-  assert.equal(implementationCloseCalls, 1);
   assert.equal(codeReviewCloseCalls, 1);
 });

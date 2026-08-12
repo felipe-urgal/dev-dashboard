@@ -93,22 +93,11 @@ function mountPage(
     const url = new URL(String(input), 'http://localhost');
     const handled = await handler(url.pathname, init?.method ?? 'GET');
     if (handled) return handled;
-    if (url.pathname.endsWith('/ai/providers')) {
+    if (url.pathname.endsWith('/pull-request/ai-status')) {
       return jsonResponse({
-        selectedProvider: 'ollama',
-        selectedMode: 'fast',
-        providers: [
-          {
-            id: 'ollama',
-            label: 'Local',
-            kind: 'local',
-            available: true,
-            message: 'Ollama disponível.',
-            models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
-            consentRequired: false,
-            consentGranted: true,
-          },
-        ],
+        available: true,
+        message: 'Ollama disponível.',
+        models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
       });
     }
     if (url.pathname.endsWith('/ai-review-executions/latest')) {

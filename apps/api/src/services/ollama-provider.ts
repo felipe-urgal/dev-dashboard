@@ -1,11 +1,8 @@
 import type {
   AiCapability,
-  AiCompletionResult,
   AiModelInfo,
-  AiRecommendedModelName,
   ProjectAiStatus,
 } from '@dev-dashboard/contracts';
-import { AI_RECOMMENDED_MODELS } from '@dev-dashboard/contracts';
 
 import { createAiOutboundProtectionFetch } from './ai-outbound-protection-fetch.js';
 import {
@@ -13,9 +10,7 @@ import {
   type AiProvider,
   type AiProviderChatRoundOptions,
   type AiProviderChatRoundResult,
-  type AiProviderCompletionOptions,
   type AiProviderMessage,
-  type AiProviderModelInstallHandlers,
   type AiProviderToolCall,
   type AiProviderToolDefinition,
 } from './ai-provider.js';
@@ -24,7 +19,6 @@ const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const STATUS_TIMEOUT_MS = 5_000;
 const MAX_MODELS_INSPECTED = 20;
-const MODEL_PULL_TIMEOUT_MS = 60 * 60 * 1_000;
 
 type LeakedToolCallMode = 'convert' | 'error';
 
@@ -37,21 +31,9 @@ interface OllamaChatChunk {
   done?: boolean;
 }
 
-interface OllamaModelPullChunk {
-  status?: string;
-  digest?: string;
-  total?: number;
-  completed?: number;
-  error?: string;
-}
-
 interface OllamaProviderOptions {
   fetchImpl?: typeof fetch;
   leakedToolCallMode?: LeakedToolCallMode;
-}
-
-function isRecommendedModel(value: string): value is AiRecommendedModelName {
-  return AI_RECOMMENDED_MODELS.some((model) => model.name === value);
 }
 
 function isAbortError(error: unknown): boolean {
@@ -366,182 +348,6 @@ export class OllamaProvider implements AiProvider {
     } finally {
       if (timeout) clearTimeout(timeout);
       options.signal.removeEventListener('abort', onAbort);
-    }
-  }
-
-  public async complete(
-    model: string,
-    prefix: string,
-    suffix: string,
-    options: AiProviderCompletionOptions,
-  ): Promise<AiCompletionResult> {
-    const baseUrl = resolveOllamaBaseUrl();
-    if (!baseUrl) {
-      throw new AiProviderError(
-        'AI_PROVIDER_UNAVAILABLE',
-        'O assistente de IA local está desabilitado neste ambiente.',
-      );
-    }
-
-    const timeoutController = new AbortController();
-    const timeout = setTimeout(
-      () => timeoutController.abort(),
-      options.timeoutMs,
-    );
-    const onAbort = (): void => timeoutController.abort();
-    options.signal.addEventListener('abort', onAbort);
-    try {
-      const response = await this.fetchImpl(`${baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          prompt: prefix,
-          ...(suffix ? { suffix } : {}),
-          stream: false,
-          options: { num_predict: options.maxOutputTokens },
-        }),
-        signal: timeoutController.signal,
-      });
-      if (!response.ok) {
-        throw providerRequestFailed(
-          `O Ollama respondeu com status ${response.status}.`,
-        );
-      }
-      let body: { response?: string };
-      try {
-        body = (await response.json()) as { response?: string };
-      } catch {
-        throw invalidResponse(
-          'O Ollama devolveu uma resposta de compleção inválida.',
-        );
-      }
-      if (typeof body.response !== 'string') {
-        throw invalidResponse(
-          'O Ollama devolveu uma resposta de compleção inválida.',
-        );
-      }
-      return { text: body.response };
-    } catch (error) {
-      if (options.signal.aborted) {
-        throw new AiProviderError(
-          'AI_REQUEST_CANCELLED',
-          'A solicitação ao provider local foi cancelada.',
-        );
-      }
-      if (isAbortError(error)) {
-        throw new AiProviderError(
-          'AI_PROVIDER_TIMEOUT',
-          `O provider local não respondeu em ${options.timeoutMs / 1_000} segundos.`,
-        );
-      }
-      if (error instanceof AiProviderError) throw error;
-      throw new AiProviderError(
-        'AI_PROVIDER_REQUEST_FAILED',
-        'Não foi possível concluir a requisição ao provider local.',
-        { cause: error },
-      );
-    } finally {
-      clearTimeout(timeout);
-      options.signal.removeEventListener('abort', onAbort);
-    }
-  }
-
-  public async installModel(
-    model: string,
-    handlers: AiProviderModelInstallHandlers,
-  ): Promise<void> {
-    const baseUrl = resolveOllamaBaseUrl();
-    if (!baseUrl) {
-      throw new AiProviderError(
-        'AI_PROVIDER_UNAVAILABLE',
-        'O provider local não está disponível para instalar modelos.',
-      );
-    }
-    if (!isRecommendedModel(model)) {
-      throw new AiProviderError(
-        'AI_PROVIDER_OPERATION_UNSUPPORTED',
-        'Este modelo não está disponível para instalação.',
-      );
-    }
-
-    const timeoutController = new AbortController();
-    const timeout = setTimeout(
-      () => timeoutController.abort(),
-      MODEL_PULL_TIMEOUT_MS,
-    );
-    const onAbort = (): void => timeoutController.abort();
-    handlers.signal.addEventListener('abort', onAbort);
-    try {
-      const response = await this.fetchImpl(`${baseUrl}/api/pull`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: model, stream: true }),
-        signal: timeoutController.signal,
-      });
-      if (!response.ok || !response.body) {
-        throw providerRequestFailed(
-          `O Ollama respondeu com status ${response.status} ao instalar o modelo.`,
-        );
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      const handleLine = (rawLine: string): void => {
-        const line = rawLine.trim();
-        if (!line) return;
-        let chunk: OllamaModelPullChunk;
-        try {
-          chunk = JSON.parse(line) as OllamaModelPullChunk;
-        } catch {
-          throw invalidResponse(
-            'O Ollama enviou um progresso de instalação inválido.',
-          );
-        }
-        if (chunk.error) throw providerRequestFailed(chunk.error);
-        handlers.send({
-          type: 'progress',
-          model,
-          status: chunk.status ?? 'Baixando modelo…',
-          ...(typeof chunk.completed === 'number'
-            ? { completed: chunk.completed }
-            : {}),
-          ...(typeof chunk.total === 'number' ? { total: chunk.total } : {}),
-        });
-      };
-
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let newlineIndex = buffer.indexOf('\n');
-        while (newlineIndex >= 0) {
-          handleLine(buffer.slice(0, newlineIndex));
-          buffer = buffer.slice(newlineIndex + 1);
-          newlineIndex = buffer.indexOf('\n');
-        }
-      }
-      buffer += decoder.decode();
-      if (buffer.trim()) handleLine(buffer);
-      if (!handlers.signal.aborted) handlers.send({ type: 'done', model });
-    } catch (error) {
-      if (handlers.signal.aborted) return;
-      if (isAbortError(error)) {
-        throw new AiProviderError(
-          'AI_PROVIDER_TIMEOUT',
-          'A instalação demorou demais para responder. Tente novamente.',
-        );
-      }
-      if (error instanceof AiProviderError) throw error;
-      throw new AiProviderError(
-        'AI_PROVIDER_REQUEST_FAILED',
-        'Não foi possível instalar o modelo no provider local.',
-        { cause: error },
-      );
-    } finally {
-      clearTimeout(timeout);
-      handlers.signal.removeEventListener('abort', onAbort);
     }
   }
 

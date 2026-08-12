@@ -6,7 +6,6 @@ import type { AiErrorCode } from '@dev-dashboard/contracts';
 import { aiApiError, aiErrorCode } from '../src/http/ai-error.js';
 import { AiAssistantError } from '../src/services/ai-assistant-service.js';
 import { AiProviderError } from '../src/services/ai-provider.js';
-import { AiProviderResolutionError } from '../src/services/ai-provider-resolver.js';
 
 const cases: Array<{
   code: AiErrorCode;
@@ -19,25 +18,9 @@ const cases: Array<{
     error: new AiAssistantError('Request inválido.'),
   },
   {
-    code: 'AI_CLOUD_CONSENT_REQUIRED',
-    statusCode: 409,
-    error: new AiProviderResolutionError(
-      'AI_CLOUD_CONSENT_REQUIRED',
-      'Consentimento necessário.',
-    ),
-  },
-  {
-    code: 'AI_MODEL_UNAVAILABLE',
-    statusCode: 422,
-    error: new AiProviderResolutionError(
-      'AI_MODEL_UNAVAILABLE',
-      'Modelo indisponível.',
-    ),
-  },
-  {
     code: 'AI_PROVIDER_UNAVAILABLE',
     statusCode: 503,
-    error: new AiProviderResolutionError(
+    error: new AiProviderError(
       'AI_PROVIDER_UNAVAILABLE',
       'Provider indisponível.',
     ),

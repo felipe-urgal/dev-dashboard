@@ -22,7 +22,7 @@ import type {
   GitPullRequestReviewFileDiff,
   GitPullRequestReviewFinding,
   GitPullRequestReviewFiles,
-  ProjectAiProvidersStatus,
+  ProjectAiStatus,
   ProjectFileContent,
   ProjectGitOverview,
   ProjectGitWorkspace,
@@ -30,9 +30,9 @@ import type {
 
 import {
   cancelProjectGitPullRequestAiReview,
-  fetchProjectAiProviders,
   fetchProjectFileContent,
   getLatestProjectGitPullRequestAiReview,
+  getProjectGitPullRequestAiStatus,
   getProjectGitPullRequestReviewFileDiff,
   getProjectGitPullRequestReviewFiles,
   startProjectGitPullRequestAiReview,
@@ -51,7 +51,7 @@ const props = defineProps<{
 
 const targetRemote = ref<GitPullRequestTargetRemote>('origin');
 const baseBranch = ref('main');
-const aiProvidersStatus = ref<ProjectAiProvidersStatus | null>(null);
+const aiStatus = ref<ProjectAiStatus | null>(null);
 const reviewModel = ref('');
 const concurrency = ref<1 | 2>(1);
 const selectedFiles = ref<string[]>([]);
@@ -117,33 +117,15 @@ const baseBranches = computed(() =>
   }),
 );
 
-const selectedProvider = computed(() => {
-  const status = aiProvidersStatus.value;
-  if (!status) return null;
-  return (
-    status.providers.find(
-      (provider) => provider.id === status.selectedProvider,
-    ) ?? null
-  );
-});
-const selectedProviderReady = computed(
-  () =>
-    Boolean(selectedProvider.value?.available) &&
-    (!selectedProvider.value?.consentRequired ||
-      Boolean(selectedProvider.value?.consentGranted)),
-);
-const selectedModeLabel = computed(() =>
-  aiProvidersStatus.value?.selectedMode === 'complete' ? 'Completo' : 'Rápido',
+const selectedProviderReady = computed(() =>
+  Boolean(aiStatus.value?.available),
 );
 const providerStatusMessage = computed(() => {
-  const provider = selectedProvider.value;
-  const status = aiProvidersStatus.value;
-  if (!provider || !status) return 'Verificando provider de IA…';
-  if (provider.consentRequired && !provider.consentGranted)
-    return `${provider.label} · autorização cloud necessária no Assistente IA.`;
-  if (!provider.available)
-    return `${provider.label} · ${provider.message || 'provider indisponível.'}`;
-  return `${provider.label} · modo ${selectedModeLabel.value}`;
+  const status = aiStatus.value;
+  if (!status) return 'Verificando o Ollama local…';
+  if (!status.available)
+    return `Ollama local · ${status.message || 'indisponível.'}`;
+  return 'Ollama local';
 });
 
 const isRunning = computed(
@@ -254,9 +236,9 @@ function fileStatusLabel(file: GitPullRequestAiReviewFileExecution): string {
 }
 
 function providerLabel(
-  provider: GitPullRequestAiReviewExecution['provider'],
+  _provider: GitPullRequestAiReviewExecution['provider'],
 ): string {
-  return provider === 'openai' ? 'OpenAI' : 'Local';
+  return 'Ollama local';
 }
 
 function executionModeLabel(
@@ -366,17 +348,14 @@ function setFileViewMode(mode: 'diff' | 'full'): void {
   }
 }
 
-async function loadAiProviders(): Promise<void> {
+async function loadAiStatus(): Promise<void> {
   try {
-    const status = await fetchProjectAiProviders(props.projectId);
-    aiProvidersStatus.value = status;
-    const provider = status.providers.find(
-      (candidate) => candidate.id === status.selectedProvider,
-    );
-    if (!provider?.models.some((model) => model.name === reviewModel.value))
-      reviewModel.value = provider?.models[0]?.name ?? '';
+    const status = await getProjectGitPullRequestAiStatus(props.projectId);
+    aiStatus.value = status;
+    if (!status.models.some((model) => model.name === reviewModel.value))
+      reviewModel.value = status.models[0]?.name ?? '';
   } catch {
-    aiProvidersStatus.value = null;
+    aiStatus.value = null;
     reviewModel.value = '';
   }
 }
@@ -435,7 +414,7 @@ function applyExecution(candidate: GitPullRequestAiReviewExecution): void {
       candidate.errorMessage ??
       'Não foi possível concluir o code review com IA.';
     stopRefreshing();
-    void loadAiProviders();
+    void loadAiStatus();
   } else if (candidate.status === 'cancelled') {
     errorMessage.value = '';
     stopRefreshing();
@@ -505,7 +484,7 @@ async function reviewChanges(paths = selectedFiles.value): Promise<void> {
       error instanceof Error
         ? error.message
         : 'Não foi possível iniciar o code review com IA.';
-    void loadAiProviders();
+    void loadAiStatus();
   } finally {
     reviewing.value = false;
   }
@@ -558,7 +537,7 @@ watch(
     reviewFiles.value = null;
     selectedFiles.value = [];
     errorMessage.value = '';
-    void loadAiProviders();
+    void loadAiStatus();
     void loadReviewFiles();
     void refreshExecution();
   },
@@ -630,11 +609,11 @@ onUnmounted(stopRefreshing);
           <option v-if="baseBranches.length === 0" value="main">main</option>
         </select>
       </label>
-      <label v-if="selectedProvider?.models.length">
+      <label v-if="aiStatus?.models.length">
         <span>Modelo</span>
         <select v-model="reviewModel" :disabled="isRunning">
           <option
-            v-for="model in selectedProvider.models"
+            v-for="model in aiStatus.models"
             :key="model.name"
             :value="model.name"
           >
@@ -642,7 +621,7 @@ onUnmounted(stopRefreshing);
           </option>
         </select>
       </label>
-      <label v-if="selectedProvider?.models.length">
+      <label v-if="aiStatus?.models.length">
         <span>Paralelismo</span>
         <select v-model="concurrency" :disabled="isRunning">
           <option :value="1">Econômico · 1 por vez</option>

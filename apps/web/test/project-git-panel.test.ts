@@ -249,30 +249,9 @@ function jsonResponse(payload: unknown, status = 200): Response {
 
 function localAiProvidersResponse(): Response {
   return jsonResponse({
-    selectedProvider: 'ollama',
-    selectedMode: 'fast',
-    providers: [
-      {
-        id: 'ollama',
-        label: 'Local',
-        kind: 'local',
-        available: true,
-        message: 'Ollama disponível.',
-        models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
-        consentRequired: false,
-        consentGranted: true,
-      },
-      {
-        id: 'openai',
-        label: 'OpenAI',
-        kind: 'cloud',
-        available: false,
-        message: 'OpenAI não configurado.',
-        models: [],
-        consentRequired: true,
-        consentGranted: false,
-      },
-    ],
+    available: true,
+    message: 'Ollama disponível.',
+    models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
   });
 }
 
@@ -475,7 +454,7 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
 test('separa o code review da Pull Request e mostra os arquivos e comentários da IA', async () => {
   const mounted = await mountPanel({
     handler: (request) => {
-      if (request.path.endsWith('/ai/providers')) {
+      if (request.path.endsWith('/pull-request/ai-status')) {
         return localAiProvidersResponse();
       }
       if (request.path.endsWith('/ai-review-executions/latest')) {
@@ -574,7 +553,7 @@ test('permite revisar alterações em uma branch local ainda não publicada', as
       ),
     },
     handler: (request) => {
-      if (request.path.endsWith('/ai/providers'))
+      if (request.path.endsWith('/pull-request/ai-status'))
         return localAiProvidersResponse();
       if (request.path.endsWith('/ai-review-executions/latest'))
         return jsonResponse({ execution: null });

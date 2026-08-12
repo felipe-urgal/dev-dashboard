@@ -1,23 +1,13 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { ShareIcon } from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute } from 'vue-router';
 
-import type {
-  AiImplementationExecution,
-  Project,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
-import {
-  fetchProjectAiImplementation,
-  fetchProjectDatabase,
-  fetchProjectGit,
-} from '../api';
-import ProjectAiAssistantPanel from '../components/ProjectAiAssistantPanel.vue';
-import ProjectAiExecutionPill from '../components/ProjectAiExecutionPill.vue';
+import { fetchProjectDatabase, fetchProjectGit } from '../api';
 import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
@@ -48,9 +38,6 @@ const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
 /** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
 const databaseSupported = ref(true);
-const aiImplementation = ref<AiImplementationExecution | null>(null);
-let aiExecutionTimer: ReturnType<typeof setTimeout> | undefined;
-let aiExecutionGeneration = 0;
 
 const projectId = computed(() => {
   const value = route.params.projectId;
@@ -62,9 +49,6 @@ const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isServerRoute = computed(() => route.name === 'project-server');
 const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
-const isAiAssistantRoute = computed(
-  () => route.name === 'project-ai-assistant',
-);
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
@@ -83,36 +67,6 @@ function updateGitOverview(git: ProjectGitOverview): void {
   gitOverview.value = git;
 }
 
-function scheduleAiImplementationPolling(generation: number): void {
-  clearTimeout(aiExecutionTimer);
-  if (
-    generation !== aiExecutionGeneration ||
-    isAiAssistantRoute.value ||
-    aiImplementation.value?.status !== 'running'
-  )
-    return;
-  aiExecutionTimer = setTimeout(
-    () => void refreshAiImplementation(generation),
-    1_500,
-  );
-}
-
-async function refreshAiImplementation(
-  generation = aiExecutionGeneration,
-): Promise<void> {
-  try {
-    const result = await fetchProjectAiImplementation(projectId.value);
-    if (generation !== aiExecutionGeneration) return;
-    aiImplementation.value = result.execution;
-  } catch {
-    // A aba do assistente apresenta o erro detalhado quando estiver aberta.
-  } finally {
-    if (generation === aiExecutionGeneration) {
-      scheduleAiImplementationPolling(generation);
-    }
-  }
-}
-
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
@@ -121,9 +75,6 @@ async function loadProject(): Promise<void> {
   gitBranch.value = '';
   gitOverview.value = null;
   databaseSupported.value = true;
-  aiImplementation.value = null;
-  const currentAiExecutionGeneration = ++aiExecutionGeneration;
-  clearTimeout(aiExecutionTimer);
 
   try {
     const loadedProject =
@@ -132,7 +83,6 @@ async function loadProject(): Promise<void> {
 
     project.value = loadedProject;
     void recordProjectVisit(loadedProject.id);
-    void refreshAiImplementation(currentAiExecutionGeneration);
 
     if (loadedProject.capabilities.includes('git')) {
       try {
@@ -176,18 +126,6 @@ watch(
     immediate: true,
   },
 );
-
-watch(isAiAssistantRoute, (isActive) => {
-  clearTimeout(aiExecutionTimer);
-  if (!isActive && aiImplementation.value?.status === 'running') {
-    void refreshAiImplementation();
-  }
-});
-
-onUnmounted(() => {
-  aiExecutionGeneration += 1;
-  clearTimeout(aiExecutionTimer);
-});
 
 const isEnabledUpdating = computed(() =>
   project.value ? enabledUpdatingIds.value.includes(project.value.id) : false,
@@ -355,17 +293,6 @@ async function handleToggleEnabled(): Promise<void> {
 
           <RouterLink
             class="project-details-tab"
-            :class="{ 'project-details-tab-active': isAiAssistantRoute }"
-            :to="{
-              name: 'project-ai-assistant',
-              params: { projectId: project.id },
-            }"
-          >
-            Assistente IA
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
             :class="{ 'project-details-tab-active': isTestsRoute }"
             :to="{ name: 'project-tests', params: { projectId: project.id } }"
           >
@@ -479,14 +406,6 @@ async function handleToggleEnabled(): Promise<void> {
           @git-updated="updateGitOverview"
         />
 
-        <ProjectAiAssistantPanel
-          v-else-if="isAiAssistantRoute"
-          :key="`ai-assistant-${project.id}`"
-          :project="project"
-          :project-id="projectId"
-          @execution-updated="refreshAiImplementation()"
-        />
-
         <ProjectTestsPanel
           v-else-if="isTestsRoute"
           :key="`tests-${project.id}`"
@@ -541,11 +460,6 @@ async function handleToggleEnabled(): Promise<void> {
           v-else-if="isEnvironmentRoute"
           :key="`environment-${project.id}`"
           :project="project"
-        />
-
-        <ProjectAiExecutionPill
-          :project-id="project.id"
-          :execution="aiImplementation"
         />
       </template>
     </template>

@@ -4,7 +4,6 @@ import { maskSensitiveLogContent } from '@dev-dashboard/process-manager';
 import type {
   AiErrorCode,
   AiExecutionMode,
-  AiProviderId,
   GitPullRequestAiReview,
   GitPullRequestAiReviewExecution,
   GitPullRequestReviewFinding,
@@ -26,7 +25,6 @@ import {
   type AiExecutionPolicy,
 } from './ai-execution-policy.js';
 import { AiProviderError } from './ai-provider.js';
-import type { AiProviderResolver } from './ai-provider-resolver.js';
 import {
   GitPullRequestService,
   type GitPullRequestTargetRemote,
@@ -50,9 +48,7 @@ interface ReviewFileService {
   getReviewFileDiff: GitPullRequestService['getReviewFileDiff'];
 }
 
-type ProjectProviderResolver = Pick<AiProviderResolver, 'resolveSelected'>;
 type TrackedReviewExecution = GitPullRequestAiReviewExecution & {
-  provider: AiProviderId;
   mode: AiExecutionMode;
 };
 
@@ -341,8 +337,6 @@ export class GitAiCodeReviewService {
   public constructor(
     private readonly aiAssistantService: AiAssistantService,
     private readonly gitService: ReviewFileService = new GitPullRequestService(),
-    private readonly providerResolver:
-      ProjectProviderResolver | undefined = undefined,
     private readonly metricsLogger:
       AiExecutionMetricsLogger | undefined = undefined,
   ) {}
@@ -354,16 +348,9 @@ export class GitAiCodeReviewService {
     if (current?.execution.status === 'running')
       return snapshot(current.execution);
 
-    const resolved = this.providerResolver
-      ? await this.providerResolver.resolveSelected(
-          input.project.id,
-          input.model,
-        )
-      : undefined;
-    const aiAssistantService =
-      resolved?.assistantService ?? this.aiAssistantService;
-    const provider = resolved?.provider ?? 'ollama';
-    const mode = input.mode ?? resolved?.mode ?? DEFAULT_AI_EXECUTION_MODE;
+    const aiAssistantService = this.aiAssistantService;
+    const provider = 'ollama' as const;
+    const mode = input.mode ?? DEFAULT_AI_EXECUTION_MODE;
 
     const files = await this.gitService.getReviewFiles(input.project.path, {
       targetRemote: input.targetRemote,

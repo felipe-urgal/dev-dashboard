@@ -62,28 +62,13 @@ export type {
 export type {
   AiCapability,
   AiChatMessage,
-  AiChatRequest,
   AiChatRole,
-  AiChatStreamEvent,
-  AiCompletionRequest,
-  AiCompletionResult,
   AiErrorCode,
   AiExecutionMode,
-  AiImplementationExecution,
-  AiImplementationExecutionList,
-  AiImplementationExecutionRequest,
-  AiImplementationExecutionStatus,
   AiModelInfo,
-  AiModelPullStreamEvent,
   AiProviderId,
-  AiProviderKind,
-  AiRecommendedModelName,
-  AiTool,
-  ProjectAiProviderStatus,
-  ProjectAiProvidersStatus,
   ProjectAiStatus,
 } from './ai-assistant.js';
-export { AI_RECOMMENDED_MODELS } from './ai-assistant.js';
 
 export type {
   ProjectLanguageServerKind,
