@@ -1,8 +1,10 @@
 .project-details-page {
   display: grid;
+  flex: 1 1 auto;
   gap: 14px;
+  min-height: 0;
   width: 100%;
-  padding: 0 0 80px;
+  padding: 0;
 }
 
 .project-details-hero {
@@ -151,6 +153,7 @@
 }
 
 :deep(.readme-panel) {
+  height: 100%;
   width: 100%;
   min-width: 0;
 }
