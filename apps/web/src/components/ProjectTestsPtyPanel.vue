@@ -142,17 +142,6 @@ watch(
 
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
-    <template #header>
-      <h3>Testes</h3>
-    </template>
-
-    <p class="tests-pty-note">
-      Prova de conceito: roda a suíte completa num terminal de verdade — cores e
-      formatação idênticas ao que você veria rodando o comando localmente.
-      Execução por arquivo/caso específico e testes relacionados à branch ainda
-      não migraram para cá.
-    </p>
-
     <div class="tests-pty-controls">
       <button
         type="button"
@@ -191,18 +180,20 @@ watch(
 </template>
 
 <style scoped>
+:global(.dd-card.project-detail-card.tests-pty-panel) {
+  display: flex;
+  flex-direction: column;
+  align-content: normal;
+  grid-template-rows: none;
+  min-height: 0;
+}
+
 .tests-pty-panel {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
   gap: var(--space-3);
-}
-
-.tests-pty-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-sm);
 }
 
 .tests-pty-controls {
