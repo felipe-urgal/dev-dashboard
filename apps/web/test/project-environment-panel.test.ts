@@ -48,7 +48,6 @@ const project: Project = {
   path: '/projetos/app',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['server'],
 };

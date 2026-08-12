@@ -88,7 +88,6 @@ test('histórico de mutações Git: sincronização (sync-integrate/sync-main)',
     path: local,
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

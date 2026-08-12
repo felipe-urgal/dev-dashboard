@@ -121,7 +121,6 @@ test('rotas de workers (Sidekiq/webpack) e credentials Rails', async (context) =
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };
@@ -408,7 +407,6 @@ test('worker não detectado recusa start com catálogo fechado', async (context)
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

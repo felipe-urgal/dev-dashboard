@@ -26,7 +26,6 @@ async function fixture(script: string) {
     path: root,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: ['scripts'],
   } as Project;

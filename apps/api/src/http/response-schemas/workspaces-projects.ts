@@ -14,16 +14,7 @@ export const workspaceResponseSchema = {
 export const projectResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'id',
-    'name',
-    'path',
-    'type',
-    'source',
-    'favorite',
-    'enabled',
-    'capabilities',
-  ],
+  required: ['id', 'name', 'path', 'type', 'source', 'enabled', 'capabilities'],
   properties: {
     id: { type: 'string' },
     name: { type: 'string' },
@@ -38,7 +29,6 @@ export const projectResponseSchema = {
     },
     workspaceId: { type: 'string' },
     port: { type: 'integer' },
-    favorite: { type: 'boolean' },
     enabled: { type: 'boolean' },
     lastAccessedAt: { type: 'string' },
     capabilities: {

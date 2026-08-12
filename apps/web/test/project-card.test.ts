@@ -32,7 +32,6 @@ const project: Project = {
   path: '/projetos/sem-avatar',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: ['git', 'server'],
 };

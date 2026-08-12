@@ -69,24 +69,6 @@ export async function recordProjectAccess(projectId: string): Promise<Project> {
   return response.project;
 }
 
-export async function updateProjectFavorite(
-  projectId: string,
-  favorite: boolean,
-): Promise<Project> {
-  const response = await requestJson<ProjectResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/favorite`,
-    {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ favorite }),
-    },
-  );
-
-  return response.project;
-}
-
 export async function updateProjectEnabled(
   projectId: string,
   enabled: boolean,
@@ -103,12 +85,6 @@ export async function updateProjectEnabled(
   );
 
   return response.project;
-}
-
-export async function dismissProject(projectId: string): Promise<void> {
-  await requestJson<null>(`/api/projects/${encodeURIComponent(projectId)}`, {
-    method: 'DELETE',
-  });
 }
 
 export async function fetchWorkspaces(): Promise<Workspace[]> {
@@ -149,20 +125,9 @@ export function updateWorkspaceRecursiveScan(
 
 export function scanWorkspace(
   workspaceId: string,
-  options: {
-    restoreDismissed?: boolean | undefined;
-  } = {},
 ): Promise<WorkspaceScanResponse> {
-  const parameters = new URLSearchParams();
-
-  if (options.restoreDismissed) {
-    parameters.set('restoreDismissed', 'true');
-  }
-
-  const query = parameters.toString();
-
   return requestJson<WorkspaceScanResponse>(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/scan${query ? `?${query}` : ''}`,
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/scan`,
     {
       method: 'POST',
     },

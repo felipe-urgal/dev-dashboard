@@ -67,7 +67,6 @@ const project: Project = {
   type: 'node',
   source: 'workspace',
   workspaceId: 'w1',
-  favorite: false,
   enabled: true,
   capabilities: ['server'],
 };

@@ -1,11 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import ActivityView from '../views/ActivityView.vue';
 import DashboardView from '../views/DashboardView.vue';
 import NotFoundView from '../views/NotFoundView.vue';
 import ProcessesView from '../views/ProcessesView.vue';
 import ProjectDetailsView from '../views/ProjectDetailsView.vue';
-import SettingsView from '../views/SettingsView.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -16,19 +14,9 @@ export const router = createRouter({
       component: DashboardView,
     },
     {
-      path: '/activity',
-      name: 'activity',
-      component: ActivityView,
-    },
-    {
       path: '/processes',
       name: 'processes',
       component: ProcessesView,
-    },
-    {
-      path: '/settings',
-      name: 'settings',
-      component: SettingsView,
     },
     {
       path: '/projects/:projectId',

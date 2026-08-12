@@ -72,7 +72,6 @@ test('histórico de mutações Git: desfazer (undo-commit/undo-file)', async (co
     path: repoPath,
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

@@ -61,7 +61,6 @@ test('GET /projects/:projectId/coverage', async (context) => {
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['tests'],
   };
@@ -133,7 +132,6 @@ test('GET /projects/:projectId/coverage', async (context) => {
           type: 'rails',
           source: 'workspace',
           workspaceId: 'w2',
-          favorite: false,
           enabled: true,
           capabilities: ['tests'],
         };
@@ -200,7 +198,6 @@ test('GET /projects/:projectId/coverage', async (context) => {
           type: 'node',
           source: 'workspace',
           workspaceId: 'w3',
-          favorite: false,
           enabled: true,
           capabilities: ['tests'],
         };

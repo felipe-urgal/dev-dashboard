@@ -47,7 +47,6 @@ test('rotas de execução destacável de dependências/build', async (context) =
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

@@ -16,7 +16,6 @@ const project: Project = {
   path: '/tmp/projeto',
   type: 'node',
   source: 'workspace',
-  favorite: false,
   enabled: true,
   capabilities: [],
 };

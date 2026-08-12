@@ -240,7 +240,7 @@ mais lento. O mesmo modal também lista os workspaces já cadastrados
 `recursiveScan` depois do cadastro — a alteração é otimista
 (`toggleWorkspaceRecursiveScan` em `stores/dashboard.ts`, que chama
 `PATCH /api/workspaces/:workspaceId` e desfaz a mudança local se a API
-falhar), no mesmo padrão já usado por `toggleProjectFavorite`.
+falhar), no mesmo padrão já usado por `toggleProjectEnabled`.
 
 ### Regras compartilhadas entre CLI e web
 
@@ -464,11 +464,11 @@ Não devemos reescrever todo o CLI antes que a nova arquitetura comprove seu val
 
 Componentes já incorporados à arquitetura: repositório de projetos persistentes,
 status e operações Git (leitura e mutações com confirmação, incluindo
-`git-save` — task 041), painel de atividade unificado, avisos locais de
-conclusão (task 040), execução de testes, scripts Node, operações Rails de
-baixo risco, autenticação local, command palette, histórico de execuções
-(scripts e testes) e limpeza de estado/log obsoleto do Process Manager —
-incluindo logs órfãos sem estado correspondente (task 042).
+`git-save` — task 041), avisos locais de conclusão (task 040), execução de
+testes, scripts Node, operações Rails de baixo risco, autenticação local,
+command palette, histórico de execuções (scripts e testes) e limpeza de
+estado/log obsoleto do Process Manager — incluindo logs órfãos sem estado
+correspondente (task 042).
 
 Ainda faltam:
 

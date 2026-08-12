@@ -76,28 +76,6 @@ export class ProjectStore {
     this.workspaceScans.delete(workspaceId);
   }
 
-  public removeProject(projectId: string): Project | null {
-    const project = this.findProject(projectId);
-    const workspaceIds = this.projectWorkspaces.get(projectId);
-
-    if (!project || !workspaceIds || workspaceIds.size === 0) {
-      return null;
-    }
-
-    for (const workspaceId of [...workspaceIds]) {
-      const scan = this.workspaceScans.get(workspaceId);
-      if (!scan) continue;
-
-      this.workspaceScans.set(workspaceId, {
-        ...scan,
-        projects: scan.projects.filter((item) => item.id !== projectId),
-      });
-      this.removeProjectWorkspace(projectId, workspaceId);
-    }
-
-    return project;
-  }
-
   public findProject(projectId: string): Project | null {
     const workspaceIds = this.projectWorkspaces.get(projectId);
     if (!workspaceIds || workspaceIds.size === 0) return null;
@@ -108,13 +86,6 @@ export class ProjectStore {
       : undefined;
 
     return scan?.projects.find((project) => project.id === projectId) ?? null;
-  }
-
-  public setFavorite(projectId: string, favorite: boolean): Project | null {
-    return this.updateProject(projectId, (project) => ({
-      ...project,
-      favorite,
-    }));
   }
 
   public setEnabled(projectId: string, enabled: boolean): Project | null {

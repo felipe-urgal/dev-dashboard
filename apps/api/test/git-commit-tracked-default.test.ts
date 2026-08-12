@@ -42,7 +42,6 @@ test('novo commit inclui alterações rastreadas mesmo com flag legada false', a
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['git'],
   };

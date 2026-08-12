@@ -27,7 +27,6 @@ async function makeProject(
     path: directory,
     type,
     source: 'standalone',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

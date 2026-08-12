@@ -27,7 +27,6 @@ async function fixture(context: test.TestContext) {
     path: projectPath,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

@@ -46,7 +46,6 @@ function project(root: string, id = 'project-cloud-security'): Project {
     path: root,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };

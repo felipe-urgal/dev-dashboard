@@ -265,20 +265,6 @@ export type {
 } from './rails-runtime.js';
 
 export type {
-  Activity,
-  ActivityBase,
-  ActivityList,
-  ActivityOrigin,
-  ActivityStatus,
-  ActivitySummary,
-  ProcessActivityReference,
-  ScriptActivity,
-  ScriptActivityReference,
-  ServerActivity,
-  TestActivity,
-} from './activity.js';
-
-export type {
   ProjectScript,
   ProjectScriptCatalog,
   ProjectScriptOrigin,

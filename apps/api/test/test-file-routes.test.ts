@@ -71,7 +71,6 @@ test('rotas de arquivo específico de teste', async (context) => {
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['tests'],
   };
@@ -301,7 +300,6 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
     type: 'rails',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['tests'],
   };
@@ -312,7 +310,6 @@ test('rotas de caso específico de teste (RSpec)', async (context) => {
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['tests'],
   };
@@ -491,7 +488,6 @@ test('rotas de padrão de nome para runners Node (vitest/jest/node-test)', async
     type: 'node',
     source: 'workspace',
     workspaceId: 'w1',
-    favorite: false,
     enabled: true,
     capabilities: ['tests'],
   };

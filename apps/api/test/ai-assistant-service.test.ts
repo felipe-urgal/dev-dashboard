@@ -36,7 +36,6 @@ function project(root: string): Project {
     path: root,
     type: 'node',
     source: 'workspace',
-    favorite: false,
     enabled: true,
     capabilities: [],
   };
