@@ -208,11 +208,9 @@ watch(
 
 <style scoped>
 .tests-pty-panel {
-  display: grid;
-  align-content: start;
-  grid-auto-rows: max-content;
-  grid-template-rows: max-content max-content max-content max-content minmax(0, 1fr);
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   min-height: 0;
   gap: var(--space-3);
 }
@@ -246,8 +244,9 @@ watch(
 }
 
 .tests-pty-terminal {
+  flex: 1 1 0;
   min-height: 0;
-  height: auto;
+  height: 0;
   margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
   width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
