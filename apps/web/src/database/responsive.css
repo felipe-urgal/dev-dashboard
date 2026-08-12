@@ -31,6 +31,15 @@
   .database-environment-detail-grid {
     grid-template-columns: 1fr;
   }
+
+  .database-connection-summary,
+  .database-environment-context-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .database-summary-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -132,6 +141,22 @@
     width: 34px;
     padding: 0;
     font-size: 0;
+  }
+
+  .database-detail-title .database-detail-heading {
+    min-width: 0;
+  }
+
+  .database-detail-title .database-detail-meta {
+    width: 100%;
+  }
+
+  .database-actions-popover {
+    right: 0;
+  }
+
+  .database-summary-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .database-model-subgrid {
