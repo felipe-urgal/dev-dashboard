@@ -154,26 +154,10 @@ watch(
     </p>
 
     <div class="tests-pty-controls">
-      <select
-        v-model="selectedCommandId"
-        :disabled="
-          loadingOverview || isRunning || (overview?.commands.length ?? 0) <= 1
-        "
-      >
-        <option v-if="loadingOverview" value="">Carregando…</option>
-        <option
-          v-for="command in overview?.commands ?? []"
-          :key="command.id"
-          :value="command.id"
-        >
-          {{ command.label }}
-        </option>
-      </select>
-
       <button
         type="button"
         class="primary-button"
-        :disabled="!selectedCommand || isRunning || starting"
+        :disabled="loadingOverview || !selectedCommand || isRunning || starting"
         @click="start"
       >
         {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
