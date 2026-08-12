@@ -380,7 +380,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   if (options.staticDashboardEnabled) {
     if (!options.frontendDirectory)
       throw new Error(
-        'O diretÃ³rio do frontend Ã© obrigatÃ³rio para distribuiÃ§Ã£o local.',
+        'O diretório do frontend é obrigatório para distribuição local.',
       );
     await registerStaticDashboard(app, options.frontendDirectory);
   }

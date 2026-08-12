@@ -31,7 +31,7 @@ const loading = ref(true);
 const errorMessage = ref('');
 const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
-/** Otimista: assume que hÃ¡ banco atÃ© a detecÃ§Ã£o confirmar o contrÃ¡rio, evitando a aba piscar para o caso comum. */
+/** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
 const databaseSupported = ref(true);
 
 const projectId = computed(() => {
@@ -95,14 +95,14 @@ async function loadProject(): Promise<void> {
       if (projectId.value === requestedProjectId)
         databaseSupported.value = database.supported;
     } catch {
-      // MantÃ©m a aba visÃ­vel: o painel mostra o prÃ³prio erro ao ser aberto.
+      // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
     }
   } catch (error) {
     if (projectId.value === requestedProjectId) {
       errorMessage.value =
         error instanceof Error
           ? error.message
-          : 'NÃ£o foi possÃ­vel carregar o projeto.';
+          : 'Não foi possível carregar o projeto.';
     }
   } finally {
     if (projectId.value === requestedProjectId) {
@@ -125,18 +125,18 @@ watch(
 <template>
   <section class="content project-details-page">
     <RouterLink class="details-back-link" to="/">
-      â Voltar aos projetos
+      ← Voltar aos projetos
     </RouterLink>
 
     <div v-if="loading" class="empty-state page-empty-state">
-      <div class="empty-icon">â¢â¢â¢</div>
+      <div class="empty-icon">•••</div>
       <h3>Carregando projeto</h3>
-      <p>Localizando o repositÃ³rio e suas configuraÃ§Ãµes.</p>
+      <p>Localizando o repositório e suas configurações.</p>
     </div>
 
     <div v-else-if="errorMessage" class="empty-state page-empty-state">
       <div class="empty-icon">!</div>
-      <h3>NÃ£o foi possÃ­vel carregar o projeto</h3>
+      <h3>Não foi possível carregar o projeto</h3>
       <p>{{ errorMessage }}</p>
       <button class="primary-button" type="button" @click="loadProject">
         Tentar novamente
@@ -144,10 +144,10 @@ watch(
     </div>
 
     <div v-else-if="!project" class="empty-state page-empty-state">
-      <div class="empty-icon">â</div>
-      <h3>Projeto nÃ£o encontrado</h3>
+      <div class="empty-icon">◇</div>
+      <h3>Projeto não encontrado</h3>
       <p>
-        O projeto pode ter sido removido ou o workspace ainda nÃ£o contÃ©m esse
+        O projeto pode ter sido removido ou o workspace ainda não contém esse
         identificador.
       </p>
       <RouterLink class="primary-button link-button" to="/">
@@ -186,7 +186,7 @@ watch(
       </header>
 
       <template>
-        <nav class="project-details-tabs" aria-label="Ãreas do projeto">
+        <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isReadmeRoute }"
@@ -200,7 +200,7 @@ watch(
             :class="{ 'project-details-tab-active': isDoctorRoute }"
             :to="{ name: 'project-doctor', params: { projectId: project.id } }"
           >
-            DiagnÃ³stico
+            Diagnóstico
           </RouterLink>
 
           <RouterLink
@@ -256,7 +256,7 @@ watch(
               params: { projectId: project.id },
             }"
           >
-            DependÃªncias
+            Dependências
           </RouterLink>
 
           <RouterLink
@@ -299,7 +299,7 @@ watch(
               params: { projectId: project.id },
             }"
           >
-            VariÃ¡veis de ambiente
+            Variáveis de ambiente
           </RouterLink>
         </nav>
 
@@ -358,7 +358,7 @@ watch(
           :project="project"
           kind="shell"
           title="Terminal"
-          description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuÃ¡rio local."
+          description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
           auto-start
         />
 

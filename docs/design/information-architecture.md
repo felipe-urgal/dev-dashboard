@@ -1,69 +1,69 @@
-# Arquitetura da informaÃ§Ã£o
+# Arquitetura da informação
 
 ## Objetivo
 
-A interface deve permitir que o usuÃ¡rio entenda rapidamente:
+A interface deve permitir que o usuário entenda rapidamente:
 
 - quais workspaces existem;
-- quais projetos estÃ£o disponÃ­veis;
-- quais serviÃ§os estÃ£o ativos;
-- quais aÃ§Ãµes podem ser executadas;
-- quais operaÃ§Ãµes falharam;
+- quais projetos estão disponíveis;
+- quais serviços estão ativos;
+- quais ações podem ser executadas;
+- quais operações falharam;
 - onde encontrar logs e detalhes.
 
-A organizaÃ§Ã£o deve priorizar descoberta, estado e aÃ§Ã£o.
+A organização deve priorizar descoberta, estado e ação.
 
-## NavegaÃ§Ã£o principal
+## Navegação principal
 
-A navegaÃ§Ã£o planejada possui quatro Ã¡reas:
+A navegação planejada possui quatro áreas:
 
 ```text
-VisÃ£o geral
-RepositÃ³rios
+Visão geral
+Repositórios
 Processos
 Jobs e logs
 ```
 
-> Status atualizado: **RepositÃ³rios**, detalhe do projeto e **Processos**
-> (`/processes`) estÃ£o implementados. **VisÃ£o geral** existe como landing,
-> mas sem os widgets consolidados descritos abaixo. **command palette** jÃ¡
-> estÃ¡ implementado. As pÃ¡ginas globais **Atividade** (`/activity`) e
-> **ConfiguraÃ§Ãµes** (`/settings`) chegaram a ser implementadas e foram
-> removidas (task 236) por nÃ£o justificarem uma Ã¡rea prÃ³pria na navegaÃ§Ã£o
-> principal â a retenÃ§Ã£o de logs/histÃ³rico continua configurÃ¡vel por
-> variÃ¡vel de ambiente (ver `docs/architecture/security.md`), e perfis de
-> ambiente seguem editÃ¡veis por projeto. **Jobs e logs** segue aspiracional
-> â nÃ£o existe uma pÃ¡gina dedicada, mapeado em
+> Status atualizado: **Repositórios**, detalhe do projeto e **Processos**
+> (`/processes`) estão implementados. **Visão geral** existe como landing,
+> mas sem os widgets consolidados descritos abaixo. **command palette** já
+> está implementado. As páginas globais **Atividade** (`/activity`) e
+> **Configurações** (`/settings`) chegaram a ser implementadas e foram
+> removidas (task 236) por não justificarem uma área própria na navegação
+> principal — a retenção de logs/histórico continua configurável por
+> variável de ambiente (ver `docs/architecture/security.md`), e perfis de
+> ambiente seguem editáveis por projeto. **Jobs e logs** segue aspiracional
+> — não existe uma página dedicada, mapeado em
 > [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md).
 >
-> A reforma do vocabulÃ¡rio visual (cores, tipografia, densidade,
-> componentes de card/badge/formulÃ¡rio) foi concluÃ­da: os tokens vivem em
+> A reforma do vocabulário visual (cores, tipografia, densidade,
+> componentes de card/badge/formulário) foi concluída: os tokens vivem em
 > `apps/web/src/styles/tokens.css` e os componentes compartilhados
-> (`<Card>`, `<StatusBadge>`) substituÃ­ram as superfÃ­cies ad hoc anteriores.
-> Este documento descreve **a estrutura da informaÃ§Ã£o e navegaÃ§Ã£o**, nÃ£o a
+> (`<Card>`, `<StatusBadge>`) substituíram as superfícies ad hoc anteriores.
+> Este documento descreve **a estrutura da informação e navegação**, não a
 > camada visual.
 
-### VisÃ£o geral
+### Visão geral
 
 Resumo operacional do ambiente.
 
 No estado atual, a landing prioriza uma leitura direta dos projetos detectados:
 
 - quantidade de projetos;
-- lista ordenada por prioridade, com tipo, estado, branch e recÃªncia;
-- aÃ§Ãµes globais de iniciar e parar servidores junto do tÃ­tulo e da contagem de
+- lista ordenada por prioridade, com tipo, estado, branch e recência;
+- ações globais de iniciar e parar servidores junto do título e da contagem de
   projetos;
-- aÃ§Ãµes de escanear novamente e remover workspace separadas no cabeÃ§alho.
+- ações de escanear novamente e remover workspace separadas no cabeçalho.
 
-A VisÃ£o geral nÃ£o expÃµe busca textual nem filtro por tipo. Esses controles
-pertencem Ã  Ã¡rea de **RepositÃ³rios** quando houver necessidade de exploraÃ§Ã£o da
-lista completa, evitando duplicar navegaÃ§Ã£o e filtros na landing.
+A Visão geral não expõe busca textual nem filtro por tipo. Esses controles
+pertencem à área de **Repositórios** quando houver necessidade de exploração da
+lista completa, evitando duplicar navegação e filtros na landing.
 
-Widgets operacionais consolidados â servidores ativos, processos com falha,
-alteraÃ§Ãµes Git e jobs em execuÃ§Ã£o â continuam como evoluÃ§Ã£o possÃ­vel da VisÃ£o
-geral sem alterar esse princÃ­pio de manter a entrada enxuta.
+Widgets operacionais consolidados — servidores ativos, processos com falha,
+alterações Git e jobs em execução — continuam como evolução possível da Visão
+geral sem alterar esse princípio de manter a entrada enxuta.
 
-### RepositÃ³rios
+### Repositórios
 
 Lista completa dos projetos detectados.
 
@@ -76,36 +76,36 @@ Filtros planejados:
 - favorito;
 - busca textual.
 
-Modos de visualizaÃ§Ã£o:
+Modos de visualização:
 
 - cards;
 - tabela compacta.
 
 ### Processos
 
-VisÃ£o consolidada de todos os processos gerenciados.
+Visão consolidada de todos os processos gerenciados.
 
-InformaÃ§Ãµes:
+Informações:
 
 - projeto;
 - tipo do processo;
 - estado;
 - PID;
 - porta;
-- duraÃ§Ã£o;
+- duração;
 - comando;
-- aÃ§Ãµes disponÃ­veis.
+- ações disponíveis.
 
 ### Jobs e logs
 
-HistÃ³rico de operaÃ§Ãµes iniciadas pelo dashboard.
+Histórico de operações iniciadas pelo dashboard.
 
 Exemplos:
 
 - iniciar servidor;
 - executar testes;
 - rodar migration;
-- instalar dependÃªncias;
+- instalar dependências;
 - realizar pull;
 - criar commit.
 
@@ -113,72 +113,72 @@ Cada job deve possuir:
 
 - identificador;
 - projeto;
-- aÃ§Ã£o;
+- ação;
 - estado;
-- inÃ­cio;
+- início;
 - fim;
 - exit code;
-- saÃ­da;
+- saída;
 - erro.
 
-### ConfiguraÃ§Ãµes
+### Configurações
 
-Removida (task 236) â chegou a existir como pÃ¡gina dedicada (`/settings`)
-reunindo retenÃ§Ã£o de logs/histÃ³rico e perfis de ambiente, mas foi retirada da
-navegaÃ§Ã£o principal por nÃ£o justificar uma Ã¡rea prÃ³pria. Perfis de ambiente
-continuam editÃ¡veis por projeto (`ProjectEnvironmentPanel`); retenÃ§Ã£o de
-logs/histÃ³rico segue configurÃ¡vel apenas por variÃ¡vel de ambiente. Gerenciamento
-de workspaces, portas e diagnÃ³sticos do ambiente vivem em **RepositÃ³rios** e no
-Project Doctor, nÃ£o numa Ã¡rea de configuraÃ§Ãµes dedicada.
+Removida (task 236) — chegou a existir como página dedicada (`/settings`)
+reunindo retenção de logs/histórico e perfis de ambiente, mas foi retirada da
+navegação principal por não justificar uma área própria. Perfis de ambiente
+continuam editáveis por projeto (`ProjectEnvironmentPanel`); retenção de
+logs/histórico segue configurável apenas por variável de ambiente. Gerenciamento
+de workspaces, portas e diagnósticos do ambiente vivem em **Repositórios** e no
+Project Doctor, não numa área de configurações dedicada.
 
 ## Estrutura do app shell
 
 ```text
-ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-â Topbar                                                       â
-â Workspace ativo | busca | command palette | estado da API   â
-âââââââââââââââââ¬ââââââââââââââââââââââââââââââ¬âââââââââââââââââ¤
-â Sidebar       â ConteÃºdo principal          â Atividade      â
-â               â                             â opcional       â
-â VisÃ£o geral   â                             â                â
-â RepositÃ³rios  â                             â                â
-â Processos     â                             â                â
-â Jobs e logs   â                             â                â
-âââââââââââââââââ´ââââââââââââââââââââââââââââââ´âââââââââââââââââ
+┌──────────────────────────────────────────────────────────────┐
+│ Topbar                                                       │
+│ Workspace ativo | busca | command palette | estado da API   │
+├───────────────┬─────────────────────────────┬────────────────┤
+│ Sidebar       │ Conteúdo principal          │ Atividade      │
+│               │                             │ opcional       │
+│ Visão geral   │                             │                │
+│ Repositórios  │                             │                │
+│ Processos     │                             │                │
+│ Jobs e logs   │                             │                │
+└───────────────┴─────────────────────────────┴────────────────┘
 ```
 
-O painel de atividade deve ser recolhÃ­vel e, em telas menores, virar um drawer.
+O painel de atividade deve ser recolhível e, em telas menores, virar um drawer.
 
 ## Hierarquia de entidades
 
 ```text
 Workspace
-âââ Project
-    âââ Capabilities
-    âââ Managed Processes
-    âââ Jobs
-    âââ Logs
-    âââ Git
-    âââ Tests
-    âââ Scripts
-    âââ Environment
+└── Project
+    ├── Capabilities
+    ├── Managed Processes
+    ├── Jobs
+    ├── Logs
+    ├── Git
+    ├── Tests
+    ├── Scripts
+    └── Environment
 ```
 
 ## Workspace
 
 Um workspace representa uma pasta raiz contendo projetos.
 
-InformaÃ§Ãµes exibidas:
+Informações exibidas:
 
 - nome;
 - caminho;
 - estado;
 - quantidade de projetos;
-- Ãºltimo scan;
+- último scan;
 - warnings;
-- aÃ§Ãµes.
+- ações.
 
-AÃ§Ãµes:
+Ações:
 
 - selecionar;
 - escanear;
@@ -190,9 +190,9 @@ Remover um workspace nunca deve apagar arquivos locais.
 
 ## Projeto
 
-O projeto Ã© a principal unidade operacional da interface.
+O projeto é a principal unidade operacional da interface.
 
-InformaÃ§Ãµes resumidas:
+Informações resumidas:
 
 - nome;
 - tipo;
@@ -203,48 +203,48 @@ InformaÃ§Ãµes resumidas:
 - porta;
 - PID;
 - branch;
-- alteraÃ§Ãµes Git;
-- Ãºltima atividade.
+- alterações Git;
+- última atividade.
 
-AÃ§Ãµes rÃ¡pidas:
+Ações rápidas:
 
 - iniciar;
 - parar;
 - reiniciar;
-- abrir aplicaÃ§Ã£o;
+- abrir aplicação;
 - visualizar logs;
 - favoritar;
 - abrir detalhes.
 
-## PÃ¡gina de detalhes do projeto
+## Página de detalhes do projeto
 
 Estrutura atual (`apps/web/src/router/index.ts`):
 
 ```text
 README
-DiagnÃ³stico
+Diagnóstico
 Servidor
 Logs
 Git
 Testes
 Banco de dados
-DependÃªncias
+Dependências
 Scripts
 Terminal
 Console
 Sidekiq/webpack
-VariÃ¡veis de ambiente
+Variáveis de ambiente
 ```
 
-As abas disponÃ­veis dependem das capacidades detectadas: **Banco de dados** sÃ³ quando o projeto
-tem suporte a banco detectado; **DependÃªncias** (task 072, reÃºne Bundler/lockfile Node e build),
-**Console** e **Sidekiq/webpack** sÃ³ para projetos Rails/Node conforme o tipo. Uma IDE embutida com
-Monaco e LSP existiu como aba prÃ³pria **Editor** (task 076 em diante) e foi removida no PR #262. A
-aba prÃ³pria **Assistente IA** (chat/implementaÃ§Ã£o via IA local) existiu depois disso como painel
-independente de editor/LSP e foi removida na task 238; a Ãºnica capacidade de IA que resta no
-produto Ã© a Code review dentro da aba **Git**, fixa no Ollama local.
+As abas disponíveis dependem das capacidades detectadas: **Banco de dados** só quando o projeto
+tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockfile Node e build),
+**Console** e **Sidekiq/webpack** só para projetos Rails/Node conforme o tipo. Uma IDE embutida com
+Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262. A
+aba própria **Assistente IA** (chat/implementação via IA local) existiu depois disso como painel
+independente de editor/LSP e foi removida na task 238; a única capacidade de IA que resta no
+produto é a Code review dentro da aba **Git**, fixa no Ollama local.
 
-### VisÃ£o geral
+### Visão geral
 
 - identidade do projeto;
 - caminho;
@@ -252,7 +252,7 @@ produto Ã© a Code review dentro da aba **Git**, fixa no Ollama local.
 - branch;
 - capacidades;
 - processos;
-- aÃ§Ãµes rÃ¡pidas;
+- ações rápidas;
 - atividade recente.
 
 ### Servidor
@@ -280,11 +280,11 @@ produto Ã© a Code review dentro da aba **Git**, fixa no Ollama local.
 
 ### Testes
 
-- suÃ­te completa;
-- arquivo especÃ­fico;
+- suíte completa;
+- arquivo específico;
 - cobertura;
-- duraÃ§Ã£o;
-- Ãºltimos resultados;
+- duração;
+- últimos resultados;
 - falhas.
 
 ### Banco
@@ -296,46 +296,46 @@ Exibida principalmente para Rails.
 - rollback;
 - seed;
 - prepare;
-- tarefas futuras com confirmaÃ§Ã£o.
+- tarefas futuras com confirmação.
 
 ### Scripts
 
 Exibida para projetos Node ou projetos com `package.json`.
 
 - lista de scripts;
-- descriÃ§Ã£o do comando;
-- execuÃ§Ã£o;
+- descrição do comando;
+- execução;
 - logs;
-- histÃ³rico.
+- histórico.
 
 ### Logs
 
-- seleÃ§Ã£o de processo;
-- atualizaÃ§Ã£o;
+- seleção de processo;
+- atualização;
 - follow;
 - pausa de rolagem;
 - filtro;
 - copiar;
 - limpar visualmente;
-- exportaÃ§Ã£o futura.
+- exportação futura.
 
 ## Estados visuais
 
-Todo estado deve combinar texto, Ã­cone e cor.
+Todo estado deve combinar texto, ícone e cor.
 
 ```text
-Verde    executando ou saudÃ¡vel
-Amarelo  iniciando, encerrando ou atenÃ§Ã£o
+Verde    executando ou saudável
+Amarelo  iniciando, encerrando ou atenção
 Vermelho falha
-Azul     aÃ§Ã£o em andamento
+Azul     ação em andamento
 Cinza    parado, inativo ou desconhecido
 ```
 
-A cor nunca deve ser o Ãºnico indicador.
+A cor nunca deve ser o único indicador.
 
 ## Estados vazios
 
-Estados vazios devem orientar a prÃ³xima aÃ§Ã£o.
+Estados vazios devem orientar a próxima ação.
 
 Exemplos:
 
@@ -356,48 +356,48 @@ Verifique o caminho ou execute um novo scan.
 ### Sem processos
 
 ```text
-Nenhum servidor estÃ¡ em execuÃ§Ã£o.
-Inicie um projeto pela lista de repositÃ³rios.
+Nenhum servidor está em execução.
+Inicie um projeto pela lista de repositórios.
 ```
 
 ### Sem logs
 
 ```text
-Nenhuma saÃ­da foi registrada para este processo.
+Nenhuma saída foi registrada para este processo.
 ```
 
 ## Tratamento de erros
 
 Erros devem informar:
 
-- o que nÃ£o foi concluÃ­do;
+- o que não foi concluído;
 - qual entidade foi afetada;
-- uma mensagem compreensÃ­vel;
-- uma aÃ§Ã£o possÃ­vel.
+- uma mensagem compreensível;
+- uma ação possível.
 
-NÃ£o devem exibir stack trace no frontend.
+Não devem exibir stack trace no frontend.
 
 Exemplo:
 
 ```text
-NÃ£o foi possÃ­vel iniciar fi-editor-api.
-O comando bin/rails nÃ£o foi encontrado.
+Não foi possível iniciar fi-editor-api.
+O comando bin/rails não foi encontrado.
 ```
 
-## ConfirmaÃ§Ãµes
+## Confirmações
 
-AÃ§Ãµes nÃ£o destrutivas devem ser rÃ¡pidas e diretas.
+Ações não destrutivas devem ser rápidas e diretas.
 
-ConfirmaÃ§Ã£o explÃ­cita serÃ¡ obrigatÃ³ria para:
+Confirmação explícita será obrigatória para:
 
 - remover workspace;
 - excluir branch;
-- resetar alteraÃ§Ãµes;
+- resetar alterações;
 - limpar arquivos;
 - resetar banco;
 - apagar logs persistidos;
-- interromper processo nÃ£o identificado;
-- aÃ§Ãµes futuras classificadas como destrutivas.
+- interromper processo não identificado;
+- ações futuras classificadas como destrutivas.
 
 ## Command palette
 
@@ -414,9 +414,9 @@ A command palette deve permitir:
 - trocar workspace;
 - iniciar servidor;
 - parar servidor;
-- abrir aplicaÃ§Ã£o;
+- abrir aplicação;
 - executar testes;
-- navegar para uma Ã¡rea.
+- navegar para uma área.
 
 Os resultados devem respeitar contexto e capacidades.
 
@@ -425,7 +425,7 @@ Os resultados devem respeitar contexto e capacidades.
 ### Desktop
 
 - sidebar fixa;
-- conteÃºdo amplo;
+- conteúdo amplo;
 - painel de atividade opcional;
 - cards ou tabela.
 
@@ -433,58 +433,58 @@ Os resultados devem respeitar contexto e capacidades.
 
 - sidebar reduzida;
 - painel de atividade em drawer;
-- mÃ©tricas em duas colunas.
+- métricas em duas colunas.
 
 ### Mobile
 
-O uso mobile nÃ£o Ã© prioritÃ¡rio, mas a interface deve continuar navegÃ¡vel.
+O uso mobile não é prioritário, mas a interface deve continuar navegável.
 
-- navegaÃ§Ã£o recolhida;
+- navegação recolhida;
 - cards em uma coluna;
-- aÃ§Ãµes agrupadas;
+- ações agrupadas;
 - logs com altura limitada.
 
 ## Acessibilidade
 
 Requisitos:
 
-- navegaÃ§Ã£o por teclado;
-- foco visÃ­vel;
-- labels em formulÃ¡rios;
+- navegação por teclado;
+- foco visível;
+- labels em formulários;
 - mensagens com `role`;
 - contraste adequado;
-- aÃ§Ãµes com nomes acessÃ­veis;
-- estados nÃ£o dependentes somente de cor;
-- suporte a reduÃ§Ã£o de movimento;
-- semÃ¢ntica HTML correta.
+- ações com nomes acessíveis;
+- estados não dependentes somente de cor;
+- suporte a redução de movimento;
+- semântica HTML correta.
 
 ## Densidade da interface
 
-O produto Ã© uma ferramenta profissional de uso frequente.
+O produto é uma ferramenta profissional de uso frequente.
 
-A interface deve ser compacta, mas nÃ£o apertada.
+A interface deve ser compacta, mas não apertada.
 
 Diretrizes:
 
 - grid de 4 e 8 pixels;
 - controles entre 32 e 40 pixels;
-- tipografia tÃ©cnica em dados;
-- agrupamento claro de aÃ§Ãµes;
+- tipografia técnica em dados;
+- agrupamento claro de ações;
 - detalhes progressivos;
-- evitar grandes Ã¡reas decorativas apÃ³s a fase inicial.
+- evitar grandes áreas decorativas após a fase inicial.
 
-## EvoluÃ§Ã£o
+## Evolução
 
-A estrutura atual Ã© uma visÃ£o geral com cards de projeto.
+A estrutura atual é uma visão geral com cards de projeto.
 
-A evoluÃ§Ã£o prevista Ã©:
+A evolução prevista é:
 
 1. consolidar o app shell;
 2. adicionar roteamento;
-3. separar pÃ¡ginas;
+3. separar páginas;
 4. criar detalhe do projeto;
 5. adicionar processos globais;
 6. adicionar jobs;
 7. implementar command palette;
-8. acrescentar configuraÃ§Ãµes;
+8. acrescentar configurações;
 9. otimizar densidade e atalhos.

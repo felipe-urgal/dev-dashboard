@@ -5,8 +5,8 @@ import type {
 } from '@dev-dashboard/contracts';
 
 /**
- * Subconjunto mÃ­nimo do logger do Fastify (`app.log`) que as executions de IA
- * precisam para mÃ©tricas â evita acoplar os serviÃ§os ao tipo completo de
+ * Subconjunto mínimo do logger do Fastify (`app.log`) que as executions de IA
+ * precisam para métricas — evita acoplar os serviços ao tipo completo de
  * `FastifyBaseLogger`.
  */
 export interface AiExecutionMetricsLogger {
@@ -26,9 +26,9 @@ export interface AiExecutionTerminalMetrics {
 }
 
 /**
- * Emite uma mÃ©trica estruturada quando uma execution de IA (implementation ou
- * Code Review) chega a um estado terminal. SÃ³ contexto allowlistado sai daqui
- * â nunca prompt, diff, resumo ou qualquer conteÃºdo do projeto.
+ * Emite uma métrica estruturada quando uma execution de IA (implementation ou
+ * Code Review) chega a um estado terminal. Só contexto allowlistado sai daqui
+ * — nunca prompt, diff, resumo ou qualquer conteúdo do projeto.
  */
 export function logAiExecutionTerminal(
   logger: AiExecutionMetricsLogger | undefined,

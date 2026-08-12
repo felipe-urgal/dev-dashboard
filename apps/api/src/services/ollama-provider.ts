@@ -139,7 +139,7 @@ export class OllamaProvider implements AiProvider {
         models: [],
         errorCode: 'AI_PROVIDER_UNAVAILABLE',
         message:
-          'DEV_DASHBOARD_OLLAMA_URL nÃ£o aponta para um endereÃ§o HTTP local (loopback); o assistente de IA estÃ¡ desabilitado.',
+          'DEV_DASHBOARD_OLLAMA_URL não aponta para um endereço HTTP local (loopback); o assistente de IA está desabilitado.',
       };
     }
 
@@ -160,7 +160,7 @@ export class OllamaProvider implements AiProvider {
           error instanceof AiProviderError &&
           error.code === 'AI_PROVIDER_TIMEOUT'
             ? 'O Ollama demorou demais para responder ao status.'
-            : `Ollama local nÃ£o foi detectado em ${baseUrl}. Instale e inicie o Ollama manualmente para habilitar o assistente de IA.`,
+            : `Ollama local não foi detectado em ${baseUrl}. Instale e inicie o Ollama manualmente para habilitar o assistente de IA.`,
       };
     }
 
@@ -186,7 +186,7 @@ export class OllamaProvider implements AiProvider {
       message:
         models.length > 0
           ? `${models.length} ${models.length === 1 ? 'modelo instalado' : 'modelos instalados'} no Ollama local.`
-          : 'Ollama local detectado, mas nenhum modelo estÃ¡ instalado.',
+          : 'Ollama local detectado, mas nenhum modelo está instalado.',
     };
   }
 
@@ -199,7 +199,7 @@ export class OllamaProvider implements AiProvider {
     if (!baseUrl) {
       throw new AiProviderError(
         'AI_PROVIDER_UNAVAILABLE',
-        'O assistente de IA local estÃ¡ desabilitado neste ambiente.',
+        'O assistente de IA local está desabilitado neste ambiente.',
       );
     }
 
@@ -255,8 +255,8 @@ export class OllamaProvider implements AiProvider {
         invalidResponse(
           `O modelo "${model}" tentou usar a ferramenta "${name}", mas escreveu a ` +
             'chamada como texto em vez de utilizar o mecanismo de tool-calling do Ollama, ' +
-            'entÃ£o nada foi executado. Tente novamente com um modelo com suporte mais ' +
-            'confiÃ¡vel a ferramentas (ex.: qwen2.5-coder:14b).',
+            'então nada foi executado. Tente novamente com um modelo com suporte mais ' +
+            'confiável a ferramentas (ex.: qwen2.5-coder:14b).',
         );
 
       const handleLine = (rawLine: string): void => {
@@ -268,7 +268,7 @@ export class OllamaProvider implements AiProvider {
           chunk = JSON.parse(line) as OllamaChatChunk;
         } catch {
           throw invalidResponse(
-            'O Ollama enviou um trecho de resposta que nÃ£o pÃ´de ser interpretado.',
+            'O Ollama enviou um trecho de resposta que não pôde ser interpretado.',
           );
         }
 
@@ -326,7 +326,7 @@ export class OllamaProvider implements AiProvider {
       if (options.signal.aborted) {
         throw new AiProviderError(
           'AI_REQUEST_CANCELLED',
-          'A solicitaÃ§Ã£o ao provider local foi cancelada.',
+          'A solicitação ao provider local foi cancelada.',
         );
       }
       if (
@@ -336,13 +336,13 @@ export class OllamaProvider implements AiProvider {
       ) {
         throw new AiProviderError(
           'AI_PROVIDER_TIMEOUT',
-          `O provider local nÃ£o respondeu em ${timeoutMs / 1_000} segundos. Tente novamente ou reformule a pergunta em partes menores.`,
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos. Tente novamente ou reformule a pergunta em partes menores.`,
         );
       }
       if (error instanceof AiProviderError) throw error;
       throw new AiProviderError(
         'AI_PROVIDER_REQUEST_FAILED',
-        'NÃ£o foi possÃ­vel concluir a requisiÃ§Ã£o ao provider local.',
+        'Não foi possível concluir a requisição ao provider local.',
         { cause: error },
       );
     } finally {
@@ -383,19 +383,19 @@ export class OllamaProvider implements AiProvider {
       try {
         return (await response.json()) as T;
       } catch {
-        throw invalidResponse('O Ollama devolveu uma resposta invÃ¡lida.');
+        throw invalidResponse('O Ollama devolveu uma resposta inválida.');
       }
     } catch (error) {
       if (isAbortError(error)) {
         throw new AiProviderError(
           'AI_PROVIDER_TIMEOUT',
-          `O provider local nÃ£o respondeu em ${timeoutMs / 1_000} segundos.`,
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos.`,
         );
       }
       if (error instanceof AiProviderError) throw error;
       throw new AiProviderError(
         'AI_PROVIDER_REQUEST_FAILED',
-        'NÃ£o foi possÃ­vel consultar o provider local.',
+        'Não foi possível consultar o provider local.',
         { cause: error },
       );
     } finally {
@@ -423,19 +423,19 @@ export class OllamaProvider implements AiProvider {
       try {
         return (await response.json()) as T;
       } catch {
-        throw invalidResponse('O Ollama devolveu uma resposta invÃ¡lida.');
+        throw invalidResponse('O Ollama devolveu uma resposta inválida.');
       }
     } catch (error) {
       if (isAbortError(error)) {
         throw new AiProviderError(
           'AI_PROVIDER_TIMEOUT',
-          `O provider local nÃ£o respondeu em ${timeoutMs / 1_000} segundos.`,
+          `O provider local não respondeu em ${timeoutMs / 1_000} segundos.`,
         );
       }
       if (error instanceof AiProviderError) throw error;
       throw new AiProviderError(
         'AI_PROVIDER_REQUEST_FAILED',
-        'NÃ£o foi possÃ­vel consultar o provider local.',
+        'Não foi possível consultar o provider local.',
         { cause: error },
       );
     } finally {

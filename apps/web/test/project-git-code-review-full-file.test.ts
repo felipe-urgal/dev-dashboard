@@ -96,7 +96,7 @@ function mountPage(
     if (url.pathname.endsWith('/pull-request/ai-status')) {
       return jsonResponse({
         available: true,
-        message: 'Ollama disponÃ­vel.',
+        message: 'Ollama disponível.',
         models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
       });
     }
@@ -153,7 +153,7 @@ test('alterna para o arquivo completo e destaca a linha alterada', async () => {
                 path: 'src/app.ts',
                 line: 1,
                 title: 'Nomeie melhor a constante',
-                explanation: 'O nome nÃ£o Ã© descritivo.',
+                explanation: 'O nome não é descritivo.',
                 recommendation: 'Renomeie para algo mais claro.',
               },
             ],
@@ -223,7 +223,7 @@ test('alterna para o arquivo completo e destaca a linha alterada', async () => {
   wrapper.unmount();
 });
 
-test('mostra erro com opÃ§Ã£o de voltar ao diff quando o arquivo completo falha', async () => {
+test('mostra erro com opção de voltar ao diff quando o arquivo completo falha', async () => {
   const wrapper = mountPage((path) => {
     if (path.endsWith('/pull-request/ai-review-executions')) {
       return jsonResponse({
@@ -255,7 +255,7 @@ test('mostra erro com opÃ§Ã£o de voltar ao diff quando o arquivo completo fa
                 path: 'src/app.ts',
                 line: 1,
                 title: 'Nomeie melhor a constante',
-                explanation: 'O nome nÃ£o Ã© descritivo.',
+                explanation: 'O nome não é descritivo.',
                 recommendation: 'Renomeie para algo mais claro.',
               },
             ],
@@ -278,7 +278,7 @@ test('mostra erro com opÃ§Ã£o de voltar ao diff quando o arquivo completo fa
       });
     }
     if (path.endsWith('/files/content')) {
-      return jsonResponse({ message: 'Arquivo nÃ£o encontrado.' }, 404);
+      return jsonResponse({ message: 'Arquivo não encontrado.' }, 404);
     }
     return undefined;
   });
@@ -294,7 +294,7 @@ test('mostra erro com opÃ§Ã£o de voltar ao diff quando o arquivo completo fa
   await fullFileButton.trigger('click');
   await flushPromises();
 
-  assert.match(wrapper.text(), /Arquivo nÃ£o encontrado/);
+  assert.match(wrapper.text(), /Arquivo não encontrado/);
   const backToDiff = wrapper
     .findAll('.git-code-review-diff-empty button')
     .find((button) => button.text() === 'Ver diff');

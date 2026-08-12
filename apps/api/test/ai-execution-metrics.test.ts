@@ -33,7 +33,7 @@ function fakeLogger(): {
   };
 }
 
-test('code review: registra mÃ©trica estruturada ao concluir sem vazar conteÃºdo do diff', async () => {
+test('code review: registra métrica estruturada ao concluir sem vazar conteúdo do diff', async () => {
   const { logger, entries } = fakeLogger();
   const service = new GitAiCodeReviewService(
     {

@@ -124,7 +124,7 @@ const baseWorkspace: ProjectGitWorkspace = {
         ...latestCommit,
         hash: 'fed123456789',
         shortHash: 'fed1234',
-        subject: 'feat: versÃ£o principal',
+        subject: 'feat: versão principal',
         authorName: 'Equipe principal',
       },
     },
@@ -250,7 +250,7 @@ function jsonResponse(payload: unknown, status = 200): Response {
 function localAiProvidersResponse(): Response {
   return jsonResponse({
     available: true,
-    message: 'Ollama disponÃ­vel.',
+    message: 'Ollama disponível.',
     models: [{ name: 'qwen2.5-coder:14b', capabilities: ['chat'] }],
   });
 }
@@ -301,7 +301,7 @@ async function mountPanel(args: MountArgs = {}) {
     }
 
     return jsonResponse(
-      { error: 'NOT_FOUND', message: 'Endpoint nÃ£o encontrado.' },
+      { error: 'NOT_FOUND', message: 'Endpoint não encontrado.' },
       404,
     );
   }) as typeof fetch;
@@ -334,25 +334,25 @@ async function clickTab(
   const button = wrapper
     .findAll('.git-subtabs button')
     .find((candidate) => candidate.text() === label);
-  assert.ok(button, `aba ${label} nÃ£o encontrada`);
+  assert.ok(button, `aba ${label} não encontrada`);
   await button.trigger('click');
   await flushPromises();
 }
 
-test('abre diretamente em sincronizaÃ§Ã£o e mantÃ©m branches como segunda aba', async () => {
+test('abre diretamente em sincronização e mantém branches como segunda aba', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
   const text = mounted.wrapper.text();
   assert.doesNotMatch(text, /Resumo/);
-  assert.doesNotMatch(text, /HistÃ³rico recente/);
+  assert.doesNotMatch(text, /Histórico recente/);
   assert.doesNotMatch(text, /upstream\//);
-  assert.match(text, /main\s*â\s*origin\/main/);
+  assert.match(text, /main\s*→\s*origin\/main/);
   assert.match(text, /Sincronizar/);
   assert.ok(
     mounted.wrapper
       .findAll('.git-subtabs button')
-      .find((button) => button.text() === 'SincronizaÃ§Ã£o')
+      .find((button) => button.text() === 'Sincronização')
       ?.classes('active'),
   );
   assert.deepEqual(
@@ -360,15 +360,15 @@ test('abre diretamente em sincronizaÃ§Ã£o e mantÃ©m branches como segunda 
       .findAll('.git-subtabs button')
       .map((button) => button.text()),
     [
-      'SincronizaÃ§Ã£o',
+      'Sincronização',
       'Branches',
       'Diff',
       'Commit',
       'Desfazer',
       'Pull Request',
       'Code review IA',
-      'HistÃ³rico',
-      'MutaÃ§Ãµes',
+      'Histórico',
+      'Mutações',
     ],
   );
   assert.ok(!mounted.wrapper.find('.git-server-indicator').exists());
@@ -451,7 +451,7 @@ test('atualiza a branch atual a partir do upstream por pull confirmado', async (
   );
 });
 
-test('separa o code review da Pull Request e mostra os arquivos e comentÃ¡rios da IA', async () => {
+test('separa o code review da Pull Request e mostra os arquivos e comentários da IA', async () => {
   const mounted = await mountPanel({
     handler: (request) => {
       if (request.path.endsWith('/pull-request/ai-status')) {
@@ -483,15 +483,15 @@ test('separa o code review da Pull Request e mostra os arquivos e comentÃ¡rios
               files: ['apps/web/src/App.vue', 'apps/api/src/app.ts'],
               model: 'qwen2.5-coder:14b',
               reviewedAt: '2026-08-09T13:00:00.000Z',
-              summary: 'HÃ¡ uma validaÃ§Ã£o ausente no fluxo de criaÃ§Ã£o.',
+              summary: 'Há uma validação ausente no fluxo de criação.',
               findings: [
                 {
                   severity: 'warning',
                   path: 'apps/api/src/app.ts',
                   line: 42,
                   title: 'Validar a entrada',
-                  explanation: 'O valor chega ao serviÃ§o sem validaÃ§Ã£o.',
-                  recommendation: 'Valide antes de chamar o serviÃ§o.',
+                  explanation: 'O valor chega ao serviço sem validação.',
+                  recommendation: 'Valide antes de chamar o serviço.',
                 },
               ],
               diffTruncated: false,
@@ -517,7 +517,7 @@ test('separa o code review da Pull Request e mostra os arquivos e comentÃ¡rios
   cleanup = mounted.restore;
 
   await clickTab(mounted.wrapper, 'Code review IA');
-  assert.match(mounted.wrapper.text(), /RevisÃ£o de cÃ³digo com IA/);
+  assert.match(mounted.wrapper.text(), /Revisão de código com IA/);
   await mounted.wrapper
     .find('.git-code-review-controls button')
     .trigger('click');
@@ -537,7 +537,7 @@ test('separa o code review da Pull Request e mostra os arquivos e comentÃ¡rios
   );
 });
 
-test('permite revisar alteraÃ§Ãµes em uma branch local ainda nÃ£o publicada', async () => {
+test('permite revisar alterações em uma branch local ainda não publicada', async () => {
   const { upstream: _overviewUpstream, ...unpublishedOverview } = baseOverview;
   const mounted = await mountPanel({
     overview: unpublishedOverview,
@@ -616,7 +616,7 @@ test('permite revisar alteraÃ§Ãµes em uma branch local ainda nÃ£o publicad
   );
 });
 
-test('lista branches locais e origin sem expor aÃ§Ãµes de sincronizaÃ§Ã£o', async () => {
+test('lista branches locais e origin sem expor ações de sincronização', async () => {
   const mounted = await mountPanel({
     workspace: {
       ...baseWorkspace,
@@ -732,7 +732,7 @@ test('cria branch com prefixo pelo modal centralizado', async () => {
   );
 });
 
-test('renomeia uma branch local pelo menu de aÃ§Ãµes', async () => {
+test('renomeia uma branch local pelo menu de ações', async () => {
   const mounted = await mountPanel({
     handler: (request) => {
       if (request.path.endsWith('/git/branches/rename/confirmations')) {
@@ -795,7 +795,7 @@ test('renomeia uma branch local pelo menu de aÃ§Ãµes', async () => {
   );
 });
 
-test('remove uma branch local apÃ³s confirmaÃ§Ã£o digitada', async () => {
+test('remove uma branch local após confirmação digitada', async () => {
   const removableBranch: ProjectGitWorkspace['branches'][number] = {
     name: 'bugfix/old',
     shortName: 'bugfix/old',
@@ -872,19 +872,19 @@ test('remove uma branch local apÃ³s confirmaÃ§Ã£o digitada', async () => {
   assert.match(mounted.wrapper.text(), /Branch "bugfix\/old" removida/);
 });
 
-test('renderiza somente as duas operaÃ§Ãµes de commit', async () => {
+test('renderiza somente as duas operações de commit', async () => {
   const mounted = await mountPanel({ overview: commitOverview });
   cleanup = mounted.restore;
 
   await clickTab(mounted.wrapper, 'Commit');
 
   assert.match(mounted.wrapper.text(), /Novo commit/);
-  assert.match(mounted.wrapper.text(), /Alterar Ãºltimo commit/);
+  assert.match(mounted.wrapper.text(), /Alterar último commit/);
   assert.match(mounted.wrapper.text(), /Branch main/);
-  assert.match(mounted.wrapper.text(), /4 alteraÃ§Ãµes rastreadas/);
+  assert.match(mounted.wrapper.text(), /4 alterações rastreadas/);
   assert.match(
     mounted.wrapper.text(),
-    /Inclui automaticamente todas as alteraÃ§Ãµes rastreadas/,
+    /Inclui automaticamente todas as alterações rastreadas/,
   );
   assert.ok(mounted.wrapper.find('.git-commit-card').exists());
   assert.ok(!mounted.wrapper.find('.git-commit-steps').exists());
@@ -893,7 +893,7 @@ test('renderiza somente as duas operaÃ§Ãµes de commit', async () => {
   assert.doesNotMatch(mounted.wrapper.text(), /Staged|Modificados|Novos/);
 });
 
-test('cria commit incluindo automaticamente alteraÃ§Ãµes rastreadas', async () => {
+test('cria commit incluindo automaticamente alterações rastreadas', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 
@@ -960,7 +960,7 @@ test('cria commit incluindo automaticamente alteraÃ§Ãµes rastreadas', async 
   assert.match(mounted.wrapper.text(), /Commit "1111111" criado/);
 });
 
-test('altera o Ãºltimo commit pelo modo amend', async () => {
+test('altera o último commit pelo modo amend', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 
@@ -1004,7 +1004,7 @@ test('altera o Ãºltimo commit pelo modo amend', async () => {
   await clickTab(mounted.wrapper, 'Commit');
   const amendButton = mounted.wrapper
     .findAll('.git-commit-mode button')
-    .find((button) => button.text().includes('Alterar Ãºltimo commit'));
+    .find((button) => button.text().includes('Alterar último commit'));
   assert.ok(amendButton);
   await amendButton.trigger('click');
   assert.equal(
@@ -1102,7 +1102,7 @@ test('oferece reenvio com lease na Pull Request depois de alterar commit em bran
   await clickTab(mounted.wrapper, 'Commit');
   const amendButton = mounted.wrapper
     .findAll('.git-commit-mode button')
-    .find((button) => button.text().includes('Alterar Ãºltimo commit'));
+    .find((button) => button.text().includes('Alterar último commit'));
   assert.ok(amendButton);
   await amendButton.trigger('click');
   await mounted.wrapper
@@ -1120,7 +1120,7 @@ test('oferece reenvio com lease na Pull Request depois de alterar commit em bran
   assert.match(mounted.wrapper.text(), /Substituir branch remota/);
   const forceButton = mounted.wrapper
     .findAll('.git-pr-force-push button')
-    .find((button) => button.text().includes('ForÃ§ar atualizaÃ§Ã£o no origin'));
+    .find((button) => button.text().includes('Forçar atualização no origin'));
   assert.ok(forceButton);
   await forceButton.trigger('click');
   await flushPromises();
@@ -1155,7 +1155,7 @@ test('abre a aba Diff como o componente dedicado, sem app aninhado', async () =>
   assert.equal(mounted.wrapper.findAll('.git-tab-page').length, 0);
 });
 
-test('renderiza a sincronizaÃ§Ã£o em uma Ãºnica aÃ§Ã£o entre main e origin/main', async () => {
+test('renderiza a sincronização em uma única ação entre main e origin/main', async () => {
   const mounted = await mountPanel({
     workspace: {
       ...baseWorkspace,
@@ -1177,11 +1177,11 @@ test('renderiza a sincronizaÃ§Ã£o em uma Ãºnica aÃ§Ã£o entre main e or
 
   const syncCard = mounted.wrapper.find('.git-sync-main-card');
   assert.ok(syncCard.exists());
-  assert.match(syncCard.text(), /main\s*â\s*origin\/main/);
+  assert.match(syncCard.text(), /main\s*→\s*origin\/main/);
   assert.match(syncCard.text(), /Tudo sincronizado/);
   assert.match(
     syncCard.text(),
-    /A sincronizaÃ§Ã£o atualiza a main e publica no origin/,
+    /A sincronização atualiza a main e publica no origin/,
   );
   assert.equal(syncCard.findAll('.git-sync-button').length, 1);
   assert.ok(
@@ -1189,15 +1189,15 @@ test('renderiza a sincronizaÃ§Ã£o em uma Ãºnica aÃ§Ã£o entre main e or
   );
   assert.doesNotMatch(
     syncCard.text(),
-    /upstream|fetch|pipeline|estratÃ©gia|pull request/i,
+    /upstream|fetch|pipeline|estratégia|pull request/i,
   );
 });
 
-test('avisa sobre alteraÃ§Ãµes locais somente quando hÃ¡ sincronizaÃ§Ã£o pendente', async () => {
+test('avisa sobre alterações locais somente quando há sincronização pendente', async () => {
   const mounted = await mountPanel();
   cleanup = mounted.restore;
 
-  assert.match(mounted.wrapper.text(), /AlteraÃ§Ãµes locais pendentes/);
+  assert.match(mounted.wrapper.text(), /Alterações locais pendentes/);
   assert.doesNotMatch(mounted.wrapper.text(), /Tudo sincronizado/);
   assert.ok(
     mounted.wrapper.find('.git-sync-button').attributes('disabled') !==
@@ -1205,7 +1205,7 @@ test('avisa sobre alteraÃ§Ãµes locais somente quando hÃ¡ sincronizaÃ§Ã�
   );
 });
 
-test('sincroniza a main em uma Ãºnica mutaÃ§Ã£o confirmada', async () => {
+test('sincroniza a main em uma única mutação confirmada', async () => {
   const originalConfirm = globalThis.confirm;
   globalThis.confirm = () => true;
 

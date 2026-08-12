@@ -15,14 +15,14 @@ const cases: Array<{
   {
     code: 'AI_ASSISTANT_INVALID_REQUEST',
     statusCode: 400,
-    error: new AiAssistantError('Request invÃ¡lido.'),
+    error: new AiAssistantError('Request inválido.'),
   },
   {
     code: 'AI_PROVIDER_UNAVAILABLE',
     statusCode: 503,
     error: new AiProviderError(
       'AI_PROVIDER_UNAVAILABLE',
-      'Provider indisponÃ­vel.',
+      'Provider indisponível.',
     ),
   },
   {
@@ -30,7 +30,7 @@ const cases: Array<{
     statusCode: 502,
     error: new AiProviderError(
       'AI_PROVIDER_AUTH_FAILED',
-      'AutenticaÃ§Ã£o do provider falhou.',
+      'Autenticação do provider falhou.',
     ),
   },
   {
@@ -58,7 +58,7 @@ const cases: Array<{
     statusCode: 502,
     error: new AiProviderError(
       'AI_PROVIDER_INVALID_RESPONSE',
-      'Resposta invÃ¡lida.',
+      'Resposta inválida.',
     ),
   },
   {
@@ -66,7 +66,7 @@ const cases: Array<{
     statusCode: 422,
     error: new AiProviderError(
       'AI_PROVIDER_OPERATION_UNSUPPORTED',
-      'OperaÃ§Ã£o nÃ£o suportada.',
+      'Operação não suportada.',
     ),
   },
   {
@@ -76,7 +76,7 @@ const cases: Array<{
   },
 ];
 
-test('traduz classes de falha de IA para cÃ³digo e status HTTP estÃ¡veis', () => {
+test('traduz classes de falha de IA para código e status HTTP estáveis', () => {
   for (const item of cases) {
     assert.equal(aiErrorCode(item.error), item.code);
     const translated = aiApiError(item.error);
@@ -87,8 +87,8 @@ test('traduz classes de falha de IA para cÃ³digo e status HTTP estÃ¡veis', (
   }
 });
 
-test('nÃ£o classifica erro estranho como falha conhecida de IA', () => {
-  const error = new Error('erro de outro domÃ­nio');
+test('não classifica erro estranho como falha conhecida de IA', () => {
+  const error = new Error('erro de outro domínio');
   assert.equal(aiErrorCode(error), undefined);
   assert.equal(aiApiError(error), null);
 });

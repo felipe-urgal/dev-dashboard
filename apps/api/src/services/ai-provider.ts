@@ -51,12 +51,12 @@ export interface AiProviderChatRoundResult {
 }
 
 /**
- * Boundary mÃ­nimo entre o domÃ­nio do dev-dashboard e um motor de IA.
+ * Boundary mínimo entre o domínio do dev-dashboard e um motor de IA.
  *
- * O provider conhece autenticaÃ§Ã£o/transporte/payload do fornecedor. Ele nÃ£o
- * conhece projeto, filesystem, Git, LSP, workspace edit nem aprovaÃ§Ã£o. Desde
- * a remoÃ§Ã£o do Assistente IA sÃ³ a Code review usa este boundary â apenas
- * `status`/`chatRound` seguem em uso; compleÃ§Ã£o inline e instalaÃ§Ã£o de
+ * O provider conhece autenticação/transporte/payload do fornecedor. Ele não
+ * conhece projeto, filesystem, Git, LSP, workspace edit nem aprovação. Desde
+ * a remoção do Assistente IA só a Code review usa este boundary — apenas
+ * `status`/`chatRound` seguem em uso; compleção inline e instalação de
  * modelo eram exclusivas do Assistente IA e foram removidas.
  */
 export interface AiProvider {

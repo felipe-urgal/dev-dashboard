@@ -35,14 +35,14 @@ function options() {
   };
 }
 
-test('mascara conteÃºdo antes de enviar request ao Ollama', async () => {
+test('mascara conteúdo antes de enviar request ao Ollama', async () => {
   const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
   let requestBody = '';
   const fetchImpl: typeof fetch = async (_input, init) => {
     requestBody = String(init?.body ?? '');
     return new Response(
       JSON.stringify({
-        message: { role: 'assistant', content: 'ConcluÃ­do.' },
+        message: { role: 'assistant', content: 'Concluído.' },
         done: true,
       }),
       { status: 200 },
@@ -92,7 +92,7 @@ test('converte tool call textual do Ollama em chamada estruturada', async () => 
   ]);
 });
 
-test('nÃ£o converte chamada textual para ferramenta fora do catÃ¡logo enviado', async () => {
+test('não converte chamada textual para ferramenta fora do catálogo enviado', async () => {
   const leaked = JSON.stringify({
     name: 'delete_project',
     arguments: { path: 'src' },
@@ -154,7 +154,7 @@ test('preserva tool_calls estruturado devolvido pelo Ollama', async () => {
   ]);
 });
 
-test('rejeita tool call textual com argumentos invÃ¡lidos', async () => {
+test('rejeita tool call textual com argumentos inválidos', async () => {
   const fetchImpl: typeof fetch = async () =>
     new Response(
       JSON.stringify({
@@ -178,7 +178,7 @@ test('rejeita tool call textual com argumentos invÃ¡lidos', async () => {
   );
 });
 
-test('status reporta indisponÃ­vel quando o Ollama estÃ¡ offline', async () => {
+test('status reporta indisponível quando o Ollama está offline', async () => {
   const fetchImpl: typeof fetch = async () => {
     throw new TypeError('fetch failed');
   };
@@ -191,7 +191,7 @@ test('status reporta indisponÃ­vel quando o Ollama estÃ¡ offline', async () 
   assert.equal(status.models.length, 0);
 });
 
-test('chatRound falha com erro de request quando o Ollama estÃ¡ offline', async () => {
+test('chatRound falha com erro de request quando o Ollama está offline', async () => {
   const fetchImpl: typeof fetch = async () => {
     throw new TypeError('fetch failed');
   };
@@ -207,7 +207,7 @@ test('chatRound falha com erro de request quando o Ollama estÃ¡ offline', asyn
   );
 });
 
-test('status reporta Ollama disponÃ­vel sem nenhum modelo instalado', async () => {
+test('status reporta Ollama disponível sem nenhum modelo instalado', async () => {
   const fetchImpl: typeof fetch = async (input) => {
     const url = String(input);
     if (url.endsWith('/api/tags')) {
@@ -221,10 +221,10 @@ test('status reporta Ollama disponÃ­vel sem nenhum modelo instalado', async ()
 
   assert.equal(status.available, true);
   assert.deepEqual(status.models, []);
-  assert.match(status.message ?? '', /nenhum modelo estÃ¡ instalado/);
+  assert.match(status.message ?? '', /nenhum modelo está instalado/);
 });
 
-test('chatRound falha de forma previsÃ­vel quando o modelo foi removido no meio do uso', async () => {
+test('chatRound falha de forma previsível quando o modelo foi removido no meio do uso', async () => {
   const fetchImpl: typeof fetch = async () =>
     new Response(
       JSON.stringify({ error: 'model "qwen2.5-coder:7b" not found' }),
@@ -247,7 +247,7 @@ test('chatRound rejeita quando o NDJSON do Ollama chega incompleto', async () =>
   const fetchImpl: typeof fetch = async () =>
     new Response(
       ndjsonStream([
-        `${JSON.stringify({ message: { role: 'assistant', content: 'OlÃ¡' } })}\n`,
+        `${JSON.stringify({ message: { role: 'assistant', content: 'Olá' } })}\n`,
         '{"message":{"role":"assistant","content":"trunc',
       ]),
       { status: 200 },
@@ -257,6 +257,6 @@ test('chatRound rejeita quando o NDJSON do Ollama chega incompleto', async () =>
 
   await assert.rejects(
     provider.chatRound('qwen2.5-coder:7b', messages, options()),
-    /nÃ£o pÃ´de ser interpretad[oa]/,
+    /não pôde ser interpretad[oa]/,
   );
 });

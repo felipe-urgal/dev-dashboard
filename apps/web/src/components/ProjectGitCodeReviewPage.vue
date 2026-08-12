@@ -122,9 +122,9 @@ const selectedProviderReady = computed(() =>
 );
 const providerStatusMessage = computed(() => {
   const status = aiStatus.value;
-  if (!status) return 'Verificando o Ollama localâ¦';
+  if (!status) return 'Verificando o Ollama local…';
   if (!status.available)
-    return `Ollama local Â· ${status.message || 'indisponÃ­vel.'}`;
+    return `Ollama local · ${status.message || 'indisponível.'}`;
   return 'Ollama local';
 });
 
@@ -183,8 +183,8 @@ const activeFindings = computed(() =>
     : [],
 );
 /**
- * Enquanto o diff do arquivo nÃ£o estiver disponÃ­vel (carregando ou com erro),
- * todos os apontamentos aparecem na lista geral â sÃ³ migram para o corpo do
+ * Enquanto o diff do arquivo não estiver disponível (carregando ou com erro),
+ * todos os apontamentos aparecem na lista geral — só migram para o corpo do
  * diff, inline por linha, depois que ele carrega com sucesso.
  */
 const positionedFindings = computed(() =>
@@ -213,7 +213,7 @@ function isCodeFile(path: string): boolean {
 }
 
 function formatElapsed(startedAt?: string, finishedAt?: string): string {
-  if (!startedAt) return 'â';
+  if (!startedAt) return '—';
   const elapsed = Math.max(
     0,
     new Date(finishedAt ?? new Date()).getTime() -
@@ -227,8 +227,8 @@ function formatElapsed(startedAt?: string, finishedAt?: string): string {
 function fileStatusLabel(file: GitPullRequestAiReviewFileExecution): string {
   const labels = {
     queued: 'Na fila',
-    running: 'Em anÃ¡lise',
-    completed: 'ConcluÃ­do',
+    running: 'Em análise',
+    completed: 'Concluído',
     failed: 'Falhou',
     cancelled: 'Cancelado',
   } as const;
@@ -244,7 +244,7 @@ function providerLabel(
 function executionModeLabel(
   mode: GitPullRequestAiReviewExecution['mode'],
 ): string {
-  return mode === 'complete' ? 'Completo' : 'RÃ¡pido';
+  return mode === 'complete' ? 'Completo' : 'Rápido';
 }
 
 function isFindingResolved(finding: GitPullRequestReviewFinding): boolean {
@@ -313,7 +313,7 @@ async function openReviewFile(path: string): Promise<void> {
     reviewFileDiffError.value =
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel carregar o diff deste arquivo.';
+        : 'Não foi possível carregar o diff deste arquivo.';
   } finally {
     if (generation === reviewFileDiffGeneration)
       loadingReviewFileDiff.value = false;
@@ -333,7 +333,7 @@ async function loadFullFile(path: string): Promise<void> {
     fullFileError.value =
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel carregar o arquivo completo.';
+        : 'Não foi possível carregar o arquivo completo.';
   } finally {
     if (generation === fullFileGeneration) loadingFullFile.value = false;
   }
@@ -382,7 +382,7 @@ async function loadReviewFiles(): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel listar os arquivos da comparaÃ§Ã£o.';
+        : 'Não foi possível listar os arquivos da comparação.';
   } finally {
     loadingFiles.value = false;
   }
@@ -412,7 +412,7 @@ function applyExecution(candidate: GitPullRequestAiReviewExecution): void {
   if (candidate.status === 'failed') {
     errorMessage.value =
       candidate.errorMessage ??
-      'NÃ£o foi possÃ­vel concluir o code review com IA.';
+      'Não foi possível concluir o code review com IA.';
     stopRefreshing();
     void loadAiStatus();
   } else if (candidate.status === 'cancelled') {
@@ -447,7 +447,7 @@ async function refreshExecution(): Promise<void> {
       if (candidate.status === 'running') refreshWhileRunning();
     }
   } catch {
-    // A revisÃ£o continua no servidor; a prÃ³xima consulta tenta recuperar o estado.
+    // A revisão continua no servidor; a próxima consulta tenta recuperar o estado.
   }
 }
 
@@ -483,7 +483,7 @@ async function reviewChanges(paths = selectedFiles.value): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel iniciar o code review com IA.';
+        : 'Não foi possível iniciar o code review com IA.';
     void loadAiStatus();
   } finally {
     reviewing.value = false;
@@ -503,7 +503,7 @@ async function cancelReview(): Promise<void> {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel cancelar a revisÃ£o.';
+        : 'Não foi possível cancelar a revisão.';
   } finally {
     cancelling.value = false;
   }
@@ -581,8 +581,8 @@ onUnmounted(stopRefreshing);
     <header class="git-code-review-heading">
       <div>
         <span>Code review</span>
-        <h2>RevisÃ£o de cÃ³digo com IA</h2>
-        <p>Escolha o escopo e acompanhe cada arquivo sem sair da revisÃ£o.</p>
+        <h2>Revisão de código com IA</h2>
+        <p>Escolha o escopo e acompanhe cada arquivo sem sair da revisão.</p>
       </div>
       <DocumentMagnifyingGlassIcon aria-hidden="true" />
     </header>
@@ -624,8 +624,8 @@ onUnmounted(stopRefreshing);
       <label v-if="aiStatus?.models.length">
         <span>Paralelismo</span>
         <select v-model="concurrency" :disabled="isRunning">
-          <option :value="1">EconÃ´mico Â· 1 por vez</option>
-          <option :value="2">RÃ¡pido Â· 2 em paralelo</option>
+          <option :value="1">Econômico · 1 por vez</option>
+          <option :value="2">Rápido · 2 em paralelo</option>
         </select>
       </label>
       <p class="git-code-review-model">
@@ -638,7 +638,7 @@ onUnmounted(stopRefreshing);
         @click="reviewChanges()"
       >
         <SparklesIcon aria-hidden="true" />
-        Iniciar revisÃ£o
+        Iniciar revisão
       </button>
     </div>
 
@@ -671,7 +671,7 @@ onUnmounted(stopRefreshing);
           <button type="button" @click="selectAllFiles">
             Selecionar todos
           </button>
-          <button type="button" @click="selectCodeFiles">Somente cÃ³digo</button>
+          <button type="button" @click="selectCodeFiles">Somente código</button>
           <button type="button" @click="clearFileSelection">Limpar</button>
         </div>
         <label v-for="file in reviewFiles.files" :key="file">
@@ -681,7 +681,7 @@ onUnmounted(stopRefreshing);
       </div>
     </section>
     <p v-else-if="loadingFiles" class="git-code-review-model">
-      Carregando arquivos alteradosâ¦
+      Carregando arquivos alterados…
     </p>
 
     <section
@@ -700,7 +700,7 @@ onUnmounted(stopRefreshing);
           @click="cancelReview"
         >
           <StopIcon aria-hidden="true" />
-          {{ cancelling ? 'Cancelandoâ¦' : 'Cancelar revisÃ£o' }}
+          {{ cancelling ? 'Cancelando…' : 'Cancelar revisão' }}
         </button>
       </header>
       <div
@@ -715,7 +715,7 @@ onUnmounted(stopRefreshing);
         <div>
           <dt>Arquivo atual</dt>
           <dd>
-            {{ currentFiles.join(', ') || 'Preparando prÃ³xima anÃ¡liseâ¦' }}
+            {{ currentFiles.join(', ') || 'Preparando próxima análise…' }}
           </dd>
         </div>
         <div>
@@ -751,7 +751,7 @@ onUnmounted(stopRefreshing);
       >
         <span>
           <ClockIcon aria-hidden="true" />
-          Acompanhamento Â·
+          Acompanhamento ·
           {{ execution.fileExecutions?.length ?? 0 }} arquivo(s)
         </span>
         <ChevronUpIcon v-if="activityOpen" aria-hidden="true" />
@@ -785,8 +785,8 @@ onUnmounted(stopRefreshing);
     </section>
 
     <p v-if="execution?.status === 'cancelled'" class="git-code-review-notice">
-      RevisÃ£o cancelada. {{ execution.completedFileCount }} arquivo(s)
-      concluÃ­do(s) antes do cancelamento.
+      Revisão cancelada. {{ execution.completedFileCount }} arquivo(s)
+      concluído(s) antes do cancelamento.
     </p>
 
     <div v-if="review" class="git-code-review-results" aria-live="polite">
@@ -795,16 +795,16 @@ onUnmounted(stopRefreshing);
           <span
             >Resultado
             {{
-              execution?.status === 'cancelled' ? 'parcial' : 'da revisÃ£o'
+              execution?.status === 'cancelled' ? 'parcial' : 'da revisão'
             }}</span
           >
           <strong>{{ pendingFindingCount }} apontamento(s) pendente(s)</strong>
           <p>{{ review.summary }}</p>
         </div>
         <small
-          >{{ execution ? providerLabel(execution.provider) : '' }} Â·
-          {{ execution ? executionModeLabel(execution.mode) : '' }} Â·
-          {{ review.model }} Â·
+          >{{ execution ? providerLabel(execution.provider) : '' }} ·
+          {{ execution ? executionModeLabel(execution.mode) : '' }} ·
+          {{ review.model }} ·
           {{
             formatElapsed(execution?.startedAt, execution?.finishedAt)
           }}</small
@@ -823,7 +823,7 @@ onUnmounted(stopRefreshing);
         <aside class="git-code-review-files" aria-label="Arquivos revisados">
           <header>
             <div>
-              <span>ComentÃ¡rios por arquivo</span>
+              <span>Comentários por arquivo</span>
               <strong>{{ groupedReviewFindings.length }} arquivo(s)</strong>
             </div>
             <FunnelIcon aria-hidden="true" />
@@ -850,7 +850,7 @@ onUnmounted(stopRefreshing);
           </div>
 
           <p v-if="review.diffTruncated" class="git-code-review-file-notice">
-            Um diff extenso foi resumido para a anÃ¡lise da IA; a visualizaÃ§Ã£o
+            Um diff extenso foi resumido para a análise da IA; a visualização
             abaixo continua completa.
           </p>
         </aside>
@@ -869,7 +869,7 @@ onUnmounted(stopRefreshing);
             <div
               v-if="activeReviewFile"
               class="git-code-review-file-mode-toggle"
-              aria-label="Modo de exibiÃ§Ã£o do arquivo"
+              aria-label="Modo de exibição do arquivo"
             >
               <button
                 type="button"
@@ -911,7 +911,7 @@ onUnmounted(stopRefreshing);
               <template v-if="fileViewMode === 'full'">
                 <div v-if="loadingFullFile" class="git-code-review-diff-empty">
                   <ArrowPathIcon class="spinning" aria-hidden="true" />
-                  Carregando arquivo completoâ¦
+                  Carregando arquivo completo…
                 </div>
                 <div
                   v-else-if="fullFileError"
@@ -944,7 +944,7 @@ onUnmounted(stopRefreshing);
                   class="git-code-review-diff-empty"
                 >
                   <ArrowPathIcon class="spinning" aria-hidden="true" />
-                  Carregando diff da comparaÃ§Ã£oâ¦
+                  Carregando diff da comparação…
                 </div>
                 <p
                   v-else-if="reviewFileDiffError"
@@ -966,7 +966,7 @@ onUnmounted(stopRefreshing);
                   @ignore-finding="ignoreFinding"
                 />
                 <div v-else class="git-code-review-diff-empty">
-                  Escolha um arquivo para abrir o diff correspondente Ã  revisÃ£o.
+                  Escolha um arquivo para abrir o diff correspondente à revisão.
                 </div>
               </template>
             </div>
@@ -980,7 +980,7 @@ onUnmounted(stopRefreshing);
       >
         <span>{{ selectedFindingKeys.length }} selecionado(s)</span>
         <button type="button" @click="selectedFindingKeys = []">
-          Limpar seleÃ§Ã£o
+          Limpar seleção
         </button>
         <button type="button" @click="markSelectedFindingsResolved">
           <CheckIcon aria-hidden="true" />
@@ -996,10 +996,10 @@ onUnmounted(stopRefreshing);
       <header>
         <div>
           <strong
-            >{{ execution.failedFiles.length }} arquivo(s) nÃ£o
+            >{{ execution.failedFiles.length }} arquivo(s) não
             responderam</strong
           >
-          <span>A revisÃ£o dos demais arquivos continua disponÃ­vel.</span>
+          <span>A revisão dos demais arquivos continua disponível.</span>
         </div>
         <button type="button" :disabled="isRunning" @click="retryFailedFiles">
           Tentar falhos

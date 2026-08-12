@@ -195,9 +195,9 @@ export async function composeProjectGitPullRequest(
 }
 
 /**
- * Status mÃ­nimo do provider local (Ollama) usado sÃ³ pela Code review para
- * habilitar o botÃ£o "Iniciar revisÃ£o" e alimentar o seletor de modelo â nÃ£o
- * hÃ¡ mais seleÃ§Ã£o de provider nem consentimento cloud.
+ * Status mínimo do provider local (Ollama) usado só pela Code review para
+ * habilitar o botão "Iniciar revisão" e alimentar o seletor de modelo — não
+ * há mais seleção de provider nem consentimento cloud.
  */
 export async function getProjectGitPullRequestAiStatus(
   projectId: string,

@@ -29,10 +29,10 @@ async function waitForReview(
     if (service.latest(projectId)?.status !== 'running') return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error('A execuÃ§Ã£o de code review nÃ£o terminou dentro do limite.');
+  throw new Error('A execução de code review não terminou dentro do limite.');
 }
 
-test('code review preserva masking e metadados de redaÃ§Ã£o antes de chamar o modelo', async () => {
+test('code review preserva masking e metadados de redação antes de chamar o modelo', async () => {
   const secret = 'sk-abcdefghijklmnopqrstuvwxyz999999';
   let receivedPrompt = '';
   const service = new GitAiCodeReviewService(

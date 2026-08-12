@@ -117,9 +117,9 @@ const pullRequestAiReviewExecutionBodySchema = {
 } as const;
 
 /**
- * Status mÃ­nimo do provider local (Ollama) usado sÃ³ para a Code review
- * escolher um modelo e habilitar o botÃ£o "Iniciar revisÃ£o" â nÃ£o existe mais
- * seleÃ§Ã£o de provider nem consentimento cloud (removidos com o Assistente IA).
+ * Status mínimo do provider local (Ollama) usado só para a Code review
+ * escolher um modelo e habilitar o botão "Iniciar revisão" — não existe mais
+ * seleção de provider nem consentimento cloud (removidos com o Assistente IA).
  */
 const pullRequestAiStatusSchema = {
   type: 'object',
@@ -395,7 +395,7 @@ function translatePullRequestError(error: unknown): never {
     message:
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel compor a URL da Pull Request.',
+        : 'Não foi possível compor a URL da Pull Request.',
   });
 }
 
@@ -411,7 +411,7 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
       throw new ApiError({
         statusCode: 404,
         code: 'PROJECT_NOT_FOUND',
-        message: 'Projeto nÃ£o encontrado.',
+        message: 'Projeto não encontrado.',
       });
     }
     return project;
@@ -673,7 +673,7 @@ export const gitPullRequestRoutes: FastifyPluginAsync<
         throw new ApiError({
           statusCode: 404,
           code: 'PROJECT_NOT_FOUND',
-          message: 'RevisÃ£o em andamento nÃ£o encontrada.',
+          message: 'Revisão em andamento não encontrada.',
         });
       }
       return { execution };

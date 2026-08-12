@@ -1,195 +1,195 @@
-# VisÃ£o do produto
+# Visão do produto
 
 ## Resumo
 
-O Dev Dashboard Ã© uma central local de desenvolvimento para organizar projetos, iniciar serviÃ§os, acompanhar processos e executar tarefas recorrentes sem depender de mÃºltiplos terminais e comandos memorizados.
+O Dev Dashboard é uma central local de desenvolvimento para organizar projetos, iniciar serviços, acompanhar processos e executar tarefas recorrentes sem depender de múltiplos terminais e comandos memorizados.
 
-O produto combina a velocidade do CLI existente com uma interface web profissional, preservando o controle local e a seguranÃ§a do ambiente do desenvolvedor.
+O produto combina a velocidade do CLI existente com uma interface web profissional, preservando o controle local e a segurança do ambiente do desenvolvedor.
 
 ## Problema
 
-Desenvolvedores que trabalham com mÃºltiplos projetos Rails e Node geralmente precisam:
+Desenvolvedores que trabalham com múltiplos projetos Rails e Node geralmente precisam:
 
-- localizar repositÃ³rios em diferentes pastas;
-- lembrar comandos especÃ­ficos de cada projeto;
-- iniciar vÃ¡rios processos;
+- localizar repositórios em diferentes pastas;
+- lembrar comandos específicos de cada projeto;
+- iniciar vários processos;
 - acompanhar portas e PIDs;
 - consultar logs;
 - alternar entre terminal, navegador e editor;
-- repetir operaÃ§Ãµes Git, testes e banco;
-- manter contexto sobre quais serviÃ§os estÃ£o ativos.
+- repetir operações Git, testes e banco;
+- manter contexto sobre quais serviços estão ativos.
 
-Essas tarefas sÃ£o simples isoladamente, mas geram fricÃ§Ã£o quando se repetem durante todo o dia.
+Essas tarefas são simples isoladamente, mas geram fricção quando se repetem durante todo o dia.
 
 ## Proposta de valor
 
-O Dev Dashboard oferece uma Ãºnica interface para:
+O Dev Dashboard oferece uma única interface para:
 
 - encontrar projetos locais;
 - entender as capacidades de cada projeto;
 - iniciar e parar servidores;
 - visualizar estados e logs;
-- abrir aplicaÃ§Ãµes no navegador;
+- abrir aplicações no navegador;
 - alternar entre workspaces;
-- executar aÃ§Ãµes de desenvolvimento conhecidas;
-- preservar a opÃ§Ã£o de uso pelo terminal.
+- executar ações de desenvolvimento conhecidas;
+- preservar a opção de uso pelo terminal.
 
-## PÃºblico inicial
+## Público inicial
 
-O pÃºblico inicial Ã© composto por desenvolvedores que:
+O público inicial é composto por desenvolvedores que:
 
 - utilizam Linux;
 - trabalham com Rails, Node ou ambos;
-- mantÃªm vÃ¡rios repositÃ³rios locais;
+- mantêm vários repositórios locais;
 - preferem ferramentas locais;
 - usam terminal diariamente;
 - precisam reduzir tarefas repetitivas;
-- valorizam transparÃªncia sobre comandos e processos.
+- valorizam transparência sobre comandos e processos.
 
-## PrincÃ­pios do produto
+## Princípios do produto
 
 ### Local primeiro
 
-O produto deve funcionar integralmente no computador do usuÃ¡rio.
+O produto deve funcionar integralmente no computador do usuário.
 
-A API deve permanecer restrita ao ambiente local e nÃ£o depender de um serviÃ§o externo para executar operaÃ§Ãµes bÃ¡sicas.
+A API deve permanecer restrita ao ambiente local e não depender de um serviço externo para executar operações básicas.
 
 ### CLI e Web complementares
 
-A interface web nÃ£o substitui o terminal.
+A interface web não substitui o terminal.
 
-O CLI continua sendo a opÃ§Ã£o mais rÃ¡pida para usuÃ¡rios que preferem teclado e comandos. O navegador oferece contexto visual, descoberta, monitoramento e aÃ§Ãµes organizadas.
+O CLI continua sendo a opção mais rápida para usuários que preferem teclado e comandos. O navegador oferece contexto visual, descoberta, monitoramento e ações organizadas.
 
-### TransparÃªncia
+### Transparência
 
-Antes de executar uma aÃ§Ã£o relevante, o usuÃ¡rio deve conseguir entender:
+Antes de executar uma ação relevante, o usuário deve conseguir entender:
 
-- qual projeto serÃ¡ afetado;
-- qual aÃ§Ã£o serÃ¡ executada;
-- qual comando estÃ¡ associado;
+- qual projeto será afetado;
+- qual ação será executada;
+- qual comando está associado;
 - qual processo foi criado;
-- qual porta estÃ¡ sendo utilizada;
-- onde os logs estÃ£o armazenados.
+- qual porta está sendo utilizada;
+- onde os logs estão armazenados.
 
-### SeguranÃ§a por padrÃ£o
+### Segurança por padrão
 
-A aplicaÃ§Ã£o nÃ£o deve aceitar comandos livres enviados pelo navegador.
+A aplicação não deve aceitar comandos livres enviados pelo navegador.
 
-AÃ§Ãµes devem vir de um catÃ¡logo fechado, com validaÃ§Ã£o de parÃ¢metros, caminhos e permissÃµes.
+Ações devem vir de um catálogo fechado, com validação de parâmetros, caminhos e permissões.
 
-### EvoluÃ§Ã£o incremental
+### Evolução incremental
 
-A migraÃ§Ã£o do cÃ³digo Bash para pacotes TypeScript deve acontecer somente quando trouxer benefÃ­cio mensurÃ¡vel.
+A migração do código Bash para pacotes TypeScript deve acontecer somente quando trouxer benefício mensurável.
 
-O funcionamento existente nÃ£o deve ser quebrado apenas para perseguir uma arquitetura ideal.
+O funcionamento existente não deve ser quebrado apenas para perseguir uma arquitetura ideal.
 
 ### Feedback imediato
 
-Toda aÃ§Ã£o deve comunicar seu estado:
+Toda ação deve comunicar seu estado:
 
 ```text
 aguardando
 executando
-concluÃ­da
+concluída
 falhou
 cancelada
 ```
 
-OperaÃ§Ãµes longas devem exibir logs e progresso.
+Operações longas devem exibir logs e progresso.
 
-## Objetivos da primeira versÃ£o
+## Objetivos da primeira versão
 
-A primeira versÃ£o web deve permitir:
+A primeira versão web deve permitir:
 
 1. cadastrar workspaces;
 2. detectar projetos Rails e Node;
 3. visualizar as capacidades dos projetos;
 4. iniciar e parar servidores;
 5. consultar PID, porta e estado;
-6. abrir aplicaÃ§Ãµes no navegador;
+6. abrir aplicações no navegador;
 7. acompanhar logs;
 8. manter o CLI existente funcional;
-9. executar toda a soluÃ§Ã£o com um Ãºnico comando;
-10. possuir testes e documentaÃ§Ã£o bÃ¡sicos.
+9. executar toda a solução com um único comando;
+10. possuir testes e documentação básicos.
 
 ## Fora do escopo inicial
 
-NÃ£o fazem parte da primeira versÃ£o:
+Não fazem parte da primeira versão:
 
 - acesso remoto;
-- mÃºltiplos usuÃ¡rios;
+- múltiplos usuários;
 - hospedagem em nuvem;
-- terminal arbitrÃ¡rio no navegador;
-- ediÃ§Ã£o de cÃ³digo;
-- substituiÃ§Ã£o de IDE;
+- terminal arbitrário no navegador;
+- edição de código;
+- substituição de IDE;
 - suporte oficial completo a Windows e macOS;
 - Docker ou Kubernetes como requisitos;
-- sincronizaÃ§Ã£o de configuraÃ§Ãµes entre computadores;
-- automaÃ§Ãµes destrutivas sem confirmaÃ§Ã£o.
+- sincronização de configurações entre computadores;
+- automações destrutivas sem confirmação.
 
-## DireÃ§Ã£o de longo prazo
+## Direção de longo prazo
 
-JÃ¡ entregue no dashboard web (ver [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md) para o
-detalhamento por task): status e operaÃ§Ãµes Git (leitura e mutaÃ§Ãµes com
-confirmaÃ§Ã£o), execuÃ§Ã£o de testes, scripts Node, banco e tarefas Rails de
+Já entregue no dashboard web (ver [`../../tasks/PENDENCIAS.md`](../../tasks/PENDENCIAS.md) para o
+detalhamento por task): status e operações Git (leitura e mutações com
+confirmação), execução de testes, scripts Node, banco e tarefas Rails de
 baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,
-notificaÃ§Ãµes locais, serviÃ§os Docker Compose (start/stop/logs/build) e Code
+notificações locais, serviços Docker Compose (start/stop/logs/build) e Code
 review de Pull Request com IA local via Ollama, dentro da aba **Git** (ver
 [`../architecture/ai-multi-provider.md`](../architecture/ai-multi-provider.md)).
-Uma IDE embutida com Monaco e LSP chegou a ser construÃ­da (tasks 076â083) e
-foi depois removida (PR #262); um assistente de IA local em painel prÃ³prio
-(chat, catÃ¡logo de ferramentas somente leitura e aplicaÃ§Ã£o de ediÃ§Ãµes
-propostas via preview/confirmaÃ§Ã£o) tambÃ©m chegou a existir e foi removido na
-task 236 â "ediÃ§Ã£o de cÃ³digo" e "substituiÃ§Ã£o de IDE" seguem fora do escopo,
-como jÃ¡ listado abaixo.
+Uma IDE embutida com Monaco e LSP chegou a ser construída (tasks 076–083) e
+foi depois removida (PR #262); um assistente de IA local em painel próprio
+(chat, catálogo de ferramentas somente leitura e aplicação de edições
+propostas via preview/confirmação) também chegou a existir e foi removido na
+task 236 — "edição de código" e "substituição de IDE" seguem fora do escopo,
+como já listado abaixo.
 
-O Dev Dashboard poderÃ¡ evoluir ainda mais para uma plataforma local
-extensÃ­vel com:
+O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
+extensível com:
 
-- histÃ³rico de jobs unificado (Git, Rails e processos numa Ãºnica linha do
+- histórico de jobs unificado (Git, Rails e processos numa única linha do
   tempo);
-- GitHub CLI (`git-pr` e alÃ©m);
+- GitHub CLI (`git-pr` e além);
 - plugins;
 - perfis de workspace;
-- automaÃ§Ãµes configurÃ¡veis;
-- mÃ©tricas locais de desenvolvimento.
+- automações configuráveis;
+- métricas locais de desenvolvimento.
 
-## MÃ©tricas de sucesso
+## Métricas de sucesso
 
-### AdoÃ§Ã£o
+### Adoção
 
 - quantidade de workspaces cadastrados;
 - quantidade de projetos detectados;
-- frequÃªncia de abertura do dashboard;
-- projetos acessados por sessÃ£o.
+- frequência de abertura do dashboard;
+- projetos acessados por sessão.
 
 ### Utilidade
 
 - servidores iniciados pelo dashboard;
 - logs consultados;
-- aÃ§Ãµes executadas por projeto;
+- ações executadas por projeto;
 - tempo entre abrir o dashboard e iniciar um projeto;
-- reduÃ§Ã£o do uso de comandos repetitivos.
+- redução do uso de comandos repetitivos.
 
 ### Confiabilidade
 
 - taxa de sucesso ao iniciar processos;
 - taxa de encerramento correto;
 - scans sem warnings;
-- erros por aÃ§Ã£o;
-- processos Ã³rfÃ£os;
-- falhas de identificaÃ§Ã£o de PID.
+- erros por ação;
+- processos órfãos;
+- falhas de identificação de PID.
 
 ### Qualidade
 
 - typecheck sem erros;
-- build reproduzÃ­vel;
-- suÃ­te de testes aprovada;
-- endpoints com validaÃ§Ã£o;
-- documentaÃ§Ã£o atualizada;
-- regressÃµes no CLI.
+- build reproduzível;
+- suíte de testes aprovada;
+- endpoints com validação;
+- documentação atualizada;
+- regressões no CLI.
 
-## CritÃ©rio para novas funcionalidades
+## Critério para novas funcionalidades
 
 Uma nova funcionalidade deve responder positivamente a pelo menos uma destas perguntas:
 
@@ -197,7 +197,7 @@ Uma nova funcionalidade deve responder positivamente a pelo menos uma destas per
 - melhora visibilidade do ambiente?
 - reduz risco operacional?
 - elimina a necessidade de lembrar um comando?
-- aproxima o CLI e o navegador de um nÃºcleo comum?
+- aproxima o CLI e o navegador de um núcleo comum?
 - melhora a confiabilidade ou testabilidade?
 
-Caso contrÃ¡rio, deve permanecer fora do escopo imediato.
+Caso contrário, deve permanecer fora do escopo imediato.

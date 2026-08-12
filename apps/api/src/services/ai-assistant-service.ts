@@ -10,7 +10,7 @@ import { OllamaProvider } from './ollama-provider.js';
 const MAX_MESSAGES = 40;
 const MAX_MESSAGE_CHARS = 8_000;
 const REVIEW_MAX_OUTPUT_TOKENS = 700;
-const MODEL_REQUIRED_MESSAGE = 'Selecione um modelo de IA disponÃ­vel.';
+const MODEL_REQUIRED_MESSAGE = 'Selecione um modelo de IA disponível.';
 
 export { resolveOllamaBaseUrl } from './ollama-provider.js';
 
@@ -39,11 +39,11 @@ function asAiError(error: unknown, fallback: string): Error {
 }
 
 /**
- * Fachada estÃ¡vel entre a Code review e o provider de IA local (Ollama).
+ * Fachada estável entre a Code review e o provider de IA local (Ollama).
  *
- * Depois da remoÃ§Ã£o do Assistente IA (chat/implementation), este serviÃ§o sÃ³
- * expÃµe o que a Code review precisa: consultar disponibilidade/modelos
- * (`status`) e pedir uma resposta Ãºnica sem ferramentas (`review`).
+ * Depois da remoção do Assistente IA (chat/implementation), este serviço só
+ * expõe o que a Code review precisa: consultar disponibilidade/modelos
+ * (`status`) e pedir uma resposta única sem ferramentas (`review`).
  */
 export class AiAssistantService {
   private readonly provider: AiProvider;
@@ -63,7 +63,7 @@ export class AiAssistantService {
   }
 
   /**
-   * Resposta Ãºnica sem catÃ¡logo de ferramentas, usada por fluxos com contexto
+   * Resposta única sem catálogo de ferramentas, usada por fluxos com contexto
    * fechado pelo servidor, como a Code review.
    */
   public async review(
@@ -77,12 +77,12 @@ export class AiAssistantService {
     }
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
       throw new AiAssistantError(
-        `A revisÃ£o deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
+        `A revisão deve conter entre 1 e ${MAX_MESSAGES} mensagens.`,
       );
     }
     if (messages.some((message) => message.content.length > maxMessageChars)) {
       throw new AiAssistantError(
-        `Cada mensagem deve ter no mÃ¡ximo ${maxMessageChars} caracteres.`,
+        `Cada mensagem deve ter no máximo ${maxMessageChars} caracteres.`,
       );
     }
 
@@ -103,13 +103,13 @@ export class AiAssistantService {
       if (result.toolCalls.length > 0) {
         throw new AiProviderError(
           'AI_PROVIDER_INVALID_RESPONSE',
-          'O modelo tentou usar ferramentas durante a revisÃ£o, o que nÃ£o Ã© permitido.',
+          'O modelo tentou usar ferramentas durante a revisão, o que não é permitido.',
         );
       }
       if (!result.content.trim()) {
         throw new AiProviderError(
           'AI_PROVIDER_INVALID_RESPONSE',
-          'O modelo nÃ£o devolveu uma revisÃ£o.',
+          'O modelo não devolveu uma revisão.',
         );
       }
       return result.content;
@@ -117,10 +117,10 @@ export class AiAssistantService {
       if (signal.aborted) {
         throw new AiProviderError(
           'AI_REQUEST_CANCELLED',
-          'A revisÃ£o foi cancelada pelo usuÃ¡rio.',
+          'A revisão foi cancelada pelo usuário.',
         );
       }
-      throw asAiError(error, 'Falha ao executar a revisÃ£o de IA.');
+      throw asAiError(error, 'Falha ao executar a revisão de IA.');
     }
   }
 }

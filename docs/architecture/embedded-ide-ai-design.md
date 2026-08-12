@@ -4,126 +4,126 @@
 
 > **Removida.** A IDE embutida (Monaco, explorador de arquivos, LSP
 > JavaScript/TypeScript e Ruby/Rails, aba **Editor**) foi retirada do
-> dashboard no PR #262 ("remove embedded editor"). O cÃ³digo descrito abaixo
+> dashboard no PR #262 ("remove embedded editor"). O código descrito abaixo
 > (`ProjectEmbeddedEditor.vue`, `apps/web/src/language-server/`,
 > `apps/api/src/routes/project-editor.ts`, a rota `/projects/:projectId/editor`
-> e o contrato `packages/contracts/src/editor.ts`) nÃ£o existe mais no
-> repositÃ³rio. O assistente de IA local via Ollama descrito aqui (chat,
-> compleÃ§Ã£o inline, catÃ¡logo de ferramentas, `propose_workspace_edit`) tambÃ©m
-> foi removido â junto com a aba prÃ³pria **Assistente IA** e toda a
-> infraestrutura de seleÃ§Ã£o de provider/consentimento cloud â na remoÃ§Ã£o do
-> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A Ãºnica
-> capacidade de IA que resta no produto Ã© a Code review dentro da aba **Git**,
+> e o contrato `packages/contracts/src/editor.ts`) não existe mais no
+> repositório. O assistente de IA local via Ollama descrito aqui (chat,
+> compleção inline, catálogo de ferramentas, `propose_workspace_edit`) também
+> foi removido — junto com a aba própria **Assistente IA** e toda a
+> infraestrutura de seleção de provider/consentimento cloud — na remoção do
+> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A única
+> capacidade de IA que resta no produto é a Code review dentro da aba **Git**,
 > que usa um `AiAssistantService` simplificado, fixo no Ollama local, sem
-> seleÃ§Ã£o de provider, sem consentimento cloud e sem o catÃ¡logo de ferramentas
+> seleção de provider, sem consentimento cloud e sem o catálogo de ferramentas
 > descrito abaixo (`AiOrchestrator`, tools de leitura/busca/diff/workspace
-> edit nÃ£o existem mais). `ProjectWorkspaceEditService` e
+> edit não existem mais). `ProjectWorkspaceEditService` e
 > `ProjectLanguageServerService` continuam existindo, mas hoje servem outras
-> rotas (`project-workspace-edits.ts`, `project-language-server.ts`), nÃ£o a
-> IA. Este documento fica mantido como registro histÃ³rico da decisÃ£o de
-> arquitetura; nÃ£o descreve o estado atual do produto.
+> rotas (`project-workspace-edits.ts`, `project-language-server.ts`), não a
+> IA. Este documento fica mantido como registro histórico da decisão de
+> arquitetura; não descreve o estado atual do produto.
 
-Implementada nas tasks 076â083: fundaÃ§Ã£o Monaco somente leitura (076),
+Implementada nas tasks 076–083: fundação Monaco somente leitura (076),
 escrita segura com preview/rollback (077), LSP JavaScript/TypeScript (078),
-LSP Ruby/Rails (079), assistente de IA local via Ollama com catÃ¡logo fechado
-de quatro ferramentas somente leitura (080), compleÃ§Ã£o inline/ghost text
+LSP Ruby/Rails (079), assistente de IA local via Ollama com catálogo fechado
+de quatro ferramentas somente leitura (080), compleção inline/ghost text
 (081), smoke E2E do assistente com um double do Ollama em CI (082) e uma
-quinta ferramenta, `propose_workspace_edit`, aplicando ediÃ§Ãµes propostas
-pela IA atravÃ©s do mesmo preview/confirmaÃ§Ã£o/rollback da task 077, sem rota
-nova para aplicar (083). As decisÃµes abaixo eram a referÃªncia de arquitetura
-para essa Ã¡rea enquanto a IDE embutida existiu; hoje tÃªm valor apenas
-histÃ³rico (ver nota acima).
+quinta ferramenta, `propose_workspace_edit`, aplicando edições propostas
+pela IA através do mesmo preview/confirmação/rollback da task 077, sem rota
+nova para aplicar (083). As decisões abaixo eram a referência de arquitetura
+para essa área enquanto a IDE embutida existiu; hoje têm valor apenas
+histórico (ver nota acima).
 
 ## Objetivo
 
-Transformar a opÃ§Ã£o atual de abrir um editor local em uma experiÃªncia de IDE
-completa dentro do Dev Dashboard, mantendo o botÃ£o de editor externo como
+Transformar a opção atual de abrir um editor local em uma experiência de IDE
+completa dentro do Dev Dashboard, mantendo o botão de editor externo como
 alternativa.
 
 A IDE deve oferecer:
 
-- Monaco Editor como superfÃ­cie principal de ediÃ§Ã£o;
+- Monaco Editor como superfície principal de edição;
 - explorador de arquivos, abas, busca, outline e painel de problemas;
-- IntelliSense, diagnÃ³sticos, definiÃ§Ãµes, referÃªncias, rename, sÃ­mbolos,
-  formataÃ§Ã£o e code actions por Language Server Protocol (LSP);
-- suporte prioritÃ¡rio a JavaScript/TypeScript e Ruby/Rails;
-- assistÃªncia de IA gratuita por padrÃ£o, executada localmente;
-- revisÃ£o explÃ­cita em diff antes de aplicar alteraÃ§Ãµes sugeridas pela IA;
-- nenhum terminal livre e nenhuma execuÃ§Ã£o arbitrÃ¡ria de comandos.
+- IntelliSense, diagnósticos, definições, referências, rename, símbolos,
+  formatação e code actions por Language Server Protocol (LSP);
+- suporte prioritário a JavaScript/TypeScript e Ruby/Rails;
+- assistência de IA gratuita por padrão, executada localmente;
+- revisão explícita em diff antes de aplicar alterações sugeridas pela IA;
+- nenhum terminal livre e nenhuma execução arbitrária de comandos.
 
-## DecisÃ£o de produto
+## Decisão de produto
 
-A IDE Ã© uma experiÃªncia desktop. O Monaco Ã© o editor que alimenta o VS Code e
-nÃ£o oferece suporte oficial a navegadores mÃ³veis. Em telas pequenas, o dashboard
-pode manter leitura simplificada e a aÃ§Ã£o **Abrir no editor local**, sem prometer
+A IDE é uma experiência desktop. O Monaco é o editor que alimenta o VS Code e
+não oferece suporte oficial a navegadores móveis. Em telas pequenas, o dashboard
+pode manter leitura simplificada e a ação **Abrir no editor local**, sem prometer
 paridade funcional com desktop.
 
-O editor local e a IDE embutida sÃ£o complementares:
+O editor local e a IDE embutida são complementares:
 
 - **Abrir editor local:** delega o projeto a VS Code, Cursor, VSCodium, Sublime
   ou Zed, conforme a task 064;
 - **Editor:** trabalha dentro do dashboard com Monaco, arquivos, LSP e IA;
-- **Abrir localmente:** continua disponÃ­vel no cabeÃ§alho da IDE para fluxos que
-  dependam de extensÃµes ou ferramentas externas.
+- **Abrir localmente:** continua disponível no cabeçalho da IDE para fluxos que
+  dependam de extensões ou ferramentas externas.
 
-## PrincÃ­pios
+## Princípios
 
-1. **Local por padrÃ£o.** Arquivos, servidores de linguagem e IA ficam no
-   computador do usuÃ¡rio.
-2. **Sem custo obrigatÃ³rio de API.** A experiÃªncia padrÃ£o usa um modelo local;
-   nenhum provedor pago Ã© necessÃ¡rio.
+1. **Local por padrão.** Arquivos, servidores de linguagem e IA ficam no
+   computador do usuário.
+2. **Sem custo obrigatório de API.** A experiência padrão usa um modelo local;
+   nenhum provedor pago é necessário.
 3. **API como fronteira.** O navegador nunca acessa diretamente o filesystem,
    o processo LSP ou o runtime de IA.
-4. **Projeto como limite.** Toda leitura, escrita, busca, URI e alteraÃ§Ã£o deve
-   permanecer dentro da raiz canÃ´nica do projeto detectado.
-5. **MudanÃ§a revisÃ¡vel.** AlteraÃ§Ãµes de IA, rename e code actions que afetem
-   arquivos passam por preview de diff antes da aplicaÃ§Ã£o.
-6. **Capacidades explÃ­citas.** LSP e modelos de IA anunciam o que suportam; a UI
-   nÃ£o presume chat, fill-in-the-middle, tools ou embeddings.
-7. **DegradaÃ§Ã£o segura.** Sem LSP ou IA, o Monaco continua funcional para ediÃ§Ã£o
-   bÃ¡sica; sem permissÃ£o de escrita, permanece somente leitura.
+4. **Projeto como limite.** Toda leitura, escrita, busca, URI e alteração deve
+   permanecer dentro da raiz canônica do projeto detectado.
+5. **Mudança revisável.** Alterações de IA, rename e code actions que afetem
+   arquivos passam por preview de diff antes da aplicação.
+6. **Capacidades explícitas.** LSP e modelos de IA anunciam o que suportam; a UI
+   não presume chat, fill-in-the-middle, tools ou embeddings.
+7. **Degradação segura.** Sem LSP ou IA, o Monaco continua funcional para edição
+   básica; sem permissão de escrita, permanece somente leitura.
 
-## Arquitetura de alto nÃ­vel
+## Arquitetura de alto nível
 
 ```text
-âââââââââââââââââââââââ Dev Dashboard Web âââââââââââââââââââââââ
-â Explorer â Monaco â Outline â Problems â AI Assistant â Diff  â
-â                                                                â
-â Monaco models por URI       Monaco Language Client             â
-âââââââââââââââââ¬âââââââââââââââââââââââ¬ââââââââââââââââââââââââââ
-                â HTTP/SSE             â WebSocket JSON-RPC
-                â¼                      â¼
-âââââââââââââââââââââââââ Dev Dashboard API ââââââââââââââââââââââ
-â ProjectFileService        LanguageServerManager                 â
-â ProjectSearchService      LanguageServerGateway                 â
-â WorkspaceEditService      AiAssistantService                    â
-â ContextBuilder            Diff/preview e auditoria              â
-âââââââââââââââââ¬âââââââââââââââââââââââ¬ââââââââââââââââââââââââââ
-                â filesystem           â processos locais
-                â¼                      â¼
-âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-â Projeto local â TypeScript LS â Ruby LSP â Ollama local         â
-âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+┌────────────────────── Dev Dashboard Web ──────────────────────┐
+│ Explorer │ Monaco │ Outline │ Problems │ AI Assistant │ Diff  │
+│                                                                │
+│ Monaco models por URI       Monaco Language Client             │
+└───────────────┬──────────────────────┬─────────────────────────┘
+                │ HTTP/SSE             │ WebSocket JSON-RPC
+                ▼                      ▼
+┌──────────────────────── Dev Dashboard API ─────────────────────┐
+│ ProjectFileService        LanguageServerManager                 │
+│ ProjectSearchService      LanguageServerGateway                 │
+│ WorkspaceEditService      AiAssistantService                    │
+│ ContextBuilder            Diff/preview e auditoria              │
+└───────────────┬──────────────────────┬─────────────────────────┘
+                │ filesystem           │ processos locais
+                ▼                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Projeto local │ TypeScript LS │ Ruby LSP │ Ollama local         │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Monaco Editor
 
-O Monaco serÃ¡ usado desde a primeira fatia da IDE; nÃ£o haverÃ¡ um editor
-intermediÃ¡rio descartÃ¡vel.
+O Monaco será usado desde a primeira fatia da IDE; não haverá um editor
+intermediário descartável.
 
 Responsabilidades no frontend:
 
-- manter um `ITextModel` por arquivo aberto, identificado por URI estÃ¡vel;
-- preservar abas, seleÃ§Ã£o, scroll, undo/redo e dirty state;
+- manter um `ITextModel` por arquivo aberto, identificado por URI estável;
+- preservar abas, seleção, scroll, undo/redo e dirty state;
 - configurar workers do Monaco com Vite;
 - aplicar tema e densidade do dashboard;
 - expor keybindings conhecidos (`Ctrl+P`, `Ctrl+S`, `F12`, `Shift+F12`);
 - integrar completion, hover, diagnostics, symbols e workspace edits vindos do
   LSP;
-- mostrar diff do Monaco para conflitos externos e alteraÃ§Ãµes propostas;
-- descartar modelos e conexÃµes ao trocar de projeto.
+- mostrar diff do Monaco para conflitos externos e alterações propostas;
+- descartar modelos e conexões ao trocar de projeto.
 
-URI lÃ³gica proposta:
+URI lógica proposta:
 
 ```text
 file:///dev-dashboard/projects/<projectId>/app/models/user.rb
@@ -131,7 +131,7 @@ file:///dev-dashboard/projects/<projectId>/app/models/user.rb
 
 O caminho absoluto real nunca precisa ser enviado ao navegador.
 
-ReferÃªncia oficial:
+Referência oficial:
 
 - <https://microsoft.github.io/monaco-editor/>
 
@@ -152,12 +152,12 @@ DELETE /api/projects/:projectId/files
 ```
 
 A primeira entrega implementa somente listagem, leitura e busca limitada. Escrita
-e operaÃ§Ãµes estruturais entram depois do modelo de ameaÃ§a e dos testes de
+e operações estruturais entram depois do modelo de ameaça e dos testes de
 confinamento.
 
-### VersÃ£o e concorrÃªncia
+### Versão e concorrência
 
-A leitura devolve uma versÃ£o derivada do conteÃºdo e dos metadados relevantes:
+A leitura devolve uma versão derivada do conteúdo e dos metadados relevantes:
 
 ```ts
 interface ProjectFileContent {
@@ -174,27 +174,27 @@ interface ProjectFileContent {
 O salvamento exige `expectedVersion`. Se o arquivo mudou desde a leitura, a API
 responde `409 FILE_CHANGED_EXTERNALLY` e a interface abre um diff entre:
 
-- versÃ£o aberta no Monaco;
-- conteÃºdo atual no disco;
-- conteÃºdo editado pelo usuÃ¡rio.
+- versão aberta no Monaco;
+- conteúdo atual no disco;
+- conteúdo editado pelo usuário.
 
-A gravaÃ§Ã£o Ã© atÃ´mica: arquivo temporÃ¡rio no mesmo diretÃ³rio, `fsync` quando
-aplicÃ¡vel, preservaÃ§Ã£o de modo permitido e `rename` final.
+A gravação é atômica: arquivo temporário no mesmo diretório, `fsync` quando
+aplicável, preservação de modo permitido e `rename` final.
 
 ### Confinamento
 
-Cada operaÃ§Ã£o deve:
+Cada operação deve:
 
-1. recuperar a raiz canÃ´nica pelo `ProjectStore`;
+1. recuperar a raiz canônica pelo `ProjectStore`;
 2. aceitar somente caminho relativo normalizado;
-3. resolver o destino e seu ancestral existente mais prÃ³ximo com `realpath`;
-4. recusar `..`, caminho absoluto, NUL e segmentos vazios ambÃ­guos;
+3. resolver o destino e seu ancestral existente mais próximo com `realpath`;
+4. recusar `..`, caminho absoluto, NUL e segmentos vazios ambíguos;
 5. recusar symlink que saia da raiz;
 6. aplicar limite de profundidade, quantidade e tamanho;
-7. ignorar binÃ¡rios e diretÃ³rios pesados reconhecidos;
+7. ignorar binários e diretórios pesados reconhecidos;
 8. nunca aceitar um caminho de workspace ou raiz vindo do navegador.
 
-ExclusÃµes padrÃ£o da Ã¡rvore e da busca:
+Exclusões padrão da árvore e da busca:
 
 ```text
 .git
@@ -206,7 +206,7 @@ build
 tmp/log
 ```
 
-Arquivos sensÃ­veis nÃ£o aparecem automaticamente:
+Arquivos sensíveis não aparecem automaticamente:
 
 ```text
 .env*
@@ -217,40 +217,40 @@ id_rsa
 id_ed25519
 ```
 
-Uma polÃ­tica futura pode permitir abertura explÃ­cita de certos arquivos
-sensÃ­veis, mas nÃ£o deve colocÃ¡-los em contexto de IA automaticamente.
+Uma política futura pode permitir abertura explícita de certos arquivos
+sensíveis, mas não deve colocá-los em contexto de IA automaticamente.
 
 ## Language Server Protocol
 
 O frontend usa `monaco-languageclient`. A API inicia servidores externos e faz
 a ponte por WebSocket autenticado/JSON-RPC.
 
-ReferÃªncia:
+Referência:
 
 - <https://github.com/TypeFox/monaco-languageclient>
 
-### Servidores prioritÃ¡rios
+### Servidores prioritários
 
 #### JavaScript e TypeScript
 
 - servidor: `typescript-language-server --stdio`;
-- `cwd`: raiz canÃ´nica do projeto;
+- `cwd`: raiz canônica do projeto;
 - TypeScript resolvido preferencialmente pelo projeto;
 - recursos: completion, diagnostics, definition, references, rename, symbols,
-  code actions, inlay hints e organizaÃ§Ã£o de imports.
+  code actions, inlay hints e organização de imports.
 
 #### Ruby e Rails
 
 - servidor: Ruby LSP, preferencialmente no contexto Bundler reconhecido;
-- `cwd`: raiz canÃ´nica do projeto;
-- detectar versÃ£o Ruby e ambiente do projeto antes de iniciar;
+- `cwd`: raiz canônica do projeto;
+- detectar versão Ruby e ambiente do projeto antes de iniciar;
 - reconhecer o add-on Rails quando estiver instalado;
 - recursos: completion, diagnostics, definition, references, rename, symbols,
   semantic highlighting, formatting e code actions.
 
 ### Gerenciamento de processo
 
-O `LanguageServerManager` mantÃ©m no mÃ¡ximo uma instÃ¢ncia por projeto e tipo:
+O `LanguageServerManager` mantém no máximo uma instância por projeto e tipo:
 
 ```ts
 type LanguageServerStatus =
@@ -261,61 +261,61 @@ type LanguageServerStatus =
   | 'stopped';
 ```
 
-PolÃ­tica inicial:
+Política inicial:
 
-- inicializaÃ§Ã£o sob demanda quando um arquivo compatÃ­vel Ã© aberto;
-- catÃ¡logo fechado de executÃ¡veis e argumentos;
+- inicialização sob demanda quando um arquivo compatível é aberto;
+- catálogo fechado de executáveis e argumentos;
 - `shell: false`;
 - limite global de servidores concorrentes;
-- timeout de inicializaÃ§Ã£o;
-- encerramento apÃ³s perÃ­odo ocioso;
-- stop gradual e verificaÃ§Ã£o de identidade do processo;
+- timeout de inicialização;
+- encerramento após período ocioso;
+- stop gradual e verificação de identidade do processo;
 - logs limitados e mascarados;
-- aÃ§Ã£o explÃ­cita para reiniciar;
-- nenhuma instalaÃ§Ã£o automÃ¡tica de gem ou pacote.
+- ação explícita para reiniciar;
+- nenhuma instalação automática de gem ou pacote.
 
 ### Gateway LSP
 
-O gateway nÃ£o encaminha cegamente toda solicitaÃ§Ã£o do servidor.
+O gateway não encaminha cegamente toda solicitação do servidor.
 
-OperaÃ§Ãµes como `workspace/applyEdit`, criaÃ§Ã£o, rename, exclusÃ£o e comandos devem
-ser autorizadas individualmente. Toda URI Ã© convertida para um caminho relativo
-e validada pelo mesmo serviÃ§o de arquivos.
+Operações como `workspace/applyEdit`, criação, rename, exclusão e comandos devem
+ser autorizadas individualmente. Toda URI é convertida para um caminho relativo
+e validada pelo mesmo serviço de arquivos.
 
 Regras:
 
-- bloquear `workspace/executeCommand` por padrÃ£o;
-- manter allowlist por servidor para comandos realmente necessÃ¡rios;
-- exigir preview para `WorkspaceEdit` em mÃºltiplos arquivos;
-- limitar quantidade de arquivos e bytes por alteraÃ§Ã£o;
+- bloquear `workspace/executeCommand` por padrão;
+- manter allowlist por servidor para comandos realmente necessários;
+- exigir preview para `WorkspaceEdit` em múltiplos arquivos;
+- limitar quantidade de arquivos e bytes por alteração;
 - recusar URI fora do projeto ou esquema desconhecido;
-- nÃ£o abrir links externos automaticamente;
+- não abrir links externos automaticamente;
 - cancelar requests ao fechar o projeto ou trocar de rota.
 
 ## IA gratuita e local
 
-### Provedor padrÃ£o
+### Provedor padrão
 
-A v1 usa **Ollama local** como provedor padrÃ£o. Isso significa:
+A v1 usa **Ollama local** como provedor padrão. Isso significa:
 
-- nenhuma chave de API obrigatÃ³ria;
-- nenhuma cobranÃ§a por token pelo dashboard;
-- prompts e respostas processados na mÃ¡quina do usuÃ¡rio;
-- custo computacional, memÃ³ria e energia assumidos localmente;
-- licenÃ§a e condiÃ§Ãµes de cada modelo continuam sendo responsabilidade do modelo
+- nenhuma chave de API obrigatória;
+- nenhuma cobrança por token pelo dashboard;
+- prompts e respostas processados na máquina do usuário;
+- custo computacional, memória e energia assumidos localmente;
+- licença e condições de cada modelo continuam sendo responsabilidade do modelo
   escolhido.
 
-A API local padrÃ£o do Ollama fica em:
+A API local padrão do Ollama fica em:
 
 ```text
 http://127.0.0.1:11434/api
 ```
 
-O dashboard nunca pressupÃµe um modelo especÃ­fico. Ele consulta modelos jÃ¡
+O dashboard nunca pressupõe um modelo específico. Ele consulta modelos já
 instalados com `GET /api/tags` e detalhes/capacidades com `POST /api/show`.
-Nenhum download Ã© iniciado sem aÃ§Ã£o explÃ­cita fora da v1.
+Nenhum download é iniciado sem ação explícita fora da v1.
 
-ReferÃªncias oficiais:
+Referências oficiais:
 
 - <https://docs.ollama.com/api/introduction>
 - <https://docs.ollama.com/api/chat>
@@ -325,24 +325,24 @@ ReferÃªncias oficiais:
 
 ### Por que a API intermedeia
 
-Mesmo que a API local do Ollama nÃ£o exija autenticaÃ§Ã£o por padrÃ£o, o navegador
-nÃ£o deve chamÃ¡-la diretamente. O `AiAssistantService`:
+Mesmo que a API local do Ollama não exija autenticação por padrão, o navegador
+não deve chamá-la diretamente. O `AiAssistantService`:
 
 - fixa o destino em loopback e impede SSRF;
 - normaliza timeout, cancelamento e streaming;
 - controla quais arquivos entram no contexto;
 - aplica limites de bytes, arquivos e mensagens;
-- evita que conteÃºdo sensÃ­vel seja incluÃ­do automaticamente;
-- nÃ£o expÃµe detalhes internos do runtime ao frontend;
-- mantÃ©m o mesmo modelo de autenticaÃ§Ã£o e origem do dashboard.
+- evita que conteúdo sensível seja incluído automaticamente;
+- não expõe detalhes internos do runtime ao frontend;
+- mantém o mesmo modelo de autenticação e origem do dashboard.
 
-ConfiguraÃ§Ã£o inicial:
+Configuração inicial:
 
 ```text
 DEV_DASHBOARD_OLLAMA_URL=http://127.0.0.1:11434
 ```
 
-O valor deve aceitar somente HTTP em endereÃ§o de loopback. URLs remotas e
+O valor deve aceitar somente HTTP em endereço de loopback. URLs remotas e
 provedores cloud ficam fora da v1.
 
 ### Capacidades da IA
@@ -357,42 +357,42 @@ type AiCapability =
   | 'tools';
 ```
 
-A interface habilita aÃ§Ãµes somente quando o adaptador e o modelo anunciarem a
-capacidade necessÃ¡ria.
+A interface habilita ações somente quando o adaptador e o modelo anunciarem a
+capacidade necessária.
 
-### ExperiÃªncia inicial
+### Experiência inicial
 
 Painel lateral **IA**:
 
-- conversar sobre o arquivo atual ou seleÃ§Ã£o;
-- explicar cÃ³digo e diagnÃ³stico;
-- sugerir correÃ§Ã£o;
-- gerar testes para o arquivo/sÃ­mbolo atual;
-- propor documentaÃ§Ã£o;
-- criar um plano de alteraÃ§Ã£o em mÃºltiplos arquivos;
-- aplicar somente apÃ³s abrir e aprovar o diff.
+- conversar sobre o arquivo atual ou seleção;
+- explicar código e diagnóstico;
+- sugerir correção;
+- gerar testes para o arquivo/símbolo atual;
+- propor documentação;
+- criar um plano de alteração em múltiplos arquivos;
+- aplicar somente após abrir e aprovar o diff.
 
-AÃ§Ãµes no editor:
+Ações no editor:
 
-- **Explicar seleÃ§Ã£o**;
+- **Explicar seleção**;
 - **Corrigir problema**;
 - **Gerar testes**;
 - **Refatorar**;
-- **Perguntar sobre este sÃ­mbolo**;
+- **Perguntar sobre este símbolo**;
 - **Completar linha/bloco**, quando o modelo suportar completion/FIM.
 
 ### Contexto
 
-O contexto padrÃ£o Ã© pequeno e explÃ­cito:
+O contexto padrão é pequeno e explícito:
 
-1. instruÃ§Ã£o do usuÃ¡rio;
-2. seleÃ§Ã£o atual ou trecho prÃ³ximo ao cursor;
+1. instrução do usuário;
+2. seleção atual ou trecho próximo ao cursor;
 3. linguagem e caminho relativo;
-4. diagnÃ³sticos LSP associados;
-5. assinatura/sÃ­mbolos relevantes;
-6. diff Git do arquivo quando Ãºtil.
+4. diagnósticos LSP associados;
+5. assinatura/símbolos relevantes;
+6. diff Git do arquivo quando útil.
 
-Arquivos adicionais sÃ£o encontrados por ferramentas fechadas controladas pelo
+Arquivos adicionais são encontrados por ferramentas fechadas controladas pelo
 backend, por exemplo:
 
 ```ts
@@ -405,200 +405,200 @@ type AiTool =
   | 'get_git_diff';
 ```
 
-O modelo nunca escolhe um caminho absoluto ou executa shell. Cada chamada Ã©
+O modelo nunca escolhe um caminho absoluto ou executa shell. Cada chamada é
 validada, limitada e vinculada ao projeto atual.
 
-### Busca semÃ¢ntica
+### Busca semântica
 
-Embeddings nÃ£o fazem parte da primeira versÃ£o da IA. A prioridade Ã© contexto
-obtido por seleÃ§Ã£o, busca textual e sÃ­mbolos do LSP, que sÃ£o mais previsÃ­veis e
-nÃ£o exigem Ã­ndice persistente.
+Embeddings não fazem parte da primeira versão da IA. A prioridade é contexto
+obtido por seleção, busca textual e símbolos do LSP, que são mais previsíveis e
+não exigem índice persistente.
 
 Uma fase posterior pode usar `/api/embed` para RAG local, desde que:
 
 - seja opt-in;
-- use modelo de embedding separado e selecionado pelo usuÃ¡rio;
-- armazene Ã­ndice somente no diretÃ³rio privado de estado;
+- use modelo de embedding separado e selecionado pelo usuário;
+- armazene índice somente no diretório privado de estado;
 - registre digest do arquivo e modelo usado;
 - remova entradas ao excluir projeto ou trocar modelo;
-- nunca indexe arquivos sensÃ­veis ou ignorados;
+- nunca indexe arquivos sensíveis ou ignorados;
 - limite tamanho total e permita limpeza manual.
 
 ### Streaming e cancelamento
 
-O Ollama transmite NDJSON por padrÃ£o. A API converte esse stream em contrato
-prÃ³prio, autenticado e cancelÃ¡vel. Para chat e ediÃ§Ãµes longas, a interface exibe
+O Ollama transmite NDJSON por padrão. A API converte esse stream em contrato
+próprio, autenticado e cancelável. Para chat e edições longas, a interface exibe
 texto progressivamente. Ao trocar de projeto, fechar o painel ou iniciar outra
-solicitaÃ§Ã£o incompatÃ­vel, o request anterior Ã© abortado.
+solicitação incompatível, o request anterior é abortado.
 
-O conteÃºdo interno de raciocÃ­nio de modelos que o forneÃ§am nÃ£o Ã© armazenado nem
+O conteúdo interno de raciocínio de modelos que o forneçam não é armazenado nem
 exibido como requisito do produto. O dashboard usa somente resposta final,
-chamadas de ferramentas validadas e mÃ©tricas operacionais seguras.
+chamadas de ferramentas validadas e métricas operacionais seguras.
 
-### Assistente de implementaÃ§Ã£o em segundo plano
+### Assistente de implementação em segundo plano
 
-A aba principal **Assistente IA** recebe uma solicitaÃ§Ã£o de implementaÃ§Ã£o e
-cria uma execuÃ§Ã£o de propriedade da API. Diferente do chat SSE do editor, essa
-execuÃ§Ã£o nÃ£o pertence Ã  conexÃ£o HTTP que a iniciou: trocar de aba, navegar por
-outras ferramentas do projeto ou voltar ao painel nÃ£o a cancela. A interface
+A aba principal **Assistente IA** recebe uma solicitação de implementação e
+cria uma execução de propriedade da API. Diferente do chat SSE do editor, essa
+execução não pertence à conexão HTTP que a iniciou: trocar de aba, navegar por
+outras ferramentas do projeto ou voltar ao painel não a cancela. A interface
 consulta o snapshot estruturado enquanto o estado for `running` e apresenta um
 atalho flutuante para retornar ao trabalho ativo.
 
-O estado Ã© deliberadamente **efÃªmero**: fica somente na memÃ³ria da API e Ã©
-cancelado no encerramento dela. NÃ£o hÃ¡ histÃ³rico persistido, telemetria nem
-registro do prompt ou da resposta em logs. HÃ¡ uma execuÃ§Ã£o ativa por projeto;
-iniciar outra cancela a anterior. O cancelamento manual tambÃ©m continua
-disponÃ­vel no painel.
+O estado é deliberadamente **efêmero**: fica somente na memória da API e é
+cancelado no encerramento dela. Não há histórico persistido, telemetria nem
+registro do prompt ou da resposta em logs. Há uma execução ativa por projeto;
+iniciar outra cancela a anterior. O cancelamento manual também continua
+disponível no painel.
 
-As ferramentas que o modelo pode usar permanecem no catÃ¡logo fechado do
-`AiAssistantService`. Mesmo quando ele prepara um `WorkspaceEdit`, a execuÃ§Ã£o
-sÃ³ devolve a prÃ©via e o token de confirmaÃ§Ã£o ao usuÃ¡rio autenticado; a escrita
-segue sendo uma aÃ§Ã£o separada, explÃ­cita e validada pelas versÃµes atuais dos
+As ferramentas que o modelo pode usar permanecem no catálogo fechado do
+`AiAssistantService`. Mesmo quando ele prepara um `WorkspaceEdit`, a execução
+só devolve a prévia e o token de confirmação ao usuário autenticado; a escrita
+segue sendo uma ação separada, explícita e validada pelas versões atuais dos
 arquivos.
 
-### AplicaÃ§Ã£o de mudanÃ§as
+### Aplicação de mudanças
 
 A IA nunca grava um arquivo diretamente.
 
-Fluxo obrigatÃ³rio:
+Fluxo obrigatório:
 
 ```text
-UsuÃ¡rio pede alteraÃ§Ã£o
-        â
+Usuário pede alteração
+        ↓
 IA retorna proposta estruturada
-        â
-API valida paths, versÃµes e limites
-        â
+        ↓
+API valida paths, versões e limites
+        ↓
 Monaco Diff mostra cada arquivo
-        â
-UsuÃ¡rio aceita ou rejeita por arquivo
-        â
-API reaplica validaÃ§Ã£o e expectedVersion
-        â
-GravaÃ§Ã£o atÃ´mica
+        ↓
+Usuário aceita ou rejeita por arquivo
+        ↓
+API reaplica validação e expectedVersion
+        ↓
+Gravação atômica
 ```
 
-A proposta deve ser representada como alteraÃ§Ãµes estruturadas, nÃ£o como comando
-shell. Para mÃºltiplos arquivos, a v1 pode usar conteÃºdo completo por arquivo sob
-limite fechado; patches/hunks entram somente apÃ³s parser e testes robustos.
+A proposta deve ser representada como alterações estruturadas, não como comando
+shell. Para múltiplos arquivos, a v1 pode usar conteúdo completo por arquivo sob
+limite fechado; patches/hunks entram somente após parser e testes robustos.
 
-## Privacidade e persistÃªncia
+## Privacidade e persistência
 
-PadrÃ£o inicial:
+Padrão inicial:
 
-- conversas e execuÃ§Ãµes concluÃ­das nÃ£o sÃ£o persistidas pela API;
-- a execuÃ§Ã£o iniciada no Assistente IA continua durante a navegaÃ§Ã£o, mas Ã©
+- conversas e execuções concluídas não são persistidas pela API;
+- a execução iniciada no Assistente IA continua durante a navegação, mas é
   descartada ao reiniciar a API;
-- prompts e respostas nÃ£o entram em logs de aplicaÃ§Ã£o;
-- somente mÃ©tricas nÃ£o sensÃ­veis podem ser registradas: duraÃ§Ã£o, modelo,
+- prompts e respostas não entram em logs de aplicação;
+- somente métricas não sensíveis podem ser registradas: duração, modelo,
   resultado, cancelamento e contagem aproximada de contexto;
-- histÃ³rico de chat, quando implementado, serÃ¡ opt-in, privado (`0600`),
-  limitado e removÃ­vel;
-- nenhuma telemetria externa serÃ¡ adicionada.
+- histórico de chat, quando implementado, será opt-in, privado (`0600`),
+  limitado e removível;
+- nenhuma telemetria externa será adicionada.
 
 ## Limites iniciais propostos
 
-Os valores finais serÃ£o definidos com testes, mas a implementaÃ§Ã£o deve nascer
-com limites explÃ­citos:
+Os valores finais serão definidos com testes, mas a implementação deve nascer
+com limites explícitos:
 
-- arquivo editÃ¡vel: atÃ© 512 KiB;
-- arquivo somente leitura: atÃ© 1 MiB;
-- Ã¡rvore: atÃ© 5.000 entradas por resposta paginada;
-- busca: atÃ© 200 resultados e timeout curto;
-- contexto de IA: atÃ© 20 arquivos e teto agregado em bytes/tokens;
-- workspace edit: atÃ© 50 arquivos e tamanho agregado fechado;
-- uma geraÃ§Ã£o ativa por projeto;
-- quantidade global limitada de LSPs e geraÃ§Ãµes simultÃ¢neas.
+- arquivo editável: até 512 KiB;
+- arquivo somente leitura: até 1 MiB;
+- árvore: até 5.000 entradas por resposta paginada;
+- busca: até 200 resultados e timeout curto;
+- contexto de IA: até 20 arquivos e teto agregado em bytes/tokens;
+- workspace edit: até 50 arquivos e tamanho agregado fechado;
+- uma geração ativa por projeto;
+- quantidade global limitada de LSPs e gerações simultâneas.
 
 ## Estados e falhas
 
 A UI diferencia:
 
 - Monaco carregando;
-- arquivo indisponÃ­vel ou grande demais;
+- arquivo indisponível ou grande demais;
 - arquivo modificado externamente;
 - LSP ausente, iniciando, indexando, pronto ou falho;
 - Ollama ausente;
 - nenhum modelo local instalado;
-- modelo sem capacidade necessÃ¡ria;
-- geraÃ§Ã£o aguardando, transmitindo, cancelada ou falha;
-- proposta invÃ¡lida ou conflito antes da gravaÃ§Ã£o.
+- modelo sem capacidade necessária;
+- geração aguardando, transmitindo, cancelada ou falha;
+- proposta inválida ou conflito antes da gravação.
 
-A ausÃªncia de IA ou LSP nunca deve bloquear leitura e ediÃ§Ã£o bÃ¡sica autorizada.
+A ausência de IA ou LSP nunca deve bloquear leitura e edição básica autorizada.
 
-## SequÃªncia de implementaÃ§Ã£o
+## Sequência de implementação
 
-### Task 076 â FundaÃ§Ã£o da IDE e leitura segura
+### Task 076 — Fundação da IDE e leitura segura
 
 - Monaco, workers e nova aba Editor;
 - explorer, abas, modelos e busca limitada;
 - endpoints somente leitura;
-- URI lÃ³gica por projeto;
-- testes de traversal, symlink, binÃ¡rio, tamanho e troca de projeto;
-- botÃ£o para abrir no editor local preservado.
+- URI lógica por projeto;
+- testes de traversal, symlink, binário, tamanho e troca de projeto;
+- botão para abrir no editor local preservado.
 
-### Task 077 â Escrita, conflitos e operaÃ§Ãµes de arquivo
+### Task 077 — Escrita, conflitos e operações de arquivo
 
 - dirty state e `Ctrl+S`;
 - `expectedVersion` e diff de conflito;
-- escrita atÃ´mica;
-- criar, renomear e excluir com polÃ­tica proporcional;
-- preview para mudanÃ§as em mÃºltiplos arquivos.
+- escrita atômica;
+- criar, renomear e excluir com política proporcional;
+- preview para mudanças em múltiplos arquivos.
 
-### Task 078 â LSP JavaScript/TypeScript
+### Task 078 — LSP JavaScript/TypeScript
 
 - `LanguageServerManager` e gateway WebSocket;
 - TypeScript Language Server;
 - diagnostics, completion, definition, references, rename e code actions;
 - painel de problemas e outline.
 
-### Task 079 â Ruby/Rails LSP
+### Task 079 — Ruby/Rails LSP
 
-- resoluÃ§Ã£o segura do runtime Ruby/Bundler;
+- resolução segura do runtime Ruby/Bundler;
 - Ruby LSP e suporte Rails detectado;
-- sÃ­mbolos, diagnÃ³sticos, referÃªncias, rename, formataÃ§Ã£o e actions;
-- estado de indexaÃ§Ã£o e reinÃ­cio explÃ­cito.
+- símbolos, diagnósticos, referências, rename, formatação e actions;
+- estado de indexação e reinício explícito.
 
-### Task 080 â IA local com Ollama
+### Task 080 — IA local com Ollama
 
-- detecÃ§Ã£o do Ollama e listagem de modelos instalados;
-- painel de chat contextual e streaming cancelÃ¡vel;
+- detecção do Ollama e listagem de modelos instalados;
+- painel de chat contextual e streaming cancelável;
 - explicar, corrigir, refatorar e gerar testes;
 - ferramentas fechadas de leitura, busca, LSP e Git;
-- diff obrigatÃ³rio antes de aplicar alteraÃ§Ãµes;
-- nenhuma persistÃªncia de conversa por padrÃ£o.
+- diff obrigatório antes de aplicar alterações;
+- nenhuma persistência de conversa por padrão.
 
-### Task 081 â CompleÃ§Ã£o inline e contexto ampliado
+### Task 081 — Compleção inline e contexto ampliado
 
-- ghost text no Monaco para modelos compatÃ­veis;
+- ghost text no Monaco para modelos compatíveis;
 - FIM quando anunciado pelo modelo;
 - debounce, cancelamento e cache curto;
-- contexto semÃ¢ntico opt-in com embeddings locais;
-- restauraÃ§Ã£o opcional de abas e histÃ³rico privado opt-in.
+- contexto semântico opt-in com embeddings locais;
+- restauração opcional de abas e histórico privado opt-in.
 
-## CritÃ©rios de aceite da arquitetura
+## Critérios de aceite da arquitetura
 
 Antes de iniciar a task 076:
 
-- modelo de ameaÃ§a revisado;
+- modelo de ameaça revisado;
 - limites iniciais definidos em contratos e schemas;
-- polÃ­tica de symlinks decidida e testÃ¡vel;
-- estratÃ©gia de workers do Monaco validada com Vite;
-- compatibilidade de versÃµes entre Monaco e `monaco-languageclient` fixada;
+- política de symlinks decidida e testável;
+- estratégia de workers do Monaco validada com Vite;
+- compatibilidade de versões entre Monaco e `monaco-languageclient` fixada;
 - comandos permitidos por LSP documentados;
-- UX de preview de alteraÃ§Ãµes aprovada;
-- Ollama tratado como dependÃªncia opcional detectada, nunca instalada
+- UX de preview de alterações aprovada;
+- Ollama tratado como dependência opcional detectada, nunca instalada
   automaticamente.
 
 ## Fora do escopo inicial
 
 - terminal embutido ou shell livre;
-- execuÃ§Ã£o de comandos sugeridos pelo modelo;
-- extensÃµes arbitrÃ¡rias do VS Code;
+- execução de comandos sugeridos pelo modelo;
+- extensões arbitrárias do VS Code;
 - marketplace de plugins;
 - acesso remoto ao dashboard;
 - provedores cloud e chaves de API;
-- agentes autÃ´nomos que alteram o projeto sem revisÃ£o;
-- colaboraÃ§Ã£o em tempo real;
+- agentes autônomos que alteram o projeto sem revisão;
+- colaboração em tempo real;
 - paridade mobile com a IDE desktop;
-- indexaÃ§Ã£o automÃ¡tica de todo arquivo do projeto.
+- indexação automática de todo arquivo do projeto.

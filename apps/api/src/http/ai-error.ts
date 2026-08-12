@@ -42,6 +42,6 @@ export function aiApiError(error: unknown): ApiError | null {
     message:
       error instanceof Error
         ? error.message
-        : 'NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o de IA.',
+        : 'Não foi possível concluir a operação de IA.',
   });
 }
