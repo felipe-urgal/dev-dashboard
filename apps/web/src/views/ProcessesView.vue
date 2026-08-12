@@ -54,31 +54,16 @@ const {
     aria-labelledby="processes-title"
   >
     <div class="processes-heading">
-      <div>
-        <span class="section-kicker">Ambiente local</span>
-        <h2 id="processes-title">Processos gerenciados</h2>
-        <p class="section-description">
-          Acompanhe servidores e testes iniciados pelo dashboard. Limpar
-          finalizados remove estados parados ou com falha e preserva o que ainda
-          está em execução.
-        </p>
-      </div>
-
-      <div class="processes-cleanup">
-        <button
-          type="button"
-          class="processes-cleanup-button"
-          :disabled="cleanupRunning || terminalCount === 0"
-          aria-describedby="processes-cleanup-help"
-          @click="runCleanup"
-        >
-          <TrashIcon aria-hidden="true" />
-          {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
-        </button>
-        <span id="processes-cleanup-help">
-          Processos em execução serão preservados.
-        </span>
-      </div>
+      <button
+        type="button"
+        class="processes-cleanup-button"
+        :disabled="cleanupRunning || terminalCount === 0"
+        aria-describedby="processes-cleanup-help"
+        @click="runCleanup"
+      >
+        <TrashIcon aria-hidden="true" />
+        {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
+      </button>
     </div>
 
     <dl
