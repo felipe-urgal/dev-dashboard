@@ -34,6 +34,11 @@
   height: 100%;
 }
 
+:deep(.project-doctor-panel),
+:deep(.project-doctor-card) {
+  min-height: calc(100vh - 116px);
+}
+
 .project-details-hero {
   display: flex;
   min-height: unset;
