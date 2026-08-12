@@ -213,12 +213,19 @@ export function useProcessesView() {
         error instanceof ApiRequestError
           ? error.message
           : 'Não foi possível carregar os processos gerenciados.';
-      items.value = [];
+      // Preserve the last successful result so refresh failures do not collapse the layout.
     } finally {
       if (generation.isCurrent(token)) {
         loading.value = false;
       }
     }
+  }
+
+  function clearFilters(): void {
+    workspaceFilter.value = '';
+    projectFilter.value = '';
+    kindFilter.value = '';
+    statusFilter.value = '';
   }
 
   async function runCleanup(): Promise<void> {
@@ -315,6 +322,7 @@ export function useProcessesView() {
     projectNameById,
     workspaceNameFor,
     loadProcesses,
+    clearFilters,
     runCleanup,
   };
 }
