@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  HomeIcon,
-  PlayCircleIcon,
-  PlusIcon,
-} from '@heroicons/vue/24/outline';
+import { HomeIcon, PlayCircleIcon, PlusIcon } from '@heroicons/vue/24/outline';
 import { onMounted, ref, watch } from 'vue';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
