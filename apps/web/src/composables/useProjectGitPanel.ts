@@ -46,7 +46,7 @@ export function useProjectGitPanel(
     | 'commit'
     | 'undo'
     | 'pull-request'
-    | 'history'
+    | 'history';
 
   const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
     { id: 'sync', label: 'Sincronização', icon: '↕' },
