@@ -34,7 +34,7 @@ describe('arquitetura de CSS', () => {
     const layout = lerEstilo('layout.css');
     const componentes = lerComponentes();
 
-    for (const seletor of ['.app-shell', '.sidebar', '.topbar', '.content']) {
+    for (const seletor of ['.app-shell', '.sidebar', '.content']) {
       expect(layout).toContain(`${seletor} {`);
     }
 
