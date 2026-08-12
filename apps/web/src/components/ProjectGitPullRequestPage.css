@@ -426,6 +426,24 @@
   text-decoration: none;
 }
 
+.git-pr-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.git-pr-footer button,
+.git-pr-fallback-link,
+.git-pr-existing-action {
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+.git-pr-footer p {
+  min-width: 0;
+}
+
 .git-pr-footer button svg,
 .git-pr-fallback-link svg,
 .git-pr-existing-action svg {
@@ -544,6 +562,10 @@
   .git-pr-existing {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .git-pr-footer {
+    display: flex;
   }
 
   .git-pr-footer button,
