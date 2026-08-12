@@ -43,6 +43,7 @@
 
 .processes-cleanup-button,
 .processes-refresh-button,
+.processes-clear-button,
 .processes-open-button {
   display: inline-flex;
   align-items: center;
@@ -73,6 +74,7 @@
 
 .processes-cleanup-button svg,
 .processes-refresh-button svg,
+.processes-clear-button svg,
 .processes-open-button svg {
   width: 17px;
   height: 17px;
@@ -86,7 +88,8 @@
 }
 
 .processes-cleanup-button:disabled,
-.processes-refresh-button:disabled {
+.processes-refresh-button:disabled,
+.processes-clear-button:disabled {
   border-color: var(--border);
   color: var(--text-dim);
   cursor: not-allowed;
@@ -195,7 +198,8 @@
 }
 
 .processes-filters select,
-.processes-refresh-button {
+.processes-refresh-button,
+.processes-clear-button {
   min-width: 0;
   min-height: 38px;
   padding: 9px 11px;
@@ -207,15 +211,29 @@
   font-size: 11px;
 }
 
+.processes-refresh-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .processes-refresh-button {
   min-width: 122px;
+  flex: 1;
   gap: 7px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.processes-clear-button {
+  min-width: 70px;
   letter-spacing: normal;
   text-transform: none;
 }
 
 .processes-refresh-button:not(:disabled):hover,
 .processes-refresh-button:not(:disabled):focus-visible,
+.processes-clear-button:not(:disabled):hover,
+.processes-clear-button:not(:disabled):focus-visible,
 .processes-open-button:hover,
 .processes-open-button:focus-visible {
   border-color: var(--border-strong);
