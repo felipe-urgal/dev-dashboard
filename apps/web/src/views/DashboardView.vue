@@ -36,7 +36,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
     id="overview"
     class="content"
     :aria-busy="loadingProjects"
-    aria-label="Visão geral"
+    aria-labelledby="overview-title"
   >
     <div v-if="errorMessage" class="alert alert-error" role="alert">
       <div class="alert-body">
@@ -92,7 +92,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
     <Card id="repositories" class="repositories-section">
       <template #header>
-        <span class="section-kicker">Repositórios</span>
+        <h2 id="overview-title" class="section-kicker">Repositórios</h2>
       </template>
 
       <template #actions>
