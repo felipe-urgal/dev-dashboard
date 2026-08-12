@@ -276,7 +276,7 @@ watch(
   margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
   width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
-  border: 1px solid #262c40;
+  border-top: 1px solid #262c40;
   padding: 16px 18px 20px;
   overflow: hidden;
 }
