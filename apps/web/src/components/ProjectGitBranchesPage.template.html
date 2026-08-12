@@ -2,30 +2,6 @@
     <div class="branch-table-card">
       <header class="branch-table-toolbar">
         <button
-            type="button"
-            :class="{ active: filter === 'all' }"
-            @click="filter = 'all'"
-          >
-            Todas
-          </button>
-          <button
-            type="button"
-            :class="{ active: filter === 'local' }"
-            @click="filter = 'local'"
-          >
-            Locais
-          </button>
-          <button
-            type="button"
-            :class="{ active: filter === 'remote' }"
-            @click="filter = 'remote'"
-          >
-            Remotas
-          </button>
-        </div>
-
-
-        <button
           type="button"
           class="primary-button branch-create-button"
           :disabled="busy"
