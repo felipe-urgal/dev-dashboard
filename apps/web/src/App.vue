@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
   Cog6ToothIcon,
   HomeIcon,
   PlayCircleIcon,
@@ -63,22 +61,8 @@ onMounted(() => {
       class="sidebar"
       :class="{ 'sidebar-collapsed': sidebarCollapsed }"
     >
-      <RouterLink
-        class="brand brand-link"
-        to="/"
-        :aria-label="sidebarCollapsed ? 'Dev Dashboard' : undefined"
-        :title="sidebarCollapsed ? 'Dev Dashboard' : undefined"
-      >
-        <div class="brand-mark">DD</div>
-
-        <div class="brand-copy">
-          <strong>Dev Dashboard</strong>
-          <span>Local workspace</span>
-        </div>
-      </RouterLink>
-
       <button
-        class="sidebar-collapse-button"
+        class="brand brand-toggle"
         type="button"
         aria-controls="primary-sidebar"
         :aria-expanded="!sidebarCollapsed"
@@ -88,8 +72,12 @@ onMounted(() => {
         :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
         @click="toggleSidebarCollapsed"
       >
-        <ChevronRightIcon v-if="sidebarCollapsed" aria-hidden="true" />
-        <ChevronLeftIcon v-else aria-hidden="true" />
+        <div class="brand-mark">DD</div>
+
+        <div class="brand-copy">
+          <strong>Dev Dashboard</strong>
+          <span>Local workspace</span>
+        </div>
       </button>
 
       <div class="sidebar-section">
