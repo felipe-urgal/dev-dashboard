@@ -209,6 +209,9 @@ watch(
 <style scoped>
 .tests-pty-panel {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-height: 0;
   gap: var(--space-3);
 }
 
