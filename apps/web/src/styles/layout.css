@@ -255,6 +255,9 @@
 }
 
 .content {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
   width: min(2440px, 100%);
   margin: 0 auto;
 }
