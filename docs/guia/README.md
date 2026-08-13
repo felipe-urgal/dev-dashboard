@@ -14,11 +14,10 @@ Cada projeto aberto no dashboard (`http://127.0.0.1:5173`) tem as seguintes abas
 | Diagnóstico | Checa a saúde do ambiente local do projeto (runtimes, dependências, variáveis esperadas). | [diagnostico.md](diagnostico.md) |
 | Servidor | Liga, desliga e monitora o servidor de desenvolvimento do projeto. | [servidor.md](servidor.md) |
 | Logs | Acompanha a saída do servidor em tempo quase real, com leitura estruturada para Rails. | [logs.md](logs.md) |
-| Git | Sincronização, branches, diff, commit, desfazer, pull request, Code review IA (Ollama local), histórico e mutações. | [git.md](git.md) |
+| Git | Sincronização, branches, diff, commit, desfazer, pull request e histórico. | [git.md](git.md) |
 | Testes | Roda a suíte completa via terminal PTY destacável (PoC — arquivo específico, testes relacionados e histórico temporariamente fora do ar). | [testes.md](testes.md) |
 | Banco de dados | Detecta bancos/serviços do projeto, inicia serviços reconhecidos e cria/restaura snapshots (só quando o projeto tem suporte a banco). | [banco-de-dados.md](banco-de-dados.md) |
 | Dependências | Instala/atualiza dependências Ruby e Node com um clique. | [dependencias.md](dependencias.md) |
-| Scripts | Catálogo completo de comandos seguros do projeto (scripts, tarefas Rake, executáveis de `bin/`). | [scripts.md](scripts.md) |
 | Terminal / Console | Shell interativo e (para projetos Rails) `rails console` direto no navegador. | [terminal.md](terminal.md) |
 | Sidekiq/webpack | Acompanha e controla os processos de Sidekiq e webpack watcher de projetos Rails. | — |
 | Variáveis de ambiente | Mostra (sem editar) as variáveis de ambiente configuradas, ocultando valores sensíveis. | [variaveis-de-ambiente.md](variaveis-de-ambiente.md) |

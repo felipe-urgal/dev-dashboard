@@ -35,9 +35,10 @@ acessível pela aba Testes enquanto o modelo novo não é expandido:
   reconstruída.
 
 A implementação anterior (`ProjectTestsGuidedPanel.vue` + `useProjectTestsPanel.ts` +
-`useProjectTestProcess.ts`, rodando sobre `processManager` kind `'test'` + SSE) continua no
-repositório como referência — só não é mais o componente renderizado pela aba. Repor esses recursos
-sobre o modelo novo é trabalho futuro, registrado na task 234.
+`useProjectTestProcess.ts`, rodando sobre `processManager` kind `'test'` + SSE) não estava mais
+conectada a nenhuma rota desde esta migração e foi removida do código como órfã; para consultá-la,
+veja o histórico do Git antes dessa remoção. Repor esses recursos sobre o modelo novo é trabalho
+futuro, registrado na task 234.
 
 ## Como o dashboard detecta o comando de teste
 

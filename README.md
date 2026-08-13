@@ -17,13 +17,11 @@ O Dev Dashboard detecta aplicações Rails e Node em pastas locais, organiza mú
 - Visualização de logs no navegador
 - Git com leitura completa (status, diff, branches, commits) e mutações com confirmação (CRUD de branches locais, pull, push, commit)
 - Execução de testes, incluindo arquivo específico, com histórico persistente e eventos em tempo real
-- Catálogo seguro de scripts com histórico persistente e acompanhamento em tempo real
 - Migrations, routes e geradores (model/migration) do Rails, com operações mutáveis sob confirmação, e diagnóstico Bundler somente leitura
 - Sidekiq e webpack-dev-server como processos de fundo geridos (start/stop/restart/logs), com status somente leitura das credentials do Rails
 - Serviços do Docker Compose como processos de fundo geridos (start/stop/restart/logs/build)
 - Inspeção de configurações e disponibilidade de bancos locais, com snapshot e restore com confirmação
 - Perfis de ambiente reutilizáveis e leitura de variáveis por projeto, sem persistir valor de variáveis com nome de segredo
-- Assistente de IA multi-provider com Ollama local e OpenAI cloud opcional, com seleção por projeto, consentimento explícito para cloud, masking e alterações via prévia/aprovação
 - Project Doctor: diagnóstico somente leitura de estrutura, runtimes, dependências e configuração por projeto
 - Navegador estruturado de falhas de teste e assessor de impacto de mudanças após troca de branch/pull/sincronização
 - Inspetor somente leitura de portas TCP locais
@@ -407,7 +405,7 @@ Todas as rotas, exceto o health check e o bootstrap de sessão, são privadas.
 O navegador usa a sessão local; clientes não navegador usam o header de
 token.
 
-A referência completa (157 rotas) é gerada a partir dos schemas Fastify
+A referência completa é gerada a partir dos schemas Fastify
 reais e verificada no CI — não é mantida manualmente aqui para não divergir
 do código. Veja [`docs/architecture/api-reference.md`](docs/architecture/api-reference.md)
 ou rode `npm run docs:api` para regenerá-la.
@@ -429,23 +427,20 @@ A interface web já permite:
 9. inspecionar bancos locais, distinguir runtime local de Docker, coordenar
    start/stop de serviços reconhecidos e criar/restaurar snapshots de banco
    com confirmação explícita;
-10. consultar e executar com segurança scripts e tarefas catalogados;
-11. cancelar execuções e consultar seu histórico persistente (scripts e testes);
-12. acompanhar execuções do catálogo e de testes em tempo real por SSE;
-13. consultar migrations e routes do Rails, executar migrate/rollback/seed/prepare
+10. cancelar execuções de teste e consultar seu histórico persistente;
+11. acompanhar execuções de teste em tempo real por SSE;
+12. consultar migrations e routes do Rails, executar migrate/rollback/seed/prepare
     com confirmação e diagnosticar Bundler somente leitura;
-14. acompanhar uma página global de processos;
-15. navegar por uma command palette (`Cmd/Ctrl+K`);
-16. ajustar a preferência de tema (claro/escuro);
-17. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
-18. usar o assistente de IA multi-provider com Ollama local ou OpenAI cloud
-    autorizada por projeto, preservando masking, prévia e aprovação explícita;
-19. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
+13. acompanhar uma página global de processos;
+14. navegar por uma command palette (`Cmd/Ctrl+K`);
+15. ajustar a preferência de tema (claro/escuro);
+16. exibir carregamentos globais com skeletons acessíveis e movimento reduzido;
+17. diagnosticar um projeto com o Project Doctor, navegar falhas de teste por
     runner e revisar o impacto de uma troca de branch/pull/sincronização;
-20. inspecionar portas TCP locais e gerir serviços do Docker Compose;
-21. exportar logs protegidos pelo navegador e receber notificações nativas
+18. inspecionar portas TCP locais e gerir serviços do Docker Compose;
+19. exportar logs protegidos pelo navegador e receber notificações nativas
     opcionais de conclusões longas;
-22. continuar utilizando o CLI existente de forma independente.
+20. continuar utilizando o CLI existente de forma independente.
 
 A cobertura automatizada inclui testes unitários, testes de componentes Vue e um
 smoke E2E de workspace → projeto → execução → log.

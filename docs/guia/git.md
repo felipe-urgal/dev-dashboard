@@ -1,8 +1,8 @@
 # Guia da aba Git
 
 > Parte do [Guia passo a passo do dashboard web](README.md). Esta página cobre a aba **Git**
-> de um projeto, com as suas nove sub-abas: Sincronização, Branches, Diff, Commit, Desfazer,
-> Pull Request, Code review IA, Histórico e Mutações.
+> de um projeto, com as suas sete sub-abas: Sincronização, Branches, Diff, Commit, Desfazer,
+> Pull Request e Histórico.
 
 A aba Git nunca chama `git` diretamente a partir do navegador. Toda ação passa pela API
 (`http://127.0.0.1:4343`), que executa o binário `git` no diretório do projeto via
@@ -27,12 +27,12 @@ ação e ao alvo exatos que foram confirmados — não dá para gerar o token pa
 em outra. Esse é o motivo de, ao clicar em "Excluir branch" ou "Sincronizar", normalmente aparecer
 uma pequena confirmação antes da ação realmente rodar.
 
-Toda operação (com sucesso ou falha) é anotada na sub-aba **Mutações**, exceto quando a própria
-confirmação falha — isso é tratado como erro de protocolo do cliente, não como uma tentativa real
-de mexer no repositório.
+Toda operação (com sucesso ou falha) é anotada no histórico de mutações do projeto (mantido pela
+API, sem tela própria no dashboard hoje), exceto quando a própria confirmação falha — isso é
+tratado como erro de protocolo do cliente, não como uma tentativa real de mexer no repositório.
 
 Cada ação do catálogo tem uma classificação de risco fixa, usada tanto para decidir se pede
-confirmação quanto para o selo mostrado no histórico de Mutações:
+confirmação quanto para o selo mostrado nesse histórico de mutações:
 
 | Risco          | Selo mostrado    | Significado                                                                            |
 | -------------- | ---------------- | -------------------------------------------------------------------------------------- |
@@ -218,73 +218,6 @@ outro host), a ação é recusada com um erro explicando que a combinação não
 
 ---
 
-## Code review IA
-
-Esta sub-aba fica antes de **Histórico** e concentra a revisão da branch antes da Pull Request.
-Ela compara a branch atual com a base escolhida (`origin/main`, por padrão) e usa a **mesma seleção
-de IA do projeto**: Local/Ollama ou OpenAI, com modo Rápido ou Completo.
-
-A tela não mantém um segundo seletor independente. Ela lê a seleção persistida do projeto, mostra
-o provider/modo atuais e registra no snapshot da revisão qual provider, modo e modelo foram usados.
-
-Antes de iniciar a revisão, a API:
-
-1. resolve o provider selecionado;
-2. revalida disponibilidade;
-3. exige consentimento quando o provider é OpenAI;
-4. valida o modelo escolhido contra o catálogo do provider;
-5. só depois lê a lista de arquivos/diffs da comparação.
-
-Provider e modo ficam **congelados no início da execution**. Trocar a seleção do projeto enquanto
-uma revisão está rodando não muda aquela execução.
-
-Os patches são revisados por arquivo por uma tarefa em segundo plano. Por isso, você pode sair da
-sub-aba e voltar depois: o progresso e o resultado são recuperados enquanto a API do dashboard
-continuar em execução. Um arquivo que falhar não impede que os demais recebam comentários.
-
-### Modo Rápido
-
-- revisa os arquivos individualmente;
-- usa budget menor de diff;
-- não executa síntese global.
-
-### Modo Completo
-
-- revisa os arquivos individualmente com budget maior;
-- executa uma síntese global no final;
-- usa a mesma instância do provider para revisão por arquivo e síntese;
-- cruza achados entre arquivos e deduplica problemas equivalentes.
-
-Após concluir a revisão, a tela mostra:
-
-- provider e modo usados pela execution;
-- resumo e quantidade de apontamentos pendentes;
-- arquivos com comentários e contagem pendente;
-- comentários do arquivo selecionado inline, logo abaixo da linha correspondente (estilo GitHub);
-  apontamentos sem linha identificada ficam numa lista geral acima do arquivo;
-- ações locais de triagem para selecionar, marcar como resolvido ou ignorar apontamentos.
-
-Cada arquivo pode ser visto em dois modos, alternados por um botão **Diff / Arquivo completo** no
-cabeçalho:
-
-- **Diff** (padrão): o patch unificado, igual ao usado na análise da IA.
-- **Arquivo completo**: o conteúdo atual do arquivo (lido via `GET /projects/:id/files/content`),
-  com as linhas adicionadas/modificadas nesse diff destacadas e os mesmos comentários inline na
-  linha certa — sem o ruído de contexto/remoções do formato de diff. Linhas removidas não aparecem,
-  já que o arquivo exibido é a versão final. Se o arquivo não puder ser lido (por exemplo, foi
-  removido nessa comparação), a tela mostra o erro com um atalho para voltar ao Diff.
-
-A revisão é consultiva: não altera arquivos, commits nem Pull Requests.
-
-Diffs com conteúdo sensível são mascarados antes de chegar ao modelo, inclusive quando o provider
-é cloud. Para arquivos muito extensos, a análise usa um recorte limitado pela policy; o painel ao
-lado busca o diff do arquivo diretamente na comparação selecionada.
-
-Se OpenAI estiver sem consentimento, indisponível ou sem créditos/quota, a revisão é bloqueada ou
-falha com a mensagem correspondente; não existe fallback silencioso para Ollama.
-
----
-
 ## Histórico
 
 Sub-aba 100% de leitura, para navegar pelos commits.
@@ -301,23 +234,6 @@ Sub-aba 100% de leitura, para navegar pelos commits.
   (`git show --name-status`), estatísticas por arquivo (`git show --numstat`) e o patch completo
   (`git show --unified=3`, também truncado e mascarado como no Diff). É possível abrir o diff de um
   arquivo específico do commit isoladamente, inclusive quando ele foi renomeado.
-
----
-
-## Mutações
-
-Também 100% de leitura — é o **extrato** de tudo que já foi executado nas outras sub-abas desta
-aba Git, não um log de commits.
-
-Cada linha mostra: o nome da ação (ex. "Criar branch", "Sincronizar main"), o selo de risco
-(Leitura / Alteração local / Alteração remota / Destrutiva), se deu certo ou falhou, quando
-aconteceu e, em caso de falha, o código do erro.
-
-Por design de segurança, o registro guarda **apenas metadados** — nunca a mensagem de commit, o
-caminho de um arquivo, o conteúdo de um patch ou o token de confirmação usado. Cada projeto guarda
-até 200 eventos (2000 no total, somando todos os projetos); os mais antigos são descartados
-automaticamente. Esse histórico fica salvo localmente no computador (fora do repositório Git),
-então continua disponível mesmo depois de reiniciar o dashboard.
 
 ---
 

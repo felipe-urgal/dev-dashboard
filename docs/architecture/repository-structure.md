@@ -16,9 +16,11 @@ dev-dashboard/
 │   └── project-discovery/
 ├── scripts/
 ├── docs/
-│   ├── architecture/
-│   ├── site/
-│   └── tasks/
+│   └── architecture/
+├── tasks/
+├── shared/
+├── tests/
+│   └── cli/
 ├── config/
 ├── lib/
 ├── init.sh
@@ -114,7 +116,7 @@ Cada plugin de rota recebe dependências explicitamente. Isso permite:
 - encerramento consistente de recursos;
 - leitura clara das capacidades usadas por cada endpoint.
 
-Os domínios incluem workspaces, projetos, processos, Git, testes, scripts, banco, Rails, ambiente, arquivos, navegador, atividades, configurações e assistente de IA.
+Os domínios incluem workspaces, projetos, processos, Git, testes, scripts, banco, Rails, ambiente, arquivos e navegador.
 
 ### Serviços
 
@@ -135,8 +137,7 @@ O `AppContext` instancia componentes como:
 - `ScriptExecutionService`;
 - `ProjectFileService`;
 - `ProjectWorkspaceEditService`;
-- `ProjectLanguageServerService`;
-- `AiAssistantService`.
+- `ProjectLanguageServerService`.
 
 Uma nova dependência de aplicação deve entrar no contexto quando precisar ser compartilhada, substituída em teste ou encerrada no shutdown.
 
@@ -162,18 +163,14 @@ Aplicação Vue 3, TypeScript, Vite e Vue Router.
 O router organiza:
 
 - visão geral;
-- atividades;
 - processos;
-- configurações;
 - detalhes do projeto;
 - diagnóstico;
 - servidor e logs;
 - Git;
-- assistente de IA;
 - testes;
 - banco de dados;
 - dependências;
-- scripts;
 - terminal e console;
 - runtime Rails;
 - variáveis de ambiente.
@@ -277,7 +274,8 @@ Scripts devem funcionar a partir da raiz, evitar shell desnecessário e possuir 
 
 ## `docs`
 
-Documentação versionada.
+Documentação versionada — só documentação de produto/arquitetura. Planejamento e histórico de
+entregas vivem em `tasks/` (fora de `docs/`, ver "Documentação de tasks" em `CLAUDE.md`).
 
 ```text
 docs/
@@ -285,13 +283,13 @@ docs/
 ├── getting-started.md               # instalação e primeiro uso
 ├── development-guide.md             # processo de desenvolvimento
 ├── operations-and-troubleshooting.md
-├── documentation-api.md
+├── ci-fix-playbook.md               # diagnóstico de CI vermelho
 ├── architecture/                    # decisões e referências técnicas
-├── tasks/                           # histórico e planejamento interno
-└── site/index.html                  # interface da central local
+├── guia/                            # guia passo a passo do dashboard web, aba por aba
+├── design/
+├── product/
+└── prototypes/
 ```
-
-O servidor lê Markdown em cada request. Alterações aparecem ao recarregar a página sem rebuild.
 
 ## `lib`, `config` e `init.sh`
 
