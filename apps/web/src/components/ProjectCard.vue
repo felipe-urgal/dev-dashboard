@@ -267,6 +267,9 @@ const localUrl = computed(() =>
 }
 
 .project-disable-button {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
   display: inline-flex;
   width: auto;
   height: 34px;
