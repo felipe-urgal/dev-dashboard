@@ -10,28 +10,9 @@ import ProjectTestsPanel from '../src/components/ProjectTestsPanel.vue';
 import { createTestRouter } from './support/test-router';
 
 const fetchProjectProcess = vi.fn().mockResolvedValue(null);
-const openProjectBrowserTarget = vi.fn().mockResolvedValue({
-  target: 'server',
-  url: 'http://localhost:3000',
-  opened: true,
-});
-const fetchProjectServerHealth = vi.fn().mockResolvedValue({
-  projectId: 'projeto-card',
-  path: '/health',
-  pathSource: 'detected',
-  status: 'healthy',
-  httpStatus: 200,
-  latencyMs: 12,
-  checkedAt: '2026-08-03T10:00:00.000Z',
-});
-
 vi.mock('../src/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/api')>()),
   fetchProjectProcess: (...args: unknown[]) => fetchProjectProcess(...args),
-  fetchProjectServerHealth: (...args: unknown[]) =>
-    fetchProjectServerHealth(...args),
-  openProjectBrowserTarget: (...args: unknown[]) =>
-    openProjectBrowserTarget(...args),
   fetchProjectProcessLog: vi.fn().mockResolvedValue({
     projectId: 'projeto-card',
     processId: 'proc-1',
@@ -126,72 +107,43 @@ describe('cards dos painéis de detalhe', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
-  it('renderiza o painel operacional do servidor', async () => {
+  it('exibe somente a configuração quando o servidor está parado', async () => {
+    fetchProjectProcess.mockResolvedValueOnce(null);
+
     const wrapper = mountServerPanel();
     await flushPromises();
 
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
-    expect(wrapper.find('.server-status-card').exists()).toBe(true);
+    expect(wrapper.find('.server-running-card').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Iniciar servidor');
     expect(wrapper.text()).not.toContain('Atividade recente');
-    expect(wrapper.text()).not.toContain('Últimos logs');
+    expect(wrapper.text()).not.toContain('Health check');
 
     wrapper.unmount();
   });
 
-  it('não exibe o resumo visual do health check', async () => {
+  it('exibe somente informações operacionais quando o servidor está rodando', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
-      id: 'proc-health',
+      id: 'proc-running',
       projectId: project.id,
       kind: 'server',
       status: 'running',
       port: 3_000,
-    });
-
-    const wrapper = mountServerPanel();
-    await flushPromises();
-
-    expect(fetchProjectServerHealth).toHaveBeenCalledWith(project.id);
-    expect(wrapper.find('.server-health-summary').exists()).toBe(false);
-
-    wrapper.unmount();
-  });
-
-  it('abre o navegador do sistema pelo botão dedicado quando o servidor está rodando', async () => {
-    fetchProjectProcess.mockResolvedValueOnce({
-      id: 'proc-browser',
-      projectId: project.id,
-      kind: 'server',
-      status: 'running',
-      port: 3_000,
+      host: '192.168.1.10',
       url: 'http://localhost:3000',
     });
 
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    const buttons = wrapper.findAll('button');
-    const openButton = buttons.find((button) =>
-      button.text().includes('Abrir no navegador do sistema'),
-    );
-    expect(openButton).toBeDefined();
-
-    await openButton!.trigger('click');
-    await flushPromises();
-
-    expect(openProjectBrowserTarget).toHaveBeenCalledWith(project.id, 'server');
-    expect(wrapper.text()).toContain('Aberto no navegador padrão do sistema.');
-
-    wrapper.unmount();
-  });
-
-  it('não exibe o botão de abrir no navegador do sistema quando o servidor não está rodando', async () => {
-    fetchProjectProcess.mockResolvedValueOnce(null);
-
-    const wrapper = mountServerPanel();
-    await flushPromises();
-
+    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-running-card').exists()).toBe(true);
+    expect(wrapper.text()).toContain('http://localhost:3000');
+    expect(wrapper.text()).toContain('http://192.168.1.10:3000');
+    expect(wrapper.text()).not.toContain('Configuração do processo');
     expect(wrapper.text()).not.toContain('Abrir no navegador do sistema');
+    expect(wrapper.text()).not.toContain('Health check');
 
     wrapper.unmount();
   });
