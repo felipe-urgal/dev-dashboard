@@ -7,7 +7,6 @@ import {
   BoltIcon,
   CommandLineIcon,
   GlobeAltIcon,
-  HeartIcon,
   PlayIcon,
   ServerStackIcon,
   StopIcon,
@@ -17,7 +16,6 @@ import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
 
 import {
   fetchProjectServerConfiguration,
-  openProjectBrowserTarget,
   saveProjectServerSettings,
   startProjectProcess,
   stopProjectProcess,
@@ -25,7 +23,6 @@ import {
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
-import { useProjectServerHealth } from '../composables/useProjectServerHealth';
 import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
 import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
@@ -43,19 +40,8 @@ const {
   supportsServer,
   processStatus,
   canStop,
-  statusLabel,
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
-
-const {
-  health,
-  healthCheckedAtLabel,
-  healthError,
-  healthLabel,
-  loadingHealth,
-  refreshHealth,
-  resetHealth,
-} = useProjectServerHealth(() => props.project.id, processStatus);
 
 const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
   () => props.project,
@@ -64,19 +50,15 @@ const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
 );
 
 const selectedPort = ref<string | number>('');
-const selectedHealthCheckPath = ref('');
 const selectedEnvironment = ref('');
 const availableEnvironments = ref<string[]>([]);
 const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
-const openingBrowser = ref(false);
-const browserOpenMessage = ref('');
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
-useAutoDismiss(browserOpenMessage, '');
 
 const projectRequests = new RequestGeneration();
 let hasObservedRunning = false;
@@ -127,6 +109,34 @@ const processUrls = computed<string[]>(() => {
 
 const primaryProcessUrl = computed(() => processUrls.value[0] ?? '');
 
+const ipProcessUrl = computed(() => {
+  const additionalUrl = processUrls.value.slice(1).find((url) => {
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname !== 'localhost' && hostname !== '127.0.0.1';
+    } catch {
+      return false;
+    }
+  });
+
+  if (additionalUrl) return additionalUrl;
+
+  const host = managedProcess.value?.host;
+  const port = managedProcess.value?.port;
+  if (
+    host &&
+    port &&
+    host !== 'localhost' &&
+    host !== '127.0.0.1' &&
+    host !== '0.0.0.0' &&
+    host !== '::'
+  ) {
+    return `http://${host}:${port}`;
+  }
+
+  return '';
+});
+
 const statusDescription = computed(() => {
   if (!supportsServer.value)
     return 'Este projeto não expõe um servidor gerenciável.';
@@ -167,7 +177,6 @@ async function refreshServerSettings(): Promise<void> {
 
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
-    selectedHealthCheckPath.value = settings.healthCheckPath ?? '';
     availableEnvironments.value = configuration.environments;
     selectedEnvironment.value =
       settings.environment &&
@@ -195,10 +204,9 @@ async function persistServerSettings(
   generation: number,
 ): Promise<ProjectServerSettings> {
   const port = parseServerPort(selectedPort.value);
-  const healthCheckPath = selectedHealthCheckPath.value.trim() || null;
   const settings = await saveProjectServerSettings(projectId, {
     port,
-    healthCheckPath,
+    healthCheckPath: null,
     environment:
       props.project.type === 'node' && selectedEnvironment.value
         ? selectedEnvironment.value
@@ -210,7 +218,6 @@ async function persistServerSettings(
   }
 
   selectedPort.value = settings.port !== undefined ? String(settings.port) : '';
-  selectedHealthCheckPath.value = settings.healthCheckPath ?? '';
   selectedEnvironment.value = settings.environment ?? '';
 
   return settings;
@@ -227,9 +234,6 @@ async function handleSaveSettings(): Promise<void> {
     await persistServerSettings(projectId, generation);
     if (isCurrentProject(projectId, generation)) {
       settingsMessage.value = 'Configurações salvas.';
-      if (processStatus.value === 'running') {
-        await refreshHealth();
-      }
     }
   } catch (error) {
     if (isCurrentProject(projectId, generation)) {
@@ -351,46 +355,16 @@ async function handleRestart(): Promise<void> {
   }
 }
 
-async function handleOpenInSystemBrowser(): Promise<void> {
-  const projectId = props.project.id;
-  const generation = projectRequests.capture();
-  openingBrowser.value = true;
-  browserOpenMessage.value = '';
-  errorMessage.value = '';
-
-  try {
-    await openProjectBrowserTarget(projectId, 'server');
-    if (isCurrentProject(projectId, generation)) {
-      browserOpenMessage.value = 'Aberto no navegador padrão do sistema.';
-    }
-  } catch (error) {
-    if (isCurrentProject(projectId, generation)) {
-      errorMessage.value =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível abrir o navegador padrão do sistema.';
-    }
-  } finally {
-    if (isCurrentProject(projectId, generation)) {
-      openingBrowser.value = false;
-    }
-  }
-}
-
 function resetPanelState(): void {
   projectRequests.invalidate();
 
   selectedPort.value = '';
-  selectedHealthCheckPath.value = '';
   selectedEnvironment.value = '';
   availableEnvironments.value = [];
   loadingSettings.value = false;
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
-  openingBrowser.value = false;
-  browserOpenMessage.value = '';
-  resetHealth();
 }
 
 async function initializeProject(): Promise<void> {
