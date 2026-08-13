@@ -177,7 +177,7 @@ async function refreshServerSettings(): Promise<void> {
 
     selectedPort.value =
       settings.port !== undefined ? String(settings.port) : '';
-      availableEnvironments.value = configuration.environments;
+    availableEnvironments.value = configuration.environments;
     selectedEnvironment.value =
       settings.environment &&
       configuration.environments.includes(settings.environment)
