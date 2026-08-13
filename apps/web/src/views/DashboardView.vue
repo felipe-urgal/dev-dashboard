@@ -116,7 +116,6 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               <ArrowPathIcon aria-hidden="true" />
             </button>
 
-
           </template>
         </div>
       </template>
