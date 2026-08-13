@@ -114,12 +114,23 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               @click="rescanSelectedWorkspace"
             >
               <ArrowPathIcon aria-hidden="true" />
+              <span>Atualizar</span>
             </button>
-
-            n>
           </template>
         </div>
       </template>
+
+      <div
+        v-if="!loadingProjects && sortedProjects.length > 0"
+        class="projects-header"
+        aria-hidden="true"
+      >
+        <span>Projeto</span>
+        <span>Branch</span>
+        <span>Status</span>
+        <span>Porta</span>
+        <span>Ação</span>
+      </div>
 
       <LoadingSkeleton
         v-if="loadingProjects"
@@ -159,8 +170,8 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
 .compact-action-button {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  min-height: 34px;
+  padding: 0 12px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
