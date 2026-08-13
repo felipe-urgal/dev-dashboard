@@ -80,7 +80,7 @@ const localUrl = computed(() =>
 <template>
   <li class="project-row" :class="{ 'project-row-disabled': !project.enabled }">
     <div class="project-row-link">
-      <div class="project-cell project-cell-project">
+      <div class="project-cell project-cell-project project-row-identity">
         <RouterLink
           class="project-project-link"
           :to="projectDetailsRoute"
@@ -128,7 +128,7 @@ const localUrl = computed(() =>
           target="_blank"
           rel="noreferrer"
         >
-          Porta {{ managedProcess?.port }}
+          <span class="project-port-badge">Porta {{ managedProcess?.port }}</span>
         </a>
         <span v-else class="project-placeholder">—</span>
       </div>
