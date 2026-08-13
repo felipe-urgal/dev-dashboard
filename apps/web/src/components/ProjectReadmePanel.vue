@@ -445,7 +445,7 @@ watch(
 <template>
   <section class="readme-panel" aria-labelledby="project-readme-title">
     <nav class="readme-file-list">
-      <div 
+      <div
         v-if="files.length > 1"
         class="readme-file-list-item"
         aria-label="Arquivos Markdown do projeto"
