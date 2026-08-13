@@ -266,10 +266,9 @@ Automação de desenvolvimento e manutenção do repositório.
 
 | Script | Responsabilidade |
 |---|---|
-| `dev.mjs` | Orquestra API, web e documentação. |
+| `dev.mjs` | Orquestra API e web. |
 | `dev-web.mjs` | Diagnostica, compila e inicia a distribuição local. |
 | `doctor.mjs` | Verifica ferramentas, dependências e portas. |
-| `docs-server.mjs` | Serve a central e a API de documentação. |
 | `generate-api-docs.mjs` | Gera a referência HTTP a partir dos schemas das rotas. |
 | `generate-changelog.mjs` | Gera changelog conforme a estratégia do projeto. |
 | `*.test.mjs` | Testes unitários da automação raiz. |

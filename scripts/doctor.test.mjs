@@ -36,24 +36,4 @@ test('diagnóstico diferencia erros obrigatórios de portas ocupadas', async () 
     results.find((item) => item.label === 'Porta Web')?.status,
     'ok',
   );
-  assert.equal(
-    results.find((item) => item.label === 'Porta Docs')?.status,
-    'ok',
-  );
-});
-
-test('diagnóstico respeita a porta configurada da documentação', async () => {
-  const checkedPorts = [];
-  await diagnose({
-    rootDirectory: '/projeto',
-    nodeVersion: '24.0.0',
-    docsPort: '4999',
-    commandChecker: async () => 'ok',
-    portChecker: async (_host, port) => {
-      checkedPorts.push(port);
-      return true;
-    },
-    fileChecker: async () => undefined,
-  });
-  assert.ok(checkedPorts.includes(4999));
 });

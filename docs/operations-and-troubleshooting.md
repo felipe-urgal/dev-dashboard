@@ -40,7 +40,6 @@ verificar o ambiente atual contra essa lista.
 | API | 4343 | `tsx watch src/server.ts` | Produto e integrações locais |
 | Web | 5173 | `vite` | Interface de desenvolvimento |
 | Preview web | 4173 | `vite preview` | Validação do build web |
-| Documentação | 4545 | `node scripts/docs-server.mjs` | Conteúdo e busca local |
 
 Todos os listeners devem permanecer em `127.0.0.1`.
 
@@ -55,14 +54,6 @@ Todos os listeners devem permanecer em `127.0.0.1`.
 | `DEV_DASHBOARD_WEB_DIST` | Diretório canônico do build web. |
 | `DEV_DASHBOARD_BROWSER_BOOTSTRAP` | Capacidade efêmera do bootstrap do navegador. |
 | `LOG_LEVEL` | Nível do logger Fastify. |
-
-### Documentação
-
-| Variável | Finalidade |
-|---|---|
-| `DEV_DASHBOARD_DOCS_PORT` | Porta da central; padrão `4545`. |
-
-O host da documentação é fixo em `127.0.0.1`.
 
 ### Configuração e estado
 
@@ -122,7 +113,6 @@ Depois verifique os serviços individualmente:
 
 ```bash
 curl http://127.0.0.1:4343/api/health
-curl http://127.0.0.1:4545/api/health
 ```
 
 Para a web, abra `http://127.0.0.1:5173` no navegador.
@@ -172,22 +162,10 @@ Depois execute typecheck no workspace indicado pelo erro.
 Descubra o processo:
 
 ```bash
-ss -ltnp | grep ':4343\|:5173\|:4545'
+ss -ltnp | grep ':4343\|:5173'
 ```
 
 Não encerre um PID sem saber sua identidade. Pode existir outra instância legítima ou outro serviço local.
-
-### Alterar porta da documentação
-
-```bash
-DEV_DASHBOARD_DOCS_PORT=4546 npm run docs:dev
-```
-
-Como o orquestrador usa a variável herdada, a mesma configuração funciona com:
-
-```bash
-DEV_DASHBOARD_DOCS_PORT=4546 npm run dev
-```
 
 ### Alterar porta da API
 
@@ -195,14 +173,13 @@ A distribuição local aceita `DEV_DASHBOARD_API_PORT`. No desenvolvimento padr�
 
 ## Um processo filho encerra e derruba os demais
 
-Esse é o comportamento esperado do orquestrador. O ambiente não deve continuar parcialmente ativo quando API, web ou documentação falha.
+Esse é o comportamento esperado do orquestrador. O ambiente não deve continuar parcialmente ativo quando API ou web falha.
 
 Procure no terminal a primeira mensagem de erro antes do encerramento coordenado. Para isolar:
 
 ```bash
 npm run dev:api
 npm run dev:web
-npm run docs:dev
 ```
 
 ## Dashboard abre, mas chamadas da API falham
@@ -385,32 +362,6 @@ Verifique:
 
 A senha não aparece na linha de comando; ela é transmitida ao cliente por variável específica.
 
-## Documentação não abre
-
-Execute isoladamente:
-
-```bash
-npm run docs:dev
-```
-
-Teste:
-
-```bash
-curl http://127.0.0.1:4545/api/health
-curl http://127.0.0.1:4545/api/docs
-```
-
-Erros comuns:
-
-- porta `4545` ocupada;
-- `docs/site/index.html` ausente;
-- Markdown com permissões inválidas;
-- comando executado fora da raiz por script customizado;
-- caminho solicitado não pertence ao catálogo.
-
-## Busca da documentação não encontra arquivo grande
-
-A busca ignora documentos acima do limite de conteúdo configurado para evitar custo excessivo. A referência completa da API pode ser aberta diretamente pela navegação mesmo quando não participa de toda busca textual.
 
 ## Build da web falha
 

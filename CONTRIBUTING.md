@@ -196,12 +196,6 @@ Para fluxos de navegador:
 npm run test:e2e
 ```
 
-Para a documentação:
-
-```bash
-node --test scripts/docs-server.test.mjs
-```
-
 Testes com arquivos, repositórios Git ou processos devem usar fixtures temporárias e cleanup garantido.
 
 ### Cobertura
@@ -250,8 +244,6 @@ Uma mudança está incompleta quando altera o comportamento sem atualizar a expl
 | processo de engenharia | `docs/development-guide.md` ou este arquivo |
 | endpoint | referência gerada da API |
 | planejamento | `tasks/PENDENCIAS.md` ou `tasks/*` |
-
-Abra `http://127.0.0.1:4545` durante o desenvolvimento para revisar a navegação e a renderização.
 
 ## Dados e segredos
 
