@@ -1032,3 +1032,123 @@
     flex-direction: column;
   }
 }
+
+
+/* Repository overview: compact, scan-friendly rows */
+.repositories-section {
+  margin-top: 22px;
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  background: transparent;
+}
+
+.repositories-section > .dd-card-header {
+  min-height: 58px;
+  padding: 0 2px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.repositories-section h2 {
+  color: var(--text);
+  font-size: clamp(18px, 2vw, 22px);
+  letter-spacing: -0.02em;
+}
+
+.repositories-section > .projects-list {
+  gap: 0;
+}
+
+.project-row-link {
+  min-height: 88px;
+  padding: 16px 58px 16px 18px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.project-row-link:hover,
+.project-row-link:focus-visible {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+  box-shadow: none;
+  transform: none;
+}
+
+.project-row-disabled .project-row-link {
+  opacity: 0.48;
+}
+
+.project-row-disabled .project-row-link:hover {
+  background: transparent;
+}
+
+.project-row-identity {
+  gap: 5px;
+}
+
+.project-row-identity h3 {
+  color: var(--info-text);
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--info-text) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.project-path {
+  color: var(--info-text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--info-text) 28%, transparent);
+  text-underline-offset: 2px;
+}
+
+.project-branch-badge,
+.project-port-badge {
+  color: var(--info-text);
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--info-text) 30%, transparent);
+  text-underline-offset: 2px;
+}
+
+.project-branch-badge {
+  border-color: transparent;
+  padding-left: 0;
+}
+
+.project-port-badge {
+  border-color: color-mix(in srgb, var(--info-text) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+
+.project-row-status {
+  top: 50%;
+  right: 66px;
+  transform: translateY(-50%);
+}
+
+.project-row-actions {
+  top: 50%;
+  right: 14px;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.project-disable-button {
+  width: 32px;
+  height: 32px;
+  color: var(--danger-text);
+  background: transparent;
+}
+
+.project-disable-button:hover,
+.project-disable-button:focus-visible,
+.project-disable-button.active {
+  color: var(--danger-text);
+  background: var(--danger-surface);
+}
+
+@media (max-width: 760px) {
+  .project-row-status {
+    right: 54px;
+  }
+}
