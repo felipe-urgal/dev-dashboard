@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { ArrowPathIcon } from '@heroicons/vue/24/outline';
+import { computed } from "vue";
+import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 
-import Card from '../components/Card.vue';
-import LoadingSkeleton from '../components/LoadingSkeleton.vue';
-import ProjectCard from '../components/ProjectCard.vue';
-import { useAutoDismiss } from '../composables/useAutoDismiss';
-import { dashboardStore } from '../stores/dashboard';
-import { sortProjectsByPriority } from '../utils/project-priority';
+import Card from "../components/Card.vue";
+import LoadingSkeleton from "../components/LoadingSkeleton.vue";
+import ProjectCard from "../components/ProjectCard.vue";
+import { useAutoDismiss } from "../composables/useAutoDismiss";
+import { dashboardStore } from "../stores/dashboard";
+import { sortProjectsByPriority } from "../utils/project-priority";
 
 const {
   projects,
@@ -22,8 +22,8 @@ const {
   toggleProjectEnabled,
 } = dashboardStore;
 
-useAutoDismiss(errorMessage, '');
-useAutoDismiss(successMessage, '');
+useAutoDismiss(errorMessage, "");
+useAutoDismiss(successMessage, "");
 useAutoDismiss(warningCount, 0);
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
@@ -116,7 +116,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               <ArrowPathIcon aria-hidden="true" />
             </button>
 
-n>
+            n>
           </template>
         </div>
       </template>
