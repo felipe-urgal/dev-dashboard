@@ -55,9 +55,21 @@ const statusDotClass = computed(() =>
   isRunning.value ? 'project-status-dot-running' : 'project-status-dot-stopped',
 );
 
-const statusLabel = computed(() =>
-  isRunning.value ? 'Em execução' : 'Parado',
-);
+const statusLabel = computed(() => {
+  if (!props.project.enabled) {
+    return 'Desativado';
+  }
+
+  return isRunning.value ? 'Em execução' : 'Parado';
+});
+
+const displayStatusLabel = computed(() => {
+  if (!props.project.enabled) {
+    return 'Desativado';
+  }
+
+  return isRunning.value ? 'Online' : 'Offline';
+});
 
 const toggleEnabledLabel = computed(() =>
   props.project.enabled
@@ -71,7 +83,7 @@ const projectDetailsRoute = computed(() => ({
 }));
 
 const localUrl = computed(() =>
-  managedProcess.value?.port
+  props.project.enabled && managedProcess.value?.port
     ? `http://localhost:${managedProcess.value.port}`
     : '',
 );
@@ -113,7 +125,7 @@ const localUrl = computed(() =>
           :title="statusLabel"
         >
           <span class="project-status-dot" :class="statusDotClass" aria-hidden="true" />
-          <span>{{ isRunning ? 'Online' : 'Offline' }}</span>
+          <span>{{ displayStatusLabel }}</span>
         </span>
       </div>
       <div v-else class="project-cell project-cell-status project-placeholder">
