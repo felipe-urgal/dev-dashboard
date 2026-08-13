@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ArrowPathIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 import Card from '../components/Card.vue';
 import LoadingSkeleton from '../components/LoadingSkeleton.vue';
@@ -13,14 +13,12 @@ const {
   projects,
   loadingProjects,
   scanningWorkspace,
-  deletingWorkspace,
   errorMessage,
   successMessage,
   warningCount,
   lastScannedPath,
   enabledUpdatingIds,
   rescanSelectedWorkspace,
-  handleDeleteWorkspace,
   toggleProjectEnabled,
 } = dashboardStore;
 
@@ -118,20 +116,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               <ArrowPathIcon aria-hidden="true" />
             </button>
 
-            <button
-              class="compact-action-button compact-action-button-danger"
-              type="button"
-              :disabled="deletingWorkspace"
-              :aria-label="
-                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
-              "
-              :title="
-                deletingWorkspace ? 'Removendo workspace' : 'Remover workspace'
-              "
-              @click="handleDeleteWorkspace"
-            >
-              <TrashIcon aria-hidden="true" />
-            </button>
+
           </template>
         </div>
       </template>
