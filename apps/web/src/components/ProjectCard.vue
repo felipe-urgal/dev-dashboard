@@ -176,10 +176,9 @@ const localUrl = computed(() =>
 <style scoped>
 .project-row-link {
   display: grid;
-  grid-template-columns: minmax(260px, 1.8fr) minmax(
-      180px,
-      1.25fr
-    ) 120px 130px 150px;
+  grid-template-columns:
+    minmax(260px, 1.8fr) minmax(180px, 1.25fr)
+    120px 130px 150px;
   align-items: center;
   gap: 18px;
   min-height: 88px;
@@ -295,10 +294,9 @@ const localUrl = computed(() =>
 
 @media (max-width: 900px) {
   .project-row-link {
-    grid-template-columns: minmax(220px, 1.5fr) minmax(
-        150px,
-        1fr
-      ) 100px 100px 125px;
+    grid-template-columns:
+      minmax(220px, 1.5fr) minmax(150px, 1fr)
+      100px 100px 125px;
     gap: 10px;
     padding-inline: 12px;
   }
