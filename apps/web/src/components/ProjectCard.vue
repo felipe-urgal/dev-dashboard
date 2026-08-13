@@ -62,7 +62,7 @@ const statusLabel = computed(() =>
 const toggleEnabledLabel = computed(() =>
   props.project.enabled
     ? `Desativar ${props.project.name}`
-    : `Reativar ${props.project.name}`,
+    : `Ativar ${props.project.name}`,
 );
 </script>
 
