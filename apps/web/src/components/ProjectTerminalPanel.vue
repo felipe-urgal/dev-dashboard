@@ -346,7 +346,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
-  max-height: calc(100vh - 116px);
+  max-height: calc(100vh - 133px);
   overflow-x: hidden;
 }
 

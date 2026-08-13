@@ -8,7 +8,6 @@
      vazio no meio. */
   grid-template-rows: max-content max-content minmax(0, 1fr);
   align-content: stretch;
-  gap: var(--space-3);
   min-width: 0;
   background: var(--surface-1);
 }
