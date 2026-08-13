@@ -1,4 +1,8 @@
 .project-details-page {
+  /* Altura real de .project-details-sticky-header (medida em runtime),
+     usada pelos painéis para fixar sua própria barra de sub-abas logo
+     abaixo dela, sem sobrepor. */
+  --project-sticky-offset: 134px;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -219,6 +223,10 @@
 }
 
 @media (max-width: 720px) {
+  .project-details-page {
+    --project-sticky-offset: 98px;
+  }
+
   .project-details-hero {
     height: auto;
     padding: 6px 10px;
