@@ -114,6 +114,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               @click="rescanSelectedWorkspace"
             >
               <ArrowPathIcon aria-hidden="true" />
+              <span>Atualizar</span>
             </button>
 
           </template>
