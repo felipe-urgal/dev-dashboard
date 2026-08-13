@@ -3,10 +3,10 @@
 > Parte do [Guia passo a passo do dashboard web](README.md).
 
 Um atalho para as ações mais comuns de gerenciamento de dependências (Ruby/Bundler e Node), sem
-precisar abrir um terminal. As ações vêm do mesmo catálogo fechado da aba [Scripts](scripts.md)
-(`instalar`/`atualizar`/`build`), mas a execução roda num terminal PTY destacável — mesmo mecanismo
-usado pela suíte completa de Testes e pelas operações de Migration Rails (ver
-`docs/architecture/security.md`), não mais pelo motor de Scripts baseado em SSE.
+precisar abrir um terminal. As ações vêm do mesmo tipo de catálogo fechado usado pelo antigo motor
+de scripts (`instalar`/`atualizar`/`build`), mas a execução roda num terminal PTY destacável —
+mesmo mecanismo usado pela suíte completa de Testes e pelas operações de Migration Rails (ver
+`docs/architecture/security.md`).
 
 ## O que aparece na tela
 

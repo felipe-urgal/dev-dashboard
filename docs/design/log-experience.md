@@ -65,7 +65,12 @@ Compilação, conclusão, warnings e errors recebem classificação sem alterar 
 
 ### Scripts, dependências e comandos pontuais
 
-Como a saída pode pertencer a ferramentas arbitrárias, o diagnóstico é propositalmente conservador: erros, warnings e lentidão evidente. Não há tentativa de inferir semântica específica quando o formato não é conhecido.
+**Scripts, como ferramenta com aba própria, foi removido do produto** (não existe mais rota nem
+componente para a antiga aba Scripts); a saída de Dependências continua exposta, hoje via terminal
+PTY (ver `docs/guia/dependencias.md`), não pela composição descrita aqui. Como a saída pode
+pertencer a ferramentas arbitrárias, o diagnóstico é propositalmente conservador: erros, warnings e
+lentidão evidente. Não há tentativa de inferir semântica específica quando o formato não é
+conhecido.
 
 ## Implementação
 

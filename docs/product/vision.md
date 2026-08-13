@@ -133,15 +133,18 @@ Já entregue no dashboard web (ver [`../../tasks/PENDENCIAS.md`](../../tasks/PEN
 detalhamento por task): status e operações Git (leitura e mutações com
 confirmação), execução de testes, scripts Node, banco e tarefas Rails de
 baixo risco, processos auxiliares (start/stop/logs/limpeza), command palette,
-notificações locais, serviços Docker Compose (start/stop/logs/build) e Code
-review de Pull Request com IA local via Ollama, dentro da aba **Git** (ver
-[`../architecture/ai-multi-provider.md`](../architecture/ai-multi-provider.md)).
+notificações locais e serviços Docker Compose (start/stop/logs/build).
 Uma IDE embutida com Monaco e LSP chegou a ser construída (tasks 076–083) e
 foi depois removida (PR #262); um assistente de IA local em painel próprio
 (chat, catálogo de ferramentas somente leitura e aplicação de edições
-propostas via preview/confirmação) também chegou a existir e foi removido na
-task 236 — "edição de código" e "substituição de IDE" seguem fora do escopo,
-como já listado abaixo.
+propostas via preview/confirmação), junto com toda a infraestrutura de
+seleção de provider/consentimento cloud, também chegou a existir e foi
+removido na task 238 — a Code review por IA que a task 238 manteve (Ollama
+fixo, na aba **Git**) foi removida depois também, num commit sem task
+numerada (ver
+[`../architecture/ai-multi-provider.md`](../architecture/ai-multi-provider.md)).
+"Edição de código" e "substituição de IDE" seguem fora do escopo, como já
+listado abaixo.
 
 O Dev Dashboard poderá evoluir ainda mais para uma plataforma local
 extensível com:

@@ -319,17 +319,6 @@ mutação usa serviço separado e confirmação quando aplicável
 
 Caminhos precisam ser relativos ao projeto e permanecer dentro do caminho canônico após resolução de symlinks.
 
-## Assistente de IA e edições de workspace
-
-O assistente deve operar sobre serviços já protegidos:
-
-- leitura por `ProjectFileService`;
-- Git por serviço controlado;
-- edição por `ProjectWorkspaceEditService`;
-- contexto de linguagem por `ProjectLanguageServerService`.
-
-A integração não deve criar um atalho para execução arbitrária, leitura fora do projeto ou bypass de confirmação.
-
 ## Shutdown coordenado
 
 Toda camada que inicia recurso duradouro precisa possuir fechamento explícito:

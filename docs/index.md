@@ -56,26 +56,12 @@ Os objetivos principais são:
 - pull, push e commit;
 - histórico de mutações;
 - operações destrutivas protegidas por confirmação;
-- integração com pull requests e desfazer de operações reconhecidas;
-- Code Review IA com provider/mode rastreáveis por execution.
-
-### Assistente de IA multi-provider
-
-- implementação de mudanças descritas em linguagem natural usando Local/Ollama ou OpenAI cloud;
-- seleção persistida de provider e modo (`fast`/`complete`) por projeto;
-- consentimento explícito antes de enviar conteúdo do projeto para OpenAI;
-- catálogo fechado de ferramentas sobre arquivos, busca, diff e símbolos;
-- investigação obrigatória do projeto antes de concluir alterações concretas;
-- prévia de arquivos alterados com aprovação explícita antes de qualquer escrita;
-- validação server-side de modelo antes da inferência;
-- masking compartilhado antes de conteúdo textual alcançar um provider;
-- execução em segundo plano, cancelável, com provider/modo/modelo registrados no snapshot.
+- integração com pull requests e desfazer de operações reconhecidas.
 
 ### Qualidade e automação
 
 - descoberta e execução de testes;
 - execução de arquivo específico;
-- catálogo seguro de scripts e tarefas;
 - histórico persistente de execuções;
 - acompanhamento em tempo real por SSE;
 - inspeção de dependências, Bundler, migrations e routes Rails.
@@ -110,15 +96,14 @@ Os objetivos principais são:
 │ Pacotes e serviços                                           │
 ├──────────────────────────────────────────────────────────────┤
 │ contracts │ core │ project-discovery │ process-manager       │
-│ serviços Git, testes, banco, Rails, scripts, arquivos e IA   │
+│ serviços Git, testes, banco, Rails e arquivos                │
 └───────────────────────────────┬──────────────────────────────┘
                                 │
                                 ▼
 ┌──────────────────────────────────────────────────────────────┐
 │ Sistema local e integrações explícitas                       │
 ├──────────────────────────────────────────────────────────────┤
-│ filesystem │ processos │ Git │ Node │ Rails │ bancos │ Ollama│
-│ OpenAI API somente quando selecionada e autorizada           │
+│ filesystem │ processos │ Git │ Node │ Rails │ bancos          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -126,7 +111,7 @@ A API é a fronteira de segurança. O navegador trabalha com identificadores e c
 
 ## Princípios arquiteturais
 
-1. **Local por padrão.** Serviços de desenvolvimento escutam em `127.0.0.1`; uso de IA cloud exige seleção e consentimento explícitos.
+1. **Local por padrão.** Serviços de desenvolvimento escutam em `127.0.0.1`. O produto não possui nenhuma capacidade de IA.
 2. **Catálogo fechado.** Comandos e argumentos são escolhidos pela aplicação, não pelo navegador.
 3. **Sem shell arbitrário.** Processos usam programa e argumentos separados, preferencialmente com `shell: false`.
 4. **Identificadores em vez de caminhos.** Depois do scan, a maioria das operações recebe `workspaceId`, `projectId` ou outro identificador controlado.
@@ -167,12 +152,12 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 
 - [Guia passo a passo do dashboard web](guia/README.md): o que cada aba do projeto mostra, o que
   cada botão faz e qual comando roda por trás — README, Diagnóstico, Servidor, Logs, Git, Testes,
-  Banco de dados, Dependências, Scripts, Terminal/Console e Variáveis de ambiente.
+  Banco de dados, Dependências, Terminal/Console e Variáveis de ambiente.
 
 ### Para desenvolver
 
 - [Guia de desenvolvimento](development-guide.md): scripts, padrões, testes e como adicionar recursos.
-- [IA no Dev Dashboard](architecture/ai-multi-provider.md): Code review com Ollama local fixo, sem seleção de provider nem consentimento cloud.
+- [IA no Dev Dashboard](architecture/ai-multi-provider.md): histórico — o produto não tem mais nenhuma capacidade de IA.
 - [Playbook de correção de CI](ci-fix-playbook.md): passo a passo para diagnosticar e corrigir um PR com CI vermelho.
 - [Segurança](architecture/security.md): modelo de ameaça e controles obrigatórios.
 - [Contribuindo](../CONTRIBUTING.md): fluxo de branch, commit, revisão e documentação.
@@ -203,7 +188,6 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 | Contrato | Tipo e formato de dados compartilhado entre camadas. |
 | Snapshot | Cópia controlada de banco armazenada no diretório privado de estado. |
 | SSE | Canal de eventos do servidor usado para acompanhar execuções em tempo real. |
-| Provider de IA | Adapter de inferência selecionável, atualmente Ollama local ou OpenAI cloud. |
 
 ## Critério de documentação completa
 

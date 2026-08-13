@@ -19,23 +19,14 @@ As ameaças principais consideradas pelo projeto são:
 | Exposição de segredos | Logs, diffs, tool results ou requests cloud contêm API keys/tokens. | masking, limites, consentimento cloud e ausência de bodies sensíveis em logs. |
 | Processo órfão | A API encerra mas deixa subprocessos vivos. | grupos de processos, cleanup e persistência de estado. |
 | Estado persistido adulterado | Arquivo JSON local é editado/corrompido. | diretórios privados, validação e fallback seguro. |
-| Provider cloud indevido | Código do projeto é enviado para OpenAI sem decisão explícita. | seleção por projeto, consentimento separado e revalidação antes da execução. |
 
-## Princípio: local-first, cloud somente por decisão explícita
+## Princípio: local-first
 
-A API e os serviços de desenvolvimento escutam em loopback. O provider padrão de IA é local (`Ollama`).
-
-O projeto também suporta OpenAI cloud, mas isso não transforma a aplicação em um serviço remoto genérico:
-
-- selecionar OpenAI é uma decisão persistida por projeto;
-- seleção e consentimento são estados separados;
-- conteúdo do projeto só pode seguir para OpenAI depois de consentimento explícito;
-- o consentimento é revalidado em cada nova execução cloud;
-- Local → Cloud nunca acontece automaticamente;
-- status/listagem de modelos pode consultar a OpenAI sem consentimento porque essa operação não envia conteúdo do projeto;
-- a API key da OpenAI permanece no processo da API e é usada somente no header de autenticação.
-
-A fronteira local-first continua sendo o default e o caminho sem custo/privacidade externos.
+A API e os serviços de desenvolvimento escutam em loopback. O produto não
+tem nenhuma capacidade de IA hoje — nem local (Ollama), nem cloud; toda essa
+camada (Assistente IA, Code review, `AiProviderResolver`, `OpenAiProvider`)
+foi removida — ver
+[`architecture/ai-multi-provider.md`](ai-multi-provider.md).
 
 ## Bind em loopback
 
@@ -206,96 +197,12 @@ escrita
 
 `expectedVersion` é calculado pelo servidor; o modelo não escolhe a versão que será aceita.
 
-## Assistente de IA multi-provider e fronteira cloud
+## IA (removida)
 
-O Assistente e a Code Review podem operar com provider local ou OpenAI cloud. O poder da IA continua limitado pelo catálogo fechado de ferramentas e pelas regras locais de confirmação.
-
-### O que permanece local
-
-O provider não recebe acesso direto a:
-
-- shell;
-- filesystem;
-- Git;
-- LSP;
-- serviço de workspace edit;
-- tokens de confirmação;
-- API key de outro provider.
-
-Ferramentas são executadas pela API local. O modelo recebe apenas o resultado textual que a aplicação decidiu reapresentar na conversa.
-
-O snapshot de uma `AiImplementationExecution` também é estado local e efêmero. O objeto completo não é enviado a um provider nem persistido como histórico permanente. Entretanto, quando OpenAI está selecionada e autorizada, **o prompt da pessoa usuária e o contexto textual necessário à execução podem ser enviados à OpenAI** depois das barreiras descritas abaixo.
-
-### O que pode sair para OpenAI
-
-Dependendo do fluxo, uma request de inferência pode conter:
-
-- prompt da pessoa usuária;
-- conteúdo de arquivos lidos por ferramentas;
-- resultados textuais de busca/listagem/diff;
-- prefixo/sufixo de completion;
-- diff da Code Review;
-- contexto agregado para síntese global.
-
-Esse conteúdo nunca deve ser enviado antes da resolução de provider/consentimento e nunca deve contornar a barreira compartilhada de masking.
-
-### Consentimento antes de conteúdo do projeto
-
-`AiProviderResolver` valida OpenAI nesta ordem para uma execução:
-
-1. provider selecionado;
-2. consentimento cloud do projeto;
-3. disponibilidade/autenticação do provider;
-4. modelo solicitado.
-
-Sem consentimento, a execução é recusada antes de consultar diff/arquivos e antes de qualquer request OpenAI do fluxo de inferência.
-
-A consulta de status/modelos é diferente: ela não recebe `Project`, path, prompt ou conteúdo de workspace e pode chamar `/v1/models` mesmo sem consentimento.
-
-Revogar consentimento afeta a próxima execução. Uma nova Code Review ou implementation não pode reutilizar implicitamente a autorização da execução anterior.
-
-### Masking antes da rede
-
-`createAiOutboundProtectionFetch` é a última barreira compartilhada antes do transporte HTTP dos providers.
-
-Ela mascara conteúdo textual de requests antes de chamar o `fetch` real. A proteção cobre os caminhos atuais de:
-
-- chat;
-- implementation;
-- resultados de ferramentas reapresentados ao modelo;
-- completion;
-- Code Review por arquivo;
-- síntese global da Code Review.
-
-Alguns fluxos, como Code Review, também mascaram o diff antes de construir o prompt. A barreira no transporte continua existindo como defesa adicional.
-
-A API key da OpenAI **não entra no body mascarado**. Ela é lida do ambiente e usada somente no header `Authorization` do request para `api.openai.com`.
-
-### Retenção no provider
-
-Requests OpenAI de inferência usam `store: false`.
-
-Isso evita pedir persistência de application state pelo endpoint, mas não deve ser descrito como garantia de Zero Data Retention. Políticas de retenção dependem da configuração e elegibilidade da organização OpenAI.
-
-### Logs e eventos
-
-Prompts, diffs e tool results não são adicionados como campos estruturados aos logs de erro das rotas de IA.
-
-Eventos SSE expõem mensagens, chamadas/resumos de ferramenta e códigos de erro, mas não transportam a API key. O conteúdo bruto de um arquivo lido por ferramenta é usado como contexto interno e não é emitido no evento `tool-result`.
-
-Erros conhecidos usam `AiErrorCode`, permitindo diagnóstico sem depender de serializar request/response bodies.
-
-Ao final de cada execution de implementation ou Code Review (`completed`/`succeeded`, `failed` ou `cancelled`), o backend registra uma métrica estruturada com `executionKind`, `executionId`, `projectId`, `provider`, `mode`, `status`, `durationMs` e `errorCode` quando houver — nunca prompt, diff, resumo ou achado (`ai-execution-metrics.ts`).
-
-## Code Review IA
-
-A Code Review usa a mesma seleção e consentimento por projeto do Assistente.
-
-Antes de ler o diff para uma nova revisão, o backend resolve provider/modelo. Se OpenAI estiver selecionada sem consentimento, a revisão falha fechada antes de `getReviewFiles`/`getReviewFileDiff` e antes de qualquer request de inferência.
-
-Provider e modo ficam congelados na execution. Revisões por arquivo e síntese global usam o mesmo provider resolvido no início.
-
-O diff é dado não confiável: não pode ampliar o catálogo de ferramentas nem autorizar escrita. A Code Review é consultiva e não possui acesso a `propose_workspace_edit`.
+O dashboard web não tem hoje nenhuma capacidade de IA — nem Assistente, nem
+Code review, nem integração com Ollama ou provider cloud. Toda essa camada
+foi removida; ver [`architecture/ai-multi-provider.md`](ai-multi-provider.md)
+para o histórico.
 
 ## Confirmações para mutações sensíveis
 
@@ -445,14 +352,7 @@ Exemplos:
 - branch inválida;
 - confirmação ausente;
 - versão de arquivo divergente;
-- log mascarado;
-- provider cloud sem consentimento;
-- modelo incompatível com provider;
-- masking de conteúdo em requests OpenAI;
-- tool result mascarado antes da rodada cloud seguinte;
-- revogação de consentimento entre executions;
-- status/modelos cloud sem conteúdo do projeto;
-- API key ausente de bodies/eventos.
+- log mascarado.
 
 ## Erros seguros
 

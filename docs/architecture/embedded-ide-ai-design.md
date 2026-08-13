@@ -12,13 +12,12 @@
 > compleção inline, catálogo de ferramentas, `propose_workspace_edit`) também
 > foi removido — junto com a aba própria **Assistente IA** e toda a
 > infraestrutura de seleção de provider/consentimento cloud — na remoção do
-> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A única
-> capacidade de IA que resta no produto é a Code review dentro da aba **Git**,
-> que usa um `AiAssistantService` simplificado, fixo no Ollama local, sem
-> seleção de provider, sem consentimento cloud e sem o catálogo de ferramentas
-> descrito abaixo (`AiOrchestrator`, tools de leitura/busca/diff/workspace
-> edit não existem mais). `ProjectWorkspaceEditService` e
-> `ProjectLanguageServerService` continuam existindo, mas hoje servem outras
+> Assistente IA (ver `tasks/238-remover-assistente-ia.md`). A task 238 manteve
+> deliberadamente uma Code review simplificada (Ollama fixo, sem seleção de
+> provider); essa Code review foi removida também, num commit posterior sem
+> task numerada correspondente — o produto não tem hoje nenhuma capacidade de
+> IA (ver `docs/architecture/ai-multi-provider.md`). `ProjectWorkspaceEditService`
+> e `ProjectLanguageServerService` continuam existindo, mas hoje servem outras
 > rotas (`project-workspace-edits.ts`, `project-language-server.ts`), não a
 > IA. Este documento fica mantido como registro histórico da decisão de
 > arquitetura; não descreve o estado atual do produto.

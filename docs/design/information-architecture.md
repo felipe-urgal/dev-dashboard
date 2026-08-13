@@ -29,7 +29,7 @@ Jobs e logs
 > mas sem os widgets consolidados descritos abaixo. **command palette** já
 > está implementado. As páginas globais **Atividade** (`/activity`) e
 > **Configurações** (`/settings`) chegaram a ser implementadas e foram
-> removidas (task 236) por não justificarem uma área própria na navegação
+> removidas (task 237) por não justificarem uma área própria na navegação
 > principal — a retenção de logs/histórico continua configurável por
 > variável de ambiente (ver `docs/architecture/security.md`), e perfis de
 > ambiente seguem editáveis por projeto. **Jobs e logs** segue aspiracional
@@ -123,7 +123,7 @@ Cada job deve possuir:
 
 ### Configurações
 
-Removida (task 236) — chegou a existir como página dedicada (`/settings`)
+Removida (task 237) — chegou a existir como página dedicada (`/settings`)
 reunindo retenção de logs/histórico e perfis de ambiente, mas foi retirada da
 navegação principal por não justificar uma área própria. Perfis de ambiente
 continuam editáveis por projeto (`ProjectEnvironmentPanel`); retenção de
@@ -229,7 +229,6 @@ Git
 Testes
 Banco de dados
 Dependências
-Scripts
 Terminal
 Console
 Sidekiq/webpack
@@ -241,8 +240,10 @@ tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockf
 **Console** e **Sidekiq/webpack** só para projetos Rails/Node conforme o tipo. Uma IDE embutida com
 Monaco e LSP existiu como aba própria **Editor** (task 076 em diante) e foi removida no PR #262. A
 aba própria **Assistente IA** (chat/implementação via IA local) existiu depois disso como painel
-independente de editor/LSP e foi removida na task 238; a única capacidade de IA que resta no
-produto é a Code review dentro da aba **Git**, fixa no Ollama local.
+independente de editor/LSP e foi removida na task 238, que manteve uma Code review simplificada
+(Ollama fixo) na aba **Git**; essa Code review foi removida também, num commit posterior sem task
+numerada — o produto não tem hoje nenhuma capacidade de IA (ver
+[`../architecture/ai-multi-provider.md`](../architecture/ai-multi-provider.md)).
 
 ### Visão geral
 
@@ -297,16 +298,6 @@ Exibida principalmente para Rails.
 - seed;
 - prepare;
 - tarefas futuras com confirmação.
-
-### Scripts
-
-Exibida para projetos Node ou projetos com `package.json`.
-
-- lista de scripts;
-- descrição do comando;
-- execução;
-- logs;
-- histórico.
 
 ### Logs
 
