@@ -206,6 +206,7 @@ async function persistServerSettings(
   const port = parseServerPort(selectedPort.value);
   const settings = await saveProjectServerSettings(projectId, {
     port,
+    healthCheckPath: null,
     environment:
       props.project.type === 'node' && selectedEnvironment.value
         ? selectedEnvironment.value
