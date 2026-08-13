@@ -28,7 +28,6 @@ async function readScriptsExplorerCss(): Promise<string> {
 async function readScriptsExplorerSources(): Promise<string> {
   const files = [
     'components/ProjectScriptsPanel.vue',
-    'components/ProjectScriptExecutionStrip.vue',
     'composables/useProjectScriptsPanel.ts',
   ];
   return (

@@ -25,12 +25,6 @@ export interface ProjectFileContent {
   writable: boolean;
 }
 
-export interface ProjectFileWriteRequest {
-  path: string;
-  content: string;
-  expectedVersion: string;
-}
-
 export interface ProjectFileCreateRequest {
   path: string;
   kind: ProjectFileKind;

@@ -9,10 +9,9 @@ npm run dev
         ↓
 predev compila packages/*
         ↓
-scripts/dev.mjs cria três grupos de processo
+scripts/dev.mjs cria dois grupos de processo
         ├── API Fastify :4343
-        ├── Vite        :5173
-        └── Docs        :4545
+        └── Vite        :5173
         ↓
 qualquer filho encerra inesperadamente
         ↓
@@ -330,24 +329,6 @@ O assistente deve operar sobre serviços já protegidos:
 - contexto de linguagem por `ProjectLanguageServerService`.
 
 A integração não deve criar um atalho para execução arbitrária, leitura fora do projeto ou bypass de confirmação.
-
-## Central de documentação
-
-```text
-node scripts/docs-server.mjs
-        ↓
-listener somente em 127.0.0.1:4545
-        ↓
-scan de README, CONTRIBUTING e docs/**/*.md
-        ↓
-catálogo com grupos, títulos e headings
-        ↓
-UI solicita conteúdo Markdown
-        ↓
-renderização segura no navegador
-```
-
-O servidor é somente leitura, recusa traversal e só entrega documentos presentes no catálogo.
 
 ## Shutdown coordenado
 

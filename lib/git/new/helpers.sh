@@ -7,14 +7,6 @@ _new_show_header() { _dev_breadcrumb "$@"; }
 _new_step()        { _dev_step "$@"; }
 _new_clear()       { _dev_clear; }
 
-_new_hint() {
-  if _dev_has gum; then
-    gum style --foreground "#6B7280" --italic "  esc cancela • enter confirma" >&2
-  else
-    echo "  (ESC não suportado neste modo — deixe vazio para cancelar)" >&2
-  fi
-}
-
 _new_select_type() {
   local types=("feature" "fix" "refactor" "chore" "docs" "hotfix")
   _new_clear

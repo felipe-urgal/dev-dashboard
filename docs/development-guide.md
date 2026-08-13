@@ -14,19 +14,16 @@ Abra:
 
 ```text
 Dashboard:     http://127.0.0.1:5173
-Documentação:  http://127.0.0.1:4545
 API health:    http://127.0.0.1:4343/api/health
-Docs health:   http://127.0.0.1:4545/api/health
 ```
 
 ## Scripts da raiz
 
 | Script | Uso |
 |---|---|
-| `npm run dev` | Inicia API, web e documentação. |
+| `npm run dev` | Inicia API e web. |
 | `npm run dev:api` | Inicia somente a API com watch. |
 | `npm run dev:web` | Inicia somente Vite. |
-| `npm run docs:dev` | Inicia somente a central de documentação. |
 | `npm run dev-web` | Compila e inicia a distribuição local. |
 | `npm run doctor` | Diagnostica ferramentas e portas. |
 | `npm run docs:api` | Regenera a referência HTTP. |
@@ -225,23 +222,6 @@ Ao adicionar uma rota:
 5. revise o diff de `docs/architecture/api-reference.md`.
 
 Não edite manualmente a referência gerada.
-
-## Desenvolvimento da central de documentação
-
-A central não usa dependências adicionais. O servidor:
-
-- escaneia Markdown a cada request de catálogo;
-- lê conteúdo no momento da abertura;
-- expõe busca textual local;
-- serve uma interface estática;
-- restringe arquivos ao catálogo e ao repositório.
-
-Para testar:
-
-```bash
-node --test scripts/docs-server.test.mjs
-npm run docs:dev
-```
 
 ## Checklist de revisão
 

@@ -151,7 +151,6 @@ O comando inicia e encerra em conjunto:
 |---|---|---|
 | API | `http://127.0.0.1:4343` | Regras, persistência, processos e integrações locais. |
 | Web | `http://127.0.0.1:5173` | Interface Vue para uso do dashboard. |
-| Docs | `http://127.0.0.1:4545` | Central navegável e API JSON desta documentação. |
 
 Use `Ctrl+C` para encerrar o grupo de processos.
 
@@ -181,7 +180,6 @@ Use `Ctrl+C` para encerrar o grupo de processos.
 ### Para operar e diagnosticar
 
 - [Operação e troubleshooting](operations-and-troubleshooting.md): portas, dados locais, logs e falhas comuns.
-- [API da documentação](documentation-api.md): endpoints da central de documentação.
 - [Referência da API HTTP](architecture/api-reference.md): contratos gerados a partir das rotas Fastify.
 
 ### Planejamento

@@ -39,6 +39,13 @@
   min-height: calc(100vh - 133px);
 }
 
+.project-details-sticky-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  background: var(--surface-0);
+}
+
 .project-details-hero {
   display: flex;
   min-height: unset;
@@ -141,6 +148,8 @@
   gap: 4px;
   overflow-x: auto;
   padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-0);
   scrollbar-width: thin;
 }
 

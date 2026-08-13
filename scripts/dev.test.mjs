@@ -4,10 +4,9 @@ import { getProcessDefinitions, stopChild } from './dev.mjs';
 
 test('retorna as definições padrão de processos', () => {
   const defs = getProcessDefinitions();
-  assert.equal(defs.length, 3);
+  assert.equal(defs.length, 2);
   assert.equal(defs[0].name, 'api');
   assert.equal(defs[1].name, 'web');
-  assert.equal(defs[2].name, 'docs');
   assert.deepEqual(defs[0].args, [
     'run',
     'dev',
@@ -18,7 +17,6 @@ test('retorna as definições padrão de processos', () => {
     'dev',
     '--workspace=@dev-dashboard/web',
   ]);
-  assert.deepEqual(defs[2].args, ['run', 'docs:dev']);
 });
 
 test('permite sobrepor as definições de processos', () => {

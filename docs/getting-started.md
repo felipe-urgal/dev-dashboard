@@ -47,7 +47,7 @@ O diagnóstico verifica:
 - disponibilidade de npm e Git;
 - existência de `node_modules`;
 - acesso ao repositório;
-- disponibilidade das portas da API, web e documentação.
+- disponibilidade das portas da API e web.
 
 Porta ocupada é exibida como aviso, pois pode representar outra instância legítima.
 
@@ -57,12 +57,11 @@ Porta ocupada é exibida como aviso, pois pode representar outra instância leg�
 npm run dev
 ```
 
-O script raiz executa três processos filhos:
+O script raiz executa dois processos filhos:
 
 ```text
-api  → npm run dev --workspace=@dev-dashboard/api
-web  → npm run dev --workspace=@dev-dashboard/web
-docs → node scripts/docs-server.mjs
+api → npm run dev --workspace=@dev-dashboard/api
+web → npm run dev --workspace=@dev-dashboard/web
 ```
 
 Antes disso, `predev` compila os pacotes compartilhados para que as aplicações consumam artefatos atualizados.
@@ -72,7 +71,6 @@ Antes disso, `predev` compila os pacotes compartilhados para que as aplicações
 ```text
 API:           http://127.0.0.1:4343
 Dashboard web: http://127.0.0.1:5173
-Documentação:  http://127.0.0.1:4545
 ```
 
 O processo raiz encaminha o encerramento para todo o grupo. Use `Ctrl+C` uma vez para finalizar o ambiente.
@@ -82,10 +80,9 @@ O processo raiz encaminha o encerramento para todo o grupo. Use `Ctrl+C` uma vez
 ```bash
 npm run dev:api
 npm run dev:web
-npm run docs:dev
 ```
 
-Isso é útil para investigar um serviço isoladamente. A web depende da API para os recursos do produto; a documentação é independente e somente leitura.
+Isso é útil para investigar um serviço isoladamente.
 
 ## Primeiro uso do dashboard
 
@@ -184,9 +181,7 @@ Esse modo:
 - inicia somente a API compilada;
 - gera uma capacidade efêmera de bootstrap;
 - imprime uma URL que deve ser aberta integralmente;
-- não inicia Vite nem a central de documentação.
-
-A central de documentação é uma ferramenta do ambiente de desenvolvimento. Para executá-la separadamente, use `npm run docs:dev`.
+- não inicia Vite.
 
 ## Validação do projeto
 

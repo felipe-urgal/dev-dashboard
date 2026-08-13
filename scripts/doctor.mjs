@@ -100,16 +100,11 @@ export async function diagnose(options = {}) {
     options.apiPort ?? process.env.DEV_DASHBOARD_API_PORT ?? '4343',
     10,
   );
-  const configuredDocsPort = Number.parseInt(
-    options.docsPort ?? process.env.DEV_DASHBOARD_DOCS_PORT ?? '4545',
-    10,
-  );
   const ports = distribution
     ? [['Dashboard', configuredPort]]
     : [
         ['API', 4343],
         ['Web', 5173],
-        ['Docs', configuredDocsPort],
       ];
 
   for (const [label, port] of ports) {

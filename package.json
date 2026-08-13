@@ -13,7 +13,6 @@
     "dev-web": "node scripts/dev-web.mjs",
     "dev:api": "npm run dev --workspace=@dev-dashboard/api",
     "dev:web": "npm run dev --workspace=@dev-dashboard/web",
-    "docs:dev": "node scripts/docs-server.mjs",
     "doctor": "node scripts/doctor.mjs",
     "docs:api": "node --import=tsx scripts/generate-api-docs.mjs",
     "docs:api:check": "node --import=tsx scripts/generate-api-docs.mjs --check",

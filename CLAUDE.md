@@ -92,7 +92,6 @@ npm run lint:fix     # idem, aplicando correções automáticas possíveis
 npm run format       # Prettier no mesmo escopo do lint
 npm run format:check # confere formatação sem regravar (usado no CI)
 
-npm run docs:dev        # central de documentação local em 127.0.0.1:4545
 npm run docs:api        # regenera docs/architecture/api-reference.md a partir dos schemas Fastify
 npm run docs:api:check  # confere se a referência está atualizada, sem regravar (usado no CI)
 npm run changelog       # regenera CHANGELOG.md a partir do git log (task 093)

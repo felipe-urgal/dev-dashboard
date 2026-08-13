@@ -388,7 +388,6 @@ precisam ser chamados à mão).
 | `npm run dev:web` | Só o frontend Vite, com watch. |
 | `npm run dev-web` | Builda e serve API + frontend estático numa porta só (distribuição local, ver acima). |
 | `npm run doctor` | Verifica Node, npm, Git, dependências e portas sem iniciar nada. |
-| `npm run docs:dev` | Sobe a central de documentação local em `http://127.0.0.1:4545`. |
 | `npm run docs:api` | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify. |
 | `npm run docs:api:check` | Confere se a referência da API está atualizada, sem regravar (usado no CI). |
 | `npm run changelog` | Gera o changelog a partir do histórico de commits. |
