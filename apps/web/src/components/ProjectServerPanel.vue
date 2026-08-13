@@ -40,7 +40,6 @@ const {
   supportsServer,
   processStatus,
   canStop,
-  statusLabel,
   scheduleProcessPolling,
 } = useProjectProcessStatus(() => props.project);
 
