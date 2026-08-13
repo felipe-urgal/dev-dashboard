@@ -118,7 +118,9 @@ describe('dashboard principal', () => {
       .get('[aria-label="Escanear novamente e restaurar projetos removidos"]')
       .trigger('click');
     expect(actions.escanear).toHaveBeenCalledOnce();
-    expect(wrapper.find('[aria-label="Remover workspace"]').exists()).toBe(false);
+    expect(
+      wrapper.find('[aria-label="Remover workspace"]').exists(),
+    ).toBe(false);
   });
 
   it('renderiza o estado vazio e depois a lista de projetos', async () => {
