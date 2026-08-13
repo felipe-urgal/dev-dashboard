@@ -1,14 +1,11 @@
 .server-dashboard {
   display: block;
-  padding: 22px 18px 30px;
 }
 
 .server-config-card,
 .server-running-card {
-  max-width: 1120px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
   background: var(--surface-1);
+  min-height: calc(100vh - 133px);
 }
 
 .server-section-header {
@@ -39,7 +36,6 @@
   align-items: center;
   gap: 14px;
   min-height: 78px;
-  border-top: 1px solid var(--border);
 }
 
 .server-config-icon {
@@ -214,8 +210,6 @@
   align-items: center;
   gap: 22px;
   padding: 26px;
-  border: 1px solid color-mix(in srgb, var(--success-text) 22%, var(--border));
-  border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--success-surface), var(--surface-1));
 }
 

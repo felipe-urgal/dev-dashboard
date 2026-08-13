@@ -9,15 +9,6 @@
 
     <template v-else>
       <section v-if="!canStop" class="server-config-card">
-        <header class="server-section-header">
-          <div>
-            <h3>Configuração do processo</h3>
-            <p v-if="settingsMessage" class="server-saved-message">
-              {{ settingsMessage }}
-            </p>
-          </div>
-        </header>
-
         <div class="server-config-list">
           <label class="server-config-row">
             <span class="server-config-icon"><ServerStackIcon aria-hidden="true" /></span>
