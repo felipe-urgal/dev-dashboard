@@ -95,8 +95,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
       <template #actions>
         <div class="compact-actions" aria-label="Ações dos repositórios">
-          <template v-if="lastScannedPath">
-            <button
+          <button v-if="lastScannedPath"
               class="compact-action-button"
               :class="{ 'compact-action-button-busy': scanningWorkspace }"
               type="button"
@@ -114,8 +113,7 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
               @click="rescanSelectedWorkspace"
             >
               <ArrowPathIcon aria-hidden="true" />
-            </button>
-          </template>
+          </button>
         </div>
       </template>
 
