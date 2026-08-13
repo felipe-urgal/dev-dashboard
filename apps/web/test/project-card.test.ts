@@ -104,8 +104,8 @@ describe('ProjectCard', () => {
         enabled: false,
       },
     });
-    expect(button.attributes('aria-label')).toBe('Reativar Projeto sem avatar');
-    expect(button.attributes('title')).toBe('Reativar Projeto sem avatar');
+    expect(button.attributes('aria-label')).toBe('Ativar Projeto sem avatar');
+    expect(button.attributes('title')).toBe('Ativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('true');
   });
 });

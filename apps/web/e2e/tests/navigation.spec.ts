@@ -31,14 +31,14 @@ test.describe('navegação principal', () => {
     await disableButton.click();
 
     const enableButton = page.getByRole('button', {
-      name: 'Reativar sample-node-app',
+      name: 'Ativar sample-node-app',
     });
     await expect(enableButton).toHaveAttribute('aria-pressed', 'true');
 
     await page.reload();
 
     const persistedEnableButton = page.getByRole('button', {
-      name: 'Reativar sample-node-app',
+      name: 'Ativar sample-node-app',
     });
     await expect(persistedEnableButton).toHaveAttribute('aria-pressed', 'true');
 

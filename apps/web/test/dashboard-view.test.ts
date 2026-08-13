@@ -6,7 +6,6 @@ import type { Project, Workspace } from '@dev-dashboard/contracts';
 
 const actions = vi.hoisted(() => ({
   escanear: vi.fn(),
-  remover: vi.fn(),
   desativar: vi.fn(),
 }));
 
@@ -23,14 +22,12 @@ vi.mock('../src/stores/dashboard', async () => {
       selectedWorkspaceId,
       loadingProjects: ref(false),
       scanningWorkspace: ref(false),
-      deletingWorkspace: ref(false),
       enabledUpdatingIds: ref<string[]>([]),
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
       lastScannedPath: ref(''),
       rescanSelectedWorkspace: actions.escanear,
-      handleDeleteWorkspace: actions.remover,
       toggleProjectEnabled: actions.desativar,
     },
   };
@@ -72,7 +69,6 @@ beforeEach(() => {
   dashboardStore.selectedWorkspaceId.value = '';
   dashboardStore.loadingProjects.value = false;
   dashboardStore.scanningWorkspace.value = false;
-  dashboardStore.deletingWorkspace.value = false;
   dashboardStore.enabledUpdatingIds.value = [];
   dashboardStore.errorMessage.value = '';
   dashboardStore.successMessage.value = '';
@@ -114,17 +110,17 @@ describe('dashboard principal', () => {
     expect(wrapper.findAll('.project-stub')).toHaveLength(1);
   });
 
-  it('aciona escanear e remover workspace pelo cabeçalho', async () => {
+  it('aciona a atualização do workspace pelo cabeçalho', async () => {
     dashboardStore.lastScannedPath.value = '/home/ubuntu/Caiena/Projetos';
     const wrapper = mountView();
 
     await wrapper
       .get('[aria-label="Escanear novamente e restaurar projetos removidos"]')
       .trigger('click');
-    await wrapper.get('[aria-label="Remover workspace"]').trigger('click');
-
     expect(actions.escanear).toHaveBeenCalledOnce();
-    expect(actions.remover).toHaveBeenCalledOnce();
+    expect(wrapper.find('[aria-label="Remover workspace"]').exists()).toBe(
+      false,
+    );
   });
 
   it('renderiza o estado vazio e depois a lista de projetos', async () => {
