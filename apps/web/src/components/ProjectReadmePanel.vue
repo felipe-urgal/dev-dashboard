@@ -444,21 +444,24 @@ watch(
 
 <template>
   <section class="readme-panel" aria-labelledby="project-readme-title">
-    <header class="readme-panel-header">
-      <div class="readme-panel-title">
-        <DocumentTextIcon aria-hidden="true" />
-        <div>
-          <strong id="project-readme-title">
-            {{ selectedFile?.name ?? 'Documentação' }}
-          </strong>
-          <span>
-            {{
-              files.length > 1
-                ? `${files.length} arquivos Markdown encontrados`
-                : 'Documentação principal do projeto'
-            }}
-          </span>
-        </div>
+    <nav class="readme-file-list">
+      <div 
+        v-if="files.length > 1"
+        class="readme-file-list-item"
+        aria-label="Arquivos Markdown do projeto"
+      >
+        <button
+          v-for="file in files"
+          :key="file.path"
+          type="button"
+          class="readme-file-item"
+          :class="{ 'readme-file-item-active': file.path === selectedPath }"
+          :aria-current="file.path === selectedPath ? 'true' : undefined"
+          :disabled="loading && file.path === selectedPath"
+          @click="selectFile(file.path)"
+        >
+          {{ file.path }}
+        </button>
       </div>
 
       <button
@@ -469,25 +472,6 @@ watch(
       >
         <ArrowPathIcon aria-hidden="true" />
         {{ loading ? 'Atualizando...' : 'Atualizar' }}
-      </button>
-    </header>
-
-    <nav
-      v-if="files.length > 1"
-      class="readme-file-list"
-      aria-label="Arquivos Markdown do projeto"
-    >
-      <button
-        v-for="file in files"
-        :key="file.path"
-        type="button"
-        class="readme-file-item"
-        :class="{ 'readme-file-item-active': file.path === selectedPath }"
-        :aria-current="file.path === selectedPath ? 'true' : undefined"
-        :disabled="loading && file.path === selectedPath"
-        @click="selectFile(file.path)"
-      >
-        {{ file.path }}
       </button>
     </nav>
 

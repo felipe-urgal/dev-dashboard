@@ -73,15 +73,27 @@
 
 .readme-file-list {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  justify-content: space-between;
+}
+
+.readme-file-list-item {
+  display: flex;
   flex-wrap: nowrap;
   gap: 6px;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   scrollbar-width: thin;
+  padding: var(--space-1);
 }
 
 .readme-file-item {
@@ -163,7 +175,7 @@
 .readme-document {
   max-width: 920px;
   min-height: 520px;
-  padding: clamp(20px, 2.2vw, 32px);
+  padding: clamp(16px, 2.2vw, 16px);
   color: var(--text-muted);
   font-size: var(--font-sm);
   line-height: 1.75;
