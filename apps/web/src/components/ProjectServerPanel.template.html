@@ -8,233 +8,138 @@
     </div>
 
     <template v-else>
-      <div class="server-dashboard-grid">
-        <section class="server-card server-config-card">
-          <header class="server-card-header">
-            <div>
-              <h3>Configuração do servidor</h3>
-              <p>Ajustes usados para iniciar o processo local.</p>
-            </div>
-            <span v-if="settingsMessage" class="server-saved-message">
+      <section v-if="!canStop" class="server-config-card">
+        <header class="server-section-header">
+          <div>
+            <h3>Configuração do processo</h3>
+            <p v-if="settingsMessage" class="server-saved-message">
               {{ settingsMessage }}
+            </p>
+          </div>
+        </header>
+
+        <div class="server-config-list">
+          <label class="server-config-row">
+            <span class="server-config-icon"><ServerStackIcon aria-hidden="true" /></span>
+            <span class="server-config-copy">
+              <strong>Porta</strong>
+              <small>Porta em que a aplicação será executada.</small>
             </span>
-          </header>
+            <input
+              v-model="selectedPort"
+              class="server-config-control server-port-input"
+              type="number"
+              min="1024"
+              max="65535"
+              inputmode="numeric"
+              placeholder="Automática"
+              :disabled="loadingSettings || executingAction"
+            />
+          </label>
 
-          <div class="server-config-list">
-            <label class="server-config-row">
-              <span class="server-config-icon">
-                <ServerStackIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Porta</strong>
-                <small>Porta em que a aplicação será executada.</small>
-              </span>
-              <input
-                v-model="selectedPort"
-                class="server-config-control server-port-input"
-                type="number"
-                min="1024"
-                max="65535"
-                inputmode="numeric"
-                placeholder="Automática"
-                :disabled="loadingSettings || canStop"
-              />
-            </label>
+          <label class="server-config-row">
+            <span class="server-config-icon"><GlobeAltIcon aria-hidden="true" /></span>
+            <span class="server-config-copy">
+              <strong>Ambiente</strong>
+              <small v-if="availableEnvironments.length > 0">
+                O arquivo escolhido substituirá .env.local ao iniciar.
+              </small>
+              <small v-else>Usa .env e .env.local existentes no projeto.</small>
+            </span>
+            <select
+              v-if="project.type === 'node' && availableEnvironments.length > 0"
+              v-model="selectedEnvironment"
+              class="server-config-control server-environment-select"
+              :disabled="loadingSettings || executingAction"
+            >
+              <option value="" disabled>Escolha</option>
+              <option v-for="environment in availableEnvironments" :key="environment" :value="environment">
+                {{ `.env.${environment}` }}
+              </option>
+            </select>
+            <span v-else class="server-config-value">{{ environmentDisplayLabel }}</span>
+          </label>
 
-            <label class="server-config-row">
-              <span class="server-config-icon">
-                <HeartIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Health check</strong>
-                <small>Informe uma rota existente; vazio desativa a verificação.</small>
-              </span>
-              <input
-                v-model="selectedHealthCheckPath"
-                class="server-config-control server-health-path-input"
-                type="text"
-                maxlength="128"
-                placeholder="Ex.: /status"
-                :disabled="loadingSettings"
-              />
-            </label>
-
-            <label class="server-config-row">
-              <span class="server-config-icon">
-                <GlobeAltIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Ambiente</strong>
-                <small v-if="availableEnvironments.length > 0">
-                  O arquivo escolhido substituirá .env.local ao iniciar.
-                </small>
-                <small v-else>
-                  Usa .env e .env.local existentes no projeto.
-                </small>
-              </span>
-              <select
-                v-if="project.type === 'node' && availableEnvironments.length > 0"
-                v-model="selectedEnvironment"
-                class="server-config-control server-environment-select"
-                :disabled="loadingSettings || canStop"
-              >
-                <option value="" disabled>Escolha</option>
-                <option
-                  v-for="environment in availableEnvironments"
-                  :key="environment"
-                  :value="environment"
-                >
-                  {{ `.env.${environment}` }}
-                </option>
-              </select>
-              <span v-else class="server-config-value">
-                {{ environmentDisplayLabel }}
-              </span>
-            </label>
-
-            <div class="server-config-row">
-              <span class="server-config-icon">
-                <CommandLineIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Comando</strong>
-                <small>Comando detectado para iniciar o servidor.</small>
-              </span>
-              <code class="server-config-code">{{ commandLabel }}</code>
-            </div>
-
-            <div class="server-config-row">
-              <span class="server-config-icon">
-                <ArrowPathIcon aria-hidden="true" />
-              </span>
-              <span class="server-config-copy">
-                <strong>Monitoramento</strong>
-                <small>O dashboard acompanha o processo automaticamente.</small>
-              </span>
-              <span class="server-config-state server-config-state-on">
-                Ativo
-              </span>
-            </div>
-
+          <div class="server-config-row">
+            <span class="server-config-icon"><ArrowPathIcon aria-hidden="true" /></span>
+            <span class="server-config-copy">
+              <strong>Monitoramento</strong>
+              <small>O dashboard acompanha o processo automaticamente.</small>
+            </span>
+            <span class="server-config-state server-config-state-on">Ativo</span>
           </div>
 
-          <footer class="server-config-footer">
-            <button
-              type="button"
-              class="server-primary-button"
-              :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
-              @click="handleSaveSettings"
-            >
-              {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
-            </button>
-          </footer>
-        </section>
+          <div class="server-config-row">
+            <span class="server-config-icon"><CommandLineIcon aria-hidden="true" /></span>
+            <span class="server-config-copy">
+              <strong>Comando</strong>
+              <small>Comando detectado para iniciar o servidor.</small>
+            </span>
+            <code class="server-config-code">{{ commandLabel }}</code>
+          </div>
+        </div>
 
-        <section class="server-card server-status-card">
-          <header class="server-card-header">
-            <div>
-              <h3>Status do servidor</h3>
-              <p>Estado atual do processo gerenciado.</p>
-            </div>
-          </header>
+        <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
-          <div
-            class="server-status-banner"
-            :class="`server-status-banner-${processStatus}`"
+        <footer class="server-config-footer">
+          <button
+            type="button"
+            class="server-secondary-button"
+            :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
+            @click="handleSaveSettings"
           >
-            <span class="server-status-symbol" aria-hidden="true">
-              <BoltIcon />
-            </span>
-            <div>
-              <strong>{{ statusLabel }}</strong>
-              <span>{{ statusDescription }}</span>
+            {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
+          </button>
+          <button
+            type="button"
+            class="server-primary-button"
+            :disabled="executingAction || loadingSettings || environmentSelectionMissing"
+            @click="handleStart"
+          >
+            <PlayIcon aria-hidden="true" />
+            {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar servidor' }}
+          </button>
+        </footer>
+      </section>
+
+      <section v-else class="server-running-card">
+        <div class="server-status-banner server-status-banner-running">
+          <span class="server-status-symbol" aria-hidden="true"><BoltIcon /></span>
+          <div class="server-status-copy">
+            <strong>Tudo funcionando</strong>
+            <span>{{ statusDescription }}</span>
+            <div class="server-access-links">
+              <span class="server-online-pill">Online</span>
+              <a v-if="primaryProcessUrl" class="server-access-link" :href="primaryProcessUrl" target="_blank" rel="noopener noreferrer">
+                {{ primaryProcessUrl }} <ArrowTopRightOnSquareIcon aria-hidden="true" />
+              </a>
+              <a v-if="ipProcessUrl" class="server-access-link" :href="ipProcessUrl" target="_blank" rel="noopener noreferrer">
+                {{ ipProcessUrl }} <ArrowTopRightOnSquareIcon aria-hidden="true" />
+              </a>
+              <span class="server-environment-pill">Ambiente <strong>{{ environmentDisplayLabel }}</strong></span>
             </div>
           </div>
-
           <dl class="server-metrics">
-            <div>
-              <dt>PID</dt>
-              <dd>{{ managedProcess?.pid ?? '—' }}</dd>
-            </div>
-            <div>
-              <dt>Porta</dt>
-              <dd>{{ (managedProcess?.port ?? selectedPort) || '—' }}</dd>
-            </div>
-            <div>
-              <dt>Uptime</dt>
-              <dd>{{ uptimeLabel }}</dd>
-            </div>
-            <div>
-              <dt>Iniciado</dt>
-              <dd>{{ startedAtLabel }}</dd>
-            </div>
+            <div><dt>PID</dt><dd>{{ managedProcess?.pid ?? '—' }}</dd></div>
+            <div><dt>Porta</dt><dd>{{ (managedProcess?.port ?? selectedPort) || '—' }}</dd></div>
+            <div><dt>Uptime</dt><dd>{{ uptimeLabel }}</dd></div>
+            <div><dt>Iniciado</dt><dd>{{ startedAtLabel }}</dd></div>
           </dl>
+        </div>
 
-          <div v-if="errorMessage" class="server-error" role="alert">
-            {{ errorMessage }}
-          </div>
+        <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
-          <footer class="server-status-actions">
-            <button
-              v-if="!canStop"
-              type="button"
-              class="server-primary-button"
-              :disabled="executingAction || loadingSettings || environmentSelectionMissing"
-              @click="handleStart"
-            >
-              <PlayIcon aria-hidden="true" />
-              {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar' }}
-            </button>
-
-            <button
-              v-if="canStop"
-              type="button"
-              class="server-danger-button"
-              :disabled="executingAction"
-              @click="handleStop"
-            >
-              <StopIcon aria-hidden="true" />
-              {{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
-            </button>
-
-            <button
-              v-if="canStop"
-              type="button"
-              class="server-secondary-button"
-              :disabled="executingAction"
-              @click="handleRestart"
-            >
-              <ArrowPathIcon aria-hidden="true" />
-              {{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
-            </button>
-
-            <a
-              v-if="primaryProcessUrl"
-              class="server-secondary-button"
-              :href="primaryProcessUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ArrowTopRightOnSquareIcon aria-hidden="true" />
-              Abrir localhost
-            </a>
-
-            <button
-              v-if="processStatus === 'running'"
-              type="button"
-              class="server-secondary-button"
-              :disabled="openingBrowser"
-              @click="handleOpenInSystemBrowser"
-            >
-              <ArrowTopRightOnSquareIcon aria-hidden="true" />
-              {{ openingBrowser ? 'Abrindo...' : 'Abrir no navegador do sistema' }}
-            </button>
-          </footer>
-
-          <p v-if="browserOpenMessage" class="server-saved-message">
-            {{ browserOpenMessage }}
-          </p>
-        </section>
-      </div>
+        <footer class="server-status-actions">
+          <button type="button" class="server-danger-button" :disabled="executingAction" @click="handleStop">
+            <StopIcon aria-hidden="true" />{{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
+          </button>
+          <button type="button" class="server-secondary-button" :disabled="executingAction" @click="handleRestart">
+            <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
+          </button>
+          <a v-if="primaryProcessUrl" class="server-secondary-button" :href="primaryProcessUrl" target="_blank" rel="noopener noreferrer">
+            <ArrowTopRightOnSquareIcon aria-hidden="true" />Abrir localhost
+          </a>
+        </footer>
+      </section>
     </template>
   </div>
