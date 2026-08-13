@@ -71,21 +71,6 @@ _publish_check_existing_pr() {
   echo "PR #$number já existe ($state): $title — $url"
 }
 
-# Rebase da branch atual sobre a branch principal do remote.
-_publish_do_rebase() {
-  local default_branch
-  default_branch=$(_git_default_branch)
-  _dev_ok "Fazendo rebase sobre origin/$default_branch..."
-  _dev_spin "Rebase em andamento..." bash -c "git fetch origin && git rebase origin/$default_branch"
-  local ret=$?
-  if [ $ret -ne 0 ]; then
-    _dev_err "Rebase falhou. Resolva os conflitos e tente novamente (ou git rebase --abort)."
-    return 1
-  fi
-  _dev_ok "Rebase concluído."
-  return 0
-}
-
 _publish_confirm_force() {
   _dev_clear
   _dev_breadcrumb "Git" "Publicar" "Confirmar force"

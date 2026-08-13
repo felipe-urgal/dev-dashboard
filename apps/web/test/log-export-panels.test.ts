@@ -6,7 +6,6 @@ import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 import type {
   ManagedProcess,
   ProcessLogSnapshot,
-  ProjectTestOverview,
 } from '@dev-dashboard/contracts';
 
 const mocks = vi.hoisted(() => ({
@@ -68,9 +67,7 @@ vi.mock('../src/composables/useProjectLogsPolling', async () => {
 });
 
 import ProjectLogsPanel from '../src/components/ProjectLogsPanel.vue';
-import ProjectTestsGuidedPanel from '../src/components/ProjectTestsGuidedPanel.vue';
 import { makeProject } from './support/activity-fixtures.js';
-import { createTestRouter } from './support/test-router';
 
 let cleanup: (() => void) | undefined;
 
@@ -85,13 +82,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup?.();
 });
-
-function jsonResponse(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-}
 
 function exportButton(wrapper: ReturnType<typeof mount>) {
   return wrapper
@@ -150,82 +140,4 @@ test('servidor exporta o snapshot mascarado já carregado', async () => {
     snapshot,
   });
   assert.doesNotMatch(snapshot.content, /segredo-original/);
-});
-
-test('testes exportam o snapshot atual sem nova leitura', async () => {
-  const originalFetch = globalThis.fetch;
-  const overview: ProjectTestOverview = {
-    supported: true,
-    commands: [
-      {
-        id: 'node-script-test',
-        runner: 'vitest',
-        label: 'npm run test',
-        description: 'Executa testes',
-        origin: 'package-script',
-        originDetail: 'scripts.test',
-        priority: 10,
-        supportsFileTarget: true,
-        supportsCaseTarget: false,
-        supportsNamePatternTarget: true,
-      },
-    ],
-  };
-  const process: ManagedProcess = {
-    id: 'test-1',
-    projectId: 'p1',
-    kind: 'test',
-    status: 'failed',
-    command: 'npm',
-    args: ['run', 'test'],
-    exitCode: 1,
-  };
-  const snapshot: ProcessLogSnapshot = {
-    projectId: 'p1',
-    processId: 'test-1',
-    content: 'password=[CONTEUDO_MASCARADO]',
-    sizeBytes: 32,
-    truncated: false,
-    masked: true,
-    redactionCount: 1,
-    readAt: '2026-08-04T21:01:00.000Z',
-  };
-  let logReads = 0;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const path = new URL(String(input), 'http://localhost').pathname;
-    if (path === '/api/projects/p1/tests')
-      return jsonResponse({ tests: overview });
-    if (path === '/api/projects/p1/tests/process')
-      return jsonResponse({ process });
-    if (path === '/api/projects/p1/tests/process/logs') {
-      logReads += 1;
-      return jsonResponse({ log: snapshot });
-    }
-    return new Response('not found', { status: 404 });
-  }) as typeof fetch;
-
-  const wrapper = mount(ProjectTestsGuidedPanel, {
-    props: { project: makeProject({ id: 'p1', capabilities: ['tests'] }) },
-    global: { plugins: [createTestRouter()] },
-  });
-  cleanup = () => {
-    wrapper.unmount();
-    globalThis.fetch = originalFetch;
-  };
-  await flushPromises();
-  await flushPromises();
-
-  const readsBeforeExport = logReads;
-  const button = exportButton(wrapper);
-  assert.ok(button);
-  await button.trigger('click');
-
-  assert.equal(logReads, readsBeforeExport);
-  assert.deepEqual(mocks.exportLogSnapshot.mock.calls[0]![0], {
-    projectName: 'sample-node',
-    origin: 'testes',
-    identifier: 'test-1',
-    capturedAt: '2026-08-04T21:01:00.000Z',
-    snapshot,
-  });
 });

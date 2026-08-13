@@ -47,7 +47,6 @@ export type {
   ProjectFileWatchRequest,
   ProjectFileWatchResult,
   ProjectFileWatchState,
-  ProjectFileWriteRequest,
   ProjectTextPosition,
   ProjectTextRange,
   ProjectWorkspaceEditApplyRequest,
