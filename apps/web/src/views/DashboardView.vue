@@ -171,8 +171,8 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
 .compact-action-button {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  min-height: 34px;
+  padding: 0 12px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
