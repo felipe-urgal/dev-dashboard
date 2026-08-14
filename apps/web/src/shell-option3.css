@@ -517,6 +517,240 @@
   color: var(--text-muted);
 }
 
+.git-modern-panel {
+  min-height: 0;
+  background: var(--surface-1);
+}
+
+.git-navigation-bar {
+  top: var(--project-sticky-offset, 134px);
+  padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.git-subtabs {
+  gap: 0;
+}
+
+.git-subtabs button {
+  position: relative;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 10px;
+}
+
+.git-subtabs button::before {
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+}
+
+.git-subtabs button::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: '';
+}
+
+.git-subtabs button:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.git-subtabs button.active {
+  border: 0;
+  color: var(--accent);
+  background: transparent;
+  box-shadow: none;
+}
+
+.git-subtabs button.active::after {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgb(50 214 238 / 55%);
+}
+
+.git-modern-messages {
+  padding: 12px 22px 0;
+}
+
+.git-sync-page,
+.git-branches-page,
+.git-diff-page,
+.git-history-page,
+.git-pr-card,
+.git-commit-card,
+.git-undo-card {
+  background: var(--surface-1);
+}
+
+.git-sync-card,
+.git-command-card,
+.git-table-card,
+.git-history-table-wrapper,
+.git-commit-card,
+.git-undo-card,
+.git-pr-card,
+.branch-table-card {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+
+.git-sync-card {
+  padding: 20px 22px;
+}
+
+.git-sync-main-row {
+  gap: 20px;
+}
+
+.git-sync-relationship > svg {
+  color: var(--accent);
+}
+
+.git-sync-status {
+  font-size: 10px;
+}
+
+.git-sync-button,
+.git-commit-submit,
+.branch-create-button,
+.branch-refresh-button,
+.git-diff-refresh-button {
+  border-color: var(--accent-strong);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.git-sync-button:hover:not(:disabled),
+.git-commit-submit:hover:not(:disabled),
+.branch-create-button:hover:not(:disabled),
+.branch-refresh-button:hover:not(:disabled),
+.git-diff-refresh-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-strong);
+}
+
+.git-status-grid article,
+.git-command-card,
+.git-preview-grid article,
+.git-table-card,
+.git-history-list article {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+
+.git-status-grid article {
+  min-height: 88px;
+}
+
+.git-status-grid strong,
+.git-command-card h3,
+.git-preview-grid h3,
+.git-table-card h3 {
+  color: var(--text);
+}
+
+.git-quick-actions button,
+.git-preview-grid header button,
+.git-table-row button,
+.git-history-refresh {
+  border-color: var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.git-quick-actions button:hover,
+.git-preview-grid header button:hover,
+.git-table-row button:hover,
+.git-history-refresh:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.git-history-toolbar,
+.git-diff-toolbar,
+.branch-table-toolbar {
+  padding: 14px 18px;
+  border-color: var(--border);
+  background: var(--surface-1);
+}
+
+.git-history-reference,
+.git-history-filter,
+.git-history-search,
+.git-diff-status-filter,
+.git-diff-view-switch {
+  border-color: var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.git-history-table thead th,
+.git-history-day th,
+.git-diff-file-head,
+.branch-table-header {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.git-history-row td,
+.branch-table-row {
+  border-color: var(--border);
+}
+
+.git-history-row:hover td,
+.branch-table-row:hover {
+  background: var(--surface-2);
+}
+
+.git-history-row.active td,
+.branch-table-row.current {
+  background: var(--accent-soft);
+}
+
+.git-history-subject code,
+.git-history-subject-text,
+.branch-name-cell {
+  color: var(--text);
+}
+
+.git-history-refresh svg,
+.git-diff-refresh-button svg,
+.branch-refresh-button svg {
+  color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .git-navigation-bar,
+  .git-modern-messages {
+    padding-inline: 10px;
+  }
+
+  .git-subtabs button {
+    padding-inline: 11px;
+  }
+
+  .git-sync-card {
+    padding: 16px;
+  }
+}
+
 @media (max-width: 720px) {
   .project-details-hero {
     min-height: 92px;
