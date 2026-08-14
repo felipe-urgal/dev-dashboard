@@ -33,6 +33,7 @@ export function useProjectLogsPolling(
   const logRequestGate = new RequestGate();
   let logStream: { close: () => void; done: Promise<void> } | undefined;
   let clearingLog = false;
+  const clearing = ref(false);
 
   function isCurrentProject(projectId: string, generation: number): boolean {
     return (
@@ -161,6 +162,7 @@ export function useProjectLogsPolling(
     const clearGeneration = logRequests.invalidate();
     logRequestGate.invalidate();
     clearingLog = true;
+    clearing.value = true;
     loadingLogs.value = true;
     logErrorMessage.value = '';
     stopLogStream();
@@ -186,6 +188,7 @@ export function useProjectLogsPolling(
     } finally {
       if (isCurrentProject(projectId, generation)) {
         clearingLog = false;
+        clearing.value = false;
         loadingLogs.value = false;
         startLogStream();
       }
@@ -253,6 +256,7 @@ export function useProjectLogsPolling(
     scrollLogsToLatest,
     handleLogScroll,
     clearLogView,
+    clearing,
     toggleStream,
   };
 }
