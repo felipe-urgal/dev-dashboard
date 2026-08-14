@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { HomeIcon, PlayCircleIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import {
+  CodeBracketIcon,
+  HomeIcon,
+  PlayCircleIcon,
+  PlusIcon,
+} from '@heroicons/vue/24/outline';
 import { onMounted, ref, watch } from 'vue';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -65,7 +70,9 @@ onMounted(() => {
         :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
         @click="toggleSidebarCollapsed"
       >
-        <div class="brand-mark">DD</div>
+        <div class="brand-mark" aria-hidden="true">
+          <CodeBracketIcon />
+        </div>
 
         <div class="brand-copy">
           <strong>Dev Dashboard</strong>
@@ -133,6 +140,10 @@ onMounted(() => {
 
       <div class="sidebar-tools">
         <VisualPreferences />
+        <div class="sidebar-status" aria-label="Ambiente local">
+          <span class="sidebar-status-dot" aria-hidden="true" />
+          <span>Ambiente local</span>
+        </div>
       </div>
     </aside>
 
