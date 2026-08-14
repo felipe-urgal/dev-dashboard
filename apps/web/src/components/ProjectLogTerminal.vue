@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import '@xterm/xterm/css/xterm.css';
 
+import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -15,6 +16,8 @@ const props = withDefaults(
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
+let fitAddon: FitAddon | undefined;
+let resizeObserver: ResizeObserver | undefined;
 
 function renderContent(): void {
   if (!terminal) return;
@@ -43,7 +46,15 @@ async function mountTerminal(): Promise<void> {
       cursor: '#7d84a3',
     },
   });
+  fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
   terminal.open(terminalContainer.value);
+  fitAddon.fit();
+
+  resizeObserver = new ResizeObserver(() => {
+    fitAddon?.fit();
+  });
+  resizeObserver.observe(terminalContainer.value);
   renderContent();
 }
 
@@ -54,8 +65,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = undefined;
   terminal?.dispose();
   terminal = undefined;
+  fitAddon = undefined;
 });
 </script>
 

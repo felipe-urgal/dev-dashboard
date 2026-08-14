@@ -3,11 +3,13 @@ import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
+import { onMounted, watch } from 'vue';
+
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 import { processToneFor } from '../utils/status-tones';
 import Card from './Card.vue';
-import ProjectLogExperience from './ProjectLogExperience.vue';
+import ProjectLogTerminal from './ProjectLogTerminal.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project; workerId: RailsWorkerId }>();
@@ -19,6 +21,21 @@ const worker = useProjectRailsWorker(
 );
 
 useAutoDismiss(worker.errorMessage, '');
+
+watch(
+  () => [props.project.id, worker.detected.value] as const,
+  ([, detected]) => {
+    if (detected) {
+      worker.startLogStream();
+    }
+  },
+);
+
+onMounted(() => {
+  if (worker.detected.value) {
+    worker.startLogStream();
+  }
+});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
@@ -147,62 +164,21 @@ function formatDate(value?: string): string {
                 <ArrowPathIcon aria-hidden="true" />
                 Reiniciar
               </button>
-              <button
-                type="button"
-                class="rails-text-button rails-worker-log-toggle"
-                @click="worker.toggleLogs()"
-              >
-                {{ worker.logsVisible.value ? 'Ocultar logs' : 'Ver logs' }}
-              </button>
             </div>
           </section>
 
           <section
-            v-if="worker.logsVisible.value"
-            class="rails-worker-logs"
-            :aria-label="`Logs do ${workerLabels[workerId]}`"
+            v-if="workerId === 'sidekiq' || workerId === 'webpack'"
+            class="rails-worker-logs rails-worker-terminal"
+            :aria-label="`Terminal do ${workerLabels[workerId]}`"
           >
-            <header class="rails-worker-logs-header">
-              <div>
-                <h4>Logs do {{ workerLabels[workerId] }}</h4>
-                <p>
-                  {{
-                    workerId === 'sidekiq'
-                      ? 'Fluxo de jobs e diagnóstico automático de falhas.'
-                      : 'Fluxo de compilação e diagnóstico automático do build.'
-                  }}
-                </p>
-              </div>
-              <div class="rails-worker-logs-toolbar">
-                <button
-                  type="button"
-                  class="rails-text-button"
-                  @click="worker.refreshLog()"
-                >
-                  Atualizar
-                </button>
-                <button
-                  type="button"
-                  class="rails-text-button"
-                  @click="worker.clearLog()"
-                >
-                  Limpar
-                </button>
-              </div>
-            </header>
-
-            <div class="rails-worker-log-content">
-              <ProjectLogExperience
-                :content="worker.log.value?.content ?? ''"
-                :source="workerId === 'sidekiq' ? 'sidekiq' : 'webpack'"
-                :running="worker.canStop.value"
-                :masked-count="worker.log.value?.redactionCount ?? 0"
-                :empty-label="
-                  worker.logLoading.value ? 'Carregando…' : 'Sem conteúdo.'
-                "
-              />
-            </div>
+            <ProjectLogTerminal
+              :content="worker.log.value?.content ?? ''"
+              :running="worker.canStop.value"
+              :masked-count="worker.log.value?.redactionCount ?? 0"
+            />
           </section>
+
         </template>
       </Card>
     </section>
