@@ -174,7 +174,8 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(
-      webpackWrapper.find('[aria-label="Terminal do webpack-dev-server"]')
+      webpackWrapper
+        .find('[aria-label="Terminal do webpack-dev-server"]')
         .exists(),
     ).toBe(true);
 
