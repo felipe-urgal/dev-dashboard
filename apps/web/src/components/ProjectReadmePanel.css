@@ -1,8 +1,8 @@
 .readme-panel {
-  /* overflow:visible (padrão) é necessário para que .readme-file-list,
-     filho direto, consiga ficar sticky em relação ao scroll da página —
-     um ancestral com overflow != visible vira o "scroll container"
-     percebido pelo position: sticky, e este painel não é quem rola. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: var(--surface-1);
 }
 
@@ -178,8 +178,12 @@
 }
 
 .readme-document {
+  flex: 1 1 auto;
   max-width: 920px;
-  min-height: 520px;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: clamp(16px, 2.2vw, 16px);
   color: var(--text-muted);
   font-size: var(--font-sm);
