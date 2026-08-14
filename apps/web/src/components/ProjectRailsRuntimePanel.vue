@@ -170,6 +170,8 @@ function formatDate(value?: string): string {
               :content="worker.log.value?.content ?? ''"
               :running="worker.canStop.value"
               :masked-count="worker.log.value?.redactionCount ?? 0"
+              :clearable="worker.detected.value"
+              @clear="worker.clearLog()"
             />
           </section>
         </template>

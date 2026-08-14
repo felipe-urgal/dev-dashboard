@@ -10,9 +10,13 @@ const props = withDefaults(
     content: string;
     running?: boolean;
     maskedCount?: number;
+    clearable?: boolean;
+    clearing?: boolean;
   }>(),
-  { running: false, maskedCount: 0 },
+  { running: false, maskedCount: 0, clearable: true, clearing: false },
 );
+
+const emit = defineEmits<{ clear: [] }>();
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
@@ -89,6 +93,14 @@ onBeforeUnmount(() => {
           maskedCount === 1 ? '' : 's'
         }}
       </span>
+      <button
+        type="button"
+        class="project-log-terminal-clear"
+        :disabled="!clearable || clearing"
+        @click="emit('clear')"
+      >
+        {{ clearing ? 'Limpando…' : 'Limpar' }}
+      </button>
     </header>
     <div ref="terminalContainer" class="project-log-terminal-body"></div>
   </section>
@@ -130,6 +142,26 @@ onBeforeUnmount(() => {
 .project-log-terminal-title span:last-child,
 .project-log-terminal-masked {
   color: #7d84a3;
+}
+
+.project-log-terminal-clear {
+  border: 1px solid #3b4560;
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  color: #b9c2df;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-log-terminal-clear:hover:not(:disabled) {
+  border-color: #7d84a3;
+  color: #ffffff;
+}
+
+.project-log-terminal-clear:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .project-log-terminal-dot {
