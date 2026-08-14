@@ -178,7 +178,6 @@ function formatDate(value?: string): string {
               :masked-count="worker.log.value?.redactionCount ?? 0"
             />
           </section>
-
         </template>
       </Card>
     </section>
