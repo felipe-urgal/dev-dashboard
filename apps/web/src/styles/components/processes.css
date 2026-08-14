@@ -175,13 +175,10 @@
 }
 
 .processes-filters {
-  display: grid;
-  grid-template-columns:
-    repeat(4, minmax(140px, 1fr))
-    minmax(120px, auto);
-  align-items: end;
-  gap: 12px;
-  padding: 16px 18px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px;
   border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
@@ -245,7 +242,7 @@
   flex: 1;
   overflow: auto;
   scrollbar-gutter: stable;
-  border: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 

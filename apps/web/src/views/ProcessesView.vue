@@ -54,20 +54,6 @@ const {
     :aria-busy="loading"
     aria-labelledby="processes-title"
   >
-    <div class="processes-heading">
-      <h2 id="processes-title" class="sr-only">Processos gerenciados</h2>
-      <button
-        type="button"
-        class="processes-cleanup-button"
-        :disabled="cleanupRunning || terminalCount === 0"
-        aria-describedby="processes-cleanup-help"
-        @click="runCleanup"
-      >
-        <TrashIcon aria-hidden="true" />
-        {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
-      </button>
-    </div>
-
     <dl
       v-if="!loading || items.length > 0"
       class="processes-summary"
@@ -126,56 +112,7 @@ const {
       role="group"
       aria-label="Filtros de processos gerenciados"
     >
-      <label>
-        <span>Workspace</span>
-        <select v-model="workspaceFilter">
-          <option value="">Todos</option>
-          <option
-            v-for="workspace in workspaces"
-            :key="workspace.id"
-            :value="workspace.id"
-          >
-            {{ workspace.name }}
-          </option>
-        </select>
-      </label>
-
-      <label>
-        <span>Projeto</span>
-        <select v-model="projectFilter">
-          <option value="">Todos</option>
-          <option
-            v-for="project in eligibleProjects"
-            :key="project.id"
-            :value="project.id"
-          >
-            {{ project.name }}
-          </option>
-        </select>
-      </label>
-
-      <label>
-        <span>Tipo</span>
-        <select v-model="kindFilter">
-          <option value="">Todos</option>
-          <option value="server">Servidor</option>
-          <option value="test">Testes</option>
-          <option value="compose-build">Build Docker Compose</option>
-        </select>
-      </label>
-
-      <label>
-        <span>Estado</span>
-        <select v-model="statusFilter">
-          <option value="">Todos</option>
-          <option value="active">Em execução</option>
-          <option value="stopped">Parado</option>
-          <option value="failed">Falhou</option>
-        </select>
-      </label>
-
       <div class="processes-refresh-control">
-        <span>Atualização</span>
         <div class="processes-refresh-actions">
           <button
             type="button"
@@ -191,11 +128,13 @@ const {
           </button>
           <button
             type="button"
-            class="processes-clear-button"
-            :disabled="loading"
-            @click="clearFilters"
+            class="processes-cleanup-button"
+            :disabled="cleanupRunning || terminalCount === 0"
+            aria-describedby="processes-cleanup-help"
+            @click="runCleanup"
           >
-            Limpar
+            <TrashIcon aria-hidden="true" />
+            {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
           </button>
         </div>
       </div>

@@ -3,7 +3,6 @@
      filho direto, consiga ficar sticky em relação ao scroll da página —
      um ancestral com overflow != visible vira o "scroll container"
      percebido pelo position: sticky, e este painel não é quem rola. */
-  border-top: 1px solid var(--border);
   background: var(--surface-1);
 }
 
