@@ -342,12 +342,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  height: calc(100vh - 116px);
+  height: 100%;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
-  max-height: calc(100vh - 133px);
-  overflow-x: hidden;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .terminal-empty,

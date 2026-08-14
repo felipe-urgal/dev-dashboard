@@ -230,8 +230,11 @@ watch(
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   gap: var(--space-3);
+  overflow: hidden;
 }
 
 .tests-pty-controls {
@@ -272,8 +275,10 @@ watch(
   flex: 1 1 0;
   min-height: 0;
   height: 0;
+  box-sizing: border-box;
   margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
   width: calc(100% + (var(--space-5) * 2));
+  max-width: calc(100% + (var(--space-5) * 2));
   background: #10131c;
   border-top: 1px solid #262c40;
   padding: 16px 18px 20px;
@@ -281,11 +286,15 @@ watch(
 }
 
 .tests-pty-terminal :global(.xterm) {
+  width: 100%;
+  height: 100%;
   padding-inline: 10px;
 }
 
 .tests-pty-terminal :global(.xterm-viewport) {
   background-color: #10131c !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   scrollbar-width: none;
 }
 
