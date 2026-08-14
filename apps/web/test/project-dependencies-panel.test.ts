@@ -296,5 +296,5 @@ test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
   await flushPromises();
   await flushPromises();
 
-  assert.match(wrapper.text(), /concluído/);
+  assert.doesNotMatch(wrapper.text(), /concluído/);
 });

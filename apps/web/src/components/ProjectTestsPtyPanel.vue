@@ -50,14 +50,6 @@ const selectedCommand = computed(() =>
     (command) => command.id === selectedCommandId.value,
   ),
 );
-const exitLabel = computed(() => {
-  if (!snapshot.value || snapshot.value.status !== 'exited') return '';
-  const code = snapshot.value.exitCode;
-  return code === 0
-    ? 'Concluído com sucesso'
-    : `Encerrado (código ${code ?? '—'})`;
-});
-
 async function loadOverview(): Promise<void> {
   loadingOverview.value = true;
   try {
@@ -203,8 +195,6 @@ watch(
     </template>
 
     <p v-if="connecting" class="tests-pty-status">Conectando…</p>
-    <p v-else-if="exitLabel" class="tests-pty-status">{{ exitLabel }}</p>
-
     <p v-if="errorMessage" class="tests-pty-error" role="alert">
       {{ errorMessage }}
     </p>
