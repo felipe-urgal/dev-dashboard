@@ -74,9 +74,8 @@
 }
 
 .readme-file-list {
-  position: sticky;
-  z-index: 15;
-  top: var(--project-sticky-offset, 134px);
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
