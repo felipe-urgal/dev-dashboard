@@ -33,7 +33,6 @@
 
 .alert,
 .scan-result {
-  margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-sm);
 }
@@ -45,23 +44,9 @@
   gap: 12px;
 }
 
-.alert-body {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 7px;
-}
-
 .alert-dismiss {
-  flex: 0 0 auto;
-  padding: 1px 7px;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: inherit;
   background: none;
-  font-size: 15px;
-  line-height: 1.4;
-  opacity: 0.7;
 }
 
 .alert-dismiss:hover {
@@ -102,7 +87,6 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  margin-top: var(--space-4);
 }
 
 .repositories-section > .projects-list {
@@ -763,7 +747,6 @@
 }
 
 .alert-success {
-  border: 1px solid var(--success-text);
   color: var(--success-text);
   background: var(--success-surface);
 }
@@ -1036,7 +1019,6 @@
 
 /* Repository overview: compact, scan-friendly rows */
 .repositories-section {
-  margin-top: 22px;
   border-color: color-mix(in srgb, var(--border) 72%, transparent);
   background: transparent;
 }

@@ -171,16 +171,16 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 .compact-action-button {
   display: inline-flex;
   min-height: 34px;
-  padding: 0 12px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-muted);
   background: var(--surface-2);
   cursor: pointer;
+  gap: 12px;
+  padding: 8px;
   transition:
     border-color 160ms ease,
     color 160ms ease,

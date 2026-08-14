@@ -42,7 +42,7 @@ const props = withDefaults(defineProps<Props>(), {
   color: var(--text);
 }
 .dd-card-padded {
-  padding: var(--space-5);
+  padding: var(--space-3);
 }
 .dd-card-borderless {
   border: none;
