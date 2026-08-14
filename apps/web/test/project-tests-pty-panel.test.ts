@@ -160,7 +160,7 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
     },
   });
   await flushPromises();
-  assert.match(wrapper.text(), /Executando/);
+  assert.doesNotMatch(wrapper.text(), /Executando…/);
 
   socket.emitMessage({ type: 'output', data: 'ok\n' });
   await flushPromises();

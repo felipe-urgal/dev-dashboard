@@ -203,7 +203,6 @@ watch(
     </template>
 
     <p v-if="connecting" class="tests-pty-status">Conectando…</p>
-    <p v-else-if="isRunning" class="tests-pty-status">Executando…</p>
     <p v-else-if="exitLabel" class="tests-pty-status">{{ exitLabel }}</p>
 
     <p v-if="errorMessage" class="tests-pty-error" role="alert">

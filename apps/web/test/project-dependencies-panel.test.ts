@@ -287,7 +287,7 @@ test('executa uma ação via PTY, mostra o terminal e conclui', async () => {
     },
   });
   await flushPromises();
-  assert.match(wrapper.text(), /Executando/);
+  assert.doesNotMatch(wrapper.text(), /Executando…/);
 
   socket.emitMessage({ type: 'output', data: 'added 12 packages\n' });
   await flushPromises();
