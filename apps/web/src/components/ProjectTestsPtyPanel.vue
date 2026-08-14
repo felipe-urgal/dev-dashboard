@@ -223,7 +223,7 @@ watch(
   width: 100%;
   height: 100%;
   min-height: 0;
-  gap: var(--space-3);
+  /*gap: var(--space-3);*/
   overflow: hidden;
 }
 
@@ -232,6 +232,7 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+  padding: 12px;
 }
 
 .tests-pty-controls select,

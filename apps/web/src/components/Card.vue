@@ -41,9 +41,9 @@ const props = withDefaults(defineProps<Props>(), {
   background: var(--surface-1);
   color: var(--text);
 }
-.dd-card-padded {
+/*.dd-card-padded {
   padding: var(--space-3);
-}
+}*/
 .dd-card-borderless {
   border: none;
   background: none;
@@ -60,8 +60,6 @@ const props = withDefaults(defineProps<Props>(), {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
 }
 .dd-card-header:empty {
   display: none;

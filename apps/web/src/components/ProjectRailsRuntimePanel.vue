@@ -60,12 +60,6 @@ function formatDate(value?: string): string {
       aria-label="Estado do processo"
     >
       <Card class="rails-worker-card">
-        <template #actions>
-          <StatusBadge :tone="processToneFor(worker.status.value)">
-            {{ worker.statusLabel.value }}
-          </StatusBadge>
-        </template>
-
         <p
           v-if="worker.errorMessage.value"
           class="rails-worker-error"
@@ -244,10 +238,7 @@ function formatDate(value?: string): string {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
   padding: 12px;
-  border: 1px solid var(--border);
   background: var(--surface-2);
 }
 
@@ -326,8 +317,6 @@ function formatDate(value?: string): string {
 
 .rails-worker-logs {
   overflow: hidden;
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-4);
 }
 
 .rails-worker-logs-header {

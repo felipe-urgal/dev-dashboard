@@ -11,9 +11,9 @@ a.secondary-button {
 
 .dd-card.project-detail-card {
   display: grid;
-  gap: var(--space-4);
+  /*gap: var(--space-4);*/
   min-width: 0;
-  border-top: 1px solid var(--border);
+  /*border-top: 1px solid var(--border);*/
 }
 
 .project-panel-heading h3 {
