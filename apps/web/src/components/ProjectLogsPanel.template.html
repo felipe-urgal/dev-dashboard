@@ -131,10 +131,9 @@
       Nenhuma saída registrada.
     </div>
 
-    <ProjectLogExperience
+    <ProjectLogTerminal
       v-else-if="useGenericExperience"
       :content="logSnapshot?.content ?? ''"
-      source="server"
       :running="processStatus === 'running'"
       :masked-count="logSnapshot?.redactionCount ?? 0"
     />

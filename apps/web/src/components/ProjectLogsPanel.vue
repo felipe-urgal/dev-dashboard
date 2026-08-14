@@ -17,7 +17,7 @@ import {
 import type { Project } from '@dev-dashboard/contracts';
 
 import RailsParamsTree from './RailsParamsTree.vue';
-import ProjectLogExperience from './ProjectLogExperience.vue';
+import ProjectLogTerminal from './ProjectLogTerminal.vue';
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
