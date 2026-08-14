@@ -292,6 +292,122 @@
   background: var(--danger-surface);
 }
 
+.project-details-page {
+  gap: 0;
+  background: var(--surface-0);
+}
+
+.project-details-sticky-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 16%);
+}
+
+.project-details-hero {
+  min-height: 112px;
+  padding: 25px 34px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.project-details-main {
+  gap: 16px;
+}
+
+.project-details-copy::before {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent);
+  content: 'PROJETO ATUAL';
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.project-title-row {
+  gap: 14px;
+}
+
+.project-title-row h2 {
+  font-size: clamp(28px, 3vw, 40px);
+  letter-spacing: -0.05em;
+}
+
+.project-details-branch {
+  min-height: 30px;
+  padding: 5px 10px;
+  border-color: var(--border-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+}
+
+.project-details-actions {
+  gap: 10px;
+}
+
+.project-details-tabs {
+  gap: 0;
+  padding: 0 22px;
+  border-bottom: 0;
+  background: var(--surface-1);
+}
+
+.project-details-tab {
+  min-height: 48px;
+  padding: 0 13px;
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
+.project-details-tab::after {
+  right: 10px;
+  left: 10px;
+  height: 3px;
+  background: transparent;
+}
+
+.project-details-tab:hover {
+  background: var(--surface-2);
+}
+
+.project-details-tab-active {
+  color: var(--accent);
+}
+
+.project-details-tab-active::after {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgb(50 214 238 / 55%);
+}
+
+@media (max-width: 720px) {
+  .project-details-hero {
+    min-height: 92px;
+    padding: 18px 16px;
+  }
+
+  .project-details-copy::before {
+    margin-bottom: 5px;
+    font-size: 8px;
+  }
+
+  .project-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .project-title-row h2 {
+    font-size: 25px;
+  }
+
+  .project-details-tabs {
+    padding-inline: 10px;
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     display: block;
