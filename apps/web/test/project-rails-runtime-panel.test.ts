@@ -158,16 +158,14 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
-    await sidekiqWrapper.find('.rails-worker-log-toggle').trigger('click');
-    await flushPromises();
+    expect(
+      sidekiqWrapper.find('[aria-label="Terminal do Sidekiq"]').exists(),
+    ).toBe(true);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
       'sidekiq',
       expect.any(Function),
-    );
-    expect(sidekiqWrapper.find('.rails-worker-log-content').text()).toContain(
-      'sidekiq log de exemplo',
     );
 
     const webpackWrapper = mount(ProjectRailsRuntimePanel, {
@@ -175,19 +173,16 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
-    await webpackWrapper.find('.rails-worker-log-toggle').trigger('click');
-    await flushPromises();
+    expect(
+      webpackWrapper
+        .find('[aria-label="Terminal do webpack-dev-server"]')
+        .exists(),
+    ).toBe(true);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
       'webpack',
       expect.any(Function),
-    );
-    expect(webpackWrapper.find('.rails-worker-log-content').text()).toContain(
-      'webpack log de exemplo',
-    );
-    expect(sidekiqWrapper.find('.rails-worker-log-content').text()).toContain(
-      'sidekiq log de exemplo',
     );
 
     sidekiqWrapper.unmount();

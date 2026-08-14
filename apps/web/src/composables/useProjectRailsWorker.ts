@@ -356,6 +356,7 @@ export function useProjectRailsWorker(
     log,
     logLoading,
     logsVisible,
+    startLogStream,
     toggleLogs,
     refreshLog,
     clearLog,
