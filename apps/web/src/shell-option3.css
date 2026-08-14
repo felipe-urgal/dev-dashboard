@@ -751,6 +751,266 @@
   }
 }
 
+/* Remaining project tools: shared cockpit treatment. */
+
+.project-logs-layout,
+.project-logs-card,
+.project-log-terminal,
+.terminal-panel,
+.terminal-card,
+.tests-dashboard,
+.tests-config-card,
+.tests-result,
+.database-explorer,
+.dependencies-panel,
+.dependencies-manager-card,
+.project-environment-panel,
+.rails-runtime-panel {
+  color: var(--text);
+  background: var(--surface-1);
+}
+
+.project-logs-card,
+.terminal-card,
+.tests-config-card,
+.tests-result,
+.dependencies-manager-card,
+.project-environment-file-card,
+.rails-worker-card,
+.database-sidebar-panel,
+.database-detail-panel,
+.database-inspector-panel {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+
+.project-logs-topbar,
+.terminal-window-bar,
+.tests-panel-heading,
+.tests-config-card-heading,
+.dependencies-header,
+.dependencies-manager-bar,
+.database-header,
+.database-explorer-tabs {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.project-logs-topbar,
+.terminal-window-bar,
+.dependencies-header,
+.dependencies-manager-bar,
+.database-header {
+  min-height: 48px;
+  padding: 12px 16px;
+}
+
+.project-log-terminal,
+.terminal-window,
+.rails-worker-terminal,
+.dependencies-terminal {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: #020b14;
+  box-shadow: 0 18px 42px rgb(0 0 0 / 24%);
+}
+
+.terminal-window-dots span {
+  box-shadow: none;
+}
+
+.terminal-window-title,
+.terminal-description,
+.project-panel-heading p,
+.tests-panel-heading p,
+.dependencies-header p {
+  color: var(--text-muted);
+}
+
+.terminal-icon-button,
+.terminal-start,
+.tests-button-with-icon,
+.tests-execute-button,
+.dependencies-detect-button,
+.dependencies-row-action,
+.project-environment-value-action,
+.rails-worker-actions button {
+  border-color: var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.terminal-icon-button:hover,
+.terminal-start:hover,
+.tests-button-with-icon:hover,
+.tests-execute-button:hover,
+.dependencies-detect-button:hover,
+.dependencies-row-action:hover,
+.project-environment-value-action:hover,
+.rails-worker-actions button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.tests-execute-button,
+.terminal-start {
+  border-color: var(--accent-strong);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.tests-execute-button:hover,
+.terminal-start:hover {
+  background: var(--accent-strong);
+}
+
+.tests-summary,
+.tests-related-summary,
+.tests-config-summary {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.tests-summary-success,
+.tests-summary-danger {
+  border-color: var(--border);
+}
+
+.tests-log-experience-shell,
+.tests-ready-state,
+.tests-config-review,
+.dependencies-console,
+.dependencies-console-empty,
+.project-environment-empty,
+.rails-worker-empty-state {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.tests-field input,
+.tests-field select,
+.tests-field textarea,
+.dependencies-console-actions input,
+.project-environment-table input,
+.database-sidebar-search input {
+  border-color: var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--surface-0);
+}
+
+.tests-field input:focus,
+.tests-field select:focus,
+.tests-field textarea:focus,
+.dependencies-console-actions input:focus,
+.database-sidebar-search input:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+.database-explorer-tabs {
+  gap: 0;
+  padding: 0 14px;
+}
+
+.database-explorer-tabs button,
+.scripts-explorer-tabs button {
+  min-height: 44px;
+  border-color: transparent;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.database-explorer-tabs button:hover,
+.database-explorer-tabs button.active,
+.scripts-explorer-tabs button:hover,
+.scripts-explorer-tabs button.active {
+  border-color: transparent;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.database-sidebar-list > button,
+.database-table-row,
+.dependencies-table tbody tr,
+.project-environment-table tbody tr,
+.rails-worker-overview {
+  border-color: var(--border);
+}
+
+.database-sidebar-list > button:hover,
+.database-sidebar-list > button.active,
+.database-table-row:hover,
+.dependencies-table tbody tr:hover,
+.project-environment-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.database-sidebar-item-icon,
+.dependencies-manager-icon {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dependencies-table-wrap,
+.project-environment-table,
+.database-table-wrap {
+  border-color: var(--border);
+  border-radius: 10px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+
+.dependencies-table th,
+.dependencies-table td,
+.project-environment-table th,
+.project-environment-table td,
+.database-table th,
+.database-table td {
+  border-color: var(--border);
+}
+
+.dependencies-table th,
+.project-environment-table th,
+.database-table th {
+  color: var(--text-dim);
+  background: var(--surface-2);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.project-environment-secret-value,
+.project-environment-sensitive-value {
+  color: var(--warning-text);
+}
+
+.rails-worker-card {
+  padding: 18px;
+}
+
+.rails-worker-status-copy strong {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .project-logs-card,
+  .terminal-card,
+  .tests-config-card,
+  .tests-result,
+  .dependencies-manager-card,
+  .project-environment-file-card,
+  .rails-worker-card {
+    border-radius: 8px;
+  }
+}
+
 @media (max-width: 720px) {
   .project-details-hero {
     min-height: 92px;
