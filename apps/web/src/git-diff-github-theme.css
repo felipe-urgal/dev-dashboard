@@ -58,7 +58,6 @@
 /* Página principal de Diff. */
 .git-diff-page .git-diff-unified,
 .git-diff-page .git-diff-split {
-  border-top: 1px solid var(--git-diff-row-border);
   background: var(--git-diff-context-bg);
   color: var(--text);
   scrollbar-color: var(--border-strong) var(--surface-2);

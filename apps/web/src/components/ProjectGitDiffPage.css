@@ -393,7 +393,6 @@
 }
 
 .git-diff-file-body {
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow-x: auto;
 }
 
