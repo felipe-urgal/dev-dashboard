@@ -266,9 +266,9 @@ watch(
   min-height: 0;
   height: 0;
   box-sizing: border-box;
-  margin: 0 calc(var(--space-5) * -1) calc(var(--space-5) * -1);
-  width: calc(100% + (var(--space-5) * 2));
-  max-width: calc(100% + (var(--space-5) * 2));
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
   background: #10131c;
   border-top: 1px solid #262c40;
   padding: 16px 18px 20px;

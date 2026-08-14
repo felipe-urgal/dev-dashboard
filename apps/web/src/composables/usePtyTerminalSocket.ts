@@ -28,6 +28,17 @@ export function usePtyTerminalSocket<
   let resizeObserver: ResizeObserver | undefined;
   let socket: WebSocket | undefined;
 
+  function sendResize(): void {
+    if (!terminal || !socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(
+      JSON.stringify({
+        type: 'resize',
+        cols: terminal.cols,
+        rows: terminal.rows,
+      }),
+    );
+  }
+
   function mountTerminal(): void {
     if (!terminalContainer.value || terminal) return;
     terminal = new Terminal({
@@ -45,12 +56,19 @@ export function usePtyTerminalSocket<
     terminal.loadAddon(fitAddon);
     terminal.open(terminalContainer.value);
     fitAddon.fit();
+    sendResize();
     // No primeiro paint o container às vezes ainda não assumiu a largura
     // final (troca de aba, layout do Card ainda assentando) e o fit()
     // acima mede menos colunas do que caberiam — reaplica no próximo frame,
     // quando o layout já estabilizou.
-    requestAnimationFrame(() => fitAddon?.fit());
-    resizeObserver = new ResizeObserver(() => fitAddon?.fit());
+    requestAnimationFrame(() => {
+      fitAddon?.fit();
+      sendResize();
+    });
+    resizeObserver = new ResizeObserver(() => {
+      fitAddon?.fit();
+      sendResize();
+    });
     resizeObserver.observe(terminalContainer.value);
   }
 
