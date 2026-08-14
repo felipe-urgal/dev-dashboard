@@ -201,7 +201,7 @@ describe('ProjectLogsPanel', () => {
     }
   });
 
-  it('usa a experiência compartilhada para logs Node sem estrutura Rails', async () => {
+  it('abre logs Node sem estrutura Rails em terminal somente leitura', async () => {
     const nodeLog = [
       'Starting',
       'Compiling /dashboard',
@@ -212,10 +212,13 @@ describe('ProjectLogsPanel', () => {
 
     try {
       expect(wrapper.find('.project-log-view-switch').exists()).toBe(false);
-      const modes = wrapper.findAll('.log-experience-mode-switch button');
-      expect(modes[0]?.text()).toContain('Fluxo');
-      expect(modes[1]?.text()).toContain('Diagnóstico');
-      expect(wrapper.text()).toContain('Module not found');
+      expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
+      expect(wrapper.get('.project-log-terminal').text()).toContain(
+        'Terminal do servidor',
+      );
+      expect(wrapper.get('.project-log-terminal-body').attributes('tabindex')).toBe(
+        undefined,
+      );
     } finally {
       wrapper.unmount();
       restoreFetch();
