@@ -171,6 +171,7 @@ function formatDate(value?: string): string {
               :running="worker.canStop.value"
               :masked-count="worker.log.value?.redactionCount ?? 0"
               :clearable="worker.detected.value"
+              :clearing="worker.clearingLog.value"
               @clear="worker.clearLog()"
             />
           </section>

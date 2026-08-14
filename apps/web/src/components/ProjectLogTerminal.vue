@@ -18,6 +18,12 @@ const props = withDefaults(
 
 const emit = defineEmits<{ clear: [] }>();
 
+function handleClear(): void {
+  if (!props.clearable || props.clearing) return;
+  terminal?.clear();
+  emit('clear');
+}
+
 const terminalContainer = ref<HTMLDivElement | null>(null);
 let terminal: Terminal | undefined;
 let fitAddon: FitAddon | undefined;
@@ -97,7 +103,7 @@ onBeforeUnmount(() => {
         type="button"
         class="project-log-terminal-clear"
         :disabled="!clearable || clearing"
-        @click="emit('clear')"
+        @click="handleClear"
       >
         {{ clearing ? 'Limpando…' : 'Limpar' }}
       </button>

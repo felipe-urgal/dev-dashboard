@@ -37,6 +37,7 @@ export function useProjectRailsWorker(
   const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
   const log = ref<ProcessLogSnapshot | null>(null);
   const logLoading = ref(false);
+  const clearingLog = ref(false);
   const logsVisible = ref(false);
 
   let pollingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -211,8 +212,12 @@ export function useProjectRailsWorker(
   }
 
   async function clearLog(): Promise<void> {
+    if (clearingLog.value) return;
+
     const projectId = getProject().id;
-    const generation = projectRequests.capture();
+    const generation = projectRequests.invalidate();
+    clearingLog.value = true;
+    stopLogStream();
 
     try {
       const snapshot = await clearProjectRailsWorkerLog(projectId, workerId);
@@ -225,6 +230,11 @@ export function useProjectRailsWorker(
           error instanceof Error
             ? error.message
             : 'Não foi possível limpar o log.';
+      }
+    } finally {
+      if (isCurrentProject(projectId, generation)) {
+        clearingLog.value = false;
+        startLogStream();
       }
     }
   }
@@ -355,6 +365,7 @@ export function useProjectRailsWorker(
     statusLabel,
     log,
     logLoading,
+    clearingLog,
     logsVisible,
     startLogStream,
     toggleLogs,
