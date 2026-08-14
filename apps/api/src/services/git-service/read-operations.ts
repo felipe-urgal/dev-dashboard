@@ -29,6 +29,34 @@ import { parseCommits, parseStatus } from './status-parsing.js';
 
 /** Leituras: visão geral, diff (snapshot/arquivo) e expansão de contexto de linhas. Não têm mutação nem confirmação. */
 
+async function readSubmoduleDiff(
+  projectPath: string,
+  safePath: string,
+  scope: GitDiffScope,
+  base: string | null,
+): Promise<string> {
+  const indexEntry = await runGit(projectPath, [
+    'ls-files',
+    '-s',
+    '--',
+    safePath,
+  ]).catch(() => '');
+  const treeEntry = await runGit(projectPath, [
+    'ls-tree',
+    base ?? 'HEAD',
+    '--',
+    safePath,
+  ]).catch(() => '');
+
+  if (!/^(?:160000\s|.*\s160000\s)/m.test(indexEntry + treeEntry)) {
+    return '';
+  }
+
+  return runGit(projectPath, [
+    ...gitDiffArgs(scope, base, ['--submodule=short', '--', safePath]),
+  ]).catch(() => '');
+}
+
 export async function getOverview(
   projectPath: string,
 ): Promise<ProjectGitOverview> {
@@ -149,6 +177,10 @@ export async function getFileDiff(
     }
   }
   if (!binary && /^Binary files /m.test(raw)) binary = true;
+
+  if (!binary && !raw.trim()) {
+    raw = await readSubmoduleDiff(projectPath, safePath, scope, base);
+  }
 
   const truncated = raw.length > GIT_DIFF_FILE_LIMIT;
   const trimmed = truncated ? raw.slice(0, GIT_DIFF_FILE_LIMIT) : raw;
