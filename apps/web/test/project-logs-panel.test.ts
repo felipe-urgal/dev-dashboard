@@ -92,7 +92,7 @@ describe('ProjectLogsPanel', () => {
 
     try {
       expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
-      expect(wrapper.find('.project-log-terminal-only').exists()).toBe(true);
+      expect(wrapper.classes()).toContain('project-logs-terminal-only');
       expect(wrapper.find('.stream-toggle-button').exists()).toBe(false);
       expect(wrapper.find('.project-log-runtime-strip').exists()).toBe(false);
       expect(wrapper.find('.project-log-view-switch').exists()).toBe(false);
