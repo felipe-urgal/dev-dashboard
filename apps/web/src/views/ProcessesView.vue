@@ -52,7 +52,7 @@ const {
     id="processes"
     class="content processes-page"
     :aria-busy="loading"
-    aria-labelledby="processes-title"
+    aria-label="Processos gerenciados"
   >
     <dl
       v-if="!loading || items.length > 0"

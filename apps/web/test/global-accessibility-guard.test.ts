@@ -63,24 +63,24 @@ function cssToken(block: string, token: string): string {
 }
 
 test('páginas globais possuem landmark nomeado', async () => {
-  const pagesWithVisibleHeading = [
+  const pagesWithNamedLandmark = [
     {
       path: 'apps/web/src/views/ProcessesView.vue',
-      headingId: 'processes-title',
+      landmarkLabel: 'Processos gerenciados',
     },
   ];
 
-  for (const page of pagesWithVisibleHeading) {
+  for (const page of pagesWithNamedLandmark) {
     const content = await source(page.path);
     assert.match(
       content,
-      new RegExp(`aria-labelledby="${page.headingId}"`),
-      `${page.path} deve nomear seu landmark principal.`,
+      new RegExp(`aria-label="${page.landmarkLabel}"`),
+      `${page.path} deve nomear seu landmark principal com aria-label.`,
     );
-    assert.match(
+    assert.doesNotMatch(
       content,
-      new RegExp(`<h[1-6][^>]*id="${page.headingId}"`),
-      `${page.path} deve conter o título referenciado.`,
+      /id="processes-title"/,
+      `${page.path} não deve depender de um título oculto para nomear o landmark.`,
     );
   }
 
