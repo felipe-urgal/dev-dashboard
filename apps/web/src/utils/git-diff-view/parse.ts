@@ -19,8 +19,10 @@ export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
   let newLine: number | null = null;
   let previousHunkContext = '';
   const lines: GitUnifiedDiffLine[] = [];
+  const rawLines = content.split('\n');
+  while (rawLines.at(-1) === '') rawLines.pop();
 
-  for (const rawLine of content.split('\n')) {
+  for (const rawLine of rawLines) {
     const hunk = HUNK_PATTERN.exec(rawLine);
     if (hunk) {
       oldLine = Number.parseInt(hunk[2] ?? '0', 10);
