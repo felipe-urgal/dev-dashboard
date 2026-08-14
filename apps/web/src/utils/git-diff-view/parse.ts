@@ -20,7 +20,7 @@ export function parseUnifiedGitDiff(content: string): GitUnifiedDiffLine[] {
   let previousHunkContext = '';
   const lines: GitUnifiedDiffLine[] = [];
   const rawLines = content.split('\n');
-  if (rawLines.at(-1) === '') rawLines.pop();
+  while (rawLines.at(-1) === '') rawLines.pop();
 
   for (const rawLine of rawLines) {
     const hunk = HUNK_PATTERN.exec(rawLine);
