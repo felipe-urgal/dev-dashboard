@@ -122,7 +122,6 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   overflow: hidden;
   background: #10131c;
-  border: 1px solid #262c40;
   color: #dbe0f2;
 }
 

@@ -423,7 +423,6 @@ onBeforeUnmount(() => {
   max-height: 100%;
   max-height: none;
   background: #10131c;
-  border: 1px solid #262c40;
   box-shadow: var(--shadow-1);
   overflow: hidden;
   resize: both;

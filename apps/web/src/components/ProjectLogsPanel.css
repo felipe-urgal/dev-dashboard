@@ -272,7 +272,6 @@
 
   margin: 14px;
   overflow: hidden;
-  border: 1px solid var(--term-border);
   color: var(--term-text);
   background: var(--term-bg);
   box-shadow: var(--term-inset-shadow);
