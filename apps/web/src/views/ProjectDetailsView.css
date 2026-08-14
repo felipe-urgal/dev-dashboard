@@ -23,7 +23,7 @@
   width: 100%;
   max-width: none;
   align-self: stretch;
-  background: #fff;
+  background: var(--surface-1);
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
