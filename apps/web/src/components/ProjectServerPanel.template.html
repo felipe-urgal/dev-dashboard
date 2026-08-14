@@ -127,9 +127,6 @@
           <button type="button" class="server-secondary-button" :disabled="executingAction" @click="handleRestart">
             <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
           </button>
-          <a v-if="primaryProcessUrl" class="server-secondary-button" :href="primaryProcessUrl" target="_blank" rel="noopener noreferrer">
-            <ArrowTopRightOnSquareIcon aria-hidden="true" />Abrir localhost
-          </a>
         </footer>
       </section>
     </template>
