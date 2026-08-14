@@ -10,5 +10,7 @@
     :content="logSnapshot?.content ?? ''"
     :running="processStatus === 'running'"
     :masked-count="logSnapshot?.redactionCount ?? 0"
+    :clearable="hasManagedProcess"
+    @clear="clearLogView"
   />
 </div>
