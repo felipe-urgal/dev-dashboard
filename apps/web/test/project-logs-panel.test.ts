@@ -216,9 +216,9 @@ describe('ProjectLogsPanel', () => {
       expect(wrapper.get('.project-log-terminal').text()).toContain(
         'Terminal do servidor',
       );
-      expect(wrapper.get('.project-log-terminal-body').attributes('tabindex')).toBe(
-        undefined,
-      );
+      expect(
+        wrapper.get('.project-log-terminal-body').attributes('tabindex'),
+      ).toBe(undefined);
     } finally {
       wrapper.unmount();
       restoreFetch();
