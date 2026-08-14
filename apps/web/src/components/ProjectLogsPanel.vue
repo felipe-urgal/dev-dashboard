@@ -31,8 +31,9 @@ const isLoading = computed(
 .project-logs-terminal-only {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   width: 100%;
-  height: calc(100vh - 116px);
+  height: 100%;
   min-height: 0;
 }
 

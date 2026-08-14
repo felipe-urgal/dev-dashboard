@@ -31,7 +31,6 @@ const {
   errorMessage: mutationErrorMessage,
   starting,
   cancelling,
-  connecting,
   isRunning,
   terminalContainer,
   run,
@@ -75,15 +74,6 @@ function managerName(origin: string): string {
 function managerClass(origin: string): string {
   return origin === 'bundler' ? 'is-ruby' : 'is-node';
 }
-
-const statusLabel = computed(() => {
-  if (connecting.value) return 'Conectando…';
-  if (isRunning.value) return 'Executando…';
-  if (!snapshot.value || snapshot.value.status !== 'exited') return '';
-  return snapshot.value.exitCode === 0
-    ? `${snapshot.value.actionName} concluído.`
-    : `${snapshot.value.actionName} falhou (código ${snapshot.value.exitCode ?? '—'}).`;
-});
 
 async function load(): Promise<void> {
   const current = ++generation;
@@ -286,10 +276,6 @@ watch(
           >
             {{ mutationErrorMessage }}
           </p>
-          <p v-else-if="statusLabel" class="dependencies-status">
-            {{ statusLabel }}
-          </p>
-
           <div ref="terminalContainer" class="dependencies-terminal"></div>
         </template>
 

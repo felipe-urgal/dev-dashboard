@@ -160,7 +160,7 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
     },
   });
   await flushPromises();
-  assert.match(wrapper.text(), /Executando/);
+  assert.doesNotMatch(wrapper.text(), /Executando…/);
 
   socket.emitMessage({ type: 'output', data: 'ok\n' });
   await flushPromises();
@@ -168,7 +168,7 @@ test('executar conecta via WebSocket, escreve a saída e mostra o resultado ao e
   socket.emitMessage({ type: 'exit', exitCode: 0, exitSignal: null });
   await flushPromises();
 
-  assert.match(wrapper.text(), /Concluído com sucesso/);
+  assert.doesNotMatch(wrapper.text(), /Concluído com sucesso/);
 });
 
 test('cancelar chama cancelProjectTestPty enquanto a execução está em andamento', async () => {

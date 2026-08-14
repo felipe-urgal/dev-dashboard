@@ -84,6 +84,8 @@ onBeforeUnmount(() => {
 .project-log-terminal {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -129,9 +131,16 @@ onBeforeUnmount(() => {
 }
 
 .project-log-terminal-body {
-  min-height: 280px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   flex: 1 1 auto;
   padding: 12px;
   overflow: hidden;
+}
+
+.project-log-terminal-body :deep(.xterm) {
+  width: 100%;
+  height: 100%;
 }
 </style>

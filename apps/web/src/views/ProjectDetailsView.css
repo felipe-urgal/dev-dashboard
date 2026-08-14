@@ -40,7 +40,8 @@
 
 :deep(.project-doctor-panel),
 :deep(.project-doctor-card) {
-  min-height: calc(100vh - 133px);
+  height: 100%;
+  min-height: 0;
 }
 
 .project-details-sticky-header {
