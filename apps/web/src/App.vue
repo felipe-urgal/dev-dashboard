@@ -140,10 +140,6 @@ onMounted(() => {
 
       <div class="sidebar-tools">
         <VisualPreferences />
-        <div class="sidebar-status" aria-label="Ambiente local">
-          <span class="sidebar-status-dot" aria-hidden="true" />
-          <span>Ambiente local</span>
-        </div>
       </div>
     </aside>
 
