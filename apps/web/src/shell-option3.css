@@ -1211,3 +1211,24 @@
   gap: 12px;
   flex-wrap: wrap;
 }
+
+
+/* Data tooling responsive guardrails. */
+.database-explorer,
+.dependencies-panel,
+.database-sidebar-panel,
+.database-detail-panel {
+  min-width: 0;
+}
+
+.database-explorer-tabs,
+.dependencies-header {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.database-table-wrap,
+.dependencies-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
