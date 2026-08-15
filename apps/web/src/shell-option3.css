@@ -1195,3 +1195,19 @@
 .terminal-window {
   min-width: 0;
 }
+
+
+/* Test workspace responsive guardrails. */
+.tests-dashboard,
+.tests-config-card,
+.tests-result,
+.tests-log-experience-shell,
+.tests-ready-state {
+  min-width: 0;
+}
+
+.tests-panel-heading,
+.tests-config-card-heading {
+  gap: 12px;
+  flex-wrap: wrap;
+}
