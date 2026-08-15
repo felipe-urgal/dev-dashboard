@@ -2,7 +2,6 @@
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { dashboardStore } from '../stores/dashboard';
-import { useAutoDismiss } from '../composables/useAutoDismiss';
 import WorkspaceDirectoryPicker from './WorkspaceDirectoryPicker.vue';
 
 const props = defineProps<{
@@ -20,14 +19,9 @@ const {
   newWorkspaceRecursiveScan,
   creatingWorkspace,
   recursiveScanUpdatingIds,
-  errorMessage,
-  successMessage,
   handleCreateWorkspace,
   toggleWorkspaceRecursiveScan,
 } = dashboardStore;
-
-useAutoDismiss(errorMessage, '');
-useAutoDismiss(successMessage, '');
 
 const directoryPickerOpen = ref(false);
 const closeButton = ref<HTMLButtonElement | null>(null);
@@ -121,36 +115,6 @@ onBeforeUnmount(() => {
             Fechar
           </button>
         </header>
-
-        <div v-if="errorMessage" class="alert alert-error" role="alert">
-          <div class="alert-body">
-            <strong>Não foi possível concluir a ação.</strong>
-            <span>{{ errorMessage }}</span>
-          </div>
-          <button
-            type="button"
-            class="alert-dismiss"
-            aria-label="Fechar aviso"
-            @click="errorMessage = ''"
-          >
-            ×
-          </button>
-        </div>
-
-        <div v-if="successMessage" class="alert alert-success" role="status">
-          <div class="alert-body">
-            <strong>Ação concluída.</strong>
-            <span>{{ successMessage }}</span>
-          </div>
-          <button
-            type="button"
-            class="alert-dismiss"
-            aria-label="Fechar aviso"
-            @click="successMessage = ''"
-          >
-            ×
-          </button>
-        </div>
 
         <section
           v-if="workspaces.length > 0"

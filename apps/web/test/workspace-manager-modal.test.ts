@@ -77,14 +77,12 @@ describe('WorkspaceManagerModal', () => {
     expect(actions.criar).toHaveBeenCalledOnce();
   });
 
-  it('mostra erro de validação dentro do próprio modal', () => {
+  it('não renderiza mais alerta inline (mensagens viram toast global)', () => {
     dashboardStore.errorMessage.value =
       'Informe o nome e o caminho do workspace.';
     mountModal();
 
-    expect(document.querySelector('.alert-error')?.textContent).toContain(
-      'Informe o nome e o caminho do workspace.',
-    );
+    expect(document.querySelector('.alert-error')).toBeNull();
   });
 
   it('emite close ao clicar em Fechar', () => {

@@ -7,7 +7,7 @@ import type { Project } from '@dev-dashboard/contracts';
 
 import { fetchProjectGit } from '../api';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
-import { projectInitials, projectTypeLabels } from '../utils/project-labels';
+import { projectTypeLabels } from '../utils/project-labels';
 import ProjectProcessesMenu from './ProjectProcessesMenu.vue';
 import StatusBadge from './StatusBadge.vue';
 
@@ -66,8 +66,14 @@ const projectDetailsRoute = computed(() => ({
   params: { projectId: props.project.id },
 }));
 
+const stackCode: Record<Project['type'], string> = {
+  rails: 'RB',
+  node: 'JS',
+  unknown: '—',
+};
+
 const typeLabel = computed(() => projectTypeLabels[props.project.type]);
-const initials = computed(() => projectInitials(props.project.name));
+const typeCode = computed(() => stackCode[props.project.type]);
 
 const localUrl = computed(() =>
   props.project.enabled && managedProcess.value?.port
@@ -91,7 +97,7 @@ const localUrl = computed(() =>
         :title="typeLabel"
         aria-hidden="true"
       >
-        {{ initials }}
+        {{ typeCode }}
       </div>
 
       <RouterLink
@@ -100,7 +106,9 @@ const localUrl = computed(() =>
         :aria-label="`Ver detalhes de ${project.name}`"
       >
         <h3>{{ project.name }}</h3>
-        <code class="project-card-path">{{ project.path }}</code>
+        <code class="project-card-path" :title="project.path">{{
+          project.path
+        }}</code>
       </RouterLink>
 
       <ProjectProcessesMenu v-if="project.enabled" :project="project" />

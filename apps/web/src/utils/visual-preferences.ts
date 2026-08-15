@@ -1,3 +1,5 @@
+import { ref } from 'vue';
+
 export const THEMES = ['dark', 'light'] as const;
 
 export type Theme = (typeof THEMES)[number];
@@ -11,6 +13,9 @@ const THEME_KEY = 'dev-dashboard:theme';
 export const DEFAULT_VISUAL_PREFERENCES: VisualPreferences = {
   theme: 'dark',
 };
+
+/** Tema atualmente aplicado, compartilhado entre o toggle da sidebar e o Toaster (vue-sonner). */
+export const currentTheme = ref<Theme>(DEFAULT_VISUAL_PREFERENCES.theme);
 
 function storedValue(storage: Storage | undefined, key: string): string | null {
   if (!storage) return null;
@@ -37,6 +42,7 @@ export function applyVisualPreferences(
   root: HTMLElement = document.documentElement,
 ): void {
   root.dataset.theme = preferences.theme;
+  currentTheme.value = preferences.theme;
 }
 
 export function saveVisualPreferences(

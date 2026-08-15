@@ -6,18 +6,27 @@ import {
   PlusIcon,
 } from '@heroicons/vue/24/outline';
 import { onMounted, ref, watch } from 'vue';
+import { Toaster } from 'vue-sonner';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
+import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
 import AppDialog from './components/AppDialog.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
 import {
+  currentTheme,
+  loadVisualPreferences,
+} from './utils/visual-preferences';
+import {
   readSidebarCollapsed,
   storeSidebarCollapsed,
 } from './utils/sidebar-preferences';
+
+loadVisualPreferences();
+useDashboardToastBridge();
 
 const workspaceManagerOpen = ref(false);
 const sidebarCollapsed = ref(readSidebarCollapsed());
@@ -153,5 +162,11 @@ onMounted(() => {
     />
 
     <AppDialog />
+    <Toaster
+      :theme="currentTheme"
+      position="top-right"
+      rich-colors
+      close-button
+    />
   </div>
 </template>

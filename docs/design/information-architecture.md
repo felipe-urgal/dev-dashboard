@@ -128,6 +128,20 @@ logs/histórico segue configurável apenas por variável de ambiente. Gerenciame
 de workspaces, portas e diagnósticos do ambiente vivem em **Repositórios** e no
 Project Doctor, não numa área de configurações dedicada.
 
+### Notificações transitórias
+
+Mensagens de sucesso/erro/aviso de ações do usuário (escanear workspace,
+cadastrar workspace, variáveis de ambiente, etc.) não são mais banners fixos
+no topo do conteúdo — viram toasts flutuantes no canto superior direito,
+renderizados por [`vue-sonner`](https://github.com/xiaoluoboding/vue-sonner)
+(`<Toaster>` montado uma única vez em `App.vue`, tema sincronizado com o
+toggle claro/escuro da sidebar via `utils/visual-preferences.ts`). Somem
+sozinhos depois de alguns segundos ou por dismiss manual, sem empurrar o
+conteúdo da página. A ponte entre estado existente e a lib fica em
+`useDashboardToastBridge` (para os campos transitórios da `dashboardStore`)
+e em watchers pontuais nos componentes que têm mensagens próprias (ex.
+`ProjectEnvironmentPanel`).
+
 ## Estrutura do app shell
 
 ```text

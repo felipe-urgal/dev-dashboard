@@ -1,20 +1,15 @@
 <script setup lang="ts">
 import { MoonIcon, SunIcon } from '@heroicons/vue/24/outline';
-import { ref } from 'vue';
 
 import {
-  loadVisualPreferences,
+  currentTheme,
   saveVisualPreferences,
   type Theme,
 } from '../utils/visual-preferences';
 
-const initialPreferences = loadVisualPreferences();
-const theme = ref<Theme>(initialPreferences.theme);
-
 function selectTheme(value: Theme): void {
-  theme.value = value;
   saveVisualPreferences(
-    { theme: theme.value },
+    { theme: value },
     typeof localStorage === 'undefined' ? undefined : localStorage,
   );
 }
@@ -28,7 +23,7 @@ function selectTheme(value: Theme): void {
   >
     <button
       type="button"
-      :aria-pressed="theme === 'dark'"
+      :aria-pressed="currentTheme === 'dark'"
       @click="selectTheme('dark')"
     >
       <MoonIcon aria-hidden="true" />
@@ -36,7 +31,7 @@ function selectTheme(value: Theme): void {
     </button>
     <button
       type="button"
-      :aria-pressed="theme === 'light'"
+      :aria-pressed="currentTheme === 'light'"
       @click="selectTheme('light')"
     >
       <SunIcon aria-hidden="true" />
