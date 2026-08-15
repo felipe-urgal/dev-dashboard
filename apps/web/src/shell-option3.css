@@ -1232,3 +1232,17 @@
   max-width: 100%;
   overflow-x: auto;
 }
+
+
+/* Runtime and environment responsive guardrails. */
+.project-environment-panel,
+.project-environment-file-card,
+.rails-runtime-panel,
+.rails-worker-card {
+  min-width: 0;
+}
+
+.project-environment-file-card,
+.rails-worker-card {
+  overflow: hidden;
+}
