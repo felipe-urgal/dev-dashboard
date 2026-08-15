@@ -1,52 +1,6 @@
-/* Option 3: developer cockpit — a focused, dark operational shell. */
-
-:root {
-  --surface-0: #020b14;
-  --surface-1: #061522;
-  --surface-2: #0b1d2d;
-  --surface-3: #10283b;
-  --border: #17334a;
-  --border-strong: #24506a;
-  --text: #e8f5fb;
-  --text-muted: #8ba6b7;
-  --text-dim: #638194;
-  --accent: #32d6ee;
-  --accent-strong: #00b9d4;
-  --accent-soft: #07364a;
-  --info-text: #5bdff1;
-  --info-surface: #07364a;
-  --success-text: #45e39b;
-  --success-surface: #073b32;
-  --warning-text: #f3c94f;
-  --warning-surface: #443b0a;
-  --danger-text: #ff7181;
-  --danger-surface: #481d2b;
-  --shadow-1: 0 10px 30px rgb(0 0 0 / 24%);
-  --shadow-2: 0 24px 70px rgb(0 0 0 / 42%);
-}
-
-[data-theme='light'] {
-  --surface-0: #f5f8fa;
-  --surface-1: #ffffff;
-  --surface-2: #edf3f6;
-  --surface-3: #e0ebef;
-  --border: #d4e1e7;
-  --border-strong: #aac5d0;
-  --text: #102332;
-  --text-muted: #5b7280;
-  --text-dim: #748b97;
-  --accent: #058ca4;
-  --accent-strong: #00758c;
-  --accent-soft: #d9f4f8;
-  --info-text: #087b91;
-  --info-surface: #d9f4f8;
-  --success-text: #16734d;
-  --success-surface: #dff4e9;
-  --warning-text: #8f6b06;
-  --warning-surface: #fff4cc;
-  --danger-text: #a32d42;
-  --danger-surface: #ffe1e5;
-}
+/* Option 3: developer cockpit — a focused, dark operational shell.
+   Os tokens de cor (superfícies, texto, acentos, status) vivem só em
+   ../styles/tokens.css — este arquivo só estiliza os componentes com eles. */
 
 .app-shell {
   --app-sidebar-width: 292px;
@@ -1144,7 +1098,6 @@
   }
 }
 
-
 /* A unified keyboard focus treatment keeps the cockpit usable without a mouse. */
 :where(
   .compact-action-button,
@@ -1175,7 +1128,6 @@
   outline-offset: 3px;
 }
 
-
 /* Logs and terminal responsive guardrails. */
 .project-logs-layout,
 .project-log-terminal,
@@ -1196,7 +1148,6 @@
   min-width: 0;
 }
 
-
 /* Test workspace responsive guardrails. */
 .tests-dashboard,
 .tests-config-card,
@@ -1211,7 +1162,6 @@
   gap: 12px;
   flex-wrap: wrap;
 }
-
 
 /* Data tooling responsive guardrails. */
 .database-explorer,
@@ -1232,7 +1182,6 @@
   max-width: 100%;
   overflow-x: auto;
 }
-
 
 /* Runtime and environment responsive guardrails. */
 .project-environment-panel,
