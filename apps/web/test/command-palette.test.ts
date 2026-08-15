@@ -110,11 +110,6 @@ async function mountPalette(
         component: { template: '<div />' },
       },
       {
-        path: '/projects/:projectId/logs',
-        name: 'project-logs',
-        component: { template: '<div />' },
-      },
-      {
         path: '/projects/:projectId/git',
         name: 'project-git',
         component: { template: '<div />' },

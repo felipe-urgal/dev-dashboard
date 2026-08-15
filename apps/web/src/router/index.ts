@@ -35,8 +35,7 @@ export const router = createRouter({
     },
     {
       path: '/projects/:projectId/logs',
-      name: 'project-logs',
-      component: ProjectDetailsView,
+      redirect: (to) => ({ name: 'project-server', params: to.params }),
     },
     {
       path: '/projects/:projectId/git',

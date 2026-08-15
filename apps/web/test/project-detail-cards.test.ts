@@ -23,6 +23,19 @@ vi.mock('../src/api', async (importOriginal) => ({
     redactionCount: 0,
     readAt: new Date(0).toISOString(),
   }),
+  followProjectProcessLogEvents: vi
+    .fn()
+    .mockReturnValue({ close: vi.fn(), done: new Promise(() => {}) }),
+  clearProjectProcessLog: vi.fn().mockResolvedValue({
+    projectId: 'projeto-card',
+    processId: 'proc-1',
+    content: '',
+    sizeBytes: 0,
+    truncated: false,
+    masked: false,
+    redactionCount: 0,
+    readAt: new Date(0).toISOString(),
+  }),
   fetchProjectServerSettings: vi.fn().mockResolvedValue({}),
   fetchProjectTests: vi
     .fn()
@@ -116,6 +129,7 @@ describe('cards dos painéis de detalhe', () => {
     expect(wrapper.find('.server-dashboard').exists()).toBe(true);
     expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(false);
+    expect(wrapper.find('.server-logs').exists()).toBe(false);
     expect(wrapper.text()).toContain('Iniciar servidor');
     expect(wrapper.text()).not.toContain('Atividade recente');
     expect(wrapper.text()).not.toContain('Health check');
@@ -139,6 +153,8 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.find('.server-config-card').exists()).toBe(false);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);
+    expect(wrapper.find('.server-logs').exists()).toBe(true);
+    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
     expect(wrapper.text()).toContain('http://localhost:3000');
     expect(wrapper.text()).toContain('http://192.168.1.10:3000');
     expect(wrapper.text()).not.toContain('Configuração do processo');

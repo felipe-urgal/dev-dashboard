@@ -31,7 +31,6 @@
 :deep(.project-doctor-card),
 :deep(.server-dashboard),
 :deep(.server-dashboard-grid),
-:deep(.project-logs-layout),
 :deep(.git-modern-panel),
 :deep(.dependencies-panel),
 :deep(.project-environment-panel),
@@ -269,13 +268,6 @@
 
 :deep(.project-details-page .server-card + .server-card) {
   border-left: 1px solid var(--border);
-}
-
-:deep(.project-details-page .project-logs-card),
-:deep(.project-details-page .project-logs-topbar),
-:deep(.project-details-page .project-log-summary-card),
-:deep(.project-details-page .project-log-quick-actions) {
-  box-shadow: none;
 }
 
 :deep(.project-details-page .project-doctor-card),

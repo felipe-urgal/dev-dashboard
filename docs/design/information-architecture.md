@@ -291,10 +291,7 @@ Ações rápidas:
 Estrutura atual (`apps/web/src/router/index.ts`):
 
 ```text
-README
-Diagnóstico
 Servidor
-Logs
 Git
 Testes
 Banco de dados
@@ -303,7 +300,16 @@ Terminal
 Console
 Sidekiq/webpack
 Variáveis de ambiente
+Diagnóstico
+README
 ```
+
+README e Diagnóstico ficam no final da navegação — são material de referência consultado com menos
+frequência que as abas operacionais (Servidor, Git, Testes, ...), que ficam mais perto do início. A
+aba **Logs** foi removida como área própria: o terminal de log do servidor agora vive dentro da
+própria aba **Servidor**, abaixo do card de status, e só aparece enquanto o processo está de pé —
+o mesmo padrão usado pelas abas Sidekiq/webpack (`ProjectRailsRuntimePanel`), que também combinam
+status + terminal na mesma tela.
 
 As abas disponíveis dependem das capacidades detectadas: **Banco de dados** só quando o projeto
 tem suporte a banco detectado; **Dependências** (task 072, reúne Bundler/lockfile Node e build),
@@ -337,7 +343,8 @@ numerada — o produto não tem hoje nenhuma capacidade de IA (ver
 - start;
 - stop;
 - restart;
-- logs.
+- terminal de log, exibido só enquanto o processo está de pé (running/starting/stopping) — follow,
+  pausa de rolagem ao subir e limpar visualmente.
 
 ### Git
 
@@ -368,17 +375,6 @@ Exibida principalmente para Rails.
 - seed;
 - prepare;
 - tarefas futuras com confirmação.
-
-### Logs
-
-- seleção de processo;
-- atualização;
-- follow;
-- pausa de rolagem;
-- filtro;
-- copiar;
-- limpar visualmente;
-- exportação futura.
 
 ## Estados visuais
 
