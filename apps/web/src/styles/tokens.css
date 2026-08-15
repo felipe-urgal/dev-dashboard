@@ -33,8 +33,8 @@
 
   /* Tipografia */
   --font-family:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, 'Noto Sans', sans-serif;
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
   --font-xs: 10px;
   --font-sm: 11px;
   --font-md: 13px;
