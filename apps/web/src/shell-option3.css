@@ -1072,14 +1072,9 @@
     display: block;
   }
 
-  .projects-header,
-  .project-row-link {
+  .projects-header {
     grid-template-columns: minmax(0, 1.6fr) minmax(70px, 0.9fr) 62px 62px 72px;
     gap: 6px;
-  }
-
-  .project-row-link {
-    padding-inline: 12px 14px;
   }
 
   .sidebar {
@@ -1103,5 +1098,13 @@
 
   .content {
     padding: 22px 16px 36px;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 900px) {
+  .project-row-link {
+    grid-template-columns: minmax(0, 1.6fr) minmax(70px, 0.9fr) 62px 62px 72px !important;
+    gap: 6px !important;
+    padding-inline: 12px 14px !important;
   }
 }
