@@ -1,357 +1,347 @@
-  <section class="git-branches-page">
-    <div class="branch-table-card">
-      <header class="branch-table-toolbar">
-        <button
-          type="button"
-          class="primary-button branch-create-button"
-          :disabled="busy"
-          @click="openCreateModal"
-        >
-          <PlusIcon aria-hidden="true" />
-          Nova branch
-        </button>
+<section class="git-branches-page">
+  <div class="branch-table-card">
+    <header class="branch-table-toolbar">
+      <button
+        type="button"
+        class="primary-button branch-create-button"
+        :disabled="busy"
+        @click="openCreateModal"
+      >
+        <PlusIcon aria-hidden="true" />
+        Nova branch
+      </button>
 
-        <button
-          type="button"
-          class="secondary-button branch-refresh-button"
-          :disabled="busy"
-          @click="emit('refresh-remotes')"
-        >
-          Atualizar remotas
-        </button>
-      </header>
+      <button
+        type="button"
+        class="secondary-button branch-refresh-button"
+        :disabled="busy"
+        @click="emit('refresh-remotes')"
+      >
+        Atualizar remotas
+      </button>
+    </header>
 
-      <div class="branch-table-scroll">
-        <div class="branch-table-header" aria-hidden="true">
-          <span>Branch</span>
-          <span>Local</span>
-          <span>Origin</span>
-          <span>Estado</span>
-          <span>Ações</span>
+    <div class="branch-table-scroll">
+      <div class="branch-table-header" aria-hidden="true">
+        <span>Branch</span>
+        <span>Local</span>
+        <span>Origin</span>
+        <span>Estado</span>
+        <span>Ações</span>
+      </div>
+
+      <div
+        v-for="row in rows"
+        :key="row.name"
+        class="branch-table-row"
+        :class="{ 'is-current': row.local?.current }"
+      >
+        <div class="branch-name-cell">
+          <ShareIcon aria-hidden="true" />
+          <strong>{{ row.name }}</strong>
+          <span v-if="row.local?.current" class="branch-current-badge">
+            Atual
+          </span>
+          <LockClosedIcon
+            v-if="isProtected(row)"
+            class="branch-protected-icon"
+            aria-label="Branch protegida"
+          />
         </div>
 
-        <div
-          v-for="row in rows"
-          :key="row.name"
-          class="branch-table-row"
-          :class="{ 'is-current': row.local?.current }"
-        >
-          <div class="branch-name-cell">
-            <ShareIcon aria-hidden="true" />
-            <strong>{{ row.name }}</strong>
-            <span v-if="row.local?.current" class="branch-current-badge">
-              Atual
-            </span>
-            <LockClosedIcon
-              v-if="isProtected(row)"
-              class="branch-protected-icon"
-              aria-label="Branch protegida"
-            />
-          </div>
+        <span class="branch-presence">
+          <CheckCircleIcon
+            v-if="row.local"
+            class="is-present"
+            aria-hidden="true"
+          />
+          <MinusCircleIcon v-else aria-hidden="true" />
+          {{ row.local ? 'Sim' : 'Não' }}
+        </span>
 
-          <span class="branch-presence">
-            <CheckCircleIcon v-if="row.local" class="is-present" aria-hidden="true" />
-            <MinusCircleIcon v-else aria-hidden="true" />
-            {{ row.local ? 'Sim' : 'Não' }}
-          </span>
+        <span class="branch-presence">
+          <CheckCircleIcon
+            v-if="row.origin"
+            class="is-present"
+            aria-hidden="true"
+          />
+          <MinusCircleIcon v-else aria-hidden="true" />
+          {{ row.origin ? 'Sim' : 'Não' }}
+        </span>
 
-          <span class="branch-presence">
-            <CheckCircleIcon v-if="row.origin" class="is-present" aria-hidden="true" />
-            <MinusCircleIcon v-else aria-hidden="true" />
-            {{ row.origin ? 'Sim' : 'Não' }}
-          </span>
+        <span class="branch-state" :class="`is-${stateTone(row)}`">
+          <span aria-hidden="true" />
+          {{ stateLabel(row) }}
+        </span>
 
-          <span class="branch-state" :class="`is-${stateTone(row)}`">
-            <span aria-hidden="true" />
-            {{ stateLabel(row) }}
-          </span>
-
-          <div class="branch-row-actions">
+        <div class="branch-row-actions">
+          <button
+            v-if="row.local && (!row.origin || row.local.ahead > 0)"
+            type="button"
+            class="secondary-button branch-publish-button"
+            :disabled="busy"
+            @click="emit('publish', row.name)"
+          >
+            {{ row.origin ? 'Enviar' : 'Publicar' }}
+          </button>
+          <button
+            v-if="row.local && !row.local.current"
+            type="button"
+            class="secondary-button"
+            :disabled="busy"
+            @click="emit('switch', row.name)"
+          >
+            Trocar
+          </button>
+          <template v-else-if="!row.local && row.origin">
+            <span class="branch-readonly">Somente leitura</span>
             <button
-              v-if="row.local && (!row.origin || row.local.ahead > 0)"
-              type="button"
-              class="secondary-button branch-publish-button"
-              :disabled="busy"
-              @click="emit('publish', row.name)"
-            >
-              {{ row.origin ? 'Enviar' : 'Publicar' }}
-            </button>
-            <button
-              v-if="row.local && !row.local.current"
               type="button"
               class="secondary-button"
               :disabled="busy"
-              @click="emit('switch', row.name)"
+              @click="emit('track', row.origin.name)"
             >
-              Trocar
+              Trazer para local
             </button>
-            <template v-else-if="!row.local && row.origin">
-              <span class="branch-readonly">Somente leitura</span>
-              <button
-                type="button"
-                class="secondary-button"
-                :disabled="busy"
-                @click="emit('track', row.origin.name)"
-              >
-                Trazer para local
-              </button>
-            </template>
+          </template>
 
-            <div
-              v-if="!isProtected(row) && (row.local || row.origin)"
-              class="branch-action-menu"
-              @click.stop
-            >
+          <NPopover
+            v-if="!isProtected(row) && (row.local || row.origin)"
+            trigger="manual"
+            placement="bottom-end"
+            raw
+            :show-arrow="false"
+            :show="openMenu === row.name"
+            class="branch-menu-popover"
+            @clickoutside="closeMenu"
+          >
+            <template #trigger>
               <button
                 type="button"
                 class="branch-menu-trigger"
                 :aria-expanded="openMenu === row.name"
                 :aria-label="`Ações da branch ${row.name}`"
-                @click="toggleMenu(row.name)"
+                @click.stop="toggleMenu(row.name)"
               >
                 <EllipsisHorizontalIcon aria-hidden="true" />
               </button>
+            </template>
 
-              <div
-                v-if="openMenu === row.name"
-                class="branch-menu-popover"
-              >
-                <button
-                  v-if="row.local"
-                  type="button"
-                  @click="openRenameModal(row)"
-                >
-                  <PencilSquareIcon aria-hidden="true" />
-                  Renomear
-                </button>
-                <button
-                  v-if="row.local && !row.local.current"
-                  type="button"
-                  class="is-danger"
-                  @click="openDeleteModal(row)"
-                >
-                  <TrashIcon aria-hidden="true" />
-                  Remover branch…
-                </button>
-                <button
-                  v-if="row.origin"
-                  type="button"
-                  class="is-danger"
-                  @click="openDeleteRemoteModal(row)"
-                >
-                  <TrashIcon aria-hidden="true" />
-                  Remover do origin…
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="loading" class="branch-table-empty">
-          Atualizando branches…
-        </div>
-        <div v-else-if="rows.length === 0" class="branch-table-empty">
-          Nenhuma branch disponível neste filtro.
+            <button
+              v-if="row.local"
+              type="button"
+              @click="openRenameModal(row)"
+            >
+              <PencilSquareIcon aria-hidden="true" />
+              Renomear
+            </button>
+            <button
+              v-if="row.local && !row.local.current"
+              type="button"
+              class="is-danger"
+              @click="openDeleteModal(row)"
+            >
+              <TrashIcon aria-hidden="true" />
+              Remover branch…
+            </button>
+            <button
+              v-if="row.origin"
+              type="button"
+              class="is-danger"
+              @click="openDeleteRemoteModal(row)"
+            >
+              <TrashIcon aria-hidden="true" />
+              Remover do origin…
+            </button>
+          </NPopover>
         </div>
       </div>
-    </div>
 
-    <Teleport to="body">
-      <div
-        v-if="modal"
-        class="branch-modal-backdrop"
-        @click.self="closeModal"
+      <div v-if="loading" class="branch-table-empty">Atualizando branches…</div>
+      <div v-else-if="rows.length === 0" class="branch-table-empty">
+        Nenhuma branch disponível neste filtro.
+      </div>
+    </div>
+  </div>
+
+  <Teleport to="body">
+    <div v-if="modal" class="branch-modal-backdrop" @click.self="closeModal">
+      <section
+        class="branch-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="`branch-${modal}-title`"
       >
-        <section
-          class="branch-modal"
-          role="dialog"
-          aria-modal="true"
-          :aria-labelledby="`branch-${modal}-title`"
+        <header>
+          <div>
+            <h2 :id="`branch-${modal}-title`">{{ modalTitle }}</h2>
+            <p v-if="modal === 'create'">
+              Será criada a partir de
+              <strong>{{ overview.branch ?? 'HEAD' }}</strong>.
+            </p>
+            <p v-else-if="modal === 'rename'">
+              Altere apenas o nome da branch local.
+            </p>
+            <p v-else-if="modal === 'delete-remote'">
+              A branch será removida de <strong>origin</strong>. A branch local,
+              se existir, será mantida.
+            </p>
+            <p v-else>
+              A branch local será removida mesmo que possua commits não
+              integrados.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="branch-modal-close"
+            aria-label="Fechar"
+            :disabled="busy"
+            @click="closeModal"
+          >
+            <XMarkIcon aria-hidden="true" />
+          </button>
+        </header>
+
+        <form
+          v-if="modal === 'create'"
+          class="branch-modal-form"
+          @submit.prevent="submitCreate"
         >
-          <header>
-            <div>
-              <h2 :id="`branch-${modal}-title`">
-                {{
-                  modal === 'create'
-                    ? 'Nova branch'
-                    : modal === 'rename'
-                      ? 'Renomear branch'
-                      : modal === 'delete-remote'
-                        ? 'Remover branch remota'
-                        : 'Remover branch local'
-                }}
-              </h2>
-              <p v-if="modal === 'create'">
-                Será criada a partir de
-                <strong>{{ overview.branch ?? 'HEAD' }}</strong>.
-              </p>
-              <p v-else-if="modal === 'rename'">
-                Altere apenas o nome da branch local.
-              </p>
-              <p v-else-if="modal === 'delete-remote'">
-                A branch será removida de <strong>origin</strong>. A branch local,
-                se existir, será mantida.
-              </p>
-              <p v-else>
-                A branch local será removida mesmo que possua commits não integrados.
-              </p>
-            </div>
+          <div class="branch-name-composer">
+            <label>
+              <span>Prefixo</span>
+              <select v-model="branchPrefix" :disabled="busy">
+                <option
+                  v-for="prefix in prefixes"
+                  :key="prefix.value"
+                  :value="prefix.value"
+                >
+                  {{ prefix.value }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>Nome</span>
+              <input
+                v-model="branchSuffix"
+                type="text"
+                maxlength="190"
+                placeholder="novo-login"
+                autofocus
+                :disabled="busy"
+              />
+            </label>
+          </div>
+
+          <label>
+            <span>Nome completo</span>
+            <input :value="fullBranchName" type="text" readonly tabindex="-1" />
+          </label>
+
+          <div class="branch-prefix-grid" aria-label="Tipos de branch">
+            <button
+              v-for="prefix in prefixes"
+              :key="prefix.value"
+              type="button"
+              :class="{ active: branchPrefix === prefix.value }"
+              @click="branchPrefix = prefix.value"
+            >
+              <strong>{{ prefix.value }}</strong>
+              <span>{{ prefix.label }}</span>
+            </button>
+          </div>
+
+          <footer>
             <button
               type="button"
-              class="branch-modal-close"
-              aria-label="Fechar"
+              class="secondary-button"
               :disabled="busy"
               @click="closeModal"
             >
-              <XMarkIcon aria-hidden="true" />
+              Cancelar
             </button>
-          </header>
+            <button
+              type="submit"
+              class="primary-button"
+              :disabled="busy || !canSubmitCreate"
+            >
+              Criar e trocar
+            </button>
+          </footer>
+        </form>
 
-          <form
-            v-if="modal === 'create'"
-            class="branch-modal-form"
-            @submit.prevent="submitCreate"
-          >
-            <div class="branch-name-composer">
-              <label>
-                <span>Prefixo</span>
-                <select v-model="branchPrefix" :disabled="busy">
-                  <option
-                    v-for="prefix in prefixes"
-                    :key="prefix.value"
-                    :value="prefix.value"
-                  >
-                    {{ prefix.value }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                <span>Nome</span>
-                <input
-                  v-model="branchSuffix"
-                  type="text"
-                  maxlength="190"
-                  placeholder="novo-login"
-                  autofocus
-                  :disabled="busy"
-                />
-              </label>
-            </div>
+        <form
+          v-else-if="modal === 'rename'"
+          class="branch-modal-form"
+          @submit.prevent="submitRename"
+        >
+          <label>
+            <span>Novo nome</span>
+            <input
+              v-model="renamedBranch"
+              type="text"
+              maxlength="200"
+              autofocus
+              :disabled="busy"
+            />
+          </label>
+          <footer>
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="busy"
+              @click="closeModal"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="primary-button"
+              :disabled="busy || !canSubmitRename"
+            >
+              Salvar novo nome
+            </button>
+          </footer>
+        </form>
 
-            <label>
-              <span>Nome completo</span>
-              <input
-                :value="fullBranchName"
-                type="text"
-                readonly
-                tabindex="-1"
-              />
-            </label>
-
-            <div class="branch-prefix-grid" aria-label="Tipos de branch">
-              <button
-                v-for="prefix in prefixes"
-                :key="prefix.value"
-                type="button"
-                :class="{ active: branchPrefix === prefix.value }"
-                @click="branchPrefix = prefix.value"
-              >
-                <strong>{{ prefix.value }}</strong>
-                <span>{{ prefix.label }}</span>
-              </button>
-            </div>
-
-            <footer>
-              <button
-                type="button"
-                class="secondary-button"
-                :disabled="busy"
-                @click="closeModal"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                class="primary-button"
-                :disabled="busy || !canSubmitCreate"
-              >
-                Criar e trocar
-              </button>
-            </footer>
-          </form>
-
-          <form
-            v-else-if="modal === 'rename'"
-            class="branch-modal-form"
-            @submit.prevent="submitRename"
-          >
-            <label>
-              <span>Novo nome</span>
-              <input
-                v-model="renamedBranch"
-                type="text"
-                maxlength="200"
-                autofocus
-                :disabled="busy"
-              />
-            </label>
-            <footer>
-              <button
-                type="button"
-                class="secondary-button"
-                :disabled="busy"
-                @click="closeModal"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                class="primary-button"
-                :disabled="busy || !canSubmitRename"
-              >
-                Salvar novo nome
-              </button>
-            </footer>
-          </form>
-
-          <form
-            v-else
-            class="branch-modal-form branch-delete-form"
-            @submit.prevent="submitDelete"
-          >
-            <p>
-              Esta ação não pode ser desfeita. Para confirmar, digite
-              <strong>{{ selectedRow?.name }}</strong>.
-            </p>
-            <label>
-              <span>Nome da branch</span>
-              <input
-                v-model="deleteConfirmation"
-                type="text"
-                autocomplete="off"
-                autofocus
-                :disabled="busy"
-              />
-            </label>
-            <footer>
-              <button
-                type="button"
-                class="secondary-button"
-                :disabled="busy"
-                @click="closeModal"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                class="danger-button"
-                :disabled="busy || !canSubmitDelete"
-              >
-                {{ modal === 'delete-remote' ? 'Remover do origin' : 'Remover branch local' }}
-              </button>
-            </footer>
-          </form>
-        </section>
-      </div>
-    </Teleport>
-  </section>
+        <form
+          v-else
+          class="branch-modal-form branch-delete-form"
+          @submit.prevent="submitDelete"
+        >
+          <p>
+            Esta ação não pode ser desfeita. Para confirmar, digite
+            <strong>{{ selectedRow?.name }}</strong>.
+          </p>
+          <label>
+            <span>Nome da branch</span>
+            <input
+              v-model="deleteConfirmation"
+              type="text"
+              autocomplete="off"
+              autofocus
+              :disabled="busy"
+            />
+          </label>
+          <footer>
+            <button
+              type="button"
+              class="secondary-button"
+              :disabled="busy"
+              @click="closeModal"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="danger-button"
+              :disabled="busy || !canSubmitDelete"
+            >
+              {{ deleteSubmitLabel }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  </Teleport>
+</section>

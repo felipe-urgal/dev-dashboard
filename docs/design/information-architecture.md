@@ -164,14 +164,26 @@ Convertido até aqui:
 - `ProjectProcessesMenu` — `<n-popover trigger="click" raw>` no lugar do
   clique-fora/Escape escritos à mão; o conteúdo do menu continua sendo
   markup próprio (repassado pelo slot), só o mecanismo de abrir/fechar
-  mudou.
+  mudou;
+- menu por linha de `ProjectGitBranchesPage` (renomear/remover branch) —
+  `<n-popover trigger="manual" raw>` sincronizado com o `openMenu` já
+  existente (só uma linha aberta por vez), fechando por `@clickoutside` em
+  vez do listener de clique no `document`. O modal de criar/renomear/remover
+  branch em si continua `<Teleport>` manual — entrelaçado com o mesmo estado
+  `modal`, fica para quando ele também virar `<n-modal>`.
+
+Ao converter um popover/dropdown, repare que a classe passada via prop pro
+componente da Naive UI cai fora do CSS `scoped` do componente (o conteúdo é
+teleportado para fora da árvore), então o estilo do "box" externo precisa
+de um `<style>` global à parte — só o conteúdo dentro do slot (que você
+escreve no seu próprio template) continua escopado normalmente. Ver
+`ProjectProcessesMenu.vue`/`ProjectGitBranchesPage.vue` como exemplo.
 
 Ainda no padrão manual, candidatos a uma próxima leva (cada um tem motivo
 para não ter entrado nesta): `NoticeCenter` (painel com gestão de foco
 própria — mover foco ao abrir, devolver ao fechar com Escape — vale conferir
 se a Naive UI reproduz o mesmo contrato de acessibilidade antes de trocar),
-o menu por linha de `ProjectGitBranchesPage` (está entrelaçado com um modal
-de renomear/remover que também seria candidato a `<n-modal>`),
+o modal de criar/renomear/remover branch de `ProjectGitBranchesPage`,
 `WorkspaceDirectoryPicker` e `CommandPalette` (ambos modais Teleport
 manuais; o CommandPalette em especial tem navegação por teclado própria que
 precisa ser preservada com cuidado).

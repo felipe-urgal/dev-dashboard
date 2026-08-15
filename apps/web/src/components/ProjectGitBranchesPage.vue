@@ -11,6 +11,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { NPopover } from 'naive-ui';
 
 import type {
   GitBranch,
@@ -131,6 +132,25 @@ function stateTone(row: BranchRow): string {
   return 'remote';
 }
 
+const deleteSubmitLabel = computed(() =>
+  modal.value === 'delete-remote'
+    ? 'Remover do origin'
+    : 'Remover branch local',
+);
+
+const modalTitle = computed(() => {
+  switch (modal.value) {
+    case 'create':
+      return 'Nova branch';
+    case 'rename':
+      return 'Renomear branch';
+    case 'delete-remote':
+      return 'Remover branch remota';
+    default:
+      return 'Remover branch local';
+  }
+});
+
 function closeMenu(): void {
   openMenu.value = '';
 }
@@ -197,10 +217,6 @@ function submitDelete(): void {
   modal.value = null;
 }
 
-function handleDocumentClick(): void {
-  closeMenu();
-}
-
 function handleEscape(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return;
   if (modal.value) closeModal();
@@ -208,12 +224,10 @@ function handleEscape(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleDocumentClick);
   document.addEventListener('keydown', handleEscape);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocumentClick);
   document.removeEventListener('keydown', handleEscape);
 });
 </script>
@@ -221,3 +235,17 @@ onBeforeUnmount(() => {
 <template src="./ProjectGitBranchesPage.template.html"></template>
 
 <style scoped src="./ProjectGitBranchesPage.css"></style>
+
+<style>
+/* NPopover teleporta o conteúdo pra fora da árvore do componente, então o
+   estilo do box em si (a classe passada via prop) não pode ser escopado. */
+.branch-menu-popover {
+  display: grid;
+  min-width: 190px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+</style>
