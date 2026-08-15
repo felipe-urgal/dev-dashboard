@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NPopover } from 'naive-ui';
 import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
-import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
+import type {
+  DatabaseServiceAction,
+  Project,
+  ProjectDatabaseEnvironment,
+  RailsWorkerId,
+} from '@dev-dashboard/contracts';
 
 import { startProjectProcess, stopProjectProcess } from '../api';
+import {
+  fetchProjectDatabase,
+  runProjectDatabaseServiceAction,
+} from '../api/rails';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
@@ -17,6 +26,59 @@ const errorMessage = ref('');
 const server = useProjectProcessStatus(() => props.project);
 const sidekiq = useProjectRailsWorker(() => props.project, 'sidekiq', true);
 const webpack = useProjectRailsWorker(() => props.project, 'webpack', false);
+
+const databaseEnvironment = ref<ProjectDatabaseEnvironment | null>(null);
+const databaseBusy = ref<DatabaseServiceAction | null>(null);
+let databaseGeneration = 0;
+
+async function loadDatabaseEnvironment(): Promise<void> {
+  const current = ++databaseGeneration;
+  try {
+    const overview = await fetchProjectDatabase(props.project.id, 1);
+    if (current !== databaseGeneration) return;
+    databaseEnvironment.value =
+      overview.supported && overview.environments[0]?.serviceAvailable
+        ? overview.environments[0]
+        : null;
+  } catch {
+    if (current === databaseGeneration) databaseEnvironment.value = null;
+  }
+}
+
+watch(() => props.project.id, loadDatabaseEnvironment, { immediate: true });
+
+async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
+  const environment = databaseEnvironment.value;
+  if (!environment) return;
+  databaseBusy.value = action;
+  errorMessage.value = '';
+  try {
+    await runProjectDatabaseServiceAction(
+      props.project.id,
+      environment.id,
+      action,
+    );
+    await loadDatabaseEnvironment();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : `Não foi possível ${action === 'start' ? 'iniciar' : 'parar'} o banco.`;
+  } finally {
+    databaseBusy.value = null;
+  }
+}
+
+const databaseStatusLabel = computed(() => {
+  switch (databaseEnvironment.value?.reachability) {
+    case 'reachable':
+      return 'Em execução';
+    case 'unreachable':
+      return 'Parado';
+    default:
+      return 'Desconhecido';
+  }
+});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
@@ -112,6 +174,18 @@ const items = computed<ProcessItem[]>(() => {
       statusLabel: webpack.statusLabel.value,
       start: webpack.start,
       stop: webpack.stop,
+    });
+  }
+
+  if (databaseEnvironment.value) {
+    list.push({
+      key: 'database',
+      label: 'Banco de dados',
+      running: databaseEnvironment.value.reachability === 'reachable',
+      busy: databaseBusy.value !== null,
+      statusLabel: databaseStatusLabel.value,
+      start: () => runDatabaseAction('start'),
+      stop: () => runDatabaseAction('stop'),
     });
   }
 

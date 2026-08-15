@@ -170,7 +170,14 @@ Convertido até aqui:
 - `ProjectProcessesMenu` — `<n-popover trigger="click" raw>` no lugar do
   clique-fora/Escape escritos à mão; o conteúdo do menu continua sendo
   markup próprio (repassado pelo slot), só o mecanismo de abrir/fechar
-  mudou;
+  mudou. Além de Servidor/Sidekiq/Webpack, o menu também lista **Banco de
+  dados** quando o projeto tem um ambiente com serviço local reconhecido
+  (`serviceAvailable`, primeiro ambiente retornado por
+  `GET /api/projects/:id/database`) — Iniciar/Parar chama
+  `POST .../database/:environmentId/start|stop`, o mesmo endpoint já usado
+  pela aba **Banco de dados** da página de detalhes. Só cobre um ambiente
+  por simplicidade; projetos com mais de um ambiente de banco continuam
+  usando a aba própria para os demais;
 - menu por linha de `ProjectGitBranchesPage` (renomear/remover branch) —
   `<n-popover trigger="manual" raw>` sincronizado com o `openMenu` já
   existente (só uma linha aberta por vez), fechando por `@clickoutside` em
