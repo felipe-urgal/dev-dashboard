@@ -135,22 +135,7 @@
 }
 
 .content {
-  width: min(1500px, 100%);
-  padding: 28px 34px 48px;
-}
-
-.repositories-section {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface-1);
-  box-shadow: var(--shadow-1);
-}
-
-.repositories-section > .dd-card-header {
-  min-height: 72px;
-  padding: 20px 22px;
-  border-bottom-color: var(--border);
-  gap: 16px;
+  padding: 16px;
 }
 
 .repositories-section h2 {
