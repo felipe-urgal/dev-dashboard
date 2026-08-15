@@ -1174,3 +1174,24 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+
+/* Logs and terminal responsive guardrails. */
+.project-logs-layout,
+.project-log-terminal,
+.terminal-panel,
+.terminal-card,
+.project-logs-card {
+  min-width: 0;
+}
+
+.project-logs-topbar,
+.terminal-window-bar {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.project-log-terminal,
+.terminal-window {
+  min-width: 0;
+}
