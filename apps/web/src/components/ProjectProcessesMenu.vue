@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, ref } from 'vue';
+import { NPopover } from 'naive-ui';
 import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
@@ -10,8 +11,6 @@ import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
 const props = defineProps<{ project: Project }>();
 
-const menuOpen = ref(false);
-const menuElement = ref<HTMLElement>();
 const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
 
@@ -130,32 +129,6 @@ const stoppableItems = computed(() =>
 );
 const bulkBusy = ref<'start' | 'stop' | null>(null);
 
-function closeMenu(): void {
-  menuOpen.value = false;
-}
-
-function toggleMenu(): void {
-  menuOpen.value = !menuOpen.value;
-}
-
-function handleClickOutside(event: MouseEvent): void {
-  if (menuOpen.value && !menuElement.value?.contains(event.target as Node)) {
-    closeMenu();
-  }
-}
-
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') closeMenu();
-}
-
-document.addEventListener('click', handleClickOutside);
-document.addEventListener('keydown', handleKeydown);
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside);
-  document.removeEventListener('keydown', handleKeydown);
-});
-
 async function startAll(): Promise<void> {
   if (bulkBusy.value) return;
   bulkBusy.value = 'start';
@@ -201,22 +174,29 @@ async function toggleItem(item: ProcessItem): Promise<void> {
 </script>
 
 <template>
-  <div v-if="items.length > 0" ref="menuElement" class="processes-menu">
-    <button
-      type="button"
-      class="processes-menu-trigger"
-      aria-haspopup="true"
-      :aria-expanded="menuOpen"
-      aria-label="Processos do projeto"
-      @click="toggleMenu"
-    >
-      <EllipsisVerticalIcon aria-hidden="true" />
-      <span v-if="runningCount > 0" class="processes-menu-count">
-        {{ runningCount }}
-      </span>
-    </button>
+  <NPopover
+    v-if="items.length > 0"
+    trigger="click"
+    placement="bottom-end"
+    raw
+    :show-arrow="false"
+    class="processes-menu-panel"
+  >
+    <template #trigger>
+      <button
+        type="button"
+        class="processes-menu-trigger"
+        aria-haspopup="true"
+        aria-label="Processos do projeto"
+      >
+        <EllipsisVerticalIcon aria-hidden="true" />
+        <span v-if="runningCount > 0" class="processes-menu-count">
+          {{ runningCount }}
+        </span>
+      </button>
+    </template>
 
-    <div v-if="menuOpen" class="processes-menu-panel" role="menu">
+    <div role="menu">
       <p v-if="errorMessage" class="processes-menu-error" role="alert">
         {{ errorMessage }}
       </p>
@@ -274,14 +254,10 @@ async function toggleItem(item: ProcessItem): Promise<void> {
         </button>
       </div>
     </div>
-  </div>
+  </NPopover>
 </template>
 
 <style scoped>
-.processes-menu {
-  position: relative;
-}
-
 .processes-menu-trigger {
   position: relative;
   display: grid;
@@ -321,15 +297,14 @@ async function toggleItem(item: ProcessItem): Promise<void> {
   font-weight: 800;
   place-items: center;
 }
+</style>
 
+<style>
 .processes-menu-panel {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 8px);
-  right: 0;
   width: 260px;
   padding: 8px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
   box-shadow: 0 16px 34px rgb(0 0 0 / 18%);
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { ref } from 'vue';
+import { NButton, NInput, NModal, NSwitch } from 'naive-ui';
 
 import { dashboardStore } from '../stores/dashboard';
 import WorkspaceDirectoryPicker from './WorkspaceDirectoryPicker.vue';
 
-const props = defineProps<{
+defineProps<{
   open: boolean;
 }>();
 
@@ -24,211 +25,131 @@ const {
 } = dashboardStore;
 
 const directoryPickerOpen = ref(false);
-const closeButton = ref<HTMLButtonElement | null>(null);
-
-let previousBodyOverflow = '';
-let previouslyFocusedElement: HTMLElement | null = null;
-let pageStateCaptured = false;
-
-function restorePageState(): void {
-  if (!pageStateCaptured) {
-    return;
-  }
-
-  pageStateCaptured = false;
-  document.body.style.overflow = previousBodyOverflow;
-  document.removeEventListener('keydown', handleKeydown);
-
-  const focusTarget = previouslyFocusedElement;
-  previouslyFocusedElement = null;
-
-  void nextTick(() => {
-    focusTarget?.focus();
-  });
-}
 
 function closeModal(): void {
-  restorePageState();
   emit('close');
 }
 
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeModal();
-  }
+function handleShowUpdate(show: boolean): void {
+  if (!show) closeModal();
 }
-
-watch(
-  () => props.open,
-  async (open) => {
-    if (open) {
-      previouslyFocusedElement =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      previousBodyOverflow = document.body.style.overflow;
-      pageStateCaptured = true;
-      document.body.style.overflow = 'hidden';
-      document.addEventListener('keydown', handleKeydown);
-
-      await nextTick();
-      closeButton.value?.focus();
-      return;
-    }
-
-    restorePageState();
-  },
-);
-
-onBeforeUnmount(() => {
-  restorePageState();
-});
 </script>
 
 <template>
-  <Teleport to="body">
-    <div
-      v-if="open"
-      class="modal-backdrop modal-backdrop-center"
-      role="presentation"
-      @click.self="closeModal"
+  <NModal
+    :show="open"
+    preset="card"
+    class="workspace-manager-dialog"
+    title="Adicionar workspace"
+    :bordered="false"
+    role="dialog"
+    aria-modal="true"
+    @update:show="handleShowUpdate"
+  >
+    <template #header-extra>
+      <span class="section-kicker">Workspaces</span>
+    </template>
+
+    <section
+      v-if="workspaces.length > 0"
+      class="workspace-existing-list"
+      aria-labelledby="workspace-existing-title"
     >
-      <section
-        class="modal-dialog workspace-manager-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="workspace-manager-title"
-      >
-        <header class="modal-header">
-          <div>
-            <span class="section-kicker">Workspaces</span>
-            <h3 id="workspace-manager-title">Adicionar workspace</h3>
-          </div>
+      <h4 id="workspace-existing-title">Workspaces cadastrados</h4>
 
-          <button
-            ref="closeButton"
-            type="button"
-            class="log-action-button"
-            @click="closeModal"
-          >
-            Fechar
-          </button>
-        </header>
-
-        <section
-          v-if="workspaces.length > 0"
-          class="workspace-existing-list"
-          aria-labelledby="workspace-existing-title"
+      <ul>
+        <li
+          v-for="workspace in workspaces"
+          :key="workspace.id"
+          class="settings-row workspace-existing-row"
         >
-          <h4 id="workspace-existing-title">Workspaces cadastrados</h4>
-
-          <ul>
-            <li
-              v-for="workspace in workspaces"
-              :key="workspace.id"
-              class="settings-row workspace-existing-row"
+          <span class="settings-row-copy">
+            <strong
+              :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
+              >{{ workspace.name }}</strong
             >
-              <span class="settings-row-copy">
-                <strong
-                  :id="`workspace-existing-recursive-scan-label-${workspace.id}`"
-                  >{{ workspace.name }}</strong
-                >
-                <span
-                  :id="`workspace-existing-recursive-scan-description-${workspace.id}`"
-                  >{{ workspace.path }} — escanear subdiretórios
-                  (monorepos)</span
-                >
-              </span>
-              <span class="settings-switch-control">
-                <input
-                  :checked="workspace.recursiveScan"
-                  :disabled="recursiveScanUpdatingIds.includes(workspace.id)"
-                  type="checkbox"
-                  role="switch"
-                  :aria-labelledby="`workspace-existing-recursive-scan-label-${workspace.id}`"
-                  :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
-                  @change="toggleWorkspaceRecursiveScan(workspace)"
-                />
-                <span>{{
-                  workspace.recursiveScan ? 'Ativado' : 'Desativado'
-                }}</span>
-              </span>
-            </li>
-          </ul>
-        </section>
-
-        <form
-          class="workspace-create-form"
-          @submit.prevent="handleCreateWorkspace"
-        >
-          <label class="workspace-field">
-            <span>Nome</span>
-            <input
-              v-model="newWorkspaceName"
-              autocomplete="off"
-              placeholder="Projetos pessoais"
+            <span
+              :id="`workspace-existing-recursive-scan-description-${workspace.id}`"
+              >{{ workspace.path }} — escanear subdiretórios (monorepos)</span
+            >
+          </span>
+          <span class="settings-switch-control">
+            <NSwitch
+              :value="workspace.recursiveScan"
+              :disabled="recursiveScanUpdatingIds.includes(workspace.id)"
+              :aria-labelledby="`workspace-existing-recursive-scan-label-${workspace.id}`"
+              :aria-describedby="`workspace-existing-recursive-scan-description-${workspace.id}`"
+              @update:value="toggleWorkspaceRecursiveScan(workspace)"
             />
-          </label>
+            <span>{{
+              workspace.recursiveScan ? 'Ativado' : 'Desativado'
+            }}</span>
+          </span>
+        </li>
+      </ul>
+    </section>
 
-          <label class="workspace-field">
-            <span>Caminho local</span>
-            <div class="workspace-path-picker-field">
-              <input
-                v-model="newWorkspacePath"
-                autocomplete="off"
-                placeholder="/home/usuario/projetos"
-              />
+    <form class="workspace-create-form" @submit.prevent="handleCreateWorkspace">
+      <label class="workspace-field">
+        <span>Nome</span>
+        <NInput
+          v-model:value="newWorkspaceName"
+          autocomplete="off"
+          placeholder="Projetos pessoais"
+        />
+      </label>
 
-              <button
-                type="button"
-                class="secondary-button"
-                @click="directoryPickerOpen = true"
-              >
-                Escolher pasta
-              </button>
-            </div>
-          </label>
+      <label class="workspace-field">
+        <span>Caminho local</span>
+        <div class="workspace-path-picker-field">
+          <NInput
+            v-model:value="newWorkspacePath"
+            autocomplete="off"
+            placeholder="/home/usuario/projetos"
+          />
 
-          <label class="settings-row workspace-recursive-scan-field">
-            <span class="settings-row-copy">
-              <strong id="workspace-recursive-scan-label"
-                >Escanear subdiretórios (monorepos)</strong
-              >
-              <span id="workspace-recursive-scan-description"
-                >Procura projetos em subpastas além dos filhos diretos. Pode
-                deixar o cadastro mais lento em workspaces grandes.</span
-              >
-            </span>
-            <span class="settings-switch-control">
-              <input
-                v-model="newWorkspaceRecursiveScan"
-                type="checkbox"
-                role="switch"
-                aria-labelledby="workspace-recursive-scan-label"
-                aria-describedby="workspace-recursive-scan-description"
-              />
-              <span>{{
-                newWorkspaceRecursiveScan ? 'Ativado' : 'Desativado'
-              }}</span>
-            </span>
-          </label>
+          <NButton secondary @click="directoryPickerOpen = true">
+            Escolher pasta
+          </NButton>
+        </div>
+      </label>
 
-          <button
-            class="secondary-primary-button"
-            type="submit"
-            :disabled="creatingWorkspace"
+      <label class="settings-row workspace-recursive-scan-field">
+        <span class="settings-row-copy">
+          <strong id="workspace-recursive-scan-label"
+            >Escanear subdiretórios (monorepos)</strong
           >
-            {{ creatingWorkspace ? 'Cadastrando...' : 'Adicionar workspace' }}
-          </button>
-        </form>
-      </section>
-    </div>
+          <span id="workspace-recursive-scan-description"
+            >Procura projetos em subpastas além dos filhos diretos. Pode deixar
+            o cadastro mais lento em workspaces grandes.</span
+          >
+        </span>
+        <span class="settings-switch-control">
+          <NSwitch
+            v-model:value="newWorkspaceRecursiveScan"
+            aria-labelledby="workspace-recursive-scan-label"
+            aria-describedby="workspace-recursive-scan-description"
+          />
+          <span>{{
+            newWorkspaceRecursiveScan ? 'Ativado' : 'Desativado'
+          }}</span>
+        </span>
+      </label>
 
-    <WorkspaceDirectoryPicker
-      v-model="newWorkspacePath"
-      :open="directoryPickerOpen"
-      @close="directoryPickerOpen = false"
-    />
-  </Teleport>
+      <NButton
+        type="primary"
+        attr-type="submit"
+        :loading="creatingWorkspace"
+        :disabled="creatingWorkspace"
+      >
+        {{ creatingWorkspace ? 'Cadastrando...' : 'Adicionar workspace' }}
+      </NButton>
+    </form>
+  </NModal>
+
+  <WorkspaceDirectoryPicker
+    v-model="newWorkspacePath"
+    :open="directoryPickerOpen"
+    @close="directoryPickerOpen = false"
+  />
 </template>

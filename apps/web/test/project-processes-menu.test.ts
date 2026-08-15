@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   ManagedProcess,
@@ -91,6 +91,10 @@ function workerOverview(workerId: RailsWorkerId, running: boolean) {
   };
 }
 
+// O painel do menu é renderizado pelo NPopover num Teleport, fora da árvore
+// do wrapper — por isso as buscas no conteúdo aberto usam `document`
+// (attachTo: document.body) em vez de `wrapper.find`.
+
 describe('ProjectProcessesMenu', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,6 +103,10 @@ describe('ProjectProcessesMenu', () => {
       async (_projectId: string, workerId: RailsWorkerId) =>
         workerOverview(workerId, workerId === 'sidekiq'),
     );
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
   });
 
   it('não renderiza nada quando o projeto não tem capability de servidor', async () => {
@@ -142,6 +150,7 @@ describe('ProjectProcessesMenu', () => {
 
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -152,17 +161,17 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    const itemNames = wrapper.findAll('.processes-menu-item-name');
-    expect(itemNames.map((el) => el.text())).toEqual([
+    const itemNames = document.querySelectorAll('.processes-menu-item-name');
+    expect(Array.from(itemNames).map((el) => el.textContent)).toEqual([
       'Servidor',
       'Sidekiq',
       'Webpack',
     ]);
 
-    const actions = wrapper.findAll('.processes-menu-item-action');
-    expect(actions[0]?.text()).toBe('Parar');
-    expect(actions[1]?.text()).toBe('Parar');
-    expect(actions[2]?.text()).toBe('Iniciar');
+    const actions = document.querySelectorAll('.processes-menu-item-action');
+    expect(actions[0]?.textContent).toBe('Parar');
+    expect(actions[1]?.textContent).toBe('Parar');
+    expect(actions[2]?.textContent).toBe('Iniciar');
 
     wrapper.unmount();
   });
@@ -171,6 +180,7 @@ describe('ProjectProcessesMenu', () => {
     stopProjectProcess.mockResolvedValueOnce(serverProcess('stopped'));
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -178,7 +188,9 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    await wrapper.findAll('.processes-menu-item-action')[0]?.trigger('click');
+    await document
+      .querySelectorAll<HTMLButtonElement>('.processes-menu-item-action')[0]
+      ?.click();
     await flushPromises();
 
     expect(stopProjectProcess).toHaveBeenCalledWith('p1');
@@ -197,6 +209,7 @@ describe('ProjectProcessesMenu', () => {
     });
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -204,9 +217,11 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    await wrapper
-      .find('.processes-menu-bulk .menu-item.danger')
-      .trigger('click');
+    document
+      .querySelector<HTMLButtonElement>(
+        '.processes-menu-bulk .menu-item.danger',
+      )
+      ?.click();
     await flushPromises();
 
     expect(stopProjectProcess).toHaveBeenCalledWith('p1');
@@ -231,6 +246,7 @@ describe('ProjectProcessesMenu', () => {
     });
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -238,10 +254,10 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    const startAllButton = wrapper.findAll(
+    const startAllButton = document.querySelectorAll<HTMLButtonElement>(
       '.processes-menu-bulk .menu-item',
     )[0];
-    await startAllButton?.trigger('click');
+    startAllButton?.click();
     await flushPromises();
 
     expect(startProjectProcess).toHaveBeenCalledWith('p1');

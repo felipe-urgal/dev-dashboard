@@ -1,7 +1,10 @@
-import { readonly, shallowRef } from 'vue';
+import { computed } from 'vue';
+import { createDiscreteApi, darkTheme } from 'naive-ui';
+
+import { naiveThemeOverrides } from '../utils/naive-theme';
+import { currentTheme } from '../utils/visual-preferences';
 
 export type AppDialogTone = 'info' | 'warning' | 'danger';
-export type AppDialogKind = 'alert' | 'confirm';
 
 export interface AppDialogOptions {
   title?: string;
@@ -11,86 +14,54 @@ export interface AppDialogOptions {
   tone?: AppDialogTone;
 }
 
-export interface AppDialogRequest {
-  id: number;
-  kind: AppDialogKind;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  cancelLabel: string;
-  tone: AppDialogTone;
-}
-
-interface PendingDialog {
-  request: AppDialogRequest;
-  resolve: (confirmed: boolean) => void;
-}
-
-const dialog = shallowRef<AppDialogRequest | null>(null);
-const queue: PendingDialog[] = [];
-
-let activeDialog: PendingDialog | undefined;
-let nextDialogId = 1;
-let hostCount = 0;
-
 function isTestEnvironment(): boolean {
   return typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
 }
 
-function defaultTitle(kind: AppDialogKind): string {
-  return kind === 'alert' ? 'Atenção' : 'Confirmar ação';
+const configProviderProps = computed(() => ({
+  theme: currentTheme.value === 'dark' ? darkTheme : null,
+  themeOverrides: naiveThemeOverrides,
+}));
+
+let discreteDialog:
+  ReturnType<typeof createDiscreteApi<'dialog'>>['dialog'] | undefined;
+
+function dialogApi(): ReturnType<typeof createDiscreteApi<'dialog'>>['dialog'] {
+  discreteDialog ??= createDiscreteApi(['dialog'], {
+    configProviderProps,
+  }).dialog;
+  return discreteDialog;
 }
 
-function defaultConfirmLabel(kind: AppDialogKind): string {
-  return kind === 'alert' ? 'Entendi' : 'Confirmar';
-}
-
-function openNextDialog(): void {
-  if (dialog.value || queue.length === 0) return;
-
-  activeDialog = queue.shift();
-  dialog.value = activeDialog?.request ?? null;
-}
-
-function enqueueDialog(
-  kind: AppDialogKind,
-  options: AppDialogOptions,
-): Promise<boolean> {
-  if (hostCount === 0 && isTestEnvironment()) {
-    return Promise.resolve(true);
-  }
-
-  return new Promise<boolean>((resolve) => {
-    queue.push({
-      request: {
-        id: nextDialogId,
-        kind,
-        title: options.title?.trim() || defaultTitle(kind),
-        message: options.message,
-        confirmLabel: options.confirmLabel?.trim() || defaultConfirmLabel(kind),
-        cancelLabel: options.cancelLabel?.trim() || 'Cancelar',
-        tone: options.tone ?? (kind === 'alert' ? 'info' : 'warning'),
-      },
-      resolve,
-    });
-    nextDialogId += 1;
-    openNextDialog();
-  });
-}
-
-function finishDialog(confirmed: boolean): void {
-  const pending = activeDialog;
-  activeDialog = undefined;
-  dialog.value = null;
-  pending?.resolve(confirmed);
-  queueMicrotask(openNextDialog);
+function dialogType(tone: AppDialogTone): 'info' | 'warning' | 'error' {
+  return tone === 'danger' ? 'error' : tone;
 }
 
 export function alertDialog(options: AppDialogOptions | string): Promise<void> {
   const normalized =
     typeof options === 'string' ? { message: options } : options;
 
-  return enqueueDialog('alert', normalized).then(() => undefined);
+  if (isTestEnvironment()) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = (): void => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    dialogApi()[dialogType(normalized.tone ?? 'info')]({
+      title: normalized.title?.trim() || 'Atenção',
+      content: normalized.message,
+      positiveText: normalized.confirmLabel?.trim() || 'Entendi',
+      onPositiveClick: settle,
+      onClose: settle,
+      onMaskClick: settle,
+    });
+  });
 }
 
 export function confirmDialog(
@@ -99,24 +70,27 @@ export function confirmDialog(
   const normalized =
     typeof options === 'string' ? { message: options } : options;
 
-  return enqueueDialog('confirm', normalized);
+  if (isTestEnvironment()) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (confirmed: boolean): void => {
+      if (settled) return;
+      settled = true;
+      resolve(confirmed);
+    };
+
+    dialogApi()[dialogType(normalized.tone ?? 'warning')]({
+      title: normalized.title?.trim() || 'Confirmar ação',
+      content: normalized.message,
+      positiveText: normalized.confirmLabel?.trim() || 'Confirmar',
+      negativeText: normalized.cancelLabel?.trim() || 'Cancelar',
+      onPositiveClick: () => settle(true),
+      onNegativeClick: () => settle(false),
+      onClose: () => settle(false),
+      onMaskClick: () => settle(false),
+    });
+  });
 }
-
-function registerHost(): () => void {
-  hostCount += 1;
-  openNextDialog();
-
-  let registered = true;
-  return () => {
-    if (!registered) return;
-    registered = false;
-    hostCount = Math.max(0, hostCount - 1);
-  };
-}
-
-export const appDialogStore = {
-  dialog: readonly(dialog),
-  confirm: () => finishDialog(true),
-  cancel: () => finishDialog(false),
-  registerHost,
-};

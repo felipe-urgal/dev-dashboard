@@ -142,6 +142,40 @@ conteúdo da página. A ponte entre estado existente e a lib fica em
 e em watchers pontuais nos componentes que têm mensagens próprias (ex.
 `ProjectEnvironmentPanel`).
 
+### Biblioteca de componentes
+
+Diálogos, modais e menus/popovers estão migrando de markup manual (foco,
+Escape, clique-fora, `<Teleport>` escritos à mão) para
+[Naive UI](https://www.naiveui.com/), estilizada pelos tokens de
+`styles/tokens.css` (ver `utils/naive-theme.ts` — cada cor do tema comum é
+uma string `var(--...)`, então claro/escuro trocam sozinhos junto com o
+resto do app). Um `<n-config-provider>` envolve o app inteiro em `App.vue`.
+
+Convertido até aqui:
+
+- `alertDialog`/`confirmDialog` (`stores/app-dialog.ts`) — mesma assinatura
+  de função de antes (nenhum dos ~9 call sites mudou), só a implementação
+  interna trocou para a API "discreta" da Naive UI
+  (`createDiscreteApi(['dialog'])`), sem precisar de um componente `<AppDialog>`
+  montado na árvore;
+- `WorkspaceManagerModal` — `<n-modal preset="card">` no lugar do
+  backdrop/foco/Escape manuais, `<n-switch>` nos toggles de varredura
+  recursiva, `<n-input>`/`<n-button>` no formulário;
+- `ProjectProcessesMenu` — `<n-popover trigger="click" raw>` no lugar do
+  clique-fora/Escape escritos à mão; o conteúdo do menu continua sendo
+  markup próprio (repassado pelo slot), só o mecanismo de abrir/fechar
+  mudou.
+
+Ainda no padrão manual, candidatos a uma próxima leva (cada um tem motivo
+para não ter entrado nesta): `NoticeCenter` (painel com gestão de foco
+própria — mover foco ao abrir, devolver ao fechar com Escape — vale conferir
+se a Naive UI reproduz o mesmo contrato de acessibilidade antes de trocar),
+o menu por linha de `ProjectGitBranchesPage` (está entrelaçado com um modal
+de renomear/remover que também seria candidato a `<n-modal>`),
+`WorkspaceDirectoryPicker` e `CommandPalette` (ambos modais Teleport
+manuais; o CommandPalette em especial tem navegação por teclado própria que
+precisa ser preservada com cuidado).
+
 ## Estrutura do app shell
 
 ```text

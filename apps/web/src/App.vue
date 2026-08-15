@@ -5,7 +5,8 @@ import {
   PlayCircleIcon,
   PlusIcon,
 } from '@heroicons/vue/24/outline';
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { darkTheme, NConfigProvider } from 'naive-ui';
 import { Toaster } from 'vue-sonner';
 
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -13,9 +14,9 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { dashboardStore } from './stores/dashboard';
 import { nativeNotificationStore } from './stores/native-notifications';
 import { useDashboardToastBridge } from './composables/useDashboardToastBridge';
-import AppDialog from './components/AppDialog.vue';
 import VisualPreferences from './components/VisualPreferences.vue';
 import WorkspaceManagerModal from './components/WorkspaceManagerModal.vue';
+import { naiveThemeOverrides } from './utils/naive-theme';
 import {
   currentTheme,
   loadVisualPreferences,
@@ -24,6 +25,10 @@ import {
   readSidebarCollapsed,
   storeSidebarCollapsed,
 } from './utils/sidebar-preferences';
+
+const naiveTheme = computed(() =>
+  currentTheme.value === 'dark' ? darkTheme : null,
+);
 
 loadVisualPreferences();
 useDashboardToastBridge();
@@ -59,114 +64,117 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    class="app-shell"
-    :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
-  >
-    <aside
-      id="primary-sidebar"
-      class="sidebar"
-      :class="{ 'sidebar-collapsed': sidebarCollapsed }"
+  <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides">
+    <div
+      class="app-shell"
+      :class="{ 'app-shell-sidebar-collapsed': sidebarCollapsed }"
     >
-      <button
-        class="brand brand-toggle"
-        type="button"
-        aria-controls="primary-sidebar"
-        :aria-expanded="!sidebarCollapsed"
-        :aria-label="
-          sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
-        "
-        :title="sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'"
-        @click="toggleSidebarCollapsed"
+      <aside
+        id="primary-sidebar"
+        class="sidebar"
+        :class="{ 'sidebar-collapsed': sidebarCollapsed }"
       >
-        <div class="brand-mark" aria-hidden="true">
-          <CodeBracketIcon />
-        </div>
+        <button
+          class="brand brand-toggle"
+          type="button"
+          aria-controls="primary-sidebar"
+          :aria-expanded="!sidebarCollapsed"
+          :aria-label="
+            sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
+          "
+          :title="
+            sidebarCollapsed ? 'Expandir navegação' : 'Recolher navegação'
+          "
+          @click="toggleSidebarCollapsed"
+        >
+          <div class="brand-mark" aria-hidden="true">
+            <CodeBracketIcon />
+          </div>
 
-        <div class="brand-copy">
-          <strong>Dev Dashboard</strong>
-          <span>Local workspace</span>
-        </div>
-      </button>
+          <div class="brand-copy">
+            <strong>Dev Dashboard</strong>
+            <span>Local workspace</span>
+          </div>
+        </button>
 
-      <div class="sidebar-section">
-        <span class="sidebar-label">Workspace ativo</span>
-        <div class="sidebar-workspace-row">
-          <select
-            v-if="workspaces.length > 0"
-            class="sidebar-workspace-select"
-            :value="selectedWorkspaceId"
-            aria-label="Trocar workspace ativo"
-            @change="handleWorkspaceSwitch"
-          >
-            <option
-              v-for="workspace in workspaces"
-              :key="workspace.id"
-              :value="workspace.id"
+        <div class="sidebar-section">
+          <span class="sidebar-label">Workspace ativo</span>
+          <div class="sidebar-workspace-row">
+            <select
+              v-if="workspaces.length > 0"
+              class="sidebar-workspace-select"
+              :value="selectedWorkspaceId"
+              aria-label="Trocar workspace ativo"
+              @change="handleWorkspaceSwitch"
             >
-              {{ workspace.name }}
-            </option>
-          </select>
+              <option
+                v-for="workspace in workspaces"
+                :key="workspace.id"
+                :value="workspace.id"
+              >
+                {{ workspace.name }}
+              </option>
+            </select>
 
-          <div v-else class="workspace-summary-empty">Nenhum workspace</div>
+            <div v-else class="workspace-summary-empty">Nenhum workspace</div>
 
-          <button
-            type="button"
-            class="sidebar-workspace-add-icon"
-            aria-label="Adicionar workspace"
-            @click="workspaceManagerOpen = true"
-          >
-            <PlusIcon aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              class="sidebar-workspace-add-icon"
+              aria-label="Adicionar workspace"
+              @click="workspaceManagerOpen = true"
+            >
+              <PlusIcon aria-hidden="true" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      <nav class="navigation" aria-label="Navegação principal">
-        <span class="sidebar-label navigation-label">Navegação</span>
+        <nav class="navigation" aria-label="Navegação principal">
+          <span class="sidebar-label navigation-label">Navegação</span>
 
-        <RouterLink
-          class="navigation-item"
-          :class="{ 'navigation-item-active': route.name === 'dashboard' }"
-          :to="{ name: 'dashboard' }"
-          :aria-label="sidebarCollapsed ? 'Visão geral' : undefined"
-          :title="sidebarCollapsed ? 'Visão geral' : undefined"
-        >
-          <HomeIcon class="navigation-icon" aria-hidden="true" />
-          <span class="navigation-text">Visão geral</span>
-        </RouterLink>
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'dashboard' }"
+            :to="{ name: 'dashboard' }"
+            :aria-label="sidebarCollapsed ? 'Visão geral' : undefined"
+            :title="sidebarCollapsed ? 'Visão geral' : undefined"
+          >
+            <HomeIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Visão geral</span>
+          </RouterLink>
 
-        <RouterLink
-          class="navigation-item"
-          :class="{ 'navigation-item-active': route.name === 'processes' }"
-          :to="{ name: 'processes' }"
-          :aria-label="sidebarCollapsed ? 'Processos' : undefined"
-          :title="sidebarCollapsed ? 'Processos' : undefined"
-        >
-          <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
-          <span class="navigation-text">Processos</span>
-        </RouterLink>
-      </nav>
+          <RouterLink
+            class="navigation-item"
+            :class="{ 'navigation-item-active': route.name === 'processes' }"
+            :to="{ name: 'processes' }"
+            :aria-label="sidebarCollapsed ? 'Processos' : undefined"
+            :title="sidebarCollapsed ? 'Processos' : undefined"
+          >
+            <PlayCircleIcon class="navigation-icon" aria-hidden="true" />
+            <span class="navigation-text">Processos</span>
+          </RouterLink>
+        </nav>
 
-      <div class="sidebar-tools">
-        <VisualPreferences />
-      </div>
-    </aside>
+        <div class="sidebar-tools">
+          <VisualPreferences />
+        </div>
+      </aside>
 
-    <main class="main-content">
-      <RouterView />
-    </main>
+      <main class="main-content">
+        <RouterView />
+      </main>
 
-    <WorkspaceManagerModal
-      :open="workspaceManagerOpen"
-      @close="workspaceManagerOpen = false"
-    />
+      <WorkspaceManagerModal
+        :open="workspaceManagerOpen"
+        @close="workspaceManagerOpen = false"
+      />
 
-    <AppDialog />
-    <Toaster
-      :theme="currentTheme"
-      position="top-right"
-      rich-colors
-      close-button
-    />
-  </div>
+      <Toaster
+        :theme="currentTheme"
+        position="top-right"
+        rich-colors
+        close-button
+      />
+    </div>
+  </n-config-provider>
 </template>
