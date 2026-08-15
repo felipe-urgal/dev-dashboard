@@ -993,6 +993,46 @@
   }
 }
 
+/* A rail recolhida precisa continuar sendo uma rail também em viewport estreita. */
+.app-shell.app-shell-sidebar-collapsed {
+  --app-sidebar-width: 72px;
+  display: grid;
+  grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
+}
+
+.app-shell.app-shell-sidebar-collapsed .sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding-inline: 10px;
+}
+
+.app-shell.app-shell-sidebar-collapsed .sidebar-tools {
+  display: grid;
+  justify-content: stretch;
+  gap: 6px;
+}
+
+.app-shell.app-shell-sidebar-collapsed .sidebar-theme-toggle {
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.app-shell.app-shell-sidebar-collapsed .sidebar-theme-toggle button {
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px;
+  font-size: 0;
+}
+
+.app-shell.app-shell-sidebar-collapsed .sidebar-theme-toggle button svg {
+  width: 18px;
+  height: 18px;
+}
+
 @media (max-width: 720px) {
   .project-details-hero {
     min-height: 92px;
