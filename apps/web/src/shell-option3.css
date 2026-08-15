@@ -534,13 +534,17 @@
 
 .git-navigation-bar {
   top: var(--project-sticky-offset, 134px);
+  min-width: 0;
   padding: 0 22px;
+  overflow-x: auto;
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
+  scrollbar-width: thin;
 }
 
 .git-subtabs {
   gap: 0;
+  min-width: max-content;
 }
 
 .git-subtabs button {
@@ -588,6 +592,7 @@
 }
 
 .git-modern-messages {
+  min-width: 0;
   padding: 12px 22px 0;
 }
 
@@ -620,7 +625,9 @@
 }
 
 .git-sync-main-row {
+  min-width: 0;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .git-sync-relationship > svg {
