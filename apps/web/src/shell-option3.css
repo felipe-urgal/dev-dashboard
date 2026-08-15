@@ -196,6 +196,7 @@
   min-height: 72px;
   padding: 20px 22px;
   border-bottom-color: var(--border);
+  gap: 16px;
 }
 
 .repositories-section h2 {
@@ -230,6 +231,7 @@
 
 .project-row-link {
   min-height: 84px;
+  min-width: 0;
   padding: 15px 22px;
   border-color: var(--border);
 }
@@ -403,7 +405,27 @@
   padding: 14px 18px;
   border: 1px solid var(--border);
   border-top: 0;
+  border-radius: 0 0 10px 10px;
   background: var(--surface-1);
+}
+
+.processes-feedback {
+  margin: 14px 0 0;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 11px;
+}
+
+.processes-feedback-success {
+  border-color: color-mix(in srgb, var(--success-text) 42%, var(--border));
+  color: var(--success-text);
+}
+
+.processes-feedback-error {
+  border-color: color-mix(in srgb, var(--danger-text) 42%, var(--border));
+  color: var(--danger-text);
 }
 
 .processes-refresh-actions {
@@ -444,6 +466,7 @@
   border-radius: 0 0 14px 14px;
   background: var(--surface-1);
   box-shadow: var(--shadow-1);
+  overflow-x: auto;
 }
 
 .processes-table th {
