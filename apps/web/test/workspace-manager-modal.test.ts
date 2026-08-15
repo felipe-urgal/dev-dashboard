@@ -17,8 +17,6 @@ vi.mock('../src/stores/dashboard', async () => {
       newWorkspaceRecursiveScan: ref(false),
       creatingWorkspace: ref(false),
       recursiveScanUpdatingIds: ref([]),
-      errorMessage: ref(''),
-      successMessage: ref(''),
       handleCreateWorkspace: actions.criar,
       toggleWorkspaceRecursiveScan: actions.alternarRecursiveScan,
     },
@@ -52,8 +50,6 @@ beforeEach(() => {
   dashboardStore.newWorkspaceRecursiveScan.value = false;
   dashboardStore.creatingWorkspace.value = false;
   dashboardStore.recursiveScanUpdatingIds.value = [];
-  dashboardStore.errorMessage.value = '';
-  dashboardStore.successMessage.value = '';
 });
 
 afterEach(() => {
@@ -77,36 +73,27 @@ describe('WorkspaceManagerModal', () => {
     expect(actions.criar).toHaveBeenCalledOnce();
   });
 
-  it('mostra erro de validação dentro do próprio modal', () => {
-    dashboardStore.errorMessage.value =
-      'Informe o nome e o caminho do workspace.';
-    mountModal();
-
-    expect(document.querySelector('.alert-error')?.textContent).toContain(
-      'Informe o nome e o caminho do workspace.',
-    );
-  });
-
   it('emite close ao clicar em Fechar', () => {
     const wrapper = mountModal();
 
-    document.querySelector<HTMLButtonElement>('.log-action-button')?.click();
+    document.querySelector<HTMLButtonElement>('[aria-label="close"]')?.click();
 
     expect(wrapper.emitted('close')).toHaveLength(1);
   });
 
-  it('ativa a varredura recursiva via checkbox e envia no cadastro', async () => {
+  it('ativa a varredura recursiva via switch e envia no cadastro', async () => {
     mountModal();
 
-    const checkbox = document.querySelector<HTMLInputElement>(
-      'input[aria-labelledby="workspace-recursive-scan-label"]',
+    const switchEl = document.querySelector<HTMLElement>(
+      '[role="switch"][aria-labelledby="workspace-recursive-scan-label"]',
     );
 
-    expect(checkbox).not.toBeNull();
+    expect(switchEl).not.toBeNull();
+    expect(switchEl?.getAttribute('aria-checked')).toBe('false');
     expect(dashboardStore.newWorkspaceRecursiveScan.value).toBe(false);
 
-    checkbox?.click();
-    await checkbox?.dispatchEvent(new Event('change'));
+    switchEl?.click();
+    await Promise.resolve();
 
     expect(dashboardStore.newWorkspaceRecursiveScan.value).toBe(true);
 
@@ -140,14 +127,14 @@ describe('WorkspaceManagerModal', () => {
       document.querySelector('.workspace-existing-list')?.textContent,
     ).toContain('Workspace 1');
 
-    const checkbox = document.querySelector<HTMLInputElement>(
-      'input[aria-labelledby="workspace-existing-recursive-scan-label-w1"]',
+    const switchEl = document.querySelector<HTMLElement>(
+      '[role="switch"][aria-labelledby="workspace-existing-recursive-scan-label-w1"]',
     );
 
-    expect(checkbox).not.toBeNull();
-    expect(checkbox?.checked).toBe(false);
+    expect(switchEl).not.toBeNull();
+    expect(switchEl?.getAttribute('aria-checked')).toBe('false');
 
-    checkbox?.dispatchEvent(new Event('change'));
+    switchEl?.click();
 
     expect(actions.alternarRecursiveScan).toHaveBeenCalledOnce();
     expect(actions.alternarRecursiveScan).toHaveBeenCalledWith(

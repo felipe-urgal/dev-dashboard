@@ -4,6 +4,10 @@ export function sortProjectsByPriority(
   projects: readonly Project[],
 ): Project[] {
   return [...projects].sort((left, right) => {
+    if (left.enabled !== right.enabled) {
+      return left.enabled ? -1 : 1;
+    }
+
     const leftRecent = left.lastAccessedAt ?? '';
     const rightRecent = right.lastAccessedAt ?? '';
     if (leftRecent || rightRecent) {

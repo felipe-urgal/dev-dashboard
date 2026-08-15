@@ -18,8 +18,10 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "highlight.js": "^11.11.1",
+    "naive-ui": "^2.44.1",
     "vue": "3.5.40",
-    "vue-router": "5.2.0"
+    "vue-router": "5.2.0",
+    "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline';
+import { watch } from 'vue';
+import { toast } from 'vue-sonner';
 import type { Project } from '@dev-dashboard/contracts';
 
 import { useProjectEnvironmentVariables } from '../composables/useProjectEnvironmentVariables';
@@ -10,6 +12,11 @@ import StatusBadge from './StatusBadge.vue';
 const props = defineProps<{ project: Project }>();
 
 const environment = useProjectEnvironmentVariables(() => props.project);
+
+watch(environment.errorMessage, (value) => {
+  if (!value) return;
+  toast.error('Não foi possível concluir a ação.', { description: value });
+});
 </script>
 
 <template>
@@ -17,14 +24,6 @@ const environment = useProjectEnvironmentVariables(() => props.project);
     class="project-environment-panel"
     :aria-busy="environment.loading.value"
   >
-    <p
-      v-if="environment.errorMessage.value"
-      class="alert alert-error"
-      role="alert"
-    >
-      {{ environment.errorMessage.value }}
-    </p>
-
     <LoadingSkeleton
       v-if="environment.loading.value && !environment.overview.value"
       label="Carregando variáveis de ambiente…"

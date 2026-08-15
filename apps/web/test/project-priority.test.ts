@@ -44,6 +44,23 @@ test('ordena por recência e depois alfabeticamente', () => {
   );
 });
 
+test('projetos desativados vão sempre para o final da lista', () => {
+  const sorted = sortProjectsByPriority([
+    project('disabled-recent', 'Zulu Desativado', {
+      enabled: false,
+      lastAccessedAt: '2026-08-05T00:00:00.000Z',
+    }),
+    project('z', 'Zulu'),
+    project('a', 'Alpha'),
+    project('disabled-old', 'Alpha Desativado', { enabled: false }),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    ['a', 'z', 'disabled-recent', 'disabled-old'],
+  );
+});
+
 test('expõe no máximo cinco recentes', () => {
   const projects = Array.from({ length: 7 }, (_, index) =>
     project(`project-${index}`, `Project ${index}`, {

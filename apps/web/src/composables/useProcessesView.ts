@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 
 import type {
   ManagedProcess,
@@ -52,14 +53,11 @@ export function useProcessesView() {
   const loading = ref(false);
   const referenceErrorMessage = ref('');
   const processesErrorMessage = ref('');
-  const cleanupMessage = ref('');
-  const cleanupFailed = ref(false);
   const cleanupRunning = ref(false);
   const now = ref(Date.now());
 
   useAutoDismiss(referenceErrorMessage, '');
   useAutoDismiss(processesErrorMessage, '');
-  useAutoDismiss(cleanupMessage, '');
 
   const generation = new RequestGeneration();
   let controller: AbortController | undefined;
@@ -246,22 +244,23 @@ export function useProcessesView() {
     if (!confirmed) return;
 
     cleanupRunning.value = true;
-    cleanupMessage.value = '';
-    cleanupFailed.value = false;
 
     try {
       const removed = await cleanupManagedProcesses();
       await loadProcesses();
-      cleanupMessage.value =
-        removed === 0
-          ? 'Nenhum processo finalizado foi encontrado.'
-          : `${removed} processo${removed === 1 ? '' : 's'} finalizado${removed === 1 ? '' : 's'} removido${removed === 1 ? '' : 's'}. Processos em execução foram preservados.`;
+      toast.success('Ação concluída.', {
+        description:
+          removed === 0
+            ? 'Nenhum processo finalizado foi encontrado.'
+            : `${removed} processo${removed === 1 ? '' : 's'} finalizado${removed === 1 ? '' : 's'} removido${removed === 1 ? '' : 's'}. Processos em execução foram preservados.`,
+      });
     } catch (error) {
-      cleanupFailed.value = true;
-      cleanupMessage.value =
-        error instanceof ApiRequestError
-          ? error.message
-          : 'Não foi possível concluir a limpeza.';
+      toast.error('Não foi possível concluir a ação.', {
+        description:
+          error instanceof ApiRequestError
+            ? error.message
+            : 'Não foi possível concluir a limpeza.',
+      });
     } finally {
       cleanupRunning.value = false;
     }
@@ -308,8 +307,6 @@ export function useProcessesView() {
     loading,
     referenceErrorMessage,
     processesErrorMessage,
-    cleanupMessage,
-    cleanupFailed,
     cleanupRunning,
     now,
     eligibleProjects,

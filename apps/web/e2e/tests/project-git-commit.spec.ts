@@ -48,7 +48,7 @@ test.describe('Commit do projeto', () => {
       .getByLabel('Mensagem do commit')
       .fill('chore: ajusta lockfile via e2e');
     await submitButton.click();
-    const confirmDialog = page.getByRole('alertdialog');
+    const confirmDialog = page.getByRole('dialog');
     await expect(
       confirmDialog.getByRole('button', { name: 'Criar commit' }),
     ).toBeVisible();

@@ -22,12 +22,14 @@ import {
 } from '../api';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { useProjectLogsPolling } from '../composables/useProjectLogsPolling';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectServerMetrics } from '../composables/useProjectServerMetrics';
 import { confirmDialog } from '../stores/app-dialog';
 import { noticeCenterStore } from '../stores/notice-center';
 import { RequestGeneration } from '../utils/request-generation';
 import { parseServerPort } from '../utils/server-settings';
+import ProjectLogTerminal from './ProjectLogTerminal.vue';
 
 const props = defineProps<{
   project: Project;
@@ -47,6 +49,18 @@ const { commandLabel, startedAtLabel, uptimeLabel } = useProjectServerMetrics(
   () => props.project,
   managedProcess,
   processStatus,
+);
+
+const logContainer = ref<HTMLElement | null>(null);
+const {
+  logSnapshot,
+  clearing: clearingLog,
+  clearLogView,
+} = useProjectLogsPolling(
+  () => props.project,
+  canStop,
+  supportsServer,
+  logContainer,
 );
 
 const selectedPort = ref<string | number>('');

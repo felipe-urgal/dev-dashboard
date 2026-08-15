@@ -135,22 +135,7 @@
 }
 
 .content {
-  width: min(1500px, 100%);
-  padding: 28px 34px 48px;
-}
-
-.repositories-section {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface-1);
-  box-shadow: var(--shadow-1);
-}
-
-.repositories-section > .dd-card-header {
-  min-height: 72px;
-  padding: 20px 22px;
-  border-bottom-color: var(--border);
-  gap: 16px;
+  padding: 16px;
 }
 
 .repositories-section h2 {
@@ -325,17 +310,17 @@
   box-shadow: 0 0 12px rgb(50 214 238 / 55%);
 }
 
-.processes-page {
+/*.processes-page {
   gap: 0;
   padding-top: 34px;
-}
+}*/
 
-.processes-summary {
+/*.processes-summary {
   border: 1px solid var(--border);
   border-radius: 14px 14px 0 0;
   background: var(--surface-1);
   box-shadow: var(--shadow-1);
-}
+}*/
 
 .processes-summary > div {
   min-height: 92px;
@@ -359,14 +344,14 @@
   box-shadow: 0 0 0 3px var(--surface-2);
 }
 
-.processes-filters {
+/*.processes-filters {
   justify-content: flex-start;
   padding: 14px 18px;
   border: 1px solid var(--border);
   border-top: 0;
   border-radius: 0 0 10px 10px;
   background: var(--surface-1);
-}
+}*/
 
 .processes-feedback {
   margin: 14px 0 0;
@@ -419,14 +404,14 @@
   background: var(--surface-2);
 }
 
-.processes-table-shell {
+/*.processes-table-shell {
   border: 1px solid var(--border);
   border-top: 0;
   border-radius: 0 0 14px 14px;
   background: var(--surface-1);
   box-shadow: var(--shadow-1);
   overflow-x: auto;
-}
+}*/
 
 .processes-table th {
   padding: 14px 18px;
@@ -475,9 +460,9 @@
 }
 
 .activity-empty {
-  border: 1px solid var(--border);
+/*  border: 1px solid var(--border);
   border-radius: 0 0 14px 14px;
-  background: var(--surface-1);
+  background: var(--surface-1);*/
   color: var(--text-muted);
 }
 

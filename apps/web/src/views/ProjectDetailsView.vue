@@ -16,7 +16,6 @@ import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
 import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
 import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
 import ProjectGitPanel from '../components/ProjectGitPanel.vue';
-import ProjectLogsPanel from '../components/ProjectLogsPanel.vue';
 import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
 import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
 import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
@@ -49,7 +48,6 @@ const projectId = computed(() => {
 const isReadmeRoute = computed(() => route.name === 'project-details');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isServerRoute = computed(() => route.name === 'project-server');
-const isLogsRoute = computed(() => route.name === 'project-logs');
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
@@ -221,34 +219,10 @@ watch(
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <RouterLink
             class="project-details-tab"
-            :class="{ 'project-details-tab-active': isReadmeRoute }"
-            :to="{ name: 'project-details', params: { projectId: project.id } }"
-          >
-            README
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isDoctorRoute }"
-            :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-          >
-            Diagnóstico
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
             :class="{ 'project-details-tab-active': isServerRoute }"
             :to="{ name: 'project-server', params: { projectId: project.id } }"
           >
             Servidor
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isLogsRoute }"
-            :to="{ name: 'project-logs', params: { projectId: project.id } }"
-          >
-            Logs
           </RouterLink>
 
           <RouterLink
@@ -345,6 +319,22 @@ watch(
           >
             Variáveis de ambiente
           </RouterLink>
+
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isDoctorRoute }"
+            :to="{ name: 'project-doctor', params: { projectId: project.id } }"
+          >
+            Diagnóstico
+          </RouterLink>
+
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isReadmeRoute }"
+            :to="{ name: 'project-details', params: { projectId: project.id } }"
+          >
+            README
+          </RouterLink>
         </nav>
       </div>
 
@@ -363,12 +353,6 @@ watch(
       <ProjectServerPanel
         v-else-if="isServerRoute"
         :key="`server-${project.id}`"
-        :project="project"
-      />
-
-      <ProjectLogsPanel
-        v-else-if="isLogsRoute"
-        :key="`logs-${project.id}`"
         :project="project"
       />
 

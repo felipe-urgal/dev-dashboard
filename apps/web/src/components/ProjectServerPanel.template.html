@@ -128,6 +128,16 @@
             <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
           </button>
         </footer>
+
+        <section class="server-logs" aria-label="Logs do servidor">
+          <ProjectLogTerminal
+            :content="logSnapshot?.content ?? ''"
+            :running="processStatus === 'running'"
+            :masked-count="logSnapshot?.redactionCount ?? 0"
+            :clearing="clearingLog"
+            @clear="clearLogView"
+          />
+        </section>
       </section>
     </template>
   </div>

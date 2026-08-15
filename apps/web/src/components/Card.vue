@@ -37,13 +37,6 @@ const props = withDefaults(defineProps<Props>(), {
 </template>
 
 <style scoped>
-.dd-card {
-  background: var(--surface-1);
-  color: var(--text);
-}
-/*.dd-card-padded {
-  padding: var(--space-3);
-}*/
 .dd-card-borderless {
   border: none;
   background: none;

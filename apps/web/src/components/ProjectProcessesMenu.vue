@@ -1,23 +1,84 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { NPopover } from 'naive-ui';
 import { EllipsisVerticalIcon } from '@heroicons/vue/24/outline';
 
-import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
+import type {
+  DatabaseServiceAction,
+  Project,
+  ProjectDatabaseEnvironment,
+  RailsWorkerId,
+} from '@dev-dashboard/contracts';
 
 import { startProjectProcess, stopProjectProcess } from '../api';
+import {
+  fetchProjectDatabase,
+  runProjectDatabaseServiceAction,
+} from '../api/rails';
 import { useProjectProcessStatus } from '../composables/useProjectProcessStatus';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
 
 const props = defineProps<{ project: Project }>();
 
-const menuOpen = ref(false);
-const menuElement = ref<HTMLElement>();
 const serverBusy = ref<'start' | 'stop' | null>(null);
 const errorMessage = ref('');
 
 const server = useProjectProcessStatus(() => props.project);
 const sidekiq = useProjectRailsWorker(() => props.project, 'sidekiq', true);
 const webpack = useProjectRailsWorker(() => props.project, 'webpack', false);
+
+const databaseEnvironment = ref<ProjectDatabaseEnvironment | null>(null);
+const databaseBusy = ref<DatabaseServiceAction | null>(null);
+let databaseGeneration = 0;
+
+async function loadDatabaseEnvironment(): Promise<void> {
+  const current = ++databaseGeneration;
+  try {
+    const overview = await fetchProjectDatabase(props.project.id, 1);
+    if (current !== databaseGeneration) return;
+    databaseEnvironment.value =
+      overview.supported && overview.environments[0]?.serviceAvailable
+        ? overview.environments[0]
+        : null;
+  } catch {
+    if (current === databaseGeneration) databaseEnvironment.value = null;
+  }
+}
+
+watch(() => props.project.id, loadDatabaseEnvironment, { immediate: true });
+
+async function runDatabaseAction(action: DatabaseServiceAction): Promise<void> {
+  const environment = databaseEnvironment.value;
+  if (!environment) return;
+  databaseBusy.value = action;
+  errorMessage.value = '';
+  try {
+    await runProjectDatabaseServiceAction(
+      props.project.id,
+      environment.id,
+      action,
+    );
+    await loadDatabaseEnvironment();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : `Não foi possível ${action === 'start' ? 'iniciar' : 'parar'} o banco.`;
+  } finally {
+    databaseBusy.value = null;
+  }
+}
+
+const databaseStatusLabel = computed(() => {
+  switch (databaseEnvironment.value?.reachability) {
+    case 'reachable':
+      return 'Em execução';
+    case 'unreachable':
+      return 'Parado';
+    default:
+      return 'Desconhecido';
+  }
+});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
@@ -116,6 +177,18 @@ const items = computed<ProcessItem[]>(() => {
     });
   }
 
+  if (databaseEnvironment.value) {
+    list.push({
+      key: 'database',
+      label: 'Banco de dados',
+      running: databaseEnvironment.value.reachability === 'reachable',
+      busy: databaseBusy.value !== null,
+      statusLabel: databaseStatusLabel.value,
+      start: () => runDatabaseAction('start'),
+      stop: () => runDatabaseAction('stop'),
+    });
+  }
+
   return list;
 });
 
@@ -129,32 +202,6 @@ const stoppableItems = computed(() =>
   items.value.filter((item) => item.running && !item.busy),
 );
 const bulkBusy = ref<'start' | 'stop' | null>(null);
-
-function closeMenu(): void {
-  menuOpen.value = false;
-}
-
-function toggleMenu(): void {
-  menuOpen.value = !menuOpen.value;
-}
-
-function handleClickOutside(event: MouseEvent): void {
-  if (menuOpen.value && !menuElement.value?.contains(event.target as Node)) {
-    closeMenu();
-  }
-}
-
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') closeMenu();
-}
-
-document.addEventListener('click', handleClickOutside);
-document.addEventListener('keydown', handleKeydown);
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside);
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 async function startAll(): Promise<void> {
   if (bulkBusy.value) return;
@@ -201,22 +248,29 @@ async function toggleItem(item: ProcessItem): Promise<void> {
 </script>
 
 <template>
-  <div v-if="items.length > 0" ref="menuElement" class="processes-menu">
-    <button
-      type="button"
-      class="processes-menu-trigger"
-      aria-haspopup="true"
-      :aria-expanded="menuOpen"
-      aria-label="Processos do projeto"
-      @click="toggleMenu"
-    >
-      <EllipsisVerticalIcon aria-hidden="true" />
-      <span v-if="runningCount > 0" class="processes-menu-count">
-        {{ runningCount }}
-      </span>
-    </button>
+  <NPopover
+    v-if="items.length > 0"
+    trigger="click"
+    placement="bottom-end"
+    raw
+    :show-arrow="false"
+    class="processes-menu-panel"
+  >
+    <template #trigger>
+      <button
+        type="button"
+        class="processes-menu-trigger"
+        aria-haspopup="true"
+        aria-label="Processos do projeto"
+      >
+        <EllipsisVerticalIcon aria-hidden="true" />
+        <span v-if="runningCount > 0" class="processes-menu-count">
+          {{ runningCount }}
+        </span>
+      </button>
+    </template>
 
-    <div v-if="menuOpen" class="processes-menu-panel" role="menu">
+    <div role="menu">
       <p v-if="errorMessage" class="processes-menu-error" role="alert">
         {{ errorMessage }}
       </p>
@@ -274,14 +328,10 @@ async function toggleItem(item: ProcessItem): Promise<void> {
         </button>
       </div>
     </div>
-  </div>
+  </NPopover>
 </template>
 
 <style scoped>
-.processes-menu {
-  position: relative;
-}
-
 .processes-menu-trigger {
   position: relative;
   display: grid;
@@ -321,15 +371,14 @@ async function toggleItem(item: ProcessItem): Promise<void> {
   font-weight: 800;
   place-items: center;
 }
+</style>
 
+<style>
 .processes-menu-panel {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 8px);
-  right: 0;
   width: 260px;
   padding: 8px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
   box-shadow: 0 16px 34px rgb(0 0 0 / 18%);
 }

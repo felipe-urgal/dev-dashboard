@@ -146,6 +146,7 @@
 .server-config-footer,
 .server-status-actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
@@ -204,13 +205,27 @@
 }
 
 .server-running-card {
+  display: flex;
+  flex-direction: column;
   max-width: none;
+  min-height: 0;
   border: 0;
   background: transparent;
 }
 
+.server-logs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 320px;
+  margin: 0 22px 22px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
 .server-status-banner {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: auto minmax(0, 1fr) minmax(360px, 0.9fr);
   align-items: center;
   gap: 22px;

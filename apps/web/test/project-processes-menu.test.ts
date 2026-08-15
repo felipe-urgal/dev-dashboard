@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   ManagedProcess,
@@ -14,6 +14,8 @@ const {
   fetchProjectRailsWorker,
   startProjectRailsWorker,
   stopProjectRailsWorker,
+  fetchProjectDatabase,
+  runProjectDatabaseServiceAction,
 } = vi.hoisted(() => ({
   fetchProjectProcess: vi.fn(),
   startProjectProcess: vi.fn(),
@@ -21,6 +23,8 @@ const {
   fetchProjectRailsWorker: vi.fn(),
   startProjectRailsWorker: vi.fn(),
   stopProjectRailsWorker: vi.fn(),
+  fetchProjectDatabase: vi.fn(),
+  runProjectDatabaseServiceAction: vi.fn(),
 }));
 
 vi.mock('../src/api', () => ({
@@ -30,6 +34,11 @@ vi.mock('../src/api', () => ({
   fetchProjectRailsWorker,
   startProjectRailsWorker,
   stopProjectRailsWorker,
+}));
+
+vi.mock('../src/api/rails', () => ({
+  fetchProjectDatabase,
+  runProjectDatabaseServiceAction,
 }));
 
 import ProjectProcessesMenu from '../src/components/ProjectProcessesMenu.vue';
@@ -91,6 +100,10 @@ function workerOverview(workerId: RailsWorkerId, running: boolean) {
   };
 }
 
+// O painel do menu é renderizado pelo NPopover num Teleport, fora da árvore
+// do wrapper — por isso as buscas no conteúdo aberto usam `document`
+// (attachTo: document.body) em vez de `wrapper.find`.
+
 describe('ProjectProcessesMenu', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,6 +112,17 @@ describe('ProjectProcessesMenu', () => {
       async (_projectId: string, workerId: RailsWorkerId) =>
         workerOverview(workerId, workerId === 'sidekiq'),
     );
+    fetchProjectDatabase.mockResolvedValue({
+      supported: false,
+      environments: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+    });
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
   });
 
   it('não renderiza nada quando o projeto não tem capability de servidor', async () => {
@@ -142,6 +166,7 @@ describe('ProjectProcessesMenu', () => {
 
   it('lista servidor e sidekiq rodando e mostra a contagem no botão', async () => {
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -152,17 +177,17 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    const itemNames = wrapper.findAll('.processes-menu-item-name');
-    expect(itemNames.map((el) => el.text())).toEqual([
+    const itemNames = document.querySelectorAll('.processes-menu-item-name');
+    expect(Array.from(itemNames).map((el) => el.textContent)).toEqual([
       'Servidor',
       'Sidekiq',
       'Webpack',
     ]);
 
-    const actions = wrapper.findAll('.processes-menu-item-action');
-    expect(actions[0]?.text()).toBe('Parar');
-    expect(actions[1]?.text()).toBe('Parar');
-    expect(actions[2]?.text()).toBe('Iniciar');
+    const actions = document.querySelectorAll('.processes-menu-item-action');
+    expect(actions[0]?.textContent).toBe('Parar');
+    expect(actions[1]?.textContent).toBe('Parar');
+    expect(actions[2]?.textContent).toBe('Iniciar');
 
     wrapper.unmount();
   });
@@ -171,6 +196,7 @@ describe('ProjectProcessesMenu', () => {
     stopProjectProcess.mockResolvedValueOnce(serverProcess('stopped'));
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -178,7 +204,9 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    await wrapper.findAll('.processes-menu-item-action')[0]?.trigger('click');
+    await document
+      .querySelectorAll<HTMLButtonElement>('.processes-menu-item-action')[0]
+      ?.click();
     await flushPromises();
 
     expect(stopProjectProcess).toHaveBeenCalledWith('p1');
@@ -197,6 +225,7 @@ describe('ProjectProcessesMenu', () => {
     });
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -204,9 +233,11 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    await wrapper
-      .find('.processes-menu-bulk .menu-item.danger')
-      .trigger('click');
+    document
+      .querySelector<HTMLButtonElement>(
+        '.processes-menu-bulk .menu-item.danger',
+      )
+      ?.click();
     await flushPromises();
 
     expect(stopProjectProcess).toHaveBeenCalledWith('p1');
@@ -231,6 +262,7 @@ describe('ProjectProcessesMenu', () => {
     });
 
     const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
       props: { project: railsProject },
     });
 
@@ -238,15 +270,125 @@ describe('ProjectProcessesMenu', () => {
     await wrapper.find('.processes-menu-trigger').trigger('click');
     await flushPromises();
 
-    const startAllButton = wrapper.findAll(
+    const startAllButton = document.querySelectorAll<HTMLButtonElement>(
       '.processes-menu-bulk .menu-item',
     )[0];
-    await startAllButton?.trigger('click');
+    startAllButton?.click();
     await flushPromises();
 
     expect(startProjectProcess).toHaveBeenCalledWith('p1');
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'sidekiq');
     expect(startProjectRailsWorker).toHaveBeenCalledWith('p1', 'webpack');
+
+    wrapper.unmount();
+  });
+
+  it('lista o banco de dados quando há um ambiente com serviço local reconhecido', async () => {
+    fetchProjectDatabase.mockResolvedValue({
+      supported: true,
+      environments: [
+        {
+          id: 'development',
+          environment: 'development',
+          driver: 'mysql2',
+          passwordConfigured: true,
+          source: 'rails-database-yml',
+          sourceDetail: 'config/database.yml',
+          reachability: 'unreachable',
+          serviceAvailable: true,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    });
+    runProjectDatabaseServiceAction.mockResolvedValueOnce({
+      environmentId: 'development',
+      action: 'start',
+      succeeded: true,
+    });
+
+    const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
+      props: { project: railsProject },
+    });
+
+    await flushPromises();
+    await wrapper.find('.processes-menu-trigger').trigger('click');
+    await flushPromises();
+
+    const itemNames = document.querySelectorAll('.processes-menu-item-name');
+    expect(Array.from(itemNames).map((el) => el.textContent)).toContain(
+      'Banco de dados',
+    );
+
+    const actions = document.querySelectorAll('.processes-menu-item-action');
+    const databaseAction = actions[actions.length - 1] as HTMLButtonElement;
+    expect(databaseAction.textContent).toBe('Iniciar');
+
+    fetchProjectDatabase.mockResolvedValue({
+      supported: true,
+      environments: [
+        {
+          id: 'development',
+          environment: 'development',
+          driver: 'mysql2',
+          passwordConfigured: true,
+          source: 'rails-database-yml',
+          sourceDetail: 'config/database.yml',
+          reachability: 'reachable',
+          serviceAvailable: true,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    });
+    databaseAction.click();
+    await flushPromises();
+
+    expect(runProjectDatabaseServiceAction).toHaveBeenCalledWith(
+      'p1',
+      'development',
+      'start',
+    );
+
+    wrapper.unmount();
+  });
+
+  it('não lista o banco de dados quando não há serviço local reconhecido', async () => {
+    fetchProjectDatabase.mockResolvedValue({
+      supported: true,
+      environments: [
+        {
+          id: 'development',
+          environment: 'development',
+          driver: 'mysql2',
+          passwordConfigured: true,
+          source: 'rails-database-yml',
+          sourceDetail: 'config/database.yml',
+          reachability: 'unknown',
+          serviceAvailable: false,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    });
+
+    const wrapper = mount(ProjectProcessesMenu, {
+      attachTo: document.body,
+      props: { project: railsProject },
+    });
+
+    await flushPromises();
+    await wrapper.find('.processes-menu-trigger').trigger('click');
+    await flushPromises();
+
+    const itemNames = document.querySelectorAll('.processes-menu-item-name');
+    expect(Array.from(itemNames).map((el) => el.textContent)).not.toContain(
+      'Banco de dados',
+    );
 
     wrapper.unmount();
   });

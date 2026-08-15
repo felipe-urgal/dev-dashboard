@@ -4,6 +4,9 @@ import { mount } from '@vue/test-utils';
 import VisualPreferences from '../src/components/VisualPreferences.vue';
 import {
   applyVisualPreferences,
+  currentTheme,
+  DEFAULT_VISUAL_PREFERENCES,
+  loadVisualPreferences,
   readVisualPreferences,
 } from '../src/utils/visual-preferences';
 
@@ -11,6 +14,7 @@ describe('preferências visuais', () => {
   beforeEach(() => {
     localStorage.clear();
     delete document.documentElement.dataset.theme;
+    currentTheme.value = DEFAULT_VISUAL_PREFERENCES.theme;
   });
 
   afterEach(() => localStorage.clear());
@@ -38,6 +42,10 @@ describe('preferências visuais', () => {
     expect(buttons[1]!.attributes('aria-pressed')).toBe('true');
     expect(document.documentElement.dataset.theme).toBe('light');
     first.unmount();
+
+    // Simula o boot real do app: um novo carregamento relê a preferência
+    // persistida em localStorage antes de a sidebar montar de novo.
+    loadVisualPreferences();
 
     const restored = mount(VisualPreferences);
     const restoredButtons = restored.findAll('button');
