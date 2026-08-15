@@ -65,21 +65,18 @@ geral sem alterar esse princípio de manter a entrada enxuta.
 
 ### Repositórios
 
-Lista completa dos projetos detectados.
+Lista completa dos projetos detectados, em grade de cards (`ProjectCard.vue`)
+— substituiu a listagem em linhas de tabela. Cada card mostra tipo (avatar
+colorido por stack), nome, caminho, branch atual, porta (quando há processo
+gerenciado ativo), status do servidor (`<StatusBadge>`) e uma ação de
+ativar/desativar discreta (ícone, não um botão vermelho de largura total).
+Projetos desativados sempre ordenam para o final da lista
+(`sortProjectsByPriority`), depois disso mantendo recência e ordem alfabética
+dentro de cada grupo.
 
-Filtros planejados:
-
-- workspace;
-- tipo;
-- capacidade;
-- estado do servidor;
-- favorito;
-- busca textual.
-
-Modos de visualização:
-
-- cards;
-- tabela compacta.
+Não há busca textual nem filtro por tipo/capacidade/favorito nesta área —
+decisão deliberada para manter a listagem enxuta; reavaliar apenas se o
+volume de projetos por workspace justificar.
 
 ### Processos
 

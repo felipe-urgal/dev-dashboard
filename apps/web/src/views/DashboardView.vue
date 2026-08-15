@@ -120,18 +120,6 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
         </div>
       </template>
 
-      <div
-        v-if="!loadingProjects && sortedProjects.length > 0"
-        class="projects-header"
-        aria-hidden="true"
-      >
-        <span>Projeto</span>
-        <span>Branch</span>
-        <span>Status</span>
-        <span>Porta</span>
-        <span>Ação</span>
-      </div>
-
       <LoadingSkeleton
         v-if="loadingProjects"
         label="Carregando projetos…"

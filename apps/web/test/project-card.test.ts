@@ -21,6 +21,8 @@ vi.mock('../src/api', () => ({
     files: [],
     recentCommits: [],
   }),
+  startProjectProcess: vi.fn(),
+  stopProjectProcess: vi.fn(),
 }));
 
 import ProjectCard from '../src/components/ProjectCard.vue';
@@ -36,57 +38,41 @@ const project: Project = {
   capabilities: ['git', 'server'],
 };
 
-describe('ProjectCard', () => {
-  it('renderiza metadados e mantém só desativar no canto direito', async () => {
-    const wrapper = mount(ProjectCard, {
-      props: { project },
-      global: {
-        stubs: {
-          RouterLink: {
-            template: '<a><slot /></a>',
-          },
+function mountCard(overrides: Partial<Project> = {}) {
+  return mount(ProjectCard, {
+    props: { project: { ...project, ...overrides } },
+    global: {
+      stubs: {
+        RouterLink: {
+          template: '<a><slot /></a>',
         },
       },
-    });
+    },
+  });
+}
 
-    expect(wrapper.find('.project-avatar').exists()).toBe(false);
-    expect(wrapper.get('.project-row-identity').text()).toContain(
+describe('ProjectCard', () => {
+  it('renderiza identidade, branch e porta como um card', async () => {
+    const wrapper = mountCard();
+
+    expect(wrapper.get('.project-card-identity').text()).toContain(
       'Projeto sem avatar',
     );
-    expect(wrapper.find('.project-recent-badge').exists()).toBe(false);
-    expect(wrapper.find('.type-badge').exists()).toBe(false);
-    expect(wrapper.find('.project-row-action').exists()).toBe(false);
-    expect(wrapper.find('.project-favorite-button').exists()).toBe(false);
-    expect(wrapper.find('.project-remove-button').exists()).toBe(false);
-    expect(wrapper.text()).not.toContain('Abrir');
-    expect(wrapper.get('.project-row-status').attributes('aria-label')).toBe(
-      'Parado',
-    );
-    expect(wrapper.get('.project-row-actions').findAll('button')).toHaveLength(
-      1,
+    expect(wrapper.get('.project-card-avatar').attributes('data-type')).toBe(
+      'node',
     );
 
     await vi.waitFor(() => {
-      expect(wrapper.get('.project-branch-badge').text()).toContain(
+      expect(wrapper.get('.project-card-branch').text()).toContain(
         'feature/listar-branch',
       );
-      expect(wrapper.get('.project-port-badge').text()).toBe('Porta 3003');
+      expect(wrapper.get('.project-card-port').text()).toBe(':3003');
     });
-    expect(wrapper.text()).not.toContain('Git');
   });
 
-  it('expõe uma ação acessível para desativar e reativar', async () => {
-    const wrapper = mount(ProjectCard, {
-      props: { project },
-      global: {
-        stubs: {
-          RouterLink: {
-            template: '<a><slot /></a>',
-          },
-        },
-      },
-    });
-    const button = wrapper.get('.project-disable-button');
+  it('expõe uma única ação acessível para desativar e reativar', async () => {
+    const wrapper = mountCard();
+    const button = wrapper.get('.project-card-toggle');
 
     expect(button.attributes('aria-label')).toBe(
       'Desativar Projeto sem avatar',
@@ -107,5 +93,17 @@ describe('ProjectCard', () => {
     expect(button.attributes('aria-label')).toBe('Ativar Projeto sem avatar');
     expect(button.attributes('title')).toBe('Ativar Projeto sem avatar');
     expect(button.attributes('aria-pressed')).toBe('true');
+  });
+
+  it('marca o card como desativado e esconde o menu de processos', () => {
+    const wrapper = mountCard({ enabled: false });
+
+    expect(wrapper.get('.project-card').attributes('data-state')).toBe(
+      'disabled',
+    );
+    expect(wrapper.get('.project-card').classes()).toContain(
+      'project-card-disabled',
+    );
+    expect(wrapper.find('.processes-menu').exists()).toBe(false);
   });
 });
