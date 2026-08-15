@@ -171,10 +171,42 @@ onMounted(() => {
 
       <Toaster
         :theme="currentTheme"
-        position="top-right"
+        position="bottom-right"
         rich-colors
         close-button
+        :duration="2500"
       />
     </div>
   </n-config-provider>
 </template>
+
+<style>
+/* Toaster (vue-sonner) teleporta o conteúdo pra fora da árvore do App, então
+   isso não pode ser scoped. Deixa os toasts translúcidos com um leve
+   desfoque, no lugar do fundo sólido do preset rich-colors padrão. */
+[data-sonner-toast] {
+  background: color-mix(
+    in srgb,
+    var(--sonner-toast-bg, var(--normal-bg)) 78%,
+    transparent
+  ) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-sonner-toast][data-type='success'] {
+  --sonner-toast-bg: var(--success-bg);
+}
+
+[data-sonner-toast][data-type='error'] {
+  --sonner-toast-bg: var(--error-bg);
+}
+
+[data-sonner-toast][data-type='warning'] {
+  --sonner-toast-bg: var(--warning-bg);
+}
+
+[data-sonner-toast][data-type='info'] {
+  --sonner-toast-bg: var(--info-bg);
+}
+</style>

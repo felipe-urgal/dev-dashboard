@@ -28,8 +28,6 @@ const {
   loading,
   referenceErrorMessage,
   processesErrorMessage,
-  cleanupMessage,
-  cleanupFailed,
   cleanupRunning,
   now,
   eligibleProjects,
@@ -94,18 +92,6 @@ const {
         <dd>{{ items.length }}</dd>
       </div>
     </dl>
-
-    <p
-      v-if="cleanupMessage"
-      class="processes-feedback"
-      :class="{
-        'processes-feedback-error': cleanupFailed,
-        'processes-feedback-success': !cleanupFailed,
-      }"
-      :role="cleanupFailed ? 'alert' : 'status'"
-    >
-      {{ cleanupMessage }}
-    </p>
 
     <div
       class="processes-filters"

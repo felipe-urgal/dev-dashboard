@@ -131,16 +131,22 @@ Project Doctor, não numa área de configurações dedicada.
 ### Notificações transitórias
 
 Mensagens de sucesso/erro/aviso de ações do usuário (escanear workspace,
-cadastrar workspace, variáveis de ambiente, etc.) não são mais banners fixos
-no topo do conteúdo — viram toasts flutuantes no canto superior direito,
-renderizados por [`vue-sonner`](https://github.com/xiaoluoboding/vue-sonner)
-(`<Toaster>` montado uma única vez em `App.vue`, tema sincronizado com o
-toggle claro/escuro da sidebar via `utils/visual-preferences.ts`). Somem
-sozinhos depois de alguns segundos ou por dismiss manual, sem empurrar o
-conteúdo da página. A ponte entre estado existente e a lib fica em
-`useDashboardToastBridge` (para os campos transitórios da `dashboardStore`)
-e em watchers pontuais nos componentes que têm mensagens próprias (ex.
-`ProjectEnvironmentPanel`).
+cadastrar workspace, variáveis de ambiente, ações Git, limpar processos
+finalizados, etc.) não são mais banners fixos no topo do conteúdo — viram
+toasts flutuantes no canto inferior direito, renderizados por
+[`vue-sonner`](https://github.com/xiaoluoboding/vue-sonner) (`<Toaster>`
+montado uma única vez em `App.vue`, tema sincronizado com o toggle
+claro/escuro da sidebar via `utils/visual-preferences.ts`, fundo
+semitransparente com blur via `color-mix`/`backdrop-filter` para não tampar
+tanto o conteúdo atrás). Somem sozinhos depois de 2,5s ou por dismiss
+manual, sem empurrar o conteúdo da página. A ponte entre estado existente e
+a lib fica em `useDashboardToastBridge` (para os campos transitórios da
+`dashboardStore`), em watchers pontuais nos componentes que têm mensagens
+próprias (ex. `ProjectEnvironmentPanel`), em `useProcessesView` (resultado
+de "Limpar finalizados") e em `git-action-feedback.ts` (feedback de ações
+Git disparadas por qualquer botão/link com `data-git-action`, que usa um
+`id` fixo para o toast passar de "Executando ação Git" — `toast.loading` —
+para sucesso/erro no mesmo lugar em vez de empilhar um novo toast).
 
 ### Biblioteca de componentes
 

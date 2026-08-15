@@ -5,6 +5,14 @@ import { mount, RouterLinkStub, flushPromises } from '@vue/test-utils';
 
 import type { ManagedProcess } from '@dev-dashboard/contracts';
 
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+}));
+
+vi.mock('vue-sonner', () => ({ toast: toastMock }));
+
 import ProcessesView from '../src/views/ProcessesView.vue';
 import { ApiRequestError } from '../src/api';
 import { makeProject, makeWorkspace } from './support/activity-fixtures.js';
@@ -106,6 +114,9 @@ async function mountView(args: MountArgs) {
 let cleanup: (() => void) | undefined;
 beforeEach(() => {
   cleanup = undefined;
+  toastMock.success.mockClear();
+  toastMock.error.mockClear();
+  toastMock.warning.mockClear();
 });
 afterEach(() => {
   cleanup?.();
@@ -327,6 +338,12 @@ test('limpa todos os processos finalizados e preserva os ativos', async () => {
 
   assert.equal(cleanupCalls, 1);
   assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
-  assert.match(wrapper.text(), /2 processos finalizados removidos/);
+  assert.equal(toastMock.success.mock.calls.length, 1);
+  const [title, options] = toastMock.success.mock.calls[0] as [
+    string,
+    { description?: string },
+  ];
+  assert.equal(title, 'Ação concluída.');
+  assert.match(options.description ?? '', /2 processos finalizados removidos/);
   assert.match(wrapper.text(), /Em execução/);
 });
