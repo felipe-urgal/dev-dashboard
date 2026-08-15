@@ -15,11 +15,11 @@ const { processStatus, supportsServer, hasManagedProcess } =
 const logContainer = ref<HTMLElement | null>(null);
 const { loadingLogs, logSnapshot, clearing, clearLogView } =
   useProjectLogsPolling(
-  () => props.project,
-  hasManagedProcess,
-  supportsServer,
-  logContainer,
-);
+    () => props.project,
+    hasManagedProcess,
+    supportsServer,
+    logContainer,
+  );
 
 const isLoading = computed(
   () => loadingLogs.value && !logSnapshot.value?.content,
