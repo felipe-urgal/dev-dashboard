@@ -295,6 +295,7 @@
 }
 
 .project-details-main {
+  min-width: 0;
   gap: 16px;
 }
 
@@ -329,14 +330,18 @@
 }
 
 .project-details-actions {
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .project-details-tabs {
   gap: 0;
+  min-width: 0;
   padding: 0 22px;
+  overflow-x: auto;
   border-bottom: 0;
   background: var(--surface-1);
+  scrollbar-width: thin;
 }
 
 .project-details-tab {
