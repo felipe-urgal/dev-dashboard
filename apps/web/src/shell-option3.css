@@ -1143,3 +1143,34 @@
     padding-inline: 12px 14px !important;
   }
 }
+
+
+/* A unified keyboard focus treatment keeps the cockpit usable without a mouse. */
+:where(
+  .compact-action-button,
+  .project-disable-button,
+  .project-details-tab,
+  .git-subtabs button,
+  .git-quick-actions button,
+  .git-preview-grid header button,
+  .git-table-row button,
+  .git-history-refresh,
+  .git-sync-button,
+  .git-commit-submit,
+  .branch-create-button,
+  .branch-refresh-button,
+  .git-diff-refresh-button,
+  .terminal-icon-button,
+  .terminal-start,
+  .tests-button-with-icon,
+  .tests-execute-button,
+  .dependencies-detect-button,
+  .dependencies-row-action,
+  .project-environment-value-action,
+  .rails-worker-actions button,
+  .database-explorer-tabs button,
+  .scripts-explorer-tabs button
+):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
