@@ -176,24 +176,6 @@
   gap: 12px;
 }
 
-.sidebar-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 9px;
-  color: var(--text-dim);
-  font-size: 10px;
-}
-
-.sidebar-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--success-text);
-  box-shadow: 0 0 12px rgb(69 227 155 / 70%);
-}
-
 .main-content {
   background: transparent;
 }
