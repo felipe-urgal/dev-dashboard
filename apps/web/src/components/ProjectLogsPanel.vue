@@ -13,12 +13,8 @@ const { processStatus, supportsServer, hasManagedProcess } =
   useProjectProcessStatus(() => props.project);
 
 const logContainer = ref<HTMLElement | null>(null);
-const {
-  loadingLogs,
-  logSnapshot,
-  clearing,
-  clearLogView,
-} = useProjectLogsPolling(
+const { loadingLogs, logSnapshot, clearing, clearLogView } =
+  useProjectLogsPolling(
   () => props.project,
   hasManagedProcess,
   supportsServer,
