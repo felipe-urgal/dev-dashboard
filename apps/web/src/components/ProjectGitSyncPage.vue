@@ -1,7 +1,3 @@
-npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
-npm warn Unknown env config "http-proxy". This will stop working in the next
-major version of npm. npm warn Unknown env config "http-proxy". This will stop
-working in the next major version of npm.
 <script setup lang="ts">
 import {
   ArrowPathIcon,
@@ -510,14 +506,3 @@ function statusIcon(tone: string) {
   }
 }
 </style>
-npm notice npm notice New major version of npm available! 11.9.0 -> 12.0.2 npm
-notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2 npm notice To
-update run: npm install -g npm@12.0.2 npm notice npm notice npm notice New major
-version of npm available! 11.9.0 -> 12.0.2 npm notice Changelog:
-https://github.com/npm/cli/releases/tag/v12.0.2 npm notice To update run: npm
-install -g npm@12.0.2 npm notice
-npm notice
-npm notice New major version of npm available! 11.9.0 -> 12.0.2
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
-npm notice To update run: npm install -g npm@12.0.2
-npm notice
