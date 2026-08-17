@@ -2,10 +2,16 @@
 import { computed, ref, watch } from 'vue';
 
 import {
+  AdjustmentsHorizontalIcon,
   BeakerIcon,
+  CircleStackIcon,
   CodeBracketIcon,
   CommandLineIcon,
+  CubeIcon,
+  DocumentTextIcon,
   EllipsisHorizontalIcon,
+  QueueListIcon,
+  ShieldCheckIcon,
   ServerStackIcon,
   ShareIcon,
 } from '@heroicons/vue/24/outline';
@@ -291,7 +297,6 @@ watch(
                 'project-details-more-trigger-active': isMoreToolRoute,
               }"
               aria-label="Mais ferramentas"
-              title="Mais ferramentas"
               aria-haspopup="menu"
               :aria-expanded="moreToolsOpen"
               @click="moreToolsOpen = !moreToolsOpen"
@@ -315,7 +320,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Banco de dados
+                <CircleStackIcon aria-hidden="true" />
+                <span>Banco de dados</span>
               </RouterLink>
               <RouterLink
                 v-if="project.type === 'rails' || project.type === 'node'"
@@ -330,7 +336,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Dependências
+                <CubeIcon aria-hidden="true" />
+                <span>Dependências</span>
               </RouterLink>
               <RouterLink
                 v-if="project.type === 'rails'"
@@ -343,7 +350,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Console
+                <CommandLineIcon aria-hidden="true" />
+                <span>Console</span>
               </RouterLink>
               <RouterLink
                 v-if="project.type === 'rails' && sidekiqDetected"
@@ -358,7 +366,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Sidekiq
+                <QueueListIcon aria-hidden="true" />
+                <span>Sidekiq</span>
               </RouterLink>
               <RouterLink
                 v-if="project.type === 'rails' && webpackDetected"
@@ -373,7 +382,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Webpack
+                <CodeBracketIcon aria-hidden="true" />
+                <span>Webpack</span>
               </RouterLink>
               <RouterLink
                 class="project-details-more-item"
@@ -387,7 +397,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Variáveis de ambiente
+                <AdjustmentsHorizontalIcon aria-hidden="true" />
+                <span>Variáveis de ambiente</span>
               </RouterLink>
               <RouterLink
                 class="project-details-more-item"
@@ -399,7 +410,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                Diagnóstico
+                <ShieldCheckIcon aria-hidden="true" />
+                <span>Diagnóstico</span>
               </RouterLink>
               <RouterLink
                 class="project-details-more-item"
@@ -411,7 +423,8 @@ watch(
                 role="menuitem"
                 @click="moreToolsOpen = false"
               >
-                README
+                <DocumentTextIcon aria-hidden="true" />
+                <span>README</span>
               </RouterLink>
             </div>
           </div>

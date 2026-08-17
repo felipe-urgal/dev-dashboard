@@ -208,7 +208,8 @@
 .project-details-primary-tabs {
   display: flex;
   min-width: 0;
-  flex: 1 1 auto;
+  max-width: calc(100% - 54px);
+  flex: 0 1 auto;
   align-items: stretch;
   gap: 4px;
   overflow-x: auto;
@@ -731,4 +732,20 @@
   .project-details-more-popover {
     min-width: min(240px, calc(100vw - 24px));
   }
+}
+
+.project-details-more-item {
+  gap: 9px;
+}
+
+.project-details-more-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.project-details-more-item:hover svg,
+.project-details-more-item-active svg {
+  color: var(--accent);
 }
