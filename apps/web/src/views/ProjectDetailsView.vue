@@ -353,7 +353,9 @@ watch(
                 <RouterLink
                   v-if="databaseSupported"
                   class="project-details-more-item"
-                  :class="{ 'project-details-more-item-active': isDatabaseRoute }"
+                  :class="{
+                    'project-details-more-item-active': isDatabaseRoute,
+                  }"
                   :to="{
                     name: 'project-database',
                     params: { projectId: project.id },
@@ -383,7 +385,9 @@ watch(
                 <RouterLink
                   v-if="project.type === 'rails'"
                   class="project-details-more-item"
-                  :class="{ 'project-details-more-item-active': isConsoleRoute }"
+                  :class="{
+                    'project-details-more-item-active': isConsoleRoute,
+                  }"
                   :to="{
                     name: 'project-console',
                     params: { projectId: project.id },
