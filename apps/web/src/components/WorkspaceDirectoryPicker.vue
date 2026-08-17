@@ -157,8 +157,3 @@ watch(
     </div>
   </n-modal>
 </template>
-        </div>
-      </section>
-    </div>
-  </Teleport>
-</template>
