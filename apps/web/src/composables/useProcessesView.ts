@@ -27,6 +27,13 @@ interface ProjectOption {
 
 type ProcessStatusFilter = '' | 'active' | 'stopped' | 'failed';
 
+type FilterState = {
+  workspace: string;
+  project: string;
+  kind: '' | 'server' | 'test' | 'compose-build';
+  status: ProcessStatusFilter;
+};
+
 const ACTIVE_STATUSES = new Set<ManagedProcessStatus>([
   'starting',
   'running',
@@ -45,7 +52,7 @@ export function useProcessesView() {
   const projects = ref<ProjectOption[]>([]);
   const items = ref<ManagedProcess[]>([]);
 
-  const initialFilters = (() => {
+  const initialFilters: FilterState = (() => {
     if (typeof window === 'undefined') {
       return { workspace: '', project: '', kind: '', status: '' };
     }
