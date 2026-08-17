@@ -58,7 +58,7 @@ function mountView() {
         RouterLink: {
           props: ['to'],
           template:
-            '<a class="router-link-stub" :data-route="to.name"><slot /></a>',
+            '<a class="router-link-stub" :data-route="to.name" :data-status="to.query?.status || \'\'"><slot /></a>',
         },
         ProjectCard: {
           props: ['project', 'enabledUpdating'],
@@ -137,6 +137,16 @@ describe('dashboard principal', () => {
     );
     expect(link.attributes('data-route')).toBe('processes');
     expect(link.text()).toContain('Acompanhar execução');
+  });
+
+  it('aponta para os processos com falha quando há falhas no resumo', () => {
+    dashboardStore.processSummary.value.failed = 2;
+    const wrapper = mountView();
+
+    const link = wrapper.get('.overview-summary-action');
+    expect(link.attributes('aria-label')).toBe('Ver processos com falha');
+    expect(link.attributes('data-status')).toBe('failed');
+    expect(link.text()).toContain('Ver falhas');
   });
 
   it('mostra métricas operacionais dos processos gerenciados', async () => {
