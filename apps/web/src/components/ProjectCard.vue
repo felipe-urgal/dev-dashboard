@@ -62,7 +62,7 @@ const toggleEnabledLabel = computed(() =>
 );
 
 const projectDetailsRoute = computed(() => ({
-  name: 'project-details',
+  name: 'project-server',
   params: { projectId: props.project.id },
 }));
 
