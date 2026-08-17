@@ -627,6 +627,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     sortedProjects,
     knownProjects,
     ensureDashboardLoaded,
+    loadProcessSummary,
     ensureProject,
     scanSelectedWorkspace,
     rescanSelectedWorkspace,
