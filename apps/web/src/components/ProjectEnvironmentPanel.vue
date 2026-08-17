@@ -148,8 +148,10 @@ watch(environment.errorMessage, (value) => {
 <style scoped>
 .project-environment-panel {
   display: flex;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
   flex-direction: column;
-  min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   padding-bottom: 24px;
