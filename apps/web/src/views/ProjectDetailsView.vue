@@ -240,52 +240,56 @@ watch(
 
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
           <div class="project-details-primary-tabs">
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isServerRoute }"
-            :to="{ name: 'project-server', params: { projectId: project.id } }"
-          >
-            <ServerStackIcon aria-hidden="true" />
-            <span>Servidor</span>
-          </RouterLink>
+            <RouterLink
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isServerRoute }"
+              :to="{
+                name: 'project-server',
+                params: { projectId: project.id },
+              }"
+            >
+              <ServerStackIcon aria-hidden="true" />
+              <span>Servidor</span>
+            </RouterLink>
 
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isGitRoute }"
-            :to="{ name: 'project-git', params: { projectId: project.id } }"
-          >
-            <CodeBracketIcon aria-hidden="true" />
-            <span>Git</span>
-          </RouterLink>
+            <RouterLink
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isGitRoute }"
+              :to="{ name: 'project-git', params: { projectId: project.id } }"
+            >
+              <CodeBracketIcon aria-hidden="true" />
+              <span>Git</span>
+            </RouterLink>
 
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isTestsRoute }"
-            :to="{ name: 'project-tests', params: { projectId: project.id } }"
-          >
-            <BeakerIcon aria-hidden="true" />
-            <span>Testes</span>
-          </RouterLink>
+            <RouterLink
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isTestsRoute }"
+              :to="{ name: 'project-tests', params: { projectId: project.id } }"
+            >
+              <BeakerIcon aria-hidden="true" />
+              <span>Testes</span>
+            </RouterLink>
 
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isTerminalRoute }"
-            :to="{
-              name: 'project-terminal',
-              params: { projectId: project.id },
-            }"
-          >
-            <CommandLineIcon aria-hidden="true" />
-            <span>Terminal</span>
-          </RouterLink>
-
+            <RouterLink
+              class="project-details-tab"
+              :class="{ 'project-details-tab-active': isTerminalRoute }"
+              :to="{
+                name: 'project-terminal',
+                params: { projectId: project.id },
+              }"
+            >
+              <CommandLineIcon aria-hidden="true" />
+              <span>Terminal</span>
+            </RouterLink>
           </div>
 
           <div class="project-details-more-menu">
             <button
               type="button"
               class="project-details-more-trigger"
-              :class="{ 'project-details-more-trigger-active': isMoreToolRoute }"
+              :class="{
+                'project-details-more-trigger-active': isMoreToolRoute,
+              }"
               aria-label="Mais ferramentas"
               title="Mais ferramentas"
               aria-haspopup="menu"
