@@ -214,11 +214,20 @@ const {
       class="activity-empty"
       role="status"
     >
-      {{
-        items.length === 0
-          ? 'Nenhum processo gerenciado no momento.'
-          : 'Nenhum processo corresponde aos filtros escolhidos.'
-      }}
+      <span>
+        {{
+          items.length === 0
+            ? 'Nenhum processo gerenciado no momento.'
+            : 'Nenhum processo corresponde aos filtros escolhidos.'
+        }}
+      </span>
+      <RouterLink
+        v-if="items.length === 0"
+        :to="{ name: 'dashboard' }"
+        class="processes-empty-action"
+      >
+        Abrir repositórios
+      </RouterLink>
     </div>
 
     <div v-else class="processes-table-shell">
@@ -351,6 +360,20 @@ const {
 .processes-clear-filters-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.processes-empty-action {
+  display: inline-flex;
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.processes-empty-action:hover,
+.processes-empty-action:focus-visible {
+  text-decoration: underline;
 }
 
 .processes-clear-filters-button {
