@@ -153,8 +153,9 @@ describe('cards dos painéis de detalhe', () => {
 
     expect(wrapper.find('.server-config-card').exists()).toBe(false);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);
-    expect(wrapper.find('.server-logs').exists()).toBe(true);
-    expect(wrapper.find('.project-log-terminal').exists()).toBe(true);
+    expect(wrapper.find('.server-logs').exists()).toBe(false);
+    expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
+    expect(wrapper.find('.server-log-button').exists()).toBe(true);
     expect(wrapper.text()).toContain('http://localhost:3000');
     expect(wrapper.text()).toContain('http://192.168.1.10:3000');
     expect(wrapper.text()).not.toContain('Configuração do processo');
