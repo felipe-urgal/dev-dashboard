@@ -347,3 +347,47 @@ test('limpa todos os processos finalizados e preserva os ativos', async () => {
   assert.match(options.description ?? '', /2 processos finalizados removidos/);
   assert.match(wrapper.text(), /Em execução/);
 });
+
+test('aplica o filtro de falhas vindo da query da rota', async () => {
+  const originalUrl = window.location.href;
+  window.history.replaceState({}, '', '/processes?status=failed');
+
+  try {
+    const { wrapper, restore } = await mountView({
+      processes: async () => [
+        {
+          id: 'srv-running',
+          projectId: 'p1',
+          workspaceId: 'w1',
+          kind: 'server',
+          status: 'running',
+          port: 3000,
+          startedAt: '2026-07-26T09:00:00Z',
+        },
+        {
+          id: 'srv-failed',
+          projectId: 'p1',
+          workspaceId: 'w1',
+          kind: 'server',
+          status: 'failed',
+          startedAt: '2026-07-26T08:00:00Z',
+          stoppedAt: '2026-07-26T08:01:00Z',
+        },
+      ],
+    });
+    cleanup = () => {
+      restore();
+      window.history.replaceState({}, '', originalUrl);
+    };
+
+    await flushPromises();
+    await flushPromises();
+
+    assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
+    assert.match(wrapper.text(), /srv-failed/);
+    assert.doesNotMatch(wrapper.text(), /srv-running/);
+  } finally {
+    cleanup?.();
+    cleanup = undefined;
+  }
+});

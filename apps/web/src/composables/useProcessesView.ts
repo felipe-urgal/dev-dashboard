@@ -48,7 +48,16 @@ export function useProcessesView() {
   const workspaceFilter = ref('');
   const projectFilter = ref('');
   const kindFilter = ref<'' | 'server' | 'test' | 'compose-build'>('');
-  const statusFilter = ref<ProcessStatusFilter>('');
+  const initialStatusFilter = (() => {
+    if (typeof window === 'undefined') return '';
+
+    const status = new URLSearchParams(window.location.search).get('status');
+    return status === 'active' || status === 'stopped' || status === 'failed'
+      ? status
+      : '';
+  })();
+
+  const statusFilter = ref<ProcessStatusFilter>(initialStatusFilter);
 
   const loading = ref(false);
   const referenceErrorMessage = ref('');
