@@ -33,13 +33,21 @@ watch(environment.errorMessage, (value) => {
     <template v-else-if="environment.overview.value">
       <header class="project-environment-header">
         <div>
-          <span class="project-environment-breadcrumb">Ferramenta do projeto</span>
+          <span class="project-environment-breadcrumb"
+            >Ferramenta do projeto</span
+          >
           <h2>Variáveis de ambiente</h2>
-          <p>Consulte configurações detectadas sem expor segredos por padrão.</p>
+          <p>
+            Consulte configurações detectadas sem expor segredos por padrão.
+          </p>
         </div>
         <StatusBadge tone="info">
           {{ environment.overview.value.files.length }}
-          {{ environment.overview.value.files.length === 1 ? 'arquivo' : 'arquivos' }}
+          {{
+            environment.overview.value.files.length === 1
+              ? 'arquivo'
+              : 'arquivos'
+          }}
         </StatusBadge>
       </header>
 
@@ -165,7 +173,6 @@ watch(environment.errorMessage, (value) => {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-
 
 .project-environment-header .dd-status-badge {
   flex: 0 0 auto;
