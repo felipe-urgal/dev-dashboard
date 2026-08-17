@@ -20,7 +20,8 @@ export const router = createRouter({
     },
     {
       path: '/projects/:projectId',
-      redirect: (to) => ({ name: 'project-server', params: to.params }),
+      name: 'project-details',
+      component: ProjectDetailsView,
     },
     {
       path: '/projects/:projectId/readme',
