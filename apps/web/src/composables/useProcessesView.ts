@@ -119,14 +119,13 @@ export function useProcessesView() {
 
   const hasVisibleItems = computed(() => visibleItems.value.length > 0);
 
-  const hasActiveFilters = computed(
-    () =>
-      Boolean(
-        workspaceFilter.value ||
-          projectFilter.value ||
-          kindFilter.value ||
-          statusFilter.value,
-      ),
+  const hasActiveFilters = computed(() =>
+    Boolean(
+      workspaceFilter.value ||
+      projectFilter.value ||
+      kindFilter.value ||
+      statusFilter.value,
+    ),
   );
 
   const activeCount = computed(
