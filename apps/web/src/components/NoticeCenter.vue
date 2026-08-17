@@ -155,16 +155,16 @@ onBeforeUnmount(() => {
   >
     <template #trigger>
       <button
-      ref="bellButton"
-      type="button"
-      class="notice-bell-button"
-      :aria-label="bellLabel"
-      :aria-expanded="open"
-      aria-controls="notice-panel"
-      @click="toggle"
-    >
-      <BellIcon aria-hidden="true" />
-      <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
+        ref="bellButton"
+        type="button"
+        class="notice-bell-button"
+        :aria-label="bellLabel"
+        :aria-expanded="open"
+        aria-controls="notice-panel"
+        @click="toggle"
+      >
+        <BellIcon aria-hidden="true" />
+        <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
       </button>
     </template>
 
