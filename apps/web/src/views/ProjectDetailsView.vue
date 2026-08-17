@@ -47,7 +47,9 @@ const projectId = computed(() => {
 
 const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
-const isServerRoute = computed(() => route.name === 'project-server');
+const isServerRoute = computed(
+  () => route.name === 'project-server' || route.name === 'project-details',
+);
 const isGitRoute = computed(() => route.name === 'project-git');
 const isTestsRoute = computed(() => route.name === 'project-tests');
 const isDatabaseRoute = computed(() => route.name === 'project-database');
