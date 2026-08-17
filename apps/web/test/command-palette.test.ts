@@ -166,9 +166,7 @@ async function mountPalette(
 function expectPaletteHidden(): void {
   const palette = document.querySelector<HTMLElement>('.command-palette');
   expect(palette).not.toBeNull();
-  expect(palette?.closest<HTMLElement>('.n-modal')?.style.display).toBe(
-    'none',
-  );
+  expect(palette?.closest<HTMLElement>('.n-modal')?.style.display).toBe('none');
 }
 
 afterEach(() => {
