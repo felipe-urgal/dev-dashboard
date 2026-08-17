@@ -26,6 +26,10 @@ vi.mock('../src/stores/dashboard', async () => {
       errorMessage: ref(''),
       successMessage: ref(''),
       warningCount: ref(0),
+      processSummary: ref({ total: 0, active: 0, stopped: 0, failed: 0 }),
+      loadingProcessSummary: ref(false),
+      processSummaryError: ref(''),
+      loadProcessSummary: vi.fn(),
       lastScannedPath: ref(''),
       rescanSelectedWorkspace: actions.escanear,
       toggleProjectEnabled: actions.desativar,
@@ -73,6 +77,14 @@ beforeEach(() => {
   dashboardStore.errorMessage.value = '';
   dashboardStore.successMessage.value = '';
   dashboardStore.warningCount.value = 0;
+  dashboardStore.processSummary.value = {
+    total: 0,
+    active: 0,
+    stopped: 0,
+    failed: 0,
+  };
+  dashboardStore.loadingProcessSummary.value = false;
+  dashboardStore.processSummaryError.value = '';
   dashboardStore.lastScannedPath.value = '';
 });
 
@@ -82,6 +94,8 @@ describe('dashboard principal', () => {
 
     expect(wrapper.find('.overview-summary-card').exists()).toBe(true);
     expect(wrapper.find('[data-key="projects"] strong').text()).toBe('0');
+    expect(wrapper.find('[data-key="running"] strong').text()).toBe('0');
+    expect(wrapper.find('[data-key="failed"] strong').text()).toBe('0');
     expect(wrapper.find('.repositories-section').classes()).toContain(
       'dd-card',
     );
@@ -107,6 +121,26 @@ describe('dashboard principal', () => {
     expect(wrapper.find('[data-key="git"] strong').text()).toBe('2');
     expect(wrapper.find('[data-key="servers"] strong').text()).toBe('1');
     expect(wrapper.find('[data-key="warnings"] strong').text()).toBe('2');
+  });
+
+  it('mostra métricas operacionais dos processos gerenciados', async () => {
+    dashboardStore.projects.value = [project];
+    dashboardStore.processSummary.value = {
+      total: 3,
+      active: 1,
+      stopped: 1,
+      failed: 1,
+    };
+    const wrapper = mountView();
+
+    expect(wrapper.find('[data-key="running"] strong').text()).toBe('1');
+    expect(wrapper.find('[data-key="failed"] strong').text()).toBe('1');
+
+    dashboardStore.loadingProcessSummary.value = true;
+    await nextTick();
+    expect(wrapper.get('[role="status"]').text()).toContain(
+      'Atualizando processos',
+    );
   });
 
   it('remove filtros, contagem, título redundante e ações globais de servidor', () => {
