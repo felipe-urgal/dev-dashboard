@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-import type { Project, Workspace } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  Project,
+  Workspace,
+} from '@dev-dashboard/contracts';
 
 import { ApiRequestError } from '../src/api.js';
 import {
@@ -47,6 +51,7 @@ function createApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
       service: 'api',
       timestamp: new Date().toISOString(),
     }),
+    fetchManagedProcesses: async () => [],
     fetchProject: async () => project,
     fetchProjects: async () => [],
     fetchWorkspaces: async () => [],
@@ -168,4 +173,70 @@ test('dashboard store desfaz a alteração otimista de recursiveScan quando a AP
   assert.equal(store.workspaces.value[0]?.recursiveScan, false);
   assert.equal(store.errorMessage.value, 'Falha ao salvar a preferência');
   assert.deepEqual(store.recursiveScanUpdatingIds.value, []);
+});
+
+test('dashboard store carrega o resumo dos processos gerenciados', async () => {
+  const processes: ManagedProcess[] = [
+    {
+      id: 'server-1',
+      projectId: project.id,
+      workspaceId: workspace.id,
+      kind: 'server',
+      status: 'running',
+      port: 3000,
+      startedAt: new Date().toISOString(),
+    },
+    {
+      id: 'test-1',
+      projectId: project.id,
+      workspaceId: workspace.id,
+      kind: 'test',
+      status: 'failed',
+      startedAt: new Date().toISOString(),
+      stoppedAt: new Date().toISOString(),
+    },
+    {
+      id: 'test-2',
+      projectId: project.id,
+      workspaceId: workspace.id,
+      kind: 'test',
+      status: 'stopped',
+      startedAt: new Date().toISOString(),
+      stoppedAt: new Date().toISOString(),
+    },
+  ];
+  const store = createDashboardStore(
+    createApi({
+      fetchManagedProcesses: async () => processes,
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+
+  assert.deepEqual(store.processSummary.value, {
+    total: 3,
+    active: 1,
+    stopped: 1,
+    failed: 1,
+  });
+  assert.equal(store.processSummaryError.value, '');
+});
+
+test('dashboard store preserva o dashboard quando o resumo de processos falha', async () => {
+  const store = createDashboardStore(
+    createApi({
+      fetchManagedProcesses: async () => {
+        throw new Error('Processos indisponíveis');
+      },
+    }),
+  );
+
+  await store.ensureDashboardLoaded();
+
+  assert.equal(store.projects.value.length, 0);
+  assert.equal(store.errorMessage.value, '');
+  assert.equal(
+    store.processSummaryError.value,
+    'Processos indisponíveis',
+  );
 });
