@@ -209,8 +209,8 @@
 .project-details-primary-tabs {
   display: flex;
   min-width: 0;
-  max-width: calc(100% - 54px);
-  flex: 0 1 auto;
+  max-width: none;
+  flex: 1 1 auto;
   align-items: stretch;
   gap: 4px;
   overflow-x: auto;
