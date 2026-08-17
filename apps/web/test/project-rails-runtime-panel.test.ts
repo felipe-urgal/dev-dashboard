@@ -69,8 +69,23 @@ const project: Project = {
 function overview(
   workerId: RailsWorkerId,
   detected = workerId === 'sidekiq',
+  running = false,
 ): RailsWorkerOverview {
-  return { id: workerId, detected, process: null };
+  return {
+    id: workerId,
+    detected,
+    process: running
+      ? {
+          id: `p1:worker:${workerId}`,
+          projectId: 'p1',
+          kind: 'worker',
+          status: 'running',
+          pid: workerId === 'sidekiq' ? 4242 : 4343,
+          command: `/projetos/api-rails/bin/${workerId}`,
+          startedAt: '2026-08-05T12:00:00.000Z',
+        }
+      : null,
+  };
 }
 
 describe('ProjectRailsRuntimePanel', () => {
@@ -150,7 +165,7 @@ describe('ProjectRailsRuntimePanel', () => {
   it('mantém um painel de logs independente para cada processo', async () => {
     fetchProjectRailsWorker.mockImplementation(
       async (_projectId: string, workerId: RailsWorkerId) =>
-        overview(workerId, true),
+        overview(workerId, true, true),
     );
 
     const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
@@ -158,9 +173,12 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
+    await sidekiqWrapper.find('button.secondary-button').trigger('click');
+    await flushPromises();
+
     expect(
-      sidekiqWrapper.find('[aria-label="Terminal do Sidekiq"]').exists(),
-    ).toBe(true);
+      document.body.querySelectorAll('.project-log-terminal'),
+    ).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
@@ -173,11 +191,12 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
+    await webpackWrapper.find('button.secondary-button').trigger('click');
+    await flushPromises();
+
     expect(
-      webpackWrapper
-        .find('[aria-label="Terminal do webpack-dev-server"]')
-        .exists(),
-    ).toBe(true);
+      document.body.querySelectorAll('.project-log-terminal'),
+    ).toHaveLength(2);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',

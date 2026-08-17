@@ -485,3 +485,86 @@
     align-self: flex-start;
   }
 }
+
+/* Redesign: separa descoberta, ações e execução em camadas mais claras. */
+.dependencies-manager-bar {
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.dependencies-manager-card {
+  min-height: 66px;
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--border));
+  background: var(--surface-1);
+  padding: 12px 14px;
+}
+
+.dependencies-manager-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dependencies-table-wrap {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.dependencies-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 24%, transparent);
+}
+
+.dependencies-table th {
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.dependencies-table td {
+  padding: 14px;
+}
+
+.dependencies-row-action button {
+  min-height: 38px;
+}
+
+.dependencies-console {
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.dependencies-console-header {
+  min-height: 56px;
+  padding: 12px 16px;
+  background: var(--surface-1);
+}
+
+.dependencies-console-title > span {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dependencies-console-empty {
+  min-height: 164px;
+  background: var(--surface-2);
+}
+
+@media (max-width: 720px) {
+  .dependencies-panel > .dependencies-alert,
+  .dependencies-panel > .dependencies-empty,
+  .dependencies-manager-bar,
+  .dependencies-table-wrap,
+  .dependencies-console {
+    margin-inline: 12px;
+  }
+
+  .dependencies-table-wrap {
+    overflow-x: auto;
+  }
+
+  .dependencies-table {
+    min-width: 720px;
+  }
+}
+

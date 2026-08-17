@@ -58,6 +58,10 @@
   overflow: hidden;
 }
 
+:deep(.git-navigation-bar) {
+  top: 0;
+}
+
 :deep(.tests-pty-panel .tests-pty-terminal) {
   flex: 0 0 480px;
   height: 480px;
@@ -322,4 +326,378 @@
 :deep(.project-details-page .dependencies-manager-card),
 :deep(.project-details-page .dependencies-console) {
   box-shadow: none;
+}
+
+/* Modal de logs dos workers: o conteúdo fica fora do fluxo da ferramenta e
+   abre sobre a interface inteira, com rolagem independente. */
+.rails-log-overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(5 10 18 / 72%);
+  backdrop-filter: blur(4px);
+}
+
+.rails-log-modal {
+  display: flex;
+  width: min(1120px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 48px));
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+.rails-log-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.rails-log-modal-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.rails-log-modal-header span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rails-log-modal-header h3,
+.rails-log-modal-header p {
+  margin: 0;
+}
+
+.rails-log-modal-header h3 {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.rails-log-modal-header p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.rails-log-close-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.rails-log-close-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rails-log-close-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rails-log-modal-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.rails-log-modal-body .project-log-terminal {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.database-explorer {
+  background: var(--surface-0);
+}
+
+.database-page-header {
+  padding: 20px 24px 16px;
+  background: linear-gradient(120deg, var(--surface-1), var(--surface-0));
+}
+
+.database-page-header h3 {
+  margin-top: 4px;
+  font-size: clamp(24px, 3vw, 30px);
+  letter-spacing: -0.03em;
+}
+
+.database-page-header button {
+  min-height: 38px;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--surface-2);
+}
+
+.database-environments-layout {
+  gap: 16px;
+  padding: 16px 24px 24px;
+}
+
+.database-sidebar-panel,
+.database-detail-panel {
+  border-color: color-mix(in srgb, var(--border) 90%, var(--accent));
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 12%);
+}
+
+.database-sidebar-panel {
+  background: var(--surface-1);
+}
+
+.database-sidebar-panel > header {
+  padding: 16px;
+  background: var(--surface-2);
+}
+
+.database-sidebar-list {
+  gap: 8px;
+  padding: 10px;
+}
+
+.database-sidebar-list > button {
+  gap: 10px;
+  min-height: 76px;
+  padding: 10px;
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.database-sidebar-list > button:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.database-sidebar-list > button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.database-sidebar-item-icon,
+.database-detail-icon {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.database-detail-panel {
+  background: var(--surface-1);
+}
+
+.database-detail-title {
+  gap: 16px;
+  padding: 18px 20px;
+  background: linear-gradient(120deg, var(--surface-2), var(--surface-1));
+}
+
+.database-detail-heading {
+  gap: 12px;
+}
+
+.database-detail-meta {
+  gap: 6px;
+}
+
+.database-detail-meta span {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-0);
+  font-size: 10px;
+}
+
+.database-actions-menu {
+  gap: 8px;
+}
+
+.database-actions-menu button {
+  min-height: 36px;
+}
+
+.database-connection-summary,
+.database-environment-context-grid {
+  gap: 12px;
+  padding: 16px 20px 0;
+}
+
+.database-connection-summary > section,
+.database-properties-panel,
+.database-usage-panel {
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+}
+
+.database-connection-summary > section,
+.database-properties-panel,
+.database-usage-panel {
+  padding: 16px;
+}
+
+.database-connection-summary h5,
+.database-properties-panel h5,
+.database-usage-panel h5 {
+  margin-bottom: 14px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.database-definition-list > div {
+  padding: 10px 0;
+}
+
+.database-shared-service-hint {
+  margin: 12px 20px 0;
+  border-radius: var(--radius-sm);
+}
+
+.database-environment-context-grid {
+  padding-bottom: 20px;
+}
+
+@media (max-width: 720px) {
+  .database-page-header,
+  .database-environments-layout {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .database-detail-title {
+    padding: 14px;
+  }
+
+  .database-connection-summary,
+  .database-environment-context-grid {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .database-shared-service-hint {
+    margin-right: 14px;
+    margin-left: 14px;
+  }
+
+  .rails-log-overlay {
+    padding: 12px;
+  }
+
+  .rails-log-modal {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+  }
+
+  .rails-log-modal-header {
+    padding: 14px;
+  }
+
+  .rails-log-modal-body {
+    padding: 10px;
+  }
+}
+
+.project-details-tab svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.project-details-tab {
+  gap: 7px;
+}
+
+.project-details-more-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.project-details-more-trigger {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.project-details-more-trigger.project-details-tab-active {
+  background: var(--accent-soft);
+}
+
+.project-details-more-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  min-width: 220px;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+.project-details-more-item {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.project-details-more-item:hover,
+.project-details-more-item-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 720px) {
+  .project-details-tabs {
+    position: relative;
+  }
+
+  .project-details-tab {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .project-details-tab span {
+    display: none;
+  }
+
+  .project-details-more-trigger span {
+    display: inline;
+  }
+
+  .project-details-more-popover {
+    right: 0;
+    left: auto;
+    min-width: min(240px, calc(100vw - 32px));
+  }
 }

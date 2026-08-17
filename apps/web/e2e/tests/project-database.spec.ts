@@ -12,7 +12,8 @@ test.describe('Banco de dados do projeto', () => {
       page.getByRole('heading', { level: 2, name: 'sample-rails-app' }),
     ).toBeVisible();
 
-    await page.getByRole('link', { name: 'Banco de dados' }).click();
+    await page.getByRole('button', { name: 'Mais ferramentas' }).click();
+    await page.getByRole('menuitem', { name: 'Banco de dados' }).click();
 
     await expect(
       page.getByRole('heading', { name: 'Ambientes' }),

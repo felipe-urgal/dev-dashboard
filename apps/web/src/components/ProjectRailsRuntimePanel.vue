@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowPathIcon,
+  PlayIcon,
+  StopIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
-import { onMounted, watch } from 'vue';
+import { watch } from 'vue';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
@@ -23,19 +28,16 @@ const worker = useProjectRailsWorker(
 useAutoDismiss(worker.errorMessage, '');
 
 watch(
-  () => [props.project.id, worker.detected.value] as const,
-  ([, detected]) => {
-    if (detected) {
+  () =>
+    [props.project.id, worker.detected.value, worker.canStop.value] as const,
+  ([, detected, canFollowLogs]) => {
+    if (detected && canFollowLogs) {
       worker.startLogStream();
+    } else if (!canFollowLogs) {
+      worker.stopLogStream();
     }
   },
 );
-
-onMounted(() => {
-  if (worker.detected.value) {
-    worker.startLogStream();
-  }
-});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
@@ -129,6 +131,13 @@ function formatDate(value?: string): string {
 
             <div class="rails-worker-actions">
               <button
+                type="button"
+                class="secondary-button"
+                @click="worker.toggleLogs()"
+              >
+                Ver log
+              </button>
+              <button
                 v-if="!worker.canStop.value"
                 type="button"
                 class="primary-button"
@@ -161,20 +170,51 @@ function formatDate(value?: string): string {
             </div>
           </section>
 
-          <section
-            v-if="workerId === 'sidekiq' || workerId === 'webpack'"
-            class="rails-worker-logs rails-worker-terminal"
-            :aria-label="`Terminal do ${workerLabels[workerId]}`"
-          >
-            <ProjectLogTerminal
-              :content="worker.log.value?.content ?? ''"
-              :running="worker.canStop.value"
-              :masked-count="worker.log.value?.redactionCount ?? 0"
-              :clearable="worker.detected.value"
-              :clearing="worker.clearingLog.value"
-              @clear="worker.clearLog()"
-            />
-          </section>
+          <Teleport to="body">
+            <div
+              v-if="worker.logsVisible.value"
+              class="rails-log-overlay"
+              role="presentation"
+              @click.self="worker.toggleLogs()"
+            >
+              <section
+                class="rails-log-modal"
+                role="dialog"
+                aria-modal="true"
+                :aria-labelledby="`rails-log-title-${workerId}`"
+              >
+                <header class="rails-log-modal-header">
+                  <div>
+                    <span>Ferramenta do projeto</span>
+                    <h3 :id="`rails-log-title-${workerId}`">
+                      Log do {{ workerLabels[workerId] }}
+                    </h3>
+                    <p>
+                      Acompanhe a saída completa do processo em primeiro plano.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="rails-log-close-button"
+                    :aria-label="`Fechar log do ${workerLabels[workerId]}`"
+                    @click="worker.toggleLogs()"
+                  >
+                    <XMarkIcon aria-hidden="true" />
+                  </button>
+                </header>
+                <div class="rails-log-modal-body">
+                  <ProjectLogTerminal
+                    :content="worker.log.value?.content ?? ''"
+                    :running="worker.canStop.value"
+                    :masked-count="worker.log.value?.redactionCount ?? 0"
+                    :clearable="worker.detected.value"
+                    :clearing="worker.clearingLog.value"
+                    @clear="worker.clearLog()"
+                  />
+                </div>
+              </section>
+            </div>
+          </Teleport>
         </template>
       </Card>
     </section>

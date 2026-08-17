@@ -567,3 +567,79 @@
     padding: 10px 14px;
   }
 }
+
+/* Redesign: resumo mais escaneável e áreas distribuídas sem desperdiçar
+   altura, mantendo cada categoria expansível. */
+.project-doctor-header {
+  padding: 20px 24px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-soft) 32%, transparent),
+      transparent 52%
+    ),
+    var(--surface-1);
+}
+
+.project-doctor-summary {
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 0;
+  background: var(--surface-0);
+}
+
+.project-doctor-metric {
+  justify-content: flex-start;
+  gap: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 14px 16px;
+}
+
+.project-doctor-metric > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.project-doctor-areas {
+  gap: 12px;
+  padding: 4px 24px 24px;
+}
+
+.project-doctor-category-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.project-doctor-category > summary {
+  min-height: 62px;
+  padding: 10px 14px;
+}
+
+.project-doctor-result {
+  margin: 0 24px 24px;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .project-doctor-category-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .project-doctor-header,
+  .project-doctor-summary,
+  .project-doctor-areas {
+    padding-inline: 14px;
+  }
+
+  .project-doctor-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .project-doctor-result {
+    margin-inline: 14px;
+  }
+}
+
