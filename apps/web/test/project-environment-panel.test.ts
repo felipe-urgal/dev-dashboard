@@ -58,6 +58,8 @@ describe('ProjectEnvironmentPanel', () => {
 
     await flushPromises();
 
+    expect(wrapper.get('h2').text()).toBe('Variáveis de ambiente');
+    expect(wrapper.get('.dd-status-badge').text()).toContain('1 arquivo');
     expect(wrapper.text()).toContain('.env');
     expect(wrapper.text()).toContain('API_URL');
     expect(wrapper.text()).toContain('https://example.com');
