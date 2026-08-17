@@ -412,15 +412,15 @@ function formatDate(value?: string): string {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 16px;
   background: rgb(5 10 18 / 72%);
   backdrop-filter: blur(4px);
 }
 
 .rails-log-modal {
   display: flex;
-  width: min(1120px, calc(100vw - 48px));
-  height: min(760px, calc(100vh - 48px));
+  width: min(1440px, calc(100vw - 32px));
+  height: min(860px, calc(100vh - 32px));
   min-width: 0;
   min-height: 0;
   flex-direction: column;
@@ -512,8 +512,8 @@ function formatDate(value?: string): string {
   }
 
   .rails-log-modal {
-    width: calc(100vw - 24px);
-    height: calc(100vh - 24px);
+    width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
   }
 
   .rails-log-modal-header {
