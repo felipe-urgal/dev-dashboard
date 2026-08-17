@@ -7,6 +7,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { NPopover } from 'naive-ui';
 import { useRouter } from 'vue-router';
 
 import {
@@ -17,7 +18,6 @@ import {
 } from '../stores/notice-center';
 
 const router = useRouter();
-const root = ref<HTMLElement>();
 const bellButton = ref<HTMLButtonElement>();
 const panel = ref<HTMLElement>();
 const open = ref(false);
@@ -109,6 +109,10 @@ function close(options: { restoreFocus?: boolean } = {}): void {
   }
 }
 
+function handleClickOutside(): void {
+  close();
+}
+
 function selectNotice(notice: Notice): void {
   markRead(notice.id);
   close();
@@ -119,14 +123,6 @@ function dismissNotice(notice: Notice): void {
   dismiss(notice.id);
 }
 
-function handleDocumentClick(event: MouseEvent): void {
-  if (!open.value) return;
-  const target = event.target as Node;
-  if (root.value && !root.value.contains(target)) {
-    close();
-  }
-}
-
 function handlePanelKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.stopPropagation();
@@ -135,14 +131,12 @@ function handlePanelKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleDocumentClick);
   relativeTimeTimer = window.setInterval(() => {
     now.value = Date.now();
   }, 60_000);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleDocumentClick);
   if (relativeTimeTimer !== undefined) {
     window.clearInterval(relativeTimeTimer);
   }
@@ -150,22 +144,33 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="notice-center">
-    <button
-      ref="bellButton"
-      type="button"
-      class="notice-bell-button"
-      :aria-label="bellLabel"
-      :aria-expanded="open"
-      aria-controls="notice-panel"
-      @click="toggle"
-    >
-      <BellIcon aria-hidden="true" />
-      <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
-    </button>
+  <NPopover
+    v-model:show="open"
+    trigger="manual"
+    placement="bottom-end"
+    raw
+    :show-arrow="false"
+    class="notice-panel-popover"
+    @clickoutside="handleClickOutside"
+  >
+    <template #trigger>
+      <button
+        ref="bellButton"
+        type="button"
+        class="notice-bell-button"
+        :aria-label="bellLabel"
+        :aria-expanded="open"
+        aria-controls="notice-panel"
+        @click="toggle"
+      >
+        <BellIcon aria-hidden="true" />
+        <span v-if="unreadCount > 0" class="notice-badge">{{
+          unreadCount
+        }}</span>
+      </button>
+    </template>
 
     <div
-      v-if="open"
       id="notice-panel"
       ref="panel"
       class="notice-panel"
@@ -274,7 +279,7 @@ onBeforeUnmount(() => {
         </button>
       </footer>
     </div>
-  </div>
+  </NPopover>
 </template>
 
 <style scoped src="./NoticeCenter.css"></style>

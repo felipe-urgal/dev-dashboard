@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Notice } from '../src/stores/notice-center';
 
@@ -31,6 +31,8 @@ vi.mock('../src/stores/notice-center', async () => {
 
 import { noticeCenterStore } from '../src/stores/notice-center';
 import NoticeCenter from '../src/components/NoticeCenter.vue';
+
+const mountedWrappers: Array<ReturnType<typeof mount>> = [];
 
 function makeNotice(overrides: Partial<Notice> = {}): Notice {
   return {
@@ -70,7 +72,16 @@ async function mountNoticeCenter(): Promise<{
     global: { plugins: [router] },
     attachTo: document.body,
   });
+  mountedWrappers.push(wrapper);
   return { wrapper, router };
+}
+
+function queryNoticeElement<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Elemento não encontrado: ${selector}`);
+  }
+  return element;
 }
 
 beforeEach(() => {
@@ -78,14 +89,23 @@ beforeEach(() => {
   noticeCenterStore.notices.value = [];
 });
 
+afterEach(() => {
+  for (const wrapper of mountedWrappers.splice(0)) {
+    wrapper.unmount();
+  }
+  document.body.innerHTML = '';
+});
+
 describe('central de notificações', () => {
   it('mostra estado vazio dentro da região aria-live quando não há notificações', async () => {
     const { wrapper } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
 
-    const region = wrapper.find('[aria-live="polite"]');
-    expect(region.exists()).toBe(true);
-    expect(region.text()).toContain('Nenhuma notificação no momento.');
+    const region = queryNoticeElement<HTMLElement>('[aria-live="polite"]');
+    expect(region.textContent ?? '').toContain(
+      'Nenhuma notificação no momento.',
+    );
   });
 
   it('mostra hierarquia do aviso, horário relativo e contagem de não lidos', async () => {
@@ -95,22 +115,31 @@ describe('central de notificações', () => {
     expect(wrapper.find('.notice-badge').text()).toBe('1');
 
     await wrapper.find('.notice-bell-button').trigger('click');
-    expect(wrapper.find('.notice-item-overline').text()).toContain('Testes');
-    expect(wrapper.find('.notice-item-overline time').text()).toBe('há 4 min');
-    expect(wrapper.find('.notice-item-body strong').text()).toBe(
-      'Testes concluídos com falhas',
-    );
-    expect(wrapper.find('.notice-item-meta').text()).toBe(
-      'Aplicação principal · rspec spec/models',
-    );
+    await flushPromises();
+    expect(
+      queryNoticeElement<HTMLElement>('.notice-item-overline').textContent ??
+        '',
+    ).toContain('Testes');
+    expect(
+      queryNoticeElement<HTMLElement>('.notice-item-overline time')
+        .textContent ?? '',
+    ).toBe('há 4 min');
+    expect(
+      queryNoticeElement<HTMLElement>('.notice-item-body strong').textContent ??
+        '',
+    ).toBe('Testes concluídos com falhas');
+    expect(
+      queryNoticeElement<HTMLElement>('.notice-item-meta').textContent ?? '',
+    ).toBe('Aplicação principal · rspec spec/models');
   });
 
   it('clique no corpo do item marca como lido e navega para routeTo', async () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper, router } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
 
-    await wrapper.find('.notice-item-body').trigger('click');
+    queryNoticeElement<HTMLButtonElement>('.notice-item-body').click();
     await flushPromises();
 
     expect(actions.markRead).toHaveBeenCalledWith('n1');
@@ -122,8 +151,9 @@ describe('central de notificações', () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper, router } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
 
-    await wrapper.find('.notice-item-dismiss').trigger('click');
+    queryNoticeElement<HTMLButtonElement>('.notice-item-dismiss').click();
 
     expect(actions.dismiss).toHaveBeenCalledWith('n1');
     expect(actions.markRead).not.toHaveBeenCalled();
@@ -134,8 +164,9 @@ describe('central de notificações', () => {
     noticeCenterStore.notices.value = [makeNotice()];
     const { wrapper } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
 
-    await wrapper.find('.notice-header-action').trigger('click');
+    queryNoticeElement<HTMLButtonElement>('.notice-header-action').click();
 
     expect(actions.markAllRead).toHaveBeenCalledOnce();
   });
@@ -143,13 +174,16 @@ describe('central de notificações', () => {
   it('botão limpar tudo chama clearAll e fica desabilitado quando a lista está vazia', async () => {
     const { wrapper } = await mountNoticeCenter();
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
 
-    const clearButton = wrapper.find('.notice-clear-button');
-    expect(clearButton.attributes('disabled')).toBeDefined();
+    const clearButton = queryNoticeElement<HTMLButtonElement>(
+      '.notice-clear-button',
+    );
+    expect(clearButton.disabled).toBe(true);
 
     noticeCenterStore.notices.value = [makeNotice()];
     await wrapper.vm.$nextTick();
-    await clearButton.trigger('click');
+    queryNoticeElement<HTMLButtonElement>('.notice-clear-button').click();
     expect(actions.clearAll).toHaveBeenCalled();
   });
 
@@ -162,27 +196,35 @@ describe('central de notificações', () => {
     );
 
     await wrapper.find('.notice-bell-button').trigger('click');
-    expect(wrapper.find('.notice-item-dismiss').attributes('aria-label')).toBe(
-      'Descartar notificação de Aplicação principal',
-    );
-    expect(wrapper.find('.notice-clear-button').attributes('aria-label')).toBe(
-      'Limpar todas as notificações',
-    );
+    await flushPromises();
+    expect(
+      queryNoticeElement<HTMLButtonElement>(
+        '.notice-item-dismiss',
+      ).getAttribute('aria-label'),
+    ).toBe('Descartar notificação de Aplicação principal');
+    expect(
+      queryNoticeElement<HTMLButtonElement>(
+        '.notice-clear-button',
+      ).getAttribute('aria-label'),
+    ).toBe('Limpar todas as notificações');
   });
 
   it('move o foco para o painel ao abrir e devolve ao sino ao fechar com Escape', async () => {
     const { wrapper } = await mountNoticeCenter();
 
     await wrapper.find('.notice-bell-button').trigger('click');
+    await flushPromises();
     await wrapper.vm.$nextTick();
 
-    const panel = wrapper.find('.notice-panel');
-    expect(panel.exists()).toBe(true);
-    expect(document.activeElement).toBe(panel.element);
+    const panel = queryNoticeElement<HTMLElement>('.notice-panel');
+    expect(document.activeElement).toBe(panel);
 
-    await panel.trigger('keydown', { key: 'Escape' });
+    panel.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    await flushPromises();
 
-    expect(wrapper.find('.notice-panel').exists()).toBe(false);
+    expect(document.querySelector('.notice-panel')).toBeNull();
     expect(document.activeElement).toBe(
       wrapper.find('.notice-bell-button').element,
     );
