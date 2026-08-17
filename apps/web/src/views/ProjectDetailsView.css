@@ -48,6 +48,10 @@
   overflow-y: auto;
 }
 
+:deep(.project-environment-panel) {
+  max-height: calc(100vh - var(--project-sticky-offset));
+}
+
 :deep(.project-doctor-card) {
   height: auto;
   min-height: 100%;
