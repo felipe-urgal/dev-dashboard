@@ -70,7 +70,21 @@ function overview(
   workerId: RailsWorkerId,
   detected = workerId === 'sidekiq',
 ): RailsWorkerOverview {
-  return { id: workerId, detected, process: null };
+  return {
+    id: workerId,
+    detected,
+    process: detected
+      ? {
+          id: `p1:worker:${workerId}`,
+          projectId: 'p1',
+          kind: 'worker',
+          status: 'running',
+          pid: workerId === 'sidekiq' ? 4242 : 4343,
+          command: `/projetos/api-rails/bin/${workerId}`,
+          startedAt: '2026-08-05T12:00:00.000Z',
+        }
+      : null,
+  };
 }
 
 describe('ProjectRailsRuntimePanel', () => {
@@ -158,9 +172,12 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
+    await sidekiqWrapper.find('button.secondary-button').trigger('click');
+    await flushPromises();
+
     expect(
-      sidekiqWrapper.find('[aria-label="Terminal do Sidekiq"]').exists(),
-    ).toBe(true);
+      document.body.querySelector('[aria-label="Terminal do Sidekiq"]'),
+    ).not.toBeNull();
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
@@ -173,11 +190,12 @@ describe('ProjectRailsRuntimePanel', () => {
     });
     await flushPromises();
 
+    await webpackWrapper.find('button.secondary-button').trigger('click');
+    await flushPromises();
+
     expect(
-      webpackWrapper
-        .find('[aria-label="Terminal do webpack-dev-server"]')
-        .exists(),
-    ).toBe(true);
+      document.body.querySelector('[aria-label="Terminal do webpack-dev-server"]'),
+    ).not.toBeNull();
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
