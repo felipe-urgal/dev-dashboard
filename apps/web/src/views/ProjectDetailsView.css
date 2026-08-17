@@ -58,6 +58,10 @@
   overflow: hidden;
 }
 
+:deep(.git-navigation-bar) {
+  top: 0;
+}
+
 :deep(.tests-pty-panel .tests-pty-terminal) {
   flex: 0 0 480px;
   height: 480px;
