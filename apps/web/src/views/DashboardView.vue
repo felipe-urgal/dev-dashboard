@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { ArrowPathIcon } from "@heroicons/vue/24/outline";
+import { computed } from 'vue';
+import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
-import Card from "../components/Card.vue";
-import LoadingSkeleton from "../components/LoadingSkeleton.vue";
-import ProjectCard from "../components/ProjectCard.vue";
-import { dashboardStore } from "../stores/dashboard";
-import { sortProjectsByPriority } from "../utils/project-priority";
+import Card from '../components/Card.vue';
+import LoadingSkeleton from '../components/LoadingSkeleton.vue';
+import ProjectCard from '../components/ProjectCard.vue';
+import { dashboardStore } from '../stores/dashboard';
+import { sortProjectsByPriority } from '../utils/project-priority';
 
 const {
   projects,
@@ -23,32 +23,32 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 
 const overviewMetrics = computed(() => [
   {
-    key: "projects",
-    label: "Projetos",
+    key: 'projects',
+    label: 'Projetos',
     value: projects.value.length,
-    detail: "detectados",
+    detail: 'detectados',
   },
   {
-    key: "active",
-    label: "Ativos",
+    key: 'active',
+    label: 'Ativos',
     value: projects.value.filter((project) => project.enabled).length,
-    detail: "disponíveis",
+    detail: 'disponíveis',
   },
   {
-    key: "git",
-    label: "Git",
+    key: 'git',
+    label: 'Git',
     value: projects.value.filter((project) =>
-      project.capabilities.includes("git"),
+      project.capabilities.includes('git'),
     ).length,
-    detail: "com integração",
+    detail: 'com integração',
   },
   {
-    key: "servers",
-    label: "Servidores",
+    key: 'servers',
+    label: 'Servidores',
     value: projects.value.filter((project) =>
-      project.capabilities.includes("server"),
+      project.capabilities.includes('server'),
     ).length,
-    detail: "com suporte",
+    detail: 'com suporte',
   },
 ]);
 </script>
