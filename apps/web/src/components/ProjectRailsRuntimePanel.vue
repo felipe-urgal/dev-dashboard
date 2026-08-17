@@ -404,4 +404,124 @@ function formatDate(value?: string): string {
     grid-template-columns: 1fr;
   }
 }
+
+
+.rails-log-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(5 10 18 / 72%);
+  backdrop-filter: blur(4px);
+}
+
+.rails-log-modal {
+  display: flex;
+  width: min(1120px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 48px));
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+.rails-log-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.rails-log-modal-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.rails-log-modal-header span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rails-log-modal-header h3,
+.rails-log-modal-header p {
+  margin: 0;
+}
+
+.rails-log-modal-header h3 {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.rails-log-modal-header p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.rails-log-close-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.rails-log-close-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rails-log-close-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.rails-log-modal-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.rails-log-modal-body .project-log-terminal {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 640px) {
+  .rails-log-overlay {
+    padding: 12px;
+  }
+
+  .rails-log-modal {
+    width: calc(100vw - 24px);
+    height: calc(100vh - 24px);
+  }
+
+  .rails-log-modal-header {
+    padding: 14px;
+  }
+
+  .rails-log-modal-body {
+    padding: 10px;
+  }
+}
 </style>
