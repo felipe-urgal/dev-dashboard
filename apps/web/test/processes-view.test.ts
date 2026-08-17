@@ -426,3 +426,57 @@ test('aplica o filtro de falhas vindo da query da rota', async () => {
     cleanup = undefined;
   }
 });
+
+test('restaura filtros de workspace, projeto e tipo pela query da rota', async () => {
+  const originalUrl = window.location.href;
+
+  try {
+    window.history.replaceState(
+      {},
+      '',
+      '/processes?workspace=w1&project=p1&kind=test&status=failed',
+    );
+    const { wrapper, restore } = await mountView({
+      processes: async () => [],
+    });
+    cleanup = () => {
+      restore();
+      window.history.replaceState({}, '', originalUrl);
+    };
+
+    await flushPromises();
+    await flushPromises();
+
+    assert.equal(
+      (
+        wrapper.get('[aria-label="Filtrar por workspace"]')
+          .element as HTMLSelectElement
+      ).value,
+      'w1',
+    );
+    assert.equal(
+      (
+        wrapper.get('[aria-label="Filtrar por projeto"]')
+          .element as HTMLSelectElement
+      ).value,
+      'p1',
+    );
+    assert.equal(
+      (
+        wrapper.get('[aria-label="Filtrar por tipo"]')
+          .element as HTMLSelectElement
+      ).value,
+      'test',
+    );
+    assert.equal(
+      (
+        wrapper.get('[aria-label="Filtrar por estado"]')
+          .element as HTMLSelectElement
+      ).value,
+      'failed',
+    );
+  } finally {
+    cleanup?.();
+    cleanup = undefined;
+  }
+});

@@ -297,11 +297,31 @@ const {
 </template>
 
 <style scoped>
+.processes-filters {
+  align-items: flex-end;
+  gap: 16px;
+}
+
 .processes-filter-fields {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  width: 100%;
+  width: auto;
+}
+
+.processes-refresh-control {
+  flex: 0 0 276px;
+  align-items: stretch;
+}
+
+.processes-refresh-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.processes-clear-filters-button {
+  align-self: flex-end;
 }
 
 .processes-filter-field {
@@ -350,8 +370,18 @@ const {
 }
 
 @media (max-width: 900px) {
+  .processes-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .processes-filter-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .processes-refresh-control {
+    flex-basis: auto;
+    width: 100%;
   }
 }
 

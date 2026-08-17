@@ -27,6 +27,13 @@ interface ProjectOption {
 
 type ProcessStatusFilter = '' | 'active' | 'stopped' | 'failed';
 
+type FilterState = {
+  workspace: string;
+  project: string;
+  kind: '' | 'server' | 'test' | 'compose-build';
+  status: ProcessStatusFilter;
+};
+
 const ACTIVE_STATUSES = new Set<ManagedProcessStatus>([
   'starting',
   'running',
@@ -45,19 +52,34 @@ export function useProcessesView() {
   const projects = ref<ProjectOption[]>([]);
   const items = ref<ManagedProcess[]>([]);
 
-  const workspaceFilter = ref('');
-  const projectFilter = ref('');
-  const kindFilter = ref<'' | 'server' | 'test' | 'compose-build'>('');
-  const initialStatusFilter = (() => {
-    if (typeof window === 'undefined') return '';
+  const initialFilters: FilterState = (() => {
+    if (typeof window === 'undefined') {
+      return { workspace: '', project: '', kind: '', status: '' };
+    }
 
-    const status = new URLSearchParams(window.location.search).get('status');
-    return status === 'active' || status === 'stopped' || status === 'failed'
-      ? status
-      : '';
+    const params = new URLSearchParams(window.location.search);
+    const kind = params.get('kind');
+    const status = params.get('status');
+    return {
+      workspace: params.get('workspace') ?? '',
+      project: params.get('project') ?? '',
+      kind:
+        kind === 'server' || kind === 'test' || kind === 'compose-build'
+          ? kind
+          : '',
+      status:
+        status === 'active' || status === 'stopped' || status === 'failed'
+          ? status
+          : '',
+    };
   })();
 
-  const statusFilter = ref<ProcessStatusFilter>(initialStatusFilter);
+  const workspaceFilter = ref(initialFilters.workspace);
+  const projectFilter = ref(initialFilters.project);
+  const kindFilter = ref<'' | 'server' | 'test' | 'compose-build'>(
+    initialFilters.kind,
+  );
+  const statusFilter = ref<ProcessStatusFilter>(initialFilters.status);
 
   function syncFiltersToUrl(): void {
     if (typeof window === 'undefined') return;
