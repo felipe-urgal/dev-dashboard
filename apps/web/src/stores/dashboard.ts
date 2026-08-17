@@ -1,6 +1,11 @@
 import { computed, ref } from 'vue';
 
-import type { Project, Workspace } from '@dev-dashboard/contracts';
+import type {
+  ManagedProcess,
+  ManagedProcessStatus,
+  Project,
+  Workspace,
+} from '@dev-dashboard/contracts';
 
 import { ApiRequestError, type WorkspaceScanResponse } from '../api';
 
@@ -12,6 +17,7 @@ export interface DashboardApi {
   deleteWorkspace: typeof dashboardApi.deleteWorkspace;
   fetchHealth: typeof dashboardApi.fetchHealth;
   fetchProject: typeof dashboardApi.fetchProject;
+  fetchManagedProcesses: typeof dashboardApi.fetchManagedProcesses;
   fetchProjects: typeof dashboardApi.fetchProjects;
   fetchWorkspaces: typeof dashboardApi.fetchWorkspaces;
   scanWorkspace: typeof dashboardApi.scanWorkspace;
@@ -24,6 +30,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     createWorkspace,
     deleteWorkspace,
     fetchHealth,
+    fetchManagedProcesses,
     fetchProject,
     fetchProjects,
     fetchWorkspaces,
@@ -54,6 +61,14 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
   const successMessage = ref('');
   const warningCount = ref(0);
   const lastScannedPath = ref('');
+  const processSummary = ref({
+    total: 0,
+    active: 0,
+    stopped: 0,
+    failed: 0,
+  });
+  const loadingProcessSummary = ref(false);
+  const processSummaryError = ref('');
 
   const scannedWorkspaceIds = new Set<string>();
   let initialLoadPromise: Promise<void> | undefined;
@@ -232,6 +247,38 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       workspaceProjects ?? projectsByWorkspace.value[workspaceId] ?? [];
   }
 
+  async function loadProcessSummary(): Promise<void> {
+    loadingProcessSummary.value = true;
+    processSummaryError.value = '';
+
+    try {
+      const processes = await fetchManagedProcesses();
+      const activeStatuses = new Set<ManagedProcessStatus>([
+        'starting',
+        'running',
+        'stopping',
+      ]);
+      const countByStatus = (status: ManagedProcessStatus): number =>
+        processes.filter((process) => process.status === status).length;
+
+      processSummary.value = {
+        total: processes.length,
+        active: processes.filter((process: ManagedProcess) =>
+          activeStatuses.has(process.status),
+        ).length,
+        stopped: countByStatus('stopped'),
+        failed: countByStatus('failed'),
+      };
+    } catch (error) {
+      processSummaryError.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o resumo dos processos.';
+    } finally {
+      loadingProcessSummary.value = false;
+    }
+  }
+
   async function scanWorkspaceById(
     workspaceId: string,
     options: {
@@ -293,6 +340,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
         activate: true,
         showMessages: true,
       });
+      await loadProcessSummary();
     } catch (error) {
       errorMessage.value =
         error instanceof Error
@@ -315,6 +363,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
         activate: true,
         showMessages: true,
       });
+      await loadProcessSummary();
     } catch (error) {
       errorMessage.value =
         error instanceof Error
@@ -342,6 +391,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
         await scanWorkspaceById(firstWorkspace.id, {
           activate: true,
         });
+        await loadProcessSummary();
 
         return true;
       }
@@ -351,6 +401,7 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
       projectsByWorkspace.value = {};
       projectIndex.value = {};
       rememberProjects(storedProjects);
+      await loadProcessSummary();
       return true;
     } catch (error) {
       apiConnected.value = false;
@@ -569,10 +620,14 @@ export function createDashboardStore(api: DashboardApi = dashboardApi) {
     successMessage,
     warningCount,
     lastScannedPath,
+    processSummary,
+    loadingProcessSummary,
+    processSummaryError,
     selectedWorkspace,
     sortedProjects,
     knownProjects,
     ensureDashboardLoaded,
+    loadProcessSummary,
     ensureProject,
     scanSelectedWorkspace,
     rescanSelectedWorkspace,

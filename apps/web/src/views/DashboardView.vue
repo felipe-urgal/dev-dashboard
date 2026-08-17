@@ -14,6 +14,10 @@ const {
   scanningWorkspace,
   lastScannedPath,
   warningCount,
+  processSummary,
+  loadingProcessSummary,
+  processSummaryError,
+  loadProcessSummary,
   enabledUpdatingIds,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
@@ -50,6 +54,18 @@ const overviewMetrics = computed(() => [
     ).length,
     detail: 'com suporte',
   },
+  {
+    key: 'running',
+    label: 'Em execução',
+    value: processSummary.value.active,
+    detail: 'processos ativos',
+  },
+  {
+    key: 'failed',
+    label: 'Falhas',
+    value: processSummary.value.failed,
+    detail: 'processos com erro',
+  },
 ]);
 </script>
 
@@ -72,6 +88,20 @@ const overviewMetrics = computed(() => [
           <code v-if="lastScannedPath" class="overview-summary-path">
             {{ lastScannedPath }}
           </code>
+          <span
+            v-if="loadingProcessSummary"
+            class="overview-summary-status"
+            role="status"
+          >
+            Atualizando processos…
+          </span>
+          <span
+            v-else-if="processSummaryError"
+            class="overview-summary-status overview-summary-status-error"
+            role="status"
+          >
+            {{ processSummaryError }}
+          </span>
         </div>
       </template>
 
@@ -179,9 +209,19 @@ const overviewMetrics = computed(() => [
   white-space: nowrap;
 }
 
+.overview-summary-status {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.overview-summary-status-error {
+  color: var(--danger-text);
+}
+
 .overview-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
