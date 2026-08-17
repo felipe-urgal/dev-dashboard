@@ -132,7 +132,9 @@ describe('dashboard principal', () => {
     const wrapper = mountView();
 
     const link = wrapper.get('.overview-summary-action');
-    expect(link.attributes('aria-label')).toBe('Abrir monitoramento operacional');
+    expect(link.attributes('aria-label')).toBe(
+      'Abrir monitoramento operacional',
+    );
     expect(link.attributes('data-route')).toBe('processes');
     expect(link.text()).toContain('Acompanhar execução');
   });
