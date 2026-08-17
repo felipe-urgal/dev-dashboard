@@ -113,8 +113,14 @@ test('carrega os comandos e habilita "Executar suíte completa"', async () => {
   });
   await flushPromises();
 
-  assert.equal(wrapper.get('.tests-pty-heading strong').text(), 'Testes do projeto');
-  assert.equal(wrapper.get('.tests-pty-state').text(), 'Pronto');
+  assert.equal(
+    wrapper.get('.tests-pty-heading strong').text(),
+    'Testes do projeto',
+  );
+  assert.equal(
+    wrapper.get('.tests-pty-state').text(),
+    'Pronto',
+  );
   const button = wrapper
     .findAll('button')
     .find((candidate) => candidate.text().includes('Executar suíte completa'));
