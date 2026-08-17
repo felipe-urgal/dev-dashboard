@@ -164,7 +164,9 @@ onBeforeUnmount(() => {
         @click="toggle"
       >
         <BellIcon aria-hidden="true" />
-        <span v-if="unreadCount > 0" class="notice-badge">{{ unreadCount }}</span>
+        <span v-if="unreadCount > 0" class="notice-badge">{{
+          unreadCount
+        }}</span>
       </button>
     </template>
 
