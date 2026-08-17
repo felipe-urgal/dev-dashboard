@@ -53,6 +53,19 @@ function updateMessage(event: Event): void {
 
 <template>
   <form class="git-commit-card" @submit.prevent="emit('submit')">
+    <header class="git-commit-heading">
+      <div>
+        <span>Histórico local</span>
+        <h2>
+          {{ mode === 'create' ? 'Criar commit' : 'Alterar último commit' }}
+        </h2>
+        <p>
+          Registre as alterações atuais com uma mensagem clara e rastreável.
+        </p>
+      </div>
+      <CheckCircleIcon aria-hidden="true" />
+    </header>
+
     <div
       class="git-commit-mode"
       role="radiogroup"
@@ -160,10 +173,53 @@ function updateMessage(event: Event): void {
 
 <style scoped>
 .git-commit-card {
+  display: grid;
+  gap: var(--space-4);
   width: 100%;
   margin: 0;
   background: var(--surface-1);
-  padding: 20px;
+  padding: var(--space-5);
+}
+
+.git-commit-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.git-commit-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.git-commit-heading span {
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.git-commit-heading h2,
+.git-commit-heading p {
+  margin: 0;
+}
+
+.git-commit-heading h2 {
+  color: var(--text);
+  font-size: var(--font-xl);
+}
+
+.git-commit-heading p {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-commit-heading > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--accent);
 }
 
 .git-commit-mode {
@@ -211,7 +267,7 @@ function updateMessage(event: Event): void {
 
 .git-commit-divider {
   height: 1px;
-  margin: 20px 0;
+  margin: 0;
   background: var(--border);
 }
 

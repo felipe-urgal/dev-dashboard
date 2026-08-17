@@ -233,7 +233,7 @@ async function undoFile(filePath: string): Promise<void> {
   min-height: 0;
   width: 100%;
   background: var(--surface-1);
-  padding: 20px;
+  padding: var(--space-5);
 }
 
 .git-undo-heading,
@@ -270,7 +270,7 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-heading h3 {
   margin: 0;
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: var(--font-xl);
 }
 
 .git-undo-heading p,
@@ -318,7 +318,9 @@ async function undoFile(filePath: string): Promise<void> {
 .git-undo-files article {
   min-width: 0;
   border: 1px solid var(--border);
-  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 12px 14px;
 }
 
 .git-undo-files article > svg {

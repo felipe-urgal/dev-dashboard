@@ -205,6 +205,20 @@ function statusIcon(tone: string) {
 
 <template>
   <section class="git-sync-page">
+    <header class="git-sync-heading">
+      <div>
+        <span class="git-sync-eyebrow">Estado do repositório</span>
+        <h2>Sincronização</h2>
+        <p>
+          Compare suas branches locais e remotas e mantenha o projeto
+          atualizado.
+        </p>
+      </div>
+      <span class="git-sync-heading-badge">
+        <CheckCircleIcon aria-hidden="true" />
+        Git conectado
+      </span>
+    </header>
     <div
       v-if="showCurrentBranchSync"
       class="git-sync-card git-sync-current-card"
@@ -287,17 +301,76 @@ function statusIcon(tone: string) {
   align-content: start;
   grid-auto-rows: max-content;
   min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.git-sync-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 4px 0 var(--space-2);
+}
+
+.git-sync-heading > div {
+  display: grid;
+  gap: 5px;
+}
+
+.git-sync-eyebrow {
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.git-sync-heading h2,
+.git-sync-heading p {
+  margin: 0;
+}
+
+.git-sync-heading h2 {
+  color: var(--text);
+  font-size: var(--font-xl);
+}
+
+.git-sync-heading p {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-sync-heading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--success-text) 28%, var(--border));
+  border-radius: 999px;
+  background: var(--success-surface);
+  color: var(--success-text);
+  padding: 7px 10px;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.git-sync-heading-badge svg {
+  width: 16px;
+  height: 16px;
 }
 
 .git-sync-card {
   overflow: hidden;
   background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
 }
 
 .git-sync-main-row {
   display: flex;
-  min-height: 132px;
+  min-height: 108px;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
@@ -330,7 +403,7 @@ function statusIcon(tone: string) {
   align-items: center;
   gap: 12px;
   color: var(--text);
-  font-size: 24px;
+  font-size: clamp(20px, 2vw, 28px);
   line-height: 1.2;
 }
 
@@ -399,6 +472,19 @@ function statusIcon(tone: string) {
 }
 
 @media (max-width: 760px) {
+  .git-sync-page {
+    padding: var(--space-3);
+  }
+
+  .git-sync-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .git-sync-heading-badge {
+    align-self: flex-start;
+  }
+
   .git-sync-main-row {
     min-height: 0;
     align-items: stretch;
