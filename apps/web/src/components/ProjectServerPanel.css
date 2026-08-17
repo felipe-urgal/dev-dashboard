@@ -592,3 +592,79 @@
   }
 }
 
+/* Redesign da tela de configuração: os dados ficam em blocos compactos,
+   mantendo uma leitura rápida sem ocupar a altura inteira com linhas vazias. */
+.server-config-card {
+  padding-top: 4px;
+}
+
+.server-config-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 22px 4px;
+}
+
+.server-config-row {
+  grid-template-columns: 36px minmax(0, 1fr);
+  min-height: 112px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.server-config-row > .server-config-control,
+.server-config-row > .server-config-value,
+.server-config-row > .server-config-code,
+.server-config-row > .server-config-state {
+  grid-column: 2;
+  justify-self: stretch;
+  margin-top: 8px;
+}
+
+.server-config-row > .server-config-value,
+.server-config-row > .server-config-state {
+  justify-self: start;
+}
+
+.server-config-footer {
+  padding: 16px 22px 22px;
+  border-top: 1px solid var(--border);
+}
+
+.server-running-card {
+  gap: 0;
+}
+
+.server-status-actions {
+  padding: 16px 22px;
+}
+
+.server-logs {
+  margin: 0 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 720px) {
+  .server-config-list {
+    grid-template-columns: 1fr;
+    padding: 14px 12px 4px;
+  }
+
+  .server-config-row {
+    min-height: 0;
+  }
+
+  .server-config-footer,
+  .server-status-actions {
+    padding-inline: 12px;
+  }
+
+  .server-logs {
+    margin-inline: 12px;
+  }
+}
+
