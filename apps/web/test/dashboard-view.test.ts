@@ -77,17 +77,36 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('mantém a visão geral enxuta dentro do Card de repositórios', () => {
+  it('renderiza o resumo operacional e o Card de repositórios', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.hero-copy').exists()).toBe(false);
-    expect(wrapper.find('.workspace-panel').exists()).toBe(false);
-    expect(wrapper.find('.workspace-create-form').exists()).toBe(false);
-    expect(wrapper.find('.metrics-grid').exists()).toBe(false);
+    expect(wrapper.find('.overview-summary-card').exists()).toBe(true);
+    expect(wrapper.find('[data-key="projects"] strong').text()).toBe('0');
     expect(wrapper.find('.repositories-section').classes()).toContain(
       'dd-card',
     );
     expect(wrapper.text()).toContain('Repositórios');
+  });
+
+  it('mostra métricas baseadas nos projetos detectados', () => {
+    dashboardStore.projects.value = [
+      project,
+      {
+        ...project,
+        id: 'p2',
+        name: 'Projeto Rails',
+        enabled: false,
+        capabilities: ['git'],
+      },
+    ];
+    dashboardStore.warningCount.value = 2;
+    const wrapper = mountView();
+
+    expect(wrapper.find('[data-key="projects"] strong').text()).toBe('2');
+    expect(wrapper.find('[data-key="active"] strong').text()).toBe('1');
+    expect(wrapper.find('[data-key="git"] strong').text()).toBe('2');
+    expect(wrapper.find('[data-key="servers"] strong').text()).toBe('1');
+    expect(wrapper.find('[data-key="warnings"] strong').text()).toBe('2');
   });
 
   it('remove filtros, contagem, título redundante e ações globais de servidor', () => {
