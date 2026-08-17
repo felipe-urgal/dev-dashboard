@@ -24,10 +24,11 @@ Processos
 Jobs e logs
 ```
 
-> Status atualizado: **Repositórios**, detalhe do projeto e **Processos**
-> (`/processes`) estão implementados. **Visão geral** existe como landing,
-> mas sem os widgets consolidados descritos abaixo. **command palette** já
-> está implementado. As páginas globais **Atividade** (`/activity`) e
+> Status atualizado: **Visão geral**, **Repositórios**, detalhe do projeto e
+> **Processos** (`/processes`) estão implementados. A Visão geral já possui um
+> resumo operacional enxuto; os widgets que exigem consulta agregada de
+> processos, falhas Git e jobs continuam como evolução posterior. A **command
+> palette** também está implementada. As páginas globais **Atividade** (`/activity`) e
 > **Configurações** (`/settings`) chegaram a ser implementadas e foram
 > removidas (task 237) por não justificarem uma área própria na navegação
 > principal — a retenção de logs/histórico continua configurável por
@@ -49,11 +50,12 @@ Resumo operacional do ambiente.
 
 No estado atual, a landing prioriza uma leitura direta dos projetos detectados:
 
-- quantidade de projetos;
+- resumo do workspace com projetos detectados, projetos ativos, integração Git
+  e suporte a servidores;
+- quantidade de atenções encontradas no último scan, quando houver;
+- caminho do último workspace escaneado;
 - lista ordenada por prioridade, com tipo, estado, branch e recência;
-- ações globais de iniciar e parar servidores junto do título e da contagem de
-  projetos;
-- ações de escanear novamente e remover workspace separadas no cabeçalho.
+- ação de escanear novamente no cabeçalho dos repositórios.
 
 A Visão geral não expõe busca textual nem filtro por tipo. Esses controles
 pertencem à área de **Repositórios** quando houver necessidade de exploração da
@@ -61,7 +63,9 @@ lista completa, evitando duplicar navegação e filtros na landing.
 
 Widgets operacionais consolidados — servidores ativos, processos com falha,
 alterações Git e jobs em execução — continuam como evolução possível da Visão
-geral sem alterar esse princípio de manter a entrada enxuta.
+geral. Para evitar contagens divergentes ou chamadas duplicadas por projeto,
+esses dados devem vir de uma consulta agregada própria antes de serem exibidos
+na landing.
 
 ### Repositórios
 
@@ -192,14 +196,13 @@ de um `<style>` global à parte — só o conteúdo dentro do slot (que você
 escreve no seu próprio template) continua escopado normalmente. Ver
 `ProjectProcessesMenu.vue`/`ProjectGitBranchesPage.vue` como exemplo.
 
-Ainda no padrão manual, candidatos a uma próxima leva (cada um tem motivo
-para não ter entrado nesta): `NoticeCenter` (painel com gestão de foco
-própria — mover foco ao abrir, devolver ao fechar com Escape — vale conferir
-se a Naive UI reproduz o mesmo contrato de acessibilidade antes de trocar),
+Os overlays principais já seguem o padrão compartilhado. `WorkspaceManagerModal`,
 o modal de criar/renomear/remover branch de `ProjectGitBranchesPage`,
-`WorkspaceDirectoryPicker` e `CommandPalette` (ambos modais Teleport
-manuais; o CommandPalette em especial tem navegação por teclado própria que
-precisa ser preservada com cuidado).
+`WorkspaceDirectoryPicker`, `NoticeCenter` e `CommandPalette` usam os
+componentes Naive UI correspondentes, com testes adaptados para conteúdo
+teleportado e estados ocultos. Ao alterar qualquer overlay, os testes devem
+continuar verificando foco, Escape, fechamento e o estado real do conteúdo
+teleportado.
 
 ## Estrutura do app shell
 
