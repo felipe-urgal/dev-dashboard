@@ -108,7 +108,7 @@ function handleMoreToolsDocumentClick(event: MouseEvent): void {
 
   const target = event.target;
   if (
-    target instanceof Node &&
+    target instanceof Element &&
     (moreToolsMenu.value?.contains(target) ||
       (target as HTMLElement).closest('.project-details-more-popover'))
   ) {
