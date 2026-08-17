@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 
 import {
   AdjustmentsHorizontalIcon,
@@ -80,6 +87,7 @@ const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
 // Ferramentas secundárias permanecem acessíveis pelo menu contextual.
 const moreToolsOpen = ref(false);
+const moreToolsMenu = ref<HTMLElement | null>(null);
 const moreToolsTrigger = ref<HTMLButtonElement | null>(null);
 const moreToolsPosition = ref({ top: 0, right: 12 });
 
@@ -92,6 +100,25 @@ function updateMoreToolsPosition(): void {
     top: rect.bottom + 6,
     right: Math.max(12, window.innerWidth - rect.right),
   };
+}
+
+function handleMoreToolsDocumentClick(event: MouseEvent): void {
+  if (!moreToolsOpen.value) return;
+
+  const target = event.target;
+  if (
+    target instanceof Node &&
+    (moreToolsMenu.value?.contains(target) ||
+      (target as HTMLElement).closest('.project-details-more-popover'))
+  ) {
+    return;
+  }
+
+  closeMoreTools();
+}
+
+function handleMoreToolsKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeMoreTools();
 }
 
 function closeMoreTools(): void {
@@ -113,7 +140,16 @@ async function toggleMoreTools(): Promise<void> {
   window.addEventListener('scroll', updateMoreToolsPosition, true);
 }
 
-onBeforeUnmount(closeMoreTools);
+onMounted(() => {
+  document.addEventListener('click', handleMoreToolsDocumentClick);
+  document.addEventListener('keydown', handleMoreToolsKeydown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleMoreToolsDocumentClick);
+  document.removeEventListener('keydown', handleMoreToolsKeydown);
+  closeMoreTools();
+});
 
 const isMoreToolRoute = computed(
   () =>
@@ -324,7 +360,7 @@ watch(
             </RouterLink>
           </div>
 
-          <div class="project-details-more-menu">
+          <div ref="moreToolsMenu" class="project-details-more-menu">
             <button
               type="button"
               ref="moreToolsTrigger"
