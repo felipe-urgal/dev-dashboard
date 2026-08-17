@@ -344,6 +344,9 @@ defineExpose({ show });
     preset="card"
     :mask-closable="true"
     :close-on-esc="false"
+    :auto-focus="false"
+    :return-focus="false"
+    :trap-focus="false"
     style="width: min(720px, calc(100vw - 32px))"
     @update:show="(show) => !show && close()"
   >
