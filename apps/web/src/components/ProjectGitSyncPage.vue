@@ -1,3 +1,4 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 <script setup lang="ts">
 import {
   ArrowPathIcon,
@@ -209,7 +210,10 @@ function statusIcon(tone: string) {
       <div>
         <span class="git-sync-eyebrow">Estado do repositório</span>
         <h2>Sincronização</h2>
-        <p>Compare suas branches locais e remotas e mantenha o projeto atualizado.</p>
+        <p>
+          Compare suas branches locais e remotas e mantenha o projeto
+          atualizado.
+        </p>
       </div>
       <span class="git-sync-heading-badge">
         <CheckCircleIcon aria-hidden="true" />
@@ -503,3 +507,8 @@ function statusIcon(tone: string) {
   }
 }
 </style>
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
