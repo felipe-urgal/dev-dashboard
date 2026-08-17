@@ -163,6 +163,12 @@ async function mountPalette(
   return { wrapper, router };
 }
 
+function expectPaletteHidden(): void {
+  const palette = document.querySelector<HTMLElement>('.command-palette');
+  expect(palette).not.toBeNull();
+  expect(palette?.closest<HTMLElement>('.n-modal')?.style.display).toBe('none');
+}
+
 afterEach(() => {
   for (const wrapper of wrappers.splice(0)) wrapper.unmount();
   document.body.innerHTML = '';
@@ -186,15 +192,17 @@ describe('paleta de navegação', () => {
     );
     await flushPromises();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(document.activeElement?.getAttribute('aria-label')).toBe(
-      'Buscar ou executar um comando',
-    );
+    await vi.waitFor(() => {
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        'Buscar ou executar um comando',
+      );
+    });
 
     document.activeElement?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     );
     await flushPromises();
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expectPaletteHidden();
   });
 
   it('filtra projetos por nome e caminho', async () => {
@@ -231,7 +239,7 @@ describe('paleta de navegação', () => {
     await flushPromises();
 
     expect(router.currentRoute.value.name).toBe('processes');
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await vi.waitFor(expectPaletteHidden);
   });
 
   it('oferece as áreas do projeto aberto', async () => {

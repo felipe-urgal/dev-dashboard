@@ -7,6 +7,7 @@ import {
   ref,
   watch,
 } from 'vue';
+import { NModal } from 'naive-ui';
 import { useRoute, useRouter } from 'vue-router';
 import type { Project, Workspace } from '@dev-dashboard/contracts';
 import {
@@ -338,125 +339,133 @@ defineExpose({ show });
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="command-palette-backdrop" @mousedown.self="close">
-      <section
-        ref="dialog"
-        class="command-palette"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Central de comandos"
-        @keydown="handleDialogKeydown"
+  <NModal
+    :show="open"
+    preset="card"
+    :mask-closable="true"
+    :close-on-esc="false"
+    :auto-focus="false"
+    :return-focus="false"
+    :trap-focus="false"
+    style="width: min(720px, calc(100vw - 32px))"
+    @update:show="(show) => !show && close()"
+  >
+    <section
+      ref="dialog"
+      class="command-palette"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Central de comandos"
+      @keydown="handleDialogKeydown"
+    >
+      <header class="command-palette-header">
+        <label class="command-palette-search">
+          <MagnifyingGlassIcon aria-hidden="true" />
+          <input
+            ref="searchInput"
+            v-model="query"
+            type="search"
+            placeholder="Buscar ou executar um comando..."
+            aria-label="Buscar ou executar um comando"
+            @input="handleQuery"
+            @keydown="handleSearchKeydown"
+          />
+          <kbd>Esc</kbd>
+        </label>
+        <p>
+          <kbd>&gt;</kbd> ações <span>·</span> <kbd>/</kbd> páginas
+          <span>·</span> <kbd>@</kbd> projetos
+        </p>
+      </header>
+
+      <div
+        v-if="parsedQuery.project !== undefined"
+        class="command-palette-context"
+        :class="{ 'command-palette-context-invalid': !selectedProject }"
       >
-        <header class="command-palette-header">
-          <label class="command-palette-search">
-            <MagnifyingGlassIcon aria-hidden="true" />
-            <input
-              ref="searchInput"
-              v-model="query"
-              type="search"
-              placeholder="Buscar ou executar um comando..."
-              aria-label="Buscar ou executar um comando"
-              @input="handleQuery"
-              @keydown="handleSearchKeydown"
-            />
-            <kbd>Esc</kbd>
-          </label>
-          <p>
-            <kbd>&gt;</kbd> ações <span>·</span> <kbd>/</kbd> páginas
-            <span>·</span> <kbd>@</kbd> projetos
-          </p>
-        </header>
+        <FolderIcon aria-hidden="true" />
+        <span>Projeto</span>
+        <strong>{{ selectedProject?.name ?? parsedQuery.project }}</strong>
+        <small>{{
+          selectedProject
+            ? 'Comandos e ferramentas deste projeto'
+            : 'Projeto não encontrado'
+        }}</small>
+      </div>
 
-        <div
-          v-if="parsedQuery.project !== undefined"
-          class="command-palette-context"
-          :class="{ 'command-palette-context-invalid': !selectedProject }"
+      <div
+        v-if="orderedItems.length"
+        class="command-palette-list"
+        role="listbox"
+      >
+        <section
+          v-for="group in groupViews"
+          :key="group.name"
+          class="command-palette-group"
         >
-          <FolderIcon aria-hidden="true" />
-          <span>Projeto</span>
-          <strong>{{ selectedProject?.name ?? parsedQuery.project }}</strong>
-          <small>{{
-            selectedProject
-              ? 'Comandos e ferramentas deste projeto'
-              : 'Projeto não encontrado'
-          }}</small>
-        </div>
-
-        <div
-          v-if="orderedItems.length"
-          class="command-palette-list"
-          role="listbox"
-        >
-          <section
-            v-for="group in groupViews"
-            :key="group.name"
-            class="command-palette-group"
-          >
-            <h3>{{ group.name }}</h3>
-            <ul>
-              <li
-                v-for="item in group.items"
-                :key="item.id"
-                role="option"
-                :aria-selected="itemIndex(item) === activeIndex"
+          <h3>{{ group.name }}</h3>
+          <ul>
+            <li
+              v-for="item in group.items"
+              :key="item.id"
+              role="option"
+              :aria-selected="itemIndex(item) === activeIndex"
+            >
+              <button
+                type="button"
+                class="command-palette-item"
+                :class="{
+                  'command-palette-item-active':
+                    itemIndex(item) === activeIndex,
+                }"
+                :disabled="executingAction"
+                @mouseenter="activeIndex = itemIndex(item)"
+                @click="select(item)"
               >
-                <button
-                  type="button"
-                  class="command-palette-item"
-                  :class="{
-                    'command-palette-item-active':
-                      itemIndex(item) === activeIndex,
-                  }"
-                  :disabled="executingAction"
-                  @mouseenter="activeIndex = itemIndex(item)"
-                  @click="select(item)"
+                <span class="command-palette-icon"
+                  ><component :is="item.icon" aria-hidden="true"
+                /></span>
+                <span class="command-palette-copy"
+                  ><strong>{{ item.label }}</strong
+                  ><small>{{ item.description }}</small></span
                 >
-                  <span class="command-palette-icon"
-                    ><component :is="item.icon" aria-hidden="true"
-                  /></span>
-                  <span class="command-palette-copy"
-                    ><strong>{{ item.label }}</strong
-                    ><small>{{ item.description }}</small></span
-                  >
-                  <span
-                    class="command-palette-item-kind"
-                    :class="
-                      item.kind === 'action'
-                        ? `command-palette-risk-${item.risk}`
-                        : ''
-                    "
-                  >
-                    <ShieldCheckIcon
-                      v-if="item.kind === 'action' && item.risk === 'atencao'"
-                      aria-hidden="true"
-                    />
-                    {{ itemHint(item) }}
-                  </span>
-                </button>
-              </li>
-            </ul>
-          </section>
-        </div>
+                <span
+                  class="command-palette-item-kind"
+                  :class="
+                    item.kind === 'action'
+                      ? `command-palette-risk-${item.risk}`
+                      : ''
+                  "
+                >
+                  <ShieldCheckIcon
+                    v-if="item.kind === 'action' && item.risk === 'atencao'"
+                    aria-hidden="true"
+                  />
+                  {{ itemHint(item) }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </div>
 
-        <p v-else class="command-palette-empty">
-          Nenhum comando encontrado. Tente outro termo ou prefixo.
-        </p>
-        <p v-if="feedback" class="command-palette-feedback" role="status">
-          {{ feedback }}
-        </p>
-        <footer>
-          <span>{{
-            loadingActions
-              ? 'Consultando ações autorizadas…'
-              : 'Catálogo seguro do projeto'
-          }}</span
-          ><span
-            ><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>Tab</kbd> autocompletar
-            <kbd>Enter</kbd> selecionar</span
-          >
-        </footer>
-      </section>
-    </div>
-  </Teleport>
+      <p v-else class="command-palette-empty">
+        Nenhum comando encontrado. Tente outro termo ou prefixo.
+      </p>
+      <p v-if="feedback" class="command-palette-feedback" role="status">
+        {{ feedback }}
+      </p>
+      <footer>
+        <span>{{
+          loadingActions
+            ? 'Consultando ações autorizadas…'
+            : 'Catálogo seguro do projeto'
+        }}</span
+        ><span
+          ><kbd>↑</kbd><kbd>↓</kbd> navegar <kbd>Tab</kbd> autocompletar
+          <kbd>Enter</kbd> selecionar</span
+        >
+      </footer>
+    </section>
+  </NModal>
 </template>
