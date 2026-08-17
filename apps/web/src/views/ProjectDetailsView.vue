@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
   AdjustmentsHorizontalIcon,
@@ -80,6 +80,40 @@ const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
 // Ferramentas secundárias permanecem acessíveis pelo menu contextual.
 const moreToolsOpen = ref(false);
+const moreToolsTrigger = ref<HTMLButtonElement | null>(null);
+const moreToolsPosition = ref({ top: 0, right: 12 });
+
+function updateMoreToolsPosition(): void {
+  const trigger = moreToolsTrigger.value;
+  if (!trigger) return;
+
+  const rect = trigger.getBoundingClientRect();
+  moreToolsPosition.value = {
+    top: rect.bottom + 6,
+    right: Math.max(12, window.innerWidth - rect.right),
+  };
+}
+
+function closeMoreTools(): void {
+  moreToolsOpen.value = false;
+  window.removeEventListener('resize', updateMoreToolsPosition);
+  window.removeEventListener('scroll', updateMoreToolsPosition, true);
+}
+
+async function toggleMoreTools(): Promise<void> {
+  if (moreToolsOpen.value) {
+    closeMoreTools();
+    return;
+  }
+
+  moreToolsOpen.value = true;
+  await nextTick();
+  updateMoreToolsPosition();
+  window.addEventListener('resize', updateMoreToolsPosition);
+  window.addEventListener('scroll', updateMoreToolsPosition, true);
+}
+
+onBeforeUnmount(closeMoreTools);
 const isMoreToolRoute = computed(
   () =>
     isDatabaseRoute.value ||
@@ -292,6 +326,7 @@ watch(
           <div class="project-details-more-menu">
             <button
               type="button"
+              ref="moreToolsTrigger"
               class="project-details-more-trigger"
               :class="{
                 'project-details-more-trigger-active': isMoreToolRoute,
@@ -299,14 +334,19 @@ watch(
               aria-label="Mais ferramentas"
               aria-haspopup="menu"
               :aria-expanded="moreToolsOpen"
-              @click="moreToolsOpen = !moreToolsOpen"
+              @click="toggleMoreTools"
             >
               <EllipsisHorizontalIcon aria-hidden="true" />
             </button>
 
+          <Teleport to="body">
             <div
               v-if="moreToolsOpen"
               class="project-details-more-popover"
+              :style="{
+                top: `${moreToolsPosition.top}px`,
+                right: `${moreToolsPosition.right}px`,
+              }"
               role="menu"
             >
               <RouterLink
@@ -318,7 +358,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <CircleStackIcon aria-hidden="true" />
                 <span>Banco de dados</span>
@@ -427,7 +467,7 @@ watch(
                 <span>README</span>
               </RouterLink>
             </div>
-          </div>
+          </Teleport>
         </nav>
       </div>
 
