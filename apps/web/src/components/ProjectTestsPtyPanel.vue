@@ -142,55 +142,68 @@ watch(
 <template>
   <Card padded class="project-detail-card tests-pty-panel">
     <template #header>
-      <div class="tests-pty-controls">
-        <select
-          v-model="selectedCommandId"
-          :disabled="
-            loadingOverview ||
-            isRunning ||
-            (overview?.commands.length ?? 0) <= 1
-          "
-          aria-label="Comando de teste"
-        >
-          <option v-if="loadingOverview" value="">Carregando…</option>
-          <option
-            v-for="command in overview?.commands ?? []"
-            :key="command.id"
-            :value="command.id"
+      <div class="tests-pty-header">
+        <div class="tests-pty-heading">
+          <span class="tests-pty-eyebrow">Execução</span>
+          <strong>Testes do projeto</strong>
+          <small>Escolha uma suíte e acompanhe a saída em tempo real.</small>
+        </div>
+        <div class="tests-pty-controls">
+          <span
+            class="tests-pty-state"
+            :class="{ 'tests-pty-state-running': isRunning }"
           >
-            {{ command.label }}
-          </option>
-        </select>
+            {{ isRunning ? 'Em execução' : snapshot ? 'Finalizado' : 'Pronto' }}
+          </span>
+          <select
+            v-model="selectedCommandId"
+            :disabled="
+              loadingOverview ||
+              isRunning ||
+              (overview?.commands.length ?? 0) <= 1
+            "
+            aria-label="Comando de teste"
+          >
+            <option v-if="loadingOverview" value="">Carregando…</option>
+            <option
+              v-for="command in overview?.commands ?? []"
+              :key="command.id"
+              :value="command.id"
+            >
+              {{ command.label }}
+            </option>
+          </select>
 
-        <button
-          type="button"
-          class="primary-button"
-          :disabled="
-            loadingOverview || !selectedCommand || isRunning || starting
-          "
-          @click="start"
-        >
-          {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
-        </button>
+          <button
+            type="button"
+            class="primary-button"
+            :disabled="
+              loadingOverview || !selectedCommand || isRunning || starting
+            "
+            @click="start"
+          >
+            {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
+          </button>
 
-        <button
-          v-if="isRunning"
-          type="button"
-          class="secondary-button"
-          :disabled="cancelling"
-          @click="cancel"
-        >
-          {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-        </button>
+          <button
+            v-if="isRunning"
+            type="button"
+            class="secondary-button"
+            :disabled="cancelling"
+            @click="cancel"
+          >
+            {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+          </button>
 
-        <button
-          v-if="snapshot && !isRunning"
-          type="button"
-          class="secondary-button"
-          @click="closeTerminal"
-        >
-          Fechar terminal
-        </button>
+          <button
+            v-if="snapshot && !isRunning"
+            type="button"
+            class="secondary-button"
+            @click="closeTerminal"
+          >
+            Fechar terminal
+          </button>
+        </div>
       </div>
     </template>
 
@@ -227,12 +240,63 @@ watch(
   overflow: hidden;
 }
 
+.tests-pty-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px 16px;
+}
+
+.tests-pty-heading {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.tests-pty-eyebrow {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tests-pty-heading strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.tests-pty-heading small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .tests-pty-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3);
-  padding: 12px;
+}
+
+.tests-pty-state {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tests-pty-state-running {
+  border-color: var(--success-text);
+  color: var(--success-text);
+  background: var(--success-surface);
 }
 
 .tests-pty-controls select,
@@ -280,6 +344,22 @@ watch(
   width: 100%;
   height: 100%;
   padding-inline: 10px;
+}
+
+@media (max-width: 620px) {
+  .tests-pty-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tests-pty-controls {
+    justify-content: stretch;
+  }
+
+  .tests-pty-controls select,
+  .tests-pty-controls button {
+    flex: 1 1 140px;
+  }
 }
 
 .tests-pty-terminal :global(.xterm-viewport) {
