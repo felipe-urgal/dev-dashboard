@@ -19,7 +19,7 @@ test.describe('Variáveis de ambiente do projeto', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Mais ferramentas' }).click();
-    await page.getByRole('link', { name: 'Variáveis de ambiente' }).click();
+    await page.getByRole('menuitem', { name: 'Variáveis de ambiente' }).click();
     await expect(
       page.getByRole('heading', { level: 3 }).filter({ hasText: '.env' }),
     ).toBeVisible();
