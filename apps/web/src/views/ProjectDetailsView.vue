@@ -72,6 +72,7 @@ const isRailsWebpackRoute = computed(
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
+// Ferramentas secundárias permanecem acessíveis pelo menu contextual.
 const moreToolsOpen = ref(false);
 const isMoreToolRoute = computed(
   () =>
