@@ -239,6 +239,7 @@ watch(
         </header>
 
         <nav class="project-details-tabs" aria-label="Áreas do projeto">
+          <div class="project-details-primary-tabs">
           <RouterLink
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isServerRoute }"
@@ -278,17 +279,20 @@ watch(
             <span>Terminal</span>
           </RouterLink>
 
+          </div>
+
           <div class="project-details-more-menu">
             <button
               type="button"
-              class="project-details-tab project-details-more-trigger"
-              :class="{ 'project-details-tab-active': isMoreToolRoute }"
+              class="project-details-more-trigger"
+              :class="{ 'project-details-more-trigger-active': isMoreToolRoute }"
+              aria-label="Mais ferramentas"
+              title="Mais ferramentas"
               aria-haspopup="menu"
               :aria-expanded="moreToolsOpen"
               @click="moreToolsOpen = !moreToolsOpen"
             >
               <EllipsisHorizontalIcon aria-hidden="true" />
-              <span>Mais ferramentas</span>
             </button>
 
             <div
