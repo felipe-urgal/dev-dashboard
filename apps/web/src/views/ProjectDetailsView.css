@@ -201,11 +201,18 @@
   display: flex;
   min-width: 0;
   align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-0);
+}
+
+.project-details-primary-tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
   gap: 4px;
   overflow-x: auto;
   padding: 0 4px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-0);
   scrollbar-width: thin;
 }
 
@@ -631,28 +638,54 @@
 
 .project-details-more-menu {
   position: relative;
+  z-index: 2;
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+  background: var(--surface-0);
 }
 
 .project-details-more-trigger {
-  border: 0;
-  font: inherit;
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: transparent;
   cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
 }
 
-.project-details-more-trigger.project-details-tab-active {
+.project-details-more-trigger:hover,
+.project-details-more-trigger-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
   background: var(--accent-soft);
+}
+
+.project-details-more-trigger svg {
+  width: 20px;
+  height: 20px;
 }
 
 .project-details-more-popover {
   position: absolute;
   z-index: 30;
-  top: calc(100% + 8px);
-  left: 0;
+  top: calc(100% + 6px);
+  right: 0;
   display: grid;
-  min-width: 220px;
+  min-width: 240px;
   gap: 3px;
-  padding: 6px;
+  padding: 7px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-1);
@@ -691,13 +724,11 @@
     display: none;
   }
 
-  .project-details-more-trigger span {
-    display: inline;
+  .project-details-more-menu {
+    padding: 0 6px;
   }
 
   .project-details-more-popover {
-    right: 0;
-    left: auto;
-    min-width: min(240px, calc(100vw - 32px));
+    min-width: min(240px, calc(100vw - 24px));
   }
 }
