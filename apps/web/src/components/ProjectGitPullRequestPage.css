@@ -6,7 +6,7 @@
   min-height: 0;
   width: 100%;
   background: var(--surface-1);
-  padding: 20px;
+  padding: var(--space-5);
 }
 
 .git-pr-heading,
@@ -39,10 +39,10 @@
   font-weight: 600;
 }
 
-.git-pr-heading h3 {
+ .git-pr-heading h3 {
   margin: 0;
   color: var(--text);
-  font-size: var(--font-lg);
+  font-size: var(--font-xl);
 }
 
 .git-pr-heading p,
@@ -463,7 +463,9 @@
   padding: var(--space-3);
 }
 
-.git-pr-warning {
+ .git-pr-warning {
+  border: 1px solid color-mix(in srgb, var(--warning-text) 30%, var(--border));
+  border-radius: var(--radius-md);
   background: var(--warning-surface);
   color: var(--warning-text);
 }
@@ -474,7 +476,9 @@
   color: var(--text-muted);
 }
 
-.git-pr-existing {
+ .git-pr-existing {
+  border: 1px solid color-mix(in srgb, var(--success-text) 30%, var(--border));
+  border-radius: var(--radius-md);
   background: var(--success-surface);
   color: var(--success-text);
 }
