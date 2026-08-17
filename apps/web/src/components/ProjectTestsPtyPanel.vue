@@ -156,53 +156,53 @@ watch(
             {{ isRunning ? 'Em execução' : snapshot ? 'Finalizado' : 'Pronto' }}
           </span>
           <select
-          v-model="selectedCommandId"
-          :disabled="
-            loadingOverview ||
-            isRunning ||
-            (overview?.commands.length ?? 0) <= 1
-          "
-          aria-label="Comando de teste"
-        >
-          <option v-if="loadingOverview" value="">Carregando…</option>
-          <option
-            v-for="command in overview?.commands ?? []"
-            :key="command.id"
-            :value="command.id"
+            v-model="selectedCommandId"
+            :disabled="
+              loadingOverview ||
+              isRunning ||
+              (overview?.commands.length ?? 0) <= 1
+            "
+            aria-label="Comando de teste"
           >
-            {{ command.label }}
-          </option>
-        </select>
+            <option v-if="loadingOverview" value="">Carregando…</option>
+            <option
+              v-for="command in overview?.commands ?? []"
+              :key="command.id"
+              :value="command.id"
+            >
+              {{ command.label }}
+            </option>
+          </select>
 
-        <button
-          type="button"
-          class="primary-button"
-          :disabled="
-            loadingOverview || !selectedCommand || isRunning || starting
-          "
-          @click="start"
-        >
-          {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
-        </button>
+          <button
+            type="button"
+            class="primary-button"
+            :disabled="
+              loadingOverview || !selectedCommand || isRunning || starting
+            "
+            @click="start"
+          >
+            {{ starting ? 'Iniciando…' : 'Executar suíte completa' }}
+          </button>
 
-        <button
-          v-if="isRunning"
-          type="button"
-          class="secondary-button"
-          :disabled="cancelling"
-          @click="cancel"
-        >
-          {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
-        </button>
+          <button
+            v-if="isRunning"
+            type="button"
+            class="secondary-button"
+            :disabled="cancelling"
+            @click="cancel"
+          >
+            {{ cancelling ? 'Cancelando…' : 'Cancelar' }}
+          </button>
 
-        <button
-          v-if="snapshot && !isRunning"
-          type="button"
-          class="secondary-button"
-          @click="closeTerminal"
-        >
-          Fechar terminal
-        </button>
+          <button
+            v-if="snapshot && !isRunning"
+            type="button"
+            class="secondary-button"
+            @click="closeTerminal"
+          >
+            Fechar terminal
+          </button>
         </div>
       </div>
     </template>
