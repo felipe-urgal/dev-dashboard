@@ -174,7 +174,6 @@ const {
             {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
           </button>
         </div>
-      </div>
         <button
           type="button"
           class="processes-clear-filters-button"
