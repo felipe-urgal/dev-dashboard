@@ -1,3 +1,56 @@
+.server-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.server-panel-header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.server-panel-header span:first-child {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.server-panel-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.server-panel-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.server-panel-state {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.server-panel-state-running {
+  border-color: var(--success-text);
+  color: var(--success-text);
+  background: var(--success-surface);
+}
+
 .server-dashboard {
   display: block;
   height: 100%;

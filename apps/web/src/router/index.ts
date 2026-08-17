@@ -24,6 +24,11 @@ export const router = createRouter({
       component: ProjectDetailsView,
     },
     {
+      path: '/projects/:projectId/readme',
+      name: 'project-readme',
+      component: ProjectDetailsView,
+    },
+    {
       path: '/projects/:projectId/doctor',
       name: 'project-doctor',
       component: ProjectDetailsView,
