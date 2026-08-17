@@ -154,14 +154,14 @@ test('exibe filtros e permite limpar a seleção', async () => {
   await flushPromises();
 
   assert.equal(wrapper.findAll('.processes-filter-field select').length, 4);
-  await wrapper
-    .get('[aria-label="Filtrar por estado"]')
-    .setValue('failed');
+  await wrapper.get('[aria-label="Filtrar por estado"]').setValue('failed');
   await flushPromises();
 
   assert.equal(
-    (wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement)
-      .value,
+    (
+      wrapper.get('[aria-label="Filtrar por estado"]')
+        .element as HTMLSelectElement
+    ).value,
     'failed',
   );
   const clearButton = wrapper.get('.processes-clear-filters-button');
@@ -171,8 +171,10 @@ test('exibe filtros e permite limpar a seleção', async () => {
   await flushPromises();
 
   assert.equal(
-    (wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement)
-      .value,
+    (
+      wrapper.get('[aria-label="Filtrar por estado"]')
+        .element as HTMLSelectElement
+    ).value,
     '',
   );
   assert.equal(clearButton.attributes('disabled'), '');
