@@ -145,6 +145,39 @@ test('mostra estado de carregamento enquanto a lista está pendente', async () =
   assert.equal(wrapper.find('.loading-skeleton').exists(), false);
 });
 
+test('exibe filtros e permite limpar a seleção', async () => {
+  const { wrapper, restore } = await mountView({
+    processes: async () => [],
+  });
+  cleanup = restore;
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(wrapper.findAll('.processes-filter-field select').length, 4);
+  await wrapper
+    .get('[aria-label="Filtrar por estado"]')
+    .setValue('failed');
+  await flushPromises();
+
+  assert.equal(
+    (wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement)
+      .value,
+    'failed',
+  );
+  const clearButton = wrapper.get('.processes-clear-filters-button');
+  assert.equal(clearButton.attributes('disabled'), undefined);
+
+  await clearButton.trigger('click');
+  await flushPromises();
+
+  assert.equal(
+    (wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement)
+      .value,
+    '',
+  );
+  assert.equal(clearButton.attributes('disabled'), '');
+});
+
 test('mostra estado vazio quando não há processos gerenciados', async () => {
   const { wrapper, restore } = await mountView({ processes: async () => [] });
   cleanup = restore;
