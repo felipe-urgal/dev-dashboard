@@ -13,7 +13,7 @@ test.describe('Banco de dados do projeto', () => {
     ).toBeVisible();
 
     await page.getByRole('button', { name: 'Mais ferramentas' }).click();
-    await page.getByRole('link', { name: 'Banco de dados' }).click();
+    await page.getByRole('menuitem', { name: 'Banco de dados' }).click();
 
     await expect(
       page.getByRole('heading', { name: 'Ambientes' }),
