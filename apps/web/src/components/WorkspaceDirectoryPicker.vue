@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
+import { NModal } from 'naive-ui';
 
 import { fetchDirectories, type DirectoryListing } from '../api';
 
@@ -19,14 +20,10 @@ const emit = defineEmits<{
 const listing = ref<DirectoryListing | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
-const closeButton = ref<HTMLButtonElement | null>(null);
 
 useAutoDismiss(errorMessage, '');
 
 const directoryRequests = new RequestGeneration();
-let previousBodyOverflow = '';
-let previouslyFocusedElement: HTMLElement | null = null;
-let pageStateCaptured = false;
 
 async function loadDirectory(directoryPath?: string): Promise<void> {
   const requestGeneration = directoryRequests.invalidate();
@@ -53,35 +50,11 @@ async function loadDirectory(directoryPath?: string): Promise<void> {
   }
 }
 
-function restorePageState(): void {
-  if (!pageStateCaptured) {
-    return;
-  }
-
-  pageStateCaptured = false;
-  document.body.style.overflow = previousBodyOverflow;
-  document.removeEventListener('keydown', handleKeydown);
-
-  const focusTarget = previouslyFocusedElement;
-  previouslyFocusedElement = null;
-
-  void nextTick(() => {
-    focusTarget?.focus();
-  });
-}
-
 function closeDirectoryPicker(): void {
+  if (loading.value) return;
   directoryRequests.invalidate();
   loading.value = false;
-  restorePageState();
   emit('close');
-}
-
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeDirectoryPicker();
-  }
 }
 
 function selectCurrentDirectory(): void {
@@ -95,122 +68,91 @@ function selectCurrentDirectory(): void {
 
 watch(
   () => props.open,
-  async (open) => {
+  (open) => {
     if (open) {
-      previouslyFocusedElement =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      previousBodyOverflow = document.body.style.overflow;
-      pageStateCaptured = true;
-      document.body.style.overflow = 'hidden';
-      document.addEventListener('keydown', handleKeydown);
-
       void loadDirectory(props.modelValue || undefined);
-
-      await nextTick();
-      closeButton.value?.focus();
       return;
     }
 
     directoryRequests.invalidate();
-    restorePageState();
+    loading.value = false;
   },
   { immediate: true },
 );
-
-onBeforeUnmount(() => {
-  directoryRequests.invalidate();
-  restorePageState();
-});
 </script>
 
 <template>
-  <Teleport to="body">
-    <div
-      v-if="open"
-      class="modal-backdrop"
-      role="presentation"
-      @click.self="closeDirectoryPicker"
-    >
-      <section
-        class="modal-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="directory-picker-title"
-        :aria-busy="loading"
-      >
-        <header class="modal-header">
-          <div>
-            <span class="section-kicker">Workspace</span>
-            <h3 id="directory-picker-title">Escolher pasta</h3>
+  <n-modal
+    :show="open"
+    preset="card"
+    :mask-closable="!loading"
+    :close-on-esc="!loading"
+    style="width: min(720px, calc(100vw - 32px))"
+    aria-labelledby="directory-picker-title"
+    @update:show="(show) => !show && closeDirectoryPicker()"
+  >
+    <div class="modal-dialog" :aria-busy="loading">
+      <header class="modal-header">
+        <div>
+          <span class="section-kicker">Workspace</span>
+          <h3 id="directory-picker-title">Escolher pasta</h3>
+        </div>
+      </header>
+
+      <code v-if="listing" class="modal-path">
+        {{ listing.currentPath }}
+      </code>
+
+      <div v-if="errorMessage" class="project-error" role="alert">
+        {{ errorMessage }}
+      </div>
+
+      <div class="modal-toolbar">
+        <button
+          type="button"
+          class="secondary-button"
+          :disabled="loading || !listing?.parentPath"
+          @click="loadDirectory(listing?.parentPath ?? undefined)"
+        >
+          ← Pasta anterior
+        </button>
+
+        <button
+          type="button"
+          class="primary-button"
+          :disabled="loading || !listing"
+          @click="selectCurrentDirectory"
+        >
+          Usar esta pasta
+        </button>
+      </div>
+
+      <div class="directory-picker-list">
+        <div v-if="loading" class="directory-picker-empty">
+          Carregando pastas...
+        </div>
+
+        <template v-else>
+          <button
+            v-for="directory in listing?.directories ?? []"
+            :key="directory.path"
+            type="button"
+            class="directory-picker-item"
+            :disabled="loading"
+            @click="loadDirectory(directory.path)"
+          >
+            <span>▸</span>
+            <strong>{{ directory.name }}</strong>
+          </button>
+
+          <div
+            v-if="listing?.directories.length === 0"
+            class="directory-picker-empty"
+          >
+            Nenhuma subpasta acessível.
           </div>
-
-          <button
-            ref="closeButton"
-            type="button"
-            class="log-action-button"
-            @click="closeDirectoryPicker"
-          >
-            Fechar
-          </button>
-        </header>
-
-        <code v-if="listing" class="modal-path">
-          {{ listing.currentPath }}
-        </code>
-
-        <div v-if="errorMessage" class="project-error" role="alert">
-          {{ errorMessage }}
-        </div>
-
-        <div class="modal-toolbar">
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="loading || !listing?.parentPath"
-            @click="loadDirectory(listing?.parentPath ?? undefined)"
-          >
-            ← Pasta anterior
-          </button>
-
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="loading || !listing"
-            @click="selectCurrentDirectory"
-          >
-            Usar esta pasta
-          </button>
-        </div>
-
-        <div class="directory-picker-list">
-          <div v-if="loading" class="directory-picker-empty">
-            Carregando pastas...
-          </div>
-
-          <template v-else>
-            <button
-              v-for="directory in listing?.directories ?? []"
-              :key="directory.path"
-              type="button"
-              class="directory-picker-item"
-              :disabled="loading"
-              @click="loadDirectory(directory.path)"
-            >
-              <span>▸</span>
-              <strong>{{ directory.name }}</strong>
-            </button>
-
-            <div
-              v-if="listing?.directories.length === 0"
-              class="directory-picker-empty"
-            >
-              Nenhuma subpasta acessível.
-            </div>
-          </template>
-        </div>
-      </section>
+        </template>
+      </div>
     </div>
-  </Teleport>
+  </n-modal>
 </template>
