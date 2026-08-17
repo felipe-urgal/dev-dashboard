@@ -253,8 +253,9 @@
 
 :deep(.readme-document) {
   width: 100%;
-  max-width: none;
+  max-width: 1180px;
   box-sizing: border-box;
+  margin: 0 auto;
 }
 
 :deep(.readme-code-block) {
