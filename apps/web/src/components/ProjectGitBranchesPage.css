@@ -260,22 +260,10 @@
   padding: var(--space-4);
 }
 
-.branch-modal-backdrop {
-  position: fixed;
-  z-index: 1000;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(15, 23, 42, 0.24);
-  padding: 24px;
-}
-
 .branch-modal {
-  width: min(600px, 100%);
+  width: 100%;
   max-height: min(760px, calc(100vh - 48px));
   overflow: auto;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
 }
 
 .branch-modal > header {
@@ -457,11 +445,6 @@
     width: 100%;
     justify-content: center;
     order: 3;
-  }
-
-  .branch-modal-backdrop {
-    align-items: end;
-    padding: 12px;
   }
 
   .branch-modal {
