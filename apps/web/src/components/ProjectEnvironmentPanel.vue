@@ -31,6 +31,26 @@ watch(environment.errorMessage, (value) => {
     />
 
     <template v-else-if="environment.overview.value">
+      <header class="project-environment-header">
+        <div>
+          <span class="project-environment-breadcrumb"
+            >Ferramenta do projeto</span
+          >
+          <h2>Variáveis de ambiente</h2>
+          <p>
+            Consulte configurações detectadas sem expor segredos por padrão.
+          </p>
+        </div>
+        <StatusBadge tone="info">
+          {{ environment.overview.value.files.length }}
+          {{
+            environment.overview.value.files.length === 1
+              ? 'arquivo'
+              : 'arquivos'
+          }}
+        </StatusBadge>
+      </header>
+
       <p
         v-if="environment.overview.value.files.length === 0"
         class="project-environment-empty"
@@ -133,6 +153,15 @@ watch(environment.errorMessage, (value) => {
 }
 
 .project-environment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.project-environment-header > div {
   display: grid;
   gap: 5px;
 }
@@ -143,6 +172,21 @@ watch(environment.errorMessage, (value) => {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.project-environment-header .dd-status-badge {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .project-environment-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-environment-header .dd-status-badge {
+    align-self: flex-start;
+  }
 }
 
 .project-environment-header h2 {
