@@ -109,6 +109,10 @@ function close(options: { restoreFocus?: boolean } = {}): void {
   }
 }
 
+function handleClickOutside(): void {
+  close();
+}
+
 function selectNotice(notice: Notice): void {
   markRead(notice.id);
   close();
@@ -147,7 +151,7 @@ onBeforeUnmount(() => {
     raw
     :show-arrow="false"
     class="notice-panel-popover"
-    @clickoutside="close"
+    @clickoutside="handleClickOutside"
   >
     <template #trigger>
       <button
