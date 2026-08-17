@@ -111,15 +111,25 @@ const overviewMetrics = computed(() => [
           :to="
             processSummary.failed > 0
               ? { name: 'processes', query: { status: 'failed' } }
-              : { name: 'processes' }
+              : processSummary.active > 0
+                ? { name: 'processes', query: { status: 'active' } }
+                : { name: 'processes' }
           "
           :aria-label="
             processSummary.failed > 0
               ? 'Ver processos com falha'
-              : 'Abrir monitoramento operacional'
+              : processSummary.active > 0
+                ? 'Ver processos ativos'
+                : 'Abrir monitoramento operacional'
           "
         >
-          {{ processSummary.failed > 0 ? 'Ver falhas' : 'Acompanhar execução' }}
+          {{
+            processSummary.failed > 0
+              ? 'Ver falhas'
+              : processSummary.active > 0
+                ? 'Ver ativos'
+                : 'Acompanhar execução'
+          }}
         </RouterLink>
       </template>
 
