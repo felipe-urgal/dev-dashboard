@@ -59,6 +59,28 @@ export function useProcessesView() {
 
   const statusFilter = ref<ProcessStatusFilter>(initialStatusFilter);
 
+  function syncFiltersToUrl(): void {
+    if (typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const filters = [
+      ['workspace', workspaceFilter.value],
+      ['project', projectFilter.value],
+      ['kind', kindFilter.value],
+      ['status', statusFilter.value],
+    ] as const;
+
+    for (const [key, value] of filters) {
+      if (value) {
+        url.searchParams.set(key, value);
+      } else {
+        url.searchParams.delete(key);
+      }
+    }
+
+    window.history.replaceState(window.history.state, '', url);
+  }
+
   const loading = ref(false);
   const referenceErrorMessage = ref('');
   const processesErrorMessage = ref('');
@@ -294,8 +316,9 @@ export function useProcessesView() {
   });
 
   watch(
-    [workspaceFilter, projectFilter, kindFilter],
+    [workspaceFilter, projectFilter, kindFilter, statusFilter],
     () => {
+      syncFiltersToUrl();
       void loadProcesses();
     },
     { flush: 'post' },
