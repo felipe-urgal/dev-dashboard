@@ -164,9 +164,15 @@
     </div>
   </div>
 
-  <Teleport to="body">
-    <div v-if="modal" class="branch-modal-backdrop" @click.self="closeModal">
-      <section
+  <NModal
+    :show="Boolean(modal)"
+    preset="card"
+    :mask-closable="!busy"
+    :close-on-esc="!busy"
+    style="width: min(600px, calc(100vw - 32px))"
+    @update:show="(show) => !show && closeModal()"
+  >
+    <section
         class="branch-modal"
         role="dialog"
         aria-modal="true"
@@ -341,7 +347,6 @@
             </button>
           </footer>
         </form>
-      </section>
-    </div>
-  </Teleport>
+    </section>
+  </NModal>
 </section>
