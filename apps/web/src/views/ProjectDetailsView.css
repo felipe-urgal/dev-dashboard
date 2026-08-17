@@ -39,7 +39,8 @@
 :deep(.git-modern-panel),
 :deep(.dependencies-panel),
 :deep(.project-environment-panel),
-:deep(.rails-runtime-panel) {
+:deep(.rails-runtime-panel),
+:deep(.tests-pty-panel) {
   height: auto;
   min-height: 100%;
   overflow-x: hidden;
@@ -55,6 +56,19 @@
 :deep(.terminal-panel) {
   height: 100%;
   overflow: hidden;
+}
+
+:deep(.tests-pty-panel .tests-pty-terminal) {
+  flex: 0 0 480px;
+  height: 480px;
+  min-height: 320px;
+}
+
+@media (max-width: 720px) {
+  :deep(.tests-pty-panel .tests-pty-terminal) {
+    flex-basis: 360px;
+    height: 360px;
+  }
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
