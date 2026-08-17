@@ -109,9 +109,9 @@ const overviewMetrics = computed(() => [
         <RouterLink
           class="overview-summary-action"
           :to="{ name: 'processes' }"
-          aria-label="Abrir processos gerenciados"
+          aria-label="Abrir monitoramento operacional"
         >
-          Ver processos
+          Acompanhar execução
         </RouterLink>
       </template>
 
