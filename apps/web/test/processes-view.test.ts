@@ -462,13 +462,15 @@ test('restaura filtros de workspace, projeto e tipo pela query da rota', async (
       'p1',
     );
     assert.equal(
-      (wrapper.get('[aria-label="Filtrar por tipo"]').element as HTMLSelectElement)
-        .value,
+      (
+        wrapper.get('[aria-label="Filtrar por tipo"]').element as HTMLSelectElement
+      ).value,
       'test',
     );
     assert.equal(
-      (wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement)
-        .value,
+      (
+        wrapper.get('[aria-label="Filtrar por estado"]').element as HTMLSelectElement
+      ).value,
       'failed',
     );
   } finally {
