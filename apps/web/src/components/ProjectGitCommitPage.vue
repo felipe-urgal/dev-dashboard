@@ -1,3 +1,4 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 <script setup lang="ts">
 import {
   ArrowUpTrayIcon,
@@ -56,8 +57,12 @@ function updateMessage(event: Event): void {
     <header class="git-commit-heading">
       <div>
         <span>Histórico local</span>
-        <h2>{{ mode === 'create' ? 'Criar commit' : 'Alterar último commit' }}</h2>
-        <p>Registre as alterações atuais com uma mensagem clara e rastreável.</p>
+        <h2>
+          {{ mode === 'create' ? 'Criar commit' : 'Alterar último commit' }}
+        </h2>
+        <p>
+          Registre as alterações atuais com uma mensagem clara e rastreável.
+        </p>
       </div>
       <CheckCircleIcon aria-hidden="true" />
     </header>
@@ -423,3 +428,8 @@ function updateMessage(event: Event): void {
   }
 }
 </style>
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
