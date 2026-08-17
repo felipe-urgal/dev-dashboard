@@ -340,135 +340,135 @@ watch(
               <EllipsisHorizontalIcon aria-hidden="true" />
             </button>
 
-          <Teleport to="body">
-            <div
-              v-if="moreToolsOpen"
-              class="project-details-more-popover"
-              :style="{
-                top: `${moreToolsPosition.top}px`,
-                right: `${moreToolsPosition.right}px`,
-              }"
-              role="menu"
-            >
-              <RouterLink
-                v-if="databaseSupported"
-                class="project-details-more-item"
-                :class="{ 'project-details-more-item-active': isDatabaseRoute }"
-                :to="{
-                  name: 'project-database',
-                  params: { projectId: project.id },
+            <Teleport to="body">
+              <div
+                v-if="moreToolsOpen"
+                class="project-details-more-popover"
+                :style="{
+                  top: `${moreToolsPosition.top}px`,
+                  right: `${moreToolsPosition.right}px`,
                 }"
-                role="menuitem"
-                @click="closeMoreTools"
+                role="menu"
               >
-                <CircleStackIcon aria-hidden="true" />
-                <span>Banco de dados</span>
-              </RouterLink>
-              <RouterLink
-                v-if="project.type === 'rails' || project.type === 'node'"
-                class="project-details-more-item"
-                :class="{
-                  'project-details-more-item-active': isDependenciesRoute,
-                }"
-                :to="{
-                  name: 'project-dependencies',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <CubeIcon aria-hidden="true" />
-                <span>Dependências</span>
-              </RouterLink>
-              <RouterLink
-                v-if="project.type === 'rails'"
-                class="project-details-more-item"
-                :class="{ 'project-details-more-item-active': isConsoleRoute }"
-                :to="{
-                  name: 'project-console',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <CommandLineIcon aria-hidden="true" />
-                <span>Console</span>
-              </RouterLink>
-              <RouterLink
-                v-if="project.type === 'rails' && sidekiqDetected"
-                class="project-details-more-item"
-                :class="{
-                  'project-details-more-item-active': isRailsSidekiqRoute,
-                }"
-                :to="{
-                  name: 'project-rails-sidekiq',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <QueueListIcon aria-hidden="true" />
-                <span>Sidekiq</span>
-              </RouterLink>
-              <RouterLink
-                v-if="project.type === 'rails' && webpackDetected"
-                class="project-details-more-item"
-                :class="{
-                  'project-details-more-item-active': isRailsWebpackRoute,
-                }"
-                :to="{
-                  name: 'project-rails-webpack',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <CodeBracketIcon aria-hidden="true" />
-                <span>Webpack</span>
-              </RouterLink>
-              <RouterLink
-                class="project-details-more-item"
-                :class="{
-                  'project-details-more-item-active': isEnvironmentRoute,
-                }"
-                :to="{
-                  name: 'project-environment',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <AdjustmentsHorizontalIcon aria-hidden="true" />
-                <span>Variáveis de ambiente</span>
-              </RouterLink>
-              <RouterLink
-                class="project-details-more-item"
-                :class="{ 'project-details-more-item-active': isDoctorRoute }"
-                :to="{
-                  name: 'project-doctor',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <ShieldCheckIcon aria-hidden="true" />
-                <span>Diagnóstico</span>
-              </RouterLink>
-              <RouterLink
-                class="project-details-more-item"
-                :class="{ 'project-details-more-item-active': isReadmeRoute }"
-                :to="{
-                  name: 'project-readme',
-                  params: { projectId: project.id },
-                }"
-                role="menuitem"
-                @click="closeMoreTools"
-              >
-                <DocumentTextIcon aria-hidden="true" />
-                <span>README</span>
-              </RouterLink>
-            </div>
-          </Teleport>
+                <RouterLink
+                  v-if="databaseSupported"
+                  class="project-details-more-item"
+                  :class="{ 'project-details-more-item-active': isDatabaseRoute }"
+                  :to="{
+                    name: 'project-database',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <CircleStackIcon aria-hidden="true" />
+                  <span>Banco de dados</span>
+                </RouterLink>
+                <RouterLink
+                  v-if="project.type === 'rails' || project.type === 'node'"
+                  class="project-details-more-item"
+                  :class="{
+                    'project-details-more-item-active': isDependenciesRoute,
+                  }"
+                  :to="{
+                    name: 'project-dependencies',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <CubeIcon aria-hidden="true" />
+                  <span>Dependências</span>
+                </RouterLink>
+                <RouterLink
+                  v-if="project.type === 'rails'"
+                  class="project-details-more-item"
+                  :class="{ 'project-details-more-item-active': isConsoleRoute }"
+                  :to="{
+                    name: 'project-console',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <CommandLineIcon aria-hidden="true" />
+                  <span>Console</span>
+                </RouterLink>
+                <RouterLink
+                  v-if="project.type === 'rails' && sidekiqDetected"
+                  class="project-details-more-item"
+                  :class="{
+                    'project-details-more-item-active': isRailsSidekiqRoute,
+                  }"
+                  :to="{
+                    name: 'project-rails-sidekiq',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <QueueListIcon aria-hidden="true" />
+                  <span>Sidekiq</span>
+                </RouterLink>
+                <RouterLink
+                  v-if="project.type === 'rails' && webpackDetected"
+                  class="project-details-more-item"
+                  :class="{
+                    'project-details-more-item-active': isRailsWebpackRoute,
+                  }"
+                  :to="{
+                    name: 'project-rails-webpack',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <CodeBracketIcon aria-hidden="true" />
+                  <span>Webpack</span>
+                </RouterLink>
+                <RouterLink
+                  class="project-details-more-item"
+                  :class="{
+                    'project-details-more-item-active': isEnvironmentRoute,
+                  }"
+                  :to="{
+                    name: 'project-environment',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <AdjustmentsHorizontalIcon aria-hidden="true" />
+                  <span>Variáveis de ambiente</span>
+                </RouterLink>
+                <RouterLink
+                  class="project-details-more-item"
+                  :class="{ 'project-details-more-item-active': isDoctorRoute }"
+                  :to="{
+                    name: 'project-doctor',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <ShieldCheckIcon aria-hidden="true" />
+                  <span>Diagnóstico</span>
+                </RouterLink>
+                <RouterLink
+                  class="project-details-more-item"
+                  :class="{ 'project-details-more-item-active': isReadmeRoute }"
+                  :to="{
+                    name: 'project-readme',
+                    params: { projectId: project.id },
+                  }"
+                  role="menuitem"
+                  @click="closeMoreTools"
+                >
+                  <DocumentTextIcon aria-hidden="true" />
+                  <span>README</span>
+                </RouterLink>
+              </div>
+            </Teleport>
           </div>
         </nav>
       </div>
