@@ -374,7 +374,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <CubeIcon aria-hidden="true" />
                 <span>Dependências</span>
@@ -388,7 +388,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <CommandLineIcon aria-hidden="true" />
                 <span>Console</span>
@@ -404,7 +404,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <QueueListIcon aria-hidden="true" />
                 <span>Sidekiq</span>
@@ -420,7 +420,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <CodeBracketIcon aria-hidden="true" />
                 <span>Webpack</span>
@@ -435,7 +435,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <AdjustmentsHorizontalIcon aria-hidden="true" />
                 <span>Variáveis de ambiente</span>
@@ -448,7 +448,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <ShieldCheckIcon aria-hidden="true" />
                 <span>Diagnóstico</span>
@@ -461,7 +461,7 @@ watch(
                   params: { projectId: project.id },
                 }"
                 role="menuitem"
-                @click="moreToolsOpen = false"
+                @click="closeMoreTools"
               >
                 <DocumentTextIcon aria-hidden="true" />
                 <span>README</span>
