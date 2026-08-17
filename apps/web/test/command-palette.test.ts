@@ -186,9 +186,11 @@ describe('paleta de navegação', () => {
     );
     await flushPromises();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(document.activeElement?.getAttribute('aria-label')).toBe(
-      'Buscar ou executar um comando',
-    );
+    await vi.waitFor(() => {
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        'Buscar ou executar um comando',
+      );
+    });
 
     document.activeElement?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
@@ -231,7 +233,9 @@ describe('paleta de navegação', () => {
     await flushPromises();
 
     expect(router.currentRoute.value.name).toBe('processes');
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await vi.waitFor(() => {
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+    });
   });
 
   it('oferece as áreas do projeto aberto', async () => {
