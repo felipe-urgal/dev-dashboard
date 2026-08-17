@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch } from 'vue';
 
 import {
   BeakerIcon,
@@ -8,38 +8,38 @@ import {
   EllipsisHorizontalIcon,
   ServerStackIcon,
   ShareIcon,
-} from "@heroicons/vue/24/outline";
+} from '@heroicons/vue/24/outline';
 
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute } from 'vue-router';
 
-import type { Project, ProjectGitOverview } from "@dev-dashboard/contracts";
+import type { Project, ProjectGitOverview } from '@dev-dashboard/contracts';
 
 import {
   fetchProjectDatabase,
   fetchProjectGit,
   fetchProjectRailsWorker,
-} from "../api";
-import ProjectDatabasePanel from "../components/ProjectDatabasePanel.vue";
-import ProjectDependenciesPanel from "../components/ProjectDependenciesPanel.vue";
-import ProjectDoctorPanel from "../components/ProjectDoctorPanel.vue";
-import ProjectGitPanel from "../components/ProjectGitPanel.vue";
-import ProjectProcessesMenu from "../components/ProjectProcessesMenu.vue";
-import ProjectPullRequestSummary from "../components/ProjectPullRequestSummary.vue";
-import ProjectRailsRuntimePanel from "../components/ProjectRailsRuntimePanel.vue";
-import ProjectEnvironmentPanel from "../components/ProjectEnvironmentPanel.vue";
-import ProjectReadmePanel from "../components/ProjectReadmePanel.vue";
-import ProjectServerPanel from "../components/ProjectServerPanel.vue";
-import ProjectTerminalPanel from "../components/ProjectTerminalPanel.vue";
-import ProjectTestsPanel from "../components/ProjectTestsPanel.vue";
-import { dashboardStore } from "../stores/dashboard";
-import { recordProjectVisit } from "../stores/project-recents";
+} from '../api';
+import ProjectDatabasePanel from '../components/ProjectDatabasePanel.vue';
+import ProjectDependenciesPanel from '../components/ProjectDependenciesPanel.vue';
+import ProjectDoctorPanel from '../components/ProjectDoctorPanel.vue';
+import ProjectGitPanel from '../components/ProjectGitPanel.vue';
+import ProjectProcessesMenu from '../components/ProjectProcessesMenu.vue';
+import ProjectPullRequestSummary from '../components/ProjectPullRequestSummary.vue';
+import ProjectRailsRuntimePanel from '../components/ProjectRailsRuntimePanel.vue';
+import ProjectEnvironmentPanel from '../components/ProjectEnvironmentPanel.vue';
+import ProjectReadmePanel from '../components/ProjectReadmePanel.vue';
+import ProjectServerPanel from '../components/ProjectServerPanel.vue';
+import ProjectTerminalPanel from '../components/ProjectTerminalPanel.vue';
+import ProjectTestsPanel from '../components/ProjectTestsPanel.vue';
+import { dashboardStore } from '../stores/dashboard';
+import { recordProjectVisit } from '../stores/project-recents';
 
 const route = useRoute();
 
 const project = ref<Project | null>(null);
 const loading = ref(true);
-const errorMessage = ref("");
-const gitBranch = ref("");
+const errorMessage = ref('');
+const gitBranch = ref('');
 const gitOverview = ref<ProjectGitOverview | null>(null);
 /** Otimista: assume que há banco até a detecção confirmar o contrário, evitando a aba piscar para o caso comum. */
 const databaseSupported = ref(true);
@@ -49,29 +49,29 @@ const webpackDetected = ref(true);
 
 const projectId = computed(() => {
   const value = route.params.projectId;
-  return Array.isArray(value) ? (value[0] ?? "") : String(value ?? "");
+  return Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
 });
 
-const isReadmeRoute = computed(() => route.name === "project-readme");
-const isDoctorRoute = computed(() => route.name === "project-doctor");
+const isReadmeRoute = computed(() => route.name === 'project-readme');
+const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isServerRoute = computed(
-  () => route.name === "project-server" || route.name === "project-details",
+  () => route.name === 'project-server' || route.name === 'project-details',
 );
-const isGitRoute = computed(() => route.name === "project-git");
-const isTestsRoute = computed(() => route.name === "project-tests");
-const isDatabaseRoute = computed(() => route.name === "project-database");
+const isGitRoute = computed(() => route.name === 'project-git');
+const isTestsRoute = computed(() => route.name === 'project-tests');
+const isDatabaseRoute = computed(() => route.name === 'project-database');
 const isDependenciesRoute = computed(
-  () => route.name === "project-dependencies",
+  () => route.name === 'project-dependencies',
 );
 const isRailsSidekiqRoute = computed(
-  () => route.name === "project-rails-sidekiq",
+  () => route.name === 'project-rails-sidekiq',
 );
 const isRailsWebpackRoute = computed(
-  () => route.name === "project-rails-webpack",
+  () => route.name === 'project-rails-webpack',
 );
-const isEnvironmentRoute = computed(() => route.name === "project-environment");
-const isTerminalRoute = computed(() => route.name === "project-terminal");
-const isConsoleRoute = computed(() => route.name === "project-console");
+const isEnvironmentRoute = computed(() => route.name === 'project-environment');
+const isTerminalRoute = computed(() => route.name === 'project-terminal');
+const isConsoleRoute = computed(() => route.name === 'project-console');
 const moreToolsOpen = ref(false);
 const isMoreToolRoute = computed(
   () =>
@@ -86,16 +86,16 @@ const isMoreToolRoute = computed(
 );
 
 function updateGitOverview(git: ProjectGitOverview): void {
-  gitBranch.value = git.branch ?? "";
+  gitBranch.value = git.branch ?? '';
   gitOverview.value = git;
 }
 
 async function loadProject(): Promise<void> {
   const requestedProjectId = projectId.value;
   loading.value = true;
-  errorMessage.value = "";
+  errorMessage.value = '';
   project.value = null;
-  gitBranch.value = "";
+  gitBranch.value = '';
   gitOverview.value = null;
   databaseSupported.value = true;
   sidekiqDetected.value = true;
@@ -109,14 +109,14 @@ async function loadProject(): Promise<void> {
     project.value = loadedProject;
     void recordProjectVisit(loadedProject.id);
 
-    if (loadedProject.capabilities.includes("git")) {
+    if (loadedProject.capabilities.includes('git')) {
       try {
         const git = await fetchProjectGit(loadedProject.id);
         if (projectId.value === requestedProjectId) {
           updateGitOverview(git);
         }
       } catch {
-        gitBranch.value = "";
+        gitBranch.value = '';
         gitOverview.value = null;
       }
     }
@@ -129,11 +129,11 @@ async function loadProject(): Promise<void> {
       // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
     }
 
-    if (loadedProject.type === "rails") {
+    if (loadedProject.type === 'rails') {
       try {
         const sidekiq = await fetchProjectRailsWorker(
           loadedProject.id,
-          "sidekiq",
+          'sidekiq',
         );
         if (projectId.value === requestedProjectId)
           sidekiqDetected.value = sidekiq.detected;
@@ -144,7 +144,7 @@ async function loadProject(): Promise<void> {
       try {
         const webpack = await fetchProjectRailsWorker(
           loadedProject.id,
-          "webpack",
+          'webpack',
         );
         if (projectId.value === requestedProjectId)
           webpackDetected.value = webpack.detected;
@@ -157,7 +157,7 @@ async function loadProject(): Promise<void> {
       errorMessage.value =
         error instanceof Error
           ? error.message
-          : "Não foi possível carregar o projeto.";
+          : 'Não foi possível carregar o projeto.';
     }
   } finally {
     if (projectId.value === requestedProjectId) {
