@@ -11,7 +11,7 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { NPopover } from 'naive-ui';
+import { NModal, NPopover } from 'naive-ui';
 
 import type {
   GitBranch,
@@ -218,9 +218,8 @@ function submitDelete(): void {
 }
 
 function handleEscape(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return;
-  if (modal.value) closeModal();
-  else closeMenu();
+  if (event.key !== 'Escape' || modal.value) return;
+  closeMenu();
 }
 
 onMounted(() => {
