@@ -114,6 +114,7 @@ async function toggleMoreTools(): Promise<void> {
 }
 
 onBeforeUnmount(closeMoreTools);
+
 const isMoreToolRoute = computed(
   () =>
     isDatabaseRoute.value ||
