@@ -69,11 +69,12 @@ const project: Project = {
 function overview(
   workerId: RailsWorkerId,
   detected = workerId === 'sidekiq',
+  running = false,
 ): RailsWorkerOverview {
   return {
     id: workerId,
     detected,
-    process: detected
+    process: running
       ? {
           id: `p1:worker:${workerId}`,
           projectId: 'p1',
@@ -164,7 +165,7 @@ describe('ProjectRailsRuntimePanel', () => {
   it('mantém um painel de logs independente para cada processo', async () => {
     fetchProjectRailsWorker.mockImplementation(
       async (_projectId: string, workerId: RailsWorkerId) =>
-        overview(workerId, true),
+        overview(workerId, true, true),
     );
 
     const sidekiqWrapper = mount(ProjectRailsRuntimePanel, {
