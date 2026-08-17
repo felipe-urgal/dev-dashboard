@@ -194,7 +194,9 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(
-      document.body.querySelector('[aria-label="Terminal do webpack-dev-server"]'),
+      document.body.querySelector(
+        '[aria-label="Terminal do webpack-dev-server"]',
+      ),
     ).not.toBeNull();
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
