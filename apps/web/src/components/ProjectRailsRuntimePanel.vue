@@ -193,7 +193,9 @@ function formatDate(value?: string): string {
                     <h3 :id="`rails-log-title-${workerId}`">
                       Log do {{ workerLabels[workerId] }}
                     </h3>
-                    <p>Acompanhe a saída completa do processo em primeiro plano.</p>
+                    <p>
+                      Acompanhe a saída completa do processo em primeiro plano.
+                    </p>
                   </div>
                   <button
                     type="button"
