@@ -7,6 +7,7 @@ import {
   ref,
   watch,
 } from 'vue';
+import { NModal } from 'naive-ui';
 import { useRoute, useRouter } from 'vue-router';
 import type { Project, Workspace } from '@dev-dashboard/contracts';
 import {
@@ -338,9 +339,15 @@ defineExpose({ show });
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="command-palette-backdrop" @mousedown.self="close">
-      <section
+  <NModal
+    :show="open"
+    preset="card"
+    :mask-closable="true"
+    :close-on-esc="false"
+    style="width: min(720px, calc(100vw - 32px))"
+    @update:show="(show) => !show && close()"
+  >
+    <section
         ref="dialog"
         class="command-palette"
         role="dialog"
@@ -456,7 +463,6 @@ defineExpose({ show });
             <kbd>Enter</kbd> selecionar</span
           >
         </footer>
-      </section>
-    </div>
-  </Teleport>
+    </section>
+  </NModal>
 </template>
