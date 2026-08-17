@@ -4,28 +4,28 @@ import {
   PlayIcon,
   StopIcon,
   XMarkIcon,
-} from "@heroicons/vue/24/outline";
+} from '@heroicons/vue/24/outline';
 
-import type { Project, RailsWorkerId } from "@dev-dashboard/contracts";
+import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
-import { watch } from "vue";
+import { watch } from 'vue';
 
-import { useAutoDismiss } from "../composables/useAutoDismiss";
-import { useProjectRailsWorker } from "../composables/useProjectRailsWorker";
-import { processToneFor } from "../utils/status-tones";
-import Card from "./Card.vue";
-import ProjectLogTerminal from "./ProjectLogTerminal.vue";
-import StatusBadge from "./StatusBadge.vue";
+import { useAutoDismiss } from '../composables/useAutoDismiss';
+import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
+import { processToneFor } from '../utils/status-tones';
+import Card from './Card.vue';
+import ProjectLogTerminal from './ProjectLogTerminal.vue';
+import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project; workerId: RailsWorkerId }>();
 
 const worker = useProjectRailsWorker(
   () => props.project,
   props.workerId,
-  props.workerId === "sidekiq",
+  props.workerId === 'sidekiq',
 );
 
-useAutoDismiss(worker.errorMessage, "");
+useAutoDismiss(worker.errorMessage, '');
 
 watch(
   () =>
@@ -40,17 +40,17 @@ watch(
 );
 
 const workerLabels: Record<RailsWorkerId, string> = {
-  sidekiq: "Sidekiq",
-  webpack: "webpack-dev-server",
+  sidekiq: 'Sidekiq',
+  webpack: 'webpack-dev-server',
 };
 
-const supportsRestart = props.workerId === "sidekiq";
+const supportsRestart = props.workerId === 'sidekiq';
 
 function formatDate(value?: string): string {
-  if (!value) return "—";
+  if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("pt-BR");
+  return date.toLocaleString('pt-BR');
 }
 </script>
 
@@ -98,8 +98,8 @@ function formatDate(value?: string): string {
               <strong class="rails-worker-status-copy">
                 {{
                   worker.canStop.value
-                    ? "Processo ativo e respondendo."
-                    : "Processo parado."
+                    ? 'Processo ativo e respondendo.'
+                    : 'Processo parado.'
                 }}
               </strong>
               <dl>
@@ -109,7 +109,7 @@ function formatDate(value?: string): string {
                 </div>
                 <div>
                   <dt>PID</dt>
-                  <dd>{{ worker.managedProcess.value?.pid ?? "—" }}</dd>
+                  <dd>{{ worker.managedProcess.value?.pid ?? '—' }}</dd>
                 </div>
                 <div>
                   <dt>Iniciado em</dt>
@@ -122,7 +122,7 @@ function formatDate(value?: string): string {
                   <dd>
                     <code>{{
                       worker.managedProcess.value?.command ??
-                      "Ainda não iniciado pelo dashboard"
+                      'Ainda não iniciado pelo dashboard'
                     }}</code>
                   </dd>
                 </div>
