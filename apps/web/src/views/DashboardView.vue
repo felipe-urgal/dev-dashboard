@@ -209,6 +209,23 @@ const overviewMetrics = computed(() => [
   white-space: nowrap;
 }
 
+.overview-summary-action {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.overview-summary-action:hover {
+  text-decoration: underline;
+}
+
+.overview-summary-action:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 .overview-summary-status {
   color: var(--text-muted);
   font-size: 11px;
