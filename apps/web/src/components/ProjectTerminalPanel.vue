@@ -33,6 +33,7 @@ const statusMessage = ref('');
 const sessionState = ref<SessionState>('idle');
 const errorMessage = ref('');
 const maximized = ref(false);
+const terminalFontSize = ref(13);
 const hasAutoStarted = ref(false);
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
@@ -90,7 +91,7 @@ function mountTerminal(): void {
   if (!terminalContainer.value) return;
   terminal = new Terminal({
     convertEol: true,
-    fontSize: 13,
+    fontSize: terminalFontSize.value,
     fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
     theme: { background: '#10131c', foreground: '#dbe0f2' },
   });
@@ -207,6 +208,16 @@ function toggleMaximized(): void {
   });
 }
 
+function setTerminalFontSize(size: number): void {
+  terminalFontSize.value = Math.min(20, Math.max(11, size));
+  if (!terminal) return;
+  terminal.options.fontSize = terminalFontSize.value;
+  requestAnimationFrame(() => {
+    fitAddon?.fit();
+    sendResize();
+  });
+}
+
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && maximized.value) maximized.value = false;
 }
@@ -240,7 +251,16 @@ onBeforeUnmount(() => {
   <div class="terminal-panel">
     <Card v-if="loadingStatus || !supported" class="terminal-card">
       <template #header>
-        <h3>{{ title }}</h3>
+        <div class="terminal-card-header">
+          <div>
+            <span class="terminal-card-kicker">Projeto / Sessão</span>
+            <h3>{{ title }}</h3>
+            <p>{{ description }}</p>
+          </div>
+          <span class="terminal-card-status">
+            {{ loadingStatus ? 'Verificando' : 'Indisponível' }}
+          </span>
+        </div>
       </template>
       <p v-if="loadingStatus" class="terminal-empty">
         Verificando disponibilidade…
@@ -256,10 +276,16 @@ onBeforeUnmount(() => {
       class="terminal-card"
     >
       <template #header>
-        <h3>{{ title }}</h3>
+        <div class="terminal-card-header">
+          <div>
+            <span class="terminal-card-kicker">Projeto / Sessão</span>
+            <h3>{{ title }}</h3>
+            <p>{{ description }}</p>
+          </div>
+          <span class="terminal-card-status is-ready">Pronto</span>
+        </div>
       </template>
       <div class="terminal-start">
-        <p class="terminal-description">{{ description }}</p>
         <p class="terminal-warning">
           Esta sessão executa comandos com as mesmas permissões do seu usuário,
           sem restrição de catálogo. Use apenas em projetos e comandos em que
@@ -306,6 +332,33 @@ onBeforeUnmount(() => {
           <div class="terminal-window-actions">
             <button
               type="button"
+              class="terminal-icon-button terminal-font-size-button"
+              title="Diminuir fonte"
+              aria-label="Diminuir fonte"
+              @click="setTerminalFontSize(terminalFontSize - 1)"
+            >
+              A−
+            </button>
+            <button
+              type="button"
+              class="terminal-icon-button terminal-font-size-value"
+              title="Restaurar fonte"
+              aria-label="Restaurar fonte"
+              @click="setTerminalFontSize(13)"
+            >
+              {{ terminalFontSize }}px
+            </button>
+            <button
+              type="button"
+              class="terminal-icon-button terminal-font-size-button"
+              title="Aumentar fonte"
+              aria-label="Aumentar fonte"
+              @click="setTerminalFontSize(terminalFontSize + 1)"
+            >
+              A+
+            </button>
+            <button
+              type="button"
               class="terminal-icon-button"
               :title="maximized ? 'Restaurar' : 'Expandir'"
               :aria-label="maximized ? 'Restaurar' : 'Expandir'"
@@ -348,6 +401,57 @@ onBeforeUnmount(() => {
   max-width: 100%;
   max-height: 100%;
   overflow: hidden;
+}
+
+.terminal-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.terminal-card-header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.terminal-card-kicker {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.terminal-card-header h3,
+.terminal-card-header p {
+  margin: 0;
+}
+
+.terminal-card-header h3 {
+  font-size: var(--font-lg);
+  line-height: 1.25;
+}
+
+.terminal-card-header p {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.terminal-card-status {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--warning-text) 45%, var(--border));
+  color: var(--warning-text);
+  font-size: var(--font-xs);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.terminal-card-status.is-ready {
+  border-color: color-mix(in srgb, var(--success-text) 45%, var(--border));
+  color: var(--success-text);
 }
 
 .terminal-empty,
@@ -539,6 +643,22 @@ onBeforeUnmount(() => {
 .terminal-icon-button svg {
   width: 15px;
   height: 15px;
+}
+
+.terminal-font-size-button {
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.terminal-font-size-value {
+  width: auto;
+  min-width: 42px;
+  padding: 0 5px;
+  color: #dbe0f2;
+  font-size: 10px;
 }
 
 .terminal-icon-button:hover {

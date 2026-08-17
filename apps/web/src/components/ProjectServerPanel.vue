@@ -10,6 +10,7 @@ import {
   PlayIcon,
   ServerStackIcon,
   StopIcon,
+  XMarkIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
@@ -70,6 +71,7 @@ const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
+const logOpen = ref(false);
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
@@ -379,6 +381,7 @@ function resetPanelState(): void {
   savingSettings.value = false;
   settingsMessage.value = '';
   currentAction.value = null;
+  logOpen.value = false;
 }
 
 async function initializeProject(): Promise<void> {

@@ -135,6 +135,14 @@
         <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
         <footer class="server-status-actions">
+          <button
+            type="button"
+            class="server-secondary-button server-log-button"
+            @click="logOpen = true"
+          >
+            <CommandLineIcon aria-hidden="true" />
+            Ver log
+          </button>
           <button type="button" class="server-danger-button" :disabled="executingAction" @click="handleStop">
             <StopIcon aria-hidden="true" />{{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
           </button>
@@ -143,7 +151,11 @@
           </button>
         </footer>
 
-        <section class="server-logs" aria-label="Logs do servidor">
+        <section
+          v-if="!logOpen"
+          class="server-logs"
+          aria-label="Logs do servidor"
+        >
           <ProjectLogTerminal
             :content="logSnapshot?.content ?? ''"
             :running="processStatus === 'running'"
@@ -152,6 +164,47 @@
             @clear="clearLogView"
           />
         </section>
+
+        <Teleport to="body">
+          <div
+            v-if="logOpen"
+            class="server-log-overlay"
+            role="presentation"
+            @click.self="logOpen = false"
+          >
+            <section
+              class="server-log-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="server-log-title"
+            >
+              <header class="server-log-modal-header">
+                <div>
+                  <span>Ferramenta do projeto</span>
+                  <h3 id="server-log-title">Log do servidor</h3>
+                  <p>Acompanhe a saída completa do processo em primeiro plano.</p>
+                </div>
+                <button
+                  type="button"
+                  class="server-log-close-button"
+                  aria-label="Fechar log do servidor"
+                  @click="logOpen = false"
+                >
+                  <XMarkIcon aria-hidden="true" />
+                </button>
+              </header>
+              <div class="server-log-modal-body">
+                <ProjectLogTerminal
+                  :content="logSnapshot?.content ?? ''"
+                  :running="processStatus === 'running'"
+                  :masked-count="logSnapshot?.redactionCount ?? 0"
+                  :clearing="clearingLog"
+                  @clear="clearLogView"
+                />
+              </div>
+            </section>
+          </div>
+        </Teleport>
       </section>
     </template>
   </div>
