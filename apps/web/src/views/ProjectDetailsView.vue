@@ -297,7 +297,6 @@ watch(
                 'project-details-more-trigger-active': isMoreToolRoute,
               }"
               aria-label="Mais ferramentas"
-              title="Mais ferramentas"
               aria-haspopup="menu"
               :aria-expanded="moreToolsOpen"
               @click="moreToolsOpen = !moreToolsOpen"
