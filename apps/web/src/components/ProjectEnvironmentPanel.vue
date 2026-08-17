@@ -149,6 +149,10 @@ watch(environment.errorMessage, (value) => {
 .project-environment-panel {
   display: flex;
   flex-direction: column;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 24px;
   border-top: 1px solid var(--border);
 }
 
