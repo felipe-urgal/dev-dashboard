@@ -3,7 +3,7 @@ import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
-import { onMounted, watch } from 'vue';
+import { watch } from 'vue';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
@@ -23,19 +23,20 @@ const worker = useProjectRailsWorker(
 useAutoDismiss(worker.errorMessage, '');
 
 watch(
-  () => [props.project.id, worker.detected.value] as const,
-  ([, detected]) => {
-    if (detected) {
+  () =>
+    [
+      props.project.id,
+      worker.detected.value,
+      worker.canStop.value,
+    ] as const,
+  ([, detected, canFollowLogs]) => {
+    if (detected && canFollowLogs) {
       worker.startLogStream();
+    } else if (!canFollowLogs) {
+      worker.stopLogStream();
     }
   },
 );
-
-onMounted(() => {
-  if (worker.detected.value) {
-    worker.startLogStream();
-  }
-});
 
 const workerLabels: Record<RailsWorkerId, string> = {
   sidekiq: 'Sidekiq',
