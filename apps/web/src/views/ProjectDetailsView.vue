@@ -7,6 +7,7 @@ import {
   CommandLineIcon,
   EllipsisHorizontalIcon,
   ServerStackIcon,
+  ShareIcon,
 } from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute } from 'vue-router';
@@ -106,132 +107,356 @@ async function loadProject(): Promise<void> {
     if (projectId.value !== requestedProjectId || !loadedProject) return;
 
     project.value = loadedProject;
-    void rUsage: prettier [options] [file/dir/glob ...]
+    void recordProjectVisit(loadedProject.id);
 
-By default, output is written to stdout.
-Stdin is read if it is piped to Prettier and no files are given.
+    if (loadedProject.capabilities.includes('git')) {
+      try {
+        const git = await fetchProjectGit(loadedProject.id);
+        if (projectId.value === requestedProjectId) {
+          updateGitOverview(git);
+        }
+      } catch {
+        gitBranch.value = '';
+        gitOverview.value = null;
+      }
+    }
 
-Output options:
+    try {
+      const database = await fetchProjectDatabase(loadedProject.id);
+      if (projectId.value === requestedProjectId)
+        databaseSupported.value = database.supported;
+    } catch {
+      // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+    }
 
-  -c, --check              Check if the given files are formatted, print a human-friendly summary
-                           message and paths to unformatted files (see also --list-different).
-  -l, --list-different     Print the names of files that are different from Prettier's formatting (see also --check).
-  -w, --write              Edit files in-place. (Beware!)
+    if (loadedProject.type === 'rails') {
+      try {
+        const sidekiq = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'sidekiq',
+        );
+        if (projectId.value === requestedProjectId)
+          sidekiqDetected.value = sidekiq.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
 
-Format options:
+      try {
+        const webpack = await fetchProjectRailsWorker(
+          loadedProject.id,
+          'webpack',
+        );
+        if (projectId.value === requestedProjectId)
+          webpackDetected.value = webpack.detected;
+      } catch {
+        // Mantém a aba visível: o painel mostra o próprio erro ao ser aberto.
+      }
+    }
+  } catch (error) {
+    if (projectId.value === requestedProjectId) {
+      errorMessage.value =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o projeto.';
+    }
+  } finally {
+    if (projectId.value === requestedProjectId) {
+      loading.value = false;
+    }
+  }
+}
 
-  --arrow-parens <always|avoid>
-                           Include parentheses around a sole arrow function parameter.
-                           Defaults to always.
-  --bracket-same-line      Put > of opening tags on the last line instead of on a new line.
-                           Defaults to false.
-  --no-bracket-spacing     Do not print spaces between brackets.
-  --embedded-language-formatting <auto|off>
-                           Control how Prettier formats quoted code embedded in the file.
-                           Defaults to auto.
-  --end-of-line <lf|crlf|cr|auto>
-                           Which end of line characters to apply.
-                           Defaults to lf.
-  --experimental-operator-position <start|end>
-                           Where to print operators when binary expressions wrap lines.
-                           Defaults to end.
-  --no-experimental-ternaries
-                           Default behavior of ternaries; keep question marks on the same line as the consequent.
-  --html-whitespace-sensitivity <css|strict|ignore>
-                           How to handle whitespaces in HTML.
-                           Defaults to css.
-  --jsx-single-quote       Use single quotes in JSX.
-                           Defaults to false.
-  --object-wrap <preserve|collapse>
-                           How to wrap object literals.
-                           Defaults to preserve.
-  --parser <flow|babel|babel-flow|babel-ts|typescript|acorn|espree|meriyah|css|less|scss|json|json5|jsonc|json-stringify|graphql|markdown|mdx|vue|yaml|glimmer|html|angular|lwc|mjml>
-                           Which parser to use.
-  --print-width <int>      The line length where Prettier will try wrap.
-                           Defaults to 80.
-  --prose-wrap <always|never|preserve>
-                           How to wrap prose.
-                           Defaults to preserve.
-  --quote-props <as-needed|consistent|preserve>
-                           Change when properties in objects are quoted.
-                           Defaults to as-needed.
-  --no-semi                Do not print semicolons, except at the beginning of lines which may need them.
-  --single-attribute-per-line
-                           Enforce single attribute per line in HTML, Vue and JSX.
-                           Defaults to false.
-  --single-quote           Use single quotes instead of double quotes.
-                           Defaults to false.
-  --tab-width <int>        Number of spaces per indentation level.
-                           Defaults to 2.
-  --trailing-comma <all|es5|none>
-                           Print trailing commas wherever possible when multi-line.
-                           Defaults to all.
-  --use-tabs               Indent with tabs instead of spaces.
-                           Defaults to false.
-  --vue-indent-script-and-style
-                           Indent script and style tags in Vue files.
-                           Defaults to false.
+watch(
+  projectId,
+  () => {
+    void loadProject();
+  },
+  {
+    immediate: true,
+  },
+);
+</script>
 
-Config options:
+<template>
+  <section class="content project-details-page">
+    <div v-if="loading" class="empty-state page-empty-state">
+      <div class="empty-icon">•••</div>
+      <h3>Carregando projeto</h3>
+      <p>Localizando o repositório e suas configurações.</p>
+    </div>
 
-  --config <path>          Path to a Prettier configuration file (.prettierrc, package.json, prettier.config.js).
-  --no-config              Do not look for a configuration file.
-  --config-precedence <cli-override|file-override|prefer-file>
-                           Define in which order config files and CLI options should be evaluated.
-                           Defaults to cli-override.
-  --no-editorconfig        Don't take .editorconfig into account when parsing configuration.
-  --find-config-path <path>
-                           Find and print the path to a configuration file for the given input file.
-  --ignore-path <path>     Path to a file with patterns describing files to ignore.
-                           Multiple values are accepted.
-                           Defaults to [.gitignore, .prettierignore].
-  --plugin <path>          Add a plugin. Multiple plugins can be passed as separate `--plugin`s.
-                           Defaults to [].
-  --with-node-modules      Process files inside 'node_modules' directory.
+    <div v-else-if="errorMessage" class="empty-state page-empty-state">
+      <div class="empty-icon">!</div>
+      <h3>Não foi possível carregar o projeto</h3>
+      <p>{{ errorMessage }}</p>
+      <button class="primary-button" type="button" @click="loadProject">
+        Tentar novamente
+      </button>
+    </div>
 
-Editor options:
+    <div v-else-if="!project" class="empty-state page-empty-state">
+      <div class="empty-icon">◇</div>
+      <h3>Projeto não encontrado</h3>
+      <p>
+        O projeto pode ter sido removido ou o workspace ainda não contém esse
+        identificador.
+      </p>
+      <RouterLink class="primary-button link-button" to="/">
+        Voltar aos projetos
+      </RouterLink>
+    </div>
 
-  --cursor-offset <int>    Print (to stderr) where a cursor at the given position would move to after formatting.
-                           Defaults to -1.
-  --range-end <int>        Format code ending at a given character offset (exclusive).
-                           The range will extend forwards to the end of the selected statement.
-                           Defaults to Infinity.
-  --range-start <int>      Format code starting at a given character offset.
-                           The range will extend backwards to the start of the first line containing the selected statement.
-                           Defaults to 0.
+    <template v-else>
+      <div class="project-details-sticky-header">
+        <header class="project-details-hero">
+          <div class="project-details-main">
+            <div class="project-details-copy">
+              <div class="project-title-row">
+                <h2>{{ project.name }}</h2>
+                <div
+                  v-if="gitBranch"
+                  class="project-details-branch"
+                  aria-label="Branch atual"
+                >
+                  <ShareIcon aria-hidden="true" />
+                  <span>{{ gitBranch }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-Other options:
+          <div class="project-details-actions">
+            <div v-if="project.enabled" class="project-details-actions-row">
+              <ProjectProcessesMenu :project="project" />
+            </div>
+            <ProjectPullRequestSummary
+              v-if="project.enabled && gitOverview"
+              :project-id="project.id"
+              :overview="gitOverview"
+            />
+          </div>
+        </header>
 
-  --cache                  Only format changed files. Cannot use with --stdin-filepath.
-                           Defaults to false.
-  --cache-location <path>  Path to the cache file.
-  --cache-strategy <metadata|content>
-                           Strategy for the cache to use for detecting changed files.
-  --check-ignore-pragma    Check whether the file's first docblock comment contains '@noprettier' or '@noformat' to determine if it should be formatted.
-                           Defaults to false.
-  --no-color               Do not colorize error messages.
-  --no-error-on-unmatched-pattern
-                           Prevent errors when pattern is unmatched.
-  --file-info <path>       Extract the following info (as JSON) for a given file path. Reported fields:
-                           * ignored (boolean) - true if file path is filtered by --ignore-path
-                           * inferredParser (string | null) - name of parser inferred from file path
-  -h, --help <flag>        Show CLI usage, or details about the given flag.
-                           Example: --help write
-  -u, --ignore-unknown     Ignore unknown files.
-  --insert-pragma          Insert @format pragma into file's first docblock comment.
-                           Defaults to false.
-  --log-level <silent|error|warn|log|debug>
-                           What level of logs to report.
-                           Defaults to log.
-  --require-pragma         Require either '@prettier' or '@format' to be present in the file's first docblock comment in order for it to be formatted.
-                           Defaults to false.
-  --stdin-filepath <path>  Path to the file to pretend that stdin comes from.
-  --support-info           Print support information as JSON.
-  -v, --version            Print Prettier version.
+        <nav class="project-details-tabs" aria-label="Áreas do projeto">
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isServerRoute }"
+            :to="{ name: 'project-server', params: { projectId: project.id } }"
+          >
+            <ServerStackIcon aria-hidden="true" />
+            <span>Servidor</span>
+          </RouterLink>
 
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isGitRoute }"
+            :to="{ name: 'project-git', params: { projectId: project.id } }"
+          >
+            <CodeBracketIcon aria-hidden="true" />
+            <span>Git</span>
+          </RouterLink>
 
-npm notice
-npm notice New major version of npm available! 11.9.0 -> 12.0.2
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
-npm notice To update run: npm install -g npm@12.0.2
-npm notice
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTestsRoute }"
+            :to="{ name: 'project-tests', params: { projectId: project.id } }"
+          >
+            <BeakerIcon aria-hidden="true" />
+            <span>Testes</span>
+          </RouterLink>
+
+          <RouterLink
+            class="project-details-tab"
+            :class="{ 'project-details-tab-active': isTerminalRoute }"
+            :to="{
+              name: 'project-terminal',
+              params: { projectId: project.id },
+            }"
+          >
+            <CommandLineIcon aria-hidden="true" />
+            <span>Terminal</span>
+          </RouterLink>
+
+          <div class="project-details-more-menu">
+            <button
+              type="button"
+              class="project-details-tab project-details-more-trigger"
+              :class="{ 'project-details-tab-active': isMoreToolRoute }"
+              aria-haspopup="menu"
+              :aria-expanded="moreToolsOpen"
+              @click="moreToolsOpen = !moreToolsOpen"
+            >
+              <EllipsisHorizontalIcon aria-hidden="true" />
+              <span>Mais ferramentas</span>
+            </button>
+
+            <div v-if="moreToolsOpen" class="project-details-more-popover" role="menu">
+              <RouterLink
+                v-if="databaseSupported"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDatabaseRoute }"
+                :to="{ name: 'project-database', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Banco de dados
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' || project.type === 'node'"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDependenciesRoute }"
+                :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Dependências
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails'"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isConsoleRoute }"
+                :to="{ name: 'project-console', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Console
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' && sidekiqDetected"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isRailsSidekiqRoute }"
+                :to="{ name: 'project-rails-sidekiq', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Sidekiq
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' && webpackDetected"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isRailsWebpackRoute }"
+                :to="{ name: 'project-rails-webpack', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Webpack
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isEnvironmentRoute }"
+                :to="{ name: 'project-environment', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Variáveis de ambiente
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDoctorRoute }"
+                :to="{ name: 'project-doctor', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Diagnóstico
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isReadmeRoute }"
+                :to="{ name: 'project-readme', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                README
+              </RouterLink>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <ProjectReadmePanel
+        v-if="isReadmeRoute"
+        :key="`readme-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDoctorPanel
+        v-else-if="isDoctorRoute"
+        :key="`doctor-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectServerPanel
+        v-else-if="isServerRoute"
+        :key="`server-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectGitPanel
+        v-else-if="isGitRoute"
+        :key="`git-${project.id}`"
+        :project="project"
+        @git-updated="updateGitOverview"
+      />
+
+      <ProjectTestsPanel
+        v-else-if="isTestsRoute"
+        :key="`tests-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDatabasePanel
+        v-else-if="isDatabaseRoute"
+        :key="`database-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectDependenciesPanel
+        v-else-if="isDependenciesRoute"
+        :key="`dependencies-${project.id}`"
+        :project="project"
+      />
+
+      <ProjectTerminalPanel
+        v-else-if="isTerminalRoute"
+        :key="`terminal-${project.id}`"
+        :project="project"
+        kind="shell"
+        title="Terminal"
+        description="Abre um shell interativo na raiz do projeto, no mesmo ambiente do seu usuário local."
+        auto-start
+      />
+
+      <ProjectTerminalPanel
+        v-else-if="isConsoleRoute"
+        :key="`console-${project.id}`"
+        :project="project"
+        kind="rails-console"
+        title="Console Rails"
+        description="Abre `bin/rails console` (ou `bundle exec rails console`) na raiz do projeto."
+        auto-start
+      />
+
+      <ProjectRailsRuntimePanel
+        v-else-if="isRailsSidekiqRoute"
+        :key="`rails-sidekiq-${project.id}`"
+        :project="project"
+        worker-id="sidekiq"
+      />
+
+      <ProjectRailsRuntimePanel
+        v-else-if="isRailsWebpackRoute"
+        :key="`rails-webpack-${project.id}`"
+        :project="project"
+        worker-id="webpack"
+      />
+
+      <ProjectEnvironmentPanel
+        v-else-if="isEnvironmentRoute"
+        :key="`environment-${project.id}`"
+        :project="project"
+      />
+    </template>
+  </section>
+</template>
+
+<style scoped src="./ProjectDetailsView.css"></style>
