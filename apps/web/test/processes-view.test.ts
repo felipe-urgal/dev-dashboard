@@ -187,7 +187,10 @@ test('mostra estado vazio quando não há processos gerenciados', async () => {
   await flushPromises();
 
   assert.match(wrapper.text(), /Nenhum processo gerenciado/);
-  assert.equal(wrapper.get('.processes-empty-action').text(), 'Abrir repositórios');
+  assert.equal(
+    wrapper.get('.processes-empty-action').text(),
+    'Abrir repositórios',
+  );
 });
 
 test('preserva processos válidos durante uma atualização manual', async () => {
