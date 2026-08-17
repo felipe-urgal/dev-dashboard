@@ -13,12 +13,44 @@ const {
   loadingProjects,
   scanningWorkspace,
   lastScannedPath,
+  warningCount,
   enabledUpdatingIds,
   rescanSelectedWorkspace,
   toggleProjectEnabled,
 } = dashboardStore;
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
+
+const overviewMetrics = computed(() => [
+  {
+    key: 'projects',
+    label: 'Projetos',
+    value: projects.value.length,
+    detail: 'detectados',
+  },
+  {
+    key: 'active',
+    label: 'Ativos',
+    value: projects.value.filter((project) => project.enabled).length,
+    detail: 'disponíveis',
+  },
+  {
+    key: 'git',
+    label: 'Git',
+    value: projects.value.filter((project) =>
+      project.capabilities.includes('git'),
+    ).length,
+    detail: 'com integração',
+  },
+  {
+    key: 'servers',
+    label: 'Servidores',
+    value: projects.value.filter((project) =>
+      project.capabilities.includes('server'),
+    ).length,
+    detail: 'com suporte',
+  },
+]);
 </script>
 
 <template>
@@ -28,6 +60,41 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
     :aria-busy="loadingProjects"
     aria-labelledby="overview-title"
   >
+    <Card class="overview-summary-card" aria-labelledby="overview-summary-title">
+      <template #header>
+        <div class="overview-summary-heading">
+          <h2 id="overview-summary-title" class="section-kicker">
+            Resumo do workspace
+          </h2>
+          <code v-if="lastScannedPath" class="overview-summary-path">
+            {{ lastScannedPath }}
+          </code>
+        </div>
+      </template>
+
+      <div class="overview-summary-grid">
+        <div
+          v-for="metric in overviewMetrics"
+          :key="metric.key"
+          :data-key="metric.key"
+          class="overview-summary-metric"
+        >
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+          <small>{{ metric.detail }}</small>
+        </div>
+        <div
+          v-if="warningCount > 0"
+          data-key="warnings"
+          class="overview-summary-metric overview-summary-metric-warning"
+        >
+          <span>Atenções</span>
+          <strong>{{ warningCount }}</strong>
+          <small>encontradas no último scan</small>
+        </div>
+      </div>
+    </Card>
+
     <Card id="repositories" class="repositories-section">
       <template #header>
         <h2 id="overview-title" class="section-kicker">Repositórios</h2>
@@ -89,6 +156,61 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 </template>
 
 <style scoped>
+.overview-summary-card {
+  margin-bottom: 14px;
+}
+
+.overview-summary-heading {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.overview-summary-path {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-summary-metric {
+  display: grid;
+  min-height: 86px;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 14px;
+  background: var(--surface-2);
+}
+
+.overview-summary-metric span,
+.overview-summary-metric small {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.overview-summary-metric strong {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.overview-summary-metric-warning {
+  border-color: color-mix(in srgb, var(--warning-text) 45%, var(--border));
+  background: var(--warning-surface);
+}
+
 .compact-actions {
   display: flex;
   align-items: center;
@@ -155,10 +277,20 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 }
 
 @media (max-width: 720px) {
+  .overview-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .compact-actions {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .overview-summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 
