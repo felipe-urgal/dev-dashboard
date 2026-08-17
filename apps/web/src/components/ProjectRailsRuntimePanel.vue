@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { ArrowPathIcon, PlayIcon, StopIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowPathIcon,
+  PlayIcon,
+  StopIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline';
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
