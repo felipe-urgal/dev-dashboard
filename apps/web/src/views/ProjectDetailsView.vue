@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import { ShareIcon } from '@heroicons/vue/24/outline';
+import {
+  BeakerIcon,
+  CodeBracketIcon,
+  CommandLineIcon,
+  EllipsisHorizontalIcon,
+  ServerStackIcon,
+} from '@heroicons/vue/24/outline';
 
 import { RouterLink, useRoute } from 'vue-router';
 
@@ -65,6 +71,18 @@ const isRailsWebpackRoute = computed(
 const isEnvironmentRoute = computed(() => route.name === 'project-environment');
 const isTerminalRoute = computed(() => route.name === 'project-terminal');
 const isConsoleRoute = computed(() => route.name === 'project-console');
+const moreToolsOpen = ref(false);
+const isMoreToolRoute = computed(
+  () =>
+    isDatabaseRoute.value ||
+    isDependenciesRoute.value ||
+    isConsoleRoute.value ||
+    isRailsSidekiqRoute.value ||
+    isRailsWebpackRoute.value ||
+    isEnvironmentRoute.value ||
+    isDoctorRoute.value ||
+    isReadmeRoute.value,
+);
 
 function updateGitOverview(git: ProjectGitOverview): void {
   gitBranch.value = git.branch ?? '';
@@ -224,7 +242,8 @@ watch(
             :class="{ 'project-details-tab-active': isServerRoute }"
             :to="{ name: 'project-server', params: { projectId: project.id } }"
           >
-            Servidor
+            <ServerStackIcon aria-hidden="true" />
+            <span>Servidor</span>
           </RouterLink>
 
           <RouterLink
@@ -232,7 +251,8 @@ watch(
             :class="{ 'project-details-tab-active': isGitRoute }"
             :to="{ name: 'project-git', params: { projectId: project.id } }"
           >
-            Git
+            <CodeBracketIcon aria-hidden="true" />
+            <span>Git</span>
           </RouterLink>
 
           <RouterLink
@@ -240,31 +260,8 @@ watch(
             :class="{ 'project-details-tab-active': isTestsRoute }"
             :to="{ name: 'project-tests', params: { projectId: project.id } }"
           >
-            Testes
-          </RouterLink>
-
-          <RouterLink
-            v-if="databaseSupported"
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isDatabaseRoute }"
-            :to="{
-              name: 'project-database',
-              params: { projectId: project.id },
-            }"
-          >
-            Banco de dados
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails' || project.type === 'node'"
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isDependenciesRoute }"
-            :to="{
-              name: 'project-dependencies',
-              params: { projectId: project.id },
-            }"
-          >
-            Dependências
+            <BeakerIcon aria-hidden="true" />
+            <span>Testes</span>
           </RouterLink>
 
           <RouterLink
@@ -275,68 +272,103 @@ watch(
               params: { projectId: project.id },
             }"
           >
-            Terminal
+            <CommandLineIcon aria-hidden="true" />
+            <span>Terminal</span>
           </RouterLink>
 
-          <RouterLink
-            v-if="project.type === 'rails'"
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isConsoleRoute }"
-            :to="{ name: 'project-console', params: { projectId: project.id } }"
-          >
-            Console
-          </RouterLink>
+          <div class="project-details-more-menu">
+            <button
+              type="button"
+              class="project-details-tab project-details-more-trigger"
+              :class="{ 'project-details-tab-active': isMoreToolRoute }"
+              aria-haspopup="menu"
+              :aria-expanded="moreToolsOpen"
+              @click="moreToolsOpen = !moreToolsOpen"
+            >
+              <EllipsisHorizontalIcon aria-hidden="true" />
+              <span>Mais ferramentas</span>
+            </button>
 
-          <RouterLink
-            v-if="project.type === 'rails' && sidekiqDetected"
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isRailsSidekiqRoute }"
-            :to="{
-              name: 'project-rails-sidekiq',
-              params: { projectId: project.id },
-            }"
-          >
-            Sidekiq
-          </RouterLink>
-
-          <RouterLink
-            v-if="project.type === 'rails' && webpackDetected"
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isRailsWebpackRoute }"
-            :to="{
-              name: 'project-rails-webpack',
-              params: { projectId: project.id },
-            }"
-          >
-            Webpack
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isEnvironmentRoute }"
-            :to="{
-              name: 'project-environment',
-              params: { projectId: project.id },
-            }"
-          >
-            Variáveis de ambiente
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isDoctorRoute }"
-            :to="{ name: 'project-doctor', params: { projectId: project.id } }"
-          >
-            Diagnóstico
-          </RouterLink>
-
-          <RouterLink
-            class="project-details-tab"
-            :class="{ 'project-details-tab-active': isReadmeRoute }"
-            :to="{ name: 'project-readme', params: { projectId: project.id } }"
-          >
-            README
-          </RouterLink>
+            <div v-if="moreToolsOpen" class="project-details-more-popover" role="menu">
+              <RouterLink
+                v-if="databaseSupported"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDatabaseRoute }"
+                :to="{ name: 'project-database', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Banco de dados
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' || project.type === 'node'"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDependenciesRoute }"
+                :to="{ name: 'project-dependencies', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Dependências
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails'"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isConsoleRoute }"
+                :to="{ name: 'project-console', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Console
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' && sidekiqDetected"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isRailsSidekiqRoute }"
+                :to="{ name: 'project-rails-sidekiq', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Sidekiq
+              </RouterLink>
+              <RouterLink
+                v-if="project.type === 'rails' && webpackDetected"
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isRailsWebpackRoute }"
+                :to="{ name: 'project-rails-webpack', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Webpack
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isEnvironmentRoute }"
+                :to="{ name: 'project-environment', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Variáveis de ambiente
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isDoctorRoute }"
+                :to="{ name: 'project-doctor', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                Diagnóstico
+              </RouterLink>
+              <RouterLink
+                class="project-details-more-item"
+                :class="{ 'project-details-more-item-active': isReadmeRoute }"
+                :to="{ name: 'project-readme', params: { projectId: project.id } }"
+                role="menuitem"
+                @click="moreToolsOpen = false"
+              >
+                README
+              </RouterLink>
+            </div>
+          </div>
         </nav>
       </div>
 
