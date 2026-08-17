@@ -105,6 +105,16 @@ const overviewMetrics = computed(() => [
         </div>
       </template>
 
+      <template #actions>
+        <RouterLink
+          class="overview-summary-action"
+          :to="{ name: 'processes' }"
+          aria-label="Abrir processos gerenciados"
+        >
+          Ver processos
+        </RouterLink>
+      </template>
+
       <div class="overview-summary-grid">
         <div
           v-for="metric in overviewMetrics"
