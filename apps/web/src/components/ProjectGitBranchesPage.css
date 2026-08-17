@@ -4,7 +4,10 @@
 
 .branch-table-card {
   overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
+  box-shadow: var(--shadow-1);
 }
 
 .branch-table-toolbar {
@@ -12,7 +15,27 @@
   align-items: center;
   gap: var(--space-3);
   border-bottom: 1px solid var(--border);
-  padding: 12px 14px;
+  background: var(--surface-2);
+  padding: 14px 16px;
+}
+
+.branch-toolbar-copy {
+  display: grid;
+  gap: 3px;
+  margin-right: auto;
+}
+
+.branch-toolbar-copy span {
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.branch-toolbar-copy strong {
+  color: var(--text);
+  font-size: var(--font-md);
 }
 
 .branch-result-count {
@@ -81,7 +104,7 @@
 
 .branch-table-row {
   position: relative;
-  min-height: 58px;
+  min-height: 64px;
   border-top: 1px solid var(--border);
 }
 
@@ -90,7 +113,8 @@
 }
 
 .branch-table-row.is-current {
-  background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-1));
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface-1));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .branch-name-cell,
@@ -331,6 +355,7 @@
 .branch-modal-form select {
   min-height: 42px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
   padding: 9px 11px;
