@@ -108,10 +108,18 @@ const overviewMetrics = computed(() => [
       <template #actions>
         <RouterLink
           class="overview-summary-action"
-          :to="{ name: 'processes' }"
-          aria-label="Abrir monitoramento operacional"
+          :to="
+            processSummary.failed > 0
+              ? { name: 'processes', query: { status: 'failed' } }
+              : { name: 'processes' }
+          "
+          :aria-label="
+            processSummary.failed > 0
+              ? 'Ver processos com falha'
+              : 'Abrir monitoramento operacional'
+          "
         >
-          Acompanhar execução
+          {{ processSummary.failed > 0 ? 'Ver falhas' : 'Acompanhar execução' }}
         </RouterLink>
       </template>
 
