@@ -33,6 +33,7 @@ const statusMessage = ref('');
 const sessionState = ref<SessionState>('idle');
 const errorMessage = ref('');
 const maximized = ref(false);
+const terminalFontSize = ref(13);
 const hasAutoStarted = ref(false);
 
 const terminalContainer = ref<HTMLDivElement | null>(null);
@@ -90,7 +91,7 @@ function mountTerminal(): void {
   if (!terminalContainer.value) return;
   terminal = new Terminal({
     convertEol: true,
-    fontSize: 13,
+    fontSize: terminalFontSize.value,
     fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
     theme: { background: '#10131c', foreground: '#dbe0f2' },
   });
@@ -201,6 +202,16 @@ async function startSession(): Promise<void> {
 
 function toggleMaximized(): void {
   maximized.value = !maximized.value;
+  requestAnimationFrame(() => {
+    fitAddon?.fit();
+    sendResize();
+  });
+}
+
+function setTerminalFontSize(size: number): void {
+  terminalFontSize.value = Math.min(20, Math.max(11, size));
+  if (!terminal) return;
+  terminal.options.fontSize = terminalFontSize.value;
   requestAnimationFrame(() => {
     fitAddon?.fit();
     sendResize();
@@ -319,6 +330,33 @@ onBeforeUnmount(() => {
             <span>— {{ title }} · {{ windowStatusLabel }}</span>
           </div>
           <div class="terminal-window-actions">
+            <button
+              type="button"
+              class="terminal-icon-button terminal-font-size-button"
+              title="Diminuir fonte"
+              aria-label="Diminuir fonte"
+              @click="setTerminalFontSize(terminalFontSize - 1)"
+            >
+              A−
+            </button>
+            <button
+              type="button"
+              class="terminal-icon-button terminal-font-size-value"
+              title="Restaurar fonte"
+              aria-label="Restaurar fonte"
+              @click="setTerminalFontSize(13)"
+            >
+              {{ terminalFontSize }}px
+            </button>
+            <button
+              type="button"
+              class="terminal-icon-button terminal-font-size-button"
+              title="Aumentar fonte"
+              aria-label="Aumentar fonte"
+              @click="setTerminalFontSize(terminalFontSize + 1)"
+            >
+              A+
+            </button>
             <button
               type="button"
               class="terminal-icon-button"
@@ -605,6 +643,22 @@ onBeforeUnmount(() => {
 .terminal-icon-button svg {
   width: 15px;
   height: 15px;
+}
+
+.terminal-font-size-button {
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.terminal-font-size-value {
+  width: auto;
+  min-width: 42px;
+  padding: 0 5px;
+  color: #dbe0f2;
+  font-size: 10px;
 }
 
 .terminal-icon-button:hover {
