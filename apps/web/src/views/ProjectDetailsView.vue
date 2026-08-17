@@ -497,3 +497,4 @@ watch(
 </template>
 
 <style scoped src="./ProjectDetailsView.css"></style>
+
