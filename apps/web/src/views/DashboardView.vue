@@ -105,6 +105,16 @@ const overviewMetrics = computed(() => [
         </div>
       </template>
 
+      <template #actions>
+        <RouterLink
+          class="overview-summary-action"
+          :to="{ name: 'processes' }"
+          aria-label="Abrir monitoramento operacional"
+        >
+          Acompanhar execução
+        </RouterLink>
+      </template>
+
       <div class="overview-summary-grid">
         <div
           v-for="metric in overviewMetrics"
@@ -207,6 +217,23 @@ const overviewMetrics = computed(() => [
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.overview-summary-action {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.overview-summary-action:hover {
+  text-decoration: underline;
+}
+
+.overview-summary-action:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .overview-summary-status {
