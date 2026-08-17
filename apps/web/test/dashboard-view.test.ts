@@ -149,6 +149,21 @@ describe('dashboard principal', () => {
     expect(link.text()).toContain('Ver falhas');
   });
 
+  it('aponta para os processos ativos quando não há falhas', () => {
+    dashboardStore.processSummary.value = {
+      total: 2,
+      active: 2,
+      stopped: 0,
+      failed: 0,
+    };
+    const wrapper = mountView();
+
+    const link = wrapper.get('.overview-summary-action');
+    expect(link.attributes('aria-label')).toBe('Ver processos ativos');
+    expect(link.attributes('data-status')).toBe('active');
+    expect(link.text()).toContain('Ver ativos');
+  });
+
   it('mostra métricas operacionais dos processos gerenciados', async () => {
     dashboardStore.projects.value = [project];
     dashboardStore.processSummary.value = {
