@@ -235,8 +235,5 @@ test('dashboard store preserva o dashboard quando o resumo de processos falha', 
 
   assert.equal(store.projects.value.length, 0);
   assert.equal(store.errorMessage.value, '');
-  assert.equal(
-    store.processSummaryError.value,
-    'Processos indisponíveis',
-  );
+  assert.equal(store.processSummaryError.value, 'Processos indisponíveis');
 });
