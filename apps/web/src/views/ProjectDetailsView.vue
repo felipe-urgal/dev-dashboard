@@ -45,7 +45,7 @@ const projectId = computed(() => {
   return Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
 });
 
-const isReadmeRoute = computed(() => route.name === 'project-details');
+const isReadmeRoute = computed(() => route.name === 'project-readme');
 const isDoctorRoute = computed(() => route.name === 'project-doctor');
 const isServerRoute = computed(() => route.name === 'project-server');
 const isGitRoute = computed(() => route.name === 'project-git');
@@ -331,7 +331,7 @@ watch(
           <RouterLink
             class="project-details-tab"
             :class="{ 'project-details-tab-active': isReadmeRoute }"
-            :to="{ name: 'project-details', params: { projectId: project.id } }"
+            :to="{ name: 'project-readme', params: { projectId: project.id } }"
           >
             README
           </RouterLink>
