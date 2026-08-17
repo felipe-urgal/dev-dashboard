@@ -26,6 +26,37 @@
   background: var(--surface-1);
 }
 
+/* Conteúdos extensos devem rolar dentro da área da ferramenta, sem
+   cortar tabelas, históricos ou diagnósticos longos. */
+.project-details-page > :last-child {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+:deep(.project-doctor-panel),
+:deep(.server-dashboard),
+:deep(.git-modern-panel),
+:deep(.dependencies-panel),
+:deep(.project-environment-panel),
+:deep(.rails-runtime-panel) {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+:deep(.project-doctor-card) {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+:deep(.terminal-panel) {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
 :deep(.project-doctor-panel),
 :deep(.project-doctor-card),
