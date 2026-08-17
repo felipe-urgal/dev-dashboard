@@ -203,6 +203,7 @@ watch(
         >
           Fechar terminal
         </button>
+        </div>
       </div>
     </template>
 
