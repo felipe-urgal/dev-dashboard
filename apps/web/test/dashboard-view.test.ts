@@ -55,6 +55,11 @@ function mountView() {
   return mount(DashboardView, {
     global: {
       stubs: {
+        RouterLink: {
+          props: ['to'],
+          template:
+            '<a class="router-link-stub" :data-route="to.name"><slot /></a>',
+        },
         ProjectCard: {
           props: ['project', 'enabledUpdating'],
           emits: ['toggle-enabled'],
@@ -121,6 +126,15 @@ describe('dashboard principal', () => {
     expect(wrapper.find('[data-key="git"] strong').text()).toBe('2');
     expect(wrapper.find('[data-key="servers"] strong').text()).toBe('1');
     expect(wrapper.find('[data-key="warnings"] strong').text()).toBe('2');
+  });
+
+  it('oferece acesso direto à tela de processos pelo resumo', () => {
+    const wrapper = mountView();
+
+    const link = wrapper.get('.overview-summary-action');
+    expect(link.attributes('aria-label')).toBe('Abrir processos gerenciados');
+    expect(link.attributes('data-route')).toBe('processes');
+    expect(link.text()).toContain('Ver processos');
   });
 
   it('mostra métricas operacionais dos processos gerenciados', async () => {
