@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  ArrowTopRightOnSquareIcon,
   CodeBracketIcon,
   ExclamationTriangleIcon,
   ShieldExclamationIcon,
@@ -21,6 +20,7 @@ import {
   runProjectGitPullRequestAction,
   type GitPullRequestTargetRemote,
 } from '../api';
+import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
 
 const props = defineProps<{
   projectId: string;
@@ -686,50 +686,18 @@ async function mergePullRequest(): Promise<void> {
         </div>
       </section>
 
-      <div class="git-pr-footer">
-        <p>
-          O dashboard não armazena credenciais do GitHub/GitLab; ele abre a tela
-          oficial de criação já preenchida.
-        </p>
-        <a
-          v-if="existingPullRequest"
-          class="git-pr-existing-action"
-          :href="existingPullRequest.url"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Ver PR #{{ existingPullRequest.number }}
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </a>
-        <a
-          v-else-if="generatedUrl"
-          class="git-pr-fallback-link"
-          :href="generatedUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Abrir página da Pull Request
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-        </a>
-        <button v-else type="submit" :disabled="!canOpen">
-          <ArrowTopRightOnSquareIcon aria-hidden="true" />
-          {{
-            checkingExisting
-              ? 'Verificando PR…'
-              : opening
-                ? 'Preparando…'
-                : 'Abrir Pull Request'
-          }}
-        </button>
-        <button
-          v-if="!existingPullRequest && !generatedUrl"
-          type="button"
-          :disabled="!canOpen || mutationBusy"
-          @click="showCreateConfirm = !showCreateConfirm"
-        >
-          Criar direto com gh
-        </button>
-      </div>
+      <ProjectGitPullRequestFooter
+        :existing-number="existingPullRequest?.number"
+        :existing-url="existingPullRequest?.url"
+        :generated-url="generatedUrl"
+        :checking-existing="checkingExisting"
+        :opening="opening"
+        :can-open="canOpen"
+        :mutation-busy="mutationBusy"
+        :existing-pull-request="Boolean(existingPullRequest)"
+        @open="openPullRequest"
+        @toggle-create="showCreateConfirm = !showCreateConfirm"
+      />
 
       <div v-if="showCreateConfirm" class="git-pr-confirm">
         <p>
