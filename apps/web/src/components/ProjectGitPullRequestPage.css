@@ -10,16 +10,14 @@
 }
 
 .git-pr-heading,
-.git-pr-footer,
-.git-pr-existing {
+.git-pr-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
 
-.git-pr-heading > div,
-.git-pr-existing > div {
+.git-pr-heading > div {
   display: grid;
   gap: 4px;
 }
@@ -32,14 +30,13 @@
 }
 
 .git-pr-heading span,
-.git-pr-form label > span,
-.git-pr-existing span {
+.git-pr-form label > span {
   color: var(--text-muted);
   font-size: var(--font-sm);
   font-weight: 600;
 }
 
- .git-pr-heading h3 {
+.git-pr-heading h3 {
   margin: 0;
   color: var(--text);
   font-size: var(--font-xl);
@@ -456,57 +453,6 @@
   color: var(--text-dim);
 }
 
-.git-pr-warning,
-.git-pr-checking,
-.git-pr-lookup-note,
-.git-pr-existing {
-  padding: var(--space-3);
-}
-
- .git-pr-warning {
-  border: 1px solid color-mix(in srgb, var(--warning-text) 30%, var(--border));
-  border-radius: var(--radius-md);
-  background: var(--warning-surface);
-  color: var(--warning-text);
-}
-
-.git-pr-checking,
-.git-pr-lookup-note {
-  background: var(--surface-2);
-  color: var(--text-muted);
-}
-
- .git-pr-existing {
-  border: 1px solid color-mix(in srgb, var(--success-text) 30%, var(--border));
-  border-radius: var(--radius-md);
-  background: var(--success-surface);
-  color: var(--success-text);
-}
-
-.git-pr-existing strong {
-  color: var(--text);
-}
-
-.git-pr-existing small {
-  color: var(--text-muted);
-}
-
-.git-pr-gh-actions {
-  display: flex;
-  flex: none;
-  gap: var(--space-2);
-}
-
-.git-pr-gh-actions button {
-  min-height: 36px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
-  color: var(--text);
-  padding: 6px 12px;
-  font: inherit;
-  font-weight: 600;
-}
-
 .git-pr-confirm {
   display: grid;
   gap: var(--space-3);
@@ -561,8 +507,7 @@
   }
 
   .git-pr-heading,
-  .git-pr-footer,
-  .git-pr-existing {
+  .git-pr-footer {
     align-items: stretch;
     flex-direction: column;
   }
