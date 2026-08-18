@@ -1,5 +1,5 @@
-import { computed } from 'vue';
 <script setup lang="ts">
+import { computed } from 'vue';
 import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 import Card from '../components/Card.vue';
