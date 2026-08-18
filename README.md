@@ -388,7 +388,6 @@ precisam ser chamados à mão).
 | `npm run doctor` | Verifica Node, npm, Git, dependências e portas sem iniciar nada. |
 | `npm run docs:api` | Regenera `docs/architecture/api-reference.md` a partir dos schemas Fastify. |
 | `npm run docs:api:check` | Confere se a referência da API está atualizada, sem regravar (usado no CI). |
-| `npm run changelog` | Gera o changelog a partir do histórico de commits. |
 | `npm run release -- <patch\|minor\|major>` | Faz bump de versão, regenera o changelog e cria a tag de release. |
 | `npm run typecheck` | `tsc --build`/`vue-tsc` em todos os workspaces. |
 | `npm run build` | Builda `packages/*` e depois `apps/*`, nessa ordem. |
