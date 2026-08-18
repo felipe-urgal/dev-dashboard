@@ -18,8 +18,6 @@ import {
 import { processToneFor } from '../utils/status-tones';
 
 const {
-  workspaces,
-  projects,
   items,
   loading,
   referenceErrorMessage,
@@ -28,11 +26,7 @@ const {
   now,
   visibleItems,
   hasVisibleItems,
-  activeCount,
-  stoppedCount,
-  failedCount,
   terminalCount,
-  hasActiveFilters,
   projectNameById,
   workspaceNameFor,
   loadProcesses,
@@ -182,20 +176,5 @@ const {
   text-decoration: underline;
 }
 
-.processes-clear-filters-button {
-  min-height: 32px;
-  border: 0;
-  padding: 0;
-  color: var(--accent);
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.processes-clear-filters-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
 
 </style>
