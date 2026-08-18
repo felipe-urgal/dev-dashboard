@@ -137,46 +137,51 @@
           </button>
         </footer>
 
-        <Teleport to="body">
-          <div
-            v-if="logOpen"
-            class="server-log-overlay"
-            role="presentation"
-            @click.self="logOpen = false"
-          >
-            <section
-              class="server-log-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="server-log-title"
-            >
-              <header class="server-log-modal-header">
-                <div>
-                  <span>Ferramenta do projeto</span>
-                  <h3 id="server-log-title">Log do servidor</h3>
-                  <p>Acompanhe a saída completa do processo em primeiro plano.</p>
-                </div>
-                <button
-                  type="button"
-                  class="server-log-close-button"
-                  aria-label="Fechar log do servidor"
-                  @click="logOpen = false"
-                >
-                  <XMarkIcon aria-hidden="true" />
-                </button>
-              </header>
-              <div class="server-log-modal-body">
-                <ProjectLogTerminal
-                  :content="logSnapshot?.content ?? ''"
-                  :running="processStatus === 'running'"
-                  :masked-count="logSnapshot?.redactionCount ?? 0"
-                  :clearing="clearingLog"
-                  @clear="clearLogView"
+        <section
+          v-if="logOpen"
+          class="server-log-panel"
+          :class="{ 'server-log-panel-expanded': logMaximized }"
+          aria-labelledby="server-log-title"
+        >
+          <header class="server-log-panel-header">
+            <div>
+              <span>Log do processo</span>
+              <h3 id="server-log-title">Log do servidor</h3>
+            </div>
+            <div class="server-log-panel-actions">
+              <button
+                type="button"
+                class="server-log-panel-button"
+                :aria-label="logMaximized ? 'Restaurar log' : 'Expandir log'"
+                @click="toggleLogMaximized"
+              >
+                <ArrowsPointingInIcon
+                  v-if="logMaximized"
+                  aria-hidden="true"
                 />
-              </div>
-            </section>
+                <ArrowsPointingOutIcon v-else aria-hidden="true" />
+                {{ logMaximized ? 'Restaurar' : 'Expandir' }}
+              </button>
+              <button
+                type="button"
+                class="server-log-close-button"
+                aria-label="Fechar log do servidor"
+                @click="logOpen = false"
+              >
+                Fechar
+              </button>
+            </div>
+          </header>
+          <div class="server-log-panel-body">
+            <ProjectLogTerminal
+              :content="logSnapshot?.content ?? ''"
+              :running="processStatus === 'running'"
+              :masked-count="logSnapshot?.redactionCount ?? 0"
+              :clearing="clearingLog"
+              @clear="clearLogView"
+            />
           </div>
-        </Teleport>
+        </section>
       </section>
     </template>
   </div>
