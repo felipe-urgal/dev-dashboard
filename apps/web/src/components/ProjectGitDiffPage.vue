@@ -2,41 +2,11 @@
 import {
   ArrowPathIcon,
   Bars3BottomLeftIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ClipboardDocumentIcon,
   DocumentTextIcon,
   FunnelIcon,
   ViewColumnsIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
-
-import type {
-  GitDiffFile,
-  GitDiffScope,
-  GitDiffSnapshot,
-  GitFileDiff,
-  GitFileStatus,
-  ProjectGitOverview,
-} from '@dev-dashboard/contracts';
-
-import {
-  fetchProjectGit,
-  fetchProjectGitDiff,
-  fetchProjectGitFileDiff,
-  fetchProjectGitFileLines,
-} from '../api';
-import type { GitDiffHunk, GitUnifiedDiffLine } from '../utils/git-diff-view';
-import {
-  annotateGitDiffWordChanges,
-  buildGitDiffContextLines,
-  buildSplitGitDiffRows,
-  parseUnifiedGitDiff,
-  renderGitDiffLineHtml,
-  splitGitDiffHunks,
-} from '../utils/git-diff-view';
-import { gitFileToneFor } from '../utils/status-tones';
-import StatusBadge from './StatusBadge.vue';
+import ProjectGitDiffFileCard from './ProjectGitDiffFileCard.vue';
 
 import { useProjectGitDiffPage } from '../composables/useProjectGitDiffPage';
 
@@ -45,30 +15,16 @@ const props = defineProps<{
 }>();
 
 const {
-  VIEW_MODE_KEY,
   CONTEXT_EXPANSION_STEP,
-  MAX_PARALLEL_FILE_DIFFS,
-  scope,
-  syntaxModule,
-  loadSyntaxModule,
   snapshot,
-  overview,
   entries,
   statusFilter,
   viewMode,
   loadingSnapshot,
   snapshotError,
   copiedPath,
-  cardElements,
-  pendingLoads,
-  snapshotController,
-  fileControllers,
-  observer,
-  copyTimer,
   statusLabels,
   statusOptions,
-  readStoredViewMode,
-  persistViewMode,
   branchLabel,
   visibleEntries,
   hasSingleChangedFile,
@@ -82,23 +38,12 @@ const {
   linePrefix,
   statBlocks,
   highlighted,
-  withSyntax,
-  detectionSample,
   hunkLines,
   splitRowsFor,
-  nextExpansionAbove,
-  nextExpansionBelow,
   canExpandAbove,
   canExpandBelow,
   expandContext,
-  buildEntry,
-  loadFileDiff,
-  requestFileDiff,
-  drainPendingLoads,
   registerCard,
-  setupObserver,
-  loadOverview,
-  loadSnapshot,
   refresh,
   toggleCollapsed,
   toggleAll,
@@ -110,4 +55,4 @@ const {
 
 <template src="./ProjectGitDiffPage.template.html"></template>
 
-<style scoped src="./ProjectGitDiffPage.css"></style>
+<style src="./ProjectGitDiffPage.css"></style>
