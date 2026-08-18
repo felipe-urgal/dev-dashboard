@@ -137,7 +137,7 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe somente informações operacionais quando o servidor está rodando', async () => {
+  it('exibe configuração durante a execução do servidor', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -151,7 +151,7 @@ describe('cards dos painéis de detalhe', () => {
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);
     expect(wrapper.find('.server-logs').exists()).toBe(false);
     expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
