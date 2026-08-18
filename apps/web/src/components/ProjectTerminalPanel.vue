@@ -469,12 +469,13 @@ onBeforeUnmount(() => {
   flex-direction: column;
   box-sizing: border-box;
   width: 100%;
-  height: clamp(320px, 62vh, 640px);
-  flex: 0 1 auto;
+  height: auto;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   max-width: min(100%, calc(100vw - var(--app-sidebar-width, 232px)));
-  max-height: calc(100vh - 180px);
+  max-height: 100%;
+  max-height: none;
   background: #10131c;
 
   overflow: hidden;
@@ -510,12 +511,6 @@ onBeforeUnmount(() => {
   border-radius: 0;
   resize: none;
   z-index: 50;
-}
-
-@media (max-height: 640px) {
-  .terminal-window {
-    height: calc(100vh - 140px);
-  }
 }
 
 .terminal-window-maximized::after {
