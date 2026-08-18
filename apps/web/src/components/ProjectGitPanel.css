@@ -18,9 +18,7 @@
 }
 
 .git-navigation-bar {
-  position: sticky;
-  z-index: 15;
-  top: var(--project-sticky-offset, 134px);
+  position: static;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -29,7 +27,7 @@
   background: var(--surface-1);
   padding: 0 12px;
   border-left: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .git-subtabs {
