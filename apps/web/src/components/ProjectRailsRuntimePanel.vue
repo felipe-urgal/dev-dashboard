@@ -540,3 +540,4 @@ function formatDate(value?: string): string {
     margin: 0;
   }
 }
+</style>
