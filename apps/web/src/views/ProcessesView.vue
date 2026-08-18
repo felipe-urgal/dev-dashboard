@@ -41,6 +41,31 @@ const {
     :aria-busy="loading"
     aria-label="Processos gerenciados"
   >
+    <div class="processes-actions" role="group" aria-label="Ações de processos">
+      <button
+        type="button"
+        class="processes-refresh-button"
+        :disabled="loading"
+        @click="loadProcesses"
+      >
+        <ArrowPathIcon
+          aria-hidden="true"
+          :class="{ 'processes-refresh-icon-active': loading }"
+        />
+        {{ loading ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+      <button
+        type="button"
+        class="processes-cleanup-button"
+        :disabled="cleanupRunning || terminalCount === 0"
+        aria-describedby="processes-cleanup-help"
+        @click="runCleanup"
+      >
+        <TrashIcon aria-hidden="true" />
+        {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
+      </button>
+    </div>
+
     <p v-if="referenceErrorMessage" class="activity-error" role="alert">
       {{ referenceErrorMessage }}
     </p>
@@ -162,6 +187,13 @@ const {
 </template>
 
 <style scoped>
+.processes-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 4px 0;
+}
+
 .processes-empty-action {
   display: inline-flex;
   margin-top: 10px;
