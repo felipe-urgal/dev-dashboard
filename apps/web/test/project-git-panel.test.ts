@@ -935,11 +935,13 @@ test('oferece reenvio com lease na Pull Request depois de alterar commit em bran
   await flushPromises();
   await flushPromises();
 
-  assert.match(mounted.wrapper.text(), /Substituir branch remota/);
+  assert.match(mounted.wrapper.text(), /Push forçado detectado/);
   const forceButton = mounted.wrapper
     .findAll('.git-pr-force-push button')
     .find((button) => button.text().includes('Forçar atualização no origin'));
   assert.ok(forceButton);
+  assert.equal((forceButton!.element as HTMLButtonElement).disabled, true);
+  await mounted.wrapper.find('.git-pr-force-push-confirm input').setValue(true);
   await forceButton.trigger('click');
   await flushPromises();
   await flushPromises();

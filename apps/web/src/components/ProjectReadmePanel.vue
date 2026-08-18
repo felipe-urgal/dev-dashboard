@@ -10,6 +10,7 @@ import type { CodeBlock } from '../utils/project-readme-markdown';
 import { parseMarkdown } from '../utils/project-readme-markdown';
 import ProjectReadmeDocument from './ProjectReadmeDocument.vue';
 import ProjectReadmeFileList from './ProjectReadmeFileList.vue';
+import ProjectToolHeader from './ProjectToolHeader.vue';
 
 const props = defineProps<{
   project: Project;
@@ -113,6 +114,12 @@ watch(
 
 <template>
   <section class="readme-panel" aria-labelledby="project-readme-title">
+    <ProjectToolHeader
+      eyebrow="Ferramenta do projeto"
+      title="README"
+      description="Consulte a documentação Markdown encontrada no projeto."
+    />
+
     <ProjectReadmeFileList
       :files="files"
       :selected-path="selectedPath"

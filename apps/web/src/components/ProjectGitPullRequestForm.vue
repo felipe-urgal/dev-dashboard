@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  ExclamationTriangleIcon,
-  ShieldExclamationIcon,
-} from '@heroicons/vue/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
 
 import type { GitPullRequestTargetRemote as ApiGitPullRequestTargetRemote } from '../api';
 import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
@@ -18,7 +15,11 @@ const props = defineProps<{
   opening: boolean;
   busy: boolean;
   forcePushBranch: string | null;
-  showForcePush: boolean;
+  forcePushAcknowledged: boolean;
+  changedFilesCount: number;
+  commitCount: number;
+  ahead: number;
+  behind: number;
   mutationBusy: boolean;
   canForcePush: boolean;
   existingNumber: number | undefined;
@@ -35,7 +36,7 @@ const emit = defineEmits<{
   'update:base-branch': [value: string];
   'update:title': [value: string];
   'update:description': [value: string];
-  'toggle-force-push': [];
+  'update:force-push-acknowledged': [value: boolean];
   'force-push': [];
   open: [];
   'toggle-create': [];
@@ -63,6 +64,39 @@ function onDescriptionInput(event: Event) {
 
 <template>
   <form class="git-pr-form" @submit.prevent="emit('submit')">
+    <section class="git-pr-branch-summary" aria-label="Comparação das branches">
+      <div class="git-pr-branch-card">
+        <span>Branch de origem</span>
+        <strong>{{ `origin/${props.overviewBranch ?? 'HEAD'}` }}</strong>
+        <small>Último commit local</small>
+      </div>
+      <span class="git-pr-branch-arrow" aria-hidden="true">→</span>
+      <div class="git-pr-branch-card">
+        <span>Destino do PR</span>
+        <strong>{{ props.targetRemote }}</strong>
+        <small>Branch base: {{ props.baseBranch }}</small>
+      </div>
+    </section>
+
+    <section class="git-pr-change-summary" aria-label="Resumo das alterações">
+      <div>
+        <strong>{{ props.changedFilesCount }}</strong>
+        <span>Arquivos alterados</span>
+      </div>
+      <div>
+        <strong>{{ props.ahead }}</strong>
+        <span>Commits locais à frente</span>
+      </div>
+      <div>
+        <strong>{{ props.behind }}</strong>
+        <span>Commits remotos à frente</span>
+      </div>
+      <div>
+        <strong>{{ props.commitCount }}</strong>
+        <span>Commits no histórico</span>
+      </div>
+    </section>
+
     <div class="git-pr-grid">
       <label>
         <span>Branch de origem</span>
@@ -136,37 +170,38 @@ function onDescriptionInput(event: Event) {
 
     <section
       v-if="props.forcePushBranch"
-      class="git-pr-advanced"
-      aria-label="Ações avançadas da branch"
+      class="git-pr-force-push"
+      aria-label="Confirmação de push forçado"
     >
+      <ExclamationTriangleIcon aria-hidden="true" />
+      <div>
+        <strong>Push forçado detectado</strong>
+        <p>
+          O histórico de <code>origin/{{ props.forcePushBranch }}</code> será
+          reescrito. Atualize a branch remota se quiser evitar o force push.
+        </p>
+        <label class="git-pr-force-push-confirm">
+          <input
+            :checked="props.forcePushAcknowledged"
+            type="checkbox"
+            :disabled="props.busy || props.mutationBusy"
+            @change="
+              emit(
+                'update:force-push-acknowledged',
+                ($event.target as HTMLInputElement).checked,
+              )
+            "
+          />
+          <span>Entendo que o histórico remoto será reescrito</span>
+        </label>
+      </div>
       <button
         type="button"
-        class="git-pr-advanced-toggle"
-        :aria-expanded="props.showForcePush"
-        :disabled="props.busy || props.mutationBusy"
-        @click="emit('toggle-force-push')"
+        :disabled="!props.canForcePush"
+        @click="emit('force-push')"
       >
-        <ShieldExclamationIcon aria-hidden="true" />
-        Ações avançadas
+        Forçar atualização no origin
       </button>
-
-      <div v-if="props.showForcePush" class="git-pr-force-push">
-        <ExclamationTriangleIcon aria-hidden="true" />
-        <div>
-          <strong>Substituir branch remota</strong>
-          <p>
-            Atualiza <code>origin/{{ props.forcePushBranch }}</code> com lease.
-            Use apenas após reescrever o histórico (amend, rebase ou squash).
-          </p>
-        </div>
-        <button
-          type="button"
-          :disabled="!props.canForcePush"
-          @click="emit('force-push')"
-        >
-          Forçar atualização no origin
-        </button>
-      </div>
     </section>
 
     <ProjectGitPullRequestFooter
