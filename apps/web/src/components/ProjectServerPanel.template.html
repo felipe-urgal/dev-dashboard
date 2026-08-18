@@ -8,20 +8,6 @@
     </div>
 
     <template v-else>
-      <header class="server-panel-header">
-        <div>
-          <span>Ferramenta do projeto</span>
-          <h3>Servidor</h3>
-          <p>Configure, execute e acompanhe o serviço local.</p>
-        </div>
-        <span
-          class="server-panel-state"
-          :class="{ 'server-panel-state-running': canStop }"
-        >
-          {{ canStop ? 'Em execução' : 'Parado' }}
-        </span>
-      </header>
-
       <section v-if="!canStop" class="server-config-card">
         <div class="server-config-list">
           <label class="server-config-row">
