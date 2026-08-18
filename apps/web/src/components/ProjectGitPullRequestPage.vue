@@ -21,6 +21,7 @@ import {
   type GitPullRequestTargetRemote,
 } from '../api';
 import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
+import ProjectGitPullRequestStatus from './ProjectGitPullRequestStatus.vue';
 
 const props = defineProps<{
   projectId: string;
@@ -452,58 +453,16 @@ async function mergePullRequest(): Promise<void> {
       {{ mutationError }}
     </p>
 
-    <div v-if="!branchPublished" class="git-pr-warning">
-      A branch atual ainda não possui upstream. Publique a branch antes de abrir
-      a Pull Request.
-    </div>
-
-    <div
-      v-else-if="checkingExisting"
-      class="git-pr-checking"
-      aria-live="polite"
-    >
-      Verificando se já existe uma Pull Request aberta para este destino…
-    </div>
-
-    <div
-      v-else-if="existingPullRequest"
-      class="git-pr-existing"
-      aria-live="polite"
-    >
-      <div>
-        <span>PR #{{ existingPullRequest.number }} já está aberta</span>
-        <strong>{{ existingPullRequest.title }}</strong>
-        <small>
-          {{ existingPullRequest.sourceBranch }} → {{ targetRemote }}/{{
-            existingPullRequest.baseBranch
-          }}
-        </small>
-      </div>
-
-      <div class="git-pr-gh-actions">
-        <button
-          type="button"
-          :disabled="mutationBusy"
-          @click="showMergeConfirm = !showMergeConfirm"
-        >
-          Mesclar com gh
-        </button>
-        <button
-          type="button"
-          class="danger-button"
-          :disabled="mutationBusy"
-          @click="showCloseConfirm = !showCloseConfirm"
-        >
-          Fechar com gh
-        </button>
-      </div>
-    </div>
-
-    <div v-else-if="lookupUnavailable" class="git-pr-lookup-note">
-      Não foi possível verificar automaticamente se já existe uma Pull Request
-      aberta. Você ainda pode continuar, mas vale conferir o repositório antes
-      de criar outra.
-    </div>
+    <ProjectGitPullRequestStatus
+      :branch-published="branchPublished"
+      :checking-existing="checkingExisting"
+      :existing-pull-request="existingPullRequest"
+      :lookup-unavailable="lookupUnavailable"
+      :target-remote="targetRemote"
+      :mutation-busy="mutationBusy"
+      @toggle-merge="showMergeConfirm = !showMergeConfirm"
+      @toggle-close="showCloseConfirm = !showCloseConfirm"
+    />
 
     <div v-if="showMergeConfirm && existingPullRequest" class="git-pr-confirm">
       <p>
