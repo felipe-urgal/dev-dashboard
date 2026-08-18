@@ -125,7 +125,7 @@
                 class="branch-menu-trigger"
                 :aria-expanded="openMenu === row.name"
                 :aria-label="`Ações da branch ${row.name}`"
-                @click.stop="toggleMenu(row.name)"
+                @click.stop.prevent="toggleMenu(row.name)"
               >
                 <EllipsisHorizontalIcon aria-hidden="true" />
               </button>
