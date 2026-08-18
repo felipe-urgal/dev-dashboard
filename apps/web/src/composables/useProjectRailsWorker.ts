@@ -124,7 +124,13 @@ export function useProjectRailsWorker(
 
   function schedulePolling(): void {
     stopPolling();
-    if (!supportsWorker.value || !detected.value) return;
+    if (
+      !supportsWorker.value ||
+      !detected.value ||
+      !['starting', 'running', 'stopping'].includes(status.value)
+    ) {
+      return;
+    }
 
     const generation = projectRequests.capture();
     const delay =
@@ -277,6 +283,7 @@ export function useProjectRailsWorker(
       const nextProcess = await stopProjectRailsWorker(projectId, workerId);
       if (isCurrentProject(projectId, generation)) {
         managedProcess.value = nextProcess;
+        schedulePolling();
       }
     } catch (error) {
       if (isCurrentProject(projectId, generation)) {
