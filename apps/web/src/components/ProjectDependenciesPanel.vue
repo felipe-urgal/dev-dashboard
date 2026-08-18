@@ -163,15 +163,6 @@ watch(
           <StatusBadge tone="success">Pronto</StatusBadge>
         </article>
 
-        <button
-          type="button"
-          class="dependencies-detect-button"
-          :disabled="loading"
-          @click="load"
-        >
-          <ArrowPathIcon aria-hidden="true" />
-          Detectar novamente
-        </button>
       </div>
 
       <div v-if="actions.length" class="dependencies-table-wrap">
