@@ -21,6 +21,7 @@ import {
   type GitPullRequestTargetRemote,
 } from '../api';
 import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
+import ProjectGitPullRequestConfirmations from './ProjectGitPullRequestConfirmations.vue';
 import ProjectGitPullRequestStatus from './ProjectGitPullRequestStatus.vue';
 
 const props = defineProps<{
@@ -57,6 +58,20 @@ const mergeMethod = ref<GitPullRequestMergeMethod>('squash');
 const mutationBusy = ref(false);
 const mutationError = ref('');
 const showForcePush = ref(false);
+
+function cancelMergeConfirmation() {
+  showMergeConfirm.value = false;
+  mergeConfirmText.value = '';
+}
+
+function cancelCloseConfirmation() {
+  showCloseConfirm.value = false;
+  closeConfirmText.value = '';
+}
+
+function cancelCreateConfirmation() {
+  showCreateConfirm.value = false;
+}
 
 const availableTargets = computed(() => {
   const names = new Set(
@@ -464,7 +479,36 @@ async function mergePullRequest(): Promise<void> {
       @toggle-close="showCloseConfirm = !showCloseConfirm"
     />
 
-    <div v-if="showMergeConfirm && existingPullRequest" class="git-pr-confirm">
+    <ProjectGitPullRequestConfirmations
+      :show-merge="showMergeConfirm"
+      :show-close="showCloseConfirm"
+      :show-create="showCreateConfirm"
+      :existing-pull-request="existingPullRequest"
+      :merge-command-preview="mergeCommandPreview"
+      :close-command-preview="closeCommandPreview"
+      :create-command-preview="createCommandPreview"
+      :merge-method="mergeMethod"
+      :merge-confirm-text="mergeConfirmText"
+      :close-confirm-text="closeConfirmText"
+      :mutation-busy="mutationBusy"
+      :can-confirm-merge="canConfirmMerge"
+      :can-confirm-close="canConfirmClose"
+      :can-create="canCreateViaGh"
+      @update:merge-method="mergeMethod = $event"
+      @update:merge-confirm-text="mergeConfirmText = $event"
+      @update:close-confirm-text="closeConfirmText = $event"
+      @cancel-merge="cancelMergeConfirmation"
+      @cancel-close="cancelCloseConfirmation"
+      @cancel-create="cancelCreateConfirmation"
+      @merge="mergePullRequest"
+      @close="closePullRequest"
+      @create="createPullRequestViaGh"
+    />
+    <!--
+    <div
+      v-if="false && showMergeConfirm && existingPullRequest"
+      class="git-pr-confirm"
+    >
       <p>
         Isto executará <code>{{ mergeCommandPreview }}</code> — mescla a PR #{{
           existingPullRequest.number
@@ -510,8 +554,10 @@ async function mergePullRequest(): Promise<void> {
         </button>
       </div>
     </div>
-
-    <div v-if="showCloseConfirm && existingPullRequest" class="git-pr-confirm">
+    <div
+      v-if="false && showCloseConfirm && existingPullRequest"
+      class="git-pr-confirm"
+    >
       <p>
         Isto executará <code>{{ closeCommandPreview }}</code> — fecha a PR #{{
           existingPullRequest.number
@@ -549,7 +595,7 @@ async function mergePullRequest(): Promise<void> {
         </button>
       </div>
     </div>
-
+    -->
     <form class="git-pr-form" @submit.prevent="openPullRequest">
       <div class="git-pr-grid">
         <label>
@@ -658,7 +704,8 @@ async function mergePullRequest(): Promise<void> {
         @toggle-create="showCreateConfirm = !showCreateConfirm"
       />
 
-      <div v-if="showCreateConfirm" class="git-pr-confirm">
+      <!--
+      <div v-if="false && showCreateConfirm" class="git-pr-confirm">
         <p>
           Isto executará <code>{{ createCommandPreview }}</code> — cria a Pull
           Request diretamente no GitHub, sem abrir o navegador.
@@ -676,8 +723,9 @@ async function mergePullRequest(): Promise<void> {
           </button>
         </div>
       </div>
+      -->
     </form>
   </section>
 </template>
 
-<style scoped src="./ProjectGitPullRequestPage.css"></style>
+<style src="./ProjectGitPullRequestPage.css"></style>
