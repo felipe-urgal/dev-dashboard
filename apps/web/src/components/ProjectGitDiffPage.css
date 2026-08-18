@@ -245,6 +245,7 @@
 .git-diff-file-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: var(--space-4);
   min-height: 0;
   flex: 1 1 auto;
