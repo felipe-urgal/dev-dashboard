@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  CodeBracketIcon,
-  ExclamationTriangleIcon,
-  ShieldExclamationIcon,
-} from '@heroicons/vue/24/outline';
+import { CodeBracketIcon } from '@heroicons/vue/24/outline';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import type {
@@ -20,8 +16,8 @@ import {
   runProjectGitPullRequestAction,
   type GitPullRequestTargetRemote,
 } from '../api';
-import ProjectGitPullRequestFooter from './ProjectGitPullRequestFooter.vue';
 import ProjectGitPullRequestConfirmations from './ProjectGitPullRequestConfirmations.vue';
+import ProjectGitPullRequestForm from './ProjectGitPullRequestForm.vue';
 import ProjectGitPullRequestStatus from './ProjectGitPullRequestStatus.vue';
 
 const props = defineProps<{
@@ -504,6 +500,38 @@ async function mergePullRequest(): Promise<void> {
       @close="closePullRequest"
       @create="createPullRequestViaGh"
     />
+
+    <ProjectGitPullRequestForm
+      :overview-branch="overview.branch ?? null"
+      :available-targets="availableTargets"
+      :base-branches="baseBranches"
+      :target-remote="targetRemote"
+      :base-branch="baseBranch"
+      :title="title"
+      :description="description"
+      :opening="opening"
+      :busy="busy"
+      :force-push-branch="forcePushBranch"
+      :show-force-push="showForcePush"
+      :mutation-busy="mutationBusy"
+      :can-force-push="canForcePush"
+      :existing-number="existingPullRequest?.number"
+      :existing-url="existingPullRequest?.url"
+      :generated-url="generatedUrl"
+      :checking-existing="checkingExisting"
+      :can-open="canOpen"
+      :existing-pull-request="Boolean(existingPullRequest)"
+      @submit="openPullRequest"
+      @update:target-remote="targetRemote = $event"
+      @update:base-branch="baseBranch = $event"
+      @update:title="title = $event"
+      @update:description="description = $event"
+      @toggle-force-push="showForcePush = !showForcePush"
+      @force-push="emit('force-push')"
+      @open="openPullRequest"
+      @toggle-create="showCreateConfirm = !showCreateConfirm"
+    />
+
     <!--
     <div
       v-if="false && showMergeConfirm && existingPullRequest"
@@ -596,6 +624,7 @@ async function mergePullRequest(): Promise<void> {
       </div>
     </div>
     -->
+    <!-- Legacy inline form kept out of the template after extraction.
     <form class="git-pr-form" @submit.prevent="openPullRequest">
       <div class="git-pr-grid">
         <label>
@@ -704,7 +733,6 @@ async function mergePullRequest(): Promise<void> {
         @toggle-create="showCreateConfirm = !showCreateConfirm"
       />
 
-      <!--
       <div v-if="false && showCreateConfirm" class="git-pr-confirm">
         <p>
           Isto executará <code>{{ createCommandPreview }}</code> — cria a Pull
@@ -723,8 +751,8 @@ async function mergePullRequest(): Promise<void> {
           </button>
         </div>
       </div>
-      -->
     </form>
+    -->
   </section>
 </template>
 
