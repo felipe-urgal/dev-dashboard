@@ -8,97 +8,123 @@
     </div>
 
     <template v-else>
-      <section v-if="!canStop" class="server-config-card">
-        <div class="server-config-list">
-          <label class="server-config-row">
-            <span class="server-config-icon"><ServerStackIcon aria-hidden="true" /></span>
-            <span class="server-config-copy">
-              <strong>Porta</strong>
-              <small>Porta em que a aplicação será executada.</small>
-            </span>
-            <input
-              v-model="selectedPort"
-              class="server-config-control server-port-input"
-              type="number"
-              min="1024"
-              max="65535"
-              inputmode="numeric"
-              placeholder="Automática"
-              :disabled="loadingSettings || executingAction"
-            />
-          </label>
+      <div class="server-layout">
+        <section class="server-config-card">
+          <header class="server-card-heading">
+            <span>Configuração</span>
+            <h2>Preparar servidor</h2>
+            <p>Defina os parâmetros antes de iniciar o processo local.</p>
+          </header>
 
-          <label class="server-config-row">
-            <span class="server-config-icon"><GlobeAltIcon aria-hidden="true" /></span>
-            <span class="server-config-copy">
-              <strong>Ambiente</strong>
-              <small v-if="availableEnvironments.length > 0">
-                O arquivo escolhido substituirá .env.local ao iniciar.
-              </small>
-              <small v-else>Usa .env e .env.local existentes no projeto.</small>
-            </span>
-            <select
-              v-if="project.type === 'node' && availableEnvironments.length > 0"
-              v-model="selectedEnvironment"
-              class="server-config-control server-environment-select"
-              :disabled="loadingSettings || executingAction"
+          <div class="server-config-list">
+            <label class="server-config-row">
+              <span class="server-config-icon"><ServerStackIcon aria-hidden="true" /></span>
+              <span class="server-config-copy">
+                <strong>Porta</strong>
+                <small>Porta em que a aplicação será executada.</small>
+              </span>
+              <input
+                v-model="selectedPort"
+                class="server-config-control server-port-input"
+                type="number"
+                min="1024"
+                max="65535"
+                inputmode="numeric"
+                placeholder="Automática"
+                :disabled="loadingSettings || executingAction"
+              />
+            </label>
+
+            <label class="server-config-row">
+              <span class="server-config-icon"><GlobeAltIcon aria-hidden="true" /></span>
+              <span class="server-config-copy">
+                <strong>Ambiente</strong>
+                <small v-if="availableEnvironments.length > 0">
+                  Escolha o arquivo de ambiente para esta execução.
+                </small>
+                <small v-else>Usa .env e .env.local existentes no projeto.</small>
+              </span>
+              <select
+                v-if="project.type === 'node' && availableEnvironments.length > 0"
+                v-model="selectedEnvironment"
+                class="server-config-control server-environment-select"
+                :disabled="loadingSettings || executingAction"
+              >
+                <option value="" disabled>Escolha</option>
+                <option v-for="environment in availableEnvironments" :key="environment" :value="environment">
+                  {{ `.env.${environment}` }}
+                </option>
+              </select>
+              <span v-else class="server-config-value">{{ environmentDisplayLabel }}</span>
+            </label>
+
+            <div class="server-config-row">
+              <span class="server-config-icon"><CommandLineIcon aria-hidden="true" /></span>
+              <span class="server-config-copy">
+                <strong>Comando</strong>
+                <small>Comando detectado para iniciar o servidor.</small>
+              </span>
+              <code class="server-config-code">{{ commandLabel }}</code>
+            </div>
+          </div>
+
+          <div v-if="errorMessage && !canStop" class="server-error" role="alert">{{ errorMessage }}</div>
+          <div v-if="settingsMessage" class="server-saved-message" role="status">{{ settingsMessage }}</div>
+
+          <footer class="server-config-footer">
+            <button
+              type="button"
+              class="server-secondary-button"
+              :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
+              @click="handleSaveSettings"
             >
-              <option value="" disabled>Escolha</option>
-              <option v-for="environment in availableEnvironments" :key="environment" :value="environment">
-                {{ `.env.${environment}` }}
-              </option>
-            </select>
-            <span v-else class="server-config-value">{{ environmentDisplayLabel }}</span>
-          </label>
+              {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
+            </button>
+          </footer>
+        </section>
 
-          <div class="server-config-row">
-            <span class="server-config-icon"><ArrowPathIcon aria-hidden="true" /></span>
-            <span class="server-config-copy">
-              <strong>Monitoramento</strong>
-              <small>O dashboard acompanha o processo automaticamente.</small>
-            </span>
-            <span class="server-config-state server-config-state-on">Ativo</span>
+        <section v-if="!canStop" class="server-runtime-card server-runtime-card-stopped">
+          <header class="server-card-heading">
+            <span>Estado atual</span>
+            <h2>Servidor parado</h2>
+            <p>{{ statusDescription }}</p>
+          </header>
+
+          <div class="server-runtime-empty">
+            <span class="server-runtime-icon"><PlayIcon aria-hidden="true" /></span>
+            <div>
+              <strong>Pronto para iniciar</strong>
+              <p>Confira as configurações e inicie o servidor para acompanhar a execução.</p>
+            </div>
           </div>
 
-          <div class="server-config-row">
-            <span class="server-config-icon"><CommandLineIcon aria-hidden="true" /></span>
-            <span class="server-config-copy">
-              <strong>Comando</strong>
-              <small>Comando detectado para iniciar o servidor.</small>
-            </span>
-            <code class="server-config-code">{{ commandLabel }}</code>
-          </div>
-        </div>
+          <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
-        <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
+          <footer class="server-runtime-actions">
+            <button
+              type="button"
+              class="server-primary-button"
+              :disabled="executingAction || loadingSettings || environmentSelectionMissing"
+              @click="handleStart"
+            >
+              <PlayIcon aria-hidden="true" />
+              {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar servidor' }}
+            </button>
+          </footer>
+        </section>
 
-        <footer class="server-config-footer">
-          <button
-            type="button"
-            class="server-secondary-button"
-            :disabled="savingSettings || loadingSettings || environmentSelectionMissing"
-            @click="handleSaveSettings"
-          >
-            {{ savingSettings ? 'Salvando...' : 'Salvar configurações' }}
-          </button>
-          <button
-            type="button"
-            class="server-primary-button"
-            :disabled="executingAction || loadingSettings || environmentSelectionMissing"
-            @click="handleStart"
-          >
-            <PlayIcon aria-hidden="true" />
-            {{ currentAction === 'start' ? 'Iniciando...' : 'Iniciar servidor' }}
-          </button>
-        </footer>
-      </section>
+        <section v-else class="server-runtime-card server-running-card">
+          <header class="server-card-heading server-card-heading-running">
+            <div>
+              <span>Estado atual</span>
+              <h2>Tudo funcionando</h2>
+              <p>{{ statusDescription }}</p>
+            </div>
+            <span class="server-running-badge">Em execução</span>
+          </header>
 
-      <section v-else class="server-running-card">
-        <div class="server-status-banner server-status-banner-running">
-          <span class="server-status-symbol" aria-hidden="true"><BoltIcon /></span>
-          <div class="server-status-copy">
-            <strong>Tudo funcionando</strong>
-            <span>{{ statusDescription }}</span>
+          <div class="server-runtime-summary">
+            <div class="server-runtime-icon server-runtime-icon-running"><BoltIcon aria-hidden="true" /></div>
             <div class="server-access-links">
               <span class="server-online-pill">Online</span>
               <a v-if="primaryProcessUrl" class="server-access-link" :href="primaryProcessUrl" target="_blank" rel="noopener noreferrer">
@@ -110,78 +136,76 @@
               <span class="server-environment-pill">Ambiente <strong>{{ environmentDisplayLabel }}</strong></span>
             </div>
           </div>
+
           <dl class="server-metrics">
             <div><dt>PID</dt><dd>{{ managedProcess?.pid ?? '—' }}</dd></div>
             <div><dt>Porta</dt><dd>{{ (managedProcess?.port ?? selectedPort) || '—' }}</dd></div>
             <div><dt>Uptime</dt><dd>{{ uptimeLabel }}</dd></div>
             <div><dt>Iniciado</dt><dd>{{ startedAtLabel }}</dd></div>
           </dl>
-        </div>
 
-        <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
+          <div v-if="errorMessage" class="server-error" role="alert">{{ errorMessage }}</div>
 
-        <footer class="server-status-actions">
-          <button
-            type="button"
-            class="server-secondary-button server-log-button"
-            @click="logOpen = true"
+          <footer class="server-status-actions">
+            <button
+              type="button"
+              class="server-secondary-button server-log-button"
+              @click="logOpen = !logOpen"
+            >
+              <CommandLineIcon aria-hidden="true" />
+              {{ logOpen ? 'Ocultar log' : 'Ver log' }}
+            </button>
+            <button type="button" class="server-danger-button" :disabled="executingAction" @click="handleStop">
+              <StopIcon aria-hidden="true" />{{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
+            </button>
+            <button type="button" class="server-secondary-button" :disabled="executingAction" @click="handleRestart">
+              <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
+            </button>
+          </footer>
+
+          <section
+            v-if="logOpen"
+            class="server-log-panel"
+            :class="{ 'server-log-panel-expanded': logMaximized }"
+            aria-labelledby="server-log-title"
           >
-            <CommandLineIcon aria-hidden="true" />
-            Ver log
-          </button>
-          <button type="button" class="server-danger-button" :disabled="executingAction" @click="handleStop">
-            <StopIcon aria-hidden="true" />{{ currentAction === 'stop' ? 'Parando...' : 'Parar' }}
-          </button>
-          <button type="button" class="server-secondary-button" :disabled="executingAction" @click="handleRestart">
-            <ArrowPathIcon aria-hidden="true" />{{ currentAction === 'restart' ? 'Reiniciando...' : 'Reiniciar' }}
-          </button>
-        </footer>
-
-        <section
-          v-if="logOpen"
-          class="server-log-panel"
-          :class="{ 'server-log-panel-expanded': logMaximized }"
-          aria-labelledby="server-log-title"
-        >
-          <header class="server-log-panel-header">
-            <div>
-              <span>Log do processo</span>
-              <h3 id="server-log-title">Log do servidor</h3>
+            <header class="server-log-panel-header">
+              <div>
+                <span>Observabilidade</span>
+                <h3 id="server-log-title">Log do servidor</h3>
+              </div>
+              <div class="server-log-panel-actions">
+                <button
+                  type="button"
+                  class="server-log-panel-button"
+                  :aria-label="logMaximized ? 'Restaurar log' : 'Expandir log'"
+                  @click="toggleLogMaximized"
+                >
+                  <ArrowsPointingInIcon v-if="logMaximized" aria-hidden="true" />
+                  <ArrowsPointingOutIcon v-else aria-hidden="true" />
+                  {{ logMaximized ? 'Restaurar' : 'Expandir' }}
+                </button>
+                <button
+                  type="button"
+                  class="server-log-close-button"
+                  aria-label="Fechar log do servidor"
+                  @click="logOpen = false"
+                >
+                  Fechar
+                </button>
+              </div>
+            </header>
+            <div class="server-log-panel-body">
+              <ProjectLogTerminal
+                :content="logSnapshot?.content ?? ''"
+                :running="processStatus === 'running'"
+                :masked-count="logSnapshot?.redactionCount ?? 0"
+                :clearing="clearingLog"
+                @clear="clearLogView"
+              />
             </div>
-            <div class="server-log-panel-actions">
-              <button
-                type="button"
-                class="server-log-panel-button"
-                :aria-label="logMaximized ? 'Restaurar log' : 'Expandir log'"
-                @click="toggleLogMaximized"
-              >
-                <ArrowsPointingInIcon
-                  v-if="logMaximized"
-                  aria-hidden="true"
-                />
-                <ArrowsPointingOutIcon v-else aria-hidden="true" />
-                {{ logMaximized ? 'Restaurar' : 'Expandir' }}
-              </button>
-              <button
-                type="button"
-                class="server-log-close-button"
-                aria-label="Fechar log do servidor"
-                @click="logOpen = false"
-              >
-                Fechar
-              </button>
-            </div>
-          </header>
-          <div class="server-log-panel-body">
-            <ProjectLogTerminal
-              :content="logSnapshot?.content ?? ''"
-              :running="processStatus === 'running'"
-              :masked-count="logSnapshot?.redactionCount ?? 0"
-              :clearing="clearingLog"
-              @clear="clearLogView"
-            />
-          </div>
+          </section>
         </section>
-      </section>
+      </div>
     </template>
   </div>
