@@ -10,7 +10,8 @@ import {
   PlayIcon,
   ServerStackIcon,
   StopIcon,
-  XMarkIcon,
+  ArrowsPointingInIcon,
+  ArrowsPointingOutIcon,
 } from '@heroicons/vue/24/outline';
 
 import type { Project, ProjectServerSettings } from '@dev-dashboard/contracts';
@@ -72,6 +73,11 @@ const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
 const logOpen = ref(false);
+const logMaximized = ref(false);
+
+function toggleLogMaximized(): void {
+  logMaximized.value = !logMaximized.value;
+}
 
 useAutoDismiss(errorMessage, '');
 useAutoDismiss(settingsMessage, '');
