@@ -10,6 +10,7 @@ import ProjectGitDiffPage from './ProjectGitDiffPage.vue';
 import ProjectGitHistoryPage from './ProjectGitHistoryPage.vue';
 import ProjectGitPullRequestPage from './ProjectGitPullRequestPage.vue';
 import ProjectGitSyncPage from './ProjectGitSyncPage.vue';
+import ProjectGitSubtabs from './ProjectGitSubtabs.vue';
 import ProjectGitUndoPage from './ProjectGitUndoPage.vue';
 import StatusBadge from './StatusBadge.vue';
 
