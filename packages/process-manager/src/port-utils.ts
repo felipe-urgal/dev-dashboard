@@ -22,7 +22,15 @@ function isIpv4Family(family: string | number): boolean {
 export function listServerUrls(port: number): string[] {
   const urls = new Set<string>([`http://localhost:${port}`]);
 
-  for (const addresses of Object.values(networkInterfaces())) {
+  let interfaces: ReturnType<typeof networkInterfaces>;
+  try {
+    interfaces = networkInterfaces();
+  } catch {
+    // Restricted runtimes may not expose network interfaces. Keep localhost.
+    return [...urls];
+  }
+
+  for (const addresses of Object.values(interfaces)) {
     for (const address of addresses ?? []) {
       if (
         !isIpv4Family(address.family) ||
