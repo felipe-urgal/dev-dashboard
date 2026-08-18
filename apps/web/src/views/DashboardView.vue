@@ -19,8 +19,6 @@ const {
 } = dashboardStore;
 
 const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
-
-
 </script>
 
 <template>
@@ -157,20 +155,10 @@ const sortedProjects = computed(() => sortProjectsByPriority(projects.value));
 }
 
 @media (max-width: 720px) {
-  .overview-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .compact-actions {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 420px) {
-  .overview-summary-grid {
-    grid-template-columns: 1fr;
   }
 }
 
