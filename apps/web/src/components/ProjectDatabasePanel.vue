@@ -19,6 +19,7 @@ import type {
 
 import { useProjectDatabaseOverview } from '../composables/useProjectDatabaseOverview';
 import { dbReachabilityToneFor } from '../utils/status-tones';
+import ProjectToolHeader from './ProjectToolHeader.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -91,6 +92,16 @@ const sharedServiceEnvironments = computed<ProjectDatabaseEnvironment[]>(() => {
     (item) => item.id !== env.id && systemdServiceFor(item) === service,
   );
 });
+
+const sharedServiceEnvironmentNames = computed(() =>
+  sharedServiceEnvironments.value.map((item) => item.environment).join(', '),
+);
+
+const selectedServiceState = computed(() =>
+  selectedEnvironment.value?.serviceAvailable
+    ? 'Gerenciamento local disponível'
+    : 'Somente leitura',
+);
 
 function handleDatabaseExplorerKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
