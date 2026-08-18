@@ -21,6 +21,7 @@ import type {
 } from '@dev-dashboard/contracts';
 
 import { fetchProjectDoctor } from '../api';
+import ProjectToolHeader from './ProjectToolHeader.vue';
 import StatusBadge from './StatusBadge.vue';
 
 const props = defineProps<{ project: Project }>();
@@ -198,25 +199,22 @@ watch(
     :aria-busy="loading"
   >
     <article class="project-doctor-card">
-      <header class="project-doctor-header">
-        <div class="project-doctor-heading">
-          <span class="project-doctor-heading-icon">
-            <ShieldCheckIcon aria-hidden="true" />
-          </span>
-          <div>
-            <h3 id="project-doctor-title">Project Doctor</h3>
-            <p>Análise rápida da saúde do projeto</p>
-          </div>
-        </div>
-
-        <button type="button" :disabled="loading" @click="load(true)">
-          <ArrowPathIcon
-            aria-hidden="true"
-            :class="{ 'is-spinning': loading }"
-          />
-          {{ loading ? 'Analisando…' : 'Executar nova análise' }}
-        </button>
-      </header>
+      <ProjectToolHeader
+        class="project-doctor-header"
+        eyebrow="Ferramenta do projeto"
+        title="Project Doctor"
+        description="Análise rápida da saúde do projeto"
+      >
+        <template #actions>
+          <button type="button" :disabled="loading" @click="load(true)">
+            <ArrowPathIcon
+              aria-hidden="true"
+              :class="{ 'is-spinning': loading }"
+            />
+            {{ loading ? 'Analisando…' : 'Executar nova análise' }}
+          </button>
+        </template>
+      </ProjectToolHeader>
 
       <div v-if="errorMessage" class="project-doctor-alert" role="alert">
         <div>

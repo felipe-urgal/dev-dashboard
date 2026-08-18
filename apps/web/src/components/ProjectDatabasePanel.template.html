@@ -3,17 +3,18 @@
   aria-labelledby="database-explorer-title"
   @keydown="handleDatabaseExplorerKeydown"
 >
-  <header class="database-page-header">
-    <div>
-      <span>Ferramenta do projeto</span>
-      <h3 id="database-explorer-title">Banco de dados</h3>
-      <p>Explore conexões detectadas e gerencie serviços locais.</p>
-    </div>
-    <button type="button" :disabled="loading" @click="loadDatabase(1)">
-      <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
-      {{ loading ? 'Atualizando…' : 'Atualizar' }}
-    </button>
-  </header>
+  <ProjectToolHeader
+    eyebrow="Ferramenta do projeto"
+    title="Banco de dados"
+    description="Explore conexões detectadas e gerencie serviços locais."
+  >
+    <template #actions>
+      <button type="button" :disabled="loading" @click="loadDatabase(1)">
+        <ArrowPathIcon aria-hidden="true" :class="{ 'is-spinning': loading }" />
+        {{ loading ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+    </template>
+  </ProjectToolHeader>
   <div class="database-split-layout database-environments-layout">
     <aside class="database-sidebar-panel">
       <header>
@@ -34,7 +35,9 @@
           :class="{ active: selectedEnvironment?.id === item.id }"
           @click="selectedEnvironmentId = item.id"
         >
-          <span class="database-sidebar-item-icon"><ServerStackIcon aria-hidden="true" /></span>
+          <span class="database-sidebar-item-icon"
+            ><ServerStackIcon aria-hidden="true"
+          /></span>
           <span>
             <strong>{{ item.environment }}</strong>
             <small>{{ item.driver }}</small>
@@ -46,27 +49,54 @@
         </button>
       </div>
 
-      <nav v-if="pages > 1" class="database-pagination" aria-label="Paginação dos ambientes">
-        <button :disabled="page <= 1 || loading" @click="loadDatabase(page - 1)">Anterior</button>
+      <nav
+        v-if="pages > 1"
+        class="database-pagination"
+        aria-label="Paginação dos ambientes"
+      >
+        <button
+          :disabled="page <= 1 || loading"
+          @click="loadDatabase(page - 1)"
+        >
+          Anterior
+        </button>
         <span>{{ page }} / {{ pages }}</span>
-        <button :disabled="page >= pages || loading" @click="loadDatabase(page + 1)">Próxima</button>
+        <button
+          :disabled="page >= pages || loading"
+          @click="loadDatabase(page + 1)"
+        >
+          Próxima
+        </button>
       </nav>
     </aside>
 
-    <article v-if="selectedEnvironment" class="database-detail-panel database-environment-detail">
+    <article
+      v-if="selectedEnvironment"
+      class="database-detail-panel database-environment-detail"
+    >
       <header class="database-detail-title">
         <div class="database-detail-heading">
-          <span class="database-detail-icon"><CircleStackIcon aria-hidden="true" /></span>
+          <span class="database-detail-icon"
+            ><CircleStackIcon aria-hidden="true"
+          /></span>
           <div>
             <h4>{{ selectedEnvironment.environment }}</h4>
             <p>{{ selectedEnvironment.database ?? 'Banco não informado' }}</p>
           </div>
-          <StatusBadge :tone="dbReachabilityToneFor(selectedEnvironment.reachability)">
+          <StatusBadge
+            :tone="dbReachabilityToneFor(selectedEnvironment.reachability)"
+          >
             {{ reachabilityLabels[selectedEnvironment.reachability] }}
           </StatusBadge>
-          <div class="database-detail-meta" aria-label="Resumo rápido do ambiente">
+          <div
+            class="database-detail-meta"
+            aria-label="Resumo rápido do ambiente"
+          >
             <span>{{ selectedEnvironment.driver }}</span>
-            <span>{{ selectedEnvironment.host ?? 'Host não informado' }}:{{ selectedEnvironment.port ?? '—' }}</span>
+            <span
+              >{{ selectedEnvironment.host ?? 'Host não informado' }}:{{
+              selectedEnvironment.port ?? '—' }}</span
+            >
           </div>
         </div>
 
@@ -80,7 +110,8 @@
               @click="runAction(selectedEnvironment.id, 'start')"
             >
               <PlayIcon aria-hidden="true" />
-              {{ pendingAction[selectedEnvironment.id] === 'start' ? serviceActionLabels.start : 'Iniciar banco local' }}
+              {{ pendingAction[selectedEnvironment.id] === 'start' ?
+              serviceActionLabels.start : 'Iniciar banco local' }}
             </button>
             <template v-else>
               <button
@@ -89,7 +120,8 @@
                 @click="runAction(selectedEnvironment.id, 'restart')"
               >
                 <ArrowPathIcon aria-hidden="true" />
-                {{ pendingAction[selectedEnvironment.id] === 'restart' ? serviceActionLabels.restart : 'Reiniciar banco' }}
+                {{ pendingAction[selectedEnvironment.id] === 'restart' ?
+                serviceActionLabels.restart : 'Reiniciar banco' }}
               </button>
               <button
                 class="database-action-danger"
@@ -98,7 +130,8 @@
                 @click="runAction(selectedEnvironment.id, 'stop')"
               >
                 <PauseIcon aria-hidden="true" />
-                {{ pendingAction[selectedEnvironment.id] === 'stop' ? serviceActionLabels.stop : 'Pausar banco' }}
+                {{ pendingAction[selectedEnvironment.id] === 'stop' ?
+                serviceActionLabels.stop : 'Pausar banco' }}
               </button>
             </template>
           </template>
@@ -112,30 +145,61 @@
         <section>
           <h5>Resumo da conexão</h5>
           <dl class="database-definition-list database-summary-list">
-            <div><dt>Driver</dt><dd>{{ selectedEnvironment.driver }}</dd></div>
-            <div><dt>Host</dt><dd>{{ selectedEnvironment.host ?? 'Não informado' }}</dd></div>
-            <div><dt>Porta</dt><dd>{{ selectedEnvironment.port ?? 'Não informada' }}</dd></div>
-            <div><dt>Database</dt><dd>{{ selectedEnvironment.database ?? 'Não informado' }}</dd></div>
-            <div><dt>Usuário</dt><dd>{{ selectedEnvironment.username ?? 'Não informado' }}</dd></div>
+            <div>
+              <dt>Driver</dt>
+              <dd>{{ selectedEnvironment.driver }}</dd>
+            </div>
+            <div>
+              <dt>Host</dt>
+              <dd>{{ selectedEnvironment.host ?? 'Não informado' }}</dd>
+            </div>
+            <div>
+              <dt>Porta</dt>
+              <dd>{{ selectedEnvironment.port ?? 'Não informada' }}</dd>
+            </div>
+            <div>
+              <dt>Database</dt>
+              <dd>{{ selectedEnvironment.database ?? 'Não informado' }}</dd>
+            </div>
+            <div>
+              <dt>Usuário</dt>
+              <dd>{{ selectedEnvironment.username ?? 'Não informado' }}</dd>
+            </div>
           </dl>
         </section>
 
-        <section v-if="selectedEnvironment.maskedUrl || revealed[selectedEnvironment.id]" class="database-summary-url">
+        <section
+          v-if="selectedEnvironment.maskedUrl || revealed[selectedEnvironment.id]"
+          class="database-summary-url"
+        >
           <div class="database-health-summary">
             <span>Saúde da conexão</span>
-            <StatusBadge :tone="dbReachabilityToneFor(selectedEnvironment.reachability)">
+            <StatusBadge
+              :tone="dbReachabilityToneFor(selectedEnvironment.reachability)"
+            >
               {{ reachabilityLabels[selectedEnvironment.reachability] }}
             </StatusBadge>
           </div>
           <div class="database-connection-url">
             <header>
               <strong>URL de conexão</strong>
-              <button v-if="selectedEnvironment.passwordConfigured" type="button" @click="reveal(selectedEnvironment.id)">
-                <component :is="revealed[selectedEnvironment.id] ? EyeSlashIcon : EyeIcon" aria-hidden="true" />
-                {{ revealed[selectedEnvironment.id] ? 'Ocultar senha' : 'Revelar senha' }}
+              <button
+                v-if="selectedEnvironment.passwordConfigured"
+                type="button"
+                @click="reveal(selectedEnvironment.id)"
+              >
+                <component
+                  :is="revealed[selectedEnvironment.id] ? EyeSlashIcon : EyeIcon"
+                  aria-hidden="true"
+                />
+                {{ revealed[selectedEnvironment.id] ? 'Ocultar' : 'Revelar' }}
+                senha
               </button>
             </header>
-            <code>{{ revealed[selectedEnvironment.id] ?? selectedEnvironment.maskedUrl }}</code>
+            <code
+              >{{ revealed[selectedEnvironment.id] ??
+              selectedEnvironment.maskedUrl }}</code
+            >
           </div>
           <button
             v-if="revealed[selectedEnvironment.id] || (!selectedEnvironment.passwordConfigured && selectedEnvironment.maskedUrl)"
@@ -144,20 +208,26 @@
             @click="copy(revealed[selectedEnvironment.id] ?? selectedEnvironment.maskedUrl ?? '', `url-${selectedEnvironment.id}`)"
           >
             <ClipboardDocumentIcon aria-hidden="true" />
-            {{ copiedKey === `url-${selectedEnvironment.id}` ? 'URL copiada' : 'Copiar URL' }}
+            {{ copiedKey === `url-${selectedEnvironment.id}` ? 'URL copiada' :
+            'Copiar URL' }}
           </button>
         </section>
         <section v-else class="database-summary-url database-summary-url-empty">
           <h5>Saúde da conexão</h5>
-          <StatusBadge :tone="dbReachabilityToneFor(selectedEnvironment.reachability)">
+          <StatusBadge
+            :tone="dbReachabilityToneFor(selectedEnvironment.reachability)"
+          >
             {{ reachabilityLabels[selectedEnvironment.reachability] }}
           </StatusBadge>
         </section>
       </div>
 
-      <p v-if="sharedServiceEnvironments.length" class="database-shared-service-hint">
+      <p
+        v-if="sharedServiceEnvironments.length"
+        class="database-shared-service-hint"
+      >
         <strong>Impacto ao pausar ou reiniciar</strong>
-        Este serviço também é usado por: {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}.
+        Este serviço também é usado por: {{ sharedServiceEnvironmentNames }}.
         Qualquer ação afeta esses ambientes também.
       </p>
 
@@ -165,20 +235,36 @@
         <section class="database-properties-panel">
           <h5>Propriedades do ambiente</h5>
           <dl class="database-definition-list">
-            <div><dt>Ambiente</dt><dd>{{ selectedEnvironment.environment }}</dd></div>
-            <div><dt>Origem</dt><dd>{{ selectedEnvironment.sourceDetail }}</dd></div>
-            <div><dt>Driver</dt><dd>{{ selectedEnvironment.driver }}</dd></div>
-            <div><dt>Banco</dt><dd>{{ selectedEnvironment.database ?? 'Não informado' }}</dd></div>
+            <div>
+              <dt>Ambiente</dt>
+              <dd>{{ selectedEnvironment.environment }}</dd>
+            </div>
+            <div>
+              <dt>Origem</dt>
+              <dd>{{ selectedEnvironment.sourceDetail }}</dd>
+            </div>
+            <div>
+              <dt>Driver</dt>
+              <dd>{{ selectedEnvironment.driver }}</dd>
+            </div>
+            <div>
+              <dt>Banco</dt>
+              <dd>{{ selectedEnvironment.database ?? 'Não informado' }}</dd>
+            </div>
           </dl>
         </section>
         <section class="database-usage-panel">
           <h5>Contexto e uso do ambiente</h5>
           <p v-if="sharedServiceEnvironments.length">
-            O serviço local é compartilhado com {{ sharedServiceEnvironments.map((item) => item.environment).join(', ') }}.
+            O serviço local é compartilhado com {{ sharedServiceEnvironmentNames
+            }}.
           </p>
-          <p v-else>Este ambiente não compartilha o serviço local com outros ambientes detectados.</p>
+          <p v-else>
+            Este ambiente não compartilha o serviço local com outros ambientes
+            detectados.
+          </p>
           <span class="database-service-state">
-            {{ selectedEnvironment.serviceAvailable ? 'Gerenciamento local disponível' : 'Somente leitura' }}
+            {{ selectedServiceState }}
           </span>
         </section>
       </div>
