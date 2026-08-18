@@ -498,3 +498,129 @@ export function useProjectGitPanel(
     return overview.value?.branch ?? 'HEAD';
   }
 
+  async function runCommit(): Promise<void> {
+    if (mutationRunning.value) return;
+    const message = commitMessage.value.trim();
+    if (!message) {
+      mutationErrorMessage.value = 'Informe uma mensagem de commit.';
+      return;
+    }
+
+    const amend = commitMode.value === 'amend';
+    const branchBeforeCommit = overview.value?.branch;
+    const upstreamBeforeCommit = overview.value?.upstream;
+    const confirmed = await confirmDialog({
+      title: amend ? 'Alterar último commit?' : 'Criar commit?',
+      message: amend
+        ? `O último commit será alterado para "${message}" e incluirá as alterações atuais.`
+        : `O commit "${message}" incluirá todas as alterações rastreadas.`,
+      confirmLabel: amend ? 'Alterar commit' : 'Criar commit',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
+
+    mutationRunning.value = true;
+    mutationMessage.value = '';
+    mutationErrorMessage.value = '';
+    try {
+      const operation = amend ? 'amend' : 'commit';
+      const confirmation = await prepareProjectGitMutation(
+        props.project.id,
+        operation,
+        currentBranchOrHead(),
+      );
+      const commit = amend
+        ? await amendProjectGit(props.project.id, message, confirmation.token)
+        : await commitProjectGit(
+            props.project.id,
+            message,
+            true,
+            confirmation.token,
+          );
+      mutationMessage.value = amend
+        ? `Commit "${commit.shortHash}" alterado: ${commit.subject}`
+        : `Commit "${commit.shortHash}" criado: ${commit.subject}`;
+      if (
+        amend &&
+        branchBeforeCommit &&
+        branchBeforeCommit !== 'main' &&
+        branchBeforeCommit !== 'master' &&
+        upstreamBeforeCommit === `origin/${branchBeforeCommit}`
+      ) {
+        amendedBranch.value = branchBeforeCommit;
+      }
+      commitMessage.value = '';
+      commitMode.value = 'create';
+      await reloadGitData();
+    } catch (error) {
+      mutationErrorMessage.value =
+        error instanceof Error
+          ? error.message
+          : amend
+            ? 'Não foi possível alterar o último commit.'
+            : 'Não foi possível criar o commit.';
+    } finally {
+      mutationRunning.value = false;
+    }
+  }
+
+  watch(
+    () => props.project.id,
+    async () => {
+      overview.value = null;
+      workspace.value = null;
+      commitMessage.value = '';
+      commitMode.value = 'create';
+      amendedBranch.value = null;
+      changeImpact.value = null;
+      activeTab.value = tabFromQuery();
+      await Promise.all([loadGit(), loadWorkspace()]);
+      void refreshRemotesSilently();
+    },
+    { immediate: true },
+  );
+
+  watch(
+    () => route?.query.tab,
+    () => openTab(tabFromQuery()),
+  );
+
+  return {
+    tabs,
+    activeTab,
+    overview,
+    workspace,
+    loading,
+    loadingWorkspace,
+    remoteRefreshRunning,
+    errorMessage,
+    workspaceErrorMessage,
+    mutationRunning,
+    mutationMessage,
+    mutationErrorMessage,
+    createBranchName,
+    commitMessage,
+    commitMode,
+    amendedBranch,
+    changeImpact,
+    generation,
+    formatDate,
+    openTab,
+    tabFromQuery,
+    loadGit,
+    loadWorkspace,
+    configuredRemoteNames,
+    refreshRemotesSilently,
+    reloadGitData,
+    runMutation,
+    runRenameBranch,
+    runDeleteBranch,
+    runRefreshRemotes,
+    runTrackRemoteBranch,
+    runDeleteRemoteBranch,
+    runUpdateCurrentBranch,
+    runMainSynchronization,
+    currentBranchOrHead,
+    runCommit,
+  };
+}
