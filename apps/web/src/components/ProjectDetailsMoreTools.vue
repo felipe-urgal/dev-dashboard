@@ -265,6 +265,32 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
+/* The trigger lives in the project tabs while the menu itself is teleported. */
+.project-details-more-menu {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.project-details-more-trigger {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  cursor: pointer;
+}
+
+.project-details-more-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* This menu is teleported to body, so it cannot inherit the view's scoped CSS. */
 .project-details-more-popover {
   position: fixed;
