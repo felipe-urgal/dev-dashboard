@@ -296,6 +296,7 @@ watch(
         <header class="project-details-hero">
           <div class="project-details-main">
             <div class="project-details-copy">
+              <span class="project-details-eyebrow">Projeto atual</span>
               <div class="project-title-row">
                 <h2>{{ project.name }}</h2>
                 <div
@@ -306,6 +307,12 @@ watch(
                   <ShareIcon aria-hidden="true" />
                   <span>{{ gitBranch }}</span>
                 </div>
+              </div>
+              <div class="project-details-repository" :title="project.path">
+                <span class="project-details-repository-label"
+                  >Repositório</span
+                >
+                <code>{{ project.path }}</code>
               </div>
             </div>
           </div>

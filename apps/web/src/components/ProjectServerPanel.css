@@ -191,7 +191,11 @@
   font-size: 11px;
   font-weight: var(--font-weight-strong);
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
 }
 
 .server-primary-button {
@@ -428,7 +432,9 @@
 
 .server-log-panel {
   display: flex;
+  height: min(420px, 52vh);
   min-height: 260px;
+  max-height: 420px;
   margin: 0 14px 14px;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -441,6 +447,9 @@
   position: fixed;
   z-index: 1000;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
   min-height: 0;
   margin: 0;
   border: 0;

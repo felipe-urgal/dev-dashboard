@@ -18,6 +18,26 @@ const props = withDefaults(
 
 const emit = defineEmits<{ clear: [] }>();
 
+const MAX_RENDERED_LOG_LINES = 1200;
+const MAX_RENDERED_LOG_BYTES = 240_000;
+
+function boundedContent(content: string): string {
+  let bounded = content;
+
+  if (bounded.length > MAX_RENDERED_LOG_BYTES) {
+    bounded = bounded.slice(-MAX_RENDERED_LOG_BYTES);
+    const firstLineBreak = bounded.indexOf('\n');
+    if (firstLineBreak >= 0) bounded = bounded.slice(firstLineBreak + 1);
+  }
+
+  const lines = bounded.split(/\r?\n/);
+  if (lines.length > MAX_RENDERED_LOG_LINES) {
+    bounded = lines.slice(-MAX_RENDERED_LOG_LINES).join('\n');
+  }
+
+  return bounded;
+}
+
 function handleClear(): void {
   if (!props.clearable || props.clearing) return;
   terminal?.clear();
@@ -32,9 +52,10 @@ let resizeObserver: ResizeObserver | undefined;
 function renderContent(): void {
   if (!terminal) return;
 
-  terminal.clear();
-  if (props.content) {
-    terminal.write(props.content.replace(/\r?\n/g, '\r\n'));
+  terminal.reset();
+  const content = boundedContent(props.content);
+  if (content) {
+    terminal.write(content.replace(/\r?\n/g, '\r\n'));
   }
   terminal.scrollToBottom();
 }
@@ -48,6 +69,7 @@ async function mountTerminal(): Promise<void> {
     disableStdin: true,
     cursorBlink: false,
     cursorStyle: 'bar',
+    scrollback: MAX_RENDERED_LOG_LINES,
     fontSize: 13,
     fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
     theme: {

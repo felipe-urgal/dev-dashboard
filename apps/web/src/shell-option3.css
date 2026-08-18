@@ -238,16 +238,6 @@
   gap: 16px;
 }
 
-.project-details-copy::before {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--accent);
-  content: 'PROJETO ATUAL';
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-}
-
 .project-title-row {
   gap: 14px;
 }
@@ -1019,11 +1009,6 @@
   .project-details-hero {
     min-height: 92px;
     padding: 18px 16px;
-  }
-
-  .project-details-copy::before {
-    margin-bottom: 5px;
-    font-size: 8px;
   }
 
   .project-title-row {
