@@ -1,17 +1,6 @@
 <section class="git-modern-panel">
   <div class="git-navigation-bar">
-    <nav class="git-subtabs" aria-label="Áreas do Git">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        :data-icon="tab.icon"
-        :class="{ active: activeTab === tab.id }"
-        @click="openTab(tab.id)"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
+    <ProjectGitSubtabs :tabs="tabs" :active-tab="activeTab" @select="openTab" />
   </div>
 
   <div class="git-modern-messages">
@@ -105,13 +94,9 @@
       @force-push="runForcePushWithLease"
     />
 
-
-
     <ProjectGitHistoryPage
       v-else-if="activeTab === 'history'"
       :project-id="project.id"
     />
-
-
   </template>
 </section>

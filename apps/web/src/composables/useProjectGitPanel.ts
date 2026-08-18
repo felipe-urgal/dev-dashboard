@@ -34,21 +34,21 @@ import type { CommitMode } from '../components/ProjectGitCommitPage.vue';
 import { confirmDialog } from '../stores/app-dialog';
 import { useAutoDismiss } from './useAutoDismiss';
 
+export type GitTab =
+  'branches' | 'sync' | 'diff' | 'commit' | 'undo' | 'pull-request' | 'history';
+
+export interface GitTabOption {
+  id: GitTab;
+  label: string;
+  icon: string;
+}
+
 export function useProjectGitPanel(
   props: Readonly<{ project: Project }>,
   route: { query: Record<string, unknown> } | undefined,
   emit: (event: 'git-updated', overview: ProjectGitOverview) => void,
 ) {
-  type GitTab =
-    | 'branches'
-    | 'sync'
-    | 'diff'
-    | 'commit'
-    | 'undo'
-    | 'pull-request'
-    | 'history';
-
-  const tabs: Array<{ id: GitTab; label: string; icon: string }> = [
+  const tabs: GitTabOption[] = [
     { id: 'sync', label: 'Sincronização', icon: '↕' },
     { id: 'branches', label: 'Branches', icon: '⑂' },
     { id: 'diff', label: 'Diff', icon: '±' },
