@@ -177,7 +177,7 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(
-      document.body.querySelectorAll('.project-log-terminal'),
+      sidekiqWrapper.findAll('.project-log-terminal'),
     ).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
@@ -195,8 +195,8 @@ describe('ProjectRailsRuntimePanel', () => {
     await flushPromises();
 
     expect(
-      document.body.querySelectorAll('.project-log-terminal'),
-    ).toHaveLength(2);
+      webpackWrapper.findAll('.project-log-terminal'),
+    ).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
