@@ -131,6 +131,8 @@
 }
 
 .sidebar-workspace-add-icon {
+  position: relative;
+  z-index: 31;
   display: inline-flex;
   width: 34px;
   height: 34px;
