@@ -2,22 +2,18 @@
   class="git-diff-page"
   :class="{ 'has-single-diff-file': hasSingleChangedFile }"
 >
-  <header class="git-diff-page-heading">
-    <div>
-      <span class="git-diff-kicker">Revisão de código</span>
-      <h2>Alterações da branch</h2>
-      <p>
-        <strong>{{ branchLabel }}</strong>
-        <span aria-hidden="true">·</span>
-        <span>Staged e não staged</span>
-        <span aria-hidden="true">·</span>
-        <span><b>{{ entries.length }}</b> arquivo(s)</span>
-        <span aria-hidden="true">·</span>
-        <span class="git-diff-delta">
-          <b class="is-addition">+{{ totalAdditions }}</b>
-          <b class="is-deletion">−{{ totalDeletions }}</b>
-        </span>
-      </p>
+  <div v-if="snapshotError" class="project-error" role="alert">
+    {{ snapshotError }}
+  </div>
+
+  <div class="git-diff-toolbar">
+    <div class="git-diff-context" aria-label="Resumo das alterações">
+      <strong>{{ branchLabel }}</strong>
+      <span>{{ entries.length }} arquivo(s)</span>
+      <span class="git-diff-delta">
+        <b class="is-addition">+{{ totalAdditions }}</b>
+        <b class="is-deletion">−{{ totalDeletions }}</b>
+      </span>
     </div>
 
     <button
@@ -32,13 +28,6 @@
       />
       {{ loadingSnapshot ? 'Atualizando…' : 'Atualizar' }}
     </button>
-  </header>
-
-  <div v-if="snapshotError" class="project-error" role="alert">
-    {{ snapshotError }}
-  </div>
-
-  <div class="git-diff-toolbar">
     <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
       <FunnelIcon aria-hidden="true" />
       <select v-model="statusFilter" aria-label="Filtrar arquivos por status">
