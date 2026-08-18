@@ -263,3 +263,53 @@ onBeforeUnmount(() => {
     </Teleport>
   </div>
 </template>
+
+<style>
+/* This menu is teleported to body, so it cannot inherit the view's scoped CSS. */
+.project-details-more-popover {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  gap: 3px;
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-2);
+}
+
+.project-details-more-item {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+.project-details-more-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.project-details-more-item:hover,
+.project-details-more-item-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.project-details-more-item:hover svg,
+.project-details-more-item-active svg {
+  color: var(--accent);
+}
+</style>
