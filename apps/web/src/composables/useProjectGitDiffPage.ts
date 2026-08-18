@@ -25,6 +25,27 @@ import {
   splitGitDiffHunks,
 } from '../utils/git-diff-view';
 
+export interface GitDiffHunkState {
+  hunk: GitDiffHunk;
+  before: GitUnifiedDiffLine[];
+  after: GitUnifiedDiffLine[];
+  expanding: boolean;
+}
+
+export interface GitDiffFileEntry {
+  file: GitDiffFile;
+  language: string | null;
+  loading: boolean;
+  loaded: boolean;
+  error: string;
+  diff: GitFileDiff | null;
+  leading: GitUnifiedDiffLine[];
+  hunks: GitDiffHunkState[];
+  totalLines: number | null;
+  collapsed: boolean;
+  viewed: boolean;
+}
+
 export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   type DiffViewMode = 'unified' | 'split';
   type DiffStatusFilter = 'all' | GitFileStatus;
@@ -35,26 +56,8 @@ export function useProjectGitDiffPage(props: Readonly<{ projectId: string }>) {
   /** Diffs carregados em paralelo — cada um é um `git diff` no projeto. */
   const MAX_PARALLEL_FILE_DIFFS = 3;
 
-  interface HunkState {
-    hunk: GitDiffHunk;
-    before: GitUnifiedDiffLine[];
-    after: GitUnifiedDiffLine[];
-    expanding: boolean;
-  }
-
-  interface FileEntry {
-    file: GitDiffFile;
-    language: string | null;
-    loading: boolean;
-    loaded: boolean;
-    error: string;
-    diff: GitFileDiff | null;
-    leading: GitUnifiedDiffLine[];
-    hunks: HunkState[];
-    totalLines: number | null;
-    collapsed: boolean;
-    viewed: boolean;
-  }
+  type HunkState = GitDiffHunkState;
+  type FileEntry = GitDiffFileEntry;
 
   const scope: GitDiffScope = 'combined';
 

@@ -1,310 +1,155 @@
-  <section class="git-diff-page" :class="{ 'has-single-diff-file': hasSingleChangedFile }">
-    <header class="git-diff-page-heading">
-      <div>
-        <span class="git-diff-kicker">Revisão de código</span>
-        <h2>Alterações da branch</h2>
-        <p>
-          <strong>{{ branchLabel }}</strong>
-          <span aria-hidden="true">·</span>
-          <span>Staged e não staged</span>
-          <span aria-hidden="true">·</span>
-          <span><b>{{ entries.length }}</b> arquivo(s)</span>
-          <span aria-hidden="true">·</span>
-          <span class="git-diff-delta">
-            <b class="is-addition">+{{ totalAdditions }}</b>
-            <b class="is-deletion">−{{ totalDeletions }}</b>
-          </span>
-        </p>
-      </div>
-
-      <button
-        class="git-diff-refresh-button"
-        type="button"
-        :disabled="loadingSnapshot"
-        @click="refresh"
-      >
-        <ArrowPathIcon :class="{ spinning: loadingSnapshot }" aria-hidden="true" />
-        {{ loadingSnapshot ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </header>
-
-    <div v-if="snapshotError" class="project-error" role="alert">
-      {{ snapshotError }}
-    </div>
-
-    <div class="git-diff-toolbar">
-      <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
-        <FunnelIcon aria-hidden="true" />
-        <select v-model="statusFilter" aria-label="Filtrar arquivos por status">
-          <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-
-      <div class="git-diff-view-switch" aria-label="Modo de visualização">
-        <button
-          type="button"
-          :class="{ active: viewMode === 'unified' }"
-          :aria-pressed="viewMode === 'unified'"
-          @click="selectViewMode('unified')"
-        >
-          <Bars3BottomLeftIcon aria-hidden="true" />
-          Unificado
-        </button>
-        <button
-          type="button"
-          :class="{ active: viewMode === 'split' }"
-          :aria-pressed="viewMode === 'split'"
-          @click="selectViewMode('split')"
-        >
-          <ViewColumnsIcon aria-hidden="true" />
-          Lado a lado
-        </button>
-      </div>
-
-      <button
-        v-if="entries.length > 0"
-        class="git-diff-collapse-all"
-        type="button"
-        @click="toggleAll"
-      >
-        {{ allCollapsed ? 'Expandir tudo' : 'Recolher tudo' }}
-      </button>
-
-      <div v-if="entries.length > 0" class="git-diff-progress">
-        <span>{{ viewedCount }} de {{ entries.length }} revisados</span>
-        <span
-          class="git-diff-progress-track"
-          role="progressbar"
-          :aria-valuenow="viewedPercent"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-label="Arquivos revisados"
-        >
-          <span class="git-diff-progress-bar" :style="{ width: `${viewedPercent}%` }"></span>
+<section
+  class="git-diff-page"
+  :class="{ 'has-single-diff-file': hasSingleChangedFile }"
+>
+  <header class="git-diff-page-heading">
+    <div>
+      <span class="git-diff-kicker">Revisão de código</span>
+      <h2>Alterações da branch</h2>
+      <p>
+        <strong>{{ branchLabel }}</strong>
+        <span aria-hidden="true">·</span>
+        <span>Staged e não staged</span>
+        <span aria-hidden="true">·</span>
+        <span><b>{{ entries.length }}</b> arquivo(s)</span>
+        <span aria-hidden="true">·</span>
+        <span class="git-diff-delta">
+          <b class="is-addition">+{{ totalAdditions }}</b>
+          <b class="is-deletion">−{{ totalDeletions }}</b>
         </span>
-      </div>
+      </p>
     </div>
 
-    <div v-if="loadingSnapshot && !snapshot" class="git-diff-empty">
-      <ArrowPathIcon class="spinning" aria-hidden="true" />
-      <strong>Carregando alterações</strong>
-      <span>Consultando arquivos staged e o working tree.</span>
-    </div>
+    <button
+      class="git-diff-refresh-button"
+      type="button"
+      :disabled="loadingSnapshot"
+      @click="refresh"
+    >
+      <ArrowPathIcon
+        :class="{ spinning: loadingSnapshot }"
+        aria-hidden="true"
+      />
+      {{ loadingSnapshot ? 'Atualizando…' : 'Atualizar' }}
+    </button>
+  </header>
 
-    <div v-else-if="snapshot && entries.length === 0" class="git-diff-empty">
-      <DocumentTextIcon aria-hidden="true" />
-      <strong>Nenhuma alteração para revisar</strong>
-      <span>A árvore de trabalho está igual ao último commit.</span>
-    </div>
+  <div v-if="snapshotError" class="project-error" role="alert">
+    {{ snapshotError }}
+  </div>
 
-    <div v-else-if="visibleEntries.length === 0 && snapshot" class="git-diff-empty">
-      <DocumentTextIcon aria-hidden="true" />
-      <strong>Nenhum arquivo corresponde aos filtros</strong>
-      <span>Ajuste a busca ou o status selecionado.</span>
-    </div>
+  <div class="git-diff-toolbar">
+    <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
+      <FunnelIcon aria-hidden="true" />
+      <select v-model="statusFilter" aria-label="Filtrar arquivos por status">
+        <option
+          v-for="option in statusOptions"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </option>
+      </select>
+    </label>
 
-    <div v-else class="git-diff-file-stack">
-      <article
-        v-for="entry in visibleEntries"
-        :key="entry.file.path"
-        :ref="(element) => registerCard(element, entry.file.path)"
-        class="git-diff-file-card"
-        :class="{ 'is-collapsed': entry.collapsed }"
-        :data-git-diff-path="entry.file.path"
+    <div class="git-diff-view-switch" aria-label="Modo de visualização">
+      <button
+        type="button"
+        :class="{ active: viewMode === 'unified' }"
+        :aria-pressed="viewMode === 'unified'"
+        @click="selectViewMode('unified')"
       >
-        <header class="git-diff-file-head">
-          <button
-            type="button"
-            class="git-diff-chevron"
-            :aria-expanded="!entry.collapsed"
-            :aria-label="entry.collapsed ? `Expandir ${entry.file.path}` : `Recolher ${entry.file.path}`"
-            @click="toggleCollapsed(entry)"
-          >
-            <ChevronDownIcon aria-hidden="true" />
-          </button>
-
-          <span class="git-diff-file-path" :title="entry.file.path">
-            <span class="git-diff-file-dir">{{ directoryName(entry.file.path) }}</span>
-            <strong>{{ fileName(entry.file.path) }}</strong>
-            <small v-if="entry.file.previousPath">de {{ entry.file.previousPath }}</small>
-          </span>
-
-          <button
-            type="button"
-            class="git-diff-copy-button"
-            :class="{ 'is-done': copiedPath === entry.file.path }"
-            :title="copiedPath === entry.file.path ? 'Caminho copiado' : 'Copiar caminho do arquivo'"
-            :aria-label="`Copiar caminho de ${entry.file.path}`"
-            @click="copyPath(entry)"
-          >
-            <ClipboardDocumentIcon aria-hidden="true" />
-          </button>
-
-          <div class="git-diff-file-meta">
-            <StatusBadge :tone="gitFileToneFor(entry.file.status)">
-              {{ statusLabels[entry.file.status] }}
-            </StatusBadge>
-
-            <span v-if="entry.file.binary" class="git-diff-file-counts">binário</span>
-            <span v-else class="git-diff-file-counts git-diff-delta">
-              <b class="is-addition">+{{ entry.file.additions }}</b>
-              <b class="is-deletion">−{{ entry.file.deletions }}</b>
-            </span>
-
-            <span class="git-diff-statbar" aria-hidden="true">
-              <i
-                v-for="(block, index) in statBlocks(entry)"
-                :key="index"
-                :class="`is-${block}`"
-              ></i>
-            </span>
-
-            <label class="git-diff-viewed">
-              <input
-                type="checkbox"
-                :checked="entry.viewed"
-                @change="toggleViewed(entry, $event.target.checked)"
-              />
-              Revisado
-            </label>
-          </div>
-        </header>
-
-        <div v-if="!entry.collapsed" class="git-diff-file-body">
-          <p v-if="entry.error" class="project-error git-diff-file-error" role="alert">
-            {{ entry.error }}
-          </p>
-
-          <div v-else-if="entry.loading || !entry.loaded" class="git-diff-detail-empty">
-            <ArrowPathIcon class="spinning" aria-hidden="true" />
-            Carregando {{ entry.file.path }}…
-          </div>
-
-          <div v-else-if="entry.diff?.binary" class="git-diff-detail-empty">
-            <DocumentTextIcon aria-hidden="true" />
-            <strong>Diff binário não disponível</strong>
-            <span>O arquivo pode ser revisado por um editor ou ferramenta Git externa.</span>
-          </div>
-
-          <template v-else-if="entry.diff">
-            <div v-if="entry.diff.masked || entry.diff.truncated" class="git-diff-warnings">
-              <p v-if="entry.diff.masked">
-                {{ entry.diff.redactionCount }} possível(is) segredo(s) foram mascarados.
-              </p>
-              <p v-if="entry.diff.truncated">
-                O diff foi truncado para manter a interface responsiva.
-              </p>
-            </div>
-
-            <pre
-              v-if="entry.hunks.length === 0 && entry.diff.content"
-              class="git-diff-raw-meta"
-            >{{ entry.diff.content }}</pre>
-
-            <div
-              v-else-if="entry.hunks.length === 0"
-              class="git-diff-detail-empty"
-            >
-              <DocumentTextIcon aria-hidden="true" />
-              <strong>Diff textual vazio</strong>
-              <span>O arquivo pode conter apenas mudança de modo ou metadados.</span>
-            </div>
-
-            <div
-              v-else
-              :class="viewMode === 'split' ? 'git-diff-split' : 'git-diff-unified'"
-              role="table"
-              :aria-label="`Diff de ${entry.file.path}`"
-            >
-              <div
-                v-for="(line, index) in entry.leading"
-                :key="`leading-${index}`"
-                class="git-diff-unified-row is-meta"
-                role="row"
-              >
-                <span class="git-diff-line-number" role="cell"></span>
-                <span class="git-diff-line-number" role="cell"></span>
-                <span class="git-diff-line-prefix" role="cell"></span>
-                <code role="cell" v-html="highlighted(line)"></code>
-              </div>
-
-              <template v-for="(state, hunkIndex) in entry.hunks" :key="`hunk-${hunkIndex}`">
-                <div class="git-diff-hunk-head" role="row" data-git-action-feedback="off">
-                  <button
-                    type="button"
-                    class="git-diff-expand"
-                    :disabled="!canExpandAbove(state, entry) || state.expanding"
-                    :title="`Mostrar ${CONTEXT_EXPANSION_STEP} linhas acima`"
-                    :aria-label="`Mostrar ${CONTEXT_EXPANSION_STEP} linhas acima de ${entry.file.path}`"
-                    @click="expandContext(entry, state, 'up')"
-                  >
-                    <ChevronUpIcon aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    class="git-diff-expand"
-                    :disabled="!canExpandBelow(state, entry) || state.expanding"
-                    :title="`Mostrar ${CONTEXT_EXPANSION_STEP} linhas abaixo`"
-                    :aria-label="`Mostrar ${CONTEXT_EXPANSION_STEP} linhas abaixo de ${entry.file.path}`"
-                    @click="expandContext(entry, state, 'down')"
-                  >
-                    <ChevronDownIcon aria-hidden="true" />
-                  </button>
-                  <code role="cell">{{ state.hunk.header.text }}</code>
-                </div>
-
-                <template v-if="viewMode === 'unified'">
-                  <div
-                    v-for="(line, lineIndex) in hunkLines(state)"
-                    :key="`u-${hunkIndex}-${lineIndex}`"
-                    class="git-diff-unified-row"
-                    :class="`is-${line.kind}`"
-                    role="row"
-                  >
-                    <span class="git-diff-line-number" role="cell">{{ line.oldLine ?? '' }}</span>
-                    <span class="git-diff-line-number" role="cell">{{ line.newLine ?? '' }}</span>
-                    <span class="git-diff-line-prefix" role="cell">{{ linePrefix(line.kind) }}</span>
-                    <code role="cell" v-html="highlighted(line)"></code>
-                  </div>
-                </template>
-
-                <template v-else>
-                  <template
-                    v-for="(row, rowIndex) in splitRowsFor(state)"
-                    :key="`s-${hunkIndex}-${rowIndex}`"
-                  >
-                    <div v-if="row.kind === 'meta'" class="git-diff-split-meta" role="row">
-                      <code role="cell" v-html="highlighted(row.left ?? row.right)"></code>
-                    </div>
-
-                    <div v-else class="git-diff-split-row" role="row">
-                      <div
-                        class="git-diff-side-cell"
-                        :class="row.left ? `is-${row.left.kind}` : 'is-empty'"
-                      >
-                        <span class="git-diff-line-number" role="cell">{{ row.left?.oldLine ?? '' }}</span>
-                        <span class="git-diff-line-prefix" role="cell">{{ row.left ? linePrefix(row.left.kind) : '' }}</span>
-                        <code v-if="row.left" role="cell" v-html="highlighted(row.left)"></code>
-                        <code v-else role="cell"></code>
-                      </div>
-                      <div
-                        class="git-diff-side-cell"
-                        :class="row.right ? `is-${row.right.kind}` : 'is-empty'"
-                      >
-                        <span class="git-diff-line-number" role="cell">{{ row.right?.newLine ?? '' }}</span>
-                        <span class="git-diff-line-prefix" role="cell">{{ row.right ? linePrefix(row.right.kind) : '' }}</span>
-                        <code v-if="row.right" role="cell" v-html="highlighted(row.right)"></code>
-                        <code v-else role="cell"></code>
-                      </div>
-                    </div>
-                  </template>
-                </template>
-              </template>
-            </div>
-          </template>
-        </div>
-      </article>
+        <Bars3BottomLeftIcon aria-hidden="true" />
+        Unificado
+      </button>
+      <button
+        type="button"
+        :class="{ active: viewMode === 'split' }"
+        :aria-pressed="viewMode === 'split'"
+        @click="selectViewMode('split')"
+      >
+        <ViewColumnsIcon aria-hidden="true" />
+        Lado a lado
+      </button>
     </div>
-  </section>
+
+    <button
+      v-if="entries.length > 0"
+      class="git-diff-collapse-all"
+      type="button"
+      @click="toggleAll"
+    >
+      {{ allCollapsed ? 'Expandir tudo' : 'Recolher tudo' }}
+    </button>
+
+    <div v-if="entries.length > 0" class="git-diff-progress">
+      <span>{{ viewedCount }} de {{ entries.length }} revisados</span>
+      <span
+        class="git-diff-progress-track"
+        role="progressbar"
+        :aria-valuenow="viewedPercent"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-label="Arquivos revisados"
+      >
+        <span
+          class="git-diff-progress-bar"
+          :style="{ width: `${viewedPercent}%` }"
+        ></span>
+      </span>
+    </div>
+  </div>
+
+  <div v-if="loadingSnapshot && !snapshot" class="git-diff-empty">
+    <ArrowPathIcon class="spinning" aria-hidden="true" />
+    <strong>Carregando alterações</strong>
+    <span>Consultando arquivos staged e o working tree.</span>
+  </div>
+
+  <div v-else-if="snapshot && entries.length === 0" class="git-diff-empty">
+    <DocumentTextIcon aria-hidden="true" />
+    <strong>Nenhuma alteração para revisar</strong>
+    <span>A árvore de trabalho está igual ao último commit.</span>
+  </div>
+
+  <div
+    v-else-if="visibleEntries.length === 0 && snapshot"
+    class="git-diff-empty"
+  >
+    <DocumentTextIcon aria-hidden="true" />
+    <strong>Nenhum arquivo corresponde aos filtros</strong>
+    <span>Ajuste a busca ou o status selecionado.</span>
+  </div>
+
+  <div v-else class="git-diff-file-stack">
+    <article
+      v-for="entry in visibleEntries"
+      :key="entry.file.path"
+      :ref="(element) => registerCard(element, entry.file.path)"
+      class="git-diff-file-card"
+      :class="{ 'is-collapsed': entry.collapsed }"
+      :data-git-diff-path="entry.file.path"
+    >
+      <ProjectGitDiffFileCard
+        :entry="entry"
+        :view-mode="viewMode"
+        :copied-path="copiedPath"
+        :context-expansion-step="CONTEXT_EXPANSION_STEP"
+        :status-labels="statusLabels"
+        :file-name="fileName"
+        :directory-name="directoryName"
+        :stat-blocks="statBlocks"
+        :line-prefix="linePrefix"
+        :highlighted="highlighted"
+        :hunk-lines="hunkLines"
+        :split-rows-for="splitRowsFor"
+        :can-expand-above="canExpandAbove"
+        :can-expand-below="canExpandBelow"
+        @toggle-collapsed="toggleCollapsed(entry)"
+        @copy="copyPath(entry)"
+        @toggle-viewed="toggleViewed(entry, $event)"
+        @expand-context="expandContext(entry, $event.state, $event.direction)"
+      />
+    </article>
+  </div>
+</section>

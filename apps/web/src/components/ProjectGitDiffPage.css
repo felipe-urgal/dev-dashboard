@@ -29,14 +29,14 @@
   color: var(--accent);
   font-size: var(--font-xs);
   font-weight: var(--font-weight-strong);
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .git-diff-page-heading h2 {
   margin: 0;
   font-size: clamp(22px, 2vw, 28px);
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
 }
 
 .git-diff-page-heading p {
@@ -88,7 +88,7 @@
 
 .git-diff-refresh-button:disabled {
   cursor: progress;
-  opacity: .7;
+  opacity: 0.7;
 }
 
 .git-diff-refresh-button svg {
@@ -101,11 +101,15 @@
 }
 
 @keyframes git-diff-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinning { animation: none; }
+  .spinning {
+    animation: none;
+  }
 }
 
 /* ── Barra de ferramentas ──────────────────────────────────────── */
@@ -227,11 +231,13 @@
   height: 100%;
   border-radius: 999px;
   background: var(--git-diff-addition-accent);
-  transition: width .25s ease;
+  transition: width 0.25s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .git-diff-progress-bar { transition: none; }
+  .git-diff-progress-bar {
+    transition: none;
+  }
 }
 
 /* ── Cartões de arquivo ────────────────────────────────────────── */
@@ -298,7 +304,7 @@
 }
 
 .git-diff-chevron svg {
-  transition: transform .18s ease;
+  transition: transform 0.18s ease;
 }
 
 .git-diff-file-card.is-collapsed .git-diff-chevron svg {
@@ -306,7 +312,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .git-diff-chevron svg { transition: none; }
+  .git-diff-chevron svg {
+    transition: none;
+  }
 }
 
 .git-diff-file-path {
@@ -364,8 +372,12 @@
   background: var(--git-diff-empty-stripe);
 }
 
-.git-diff-statbar i.is-add { background: var(--git-diff-addition-accent); }
-.git-diff-statbar i.is-del { background: var(--git-diff-deletion-accent); }
+.git-diff-statbar i.is-add {
+  background: var(--git-diff-addition-accent);
+}
+.git-diff-statbar i.is-del {
+  background: var(--git-diff-deletion-accent);
+}
 
 .git-diff-viewed {
   display: inline-flex;
@@ -406,7 +418,9 @@
   font-size: var(--font-sm);
 }
 
-.git-diff-warnings p { margin: 0; }
+.git-diff-warnings p {
+  margin: 0;
+}
 
 .git-diff-file-error {
   margin: var(--space-3);
@@ -420,7 +434,8 @@
   border-top: 1px solid var(--border);
   color: var(--text-muted);
   background: var(--surface-2);
-  font: 12px/1.65 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font: 12px/1.65
+    var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -499,14 +514,14 @@
  * Destaque do trecho realmente alterado dentro da linha. As marcações vêm de
  * `v-html`, então não recebem o atributo de escopo do componente — daí `:deep`.
  */
-.git-diff-unified-row.is-addition :deep(.git-diff-word),
-.git-diff-side-cell.is-addition :deep(.git-diff-word) {
+.git-diff-unified-row.is-addition .git-diff-word,
+.git-diff-side-cell.is-addition .git-diff-word {
   border-radius: 2px;
   background: var(--git-diff-word-addition);
 }
 
-.git-diff-unified-row.is-deletion :deep(.git-diff-word),
-.git-diff-side-cell.is-deletion :deep(.git-diff-word) {
+.git-diff-unified-row.is-deletion .git-diff-word,
+.git-diff-side-cell.is-deletion .git-diff-word {
   border-radius: 2px;
   background: var(--git-diff-word-deletion);
 }
@@ -516,70 +531,70 @@
  * então precisam de `:deep`. Só as famílias que aparecem no dia a dia do
  * repositório recebem cor; o resto herda a cor do texto.
  */
-.git-diff-unified :deep(.hljs-keyword),
-.git-diff-split :deep(.hljs-keyword),
-.git-diff-unified :deep(.hljs-selector-tag),
-.git-diff-split :deep(.hljs-selector-tag),
-.git-diff-unified :deep(.hljs-literal),
-.git-diff-split :deep(.hljs-literal) {
+.git-diff-unified .hljs-keyword,
+.git-diff-split .hljs-keyword,
+.git-diff-unified .hljs-selector-tag,
+.git-diff-split .hljs-selector-tag,
+.git-diff-unified .hljs-literal,
+.git-diff-split .hljs-literal {
   color: var(--git-syntax-keyword);
 }
 
-.git-diff-unified :deep(.hljs-string),
-.git-diff-split :deep(.hljs-string),
-.git-diff-unified :deep(.hljs-regexp),
-.git-diff-split :deep(.hljs-regexp),
-.git-diff-unified :deep(.hljs-symbol),
-.git-diff-split :deep(.hljs-symbol) {
+.git-diff-unified .hljs-string,
+.git-diff-split .hljs-string,
+.git-diff-unified .hljs-regexp,
+.git-diff-split .hljs-regexp,
+.git-diff-unified .hljs-symbol,
+.git-diff-split .hljs-symbol {
   color: var(--git-syntax-string);
 }
 
-.git-diff-unified :deep(.hljs-comment),
-.git-diff-split :deep(.hljs-comment),
-.git-diff-unified :deep(.hljs-quote),
-.git-diff-split :deep(.hljs-quote) {
+.git-diff-unified .hljs-comment,
+.git-diff-split .hljs-comment,
+.git-diff-unified .hljs-quote,
+.git-diff-split .hljs-quote {
   color: var(--git-syntax-comment);
   font-style: italic;
 }
 
-.git-diff-unified :deep(.hljs-number),
-.git-diff-split :deep(.hljs-number),
-.git-diff-unified :deep(.hljs-meta),
-.git-diff-split :deep(.hljs-meta) {
+.git-diff-unified .hljs-number,
+.git-diff-split .hljs-number,
+.git-diff-unified .hljs-meta,
+.git-diff-split .hljs-meta {
   color: var(--git-syntax-number);
 }
 
-.git-diff-unified :deep(.hljs-title),
-.git-diff-split :deep(.hljs-title),
-.git-diff-unified :deep(.hljs-name),
-.git-diff-split :deep(.hljs-name),
-.git-diff-unified :deep(.hljs-section),
-.git-diff-split :deep(.hljs-section) {
+.git-diff-unified .hljs-title,
+.git-diff-split .hljs-title,
+.git-diff-unified .hljs-name,
+.git-diff-split .hljs-name,
+.git-diff-unified .hljs-section,
+.git-diff-split .hljs-section {
   color: var(--git-syntax-title);
 }
 
-.git-diff-unified :deep(.hljs-type),
-.git-diff-split :deep(.hljs-type),
-.git-diff-unified :deep(.hljs-built_in),
-.git-diff-split :deep(.hljs-built_in),
-.git-diff-unified :deep(.hljs-attr),
-.git-diff-split :deep(.hljs-attr),
-.git-diff-unified :deep(.hljs-attribute),
-.git-diff-split :deep(.hljs-attribute) {
+.git-diff-unified .hljs-type,
+.git-diff-split .hljs-type,
+.git-diff-unified .hljs-built_in,
+.git-diff-split .hljs-built_in,
+.git-diff-unified .hljs-attr,
+.git-diff-split .hljs-attr,
+.git-diff-unified .hljs-attribute,
+.git-diff-split .hljs-attribute {
   color: var(--git-syntax-type);
 }
 
-.git-diff-unified :deep(.hljs-variable),
-.git-diff-split :deep(.hljs-variable),
-.git-diff-unified :deep(.hljs-template-variable),
-.git-diff-split :deep(.hljs-template-variable),
-.git-diff-unified :deep(.hljs-property),
-.git-diff-split :deep(.hljs-property) {
+.git-diff-unified .hljs-variable,
+.git-diff-split .hljs-variable,
+.git-diff-unified .hljs-template-variable,
+.git-diff-split .hljs-template-variable,
+.git-diff-unified .hljs-property,
+.git-diff-split .hljs-property {
   color: var(--git-syntax-variable);
 }
 
-.git-diff-unified :deep(mark),
-.git-diff-split :deep(mark) {
+.git-diff-unified mark,
+.git-diff-split mark {
   border-radius: 2px;
   padding: 0 1px;
   background: var(--warning-surface);
@@ -626,7 +641,7 @@
 
 .git-diff-expand:disabled {
   cursor: default;
-  opacity: .35;
+  opacity: 0.35;
 }
 
 /* ── Estados vazios ────────────────────────────────────────────── */
@@ -664,7 +679,9 @@
     align-items: stretch;
   }
 
-  .git-diff-progress { margin-left: 0; }
+  .git-diff-progress {
+    margin-left: 0;
+  }
 
   .git-diff-file-head {
     grid-template-columns: 24px minmax(0, 1fr) 26px;
