@@ -18,29 +18,37 @@
 }
 
 .git-navigation-bar {
-  position: sticky;
-  z-index: 15;
-  top: var(--project-sticky-offset, 134px);
+  position: static;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-3);
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
-  padding: 12px;
+  padding: 0 12px;
   border-left: 0;
+  overflow: visible;
 }
 
 .git-subtabs {
   display: flex;
+  align-items: center;
   min-width: 0;
+  max-width: 100%;
   gap: 4px;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.git-subtabs::-webkit-scrollbar {
+  display: none;
 }
 
 .git-subtabs button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   flex: 0 0 auto;
   border: 1px solid transparent;
@@ -50,6 +58,7 @@
   font-size: var(--font-sm);
   font-weight: var(--font-weight-strong);
   white-space: nowrap;
+  line-height: 1;
 }
 
 .git-subtabs button::before {

@@ -29,13 +29,12 @@
   letter-spacing: 0;
 }
 
-.git-modern-panel .git-subtabs::-webkit-scrollbar {
-  height: 5px;
+.git-modern-panel .git-subtabs {
+  scrollbar-width: none;
 }
 
-.git-modern-panel .git-subtabs::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--border-strong);
+.git-modern-panel .git-subtabs::-webkit-scrollbar {
+  display: none;
 }
 
 .git-modern-panel .git-subtabs button[data-heroicon-ready='true']::before {

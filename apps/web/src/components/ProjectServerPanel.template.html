@@ -8,8 +8,19 @@
     </div>
 
     <template v-else>
-      <div class="server-layout">
-        <section class="server-config-card">
+      <div class="server-settings-toolbar">
+        <button
+          type="button"
+          class="server-settings-toggle"
+          :aria-expanded="settingsOpen"
+          @click="settingsOpen = !settingsOpen"
+        >
+          {{ settingsOpen ? 'Ocultar configurações' : 'Mostrar configurações' }}
+        </button>
+      </div>
+
+      <div class="server-layout" :class="{ 'server-layout-settings-hidden': !settingsOpen }">
+        <section v-if="settingsOpen" class="server-config-card">
           <header class="server-card-heading">
             <span>Configuração</span>
             <h2>Preparar servidor</h2>

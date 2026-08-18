@@ -45,6 +45,10 @@ nativeNotificationStore.setNavigator((target) => {
 
 const { workspaces, selectedWorkspaceId, switchWorkspace } = dashboardStore;
 
+function openWorkspaceManager(): void {
+  workspaceManagerOpen.value = true;
+}
+
 function handleWorkspaceSwitch(event: Event): void {
   const target = event.target as HTMLSelectElement;
   void switchWorkspace(target.value);
@@ -122,7 +126,8 @@ onMounted(() => {
               type="button"
               class="sidebar-workspace-add-icon"
               aria-label="Adicionar workspace"
-              @click="workspaceManagerOpen = true"
+              aria-haspopup="dialog"
+              @click.stop="openWorkspaceManager"
             >
               <PlusIcon aria-hidden="true" />
             </button>

@@ -465,15 +465,23 @@
   top: var(--project-sticky-offset, 134px);
   min-width: 0;
   padding: 0 22px;
-  overflow-x: auto;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
-  scrollbar-width: thin;
 }
 
 .git-subtabs {
+  align-items: center;
   gap: 0;
+  max-width: 100%;
   min-width: max-content;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.git-subtabs::-webkit-scrollbar {
+  display: none;
 }
 
 .git-subtabs button {
@@ -481,9 +489,12 @@
   min-height: 48px;
   padding: 0 14px;
   border: 0;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
   background: transparent;
   font-size: 10px;
+  line-height: 1;
 }
 
 .git-subtabs button::before {
