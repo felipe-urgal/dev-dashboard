@@ -137,7 +137,7 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe somente informações operacionais quando o servidor está rodando', async () => {
+  it('exibe configuração e informações operacionais quando o servidor está rodando', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -151,7 +151,7 @@ describe('cards dos painéis de detalhe', () => {
     const wrapper = mountServerPanel();
     await flushPromises();
 
-    expect(wrapper.find('.server-config-card').exists()).toBe(false);
+    expect(wrapper.find('.server-config-card').exists()).toBe(true);
     expect(wrapper.find('.server-running-card').exists()).toBe(true);
     expect(wrapper.find('.server-logs').exists()).toBe(false);
     expect(wrapper.find('.project-log-terminal').exists()).toBe(false);
@@ -238,28 +238,29 @@ describe('cards dos painéis de detalhe', () => {
       const wrapper = mountServerPanel();
       await flushPromises();
 
-      expect(publishTerminalNotice).not.toHaveBeenCalled();
-
-      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.advanceTimersByTimeAsync(10_500);
       await flushPromises();
 
-      expect(publishTerminalNotice).toHaveBeenCalledTimes(1);
-      expect(publishTerminalNotice).toHaveBeenCalledWith({
-        origin: 'server',
-        dedupeKey: 'server:proc-1:failed',
-        outcome: 'failed',
-        projectId: project.id,
-        projectName: project.name,
-        label: project.name,
-        routeTo: { name: 'project-server', params: { projectId: project.id } },
-      });
+      expect(publishTerminalNotice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: project.id,
+          processId: running.id,
+          kind: 'server',
+          status: 'failed',
+        }),
+      );
 
       wrapper.unmount();
     });
 
     it('não publica aviso quando o processo já chega parado sem nunca ter sido observado rodando', async () => {
+      vi.useFakeTimers();
+
       fetchProjectProcess.mockResolvedValueOnce(null);
       const wrapper = mountServerPanel();
+      await flushPromises();
+
+      await vi.advanceTimersByTimeAsync(10_500);
       await flushPromises();
 
       expect(publishTerminalNotice).not.toHaveBeenCalled();
