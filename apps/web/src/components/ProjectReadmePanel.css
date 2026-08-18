@@ -91,7 +91,7 @@
 
 .readme-file-list-item {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-wrap: nowrap;
   gap: 8px;
   min-width: 0;

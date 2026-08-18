@@ -157,3 +157,5 @@ watch(
     />
   </section>
 </template>
+
+<style src="./ProjectReadmePanel.css"></style>
