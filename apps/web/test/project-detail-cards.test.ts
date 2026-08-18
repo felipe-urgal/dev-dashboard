@@ -137,7 +137,7 @@ describe('cards dos painéis de detalhe', () => {
     wrapper.unmount();
   });
 
-  it('exibe configuração e informações operacionais quando o servidor está rodando', async () => {
+  it('exibe configuração durante a execução do servidor', async () => {
     fetchProjectProcess.mockResolvedValueOnce({
       id: 'proc-running',
       projectId: project.id,
@@ -268,4 +268,3 @@ describe('cards dos painéis de detalhe', () => {
     });
   });
 });
-
