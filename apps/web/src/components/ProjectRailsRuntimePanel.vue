@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   ArrowPathIcon,
+  ArrowsPointingInIcon,
+  ArrowsPointingOutIcon,
   PlayIcon,
   StopIcon,
   XMarkIcon,
@@ -8,7 +10,7 @@ import {
 
 import type { Project, RailsWorkerId } from '@dev-dashboard/contracts';
 
-import { watch } from 'vue';
+import { ref, watch } from 'vue';
 
 import { useAutoDismiss } from '../composables/useAutoDismiss';
 import { useProjectRailsWorker } from '../composables/useProjectRailsWorker';
@@ -45,6 +47,11 @@ const workerLabels: Record<RailsWorkerId, string> = {
 };
 
 const supportsRestart = props.workerId === 'sidekiq';
+const logMaximized = ref(false);
+
+function toggleLogMaximized(): void {
+  logMaximized.value = !logMaximized.value;
+}
 
 function formatDate(value?: string): string {
   if (!value) return '—';
@@ -170,51 +177,54 @@ function formatDate(value?: string): string {
             </div>
           </section>
 
-          <Teleport to="body">
-            <div
-              v-if="worker.logsVisible.value"
-              class="rails-log-overlay"
-              role="presentation"
-              @click.self="worker.toggleLogs()"
-            >
-              <section
-                class="rails-log-modal"
-                role="dialog"
-                aria-modal="true"
-                :aria-labelledby="`rails-log-title-${workerId}`"
-              >
-                <header class="rails-log-modal-header">
-                  <div>
-                    <span>Ferramenta do projeto</span>
-                    <h3 :id="`rails-log-title-${workerId}`">
-                      Log do {{ workerLabels[workerId] }}
-                    </h3>
-                    <p>
-                      Acompanhe a saída completa do processo em primeiro plano.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="rails-log-close-button"
-                    :aria-label="`Fechar log do ${workerLabels[workerId]}`"
-                    @click="worker.toggleLogs()"
-                  >
-                    <XMarkIcon aria-hidden="true" />
-                  </button>
-                </header>
-                <div class="rails-log-modal-body">
-                  <ProjectLogTerminal
-                    :content="worker.log.value?.content ?? ''"
-                    :running="worker.canStop.value"
-                    :masked-count="worker.log.value?.redactionCount ?? 0"
-                    :clearable="worker.detected.value"
-                    :clearing="worker.clearingLog.value"
-                    @clear="worker.clearLog()"
+          <section
+            v-if="worker.logsVisible.value"
+            class="rails-log-panel"
+            :class="{ 'rails-log-panel-expanded': logMaximized }"
+            :aria-labelledby="`rails-log-title-${workerId}`"
+          >
+            <header class="rails-log-panel-header">
+              <div>
+                <span>Log do processo</span>
+                <h3 :id="`rails-log-title-${workerId}`">
+                  Log do {{ workerLabels[workerId] }}
+                </h3>
+              </div>
+              <div class="rails-log-panel-actions">
+                <button
+                  type="button"
+                  class="rails-log-panel-button"
+                  :aria-label="logMaximized ? 'Restaurar log' : 'Expandir log'"
+                  @click="toggleLogMaximized"
+                >
+                  <ArrowsPointingInIcon
+                    v-if="logMaximized"
+                    aria-hidden="true"
                   />
-                </div>
-              </section>
+                  <ArrowsPointingOutIcon v-else aria-hidden="true" />
+                  {{ logMaximized ? 'Restaurar' : 'Expandir' }}
+                </button>
+                <button
+                  type="button"
+                  class="rails-log-close-button"
+                  :aria-label="`Fechar log do ${workerLabels[workerId]}`"
+                  @click="worker.toggleLogs()"
+                >
+                  <XMarkIcon aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+            <div class="rails-log-panel-body">
+              <ProjectLogTerminal
+                :content="worker.log.value?.content ?? ''"
+                :running="worker.canStop.value"
+                :masked-count="worker.log.value?.redactionCount ?? 0"
+                :clearable="worker.detected.value"
+                :clearing="worker.clearingLog.value"
+                @clear="worker.clearLog()"
+              />
             </div>
-          </Teleport>
+          </section>
         </template>
       </Card>
     </section>
@@ -405,75 +415,68 @@ function formatDate(value?: string): string {
   }
 }
 
-.rails-log-overlay {
+.rails-log-panel {
+  display: flex;
+  min-height: 260px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.rails-log-panel-expanded {
   position: fixed;
   z-index: 1000;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgb(5 10 18 / 72%);
-  backdrop-filter: blur(4px);
-}
-
-.rails-log-modal {
-  display: flex;
-  width: min(1440px, calc(100vw - 32px));
-  height: min(860px, calc(100vh - 32px));
-  min-width: 0;
   min-height: 0;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 0;
   background: var(--surface-1);
   box-shadow: var(--shadow-2);
 }
 
-.rails-log-modal-header {
+.rails-log-panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-1);
+  background: var(--surface-2);
 }
 
-.rails-log-modal-header > div {
+.rails-log-panel-header > div:first-child {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
-.rails-log-modal-header span {
+.rails-log-panel-header span {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.rails-log-modal-header h3,
-.rails-log-modal-header p {
+.rails-log-panel-header h3 {
   margin: 0;
-}
-
-.rails-log-modal-header h3 {
   color: var(--text);
-  font-size: 18px;
+  font-size: var(--font-md);
 }
 
-.rails-log-modal-header p {
-  color: var(--text-muted);
-  font-size: 11px;
+.rails-log-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
+.rails-log-panel-button,
 .rails-log-close-button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
@@ -481,46 +484,59 @@ function formatDate(value?: string): string {
   cursor: pointer;
 }
 
+.rails-log-panel-button {
+  padding: 0 10px;
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.rails-log-panel-button svg,
+.rails-log-close-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rails-log-panel-button:hover,
 .rails-log-close-button:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-.rails-log-close-button svg {
-  width: 18px;
-  height: 18px;
+.rails-log-close-button {
+  width: 34px;
+  flex: 0 0 auto;
 }
 
-.rails-log-modal-body {
+.rails-log-panel-body {
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
-  padding: 16px;
+  padding: 12px;
 }
 
-.rails-log-modal-body .project-log-terminal {
+.rails-log-panel-body .project-log-terminal {
   min-height: 0;
   flex: 1 1 auto;
 }
 
 @media (max-width: 640px) {
-  .rails-log-overlay {
-    padding: 12px;
+  .rails-log-panel-header {
+    align-items: flex-start;
   }
 
-  .rails-log-modal {
-    width: calc(100vw - 20px);
-    height: calc(100vh - 20px);
+  .rails-log-panel-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
-  .rails-log-modal-header {
-    padding: 14px;
+  .rails-log-panel-button {
+    font-size: 0;
   }
 
-  .rails-log-modal-body {
-    padding: 10px;
+  .rails-log-panel-button svg {
+    margin: 0;
   }
 }
-</style>
