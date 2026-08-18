@@ -72,6 +72,7 @@ const loadingSettings = ref(false);
 const savingSettings = ref(false);
 const settingsMessage = ref('');
 const currentAction = ref<'start' | 'stop' | 'restart' | null>(null);
+const settingsOpen = ref(true);
 const logOpen = ref(false);
 const logMaximized = ref(false);
 
