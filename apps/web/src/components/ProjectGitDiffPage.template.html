@@ -28,6 +28,7 @@
       />
       {{ loadingSnapshot ? 'Atualizando…' : 'Atualizar' }}
     </button>
+
     <label v-if="!hasSingleChangedFile" class="git-diff-status-filter">
       <FunnelIcon aria-hidden="true" />
       <select v-model="statusFilter" aria-label="Filtrar arquivos por status">

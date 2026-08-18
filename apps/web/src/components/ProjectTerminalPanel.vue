@@ -477,7 +477,7 @@ onBeforeUnmount(() => {
   max-height: 100%;
   max-height: none;
   background: #10131c;
-  
+
   overflow: hidden;
   resize: both;
   position: relative;
@@ -511,7 +511,6 @@ onBeforeUnmount(() => {
   border-radius: 0;
   resize: none;
   z-index: 50;
-  
 }
 
 .terminal-window-maximized::after {

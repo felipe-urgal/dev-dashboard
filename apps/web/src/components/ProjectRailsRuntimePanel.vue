@@ -432,7 +432,6 @@ function formatDate(value?: string): string {
   min-height: 0;
   border: 0;
   background: var(--surface-1);
-  
 }
 
 .rails-log-panel-header {

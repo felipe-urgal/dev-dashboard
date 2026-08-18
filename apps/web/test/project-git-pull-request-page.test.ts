@@ -172,17 +172,23 @@ test('mantém o force push no origin, separado do destino da Pull Request', asyn
   assert.match(wrapper.text(), /Branch de origem/);
   assert.match(wrapper.text(), /origin\/feature\/pull-request/);
   assert.match(wrapper.text(), /Destino do PR/);
-  assert.match(wrapper.text(), /Substituir branch remota/);
-  assert.match(wrapper.text(), /origin\/feature\/pull-request.*com lease/s);
+  assert.match(wrapper.text(), /Push forçado detectado/);
+  assert.match(
+    wrapper.text(),
+    /origin\/feature\/pull-request.*será reescrito/s,
+  );
 
   const targetSelect = wrapper.findAll('select')[0]!;
   await targetSelect.setValue('upstream');
   await flushPromises();
 
-  await wrapper
+  const forcePushButton = wrapper
     .findAll('.git-pr-force-push button')
-    .find((button) => button.text().includes('Forçar atualização no origin'))!
-    .trigger('click');
+    .find((button) => button.text().includes('Forçar atualização no origin'))!;
+  assert.equal((forcePushButton.element as HTMLButtonElement).disabled, true);
+
+  await wrapper.find('.git-pr-force-push-confirm input').setValue(true);
+  await forcePushButton.trigger('click');
 
   assert.deepEqual(wrapper.emitted('force-push'), [[]]);
 });

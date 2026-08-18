@@ -119,6 +119,24 @@
   color: var(--text-dim);
 }
 
+.git-pr-force-push-confirm {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
+  margin-top: 10px;
+}
+
+.git-pr-force-push-confirm input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--warning-text);
+}
+
+.git-pr-force-push-confirm span {
+  color: var(--text);
+  font-size: var(--font-sm);
+}
+
 .git-pr-ai-review {
   display: grid;
   gap: var(--space-3);
@@ -370,6 +388,78 @@
   gap: var(--space-3);
 }
 
+.git-pr-branch-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: var(--space-3);
+}
+
+.git-pr-branch-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 14px;
+}
+
+.git-pr-branch-card span,
+.git-pr-branch-card small {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.git-pr-branch-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--font-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-pr-branch-arrow {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: var(--font-lg);
+}
+
+.git-pr-change-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.git-pr-change-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+}
+
+.git-pr-change-summary > div:last-child {
+  border-right: 0;
+}
+
+.git-pr-change-summary strong {
+  color: var(--text);
+  font-size: var(--font-xl);
+}
+
+.git-pr-change-summary span {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
 .git-pr-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -502,6 +592,27 @@
 }
 
 @media (max-width: 800px) {
+  .git-pr-branch-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .git-pr-branch-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .git-pr-change-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .git-pr-change-summary > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .git-pr-change-summary > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
   .git-pr-grid {
     grid-template-columns: 1fr;
   }

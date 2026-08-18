@@ -53,7 +53,7 @@ const mergeConfirmText = ref('');
 const mergeMethod = ref<GitPullRequestMergeMethod>('squash');
 const mutationBusy = ref(false);
 const mutationError = ref('');
-const showForcePush = ref(false);
+const forcePushAcknowledged = ref(false);
 
 function cancelMergeConfirmation() {
   showMergeConfirm.value = false;
@@ -123,8 +123,15 @@ const canOpen = computed(
 
 const canCreateViaGh = computed(() => canOpen.value && !mutationBusy.value);
 const canForcePush = computed(
-  () => Boolean(props.forcePushBranch) && !props.busy && !mutationBusy.value,
+  () =>
+    Boolean(props.forcePushBranch) &&
+    forcePushAcknowledged.value &&
+    !props.busy &&
+    !mutationBusy.value,
 );
+
+const changedFilesCount = computed(() => props.overview.files.length);
+const commitCount = computed(() => props.overview.recentCommits.length);
 
 const createCommandPreview = computed(() => {
   const parts = [
@@ -301,7 +308,7 @@ watch(baseBranch, () => {
 watch(
   () => props.forcePushBranch,
   (branch) => {
-    showForcePush.value = Boolean(branch);
+    forcePushAcknowledged.value = false;
   },
   { immediate: true },
 );
@@ -512,7 +519,11 @@ async function mergePullRequest(): Promise<void> {
       :opening="opening"
       :busy="busy"
       :force-push-branch="forcePushBranch"
-      :show-force-push="showForcePush"
+      :force-push-acknowledged="forcePushAcknowledged"
+      :changed-files-count="changedFilesCount"
+      :commit-count="commitCount"
+      :ahead="overview.ahead"
+      :behind="overview.behind"
       :mutation-busy="mutationBusy"
       :can-force-push="canForcePush"
       :existing-number="existingPullRequest?.number"
@@ -526,7 +537,7 @@ async function mergePullRequest(): Promise<void> {
       @update:base-branch="baseBranch = $event"
       @update:title="title = $event"
       @update:description="description = $event"
-      @toggle-force-push="showForcePush = !showForcePush"
+      @update:force-push-acknowledged="forcePushAcknowledged = $event"
       @force-push="emit('force-push')"
       @open="openPullRequest"
       @toggle-create="showCreateConfirm = !showCreateConfirm"

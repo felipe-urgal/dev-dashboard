@@ -87,6 +87,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   justify-content: flex-start;
+  flex-wrap: nowrap;
 }
 
 .readme-file-list-item {
