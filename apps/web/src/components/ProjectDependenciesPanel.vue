@@ -162,7 +162,6 @@ watch(
           </div>
           <StatusBadge tone="success">Pronto</StatusBadge>
         </article>
-
       </div>
 
       <div v-if="actions.length" class="dependencies-table-wrap">
