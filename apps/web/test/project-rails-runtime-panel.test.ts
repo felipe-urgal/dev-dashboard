@@ -176,9 +176,7 @@ describe('ProjectRailsRuntimePanel', () => {
     await sidekiqWrapper.find('button.secondary-button').trigger('click');
     await flushPromises();
 
-    expect(
-      sidekiqWrapper.findAll('.project-log-terminal'),
-    ).toHaveLength(1);
+    expect(sidekiqWrapper.findAll('.project-log-terminal')).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
@@ -194,9 +192,7 @@ describe('ProjectRailsRuntimePanel', () => {
     await webpackWrapper.find('button.secondary-button').trigger('click');
     await flushPromises();
 
-    expect(
-      webpackWrapper.findAll('.project-log-terminal'),
-    ).toHaveLength(1);
+    expect(webpackWrapper.findAll('.project-log-terminal')).toHaveLength(1);
 
     expect(followProjectRailsWorkerLogEvents).toHaveBeenCalledWith(
       'p1',
