@@ -2,9 +2,9 @@
 import { ArrowTopRightOnSquareIcon } from '@heroicons/vue/24/outline';
 
 defineProps<{
-  existingNumber?: number;
-  existingUrl?: string;
-  generatedUrl?: string;
+  existingNumber?: number | undefined;
+  existingUrl?: string | undefined;
+  generatedUrl?: string | undefined;
   checkingExisting: boolean;
   opening: boolean;
   canOpen: boolean;
