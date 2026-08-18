@@ -158,7 +158,7 @@
 .git-diff-view-switch button.active {
   background: var(--surface-1);
   color: var(--text);
-  box-shadow: var(--shadow-1);
+  
 }
 
 /* ── Arquivos do commit: lista à esquerda, diff à direita ──────── */
@@ -431,7 +431,7 @@
 .git-history-file-body .git-diff-unified-row.is-addition,
 .git-history-file-body .git-diff-side-cell.is-addition {
   background: var(--git-diff-addition-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-addition-accent);
+  
 }
 
 .git-history-file-body .git-diff-unified-row.is-addition .git-diff-line-number,
@@ -449,7 +449,7 @@
 .git-history-file-body .git-diff-unified-row.is-deletion,
 .git-history-file-body .git-diff-side-cell.is-deletion {
   background: var(--git-diff-deletion-bg);
-  box-shadow: inset 4px 0 0 var(--git-diff-deletion-accent);
+  
 }
 
 .git-history-file-body .git-diff-unified-row.is-deletion .git-diff-line-number,

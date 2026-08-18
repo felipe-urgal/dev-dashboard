@@ -245,6 +245,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-1);
-  box-shadow: var(--shadow-2);
+  
 }
 </style>

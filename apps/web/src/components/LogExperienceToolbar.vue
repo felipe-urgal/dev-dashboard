@@ -115,7 +115,7 @@ const emit = defineEmits<{
 .log-experience-mode-switch button.active {
   color: var(--accent);
   background: var(--surface-1);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 8%);
+  
 }
 .log-experience-mode-count {
   display: inline-grid;

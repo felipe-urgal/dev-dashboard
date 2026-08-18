@@ -365,7 +365,7 @@ function statusIcon(tone: string) {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-sync-main-row {

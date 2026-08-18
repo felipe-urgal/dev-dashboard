@@ -3,7 +3,7 @@
   --git-inline-addition-bg: color-mix(in srgb, var(--success-surface) 82%, var(--surface-1));
   --git-inline-deletion-bg: color-mix(in srgb, var(--danger-surface) 82%, var(--surface-1));
   --git-inline-hunk-bg: color-mix(in srgb, var(--info-surface) 84%, var(--surface-1));
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-inline-file-diff > header {
@@ -19,7 +19,7 @@
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   background: var(--surface-1);
   color: var(--accent);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .git-inline-diff-body {
@@ -120,7 +120,7 @@
 
 .git-inline-diff-line.is-addition,
 .git-inline-diff-side.is-addition {
-  box-shadow: inset 3px 0 0 var(--success-text);
+  
   background: var(--git-inline-addition-bg);
   color: var(--text);
 }
@@ -143,7 +143,7 @@
 
 .git-inline-diff-line.is-deletion,
 .git-inline-diff-side.is-deletion {
-  box-shadow: inset 3px 0 0 var(--danger-text);
+  
   background: var(--git-inline-deletion-bg);
   color: var(--text);
 }

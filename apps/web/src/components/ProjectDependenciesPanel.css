@@ -510,7 +510,7 @@
 
 .dependencies-table-wrap {
   border-radius: var(--radius-sm);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  
 }
 
 .dependencies-table tbody tr:hover {

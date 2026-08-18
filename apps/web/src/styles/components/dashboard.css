@@ -147,7 +147,7 @@
 .workspace-field input:focus,
 .workspace-field select:focus {
   border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  
 }
 
 .workspace-field select {
@@ -226,7 +226,7 @@
 .process-status-running > span,
 .process-status-starting > span {
   background: var(--success-text);
-  box-shadow: 0 0 0 4px rgb(56 201 137 / 10%);
+  
 }
 
 .process-status-stopping {

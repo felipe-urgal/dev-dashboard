@@ -156,7 +156,6 @@ watch(environment.errorMessage, (value) => {
   overscroll-behavior: contain;
   padding-bottom: 24px;
   scrollbar-width: thin;
-  border-top: 1px solid var(--border);
 }
 
 .project-environment-header {

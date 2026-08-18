@@ -268,9 +268,6 @@ function formatDuration(value?: number): string {
 .log-experience-issues > button.active {
   background: var(--surface-1);
 }
-.log-experience-issues > button.active {
-  box-shadow: inset 3px 0 0 var(--accent);
-}
 .log-experience-issue-kind {
   display: inline-flex;
   min-height: 20px;

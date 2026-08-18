@@ -125,7 +125,7 @@
   border-color: #cbd5e1 !important;
   color: #263449 !important;
   background: #f8fafc !important;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%), 0 8px 24px rgb(15 23 42 / 5%) !important;
+  
 }
 
 [data-theme='light'] .project-log-terminal[data-allow-light] .project-log-terminal-header,
@@ -142,7 +142,7 @@
 [data-theme='light'] .project-log-terminal[data-allow-light] .rails-request-card {
   border-color: #d7dfeb !important;
   background: #ffffff !important;
-  box-shadow: 0 4px 14px rgb(15 23 42 / 4%);
+  
 }
 
 [data-theme='light'] .project-log-terminal[data-allow-light] .rails-request-heading > strong,

@@ -171,7 +171,7 @@ const localUrl = computed(() =>
   border-left: 3px solid var(--border-strong);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
-  box-shadow: var(--shadow-1);
+  
 }
 
 .project-card[data-state='running'] {

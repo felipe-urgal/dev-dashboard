@@ -94,7 +94,6 @@
   background: var(--surface-0);
   transition:
     border-color 150ms ease,
-    box-shadow 150ms ease,
     background 150ms ease;
 }
 
@@ -109,7 +108,6 @@
 .database-sidebar-search:focus-within {
   border-color: var(--accent);
   background: var(--surface-1);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .database-explorer-global-search > svg,
@@ -147,7 +145,6 @@
   color: var(--text-dim);
   background: var(--surface-2);
   font-size: 8px;
-  box-shadow: 0 1px 0 var(--border-strong);
 }
 
 .database-explorer-refresh {

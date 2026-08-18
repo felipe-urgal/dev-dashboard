@@ -183,11 +183,11 @@
   border: 2px solid var(--surface-1);
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  
 }
 
 .git-history-commit-row.active .git-history-commit-rail i {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  
 }
 
 .git-history-commit-copy {

@@ -257,7 +257,7 @@ function updateMessage(event: Event): void {
 .git-commit-mode button.active {
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  
 }
 
 .git-commit-mode svg {
