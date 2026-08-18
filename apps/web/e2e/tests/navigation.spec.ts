@@ -53,9 +53,6 @@ test.describe('navegação principal', () => {
     await expect(
       page.getByRole('region', { name: 'Processos gerenciados' }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('group', { name: 'Filtros de processos gerenciados' }),
-    ).toBeVisible();
   });
 
   test('detalhe do projeto abre a partir do card do dashboard', async ({

@@ -15,12 +15,10 @@ import type {
   GitCommitDetails,
   GitCommitFileDiff,
   GitCommitHistoryEntry,
-  GitCommitHistoryKind,
   GitCommitHistoryPage,
   ProjectGitWorkspace,
 } from '@dev-dashboard/contracts';
 
-import type { ProjectGitHistoryScope } from '../api';
 import {
   fetchProjectGitCommitDetail,
   fetchProjectGitCommitFileDiff,
@@ -49,9 +47,6 @@ const {
   workspace,
   reference,
   search,
-  author,
-  kind,
-  scope,
   page,
   loading,
   errorMessage,
@@ -70,8 +65,6 @@ const {
   detailController,
   copyTimer,
   statusLabels,
-  scopeOptions,
-  kindOptions,
   clampListWidth,
   readStoredListWidth,
   persistListWidth,
@@ -80,7 +73,6 @@ const {
   readStoredViewMode,
   selectViewMode,
   branchGroups,
-  authorOptions,
   commitBody,
   totalPages,
   pageWindow,

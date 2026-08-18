@@ -94,94 +94,15 @@ beforeEach(() => {
 });
 
 describe('dashboard principal', () => {
-  it('renderiza o resumo operacional e o Card de repositórios', () => {
+  it('renderiza a lista de repositórios sem indicadores redundantes', () => {
     const wrapper = mountView();
 
-    expect(wrapper.find('.overview-summary-card').exists()).toBe(true);
-    expect(wrapper.find('[data-key="projects"] strong').text()).toBe('0');
-    expect(wrapper.find('[data-key="running"] strong').text()).toBe('0');
-    expect(wrapper.find('[data-key="failed"] strong').text()).toBe('0');
+    expect(wrapper.find('.overview-summary-card').exists()).toBe(false);
     expect(wrapper.find('.repositories-section').classes()).toContain(
       'dd-card',
     );
     expect(wrapper.text()).toContain('Repositórios');
-  });
-
-  it('mostra métricas baseadas nos projetos detectados', () => {
-    dashboardStore.projects.value = [
-      project,
-      {
-        ...project,
-        id: 'p2',
-        name: 'Projeto Rails',
-        enabled: false,
-        capabilities: ['git'],
-      },
-    ];
-    dashboardStore.warningCount.value = 2;
-    const wrapper = mountView();
-
-    expect(wrapper.find('[data-key="projects"] strong').text()).toBe('2');
-    expect(wrapper.find('[data-key="active"] strong').text()).toBe('1');
-    expect(wrapper.find('[data-key="git"] strong').text()).toBe('2');
-    expect(wrapper.find('[data-key="servers"] strong').text()).toBe('1');
-    expect(wrapper.find('[data-key="warnings"] strong').text()).toBe('2');
-  });
-
-  it('oferece acesso direto à tela de processos pelo resumo', () => {
-    const wrapper = mountView();
-
-    const link = wrapper.get('.overview-summary-action');
-    expect(link.attributes('aria-label')).toBe(
-      'Abrir monitoramento operacional',
-    );
-    expect(link.attributes('data-route')).toBe('processes');
-    expect(link.text()).toContain('Acompanhar execução');
-  });
-
-  it('aponta para os processos com falha quando há falhas no resumo', () => {
-    dashboardStore.processSummary.value.failed = 2;
-    const wrapper = mountView();
-
-    const link = wrapper.get('.overview-summary-action');
-    expect(link.attributes('aria-label')).toBe('Ver processos com falha');
-    expect(link.attributes('data-status')).toBe('failed');
-    expect(link.text()).toContain('Ver falhas');
-  });
-
-  it('aponta para os processos ativos quando não há falhas', () => {
-    dashboardStore.processSummary.value = {
-      total: 2,
-      active: 2,
-      stopped: 0,
-      failed: 0,
-    };
-    const wrapper = mountView();
-
-    const link = wrapper.get('.overview-summary-action');
-    expect(link.attributes('aria-label')).toBe('Ver processos ativos');
-    expect(link.attributes('data-status')).toBe('active');
-    expect(link.text()).toContain('Ver ativos');
-  });
-
-  it('mostra métricas operacionais dos processos gerenciados', async () => {
-    dashboardStore.projects.value = [project];
-    dashboardStore.processSummary.value = {
-      total: 3,
-      active: 1,
-      stopped: 1,
-      failed: 1,
-    };
-    const wrapper = mountView();
-
-    expect(wrapper.find('[data-key="running"] strong').text()).toBe('1');
-    expect(wrapper.find('[data-key="failed"] strong').text()).toBe('1');
-
-    dashboardStore.loadingProcessSummary.value = true;
-    await nextTick();
-    expect(wrapper.get('[role="status"]').text()).toContain(
-      'Atualizando processos',
-    );
+    expect(wrapper.text()).toContain('Nenhum projeto carregado');
   });
 
   it('remove filtros, contagem, título redundante e ações globais de servidor', () => {

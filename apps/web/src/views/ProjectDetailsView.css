@@ -68,16 +68,10 @@
 }
 
 :deep(.tests-pty-panel .tests-pty-terminal) {
-  flex: 0 0 480px;
-  height: 480px;
-  min-height: 320px;
-}
-
-@media (max-width: 720px) {
-  :deep(.tests-pty-panel .tests-pty-terminal) {
-    flex-basis: 360px;
-    height: 360px;
-  }
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - var(--project-sticky-offset) - 92px);
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
@@ -448,14 +442,26 @@
 }
 
 .database-page-header {
-  padding: 20px 24px 16px;
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
   background: linear-gradient(120deg, var(--surface-1), var(--surface-0));
 }
 
+.database-page-header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .database-page-header h3 {
-  margin-top: 4px;
-  font-size: clamp(24px, 3vw, 30px);
+  margin: 0;
+  font-size: clamp(21px, 2.3vw, 26px);
   letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .database-page-header button {

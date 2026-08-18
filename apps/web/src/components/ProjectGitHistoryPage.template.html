@@ -25,31 +25,6 @@
         />
       </label>
 
-      <label class="git-history-filter">
-        <select v-model="scope" aria-label="Escopo do histórico" @change="applyFilters">
-          <option v-for="option in scopeOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-
-      <label class="git-history-filter">
-        <select v-model="author" aria-label="Filtrar por autor" @change="applyFilters">
-          <option value="">Todos os autores</option>
-          <option v-for="item in authorOptions" :key="item.email" :value="item.email">
-            {{ item.name }}
-          </option>
-        </select>
-      </label>
-
-      <label class="git-history-filter">
-        <select v-model="kind" aria-label="Filtrar por tipo de commit" @change="applyFilters">
-          <option v-for="option in kindOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </label>
-
       <button class="git-history-refresh" type="button" :disabled="loading" @click="loadHistory()">
         <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
         {{ loading ? 'Atualizando…' : 'Atualizar' }}

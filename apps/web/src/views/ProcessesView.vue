@@ -18,30 +18,18 @@ import {
 import { processToneFor } from '../utils/status-tones';
 
 const {
-  workspaces,
-  projects,
   items,
-  workspaceFilter,
-  projectFilter,
-  kindFilter,
-  statusFilter,
   loading,
   referenceErrorMessage,
   processesErrorMessage,
   cleanupRunning,
   now,
-  eligibleProjects,
   visibleItems,
   hasVisibleItems,
-  activeCount,
-  stoppedCount,
-  failedCount,
   terminalCount,
-  hasActiveFilters,
   projectNameById,
   workspaceNameFor,
   loadProcesses,
-  clearFilters,
   runCleanup,
 } = useProcessesView();
 </script>
@@ -53,136 +41,29 @@ const {
     :aria-busy="loading"
     aria-label="Processos gerenciados"
   >
-    <dl
-      v-if="!loading || items.length > 0"
-      class="processes-summary"
-      aria-label="Resumo dos processos"
-    >
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-active"
-            aria-hidden="true"
-          />
-          Em execução
-        </dt>
-        <dd>{{ activeCount }}</dd>
-      </div>
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-stopped"
-            aria-hidden="true"
-          />
-          Parado
-        </dt>
-        <dd>{{ stoppedCount }}</dd>
-      </div>
-      <div>
-        <dt>
-          <span
-            class="processes-summary-dot processes-summary-dot-failed"
-            aria-hidden="true"
-          />
-          Falhou
-        </dt>
-        <dd>{{ failedCount }}</dd>
-      </div>
-      <div>
-        <dt>Total</dt>
-        <dd>{{ items.length }}</dd>
-      </div>
-    </dl>
-
-    <div
-      class="processes-filters"
-      role="group"
-      aria-label="Filtros de processos gerenciados"
-    >
-      <div class="processes-filter-fields">
-        <label class="processes-filter-field">
-          <span>Workspace</span>
-          <select v-model="workspaceFilter" aria-label="Filtrar por workspace">
-            <option value="">Todos os workspaces</option>
-            <option
-              v-for="workspace in workspaces"
-              :key="workspace.id"
-              :value="workspace.id"
-            >
-              {{ workspace.name }}
-            </option>
-          </select>
-        </label>
-
-        <label class="processes-filter-field">
-          <span>Projeto</span>
-          <select v-model="projectFilter" aria-label="Filtrar por projeto">
-            <option value="">Todos os projetos</option>
-            <option
-              v-for="project in eligibleProjects"
-              :key="project.id"
-              :value="project.id"
-            >
-              {{ project.name }}
-            </option>
-          </select>
-        </label>
-
-        <label class="processes-filter-field">
-          <span>Tipo</span>
-          <select v-model="kindFilter" aria-label="Filtrar por tipo">
-            <option value="">Todos os tipos</option>
-            <option value="server">Servidor</option>
-            <option value="test">Testes</option>
-            <option value="compose-build">Build</option>
-          </select>
-        </label>
-
-        <label class="processes-filter-field">
-          <span>Estado</span>
-          <select v-model="statusFilter" aria-label="Filtrar por estado">
-            <option value="">Todos os estados</option>
-            <option value="active">Em execução</option>
-            <option value="stopped">Parado</option>
-            <option value="failed">Falhou</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="processes-refresh-control">
-        <div class="processes-refresh-actions">
-          <button
-            type="button"
-            class="processes-refresh-button"
-            :disabled="loading"
-            @click="loadProcesses"
-          >
-            <ArrowPathIcon
-              aria-hidden="true"
-              :class="{ 'processes-refresh-icon-active': loading }"
-            />
-            {{ loading ? 'Atualizando…' : 'Atualizar' }}
-          </button>
-          <button
-            type="button"
-            class="processes-cleanup-button"
-            :disabled="cleanupRunning || terminalCount === 0"
-            aria-describedby="processes-cleanup-help"
-            @click="runCleanup"
-          >
-            <TrashIcon aria-hidden="true" />
-            {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
-          </button>
-        </div>
-        <button
-          type="button"
-          class="processes-clear-filters-button"
-          :disabled="!hasActiveFilters"
-          @click="clearFilters"
-        >
-          Limpar filtros
-        </button>
-      </div>
+    <div class="processes-actions" role="group" aria-label="Ações de processos">
+      <button
+        type="button"
+        class="processes-refresh-button"
+        :disabled="loading"
+        @click="loadProcesses"
+      >
+        <ArrowPathIcon
+          aria-hidden="true"
+          :class="{ 'processes-refresh-icon-active': loading }"
+        />
+        {{ loading ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+      <button
+        type="button"
+        class="processes-cleanup-button"
+        :disabled="cleanupRunning || terminalCount === 0"
+        aria-describedby="processes-cleanup-help"
+        @click="runCleanup"
+      >
+        <TrashIcon aria-hidden="true" />
+        {{ cleanupRunning ? 'Limpando…' : 'Limpar finalizados' }}
+      </button>
     </div>
 
     <p v-if="referenceErrorMessage" class="activity-error" role="alert">
@@ -306,60 +187,11 @@ const {
 </template>
 
 <style scoped>
-.processes-filters {
-  align-items: flex-end;
-  gap: 16px;
-}
-
-.processes-filter-fields {
-  display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  width: auto;
-}
-
-.processes-refresh-control {
-  flex: 0 0 276px;
-  align-items: stretch;
-}
-
-.processes-refresh-actions {
+.processes-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
-}
-
-.processes-clear-filters-button {
-  align-self: flex-end;
-}
-
-.processes-filter-field {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.processes-filter-field span {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.processes-filter-field select {
-  min-height: 34px;
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 9px;
-  color: var(--text);
-  background: var(--surface-2);
-  font: inherit;
-}
-
-.processes-filter-field select:focus-visible,
-.processes-clear-filters-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  padding: 4px 0;
 }
 
 .processes-empty-action {
@@ -374,43 +206,5 @@ const {
 .processes-empty-action:hover,
 .processes-empty-action:focus-visible {
   text-decoration: underline;
-}
-
-.processes-clear-filters-button {
-  min-height: 32px;
-  border: 0;
-  padding: 0;
-  color: var(--accent);
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.processes-clear-filters-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-@media (max-width: 900px) {
-  .processes-filters {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .processes-filter-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .processes-refresh-control {
-    flex-basis: auto;
-    width: 100%;
-  }
-}
-
-@media (max-width: 520px) {
-  .processes-filter-fields {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

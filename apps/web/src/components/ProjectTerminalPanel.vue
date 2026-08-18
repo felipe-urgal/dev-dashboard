@@ -553,7 +553,7 @@ onBeforeUnmount(() => {
   top: 0;
   right: 0;
   bottom: 0;
-  left: var(--app-sidebar-width, 232px);
+  left: 0;
   width: auto;
   height: auto;
   max-width: none;

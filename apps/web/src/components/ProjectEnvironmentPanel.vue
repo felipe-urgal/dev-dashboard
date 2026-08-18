@@ -149,12 +149,15 @@ watch(environment.errorMessage, (value) => {
 .project-environment-panel {
   display: flex;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: calc(100vh - var(--project-sticky-offset, 160px));
   flex: 1 1 auto;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-bottom: 24px;
+  scrollbar-width: thin;
   border-top: 1px solid var(--border);
 }
 

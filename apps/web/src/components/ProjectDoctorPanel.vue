@@ -233,37 +233,6 @@ watch(
       </div>
 
       <template v-else-if="report && overallCopy">
-        <div class="project-doctor-summary" aria-label="Resumo do diagnóstico">
-          <article class="project-doctor-metric is-passed">
-            <CheckCircleIcon aria-hidden="true" />
-            <div>
-              <strong>{{ report.summary.passed }}</strong>
-              <span>Concluídos</span>
-            </div>
-          </article>
-          <article class="project-doctor-metric is-warning">
-            <ExclamationTriangleIcon aria-hidden="true" />
-            <div>
-              <strong>{{ report.summary.warnings }}</strong>
-              <span>Atenções</span>
-            </div>
-          </article>
-          <article class="project-doctor-metric is-failed">
-            <XCircleIcon aria-hidden="true" />
-            <div>
-              <strong>{{ report.summary.failed }}</strong>
-              <span>Bloqueios</span>
-            </div>
-          </article>
-          <article class="project-doctor-metric is-skipped">
-            <InformationCircleIcon aria-hidden="true" />
-            <div>
-              <strong>{{ report.summary.skipped }}</strong>
-              <span>Não verificados</span>
-            </div>
-          </article>
-        </div>
-
         <section
           class="project-doctor-areas"
           aria-labelledby="doctor-areas-title"

@@ -145,41 +145,6 @@ test('mostra estado de carregamento enquanto a lista está pendente', async () =
   assert.equal(wrapper.find('.loading-skeleton').exists(), false);
 });
 
-test('exibe filtros e permite limpar a seleção', async () => {
-  const { wrapper, restore } = await mountView({
-    processes: async () => [],
-  });
-  cleanup = restore;
-  await flushPromises();
-  await flushPromises();
-
-  assert.equal(wrapper.findAll('.processes-filter-field select').length, 4);
-  await wrapper.get('[aria-label="Filtrar por estado"]').setValue('failed');
-  await flushPromises();
-
-  assert.equal(
-    (
-      wrapper.get('[aria-label="Filtrar por estado"]')
-        .element as HTMLSelectElement
-    ).value,
-    'failed',
-  );
-  const clearButton = wrapper.get('.processes-clear-filters-button');
-  assert.equal(clearButton.attributes('disabled'), undefined);
-
-  await clearButton.trigger('click');
-  await flushPromises();
-
-  assert.equal(
-    (
-      wrapper.get('[aria-label="Filtrar por estado"]')
-        .element as HTMLSelectElement
-    ).value,
-    '',
-  );
-  assert.equal(clearButton.attributes('disabled'), '');
-});
-
 test('mostra estado vazio quando não há processos gerenciados', async () => {
   const { wrapper, restore } = await mountView({ processes: async () => [] });
   cleanup = restore;
@@ -265,7 +230,6 @@ test('renderiza processos com nome do projeto, tipo, estado e detalhes', async (
     .findAll('.dd-status-badge')
     .map((node) => node.text());
   assert.deepEqual(statuses, ['Em execução', 'Parado']);
-  assert.equal(wrapper.find('.processes-summary').text().includes('2'), true);
 });
 
 test('congela a duração de processos terminais em stoppedAt na renderização', async () => {
@@ -425,60 +389,6 @@ test('aplica o filtro de falhas vindo da query da rota', async () => {
     assert.equal(wrapper.findAll('.processes-table tbody tr').length, 1);
     assert.match(wrapper.text(), /srv-failed/);
     assert.doesNotMatch(wrapper.text(), /srv-running/);
-  } finally {
-    cleanup?.();
-    cleanup = undefined;
-  }
-});
-
-test('restaura filtros de workspace, projeto e tipo pela query da rota', async () => {
-  const originalUrl = window.location.href;
-
-  try {
-    window.history.replaceState(
-      {},
-      '',
-      '/processes?workspace=w1&project=p1&kind=test&status=failed',
-    );
-    const { wrapper, restore } = await mountView({
-      processes: async () => [],
-    });
-    cleanup = () => {
-      restore();
-      window.history.replaceState({}, '', originalUrl);
-    };
-
-    await flushPromises();
-    await flushPromises();
-
-    assert.equal(
-      (
-        wrapper.get('[aria-label="Filtrar por workspace"]')
-          .element as HTMLSelectElement
-      ).value,
-      'w1',
-    );
-    assert.equal(
-      (
-        wrapper.get('[aria-label="Filtrar por projeto"]')
-          .element as HTMLSelectElement
-      ).value,
-      'p1',
-    );
-    assert.equal(
-      (
-        wrapper.get('[aria-label="Filtrar por tipo"]')
-          .element as HTMLSelectElement
-      ).value,
-      'test',
-    );
-    assert.equal(
-      (
-        wrapper.get('[aria-label="Filtrar por estado"]')
-          .element as HTMLSelectElement
-      ).value,
-      'failed',
-    );
   } finally {
     cleanup?.();
     cleanup = undefined;
