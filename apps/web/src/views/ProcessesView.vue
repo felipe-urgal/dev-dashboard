@@ -175,6 +175,4 @@ const {
 .processes-empty-action:focus-visible {
   text-decoration: underline;
 }
-
-
 </style>
