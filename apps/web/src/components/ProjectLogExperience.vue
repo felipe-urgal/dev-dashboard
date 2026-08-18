@@ -2,9 +2,9 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import {
   ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
   XCircleIcon,
 } from '@heroicons/vue/24/outline';
+import LogExperienceToolbar from './LogExperienceToolbar.vue';
 
 import type {
   LogExperienceIssue,
@@ -198,53 +198,15 @@ watch(issues, (nextIssues) => {
     class="log-experience"
     :class="{ 'log-experience--compact': compact }"
   >
-    <header class="log-experience-toolbar">
-      <div
-        class="log-experience-mode-switch"
-        role="tablist"
-        aria-label="Modo do log"
-      >
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="mode === 'flow'"
-          :class="{ active: mode === 'flow' }"
-          @click="mode = 'flow'"
-        >
-          {{ flowLabel }}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="mode === 'diagnostic'"
-          :class="{ active: mode === 'diagnostic' }"
-          @click="mode = 'diagnostic'"
-        >
-          {{ diagnosticLabel }}
-          <span v-if="issues.length" class="log-experience-mode-count">
-            {{ issues.length }}
-          </span>
-        </button>
-      </div>
-
-      <label class="log-experience-search">
-        <MagnifyingGlassIcon aria-hidden="true" />
-        <span class="sr-only">Buscar no log</span>
-        <input
-          v-model="searchQuery"
-          type="search"
-          placeholder="Buscar nos logs..."
-        />
-      </label>
-
-      <span v-if="running" class="log-experience-live">
-        <i aria-hidden="true"></i>
-        Em execução
-      </span>
-      <span v-if="maskedCount" class="log-experience-masked">
-        {{ maskedCount }} ocorrência(s) sensível(is) mascarada(s)
-      </span>
-    </header>
+    <LogExperienceToolbar
+      v-model:mode="mode"
+      v-model:search-query="searchQuery"
+      :flow-label="flowLabel"
+      :diagnostic-label="diagnosticLabel"
+      :issue-count="issues.length"
+      :running="running"
+      :masked-count="maskedCount"
+    />
 
     <template v-if="mode === 'flow'">
       <nav class="log-experience-filters" aria-label="Filtrar fluxo">
