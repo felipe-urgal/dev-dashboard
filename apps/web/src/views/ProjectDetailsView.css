@@ -68,16 +68,10 @@
 }
 
 :deep(.tests-pty-panel .tests-pty-terminal) {
-  flex: 0 0 480px;
-  height: 480px;
-  min-height: 320px;
-}
-
-@media (max-width: 720px) {
-  :deep(.tests-pty-panel .tests-pty-terminal) {
-    flex-basis: 360px;
-    height: 360px;
-  }
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - var(--project-sticky-offset) - 92px);
 }
 
 /* Os painéis com layout próprio também precisam esticar seus containers internos. */
