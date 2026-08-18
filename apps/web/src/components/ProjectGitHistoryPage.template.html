@@ -1,52 +1,76 @@
-  <section class="git-history-page" @keydown="handleKeydown">
-    <div class="git-history-toolbar">
-      <label class="git-history-reference">
-        <select v-model="reference" aria-label="Referência do histórico" @change="applyFilters">
-          <optgroup v-for="group in branchGroups" :key="group.label" :label="group.label">
-            <option v-for="branch in group.items" :key="branch.name" :value="branch.name">
-              {{ branch.current ? `✓ ${branch.name}` : branch.name }}
-            </option>
-          </optgroup>
-          <option v-if="branchGroups.length === 0" :value="reference">{{ reference || 'HEAD' }}</option>
-        </select>
-      </label>
+<section class="git-history-page" @keydown="handleKeydown">
+  <div class="git-history-toolbar">
+    <label class="git-history-reference">
+      <select
+        v-model="reference"
+        aria-label="Referência do histórico"
+        @change="applyFilters"
+      >
+        <optgroup
+          v-for="group in branchGroups"
+          :key="group.label"
+          :label="group.label"
+        >
+          <option
+            v-for="branch in group.items"
+            :key="branch.name"
+            :value="branch.name"
+          >
+            {{ branch.current ? `✓ ${branch.name}` : branch.name }}
+          </option>
+        </optgroup>
+        <option v-if="branchGroups.length === 0" :value="reference">
+          {{ reference || 'HEAD' }}
+        </option>
+      </select>
+    </label>
 
-      <span class="git-history-count">{{ history?.total ?? 0 }} commits</span>
+    <span class="git-history-count">{{ history?.total ?? 0 }} commits</span>
 
-      <label class="git-history-search">
-        <MagnifyingGlassIcon aria-hidden="true" />
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Buscar commits por mensagem ou hash…"
-          aria-label="Buscar commits"
-          @keyup.enter="applyFilters"
-          @search="applyFilters"
-        />
-      </label>
+    <label class="git-history-search">
+      <MagnifyingGlassIcon aria-hidden="true" />
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Buscar commits por mensagem ou hash…"
+        aria-label="Buscar commits"
+        @keyup.enter="applyFilters"
+        @search="applyFilters"
+      />
+    </label>
 
-      <button class="git-history-refresh" type="button" :disabled="loading" @click="loadHistory()">
-        <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
-        {{ loading ? 'Atualizando…' : 'Atualizar' }}
-      </button>
-    </div>
+    <button
+      class="git-history-refresh"
+      type="button"
+      :disabled="loading"
+      @click="loadHistory()"
+    >
+      <ArrowPathIcon :class="{ spinning: loading }" aria-hidden="true" />
+      {{ loading ? 'Atualizando…' : 'Atualizar' }}
+    </button>
+  </div>
 
-    <p v-if="errorMessage" class="project-error" role="alert">{{ errorMessage }}</p>
+  <p v-if="errorMessage" class="project-error" role="alert">
+    {{ errorMessage }}
+  </p>
 
-    <div v-if="loading && !history" class="git-history-empty">
-      <ArrowPathIcon class="spinning" aria-hidden="true" />
-      Carregando commits…
-    </div>
+  <div v-if="loading && !history" class="git-history-empty">
+    <ArrowPathIcon class="spinning" aria-hidden="true" />
+    Carregando commits…
+  </div>
 
-    <div v-else-if="(history?.commits.length ?? 0) === 0" class="git-history-empty">
-      <DocumentTextIcon aria-hidden="true" />
-      <strong>Nenhum commit encontrado</strong>
-      <span>Ajuste a referência ou os filtros aplicados.</span>
-    </div>
+  <div
+    v-else-if="(history?.commits.length ?? 0) === 0"
+    class="git-history-empty"
+  >
+    <DocumentTextIcon aria-hidden="true" />
+    <strong>Nenhum commit encontrado</strong>
+    <span>Ajuste a referência ou os filtros aplicados.</span>
+  </div>
 
-    <template v-else>
-      <div class="git-history-table-wrapper">
-        <table class="git-history-table" data-git-action-feedback="off">
+  <template v-else>
+    <div class="git-history-table-wrapper">
+      <table class="git-history-table" data-git-action-feedback="off">
         <thead>
           <tr>
             <th scope="col">Data</th>
@@ -60,74 +84,79 @@
           <tr class="git-history-day">
             <th colspan="5" scope="colgroup">
               {{ day.label }}
-              <span>{{ day.commits.length }} commit{{ day.commits.length === 1 ? '' : 's' }}</span>
+              <span
+                >{{ day.commits.length }} commit{{ day.commits.length === 1 ? ''
+                : 's' }}</span
+              >
             </th>
           </tr>
-          <tr
+          <ProjectGitHistoryRow
             v-for="commit in day.commits"
             :key="commit.hash"
-            class="git-history-row"
-            :class="{ active: selectedHash === commit.hash }"
-            tabindex="0"
-            role="button"
-            :aria-label="`Abrir commit ${commit.shortHash}`"
-            @click="openCommit(commit)"
-            @keydown.enter="openCommit(commit)"
-            @keydown.space.prevent="openCommit(commit)"
-          >
-            <td class="git-history-time">{{ formatTime(commit.authoredAt) }}</td>
-            <td class="git-history-subject">
-              <span class="git-history-subject-inner">
-                <code>{{ commit.shortHash }}</code>
-                <span class="git-history-subject-text">{{ commit.subject }}</span>
-                <em v-if="commit.parentCount >= 2">merge</em>
-              </span>
-            </td>
-            <td class="git-history-author">
-              <span class="git-history-avatar" aria-hidden="true">{{ authorInitials(commit.authorName) }}</span>
-              <span class="git-history-author-name" :title="commit.authorEmail">{{ commit.authorName }}</span>
-            </td>
-            <td class="git-history-relative" :title="formatFullDate(commit.authoredAt)">
-              {{ relativeTime(commit.authoredAt) }}
-            </td>
-            <td class="git-history-chevron" aria-hidden="true">›</td>
-          </tr>
+            :commit="commit"
+            :active="selectedHash === commit.hash"
+            :format-time="formatTime"
+            :format-full-date="formatFullDate"
+            :relative-time="relativeTime"
+            :author-initials="authorInitials"
+            @open="openCommit(commit)"
+          />
         </tbody>
-        </table>
+      </table>
+    </div>
+
+    <nav class="git-history-pagination" aria-label="Paginação do histórico">
+      <span>{{ rangeLabel }}</span>
+      <div>
+        <button
+          type="button"
+          :disabled="page <= 1 || loading"
+          @click="goToPage(page - 1)"
+        >
+          Anterior
+        </button>
+        <template
+          v-for="(target, index) in pageWindow"
+          :key="`${target}-${index}`"
+        >
+          <span
+            v-if="target === 'gap'"
+            class="git-history-pagination-gap"
+            aria-hidden="true"
+            >…</span
+          >
+          <button
+            v-else
+            type="button"
+            :class="{ active: target === page }"
+            :aria-current="target === page ? 'page' : undefined"
+            :disabled="loading"
+            @click="goToPage(target)"
+          >
+            {{ target }}
+          </button>
+        </template>
+        <button
+          type="button"
+          :disabled="page >= totalPages || loading"
+          @click="goToPage(page + 1)"
+        >
+          Próxima
+        </button>
       </div>
+    </nav>
+  </template>
 
-      <nav class="git-history-pagination" aria-label="Paginação do histórico">
-        <span>{{ rangeLabel }}</span>
-        <div>
-          <button type="button" :disabled="page <= 1 || loading" @click="goToPage(page - 1)">Anterior</button>
-          <template v-for="(target, index) in pageWindow" :key="`${target}-${index}`">
-            <span v-if="target === 'gap'" class="git-history-pagination-gap" aria-hidden="true">…</span>
-            <button
-              v-else
-              type="button"
-              :class="{ active: target === page }"
-              :aria-current="target === page ? 'page' : undefined"
-              :disabled="loading"
-              @click="goToPage(target)"
-            >
-              {{ target }}
-            </button>
-          </template>
-          <button type="button" :disabled="page >= totalPages || loading" @click="goToPage(page + 1)">Próxima</button>
-        </div>
-      </nav>
-    </template>
-
-    <Teleport to="body">
-      <div
-        v-if="selectedHash"
-        class="git-history-modal-backdrop"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Detalhes do commit"
-        data-git-action-feedback="off"
-        @click.self="closeCommit"
-      >
+  <Teleport to="body">
+    <div
+      v-if="selectedHash"
+      class="git-history-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalhes do commit"
+      data-git-action-feedback="off"
+      @click.self="closeCommit"
+    >
       <article class="git-history-modal">
         <header class="git-history-modal-head">
           <div class="git-history-modal-title">
@@ -145,17 +174,25 @@
             </div>
             <h3>{{ detail?.subject ?? 'Carregando commit…' }}</h3>
             <p v-if="detail">
-              {{ detail.authorName }} &lt;{{ detail.authorEmail }}&gt; · {{ formatFullDate(detail.authoredAt) }}
+              {{ detail.authorName }} &lt;{{ detail.authorEmail }}&gt; · {{
+              formatFullDate(detail.authoredAt) }}
             </p>
           </div>
 
-          <button type="button" class="git-history-close" aria-label="Fechar detalhes" @click="closeCommit">
+          <button
+            type="button"
+            class="git-history-close"
+            aria-label="Fechar detalhes"
+            @click="closeCommit"
+          >
             <XMarkIcon aria-hidden="true" />
           </button>
         </header>
 
         <div class="git-history-modal-body">
-          <p v-if="detailError" class="project-error" role="alert">{{ detailError }}</p>
+          <p v-if="detailError" class="project-error" role="alert">
+            {{ detailError }}
+          </p>
 
           <div v-else-if="detailLoading" class="git-history-empty">
             <ArrowPathIcon class="spinning" aria-hidden="true" />
@@ -163,10 +200,12 @@
           </div>
 
           <template v-else-if="detail">
-            <pre v-if="commitBody" class="git-history-commit-body">{{ commitBody }}</pre>
+            <pre v-if="commitBody" class="git-history-commit-body">
+{{ commitBody }}</pre>
 
             <div v-if="detail.masked" class="git-history-notice">
-              {{ detail.redactionCount }} possível(is) segredo(s) foram mascarados.
+              {{ detail.redactionCount }} possível(is) segredo(s) foram
+              mascarados.
             </div>
 
             <header class="git-history-files-head">
@@ -175,7 +214,10 @@
                 <b class="is-addition">+{{ detail.additions }}</b>
                 <b class="is-deletion">−{{ detail.deletions }}</b>
               </span>
-              <div class="git-diff-view-switch" aria-label="Modo de visualização">
+              <div
+                class="git-diff-view-switch"
+                aria-label="Modo de visualização"
+              >
                 <button
                   type="button"
                   :class="{ active: viewMode === 'unified' }"
@@ -214,13 +256,21 @@
                   :value="selectedFilePath"
                   @change="selectFile($event.target.value)"
                 >
-                  <option v-for="state in fileStates" :key="state.file.path" :value="state.file.path">
-                    {{ state.file.path }} (+{{ state.file.additions }} −{{ state.file.deletions }})
+                  <option
+                    v-for="state in fileStates"
+                    :key="state.file.path"
+                    :value="state.file.path"
+                  >
+                    {{ state.file.path }} (+{{ state.file.additions }} −{{
+                    state.file.deletions }})
                   </option>
                 </select>
               </label>
 
-              <nav class="git-history-file-list" aria-label="Arquivos do commit">
+              <nav
+                class="git-history-file-list"
+                aria-label="Arquivos do commit"
+              >
                 <button
                   v-for="state in fileStates"
                   :key="state.file.path"
@@ -232,9 +282,16 @@
                   <span class="git-history-file-name" :title="state.file.path">
                     {{ fileName(state.file.path) }}
                   </span>
-                  <span class="git-history-file-dir">{{ directoryName(state.file.path) }}</span>
-                  <span v-if="state.file.binary" class="git-history-file-counts">binário</span>
-                  <span v-else class="git-history-file-counts git-history-delta">
+                  <span class="git-history-file-dir"
+                    >{{ directoryName(state.file.path) }}</span
+                  >
+                  <span v-if="state.file.binary" class="git-history-file-counts"
+                    >binário</span
+                  >
+                  <span
+                    v-else
+                    class="git-history-file-counts git-history-delta"
+                  >
                     <b class="is-addition">+{{ state.file.additions }}</b>
                     <b class="is-deletion">−{{ state.file.deletions }}</b>
                   </span>
@@ -256,7 +313,10 @@
 
               <section v-if="selectedFile" class="git-history-diff-pane">
                 <header class="git-history-diff-pane-head">
-                  <span class="git-history-file-path" :title="selectedFile.file.path">
+                  <span
+                    class="git-history-file-path"
+                    :title="selectedFile.file.path"
+                  >
                     {{ selectedFile.file.path }}
                     <small v-if="selectedFile.file.previousPath">
                       de {{ selectedFile.file.previousPath }}
@@ -268,21 +328,34 @@
                 </header>
 
                 <div class="git-history-file-body">
-                  <p v-if="selectedFile.error" class="project-error" role="alert">
+                  <p
+                    v-if="selectedFile.error"
+                    class="project-error"
+                    role="alert"
+                  >
                     {{ selectedFile.error }}
                   </p>
 
-                  <div v-else-if="selectedFile.loading" class="git-history-empty">
+                  <div
+                    v-else-if="selectedFile.loading"
+                    class="git-history-empty"
+                  >
                     <ArrowPathIcon class="spinning" aria-hidden="true" />
                     Carregando diff…
                   </div>
 
-                  <div v-else-if="selectedFile.diff?.binary" class="git-history-empty">
+                  <div
+                    v-else-if="selectedFile.diff?.binary"
+                    class="git-history-empty"
+                  >
                     Diff binário não disponível.
                   </div>
 
                   <template v-else-if="selectedFile.diff">
-                    <div v-if="selectedFile.diff.truncated" class="git-history-notice">
+                    <div
+                      v-if="selectedFile.diff.truncated"
+                      class="git-history-notice"
+                    >
                       O diff foi truncado para manter a interface responsiva.
                     </div>
                     <GitFileDiffView
@@ -303,6 +376,6 @@
           </template>
         </div>
       </article>
-      </div>
-    </Teleport>
-  </section>
+    </div>
+  </Teleport>
+</section>

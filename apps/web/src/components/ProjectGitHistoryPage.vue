@@ -27,6 +27,7 @@ import {
 import { fetchProjectGitWorkspace } from '../api/git-workspace';
 import { gitFileToneFor } from '../utils/status-tones';
 import GitFileDiffView from './GitFileDiffView.vue';
+import ProjectGitHistoryRow from './ProjectGitHistoryRow.vue';
 import StatusBadge from './StatusBadge.vue';
 
 import { useProjectGitHistoryPage } from '../composables/useProjectGitHistoryPage';
@@ -100,5 +101,5 @@ const {
 
 <template src="./ProjectGitHistoryPage.template.html"></template>
 
-<style scoped src="./ProjectGitHistoryPage.css"></style>
+<style src="./ProjectGitHistoryPage.css"></style>
 <style src="./ProjectGitHistoryModal.css"></style>
